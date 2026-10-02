@@ -10,3 +10,7 @@
 
 # Release builds
 /dist/
+
+# Python
+__pycache__/
+.pytest_cache/

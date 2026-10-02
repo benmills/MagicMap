@@ -13,7 +13,7 @@ git rev-parse -q --verify "refs/tags/$tag" >/dev/null || { echo "no tag $tag" >&
 version=$(git show "$tag:MagicMap.toc" | sed -n 's/^## Version: *//p' | tr -d '\r')
 [ "v$version" = "$tag" ] || { echo "tag $tag doesn't match the TOC version $version" >&2; exit 1; }
 
-perl tools/luacheck.pl *.lua Data/*.lua >/dev/null
+python3 tools/luacheck.py >/dev/null
 
 mkdir -p dist
 out="dist/MagicMap-$tag.zip"
