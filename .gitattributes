@@ -3,3 +3,4 @@ tools export-ignore
 .gitignore export-ignore
 .gitattributes export-ignore
 .pkgmeta export-ignore
+docs export-ignore

@@ -17,11 +17,20 @@ Anniversary, MoP Classic and Retail.
 - **Every continent and instance at minimap detail**, with smooth zoom and pan.
 - **Zone and sub-zone borders and names**, traced from the terrain itself.
 - **Quest areas** (the game's own) and **landmarks** you've used: vendors, trainers, flight points and more.
-- **Minimap mode**: MagicMap takes your minimap's spot and zooms out far past it. Blizzard's
-  blips and other addons' pins (GatherMate, HandyNotes) still show on top.
-- **World map takeover**: in minimap mode, M grows it into a big map and back.
-- **Follow a quest**: click it to track it and make it your target.
-- **Path mode**: keeps you and your target in view, with a faint line between you.
+
+**Minimap mode.** MagicMap takes your minimap's spot and zooms out far past it. Blizzard's
+blips and other addons' pins (GatherMate, HandyNotes) still show on top, tooltips and all.
+
+![Minimap mode: zooming from a herb tooltip out to the whole coast](docs/zoomable-minimap.gif)
+
+**World map takeover.** In minimap mode, M grows it into a big map, and M again shrinks it back.
+
+![Pressing M grows the minimap into a big map and back](docs/minimap-to-big-map.gif)
+
+**Follow a quest and path mode.** Click a quest to track it and make it your target (it gets a
+gold halo). Path mode then keeps you and your target in view, with a faint line between you.
+
+![Path mode framing you and a followed quest, with a dashed line between](docs/path-mode.gif)
 
 ## Controls
 
@@ -84,7 +93,7 @@ Slash commands (`/mm`): `follow`, `map <name>`, `zone <name>`, `minimap`, `layer
 - `perl tools/gen_borders.pl "/Applications/World of Warcraft" wow_classic_beta > Data/Borders_wow_classic_beta.lua`:
   regenerate borders (~30 s).
 - Release: set `## Version:` in `MagicMap.toc`, commit, tag `v<version>`, run `tools/package.sh v<version>`.
-  This writes `dist/MagicMap-v<version>.zip`, without `tools/`.
+  This writes `dist/MagicMap-v<version>.zip`, without `tools/` or `docs/`.
 
 ## Credits
 

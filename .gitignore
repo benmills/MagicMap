@@ -6,6 +6,7 @@
 # Promo media (kept locally, attached to releases instead)
 *.mp4
 *.gif
+!docs/*.gif
 
 # Release builds
 /dist/
