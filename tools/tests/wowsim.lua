@@ -607,6 +607,23 @@ function CreateFrame(typ, name, parent, template)
 	return f
 end
 
+-- Count every widget method call (a proxy for frame cost in the client,
+-- where each is a call into the engine): Sim.calls[name], Sim.callTotal.
+function Sim.CountCalls()
+	Sim.calls, Sim.callTotal = {}, 0
+	for _, c in pairs(classes) do
+		for name, fn in pairs(c.methods) do
+			if type(fn) == "function" then
+				c.methods[name] = function(...)
+					Sim.callTotal = Sim.callTotal + 1
+					Sim.calls[name] = (Sim.calls[name] or 0) + 1
+					return fn(...)
+				end
+			end
+		end
+	end
+end
+
 ---------------------------------------------------------------------------
 -- Driving the simulation
 ---------------------------------------------------------------------------

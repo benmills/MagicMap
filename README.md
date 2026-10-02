@@ -107,6 +107,11 @@ and tests need `pip install -r tools/requirements-dev.txt` (Lua 5.1 via `lupa`, 
   frames, layout, events, a mock world) as Forever, Era and Retail, and drives it through the
   scenarios in `tools/tests/scenarios.lua`, reporting every Lua error and failed expectation.
   It catches crashes and wrong API assumptions, not rendering or taint.
+- `python3 tools/bench.py`: drives the simulated client through a ride, fast pans, a continent
+  pan and a wheel zoom on real Forever data, and reports per-frame Lua time, widget calls and
+  frames where the view ran past the drawn zone borders. `--call-us 3` charges each widget call
+  a client-like cost, so the time-sliced border builder takes as many frames as it would in game.
+  In game, `/mm perf` records 10 seconds of real use and reports the same things.
 - `python3 -m pytest tools/tests`: all of the above, plus the generators end to end on a synthetic
   game install (`tools/tests/fixtures.py`) against golden output. CI runs this on every push.
 - Regenerate data from a local install (or `wago <product>` instead of `local INSTALL <product>`;

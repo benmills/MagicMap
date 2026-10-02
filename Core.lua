@@ -146,6 +146,10 @@ viewportBg:SetColorTexture(0, 0, 0, 1)
 -- Tiles live on their own child frame so the layers can sit above them.
 local tileLayer = CreateFrame("Frame", nil, viewport)
 tileLayer:SetAllPoints()
+-- Tiles sit at fixed spots on a canvas that panning just slides (one SetPoint
+-- a frame); they're only laid out again when the zoom changes.
+local tileCanvas = CreateFrame("Frame", nil, tileLayer)
+tileCanvas:SetSize(1, 1)
 
 -- Layer frames between the tiles and the player marker, bottom to top.
 local layerFrames = {}
@@ -490,6 +494,7 @@ local seen = {}
 -- into the backdrop colour sampled from that map's own edge water, so the
 -- square tile edges dissolve instead of stopping dead against a flat colour.
 local FEATHER = 0.35 -- fraction of a tile
+local TILE_AHEAD = 1 -- tiles loaded past each edge of the view
 local SIDES = {
 	-- side, neighbour key offset, gradient orientation, alpha at min end, alpha at max end
 	{ "left", -64, "HORIZONTAL", 1, 0 },
@@ -516,9 +521,19 @@ end
 local function AcquireTexture()
 	local tex = table.remove(freeTextures)
 	if not tex then
-		tex = tileLayer:CreateTexture(nil, "ARTWORK", nil, 0)
+		tex = tileCanvas:CreateTexture(nil, "ARTWORK", nil, 0)
 		tex.feathers = {}
-		for i in ipairs(SIDES) do tex.feathers[i] = tileLayer:CreateTexture(nil, "ARTWORK", nil, 1) end
+		for i, s in ipairs(SIDES) do
+			-- A feather never changes side, so it's anchored once, for good.
+			local f = tileCanvas:CreateTexture(nil, "ARTWORK", nil, 1)
+			if s[3] == "HORIZONTAL" then
+				f:SetPoint(s[1] == "left" and "TOPLEFT" or "TOPRIGHT", tex)
+			else
+				f:SetPoint(s[1] == "top" and "TOPLEFT" or "BOTTOMLEFT", tex)
+			end
+			f:Hide()
+			tex.feathers[i] = f
+		end
 	end
 	tex:Show()
 	return tex
@@ -526,9 +541,10 @@ end
 
 local function ReleaseTexture(tex)
 	tex:Hide()
-	tex:ClearAllPoints()
-	for _, f in ipairs(tex.feathers) do f:Hide() end
-	tex.fdid = nil
+	for _, f in ipairs(tex.feathers) do
+		if f.on then f:Hide(); f.on = nil end
+	end
+	tex.fdid, tex.zoom = nil, nil
 	freeTextures[#freeTextures + 1] = tex
 end
 
@@ -566,32 +582,59 @@ local function HeightAt(mapID, col, row)
 	return hm.min + ((b - hm.shift) % 256) * hm.scale
 end
 
+-- Place a tile on the canvas for this zoom. Edges are rounded (not origin +
+-- size) so neighbours always share an edge.
+local function LayoutTile(tex, tiles, key, zoom)
+	local col, row = math.floor(key / 64), key % 64
+	local left, top = math.floor(col * zoom + 0.5), math.floor(row * zoom + 0.5)
+	local w = math.floor((col + 1) * zoom + 0.5) - left
+	local h = math.floor((row + 1) * zoom + 0.5) - top
+	if not tex.zoom then tex:ClearAllPoints() end
+	tex:SetPoint("TOPLEFT", tileCanvas, "TOPLEFT", left, -top)
+	tex:SetSize(w, h)
+	for i, s in ipairs(SIDES) do
+		local f = tex.feathers[i]
+		if tiles[key + s[2]] then
+			if f.on then f:Hide(); f.on = nil end
+		else
+			-- Each feather keeps its side; only a new backdrop colour changes it.
+			if f.fadeColor ~= bgColor then
+				SetFade(f, s[3], bgColor[1], bgColor[2], bgColor[3], s[4], s[5])
+				f.fadeColor = bgColor
+			end
+			if s[3] == "HORIZONTAL" then f:SetSize(w * FEATHER, h) else f:SetSize(w, h * FEATHER) end
+			if not f.on then f:Show(); f.on = true end
+		end
+	end
+	tex.zoom, tex.bg = zoom, bgColor
+end
+
 local function RenderTiles()
 	local w, h = viewport:GetSize()
 	if w <= 0 or h <= 0 then return end
 	local zoom = state.zoom
 	local halfW, halfH = w / 2, h / 2
+	local cx, cy = state.cx, state.cy
+	-- Whole pixels, so tile edges stay crisp.
+	tileCanvas:SetPoint("TOPLEFT", tileLayer, "TOPLEFT",
+		math.floor(halfW - cx * zoom + 0.5), -math.floor(halfH - cy * zoom + 0.5))
 
 	wipe(seen)
 	local mapID = state.map
 	local tiles = GetTiles(mapID)
 	if tiles then
-		local cx, cy = state.cx, state.cy
-		local colMin = Clamp(math.floor(cx - halfW / zoom), 0, 63)
-		local colMax = Clamp(math.floor(cx + halfW / zoom), 0, 63)
-		local rowMin = Clamp(math.floor(cy - halfH / zoom), 0, 63)
-		local rowMax = Clamp(math.floor(cy + halfH / zoom), 0, 63)
+		-- A ring of tiles past the edge too: the client streams textures in a
+		-- frame or more after SetTexture, so a pan should find them loaded.
+		local colMin = Clamp(math.floor(cx - halfW / zoom) - TILE_AHEAD, 0, 63)
+		local colMax = Clamp(math.floor(cx + halfW / zoom) + TILE_AHEAD, 0, 63)
+		local rowMin = Clamp(math.floor(cy - halfH / zoom) - TILE_AHEAD, 0, 63)
+		local rowMax = Clamp(math.floor(cy + halfH / zoom) + TILE_AHEAD, 0, 63)
 		for col = colMin, colMax do
-			-- Round edges (not origin + size) so neighbours always share an edge.
-			local left = math.floor((col - cx) * zoom + halfW + 0.5)
-			local right = math.floor((col + 1 - cx) * zoom + halfW + 0.5)
 			for row = rowMin, rowMax do
 				local key = col * 64 + row
 				local fdid = tiles[key]
 				if fdid then
 					local id = mapID * 4096 + key
-					local top = math.floor((row - cy) * zoom + halfH + 0.5)
-					local bottom = math.floor((row + 1 - cy) * zoom + halfH + 0.5)
 					local tex = activeTiles[id]
 					if not tex then
 						tex = AcquireTexture()
@@ -601,41 +644,26 @@ local function RenderTiles()
 						tex:SetTexture(fdid, "CLAMP", "CLAMP")
 						tex.fdid = fdid
 					end
-					tex:ClearAllPoints()
-					tex:SetPoint("TOPLEFT", tileLayer, "TOPLEFT", left, -top)
-					tex:SetSize(right - left, bottom - top)
-					local fw, fh = (right - left) * FEATHER, (bottom - top) * FEATHER
-					for i, s in ipairs(SIDES) do
-						local f = tex.feathers[i]
-						if tiles[key + s[2]] then
-							f:Hide()
-						else
-							-- Each feather keeps its side; only a new backdrop colour changes it.
-							if f.fadeColor ~= bgColor then
-								SetFade(f, s[3], bgColor[1], bgColor[2], bgColor[3], s[4], s[5])
-								f.fadeColor = bgColor
-							end
-							f:ClearAllPoints()
-							if s[3] == "HORIZONTAL" then
-								f:SetPoint(s[1] == "left" and "TOPLEFT" or "TOPRIGHT", tex)
-								f:SetSize(fw, bottom - top)
-							else
-								f:SetPoint(s[1] == "top" and "TOPLEFT" or "BOTTOMLEFT", tex)
-								f:SetSize(right - left, fh)
-							end
-							f:Show()
-						end
-					end
+					if tex.zoom ~= zoom or tex.bg ~= bgColor then LayoutTile(tex, tiles, key, zoom) end
 					seen[id] = true
 				end
 			end
 		end
 	end
 
+	-- Keep tiles a ring further than that before letting go, so panning back and
+	-- forth doesn't churn them.
+	local c0, c1 = cx - halfW / zoom - TILE_AHEAD - 1, cx + halfW / zoom + TILE_AHEAD + 1
+	local r0, r1 = cy - halfH / zoom - TILE_AHEAD - 1, cy + halfH / zoom + TILE_AHEAD + 1
 	for id, tex in pairs(activeTiles) do
 		if not seen[id] then
-			ReleaseTexture(tex)
-			activeTiles[id] = nil
+			local key = id % 4096
+			local col, row = math.floor(key / 64), key % 64
+			if not tiles or math.floor(id / 4096) ~= mapID or tex.zoom ~= zoom
+				or col + 1 < c0 or col > c1 or row + 1 < r0 or row > r1 then
+				ReleaseTexture(tex)
+				activeTiles[id] = nil
+			end
 		end
 	end
 end
@@ -1369,6 +1397,8 @@ end)
 
 local titleElapsed = 0
 frame:SetScript("OnUpdate", function(_, elapsed)
+	local perf = ns.perf
+	local t0 = perf and debugprofilestop()
 	UpdatePlayer()
 	StepAnimation(elapsed)
 	StepZoom(elapsed)
@@ -1418,6 +1448,7 @@ frame:SetScript("OnUpdate", function(_, elapsed)
 		titleElapsed = 0
 		UpdateTitle()
 	end
+	if perf and ns.perf == perf then perf.Frame(elapsed or 0, debugprofilestop() - t0) end
 end)
 
 frame:SetScript("OnShow", function() db.shown = true; state.dirty = true end)
@@ -1565,6 +1596,6 @@ SlashCmdList.MAGICMAP = function(msg)
 	elseif ns.slash[cmd] then
 		ns.slash[cmd](arg)
 	else
-		Print("/mm [toggle] | follow | map <id|name> | zone <name> | icon | minimap | tiles | layers | landmarks | debug | reset")
+		Print("/mm [toggle] | follow | map <id|name> | zone <name> | icon | minimap | tiles | layers | landmarks | perf | debug | reset")
 	end
 end

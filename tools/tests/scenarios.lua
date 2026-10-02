@@ -287,4 +287,112 @@ scenarios.window = function()
 	Sim.FireEvent("PLAYER_LOGOUT")
 end
 
+-- Border lines on a buffer canvas, as "x1,y1,x2,y2" keys (the zone borders
+-- only: sublevel 1).
+local function BorderSegments(canvas)
+	local keys, dupes = {}, 0
+	for _, r in ipairs(S[canvas].regions) do
+		local st = S[r]
+		if st.type == "Line" and st.shown and st.sublevel == 1 and st.startPoint and st.endPoint then
+			local key = string.format("%.2f,%.2f,%.2f,%.2f", st.startPoint[3], st.startPoint[4], st.endPoint[3], st.endPoint[4])
+			if keys[key] then dupes = dupes + 1 end
+			keys[key] = true
+		end
+	end
+	return keys, dupes
+end
+
+-- Fling the map around at street zoom with the border builder paying what
+-- it would in the client (a few microseconds a widget call), and check the
+-- borders keep up, and that growing them in place draws exactly what a
+-- fresh build would, once.
+scenarios.borders_keep_up = function()
+	Sim.CountCalls()
+	function debugprofilestop() return os.clock() * 1000 + Sim.callTotal * 0.003 end
+	ns.SetZoom(160)
+	Sim.Run(1)
+	local frames, gaps = 0, 0
+	local step = Sim.Step
+	Sim.Step = function(elapsed)
+		step(elapsed)
+		local g, st = ns.GeometryInfo(), ns.state
+		local w, h = ns.viewport:GetSize()
+		local hw, hh = w / 2 / st.zoom, h / 2 / st.zoom
+		local r = g.region
+		frames = frames + 1
+		if not (r and st.cx - hw >= r[1] and st.cy - hh >= r[2] and st.cx + hw <= r[3] and st.cy + hh <= r[4]) then
+			gaps = gaps + 1
+		end
+	end
+	for i = 1, 12 do
+		local dir = i % 4
+		Sim.Drag(ns.viewport, ({ 600, 0, -600, 0 })[dir + 1], ({ 0, 400, 0, -400 })[dir + 1], 12)
+		Sim.Run(0.1)
+	end
+	Sim.Run(1)
+	Sim.Step = step
+	check(gaps <= frames * 0.02, ("borders cover the view while panning (%d of %d frames short)"):format(gaps, frames))
+
+	local g = ns.GeometryInfo()
+	local grown, dupes = BorderSegments(g.canvas)
+	check(dupes == 0, ("no border drawn twice (%d duplicates)"):format(dupes))
+	ns.LayoutStatic() -- a fresh build, same view and zoom
+	Sim.Run(1)
+	local fresh = BorderSegments(ns.GeometryInfo().canvas)
+	local missing, total = 0, 0
+	for key in pairs(fresh) do
+		total = total + 1
+		if not grown[key] then missing = missing + 1 end
+	end
+	check(total > 0, "there are borders to compare")
+	check(missing == 0, ("grown borders hold everything a fresh build draws (%d of %d missing)"):format(missing, total))
+end
+
+-- Tiles sit at whole pixels, and neighbours share their edges exactly, after
+-- panning and zooming by odd amounts.
+scenarios.tiles_seamless = function()
+	for _, step in ipairs({ { 137, -61, 1 }, { -333, 245, -1 }, { 71, 19, 1 }, { 5, -3, 1 } }) do
+		Sim.Drag(ns.viewport, step[1], step[2], 7)
+		Sim.Wheel(ns.viewport, step[3])
+		Sim.Run(0.6)
+		local edges, bad = {}, 0
+		local function walk(f)
+			for _, r in ipairs(S[f].regions) do
+				if S[r].type == "Texture" and type(S[r].texture) == "number" and r:IsVisible() then
+					local l, b, w, h = r:GetRect()
+					if l then
+						for _, v in ipairs({ l, b, w, h }) do
+							if math.abs(v - math.floor(v + 0.5)) > 1e-6 then bad = bad + 1 end
+						end
+						edges[#edges + 1] = { l, l + w }
+					end
+				end
+			end
+			for _, c in ipairs(S[f].children) do walk(c) end
+		end
+		walk(ns.frame)
+		check(#edges > 0, "tiles drawn")
+		check(bad == 0, ("tiles at whole pixels (%d fractional)"):format(bad))
+		local near = 0
+		for _, a in ipairs(edges) do
+			for _, b in ipairs(edges) do
+				local d = math.abs(a[2] - b[1])
+				if d > 0 and d < 2 then near = near + 1 end
+			end
+		end
+		check(near == 0, ("no hairline seams or overlaps between tiles (%d)"):format(near))
+	end
+end
+
+scenarios.perf_report = function()
+	Sim.Slash("perf")
+	Sim.Drag(ns.viewport, 300, 120, 20)
+	Sim.Run(11)
+	local found
+	for _, msg in ipairs(Sim.prints) do
+		if tostring(msg):find("borders: ", 1, true) then found = true end
+	end
+	check(found, "/mm perf reports after its recording")
+end
+
 return scenarios
