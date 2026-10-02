@@ -1,154 +1,92 @@
 # MagicMap
 
-A big, smooth, zoomable World of Warcraft map drawn from the game's own
-**minimap terrain**. It shows the detailed ground you see on your minimap, rather than
-the parchment world-map art, across a whole continent. Zone borders, quest areas,
-points of interest and the places you've visited are drawn on top.
+A big, smooth, zoomable World of Warcraft map drawn from the game's own minimap terrain,
+not the parchment world-map art. Built for WoW Forever; also runs on Classic Era,
+Anniversary, MoP Classic and Retail.
 
-Built for **WoW Forever**. It also runs on Classic Era, Anniversary, MoP Classic
-and Retail.
-
-## Features
-
-- **Every continent and instance at minimap detail.** Click the title to pick a
-  continent, another map, or a dungeon or raid (grouped by the continent its entrance
-  is on). Zoom smoothly with the mouse wheel. Instances are listed when the game has
-  minimap terrain for them, so all-interior dungeons don't appear yet.
-- **Click a zone to fly there.** A quick, eased pan and zoom lands on the zone.
-  Hovering highlights the zone you'd fly to. Once you're zoomed into one zone, clicks
-  stop zooming, so panning never zooms by accident.
-- **Follow mode.** The map tracks you, and right-click glides back to you.
-- **Zone and sub-zone borders**, taken from the terrain's own area data. Zone borders
-  are thin, warm lines. Sub-zone outlines and names appear as you zoom in. Where a
-  border runs out, for example into the sea, it breaks into fading dashes. Labels are
-  placed so they don't collide.
-- **Quest areas.** The game's own objective areas, with the same quest icons as the
-  world map. Hover an area to see its objectives. Objectives the game doesn't define
-  an area for get a dashed estimate.
-- **Landmarks you've visited.** Vendors, repair NPCs, innkeepers, trainers, banks,
-  auction houses, stable masters and mailboxes are learned as you use them and
-  remembered for all your characters. Rares are remembered too.
-- **Live points of interest**: flight points, dungeon entrances, graveyards, your
-  corpse, nearby rares and treasures, and your waypoint.
-- **Minimap mode.** The spyglass button (or `/mm minimap`) turns the window into your
-  minimap: it moves onto the minimap's spot, square and at the minimap's own scale, with
-  just the map and the zone name floating above it. The buttons appear when you hover.
-  Blizzard's minimap moves inside with its terrain hidden, so its live blips (tracked herbs
-  and ore, party, quest marks, with their tooltips) and other addons' pins (GatherMate,
-  HandyNotes) land on MagicMap's terrain. You can zoom out much further than the minimap
-  allows, but blips only reach as far as the minimap can see (about 230 yards). Pan away
-  and it glides back to you after a few seconds. Opening the world map grows it to most of
-  the screen instead, and M, Escape or the close button shrink it back. Click the button
-  again to put the window back where it was.
-- **Follow a quest.** Click a quest's icon, or its area, to follow it: it's tracked, becomes
-  your target (super-tracked where the client supports it), and gets a soft halo. Click
-  again to stop.
-- **Path mode.** The path button (next to Follow) keeps you and your target (the quest you follow,
-  else your waypoint) both in view, with a faint dashed line between you and the distance in
-  the title. Panning or zooming leaves it, and right-click (or, in minimap mode, a few
-  seconds untouched) brings it back. While no target is set, it just follows you.
-- **Waypoints.** Ctrl-click sets the game's waypoint. Shift-click puts a `/way`
-  command into chat.
-- A window built on Blizzard's own frame template, so it matches the rest of your UI.
+**Status: alpha.** Expect rough edges. Please report anything odd, with a screenshot.
 
 ## Install
 
-MagicMap is in **alpha**: expect rough edges, and please report what you find.
+1. Download `MagicMap-<version>.zip` from [Releases](../../releases).
+2. Unzip it into `World of Warcraft/<flavor>/Interface/AddOns/` (WoW Forever: `_classic_beta_`).
+3. `/reload`, then open it with `/mm` or the minimap button.
 
-1. Download `MagicMap-<version>.zip` from the
-   [Releases](../../releases) page.
-2. Unzip it into `World of Warcraft/<flavor>/Interface/AddOns/`, so you end up with
-   `Interface/AddOns/MagicMap/MagicMap.toc`. For WoW Forever, the flavor folder is
-   `_classic_beta_`.
-3. Restart the game, or `/reload`.
+## Features
 
-## Use
+- **Every continent and instance at minimap detail**, with smooth zoom and pan.
+- **Zone and sub-zone borders and names**, traced from the terrain itself.
+- **Quest areas** (the game's own) and **landmarks** you've used: vendors, trainers, flight points and more.
+- **Minimap mode**: MagicMap takes your minimap's spot and zooms out far past it. Blizzard's
+  blips and other addons' pins (GatherMate, HandyNotes) still show on top.
+- **World map takeover**: in minimap mode, M grows it into a big map and back.
+- **Follow a quest**: click it to track it and make it your target.
+- **Path mode**: keeps you and your target in view, with a faint line between you.
 
-| | |
+## Controls
+
+| Do | How |
 | --- | --- |
-| Open or close | Minimap button, addon compartment (Retail), `/mm`, or Esc to close |
-| Pick a map or instance | Click the title |
 | Pan / zoom | Drag / mouse wheel |
-| Go to a zone | Click it (while several zones are in view) |
-| Back to you | Right-click, or the follow button |
+| Pick a map | Click the title |
+| Fly to a zone | Click it |
+| Back to you | Right-click |
 | Follow a quest | Click its icon or area |
-| Path mode | The path button, next to Follow |
-| Layers | The scroll button in the title bar |
-| Minimap mode | The spyglass button in the title bar |
-| Waypoint | Ctrl-click to set, Ctrl-right-click to clear |
-| `/way` | Shift-click |
-| Move / resize | Drag the title bar / the corner grip |
+| Waypoint | Ctrl-click (Ctrl-right-click clears) |
+| Title-bar buttons | Follow, Path, Layers, Minimap mode |
 
-Slash commands (`/mm` or `/magicmap`): `follow`, `map <name|id>`, `zone <name>`,
-`icon` (show or hide the minimap button), `minimap` (minimap mode), `layers`, `landmarks`, `tiles`, `debug`,
-`reset`.
-
-On WoW Forever, the title also shows the ground height under the cursor.
+Slash commands (`/mm`): `follow`, `map <name>`, `zone <name>`, `minimap`, `layers`, `icon`, `debug`, `reset`.
 
 ## How it works
 
-**Terrain.** Minimap tiles are ordinary game textures, and an addon can draw one by
-its FileDataID: `Texture:SetTexture(fileDataID)`. MagicMap lays out the tiles you can
-see on a 64×64 grid, where each tile is 533⅓ yards across, and positions everything
-else in that grid.
+- **Terrain.** Minimap tiles are ordinary textures an addon can draw by FileDataID. MagicMap
+  lays them out on the 64×64 grid of 533⅓-yard tiles and places everything else in that grid.
+- **Data, generated offline.** Perl tools in `tools/` read the game files from a local install
+  or wago.tools: each map's WDT (which tile goes where), `Map.db2` (which maps exist), and the
+  ADT terrain (area IDs and heights per 33-yard chunk). They write `Data/*.lua`: tile lists,
+  zone borders and labels, and heights. At load, only the set for your client version is kept.
+- **Everything else** is placed by world position through `C_Map`. Quest areas use the world
+  map's own `QuestPOIFrame`.
+- **Rendering.** Only visible tiles are drawn, from a pool. Wheel zoom eases toward a target.
+  Pins and labels move as you zoom and are re-laid out once it settles. Borders (thousands of
+  lines) are built a slice per frame into a hidden buffer, then cross-faded in.
+- **Minimap mode** copies FarmHud's trick: `Minimap:SetAlpha(0)` hides Blizzard's terrain but
+  not its blips. The real Minimap then moves into MagicMap's window, centred on you and sized
+  so its yards-per-pixel matches our zoom, so its blips (and HereBeDragons pins) line up with our
+  terrain. Buttons attached to the minimap move to a stand-in at its usual spot.
 
-**Which tiles.** Tile IDs can't be derived from coordinates, and the same ID can hold
-different images in different game versions. Each map's WDT file lists the exact
-minimap texture for every tile. `tools/gen_tiles.pl` reads those files, and the
-client's own `Map.db2`, which lists every open-world map, straight from a local
-install, or from wago.tools. It writes `Data/Tiles_<product>.lua`. At load time,
-`Data/Select.lua` keeps only the set that matches your client, with Retail as the
-fallback.
+## Unknowns and risks
 
-**Backdrop.** Past the last tile there's only open sea. The generator samples the water
-along each map's outer edge, reading the DXT1 colour blocks of the edge tiles, and
-stores the median as that map's backdrop colour. At runtime, each edge tile fades
-into that colour, so the map's rim reads as deepening water rather than a hard edge.
-
-**Borders.** Each ADT terrain tile is split into 16×16 chunks of about 33 yards, and every
-chunk records its AreaTable ID. `tools/gen_borders.pl` reads every chunk's area and
-height, and uses the area parents to work out zones and sub-zones. It traces the chunk
-edges where the area changes and skips edges out over open water. It then simplifies
-the edges into polylines, marks dead ends so they can fade, and places each label at
-the area's deepest inland chunk. Maps without this data fall back to sampling
-`GetMapInfoAtPosition` at runtime.
-
-**Heights.** With `--heights`, `tools/gen_tiles.pl` also reads every
-root ADT and averages each chunk's height (the MCNK position plus its 145 MCVT
-values). It stores one byte per chunk, quantized per map, in
-`Data/Heights_<product>.lua`, which the title's elevation readout uses.
-
-**Everything else** is placed by world position using C_Map. A uiMap is a world
-rectangle, so `GetWorldPosFromMapPos` at (0,0) and (1,1) gives a linear transform
-between any map's coordinates and the tile grid.
-- **Zone borders:** the continent is sampled with `GetMapInfoAtPosition`, then the
-  borders are traced with marching squares, refined by bisection, simplified and
-  smoothed.
-- **Quest areas:** drawn by the same `QuestPOIFrame` the world map uses.
+- **Barely tested in-game.** Most features were written without a Lua interpreter and checked
+  only for syntax. Some code paths may simply be wrong.
+- **Detail outside Forever.** Generated borders and heights exist only for WoW Forever. Other
+  clients fall back to slower, rougher borders sampled at runtime, and have no height readout.
+- **Minimap mode relies on undocumented behaviour:**
+  - that `SetAlpha` on the Minimap hides only the terrain (FarmHud depends on this too);
+  - HereBeDragons' internal pin table;
+  - Blizzard frame names (e.g. `MinimapZoneTextButton`), which differ between clients.
+  Another minimap addon (SexyMap, FarmHud, square-minimap addons) may conflict.
+- **Blip range is the minimap's.** Blizzard's blips only cover about 230 yards around you, so
+  zoomed far out, only MagicMap's own pins remain.
+- **Rotate Minimap isn't supported**; minimap mode hands the minimap back while it's on.
+- **Taint.** The world map takeover closes Blizzard's map from addon code (`HideUIPanel`).
+  That could cause "action blocked" errors, especially in combat.
+- **Instances and restricted positions.** Where the game withholds your position (many
+  instances, some Retail contexts), following, path mode and minimap mode step aside.
+- **Data drifts with patches.** Tile IDs and terrain change between game versions. The data
+  files must be regenerated per client build, or tiles can be missing or wrong.
 
 ## Development
 
-The tools are Perl, because the author's machine has no Lua or Python.
-
-- `perl tools/luacheck.pl *.lua Data/*.lua` is a Lua 5.1 syntax checker. Add
-  `--globals` to list every global each file uses, which helps catch typos.
-- `perl tools/gen_tiles.pl local "/Applications/World of Warcraft" wow_classic_beta --heights Data/Heights_wow_classic_beta.lua > Data/Tiles_wow_classic_beta.lua`
-  regenerates tiles, and terrain heights, from a local install. `perl tools/gen_tiles.pl wago wow_classic_era`
-  pulls from wago.tools instead.
-- `perl tools/gen_borders.pl "/Applications/World of Warcraft" wow_classic_beta > Data/Borders_wow_classic_beta.lua`
-  regenerates zone and sub-zone borders from terrain. It takes about 30 seconds for WoW Forever.
-- `tools/casc_extract.pl` is a minimal read-only CASC reader. It extracts any file
-  by FileDataID from a local install.
-- `tools/db2dump.pl` is a minimal WDC5 `.db2` reader. It skips encrypted sections.
-
-`.pkgmeta` and `.gitattributes` leave `tools/` out of packaged releases.
-
-To cut a release, set `## Version:` in `MagicMap.toc`, commit, tag it `v<version>`, and run
-`tools/package.sh v<version>`. It checks the tag matches the TOC, runs the syntax checker,
-and writes `dist/MagicMap-v<version>.zip`.
+- `perl tools/luacheck.pl *.lua Data/*.lua`: Lua 5.1 syntax check (`--globals` lists globals per file).
+- `perl tools/gen_tiles.pl local "/Applications/World of Warcraft" wow_classic_beta --heights Data/Heights_wow_classic_beta.lua > Data/Tiles_wow_classic_beta.lua`:
+  regenerate tiles and heights (`wago <product>` pulls from wago.tools instead).
+- `perl tools/gen_borders.pl "/Applications/World of Warcraft" wow_classic_beta > Data/Borders_wow_classic_beta.lua`:
+  regenerate borders (~30 s).
+- Release: set `## Version:` in `MagicMap.toc`, commit, tag `v<version>`, run `tools/package.sh v<version>`.
+  This writes `dist/MagicMap-v<version>.zip`, without `tools/`.
 
 ## Credits
 
-- The [wowdev](https://wowdev.wiki) community, for the file-format documentation
-  and the community listfile.
-- [wago.tools](https://wago.tools), for build and file access.
+[wowdev](https://wowdev.wiki) for file-format docs and the community listfile;
+[wago.tools](https://wago.tools) for build and file access.
