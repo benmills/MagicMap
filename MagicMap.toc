@@ -1,0 +1,26 @@
+## Interface: 16001, 11509, 20506, 30403, 40402, 50504, 120100
+## Title: MagicMap
+## Notes: A big, smooth, zoomable map drawn from the game's own minimap terrain, with zone borders, quest areas and the landmarks you've visited.
+## Version: 0.1.0-alpha
+## Category: Map & Minimap
+## IconTexture: Interface\Icons\INV_Misc_Map_01
+## AddonCompartmentFunc: MagicMap_OnAddonCompartmentClick
+## SavedVariables: MagicMapDB, MagicMapLandmarks
+
+Data\Select.lua
+Data\Tiles_wow_classic_beta.lua
+Data\Tiles_wow_classic_era.lua
+Data\Tiles_wow_anniversary.lua
+Data\Tiles_wow_classic.lua
+Data\Tiles_wow.lua
+Data\Heights_wow_classic_beta.lua
+Data\Borders_wow_classic_beta.lua
+UI.lua
+Menu.lua
+Core.lua
+Layers.lua
+Landmarks.lua
+Path.lua
+MinimapButton.lua
+MinimapBlips.lua
+MinimapMode.lua

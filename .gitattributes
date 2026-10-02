@@ -1,0 +1,5 @@
+# Left out of release zips (git archive), matching .pkgmeta's ignore list.
+tools export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
+.pkgmeta export-ignore

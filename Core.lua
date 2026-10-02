@@ -1,0 +1,1570 @@
+-- MagicMap: a large, pannable, zoomable map rendered from the game's own
+-- minimap terrain tiles (Texture:SetTexture(fileDataID)).
+--
+-- Coordinate system ("tile space"): (col, row) as floats, matching the
+-- minimap file names world/minimaps/<dir>/map<col>_<row>.blp. Tile (0,0) is
+-- the north-west corner of a 64x64 grid; col grows east, row grows south.
+
+local ADDON, ns = ...
+local TILE_YARDS = 1600 / 3 -- one ADT / minimap tile = 533.33 yards
+local MIN_ZOOM, MAX_ZOOM = 16, 2048 -- screen units per tile
+local WHEEL_STEP = 1.3
+local FLY_TIME = 0.55
+local ZOOM_RATE = 14 -- per second: how quickly wheel zoom closes on its target (higher = snappier)
+local CLICK_SLOP, CLICK_TIME = 5, 0.35 -- a click moves less than this many px, this fast
+
+local defaults = {
+	shown = true,
+	width = 860, height = 620,
+	point = { "CENTER", "CENTER", 0, 0 },
+	zoom = 256,
+	follow = true,
+	cameraMode = "follow", -- what "back to you" returns to: "follow" or "path" (you and your target)
+	map = nil, -- instanceID being viewed; nil = player's continent
+	cx = 32, cy = 32,
+	debug = false, -- show tile/FileDataID/zoom in the title band
+	minimap = { angle = 215, hide = false }, -- minimap button position (degrees) / visibility
+}
+
+local db
+local TileData = {} -- set by LoadTileSet: instanceID -> { name, dir, tiles }
+
+local state = {
+	map = nil,        -- instanceID currently displayed
+	cx = 32, cy = 32, -- view center in tile space
+	zoom = 256,
+	follow = true,
+	dirty = true,
+	dragging = false,
+	lastCursorX = 0, lastCursorY = 0,
+	playerCol = nil, playerRow = nil, playerMap = nil,
+}
+
+local function Print(msg)
+	DEFAULT_CHAT_FRAME:AddMessage("|cffffd100MagicMap|r: " .. tostring(msg))
+end
+
+-- Tiny event bus so Layers.lua can react to view and map changes.
+local handlers = {}
+function ns.On(event, fn)
+	handlers[event] = handlers[event] or {}
+	table.insert(handlers[event], fn)
+end
+local function Fire(event, ...)
+	for _, fn in ipairs(handlers[event] or {}) do fn(...) end
+end
+
+local function Clamp(v, lo, hi)
+	if v < lo then return lo elseif v > hi then return hi end
+	return v
+end
+
+-- UnitPosition returns (north axis, west axis, z, instanceID) in world yards.
+local function WorldToTile(north, west)
+	return 32 - west / TILE_YARDS, 32 - north / TILE_YARDS
+end
+
+local function SortedMapIDs()
+	local ids = {}
+	for id in pairs(TileData) do ids[#ids + 1] = id end
+	table.sort(ids)
+	return ids
+end
+
+---------------------------------------------------------------------------
+-- Window: Blizzard's own ButtonFrameTemplate (nine-slice border, title band,
+-- close button), so it looks and lines up exactly like the client's other
+-- windows - including Forever's re-skin. Everything lives in the title band:
+--
+--   [Zone name v  context · coords]              (layers) (follow) [X]
+--
+-- and the map fills the rest of the frame, edge to edge under the border.
+-- The title is also the map picker: click it for continents and instances.
+---------------------------------------------------------------------------
+
+local BAND_HEIGHT = 21 -- the template's title band (its background starts at y = -21)
+local BAND_MID = -11
+
+local frame
+do
+	local ok, f = pcall(CreateFrame, "Frame", "MagicMapFrame", UIParent, "ButtonFrameTemplate")
+	frame = ok and f or CreateFrame("Frame", "MagicMapFrame", UIParent)
+end
+local templated = frame.NineSlice ~= nil
+
+frame:SetFrameStrata("HIGH")
+frame:SetClampedToScreen(true)
+frame:SetMovable(true)
+frame:SetResizable(true)
+frame:EnableMouse(true)
+frame:RegisterForDrag("LeftButton")
+if frame.SetResizeBounds then
+	frame:SetResizeBounds(120, 120)
+else
+	frame:SetMinResize(120, 120)
+end
+frame:Hide()
+tinsert(UISpecialFrames, "MagicMapFrame") -- close on Escape
+
+if templated then
+	if ButtonFrameTemplate_HidePortrait then ButtonFrameTemplate_HidePortrait(frame) end
+	if ButtonFrameTemplate_HideButtonBar then ButtonFrameTemplate_HideButtonBar(frame) end
+	if frame.Inset then frame.Inset:Hide() end
+	if frame.TitleContainer and frame.TitleContainer.TitleText then frame.TitleContainer.TitleText:SetText("") end
+else
+	-- Fallback for clients without the template: dark panel, bronze border, a band.
+	local bg = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
+	bg:SetAllPoints()
+	bg:SetColorTexture(0.075, 0.065, 0.055, 0.98)
+	ns.ApplyBorder(frame, frame:GetFrameLevel() + 500)
+	local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+	close:SetPoint("TOPRIGHT", 2, 2)
+	close:SetScript("OnClick", function() frame:Hide() end)
+	frame.CloseButton = close
+end
+
+frame:SetScript("OnDragStart", function() frame:StartMoving() end)
+frame:SetScript("OnDragStop", function()
+	frame:StopMovingOrSizing()
+	local p, _, rp, x, y = frame:GetPoint()
+	db.point = { p, rp, x, y }
+end)
+
+-- Viewport: the map, filling the frame below the band. Clips the tiles to it;
+-- the template's border (drawn at frame level +500) frames its edges.
+local viewport = CreateFrame("Frame", nil, frame)
+viewport:SetPoint("TOPLEFT", 2, -BAND_HEIGHT)
+viewport:SetPoint("BOTTOMRIGHT", -2, 2)
+viewport:SetClipsChildren(true)
+viewport:EnableMouse(true)
+viewport:EnableMouseWheel(true)
+
+local viewportBg = viewport:CreateTexture(nil, "BACKGROUND", nil, -8)
+viewportBg:SetAllPoints()
+viewportBg:SetColorTexture(0, 0, 0, 1)
+
+-- Tiles live on their own child frame so the layers can sit above them.
+local tileLayer = CreateFrame("Frame", nil, viewport)
+tileLayer:SetAllPoints()
+
+-- Layer frames between the tiles and the player marker, bottom to top.
+local layerFrames = {}
+for i, name in ipairs({ "shade", "areas", "lines", "path", "labels", "pins" }) do
+	local f = CreateFrame("Frame", nil, viewport)
+	f:SetAllPoints()
+	f:SetFrameLevel(tileLayer:GetFrameLevel() + i)
+	layerFrames[name] = f
+end
+
+local overlay = CreateFrame("Frame", nil, viewport)
+overlay:SetAllPoints()
+overlay:SetFrameLevel(tileLayer:GetFrameLevel() + 8)
+
+local CIRCLE = ns.CIRCLE
+
+-- Player marker: a class-coloured dot with a facing arrow poking out beneath it.
+local playerMarker = CreateFrame("Frame", nil, overlay)
+playerMarker:SetSize(1, 1)
+playerMarker:Hide()
+
+local arrow = playerMarker:CreateTexture(nil, "OVERLAY", nil, 0)
+arrow:SetTexture("Interface\\Minimap\\MinimapArrow")
+arrow:SetSize(28, 28)
+arrow:SetPoint("CENTER")
+
+local dotRing = playerMarker:CreateTexture(nil, "OVERLAY", nil, 1)
+dotRing:SetTexture(CIRCLE)
+dotRing:SetVertexColor(1, 1, 1, 1)
+dotRing:SetSize(14, 14)
+dotRing:SetPoint("CENTER")
+
+local dot = playerMarker:CreateTexture(nil, "OVERLAY", nil, 2)
+dot:SetTexture(CIRCLE)
+dot:SetSize(10, 10)
+dot:SetPoint("CENTER")
+do
+	local _, class = UnitClass("player")
+	local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+	if c then dot:SetVertexColor(c.r, c.g, c.b, 1) else dot:SetVertexColor(1, 0.82, 0, 1) end
+end
+
+-- The band: above the template's border (500) and title bar (510), so our
+-- text and buttons draw on it. No mouse, so dragging the band moves the window.
+local FONT = (GameFontNormal and GameFontNormal:GetFont()) or STANDARD_TEXT_FONT
+local band = CreateFrame("Frame", nil, frame)
+band:SetFrameLevel(frame:GetFrameLevel() + 515)
+band:SetPoint("TOPLEFT")
+band:SetPoint("TOPRIGHT")
+band:SetHeight(BAND_HEIGHT)
+
+local closeButton = frame.CloseButton -- the template's, already in the band's corner
+closeButton:SetFrameLevel(band:GetFrameLevel() + 5)
+closeButton:SetScript("OnClick", function()
+	if ns.OnCloseClicked and ns.OnCloseClicked() then return end
+	frame:Hide()
+end)
+
+local controls = CreateFrame("Frame", nil, band)
+controls:SetPoint("RIGHT", frame, "TOPRIGHT", -26, BAND_MID)
+controls:SetSize(1, 18)
+
+local BUTTON_SIZE = 18
+local buttons = {}
+local function AddButton(key, opts)
+	local b = ns.CreateRoundButton(controls, BUTTON_SIZE, opts)
+	local prev = buttons[#buttons]
+	if prev then
+		b:SetPoint("RIGHT", prev, "LEFT", -5, 0)
+	else
+		b:SetPoint("RIGHT", controls, "RIGHT", 0, 0)
+	end
+	buttons[#buttons + 1] = b
+	buttons[key] = b
+	return b
+end
+AddButton("follow", { icon = "Interface\\Minimap\\MinimapArrow", iconInset = 1, noMask = true })
+AddButton("path", { icon = "Interface\\Icons\\Ability_Tracking", iconInset = 5 })
+AddButton("layers", { icon = "Interface\\Icons\\INV_Scroll_03", iconInset = 5, tooltip = "Layers" })
+AddButton("minimap", { icon = "Interface\\Icons\\INV_Misc_Spyglass_03", iconInset = 5 })
+
+local title = band:CreateFontString(nil, "OVERLAY")
+title:SetFont(FONT, 14, "")
+title:SetTextColor(1, 0.82, 0.25)
+title:SetShadowOffset(1, -1)
+title:SetShadowColor(0, 0, 0, 1)
+title:SetJustifyH("LEFT")
+title:SetWordWrap(false)
+
+local subtitle = band:CreateFontString(nil, "OVERLAY")
+subtitle:SetFont(FONT, 11, "")
+subtitle:SetTextColor(0.74, 0.68, 0.58)
+subtitle:SetShadowOffset(1, -1)
+subtitle:SetShadowColor(0, 0, 0, 1)
+subtitle:SetJustifyH("LEFT")
+subtitle:SetWordWrap(false)
+
+-- The title doubles as the map picker (see OpenMapMenu): a button over it,
+-- with a small chevron after the name. Dragging it still moves the window.
+local TITLE_COLOR, TITLE_HOVER = { 1, 0.82, 0.25 }, { 1, 0.93, 0.6 }
+local CHEVRON = 14 -- chevron width plus its gap after the name
+local OpenMapMenu -- forward
+
+local chevron = band:CreateTexture(nil, "OVERLAY")
+chevron:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
+chevron:SetSize(12, 12)
+chevron:SetPoint("LEFT", title, "RIGHT", 1, -3)
+chevron:SetVertexColor(0.85, 0.7, 0.45)
+
+local titleButton = CreateFrame("Button", nil, band)
+titleButton:SetPoint("TOPLEFT", title, "TOPLEFT", -4, 3)
+titleButton:SetPoint("BOTTOMRIGHT", title, "BOTTOMRIGHT", CHEVRON + 2, -3)
+titleButton:RegisterForDrag("LeftButton")
+titleButton:SetScript("OnDragStart", function(self)
+	self.dragged = true
+	frame:StartMoving()
+end)
+titleButton:SetScript("OnDragStop", function()
+	frame:StopMovingOrSizing()
+	local p, _, rp, x, y = frame:GetPoint()
+	db.point = { p, rp, x, y }
+end)
+titleButton:SetScript("OnClick", function(self)
+	if self.dragged then
+		self.dragged = nil
+		return
+	end
+	OpenMapMenu(self)
+end)
+titleButton:SetScript("OnEnter", function()
+	title:SetTextColor(unpack(TITLE_HOVER))
+	chevron:SetVertexColor(1, 0.9, 0.6)
+end)
+titleButton:SetScript("OnLeave", function()
+	title:SetTextColor(unpack(TITLE_COLOR))
+	chevron:SetVertexColor(0.85, 0.7, 0.45)
+end)
+
+-- Backing for the name when it sits on the map (narrow windows only).
+local titlePlate = band:CreateTexture(nil, "BACKGROUND")
+titlePlate:SetColorTexture(0.03, 0.025, 0.02, 0.72)
+titlePlate:Hide()
+
+local function NaturalWidth(fs)
+	return fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth() or fs:GetStringWidth()
+end
+
+local compact = false -- minimap mode's chrome (see SetCompact)
+
+-- Compact: zone and subzone centred just above the map (below it, if the
+-- map is at the top of the screen), on no plate - like the minimap's own.
+local function FitCompactTitle()
+	titlePlate:Hide()
+	local top, screenTop = frame:GetTop(), UIParent:GetTop()
+	if not top then return end
+	local maxW = frame:GetWidth() + 80
+	title:SetWidth(math.min(NaturalWidth(title), maxW))
+	subtitle:SetWidth(math.min(NaturalWidth(subtitle), maxW))
+	local hasSub = (subtitle:GetText() or "") ~= ""
+	if screenTop - top >= 34 then
+		if hasSub then
+			subtitle:SetPoint("BOTTOM", frame, "TOP", 0, 3)
+			title:SetPoint("BOTTOM", subtitle, "TOP", 0, 1)
+		else
+			title:SetPoint("BOTTOM", frame, "TOP", 0, 3)
+		end
+	else
+		title:SetPoint("TOP", frame, "BOTTOM", 0, -3)
+		subtitle:SetPoint("TOP", title, "BOTTOM", 0, -1)
+	end
+end
+
+-- In the band when it fits; otherwise on the map's top-left corner.
+local function FitTitle()
+	title:ClearAllPoints()
+	subtitle:ClearAllPoints()
+	if compact then return FitCompactTitle() end
+	local left, controlsLeft = frame:GetLeft(), buttons[#buttons]:GetLeft()
+	if not (left and controlsLeft) then return end
+	local room = controlsLeft - (left + 10) - 14 - CHEVRON
+	local tw, sw = NaturalWidth(title), NaturalWidth(subtitle)
+	if tw + 8 + math.min(sw, 80) <= room then
+		titlePlate:Hide()
+		title:SetPoint("LEFT", frame, "TOPLEFT", 10, BAND_MID)
+		title:SetWidth(tw)
+		-- Share the title's baseline: bottoms aligned, nudged for the smaller descender.
+		subtitle:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 8 + CHEVRON, 1)
+		subtitle:SetWidth(math.max(1, room - tw - 8))
+	else
+		local maxW = viewport:GetWidth() - 24
+		title:SetPoint("TOPLEFT", viewport, "TOPLEFT", 12, -9)
+		title:SetWidth(math.min(tw, maxW))
+		subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 1, -3)
+		subtitle:SetWidth(math.min(sw, maxW))
+		titlePlate:ClearAllPoints()
+		titlePlate:SetPoint("TOPLEFT", viewport, "TOPLEFT", 0, 0)
+		titlePlate:SetSize(math.min(math.max(tw + CHEVRON, sw), maxW) + 24, title:GetStringHeight() + subtitle:GetStringHeight() + 21)
+		titlePlate:Show()
+	end
+end
+
+local resizeGrip = CreateFrame("Button", nil, frame)
+resizeGrip:SetSize(14, 14)
+resizeGrip:SetPoint("BOTTOMRIGHT", -4, 4)
+resizeGrip:SetFrameLevel(frame:GetFrameLevel() + 520)
+resizeGrip:SetAlpha(0.8)
+resizeGrip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+resizeGrip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+resizeGrip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+resizeGrip:SetScript("OnMouseDown", function() frame:StartSizing("BOTTOMRIGHT") end)
+resizeGrip:SetScript("OnMouseUp", function()
+	frame:StopMovingOrSizing()
+	db.width, db.height = frame:GetSize()
+end)
+
+-- Compact chrome (minimap mode): the window's border, title band and
+-- background go, the map fills the frame inside a hairline edge, the zone
+-- floats above it, and the buttons and grip fade in while you hover.
+local compactEdge = CreateFrame("Frame", nil, frame)
+compactEdge:SetAllPoints()
+compactEdge:SetFrameLevel(frame:GetFrameLevel() + 505)
+compactEdge:Hide()
+-- A dark outer pixel with a faint bronze hairline just inside it.
+local EDGE_COLORS = { { 0, 0, 0, 0.85 }, { ns.BRONZE[1], ns.BRONZE[2], ns.BRONZE[3], 0.45 } }
+for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+	for i, c in ipairs(EDGE_COLORS) do
+		local t = compactEdge:CreateTexture(nil, "OVERLAY", nil, i)
+		t:SetColorTexture(unpack(c))
+		local inset = i - 1
+		if side == "TOP" or side == "BOTTOM" then
+			t:SetPoint(side .. "LEFT", inset, side == "TOP" and -inset or inset)
+			t:SetPoint(side .. "RIGHT", -inset, side == "TOP" and -inset or inset)
+			t:SetHeight(1)
+		else
+			t:SetPoint("TOP" .. side, side == "LEFT" and inset or -inset, -inset)
+			t:SetPoint("BOTTOM" .. side, side == "LEFT" and inset or -inset, inset)
+			t:SetWidth(1)
+		end
+	end
+end
+
+local chromeHidden = {} -- template parts SetCompact hid
+local KEEP = { [viewport] = true, [band] = true, [resizeGrip] = true, [compactEdge] = true, [closeButton] = true }
+local hoverAlpha = 1
+
+local function SetViewportInsets(l, t, r, b)
+	viewport:ClearAllPoints()
+	viewport:SetPoint("TOPLEFT", l, -t)
+	viewport:SetPoint("BOTTOMRIGHT", -r, b)
+end
+
+local function SetCompact(on)
+	on = on and true or false
+	if on == compact then return end
+	compact = on
+	if on then
+		for _, r in ipairs({ frame:GetRegions() }) do
+			if r:IsShown() then r:Hide(); chromeHidden[r] = true end
+		end
+		for _, c in ipairs({ frame:GetChildren() }) do
+			if not KEEP[c] and c:IsShown() then c:Hide(); chromeHidden[c] = true end
+		end
+		SetViewportInsets(0, 0, 0, 0)
+		chevron:Hide()
+		closeButton:Hide() -- the spyglass button leaves minimap mode instead
+		title:SetJustifyH("CENTER")
+		subtitle:SetJustifyH("CENTER")
+		compactEdge:Show()
+	else
+		for o in pairs(chromeHidden) do o:Show() end
+		wipe(chromeHidden)
+		SetViewportInsets(2, BAND_HEIGHT, 2, 2)
+		chevron:Show()
+		closeButton:Show()
+		title:SetJustifyH("LEFT")
+		subtitle:SetJustifyH("LEFT")
+		compactEdge:Hide()
+		hoverAlpha = 1
+		controls:SetAlpha(1)
+		resizeGrip:SetAlpha(0.8)
+	end
+	state.dirty = true
+	FitTitle()
+end
+
+-- Compact: the buttons and grip fade in while the mouse is over the map.
+local function StepCompactHover(elapsed)
+	if not compact then return end
+	local want = (frame:IsMouseOver() or (ns.IsMenuOpen and ns.IsMenuOpen())) and 1 or 0
+	if hoverAlpha == want then return end
+	local step = (elapsed or 0) / 0.15
+	hoverAlpha = want > hoverAlpha and math.min(want, hoverAlpha + step) or math.max(want, hoverAlpha - step)
+	controls:SetAlpha(hoverAlpha)
+	resizeGrip:SetAlpha(0.8 * hoverAlpha)
+end
+
+---------------------------------------------------------------------------
+-- Tile sets
+--
+-- Each Data/Tiles_<product>.lua is generated from that game version's own
+-- WDT files, which list the exact minimap FileDataID for every tile the
+-- version uses. The same ID can hold different images in different
+-- versions, and a client can ship leftover tiles its world never uses, so
+-- the tile *list* has to come from the matching version. We pick the set
+-- whose version matches GetBuildInfo() (major.minor, then major), else retail.
+---------------------------------------------------------------------------
+
+local tileSetName, tileSetVersion
+local tileCounts = {}
+
+-- Data/Select.lua lets only the set matching this client load, so there's one.
+local function PickTileSet()
+	return next(MagicMap_TileSets or {})
+end
+
+local function LoadTileSet(product)
+	local set = product and MagicMap_TileSets[product]
+	tileSetName, tileSetVersion = product, set and set.version
+	TileData = set and set.maps or {}
+	wipe(tileCounts)
+	for mapID, data in pairs(TileData) do
+		local n = 0
+		for _ in pairs(data.tiles) do n = n + 1 end
+		tileCounts[mapID] = n
+	end
+end
+
+local function GetTiles(mapID)
+	local data = TileData[mapID]
+	return data and data.tiles
+end
+
+---------------------------------------------------------------------------
+-- Tile rendering (visible tiles only, textures pooled and reused)
+---------------------------------------------------------------------------
+
+local activeTiles = {} -- key (col*64+row) -> texture
+local freeTextures = {}
+local seen = {}
+
+-- Where the map runs out (open sea past the last tile), each edge tile fades
+-- into the backdrop colour sampled from that map's own edge water, so the
+-- square tile edges dissolve instead of stopping dead against a flat colour.
+local FEATHER = 0.35 -- fraction of a tile
+local SIDES = {
+	-- side, neighbour key offset, gradient orientation, alpha at min end, alpha at max end
+	{ "left", -64, "HORIZONTAL", 1, 0 },
+	{ "right", 64, "HORIZONTAL", 0, 1 },
+	{ "top", -1, "VERTICAL", 0, 1 },    -- VERTICAL gradients run bottom (min) to top (max)
+	{ "bottom", 1, "VERTICAL", 1, 0 },
+}
+local bgColor = { 0, 0, 0 }
+
+local function SetFade(t, orientation, r, g, b, a1, a2)
+	t:SetColorTexture(1, 1, 1, 1)
+	if t.SetGradient and CreateColor then
+		t:SetGradient(orientation, CreateColor(r, g, b, a1), CreateColor(r, g, b, a2))
+	elseif t.SetGradientAlpha then
+		t:SetGradientAlpha(orientation, r, g, b, a1, r, g, b, a2)
+	end
+end
+
+local function SetBackdrop(color)
+	bgColor = color or { 0.03, 0.06, 0.065 }
+	viewportBg:SetColorTexture(bgColor[1], bgColor[2], bgColor[3], 1)
+end
+
+local function AcquireTexture()
+	local tex = table.remove(freeTextures)
+	if not tex then
+		tex = tileLayer:CreateTexture(nil, "ARTWORK", nil, 0)
+		tex.feathers = {}
+		for i in ipairs(SIDES) do tex.feathers[i] = tileLayer:CreateTexture(nil, "ARTWORK", nil, 1) end
+	end
+	tex:Show()
+	return tex
+end
+
+local function ReleaseTexture(tex)
+	tex:Hide()
+	tex:ClearAllPoints()
+	for _, f in ipairs(tex.feathers) do f:Hide() end
+	tex.fdid = nil
+	freeTextures[#freeTextures + 1] = tex
+end
+
+local function ReleaseAllTiles()
+	for key, tex in pairs(activeTiles) do
+		ReleaseTexture(tex)
+		activeTiles[key] = nil
+	end
+end
+
+-- The tile-space bounds of a map's tiles.
+local function TileBounds(mapID)
+	local tiles = GetTiles(mapID)
+	if not tiles then return nil end
+	local c0, r0, c1, r1 = 64, 64, 0, 0
+	for key in pairs(tiles) do
+		local col, row = math.floor(key / 64), key % 64
+		c0, r0 = math.min(c0, col), math.min(r0, row)
+		c1, r1 = math.max(c1, col + 1), math.max(r1, row + 1)
+	end
+	if c1 <= c0 then return nil end
+	return c0, r0, c1, r1
+end
+
+-- Terrain height in yards at (col, row) in mapID's own tile space, from
+-- Data/Heights_<product>.lua (one byte per 33-yard chunk), or nil.
+local function HeightAt(mapID, col, row)
+	local hm = MagicMap_Heights and MagicMap_Heights[mapID]
+	if not hm then return nil end
+	local tc, tr = math.floor(col), math.floor(row)
+	if tr < 0 or tr > 63 then return nil end
+	local s = hm.tiles[tc * 64 + tr]
+	if not s then return nil end
+	local b = #s == 1 and s:byte(1) or s:byte(math.floor((row - tr) * 16) * 16 + math.floor((col - tc) * 16) + 1)
+	return hm.min + ((b - hm.shift) % 256) * hm.scale
+end
+
+local function RenderTiles()
+	local w, h = viewport:GetSize()
+	if w <= 0 or h <= 0 then return end
+	local zoom = state.zoom
+	local halfW, halfH = w / 2, h / 2
+
+	wipe(seen)
+	local mapID = state.map
+	local tiles = GetTiles(mapID)
+	if tiles then
+		local cx, cy = state.cx, state.cy
+		local colMin = Clamp(math.floor(cx - halfW / zoom), 0, 63)
+		local colMax = Clamp(math.floor(cx + halfW / zoom), 0, 63)
+		local rowMin = Clamp(math.floor(cy - halfH / zoom), 0, 63)
+		local rowMax = Clamp(math.floor(cy + halfH / zoom), 0, 63)
+		for col = colMin, colMax do
+			-- Round edges (not origin + size) so neighbours always share an edge.
+			local left = math.floor((col - cx) * zoom + halfW + 0.5)
+			local right = math.floor((col + 1 - cx) * zoom + halfW + 0.5)
+			for row = rowMin, rowMax do
+				local key = col * 64 + row
+				local fdid = tiles[key]
+				if fdid then
+					local id = mapID * 4096 + key
+					local top = math.floor((row - cy) * zoom + halfH + 0.5)
+					local bottom = math.floor((row + 1 - cy) * zoom + halfH + 0.5)
+					local tex = activeTiles[id]
+					if not tex then
+						tex = AcquireTexture()
+						activeTiles[id] = tex
+					end
+					if tex.fdid ~= fdid then
+						tex:SetTexture(fdid, "CLAMP", "CLAMP")
+						tex.fdid = fdid
+					end
+					tex:ClearAllPoints()
+					tex:SetPoint("TOPLEFT", tileLayer, "TOPLEFT", left, -top)
+					tex:SetSize(right - left, bottom - top)
+					local fw, fh = (right - left) * FEATHER, (bottom - top) * FEATHER
+					for i, s in ipairs(SIDES) do
+						local f = tex.feathers[i]
+						if tiles[key + s[2]] then
+							f:Hide()
+						else
+							-- Each feather keeps its side; only a new backdrop colour changes it.
+							if f.fadeColor ~= bgColor then
+								SetFade(f, s[3], bgColor[1], bgColor[2], bgColor[3], s[4], s[5])
+								f.fadeColor = bgColor
+							end
+							f:ClearAllPoints()
+							if s[3] == "HORIZONTAL" then
+								f:SetPoint(s[1] == "left" and "TOPLEFT" or "TOPRIGHT", tex)
+								f:SetSize(fw, bottom - top)
+							else
+								f:SetPoint(s[1] == "top" and "TOPLEFT" or "BOTTOMLEFT", tex)
+								f:SetSize(right - left, fh)
+							end
+							f:Show()
+						end
+					end
+					seen[id] = true
+				end
+			end
+		end
+	end
+
+	for id, tex in pairs(activeTiles) do
+		if not seen[id] then
+			ReleaseTexture(tex)
+			activeTiles[id] = nil
+		end
+	end
+end
+
+local function RenderArrow()
+	if state.playerCol and state.playerMap == state.map and not state.hideMarker then
+		local w, h = viewport:GetSize()
+		local x = (state.playerCol - state.cx) * state.zoom + w / 2
+		local y = (state.playerRow - state.cy) * state.zoom + h / 2
+		playerMarker:ClearAllPoints()
+		playerMarker:SetPoint("CENTER", overlay, "TOPLEFT", x, -y)
+		local facing = GetPlayerFacing()
+		if facing then
+			arrow:SetRotation(facing)
+			arrow:Show()
+		else
+			arrow:Hide()
+		end
+		playerMarker:Show()
+	else
+		playerMarker:Hide()
+	end
+end
+
+---------------------------------------------------------------------------
+-- Map geometry from C_Map (world-space rectangles; no map artwork is used)
+---------------------------------------------------------------------------
+
+local MAPTYPE_CONTINENT = Enum and Enum.UIMapType and Enum.UIMapType.Continent or 2
+local MAPTYPE_ZONE = Enum and Enum.UIMapType and Enum.UIMapType.Zone or 3
+local MAPTYPE_MICRO = Enum and Enum.UIMapType and Enum.UIMapType.Micro or 5
+
+local mapRects = {}        -- uiMapID -> { inst, col0, row0, col1, row1 } | false
+local zonesByMap           -- instanceID -> sorted list of zone rects (+ name, uiMapID)
+local continentByInst = {} -- instanceID -> uiMapID of the continent map
+local questMapsByInst = {} -- instanceID -> uiMapIDs (zones + micro maps) that can carry quests
+
+local function MapPos(x, y)
+	if CreateVector2D then return CreateVector2D(x, y) end
+	return { x = x, y = y }
+end
+
+local function WorldXY(v)
+	if v.GetXY then return v:GetXY() end
+	return v.x, v.y
+end
+
+-- A uiMap is an axis-aligned rectangle in world space, so two corners
+-- give us a linear transform between its normalized coords and tile space.
+local function MapRect(uiMapID)
+	local rect = mapRects[uiMapID]
+	if rect ~= nil then return rect or nil end
+	rect = false
+	if uiMapID and C_Map and C_Map.GetWorldPosFromMapPos then
+		local ok, inst, tl = pcall(C_Map.GetWorldPosFromMapPos, uiMapID, MapPos(0, 0))
+		local ok2, inst2, br = pcall(C_Map.GetWorldPosFromMapPos, uiMapID, MapPos(1, 1))
+		if ok and ok2 and inst and tl and br and inst == inst2 then
+			-- Same axis order as UnitPosition: (north, west).
+			local top, left = WorldXY(tl)
+			local bottom, right = WorldXY(br)
+			local col0, row0 = WorldToTile(top, left)
+			local col1, row1 = WorldToTile(bottom, right)
+			if col1 > col0 and row1 > row0 then
+				rect = { inst = inst, col0 = col0, row0 = row0, col1 = col1, row1 = row1 }
+			end
+		end
+	end
+	mapRects[uiMapID] = rect
+	return rect or nil
+end
+
+-- uiMap normalized (x, y) -> instanceID, col, row
+local function MapToTile(uiMapID, x, y)
+	local r = MapRect(uiMapID)
+	if not r then return nil end
+	return r.inst, r.col0 + (r.col1 - r.col0) * x, r.row0 + (r.row1 - r.row0) * y
+end
+
+-- tile (col, row) -> uiMap normalized (x, y)
+local function TileToMap(uiMapID, col, row)
+	local r = MapRect(uiMapID)
+	if not r then return nil end
+	return (col - r.col0) / (r.col1 - r.col0), (row - r.row0) / (r.row1 - r.row0)
+end
+
+local function BuildZones()
+	zonesByMap = {}
+	wipe(continentByInst)
+	wipe(questMapsByInst)
+	if not (C_Map and C_Map.GetMapInfo) then return end
+	local seenNames, continentArea = {}, {}
+	for uiMapID = 1, 4000 do
+		local info = C_Map.GetMapInfo(uiMapID)
+		local wanted = info and (info.mapType == MAPTYPE_ZONE or info.mapType == MAPTYPE_CONTINENT or info.mapType == MAPTYPE_MICRO)
+		if wanted and info.name and info.name ~= "" then
+			local r = MapRect(uiMapID)
+			if r and TileData[r.inst] and info.mapType ~= MAPTYPE_CONTINENT then
+				questMapsByInst[r.inst] = questMapsByInst[r.inst] or {}
+				table.insert(questMapsByInst[r.inst], uiMapID)
+			end
+			-- Only zones and continents go in the zone list; micro maps are for quests.
+			if r and TileData[r.inst] and info.mapType ~= MAPTYPE_MICRO then
+				if info.mapType == MAPTYPE_CONTINENT then
+					-- Several continent maps can share an instance; keep the biggest.
+					local area = (r.col1 - r.col0) * (r.row1 - r.row0)
+					if area > (continentArea[r.inst] or 0) then
+						continentArea[r.inst] = area
+						continentByInst[r.inst] = uiMapID
+					end
+				else
+					local key = r.inst .. ":" .. info.name
+					if not seenNames[key] then
+						seenNames[key] = true
+						local list = zonesByMap[r.inst] or {}
+						zonesByMap[r.inst] = list
+						list[#list + 1] = { name = info.name, uiMapID = uiMapID,
+							col0 = r.col0, col1 = r.col1, row0 = r.row0, row1 = r.row1 }
+					end
+				end
+			end
+		end
+	end
+	for _, list in pairs(zonesByMap) do
+		table.sort(list, function(a, b) return a.name < b.name end)
+	end
+end
+
+local function GetZones(mapID)
+	if not zonesByMap then BuildZones() end
+	return zonesByMap[mapID] or {}
+end
+
+local function GetContinentMapID(mapID)
+	if not zonesByMap then BuildZones() end
+	return continentByInst[mapID]
+end
+
+local function GetQuestMaps(mapID)
+	if not zonesByMap then BuildZones() end
+	return questMapsByInst[mapID] or {}
+end
+
+---------------------------------------------------------------------------
+-- Camera: all view changes go through here. Flights (AnimateTo) are eased;
+-- zooming in keeps the destination on a straight line toward the centre
+-- (it "comes to you"). Wheel zoom instead chases a target zoom, closing a
+-- fixed fraction of the (log) distance per second: quick ticks just move the
+-- target, so the motion stays continuous instead of restarting a curve per
+-- tick. It pins the point under the cursor (or you, when following).
+---------------------------------------------------------------------------
+
+local anim
+local zoomGoal, zoomAnchor -- wheel zoom target, and { tx, ty, dx, dy }: world point kept at that screen offset
+
+local function ViewSize() return viewport:GetSize() end
+
+local function SaveView()
+	db.zoom, db.cx, db.cy = state.zoom, state.cx, state.cy
+end
+
+local function EaseOutCubic(t) return 1 - (1 - t) ^ 3 end
+
+-- opts.anchor = { tx, ty, dx, dy }: keep world point (tx,ty) at screen offset (dx,dy) from centre.
+local function AnimateTo(cx, cy, zoom, duration, opts)
+	opts = opts or {}
+	zoomGoal = nil
+	anim = {
+		t = 0, dur = duration,
+		fx = state.cx, fy = state.cy, fz = state.zoom,
+		tx = cx, ty = cy, tz = Clamp(zoom, MIN_ZOOM, MAX_ZOOM),
+		anchor = opts.anchor, onDone = opts.onDone,
+	}
+end
+
+local function StopAnimation()
+	anim = nil
+	zoomGoal = nil
+end
+
+local function StepZoom(elapsed)
+	if not zoomGoal then return end
+	local lz, lg = math.log(state.zoom), math.log(zoomGoal)
+	local z = math.exp(lz + (lg - lz) * (1 - math.exp(-ZOOM_RATE * elapsed)))
+	if math.abs(lg - math.log(z)) < 0.002 then
+		z = zoomGoal
+		zoomGoal = nil
+	end
+	state.zoom = z
+	if zoomAnchor and not state.follow then
+		local a = zoomAnchor
+		state.cx, state.cy = a[1] - a[3] / z, a[2] - a[4] / z
+	end
+	state.dirty = true
+	if not zoomGoal then SaveView() end
+end
+
+-- Path mode: keep you and your target (ns.GetTarget: the quest you follow,
+-- else your waypoint) framed, a margin clear around both.
+local PATH_MARGIN = 0.15  -- of the view, each side
+local PATH_RATE = 5       -- per second: how quickly the camera eases to the framing
+local PATH_MAX_ZOOM = 512 -- never closer than this, even with the target beside you
+
+-- Centre and zoom that frame you and the target, or nil if there's no target
+-- on your map.
+local function PathFraming()
+	local t = ns.GetTarget and ns.GetTarget()
+	if not (t and state.playerCol and state.playerMap == state.map) then return nil end
+	local pc, pr = state.playerCol, state.playerRow
+	local c0, c1 = math.min(pc, t.col), math.max(pc, t.col)
+	local r0, r1 = math.min(pr, t.row), math.max(pr, t.row)
+	local w, h = ViewSize()
+	local fw, fh = w * (1 - 2 * PATH_MARGIN), h * (1 - 2 * PATH_MARGIN)
+	local zoom = math.min(fw / math.max(c1 - c0, 1e-4), fh / math.max(r1 - r0, 1e-4))
+	return (c0 + c1) / 2, (r0 + r1) / 2, Clamp(zoom, MIN_ZOOM, PATH_MAX_ZOOM)
+end
+
+-- Where the camera is headed: the zoom and centre it will settle at.
+local function GoalZoom()
+	if state.path and not anim then
+		local _, _, z = PathFraming()
+		if z then return z end
+	end
+	return zoomGoal or (anim and anim.tz) or state.zoom
+end
+
+local function GoalCenter()
+	if state.path and not anim then
+		local cx, cy = PathFraming()
+		if cx then return cx, cy end
+	end
+	if state.follow and state.playerCol then return state.playerCol, state.playerRow end
+	if anim and not anim.anchor then return anim.tx, anim.ty end
+	if zoomGoal and zoomAnchor then
+		local a = zoomAnchor
+		return a[1] - a[3] / zoomGoal, a[2] - a[4] / zoomGoal
+	end
+	return state.cx, state.cy
+end
+
+local function StepAnimation(elapsed)
+	if not anim then return end
+	anim.t = anim.t + elapsed
+	local p = math.min(1, anim.t / anim.dur)
+	local e = EaseOutCubic(p)
+	local z = math.exp(math.log(anim.fz) + (math.log(anim.tz) - math.log(anim.fz)) * e)
+	state.zoom = z
+	if anim.anchor then
+		local a = anim.anchor
+		state.cx, state.cy = a[1] - a[3] / z, a[2] - a[4] / z
+	elseif anim.tz > anim.fz then
+		-- The target's screen offset shrinks linearly while we zoom in on it.
+		local k = (anim.fz / z) * (1 - e)
+		state.cx = anim.tx - (anim.tx - anim.fx) * k
+		state.cy = anim.ty - (anim.ty - anim.fy) * k
+	else
+		state.cx = anim.fx + (anim.tx - anim.fx) * e
+		state.cy = anim.fy + (anim.ty - anim.fy) * e
+	end
+	state.dirty = true
+	if p >= 1 then
+		local done = anim.onDone
+		anim = nil
+		SaveView()
+		if done then done() end
+	end
+end
+
+local function FitZoom(col0, row0, col1, row1, margin)
+	local w, h = ViewSize()
+	return Clamp(math.min(w / (col1 - col0), h / (row1 - row0)) * (margin or 0.92), MIN_ZOOM, MAX_ZOOM)
+end
+
+local function CursorInViewport()
+	local scale = viewport:GetEffectiveScale()
+	local x, y = GetCursorPosition()
+	return x / scale - viewport:GetLeft(), viewport:GetTop() - y / scale
+end
+
+local function CursorTile()
+	local mx, my = CursorInViewport()
+	local w, h = ViewSize()
+	return state.cx + (mx - w / 2) / state.zoom, state.cy + (my - h / 2) / state.zoom
+end
+
+local function TileToScreen(col, row)
+	local w, h = ViewSize()
+	return (col - state.cx) * state.zoom + w / 2, (row - state.cy) * state.zoom + h / 2
+end
+
+---------------------------------------------------------------------------
+-- View state
+---------------------------------------------------------------------------
+
+local CONTINENT_MIN_TILES = 300 -- open-world maps this big are listed as continents
+
+local function UpdateControls()
+	local follow = buttons.follow.icon
+	follow:SetDesaturated(not state.follow)
+	follow:SetVertexColor(1, 1, 1, state.follow and 1 or 0.55)
+	-- Path: lit while framing; brighter when it's your choice, waiting for a target.
+	local path = buttons.path.icon
+	path:SetDesaturated(not state.path)
+	path:SetVertexColor(1, 1, 1, state.path and 1 or (db.cameraMode == "path" and 0.85 or 0.55))
+end
+
+local function SetMap(mapID)
+	if mapID == state.map then return end
+	state.map = mapID
+	state.zoneName = nil
+	db.map = mapID
+	SetBackdrop(TileData[mapID] and TileData[mapID].bg)
+	UpdateControls()
+	state.dirty = true
+	Fire("MapChanged", mapID)
+end
+
+local function SetFollow(on, animate)
+	if on and animate and state.playerCol then
+		-- Glide back to you (on your map), then lock on.
+		if state.playerMap ~= state.map then SetMap(state.playerMap) end
+		AnimateTo(state.playerCol, state.playerRow, math.max(state.zoom, 160), FLY_TIME, {
+			onDone = function() SetFollow(true) end,
+		})
+		return
+	end
+	state.follow = on
+	db.follow = on
+	if on then state.path = false end
+	if on and state.playerCol then SetMap(state.playerMap) end
+	UpdateControls()
+	state.dirty = true
+end
+
+-- Path mode on (if there's a target on your map) or off. Returns whether it's on.
+local function SetPath(on)
+	if on then
+		if state.playerMap and state.playerMap ~= state.map then SetMap(state.playerMap) end
+		if not PathFraming() then return false end
+		StopAnimation()
+		state.follow = false
+		db.follow = false
+	end
+	state.path = on and true or false
+	UpdateControls()
+	state.dirty = true
+	return state.path
+end
+
+-- Back to you, the way you last chose: framing you and your target, or following.
+local function ReturnToYou()
+	if db.cameraMode == "path" and SetPath(true) then return end
+	SetFollow(true, true)
+end
+
+-- Ease toward the framing. The zoom holds while both still fit comfortably,
+-- so walking toward the target doesn't keep the view breathing.
+local function StepPath(elapsed)
+	state.pathMoving = false
+	if not state.path then
+		-- Path mode is your choice and a target turned up: back to it.
+		if db.cameraMode == "path" and state.follow and not anim and PathFraming() then SetPath(true) end
+		return
+	end
+	if anim or state.dragging then return end
+	local cx, cy, z = PathFraming()
+	if not cx then
+		SetFollow(true, true) -- the target's gone, or you're elsewhere: follow you meanwhile
+		return
+	end
+	local cur = state.zoom
+	if cur <= z and cur >= z * 0.7 then z = cur end
+	local k = 1 - math.exp(-PATH_RATE * elapsed)
+	local nz = math.exp(math.log(cur) + (math.log(z) - math.log(cur)) * k)
+	local ncx, ncy = state.cx + (cx - state.cx) * k, state.cy + (cy - state.cy) * k
+	local zooming = math.abs(nz - cur) / cur > 1e-4
+	if zooming or math.abs(ncx - state.cx) * cur > 0.02 or math.abs(ncy - state.cy) * cur > 0.02 then
+		state.zoom, state.cx, state.cy = nz, ncx, ncy
+		state.pathMoving = zooming
+		state.dirty = true
+	end
+end
+
+local function UpdatePlayer()
+	local north, west, _, inst = UnitPosition("player")
+	if north then
+		state.playerCol, state.playerRow = WorldToTile(north, west)
+		state.playerMap = inst
+	else
+		-- Instances may withhold your position; still know which map you're on.
+		state.playerCol, state.playerRow = nil, nil
+		local inst = GetInstanceInfo and select(8, GetInstanceInfo())
+		state.playerMap = inst and TileData[inst] and inst or nil
+	end
+end
+
+local function FlyToRect(col0, row0, col1, row1, name)
+	SetFollow(false)
+	state.zoneName = name
+	AnimateTo((col0 + col1) / 2, (row0 + row1) / 2, FitZoom(col0, row0, col1, row1), FLY_TIME)
+end
+
+local function ZoomToZone(zone)
+	FlyToRect(zone.col0, zone.row0, zone.col1, zone.row1, zone.name)
+end
+
+-- Show a whole map, fit to the window.
+local function FitMap(mapID)
+	SetMap(mapID)
+	local cont = GetContinentMapID(mapID)
+	local r = cont and MapRect(cont)
+	local c0, r0, c1, r1
+	if r then
+		c0, r0, c1, r1 = r.col0, r.row0, r.col1, r.row1
+	else
+		c0, r0, c1, r1 = TileBounds(mapID)
+	end
+	if c0 then
+		state.cx, state.cy = (c0 + c1) / 2, (r0 + r1) / 2
+		state.zoom = FitZoom(c0, r0, c1, r1, 1.0)
+	else
+		state.cx, state.cy = 32, 32
+	end
+	SaveView()
+	state.dirty = true
+end
+
+local function ShowMap(mapID)
+	SetFollow(false)
+	StopAnimation()
+	FitMap(mapID)
+end
+
+---------------------------------------------------------------------------
+-- Map picker (the title): continents, other open-world maps, and instances
+-- by kind and the continent their entrance is on. Uses the client's own
+-- menu (MenuUtil) where it exists; otherwise a flat list in our own menu.
+---------------------------------------------------------------------------
+
+local KINDS = { { "dungeon", "Dungeons" }, { "raid", "Raids" } }
+
+local function ByName(a, b) return TileData[a].name < TileData[b].name end
+
+-- { continents = {ids}, others = {ids}, dungeon = { {name, ids}, ... }, raid = ... }
+local function MapGroups()
+	local g = { continents = {}, others = {} }
+	local byKind = {}
+	for _, id in ipairs(SortedMapIDs()) do
+		local data = TileData[id]
+		if data.kind then
+			local groups = byKind[data.kind] or {}
+			byKind[data.kind] = groups
+			local cont = data.continent and TileData[data.continent] and TileData[data.continent].name or "Other"
+			groups[cont] = groups[cont] or {}
+			table.insert(groups[cont], id)
+		elseif (tileCounts[id] or 0) >= CONTINENT_MIN_TILES then
+			table.insert(g.continents, id)
+		else
+			table.insert(g.others, id)
+		end
+	end
+	table.sort(g.continents, ByName)
+	table.sort(g.others, ByName)
+	for _, k in ipairs(KINDS) do
+		local list = {}
+		for name, ids in pairs(byKind[k[1]] or {}) do
+			table.sort(ids, ByName)
+			list[#list + 1] = { name = name, ids = ids }
+		end
+		-- By continent name, with the unplaced ones last.
+		table.sort(list, function(a, b)
+			if (a.name == "Other") ~= (b.name == "Other") then return b.name == "Other" end
+			return a.name < b.name
+		end)
+		g[k[1]] = list
+	end
+	return g
+end
+
+OpenMapMenu = function(owner)
+	-- Without MenuUtil, the fallback menu below opens from the title's clicks itself.
+	if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
+	local g = MapGroups()
+	MenuUtil.CreateContextMenu(owner, function(_, root)
+		local function Radio(parent, id)
+			parent:CreateRadio(TileData[id].name, function() return state.map == id end, function()
+				ShowMap(id)
+				frame:Show()
+				return MenuResponse and MenuResponse.Close
+			end)
+		end
+		root:CreateTitle("Continents")
+		for _, id in ipairs(g.continents) do Radio(root, id) end
+		if #g.others > 0 then
+			local other = root:CreateButton("Other maps")
+			for _, id in ipairs(g.others) do Radio(other, id) end
+		end
+		if #g.dungeon + #g.raid > 0 then
+			root:CreateDivider()
+			root:CreateTitle("Instances")
+			for _, k in ipairs(KINDS) do
+				local groups = g[k[1]]
+				if #groups > 0 then
+					local kind = root:CreateButton(k[2])
+					for _, group in ipairs(groups) do
+						-- Only one group: skip the continent level.
+						local parent = #groups > 1 and kind:CreateButton(group.name) or kind
+						for _, id in ipairs(group.ids) do Radio(parent, id) end
+					end
+				end
+			end
+		end
+	end)
+end
+
+-- Older clients: one scrolling list with section headings, opened by
+-- AttachMenu from the title's own clicks.
+if not (MenuUtil and MenuUtil.CreateContextMenu) then
+	local menu = ns.AttachMenu(titleButton, 220, "downleft")
+	menu.onSelect = function(id) ShowMap(id) end
+	menu.getItems = function()
+		local g, items = MapGroups(), {}
+		local function Head(text) items[#items + 1] = { text = "|cffffd100" .. text .. "|r", disabled = true } end
+		local function Item(id, indent)
+			items[#items + 1] = { text = (indent or "") .. TileData[id].name, value = id, selected = id == state.map }
+		end
+		Head("Continents")
+		for _, id in ipairs(g.continents) do Item(id) end
+		if #g.others > 0 then Head("Other maps") end
+		for _, id in ipairs(g.others) do Item(id) end
+		for _, k in ipairs(KINDS) do
+			for _, group in ipairs(g[k[1]]) do
+				Head(k[2] .. (#g[k[1]] > 1 and (" · " .. group.name) or ""))
+				for _, id in ipairs(group.ids) do Item(id, "  ") end
+			end
+		end
+		return items
+	end
+end
+
+---------------------------------------------------------------------------
+-- Title text. Hovering the map: the zone under the cursor. Otherwise: where
+-- you are (or what you're looking at, if browsing another continent).
+---------------------------------------------------------------------------
+
+local SEP = "  ·  "
+local function Coords(x, y) return string.format("%.1f, %.1f", x * 100, y * 100) end
+
+local hoverZoneID
+local function UpdateTitle()
+	local continent = TileData[state.map] and TileData[state.map].name or ("Instance " .. tostring(state.map))
+	local name, parts = nil, {}
+	local hovering = viewport:IsMouseOver()
+	local tc, tr
+	hoverZoneID = nil
+	if hovering then tc, tr = CursorTile() end
+	-- Compact (minimap mode) always names where you are; coordinates only on hover.
+	local here = compact and state.playerMap and state.playerMap == state.map
+	if hovering and not here then
+		local z = ns.GetZoneAt and ns.GetZoneAt(tc, tr)
+		if z then
+			hoverZoneID = z.mapID
+			name = z.name
+			parts[#parts + 1] = Coords(z.x, z.y)
+		else
+			name = continent
+		end
+		local hgt = HeightAt(state.map, tc, tr)
+		if hgt then parts[#parts + 1] = string.format("%d yd", math.floor(hgt + 0.5)) end
+	elseif here or (state.playerMap and state.playerMap == state.map) then
+		local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+		local info = mapID and C_Map.GetMapInfo(mapID)
+		name = (info and info.name) or GetZoneText()
+		local subzone = GetSubZoneText and GetSubZoneText()
+		if subzone and subzone ~= "" and subzone ~= name then parts[#parts + 1] = subzone end
+		local pos = mapID and C_Map.GetPlayerMapPosition and C_Map.GetPlayerMapPosition(mapID, "player")
+		if pos and (not compact or hovering) then
+			local x, y = pos:GetXY()
+			parts[#parts + 1] = Coords(x, y)
+		end
+		local t = state.path and (not compact or hovering) and ns.GetTarget and ns.GetTarget()
+		if t and state.playerCol then
+			local yd = math.sqrt((t.col - state.playerCol) ^ 2 + (t.row - state.playerRow) ^ 2) * TILE_YARDS
+			parts[#parts + 1] = string.format("|cffffd27f%s|r %d yd", t.title or "Target", math.floor(yd + 0.5))
+		end
+	else
+		name = state.zoneName or continent
+		if not compact then parts[#parts + 1] = "|cff8a7f6eright-click to return to you|r" end
+	end
+	if db.debug then
+		tc, tr = tc or state.cx, tr or state.cy
+		local col, row = math.floor(tc), math.floor(tr)
+		local tiles = GetTiles(state.map)
+		local fdid = tiles and col >= 0 and col < 64 and row >= 0 and row < 64 and tiles[col * 64 + row]
+		local ls = ns.layoutStats
+		parts[#parts + 1] = string.format("|cff777777%d_%d  %s  zoom %d  layout %.1f ms / %d lines  %s|r",
+			col, row, fdid and tostring(fdid) or "-", state.zoom, ls and ls.ms or 0, ls and ls.lines or 0, tostring(tileSetVersion))
+	end
+	local sub = table.concat(parts, SEP)
+	if title:GetText() ~= name or subtitle:GetText() ~= sub then
+		title:SetText(name)
+		subtitle:SetText(sub)
+		FitTitle()
+	end
+
+	-- Click-to-zone is offered only while more than one zone is in view.
+	local clickable = hoverZoneID and not state.dragging and ns.ZonesInView and ns.ZonesInView() > 1
+	if ns.SetHoverZone then ns.SetHoverZone(clickable and hoverZoneID or nil) end
+	if ns.OnMapHover then
+		if hovering then ns.OnMapHover(tc, tr) else ns.OnMapHover(nil) end
+	end
+	state.canClickZone = clickable
+end
+
+---------------------------------------------------------------------------
+-- Input
+---------------------------------------------------------------------------
+
+local press -- { x, y, t } of the current left-button press, for click detection
+
+viewport:SetScript("OnMouseDown", function(_, button)
+	if button == "LeftButton" and IsAltKeyDown() then
+		frame:StartMoving()
+		state.movingFrame = true
+		return
+	end
+	if ns.OnMapClick and (IsShiftKeyDown() or IsControlKeyDown()) and ns.OnMapClick(button, CursorTile()) then
+		return
+	end
+	if button == "LeftButton" then
+		local scale = viewport:GetEffectiveScale()
+		local x, y = GetCursorPosition()
+		state.lastInteract = GetTime()
+		StopAnimation()
+		state.dragging = true
+		state.lastCursorX, state.lastCursorY = x / scale, y / scale
+		press = { x = x / scale, y = y / scale, t = GetTime(), clickable = state.canClickZone, zone = hoverZoneID }
+	elseif button == "RightButton" then
+		ReturnToYou()
+	end
+end)
+
+viewport:SetScript("OnMouseUp", function(_, button)
+	if state.movingFrame then
+		frame:StopMovingOrSizing()
+		state.movingFrame = nil
+		local p, _, rp, x, y = frame:GetPoint()
+		db.point = { p, rp, x, y }
+		return
+	end
+	if button ~= "LeftButton" then return end
+	state.dragging = false
+	SaveView()
+	-- A quick, still click: on a quest, follows it (ns.OnMapTap; its area only
+	-- counts when zone clicks aren't on offer); otherwise, on a zone (while
+	-- several are in view), flies there.
+	if press and not press.moved and GetTime() - press.t < CLICK_TIME then
+		local col, row = CursorTile()
+		if ns.OnMapTap and ns.OnMapTap(col, row, not press.clickable) then
+			press = nil
+			return
+		end
+		if press.clickable and press.zone then
+			local r = MapRect(press.zone)
+			local info = C_Map.GetMapInfo(press.zone)
+			if r and r.inst == state.map then FlyToRect(r.col0, r.row0, r.col1, r.row1, info and info.name) end
+		end
+	end
+	press = nil
+end)
+
+viewport:SetScript("OnMouseWheel", function(_, delta)
+	local w, h = ViewSize()
+	local factor = delta > 0 and WHEEL_STEP or 1 / WHEEL_STEP
+	state.lastInteract = GetTime()
+	if state.path then SetPath(false) end
+	-- Quick ticks stack onto the running target.
+	local target = Clamp((zoomGoal or state.zoom) * factor, MIN_ZOOM, MAX_ZOOM)
+	anim = nil
+	local ax, ay
+	if state.follow and state.playerCol then
+		ax, ay = TileToScreen(state.playerCol, state.playerRow) -- keep you where you are
+	else
+		ax, ay = CursorInViewport()
+	end
+	local tx = state.cx + (ax - w / 2) / state.zoom
+	local ty = state.cy + (ay - h / 2) / state.zoom
+	zoomGoal, zoomAnchor = target, { tx, ty, ax - w / 2, ay - h / 2 }
+end)
+
+viewport:SetScript("OnSizeChanged", function()
+	state.dirty = true
+	FitTitle()
+end)
+
+buttons.follow:SetScript("OnClick", function()
+	if state.follow then
+		SetFollow(false)
+	else
+		db.cameraMode = "follow"
+		SetFollow(true, true)
+	end
+end)
+buttons.path:SetScript("OnClick", function()
+	if state.path then
+		db.cameraMode = "follow"
+		SetFollow(true, true)
+	else
+		db.cameraMode = "path"
+		if not SetPath(true) then
+			Print("path mode on: it'll frame you and your target once there is one. Ctrl-click the map for a waypoint, or click a quest to follow it.")
+		end
+	end
+	UpdateControls()
+end)
+
+local function Tooltip(button, fn)
+	button:HookScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_BOTTOM", 0, -4)
+		GameTooltip:SetText(fn(), 1, 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+end
+Tooltip(buttons.follow, function()
+	return state.follow and "Following you  |cff888888(drag the map to stop)|r"
+		or "Follow me  |cff888888(or right-click the map)|r"
+end)
+Tooltip(buttons.path, function()
+	if state.path then return "Path: you and your target  |cff888888(click to just follow you)|r" end
+	return "Path mode  |cff888888(keep you and your waypoint or followed quest in view)|r"
+end)
+
+local titleElapsed = 0
+frame:SetScript("OnUpdate", function(_, elapsed)
+	UpdatePlayer()
+	StepAnimation(elapsed)
+	StepZoom(elapsed)
+	StepPath(elapsed)
+
+	if state.dragging then
+		if not IsMouseButtonDown("LeftButton") then
+			state.dragging = false
+		else
+			local scale = viewport:GetEffectiveScale()
+			local x, y = GetCursorPosition()
+			x, y = x / scale, y / scale
+			local dx, dy = x - state.lastCursorX, y - state.lastCursorY
+			if press and (math.abs(x - press.x) > CLICK_SLOP or math.abs(y - press.y) > CLICK_SLOP) then
+				press.moved = true
+				if state.follow then SetFollow(false) end
+				if state.path then SetPath(false) end
+			end
+			if (dx ~= 0 or dy ~= 0) and (not press or press.moved) then
+				state.cx = state.cx - dx / state.zoom
+				state.cy = state.cy + dy / state.zoom -- screen y is up, rows grow south
+				state.lastCursorX, state.lastCursorY = x, y
+				state.dirty = true
+			end
+		end
+	end
+
+	if state.follow and not state.playerCol and state.playerMap and state.playerMap ~= state.map and not anim then
+		FitMap(state.playerMap) -- an instance that hides your position: show it whole
+	end
+	if state.follow and state.playerCol and not anim then
+		if state.playerMap ~= state.map then SetMap(state.playerMap) end
+		if state.cx ~= state.playerCol or state.cy ~= state.playerRow then
+			state.cx, state.cy = state.playerCol, state.playerRow
+			state.dirty = true
+		end
+	end
+	if state.dirty then
+		RenderTiles()
+		state.dirty = false
+		Fire("ViewChanged")
+	end
+	RenderArrow()
+	StepCompactHover(elapsed)
+	titleElapsed = titleElapsed + (elapsed or 0)
+	if titleElapsed > 0.05 then
+		titleElapsed = 0
+		UpdateTitle()
+	end
+end)
+
+frame:SetScript("OnShow", function() db.shown = true; state.dirty = true end)
+frame:SetScript("OnHide", function()
+	db.shown = false
+	state.dragging = false
+	if state.movingFrame then
+		frame:StopMovingOrSizing()
+		state.movingFrame = nil
+	end
+	SaveView()
+end)
+
+-- API for Layers.lua / Landmarks.lua
+ns.state = state
+ns.frame = frame
+ns.viewport = viewport
+ns.layerFrames = layerFrames
+ns.overlay = overlay
+ns.layersButton = buttons.layers
+ns.minimapButton = buttons.minimap
+ns.SetCompact = SetCompact
+ns.IsCompact = function() return compact end
+ns.FitTitle = FitTitle
+ns.SetFollow = SetFollow
+ns.Tooltip = Tooltip
+ns.SetZoom = function(zoom)
+	StopAnimation()
+	state.zoom = Clamp(zoom, MIN_ZOOM, MAX_ZOOM)
+	SaveView()
+	state.dirty = true
+end
+ns.SaveFrameLayout = function()
+	local p, _, rp, x, y = frame:GetPoint()
+	db.point = { p, rp, x, y }
+	db.width, db.height = frame:GetSize()
+end
+ns.Print = Print
+ns.TileToScreen = TileToScreen
+ns.IsAnimating = function() return anim ~= nil or zoomGoal ~= nil or state.pathMoving end
+ns.SetPath, ns.ReturnToYou, ns.UpdateControls = SetPath, ReturnToYou, UpdateControls
+ns.GoalZoom, ns.GoalCenter = GoalZoom, GoalCenter
+ns.FlyTo = function(cx, cy, zoom, duration, onDone) AnimateTo(cx, cy, zoom, duration or FLY_TIME, { onDone = onDone }) end
+ns.FitZoom = FitZoom
+ns.WorldToTile = WorldToTile
+ns.MapRect, ns.MapToTile, ns.TileToMap = MapRect, MapToTile, TileToMap
+ns.GetZones, ns.GetContinentMapID, ns.GetQuestMaps = GetZones, GetContinentMapID, GetQuestMaps
+ns.slash = {} -- extra /mm subcommands: name -> fn(arg)
+ns.Toggle = function() frame:SetShown(not frame:IsShown()) end
+
+---------------------------------------------------------------------------
+-- Init + slash commands
+---------------------------------------------------------------------------
+
+local events = CreateFrame("Frame")
+events:RegisterEvent("ADDON_LOADED")
+events:RegisterEvent("PLAYER_ENTERING_WORLD")
+events:SetScript("OnEvent", function(self, event, arg1)
+	if event == "ADDON_LOADED" and arg1 == ADDON then
+		MagicMapDB = MagicMapDB or {}
+		db = MagicMapDB
+		for k, v in pairs(defaults) do
+			if db[k] == nil then db[k] = v end
+		end
+		LoadTileSet(PickTileSet())
+		frame:SetSize(db.width, db.height)
+		frame:ClearAllPoints()
+		frame:SetPoint(db.point[1], UIParent, db.point[2], db.point[3], db.point[4])
+		state.zoom = Clamp(db.zoom, MIN_ZOOM, MAX_ZOOM)
+		state.follow = db.follow
+		state.cx, state.cy = db.cx, db.cy
+		self:UnregisterEvent("ADDON_LOADED")
+		Fire("Loaded", db)
+	elseif event == "PLAYER_ENTERING_WORLD" then
+		UpdatePlayer()
+		if not state.map then
+			SetMap((not state.follow and db.map) or state.playerMap or db.map or 1)
+		elseif state.follow and state.playerMap then
+			SetMap(state.playerMap)
+		end
+		UpdateControls()
+		if db.shown then frame:Show() end
+	end
+end)
+
+SLASH_MAGICMAP1 = "/mm"
+SLASH_MAGICMAP2 = "/magicmap"
+SlashCmdList.MAGICMAP = function(msg)
+	local cmd, arg = strsplit(" ", strtrim(msg or ""):lower(), 2)
+	if cmd == "" or cmd == "toggle" then
+		ns.Toggle()
+	elseif cmd == "follow" then
+		SetFollow(not state.follow, true)
+	elseif cmd == "map" then
+		local id = tonumber(arg)
+		if not id then
+			for mapID, data in pairs(TileData) do
+				if arg and (data.name:lower() == arg) then id = mapID end
+			end
+		end
+		if id and TileData[id] then
+			ShowMap(id)
+			frame:Show()
+		else
+			local names = {}
+			for _, mapID in ipairs(SortedMapIDs()) do
+				names[#names + 1] = mapID .. "=" .. TileData[mapID].name
+			end
+			Print("usage: /mm map <id|name>  (" .. table.concat(names, ", ") .. ")")
+		end
+	elseif cmd == "zone" and arg then
+		-- Search every map, preferring the one on screen.
+		local found
+		for _, mapID in ipairs({ state.map or -1, unpack(SortedMapIDs()) }) do
+			for _, zone in ipairs(GetZones(mapID)) do
+				if not found and zone.name:lower():find(arg, 1, true) then
+					found = zone
+					SetMap(mapID)
+				end
+			end
+		end
+		if found then
+			frame:Show()
+			ZoomToZone(found)
+		else
+			Print("no zone matching '" .. arg .. "'")
+		end
+	elseif cmd == "tiles" then
+		local names = {}
+		for _, mapID in ipairs(SortedMapIDs()) do
+			names[#names + 1] = TileData[mapID].name .. " (" .. tileCounts[mapID] .. ")"
+		end
+		Print("tile set: " .. tostring(tileSetName) .. " " .. tostring(tileSetVersion) .. ". Maps: " .. table.concat(names, ", "))
+	elseif cmd == "reset" then
+		frame:ClearAllPoints()
+		frame:SetPoint("CENTER")
+		frame:SetSize(defaults.width, defaults.height)
+		db.point, db.width, db.height = { "CENTER", "CENTER", 0, 0 }, defaults.width, defaults.height
+		state.zoom = defaults.zoom
+		SetFollow(true)
+		frame:Show()
+	elseif cmd == "debug" then
+		db.debug = not db.debug
+		Print("debug info " .. (db.debug and "on" or "off"))
+	elseif ns.slash[cmd] then
+		ns.slash[cmd](arg)
+	else
+		Print("/mm [toggle] | follow | map <id|name> | zone <name> | icon | minimap | tiles | layers | landmarks | debug | reset")
+	end
+end

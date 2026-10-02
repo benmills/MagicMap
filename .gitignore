@@ -1,0 +1,11 @@
+.DS_Store
+*.bak
+*.swp
+/.release/
+
+# Promo media (kept locally, attached to releases instead)
+*.mp4
+*.gif
+
+# Release builds
+/dist/
