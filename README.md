@@ -100,6 +100,10 @@ Slash commands (`/mm`): `follow`, `map <name>`, `zone <name>`, `minimap`, `layer
 The tools need Python 3.9+. Generators use only the standard library; the checks
 and tests need `pip install -r tools/requirements-dev.txt` (Lua 5.1 via `lupa`, and `pytest`).
 
+- `python3 tools/install.py [flavor]`: replaces the installed MagicMap in a WoW flavor folder
+  (`_classic_ptr_`, `_classic_beta_`, ...) with this working tree, after a Lua check; `/reload`
+  to test. Without a flavor it uses the one MagicMap is already installed in. The WoW folder
+  defaults to the standard location; set `MAGICMAP_WOW` or pass `--wow` if yours is elsewhere.
 - `python3 tools/luacheck.py`: compiles every file in the TOC with a real Lua 5.1 and checks
   globals from the bytecode: a global write is a missing `local`, a read of anything not set by
   the addon or listed in `tools/wow_globals.txt` is likely a typo. `--globals` lists them per file.
