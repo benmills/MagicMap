@@ -14,9 +14,18 @@ Anniversary, MoP Classic and Retail.
 
 ## Features
 
-- **Every continent and instance at minimap detail**, with smooth zoom and pan.
-- **Zone and sub-zone borders and names**, traced from the terrain itself.
-- **Quest areas** (the game's own) and **landmarks** you've used: vendors, trainers, flight points and more.
+**The map.** Every continent and instance at minimap detail, with smooth zoom from street level
+out to the whole map.
+
+![Zooming smoothly from a city out to the whole island](docs/big-map-zoom.gif)
+
+**Any continent, any zone.** Pick a continent or instance from the title, then click a zone to fly
+there. Zone and sub-zone borders and names are traced from the terrain itself.
+
+![Picking Eastern Kingdoms from the title, then clicking Dun Morogh to fly there](docs/pick-and-fly.gif)
+
+Also drawn: the game's own **quest areas**, and **landmarks** you've used (vendors, trainers,
+flight points and more).
 
 **Minimap mode.** MagicMap takes your minimap's spot and zooms out far past it. Blizzard's
 blips and other addons' pins (GatherMate, HandyNotes) still show on top, tooltips and all.
