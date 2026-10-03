@@ -208,14 +208,16 @@ local labelPool = Pool(function()
 end)
 
 -- The border builder is a coroutine resumed once a frame (see StartBuild);
--- DrawLine hands the frame back once the builder has had its slice.
+-- DrawLine hands the frame back once the builder has had its slice (an
+-- extension, only between whole lines: see BuildBorders).
 local BUILD_SLICE_MS = 3
 local URGENT_SLICE_MS = 8 -- while the view has run past the drawn borders
-local build -- { co, buf, zoom, region, map, ms, urgent }
+local build -- { co, buf, zoom, region, map, ms, urgent, extend, overflow }
 local sliceStart, drawn = 0, 0
-local function MaybeYield()
+local function MaybeYield(lineStart)
+	if build and build.extend and not lineStart then return end
 	drawn = drawn + 1
-	if drawn % 40 ~= 0 or not (build and coroutine.running() == build.co) then return end
+	if not lineStart and drawn % 40 ~= 0 or not (build and coroutine.running() == build.co) then return end
 	if debugprofilestop then
 		if debugprofilestop() - sliceStart > (build.urgent and URGENT_SLICE_MS or BUILD_SLICE_MS) then coroutine.yield() end
 	elseif drawn % 400 == 0 then
@@ -1589,10 +1591,6 @@ end
 -- one starts while the view still has PREFETCH of drawn border around it, so
 -- a pan finds it ready instead of running off the edge first.
 local REGION, PREFETCH = 1.0, 0.6
--- Shift a build's region ahead of a moving view by its velocity over
--- LEAD_TIME seconds, up to LEAD_MAX half-views (REGION - LEAD_MAX >= PREFETCH,
--- so a region always covers its own prefetch).
-local LEAD_MAX, LEAD_TIME = 0.35, 0.3
 -- Past this share of a pool's cap, panning rebuilds instead of extending.
 local EXTEND_MAX_FILL = 0.85
 
@@ -1609,17 +1607,16 @@ local function BuildBorders(buf, z, region, extend, b)
 		buf.drawn, buf.full = {}, nil
 	end
 	local drawn = buf.drawn
-	-- Where each line starts in the pools, so an abandoned extension can take
-	-- back a half-drawn one (see AbandonBuild).
-	-- An extension that runs out of lines stops (see the runner), rather than
-	-- remember lines it couldn't draw.
-	local function Mark(l)
+	-- An extension yields only between whole lines, so dropping it never
+	-- leaves half of one; one that runs out of lines stops (see the runner)
+	-- rather than remember lines it couldn't draw.
+	local function Room()
 		if not extend then return true end
 		if buf.sub:Full() or buf.shadow:Full() or buf.border:Full() then
 			b.overflow = true
 			return false
 		end
-		b.mark = { l, buf.sub.used, buf.shadow.used, buf.border.used }
+		MaybeYield(true)
 		return true
 	end
 	if Enabled("zoneBorders") then
@@ -1631,7 +1628,7 @@ local function BuildBorders(buf, z, region, extend, b)
 		if data then
 			for _, l in ipairs(data.zoneLines) do
 				if not drawn[l] and l.x1 >= c0 and l.x0 <= c1 and l.y1 >= r0 and l.y0 <= r1 then
-					if not Mark(l) then return end
+					if not Room() then return end
 					drawn[l] = true
 					local pts = LinePts(l, z)
 					-- The soft shadow only matters close up.
@@ -1651,16 +1648,14 @@ local function BuildBorders(buf, z, region, extend, b)
 			thick, r, g, b, a = SubLineStyle(z)
 			for _, l in ipairs(data and data.subLines or {}) do
 				if not drawn[l] and l.x1 >= c0 and l.x0 <= c1 and l.y1 >= r0 and l.y0 <= r1 then
-					if not Mark(l) then return end
+					if not Room() then return end
 					drawn[l] = true
 					DrawPolyline(buf.sub, c, LinePts(l, z, SUBZONE_TOL), z, thick, r, g, b, a, false, false)
 				end
 			end
 		end
 	end
-	if extend then
-		b.mark = nil
-	else
+	if not extend then
 		buf.sub:Finish()
 		buf.shadow:Finish()
 		buf.border:Finish()
@@ -1749,51 +1744,30 @@ local function Swap(b)
 	ns.layoutStats = { ms = b.ms, lines = hasLines and (buf.border.used + buf.shadow.used + buf.sub.used) or 0 }
 end
 
--- Drop the build in progress. An extension draws straight into the front
--- buffer; everything it finished stays (and is remembered in buf.drawn), but
--- a line it was halfway through is taken back so it's redrawn whole later.
-local function AbandonBuild()
-	local b = build
-	build = nil
-	local m = b and b.mark
-	if not m then return end
-	local buf = b.buf
-	buf.drawn[m[1]] = nil
-	for i, pool in ipairs({ buf.sub, buf.shadow, buf.border }) do
-		while pool.used > m[i + 1] do pool:Unget() end
-	end
-end
-
-local function LeadRegion(z, cx, cy, lx, ly)
-	local c0, r0, c1, r1 = ViewRect(REGION, z, cx, cy)
-	return { c0 + lx, r0 + ly, c1 + lx, r1 + ly }
-end
-
 -- Grow the front buffer to cover a new region at its own zoom: panning only
 -- needs the lines coming into view, and they show as they're drawn.
 local function StartExtend(region)
-	AbandonBuild()
+	build = nil
 	local buf = front
 	local b = { buf = buf, zoom = buf.zoom, region = region, map = state.map, ms = 0, extend = true }
 	b.co = coroutine.create(function() BuildBorders(buf, buf.zoom, region, true, b) end)
 	build = b
 end
 
-local function StartBuild(z, cx, cy, lx, ly)
-	AbandonBuild()
+local function StartBuild(z, cx, cy)
+	build = nil
 	FinishCrossfade()
 	local buf = back
 	buf.canvas:Hide()
 	buf.zoom, buf.region = nil, nil
-	local region = LeadRegion(z, cx, cy, lx, ly)
-	local b = { buf = buf, zoom = z, region = region, map = state.map, ms = 0 }
+	local b = { buf = buf, zoom = z, region = { ViewRect(REGION, z, cx, cy) }, map = state.map, ms = 0 }
 	b.co = coroutine.create(function() BuildBorders(buf, z, b.region) end)
 	build = b
 end
 
 -- New map: nothing of the old one may linger.
 local function ClearGeometry()
-	AbandonBuild()
+	build = nil
 	FinishCrossfade()
 	for _, b in ipairs(buffers) do
 		b.canvas:Hide()
@@ -1817,26 +1791,13 @@ end
 
 -- What the border buffers hold (for /mm perf and tests).
 function ns.GeometryInfo()
+	local r = front.region
 	return {
-		zoom = front.zoom, region = front.region, canvas = front.canvas,
+		zoom = front.zoom, region = r, canvas = front.canvas,
+		covers = Contains(r, ViewRect(0)), -- the view, right now
 		building = build ~= nil, extending = build and build.extend, fading = fade ~= nil,
 		lines = hasLines and (front.border.used + front.shadow.used + front.sub.used) or 0,
 	}
-end
-
--- How fast the camera's goal is moving (tiles/s, smoothed), to lead builds.
-local motion = { vx = 0, vy = 0 }
-local function TrackMotion(z, cx, cy)
-	local now, m = GetTime(), motion
-	local dt = m.t and now - m.t or 0
-	if dt > 0 and m.z == z then
-		local k = math.min(1, dt / 0.15)
-		m.vx = m.vx + ((cx - m.cx) / dt - m.vx) * k
-		m.vy = m.vy + ((cy - m.cy) / dt - m.vy) * k
-	elseif dt > 0 or m.z ~= z then
-		m.vx, m.vy = 0, 0
-	end
-	m.t, m.z, m.cx, m.cy = now, z, cx, cy
 end
 
 -- Make sure the borders for where the camera is headed are on screen or on
@@ -1844,14 +1805,13 @@ end
 local function RequestGeometry(force)
 	local z = ns.GoalZoom()
 	local cx, cy = ns.GoalCenter()
-	TrackMotion(z, cx, cy)
 	local view = { ViewRect(0, z, cx, cy) }
 	local ahead = { ViewRect(PREFETCH, z, cx, cy) }
 	if force then
 		front.stale = true
 	else
 		if Fits(front, z, ahead) then
-			AbandonBuild()
+			build = nil
 			return
 		end
 		-- An extension can be re-aimed for free; a full build only once it
@@ -1861,19 +1821,15 @@ local function RequestGeometry(force)
 			return
 		end
 	end
-	local w, h = ns.viewport:GetSize()
-	local mx, my = LEAD_MAX * w / 2 / z, LEAD_MAX * h / 2 / z
-	local lx = math.max(-mx, math.min(mx, motion.vx * LEAD_TIME))
-	local ly = math.max(-my, math.min(my, motion.vy * LEAD_TIME))
 	local urgent = not force and not Fits(front, z, view)
 	-- Same zoom: grow what's on screen, until it holds too many stray lines
 	-- from far behind (then a fresh build, out of sight, tidies up).
 	local extendable = not force and front.zoom and front.drawn and not front.stale and front.canvas:IsShown()
 		and SameZoom(front.zoom, z) and OfflineBorders(state.map) and Roomy(front)
 	if extendable then
-		StartExtend(LeadRegion(front.zoom, cx, cy, lx, ly))
+		StartExtend({ ViewRect(REGION, front.zoom, cx, cy) })
 	else
-		StartBuild(z, cx, cy, lx, ly)
+		StartBuild(z, cx, cy)
 	end
 	build.urgent = urgent
 end
@@ -1890,7 +1846,7 @@ runner:SetScript("OnUpdate", function(_, elapsed)
 			if ns.perf then ns.perf.Slice(ms) end
 		end
 		if not ok then
-			AbandonBuild()
+			build = nil
 			ns.Print("border layout failed: " .. tostring(err))
 		elseif coroutine.status(b.co) == "dead" then
 			build = nil

@@ -365,14 +365,8 @@ scenarios.borders_keep_up = function()
 	local step = Sim.Step
 	Sim.Step = function(elapsed)
 		step(elapsed)
-		local g, st = ns.GeometryInfo(), ns.state
-		local w, h = ns.viewport:GetSize()
-		local hw, hh = w / 2 / st.zoom, h / 2 / st.zoom
-		local r = g.region
 		frames = frames + 1
-		if not (r and st.cx - hw >= r[1] and st.cy - hh >= r[2] and st.cx + hw <= r[3] and st.cy + hh <= r[4]) then
-			gaps = gaps + 1
-		end
+		if not ns.GeometryInfo().covers then gaps = gaps + 1 end
 	end
 	for i = 1, 12 do
 		local dir = i % 4

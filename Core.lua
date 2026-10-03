@@ -578,7 +578,6 @@ local function LayoutTile(tex, tiles, key, zoom)
 	local left, top = math.floor(col * zoom + 0.5), math.floor(row * zoom + 0.5)
 	local w = math.floor((col + 1) * zoom + 0.5) - left
 	local h = math.floor((row + 1) * zoom + 0.5) - top
-	if not tex.zoom then tex:ClearAllPoints() end
 	tex:SetPoint("TOPLEFT", tileCanvas, "TOPLEFT", left, -top)
 	tex:SetSize(w, h)
 	for i, s in ipairs(SIDES) do
@@ -1484,7 +1483,7 @@ frame:SetScript("OnUpdate", function(_, elapsed)
 		titleElapsed = 0
 		UpdateTitle()
 	end
-	if perf and ns.perf == perf then perf.Frame(elapsed or 0, debugprofilestop() - t0) end
+	if perf then perf.Frame(elapsed or 0, debugprofilestop() - t0) end
 end)
 
 frame:SetScript("OnShow", function() db.shown = true; state.dirty = true end)

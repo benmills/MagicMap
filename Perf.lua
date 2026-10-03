@@ -3,7 +3,6 @@
 -- view had run past the drawn borders). For checking changes in the client,
 -- where the simulated benchmarks (tools/bench.py) can't see the engine's cost.
 local _, ns = ...
-local state = ns.state
 
 local DURATION = 10
 local HITCH = 1 / 30 -- a frame slower than this is a visible hitch
@@ -33,14 +32,7 @@ local function Start()
 			if elapsed > HITCH then rec.hitches = rec.hitches + 1 end
 			rec.ms, rec.peak = rec.ms + ms, math.max(rec.peak, ms)
 			local g = ns.GeometryInfo()
-			local r = g.region
-			if g.zoom and r then
-				local w, h = ns.viewport:GetSize()
-				local hw, hh = w / 2 / state.zoom, h / 2 / state.zoom
-				if state.cx - hw < r[1] or state.cy - hh < r[2] or state.cx + hw > r[3] or state.cy + hh > r[4] then
-					rec.gaps = rec.gaps + 1
-				end
-			end
+			if g.zoom and not g.covers then rec.gaps = rec.gaps + 1 end
 			if rec.t >= DURATION then Report() end
 		end,
 		Slice = function(ms) rec.buildMs = rec.buildMs + ms end,
