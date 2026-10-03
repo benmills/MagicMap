@@ -17,9 +17,10 @@ local defaults = {
 	shown = true,
 	width = 860, height = 620,
 	point = { "CENTER", "CENTER", 0, 0 },
-	zoom = 256,
+	zoom = 384,
 	follow = true,
 	cameraMode = "follow", -- what "back to you" returns to: "follow" or "path" (you and your target)
+	autoZoom = true, -- following, zoom out as you speed up and back in after (/mm auto)
 	map = nil, -- instanceID being viewed; nil = player's continent
 	cx = 32, cy = 32,
 	debug = false, -- show tile/FileDataID/zoom in the title band
@@ -164,33 +165,19 @@ local overlay = CreateFrame("Frame", nil, viewport)
 overlay:SetAllPoints()
 overlay:SetFrameLevel(tileLayer:GetFrameLevel() + 8)
 
-local CIRCLE = ns.CIRCLE
-
--- Player marker: a class-coloured dot with a facing arrow poking out beneath it.
+-- Player marker: the Minimap's own arrow (an atlas on Retail).
 local playerMarker = CreateFrame("Frame", nil, overlay)
 playerMarker:SetSize(1, 1)
 playerMarker:Hide()
 
-local arrow = playerMarker:CreateTexture(nil, "OVERLAY", nil, 0)
-arrow:SetTexture("Interface\\Minimap\\MinimapArrow")
-arrow:SetSize(28, 28)
-arrow:SetPoint("CENTER")
-
-local dotRing = playerMarker:CreateTexture(nil, "OVERLAY", nil, 1)
-dotRing:SetTexture(CIRCLE)
-dotRing:SetVertexColor(1, 1, 1, 1)
-dotRing:SetSize(14, 14)
-dotRing:SetPoint("CENTER")
-
-local dot = playerMarker:CreateTexture(nil, "OVERLAY", nil, 2)
-dot:SetTexture(CIRCLE)
-dot:SetSize(10, 10)
-dot:SetPoint("CENTER")
-do
-	local _, class = UnitClass("player")
-	local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-	if c then dot:SetVertexColor(c.r, c.g, c.b, 1) else dot:SetVertexColor(1, 0.82, 0, 1) end
+local arrow = playerMarker:CreateTexture(nil, "OVERLAY")
+if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("minimaparrow") then
+	arrow:SetAtlas("minimaparrow")
+else
+	arrow:SetTexture("Interface\\Minimap\\MinimapArrow")
 end
+arrow:SetSize(32, 32)
+arrow:SetPoint("CENTER")
 
 -- The band: above the template's border (500) and title bar (510), so our
 -- text and buttons draw on it. No mouse, so dragging the band moves the window.
@@ -365,34 +352,15 @@ resizeGrip:SetScript("OnMouseUp", function()
 	db.width, db.height = frame:GetSize()
 end)
 
--- Compact chrome (minimap mode): the window's border, title band and
--- background go, the map fills the frame inside a hairline edge, the zone
--- floats above it, and the buttons and grip fade in while you hover.
-local compactEdge = CreateFrame("Frame", nil, frame)
-compactEdge:SetAllPoints()
-compactEdge:SetFrameLevel(frame:GetFrameLevel() + 505)
-compactEdge:Hide()
--- A dark outer pixel with a faint bronze hairline just inside it.
-local EDGE_COLORS = { { 0, 0, 0, 0.85 }, { ns.BRONZE[1], ns.BRONZE[2], ns.BRONZE[3], 0.45 } }
-for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
-	for i, c in ipairs(EDGE_COLORS) do
-		local t = compactEdge:CreateTexture(nil, "OVERLAY", nil, i)
-		t:SetColorTexture(unpack(c))
-		local inset = i - 1
-		if side == "TOP" or side == "BOTTOM" then
-			t:SetPoint(side .. "LEFT", inset, side == "TOP" and -inset or inset)
-			t:SetPoint(side .. "RIGHT", -inset, side == "TOP" and -inset or inset)
-			t:SetHeight(1)
-		else
-			t:SetPoint("TOP" .. side, side == "LEFT" and inset or -inset, -inset)
-			t:SetPoint("BOTTOM" .. side, side == "LEFT" and inset or -inset, inset)
-			t:SetWidth(1)
-		end
-	end
-end
+-- Compact chrome (minimap mode): the title band and the template's frame
+-- (whose top is a header bar) go; the map fills the frame inside the same
+-- metal border with plain top corners, the zone floats above it, and the
+-- buttons and grip fade in while you hover.
+local compactBorder = ns.ApplyBorder(frame, frame:GetFrameLevel() + 505, frame.NineSlice)
+compactBorder:Hide()
 
 local chromeHidden = {} -- template parts SetCompact hid
-local KEEP = { [viewport] = true, [band] = true, [resizeGrip] = true, [compactEdge] = true, [closeButton] = true }
+local KEEP = { [viewport] = true, [band] = true, [resizeGrip] = true, [compactBorder] = true, [closeButton] = true }
 local hoverAlpha = 1
 
 local function SetViewportInsets(l, t, r, b)
@@ -412,12 +380,12 @@ local function SetCompact(on)
 		for _, c in ipairs({ frame:GetChildren() }) do
 			if not KEEP[c] and c:IsShown() then c:Hide(); chromeHidden[c] = true end
 		end
-		SetViewportInsets(0, 0, 0, 0)
+		SetViewportInsets(2, 2, 2, 2)
 		chevron:Hide()
 		closeButton:Hide() -- the spyglass button leaves minimap mode instead
 		title:SetJustifyH("CENTER")
 		subtitle:SetJustifyH("CENTER")
-		compactEdge:Show()
+		compactBorder:Show()
 	else
 		for o in pairs(chromeHidden) do o:Show() end
 		wipe(chromeHidden)
@@ -426,13 +394,24 @@ local function SetCompact(on)
 		closeButton:Show()
 		title:SetJustifyH("LEFT")
 		subtitle:SetJustifyH("LEFT")
-		compactEdge:Hide()
+		compactBorder:Hide()
 		hoverAlpha = 1
 		controls:SetAlpha(1)
 		resizeGrip:SetAlpha(0.8)
 	end
 	state.dirty = true
 	FitTitle()
+end
+
+-- Docked into Blizzard's world map (minimap mode): just the map; the world
+-- map's own frame is the chrome.
+local function SetDocked(on)
+	SetCompact(true)
+	band:SetShown(not on)
+	compactBorder:SetShown(not on)
+	resizeGrip:SetShown(not on)
+	SetViewportInsets(on and 0 or 2, on and 0 or 2, on and 0 or 2, on and 0 or 2)
+	state.dirty = true
 end
 
 -- Compact: the buttons and grip fade in while the mouse is over the map.
@@ -518,14 +497,24 @@ local function SetBackdrop(color)
 	viewportBg:SetColorTexture(bgColor[1], bgColor[2], bgColor[3], 1)
 end
 
+-- The client snaps each texture to the screen's pixel grid on its own, so
+-- neighbouring tiles come out a pixel apart in size and resample their texels
+-- unevenly (grit, and shimmer as the map moves). Tiles skip that: the canvas
+-- they share is the only thing that moves.
+local function Unsnapped(tex)
+	if tex.SetSnapToPixelGrid then tex:SetSnapToPixelGrid(false) end
+	if tex.SetTexelSnappingBias then tex:SetTexelSnappingBias(0) end
+	return tex
+end
+
 local function AcquireTexture()
 	local tex = table.remove(freeTextures)
 	if not tex then
-		tex = tileCanvas:CreateTexture(nil, "ARTWORK", nil, 0)
+		tex = Unsnapped(tileCanvas:CreateTexture(nil, "ARTWORK", nil, 0))
 		tex.feathers = {}
 		for i, s in ipairs(SIDES) do
 			-- A feather never changes side, so it's anchored once, for good.
-			local f = tileCanvas:CreateTexture(nil, "ARTWORK", nil, 1)
+			local f = Unsnapped(tileCanvas:CreateTexture(nil, "ARTWORK", nil, 1))
 			if s[3] == "HORIZONTAL" then
 				f:SetPoint(s[1] == "left" and "TOPLEFT" or "TOPRIGHT", tex)
 			else
@@ -615,9 +604,10 @@ local function RenderTiles()
 	local zoom = state.zoom
 	local halfW, halfH = w / 2, h / 2
 	local cx, cy = state.cx, state.cy
-	-- Whole pixels, so tile edges stay crisp.
-	tileCanvas:SetPoint("TOPLEFT", tileLayer, "TOPLEFT",
-		math.floor(halfW - cx * zoom + 0.5), -math.floor(halfH - cy * zoom + 0.5))
+	-- Not rounded: the layers, the Minimap and your arrow move by fractions of
+	-- a pixel, so the terrain must too or they'd wobble against it. (Tiles
+	-- keep whole-pixel spots on the canvas, so seams stay exact.)
+	tileCanvas:SetPoint("TOPLEFT", tileLayer, "TOPLEFT", halfW - cx * zoom, -(halfH - cy * zoom))
 
 	wipe(seen)
 	local mapID = state.map
@@ -641,7 +631,9 @@ local function RenderTiles()
 						activeTiles[id] = tex
 					end
 					if tex.fdid ~= fdid then
-						tex:SetTexture(fdid, "CLAMP", "CLAMP")
+						-- Trilinear: smoother when a tile is drawn smaller than its
+						-- 512 texels (where the client has mipmaps for it).
+						tex:SetTexture(fdid, "CLAMP", "CLAMP", "TRILINEAR")
 						tex.fdid = fdid
 					end
 					if tex.zoom ~= zoom or tex.bg ~= bgColor then LayoutTile(tex, tiles, key, zoom) end
@@ -669,7 +661,7 @@ local function RenderTiles()
 end
 
 local function RenderArrow()
-	if state.playerCol and state.playerMap == state.map and not state.hideMarker then
+	if state.playerCol and state.playerMap == state.map and not state.minimapShown then
 		local w, h = viewport:GetSize()
 		local x = (state.playerCol - state.cx) * state.zoom + w / 2
 		local y = (state.playerRow - state.cy) * state.zoom + h / 2
@@ -862,9 +854,10 @@ end
 
 -- Path mode: keep you and your target (ns.GetTarget: the quest you follow,
 -- else your waypoint) framed, a margin clear around both.
-local PATH_MARGIN = 0.15  -- of the view, each side
-local PATH_RATE = 5       -- per second: how quickly the camera eases to the framing
-local PATH_MAX_ZOOM = 512 -- never closer than this, even with the target beside you
+local PATH_MARGIN = 0.12  -- of the view, each side
+local PATH_RATE = 10      -- per second: how quickly the camera eases to the framing
+local PATH_SLACK = 0.85   -- zoomed out to this share of the ideal still counts as framed
+local PATH_MAX_ZOOM = 768 -- never closer than this, even with the target beside you
 
 -- Centre and zoom that frame you and the target, or nil if there's no target
 -- on your map.
@@ -984,7 +977,7 @@ local function SetFollow(on, animate)
 	if on and animate and state.playerCol then
 		-- Glide back to you (on your map), then lock on.
 		if state.playerMap ~= state.map then SetMap(state.playerMap) end
-		AnimateTo(state.playerCol, state.playerRow, math.max(state.zoom, 160), FLY_TIME, {
+		AnimateTo(state.playerCol, state.playerRow, math.max(state.zoom, 256), FLY_TIME, {
 			onDone = function() SetFollow(true) end,
 		})
 		return
@@ -1020,6 +1013,47 @@ end
 
 -- Ease toward the framing. The zoom holds while both still fit comfortably,
 -- so walking toward the target doesn't keep the view breathing.
+-- Dynamic zoom (following): the view holds AUTO_SECONDS of travel at your
+-- speed each way, never closer than the zoom you chose; it changes in steps
+-- (each a short zoom), not continuously, so the map mostly sits still.
+local AUTO_SECONDS = 10
+local AUTO_STEP = math.log(1.3) -- re-zoom only once this far off (log scale)
+local AUTO_DECAY = 4            -- yd/s per second: how fast a stop is believed
+local AUTO_HANDS_OFF = 4        -- seconds after you zoom or drag before it takes over again
+local TELEPORT_SPEED = 250      -- yd/s: faster than anything you travel by, so a jump
+local autoSpeed, autoBase = 0, nil
+local lastCol, lastRow
+
+-- Your speed in yd/s, from how far you moved since last frame (GetUnitSpeed
+-- is a secret value on 12.x clients: no arithmetic allowed on it).
+local function MeasureSpeed(elapsed)
+	local col, row = state.playerCol, state.playerRow
+	local speed = 0
+	if col and lastCol and elapsed > 0 then
+		speed = math.sqrt((col - lastCol) ^ 2 + (row - lastRow) ^ 2) * TILE_YARDS / elapsed
+		if speed > TELEPORT_SPEED then speed = 0 end
+	end
+	lastCol, lastRow = col, row
+	return speed
+end
+
+local function StepAutoZoom(elapsed)
+	elapsed = elapsed or 0
+	autoSpeed = math.max(MeasureSpeed(elapsed), autoSpeed - AUTO_DECAY * elapsed)
+	if not (db.autoZoom and state.follow and state.playerCol) or state.path or anim or zoomGoal then return end
+	if GetTime() - (state.lastInteract or 0) < AUTO_HANDS_OFF then return end
+	autoBase = autoBase or state.zoom
+	local w, h = ViewSize()
+	local want = autoBase
+	if autoSpeed > 0 then
+		local span = 2 * AUTO_SECONDS * autoSpeed / TILE_YARDS -- tiles across the view's shorter side
+		want = Clamp(math.min(autoBase, math.min(w, h) / span), MIN_ZOOM, MAX_ZOOM)
+	end
+	if math.abs(math.log(want / state.zoom)) > AUTO_STEP then
+		zoomGoal, zoomAnchor = want, nil
+	end
+end
+
 local function StepPath(elapsed)
 	state.pathMoving = false
 	if not state.path then
@@ -1034,7 +1068,7 @@ local function StepPath(elapsed)
 		return
 	end
 	local cur = state.zoom
-	if cur <= z and cur >= z * 0.7 then z = cur end
+	if cur <= z and cur >= z * PATH_SLACK then z = cur end
 	local k = 1 - math.exp(-PATH_RATE * elapsed)
 	local nz = math.exp(math.log(cur) + (math.log(z) - math.log(cur)) * k)
 	local ncx, ncy = state.cx + (cx - state.cx) * k, state.cy + (cy - state.cy) * k
@@ -1351,6 +1385,7 @@ viewport:SetScript("OnMouseWheel", function(_, delta)
 	local tx = state.cx + (ax - w / 2) / state.zoom
 	local ty = state.cy + (ay - h / 2) / state.zoom
 	zoomGoal, zoomAnchor = target, { tx, ty, ax - w / 2, ay - h / 2 }
+	autoBase = target -- dynamic zoom works from what you chose
 end)
 
 viewport:SetScript("OnSizeChanged", function()
@@ -1403,6 +1438,7 @@ frame:SetScript("OnUpdate", function(_, elapsed)
 	StepAnimation(elapsed)
 	StepZoom(elapsed)
 	StepPath(elapsed)
+	StepAutoZoom(elapsed)
 
 	if state.dragging then
 		if not IsMouseButtonDown("LeftButton") then
@@ -1468,9 +1504,11 @@ ns.frame = frame
 ns.viewport = viewport
 ns.layerFrames = layerFrames
 ns.overlay = overlay
+ns.tileCanvas = tileCanvas
 ns.layersButton = buttons.layers
 ns.minimapButton = buttons.minimap
-ns.SetCompact = SetCompact
+ns.SetCompact, ns.SetDocked = SetCompact, SetDocked
+ns.SetMap = SetMap
 ns.IsCompact = function() return compact end
 ns.FitTitle = FitTitle
 ns.SetFollow = SetFollow
@@ -1478,6 +1516,7 @@ ns.Tooltip = Tooltip
 ns.SetZoom = function(zoom)
 	StopAnimation()
 	state.zoom = Clamp(zoom, MIN_ZOOM, MAX_ZOOM)
+	autoBase = state.zoom
 	SaveView()
 	state.dirty = true
 end
@@ -1489,6 +1528,7 @@ end
 ns.Print = Print
 ns.TileToScreen = TileToScreen
 ns.IsAnimating = function() return anim ~= nil or zoomGoal ~= nil or state.pathMoving end
+ns.IsZooming = function() return anim ~= nil or zoomGoal ~= nil end
 ns.SetPath, ns.ReturnToYou, ns.UpdateControls = SetPath, ReturnToYou, UpdateControls
 ns.GoalZoom, ns.GoalCenter = GoalZoom, GoalCenter
 ns.FlyTo = function(cx, cy, zoom, duration, onDone) AnimateTo(cx, cy, zoom, duration or FLY_TIME, { onDone = onDone }) end
@@ -1497,6 +1537,10 @@ ns.WorldToTile = WorldToTile
 ns.MapRect, ns.MapToTile, ns.TileToMap = MapRect, MapToTile, TileToMap
 ns.GetZones, ns.GetContinentMapID, ns.GetQuestMaps = GetZones, GetContinentMapID, GetQuestMaps
 ns.slash = {} -- extra /mm subcommands: name -> fn(arg)
+ns.slash.auto = function()
+	db.autoZoom = not db.autoZoom
+	Print("dynamic zoom " .. (db.autoZoom and "on: following, the map zooms out as you speed up" or "off"))
+end
 ns.Toggle = function() frame:SetShown(not frame:IsShown()) end
 
 ---------------------------------------------------------------------------
@@ -1596,6 +1640,6 @@ SlashCmdList.MAGICMAP = function(msg)
 	elseif ns.slash[cmd] then
 		ns.slash[cmd](arg)
 	else
-		Print("/mm [toggle] | follow | map <id|name> | zone <name> | icon | minimap | tiles | layers | landmarks | perf | debug | reset")
+		Print("/mm [toggle] | follow | auto | map <id|name> | zone <name> | icon | minimap | tiles | layers | landmarks | perf | debug | reset")
 	end
 end

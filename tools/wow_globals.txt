@@ -5,7 +5,7 @@
 # Lua 5.1 + WoW's Lua extensions
 _G assert coroutine date debugprofilestop error getmetatable ipairs math next
 pairs pcall rawget rawset select setmetatable string strsplit strtrim table
-time tinsert tremove tonumber tostring type unpack wipe xpcall
+time tinsert tremove tonumber tostring type unpack wipe xpcall hooksecurefunc
 
 # Namespaces
 C_AreaPoiInfo C_CVar C_DeathInfo C_EncounterJournal C_Map C_MapExplorationInfo
@@ -28,7 +28,7 @@ WorldFrame WorldMapFrame
 
 # Constants
 LEVEL LOCALIZED_CLASS_NAMES_FEMALE LOCALIZED_CLASS_NAMES_MALE RAID_CLASS_COLORS
-STANDARD_TEXT_FONT
+STANDARD_TEXT_FONT WOW_PROJECT_ID WOW_PROJECT_MAINLINE
 
 # Other addons (always checked for before use)
 FarmHud LibStub

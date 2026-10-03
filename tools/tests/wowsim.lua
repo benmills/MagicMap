@@ -15,6 +15,7 @@ _G.Sim = Sim
 local FLAVOR = SIM_FLAVOR or "forever"
 Sim.flavor = FLAVOR
 local RETAIL = FLAVOR == "retail"
+WOW_PROJECT_MAINLINE, WOW_PROJECT_ID = 1, RETAIL and 1 or 2
 
 local BUILDS = {
 	forever = { "1.60.1", "70009", "Sep 1 2026", 16001 },
@@ -462,7 +463,8 @@ function Frame:RegisterForClicks(...) end
 function Frame:SetMovable(on) S[self].movable = on end
 function Frame:IsMovable() return S[self].movable end
 function Frame:SetResizable(on) S[self].resizable = on end
-function Frame:SetClampedToScreen(on) end
+function Frame:SetClampedToScreen(on) S[self].clamped = not not on end
+function Frame:IsClampedToScreen() return S[self].clamped == true end
 function Frame:SetClipsChildren(on) end
 function Frame:SetHitRectInsets(...) end
 function Frame:SetID(id) S[self].id = id end
@@ -550,7 +552,7 @@ function MinimapClass:SetZoom(z)
 	S[self].zoom = z
 end
 function MinimapClass:GetZoomLevels() return 6 end
-function MinimapClass:SetMaskTexture(t) end
+function MinimapClass:SetMaskTexture(t) Sim.minimapMask = t end
 if RETAIL then
 	function MinimapClass:UpdateMouseoverAtPoint(x, y) end
 	function Tooltip:SetMinimapMouseover() self:ClearLines() end
@@ -739,6 +741,14 @@ function Sim.Named(name) return named[name] end
 ---------------------------------------------------------------------------
 
 function wipe(t) for k in pairs(t) do t[k] = nil end return t end
+function hooksecurefunc(t, name, fn)
+	local orig = t[name]
+	t[name] = function(...)
+		local r = { orig(...) }
+		fn(...)
+		return unpack(r)
+	end
+end
 tinsert, tremove = table.insert, table.remove
 function strtrim(s, chars)
 	chars = chars or " \t\r\n"
@@ -864,14 +874,25 @@ Sim.gatherPin:SetPoint("CENTER", Minimap, "CENTER", 20, 20)
 WorldMapFrame = CreateFrame("Frame", "WorldMapFrame", UIParent)
 WorldMapFrame:SetSize(1000, 700)
 WorldMapFrame:SetPoint("CENTER")
+WorldMapFrame:SetFrameStrata("HIGH")
+WorldMapFrame.ScrollContainer = CreateFrame("Frame", nil, WorldMapFrame)
+WorldMapFrame.ScrollContainer:SetPoint("TOPLEFT", 0, -60)
+WorldMapFrame.ScrollContainer:SetPoint("BOTTOMRIGHT", -300, 0) -- the quest log on the right
+WorldMapFrame.ScrollContainer.Child = CreateFrame("Frame", nil, WorldMapFrame.ScrollContainer)
+WorldMapFrame.mapID = 1429
+function WorldMapFrame:GetMapID() return self.mapID end
+function WorldMapFrame:SetMapID(id) self.mapID = id; self:OnMapChanged() end
+function WorldMapFrame:OnMapChanged() end
 WorldMapFrame:Hide()
 
-if RETAIL then
+if RETAIL or FLAVOR == "forever" then -- Forever runs the Retail client
 	C_Minimap = {
 		GetViewRadius = function()
 			local d = ({ [0] = 466.67, 400, 333.33, 266.67, 200, 133.33 })[Minimap:GetZoom()]
 			return d / 2
 		end,
+		SetMinimapInsetInfo = function(minAngle, maxAngle, scalar) Sim.rimInset = scalar end,
+		ClearMinimapInsetInfo = function() Sim.rimInset = nil end,
 	}
 end
 
@@ -1106,7 +1127,15 @@ if RETAIL then
 			return name and { lines = { { leftText = name }, { leftText = Sim.unitSubtitle[unit] or "Level 10" } } }
 		end,
 	}
-	function issecretvalue(v) return false end
+	-- 12.x secret values: readable, but any arithmetic or comparison on them
+	-- from addon code is an error. GetUnitSpeed is one.
+	local SECRET = setmetatable({}, {
+		__add = function() error("attempt to perform arithmetic on a secret number value") end,
+		__lt = function() error("attempt to compare a secret number value") end,
+		__tostring = function() return "<secret number>" end,
+	})
+	function issecretvalue(v) return v == SECRET end
+	function GetUnitSpeed(unit) return SECRET end
 else
 	function AddQuestWatch(index) Sim.watchedIndex = index end
 	function QuestWatch_Update() end

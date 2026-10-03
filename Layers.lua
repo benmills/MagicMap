@@ -334,6 +334,14 @@ local function StylePin(pin, e)
 	pin.icon:SetSize(size * 0.6, size * 0.6)
 end
 
+-- Where the Minimap sits in the map (minimap mode), in tiles: it draws its
+-- own turn-in blips there, so ours step aside rather than double up.
+local minimapCircle = {}
+local function UnderMinimap(e)
+	local c = minimapCircle
+	return e.turnIn and c.r and (e.col - c.col) ^ 2 + (e.row - c.row) ^ 2 < c.r ^ 2
+end
+
 -- Pins only move as you zoom; small landmarks appear once you're close
 -- enough to use them.
 local function PositionPins()
@@ -341,11 +349,30 @@ local function PositionPins()
 	for i = 1, pinPool.used do
 		local pin = pinPool.list[i]
 		local e = pin.entry
-		if e.minZoom and z < e.minZoom then
+		if (e.minZoom and z < e.minZoom) or UnderMinimap(e) then
 			if pin:IsShown() then pin:Hide() end
 		else
 			if not pin:IsShown() then pin:Show() end
 			pin:SetPoint("CENTER", canvases.pins, "TOPLEFT", e.col * z, -e.row * z)
+		end
+	end
+end
+
+-- The Minimap's circle moved (r nil: it's not in the map): show or hide just
+-- the turn-in pins it would double.
+function ns.SetMinimapCircle(col, row, r)
+	local c = minimapCircle
+	if c.col == col and c.row == row and c.r == r then return end
+	c.col, c.row, c.r = col, row, r
+	for i = 1, pinPool.used do
+		local pin = pinPool.list[i]
+		local e = pin.entry
+		if e.turnIn and not (e.minZoom and state.zoom < e.minZoom) then
+			local show = not UnderMinimap(e)
+			if pin:IsShown() ~= show then
+				pin:SetShown(show)
+				if show then pin:SetPoint("CENTER", canvases.pins, "TOPLEFT", e.col * state.zoom, -e.row * state.zoom) end
+			end
 		end
 	end
 end
@@ -531,7 +558,7 @@ sources.quests = function(mapID)
 			and { atlas = "UI-QuestIcon-TurnIn-Normal", color = { 0.2, 1, 0.2 } }
 			or { atlas = "Quest-In-Progress-Icon-yellow", under = "UI-QuestPoi-QuestNumber", color = { 1, 0.82, 0 } }
 		local e = AddAt(list, b.uiMapID, b.x, b.y, {
-			size = followed and 26 or 22, glow = followed, questID = questID, title = title, icon = icon,
+			size = followed and 26 or 22, glow = followed, questID = questID, title = title, icon = icon, turnIn = complete,
 			lines = lines,
 		})
 		if e and not complete then
@@ -572,12 +599,13 @@ local function NewBlobFrame()
 	if not (ok and f and f.DrawBlob and f.SetMapID) then return nil end
 	f:SetFillTexture("Interface\\WorldMap\\UI-QuestBlob-Inside")
 	f:SetBorderTexture("Interface\\WorldMap\\UI-QuestBlob-Outside")
-	-- Quiet: the areas should read as context under the map, not shout over it.
-	f:SetFillAlpha(56)
-	f:SetBorderAlpha(100)
 	f:SetBorderScalar(1.0)
 	return f
 end
+
+-- The quest you follow gets its area drawn plainly; the rest are a faint
+-- hint under the map (0-255).
+local BLOB_ALPHA = { followed = { 56, 110 }, other = { 14, 32 } }
 do
 	local probe = NewBlobFrame()
 	blobSupported = probe ~= nil
@@ -608,15 +636,22 @@ local function LayoutQuestAreas()
 	wipe(blobFrames)
 
 	if blobSupported and Enabled("quests") and Enabled("questAreas") then
-		local byMap = {}
+		-- One frame per map and style (followed or not): alpha is per frame.
+		local groups, followed = {}, FollowedQuest()
 		for _, a in ipairs(questAreas) do
-			byMap[a.uiMapID] = byMap[a.uiMapID] or {}
-			table.insert(byMap[a.uiMapID], a.questID)
+			local style = a.questID == followed and "followed" or "other"
+			local key = a.uiMapID .. style
+			groups[key] = groups[key] or { uiMapID = a.uiMapID, style = style }
+			table.insert(groups[key], a.questID)
 		end
-		for uiMapID, quests in pairs(byMap) do
+		for _, quests in pairs(groups) do
+			local uiMapID = quests.uiMapID
 			local r = ns.MapRect(uiMapID)
 			local f = r and (table.remove(blobPool) or NewBlobFrame())
 			if f then
+				f:SetFillAlpha(BLOB_ALPHA[quests.style][1])
+				f:SetBorderAlpha(BLOB_ALPHA[quests.style][2])
+				f:SetFrameLevel(canvases.areas:GetFrameLevel() + (quests.style == "followed" and 2 or 1))
 				f:ClearAllPoints()
 				f:SetPoint("TOPLEFT", canvases.areas, "TOPLEFT", r.col0 * z, -r.row0 * z)
 				f:SetSize((r.col1 - r.col0) * z, (r.row1 - r.row0) * z)

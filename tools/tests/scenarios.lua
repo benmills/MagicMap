@@ -76,8 +76,10 @@ scenarios.zoom_and_pan = function()
 end
 
 scenarios.follow_moving_player = function()
-	Sim.player.speed, Sim.player.facing = 300, 1.2 -- fast, heading west-ish
-	Sim.Run(3)
+	local z0 = ns.state.zoom
+	Sim.player.speed, Sim.player.facing = 60, 1.2 -- flying, heading west-ish
+	Sim.Run(6) -- dynamic zoom keeps its hands off for a few seconds after login
+	check(ns.state.zoom < z0 * 0.8, ("moving fast, dynamic zoom pulls out (%.0f -> %.0f)"):format(z0, ns.state.zoom))
 	check(math.abs(ns.state.cx - Sim.player.col) < 0.01, "the view follows the player")
 	Sim.player.speed = 0
 	-- Teleport to the other continent.
@@ -99,7 +101,7 @@ end
 scenarios.slash_commands = function()
 	for _, cmd in ipairs({ "", "", "follow", "follow", "map 1", "map kalimdor", "map 0", "map nowhere", "zone elwynn",
 		"zone westfall", "zone nowhere", "tiles", "debug", "debug", "reset", "layers", "landmarks", "icon", "icon",
-		"blips", "minimap", "minimap", "help" }) do
+		"blips", "minimap", "sync", "sync", "sync full", "sync", "minimap", "help" }) do
 		Sim.Slash(cmd)
 		Sim.Run(0.3)
 	end
@@ -123,12 +125,27 @@ scenarios.minimap_mode = function()
 	Sim.Click(ns.minimapButton)
 	Sim.Run(2)
 	check(ns.IsMinimapMode(), "minimap mode is on")
+	local side = math.min(ns.frame:GetSize())
+	check(math.abs(ns.state.zoom - side / (200 / (1600 / 3))) < 1, "it starts showing 200 yards across")
+	ns.frame:SetSize(side * 1.5, side * 1.5)
+	check(math.abs(ns.state.zoom - 1.5 * side / (200 / (1600 / 3))) < 1, "and keeps showing 200 yards as it grows")
+	ns.frame:SetSize(side, side)
 	check(Minimap:GetParent() == ns.viewport, "the Minimap moved into the map")
 	check(Minimap:GetAlpha() == 0, "its terrain is hidden")
 	check(Sim.minimapButton:GetParent() == ns.minimapStandIn, "other addons' minimap buttons moved to the stand-in")
 	check(Sim.gatherPin:GetParent() == Minimap, "pins stay on the Minimap")
-	-- Walk, zoom out past the blips, back in.
-	Sim.player.speed = 120
+	check(not MinimapCluster:IsShown() and not Sim.minimapButton:IsVisible(), "nothing of the minimap is left in its corner")
+	-- Standing at a turn-in, the Minimap's own ? is the only one shown.
+	local home = { Sim.player.col, Sim.player.row }
+	local _, col, row = ns.MapToTile(1429, 0.40, 0.80)
+	Sim.player.col, Sim.player.row = col, row
+	Sim.Run(1)
+	check(QuestPin(62) == nil, "our turn-in pin steps aside for the Minimap's")
+	Sim.player.col, Sim.player.row = home[1], home[2]
+	Sim.Run(1)
+	check(QuestPin(62) ~= nil, "and comes back once the Minimap has moved on")
+	-- Ride, zoom out past the blips, back in.
+	Sim.player.speed = 14
 	Sim.Run(2)
 	for _ = 1, 30 do Sim.Wheel(ns.viewport, -1) end
 	Sim.Run(2)
@@ -140,28 +157,52 @@ scenarios.minimap_mode = function()
 	Sim.MoveCursorTo(UIParent, 0.1, 0.1)
 	Sim.Run(8)
 	check(ns.state.follow, "goes back to following after idling")
-	-- Indoors: the minimap's zoom table changes.
+	check(not ns.state.minimapShown, "zoomed in past its closest level, the Minimap stays out (it couldn't fit)")
+	ns.SetZoom(160)
+	Sim.Run(0.5)
+	check(ns.state.minimapShown and Minimap:IsVisible(), "settled, the Minimap's blips show")
+	check(not C_Minimap or Sim.rimInset == 1000, "Blizzard's rim arrows are pushed off screen")
+	local vl, vb, vw, vh = ns.viewport:GetRect()
+	local ml, mb, mw, mh = Minimap:GetRect()
+	check(ml >= vl - 1 and mb >= vb - 1 and ml + mw <= vl + vw + 1 and mb + mh <= vb + vh + 1,
+		"its square lies inside the window (the client won't clip it)")
+	check(Sim.minimapMask:find("WHITE8X8") and not Minimap:IsClampedToScreen(), "square, and never clamped to the screen")
+	Sim.Wheel(ns.viewport, 1)
+	Sim.Run(0.05)
+	check(not Minimap:IsVisible() and not ns.state.minimapShown, "mid-zoom, it steps aside")
+	Sim.Run(1.5)
+	check(ns.state.minimapShown, "and is back once the zoom settles")
+	-- Indoors: the window wears the Minimap itself, and the wheel zooms it.
 	Sim.indoors = true
 	Sim.Run(1)
+	check(Minimap:IsVisible() and Minimap:GetAlpha() == 1 and ns.state.minimapShown, "indoors, the Minimap shows whole")
+	check(Sim.rimInset == nil, "indoors, its own arrows are back")
+	local mz = Minimap:GetZoom()
+	local top = ns.viewport -- what the cursor would wheel: the highest wheel-enabled frame over the map
+	for _, c in ipairs({ ns.viewport:GetChildren() }) do
+		if c:IsVisible() and S[c].wheel and c:GetFrameLevel() > top:GetFrameLevel() then top = c end
+	end
+	Sim.Wheel(top, mz < 5 and 1 or -1)
+	check(Minimap:GetZoom() ~= mz, "indoors, the wheel zooms the Minimap")
 	Sim.indoors = false
-	-- M: the world map grows the window; M again shrinks it.
+	Sim.Run(2)
+	check(Minimap:GetAlpha() == 0, "back outdoors, our map again")
+	check(ns.frame:GetFrameStrata() == MinimapCluster:GetFrameStrata(), "it sits at the minimap's strata")
+	-- M: Blizzard's world map opens, ours docked over its map area.
+	local area = WorldMapFrame.ScrollContainer
 	WorldMapFrame:Show()
 	Sim.Run(1)
-	check(ns.IsMapExpanded(), "opening the world map expands the window")
-	check(not WorldMapFrame:IsShown(), "Blizzard's world map is closed again")
-	WorldMapFrame:Show()
+	check(ns.IsMapExpanded() and WorldMapFrame:IsShown(), "the world map opens, quest log and all")
+	check(ns.frame:GetParent() == area and not area.Child:IsShown(), "our map stands in for its map")
+	check(math.abs(ns.frame:GetWidth() - area:GetWidth()) < 1, "filling its map area")
+	local zoom = ns.state.zoom
+	WorldMapFrame:SetMapID(1411) -- picking another zone on Blizzard's side
 	Sim.Run(1)
-	check(not ns.IsMapExpanded(), "M again collapses it")
-	WorldMapFrame:Show()
+	check(ns.state.zoom ~= zoom, "picking a zone there flies our map to it")
+	WorldMapFrame:Hide()
 	Sim.Run(1)
-	_G.MagicMapWorldMapEscape:Hide() -- Escape
-	Sim.Run(1)
-	check(not ns.IsMapExpanded(), "Escape collapses it")
-	WorldMapFrame:Show()
-	Sim.Run(1)
-	Sim.Click(ns.frame.CloseButton)
-	Sim.Run(1)
-	check(not ns.IsMapExpanded(), "the close button collapses it")
+	check(not ns.IsMapExpanded() and ns.frame:GetParent() == UIParent and area.Child:IsShown(), "closing it puts ours back")
+	check(ns.frame:GetFrameStrata() == MinimapCluster:GetFrameStrata(), "at the minimap's strata again")
 	check(ns.frame:IsShown(), "...without closing the minimap")
 	-- Rotating minimap: hands the Minimap back.
 	Sim.cvars.rotateMinimap = "1"
@@ -176,9 +217,11 @@ scenarios.minimap_mode = function()
 	check(not ns.IsMinimapMode(), "minimap mode is off")
 	check(Minimap:GetParent() == parent, "the Minimap is back in its cluster")
 	check(Minimap:GetAlpha() == 1, "its terrain is visible again")
+	check(not Sim.minimapMask:find("WHITE8X8") and Sim.rimInset == nil, "round again, its arrows back")
 	check(math.abs(Minimap:GetWidth() - 140) < 0.01, "at its own size")
 	check(Sim.minimapButton:GetParent() == Minimap, "addon buttons are back on the Minimap")
-	check(_G.MinimapBorder:IsShown(), "the minimap border is shown again")
+	check(MinimapCluster:IsShown() and _G.MinimapBorder:IsVisible(), "the minimap cluster is shown again")
+	check(Sim.minimapButton:IsVisible(), "addon buttons are visible again")
 end
 
 scenarios.quests_and_path = function()
@@ -191,6 +234,13 @@ scenarios.quests_and_path = function()
 		ClickOn(pin)
 		Sim.Run(0.5)
 		check(ns.GetTarget() ~= nil, "clicking a quest makes it the target")
+		ns.SetZoom(2000) -- close in, the quest is off the map: an arrow on the edge points to it
+		Sim.Run(1)
+		local edge
+		for _, r in ipairs({ ns.overlay:GetRegions() }) do
+			if tostring(S[r].texture):find("GUIDEARROW") and r:IsVisible() then edge = r end
+		end
+		check(edge ~= nil, "an off-map target gets an arrow on the map's edge")
 		check(Sim.watched == 60 or Sim.watchedIndex ~= nil, "the quest is tracked")
 		Sim.Click(ns.pathButton or ns.frame)
 		check(ns.SetPath(true), "path mode turns on with a target")
@@ -348,8 +398,9 @@ scenarios.borders_keep_up = function()
 	check(missing == 0, ("grown borders hold everything a fresh build draws (%d of %d missing)"):format(missing, total))
 end
 
--- Tiles sit at whole pixels, and neighbours share their edges exactly, after
--- panning and zooming by odd amounts.
+-- Tiles are whole pixels in size, and neighbours share their edges exactly
+-- (no seams or overlaps), after panning and zooming by odd amounts. (Where
+-- they sit isn't rounded: the map moves smoothly, by fractions of a pixel.)
 scenarios.tiles_seamless = function()
 	for _, step in ipairs({ { 137, -61, 1 }, { -333, 245, -1 }, { 71, 19, 1 }, { 5, -3, 1 } }) do
 		Sim.Drag(ns.viewport, step[1], step[2], 7)
@@ -361,7 +412,7 @@ scenarios.tiles_seamless = function()
 				if S[r].type == "Texture" and type(S[r].texture) == "number" and r:IsVisible() then
 					local l, b, w, h = r:GetRect()
 					if l then
-						for _, v in ipairs({ l, b, w, h }) do
+						for _, v in ipairs({ w, h }) do
 							if math.abs(v - math.floor(v + 0.5)) > 1e-6 then bad = bad + 1 end
 						end
 						edges[#edges + 1] = { l, l + w }
@@ -372,7 +423,7 @@ scenarios.tiles_seamless = function()
 		end
 		walk(ns.frame)
 		check(#edges > 0, "tiles drawn")
-		check(bad == 0, ("tiles at whole pixels (%d fractional)"):format(bad))
+		check(bad == 0, ("tiles whole pixels in size (%d fractional)"):format(bad))
 		local near = 0
 		for _, a in ipairs(edges) do
 			for _, b in ipairs(edges) do

@@ -1,5 +1,5 @@
--- Chrome helpers: a metal border from the client's frame atlases (used only
--- when ButtonFrameTemplate is unavailable) and small round icon buttons using
+-- Chrome helpers: a metal border from the client's frame atlases (minimap
+-- mode's frame, and the window's when ButtonFrameTemplate is unavailable) and small round icon buttons using
 -- the Forever minimap button ring. Both fall back to plain bronze shapes on
 -- clients that lack the art.
 
@@ -35,7 +35,8 @@ local function Piece(parent, atlas, flipV)
 	return t
 end
 
-function ns.ApplyBorder(frame, level)
+-- ref: a template NineSlice to copy the corners' placement from.
+function ns.ApplyBorder(frame, level, ref)
 	local b = CreateFrame("Frame", nil, frame)
 	b:SetAllPoints()
 	b:SetFrameLevel(level)
@@ -51,11 +52,17 @@ function ns.ApplyBorder(frame, level)
 	local right = Piece(b, "!UI-Frame-Metal-EdgeRight")
 
 	if bl and br and tl and tr and bottom and top and left and right then
-		local o = 3 -- metal sits slightly outside the map edge
-		bl:SetPoint("BOTTOMLEFT", -o, -o)
-		br:SetPoint("BOTTOMRIGHT", o, -o)
-		tl:SetPoint("TOPLEFT", -o, o)
-		tr:SetPoint("TOPRIGHT", o, o)
+		-- The corner art carries padding; the template knows where it sits.
+		local lx, y, rx = -3, -3, 3
+		if ref and ref.BottomLeftCorner and ref.BottomRightCorner then
+			local _, _, _, x1, y1 = ref.BottomLeftCorner:GetPoint(1)
+			local _, _, _, x2 = ref.BottomRightCorner:GetPoint(1)
+			if x1 and y1 and x2 then lx, y, rx = x1, y1, x2 end
+		end
+		bl:SetPoint("BOTTOMLEFT", lx, y)
+		br:SetPoint("BOTTOMRIGHT", rx, y)
+		tl:SetPoint("TOPLEFT", lx, -y)
+		tr:SetPoint("TOPRIGHT", rx, -y)
 		-- Edges are uniform strips, so stretching them looks the same as tiling.
 		bottom:SetPoint("BOTTOMLEFT", bl, "BOTTOMRIGHT")
 		bottom:SetPoint("BOTTOMRIGHT", br, "BOTTOMLEFT")

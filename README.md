@@ -27,17 +27,19 @@ there. Zone and sub-zone borders and names are traced from the terrain itself.
 Also drawn: the game's own **quest areas**, and **landmarks** you've used (vendors, trainers,
 flight points and more).
 
-**Minimap mode.** MagicMap takes your minimap's spot and zooms out far past it. Blizzard's
-blips and other addons' pins (GatherMate, HandyNotes) still show on top, tooltips and all.
+**Minimap mode.** MagicMap takes your minimap's spot, square and framed, and zooms out far past
+it. Blizzard's blips and other addons' pins (GatherMate, HandyNotes) still show on top, tooltips
+and all. Indoors, the window simply shows Blizzard's own minimap. While following, the map zooms
+out as you speed up and back in after (`/mm auto` turns that off).
 
 ![Minimap mode: zooming from a herb tooltip out to the whole coast](docs/zoomable-minimap.gif)
 
-**World map takeover.** In minimap mode, M grows it into a big map, and M again shrinks it back.
-
-![Pressing M grows the minimap into a big map and back](docs/minimap-to-big-map.gif)
+**World map takeover.** In minimap mode, M opens Blizzard's world map as usual, quest log and
+all, with MagicMap's map in place of Blizzard's. Picking a zone or quest there flies the map to it.
 
 **Follow a quest and path mode.** Click a quest to track it and make it your target (it gets a
-gold halo). Path mode then keeps you and your target in view, with a faint line between you.
+gold halo). Path mode then keeps you and your target in view, with a faint line between you; when
+the target is off the map, a gold arrow on the map's edge points to it.
 
 ![Path mode framing you and a followed quest, with a dashed line between](docs/path-mode.gif)
 
@@ -53,7 +55,9 @@ gold halo). Path mode then keeps you and your target in view, with a faint line 
 | Waypoint | Ctrl-click (Ctrl-right-click clears) |
 | Title-bar buttons | Follow, Path, Layers, Minimap mode |
 
-Slash commands (`/mm`): `follow`, `map <name>`, `zone <name>`, `minimap`, `layers`, `icon`, `debug`, `reset`.
+Slash commands (`/mm`): `follow`, `auto`, `map <name>`, `zone <name>`, `minimap`, `layers`, `icon`,
+`debug`, `reset`. For checking things in game: `perf` (how the map keeps up) and `sync` (Blizzard's
+minimap terrain over ours, to see whether its blips line up; `sync full` to compare the two).
 
 ## How it works
 
@@ -71,7 +75,9 @@ Slash commands (`/mm`): `follow`, `map <name>`, `zone <name>`, `minimap`, `layer
 - **Minimap mode** copies FarmHud's trick: `Minimap:SetAlpha(0)` hides Blizzard's terrain but
   not its blips. The real Minimap then moves into MagicMap's window, centred on you and sized
   so its yards-per-pixel matches our zoom, so its blips (and HereBeDragons pins) line up with our
-  terrain. Buttons attached to the minimap move to a stand-in at its usual spot.
+  terrain. The client doesn't clip it to the window and takes a moment to apply a new zoom
+  level, so it only shows while the map is settled and its square fits inside the window
+  around you. The rest of Blizzard's minimap cluster is hidden meanwhile.
 
 ## Unknowns and risks
 
@@ -83,13 +89,16 @@ Slash commands (`/mm`): `follow`, `map <name>`, `zone <name>`, `minimap`, `layer
 - **Minimap mode relies on undocumented behaviour:**
   - that `SetAlpha` on the Minimap hides only the terrain (FarmHud depends on this too);
   - HereBeDragons' internal pin table;
-  - Blizzard frame names (e.g. `MinimapZoneTextButton`), which differ between clients.
+  - `C_Minimap.SetMinimapInsetInfo` pushing the rim arrows off screen (its arguments aren't documented);
+  - Blizzard's default round mask texture, restored when minimap mode ends.
   Another minimap addon (SexyMap, FarmHud, square-minimap addons) may conflict.
 - **Blip range is the minimap's.** Blizzard's blips only cover about 230 yards around you, so
-  zoomed far out, only MagicMap's own pins remain.
+  zoomed far out, only MagicMap's own pins remain. They also step aside while zooming, and when
+  zoomed in closer than Blizzard's closest minimap zoom.
 - **Rotate Minimap isn't supported**; minimap mode hands the minimap back while it's on.
-- **Taint.** The world map takeover closes Blizzard's map from addon code (`HideUIPanel`).
-  That could cause "action blocked" errors, especially in combat.
+- **Taint.** Minimap mode hides Blizzard frames from addon code (the minimap cluster, and the
+  world map's own map canvas while MagicMap stands in for it). That could cause "action blocked"
+  errors, especially in combat.
 - **Instances and restricted positions.** Where the game withholds your position (many
   instances, some Retail contexts), following, path mode and minimap mode step aside.
 - **Data drifts with patches.** Tile IDs and terrain change between game versions. The data

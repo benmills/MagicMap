@@ -12,7 +12,12 @@
 --
 -- Everything else hanging off the Minimap (addon buttons, Blizzard's own
 -- parts anchored to it) moves to a stand-in frame at the Minimap's usual
--- spot, so it stays put. All of it goes back when the map closes.
+-- spot, and the whole minimap cluster (clock, calendar, tracking, the
+-- stand-in with it) is hidden, so nothing is left floating around the hole.
+-- All of it comes back when the map closes.
+--
+-- Indoors our terrain has nothing to show, so the window just wears the
+-- Minimap itself: full terrain, centred, the wheel zooming it.
 --
 -- This runs while minimap mode (MinimapMode.lua) is on.
 
@@ -33,35 +38,45 @@ local saved -- the Minimap's own setup, restored on release
 local moved = {}    -- child or region of the Minimap -> true, now on the stand-in
 local anchored = {} -- other objects re-anchored from the Minimap to the stand-in
 local lastDiameter
+local lastZoom
+local STILL = 0.002 -- a zoom change per frame smaller than this (log scale) counts as settled
+local SETTLE_FRAMES = 3 -- frames the Minimap stays hidden after a change of its zoom level
+local settling = 0
 
 local standIn = CreateFrame("Frame", "MagicMapMinimapStandIn", UIParent)
 standIn:Hide()
 ns.minimapStandIn = standIn
 
--- Blizzard's minimap dressing that would only frame an empty hole: the zone
--- text (ours floats above the map) and the round border.
-local DRESSING = { "MinimapZoneTextButton", "MinimapBorderTop", "MinimapBorder", "MinimapCompassTexture", "MinimapNorthTag" }
-local hiddenDressing = {}
+-- Indoors: a black backdrop over our map, under the Minimap, catching the
+-- mouse (our map isn't there to drag) and wheeling the Minimap's zoom.
+local skinned = false
+local indoorBg = CreateFrame("Frame", nil, ns.viewport)
+indoorBg:SetAllPoints()
+indoorBg:Hide()
+indoorBg:CreateTexture(nil, "BACKGROUND"):SetAllPoints()
+indoorBg:GetRegions():SetColorTexture(0, 0, 0, 1)
+indoorBg:EnableMouse(true)
+indoorBg:EnableMouseWheel(true)
+indoorBg:SetScript("OnMouseWheel", function(_, delta)
+	local z = Minimap:GetZoom() + delta
+	if z >= 0 and z < Minimap:GetZoomLevels() then Minimap:SetZoom(z) end
+end)
 
-local function HideDressing()
-	local list = {}
-	for _, name in ipairs(DRESSING) do list[#list + 1] = _G[name] end
-	if MinimapCluster then
-		list[#list + 1] = MinimapCluster.ZoneTextButton
-		list[#list + 1] = MinimapCluster.BorderTop
-	end
-	for _, obj in ipairs(list) do
-		if obj.IsShown and obj:IsShown() then
-			obj:Hide()
-			hiddenDressing[obj] = true
-		end
+-- Blizzard's big arrows toward your target sit on the Minimap's rim; ours
+-- (Path.lua) point the way instead. The client won't swap their art, but it
+-- lets the rim's icons be pushed outward, so they go far off screen.
+local function PushRimArrowsAway(on)
+	if not (C_Minimap and C_Minimap.SetMinimapInsetInfo) then return end
+	if on then
+		pcall(C_Minimap.SetMinimapInsetInfo, 0, 360, 1000) -- the whole rim (degrees or radians), 1000x out
+	else
+		pcall(C_Minimap.ClearMinimapInsetInfo)
 	end
 end
 
-local function ShowDressing()
-	for obj in pairs(hiddenDressing) do obj:Show() end
-	wipe(hiddenDressing)
-end
+-- Square in the window (the frame is square); Blizzard's round mask after.
+local SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
+local ROUND_MASK = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE and "Interface\\Masks\\CircleMaskScalable" or "Textures\\MinimapMask"
 
 local function GetCVarValue(name)
 	if C_CVar and C_CVar.GetCVar then return C_CVar.GetCVar(name) end
@@ -146,11 +161,13 @@ local function Engage()
 		scale = Minimap:GetScale(), strata = Minimap:GetFrameStrata(), level = Minimap:GetFrameLevel(),
 		zoom = Minimap:GetZoom(), alpha = Minimap:GetAlpha(),
 		mouse = Minimap:IsMouseEnabled(), wheel = Minimap:IsMouseWheelEnabled(),
-		shown = Minimap:IsShown(),
+		shown = Minimap:IsShown(), cluster = MinimapCluster and MinimapCluster:IsShown(),
+		clamped = Minimap:IsClampedToScreen(),
 	}
 	for i = 1, Minimap:GetNumPoints() do saved.points[i] = { Minimap:GetPoint(i) } end
 
-	-- The stand-in takes the Minimap's place exactly.
+	-- The stand-in takes the Minimap's place exactly (hidden: it only holds
+	-- things, and anything anchored to it stays where it was).
 	standIn:SetParent(saved.parent)
 	standIn:SetScale(saved.scale)
 	standIn:SetFrameStrata(saved.strata)
@@ -158,12 +175,11 @@ local function Engage()
 	standIn:ClearAllPoints()
 	for _, p in ipairs(saved.points) do standIn:SetPoint(unpack(p)) end
 	standIn:SetSize(w, h)
-	standIn:Show()
 	for _, obj in ipairs({ Minimap:GetChildren() }) do MoveToStandIn(obj) end
 	for _, obj in ipairs({ Minimap:GetRegions() }) do MoveToStandIn(obj) end
 	local root = MinimapCluster or saved.parent
 	if root then ReanchorAround(root, 3) end
-	HideDressing()
+	if saved.cluster then MinimapCluster:Hide() end
 
 	-- Into the map: above our pins, below our overlay; mouse goes to the map.
 	Minimap:SetParent(ns.viewport)
@@ -185,13 +201,34 @@ local function Engage()
 	end
 	Minimap:EnableMouseWheel(false)
 	Minimap:SetAlpha(0)
+	-- Never pushed back on screen: that would slide its blips off ours.
+	Minimap:SetClampedToScreen(false)
+	Minimap:SetMaskTexture(SQUARE_MASK)
+	PushRimArrowsAway(true)
+	Minimap:Hide() -- until Update finds it a settled spot
+	lastDiameter = nil
+end
+
+-- Indoors (on) or out: the Minimap shown whole over a backdrop, or faded to
+-- just its blips under our marker.
+local function SetSkin(on)
+	if on == skinned then return end
+	skinned = on
+	indoorBg:SetFrameLevel(ns.overlay:GetFrameLevel() + 1)
+	indoorBg:SetShown(on)
+	Minimap:SetFrameLevel(ns.overlay:GetFrameLevel() + (on and 2 or -1))
+	Minimap:SetAlpha(on and 1 or 0)
+	PushRimArrowsAway(not on) -- indoors it's Blizzard's minimap, arrows and all
 	lastDiameter = nil
 end
 
 local function Release()
 	if not embedded then return end
 	embedded = false
-	state.hideMarker = false
+	SetSkin(false)
+	PushRimArrowsAway(false)
+	state.minimapShown = false
+	ns.SetMinimapCircle(nil)
 
 	Minimap:SetParent(saved.parent)
 	Minimap:ClearAllPoints()
@@ -205,6 +242,8 @@ local function Release()
 	Minimap:SetAlpha(saved.alpha)
 	Minimap:SetZoom(saved.zoom)
 	Minimap:SetShown(saved.shown)
+	Minimap:SetClampedToScreen(saved.clamped)
+	Minimap:SetMaskTexture(ROUND_MASK)
 
 	for obj in pairs(moved) do
 		local layer, sublevel, strata, level
@@ -227,8 +266,7 @@ local function Release()
 		Reanchor(obj, standIn, Minimap)
 		anchored[obj] = nil
 	end
-	ShowDressing()
-	standIn:Hide()
+	if saved.cluster then MinimapCluster:Show() end
 	local hbd = HBDPins()
 	if hbd and hbd.SetMinimapObject then hbd:SetMinimapObject(Minimap) end -- re-place pins at the normal size
 end
@@ -251,42 +289,93 @@ local function ViewRadius(kind)
 	return (DIAMETER[kind][Minimap:GetZoom()] or DIAMETER[kind][0]) / 2
 end
 
+-- /mm sync: show the Minimap's own terrain at half strength over ours, inside
+-- an outline of where we put it, so any drift between its blips and our map
+-- shows as doubled terrain.
+local syncCheck
+local syncOutline = CreateFrame("Frame", nil, Minimap)
+syncOutline:SetAllPoints()
+syncOutline:Hide()
+for _, e in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT", true }, { "TOPRIGHT", "BOTTOMRIGHT", true } }) do
+	local t = syncOutline:CreateTexture(nil, "OVERLAY")
+	t:SetColorTexture(1, 0.2, 0.8, 0.9) -- where we put the Minimap: its terrain should fill this exactly
+	t:SetPoint(e[1])
+	t:SetPoint(e[2])
+	if e[3] then t:SetWidth(1) else t:SetHeight(1) end
+end
+-- /mm sync full: Blizzard's terrain at full strength, for comparing the two.
+ns.slash.sync = function(arg)
+	syncCheck = not syncCheck and { alpha = arg == "full" and 1 or 0.5 } or nil
+	if not syncCheck then syncOutline:Hide() end
+	ns.Print(not syncCheck and "sync: off"
+		or syncCheck.alpha == 1 and "sync: Blizzard's terrain in place of ours where its blips show. /mm sync again to stop"
+		or "sync: Blizzard's terrain at 50% over ours; zoom and pan, watch for doubling. /mm sync again to stop")
+end
+
 local function Update(elapsed)
 	if Blocker() then
 		Release()
 		return
 	end
 	Engage()
+	-- The window's strata changes (minimap mode, docking): the Minimap goes with it.
+	if Minimap:GetFrameStrata() ~= ns.frame:GetFrameStrata() then
+		Minimap:SetFrameStrata(ns.frame:GetFrameStrata())
+		Minimap:SetFrameLevel(ns.overlay:GetFrameLevel() + (skinned and 2 or -1))
+	end
+	local expanded = ns.IsMapExpanded and ns.IsMapExpanded()
+	SetSkin(IsIndoors and IsIndoors() and not expanded or false)
+	if skinned then
+		ns.SetMinimapCircle(nil)
+		local w, h = ns.viewport:GetSize()
+		local d = math.floor(math.min(w, h) + 0.5)
+		Minimap:ClearAllPoints()
+		Minimap:SetPoint("CENTER", ns.viewport)
+		if d ~= lastDiameter then
+			lastDiameter = d
+			Minimap:SetSize(d, d)
+			local hbd = HBDPins()
+			if hbd and hbd.SetMinimapObject then hbd:SetMinimapObject(Minimap) end
+		end
+		if not Minimap:IsShown() then Minimap:Show() end
+		state.minimapShown = true
+		return
+	end
 
-	-- The widest Minimap zoom whose circle still fits the window, judged at the
-	-- zoom the camera is headed for so it doesn't switch part-way through.
-	local goal = ns.GoalZoom()
+	-- Outdoors the Minimap only shows where it can't go wrong: the map settled
+	-- (not mid-zoom), its square wholly inside the window around you (the
+	-- client doesn't clip it to the window), and a couple of frames after any
+	-- change of its zoom level (the client takes a moment to apply one).
+	local zoom = state.zoom
+	local still = not ns.IsZooming() and lastZoom and math.abs(math.log(zoom / lastZoom)) < STILL
+	lastZoom = zoom
 	local kind = (IsIndoors and IsIndoors()) and "indoor" or "outdoor"
 	local w, h = ns.viewport:GetSize()
-	local fit = math.max(w, h)
-	local level = 5
+	local x, y = ns.TileToScreen(state.playerCol, state.playerRow)
+	local room = 2 * math.min(x, w - x, y, h - y) -- the biggest square around you in the window
+	local level -- the widest zoom level whose square fits that room
 	for z = 0, 5 do
-		if DIAMETER[kind][z] / TILE_YARDS * goal <= fit then
+		if DIAMETER[kind][z] / TILE_YARDS * zoom <= room then
 			level = z
 			break
 		end
 	end
-	if Minimap:GetZoom() ~= level then Minimap:SetZoom(level) end
-
-	local d = 2 * ViewRadius(kind) / TILE_YARDS * state.zoom
-	-- Expanded into the world-map view, the minimap stays out of sight entirely
-	-- (still held here, so it doesn't reappear in its corner either).
-	if d < MIN_DIAMETER or (ns.IsMapExpanded and ns.IsMapExpanded()) then
-		Minimap:Hide()
-		state.hideMarker = false
+	if level and still and Minimap:GetZoom() ~= level then
+		Minimap:SetZoom(level)
+		settling = SETTLE_FRAMES
+	end
+	settling = math.max(0, settling - 1)
+	local d = 2 * ViewRadius(kind) / TILE_YARDS * zoom
+	if expanded or not (level and still) or settling > 0 or d < MIN_DIAMETER or d > room + 1 then
+		if Minimap:IsShown() then Minimap:Hide() end
+		state.minimapShown = false
+		ns.SetMinimapCircle(nil)
 		return
 	end
-	if not Minimap:IsShown() then Minimap:Show() end
-	state.hideMarker = true -- Blizzard's arrow is ours now
-	local x, y = ns.TileToScreen(state.playerCol, state.playerRow)
-	Minimap:ClearAllPoints()
-	Minimap:SetPoint("CENTER", ns.viewport, "TOPLEFT", x, -y)
 
+	-- Pinned to the tiles' own canvas, so it moves with them pixel for pixel.
+	Minimap:ClearAllPoints()
+	Minimap:SetPoint("CENTER", ns.tileCanvas, "TOPLEFT", state.playerCol * zoom, -state.playerRow * zoom)
 	d = math.floor(d + 0.5)
 	if d ~= lastDiameter then
 		lastDiameter = d
@@ -296,6 +385,17 @@ local function Update(elapsed)
 		local hbd = HBDPins()
 		if hbd and hbd.SetMinimapObject then hbd:SetMinimapObject(Minimap) end
 	end
+	local alpha = syncCheck and syncCheck.alpha or 0
+	if Minimap:GetAlpha() ~= alpha then Minimap:SetAlpha(alpha) end
+	syncOutline:SetShown(syncCheck ~= nil)
+	if syncCheck and level ~= syncCheck.level then
+		syncCheck.level = level
+		ns.Print(string.format("sync: Minimap zoom %d, radius %.1f yd (%s), %d px across at map zoom %.0f",
+			level, ViewRadius(kind), (C_Minimap and C_Minimap.GetViewRadius) and "client" or "table", d, zoom))
+	end
+	if not Minimap:IsShown() then Minimap:Show() end
+	state.minimapShown = true -- its arrow (the same art as ours) stands in for ours
+	ns.SetMinimapCircle(state.playerCol, state.playerRow, ViewRadius(kind) / TILE_YARDS)
 end
 
 -- The minimap's rect in UIParent coordinates (the stand-in's while the
@@ -308,12 +408,6 @@ function ns.MinimapRect()
 	return left * s, top * s, w * s, h * s
 end
 
--- The minimap's view radius in yards at its own (not our) zoom.
-function ns.MinimapViewRadius()
-	local kind = (IsIndoors and IsIndoors()) and "indoor" or "outdoor"
-	if embedded then return (DIAMETER[kind][saved.zoom] or DIAMETER[kind][0]) / 2 end
-	return ViewRadius(kind)
-end
 
 ns.ReleaseMinimap = Release
 ns.MinimapBlocker = Blocker
