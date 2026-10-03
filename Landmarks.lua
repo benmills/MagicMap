@@ -170,7 +170,8 @@ local function VignettePins(mapID)
 		local info = V.GetVignetteInfo(guid)
 		if info and not info.isDead and info.name then
 			local pos = V.GetVignettePosition(guid, uiMapID)
-			local x, y = pos and pos:GetXY()
+			local x, y
+			if pos then x, y = pos:GetXY() end -- not `pos and pos:GetXY()`: `and` keeps only x
 			if x then
 				local inst, col, row = ns.MapToTile(uiMapID, x, y)
 				ns.PinAtTile(list, inst, col, row, {
@@ -201,7 +202,8 @@ local function AreaPOIPins(mapID)
 			if not seen[poiID] then
 				seen[poiID] = true
 				local info = A.GetAreaPOIInfo(uiMapID, poiID)
-				local x, y = info and info.position and info.position:GetXY()
+				local x, y
+				if info and info.position then x, y = info.position:GetXY() end
 				if x then
 					local inst, col, row = ns.MapToTile(uiMapID, x, y)
 					ns.PinAtTile(list, inst, col, row, {

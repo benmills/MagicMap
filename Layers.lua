@@ -191,9 +191,10 @@ end
 local shadePool = Pool(function() return canvases.shade:CreateTexture(nil, "ARTWORK") end)
 if hasLines then
 	for _, b in ipairs(buffers) do
-		b.sub = LinePool(b.canvas, -1)      -- subzone outlines
-		b.shadow = LinePool(b.canvas, 0)    -- soft shadow under zone borders
-		b.border = LinePool(b.canvas, 1)    -- zone borders
+		-- Roomier than most: panning extends these in place (see StartExtend).
+		b.sub = LinePool(b.canvas, -1, 5000)    -- subzone outlines
+		b.shadow = LinePool(b.canvas, 0, 5000)  -- soft shadow under zone borders
+		b.border = LinePool(b.canvas, 1, 5000)  -- zone borders
 		b.highlight = LinePool(b.canvas, 3) -- the hovered zone's borders
 	end
 end
@@ -207,15 +208,18 @@ local labelPool = Pool(function()
 end)
 
 -- The border builder is a coroutine resumed once a frame (see StartBuild);
--- DrawLine hands the frame back once the builder has had its slice.
+-- DrawLine hands the frame back once the builder has had its slice (an
+-- extension, only between whole lines: see BuildBorders).
 local BUILD_SLICE_MS = 3
-local build -- { co, buf, zoom, region, map, ms }
+local URGENT_SLICE_MS = 8 -- while the view has run past the drawn borders
+local build -- { co, buf, zoom, region, map, ms, urgent, extend, overflow }
 local sliceStart, drawn = 0, 0
-local function MaybeYield()
+local function MaybeYield(lineStart)
+	if build and build.extend and not lineStart then return end
 	drawn = drawn + 1
-	if drawn % 40 ~= 0 or not (build and coroutine.running() == build.co) then return end
+	if not lineStart and drawn % 40 ~= 0 or not (build and coroutine.running() == build.co) then return end
 	if debugprofilestop then
-		if debugprofilestop() - sliceStart > BUILD_SLICE_MS then coroutine.yield() end
+		if debugprofilestop() - sliceStart > (build.urgent and URGENT_SLICE_MS or BUILD_SLICE_MS) then coroutine.yield() end
 	elseif drawn % 400 == 0 then
 		coroutine.yield()
 	end
@@ -332,6 +336,14 @@ local function StylePin(pin, e)
 	pin.icon:SetSize(size * 0.6, size * 0.6)
 end
 
+-- Where the Minimap sits in the map (minimap mode), in tiles: it draws its
+-- own turn-in blips there, so ours step aside rather than double up.
+local minimapCircle = {}
+local function UnderMinimap(e)
+	local c = minimapCircle
+	return e.turnIn and c.r and (e.col - c.col) ^ 2 + (e.row - c.row) ^ 2 < c.r ^ 2
+end
+
 -- Pins only move as you zoom; small landmarks appear once you're close
 -- enough to use them.
 local function PositionPins()
@@ -339,11 +351,30 @@ local function PositionPins()
 	for i = 1, pinPool.used do
 		local pin = pinPool.list[i]
 		local e = pin.entry
-		if e.minZoom and z < e.minZoom then
+		if (e.minZoom and z < e.minZoom) or UnderMinimap(e) then
 			if pin:IsShown() then pin:Hide() end
 		else
 			if not pin:IsShown() then pin:Show() end
 			pin:SetPoint("CENTER", canvases.pins, "TOPLEFT", e.col * z, -e.row * z)
+		end
+	end
+end
+
+-- The Minimap's circle moved (r nil: it's not in the map): show or hide just
+-- the turn-in pins it would double.
+function ns.SetMinimapCircle(col, row, r)
+	local c = minimapCircle
+	if c.col == col and c.row == row and c.r == r then return end
+	c.col, c.row, c.r = col, row, r
+	for i = 1, pinPool.used do
+		local pin = pinPool.list[i]
+		local e = pin.entry
+		if e.turnIn and not (e.minZoom and state.zoom < e.minZoom) then
+			local show = not UnderMinimap(e)
+			if pin:IsShown() ~= show then
+				pin:SetShown(show)
+				if show then pin:SetPoint("CENTER", canvases.pins, "TOPLEFT", e.col * state.zoom, -e.row * state.zoom) end
+			end
 		end
 	end
 end
@@ -529,7 +560,7 @@ sources.quests = function(mapID)
 			and { atlas = "UI-QuestIcon-TurnIn-Normal", color = { 0.2, 1, 0.2 } }
 			or { atlas = "Quest-In-Progress-Icon-yellow", under = "UI-QuestPoi-QuestNumber", color = { 1, 0.82, 0 } }
 		local e = AddAt(list, b.uiMapID, b.x, b.y, {
-			size = followed and 26 or 22, glow = followed, questID = questID, title = title, icon = icon,
+			size = followed and 26 or 22, glow = followed, questID = questID, title = title, icon = icon, turnIn = complete,
 			lines = lines,
 		})
 		if e and not complete then
@@ -570,12 +601,13 @@ local function NewBlobFrame()
 	if not (ok and f and f.DrawBlob and f.SetMapID) then return nil end
 	f:SetFillTexture("Interface\\WorldMap\\UI-QuestBlob-Inside")
 	f:SetBorderTexture("Interface\\WorldMap\\UI-QuestBlob-Outside")
-	-- Quiet: the areas should read as context under the map, not shout over it.
-	f:SetFillAlpha(56)
-	f:SetBorderAlpha(100)
 	f:SetBorderScalar(1.0)
 	return f
 end
+
+-- The quest you follow gets its area drawn plainly; the rest are a faint
+-- hint under the map (0-255).
+local BLOB_ALPHA = { followed = { 56, 110 }, other = { 14, 32 } }
 do
 	local probe = NewBlobFrame()
 	blobSupported = probe ~= nil
@@ -606,15 +638,22 @@ local function LayoutQuestAreas()
 	wipe(blobFrames)
 
 	if blobSupported and Enabled("quests") and Enabled("questAreas") then
-		local byMap = {}
+		-- One frame per map and style (followed or not): alpha is per frame.
+		local groups, followed = {}, FollowedQuest()
 		for _, a in ipairs(questAreas) do
-			byMap[a.uiMapID] = byMap[a.uiMapID] or {}
-			table.insert(byMap[a.uiMapID], a.questID)
+			local style = a.questID == followed and "followed" or "other"
+			local key = a.uiMapID .. style
+			groups[key] = groups[key] or { uiMapID = a.uiMapID, style = style }
+			table.insert(groups[key], a.questID)
 		end
-		for uiMapID, quests in pairs(byMap) do
+		for _, quests in pairs(groups) do
+			local uiMapID = quests.uiMapID
 			local r = ns.MapRect(uiMapID)
 			local f = r and (table.remove(blobPool) or NewBlobFrame())
 			if f then
+				f:SetFillAlpha(BLOB_ALPHA[quests.style][1])
+				f:SetBorderAlpha(BLOB_ALPHA[quests.style][2])
+				f:SetFrameLevel(canvases.areas:GetFrameLevel() + (quests.style == "followed" and 2 or 1))
 				f:ClearAllPoints()
 				f:SetPoint("TOPLEFT", canvases.areas, "TOPLEFT", r.col0 * z, -r.row0 * z)
 				f:SetSize((r.col1 - r.col0) * z, (r.row1 - r.row0) * z)
@@ -1544,15 +1583,42 @@ end
 
 local CROSSFADE = 0.12
 local REBUILD_DRIFT = 0.02 -- a layout within 2% of the wanted zoom will do
+local function SameZoom(a, b)
+	return math.abs(math.log(a / b)) < REBUILD_DRIFT
+end
+
+-- Builds cover the view plus REGION (in half-views) on every side. The next
+-- one starts while the view still has PREFETCH of drawn border around it, so
+-- a pan finds it ready instead of running off the edge first.
+local REGION, PREFETCH = 1.0, 0.6
+-- Past this share of a pool's cap, panning rebuilds instead of extending.
+local EXTEND_MAX_FILL = 0.85
 
 -- Zone borders and subzone outlines within `region`, at zoom z, into buf.
--- Runs inside the builder coroutine (DrawLine yields).
-local function BuildBorders(buf, z, region)
+-- Runs inside the builder coroutine (DrawLine yields). extend: add to what
+-- buf already shows (at this zoom) just the lines it doesn't have yet.
+local function BuildBorders(buf, z, region, extend, b)
 	if not hasLines then return end
-	buf.sub:Begin()
-	buf.shadow:Begin()
-	buf.border:Begin()
-	buf.highlight:Reset()
+	if not extend then
+		buf.sub:Begin()
+		buf.shadow:Begin()
+		buf.border:Begin()
+		buf.highlight:Reset()
+		buf.drawn, buf.full = {}, nil
+	end
+	local drawn = buf.drawn
+	-- An extension yields only between whole lines, so dropping it never
+	-- leaves half of one; one that runs out of lines stops (see the runner)
+	-- rather than remember lines it couldn't draw.
+	local function Room()
+		if not extend then return true end
+		if buf.sub:Full() or buf.shadow:Full() or buf.border:Full() then
+			b.overflow = true
+			return false
+		end
+		MaybeYield(true)
+		return true
+	end
 	if Enabled("zoneBorders") then
 		local c0, r0, c1, r1 = unpack(region)
 		local c = buf.canvas
@@ -1561,7 +1627,9 @@ local function BuildBorders(buf, z, region)
 		local grid = state.map and grids[state.map]
 		if data then
 			for _, l in ipairs(data.zoneLines) do
-				if l.x1 >= c0 and l.x0 <= c1 and l.y1 >= r0 and l.y0 <= r1 then
+				if not drawn[l] and l.x1 >= c0 and l.x0 <= c1 and l.y1 >= r0 and l.y0 <= r1 then
+					if not Room() then return end
+					drawn[l] = true
 					local pts = LinePts(l, z)
 					-- The soft shadow only matters close up.
 					if z >= 60 then
@@ -1570,7 +1638,7 @@ local function BuildBorders(buf, z, region)
 					DrawPolyline(buf.border, c, pts, z, thick, r, g, b, a, l.fadeStart, l.fadeEnd)
 				end
 			end
-		elseif grid then
+		elseif grid and not extend then
 			for _, pts in ipairs(ChainsForZoom(grid, z) or {}) do
 				DrawPolyline(buf.shadow, c, pts, z, thick + 1.2, 0, 0, 0, 0.25)
 				DrawPolyline(buf.border, c, pts, z, thick, r, g, b, a)
@@ -1579,15 +1647,19 @@ local function BuildBorders(buf, z, region)
 		if z >= SUBZONE_LINE_MIN_ZOOM then
 			thick, r, g, b, a = SubLineStyle(z)
 			for _, l in ipairs(data and data.subLines or {}) do
-				if l.x1 >= c0 and l.x0 <= c1 and l.y1 >= r0 and l.y0 <= r1 then
+				if not drawn[l] and l.x1 >= c0 and l.x0 <= c1 and l.y1 >= r0 and l.y0 <= r1 then
+					if not Room() then return end
+					drawn[l] = true
 					DrawPolyline(buf.sub, c, LinePts(l, z, SUBZONE_TOL), z, thick, r, g, b, a, false, false)
 				end
 			end
 		end
 	end
-	buf.sub:Finish()
-	buf.shadow:Finish()
-	buf.border:Finish()
+	if not extend then
+		buf.sub:Finish()
+		buf.shadow:Finish()
+		buf.border:Finish()
+	end
 end
 
 -- Unexplored shading (a few hundred rectangles; cheap), at zoom z.
@@ -1657,7 +1729,10 @@ local function Swap(b)
 	front, back = buf, old
 	buf.canvas:SetAlpha(0)
 	buf.canvas:Show()
-	if old.zoom and old.canvas:IsShown() then
+	-- Same zoom: the lines they share are identical, so cut straight over (a
+	-- fade would only dim them for a moment mid-pan).
+	local sameZoom = old.zoom and SameZoom(old.zoom, b.zoom)
+	if old.zoom and old.canvas:IsShown() and not sameZoom then
 		fade = { from = old, to = buf, t = 0, fromAlpha = old.canvas:GetAlpha() }
 	else
 		buf.canvas:SetAlpha(1)
@@ -1669,12 +1744,23 @@ local function Swap(b)
 	ns.layoutStats = { ms = b.ms, lines = hasLines and (buf.border.used + buf.shadow.used + buf.sub.used) or 0 }
 end
 
+-- Grow the front buffer to cover a new region at its own zoom: panning only
+-- needs the lines coming into view, and they show as they're drawn.
+local function StartExtend(region)
+	build = nil
+	local buf = front
+	local b = { buf = buf, zoom = buf.zoom, region = region, map = state.map, ms = 0, extend = true }
+	b.co = coroutine.create(function() BuildBorders(buf, buf.zoom, region, true, b) end)
+	build = b
+end
+
 local function StartBuild(z, cx, cy)
+	build = nil
 	FinishCrossfade()
 	local buf = back
 	buf.canvas:Hide()
 	buf.zoom, buf.region = nil, nil
-	local b = { buf = buf, zoom = z, region = { ViewRect(1.0, z, cx, cy) }, map = state.map, ms = 0 }
+	local b = { buf = buf, zoom = z, region = { ViewRect(REGION, z, cx, cy) }, map = state.map, ms = 0 }
 	b.co = coroutine.create(function() BuildBorders(buf, z, b.region) end)
 	build = b
 end
@@ -1691,7 +1777,27 @@ local function ClearGeometry()
 end
 
 local function Fits(b, z, view)
-	return b.zoom ~= nil and not b.stale and math.abs(math.log(b.zoom / z)) < REBUILD_DRIFT and Contains(b.region, unpack(view))
+	return b.zoom ~= nil and not b.stale and SameZoom(b.zoom, z) and Contains(b.region, unpack(view))
+end
+
+-- Room on a buffer's pools for more lines.
+local function Roomy(buf)
+	if buf.full then return false end
+	for _, pool in ipairs({ buf.sub, buf.shadow, buf.border }) do
+		if pool.used > pool.cap * EXTEND_MAX_FILL then return false end
+	end
+	return true
+end
+
+-- What the border buffers hold (for /mm perf and tests).
+function ns.GeometryInfo()
+	local r = front.region
+	return {
+		zoom = front.zoom, region = r, canvas = front.canvas,
+		covers = Contains(r, ViewRect(0)), -- the view, right now
+		building = build ~= nil, extending = build and build.extend, fading = fade ~= nil,
+		lines = hasLines and (front.border.used + front.shadow.used + front.sub.used) or 0,
+	}
 end
 
 -- Make sure the borders for where the camera is headed are on screen or on
@@ -1700,16 +1806,32 @@ local function RequestGeometry(force)
 	local z = ns.GoalZoom()
 	local cx, cy = ns.GoalCenter()
 	local view = { ViewRect(0, z, cx, cy) }
+	local ahead = { ViewRect(PREFETCH, z, cx, cy) }
 	if force then
 		front.stale = true
 	else
-		if Fits(front, z, view) then
+		if Fits(front, z, ahead) then
 			build = nil
 			return
 		end
-		if build and Fits(build, z, view) then return end
+		-- An extension can be re-aimed for free; a full build only once it
+		-- stops covering the view.
+		if build and Fits(build, z, build.extend and ahead or view) then
+			build.urgent = not Fits(front, z, view)
+			return
+		end
 	end
-	StartBuild(z, cx, cy)
+	local urgent = not force and not Fits(front, z, view)
+	-- Same zoom: grow what's on screen, until it holds too many stray lines
+	-- from far behind (then a fresh build, out of sight, tidies up).
+	local extendable = not force and front.zoom and front.drawn and not front.stale and front.canvas:IsShown()
+		and SameZoom(front.zoom, z) and OfflineBorders(state.map) and Roomy(front)
+	if extendable then
+		StartExtend({ ViewRect(REGION, front.zoom, cx, cy) })
+	else
+		StartBuild(z, cx, cy)
+	end
+	build.urgent = urgent
 end
 
 local runner = CreateFrame("Frame")
@@ -1718,13 +1840,27 @@ runner:SetScript("OnUpdate", function(_, elapsed)
 	if b then
 		sliceStart = debugprofilestop and debugprofilestop() or 0
 		local ok, err = coroutine.resume(b.co)
-		if debugprofilestop then b.ms = b.ms + debugprofilestop() - sliceStart end
+		if debugprofilestop then
+			local ms = debugprofilestop() - sliceStart
+			b.ms = b.ms + ms
+			if ns.perf then ns.perf.Slice(ms) end
+		end
 		if not ok then
 			build = nil
 			ns.Print("border layout failed: " .. tostring(err))
 		elseif coroutine.status(b.co) == "dead" then
 			build = nil
-			if b.map == state.map then Swap(b) end
+			if ns.perf then ns.perf.Built(b) end
+			if b.map == state.map then
+				if b.overflow then
+					b.buf.full = true -- no more extending; rebuild
+					RequestGeometry(false)
+				elseif b.extend then
+					b.buf.region = b.region
+				else
+					Swap(b)
+				end
+			end
 		end
 	end
 	if fade then
@@ -1752,6 +1888,7 @@ LayoutStatic = function()
 	RequestGeometry(true)
 	LayoutLabels()
 end
+ns.LayoutStatic = function() LayoutStatic() end
 
 -- How many zones meaningfully share the view? With offline data: zones whose
 -- heart (label anchor) is on screen. Otherwise sampled from the zone grid:
@@ -1887,9 +2024,7 @@ end
 -- Layers menu, events, init
 ---------------------------------------------------------------------------
 
-local layersMenu = ns.AttachMenu(ns.layersButton, 240, "down")
-layersMenu.keepOpen = true
-layersMenu.getItems = function()
+local function LayerItems()
 	local items = {}
 	for _, layer in ipairs(LAYERS) do
 		local label = layer.label
@@ -1898,7 +2033,7 @@ layersMenu.getItems = function()
 	end
 	return items
 end
-layersMenu.onSelect = function(key)
+local function OnLayerSelect(key)
 	db.layers[key] = not db.layers[key]
 	if sources[key] then
 		RefreshPins(key)
@@ -1911,13 +2046,17 @@ layersMenu.onSelect = function(key)
 		LayoutStatic()
 	end
 end
+local layersMenu = ns.AttachMenu(ns.gearButton, 240, "down")
+layersMenu.keepOpen = true
+layersMenu.getItems = LayerItems
+layersMenu.onSelect = OnLayerSelect
 
 ns.slash.layers = function()
 	local on = {}
 	for _, layer in ipairs(LAYERS) do
 		on[#on + 1] = (Enabled(layer.key) and "|cff33ff33" or "|cff888888") .. layer.key .. "|r"
 	end
-	ns.Print("layers: " .. table.concat(on, ", ") .. ". Toggle them from the Layers button. "
+	ns.Print("layers: " .. table.concat(on, ", ") .. ". Toggle them from the gear. "
 		.. "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it. "
 		.. "Quest areas: " .. (blobSupported and "exact blobs supported" or "approximate only"))
 end
