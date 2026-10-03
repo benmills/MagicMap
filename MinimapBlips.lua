@@ -76,7 +76,9 @@ end
 
 -- Square in the window (the frame is square); Blizzard's round mask after.
 local SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
-local ROUND_MASK = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE and "Interface\\Masks\\CircleMaskScalable" or "Textures\\MinimapMask"
+-- (Retail-engine clients, Forever included, have only the first.)
+local ROUND_MASK = GetFileIDFromPath and GetFileIDFromPath("Interface\\Masks\\CircleMaskScalable")
+	and "Interface\\Masks\\CircleMaskScalable" or "Textures\\MinimapMask"
 
 local function GetCVarValue(name)
 	if C_CVar and C_CVar.GetCVar then return C_CVar.GetCVar(name) end
@@ -318,7 +320,7 @@ local function Update(elapsed)
 		return
 	end
 	Engage()
-	-- The window's strata changes (minimap mode, docking): the Minimap goes with it.
+	-- The window's strata changes (minimap mode, expanding): the Minimap goes with it.
 	if Minimap:GetFrameStrata() ~= ns.frame:GetFrameStrata() then
 		Minimap:SetFrameStrata(ns.frame:GetFrameStrata())
 		Minimap:SetFrameLevel(ns.overlay:GetFrameLevel() + (skinned and 2 or -1))

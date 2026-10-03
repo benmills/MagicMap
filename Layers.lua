@@ -2024,9 +2024,7 @@ end
 -- Layers menu, events, init
 ---------------------------------------------------------------------------
 
-local layersMenu = ns.AttachMenu(ns.layersButton, 240, "down")
-layersMenu.keepOpen = true
-layersMenu.getItems = function()
+local function LayerItems()
 	local items = {}
 	for _, layer in ipairs(LAYERS) do
 		local label = layer.label
@@ -2035,7 +2033,7 @@ layersMenu.getItems = function()
 	end
 	return items
 end
-layersMenu.onSelect = function(key)
+local function OnLayerSelect(key)
 	db.layers[key] = not db.layers[key]
 	if sources[key] then
 		RefreshPins(key)
@@ -2048,13 +2046,17 @@ layersMenu.onSelect = function(key)
 		LayoutStatic()
 	end
 end
+local layersMenu = ns.AttachMenu(ns.gearButton, 240, "down")
+layersMenu.keepOpen = true
+layersMenu.getItems = LayerItems
+layersMenu.onSelect = OnLayerSelect
 
 ns.slash.layers = function()
 	local on = {}
 	for _, layer in ipairs(LAYERS) do
 		on[#on + 1] = (Enabled(layer.key) and "|cff33ff33" or "|cff888888") .. layer.key .. "|r"
 	end
-	ns.Print("layers: " .. table.concat(on, ", ") .. ". Toggle them from the Layers button. "
+	ns.Print("layers: " .. table.concat(on, ", ") .. ". Toggle them from the gear. "
 		.. "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it. "
 		.. "Quest areas: " .. (blobSupported and "exact blobs supported" or "approximate only"))
 end

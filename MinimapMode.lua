@@ -8,31 +8,33 @@
 --   * Pan away and leave it alone for a few seconds, and it glides back to
 --     following you.
 --   * It sits at the minimap's strata, so other windows go over it.
---   * Opening the world map opens Blizzard's as usual (quest log and all),
---     with this map docked over its map area in place of Blizzard's; picking
---     a zone or quest there flies this map to it. Closing it puts it back.
+--   * The world map key (M) grows the window to most of the screen instead
+--     of opening Blizzard's; M, Escape or the close button shrink it back.
+--     Anything else that opens Blizzard's world map (the quest log, L) still
+--     opens it as usual.
 --
 -- Turning the mode off puts the window back where it was.
 
 local ADDON, ns = ...
 local TILE_YARDS = 1600 / 3
 local IDLE_FOLLOW = 6 -- seconds untouched before the map follows you again
+local EXPAND_TIME, COLLAPSE_TIME = 0.22, 0.18
+local EXPANDED_SIZE = 0.7 -- of the screen, each way
+local MAPTYPE_ZONE = Enum and Enum.UIMapType and Enum.UIMapType.Zone or 3
 local SPAN = 200 -- yards across the window's shorter side to start with (Blizzard's widest: 467)
 
 local db
 local state = ns.state
 local frame = ns.frame
-local expanded = false
-local small -- while docked: the minimap-sized rect { left, top, w, h, zoom = } to return to
+local expanded = false -- grown to most of the screen (the world map, M)
+local small -- meanwhile: the minimap-sized rect { left, top, w, h, zoom = } to return to
 
 function ns.IsMinimapMode() return db and db.minimapMode end
 
 function ns.IsMapExpanded() return expanded end
 
 local function UpdateButton()
-	local on = db and db.minimapMode
-	ns.minimapButton.icon:SetDesaturated(not on)
-	ns.minimapButton.icon:SetVertexColor(1, 1, 1, on and 1 or 0.55)
+	ns.SetModeButtonArt(db and db.minimapMode)
 end
 
 -- Escape closes the map normally, but not while it stands in for the minimap.
@@ -60,12 +62,54 @@ local function SetHomeStrata()
 	frame:SetFrameStrata(db and db.minimapMode and (MinimapCluster and MinimapCluster:GetFrameStrata() or "LOW") or "HIGH")
 end
 
+
+local function EaseOutCubic(t) return 1 - (1 - t) ^ 3 end
+
+-- The minimap's home corner (Blizzard's cluster, and the stand-in holding the
+-- buttons that hung off the minimap) fades out while the window is expanded,
+-- so nothing of the minimap is left floating there.
+local homeAlpha = 1 -- the cluster's own alpha, to restore
+local function SetHomeAlpha(a)
+	if MinimapCluster then MinimapCluster:SetAlpha(a) end
+	if ns.minimapStandIn then ns.minimapStandIn:SetAlpha(a) end
+end
+
+local tween
+local tweener = CreateFrame("Frame")
+tweener:Hide()
+tweener:SetScript("OnUpdate", function(self, elapsed)
+	local tw = tween
+	tw.t = tw.t + elapsed
+	local p = EaseOutCubic(math.min(1, tw.t / tw.dur))
+	local r = {}
+	for i = 1, 4 do r[i] = tw.from[i] + (tw.to[i] - tw.from[i]) * p end
+	if tw.alpha then SetHomeAlpha(tw.alpha[1] + (tw.alpha[2] - tw.alpha[1]) * p) end
+	SetRect(r)
+	if p >= 1 then
+		tween = nil
+		self:Hide()
+		if tw.onDone then tw.onDone() end
+	end
+end)
+
+-- alpha (optional): { from, to } for the minimap's home corner.
+local function TweenTo(to, duration, onDone, alpha)
+	tween = { from = { frame:GetLeft(), frame:GetTop(), frame:GetSize() }, to = to, t = 0, dur = duration, onDone = onDone, alpha = alpha }
+	tweener:Show()
+end
+
+local function StopTween()
+	tween = nil
+	tweener:Hide()
+end
+
+
 -- Resizing the small window keeps the same yards across it (the zoom scales
 -- with it), rather than showing more or less of the world.
 local lastSide
 frame:HookScript("OnSizeChanged", function(_, w, h)
 	local side = math.min(w, h)
-	if db and db.minimapMode and not expanded and lastSide and lastSide > 0 then
+	if db and db.minimapMode and not ns.IsMapExpanded() and not tween and lastSide and lastSide > 0 then
 		ns.SetZoom(ns.state.zoom * side / lastSide)
 	end
 	lastSide = side
@@ -84,69 +128,104 @@ end
 -- World map takeover
 ---------------------------------------------------------------------------
 
--- Blizzard's map area: its canvas (hidden while we're there) and our dock.
-local function WorldMapArea()
-	return WorldMapFrame and (WorldMapFrame.ScrollContainer
-		or (WorldMapFrame.GetCanvasContainer and WorldMapFrame:GetCanvasContainer()))
-end
-
--- Show what Blizzard's map is on (a zone, or the continent).
-local function FlyToWorldMapsMap()
-	local mapID = WorldMapFrame.GetMapID and WorldMapFrame:GetMapID()
-	local r = mapID and ns.MapRect(mapID)
-	if not r then return end
-	if r.inst ~= state.map then ns.SetMap(r.inst) end
-	ns.SetPath(false)
-	ns.SetFollow(false)
-	ns.FlyTo((r.col0 + r.col1) / 2, (r.row0 + r.row1) / 2, ns.FitZoom(r.col0, r.row0, r.col1, r.row1), 0.3)
-end
-
-local function Dock()
-	local area = WorldMapArea()
-	if expanded or not area or not db.minimapMode then return end
-	expanded = true
+local function RememberSmall()
 	local l, t, w, h = frame:GetLeft(), frame:GetTop(), frame:GetSize()
 	small = { l, t, w, h, zoom = ns.GoalZoom() }
-	frame:SetParent(area)
-	frame:ClearAllPoints()
-	frame:SetAllPoints(area)
-	frame:SetFrameStrata(area:GetFrameStrata())
-	frame:SetFrameLevel(area:GetFrameLevel() + 1)
-	if area.Child then area.Child:Hide() end
-	ns.SetDocked(true)
-	frame:Show()
-	FlyToWorldMapsMap()
 end
 
-local function Undock()
-	if not expanded then return end
-	expanded = false
-	local area = WorldMapArea()
-	if area and area.Child then area.Child:Show() end
-	frame:SetParent(UIParent)
-	SetHomeStrata()
-	ns.SetDocked(false)
-	local target = small
-	small = nil
-	SetRect(target)
-	ns.SaveFrameLayout()
+-- Back on you at the zoom you had, following.
+local function ReturnToSmallView(target, duration)
 	if state.playerCol and state.playerMap == state.map then
-		ns.FlyTo(state.playerCol, state.playerRow, target.zoom, 0.3, function() ns.SetFollow(true) end)
+		ns.FlyTo(state.playerCol, state.playerRow, target.zoom, duration, function() ns.SetFollow(true) end)
 	else
 		ns.SetZoom(target.zoom)
 		ns.SetFollow(true)
 	end
 end
 
+-- Expanded (the world map, M) ---------------------------------------------
+
+-- Escape while expanded shrinks the window back rather than closing it.
+local escapeCatcher = CreateFrame("Frame", "MagicMapWorldMapEscape", UIParent)
+escapeCatcher:Hide()
+tinsert(UISpecialFrames, "MagicMapWorldMapEscape")
+
+-- Your zone's rect in tile space (walking up from a sub-zone or micro map).
+local function PlayerZoneRect()
+	local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+	local info = mapID and C_Map.GetMapInfo(mapID)
+	while info and info.mapType and info.mapType > MAPTYPE_ZONE and info.parentMapID do
+		mapID = info.parentMapID
+		info = C_Map.GetMapInfo(mapID)
+	end
+	local r = mapID and ns.MapRect(mapID)
+	return r and r.inst == state.map and r or nil
+end
+
+local function Expand()
+	if expanded or not db.minimapMode then return end
+	expanded = true
+	-- Still shrinking back from the last time: the rect to return to stands.
+	if not small then
+		RememberSmall()
+		homeAlpha = MinimapCluster and MinimapCluster:GetAlpha() or 1
+	end
+	local k = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+	local sw, sh = UIParent:GetWidth() * k, UIParent:GetHeight() * k
+	local w, h = sw * EXPANDED_SIZE, sh * EXPANDED_SIZE
+	ns.SetCompact(false)
+	frame:SetFrameStrata("HIGH")
+	escapeCatcher:Show()
+	frame:Show()
+	frame:Raise()
+	TweenTo({ (sw - w) / 2, (sh + h) / 2, w, h }, EXPAND_TIME, nil, { MinimapCluster and MinimapCluster:GetAlpha() or homeAlpha, 0 })
+	-- Land on your zone, the way the world map opens on it.
+	local r = PlayerZoneRect()
+	if r then
+		local vw, vh = w - 4, h - 23 -- the map area inside the full chrome
+		local zoom = math.min(vw / (r.col1 - r.col0), vh / (r.row1 - r.row0)) * 0.92
+		ns.SetPath(false)
+		ns.SetFollow(false)
+		ns.FlyTo((r.col0 + r.col1) / 2, (r.row0 + r.row1) / 2, zoom, EXPAND_TIME + 0.1)
+	end
+end
+
+local function Collapse()
+	if not expanded then return end
+	expanded = false
+	escapeCatcher:Hide()
+	local target = small
+	TweenTo({ target[1], target[2], target[3], target[4] }, COLLAPSE_TIME, function()
+		small = nil
+		ns.SetCompact(true)
+		SetHomeStrata()
+		ns.SaveFrameLayout()
+	end, { 0, homeAlpha })
+	ReturnToSmallView(target, COLLAPSE_TIME)
+end
+
+escapeCatcher:SetScript("OnHide", Collapse)
+ns.OnCloseClicked = function()
+	if expanded then
+		Collapse()
+		return true
+	end
+end
+
+-- M (ToggleWorldMap) grows our window instead of opening Blizzard's world
+-- map, and M again shrinks it back. (M closing Blizzard's map, opened from
+-- the quest log, is left alone.)
+local function OnToggleWorldMap()
+	if not (db and db.minimapMode) or not WorldMapFrame:IsShown() then return end
+	if HideUIPanel then HideUIPanel(WorldMapFrame) else WorldMapFrame:Hide() end
+	if expanded then Collapse() else Expand() end
+end
+
 local worldMapHooked = false
 local function HookWorldMap()
-	if worldMapHooked or not WorldMapFrame then return end
+	if worldMapHooked or not ToggleWorldMap then return end
 	worldMapHooked = true
-	WorldMapFrame:HookScript("OnShow", function() if db and db.minimapMode then Dock() end end)
-	WorldMapFrame:HookScript("OnHide", Undock)
-	if WorldMapFrame.OnMapChanged then
-		hooksecurefunc(WorldMapFrame, "OnMapChanged", function() if expanded then FlyToWorldMapsMap() end end)
-	end
+	hooksecurefunc("ToggleWorldMap", OnToggleWorldMap)
 end
 HookWorldMap()
 
@@ -174,7 +253,13 @@ local function EnterMinimapMode()
 end
 
 local function LeaveMinimapMode()
-	Undock()
+	if expanded then
+		expanded = false
+		escapeCatcher:Hide()
+		SetHomeAlpha(homeAlpha)
+	end
+	StopTween()
+	small = nil
 	db.minimapMode = false
 	SetHomeStrata()
 	ns.ReleaseMinimap()
@@ -198,9 +283,9 @@ local function ToggleMinimapMode()
 	if why then ns.Print("minimap mode: blips are waiting (" .. why .. ")") end
 end
 
-ns.minimapButton:SetScript("OnClick", ToggleMinimapMode)
-ns.Tooltip(ns.minimapButton, function()
-	return db and db.minimapMode and "Minimap mode  |cff888888(click to put the window back)|r"
+ns.modeButton:SetScript("OnClick", ToggleMinimapMode)
+ns.Tooltip(ns.modeButton, function()
+	return db and db.minimapMode and "Back to the window  |cff888888(leave minimap mode)|r"
 		or "Minimap mode  |cff888888(move onto the minimap, with its blips)|r"
 end)
 ns.slash.minimap = ToggleMinimapMode
@@ -208,7 +293,7 @@ ns.slash.minimap = ToggleMinimapMode
 -- Left alone after you've panned away, go back to you (or to framing you
 -- and your target, if that's how you left it).
 frame:HookScript("OnUpdate", function()
-	if not (db and db.minimapMode) or expanded or state.follow or state.path or state.dragging or ns.IsAnimating() then return end
+	if not (db and db.minimapMode) or ns.IsMapExpanded() or state.follow or state.path or state.dragging or ns.IsAnimating() then return end
 	if frame:IsMouseOver() or GetTime() - (state.lastInteract or 0) < IDLE_FOLLOW then return end
 	if db.cameraMode == "path" and ns.SetPath(true) then return end
 	if state.playerCol and state.playerMap == state.map then

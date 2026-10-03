@@ -282,11 +282,12 @@ function Region:GetScale() return S[self].scale end
 function Region:SetScale(s) assert(type(s) == "number" and s > 0, "SetScale: positive number expected"); S[self].scale = s end
 function Region:GetEffectiveScale() return effScale(self) end
 function Region:IsProtected() return false end
-function Region:IsMouseOver()
+-- Offsets grow (or shrink) the tested rect: top up, bottom down when negative.
+function Region:IsMouseOver(top, bottom, left, right)
 	local l, b, w, h = rect(self)
 	if not l or not visible(self) then return false end
 	local x, y = Sim.cursorX, Sim.cursorY
-	return x >= l and x <= l + w and y >= b and y <= b + h
+	return x >= l + (left or 0) and x <= l + w + (right or 0) and y >= b + (bottom or 0) and y <= b + h + (top or 0)
 end
 function Region:SetParent(parent)
 	if type(parent) == "string" then parent = named[parent] end
@@ -493,6 +494,15 @@ local function buttonTexture(self, key, tex)
 	S[self][key] = tex
 end
 function Button:SetNormalTexture(t) buttonTexture(self, "normal", t) end
+local function buttonAtlas(self, key, atlas)
+	assert(C_Texture.GetAtlasInfo(atlas), "unknown atlas " .. tostring(atlas))
+	local t = S[self][key] or self:CreateTexture(nil, "ARTWORK")
+	t:SetAtlas(atlas)
+	S[self][key] = t
+end
+function Button:SetNormalAtlas(a) buttonAtlas(self, "normal", a) end
+function Button:SetPushedAtlas(a) buttonAtlas(self, "pushed", a) end
+function Button:SetHighlightAtlas(a, mode) buttonAtlas(self, "highlight", a) end
 function Button:SetPushedTexture(t) buttonTexture(self, "pushed", t) end
 function Button:SetHighlightTexture(t, mode) buttonTexture(self, "highlight", t) end
 function Button:SetDisabledTexture(t) buttonTexture(self, "disabled", t) end
@@ -742,6 +752,7 @@ function Sim.Named(name) return named[name] end
 
 function wipe(t) for k in pairs(t) do t[k] = nil end return t end
 function hooksecurefunc(t, name, fn)
+	if type(t) == "string" then t, name, fn = _G, t, name end -- hooksecurefunc("GlobalFunction", fn)
 	local orig = t[name]
 	t[name] = function(...)
 		local r = { orig(...) }
@@ -875,15 +886,13 @@ WorldMapFrame = CreateFrame("Frame", "WorldMapFrame", UIParent)
 WorldMapFrame:SetSize(1000, 700)
 WorldMapFrame:SetPoint("CENTER")
 WorldMapFrame:SetFrameStrata("HIGH")
-WorldMapFrame.ScrollContainer = CreateFrame("Frame", nil, WorldMapFrame)
-WorldMapFrame.ScrollContainer:SetPoint("TOPLEFT", 0, -60)
-WorldMapFrame.ScrollContainer:SetPoint("BOTTOMRIGHT", -300, 0) -- the quest log on the right
-WorldMapFrame.ScrollContainer.Child = CreateFrame("Frame", nil, WorldMapFrame.ScrollContainer)
-WorldMapFrame.mapID = 1429
-function WorldMapFrame:GetMapID() return self.mapID end
-function WorldMapFrame:SetMapID(id) self.mapID = id; self:OnMapChanged() end
-function WorldMapFrame:OnMapChanged() end
 WorldMapFrame:Hide()
+-- The keybindings: M toggles the world map; L (Retail-engine clients) opens it
+-- on the quest log.
+function ToggleWorldMap() WorldMapFrame:SetShown(not WorldMapFrame:IsShown()) end
+if RETAIL or FLAVOR == "forever" then
+	function ToggleQuestLog() WorldMapFrame:SetShown(not WorldMapFrame:IsShown()) end
+end
 
 if RETAIL or FLAVOR == "forever" then -- Forever runs the Retail client
 	C_Minimap = {
@@ -1092,7 +1101,28 @@ C_VignetteInfo = {
 	GetVignetteInfo = function(guid) return { vignetteGUID = guid, name = "Mother Fang", atlasName = "VignetteKill", onMinimap = true } end,
 	GetVignettePosition = function(guid, id) return id == 1429 and CreateVector2D(0.38, 0.79) or nil end,
 }
-C_Texture = { GetAtlasInfo = function(name) return nil end }
+-- Atlases: the ones MagicMap asks for that Retail-engine clients have
+-- (checked against Forever's UiTextureAtlasMember); none on classic clients.
+local ATLASES = {}
+if RETAIL or FLAVOR == "forever" then
+	for _, base in ipairs({ "ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-out" }) do
+		ATLASES[base], ATLASES[base .. "-mouseover"], ATLASES[base .. "-down"] = true, true, true
+	end
+	if FLAVOR == "forever" then -- Forever's own art
+		for _, name in ipairs({ "redbutton-expand-c60", "redbutton-expand-pressed-c60", "redbutton-highlight-c60" }) do ATLASES[name] = true end
+	end
+	for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutton-highlight",
+		"ui-hud-minimap-arrow-player", "ui-hud-minimap-arrow-questtracking", "minimaparrow" }) do
+		ATLASES[name] = true
+	end
+end
+C_Texture = {
+	GetAtlasInfo = function(name)
+		if ATLASES[name] then
+			return { file = "atlas/" .. name, width = 16, height = 16, leftTexCoord = 0, rightTexCoord = 1, topTexCoord = 0, bottomTexCoord = 1 }
+		end
+	end,
+}
 
 -- Quests: one in Elwynn, with an objective area.
 Sim.quests = {

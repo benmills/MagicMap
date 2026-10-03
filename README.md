@@ -34,8 +34,10 @@ out as you speed up and back in after (`/mm auto` turns that off).
 
 ![Minimap mode: zooming from a herb tooltip out to the whole coast](docs/zoomable-minimap.gif)
 
-**World map takeover.** In minimap mode, M opens Blizzard's world map as usual, quest log and
-all, with MagicMap's map in place of Blizzard's. Picking a zone or quest there flies the map to it.
+**World map takeover.** In minimap mode, M grows it into a big map, and M again shrinks it back.
+The quest log (L) still opens Blizzard's world map as usual.
+
+![Pressing M grows the minimap into a big map and back](docs/minimap-to-big-map.gif)
 
 **Follow a quest and path mode.** Click a quest to track it and make it your target (it gets a
 gold halo). Path mode then keeps you and your target in view, with a faint line between you; when
@@ -53,7 +55,9 @@ the target is off the map, a gold arrow on the map's edge points to it.
 | Back to you | Right-click |
 | Follow a quest | Click its icon or area |
 | Waypoint | Ctrl-click (Ctrl-right-click clears) |
-| Title-bar buttons | Follow, Path, Layers, Minimap mode |
+| Follow / Path | Toggles at the map's bottom-left (on hover) |
+| Resting zoom | + / − at the map's bottom-right (on hover) |
+| Layers / Minimap mode | Gear and red button by the zone name (on hover) |
 
 Slash commands (`/mm`): `follow`, `auto`, `map <name>`, `zone <name>`, `minimap`, `layers`, `icon`,
 `debug`, `reset`. For checking things in game: `perf` (how the map keeps up) and `sync` (Blizzard's
@@ -97,8 +101,8 @@ minimap terrain over ours, to see whether its blips line up; `sync full` to comp
   zoomed in closer than Blizzard's closest minimap zoom.
 - **Rotate Minimap isn't supported**; minimap mode hands the minimap back while it's on.
 - **Taint.** Minimap mode hides Blizzard frames from addon code (the minimap cluster, and the
-  world map's own map canvas while MagicMap stands in for it). That could cause "action blocked"
-  errors, especially in combat.
+  world map when M grows MagicMap instead). That could cause "action blocked" errors, especially
+  in combat.
 - **Instances and restricted positions.** Where the game withholds your position (many
   instances, some Retail contexts), following, path mode and minimap mode step aside.
 - **Data drifts with patches.** Tile IDs and terrain change between game versions. The data

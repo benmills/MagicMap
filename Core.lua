@@ -195,29 +195,6 @@ closeButton:SetScript("OnClick", function()
 	frame:Hide()
 end)
 
-local controls = CreateFrame("Frame", nil, band)
-controls:SetPoint("RIGHT", frame, "TOPRIGHT", -26, BAND_MID)
-controls:SetSize(1, 18)
-
-local BUTTON_SIZE = 18
-local buttons = {}
-local function AddButton(key, opts)
-	local b = ns.CreateRoundButton(controls, BUTTON_SIZE, opts)
-	local prev = buttons[#buttons]
-	if prev then
-		b:SetPoint("RIGHT", prev, "LEFT", -5, 0)
-	else
-		b:SetPoint("RIGHT", controls, "RIGHT", 0, 0)
-	end
-	buttons[#buttons + 1] = b
-	buttons[key] = b
-	return b
-end
-AddButton("follow", { icon = "Interface\\Minimap\\MinimapArrow", iconInset = 1, noMask = true })
-AddButton("path", { icon = "Interface\\Icons\\Ability_Tracking", iconInset = 5 })
-AddButton("layers", { icon = "Interface\\Icons\\INV_Scroll_03", iconInset = 5, tooltip = "Layers" })
-AddButton("minimap", { icon = "Interface\\Icons\\INV_Misc_Spyglass_03", iconInset = 5 })
-
 local title = band:CreateFontString(nil, "OVERLAY")
 title:SetFont(FONT, 14, "")
 title:SetTextColor(1, 0.82, 0.25)
@@ -286,27 +263,94 @@ end
 
 local compact = false -- minimap mode's chrome (see SetCompact)
 
--- Compact: zone and subzone centred just above the map (below it, if the
--- map is at the top of the screen), on no plate - like the minimap's own.
+-- Minimap mode's controls use Blizzard's own minimap art where the client
+-- has it (Retail-engine clients), else plain textures.
+local function HasAtlas(name)
+	return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) ~= nil
+end
+
+-- The first of these atlases the client has, if any.
+local function FirstAtlas(...)
+	for i = 1, select("#", ...) do
+		local name = select(i, ...)
+		if HasAtlas(name) then return name end
+	end
+end
+
+-- A button from art = { atlas = {names...}, pushed = {...}, highlight = {...} }
+-- (the first each client has), else from file = path with optional
+-- coords / pushedCoords into it.
+local function SkinButton(b, art)
+	local atlas = art.atlas and FirstAtlas(unpack(art.atlas))
+	if atlas then
+		b:SetNormalAtlas(atlas)
+		local pushed = art.pushed and FirstAtlas(unpack(art.pushed))
+		if pushed then b:SetPushedAtlas(pushed) end
+		b:SetHighlightAtlas(art.highlight and FirstAtlas(unpack(art.highlight)) or atlas, "ADD")
+	else
+		b:SetNormalTexture(art.file)
+		b:SetPushedTexture(art.file)
+		b:SetHighlightTexture(art.file, "ADD")
+		if art.coords then
+			b:GetNormalTexture():SetTexCoord(unpack(art.coords))
+			b:GetHighlightTexture():SetTexCoord(unpack(art.coords))
+			b:GetPushedTexture():SetTexCoord(unpack(art.pushedCoords or art.coords))
+		end
+	end
+end
+
+local function ArtButton(parent, w, h, art)
+	local b = CreateFrame("Button", nil, parent)
+	b:SetSize(w, h)
+	SkinButton(b, art)
+	return b
+end
+
+-- On the zone's line, right-aligned and shown while you hover: the layers
+-- menu (the world map's gold gear), and in or out of minimap mode (the world
+-- map's red buttons: condense into the minimap, expand back to the window).
+local HEADER_ICON = 20
+local MODE_ART = {
+	window = {
+		atlas = { "redbutton-condense-c60", "redbutton-condense" },
+		pushed = { "redbutton-condense-pressed-c60", "redbutton-condense-pressed" },
+		highlight = { "redbutton-highlight-c60", "redbutton-highlight" },
+		file = "Interface\\Icons\\INV_Misc_Spyglass_03",
+	},
+	minimap = {
+		atlas = { "redbutton-expand-c60", "redbutton-expand" },
+		pushed = { "redbutton-expand-pressed-c60", "redbutton-expand-pressed" },
+		highlight = { "redbutton-highlight-c60", "redbutton-highlight" },
+		file = "Interface\\Icons\\INV_Misc_Spyglass_03",
+	},
+}
+local modeButton = ArtButton(band, HEADER_ICON, HEADER_ICON, MODE_ART.window)
+local gearButton = ArtButton(band, HEADER_ICON + 4, HEADER_ICON + 4, {
+	file = "Interface\\WorldMap\\Gear_64", coords = { 0, 0.5, 0, 0.5 }, pushedCoords = { 0, 0.5, 0.5, 1 },
+})
+gearButton:SetPoint("RIGHT", modeButton, "LEFT", -6, 0)
+
+-- Compact: zone, then subzone, left-aligned on one line just above the map
+-- (below it, if the map is at the top of the screen), with the gear and back
+-- buttons at its right end - no plate, like the minimap's own.
 local function FitCompactTitle()
 	titlePlate:Hide()
 	local top, screenTop = frame:GetTop(), UIParent:GetTop()
 	if not top then return end
-	local maxW = frame:GetWidth() + 80
-	title:SetWidth(math.min(NaturalWidth(title), maxW))
-	subtitle:SetWidth(math.min(NaturalWidth(subtitle), maxW))
-	local hasSub = (subtitle:GetText() or "") ~= ""
-	if screenTop - top >= 34 then
-		if hasSub then
-			subtitle:SetPoint("BOTTOM", frame, "TOP", 0, 3)
-			title:SetPoint("BOTTOM", subtitle, "TOP", 0, 1)
-		else
-			title:SetPoint("BOTTOM", frame, "TOP", 0, 3)
-		end
+	local room = frame:GetWidth() - 4 - (2 * HEADER_ICON + 4 + 6 + 8) -- left of the buttons
+	local tw = math.min(NaturalWidth(title), room)
+	title:SetWidth(tw)
+	subtitle:SetWidth(math.max(1, math.min(NaturalWidth(subtitle), room - tw - 6)))
+	modeButton:ClearAllPoints()
+	if screenTop - top >= 24 then
+		title:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", 2, 4)
+		modeButton:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", -2, 3)
 	else
-		title:SetPoint("TOP", frame, "BOTTOM", 0, -3)
-		subtitle:SetPoint("TOP", title, "BOTTOM", 0, -1)
+		title:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 2, -4)
+		modeButton:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", -2, -3)
 	end
+	-- Share the title's baseline, nudged for the smaller descender.
+	subtitle:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 6, 1)
 end
 
 -- In the band when it fits; otherwise on the map's top-left corner.
@@ -314,7 +358,9 @@ local function FitTitle()
 	title:ClearAllPoints()
 	subtitle:ClearAllPoints()
 	if compact then return FitCompactTitle() end
-	local left, controlsLeft = frame:GetLeft(), buttons[#buttons]:GetLeft()
+	modeButton:ClearAllPoints()
+	modeButton:SetPoint("RIGHT", frame, "TOPRIGHT", -28, BAND_MID)
+	local left, controlsLeft = frame:GetLeft(), gearButton:GetLeft()
 	if not (left and controlsLeft) then return end
 	local room = controlsLeft - (left + 10) - 14 - CHEVRON
 	local tw, sw = NaturalWidth(title), NaturalWidth(subtitle)
@@ -359,8 +405,60 @@ end)
 local compactBorder = ns.ApplyBorder(frame, frame:GetFrameLevel() + 505, frame.NineSlice)
 compactBorder:Hide()
 
+-- Inside the map, shown while you hover: follow and path toggles (bottom
+-- left) and zoom buttons (bottom right, where the minimap keeps them).
+local mapControls = CreateFrame("Frame", nil, frame)
+mapControls:SetAllPoints(viewport)
+mapControls:SetFrameLevel(frame:GetFrameLevel() + 518) -- under the resize grip
+
+local PAD = 12 -- from the map's edges
+local function ZoomArt(name, fallback)
+	return { atlas = { name }, pushed = { name .. "-down" }, highlight = { name .. "-mouseover" }, file = fallback }
+end
+local zoomOut = ArtButton(mapControls, 20, HasAtlas("ui-hud-minimap-zoom-out") and 11 or 20,
+	ZoomArt("ui-hud-minimap-zoom-out", "Interface\\Buttons\\UI-MinusButton-Up"))
+zoomOut:SetPoint("BOTTOMRIGHT", -PAD, PAD + 6) -- clear of the resize grip
+local zoomIn = ArtButton(mapControls, 20, 20, ZoomArt("ui-hud-minimap-zoom-in", "Interface\\Buttons\\UI-PlusButton-Up"))
+zoomIn:SetPoint("BOTTOM", zoomOut, "TOP", 0, 2)
+
+-- A toggle: a dark disc with an icon, ringed in gold and lit while on.
+local TOGGLE = 24
+local function Toggle(atlas, fallback)
+	local b = CreateFrame("Button", nil, mapControls)
+	b:SetSize(TOGGLE, TOGGLE)
+	b.ring = b:CreateTexture(nil, "BACKGROUND", nil, -1)
+	b.ring:SetTexture(ns.CIRCLE)
+	b.ring:SetVertexColor(1, 0.82, 0.3, 0.9)
+	b.ring:SetAllPoints()
+	local disc = b:CreateTexture(nil, "BACKGROUND")
+	disc:SetTexture(ns.CIRCLE)
+	disc:SetVertexColor(0, 0, 0, 0.65)
+	disc:SetPoint("CENTER")
+	disc:SetSize(TOGGLE - 3, TOGGLE - 3)
+	b.icon = b:CreateTexture(nil, "ARTWORK")
+	if HasAtlas(atlas) then b.icon:SetAtlas(atlas) else b.icon:SetTexture(fallback) end
+	b.icon:SetPoint("CENTER")
+	b.icon:SetSize(TOGGLE - 7, TOGGLE - 7)
+	local glow = b:CreateTexture(nil, "HIGHLIGHT")
+	glow:SetTexture(ns.CIRCLE)
+	glow:SetVertexColor(1, 1, 1, 0.12)
+	glow:SetAllPoints(disc)
+	return b
+end
+local followToggle = Toggle("ui-hud-minimap-arrow-player", "Interface\\Minimap\\MinimapArrow")
+followToggle:SetPoint("BOTTOMLEFT", PAD, PAD)
+local pathToggle = Toggle("ui-hud-minimap-arrow-questtracking", "Interface\\Icons\\Ability_Tracking")
+pathToggle:SetPoint("LEFT", followToggle, "RIGHT", 5, 0)
+
+local function SetLit(b, on)
+	b.ring:SetShown(on)
+	b.icon:SetDesaturated(not on)
+	b.icon:SetAlpha(on and 1 or 0.6)
+end
+
 local chromeHidden = {} -- template parts SetCompact hid
-local KEEP = { [viewport] = true, [band] = true, [resizeGrip] = true, [compactBorder] = true, [closeButton] = true }
+local KEEP = { [viewport] = true, [band] = true, [resizeGrip] = true, [compactBorder] = true, [closeButton] = true,
+	[mapControls] = true }
 local hoverAlpha = 1
 
 local function SetViewportInsets(l, t, r, b)
@@ -382,9 +480,7 @@ local function SetCompact(on)
 		end
 		SetViewportInsets(2, 2, 2, 2)
 		chevron:Hide()
-		closeButton:Hide() -- the spyglass button leaves minimap mode instead
-		title:SetJustifyH("CENTER")
-		subtitle:SetJustifyH("CENTER")
+		closeButton:Hide() -- the mode button leaves minimap mode instead
 		compactBorder:Show()
 	else
 		for o in pairs(chromeHidden) do o:Show() end
@@ -392,36 +488,23 @@ local function SetCompact(on)
 		SetViewportInsets(2, BAND_HEIGHT, 2, 2)
 		chevron:Show()
 		closeButton:Show()
-		title:SetJustifyH("LEFT")
-		subtitle:SetJustifyH("LEFT")
 		compactBorder:Hide()
-		hoverAlpha = 1
-		controls:SetAlpha(1)
-		resizeGrip:SetAlpha(0.8)
 	end
 	state.dirty = true
 	FitTitle()
 end
 
--- Docked into Blizzard's world map (minimap mode): just the map; the world
--- map's own frame is the chrome.
-local function SetDocked(on)
-	SetCompact(true)
-	band:SetShown(not on)
-	compactBorder:SetShown(not on)
-	resizeGrip:SetShown(not on)
-	SetViewportInsets(on and 0 or 2, on and 0 or 2, on and 0 or 2, on and 0 or 2)
-	state.dirty = true
-end
-
--- Compact: the buttons and grip fade in while the mouse is over the map.
-local function StepCompactHover(elapsed)
-	if not compact then return end
-	local want = (frame:IsMouseOver() or (ns.IsMenuOpen and ns.IsMenuOpen())) and 1 or 0
+-- The controls and grip fade in while the mouse is over the map.
+local function StepHover(elapsed)
+	-- Compact, the header line (above or below the map) counts as over it.
+	local reach = compact and HEADER_ICON + 12 or 0
+	local want = (frame:IsMouseOver(reach, -reach, 0, 0) or (ns.IsMenuOpen and ns.IsMenuOpen())) and 1 or 0
 	if hoverAlpha == want then return end
 	local step = (elapsed or 0) / 0.15
 	hoverAlpha = want > hoverAlpha and math.min(want, hoverAlpha + step) or math.max(want, hoverAlpha - step)
-	controls:SetAlpha(hoverAlpha)
+	mapControls:SetAlpha(hoverAlpha)
+	gearButton:SetAlpha(hoverAlpha)
+	modeButton:SetAlpha(hoverAlpha)
 	resizeGrip:SetAlpha(0.8 * hoverAlpha)
 end
 
@@ -952,13 +1035,10 @@ end
 local CONTINENT_MIN_TILES = 300 -- open-world maps this big are listed as continents
 
 local function UpdateControls()
-	local follow = buttons.follow.icon
-	follow:SetDesaturated(not state.follow)
-	follow:SetVertexColor(1, 1, 1, state.follow and 1 or 0.55)
-	-- Path: lit while framing; brighter when it's your choice, waiting for a target.
-	local path = buttons.path.icon
-	path:SetDesaturated(not state.path)
-	path:SetVertexColor(1, 1, 1, state.path and 1 or (db.cameraMode == "path" and 0.85 or 0.55))
+	SetLit(followToggle, state.follow)
+	-- Path: lit while framing; half-lit when it's your choice, waiting for a target.
+	SetLit(pathToggle, state.path)
+	if not state.path and db.cameraMode == "path" then pathToggle.icon:SetAlpha(0.85) end
 end
 
 local function SetMap(mapID)
@@ -1367,7 +1447,9 @@ viewport:SetScript("OnMouseUp", function(_, button)
 	press = nil
 end)
 
-viewport:SetScript("OnMouseWheel", function(_, delta)
+-- One zoom step in (delta > 0) or out, held on you while following, else on
+-- the cursor (the wheel) or the view's centre (the buttons).
+local function ZoomStep(delta, atCursor)
 	local w, h = ViewSize()
 	local factor = delta > 0 and WHEEL_STEP or 1 / WHEEL_STEP
 	state.lastInteract = GetTime()
@@ -1378,29 +1460,34 @@ viewport:SetScript("OnMouseWheel", function(_, delta)
 	local ax, ay
 	if state.follow and state.playerCol then
 		ax, ay = TileToScreen(state.playerCol, state.playerRow) -- keep you where you are
-	else
+	elseif atCursor then
 		ax, ay = CursorInViewport()
+	else
+		ax, ay = w / 2, h / 2
 	end
 	local tx = state.cx + (ax - w / 2) / state.zoom
 	local ty = state.cy + (ay - h / 2) / state.zoom
 	zoomGoal, zoomAnchor = target, { tx, ty, ax - w / 2, ay - h / 2 }
 	autoBase = target -- dynamic zoom works from what you chose
-end)
+end
+viewport:SetScript("OnMouseWheel", function(_, delta) ZoomStep(delta, true) end)
+zoomIn:SetScript("OnClick", function() ZoomStep(1) end)
+zoomOut:SetScript("OnClick", function() ZoomStep(-1) end)
 
 viewport:SetScript("OnSizeChanged", function()
 	state.dirty = true
 	FitTitle()
 end)
 
-buttons.follow:SetScript("OnClick", function()
+local function OnFollowClick()
 	if state.follow then
 		SetFollow(false)
 	else
 		db.cameraMode = "follow"
 		SetFollow(true, true)
 	end
-end)
-buttons.path:SetScript("OnClick", function()
+end
+local function OnPathClick()
 	if state.path then
 		db.cameraMode = "follow"
 		SetFollow(true, true)
@@ -1411,7 +1498,9 @@ buttons.path:SetScript("OnClick", function()
 		end
 	end
 	UpdateControls()
-end)
+end
+followToggle:SetScript("OnClick", OnFollowClick)
+pathToggle:SetScript("OnClick", OnPathClick)
 
 local function Tooltip(button, fn)
 	button:HookScript("OnEnter", function(self)
@@ -1420,14 +1509,19 @@ local function Tooltip(button, fn)
 		GameTooltip:Show()
 	end)
 end
-Tooltip(buttons.follow, function()
+local function FollowTip()
 	return state.follow and "Following you  |cff888888(drag the map to stop)|r"
 		or "Follow me  |cff888888(or right-click the map)|r"
-end)
-Tooltip(buttons.path, function()
+end
+local function PathTip()
 	if state.path then return "Path: you and your target  |cff888888(click to just follow you)|r" end
 	return "Path mode  |cff888888(keep you and your waypoint or followed quest in view)|r"
-end)
+end
+Tooltip(followToggle, FollowTip)
+Tooltip(pathToggle, PathTip)
+Tooltip(zoomIn, function() return "Zoom in  |cff888888(sets how close the map rests)|r" end)
+Tooltip(zoomOut, function() return "Zoom out  |cff888888(sets how close the map rests)|r" end)
+Tooltip(gearButton, function() return "Layers" end)
 
 local titleElapsed = 0
 frame:SetScript("OnUpdate", function(_, elapsed)
@@ -1477,7 +1571,7 @@ frame:SetScript("OnUpdate", function(_, elapsed)
 		Fire("ViewChanged")
 	end
 	RenderArrow()
-	StepCompactHover(elapsed)
+	StepHover(elapsed)
 	titleElapsed = titleElapsed + (elapsed or 0)
 	if titleElapsed > 0.05 then
 		titleElapsed = 0
@@ -1504,10 +1598,12 @@ ns.viewport = viewport
 ns.layerFrames = layerFrames
 ns.overlay = overlay
 ns.tileCanvas = tileCanvas
-ns.layersButton = buttons.layers
-ns.minimapButton = buttons.minimap
-ns.SetCompact, ns.SetDocked = SetCompact, SetDocked
-ns.SetMap = SetMap
+ns.gearButton, ns.modeButton = gearButton, modeButton
+-- The mode button's art: condense (into the minimap) or expand (back out).
+ns.SetModeButtonArt = function(minimapMode) SkinButton(modeButton, minimapMode and MODE_ART.minimap or MODE_ART.window) end
+ns.titleText = title
+ns.mapControls = { frame = mapControls, zoomIn = zoomIn, zoomOut = zoomOut, follow = followToggle, path = pathToggle }
+ns.SetCompact = SetCompact
 ns.IsCompact = function() return compact end
 ns.FitTitle = FitTitle
 ns.SetFollow = SetFollow

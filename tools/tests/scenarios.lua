@@ -109,22 +109,69 @@ scenarios.slash_commands = function()
 end
 
 scenarios.title_buttons = function()
-	for name, button in pairs({ follow = ns.followButton, layers = ns.layersButton, minimap = ns.minimapButton }) do
-		if button then
-			Sim.Hover(button)
-			Sim.Click(button)
-			Sim.Run(0.5)
-		end
-	end
-	-- The title is the map picker.
+	-- The window's controls: gear and mode button in the band, toggles and
+	-- zoom inside the map; all fade in while you hover.
+	Sim.MoveCursorTo(ns.viewport, 0.5, 0.5)
 	Sim.Run(0.5)
+	check(ns.gearButton:IsVisible() and ns.gearButton:GetAlpha() > 0.9, "the gear shows while hovering the window")
+	check(ns.mapControls.frame:IsVisible() and ns.mapControls.frame:GetAlpha() > 0.9, "and the map's controls")
+	for _, button in ipairs({ ns.gearButton, ns.mapControls.follow, ns.mapControls.path, ns.mapControls.zoomIn, ns.mapControls.zoomOut }) do
+		Sim.Hover(button)
+		Sim.Click(button)
+		Sim.Run(0.3)
+	end
+	Sim.MoveCursorTo(UIParent, 0.1, 0.1)
+	Sim.Run(0.5)
+	check(ns.gearButton:GetAlpha() < 0.1 and ns.mapControls.frame:GetAlpha() < 0.1, "they fade once the mouse leaves")
 end
 
 scenarios.minimap_mode = function()
 	local parent = Minimap:GetParent()
-	Sim.Click(ns.minimapButton)
+	Sim.Click(ns.modeButton)
 	Sim.Run(2)
 	check(ns.IsMinimapMode(), "minimap mode is on")
+	-- Its header: zone left, gear and back right, on one line above the map.
+	check(ns.gearButton:IsVisible() and ns.modeButton:IsVisible(), "gear and mode button above the map")
+	local _, backY = ns.modeButton:GetCenter()
+	check(backY > ns.frame:GetTop() or backY < ns.frame:GetBottom(), "they sit outside the map (above it, or below at the screen's top)")
+	-- (Font strings have no height in the simulator, so check the anchor.)
+	local p, rel, rp = ns.titleText:GetPoint(1)
+	local above = backY > ns.frame:GetTop()
+	check(rel == ns.frame and p == (above and "BOTTOMLEFT" or "TOPLEFT") and rp == (above and "TOPLEFT" or "BOTTOMLEFT"),
+		"the zone text is left-aligned on the same side as the buttons")
+	Sim.Click(ns.gearButton)
+	Sim.Run(0.2)
+	local gearMenu
+	for _, f in ipairs(Sim.Frames()) do
+		if f:GetParent() == ns.gearButton and f:IsVisible() then gearMenu = f end
+	end
+	check(gearMenu ~= nil, "the gear opens the layers menu")
+	Sim.Click(ns.gearButton)
+	-- Inside the map, while hovering: toggles and zoom.
+	local mc = ns.mapControls
+	Sim.MoveCursorTo(ns.viewport, 0.5, 0.5)
+	Sim.Run(0.5)
+	check(mc.frame:IsVisible() and mc.frame:GetAlpha() > 0.9, "hovering shows the map's controls")
+	check(mc.follow.ring:IsShown() and not mc.path.ring:IsShown(), "the follow toggle is lit while following")
+	local z1 = ns.state.zoom
+	Sim.Click(mc.zoomIn)
+	Sim.Run(0.6)
+	check(ns.state.zoom > z1 and ns.state.follow, "+ zooms in, still following")
+	Sim.Click(mc.zoomOut)
+	Sim.Run(0.6)
+	Sim.Click(mc.follow)
+	check(not ns.state.follow and not mc.follow.ring:IsShown(), "the follow toggle turns following off")
+	Sim.Click(mc.follow)
+	Sim.Run(1)
+	check(ns.state.follow, "and back on")
+	check(ns.gearButton:GetAlpha() > 0.9, "the gear and back show while hovering")
+	local gx, gy = ns.gearButton:GetCenter()
+	Sim.cursorX, Sim.cursorY = gx, gy -- onto the header line, off the map itself
+	Sim.Run(0.5)
+	check(ns.gearButton:GetAlpha() > 0.9, "and stay while the mouse is on them")
+	Sim.MoveCursorTo(UIParent, 0.1, 0.1)
+	Sim.Run(0.5)
+	check(mc.frame:GetAlpha() < 0.1 and ns.gearButton:GetAlpha() < 0.1, "they fade once the mouse leaves")
 	local side = math.min(ns.frame:GetSize())
 	check(math.abs(ns.state.zoom - side / (200 / (1600 / 3))) < 1, "it starts showing 200 yards across")
 	ns.frame:SetSize(side * 1.5, side * 1.5)
@@ -188,20 +235,37 @@ scenarios.minimap_mode = function()
 	Sim.Run(2)
 	check(Minimap:GetAlpha() == 0, "back outdoors, our map again")
 	check(ns.frame:GetFrameStrata() == MinimapCluster:GetFrameStrata(), "it sits at the minimap's strata")
-	-- M: Blizzard's world map opens, ours docked over its map area.
-	local area = WorldMapFrame.ScrollContainer
-	WorldMapFrame:Show()
+	-- M: ours grows to most of the screen instead of Blizzard's world map.
+	local smallW = ns.frame:GetWidth()
+	ToggleWorldMap()
 	Sim.Run(1)
-	check(ns.IsMapExpanded() and WorldMapFrame:IsShown(), "the world map opens, quest log and all")
-	check(ns.frame:GetParent() == area and not area.Child:IsShown(), "our map stands in for its map")
-	check(math.abs(ns.frame:GetWidth() - area:GetWidth()) < 1, "filling its map area")
-	local zoom = ns.state.zoom
-	WorldMapFrame:SetMapID(1411) -- picking another zone on Blizzard's side
+	check(ns.IsMapExpanded() and not WorldMapFrame:IsShown(), "M grows our window instead of opening Blizzard's map")
+	check(ns.frame:GetWidth() > smallW * 2 and ns.frame:GetParent() == UIParent, "to most of the screen")
+	ToggleWorldMap()
 	Sim.Run(1)
-	check(ns.state.zoom ~= zoom, "picking a zone there flies our map to it")
-	WorldMapFrame:Hide()
+	check(not ns.IsMapExpanded() and math.abs(ns.frame:GetWidth() - smallW) < 1, "M again shrinks it back")
+	ToggleWorldMap()
 	Sim.Run(1)
-	check(not ns.IsMapExpanded() and ns.frame:GetParent() == UIParent and area.Child:IsShown(), "closing it puts ours back")
+	ToggleWorldMap()
+	Sim.Run(0.05) -- M again while it's still shrinking
+	ToggleWorldMap()
+	Sim.Run(1)
+	ToggleWorldMap()
+	Sim.Run(1)
+	check(math.abs(ns.frame:GetWidth() - smallW) < 1, "pressing M mid-shrink still comes back to the minimap's size")
+	ToggleWorldMap()
+	Sim.Run(1)
+	_G.MagicMapWorldMapEscape:Hide() -- Escape
+	Sim.Run(1)
+	check(not ns.IsMapExpanded(), "Escape shrinks it back too")
+	-- The quest log opens Blizzard's world map as usual, ours untouched.
+	if ToggleQuestLog then ToggleQuestLog() else WorldMapFrame:Show() end
+	Sim.Run(1)
+	check(WorldMapFrame:IsShown() and not ns.IsMapExpanded(), "the quest log opens Blizzard's world map as usual")
+	check(ns.frame:GetParent() == UIParent and math.abs(ns.frame:GetWidth() - smallW) < 1, "ours stays the minimap")
+	ToggleWorldMap() -- M closes it, as usual
+	Sim.Run(1)
+	check(not WorldMapFrame:IsShown() and not ns.IsMapExpanded(), "M closes Blizzard's map rather than growing ours")
 	check(ns.frame:GetFrameStrata() == MinimapCluster:GetFrameStrata(), "at the minimap's strata again")
 	check(ns.frame:IsShown(), "...without closing the minimap")
 	-- Rotating minimap: hands the Minimap back.
@@ -211,8 +275,8 @@ scenarios.minimap_mode = function()
 	Sim.cvars.rotateMinimap = "0"
 	Sim.Run(0.5)
 	Sim.FireEvent("PLAYER_LOGOUT")
-	-- Off again: everything goes home.
-	Sim.Click(ns.minimapButton)
+	-- Off again with the back button: everything goes home.
+	Sim.Click(ns.modeButton)
 	Sim.Run(1)
 	check(not ns.IsMinimapMode(), "minimap mode is off")
 	check(Minimap:GetParent() == parent, "the Minimap is back in its cluster")
@@ -242,7 +306,7 @@ scenarios.quests_and_path = function()
 		end
 		check(edge ~= nil, "an off-map target gets an arrow on the map's edge")
 		check(Sim.watched == 60 or Sim.watchedIndex ~= nil, "the quest is tracked")
-		Sim.Click(ns.pathButton or ns.frame)
+		Sim.Click(ns.mapControls.path)
 		check(ns.SetPath(true), "path mode turns on with a target")
 		Sim.player.speed, Sim.player.facing = 200, 2.5
 		Sim.Run(4)
@@ -276,7 +340,7 @@ scenarios.layers = function()
 	Sim.Slash("layers")
 	Sim.Run(0.5)
 	-- Toggle every layer off and on via the layers menu.
-	Sim.Click(ns.layersButton)
+	Sim.Click(ns.gearButton)
 	Sim.Run(0.5)
 	local toggled = 0
 	if Sim.menu then
@@ -292,7 +356,7 @@ scenarios.layers = function()
 	end
 	-- Classic menus are our own (Menu.lua): click its rows.
 	for _, f in ipairs(Sim.Frames()) do
-		if S[f].type == "Button" and f:IsVisible() and f:GetParent() and f:GetParent():GetParent() == ns.layersButton then
+		if S[f].type == "Button" and f:IsVisible() and f:GetParent() and f:GetParent():GetParent() == ns.gearButton then
 			Sim.Click(f)
 			Sim.Run(0.4)
 			Sim.Click(f)
