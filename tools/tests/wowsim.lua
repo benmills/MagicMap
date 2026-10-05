@@ -563,6 +563,16 @@ function MinimapClass:SetZoom(z)
 end
 function MinimapClass:GetZoomLevels() return 6 end
 function MinimapClass:SetMaskTexture(t) Sim.minimapMask = t end
+-- The quest/dig-site/bonus-objective rings at its rim: size, 1 = at the rim.
+Sim.blobRings = { Quest = 1, Arch = 1, Task = 1 }
+for kind in pairs(Sim.blobRings) do
+	MinimapClass["Set" .. kind .. "BlobRingScalar"] = function(_, v) Sim.blobRings[kind] = v end
+end
+local function RingsAt(v)
+	for _, r in pairs(Sim.blobRings) do if r ~= v then return false end end
+	return true
+end
+Sim.BlobRingsAt = RingsAt
 if RETAIL then
 	function MinimapClass:UpdateMouseoverAtPoint(x, y) end
 	function Tooltip:SetMinimapMouseover() self:ClearLines() end
