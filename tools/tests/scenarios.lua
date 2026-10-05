@@ -31,6 +31,25 @@ local function QuestPin(questID)
 	end
 end
 
+-- Choose `text` from the open right-click menu: the client's (MenuUtil) or
+-- our fallback's. Returns whether it was there.
+local function PickMenu(text)
+	for _, e in ipairs(Sim.MenuItems("button")) do
+		if e.text == text then
+			Sim.menu = nil
+			e.onSelect()
+			return true
+		end
+	end
+	for _, f in ipairs(Sim.Frames()) do
+		if f.item and f.item.text == text and f:IsVisible() then
+			Sim.Click(f)
+			return true
+		end
+	end
+	return false
+end
+
 -- Click the map where `frame` is, as a player would.
 local function ClickOn(frame, button)
 	local x, y = frame:GetCenter()
@@ -65,8 +84,9 @@ scenarios.zoom_and_pan = function()
 	check(ns.state.cx ~= cx, "dragging pans")
 	check(not ns.state.follow, "dragging stops following")
 	Sim.Click(ns.viewport, "RightButton")
+	check(PickMenu("Follow me"), "right-click offers to follow you")
 	Fly()
-	check(ns.state.follow, "right-click goes back to following")
+	check(ns.state.follow, "and that goes back to following")
 	-- All the way out and in, past the limits.
 	for _ = 1, 40 do Sim.Wheel(ns.viewport, -1) end
 	Sim.Run(2)
@@ -78,8 +98,8 @@ end
 scenarios.follow_moving_player = function()
 	local z0 = ns.state.zoom
 	Sim.player.speed, Sim.player.facing = 60, 1.2 -- flying, heading west-ish
-	Sim.Run(6) -- dynamic zoom keeps its hands off for a few seconds after login
-	check(ns.state.zoom < z0 * 0.8, ("moving fast, dynamic zoom pulls out (%.0f -> %.0f)"):format(z0, ns.state.zoom))
+	Sim.Run(6)
+	check(ns.state.zoom == z0, "moving fast leaves your zoom alone")
 	check(math.abs(ns.state.cx - Sim.player.col) < 0.01, "the view follows the player")
 	Sim.player.speed = 0
 	-- Teleport to the other continent.
@@ -209,6 +229,7 @@ scenarios.minimap_mode = function()
 	Sim.Run(0.5)
 	check(ns.state.minimapShown and Minimap:IsVisible(), "settled, the Minimap's blips show")
 	check(not C_Minimap or Sim.rimInset == 1000, "Blizzard's rim arrows are pushed off screen")
+	check(Sim.BlobRingsAt(0), "and its quest area rings are hidden")
 	local vl, vb, vw, vh = ns.viewport:GetRect()
 	local ml, mb, mw, mh = Minimap:GetRect()
 	check(ml >= vl - 1 and mb >= vb - 1 and ml + mw <= vl + vw + 1 and mb + mh <= vb + vh + 1,
@@ -223,7 +244,7 @@ scenarios.minimap_mode = function()
 	Sim.indoors = true
 	Sim.Run(1)
 	check(Minimap:IsVisible() and Minimap:GetAlpha() == 1 and ns.state.minimapShown, "indoors, the Minimap shows whole")
-	check(Sim.rimInset == nil, "indoors, its own arrows are back")
+	check(Sim.rimInset == nil and Sim.BlobRingsAt(1), "indoors, its own arrows and rings are back")
 	local mz = Minimap:GetZoom()
 	local top = ns.viewport -- what the cursor would wheel: the highest wheel-enabled frame over the map
 	for _, c in ipairs({ ns.viewport:GetChildren() }) do
@@ -281,7 +302,7 @@ scenarios.minimap_mode = function()
 	check(not ns.IsMinimapMode(), "minimap mode is off")
 	check(Minimap:GetParent() == parent, "the Minimap is back in its cluster")
 	check(Minimap:GetAlpha() == 1, "its terrain is visible again")
-	check(not Sim.minimapMask:find("WHITE8X8") and Sim.rimInset == nil, "round again, its arrows back")
+	check(not Sim.minimapMask:find("WHITE8X8") and Sim.rimInset == nil and Sim.BlobRingsAt(1), "round again, its arrows and rings back")
 	check(math.abs(Minimap:GetWidth() - 140) < 0.01, "at its own size")
 	check(Sim.minimapButton:GetParent() == Minimap, "addon buttons are back on the Minimap")
 	check(MinimapCluster:IsShown() and _G.MinimapBorder:IsVisible(), "the minimap cluster is shown again")
@@ -298,6 +319,7 @@ scenarios.quests_and_path = function()
 		ClickOn(pin)
 		Sim.Run(0.5)
 		check(ns.GetTarget() ~= nil, "clicking a quest makes it the target")
+		check(ns.state.path, "and turns on path mode")
 		ns.SetZoom(2000) -- close in, the quest is off the map: an arrow on the edge points to it
 		Sim.Run(1)
 		local edge
@@ -306,8 +328,20 @@ scenarios.quests_and_path = function()
 		end
 		check(edge ~= nil, "an off-map target gets an arrow on the map's edge")
 		check(Sim.watched == 60 or Sim.watchedIndex ~= nil, "the quest is tracked")
+		Sim.Run(2)
+		-- Path mode: at your zoom, you sit off-centre toward the target.
+		local st, t = ns.state, ns.GetTarget()
+		local w, h = ns.viewport:GetSize()
+		local ox, oy = (st.cx - st.playerCol) * st.zoom, (st.cy - st.playerRow) * st.zoom
+		local tx, ty = t.col - st.playerCol, t.row - st.playerRow
+		check(st.path and st.follow, "path mode is on, still following you")
+		check(st.zoom == 2000, "it keeps your zoom")
+		check(ox * tx + oy * ty > 0, "the view leans toward the target")
+		check(math.abs(math.sqrt(ox * ox + oy * oy) - 0.35 * math.min(w, h)) < 3, "as far as path mode leans, with the target off the map")
 		Sim.Click(ns.mapControls.path)
-		check(ns.SetPath(true), "path mode turns on with a target")
+		Sim.Run(2)
+		check(not st.path and math.abs(st.cx - st.playerCol) * st.zoom < 1, "path mode off: back to centred on you")
+		Sim.Click(ns.mapControls.path)
 		Sim.player.speed, Sim.player.facing = 200, 2.5
 		Sim.Run(4)
 		Sim.player.speed = 0
@@ -316,6 +350,7 @@ scenarios.quests_and_path = function()
 			ClickOn(pin) -- again: unfollow
 			Sim.Run(1)
 			check(ns.GetTarget() == nil, "clicking it again stops following it")
+			check(not ns.state.path, "and turns off path mode")
 		end
 	end
 	-- Hover over zones and pins.
@@ -327,9 +362,25 @@ scenarios.quests_and_path = function()
 	Sim.modifiers.ctrl = true
 	Sim.Click(ns.viewport, "LeftButton", 0.6, 0.4)
 	Sim.Run(0.5)
+	if ns.CanSetWaypoints() then check(ns.state.path, "a ctrl-click waypoint turns on path mode") end
 	Sim.Click(ns.viewport, "RightButton", 0.6, 0.4)
 	Sim.modifiers.ctrl = false
 	Sim.Run(0.5)
+	check(not ns.state.path, "clearing the waypoint turns it off")
+	-- Right-click, "Waypoint here": it's your target, and path mode leans to it.
+	ns.SetFollow(false) -- looking around: the menu's waypoint brings you back
+	Sim.Click(ns.viewport, "RightButton", 0.7, 0.3)
+	if ns.CanSetWaypoints() then
+		check(PickMenu("Waypoint here"), "right-click offers a waypoint")
+		Sim.Run(2)
+		check(Sim.waypoint ~= nil and ns.GetTarget() ~= nil, "the waypoint is your target")
+		check(ns.state.path and ns.state.follow, "and path mode is on")
+		Sim.Click(ns.viewport, "RightButton", 0.5, 0.5)
+		check(PickMenu("Clear waypoint"), "right-click offers to clear it")
+		Sim.Run(1)
+		check(Sim.waypoint == nil, "and that clears it")
+		check(not ns.state.path, "and turns off path mode")
+	end
 	-- Click a zone to fly there.
 	Sim.Click(ns.viewport, "LeftButton", 0.3, 0.6)
 	Fly()

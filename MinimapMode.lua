@@ -184,7 +184,6 @@ local function Expand()
 	if r then
 		local vw, vh = w - 4, h - 23 -- the map area inside the full chrome
 		local zoom = math.min(vw / (r.col1 - r.col0), vh / (r.row1 - r.row0)) * 0.92
-		ns.SetPath(false)
 		ns.SetFollow(false)
 		ns.FlyTo((r.col0 + r.col1) / 2, (r.row0 + r.row1) / 2, zoom, EXPAND_TIME + 0.1)
 	end
@@ -290,17 +289,11 @@ ns.Tooltip(ns.modeButton, function()
 end)
 ns.slash.minimap = ToggleMinimapMode
 
--- Left alone after you've panned away, go back to you (or to framing you
--- and your target, if that's how you left it).
+-- Left alone after you've panned away, glide back to following you.
 frame:HookScript("OnUpdate", function()
-	if not (db and db.minimapMode) or ns.IsMapExpanded() or state.follow or state.path or state.dragging or ns.IsAnimating() then return end
+	if not (db and db.minimapMode) or ns.IsMapExpanded() or state.follow or state.dragging or ns.IsAnimating() then return end
 	if frame:IsMouseOver() or GetTime() - (state.lastInteract or 0) < IDLE_FOLLOW then return end
-	if db.cameraMode == "path" and ns.SetPath(true) then return end
-	if state.playerCol and state.playerMap == state.map then
-		ns.FlyTo(state.playerCol, state.playerRow, state.zoom, 0.55, function() ns.SetFollow(true) end)
-	else
-		ns.SetFollow(true)
-	end
+	ns.SetFollow(true, true)
 end)
 
 local events = CreateFrame("Frame")

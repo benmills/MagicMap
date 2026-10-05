@@ -29,8 +29,7 @@ flight points and more).
 
 **Minimap mode.** MagicMap takes your minimap's spot, square and framed, and zooms out far past
 it. Blizzard's blips and other addons' pins (GatherMate, HandyNotes) still show on top, tooltips
-and all. Indoors, the window simply shows Blizzard's own minimap. While following, the map zooms
-out as you speed up and back in after (`/mm auto` turns that off).
+and all. Indoors, the window simply shows Blizzard's own minimap.
 
 ![Minimap mode: zooming from a herb tooltip out to the whole coast](docs/zoomable-minimap.gif)
 
@@ -40,10 +39,9 @@ The quest log (L) still opens Blizzard's world map as usual.
 ![Pressing M grows the minimap into a big map and back](docs/minimap-to-big-map.gif)
 
 **Follow a quest and path mode.** Click a quest to track it and make it your target (it gets a
-gold halo). Path mode then keeps you and your target in view, with a faint line between you; when
-the target is off the map, a gold arrow on the map's edge points to it.
-
-![Path mode framing you and a followed quest, with a dashed line between](docs/path-mode.gif)
+gold halo). Path mode then leans the view toward it, at your zoom, with a faint line between you;
+when the target is off the map, a gold arrow on the map's edge points to it. The zoom is always
+yours (wheel or + / −); nothing else changes it.
 
 ## Controls
 
@@ -52,14 +50,14 @@ the target is off the map, a gold arrow on the map's edge points to it.
 | Pan / zoom | Drag / mouse wheel |
 | Pick a map | Click the title |
 | Fly to a zone | Click it |
-| Back to you | Right-click |
+| Back to you, or a waypoint there (and path mode) | Right-click for the menu |
 | Follow a quest | Click its icon or area |
 | Waypoint | Ctrl-click (Ctrl-right-click clears) |
 | Follow / Path | Toggles at the map's bottom-left (on hover) |
 | Resting zoom | + / − at the map's bottom-right (on hover) |
 | Layers / Minimap mode | Gear and red button by the zone name (on hover) |
 
-Slash commands (`/mm`): `follow`, `auto`, `map <name>`, `zone <name>`, `minimap`, `layers`, `icon`,
+Slash commands (`/mm`): `follow`, `path`, `map <name>`, `zone <name>`, `minimap`, `layers`, `icon`,
 `debug`, `reset`. For checking things in game: `perf` (how the map keeps up) and `sync` (Blizzard's
 minimap terrain over ours, to see whether its blips line up; `sync full` to compare the two).
 

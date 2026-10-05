@@ -19,8 +19,7 @@ local defaults = {
 	point = { "CENTER", "CENTER", 0, 0 },
 	zoom = 384,
 	follow = true,
-	cameraMode = "follow", -- what "back to you" returns to: "follow" or "path" (you and your target)
-	autoZoom = true, -- following, zoom out as you speed up and back in after (/mm auto)
+	path = false, -- following, lean toward your target (see FollowCenter)
 	map = nil, -- instanceID being viewed; nil = player's continent
 	cx = 32, cy = 32,
 	debug = false, -- show tile/FileDataID/zoom in the title band
@@ -934,42 +933,43 @@ local function StepZoom(elapsed)
 	if not zoomGoal then SaveView() end
 end
 
--- Path mode: keep you and your target (ns.GetTarget: the quest you follow,
--- else your waypoint) framed, a margin clear around both.
-local PATH_MARGIN = 0.12  -- of the view, each side
-local PATH_RATE = 10      -- per second: how quickly the camera eases to the framing
-local PATH_SLACK = 0.85   -- zoomed out to this share of the ideal still counts as framed
-local PATH_MAX_ZOOM = 768 -- never closer than this, even with the target beside you
+-- Following puts you in the middle; path mode leans toward your target (the
+-- quest you follow, else your waypoint): you sit off-centre so the view shows
+-- the way there - halfway when that keeps both in view, never further than
+-- LEAN of the view's shorter side. The zoom is always yours.
+local LEAN = 0.35
+local LEAN_RATE = 4 -- per second: how quickly the lean settles when the target changes
+local leanX, leanY = 0, 0 -- in tiles, eased
 
--- Centre and zoom that frame you and the target, or nil if there's no target
--- on your map.
-local function PathFraming()
-	local t = ns.GetTarget and ns.GetTarget()
-	if not (t and state.playerCol and state.playerMap == state.map) then return nil end
-	local pc, pr = state.playerCol, state.playerRow
-	local c0, c1 = math.min(pc, t.col), math.max(pc, t.col)
-	local r0, r1 = math.min(pr, t.row), math.max(pr, t.row)
+local function WantedLean()
+	local t = state.path and ns.GetTarget and ns.GetTarget()
+	if not (t and state.playerCol and state.playerMap == state.map) then return 0, 0 end
 	local w, h = ViewSize()
-	local fw, fh = w * (1 - 2 * PATH_MARGIN), h * (1 - 2 * PATH_MARGIN)
-	local zoom = math.min(fw / math.max(c1 - c0, 1e-4), fh / math.max(r1 - r0, 1e-4))
-	return (c0 + c1) / 2, (r0 + r1) / 2, Clamp(zoom, MIN_ZOOM, PATH_MAX_ZOOM)
+	local dx, dy = (t.col - state.playerCol) * state.zoom, (t.row - state.playerRow) * state.zoom
+	local d = math.sqrt(dx * dx + dy * dy)
+	if d < 1 then return 0, 0 end
+	local k = math.min(d / 2, LEAN * math.min(w, h)) / d
+	return dx * k / state.zoom, dy * k / state.zoom
+end
+
+-- Where following puts the centre: you, plus the lean.
+local function FollowCenter()
+	return state.playerCol + leanX, state.playerRow + leanY
+end
+
+local function StepLean(elapsed)
+	local wx, wy = WantedLean()
+	local k = math.min(1, LEAN_RATE * (elapsed or 0))
+	leanX, leanY = leanX + (wx - leanX) * k, leanY + (wy - leanY) * k
 end
 
 -- Where the camera is headed: the zoom and centre it will settle at.
 local function GoalZoom()
-	if state.path and not anim then
-		local _, _, z = PathFraming()
-		if z then return z end
-	end
 	return zoomGoal or (anim and anim.tz) or state.zoom
 end
 
 local function GoalCenter()
-	if state.path and not anim then
-		local cx, cy = PathFraming()
-		if cx then return cx, cy end
-	end
-	if state.follow and state.playerCol then return state.playerCol, state.playerRow end
+	if state.follow and state.playerCol then return FollowCenter() end
 	if anim and not anim.anchor then return anim.tx, anim.ty end
 	if zoomGoal and zoomAnchor then
 		local a = zoomAnchor
@@ -1036,9 +1036,7 @@ local CONTINENT_MIN_TILES = 300 -- open-world maps this big are listed as contin
 
 local function UpdateControls()
 	SetLit(followToggle, state.follow)
-	-- Path: lit while framing; half-lit when it's your choice, waiting for a target.
 	SetLit(pathToggle, state.path)
-	if not state.path and db.cameraMode == "path" then pathToggle.icon:SetAlpha(0.85) end
 end
 
 local function SetMap(mapID)
@@ -1052,110 +1050,50 @@ local function SetMap(mapID)
 	Fire("MapChanged", mapID)
 end
 
+-- Following (the camera on you) or free. animate: glide back to you first,
+-- at the zoom you have.
 local function SetFollow(on, animate)
 	if on and animate and state.playerCol then
-		-- Glide back to you (on your map), then lock on.
 		if state.playerMap ~= state.map then SetMap(state.playerMap) end
-		AnimateTo(state.playerCol, state.playerRow, math.max(state.zoom, 256), FLY_TIME, {
-			onDone = function() SetFollow(true) end,
-		})
+		local cx, cy = FollowCenter()
+		AnimateTo(cx, cy, state.zoom, FLY_TIME, { onDone = function() SetFollow(true) end })
 		return
 	end
 	state.follow = on
 	db.follow = on
-	if on then state.path = false end
 	if on and state.playerCol then SetMap(state.playerMap) end
 	UpdateControls()
 	state.dirty = true
 end
 
--- Path mode on (if there's a target on your map) or off. Returns whether it's on.
-local function SetPath(on)
-	if on then
-		if state.playerMap and state.playerMap ~= state.map then SetMap(state.playerMap) end
-		if not PathFraming() then return false end
-		StopAnimation()
-		state.follow = false
-		db.follow = false
-	end
+-- Path mode (lean toward your target while following) on or off; turning
+-- it on also goes back to following you, unless keepView.
+local function SetPath(on, keepView)
 	state.path = on and true or false
+	db.path = state.path
+	if on and not state.follow and not keepView then SetFollow(true, true) end
 	UpdateControls()
 	state.dirty = true
-	return state.path
 end
 
--- Back to you, the way you last chose: framing you and your target, or following.
-local function ReturnToYou()
-	if db.cameraMode == "path" and SetPath(true) then return end
-	SetFollow(true, true)
-end
-
--- Ease toward the framing. The zoom holds while both still fit comfortably,
--- so walking toward the target doesn't keep the view breathing.
--- Dynamic zoom (following): the view holds AUTO_SECONDS of travel at your
--- speed each way, never closer than the zoom you chose; it changes in steps
--- (each a short zoom), not continuously, so the map mostly sits still.
-local AUTO_SECONDS = 10
-local AUTO_STEP = math.log(1.3) -- re-zoom only once this far off (log scale)
-local AUTO_DECAY = 4            -- yd/s per second: how fast a stop is believed
-local AUTO_HANDS_OFF = 4        -- seconds after you zoom or drag before it takes over again
-local TELEPORT_SPEED = 250      -- yd/s: faster than anything you travel by, so a jump
-local autoSpeed, autoBase = 0, nil
-local lastCol, lastRow
-
--- Your speed in yd/s, from how far you moved since last frame (GetUnitSpeed
--- is a secret value on 12.x clients: no arithmetic allowed on it).
-local function MeasureSpeed(elapsed)
-	local col, row = state.playerCol, state.playerRow
-	local speed = 0
-	if col and lastCol and elapsed > 0 then
-		speed = math.sqrt((col - lastCol) ^ 2 + (row - lastRow) ^ 2) * TILE_YARDS / elapsed
-		if speed > TELEPORT_SPEED then speed = 0 end
-	end
-	lastCol, lastRow = col, row
-	return speed
-end
-
-local function StepAutoZoom(elapsed)
-	elapsed = elapsed or 0
-	autoSpeed = math.max(MeasureSpeed(elapsed), autoSpeed - AUTO_DECAY * elapsed)
-	if not (db.autoZoom and state.follow and state.playerCol) or state.path or anim or zoomGoal then return end
-	if GetTime() - (state.lastInteract or 0) < AUTO_HANDS_OFF then return end
-	autoBase = autoBase or state.zoom
-	local w, h = ViewSize()
-	local want = autoBase
-	if autoSpeed > 0 then
-		local span = 2 * AUTO_SECONDS * autoSpeed / TILE_YARDS -- tiles across the view's shorter side
-		want = Clamp(math.min(autoBase, math.min(w, h) / span), MIN_ZOOM, MAX_ZOOM)
-	end
-	if math.abs(math.log(want / state.zoom)) > AUTO_STEP then
-		zoomGoal, zoomAnchor = want, nil
-	end
-end
-
-local function StepPath(elapsed)
-	state.pathMoving = false
-	if not state.path then
-		-- Path mode is your choice and a target turned up: back to it.
-		if db.cameraMode == "path" and state.follow and not anim and PathFraming() then SetPath(true) end
-		return
-	end
-	if anim or state.dragging then return end
-	local cx, cy, z = PathFraming()
-	if not cx then
-		SetFollow(true, true) -- the target's gone, or you're elsewhere: follow you meanwhile
-		return
-	end
-	local cur = state.zoom
-	if cur <= z and cur >= z * PATH_SLACK then z = cur end
-	local k = 1 - math.exp(-PATH_RATE * elapsed)
-	local nz = math.exp(math.log(cur) + (math.log(z) - math.log(cur)) * k)
-	local ncx, ncy = state.cx + (cx - state.cx) * k, state.cy + (cy - state.cy) * k
-	local zooming = math.abs(nz - cur) / cur > 1e-4
-	if zooming or math.abs(ncx - state.cx) * cur > 0.02 or math.abs(ncy - state.cy) * cur > 0.02 then
-		state.zoom, state.cx, state.cy = nz, ncx, ncy
-		state.pathMoving = zooming
-		state.dirty = true
+-- Path mode comes with a target: on when you get a new one (follow a quest,
+-- set a waypoint), off when it's gone. In between, the toggle is yours.
+-- Following a quest while you look around the map doesn't pull the view back.
+local TARGET_CHECK = 0.2 -- seconds between looks
+local lastTargetKey, targetCheckAt = false, 0 -- false: not looked yet
+local function StepTargetChange()
+	local now = GetTime()
+	if now < targetCheckAt or not ns.TargetKey then return end
+	targetCheckAt = now + TARGET_CHECK
+	local key = ns.TargetKey()
+	if key == lastTargetKey then return end
+	local first = lastTargetKey == false
+	lastTargetKey = key
+	if first then return end -- what you had at login keeps your saved choice
+	if key and not state.path then
+		SetPath(true, true)
+	elseif not key and state.path then
+		SetPath(false)
 	end
 end
 
@@ -1413,10 +1351,37 @@ viewport:SetScript("OnMouseDown", function(_, button)
 		state.dragging = true
 		state.lastCursorX, state.lastCursorY = x / scale, y / scale
 		press = { x = x / scale, y = y / scale, t = GetTime(), clickable = state.canClickZone, zone = hoverZoneID }
-	elseif button == "RightButton" then
-		ReturnToYou()
 	end
 end)
+
+-- Right-click menu: only what makes sense where and how you clicked.
+local function MapMenuItems(col, row)
+	local items = {}
+	if ns.CanSetWaypoints and ns.CanSetWaypoints() and ns.GetZoneAt and ns.GetZoneAt(col, row) then
+		items[#items + 1] = { text = "Waypoint here", value = function()
+			if ns.SetWaypointAt(col, row) then SetPath(true) end
+		end }
+	end
+	if ns.HasWaypoint and ns.HasWaypoint() then
+		items[#items + 1] = { text = "Clear waypoint", value = ns.ClearWaypoint }
+	end
+	if not state.follow then
+		items[#items + 1] = { text = "Follow me", value = function() SetFollow(true, true) end }
+	end
+	return items
+end
+
+local function OpenMapMenuAt(col, row)
+	local items = MapMenuItems(col, row)
+	if #items == 0 then return end
+	if MenuUtil and MenuUtil.CreateContextMenu then
+		MenuUtil.CreateContextMenu(viewport, function(_, root)
+			for _, it in ipairs(items) do root:CreateButton(it.text, it.value) end
+		end)
+	else
+		ns.OpenMenuAtCursor(viewport, 140, items, function(fn) fn() end)
+	end
+end
 
 viewport:SetScript("OnMouseUp", function(_, button)
 	if state.movingFrame then
@@ -1424,6 +1389,11 @@ viewport:SetScript("OnMouseUp", function(_, button)
 		state.movingFrame = nil
 		local p, _, rp, x, y = frame:GetPoint()
 		db.point = { p, rp, x, y }
+		return
+	end
+	if button == "RightButton" then
+		-- Modified right-clicks are handled on the way down (ns.OnMapClick).
+		if not (IsShiftKeyDown() or IsControlKeyDown()) then OpenMapMenuAt(CursorTile()) end
 		return
 	end
 	if button ~= "LeftButton" then return end
@@ -1453,7 +1423,6 @@ local function ZoomStep(delta, atCursor)
 	local w, h = ViewSize()
 	local factor = delta > 0 and WHEEL_STEP or 1 / WHEEL_STEP
 	state.lastInteract = GetTime()
-	if state.path then SetPath(false) end
 	-- Quick ticks stack onto the running target.
 	local target = Clamp((zoomGoal or state.zoom) * factor, MIN_ZOOM, MAX_ZOOM)
 	anim = nil
@@ -1468,7 +1437,6 @@ local function ZoomStep(delta, atCursor)
 	local tx = state.cx + (ax - w / 2) / state.zoom
 	local ty = state.cy + (ay - h / 2) / state.zoom
 	zoomGoal, zoomAnchor = target, { tx, ty, ax - w / 2, ay - h / 2 }
-	autoBase = target -- dynamic zoom works from what you chose
 end
 viewport:SetScript("OnMouseWheel", function(_, delta) ZoomStep(delta, true) end)
 zoomIn:SetScript("OnClick", function() ZoomStep(1) end)
@@ -1479,25 +1447,12 @@ viewport:SetScript("OnSizeChanged", function()
 	FitTitle()
 end)
 
-local function OnFollowClick()
-	if state.follow then
-		SetFollow(false)
-	else
-		db.cameraMode = "follow"
-		SetFollow(true, true)
-	end
-end
+local function OnFollowClick() SetFollow(not state.follow, true) end
 local function OnPathClick()
-	if state.path then
-		db.cameraMode = "follow"
-		SetFollow(true, true)
-	else
-		db.cameraMode = "path"
-		if not SetPath(true) then
-			Print("path mode on: it'll frame you and your target once there is one. Ctrl-click the map for a waypoint, or click a quest to follow it.")
-		end
+	SetPath(not state.path)
+	if state.path and not (ns.GetTarget and ns.GetTarget()) then
+		Print("path mode on: it leans toward your target once there is one. Ctrl-click the map for a waypoint, or click a quest to follow it.")
 	end
-	UpdateControls()
 end
 followToggle:SetScript("OnClick", OnFollowClick)
 pathToggle:SetScript("OnClick", OnPathClick)
@@ -1511,11 +1466,11 @@ local function Tooltip(button, fn)
 end
 local function FollowTip()
 	return state.follow and "Following you  |cff888888(drag the map to stop)|r"
-		or "Follow me  |cff888888(or right-click the map)|r"
+		or "Follow me"
 end
 local function PathTip()
-	if state.path then return "Path: you and your target  |cff888888(click to just follow you)|r" end
-	return "Path mode  |cff888888(keep you and your waypoint or followed quest in view)|r"
+	if state.path then return "Path mode  |cff888888(leaning toward your target; click to turn off)|r" end
+	return "Path mode  |cff888888(lean toward your waypoint or followed quest)|r"
 end
 Tooltip(followToggle, FollowTip)
 Tooltip(pathToggle, PathTip)
@@ -1530,8 +1485,8 @@ frame:SetScript("OnUpdate", function(_, elapsed)
 	UpdatePlayer()
 	StepAnimation(elapsed)
 	StepZoom(elapsed)
-	StepPath(elapsed)
-	StepAutoZoom(elapsed)
+	StepTargetChange()
+	StepLean(elapsed)
 
 	if state.dragging then
 		if not IsMouseButtonDown("LeftButton") then
@@ -1544,7 +1499,6 @@ frame:SetScript("OnUpdate", function(_, elapsed)
 			if press and (math.abs(x - press.x) > CLICK_SLOP or math.abs(y - press.y) > CLICK_SLOP) then
 				press.moved = true
 				if state.follow then SetFollow(false) end
-				if state.path then SetPath(false) end
 			end
 			if (dx ~= 0 or dy ~= 0) and (not press or press.moved) then
 				state.cx = state.cx - dx / state.zoom
@@ -1560,8 +1514,9 @@ frame:SetScript("OnUpdate", function(_, elapsed)
 	end
 	if state.follow and state.playerCol and not anim then
 		if state.playerMap ~= state.map then SetMap(state.playerMap) end
-		if state.cx ~= state.playerCol or state.cy ~= state.playerRow then
-			state.cx, state.cy = state.playerCol, state.playerRow
+		local cx, cy = FollowCenter()
+		if state.cx ~= cx or state.cy ~= cy then
+			state.cx, state.cy = cx, cy
 			state.dirty = true
 		end
 	end
@@ -1611,7 +1566,6 @@ ns.Tooltip = Tooltip
 ns.SetZoom = function(zoom)
 	StopAnimation()
 	state.zoom = Clamp(zoom, MIN_ZOOM, MAX_ZOOM)
-	autoBase = state.zoom
 	SaveView()
 	state.dirty = true
 end
@@ -1622,9 +1576,8 @@ ns.SaveFrameLayout = function()
 end
 ns.Print = Print
 ns.TileToScreen = TileToScreen
-ns.IsAnimating = function() return anim ~= nil or zoomGoal ~= nil or state.pathMoving end
-ns.IsZooming = function() return anim ~= nil or zoomGoal ~= nil end
-ns.SetPath, ns.ReturnToYou, ns.UpdateControls = SetPath, ReturnToYou, UpdateControls
+ns.IsAnimating = function() return anim ~= nil or zoomGoal ~= nil end
+ns.SetPath, ns.UpdateControls = SetPath, UpdateControls
 ns.GoalZoom, ns.GoalCenter = GoalZoom, GoalCenter
 ns.FlyTo = function(cx, cy, zoom, duration, onDone) AnimateTo(cx, cy, zoom, duration or FLY_TIME, { onDone = onDone }) end
 ns.FitZoom = FitZoom
@@ -1632,10 +1585,6 @@ ns.WorldToTile = WorldToTile
 ns.MapRect, ns.MapToTile, ns.TileToMap = MapRect, MapToTile, TileToMap
 ns.GetZones, ns.GetContinentMapID, ns.GetQuestMaps = GetZones, GetContinentMapID, GetQuestMaps
 ns.slash = {} -- extra /mm subcommands: name -> fn(arg)
-ns.slash.auto = function()
-	db.autoZoom = not db.autoZoom
-	Print("dynamic zoom " .. (db.autoZoom and "on: following, the map zooms out as you speed up" or "off"))
-end
 ns.Toggle = function() frame:SetShown(not frame:IsShown()) end
 
 ---------------------------------------------------------------------------
@@ -1657,7 +1606,7 @@ events:SetScript("OnEvent", function(self, event, arg1)
 		frame:ClearAllPoints()
 		frame:SetPoint(db.point[1], UIParent, db.point[2], db.point[3], db.point[4])
 		state.zoom = Clamp(db.zoom, MIN_ZOOM, MAX_ZOOM)
-		state.follow = db.follow
+		state.follow, state.path = db.follow, db.path
 		state.cx, state.cy = db.cx, db.cy
 		self:UnregisterEvent("ADDON_LOADED")
 		Fire("Loaded", db)
@@ -1681,6 +1630,8 @@ SlashCmdList.MAGICMAP = function(msg)
 		ns.Toggle()
 	elseif cmd == "follow" then
 		SetFollow(not state.follow, true)
+	elseif cmd == "path" then
+		SetPath(not state.path)
 	elseif cmd == "map" then
 		local id = tonumber(arg)
 		if not id then
@@ -1735,6 +1686,6 @@ SlashCmdList.MAGICMAP = function(msg)
 	elseif ns.slash[cmd] then
 		ns.slash[cmd](arg)
 	else
-		Print("/mm [toggle] | follow | auto | map <id|name> | zone <name> | icon | minimap | tiles | layers | landmarks | perf | debug | reset")
+		Print("/mm [toggle] | follow | path | map <id|name> | zone <name> | icon | minimap | tiles | layers | landmarks | perf | debug | reset")
 	end
 end

@@ -65,7 +65,15 @@ end)
 -- Blizzard's big arrows toward your target sit on the Minimap's rim; ours
 -- (Path.lua) point the way instead. The client won't swap their art, but it
 -- lets the rim's icons be pushed outward, so they go far off screen.
-local function PushRimArrowsAway(on)
+-- Its quest, dig-site and bonus-objective rings (the patterned circle at the
+-- Minimap's edge, where an area runs past it) mark a rim we don't show, so
+-- they go too. (Retail's own UI keeps them at 0; classic-style UIs show them.)
+local BLOB_RINGS = { "SetQuestBlobRingScalar", "SetArchBlobRingScalar", "SetTaskBlobRingScalar" }
+
+local function ClearRim(on)
+	for _, method in ipairs(BLOB_RINGS) do
+		if Minimap[method] then pcall(Minimap[method], Minimap, on and 0 or 1) end
+	end
 	if not (C_Minimap and C_Minimap.SetMinimapInsetInfo) then return end
 	if on then
 		pcall(C_Minimap.SetMinimapInsetInfo, 0, 360, 1000) -- the whole rim (degrees or radians), 1000x out
@@ -206,7 +214,7 @@ local function Engage()
 	-- Never pushed back on screen: that would slide its blips off ours.
 	Minimap:SetClampedToScreen(false)
 	Minimap:SetMaskTexture(SQUARE_MASK)
-	PushRimArrowsAway(true)
+	ClearRim(true)
 	Minimap:Hide() -- until Update finds it a settled spot
 	lastDiameter = nil
 end
@@ -220,7 +228,7 @@ local function SetSkin(on)
 	indoorBg:SetShown(on)
 	Minimap:SetFrameLevel(ns.overlay:GetFrameLevel() + (on and 2 or -1))
 	Minimap:SetAlpha(on and 1 or 0)
-	PushRimArrowsAway(not on) -- indoors it's Blizzard's minimap, arrows and all
+	ClearRim(not on) -- indoors it's Blizzard's minimap, rim and all
 	lastDiameter = nil
 end
 
@@ -228,7 +236,7 @@ local function Release()
 	if not embedded then return end
 	embedded = false
 	SetSkin(false)
-	PushRimArrowsAway(false)
+	ClearRim(false)
 	state.minimapShown = false
 	ns.SetMinimapCircle(nil)
 
@@ -349,7 +357,7 @@ local function Update(elapsed)
 	-- client doesn't clip it to the window), and a couple of frames after any
 	-- change of its zoom level (the client takes a moment to apply one).
 	local zoom = state.zoom
-	local still = not ns.IsZooming() and lastZoom and math.abs(math.log(zoom / lastZoom)) < STILL
+	local still = not ns.IsAnimating() and lastZoom and math.abs(math.log(zoom / lastZoom)) < STILL
 	lastZoom = zoom
 	local kind = (IsIndoors and IsIndoors()) and "indoor" or "outdoor"
 	local w, h = ns.viewport:GetSize()
