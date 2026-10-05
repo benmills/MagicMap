@@ -349,7 +349,7 @@ local function Update(elapsed)
 	-- client doesn't clip it to the window), and a couple of frames after any
 	-- change of its zoom level (the client takes a moment to apply one).
 	local zoom = state.zoom
-	local still = not ns.IsZooming() and lastZoom and math.abs(math.log(zoom / lastZoom)) < STILL
+	local still = not ns.IsAnimating() and lastZoom and math.abs(math.log(zoom / lastZoom)) < STILL
 	lastZoom = zoom
 	local kind = (IsIndoors and IsIndoors()) and "indoor" or "outdoor"
 	local w, h = ns.viewport:GetSize()

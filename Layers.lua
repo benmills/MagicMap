@@ -830,6 +830,19 @@ function ns.GetTarget()
 	return target
 end
 
+-- Which target you have, wherever it is: a key that changes when you follow
+-- another quest or move the waypoint, nil with none (Core's path mode keys
+-- off it).
+function ns.TargetKey()
+	local followed = FollowedQuest()
+	if followed then return "quest:" .. followed end
+	local point = C_Map and C_Map.GetUserWaypoint and C_Map.GetUserWaypoint()
+	if point and point.uiMapID then
+		local x, y = PosXY(point.position)
+		return string.format("waypoint:%d:%.4f:%.4f", point.uiMapID, x or 0, y or 0)
+	end
+end
+
 -- Extra pin layers (Landmarks.lua). Call at file load, before ADDON_LOADED.
 function ns.AddPinLayer(layer, source)
 	table.insert(LAYERS, layer)
@@ -1990,28 +2003,47 @@ local function OpenChat(text)
 	if open then open(text) else ns.Print(text) end
 end
 
+-- Waypoints: the game's user waypoint, super-tracked so it's your target.
+function ns.CanSetWaypoints() return C_Map.SetUserWaypoint and UiMapPoint and true or false end
+function ns.HasWaypoint() return C_Map.GetUserWaypoint and C_Map.GetUserWaypoint() ~= nil end
+function ns.ClearWaypoint()
+	if C_Map.ClearUserWaypoint then C_Map.ClearUserWaypoint() end
+end
+
+-- Returns true if the waypoint was placed (else says why not).
+function ns.SetWaypointAt(col, row)
+	local z = ZoneAt(col, row)
+	if not z then
+		ns.Print("no zone here to put a waypoint in")
+	elseif not ns.CanSetWaypoints() then
+		ns.Print("waypoints aren't supported by this client")
+	elseif C_Map.CanSetUserWaypointOnMap and not C_Map.CanSetUserWaypointOnMap(z.mapID) then
+		ns.Print("can't place a waypoint in " .. z.name)
+	else
+		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(z.mapID, z.x, z.y))
+		if C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then
+			C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+		end
+		followedQuest = nil
+		ScheduleRefresh("quests")
+		-- The target comes from the pins, so don't wait for the event's refresh.
+		RefreshPins("waypoint")
+		return true
+	end
+	return false
+end
+
 -- Returns true if the click was handled (so the map doesn't start panning).
 function ns.OnMapClick(button, col, row)
 	if IsControlKeyDown() and button == "RightButton" then
-		if C_Map.ClearUserWaypoint then C_Map.ClearUserWaypoint() end
+		ns.ClearWaypoint()
 		return true
 	end
 	if button ~= "LeftButton" then return false end
 	local z = ZoneAt(col, row)
 	if not z then return false end
 	if IsControlKeyDown() then
-		if not (C_Map.SetUserWaypoint and UiMapPoint) then
-			ns.Print("waypoints aren't supported by this client")
-		elseif C_Map.CanSetUserWaypointOnMap and not C_Map.CanSetUserWaypointOnMap(z.mapID) then
-			ns.Print("can't place a waypoint in " .. z.name)
-		else
-			C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(z.mapID, z.x, z.y))
-			if C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then
-				C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-			end
-			followedQuest = nil
-			ScheduleRefresh("quests")
-		end
+		ns.SetWaypointAt(col, row)
 		return true
 	elseif IsShiftKeyDown() then
 		OpenChat(string.format("/way %s %.1f %.1f", z.name, z.x * 100, z.y * 100))

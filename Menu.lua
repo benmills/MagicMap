@@ -6,6 +6,9 @@
 --   menu.getItems = function() return { { text = "A", value = 1, selected = true }, ... } end
 --   menu.onSelect = function(value, text) end
 --   menu.keepOpen = true -- checklist mode: items may set checked = true|false
+--
+-- Or a context menu at the cursor, owned by any frame (not opened by its clicks):
+--   ns.OpenMenuAtCursor(owner, width, items, onSelect)
 
 local ADDON, ns = ...
 
@@ -26,19 +29,15 @@ local function MakeBackground(f)
 	bg:SetColorTexture(0.05, 0.04, 0.03, 0.96)
 end
 
-function ns.AttachMenu(button, width, direction)
+-- The list itself, owned by `button`; anchoring is up to the caller.
+local function NewMenu(button, width)
 	local menu = {}
 
 	local list = CreateFrame("Frame", nil, button)
 	list:SetFrameStrata("DIALOG")
 	list:SetToplevel(true)
-	if direction == "down" then
-		list:SetPoint("TOPRIGHT", button, "BOTTOMRIGHT", 0, -6)
-	elseif direction == "downleft" then
-		list:SetPoint("TOPLEFT", button, "BOTTOMLEFT", 0, -6)
-	else
-		list:SetPoint("BOTTOMRIGHT", button, "TOPRIGHT", 0, 6)
-	end
+	list:SetClampedToScreen(true)
+	menu.list = list
 	list:SetWidth(width)
 	list:EnableMouse(true)
 	list:EnableMouseWheel(true)
@@ -110,7 +109,7 @@ function ns.AttachMenu(button, width, direction)
 	-- Close when clicking anywhere else.
 	list:SetScript("OnUpdate", function()
 		if (IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton"))
-			and not list:IsMouseOver() and not button:IsMouseOver() then
+			and not list:IsMouseOver() and (menu.atCursor or not button:IsMouseOver()) then
 			list:Hide()
 		end
 	end)
@@ -138,6 +137,38 @@ function ns.AttachMenu(button, width, direction)
 		openMenu = menu
 	end
 
+	return menu
+end
+
+function ns.AttachMenu(button, width, direction)
+	local menu = NewMenu(button, width)
+	local list = menu.list
+	if direction == "down" then
+		list:SetPoint("TOPRIGHT", button, "BOTTOMRIGHT", 0, -6)
+	elseif direction == "downleft" then
+		list:SetPoint("TOPLEFT", button, "BOTTOMLEFT", 0, -6)
+	else
+		list:SetPoint("BOTTOMRIGHT", button, "TOPRIGHT", 0, 6)
+	end
 	button:HookScript("OnClick", function() menu:Toggle() end)
+	return menu
+end
+
+local cursorMenus = {} -- owner -> menu
+function ns.OpenMenuAtCursor(owner, width, items, onSelect)
+	local menu = cursorMenus[owner]
+	if not menu then
+		menu = NewMenu(owner, width)
+		menu.atCursor = true -- a click on the owner closes it too
+		cursorMenus[owner] = menu
+	end
+	menu:Close()
+	menu.getItems = function() return items end
+	menu.onSelect = onSelect
+	local scale = UIParent:GetEffectiveScale()
+	local x, y = GetCursorPosition()
+	menu.list:ClearAllPoints()
+	menu.list:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
+	menu:Toggle()
 	return menu
 end

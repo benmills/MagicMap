@@ -1149,7 +1149,7 @@ if RETAIL then
 	C_SuperTrack = {
 		GetSuperTrackedQuestID = function() return Sim.superTracked or 0 end,
 		SetSuperTrackedQuestID = function(id) Sim.superTracked = id end,
-		SetSuperTrackedUserWaypoint = function(on) end,
+		SetSuperTrackedUserWaypoint = function(on) if on then Sim.superTracked = 0 end end,
 	}
 	C_TooltipInfo = {
 		GetUnit = function(unit)
