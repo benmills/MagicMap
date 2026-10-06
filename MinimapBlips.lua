@@ -154,31 +154,41 @@ local scrolled = false -- the Minimap is its scroll child
 
 -- HereBeDragons' pins, while clipping: a stand-in host the Minimap's size,
 -- in its place, but an ordinary frame in the window, which clips it. It
--- answers what HereBeDragons asks the minimap (FarmHud does the same).
+-- answers what HereBeDragons asks the minimap (FarmHud does the same). Every
+-- copy of HereBeDragons moves its pins here, Questie's renamed one too.
 local pinHost = CreateFrame("Frame", "MagicMapMinimapPins", ns.viewport)
 pinHost:Hide()
 pinHost.GetZoom = function() return Minimap:GetZoom() end
 pinHost.GetZoomLevels = function() return Minimap:GetZoomLevels() end
+pinHost.SetZoom = function(_, z) Minimap:SetZoom(z) end -- (clients without C_Minimap.GetViewRadius)
 
 local function GetCVarValue(name)
 	if C_CVar and C_CVar.GetCVar then return C_CVar.GetCVar(name) end
 	return GetCVar and GetCVar(name)
 end
 
-local function HBDPinsRaw()
-	return LibStub and LibStub("HereBeDragons-Pins-2.0", true)
+-- Every copy of HereBeDragons-Pins (Questie bundles its own, renamed; see
+-- AddonPins.lua). rescan: look for copies loaded since.
+local NO_LIBS = {}
+local function HBDPinsRaw(rescan)
+	return ns.HBDPinLibs and ns.HBDPinLibs(rescan) or NO_LIBS
 end
 
--- HereBeDragons, when it's drawing on the real Minimap or our host (not, say, FarmHud's).
+-- The copies drawing on the real Minimap or our host (not, say, FarmHud's).
+local mine = {}
 local function HBDPins()
-	local hbd = HBDPinsRaw()
-	return hbd and (hbd.Minimap == Minimap or hbd.Minimap == pinHost) and hbd or nil
+	wipe(mine)
+	for _, hbd in ipairs(HBDPinsRaw()) do
+		if hbd.Minimap == Minimap or hbd.Minimap == pinHost then mine[#mine + 1] = hbd end
+	end
+	return mine
 end
 
 -- Pins are positioned on the Minimap by their addons; they travel with it.
 local function IsPin(obj)
-	local hbd = HBDPinsRaw()
-	if hbd and hbd.minimapPins and hbd.minimapPins[obj] then return true end
+	for _, hbd in ipairs(HBDPinsRaw()) do
+		if type(hbd.minimapPins) == "table" and hbd.minimapPins[obj] then return true end
+	end
 	local name = obj.GetDebugName and obj:GetDebugName()
 	return name and name:find("GatherMatePin", 1, true) ~= nil
 end
@@ -243,13 +253,23 @@ end
 -- Have HereBeDragons (re-)place its pins on their host now: it only re-reads
 -- the size once a second, and they must keep in step with the terrain.
 local function PlacePins(host)
-	local hbd = HBDPins()
-	if not (hbd and hbd.SetMinimapObject) then return end
-	hbd:SetMinimapObject(host)
-	-- They must still clear our terrain and layers.
-	for pin in pairs(hbd.minimapPins or {}) do
-		if pin.GetFrameLevel and pin:GetFrameLevel() <= host:GetFrameLevel() then pin:SetFrameLevel(host:GetFrameLevel() + 1) end
+	for _, hbd in ipairs(HBDPins()) do
+		if hbd.SetMinimapObject then
+			hbd:SetMinimapObject(host)
+			-- They must still clear our terrain and layers.
+			for pin in pairs(hbd.minimapPins or {}) do
+				if pin.GetFrameLevel and pin:GetFrameLevel() <= host:GetFrameLevel() then pin:SetFrameLevel(host:GetFrameLevel() + 1) end
+			end
+		end
 	end
+end
+
+-- Some copy isn't drawing on `host` yet.
+local function PinsOff(host)
+	for _, hbd in ipairs(HBDPins()) do
+		if hbd.Minimap ~= host then return true end
+	end
+	return false
 end
 
 -- Hover reaches the Minimap only where its blips may show.
@@ -318,6 +338,7 @@ end
 local function Engage()
 	if embedded then return end
 	embedded = true
+	HBDPinsRaw(true) -- any copy loaded since
 	local w, h = Minimap:GetSize()
 	saved = {
 		parent = Minimap:GetParent(), points = {}, w = w, h = h,
@@ -449,8 +470,9 @@ local function Release()
 		anchored[obj] = nil
 	end
 	if saved.cluster then MinimapCluster:Show() end
-	local hbd = HBDPins()
-	if hbd and hbd.SetMinimapObject then hbd:SetMinimapObject(Minimap) end -- re-place pins at the normal size
+	for _, hbd in ipairs(HBDPins()) do
+		if hbd.SetMinimapObject then hbd:SetMinimapObject(Minimap) end -- re-place pins at the normal size
+	end
 end
 
 -- nil if the Minimap can join the map right now, else why not.
@@ -589,8 +611,7 @@ local function Update(elapsed)
 		pinHost:SetPoint("CENTER", ns.tileCanvas, "TOPLEFT", state.playerCol * zoom, -state.playerRow * zoom)
 	end
 	d = math.floor(d + 0.5)
-	local hbd = HBDPins()
-	if d ~= lastDiameter or (hbd and hbd.Minimap ~= host) then
+	if d ~= lastDiameter or PinsOff(host) then
 		lastDiameter = d
 		Minimap:SetSize(d, d)
 		pinHost:SetSize(d, d)

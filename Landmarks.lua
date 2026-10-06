@@ -154,10 +154,8 @@ local function StoredPins(mapID, wantRares)
 	return list
 end
 
-ns.AddPinLayer({ key = "services", label = "Vendors & services you've visited", default = true },
-	function(mapID) return StoredPins(mapID, false) end)
-
-ns.AddPinLayer({ key = "rares", label = "Rares you've seen", default = true },
+ns.AddPinLayer({ key = "rares", label = "Rares you've seen", group = "people", default = true,
+	tip = "Rare creatures where you last saw them, remembered between sessions." },
 	function(mapID) return StoredPins(mapID, true) end)
 
 -- Live vignettes (what the game is showing near you right now).
@@ -191,7 +189,8 @@ local function VignettePins(mapID)
 	end
 	return list
 end
-ns.AddPinLayer({ key = "vignettes", label = "Rares & treasures nearby (live)", default = true }, VignettePins)
+ns.AddPinLayer({ key = "vignettes", label = "Live rares & treasures", group = "people", default = true,
+	tip = "Rares, treasures and events the game is showing near you right now." }, VignettePins)
 
 -- Area POIs defined by the game for each zone.
 local function AreaPOIPins(mapID)
@@ -217,7 +216,13 @@ local function AreaPOIPins(mapID)
 	end
 	return list
 end
-ns.AddPinLayer({ key = "areaPOIs", label = "Points of interest", default = true }, AreaPOIPins)
+ns.AddPinLayer({ key = "areaPOIs", label = "Points of interest", group = "places", default = true,
+	tip = "Places the game marks in each zone." }, AreaPOIPins)
+
+-- After points of interest, so the menu lists it there.
+ns.AddPinLayer({ key = "services", label = "Vendors & services", group = "places", default = true,
+	tip = "Vendors, trainers, innkeepers, banks and mailboxes you've visited." },
+	function(mapID) return StoredPins(mapID, false) end)
 
 ---------------------------------------------------------------------------
 -- Events

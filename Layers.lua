@@ -28,21 +28,50 @@ local ADDON, ns = ...
 local state = ns.state
 local db
 
+-- group: menu section (GROUPS below; "places" if unset). tip: the menu's
+-- tooltip. parent: a sub-option, only in effect (and only clickable) while
+-- that layer is on.
 local LAYERS = {
-	{ key = "zoneLabels", label = "Zone labels", default = true },
-	{ key = "zoneBorders", label = "Zone borders", default = true },
-	{ key = "unexplored", label = "Shade unexplored areas", default = false },
-	{ key = "quests", label = "Quests", default = true },
-	{ key = "questAreas", label = "Quest areas", default = true },
-	{ key = "questAreasApprox", label = "Estimate areas the game doesn't define", default = true },
-	{ key = "offers", label = "Quests to pick up", default = true },
-	{ key = "flight", label = "Flight points", default = true },
-	{ key = "dungeons", label = "Dungeon entrances", default = true },
-	{ key = "graveyards", label = "Graveyards", default = false },
-	{ key = "corpse", label = "Your corpse", default = true },
-	{ key = "group", label = "Party & raid members", default = true },
-	{ key = "waypoint", label = "Waypoint", default = true },
+	{ key = "zoneLabels", label = "Zone labels", group = "map", default = true,
+		tip = "Names of zones and sub-zones." },
+	{ key = "zoneBorders", label = "Zone borders", group = "map", default = true,
+		tip = "Outlines between zones, traced from the terrain." },
+	{ key = "unexplored", label = "Shade unexplored", group = "map", default = false,
+		tip = "Darken the parts of each zone you haven't discovered yet." },
+	{ key = "quests", label = "Quests", group = "quests", default = true,
+		tip = "Quests in your log. Click one to follow it." },
+	{ key = "questAreas", label = "Quest areas", group = "quests", default = true,
+		tip = "Where each quest's objectives are, as the game draws them." },
+	{ key = "questAreasApprox", label = "Estimate missing areas", group = "quests", parent = "questAreas", default = true,
+		tip = "A rough dashed circle for kill and collect objectives the game gives no area for." },
+	{ key = "offers", label = "Quests to pick up", group = "quests", default = true,
+		tip = "Quests you could start nearby." },
+	{ key = "flight", label = "Flight points", group = "places", default = true,
+		tip = "Flight masters you can fly to or from." },
+	{ key = "dungeons", label = "Dungeon entrances", group = "places", default = true,
+		tip = "Dungeon and raid entrances." },
+	{ key = "graveyards", label = "Graveyards", group = "places", default = false,
+		tip = "Where your spirit goes when you release." },
+	{ key = "corpse", label = "Corpse", group = "you", default = true,
+		tip = "Where you died. While you're a ghost it's your target." },
+	{ key = "group", label = "Party & raid", group = "people", default = true,
+		tip = "Party and raid members, in their class colours." },
+	{ key = "waypoint", label = "Waypoint", group = "you", default = true,
+		tip = "Your map pin. Ctrl-click the map to set it, ctrl-right-click to clear it." },
 }
+
+-- Menu sections, in order. "addons" is filled at runtime and hidden while empty.
+local GROUPS = {
+	{ key = "map", title = "Map" },
+	{ key = "quests", title = "Quests" },
+	{ key = "places", title = "Places" },
+	{ key = "people", title = "People" },
+	{ key = "you", title = "You" },
+	{ key = "addons", title = "Other addons" },
+}
+
+local layerByKey = {}
+for _, layer in ipairs(LAYERS) do layerByKey[layer.key] = layer end
 
 local CELL = 0.2              -- sampling grid cell, in tiles (~107 yards)
 local SAMPLES_PER_FRAME = 700
@@ -52,7 +81,13 @@ local LABEL_MAX_ZOOM = 200    -- hide zone labels when zoomed in further than th
 local APPROX_RADIUS = 110 / 533.33 -- rough objective area radius, in tiles
 local CIRCLE = ns.CIRCLE
 
-local function Enabled(key) return db and db.layers[key] end
+-- A sub-option is off while its parent is.
+local function Enabled(key)
+	if not db then return nil end
+	local parent = layerByKey[key] and layerByKey[key].parent
+	if parent and not Enabled(parent) then return false end
+	return db.layers[key]
+end
 ns.LayerEnabled = function(key) return Enabled(key) and true or false end
 
 local function MapPos(x, y)
@@ -964,10 +999,27 @@ function ns.TargetKey()
 	end
 end
 
--- Extra pin layers (Landmarks.lua). Call at file load, before ADDON_LOADED.
+-- Register a layer (fields as in LAYERS, plus optional onToggle(on), called
+-- after its setting changes). Works at file load and at runtime, e.g. once
+-- another addon turns up: after login its setting starts from the default.
+-- Again with the same key updates the existing entry.
+function ns.AddLayer(layer)
+	local cur = layerByKey[layer.key]
+	if cur then
+		for k, v in pairs(layer) do cur[k] = v end
+		layer = cur
+	else
+		table.insert(LAYERS, layer)
+		layerByKey[layer.key] = layer
+	end
+	if db and db.layers[layer.key] == nil then db.layers[layer.key] = layer.default end
+	return layer
+end
+
+-- Extra pin layers (Landmarks.lua): the same, with a pin source.
 function ns.AddPinLayer(layer, source)
-	table.insert(LAYERS, layer)
 	sources[layer.key] = source
+	ns.AddLayer(layer)
 end
 
 -- Add an entry at a tile position if it's on the displayed continent.
@@ -2177,41 +2229,120 @@ end
 -- Layers menu, events, init
 ---------------------------------------------------------------------------
 
-local function LayerItems()
-	local items = {}
-	for _, layer in ipairs(LAYERS) do
-		local label = layer.label
-		if layer.key == "questAreas" and not blobSupported then label = label .. " |cff888888(n/a)|r" end
-		items[#items + 1] = { text = label, value = layer.key, checked = Enabled(layer.key) and true or false }
-	end
-	return items
-end
-local function OnLayerSelect(key)
-	db.layers[key] = not db.layers[key]
-	if key == "group" then
-		return -- moved every frame
-	elseif sources[key] then
+local STATIC_LAYERS = { zoneLabels = true, zoneBorders = true, unexplored = true }
+local GROUP_KEYS = {}
+for _, g in ipairs(GROUPS) do GROUP_KEYS[g.key] = true end
+local ADDONS_INLINE = 6 -- more addon layers than this fold into a submenu (MenuUtil)
+
+-- Redraw what a layer's setting affects, then tell its owner.
+local function ApplyLayer(key)
+	if sources[key] then
 		RefreshPins(key)
 		LayoutPins()
 		LayoutQuestAreas()
 	elseif key == "questAreas" or key == "questAreasApprox" then
 		LayoutQuestAreas()
-	else
+	elseif STATIC_LAYERS[key] then
 		EnsureGrid(state.map)
 		LayoutStatic()
+	end -- "group" is moved every frame; addon layers draw themselves
+	local layer = layerByKey[key]
+	if layer and layer.onToggle then layer.onToggle(Enabled(key) and true or false) end
+end
+
+local function OnLayerSelect(key)
+	if not layerByKey[key] then return end
+	db.layers[key] = not db.layers[key]
+	ApplyLayer(key)
+	-- Its sub-options come and go with it.
+	for _, layer in ipairs(LAYERS) do
+		if layer.parent == key and db.layers[layer.key] then ApplyLayer(layer.key) end
 	end
 end
-local layersMenu = ns.AttachMenu(ns.gearButton, 240, "down")
-layersMenu.keepOpen = true
-layersMenu.getItems = LayerItems
-layersMenu.onSelect = OnLayerSelect
+
+local function LayerLabel(layer)
+	if layer.key == "questAreas" and not blobSupported then return layer.label .. " |cff888888(n/a)|r" end
+	return layer.label
+end
+
+-- The menu's sections in order, each { title, key, layers }; empty ones left out.
+local function LayerSections()
+	local out = {}
+	for _, g in ipairs(GROUPS) do
+		local list = {}
+		for _, layer in ipairs(LAYERS) do
+			if (GROUP_KEYS[layer.group] and layer.group or "places") == g.key then list[#list + 1] = layer end
+		end
+		if #list > 0 then out[#out + 1] = { title = g.title, key = g.key, layers = list } end
+	end
+	return out
+end
+
+-- Checked shows your choice; a sub-option is greyed while its parent is off.
+local function Checked(key) return db.layers[key] and true or false end
+local function Usable(layer) return not layer.parent or Enabled(layer.parent) and true or false end
+
+if MenuUtil and MenuUtil.CreateContextMenu then
+	-- The client's own menu: section titles, checkboxes that stay open.
+	local function Tooltip(layer)
+		return function(tooltip)
+			tooltip:SetText(layer.label, 1, 1, 1)
+			tooltip:AddLine(layer.tip, 1, 0.82, 0, true)
+		end
+	end
+	ns.gearButton:HookScript("OnClick", function(self)
+		ns.OpenClientMenu(self, function(_, root)
+			for i, sec in ipairs(LayerSections()) do
+				local parent = root
+				if i > 1 then root:CreateDivider() end
+				if sec.key == "addons" and #sec.layers > ADDONS_INLINE then
+					parent = root:CreateButton(sec.title)
+				else
+					root:CreateTitle(sec.title)
+				end
+				for _, layer in ipairs(sec.layers) do
+					local key = layer.key
+					local cb = parent:CreateCheckbox((layer.parent and "     " or "") .. LayerLabel(layer),
+						function() return Checked(key) end,
+						function()
+							OnLayerSelect(key)
+							return MenuResponse and MenuResponse.Refresh
+						end, key)
+					if layer.parent and cb.SetEnabled then cb:SetEnabled(function() return Usable(layer) end) end
+					if layer.tip and cb.SetTooltip then cb:SetTooltip(Tooltip(layer)) end
+				end
+			end
+		end)
+	end)
+else
+	-- Our own checklist: gold section headings, sub-options indented.
+	local layersMenu = ns.AttachMenu(ns.gearButton, 220, "down")
+	layersMenu.keepOpen = true
+	layersMenu.maxRows = 30
+	layersMenu.getItems = function()
+		local items = {}
+		for _, sec in ipairs(LayerSections()) do
+			items[#items + 1] = { text = "|cffffd100" .. sec.title .. "|r", disabled = true }
+			for _, layer in ipairs(sec.layers) do
+				items[#items + 1] = { text = LayerLabel(layer), value = layer.key, checked = Checked(layer.key),
+					tip = layer.tip, indent = layer.parent and 1 or nil, disabled = not Usable(layer) }
+			end
+		end
+		return items
+	end
+	layersMenu.onSelect = OnLayerSelect
+end
 
 ns.slash.layers = function()
-	local on = {}
-	for _, layer in ipairs(LAYERS) do
-		on[#on + 1] = (Enabled(layer.key) and "|cff33ff33" or "|cff888888") .. layer.key .. "|r"
+	local parts = {}
+	for _, sec in ipairs(LayerSections()) do
+		local on = {}
+		for _, layer in ipairs(sec.layers) do
+			on[#on + 1] = (Enabled(layer.key) and "|cff33ff33" or "|cff888888") .. layer.key .. "|r"
+		end
+		parts[#parts + 1] = "|cffffd100" .. sec.title .. ":|r " .. table.concat(on, ", ")
 	end
-	ns.Print("layers: " .. table.concat(on, ", ") .. ". Toggle them from the gear. "
+	ns.Print("layers: " .. table.concat(parts, "; ") .. ". Toggle them from the gear. "
 		.. "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it. "
 		.. "Quest areas: " .. (blobSupported and "exact blobs supported" or "approximate only"))
 end

@@ -738,6 +738,7 @@ end
 -- (x, y) when `at` = "screen".
 function Sim.Click(frame, button, fx, fy, at)
 	button = button or "LeftButton"
+	Sim.menu = nil -- a click anywhere closes the client's menu (its entries aren't frames here)
 	if at == "screen" then
 		Sim.cursorX, Sim.cursorY = fx, fy
 	else
@@ -945,10 +946,149 @@ function hbdPins:SetMinimapObject(obj)
 end
 Sim.hbdPins = hbdPins
 Sim.libs = { ["HereBeDragons-Pins-2.0"] = hbdPins }
-function LibStub(name, silent)
-	local lib = Sim.libs[name]
-	if not lib and not silent then error("Cannot find a library instance of " .. tostring(name)) end
-	return lib
+-- LibStub: callable, and its libraries listed in .libs as in the real one.
+LibStub = setmetatable({ libs = Sim.libs, minors = {} }, {
+	__call = function(self, name, silent)
+		local lib = Sim.libs[name]
+		if not lib and not silent then error("Cannot find a library instance of " .. tostring(name)) end
+		return lib
+	end,
+})
+function LibStub:IterateLibraries() return pairs(self.libs) end
+
+-- Retail-engine frames can pin their frame level (Questie does on its map
+-- icons): a fixed frame ignores SetFrameLevel until unfixed.
+if RETAIL or FLAVOR == "forever" then
+	local methods = classes.Frame.methods
+	local setLevel = methods.SetFrameLevel
+	function methods:SetFrameLevel(l)
+		if S[self].fixedLevel then return end
+		setLevel(self, l)
+	end
+	function methods:SetFixedFrameLevel(on) S[self].fixedLevel = not not on end
+	function methods:HasFixedFrameLevel() return S[self].fixedLevel == true end
+end
+
+-- Questie's own renamed copy, HereBeDragonsQuestie-Pins-2.0, shaped like the
+-- real one (Questie/Libs/HereBeDragons/HereBeDragons-Pins-2.0.lua): pins by
+-- world yards (x = west, y = north) in minimapPins / worldmapPins, keyed by
+-- the addon's frame ("icon"), with registries by ref. Its world-map provider
+-- gives each pin on Blizzard's current map (WorldMapFrame.mapID, a zone) a
+-- pin frame on the map's canvas and parents the icon to it; releasing one
+-- hands the icon to UIParent, hidden. It refreshes when the map opens on
+-- another map, or after a removal (Questie's forceUpdate). Not loaded until
+-- a scenario calls Sim.LoadQuestie(), as if Questie loaded later.
+local HBD_SHOW_CURRENT, HBD_SHOW_WORLD = -1, 3
+function Sim.LoadQuestie()
+	if Sim.questiePins then return Sim.questiePins end
+	HBD_PINS_WORLDMAP_SHOW_CURRENT, HBD_PINS_WORLDMAP_SHOW_WORLD = HBD_SHOW_CURRENT, HBD_SHOW_WORLD
+	local pins = {
+		Minimap = Minimap, minimapPins = {}, activeMinimapPins = {}, minimapPinRegistry = {},
+		worldmapPins = {}, worldmapPinRegistry = {}, worldmapProvider = { forceUpdate = false },
+	}
+	local provider = pins.worldmapProvider
+	local canvas = WorldMapFrame.canvas
+	local free, used = {}, {}
+	local function release(pin)
+		used[pin] = nil
+		if pin.icon then
+			pin.icon:Hide()
+			pin.icon:SetParent(UIParent)
+			pin.icon:ClearAllPoints()
+			pin.icon = nil
+		end
+		pin:Hide()
+		free[#free + 1] = pin
+	end
+	function provider:RemovePinByIcon(icon)
+		for pin in pairs(used) do
+			if pin.icon == icon then release(pin) end
+		end
+	end
+	function provider:HandlePin(icon, data)
+		local id = WorldMapFrame.mapID
+		if data.uiMapID ~= id then return end -- (zone maps only, here)
+		local pin = table.remove(free) or CreateFrame("Frame", nil, canvas)
+		pin:SetSize(1, 1)
+		pin:Show()
+		used[pin] = true
+		pin.icon = icon
+		icon:SetParent(pin)
+		icon:ClearAllPoints()
+		icon:SetPoint("CENTER", pin, "CENTER")
+		icon:Show()
+	end
+	function provider:RefreshAllData()
+		if self.lastMap == WorldMapFrame.mapID and not self.forceUpdate then return end
+		for pin in pairs(used) do release(pin) end
+		for icon, data in pairs(pins.worldmapPins) do self:HandlePin(icon, data) end
+		self.lastMap, self.forceUpdate = WorldMapFrame.mapID, false
+	end
+	WorldMapFrame:HookScript("OnShow", function() provider:RefreshAllData() end)
+	local function world(uiMapID, x, y)
+		local m = Sim.maps[uiMapID]
+		local col, row = m[5] + (m[7] - m[5]) * x, m[6] + (m[8] - m[6]) * y
+		return (32 - col) * 1600 / 3, (32 - row) * 1600 / 3, m[4] -- west, north
+	end
+	local function place(icon, data)
+		local px, py = UnitPosition("player")
+		if not px then return icon:Hide() end
+		-- Scaled as the Minimap's own yards per pixel (radius from its zoom).
+		local r = C_Minimap and C_Minimap.GetViewRadius() or 233
+		local s = pins.Minimap:GetWidth() / 2 / r
+		icon:ClearAllPoints()
+		icon:SetPoint("CENTER", pins.Minimap, "CENTER", (py - data.x) * s, (px - data.y) * s)
+		icon:Show()
+	end
+	function pins:AddMinimapIconMap(ref, icon, uiMapID, x, y, showInParentZone, floatOnEdge)
+		local wx, wy, inst = world(uiMapID, x, y)
+		self.minimapPinRegistry[ref] = self.minimapPinRegistry[ref] or {}
+		self.minimapPinRegistry[ref][icon] = true
+		self.minimapPins[icon] = { instanceID = inst, x = wx, y = wy, uiMapID = uiMapID, floatOnEdge = floatOnEdge }
+		icon:SetParent(self.Minimap)
+		place(icon, self.minimapPins[icon])
+	end
+	function pins:SetMinimapObject(obj)
+		self.Minimap = obj or Minimap
+		assert(self.Minimap.GetZoom and self.Minimap.GetWidth, "SetMinimapObject: the minimap object needs GetZoom")
+		for icon, data in pairs(self.minimapPins) do
+			icon:SetParent(self.Minimap)
+			place(icon, data)
+		end
+	end
+	function pins:AddWorldMapIconMap(ref, icon, uiMapID, x, y, showFlag, frameLevel)
+		assert(type(icon) == "table" and icon.SetPoint, "AddWorldMapIconMap: 'icon' must be a frame")
+		local wx, wy, inst = world(uiMapID, x, y)
+		self.worldmapPinRegistry[ref] = self.worldmapPinRegistry[ref] or {}
+		self.worldmapPinRegistry[ref][icon] = true
+		local t = self.worldmapPins[icon] or {}
+		t.instanceID, t.x, t.y, t.uiMapID, t.worldMapShowFlag, t.frameLevelType = inst, wx, wy, uiMapID, showFlag or 0, frameLevel
+		self.worldmapPins[icon] = t
+		provider:HandlePin(icon, t)
+	end
+	function pins:RemoveWorldMapIcon(ref, icon)
+		if not ref or not icon or not self.worldmapPinRegistry[ref] then return end
+		self.worldmapPinRegistry[ref][icon] = nil
+		self.worldmapPins[icon] = nil
+		provider:RemovePinByIcon(icon)
+		provider.forceUpdate = true
+	end
+	Sim.questiePins = pins
+	Sim.libs["HereBeDragonsQuestie-Pins-2.0"] = pins
+	Sim.libs["HereBeDragonsQuestie-2.0"] = {}
+	Questie = Questie or { name = "Questie" }
+	return pins
+end
+
+-- A Questie map icon: a button at Questie's fixed frame level, hidden until placed.
+function Sim.QuestieIcon()
+	local icon = CreateFrame("Button", nil, UIParent)
+	icon:SetSize(16, 16)
+	icon:EnableMouse(true)
+	icon:SetFrameLevel(2016)
+	if icon.SetFixedFrameLevel then icon:SetFixedFrameLevel(true) end
+	icon:Hide()
+	return icon
 end
 
 WorldMapFrame = CreateFrame("Frame", "WorldMapFrame", UIParent)
@@ -956,6 +1096,9 @@ WorldMapFrame:SetSize(1000, 700)
 WorldMapFrame:SetPoint("CENTER")
 WorldMapFrame:SetFrameStrata("HIGH")
 WorldMapFrame:Hide()
+WorldMapFrame.canvas = CreateFrame("Frame", nil, WorldMapFrame)
+WorldMapFrame.canvas:SetAllPoints()
+WorldMapFrame.mapID = 1429 -- the map it shows (Elwynn Forest)
 -- The keybindings: M toggles the world map; L (Retail-engine clients) opens it
 -- on the quest log.
 function ToggleWorldMap() WorldMapFrame:SetShown(not WorldMapFrame:IsShown()) end
@@ -1008,6 +1151,12 @@ if FLAVOR ~= "era" then
 		function d:CreateRadio(t, sel, fn, dat) local e = description("radio", t, sel, fn, dat); table.insert(self.items, e); return e end
 		function d:CreateCheckbox(t, sel, fn, dat) local e = description("checkbox", t, sel, fn, dat); table.insert(self.items, e); return e end
 		function d:SetScrollMode(h) end
+		function d:SetEnabled(e) self.enabled = e end
+		function d:IsEnabled()
+			if type(self.enabled) == "function" then return self.enabled(self) end
+			return self.enabled ~= false
+		end
+		function d:SetTooltip(fn) assert(type(fn) == "function", "SetTooltip: function expected"); self.tooltip = fn end
 		return d
 	end
 	MenuResponse = { Open = 1, Refresh = 2, Close = 3, CloseAll = 4 }
@@ -1016,7 +1165,7 @@ if FLAVOR ~= "era" then
 			local root = description("root")
 			generator(owner, root)
 			Sim.menu = root
-			return { Close = function() Sim.menu = nil end }
+			return { Close = function() Sim.menu = nil end, IsShown = function() return Sim.menu == root end }
 		end,
 	}
 end
