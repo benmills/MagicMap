@@ -9,7 +9,7 @@ time tinsert tremove tonumber tostring type unpack wipe xpcall hooksecurefunc
 
 # Namespaces
 C_AreaPoiInfo C_CVar C_DeathInfo C_EncounterJournal C_Map C_MapExplorationInfo
-C_Minimap C_QuestLog C_SuperTrack C_TaxiMap C_Texture C_Timer C_TooltipInfo
+C_Minimap C_QuestLine C_QuestLog C_SuperTrack C_TaxiMap C_Texture C_Timer C_TooltipInfo
 C_VignetteInfo Enum
 
 # Functions
@@ -19,7 +19,8 @@ GetBuildInfo GetCVar GetCursorPosition GetFileIDFromPath GetInstanceInfo
 GetPlayerFacing GetQuestLogIndexByID GetSubZoneText GetTime GetZoneText
 HideUIPanel ToggleWorldMap IsAltKeyDown IsControlKeyDown IsIndoors IsMouseButtonDown
 IsShiftKeyDown QuestWatch_Update UnitClass UnitClassification UnitExists
-UnitGUID UnitIsGhost UnitIsPlayer UnitName UnitPosition issecretvalue
+GetNumGroupMembers IsInRaid Minimap_OnUpdate UnitIsDeadOrGhost UnitIsUnit
+UnitGUID UnitIsGhost UnitIsPlayer UnitLevel UnitName UnitPosition issecretvalue
 
 # Frames, objects and mixins
 ChatFrameUtil DEFAULT_CHAT_FRAME GameFontNormal GameTooltip MenuResponse MenuUtil

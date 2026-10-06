@@ -21,6 +21,7 @@ Menu.lua
 Core.lua
 Layers.lua
 Landmarks.lua
+ZoneInfo.lua
 Path.lua
 MinimapButton.lua
 MinimapBlips.lua

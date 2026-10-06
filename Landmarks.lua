@@ -147,6 +147,7 @@ local function StoredPins(mapID, wantRares)
 				size = e.kind == "rare" and 18 or 16,
 				minZoom = k.minZoom or SERVICE_MIN_ZOOM,
 				title = e.name, lines = lines, icon = { texture = k.icon },
+				kind = e.kind, -- for ZoneInfo's "nearest innkeeper"
 			})
 		end
 	end

@@ -10,6 +10,19 @@
 -- outdoors at its widest), so blips cover a circle around you; past a certain
 -- zoom-out that circle is too small to read and the Minimap steps aside.
 --
+-- Ours first: whatever our layers draw (quests, flight points, party,
+-- corpse...) sits above the Minimap and covers Blizzard's own marker for it,
+-- and the tracking filters for those markers go off while it's here. The
+-- Minimap is left for what no addon can read (tracked herbs and ore, NPCs).
+--
+-- The client doesn't clip the Minimap to the window (the window's
+-- SetClipsChildren doesn't reach it), so its blips may only show inside the
+-- window. Zoomed in closer than its closest level, or leaning off-centre in
+-- path mode, its square is bigger than the room around you; then (/mm clip)
+-- a mask texture whose opaque square fits that room confines its blips, as
+-- the client hides blips where the mask is transparent. HereBeDragons' pins
+-- move to an ordinary frame in its place, which the window does clip.
+--
 -- Everything else hanging off the Minimap (addon buttons, Blizzard's own
 -- parts anchored to it) moves to a stand-in frame at the Minimap's usual
 -- spot, and the whole minimap cluster (clock, calendar, tracking, the
@@ -33,10 +46,12 @@ local DIAMETER = {
 }
 
 local state = ns.state
+local db
 local embedded = false
 local saved -- the Minimap's own setup, restored on release
 local moved = {}    -- child or region of the Minimap -> true, now on the stand-in
 local anchored = {} -- other objects re-anchored from the Minimap to the stand-in
+local ours = {}     -- our own children of the Minimap, which stay on it
 local lastDiameter
 local lastZoom
 local STILL = 0.002 -- a zoom change per frame smaller than this (log scale) counts as settled
@@ -88,6 +103,63 @@ local SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
 local ROUND_MASK = GetFileIDFromPath and GetFileIDFromPath("Interface\\Masks\\CircleMaskScalable")
 	and "Interface\\Masks\\CircleMaskScalable" or "Textures\\MinimapMask"
 
+-- /mm clip: how the Minimap may be bigger than the room around you.
+--   mask:   a mask whose opaque square fits that room confines its blips;
+--   scroll: it's the scroll child of a ScrollFrame over the window, in case
+--           that clips it where SetClipsChildren doesn't (an experiment);
+--   off:    it only shows while its whole square fits (as before).
+local CLIP_MODES = { mask = true, scroll = true, off = true }
+local function ClipMode() return db and CLIP_MODES[db.minimapClip] and db.minimapClip or "mask" end
+
+-- Textures/MinimapMask/Square<n>: 64x64, opaque in a centred n x n square
+-- (tools/gen_minimap_masks.py). Loaded up front so a switch never waits on
+-- a file; a client that can't find them (new files need a restart, not a
+-- /reload) clips nothing, as before.
+local MASK_PATH = "Interface\\AddOns\\" .. ADDON .. "\\Textures\\MinimapMask\\Square"
+local MASK_TEXELS, MASK_MIN = 64, 8
+local MASK_MARGIN = 2 -- px kept clear inside the room's edge
+local masksFound
+do
+	local holder = CreateFrame("Frame", nil, UIParent)
+	holder:SetSize(1, 1)
+	holder:SetPoint("TOPLEFT", UIParent, "BOTTOMRIGHT", 8, -8) -- off screen
+	holder:SetAlpha(0)
+	for n = MASK_MIN, MASK_TEXELS - 2, 2 do
+		local t = holder:CreateTexture(nil, "BACKGROUND")
+		t:SetAllPoints()
+		local ok = t:SetTexture(MASK_PATH .. n)
+		if n == MASK_MIN then masksFound = ok ~= false end
+	end
+end
+
+-- The mask for a Minimap d px across in the room around you, and the side
+-- (px) of the square its blips may show in; nil if none fits.
+local function MaskFor(d, room, clip)
+	if d <= room + 1 or clip == "scroll" then return SQUARE_MASK, math.min(d, room) end
+	if clip ~= "mask" then return nil end
+	-- Half a texel of slack each side: the mask's edge is filtered.
+	local n = math.floor(((room - MASK_MARGIN) / d - 1 / MASK_TEXELS) * MASK_TEXELS / 2) * 2
+	if n < MASK_MIN then return nil end
+	n = math.min(n, MASK_TEXELS - 2)
+	return MASK_PATH .. n, d * n / MASK_TEXELS
+end
+
+-- Scroll mode's ScrollFrame, over the window, under our overlay.
+local scroller = CreateFrame("ScrollFrame", nil, ns.viewport)
+scroller:SetAllPoints()
+local scrollEmpty = CreateFrame("Frame", nil, scroller)
+scrollEmpty:SetSize(1, 1)
+scroller:SetScrollChild(scrollEmpty)
+local scrolled = false -- the Minimap is its scroll child
+
+-- HereBeDragons' pins, while clipping: a stand-in host the Minimap's size,
+-- in its place, but an ordinary frame in the window, which clips it. It
+-- answers what HereBeDragons asks the minimap (FarmHud does the same).
+local pinHost = CreateFrame("Frame", "MagicMapMinimapPins", ns.viewport)
+pinHost:Hide()
+pinHost.GetZoom = function() return Minimap:GetZoom() end
+pinHost.GetZoomLevels = function() return Minimap:GetZoomLevels() end
+
 local function GetCVarValue(name)
 	if C_CVar and C_CVar.GetCVar then return C_CVar.GetCVar(name) end
 	return GetCVar and GetCVar(name)
@@ -97,10 +169,10 @@ local function HBDPinsRaw()
 	return LibStub and LibStub("HereBeDragons-Pins-2.0", true)
 end
 
--- HereBeDragons, when it's drawing on the real Minimap (not, say, FarmHud's).
+-- HereBeDragons, when it's drawing on the real Minimap or our host (not, say, FarmHud's).
 local function HBDPins()
 	local hbd = HBDPinsRaw()
-	return hbd and hbd.Minimap == Minimap and hbd or nil
+	return hbd and (hbd.Minimap == Minimap or hbd.Minimap == pinHost) and hbd or nil
 end
 
 -- Pins are positioned on the Minimap by their addons; they travel with it.
@@ -125,7 +197,7 @@ end
 
 local function Movable(obj)
 	local t = obj:GetObjectType()
-	return t ~= "Line" and t ~= "MaskTexture" and not IsPin(obj)
+	return t ~= "Line" and t ~= "MaskTexture" and not IsPin(obj) and not ours[obj]
 		and not (obj.IsProtected and obj:IsProtected())
 end
 
@@ -162,6 +234,87 @@ local function ReanchorAround(frame, depth)
 	end
 end
 
+-- Our host for HereBeDragons' pins while it clips (outdoors, /mm clip not
+-- off); else the Minimap itself, as before.
+local function PinHost()
+	return (not skinned and ClipMode() ~= "off") and pinHost or Minimap
+end
+
+-- Have HereBeDragons (re-)place its pins on their host now: it only re-reads
+-- the size once a second, and they must keep in step with the terrain.
+local function PlacePins(host)
+	local hbd = HBDPins()
+	if not (hbd and hbd.SetMinimapObject) then return end
+	hbd:SetMinimapObject(host)
+	-- They must still clear our terrain and layers.
+	for pin in pairs(hbd.minimapPins or {}) do
+		if pin.GetFrameLevel and pin:GetFrameLevel() <= host:GetFrameLevel() then pin:SetFrameLevel(host:GetFrameLevel() + 1) end
+	end
+end
+
+-- Hover reaches the Minimap only where its blips may show.
+local lastInsets
+local function SetHitInsets(l, r, t, b)
+	local key = string.format("%d %d %d %d", l, r, t, b)
+	if key == lastInsets then return end
+	lastInsets = key
+	Minimap:SetHitRectInsets(l, r, t, b)
+end
+
+local lastMask
+local function SetMask(mask)
+	if mask == lastMask then return end
+	lastMask = mask
+	Minimap:SetMaskTexture(mask)
+end
+
+---------------------------------------------------------------------------
+-- Ours first: Blizzard's own markers for what our layers draw are tracking
+-- filters (flight masters, quest objectives, points of interest). They go
+-- off while the Minimap shows here and come back with it (and at logout).
+-- MagicMapDB remembers which we turned off, so a /reload mid-way restores
+-- them too. /mm dupes keeps Blizzard's.
+---------------------------------------------------------------------------
+
+local F = Enum and Enum.MinimapTrackingFilter or {}
+local DUPLICATES = { [F.TaxiNode or 8] = "flight", [F.QuestPOIs or 65536] = "quests", [F.POI or 8192] = "areaPOIs" }
+
+local function TrackingAPI()
+	local C = C_Minimap
+	return C and C.GetNumTrackingTypes and C.GetTrackingFilter and C.GetTrackingInfo and C.SetTracking and C
+end
+
+-- on: our layers are on the map in Blizzard's place.
+local function SyncTracking(on)
+	local C = TrackingAPI()
+	if not (db and C) then return end
+	db.trackingOff = db.trackingOff or {}
+	local off = db.trackingOff
+	for i = 1, C.GetNumTrackingTypes() or 0 do
+		local filter = C.GetTrackingFilter(i)
+		local id = filter and filter.filterID
+		local layer = id and DUPLICATES[id]
+		if layer then
+			local info = C.GetTrackingInfo(i)
+			local want = on and db.hideDupes ~= false and ns.LayerEnabled and ns.LayerEnabled(layer)
+			if want and info and info.active then
+				if pcall(C.SetTracking, i, false) then off[id] = true end
+			elseif not want and off[id] and info then -- (no info yet at login: next time)
+				if not info.active then pcall(C.SetTracking, i, true) end
+				off[id] = nil
+			end
+		end
+	end
+end
+
+local trackingOn, trackingAt -- what SyncTracking last did, and when
+local function KeepTracking(on)
+	local now = GetTime()
+	if on == trackingOn and now - trackingAt < 2 then return end -- and again now and then: a layer toggled
+	trackingOn, trackingAt = on, now
+	SyncTracking(on)
+end
+
 local function Engage()
 	if embedded then return end
 	embedded = true
@@ -191,11 +344,16 @@ local function Engage()
 	if root then ReanchorAround(root, 3) end
 	if saved.cluster then MinimapCluster:Hide() end
 
-	-- Into the map: above our pins, below our overlay; mouse goes to the map.
-	Minimap:SetParent(ns.viewport)
+	-- Into the map: above our layers, below our pins (two levels above their
+	-- layer) and overlay; mouse goes to the map.
+	scrolled = ClipMode() == "scroll" and pcall(scroller.SetScrollChild, scroller, Minimap)
+	if not scrolled then Minimap:SetParent(ns.viewport) end
 	Minimap:SetScale(1)
 	Minimap:SetFrameStrata(ns.frame:GetFrameStrata())
 	Minimap:SetFrameLevel(ns.overlay:GetFrameLevel() - 1)
+	scroller:SetFrameLevel(ns.overlay:GetFrameLevel() - 2)
+	pinHost:SetFrameStrata(ns.frame:GetFrameStrata())
+	pinHost:SetFrameLevel(ns.overlay:GetFrameLevel() - 1)
 	-- The pins that stayed must still clear our terrain and layers.
 	for _, pin in ipairs({ Minimap:GetChildren() }) do
 		if pin:GetFrameLevel() <= Minimap:GetFrameLevel() then pin:SetFrameLevel(Minimap:GetFrameLevel() + 1) end
@@ -213,7 +371,8 @@ local function Engage()
 	Minimap:SetAlpha(0)
 	-- Never pushed back on screen: that would slide its blips off ours.
 	Minimap:SetClampedToScreen(false)
-	Minimap:SetMaskTexture(SQUARE_MASK)
+	lastMask, lastInsets = nil, nil
+	SetMask(SQUARE_MASK)
 	ClearRim(true)
 	Minimap:Hide() -- until Update finds it a settled spot
 	lastDiameter = nil
@@ -229,6 +388,11 @@ local function SetSkin(on)
 	Minimap:SetFrameLevel(ns.overlay:GetFrameLevel() + (on and 2 or -1))
 	Minimap:SetAlpha(on and 1 or 0)
 	ClearRim(not on) -- indoors it's Blizzard's minimap, rim and all
+	if on then
+		SetMask(SQUARE_MASK)
+		SetHitInsets(0, 0, 0, 0)
+		pinHost:Hide()
+	end
 	lastDiameter = nil
 end
 
@@ -238,8 +402,14 @@ local function Release()
 	SetSkin(false)
 	ClearRim(false)
 	state.minimapShown = false
-	ns.SetMinimapCircle(nil)
+	pinHost:Hide()
+	trackingOn = nil
+	SyncTracking(false)
 
+	if scrolled then
+		scroller:SetScrollChild(scrollEmpty)
+		scrolled = false
+	end
 	Minimap:SetParent(saved.parent)
 	Minimap:ClearAllPoints()
 	for _, p in ipairs(saved.points) do Minimap:SetPoint(unpack(p)) end
@@ -249,11 +419,13 @@ local function Release()
 	Minimap:SetFrameLevel(saved.level)
 	Minimap:EnableMouse(saved.mouse)
 	Minimap:EnableMouseWheel(saved.wheel)
+	Minimap:SetHitRectInsets(0, 0, 0, 0)
 	Minimap:SetAlpha(saved.alpha)
 	Minimap:SetZoom(saved.zoom)
 	Minimap:SetShown(saved.shown)
 	Minimap:SetClampedToScreen(saved.clamped)
 	Minimap:SetMaskTexture(ROUND_MASK)
+	lastMask, lastInsets = nil, nil
 
 	for obj in pairs(moved) do
 		local layer, sublevel, strata, level
@@ -299,13 +471,31 @@ local function ViewRadius(kind)
 	return (DIAMETER[kind][Minimap:GetZoom()] or DIAMETER[kind][0]) / 2
 end
 
+-- The Minimap's zoom level for the room around you: unclipped, the widest
+-- whose square fits it; clipped, the closest that still covers it (its
+-- widest when even that fits).
+local function PickLevel(kind, zoom, room, clipped)
+	local px = zoom / TILE_YARDS
+	if clipped then
+		for z = 5, 0, -1 do
+			if DIAMETER[kind][z] * px >= room then return z end
+		end
+		return 0
+	end
+	for z = 0, 5 do
+		if DIAMETER[kind][z] * px <= room then return z end
+	end
+end
+
 -- /mm sync: show the Minimap's own terrain at half strength over ours, inside
 -- an outline of where we put it, so any drift between its blips and our map
--- shows as doubled terrain.
+-- shows as doubled terrain. Its terrain is masked like its blips, so with
+-- clipping on it also shows the square they're confined to.
 local syncCheck
 local syncOutline = CreateFrame("Frame", nil, Minimap)
 syncOutline:SetAllPoints()
 syncOutline:Hide()
+ours[syncOutline] = true
 for _, e in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT", true }, { "TOPRIGHT", "BOTTOMRIGHT", true } }) do
 	local t = syncOutline:CreateTexture(nil, "OVERLAY")
 	t:SetColorTexture(1, 0.2, 0.8, 0.9) -- where we put the Minimap: its terrain should fill this exactly
@@ -322,6 +512,12 @@ ns.slash.sync = function(arg)
 		or "sync: Blizzard's terrain at 50% over ours; zoom and pan, watch for doubling. /mm sync again to stop")
 end
 
+local function Hidden()
+	if Minimap:IsShown() then Minimap:Hide() end
+	pinHost:Hide()
+	state.minimapShown = false
+end
+
 local function Update(elapsed)
 	if Blocker() then
 		Release()
@@ -332,11 +528,13 @@ local function Update(elapsed)
 	if Minimap:GetFrameStrata() ~= ns.frame:GetFrameStrata() then
 		Minimap:SetFrameStrata(ns.frame:GetFrameStrata())
 		Minimap:SetFrameLevel(ns.overlay:GetFrameLevel() + (skinned and 2 or -1))
+		pinHost:SetFrameStrata(ns.frame:GetFrameStrata())
+		pinHost:SetFrameLevel(ns.overlay:GetFrameLevel() - 1)
 	end
 	local expanded = ns.IsMapExpanded and ns.IsMapExpanded()
 	SetSkin(IsIndoors and IsIndoors() and not expanded or false)
+	KeepTracking(not skinned) -- indoors our pins are under the backdrop: Blizzard's stay
 	if skinned then
-		ns.SetMinimapCircle(nil)
 		local w, h = ns.viewport:GetSize()
 		local d = math.floor(math.min(w, h) + 0.5)
 		Minimap:ClearAllPoints()
@@ -344,8 +542,7 @@ local function Update(elapsed)
 		if d ~= lastDiameter then
 			lastDiameter = d
 			Minimap:SetSize(d, d)
-			local hbd = HBDPins()
-			if hbd and hbd.SetMinimapObject then hbd:SetMinimapObject(Minimap) end
+			PlacePins(Minimap)
 		end
 		if not Minimap:IsShown() then Minimap:Show() end
 		state.minimapShown = true
@@ -353,9 +550,10 @@ local function Update(elapsed)
 	end
 
 	-- Outdoors the Minimap only shows where it can't go wrong: the map settled
-	-- (not mid-zoom), its square wholly inside the window around you (the
-	-- client doesn't clip it to the window), and a couple of frames after any
-	-- change of its zoom level (the client takes a moment to apply one).
+	-- (not mid-zoom), its blips confined to the room around you in the window
+	-- (its square fits, or a mask or the scroll frame clips it), and a couple
+	-- of frames after any change of its zoom level (the client takes a moment
+	-- to apply one).
 	local zoom = state.zoom
 	local still = not ns.IsAnimating() and lastZoom and math.abs(math.log(zoom / lastZoom)) < STILL
 	lastZoom = zoom
@@ -363,49 +561,114 @@ local function Update(elapsed)
 	local w, h = ns.viewport:GetSize()
 	local x, y = ns.TileToScreen(state.playerCol, state.playerRow)
 	local room = 2 * math.min(x, w - x, y, h - y) -- the biggest square around you in the window
-	local level -- the widest zoom level whose square fits that room
-	for z = 0, 5 do
-		if DIAMETER[kind][z] / TILE_YARDS * zoom <= room then
-			level = z
-			break
-		end
-	end
+	local clip = ClipMode()
+	if clip == "mask" and not masksFound then clip = "off" end
+	if clip == "scroll" and not scrolled then clip = "off" end
+	local level = PickLevel(kind, zoom, room, clip ~= "off")
 	if level and still and Minimap:GetZoom() ~= level then
 		Minimap:SetZoom(level)
 		settling = SETTLE_FRAMES
 	end
 	settling = math.max(0, settling - 1)
 	local d = 2 * ViewRadius(kind) / TILE_YARDS * zoom
-	if expanded or not (level and still) or settling > 0 or d < MIN_DIAMETER or d > room + 1 then
-		if Minimap:IsShown() then Minimap:Hide() end
-		state.minimapShown = false
-		ns.SetMinimapCircle(nil)
+	local mask, side = MaskFor(d, room, clip)
+	if expanded or not (level and still) or settling > 0 or d < MIN_DIAMETER or not mask then
+		Hidden()
 		return
 	end
 
 	-- Pinned to the tiles' own canvas, so it moves with them pixel for pixel.
 	Minimap:ClearAllPoints()
 	Minimap:SetPoint("CENTER", ns.tileCanvas, "TOPLEFT", state.playerCol * zoom, -state.playerRow * zoom)
+	SetMask(mask)
+	local inset = (d - side) / 2
+	SetHitInsets(math.max(inset, d / 2 - x), math.max(inset, d / 2 - (w - x)), math.max(inset, d / 2 - y), math.max(inset, d / 2 - (h - y)))
+	local host = PinHost()
+	if host == pinHost then
+		pinHost:ClearAllPoints()
+		pinHost:SetPoint("CENTER", ns.tileCanvas, "TOPLEFT", state.playerCol * zoom, -state.playerRow * zoom)
+	end
 	d = math.floor(d + 0.5)
-	if d ~= lastDiameter then
+	local hbd = HBDPins()
+	if d ~= lastDiameter or (hbd and hbd.Minimap ~= host) then
 		lastDiameter = d
 		Minimap:SetSize(d, d)
-		-- HereBeDragons only re-reads the size once a second; have it re-place
-		-- its pins now, in step with the terrain.
-		local hbd = HBDPins()
-		if hbd and hbd.SetMinimapObject then hbd:SetMinimapObject(Minimap) end
+		pinHost:SetSize(d, d)
+		PlacePins(host)
 	end
 	local alpha = syncCheck and syncCheck.alpha or 0
 	if Minimap:GetAlpha() ~= alpha then Minimap:SetAlpha(alpha) end
 	syncOutline:SetShown(syncCheck ~= nil)
-	if syncCheck and level ~= syncCheck.level then
-		syncCheck.level = level
-		ns.Print(string.format("sync: Minimap zoom %d, radius %.1f yd (%s), %d px across at map zoom %.0f",
-			level, ViewRadius(kind), (C_Minimap and C_Minimap.GetViewRadius) and "client" or "table", d, zoom))
+	if syncCheck and (level ~= syncCheck.level or mask ~= syncCheck.mask) then
+		syncCheck.level, syncCheck.mask = level, mask
+		ns.Print(string.format("sync: Minimap zoom %d, radius %.1f yd (%s), %d px across at map zoom %.0f; blips in %d px (%s)",
+			level, ViewRadius(kind), (C_Minimap and C_Minimap.GetViewRadius) and "client" or "table", d, zoom,
+			side, mask == SQUARE_MASK and "whole square" or mask:match("Square%d+$")))
 	end
 	if not Minimap:IsShown() then Minimap:Show() end
+	pinHost:SetShown(host == pinHost)
 	state.minimapShown = true -- its arrow (the same art as ours) stands in for ours
-	ns.SetMinimapCircle(state.playerCol, state.playerRow, ViewRadius(kind) / TILE_YARDS)
+end
+
+---------------------------------------------------------------------------
+-- Tooltips. While the Minimap has the mouse, Blizzard's hover handler
+-- (Minimap_OnUpdate, every frame) takes GameTooltip for the blips under the
+-- cursor. Right after it, if it found none, the quest area there gets it;
+-- our pins sit above the Minimap and take the mouse before either. Layers'
+-- own hover (OnMapHover) stands aside meanwhile, so nothing flickers.
+---------------------------------------------------------------------------
+
+local function CursorTile()
+	local v = ns.viewport
+	local left, top = v:GetLeft(), v:GetTop()
+	if not left then return nil end
+	local s = v:GetEffectiveScale()
+	local cx, cy = GetCursorPosition()
+	local w, h = v:GetSize()
+	return state.cx + (cx / s - left - w / 2) / state.zoom, state.cy + (top - cy / s - h / 2) / state.zoom
+end
+
+local function AfterMinimapHover()
+	if not embedded or skinned or not ns.ShowQuestAreaTooltip then return end
+	if GameTooltip:IsShown() and GameTooltip:NumLines() > 0 and GameTooltip:IsOwned(UIParent) then return end -- a blip
+	ns.ShowQuestAreaTooltip(CursorTile())
+end
+if Minimap_OnUpdate then hooksecurefunc("Minimap_OnUpdate", AfterMinimapHover) end
+Minimap:HookScript("OnEnter", function() state.minimapHover = true end)
+Minimap:HookScript("OnLeave", function() state.minimapHover = false end)
+
+---------------------------------------------------------------------------
+-- Debug toggles
+---------------------------------------------------------------------------
+
+local CLIP_HELP = {
+	mask = "masks confine its blips to the room around you in the window",
+	scroll = "it's clipped by a ScrollFrame over the window (experiment)",
+	off = "it only shows while its whole square fits the window (as before)",
+}
+
+-- /mm clip [mask|scroll|off]: how the Minimap may be bigger than the window.
+ns.slash.clip = function(arg)
+	if not db then return end
+	local mode = CLIP_MODES[arg or ""] and arg or (ClipMode() == "off" and "mask" or "off")
+	db.minimapClip = mode
+	Release() -- back next frame, in the new mode
+	local note = ""
+	if mode == "mask" and not masksFound then note = " |cffff6060(mask files not found: restart the game client; clipping off meanwhile)|r" end
+	ns.Print("clip: " .. mode .. ": " .. CLIP_HELP[mode] .. note .. ". /mm clip [mask|scroll|off]")
+end
+
+-- /mm dupes: Blizzard's own markers for what our layers draw, back on (or off again).
+ns.slash.dupes = function()
+	if not db then return end
+	db.hideDupes = db.hideDupes == false
+	trackingOn = nil
+	if embedded and not skinned then KeepTracking(true) end
+	local off = {}
+	for id in pairs(db.trackingOff or {}) do off[#off + 1] = DUPLICATES[id] or tostring(id) end
+	ns.Print(db.hideDupes and ("dupes: Blizzard's markers for what we draw are off while the minimap is in the map"
+		.. (#off > 0 and (" (" .. table.concat(off, ", ") .. ")") or (TrackingAPI() and "" or " (this client can't)")))
+		or "dupes: Blizzard's markers stay on alongside ours")
 end
 
 -- The minimap's rect in UIParent coordinates (the stand-in's while the
@@ -426,3 +689,20 @@ ns.MinimapBlocker = Blocker
 ns.frame:HookScript("OnUpdate", function(_, elapsed) Update(elapsed) end)
 ns.frame:HookScript("OnHide", Release)
 
+ns.On("Loaded", function(savedDB)
+	db = savedDB
+	if not CLIP_MODES[db.minimapClip] then db.minimapClip = "mask" end
+	if db.hideDupes == nil then db.hideDupes = true end
+end)
+
+-- Tracking we turned off comes back at logout, and after a /reload (its
+-- state is known only once the client has sent it).
+local events = CreateFrame("Frame")
+for _, event in ipairs({ "PLAYER_LOGOUT", "PLAYER_ENTERING_WORLD", "MINIMAP_UPDATE_TRACKING" }) do
+	pcall(events.RegisterEvent, events, event)
+end
+events:SetScript("OnEvent", function(_, event)
+	if event == "PLAYER_LOGOUT" or not (embedded and not skinned) then
+		if db and db.trackingOff and next(db.trackingOff) then SyncTracking(false) end
+	end
+end)

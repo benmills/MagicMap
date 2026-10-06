@@ -1535,15 +1535,28 @@ local function MapMenuItems(col, row)
 	return items
 end
 
+-- The big map leads with what's at the click (ZoneInfo.lua); compact
+-- (minimap mode) keeps to the actions.
 local function OpenMapMenuAt(col, row)
 	local items = MapMenuItems(col, row)
-	if #items == 0 then return end
+	local info = not compact and ns.ZoneInfoAt and ns.ZoneInfoAt(col, row) or nil
+	if #items == 0 and not info then return end
 	if MenuUtil and MenuUtil.CreateContextMenu then
 		MenuUtil.CreateContextMenu(viewport, function(_, root)
+			if info then
+				for _, line in ipairs(info) do root:CreateTitle(line) end
+				if #items > 0 then root:CreateDivider() end
+			end
 			for _, it in ipairs(items) do root:CreateButton(it.text, it.value) end
 		end)
 	else
-		ns.OpenMenuAtCursor(viewport, 140, items, function(fn) fn() end)
+		local rows = {}
+		if info then
+			for _, line in ipairs(info) do rows[#rows + 1] = { text = line, disabled = true } end
+			if #items > 0 then rows[#rows + 1] = { text = "", divider = true, disabled = true } end
+		end
+		for _, it in ipairs(items) do rows[#rows + 1] = it end
+		ns.OpenMenuAtCursor(viewport, info and 250 or 140, rows, function(fn) fn() end)
 	end
 end
 
@@ -1859,6 +1872,6 @@ SlashCmdList.MAGICMAP = function(msg)
 	elseif ns.slash[cmd] then
 		ns.slash[cmd](arg)
 	else
-		Print("/mm [toggle] | follow | path | map <id|name> | zone <name> | icon | minimap | tiles | tint | layers | landmarks | perf | debug | reset")
+		Print("/mm [toggle] | follow | path | map <id|name> | zone <name> | icon | minimap | tiles | tint | clip | dupes | layers | landmarks | perf | debug | reset")
 	end
 end
