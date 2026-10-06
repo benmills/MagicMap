@@ -4,7 +4,7 @@ A big, smooth, zoomable World of Warcraft map drawn from the game's own minimap 
 not the parchment world-map art. Built for WoW Forever; also runs on Classic Era,
 Anniversary, MoP Classic and Retail.
 
-**Status: alpha.** Expect rough edges. Please report anything odd, with a screenshot.
+**Status: beta.** Expect a few rough edges. Please report anything odd, with a screenshot.
 
 ## Install
 
@@ -70,6 +70,11 @@ minimap terrain over ours, to see whether its blips line up; `sync full` to comp
   or wago.tools: each map's WDT (which tile goes where), `Map.db2` (which maps exist), and the
   ADT terrain (area IDs and heights per 33-yard chunk). They write `Data/*.lua`: tile lists,
   zone borders and labels, and heights. At load, only the set for your client version is kept.
+- **Coasts, evened out.** The minimap art mixes bright shallow water with dark open sea, which
+  showed as blue rectangles zoomed out. `tools/gen_tilecolor.py` reads the tiles' pixels and writes
+  which tiles are open sea (not drawn), each coast tile's edge colour (faded outward), a few tile
+  tints, and small water masks (`Textures/Water/`) that shade shallow water into the sea.
+  `/mm tint` turns it off, to compare.
 - **Everything else** is placed by world position through `C_Map`. Quest areas use the world
   map's own `QuestPOIFrame`.
 - **Rendering.** Only visible tiles are drawn, from a pool. Wheel zoom eases toward a target.
