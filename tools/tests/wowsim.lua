@@ -1028,6 +1028,7 @@ function GetSubZoneText() return "Goldshire" end
 Sim.units = { player = { name = "Tester", class = "MAGE" } }
 Sim.unitSubtitle = {}
 function UnitName(unit) local u = Sim.units[unit]; return u and u.name end
+function UnitIsGhost(unit) return unit == "player" and Sim.ghost or false end
 function UnitExists(unit) return Sim.units[unit] ~= nil end
 function UnitClass(unit) local u = Sim.units[unit]; if u then return u.class, u.class, 8 end end
 function UnitGUID(unit) local u = Sim.units[unit]; return u and (u.guid or "Player-1-00000001") end

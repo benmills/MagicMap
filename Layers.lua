@@ -295,16 +295,12 @@ local function StylePin(pin, e)
 	local icon = e.icon or {}
 	local c = icon.color or { 1, 1, 1 }
 	if icon.texture then
-		-- Plain icon file (e.g. minimap tracking icons) on a soft dark disc for contrast.
+		-- Plain icon file (e.g. minimap tracking icons), bare as Blizzard draws them.
 		pin.icon:SetTexture(icon.texture)
 		pin.icon:SetTexCoord(0, 1, 0, 1)
 		pin.icon:SetVertexColor(1, 1, 1, 1)
 		pin.icon:SetSize(size, size)
-		pin.ring:SetTexture(CIRCLE)
-		pin.ring:SetTexCoord(0, 1, 0, 1)
-		pin.ring:SetVertexColor(0, 0, 0, 0.5)
-		pin.ring:SetSize(size + 4, size + 4)
-		pin.ring:Show()
+		pin.ring:Hide()
 		return
 	end
 	if icon.atlas and AtlasExists(icon.atlas) then
@@ -459,18 +455,27 @@ sources.graveyards = function(mapID)
 	return list
 end
 
+local function IsGhost() return UnitIsGhost and UnitIsGhost("player") or false end
+
+-- While you're a ghost your corpse is your target (ahead of quests and
+-- waypoints). The client only knows where it is a while after you release,
+-- so until it's found the layer asks again every CORPSE_POLL seconds.
+local CORPSE_POLL = 1
+local corpseFound -- seen while this ghost lasts
+
 sources.corpse = function(mapID)
 	local list = {}
 	if not (C_DeathInfo and C_DeathInfo.GetCorpseMapPosition) then return list end
 	for _, uiMapID in ipairs(QueryMaps(mapID)) do
 		local x, y = PosXY(SafeCall(C_DeathInfo.GetCorpseMapPosition, uiMapID))
 		if x and AddAt(list, uiMapID, x, y, {
-			size = 20, title = "Your corpse",
+			size = 20, title = "Your corpse", glow = IsGhost(),
 			icon = { atlas = "Navigation-Tombstone-Icon", color = { 1, 1, 1 } },
 		}) then
 			break
 		end
 	end
+	if list[1] and IsGhost() then corpseFound = true end
 	return list
 end
 
@@ -818,8 +823,8 @@ end
 local target = {}
 function ns.GetTarget()
 	local followed = FollowedQuest()
-	local found
-	if followed then
+	local found = IsGhost() and pinData.corpse and pinData.corpse[1]
+	if not found and followed then
 		for _, e in ipairs(pinData.quests or {}) do
 			if e.questID == followed then found = e break end
 		end
@@ -834,6 +839,8 @@ end
 -- another quest or move the waypoint, nil with none (Core's path mode keys
 -- off it).
 function ns.TargetKey()
+	if not IsGhost() then corpseFound = nil end
+	if corpseFound then return "corpse", true end -- true: back to following you
 	local followed = FollowedQuest()
 	if followed then return "quest:" .. followed end
 	local point = C_Map and C_Map.GetUserWaypoint and C_Map.GetUserWaypoint()
@@ -2116,6 +2123,12 @@ local EVENT_LAYERS = {
 }
 for event in pairs(EVENT_LAYERS) do pcall(events.RegisterEvent, events, event) end
 pcall(events.RegisterEvent, events, "MAP_EXPLORATION_UPDATED")
+-- Ghost and no corpse on the map yet: keep asking.
+local function PollCorpse()
+	if IsGhost() and not corpseFound and Enabled("corpse") and state.map then ScheduleRefresh("corpse") end
+	C_Timer.After(CORPSE_POLL, PollCorpse)
+end
+C_Timer.After(CORPSE_POLL, PollCorpse)
 events:SetScript("OnEvent", function(_, event)
 	if event == "MAP_EXPLORATION_UPDATED" then
 		-- Keep showing the old shading until the new pass finishes.

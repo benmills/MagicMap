@@ -1247,12 +1247,14 @@ local function StepTargetChange()
 	local now = GetTime()
 	if now < targetCheckAt or not ns.TargetKey then return end
 	targetCheckAt = now + TARGET_CHECK
-	local key = ns.TargetKey()
+	local key, bringBack = ns.TargetKey()
 	if key == lastTargetKey then return end
 	local first = lastTargetKey == false
 	lastTargetKey = key
 	if first then return end -- what you had at login keeps your saved choice
-	if key and not state.path then
+	if bringBack then
+		SetPath(true) -- your corpse: back to following you, leaning toward it
+	elseif key and not state.path then
 		SetPath(true, true)
 	elseif not key and state.path then
 		SetPath(false)

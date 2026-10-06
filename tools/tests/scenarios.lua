@@ -386,6 +386,32 @@ scenarios.quests_and_path = function()
 	Fly()
 end
 
+-- Dying: once the client knows where your corpse is (a while after you
+-- release, with no event), it shows, becomes your target, and the view
+-- follows you, leaning toward it. Back alive, it's gone and so is path mode.
+scenarios.corpse = function()
+	Sim.Run(2)
+	local st = ns.state
+	ns.SetFollow(false)
+	st.cx = st.cx + 2 -- looking elsewhere
+	Sim.FireEvent("PLAYER_DEAD")
+	Sim.ghost = true
+	Sim.FireEvent("PLAYER_ALIVE") -- released, the corpse not placed yet
+	Sim.Run(1.5)
+	check(ns.GetTarget() == nil, "no corpse known yet: no target")
+	local x, y = ns.TileToMap(1429, st.playerCol + 0.4, st.playerRow + 0.2)
+	Sim.corpse = { [1429] = CreateVector2D(x, y) }
+	Sim.Run(3)
+	local t = ns.GetTarget()
+	check(t ~= nil and t.title == "Your corpse", "the corpse turns up without a toggle, as your target")
+	check(st.path and st.follow, "path mode on, following you again")
+	check(math.abs(st.cx - st.playerCol) < 1, "the view came back to you")
+	Sim.ghost, Sim.corpse = false, nil
+	Sim.FireEvent("PLAYER_UNGHOST")
+	Sim.Run(2)
+	check(ns.GetTarget() == nil and not st.path, "alive again: no corpse, path mode off")
+end
+
 scenarios.layers = function()
 	Sim.Run(2)
 	Sim.Slash("layers")
