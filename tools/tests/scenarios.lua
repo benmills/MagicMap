@@ -255,11 +255,13 @@ scenarios.minimap_mode = function()
 	check(Minimap:GetAlpha() == 0, "back outdoors, our map again")
 	check(ns.frame:GetFrameStrata() == MinimapCluster:GetFrameStrata(), "it sits at the minimap's strata")
 	-- M: ours grows to most of the screen instead of Blizzard's world map.
-	local smallW = ns.frame:GetWidth()
+	local smallW, smallZoom = ns.frame:GetWidth(), ns.state.zoom
 	ToggleWorldMap()
 	Sim.Run(1)
 	check(ns.IsMapExpanded() and not WorldMapFrame:IsShown(), "M grows our window instead of opening Blizzard's map")
 	check(ns.frame:GetWidth() > smallW * 2 and ns.frame:GetParent() == UIParent, "to most of the screen")
+	check(ns.state.follow and ns.state.zoom < smallZoom and ns.state.zoom >= smallZoom / 1.5 - 0.5,
+		"still on you, zoomed out only a little")
 	ToggleWorldMap()
 	Sim.Run(1)
 	check(not ns.IsMapExpanded() and math.abs(ns.frame:GetWidth() - smallW) < 1, "M again shrinks it back")
