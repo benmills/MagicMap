@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Install this checkout into a WoW client for testing: deletes the installed
 MagicMap from <wow>/<flavor>/Interface/AddOns and copies in what the game
-loads (MagicMap.toc and the files it lists), straight from the working tree,
-so uncommitted changes are included. /reload in game to pick them up.
+loads (MagicMap.toc, the files it lists and the Textures/ tree), straight
+from the working tree, so uncommitted changes are included. /reload in game
+to pick them up (new texture files need a client restart).
 
   python3 tools/install.py                  # the flavor MagicMap is installed in
   python3 tools/install.py _classic_ptr_    # a specific flavor folder
@@ -35,6 +36,16 @@ def flavors(wow: str) -> list[str]:
     """Flavor folders (_retail_, _classic_ptr_, ...) in a WoW install."""
     return sorted(d for d in os.listdir(wow)
                   if d.startswith("_") and d.endswith("_") and os.path.isdir(os.path.join(wow, d)))
+
+
+def texture_files() -> list[str]:
+    """Every file under Textures/, relative to the checkout (the generated
+    water masks among them)."""
+    out = []
+    for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, "Textures")):
+        dirnames.sort()
+        out += [os.path.relpath(os.path.join(dirpath, f), ROOT) for f in sorted(filenames) if not f.startswith(".")]
+    return out
 
 
 def addon_dir(wow: str, flavor: str) -> str:
@@ -71,7 +82,7 @@ def main() -> None:
                                            stdout=subprocess.DEVNULL) != 0:
         sys.exit("luacheck found problems (python3 tools/luacheck.py); not installing. --no-check to install anyway")
 
-    files = ["MagicMap.toc"] + toc_files()
+    files = ["MagicMap.toc"] + toc_files() + texture_files()
     missing = [f for f in files if not os.path.isfile(os.path.join(ROOT, f))]
     if missing:
         sys.exit(f"missing from the checkout: {', '.join(missing)}")

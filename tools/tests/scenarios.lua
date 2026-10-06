@@ -544,6 +544,169 @@ scenarios.tiles_seamless = function()
 	end
 end
 
+-- Tile colour data (Data/TileColor_*.lua): tinted tiles get their vertex
+-- colour and an additive overlay, open sides with a colour fade outward over
+-- the empty cell (corners too), pooled textures come back plain, /mm tint
+-- turns it all off, and none of it costs anything per frame.
+scenarios.tile_colors = function()
+	local map = ns.state.map
+	local tiles = MagicMap_TileSets[next(MagicMap_TileSets)].maps[map].tiles
+	MagicMap_TileColor = nil -- the flavor's own data, if any: this test brings its own
+	ns.SetZoom(24)
+	Sim.Run(2)
+	local function Drawn(key) local t = ns.activeTiles[map * 4096 + key]; return t and t:IsVisible() and t end
+	local function Open(key, d) return not tiles[key + d] end
+	local function Shown(t) return t and t:IsVisible() end
+	-- Drawn as it comes: no vertex colour (or white), no overlay or outward fades.
+	local function Coloured(t)
+		local v, n = S[t].vertex, 0
+		if (v and (v[1] ~= 1 or v[2] ~= 1 or v[3] ~= 1)) or Shown(t.add) then n = n + 1 end
+		for i = 1, 4 do if Shown(t.outs[i]) then n = n + 1 end end
+		for j = 1, 4 do if t.corners[j] and (Shown(t.corners[j][1]) or Shown(t.corners[j][2])) then n = n + 1 end end
+		if Shown(t.water) then n = n + 1 end
+		return n
+	end
+	-- An interior tile and a coast tile with a convex corner (left and top
+	-- open, and the cell between); every other tile is left without data.
+	local inner, coast
+	for key in pairs(tiles) do
+		if Drawn(key) then
+			if not inner and not (Open(key, -64) or Open(key, 64) or Open(key, -1) or Open(key, 1)) then
+				inner = key
+			elseif not coast and Open(key, -64) and Open(key, -1) and Open(key, -65) then
+				coast = key
+			end
+		end
+	end
+	-- And a sea tile, with a drawn tile to its right, away from those two.
+	local sea
+	for key in pairs(coast and tiles or {}) do
+		local far = math.abs(math.floor(key / 64) - math.floor(coast / 64)) > 2 or math.abs(key % 64 - coast % 64) > 2
+		if not sea and far and key ~= inner and key + 64 ~= inner and Drawn(key) and Drawn(key + 64) then sea = key end
+	end
+	check(inner and coast and sea, "found interior, coast and sea tiles on screen")
+	if not (inner and coast and sea) then return end
+
+	local cl, ct, cr, cb = { 0.1, 0.4, 0.8 }, { 0.2, 0.5, 0.7 }, { 0.3, 0.3, 0.3 }, { 0.4, 0.4, 0.4 }
+	local cs = { 0.15, 0.45, 0.75 }
+	MagicMap_TileColor = { [map] = {
+		tint = { [inner] = { 0.5, 0.6, 0.7, 0.1, 0.2, 0.3 } },
+		edge = {
+			[coast] = { l = cl, t = ct, r = Open(coast, 64) and cr or nil, b = Open(coast, 1) and cb or nil },
+			[sea + 64] = { l = cs },
+		},
+		sea = { [sea] = true },
+		water = { [inner] = true },
+		waterDir = "Interface\\AddOns\\MagicMap\\Textures\\Water\\test\\",
+	} }
+	ns.state.dirty = true
+	Sim.Run(0.2)
+
+	local tex = Drawn(inner)
+	local v = S[tex].vertex
+	check(v and v[1] == 0.5 and v[2] == 0.6 and v[3] == 0.7, "a tinted tile is scaled by its vertex colour")
+	local add = tex.add
+	check(add and add:IsVisible() and S[add].blend == "ADD", "and lifted by an additive overlay")
+	local c = add and S[add].color
+	check(c and c[1] == 0.1 and c[2] == 0.2 and c[3] == 0.3, "the overlay has the tint's additive colour")
+	local water = tex.water
+	if add then
+		local _, subTile = tex:GetDrawLayer()
+		local _, subAdd = add:GetDrawLayer()
+		local _, subFeather = tex.feathers[1]:GetDrawLayer()
+		local subWater = water and select(2, water:GetDrawLayer())
+		check(subWater and subTile < subAdd and subAdd < subWater and subWater < subFeather,
+			"tile < overlay < water mask < feathers")
+	end
+	check(Shown(water) and S[water].texture == "Interface\\AddOns\\MagicMap\\Textures\\Water\\test\\" .. map .. "_" .. inner .. ".tga",
+		"a tile with a water mask draws it, from its own file")
+	local bg = MagicMap_TileSets[next(MagicMap_TileSets)].maps[map].bg or { 0.03, 0.06, 0.065 }
+	local wv = water and S[water].vertex
+	check(wv and wv[1] == bg[1] and wv[2] == bg[2] and wv[3] == bg[3], "the water mask is the backdrop's colour")
+
+	tex = Drawn(coast)
+	local expect = { cl, Open(coast, 64) and cr, ct, Open(coast, 1) and cb }
+	for i, want in ipairs(expect) do
+		local out = tex.outs[i]
+		if want then
+			local g = Shown(out) and S[out].gradient
+			local opaque = g and (g[2].a == 1 and g[2] or g[3])
+			check(opaque and opaque.r == want[1] and opaque.g == want[2] and opaque.b == want[3],
+				"an open side fades its colour outward (side " .. i .. ")")
+		else
+			check(not Shown(out), "no outward fade on a side with a neighbour (side " .. i .. ")")
+		end
+	end
+	check(Shown(tex.corners[1] and tex.corners[1][1]) and Shown(tex.corners[1][2]), "the open corner gets a corner piece")
+	check(not Drawn(sea), "a sea tile isn't drawn")
+	local out = Drawn(sea + 64).outs[1]
+	local g = Shown(out) and S[out].gradient
+	check(g and g[3].a == 1 and g[3].r == cs[1], "the tile beside it fades outward over it")
+	local pieces = 0
+	for key in pairs(tiles) do
+		local t = Drawn(key)
+		if t and key ~= coast and key ~= inner and key ~= sea + 64 then pieces = pieces + Coloured(t) end
+	end
+	check(pieces == 0, ("tiles without data are drawn plain, inward fades only (%d coloured)"):format(pieces))
+
+	-- Nothing moves: no tile texture is touched from frame to frame.
+	Sim.CountCalls()
+	Sim.Run(1)
+	local touched = 0
+	for _, r in ipairs(S[ns.tileCanvas].regions) do touched = touched + (Sim.callsOn[r] or 0) end
+	check(touched == 0, ("idle frames leave the tiles alone (%d calls)"):format(touched))
+	ns.SetZoom(30)
+	Sim.Run(1)
+	touched = 0
+	for _, r in ipairs(S[ns.tileCanvas].regions) do touched = touched + (Sim.callsOn[r] or 0) end
+	check(touched > 0, "(and that count sees a zoom's layout)")
+	ns.SetZoom(24)
+	Sim.Run(2)
+
+	-- Off: everything back to plain tiles.
+	Sim.Slash("tint")
+	Sim.Run(0.2)
+	local left = 0
+	for key in pairs(tiles) do
+		local t = Drawn(key)
+		if t then left = left + Coloured(t) end
+	end
+	check(left == 0, ("/mm tint off draws plain tiles (%d still coloured)"):format(left))
+	check(Drawn(sea), "/mm tint off draws the sea tile again")
+	Sim.Slash("tint")
+	Sim.Run(0.2)
+	check(Shown(Drawn(inner).add) and Shown(Drawn(coast).outs[1]) and Shown(Drawn(inner).water)
+		and not Drawn(sea), "/mm tint on brings the colours back")
+
+	-- Tinted textures go back to the pool and come out plain for another map.
+	local was = {}
+	for key in pairs(tiles) do
+		if Drawn(key) then
+			MagicMap_TileColor[map].tint[key] = { 0.5, 0.5, 0.5, 0.1, 0.1, 0.1 }
+			MagicMap_TileColor[map].water[key] = true
+			was[Drawn(key)] = true
+		end
+	end
+	local old = MagicMap_TileColor[map]
+	MagicMap_TileColor[map] = { tint = old.tint, edge = old.edge, water = old.water, waterDir = old.waterDir }
+	ns.state.dirty = true
+	Sim.Run(0.2)
+	Sim.Slash("map 1")
+	Sim.Run(2)
+	Sim.Drag(ns.viewport, 400, 300, 10)
+	Sim.Run(0.5)
+	local dirty, reused = 0, 0
+	for id, t in pairs(ns.activeTiles) do
+		if t:IsVisible() and math.floor(id / 4096) == 1 then
+			if was[t] then reused = reused + 1 end
+			dirty = dirty + Coloured(t)
+		end
+	end
+	check(reused > 0, "textures from the tinted map are reused")
+	check(dirty == 0, ("reused textures come back plain (%d of %d not)"):format(dirty, reused))
+	MagicMap_TileColor = nil
+end
+
 scenarios.perf_report = function()
 	Sim.Slash("perf")
 	Sim.Drag(ns.viewport, 300, 120, 20)

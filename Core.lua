@@ -23,6 +23,7 @@ local defaults = {
 	map = nil, -- instanceID being viewed; nil = player's continent
 	cx = 32, cy = 32,
 	debug = false, -- show tile/FileDataID/zoom in the title band
+	tint = true, -- draw tiles with Data/TileColor_*.lua's tints and coast fades
 	minimap = { angle = 215, hide = false }, -- minimap button position (degrees) / visibility
 }
 
@@ -547,22 +548,44 @@ end
 -- Tile rendering (visible tiles only, textures pooled and reused)
 ---------------------------------------------------------------------------
 
-local activeTiles = {} -- key (col*64+row) -> texture
+local activeTiles = {} -- mapID * 4096 + key (col*64+row) -> texture
 local freeTextures = {}
 local seen = {}
 
 -- Where the map runs out (open sea past the last tile), each edge tile fades
 -- into the backdrop colour sampled from that map's own edge water, so the
 -- square tile edges dissolve instead of stopping dead against a flat colour.
-local FEATHER = 0.35 -- fraction of a tile
+-- With colour data (Data/TileColor_<product>.lua: the mean colour along each
+-- open side), the tile instead spills that colour outward across the empty
+-- cell, fading to the backdrop there: a bright coast no longer gets cut into a
+-- rectangle, and only a sliver of the tile itself is blended into the seam.
+local FEATHER = 0.35 -- fraction of a tile: inward fade to the backdrop (no colour data)
+local INNER_FEATHER = 0.08 -- inward fade to the side's own colour, softening the seam
+local OUTER_FEATHER = 0.6 -- outward fade from the side's colour to the backdrop
 local TILE_AHEAD = 1 -- tiles loaded past each edge of the view
 local SIDES = {
-	-- side, neighbour key offset, gradient orientation, alpha at min end, alpha at max end
-	{ "left", -64, "HORIZONTAL", 1, 0 },
-	{ "right", 64, "HORIZONTAL", 0, 1 },
-	{ "top", -1, "VERTICAL", 0, 1 },    -- VERTICAL gradients run bottom (min) to top (max)
-	{ "bottom", 1, "VERTICAL", 1, 0 },
+	-- side, neighbour key offset, gradient orientation, alpha at min end, alpha at max end (inward),
+	-- edge colour key, outward fade's point on the tile's point
+	{ "left", -64, "HORIZONTAL", 1, 0, "l", "TOPRIGHT", "TOPLEFT" },
+	{ "right", 64, "HORIZONTAL", 0, 1, "r", "TOPLEFT", "TOPRIGHT" },
+	{ "top", -1, "VERTICAL", 0, 1, "t", "BOTTOMLEFT", "TOPLEFT" },    -- VERTICAL gradients run bottom (min) to top (max)
+	{ "bottom", 1, "VERTICAL", 1, 0, "b", "TOPLEFT", "BOTTOMLEFT" },
 }
+-- Where two open sides meet and the diagonal cell is empty too, a corner piece
+-- fills the gap the two side fades leave. One gradient can only run one way,
+-- so it's two: the colour fading horizontally, then the backdrop colour
+-- fading in vertically on top. Over the backdrop that leaves the colour at
+-- (1-x)(1-y), which matches both side fades along the edges it shares.
+local CORNERS = {
+	-- the two SIDES, diagonal key offset, our point, tile's point, colour alphas (min, max), backdrop alphas (min, max)
+	{ 1, 3, -65, "BOTTOMRIGHT", "TOPLEFT", 0, 1, 0, 1 },
+	{ 2, 3, 63, "BOTTOMLEFT", "TOPRIGHT", 1, 0, 0, 1 },
+	{ 1, 4, -63, "TOPRIGHT", "BOTTOMLEFT", 0, 1, 1, 0 },
+	{ 2, 4, 65, "TOPLEFT", "BOTTOMRIGHT", 1, 0, 1, 0 },
+}
+-- ARTWORK sublevels, bottom to top. The outward pieces only ever lie over
+-- empty cells, but sit under the tiles so a pixel of overlap never shows.
+local SUB_CORNER, SUB_CORNER_BG, SUB_OUTER, SUB_TILE, SUB_ADD, SUB_WATER, SUB_FEATHER = -3, -2, -1, 0, 1, 2, 3
 local bgColor = { 0, 0, 0 }
 
 local function SetFade(t, orientation, r, g, b, a1, a2)
@@ -589,22 +612,38 @@ local function Unsnapped(tex)
 	return tex
 end
 
+local function Piece(sublevel)
+	local t = Unsnapped(tileCanvas:CreateTexture(nil, "ARTWORK", nil, sublevel))
+	t:Hide()
+	return t
+end
+
+local function SetOn(t, on)
+	if on then
+		if not t.on then t:Show(); t.on = true end
+	elseif t and t.on then
+		t:Hide(); t.on = nil
+	end
+end
+
 local function AcquireTexture()
 	local tex = table.remove(freeTextures)
 	if not tex then
-		tex = Unsnapped(tileCanvas:CreateTexture(nil, "ARTWORK", nil, 0))
+		tex = Unsnapped(tileCanvas:CreateTexture(nil, "ARTWORK", nil, SUB_TILE))
 		tex.feathers = {}
 		for i, s in ipairs(SIDES) do
 			-- A feather never changes side, so it's anchored once, for good.
-			local f = Unsnapped(tileCanvas:CreateTexture(nil, "ARTWORK", nil, 1))
+			local f = Piece(SUB_FEATHER)
 			if s[3] == "HORIZONTAL" then
 				f:SetPoint(s[1] == "left" and "TOPLEFT" or "TOPRIGHT", tex)
 			else
 				f:SetPoint(s[1] == "top" and "TOPLEFT" or "BOTTOMLEFT", tex)
 			end
-			f:Hide()
 			tex.feathers[i] = f
 		end
+		-- The tint overlay and outward fades are made the first time this
+		-- texture needs them (most tiles never do), then kept with it.
+		tex.outs, tex.corners = {}, {}
 	end
 	tex:Show()
 	return tex
@@ -612,10 +651,21 @@ end
 
 local function ReleaseTexture(tex)
 	tex:Hide()
-	for _, f in ipairs(tex.feathers) do
-		if f.on then f:Hide(); f.on = nil end
+	for i, f in ipairs(tex.feathers) do
+		SetOn(f, false)
+		SetOn(tex.outs[i], false)
 	end
-	tex.fdid, tex.zoom = nil, nil
+	for _, c in pairs(tex.corners) do
+		SetOn(c[1], false); SetOn(c[2], false)
+	end
+	if tex.tint then
+		-- The next tile drawn with this texture may not be tinted.
+		tex:SetVertexColor(1, 1, 1)
+		SetOn(tex.add, false)
+		tex.tint = nil
+	end
+	SetOn(tex.water, false)
+	tex.fdid, tex.zoom, tex.colors = nil, nil, nil
 	freeTextures[#freeTextures + 1] = tex
 end
 
@@ -653,30 +703,135 @@ local function HeightAt(mapID, col, row)
 	return hm.min + ((b - hm.shift) % 256) * hm.scale
 end
 
+-- Fade t (one of a tile's pieces) with colour c, unless it already is.
+local function FadeOnce(t, orientation, c, a1, a2)
+	if t.fadeColor ~= c then
+		SetFade(t, orientation, c[1], c[2], c[3], a1, a2)
+		t.fadeColor = c
+	end
+end
+
+-- Is a tile drawn at key? With colour data on, open sea tiles aren't, so
+-- beside them counts as open.
+local function Present(tiles, sea, key)
+	return tiles[key] and not (sea and sea[key])
+end
+
 -- Place a tile on the canvas for this zoom. Edges are rounded (not origin +
--- size) so neighbours always share an edge.
-local function LayoutTile(tex, tiles, key, zoom)
+-- size) so neighbours always share an edge. colors: this map's entry in
+-- MagicMap_TileColor (or false); everything it changes is set here, once per
+-- zoom, never per frame.
+local function LayoutTile(tex, tiles, key, zoom, colors, mapID)
+	local sea = colors and colors.sea
 	local col, row = math.floor(key / 64), key % 64
 	local left, top = math.floor(col * zoom + 0.5), math.floor(row * zoom + 0.5)
 	local w = math.floor((col + 1) * zoom + 0.5) - left
 	local h = math.floor((row + 1) * zoom + 0.5) - top
 	tex:SetPoint("TOPLEFT", tileCanvas, "TOPLEFT", left, -top)
 	tex:SetSize(w, h)
+
+	-- Tiles baked darker, lighter or off-tint from their neighbours are drawn
+	-- as texel * m + a: the vertex colour scales, an additive overlay lifts.
+	local tint = colors and colors.tint and colors.tint[key] or nil
+	if tint ~= tex.tint then
+		if tint then
+			tex:SetVertexColor(tint[1], tint[2], tint[3])
+			if not tex.add then
+				tex.add = Piece(SUB_ADD)
+				tex.add:SetAllPoints(tex)
+				tex.add:SetBlendMode("ADD")
+			end
+			tex.add:SetColorTexture(tint[4], tint[5], tint[6], 1)
+			SetOn(tex.add, tint[4] > 0 or tint[5] > 0 or tint[6] > 0)
+		else
+			tex:SetVertexColor(1, 1, 1)
+			SetOn(tex.add, false)
+		end
+		tex.tint = tint
+	end
+
+	-- Shallow coastal water the tile was baked a different blue from the open
+	-- sea: a mask (white; alpha = how much sea covers each pixel) tinted the
+	-- backdrop colour pulls it toward the sea around it.
+	if colors and colors.water and colors.water[key] then
+		local water = tex.water
+		if not water then
+			water = Piece(SUB_WATER)
+			water:SetAllPoints(tex)
+			tex.water = water
+		end
+		local path = colors.waterDir .. mapID .. "_" .. key .. ".tga"
+		if water.path ~= path then
+			water:SetTexture(path, "CLAMP", "CLAMP", "LINEAR")
+			water.path = path
+		end
+		if water.bg ~= bgColor then
+			water:SetVertexColor(bgColor[1], bgColor[2], bgColor[3])
+			water.bg = bgColor
+		end
+		SetOn(water, true)
+	else
+		SetOn(tex.water, false)
+	end
+
+	local edge = colors and colors.edge and colors.edge[key]
+	local ow, oh = math.floor(w * OUTER_FEATHER + 0.5), math.floor(h * OUTER_FEATHER + 0.5)
 	for i, s in ipairs(SIDES) do
-		local f = tex.feathers[i]
-		if tiles[key + s[2]] then
-			if f.on then f:Hide(); f.on = nil end
+		local f, out = tex.feathers[i], tex.outs[i]
+		local c = edge and edge[s[6]]
+		if Present(tiles, sea, key + s[2]) then
+			SetOn(f, false)
+			SetOn(out, false)
+		elseif c then
+			-- Open, with its colour: a thin fade into that colour inside, then
+			-- the colour spilling out over the empty cell.
+			FadeOnce(f, s[3], c, s[4], s[5])
+			if s[3] == "HORIZONTAL" then f:SetSize(w * INNER_FEATHER, h) else f:SetSize(w, h * INNER_FEATHER) end
+			SetOn(f, true)
+			if not out then
+				out = Piece(SUB_OUTER)
+				out:SetPoint(s[7], tex, s[8])
+				tex.outs[i] = out
+			end
+			FadeOnce(out, s[3], c, s[5], s[4])
+			if s[3] == "HORIZONTAL" then out:SetSize(ow, h) else out:SetSize(w, oh) end
+			SetOn(out, true)
 		else
 			-- Each feather keeps its side; only a new backdrop colour changes it.
-			if f.fadeColor ~= bgColor then
-				SetFade(f, s[3], bgColor[1], bgColor[2], bgColor[3], s[4], s[5])
-				f.fadeColor = bgColor
-			end
+			FadeOnce(f, s[3], bgColor, s[4], s[5])
 			if s[3] == "HORIZONTAL" then f:SetSize(w * FEATHER, h) else f:SetSize(w, h * FEATHER) end
-			if not f.on then f:Show(); f.on = true end
+			SetOn(f, true)
+			SetOn(out, false)
 		end
 	end
-	tex.zoom, tex.bg = zoom, bgColor
+
+	for j, k in ipairs(CORNERS) do
+		local piece = tex.corners[j]
+		local c1 = edge and edge[SIDES[k[1]][6]]
+		local c2 = edge and edge[SIDES[k[2]][6]]
+		-- Both sides fade outward and nothing is drawn in the diagonal cell.
+		if c1 and c2 and not Present(tiles, sea, key + SIDES[k[1]][2])
+			and not Present(tiles, sea, key + SIDES[k[2]][2]) and not Present(tiles, sea, key + k[3]) then
+			if not piece then
+				piece = { Piece(SUB_CORNER), Piece(SUB_CORNER_BG) }
+				for _, t in ipairs(piece) do t:SetPoint(k[4], tex, k[5]) end
+				tex.corners[j] = piece
+			end
+			if piece.c1 ~= c1 or piece.c2 ~= c2 then
+				-- The two sides' colours, met halfway.
+				SetFade(piece[1], "HORIZONTAL", (c1[1] + c2[1]) / 2, (c1[2] + c2[2]) / 2, (c1[3] + c2[3]) / 2, k[6], k[7])
+				piece.c1, piece.c2 = c1, c2
+			end
+			FadeOnce(piece[2], "VERTICAL", bgColor, k[8], k[9])
+			for _, t in ipairs(piece) do
+				t:SetSize(ow, oh)
+				SetOn(t, true)
+			end
+		elseif piece then
+			SetOn(piece[1], false); SetOn(piece[2], false)
+		end
+	end
+	tex.zoom, tex.bg, tex.colors = zoom, bgColor, colors
 end
 
 local function RenderTiles()
@@ -693,6 +848,11 @@ local function RenderTiles()
 	wipe(seen)
 	local mapID = state.map
 	local tiles = GetTiles(mapID)
+	-- Colour data is looked up here, not kept, so /mm tint (or a test) can
+	-- swap it: a different table re-lays the tiles out.
+	local colors = db.tint and MagicMap_TileColor and MagicMap_TileColor[mapID] or false
+	-- Tiles of nothing but flat sea are left out: the backdrop is that colour.
+	local sea = colors and colors.sea
 	if tiles then
 		-- A ring of tiles past the edge too: the client streams textures in a
 		-- frame or more after SetTexture, so a pan should find them loaded.
@@ -704,7 +864,7 @@ local function RenderTiles()
 			for row = rowMin, rowMax do
 				local key = col * 64 + row
 				local fdid = tiles[key]
-				if fdid then
+				if fdid and not (sea and sea[key]) then
 					local id = mapID * 4096 + key
 					local tex = activeTiles[id]
 					if not tex then
@@ -717,7 +877,9 @@ local function RenderTiles()
 						tex:SetTexture(fdid, "CLAMP", "CLAMP", "TRILINEAR")
 						tex.fdid = fdid
 					end
-					if tex.zoom ~= zoom or tex.bg ~= bgColor then LayoutTile(tex, tiles, key, zoom) end
+					if tex.zoom ~= zoom or tex.bg ~= bgColor or tex.colors ~= colors then
+						LayoutTile(tex, tiles, key, zoom, colors, mapID)
+					end
 					seen[id] = true
 				end
 			end
@@ -732,7 +894,7 @@ local function RenderTiles()
 		if not seen[id] then
 			local key = id % 4096
 			local col, row = math.floor(key / 64), key % 64
-			if not tiles or math.floor(id / 4096) ~= mapID or tex.zoom ~= zoom
+			if not tiles or math.floor(id / 4096) ~= mapID or tex.zoom ~= zoom or (sea and sea[key])
 				or col + 1 < c0 or col > c1 or row + 1 < r0 or row > r1 then
 				ReleaseTexture(tex)
 				activeTiles[id] = nil
@@ -1585,6 +1747,15 @@ ns.WorldToTile = WorldToTile
 ns.MapRect, ns.MapToTile, ns.TileToMap = MapRect, MapToTile, TileToMap
 ns.GetZones, ns.GetContinentMapID, ns.GetQuestMaps = GetZones, GetContinentMapID, GetQuestMaps
 ns.slash = {} -- extra /mm subcommands: name -> fn(arg)
+ns.activeTiles = activeTiles -- for tests: mapID * 4096 + key -> tile texture
+
+-- The tile colour data on and off, to compare it with the plain tiles.
+function ns.slash.tint()
+	db.tint = not db.tint
+	state.dirty = true -- a different colour table re-lays every tile out
+	Print("tile colour correction " .. (db.tint and "on" or "off")
+		.. ((db.tint and not (MagicMap_TileColor and MagicMap_TileColor[state.map])) and " (no data for this map)" or ""))
+end
 ns.Toggle = function() frame:SetShown(not frame:IsShown()) end
 
 ---------------------------------------------------------------------------
@@ -1686,6 +1857,6 @@ SlashCmdList.MAGICMAP = function(msg)
 	elseif ns.slash[cmd] then
 		ns.slash[cmd](arg)
 	else
-		Print("/mm [toggle] | follow | path | map <id|name> | zone <name> | icon | minimap | tiles | layers | landmarks | perf | debug | reset")
+		Print("/mm [toggle] | follow | path | map <id|name> | zone <name> | icon | minimap | tiles | tint | layers | landmarks | perf | debug | reset")
 	end
 end
