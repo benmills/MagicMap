@@ -59,7 +59,8 @@ yours (wheel or + / −); nothing else changes it.
 
 Slash commands (`/mm`): `follow`, `path`, `map <name>`, `zone <name>`, `minimap`, `layers`, `icon`,
 `debug`, `reset`. For checking things in game: `perf` (how the map keeps up) and `sync` (Blizzard's
-minimap terrain over ours, to see whether its blips line up; `sync full` to compare the two).
+minimap terrain over ours, to see whether its blips line up; `sync full` to compare the two) and
+`tint` (tile colour correction and coast fades on/off).
 
 ## How it works
 

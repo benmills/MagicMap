@@ -630,16 +630,18 @@ function CreateFrame(typ, name, parent, template)
 end
 
 -- Count every widget method call (a proxy for frame cost in the client,
--- where each is a call into the engine): Sim.calls[name], Sim.callTotal.
+-- where each is a call into the engine): Sim.calls[name], Sim.callTotal,
+-- and per widget, Sim.callsOn[widget].
 function Sim.CountCalls()
-	Sim.calls, Sim.callTotal = {}, 0
+	Sim.calls, Sim.callTotal, Sim.callsOn = {}, 0, setmetatable({}, { __mode = "k" })
 	for _, c in pairs(classes) do
 		for name, fn in pairs(c.methods) do
 			if type(fn) == "function" then
-				c.methods[name] = function(...)
+				c.methods[name] = function(self, ...)
 					Sim.callTotal = Sim.callTotal + 1
 					Sim.calls[name] = (Sim.calls[name] or 0) + 1
-					return fn(...)
+					if type(self) == "table" then Sim.callsOn[self] = (Sim.callsOn[self] or 0) + 1 end
+					return fn(self, ...)
 				end
 			end
 		end

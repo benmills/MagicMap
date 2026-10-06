@@ -14,6 +14,7 @@ Data\Tiles_wow_anniversary.lua
 Data\Tiles_wow_classic.lua
 Data\Tiles_wow.lua
 Data\Heights_wow_classic_beta.lua
+Data\TileColor_wow_classic_beta.lua
 Data\Borders_wow_classic_beta.lua
 UI.lua
 Menu.lua
