@@ -577,7 +577,7 @@ sources.quests = function(mapID)
 			and { atlas = "UI-QuestIcon-TurnIn-Normal", color = { 0.2, 1, 0.2 } }
 			or { atlas = "Quest-In-Progress-Icon-yellow", under = "UI-QuestPoi-QuestNumber", color = { 1, 0.82, 0 } }
 		local e = AddAt(list, b.uiMapID, b.x, b.y, {
-			size = followed and 26 or 22, glow = followed, questID = questID, title = title, icon = icon,
+			size = followed and 26 or 22, glow = followed, questID = questID, title = title, icon = icon, turnIn = complete,
 			lines = lines,
 		})
 		if e and not complete then
@@ -963,6 +963,15 @@ function ns.OnMapTap(col, row, allowAreas)
 	if questID then
 		ToggleFollowQuest(questID)
 		return true
+	end
+	return false
+end
+
+-- Is this quest's turn-in drawn by our quests layer (AddonPins.lua skips
+-- other addons' copies of it)?
+function ns.ShowsTurnIn(questID)
+	for _, e in ipairs(pinData.quests or {}) do
+		if e.questID == questID and e.turnIn then return true end
 	end
 	return false
 end

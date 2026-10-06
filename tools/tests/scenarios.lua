@@ -1212,6 +1212,16 @@ scenarios.addon_pins_questie = function()
 	Sim.Run(0.3)
 	local _, zc, zr = ns.MapToTile(1429, 0.6, 0.6)
 	check(OnOurMap(zonePin) and PinOff(zonePin, zc, zr) < 1, "and is back, in place, zoomed in again")
+	-- Its turn-in for a quest whose turn-in we draw repeats ours: skipped. Its
+	-- quests to pick up (ours don't cover them) stay.
+	check(ns.ShowsTurnIn(62), "our quests layer shows quest 62's turn-in")
+	local turnIn, offer = Sim.QuestieIcon(), Sim.QuestieIcon()
+	turnIn.data = { Type = "complete", Id = 62 }
+	offer.data = { Type = "available", Id = 999 }
+	Sim.questiePins:AddWorldMapIconMap(Questie, turnIn, 1429, 0.40, 0.80, HBD_PINS_WORLDMAP_SHOW_WORLD)
+	Sim.questiePins:AddWorldMapIconMap(Questie, offer, 1429, 0.45, 0.70, HBD_PINS_WORLDMAP_SHOW_WORLD)
+	Sim.Run(0.3)
+	check(not OnOurMap(turnIn) and OnOurMap(offer), "Questie's repeat of our turn-in is skipped, its quest offer kept")
 	-- Added later: shows up shortly.
 	local b = Sim.QuestieIcon()
 	Sim.questiePins:AddWorldMapIconMap(Questie, b, 1436, 0.5, 0.5, HBD_PINS_WORLDMAP_SHOW_WORLD)
@@ -1294,9 +1304,15 @@ scenarios.addon_pins_minimap = function()
 	ns.SetZoom(1500) -- the Minimap far bigger than the window: clipped
 	Sim.Run(1)
 	local host = _G.MagicMapMinimapPins
-	check(ns.state.minimapShown and pins.Minimap == host, "Questie's copy draws on our host")
-	check(dot:GetParent() == host and dot:IsVisible(), "its pin is on the host, in the window")
-	check(Sim.gatherPin:GetParent() == host, "with the shared copy's")
+	check(ns.state.minimapShown and pins.Minimap ~= Minimap and not dot:IsVisible(),
+		"Questie's world-map pins are on our map, so its minimap copies stay out of sight")
+	check(Sim.gatherPin:GetParent() == host and Sim.gatherPin:IsVisible(), "the shared copy's pins are on our host, in the window")
+	local db = MagicMapDB
+	db.layers["addon:Questie"] = false
+	Sim.Run(1)
+	check(pins.Minimap == host and dot:GetParent() == host and dot:IsVisible(),
+		"Questie's layer off: its minimap pins are on our host instead")
+	db.layers["addon:Questie"] = true
 	Sim.Click(ns.modeButton)
 	Sim.Run(1)
 	check(pins.Minimap == Minimap and dot:GetParent() == Minimap, "minimap mode off: back on the Minimap")

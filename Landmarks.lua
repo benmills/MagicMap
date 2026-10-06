@@ -144,7 +144,7 @@ local function StoredPins(mapID, wantRares)
 				lines[#lines + 1] = "|cff808080Seen here " .. date("%b %d", e.t) .. "|r"
 			end
 			ns.PinAtTile(list, mapID, col, row, {
-				size = e.kind == "rare" and 18 or 16,
+				size = e.kind == "rare" and 15 or 13, -- about the size Blizzard draws them on the minimap
 				minZoom = k.minZoom or SERVICE_MIN_ZOOM,
 				title = e.name, lines = lines, icon = { texture = k.icon },
 				kind = e.kind, -- for ZoneInfo's "nearest innkeeper"

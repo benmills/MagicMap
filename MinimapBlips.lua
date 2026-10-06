@@ -162,6 +162,14 @@ pinHost.GetZoom = function() return Minimap:GetZoom() end
 pinHost.GetZoomLevels = function() return Minimap:GetZoomLevels() end
 pinHost.SetZoom = function(_, z) Minimap:SetZoom(z) end -- (clients without C_Minimap.GetViewRadius)
 
+-- Where the minimap pins of an addon whose world-map pins we already host
+-- (AddonPins.lua) go: out of sight. They'd only repeat those, and drift, as
+-- the library re-places them on its own schedule while our map moves.
+local hiddenHost = CreateFrame("Frame", nil, ns.viewport)
+hiddenHost:Hide()
+hiddenHost:SetSize(1, 1)
+hiddenHost.GetZoom, hiddenHost.GetZoomLevels, hiddenHost.SetZoom = pinHost.GetZoom, pinHost.GetZoomLevels, pinHost.SetZoom
+
 local function GetCVarValue(name)
 	if C_CVar and C_CVar.GetCVar then return C_CVar.GetCVar(name) end
 	return GetCVar and GetCVar(name)
@@ -179,7 +187,7 @@ local mine = {}
 local function HBDPins()
 	wipe(mine)
 	for _, hbd in ipairs(HBDPinsRaw()) do
-		if hbd.Minimap == Minimap or hbd.Minimap == pinHost then mine[#mine + 1] = hbd end
+		if hbd.Minimap == Minimap or hbd.Minimap == pinHost or hbd.Minimap == hiddenHost then mine[#mine + 1] = hbd end
 	end
 	return mine
 end
@@ -252,13 +260,19 @@ end
 
 -- Have HereBeDragons (re-)place its pins on their host now: it only re-reads
 -- the size once a second, and they must keep in step with the terrain.
+local function HostFor(hbd, host)
+	if host ~= Minimap and ns.HostsWorldPins and ns.HostsWorldPins(hbd) then return hiddenHost end
+	return host
+end
+
 local function PlacePins(host)
 	for _, hbd in ipairs(HBDPins()) do
 		if hbd.SetMinimapObject then
-			hbd:SetMinimapObject(host)
+			local to = HostFor(hbd, host)
+			hbd:SetMinimapObject(to)
 			-- They must still clear our terrain and layers.
 			for pin in pairs(hbd.minimapPins or {}) do
-				if pin.GetFrameLevel and pin:GetFrameLevel() <= host:GetFrameLevel() then pin:SetFrameLevel(host:GetFrameLevel() + 1) end
+				if pin.GetFrameLevel and pin:GetFrameLevel() <= to:GetFrameLevel() then pin:SetFrameLevel(to:GetFrameLevel() + 1) end
 			end
 		end
 	end
@@ -267,7 +281,7 @@ end
 -- Some copy isn't drawing on `host` yet.
 local function PinsOff(host)
 	for _, hbd in ipairs(HBDPins()) do
-		if hbd.Minimap ~= host then return true end
+		if hbd.Minimap ~= HostFor(hbd, host) then return true end
 	end
 	return false
 end

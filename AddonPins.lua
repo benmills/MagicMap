@@ -215,6 +215,15 @@ local function ReleaseAll()
 end
 
 -- Borrow what should be on our map, give back what shouldn't.
+-- A Questie turn-in ("complete") for a quest whose turn-in our quests layer
+-- already shows: the same "?" at the same quest giver, twice. (Its quests to
+-- pick up and objective spots are things we don't draw, so they stay.)
+local function Repeats(icon)
+	local d = rawget(icon, "data")
+	return type(d) == "table" and d.Type == "complete" and type(d.Id) == "number"
+		and ns.ShowsTurnIn ~= nil and ns.ShowsTurnIn(d.Id)
+end
+
 function Sync()
 	if not Active() then
 		ReleaseAll()
@@ -235,7 +244,7 @@ function Sync()
 							local data = pins[icon]
 							local flag = data and (data.worldMapShowFlag or 0)
 							if data and data.instanceID == state.map and flag >= 0 and (flag >= SHOW_CONTINENT or not continent)
-								and type(icon) == "table" and icon.SetParent then
+								and type(icon) == "table" and icon.SetParent and not Repeats(icon) then
 								local s = Spot(icon, data)
 								local rec = hosted[icon]
 								if rec and icon:GetParent() ~= host then
@@ -318,3 +327,11 @@ end)
 
 -- For tests and /mm debugging: what's on our map now.
 function ns.HostedAddonPins() return hosted end
+
+-- Is our map showing this copy's world-map pins (so its minimap pins would
+-- only repeat them)? Only a renamed copy is one addon's; the shared one
+-- carries several, some minimap-only, so it keeps its minimap pins.
+function ns.HostsWorldPins(lib)
+	local copy = known[lib]
+	return copy ~= nil and copy.tag ~= "" and Active() and LayerOn(Register(copy.tag))
+end
