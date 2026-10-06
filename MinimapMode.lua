@@ -19,6 +19,7 @@ local ADDON, ns = ...
 local TILE_YARDS = 1600 / 3
 local IDLE_FOLLOW = 6 -- seconds untouched before the map follows you again
 local EXPAND_TIME, COLLAPSE_TIME = 0.22, 0.18
+local EXPAND_ZOOM_OUT = 1.5 -- M zooms out this much (the window grows far more)
 local EXPANDED_SIZE = 0.7 -- of the screen, each way
 local MAPTYPE_ZONE = Enum and Enum.UIMapType and Enum.UIMapType.Zone or 3
 local SPAN = 200 -- yards across the window's shorter side to start with (Blizzard's widest: 467)
@@ -179,13 +180,16 @@ local function Expand()
 	frame:Show()
 	frame:Raise()
 	TweenTo({ (sw - w) / 2, (sh + h) / 2, w, h }, EXPAND_TIME, nil, { MinimapCluster and MinimapCluster:GetAlpha() or homeAlpha, 0 })
-	-- Land on your zone, the way the world map opens on it.
+	-- Still on you, a little further out: the bigger window does the rest.
+	-- Never further out than your whole zone, the way the world map opens.
+	local zoom = state.zoom / EXPAND_ZOOM_OUT
 	local r = PlayerZoneRect()
 	if r then
 		local vw, vh = w - 4, h - 23 -- the map area inside the full chrome
-		local zoom = math.min(vw / (r.col1 - r.col0), vh / (r.row1 - r.row0)) * 0.92
-		ns.SetFollow(false)
-		ns.FlyTo((r.col0 + r.col1) / 2, (r.row0 + r.row1) / 2, zoom, EXPAND_TIME + 0.1)
+		zoom = math.max(zoom, math.min(vw / (r.col1 - r.col0), vh / (r.row1 - r.row0)) * 0.92)
+	end
+	if state.playerCol and state.playerMap == state.map then
+		ns.FlyTo(state.playerCol, state.playerRow, zoom, EXPAND_TIME + 0.1, function() ns.SetFollow(true) end)
 	end
 end
 

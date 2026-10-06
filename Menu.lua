@@ -81,6 +81,16 @@ local function NewMenu(button, width)
 					rows[i] = row
 				end
 				row.item = item
+				-- Disabled rows (headings, info) don't light up or take clicks.
+				row:EnableMouse(not item.disabled)
+				if item.divider and not row.rule then
+					row.rule = row:CreateTexture(nil, "ARTWORK")
+					row.rule:SetHeight(1)
+					row.rule:SetPoint("LEFT", 6, 0)
+					row.rule:SetPoint("RIGHT", -6, 0)
+					row.rule:SetColorTexture(0.55, 0.42, 0.25, 0.7)
+				end
+				if row.rule then row.rule:SetShown(item.divider == true) end
 				if item.checked ~= nil then
 					row.text:SetText((item.checked and "|cff33ff33[x]|r " or "|cff888888[ ]|r ") .. item.text)
 				else
@@ -163,6 +173,7 @@ function ns.OpenMenuAtCursor(owner, width, items, onSelect)
 		cursorMenus[owner] = menu
 	end
 	menu:Close()
+	menu.list:SetWidth(width) -- one menu per owner, sized for each use
 	menu.getItems = function() return items end
 	menu.onSelect = onSelect
 	local scale = UIParent:GetEffectiveScale()

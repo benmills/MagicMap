@@ -28,8 +28,10 @@ Also drawn: the game's own **quest areas**, and **landmarks** you've used (vendo
 flight points and more).
 
 **Minimap mode.** MagicMap takes your minimap's spot, square and framed, and zooms out far past
-it. Blizzard's blips and other addons' pins (GatherMate, HandyNotes) still show on top, tooltips
-and all. Indoors, the window simply shows Blizzard's own minimap.
+it. MagicMap draws its own markers (quests, flight points, points of interest, party members)
+and hides Blizzard's copies; Blizzard's blips (herbs, ore, NPCs) and other addons' pins
+(GatherMate, HandyNotes) still show, clipped to the window, tooltips and all. Indoors, the window
+simply shows Blizzard's own minimap.
 
 ![Minimap mode: zooming from a herb tooltip out to the whole coast](docs/zoomable-minimap.gif)
 
@@ -60,7 +62,8 @@ yours (wheel or + / −); nothing else changes it.
 Slash commands (`/mm`): `follow`, `path`, `map <name>`, `zone <name>`, `minimap`, `layers`, `icon`,
 `debug`, `reset`. For checking things in game: `perf` (how the map keeps up) and `sync` (Blizzard's
 minimap terrain over ours, to see whether its blips line up; `sync full` to compare the two) and
-`tint` (tile colour correction and coast fades on/off).
+`tint` (tile colour correction and coast fades on/off), `clip` (`mask`, `scroll` or `off`: how the
+Minimap is kept inside the window) and `dupes` (keep Blizzard's own markers alongside ours).
 
 ## How it works
 
@@ -83,9 +86,11 @@ minimap terrain over ours, to see whether its blips line up; `sync full` to comp
 - **Minimap mode** copies FarmHud's trick: `Minimap:SetAlpha(0)` hides Blizzard's terrain but
   not its blips. The real Minimap then moves into MagicMap's window, centred on you and sized
   so its yards-per-pixel matches our zoom, so its blips (and HereBeDragons pins) line up with our
-  terrain. The client doesn't clip it to the window and takes a moment to apply a new zoom
-  level, so it only shows while the map is settled and its square fits inside the window
-  around you. The rest of Blizzard's minimap cluster is hidden meanwhile.
+  terrain. The client doesn't clip it to the window, so a mask texture (`Textures/MinimapMask/`)
+  confines its blips to the biggest square around you inside the window, and HereBeDragons pins
+  move to a plain frame the window does clip. Blizzard's tracking for flight masters, quest
+  objectives and points of interest is switched off meanwhile (we draw those) and restored after.
+  The rest of Blizzard's minimap cluster is hidden meanwhile.
 
 ## Unknowns and risks
 

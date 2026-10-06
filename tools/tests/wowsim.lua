@@ -467,7 +467,11 @@ function Frame:SetResizable(on) S[self].resizable = on end
 function Frame:SetClampedToScreen(on) S[self].clamped = not not on end
 function Frame:IsClampedToScreen() return S[self].clamped == true end
 function Frame:SetClipsChildren(on) end
-function Frame:SetHitRectInsets(...) end
+function Frame:SetHitRectInsets(l, r, t, b)
+	assert(type(l) == "number" and type(r) == "number" and type(t) == "number" and type(b) == "number", "SetHitRectInsets: numbers expected")
+	S[self].hitInsets = { l, r, t, b }
+end
+function Frame:GetHitRectInsets() local i = S[self].hitInsets or { 0, 0, 0, 0 }; return i[1], i[2], i[3], i[4] end
 function Frame:SetID(id) S[self].id = id end
 function Frame:GetID() return S[self].id or 0 end
 function Frame:StartMoving() assert(S[self].movable, "StartMoving: frame isn't movable") end
@@ -552,7 +556,18 @@ function Tooltip:SetUnit(unit)
 		self:AddLine(Sim.unitSubtitle[unit] or "Level 10")
 	end
 end
-function Tooltip:SetMinimapMouseover() self:ClearLines() end
+-- The Minimap's hover: Sim.blip names the blip under the cursor; with none
+-- the tooltip is left empty and hidden.
+local function minimapMouseover(self)
+	self:ClearLines()
+	if Sim.blip then
+		self:AddLine(Sim.blip)
+		self:Show()
+	else
+		self:Hide()
+	end
+end
+Tooltip.SetMinimapMouseover = minimapMouseover
 
 -- The Minimap: zoom levels, and a view radius that follows them.
 local MinimapClass = class("Minimap", "Frame")
@@ -575,8 +590,18 @@ end
 Sim.BlobRingsAt = RingsAt
 if RETAIL then
 	function MinimapClass:UpdateMouseoverAtPoint(x, y) end
-	function Tooltip:SetMinimapMouseover() self:ClearLines() end
 end
+
+-- ScrollFrame: its scroll child is reparented to it.
+local ScrollFrame = class("ScrollFrame", "Frame")
+function ScrollFrame:SetScrollChild(child)
+	assert(child and S[child] and isFrame(child), "SetScrollChild: frame expected")
+	child:SetParent(self)
+	S[self].scrollChild = child
+end
+function ScrollFrame:GetScrollChild() return S[self].scrollChild end
+function ScrollFrame:SetHorizontalScroll(v) S[self].hscroll = v end
+function ScrollFrame:SetVerticalScroll(v) S[self].vscroll = v end
 
 -- QuestPOIFrame (retail): draws quest blobs for one uiMap.
 local POI = class("QuestPOIFrame", "Frame")
@@ -592,10 +617,11 @@ function POI:EnableMerging(on) end
 function POI:EnableSmoothing(on) end
 function POI:SetMergeThreshold(t) end
 function POI:SetNumSplinePoints(n) end
-function POI:UpdateMouseOverTooltip() end
+-- The quest whose drawn area is under the cursor: Sim.questUnderCursor.
+function POI:UpdateMouseOverTooltip(x, y) return Sim.questUnderCursor end
 function POI:GetTooltipIndex() return 0 end
 
-local FRAME_TYPES = { Frame = "Frame", Button = "Button", GameTooltip = "GameTooltip" }
+local FRAME_TYPES = { Frame = "Frame", Button = "Button", GameTooltip = "GameTooltip", ScrollFrame = "ScrollFrame" }
 if RETAIL then FRAME_TYPES.QuestPOIFrame = "QuestPOIFrame" end
 
 local TEMPLATES = { UIPanelCloseButton = true, GameTooltipTemplate = true, ButtonFrameTemplate = true, BackdropTemplate = true }
@@ -893,6 +919,37 @@ Sim.minimapButton:SetPoint("CENTER", Minimap, "BOTTOMLEFT", 10, 10)
 Sim.gatherPin = CreateFrame("Frame", "GatherMatePin1", Minimap)
 Sim.gatherPin:SetSize(12, 12)
 Sim.gatherPin:SetPoint("CENTER", Minimap, "CENTER", 20, 20)
+-- Blizzard's hover handler (Blizzard_Minimap): while the Minimap has the
+-- mouse, GameTooltip shows the blips under the cursor, every frame.
+function Minimap_OnUpdate(self)
+	GameTooltip:SetOwner(UIParent, "ANCHOR_CURSOR")
+	GameTooltip:SetMinimapMouseover()
+end
+Minimap:SetScript("OnEnter", function(self) self:SetScript("OnUpdate", Minimap_OnUpdate) end)
+Minimap:SetScript("OnLeave", function(self)
+	self:SetScript("OnUpdate", nil)
+	GameTooltip:Hide()
+end)
+-- HereBeDragons-Pins (GatherMate's pin above is one of its pins): places
+-- them on whatever frame it's given as the minimap.
+local hbdPins = { Minimap = Minimap, minimapPins = { [Sim.gatherPin] = {} } }
+function hbdPins:SetMinimapObject(obj)
+	self.Minimap = obj or Minimap
+	assert(self.Minimap.GetZoom, "SetMinimapObject: the minimap object needs GetZoom")
+	self.Minimap:GetZoom()
+	for pin in pairs(self.minimapPins) do
+		pin:SetParent(self.Minimap)
+		pin:ClearAllPoints()
+		pin:SetPoint("CENTER", self.Minimap, "CENTER", 20, 20)
+	end
+end
+Sim.hbdPins = hbdPins
+Sim.libs = { ["HereBeDragons-Pins-2.0"] = hbdPins }
+function LibStub(name, silent)
+	local lib = Sim.libs[name]
+	if not lib and not silent then error("Cannot find a library instance of " .. tostring(name)) end
+	return lib
+end
 
 WorldMapFrame = CreateFrame("Frame", "WorldMapFrame", UIParent)
 WorldMapFrame:SetSize(1000, 700)
@@ -914,6 +971,29 @@ if RETAIL or FLAVOR == "forever" then -- Forever runs the Retail client
 		end,
 		SetMinimapInsetInfo = function(minAngle, maxAngle, scalar) Sim.rimInset = scalar end,
 		ClearMinimapInsetInfo = function() Sim.rimInset = nil end,
+		-- Tracking: the client keeps it per character (a CVar).
+		GetNumTrackingTypes = function() return #Sim.tracking end,
+		GetTrackingInfo = function(i)
+			local t = Sim.tracking[i]
+			return t and { name = t.name, texture = 136456, active = t.active, type = "spell", subType = 2, spellID = t.spellID }
+		end,
+		GetTrackingFilter = function(i)
+			local t = Sim.tracking[i]
+			return t and { filterID = t.filterID, spellID = t.spellID }
+		end,
+		SetTracking = function(i, on)
+			assert(Sim.tracking[i] and type(on) == "boolean", "SetTracking: index, boolean expected")
+			Sim.tracking[i].active = on
+			C_Timer.After(0, function() Sim.FireEvent("MINIMAP_UPDATE_TRACKING") end)
+		end,
+		IsTrackingHiddenQuests = function() return false end,
+	}
+	Sim.tracking = {
+		{ name = "Flight Master", filterID = 8, active = true },
+		{ name = "Find Herbs", spellID = 2383, active = true },
+		{ name = "Track Quest POIs", filterID = 65536, active = true },
+		{ name = "Points of Interest", filterID = 8192, active = false },
+		{ name = "Mailbox", filterID = 64, active = true },
 	}
 end
 
@@ -963,6 +1043,7 @@ local TILE = 1600 / 3
 local function toWorld(col, row) return (32 - row) * TILE, (32 - col) * TILE end
 
 Enum = { UIMapType = { Cosmic = 0, World = 1, Continent = 2, Zone = 3, Dungeon = 4, Micro = 5, Orphan = 6 } }
+if C_Minimap then Enum.MinimapTrackingFilter = { Unfiltered = 0, TaxiNode = 8, Mailbox = 64, POI = 8192, QuestPOIs = 65536 } end
 local T = Enum.UIMapType
 
 Sim.maps = {
@@ -1008,7 +1089,13 @@ Sim.onStep = function(elapsed)
 end
 
 function UnitPosition(unit)
-	if unit ~= "player" or Sim.restricted then return nil end
+	if Sim.restricted then return nil end
+	local u = Sim.units[unit]
+	if unit ~= "player" and u and u.col then
+		local north, west = toWorld(u.col, u.row)
+		return north, west, 0, Sim.player.inst
+	end
+	if unit ~= "player" then return nil end
 	local p = Sim.player
 	local north, west = toWorld(p.col, p.row)
 	return north, west, 0, p.inst
@@ -1025,14 +1112,23 @@ function GetZoneText()
 end
 function GetSubZoneText() return "Goldshire" end
 
-Sim.units = { player = { name = "Tester", class = "MAGE" } }
+Sim.units = { player = { name = "Tester", class = "MAGE", level = 5 } }
 Sim.unitSubtitle = {}
 function UnitName(unit) local u = Sim.units[unit]; return u and u.name end
+function UnitIsGhost(unit) return unit == "player" and Sim.ghost or false end
 function UnitExists(unit) return Sim.units[unit] ~= nil end
 function UnitClass(unit) local u = Sim.units[unit]; if u then return u.class, u.class, 8 end end
 function UnitGUID(unit) local u = Sim.units[unit]; return u and (u.guid or "Player-1-00000001") end
 function UnitIsPlayer(unit) local u = Sim.units[unit]; return u ~= nil and u.npc == nil end
 function UnitClassification(unit) return "normal" end
+function UnitLevel(unit) local u = Sim.units[unit]; return u and (u.level or 1) or 0 end
+-- A group: Sim.group lists the other members' unit tokens (party1...),
+-- each in Sim.units with a tile position (col, row) on the player's instance.
+Sim.group = {}
+function GetNumGroupMembers() return #Sim.group > 0 and #Sim.group + 1 or 0 end
+function IsInRaid() return false end
+function UnitIsUnit(a, b) return a == b end
+function UnitIsDeadOrGhost(unit) local u = Sim.units[unit]; return u ~= nil and u.dead == true end
 
 C_Map = {}
 function C_Map.GetMapInfo(id) return mapInfo(id) end
@@ -1066,7 +1162,15 @@ function C_Map.GetMapInfoAtPosition(id, x, y)
 	local col, row = m[5] + (m[7] - m[5]) * x, m[6] + (m[8] - m[6]) * y
 	return mapInfo(mapAt(m[4], col, row, { [T.Zone] = true }))
 end
-function C_Map.GetAreaInfo(areaID) return "Area " .. areaID end
+Sim.areaNames = { [87] = "Goldshire" }
+function C_Map.GetAreaInfo(areaID) return Sim.areaNames[areaID] or ("Area " .. areaID) end
+-- Level ranges: (playerMin, playerMax, petMin, petMax); 0s for maps without one.
+Sim.mapLevels = { [1429] = { 1, 10 }, [1436] = { 9, 18 }, [1426] = { 1, 10 }, [1411] = { 1, 10 } }
+function C_Map.GetMapLevels(id)
+	local l = Sim.mapLevels[id]
+	if l then return l[1], l[2], 0, 0 end
+	return 0, 0, 0, 0
+end
 Sim.waypoint = nil
 function C_Map.CanSetUserWaypointOnMap(id) return Sim.maps[id] ~= nil and Sim.maps[id][2] ~= T.World end
 function C_Map.SetUserWaypoint(point)
@@ -1100,7 +1204,12 @@ C_EncounterJournal = {
 	end,
 }
 C_MapExplorationInfo = {
-	GetExploredAreaIDsAtPosition = function(id, pos) return { 87 } end,
+	-- Sim.unexplored: nothing explored anywhere (the client returns nil then).
+	GetExploredAreaIDsAtPosition = function(id, pos)
+		assert(type(pos) == "table" and pos.x, "GetExploredAreaIDsAtPosition: vector expected")
+		if Sim.unexplored then return nil end
+		return { 87 }
+	end,
 }
 C_AreaPoiInfo = {
 	GetAreaPOIForMap = function(id) return id == 1429 and { 501 } or {} end,
@@ -1182,6 +1291,22 @@ else
 	function AddQuestWatch(index) Sim.watchedIndex = index end
 	function QuestWatch_Update() end
 	function GetQuestLogIndexByID(questID) return Sim.quests[questID] and 1 or 0 end
+end
+
+-- Quests to pick up (C_QuestLine, the world map's quest offers): given once
+-- a map has been asked for.
+if RETAIL or FLAVOR == "forever" then
+	Sim.offers = { [1429] = { { questID = 70, questName = "Wolves Across the Border", questLineName = "", questLineID = 1,
+		x = 0.45, y = 0.62, isHidden = false, inProgress = false, startMapID = 1429 } } }
+	Sim.offersAsked = {}
+	C_QuestLine = {
+		RequestQuestLinesForMap = function(id)
+			assert(type(id) == "number", "RequestQuestLinesForMap: uiMapID expected")
+			Sim.offersAsked[id] = true
+			C_Timer.After(0.1, function() Sim.FireEvent("QUESTLINE_UPDATE", false) end)
+		end,
+		GetAvailableQuestLines = function(id) return Sim.offersAsked[id] and Sim.offers[id] or {} end,
+	}
 end
 
 function CanMerchantRepair() return Sim.canRepair == true end

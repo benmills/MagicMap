@@ -35,10 +35,12 @@ local LAYERS = {
 	{ key = "quests", label = "Quests", default = true },
 	{ key = "questAreas", label = "Quest areas", default = true },
 	{ key = "questAreasApprox", label = "Estimate areas the game doesn't define", default = true },
+	{ key = "offers", label = "Quests to pick up", default = true },
 	{ key = "flight", label = "Flight points", default = true },
 	{ key = "dungeons", label = "Dungeon entrances", default = true },
 	{ key = "graveyards", label = "Graveyards", default = false },
 	{ key = "corpse", label = "Your corpse", default = true },
+	{ key = "group", label = "Party & raid members", default = true },
 	{ key = "waypoint", label = "Waypoint", default = true },
 }
 
@@ -51,6 +53,7 @@ local APPROX_RADIUS = 110 / 533.33 -- rough objective area radius, in tiles
 local CIRCLE = ns.CIRCLE
 
 local function Enabled(key) return db and db.layers[key] end
+ns.LayerEnabled = function(key) return Enabled(key) and true or false end
 
 local function MapPos(x, y)
 	if CreateVector2D then return CreateVector2D(x, y) end
@@ -295,16 +298,12 @@ local function StylePin(pin, e)
 	local icon = e.icon or {}
 	local c = icon.color or { 1, 1, 1 }
 	if icon.texture then
-		-- Plain icon file (e.g. minimap tracking icons) on a soft dark disc for contrast.
+		-- Plain icon file (e.g. minimap tracking icons), bare as Blizzard draws them.
 		pin.icon:SetTexture(icon.texture)
 		pin.icon:SetTexCoord(0, 1, 0, 1)
 		pin.icon:SetVertexColor(1, 1, 1, 1)
 		pin.icon:SetSize(size, size)
-		pin.ring:SetTexture(CIRCLE)
-		pin.ring:SetTexCoord(0, 1, 0, 1)
-		pin.ring:SetVertexColor(0, 0, 0, 0.5)
-		pin.ring:SetSize(size + 4, size + 4)
-		pin.ring:Show()
+		pin.ring:Hide()
 		return
 	end
 	if icon.atlas and AtlasExists(icon.atlas) then
@@ -336,45 +335,19 @@ local function StylePin(pin, e)
 	pin.icon:SetSize(size * 0.6, size * 0.6)
 end
 
--- Where the Minimap sits in the map (minimap mode), in tiles: it draws its
--- own turn-in blips there, so ours step aside rather than double up.
-local minimapCircle = {}
-local function UnderMinimap(e)
-	local c = minimapCircle
-	return e.turnIn and c.r and (e.col - c.col) ^ 2 + (e.row - c.row) ^ 2 < c.r ^ 2
-end
-
 -- Pins only move as you zoom; small landmarks appear once you're close
--- enough to use them.
+-- enough to use them. In minimap mode ours stay put over Blizzard's blips
+-- (they sit above the Minimap): ours first, its own fill the gaps.
 local function PositionPins()
 	local z = state.zoom
 	for i = 1, pinPool.used do
 		local pin = pinPool.list[i]
 		local e = pin.entry
-		if (e.minZoom and z < e.minZoom) or UnderMinimap(e) then
+		if e.minZoom and z < e.minZoom then
 			if pin:IsShown() then pin:Hide() end
 		else
 			if not pin:IsShown() then pin:Show() end
 			pin:SetPoint("CENTER", canvases.pins, "TOPLEFT", e.col * z, -e.row * z)
-		end
-	end
-end
-
--- The Minimap's circle moved (r nil: it's not in the map): show or hide just
--- the turn-in pins it would double.
-function ns.SetMinimapCircle(col, row, r)
-	local c = minimapCircle
-	if c.col == col and c.row == row and c.r == r then return end
-	c.col, c.row, c.r = col, row, r
-	for i = 1, pinPool.used do
-		local pin = pinPool.list[i]
-		local e = pin.entry
-		if e.turnIn and not (e.minZoom and state.zoom < e.minZoom) then
-			local show = not UnderMinimap(e)
-			if pin:IsShown() ~= show then
-				pin:SetShown(show)
-				if show then pin:SetPoint("CENTER", canvases.pins, "TOPLEFT", e.col * state.zoom, -e.row * state.zoom) end
-			end
 		end
 	end
 end
@@ -459,18 +432,27 @@ sources.graveyards = function(mapID)
 	return list
 end
 
+local function IsGhost() return UnitIsGhost and UnitIsGhost("player") or false end
+
+-- While you're a ghost your corpse is your target (ahead of quests and
+-- waypoints). The client only knows where it is a while after you release,
+-- so until it's found the layer asks again every CORPSE_POLL seconds.
+local CORPSE_POLL = 1
+local corpseFound -- seen while this ghost lasts
+
 sources.corpse = function(mapID)
 	local list = {}
 	if not (C_DeathInfo and C_DeathInfo.GetCorpseMapPosition) then return list end
 	for _, uiMapID in ipairs(QueryMaps(mapID)) do
 		local x, y = PosXY(SafeCall(C_DeathInfo.GetCorpseMapPosition, uiMapID))
 		if x and AddAt(list, uiMapID, x, y, {
-			size = 20, title = "Your corpse",
+			size = 20, title = "Your corpse", glow = IsGhost(),
 			icon = { atlas = "Navigation-Tombstone-Icon", color = { 1, 1, 1 } },
 		}) then
 			break
 		end
 	end
+	if list[1] and IsGhost() then corpseFound = true end
 	return list
 end
 
@@ -560,7 +542,7 @@ sources.quests = function(mapID)
 			and { atlas = "UI-QuestIcon-TurnIn-Normal", color = { 0.2, 1, 0.2 } }
 			or { atlas = "Quest-In-Progress-Icon-yellow", under = "UI-QuestPoi-QuestNumber", color = { 1, 0.82, 0 } }
 		local e = AddAt(list, b.uiMapID, b.x, b.y, {
-			size = followed and 26 or 22, glow = followed, questID = questID, title = title, icon = icon, turnIn = complete,
+			size = followed and 26 or 22, glow = followed, questID = questID, title = title, icon = icon,
 			lines = lines,
 		})
 		if e and not complete then
@@ -585,6 +567,118 @@ sources.waypoint = function()
 	return list
 end
 
+-- Quests you could pick up: the world map's quest offers (C_QuestLine, as
+-- its QuestOfferDataProvider reads them). The client fills them in per map
+-- once asked (QUESTLINE_UPDATE), so each zone is asked once.
+local offersAsked = {}
+sources.offers = function(mapID)
+	local list, seen = {}, {}
+	local Q = C_QuestLine
+	if not (Q and Q.GetAvailableQuestLines) then return list end
+	local hidden = C_Minimap and C_Minimap.IsTrackingHiddenQuests and SafeCall(C_Minimap.IsTrackingHiddenQuests)
+	for _, uiMapID in ipairs(ns.GetQuestMaps(mapID)) do
+		if Q.RequestQuestLinesForMap and not offersAsked[uiMapID] then
+			offersAsked[uiMapID] = true
+			SafeCall(Q.RequestQuestLinesForMap, uiMapID)
+		end
+		for _, q in ipairs(SafeCall(Q.GetAvailableQuestLines, uiMapID) or {}) do
+			if q.questID and not seen[q.questID] and not q.inProgress and (hidden or not q.isHidden) then
+				seen[q.questID] = true
+				local lines = { "|cff9d9d9dQuest to pick up|r" }
+				if q.questLineName and q.questLineName ~= "" and q.questLineName ~= q.questName then
+					table.insert(lines, 1, q.questLineName)
+				end
+				AddAt(list, uiMapID, q.x, q.y, {
+					size = 18, title = q.questName or ("Quest " .. q.questID), lines = lines,
+					icon = { atlas = "QuestNormal", color = { 1, 0.82, 0 } },
+				})
+			end
+		end
+	end
+	return list
+end
+
+---------------------------------------------------------------------------
+-- Party and raid members: dots in their class colours. They walk, so they
+-- are moved every frame, apart from the pin layout. (UnitPosition works for
+-- them outdoors; instances withhold it.)
+---------------------------------------------------------------------------
+
+local GROUP_SIZE = 12
+local groupDots = {}
+
+local function GroupDotOnEnter(self)
+	local unit = self.unit
+	if not (unit and UnitExists(unit)) then return end
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+	local _, class = UnitClass(unit)
+	local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+	GameTooltip:AddLine(UnitName(unit) or "?", c and c.r or 1, c and c.g or 1, c and c.b or 1)
+	local level = UnitLevel and UnitLevel(unit)
+	local className = UnitClass(unit)
+	if level and level > 0 and className then GameTooltip:AddLine((LEVEL or "Level") .. " " .. level .. " " .. className, 1, 1, 1) end
+	if UnitIsDeadOrGhost and UnitIsDeadOrGhost(unit) then GameTooltip:AddLine("|cff808080Dead|r") end
+	GameTooltip:Show()
+end
+
+local function GroupDot(i)
+	local dot = groupDots[i]
+	if dot then return dot end
+	dot = CreateFrame("Frame", nil, canvases.pins)
+	dot:SetSize(GROUP_SIZE, GROUP_SIZE)
+	dot.ring = dot:CreateTexture(nil, "ARTWORK", nil, 0)
+	dot.ring:SetTexture(CIRCLE)
+	dot.ring:SetVertexColor(0, 0, 0, 0.9)
+	dot.ring:SetPoint("CENTER")
+	dot.ring:SetSize(GROUP_SIZE, GROUP_SIZE)
+	dot.icon = dot:CreateTexture(nil, "ARTWORK", nil, 1)
+	dot.icon:SetTexture(CIRCLE)
+	dot.icon:SetPoint("CENTER")
+	dot.icon:SetSize(GROUP_SIZE - 3, GROUP_SIZE - 3)
+	dot:EnableMouse(true)
+	if dot.SetPropagateMouseClicks then dot:SetPropagateMouseClicks(true) end
+	dot:SetScript("OnEnter", GroupDotOnEnter)
+	dot:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	groupDots[i] = dot
+	return dot
+end
+
+local function Secret(v) return issecretvalue and issecretvalue(v) end
+
+local groupShown = 0
+local function UpdateGroup()
+	local n = 0
+	local members = Enabled("group") and state.map and GetNumGroupMembers and GetNumGroupMembers() or 0
+	if members > 0 then
+		local raid = IsInRaid and IsInRaid()
+		local z = state.zoom
+		for i = 1, raid and members or members - 1 do
+			local unit = (raid and "raid" or "party") .. i
+			if not (UnitIsUnit and UnitIsUnit(unit, "player")) then
+				local north, west, _, inst = UnitPosition(unit)
+				if north and not Secret(north) and inst == state.map then
+					local col, row = ns.WorldToTile(north, west)
+					n = n + 1
+					local dot = GroupDot(n)
+					dot.unit = unit
+					local _, class = UnitClass(unit)
+					local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+					if UnitIsDeadOrGhost and UnitIsDeadOrGhost(unit) then
+						dot.icon:SetVertexColor(0.5, 0.5, 0.5, 1)
+					else
+						dot.icon:SetVertexColor(c and c.r or 1, c and c.g or 1, c and c.b or 1, 1)
+					end
+					dot:SetPoint("CENTER", canvases.pins, "TOPLEFT", col * z, -row * z)
+					if not dot:IsShown() then dot:Show() end
+				end
+			end
+		end
+	end
+	for i = n + 1, groupShown do groupDots[i]:Hide() end
+	groupShown = n
+end
+ns.frame:HookScript("OnUpdate", UpdateGroup)
+
 ---------------------------------------------------------------------------
 -- Quest areas
 ---------------------------------------------------------------------------
@@ -602,6 +696,9 @@ local function NewBlobFrame()
 	f:SetFillTexture("Interface\\WorldMap\\UI-QuestBlob-Inside")
 	f:SetBorderTexture("Interface\\WorldMap\\UI-QuestBlob-Outside")
 	f:SetBorderScalar(1.0)
+	-- Hover is worked out from the cursor (OnMapHover); the frame itself must
+	-- never take the mouse from the Minimap's blips above it.
+	if f.EnableMouse then f:EnableMouse(false) end
 	return f
 end
 
@@ -745,23 +842,45 @@ local function BlobQuestAt(col, row)
 	end
 end
 
+local function ShowBlobTooltip(questID)
+	blobTooltipOwner.questID = questID
+	GameTooltip:SetOwner(blobTooltipOwner, "ANCHOR_CURSOR_RIGHT", 12, 0)
+	GameTooltip:AddLine(SafeCall(C_QuestLog.GetTitleForQuestID, questID) or "Quest")
+	for _, line in ipairs(QuestLines(questID, false)) do GameTooltip:AddLine(line, 1, 1, 1, true) end
+	GameTooltip:AddLine(FollowHint(questID))
+	GameTooltip:Show()
+end
+
+-- Who gets GameTooltip over the map: our pins (they take the mouse first),
+-- else a Blizzard blip under the cursor, else the quest area. While the
+-- Minimap has the mouse (minimap mode), MinimapBlips settles the last two
+-- right after Blizzard's own hover handler, every frame, so nothing flickers.
 function ns.OnMapHover(col, row)
+	if state.minimapHover and Minimap:IsVisible() then return end
 	local questID = col and BlobQuestAt(col, row)
 	local owner = GameTooltip:GetOwner()
 	if questID then
-		if owner and owner ~= blobTooltipOwner then return end -- a pin tooltip wins
-		if blobTooltipOwner.questID ~= questID or not GameTooltip:IsShown() then
-			blobTooltipOwner.questID = questID
-			GameTooltip:SetOwner(blobTooltipOwner, "ANCHOR_CURSOR_RIGHT", 12, 0)
-			GameTooltip:AddLine(SafeCall(C_QuestLog.GetTitleForQuestID, questID) or "Quest")
-			for _, line in ipairs(QuestLines(questID, false)) do GameTooltip:AddLine(line, 1, 1, 1, true) end
-			GameTooltip:AddLine(FollowHint(questID))
-			GameTooltip:Show()
+		if owner and owner ~= blobTooltipOwner and GameTooltip:IsShown() then return end -- a pin tooltip wins
+		if blobTooltipOwner.questID ~= questID or not GameTooltip:IsShown() or owner ~= blobTooltipOwner then
+			ShowBlobTooltip(questID)
 		end
 	elseif owner == blobTooltipOwner then
 		blobTooltipOwner.questID = nil
 		GameTooltip:Hide()
 	end
+end
+
+-- Under the Minimap, with no blip under the cursor: the quest area's tooltip,
+-- rebuilt (Blizzard's handler clears GameTooltip every frame). True if shown.
+function ns.ShowQuestAreaTooltip(col, row)
+	local questID = col and BlobQuestAt(col, row)
+	if questID then
+		ShowBlobTooltip(questID)
+		return true
+	end
+	if GameTooltip:IsOwned(blobTooltipOwner) then GameTooltip:Hide() end
+	blobTooltipOwner.questID = nil
+	return false
 end
 
 local function RefreshPins(key)
@@ -818,8 +937,8 @@ end
 local target = {}
 function ns.GetTarget()
 	local followed = FollowedQuest()
-	local found
-	if followed then
+	local found = IsGhost() and pinData.corpse and pinData.corpse[1]
+	if not found and followed then
 		for _, e in ipairs(pinData.quests or {}) do
 			if e.questID == followed then found = e break end
 		end
@@ -834,6 +953,8 @@ end
 -- another quest or move the waypoint, nil with none (Core's path mode keys
 -- off it).
 function ns.TargetKey()
+	if not IsGhost() then corpseFound = nil end
+	if corpseFound then return "corpse", true end -- true: back to following you
 	local followed = FollowedQuest()
 	if followed then return "quest:" .. followed end
 	local point = C_Map and C_Map.GetUserWaypoint and C_Map.GetUserWaypoint()
@@ -2067,7 +2188,9 @@ local function LayerItems()
 end
 local function OnLayerSelect(key)
 	db.layers[key] = not db.layers[key]
-	if sources[key] then
+	if key == "group" then
+		return -- moved every frame
+	elseif sources[key] then
 		RefreshPins(key)
 		LayoutPins()
 		LayoutQuestAreas()
@@ -2105,7 +2228,9 @@ ns.On("ViewChanged", OnViewChanged)
 
 local events = CreateFrame("Frame")
 local EVENT_LAYERS = {
-	QUEST_LOG_UPDATE = { "quests" },
+	QUEST_LOG_UPDATE = { "quests", "offers" },
+	QUESTLINE_UPDATE = { "offers" },
+	MINIMAP_UPDATE_TRACKING = { "offers" },
 	QUEST_POI_UPDATE = { "quests" },
 	USER_WAYPOINT_UPDATED = { "waypoint" },
 	SUPER_TRACKING_CHANGED = { "quests" },
@@ -2116,7 +2241,14 @@ local EVENT_LAYERS = {
 }
 for event in pairs(EVENT_LAYERS) do pcall(events.RegisterEvent, events, event) end
 pcall(events.RegisterEvent, events, "MAP_EXPLORATION_UPDATED")
-events:SetScript("OnEvent", function(_, event)
+-- Ghost and no corpse on the map yet: keep asking.
+local function PollCorpse()
+	if IsGhost() and not corpseFound and Enabled("corpse") and state.map then ScheduleRefresh("corpse") end
+	C_Timer.After(CORPSE_POLL, PollCorpse)
+end
+C_Timer.After(CORPSE_POLL, PollCorpse)
+events:SetScript("OnEvent", function(_, event, arg1)
+	if event == "QUESTLINE_UPDATE" and arg1 then wipe(offersAsked) end -- asked to ask again
 	if event == "MAP_EXPLORATION_UPDATED" then
 		-- Keep showing the old shading until the new pass finishes.
 		for _, grid in pairs(grids) do grid.shadeStale = true end
@@ -2125,3 +2257,57 @@ events:SetScript("OnEvent", function(_, event)
 	end
 	for _, key in ipairs(EVENT_LAYERS[event] or {}) do ScheduleRefresh(key) end
 end)
+
+---------------------------------------------------------------------------
+-- Exports for ZoneInfo.lua (the big map's right-click info). Read on a
+-- right-click only.
+---------------------------------------------------------------------------
+
+-- Quests whose area covers tile (col, row): drawn blobs, then the estimated
+-- circles. A list of { questID, title, followed }.
+function ns.QuestsAt(col, row)
+	local out, seen, followed = {}, {}, FollowedQuest()
+	local function Add(questID, title)
+		if seen[questID] then return end
+		seen[questID] = true
+		out[#out + 1] = { questID = questID, followed = questID == followed,
+			title = title or SafeCall(C_QuestLog.GetTitleForQuestID, questID) or ("Quest " .. questID) }
+	end
+	for _, b in ipairs(blobFrames) do
+		local r = b.rect
+		if col >= r.col0 and col <= r.col1 and row >= r.row0 and row <= r.row1 then
+			local questID = BlobAt(b.frame, (col - r.col0) / (r.col1 - r.col0), (row - r.row0) / (r.row1 - r.row0))
+			if questID then Add(questID) end
+		end
+	end
+	if Enabled("quests") and Enabled("questAreasApprox") then
+		for _, a in ipairs(questAreas) do
+			if a.shape == "area" and a.hasBlob == false
+				and (a.col - col) ^ 2 + (a.row - row) ^ 2 <= APPROX_RADIUS ^ 2 then
+				Add(a.questID, a.title)
+			end
+		end
+	end
+	return out
+end
+
+-- A layer's pins on the shown map, also while the layer is off. Only layers
+-- whose source just reads the game (quests and corpse keep state).
+local PURE_SOURCES = { flight = true, graveyards = true, dungeons = true, services = true, areaPOIs = true }
+function ns.LayerPins(key)
+	if pinData[key] then return pinData[key] end
+	if PURE_SOURCES[key] and sources[key] and state.map then return SafeCall(sources[key], state.map) end
+end
+
+-- The sub-zone label (offline borders) nearest tile (col, row): name,
+-- distance in tiles, and the label's col, row. Nil without offline borders.
+function ns.SubzoneNear(col, row)
+	local data = state.map and OfflineBorders(state.map)
+	if not data then return nil end
+	local best, bestD
+	for _, l in ipairs(data.subLabels) do
+		local d = (l.col - col) ^ 2 + (l.row - row) ^ 2
+		if not bestD or d < bestD then best, bestD = l, d end
+	end
+	if best then return best.name, math.sqrt(bestD), best.col, best.row end
+end

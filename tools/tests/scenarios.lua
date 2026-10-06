@@ -200,17 +200,17 @@ scenarios.minimap_mode = function()
 	check(Minimap:GetParent() == ns.viewport, "the Minimap moved into the map")
 	check(Minimap:GetAlpha() == 0, "its terrain is hidden")
 	check(Sim.minimapButton:GetParent() == ns.minimapStandIn, "other addons' minimap buttons moved to the stand-in")
-	check(Sim.gatherPin:GetParent() == Minimap, "pins stay on the Minimap")
+	local pinHost = _G.MagicMapMinimapPins
+	check(Sim.gatherPin:GetParent() == Minimap or Sim.gatherPin:GetParent() == pinHost, "pins stay with the Minimap")
 	check(not MinimapCluster:IsShown() and not Sim.minimapButton:IsVisible(), "nothing of the minimap is left in its corner")
-	-- Standing at a turn-in, the Minimap's own ? is the only one shown.
+	-- Ours first: standing at a turn-in, our pin stays, over the Minimap's.
 	local home = { Sim.player.col, Sim.player.row }
 	local _, col, row = ns.MapToTile(1429, 0.40, 0.80)
 	Sim.player.col, Sim.player.row = col, row
 	Sim.Run(1)
-	check(QuestPin(62) == nil, "our turn-in pin steps aside for the Minimap's")
+	check(QuestPin(62) ~= nil, "our turn-in pin stays where the Minimap is")
 	Sim.player.col, Sim.player.row = home[1], home[2]
 	Sim.Run(1)
-	check(QuestPin(62) ~= nil, "and comes back once the Minimap has moved on")
 	-- Ride, zoom out past the blips, back in.
 	Sim.player.speed = 14
 	Sim.Run(2)
@@ -224,17 +224,15 @@ scenarios.minimap_mode = function()
 	Sim.MoveCursorTo(UIParent, 0.1, 0.1)
 	Sim.Run(8)
 	check(ns.state.follow, "goes back to following after idling")
-	check(not ns.state.minimapShown, "zoomed in past its closest level, the Minimap stays out (it couldn't fit)")
+	check(ns.state.minimapShown and Sim.minimapMask:find("MinimapMask\\Square%d+$"),
+		"zoomed in past its closest level, the Minimap still shows, masked")
+	check(Sim.gatherPin:GetParent() == pinHost and pinHost:IsVisible(), "HereBeDragons' pins are on our host in the window")
 	ns.SetZoom(160)
 	Sim.Run(0.5)
 	check(ns.state.minimapShown and Minimap:IsVisible(), "settled, the Minimap's blips show")
 	check(not C_Minimap or Sim.rimInset == 1000, "Blizzard's rim arrows are pushed off screen")
 	check(Sim.BlobRingsAt(0), "and its quest area rings are hidden")
-	local vl, vb, vw, vh = ns.viewport:GetRect()
-	local ml, mb, mw, mh = Minimap:GetRect()
-	check(ml >= vl - 1 and mb >= vb - 1 and ml + mw <= vl + vw + 1 and mb + mh <= vb + vh + 1,
-		"its square lies inside the window (the client won't clip it)")
-	check(Sim.minimapMask:find("WHITE8X8") and not Minimap:IsClampedToScreen(), "square, and never clamped to the screen")
+	check(Sim.minimapMask and not Minimap:IsClampedToScreen(), "square or masked, and never clamped to the screen")
 	Sim.Wheel(ns.viewport, 1)
 	Sim.Run(0.05)
 	check(not Minimap:IsVisible() and not ns.state.minimapShown, "mid-zoom, it steps aside")
@@ -257,11 +255,13 @@ scenarios.minimap_mode = function()
 	check(Minimap:GetAlpha() == 0, "back outdoors, our map again")
 	check(ns.frame:GetFrameStrata() == MinimapCluster:GetFrameStrata(), "it sits at the minimap's strata")
 	-- M: ours grows to most of the screen instead of Blizzard's world map.
-	local smallW = ns.frame:GetWidth()
+	local smallW, smallZoom = ns.frame:GetWidth(), ns.state.zoom
 	ToggleWorldMap()
 	Sim.Run(1)
 	check(ns.IsMapExpanded() and not WorldMapFrame:IsShown(), "M grows our window instead of opening Blizzard's map")
 	check(ns.frame:GetWidth() > smallW * 2 and ns.frame:GetParent() == UIParent, "to most of the screen")
+	check(ns.state.follow and ns.state.zoom < smallZoom and ns.state.zoom >= smallZoom / 1.5 - 0.5,
+		"still on you, zoomed out only a little")
 	ToggleWorldMap()
 	Sim.Run(1)
 	check(not ns.IsMapExpanded() and math.abs(ns.frame:GetWidth() - smallW) < 1, "M again shrinks it back")
@@ -307,6 +307,207 @@ scenarios.minimap_mode = function()
 	check(Sim.minimapButton:GetParent() == Minimap, "addon buttons are back on the Minimap")
 	check(MinimapCluster:IsShown() and _G.MinimapBorder:IsVisible(), "the minimap cluster is shown again")
 	check(Sim.minimapButton:IsVisible(), "addon buttons are visible again")
+end
+
+-- Where the Minimap's blips may show: its mask's opaque square (screen
+-- left, bottom, side), centred on it.
+local function BlipSquare()
+	local cx, cy = Minimap:GetCenter()
+	local w = Minimap:GetWidth()
+	local n = Sim.minimapMask:match("Square(%d+)$")
+	local side = n and w * tonumber(n) / 64 or w
+	return cx - side / 2, cy - side / 2, side
+end
+
+local function InsideWindow(l, b, side)
+	local vl, vb, vw, vh = ns.viewport:GetRect()
+	return l >= vl - 1 and b >= vb - 1 and l + side <= vl + vw + 1 and b + side <= vb + vh + 1
+end
+
+-- /mm clip: the Minimap bigger than the window, its blips kept inside it.
+scenarios.minimap_clip = function()
+	local parent = Minimap:GetParent()
+	Sim.Click(ns.modeButton)
+	Sim.Run(2)
+	-- Zoomed in close: Blizzard's closest level is far bigger than the window.
+	ns.SetZoom(1500)
+	Sim.Run(1)
+	check(ns.state.minimapShown and Minimap:GetZoom() == 5, "zoomed in close, the Minimap still shows, at its closest level")
+	local l, b, side = BlipSquare()
+	check(Minimap:GetWidth() > ns.viewport:GetWidth() and InsideWindow(l, b, side),
+		"bigger than the window, its mask keeps the blips inside it")
+	check(side > 0.8 * math.min(ns.viewport:GetSize()) - 4, "in about the biggest square around you that fits")
+	local il, ir, it, ib = Minimap:GetHitRectInsets()
+	check(math.abs(il - (Minimap:GetWidth() - side) / 2) < 1 and math.abs(ib - il) < 1, "hover reaches it only in that square")
+	-- Off-centre (panned away from you): the square shrinks to the room left.
+	ns.SetZoom(400)
+	Sim.Run(1)
+	local _, _, wide = BlipSquare()
+	Sim.Drag(ns.viewport, 30, 0)
+	Sim.Run(0.5)
+	l, b, side = BlipSquare()
+	check(ns.state.minimapShown and InsideWindow(l, b, side) and side < wide, "off-centre, a smaller square, still inside")
+	ns.SetFollow(true)
+	Sim.Run(1)
+	-- Off: as before, only while its whole square fits.
+	Sim.Slash("clip off")
+	ns.SetZoom(1500)
+	Sim.Run(1)
+	check(not ns.state.minimapShown and not Minimap:IsVisible(), "clip off: zoomed in close, it stays out")
+	check(Sim.gatherPin:GetParent() == Minimap, "clip off: HereBeDragons' pins stay on the Minimap")
+	ns.SetZoom(160)
+	Sim.Run(1)
+	l, b, side = BlipSquare()
+	check(ns.state.minimapShown and Sim.minimapMask:find("WHITE8X8") and InsideWindow(l, b, side), "clip off: shown when its square fits")
+	-- Scroll: in a ScrollFrame over the window, never masked.
+	Sim.Slash("clip scroll")
+	ns.SetZoom(1500)
+	Sim.Run(1)
+	local host = Minimap:GetParent()
+	check(host ~= ns.viewport and host:GetObjectType() == "ScrollFrame" and host:GetScrollChild() == Minimap,
+		"clip scroll: the Minimap is the scroll child of a frame over the window")
+	check(ns.state.minimapShown and Sim.minimapMask:find("WHITE8X8"), "clip scroll: shown, unmasked")
+	Sim.Slash("clip mask")
+	Sim.Run(1)
+	check(Minimap:GetParent() == ns.viewport and ns.state.minimapShown, "clip mask: back in the window")
+	Sim.Click(ns.modeButton)
+	Sim.Run(1)
+	check(Minimap:GetParent() == parent and Minimap:GetHitRectInsets() == 0, "leaving minimap mode, it's back, all of it hoverable")
+	check(Sim.gatherPin:GetParent() == Minimap and not _G.MagicMapMinimapPins:IsVisible(), "and the pins are back on it")
+end
+
+-- Ours first: Blizzard's own markers for what we draw go off while the
+-- Minimap is in the map; the tooltip goes to our pins, then its blips, then
+-- the quest area.
+scenarios.minimap_ours_first = function()
+	if not (C_Minimap and C_Minimap.SetTracking) then return end
+	local function Active(name)
+		for _, t in ipairs(Sim.tracking) do
+			if t.name == name then return t.active end
+		end
+	end
+	Sim.Click(ns.modeButton)
+	ns.SetZoom(160)
+	Sim.Run(2)
+	check(not Active("Flight Master") and not Active("Track Quest POIs"), "Blizzard's flight masters and quest objectives go off")
+	check(Active("Find Herbs") and Active("Mailbox") and not Active("Points of Interest"), "the rest of its tracking is untouched")
+	MagicMapDB.layers.flight = false
+	Sim.Run(2.5)
+	check(Active("Flight Master"), "with our flight points off, Blizzard's flight masters come back")
+	MagicMapDB.layers.flight = true
+	Sim.Run(2.5)
+	check(not Active("Flight Master"), "and go again with ours")
+	Sim.Slash("dupes")
+	Sim.Run(0.2)
+	check(Active("Flight Master") and Active("Track Quest POIs"), "/mm dupes keeps Blizzard's")
+	Sim.Slash("dupes")
+	Sim.Run(0.2)
+	check(not Active("Flight Master"), "/mm dupes again: ours only")
+	Sim.indoors = true
+	Sim.Run(1)
+	check(Active("Flight Master") and Active("Track Quest POIs"), "indoors (Blizzard's minimap whole) its markers are back")
+	Sim.indoors = false
+	Sim.Run(1)
+	check(not Active("Flight Master"), "outdoors again, ours")
+	Sim.FireEvent("PLAYER_LOGOUT")
+	check(Active("Flight Master") and Active("Track Quest POIs") and not next(MagicMapDB.trackingOff),
+		"logging out puts them back (and they're saved that way)")
+	Sim.Run(2.5)
+
+	-- Tooltips over a quest area (where the client draws quest areas).
+	if Sim.flavor == "retail" then
+		local function Line1() return _G.GameTooltipTextLeft1 and _G.GameTooltipTextLeft1:GetText() end
+		Sim.MoveCursorTo(Minimap, 0.5, 0.5)
+		Sim.questUnderCursor = 60
+		Sim.Run(0.3)
+		check(GameTooltip:IsShown() and Line1() == "Kobold Candles", "over a quest area, the quest's tooltip")
+		Sim.FireScript(Minimap, "OnEnter", false)
+		Sim.blip = "Peacebloom"
+		local steady = true
+		for _ = 1, 10 do
+			Sim.Step()
+			steady = steady and GameTooltip:IsShown() and Line1() == "Peacebloom"
+		end
+		check(steady, "a Blizzard blip under the cursor wins over the quest area, every frame")
+		Sim.blip = nil
+		steady = true
+		for _ = 1, 10 do
+			Sim.Step()
+			steady = steady and GameTooltip:IsShown() and Line1() == "Kobold Candles"
+		end
+		check(steady, "off the blip, the quest area's again, every frame (no flicker)")
+		Sim.FireScript(Minimap, "OnLeave", false)
+		Sim.Run(0.2)
+		check(GameTooltip:IsShown() and Line1() == "Kobold Candles", "off the Minimap, the quest area keeps it")
+		Sim.questUnderCursor = nil
+		Sim.Run(0.2)
+		check(not GameTooltip:IsShown(), "and lets go off the area")
+	end
+	local pin = QuestPin(60)
+	-- (Same strata in the client, which hands a frame's strata down to its children.)
+	check(pin and pin:GetFrameLevel() > Minimap:GetFrameLevel(),
+		"our pins sit above the Minimap, so they take the mouse first")
+
+	Sim.Click(ns.modeButton)
+	Sim.Run(1)
+	check(Active("Flight Master") and Active("Track Quest POIs") and not Active("Points of Interest"),
+		"leaving minimap mode puts Blizzard's tracking back as it was")
+	check(not next(MagicMapDB.trackingOff), "and forgets what it turned off")
+end
+
+-- Party members: dots at their positions, moving with them.
+scenarios.group_members = function()
+	local function Dot()
+		for _, f in ipairs(Sim.Frames()) do
+			if f.unit == "party1" and f:IsVisible() then return f end
+		end
+	end
+	local function At(dot, col, row)
+		local x, y = ns.TileToScreen(col, row)
+		local cx, cy = dot:GetCenter()
+		return math.abs(cx - (ns.viewport:GetLeft() + x)) < 1 and math.abs(cy - (ns.viewport:GetTop() - y)) < 1
+	end
+	check(Dot() == nil, "alone, no party dots")
+	Sim.units.party1 = { name = "Friend", class = "PRIEST", level = 6, col = Sim.player.col + 0.05, row = Sim.player.row }
+	Sim.group = { "party1" }
+	Sim.Run(0.2)
+	local dot = Dot()
+	check(dot and At(dot, Sim.units.party1.col, Sim.units.party1.row), "a party member shows where they are")
+	Sim.units.party1.row = Sim.units.party1.row + 0.04
+	Sim.Run(0.1)
+	check(dot and At(dot, Sim.units.party1.col, Sim.units.party1.row), "and moves with them")
+	if dot then
+		Sim.Hover(dot)
+		check(_G.GameTooltipTextLeft1:GetText() == "Friend", "hovering shows who it is")
+	end
+	MagicMapDB.layers.group = false
+	Sim.Run(0.1)
+	check(Dot() == nil, "the layer turned off hides them")
+	MagicMapDB.layers.group = true
+	Sim.restricted = true
+	Sim.Run(0.1)
+	check(Dot() == nil, "where positions are withheld, none")
+	Sim.restricted = false
+	Sim.group = {}
+	Sim.Run(0.1)
+	check(Dot() == nil, "leaving the group clears them")
+end
+
+-- Quests to pick up (the world map's quest offers).
+scenarios.quest_offers = function()
+	if not C_QuestLine then return end
+	local function Offer()
+		for _, f in ipairs(Sim.Frames()) do
+			if f.entry and f.entry.title == "Wolves Across the Border" and f:IsVisible() then return f end
+		end
+	end
+	Sim.Run(1.5)
+	check(Sim.offersAsked[1429], "the zone's quest offers are asked for")
+	check(Offer() ~= nil, "and drawn once the client has them")
+	Sim.offers[1429][1].inProgress = true
+	Sim.FireEvent("QUEST_LOG_UPDATE")
+	Sim.Run(1)
+	check(Offer() == nil, "once taken, it's no longer offered")
 end
 
 scenarios.quests_and_path = function()
@@ -384,6 +585,32 @@ scenarios.quests_and_path = function()
 	-- Click a zone to fly there.
 	Sim.Click(ns.viewport, "LeftButton", 0.3, 0.6)
 	Fly()
+end
+
+-- Dying: once the client knows where your corpse is (a while after you
+-- release, with no event), it shows, becomes your target, and the view
+-- follows you, leaning toward it. Back alive, it's gone and so is path mode.
+scenarios.corpse = function()
+	Sim.Run(2)
+	local st = ns.state
+	ns.SetFollow(false)
+	st.cx = st.cx + 2 -- looking elsewhere
+	Sim.FireEvent("PLAYER_DEAD")
+	Sim.ghost = true
+	Sim.FireEvent("PLAYER_ALIVE") -- released, the corpse not placed yet
+	Sim.Run(1.5)
+	check(ns.GetTarget() == nil, "no corpse known yet: no target")
+	local x, y = ns.TileToMap(1429, st.playerCol + 0.4, st.playerRow + 0.2)
+	Sim.corpse = { [1429] = CreateVector2D(x, y) }
+	Sim.Run(3)
+	local t = ns.GetTarget()
+	check(t ~= nil and t.title == "Your corpse", "the corpse turns up without a toggle, as your target")
+	check(st.path and st.follow, "path mode on, following you again")
+	check(math.abs(st.cx - st.playerCol) < 1, "the view came back to you")
+	Sim.ghost, Sim.corpse = false, nil
+	Sim.FireEvent("PLAYER_UNGHOST")
+	Sim.Run(2)
+	check(ns.GetTarget() == nil and not st.path, "alive again: no corpse, path mode off")
 end
 
 scenarios.layers = function()
@@ -716,6 +943,94 @@ scenarios.perf_report = function()
 		if tostring(msg):find("borders: ", 1, true) then found = true end
 	end
 	check(found, "/mm perf reports after its recording")
+end
+
+-- The open right-click menu: info lines (MenuUtil titles, or the fallback's
+-- disabled rows) without colour codes, action texts, and whether a divider
+-- separates them.
+local function MapMenu()
+	local function Plain(t) return (t:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
+	local info, actions, divider = {}, {}, false
+	if Sim.menu then
+		for _, e in ipairs(Sim.MenuItems()) do
+			if e.kind == "title" then info[#info + 1] = Plain(e.text)
+			elseif e.kind == "button" then actions[#actions + 1] = e.text
+			elseif e.kind == "divider" then divider = true end
+		end
+	else
+		for _, f in ipairs(Sim.Frames()) do
+			local it = f.item
+			if it and f:IsVisible() and f:GetParent():GetParent() == ns.viewport then
+				if it.divider then divider = true
+				elseif it.disabled then info[#info + 1] = Plain(it.text)
+				else actions[#actions + 1] = it.text end
+			end
+		end
+	end
+	return info, actions, divider
+end
+
+-- Right-click on the big map: what's there on top (zone, place and
+-- coordinates, levels and distance, quest areas, nearby landmarks), then the
+-- usual actions. Compact (minimap mode) keeps to the actions.
+scenarios.map_menu_info = function()
+	Sim.Run(3) -- pins and quest areas settle
+	ns.SetFollow(false)
+	-- Over Kobold Candles' (estimated) area in Elwynn, east of you.
+	local col, row = 32.28, 49.69
+	ns.FlyTo(col, row, 400, 0.01)
+	Sim.Run(0.5)
+	Sim.Click(ns.viewport, "RightButton", 0.5, 0.5)
+	local info, actions, divider = MapMenu()
+	local text = table.concat(info, "\n")
+	check(info[1] == "Elwynn Forest", "the menu opens with the zone's name, got " .. tostring(info[1]))
+	check(#info >= 3 and #info <= 7, "a few info lines, got " .. #info .. ":\n" .. text)
+	check(text:find("Goldshire", 1, true) and text:find("35.0, 55.0", 1, true), "the place and /way coordinates:\n" .. text)
+	check(text:find("Level 1-10", 1, true), "the zone's level range:\n" .. text)
+	check(text:find("180 yd E of you", 1, true), "how far and which way from you:\n" .. text)
+	check(text:find("Quest Kobold Candles", 1, true), "the quest area under the click:\n" .. text)
+	check(text:find("Graveyard Goldshire", 1, true), "the nearest graveyard:\n" .. text)
+	check(divider, "a divider before the actions")
+	check(actions[#actions] == "Follow me", "the actions follow the info")
+	check(PickMenu("Waypoint here"), "the actions still work: waypoint here")
+	Sim.Run(1)
+	check(Sim.waypoint ~= nil and ns.state.follow, "and that sets the waypoint and follows you")
+	Sim.Click(ns.viewport, "RightButton", 0.5, 0.5)
+	check(PickMenu("Clear waypoint"), "clear waypoint is offered")
+	Sim.Run(0.5)
+	check(Sim.waypoint == nil, "and clears it")
+	-- Unexplored ground says so (and a followed quest is marked).
+	Sim.unexplored = true
+	local pin = QuestPin(60)
+	if pin then ClickOn(pin) Sim.Run(0.5) end
+	ns.SetFollow(false)
+	ns.FlyTo(col, row, 400, 0.01)
+	Sim.Run(0.5)
+	Sim.Click(ns.viewport, "RightButton", 0.5, 0.5)
+	info = MapMenu()
+	text = table.concat(info, "\n")
+	check(text:find("Unexplored", 1, true), "an unexplored spot says so:\n" .. text)
+	if pin then check(text:find("Kobold Candles (following)", 1, true), "the followed quest is marked:\n" .. text) end
+	PickMenu("Follow me")
+	Sim.unexplored = nil
+	-- Minimap mode: just the actions, as before.
+	Sim.Click(ns.modeButton)
+	Sim.Run(2)
+	check(ns.IsCompact(), "minimap mode is compact")
+	Sim.Click(ns.viewport, "RightButton", 0.3, 0.3)
+	info, actions = MapMenu()
+	check(#info == 0 and actions[1] == "Waypoint here", "compact: the old menu, no info (" .. #info .. " lines)")
+	PickMenu("Waypoint here")
+	-- M grows it into a big map: the info is back.
+	ToggleWorldMap()
+	Sim.Run(1)
+	check(ns.IsMapExpanded() and not ns.IsCompact(), "M grows it, not compact")
+	Sim.Click(ns.viewport, "RightButton", 0.5, 0.5)
+	info = MapMenu()
+	check(info[1] ~= nil and #info >= 2, "expanded: the info is on top")
+	PickMenu("Clear waypoint")
+	ToggleWorldMap()
+	Sim.Run(1)
 end
 
 return scenarios
