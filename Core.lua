@@ -585,7 +585,7 @@ local CORNERS = {
 }
 -- ARTWORK sublevels, bottom to top. The outward pieces only ever lie over
 -- empty cells, but sit under the tiles so a pixel of overlap never shows.
-local SUB_CORNER, SUB_CORNER_BG, SUB_OUTER, SUB_TILE, SUB_ADD, SUB_FEATHER = -3, -2, -1, 0, 1, 2
+local SUB_CORNER, SUB_CORNER_BG, SUB_OUTER, SUB_TILE, SUB_ADD, SUB_WATER, SUB_FEATHER = -3, -2, -1, 0, 1, 2, 3
 local bgColor = { 0, 0, 0 }
 
 local function SetFade(t, orientation, r, g, b, a1, a2)
@@ -664,6 +664,7 @@ local function ReleaseTexture(tex)
 		SetOn(tex.add, false)
 		tex.tint = nil
 	end
+	SetOn(tex.water, false)
 	tex.fdid, tex.zoom, tex.colors = nil, nil, nil
 	freeTextures[#freeTextures + 1] = tex
 end
@@ -720,7 +721,7 @@ end
 -- size) so neighbours always share an edge. colors: this map's entry in
 -- MagicMap_TileColor (or false); everything it changes is set here, once per
 -- zoom, never per frame.
-local function LayoutTile(tex, tiles, key, zoom, colors)
+local function LayoutTile(tex, tiles, key, zoom, colors, mapID)
 	local sea = colors and colors.sea
 	local col, row = math.floor(key / 64), key % 64
 	local left, top = math.floor(col * zoom + 0.5), math.floor(row * zoom + 0.5)
@@ -747,6 +748,30 @@ local function LayoutTile(tex, tiles, key, zoom, colors)
 			SetOn(tex.add, false)
 		end
 		tex.tint = tint
+	end
+
+	-- Shallow coastal water the tile was baked a different blue from the open
+	-- sea: a mask (white; alpha = how much sea covers each pixel) tinted the
+	-- backdrop colour pulls it toward the sea around it.
+	if colors and colors.water and colors.water[key] then
+		local water = tex.water
+		if not water then
+			water = Piece(SUB_WATER)
+			water:SetAllPoints(tex)
+			tex.water = water
+		end
+		local path = colors.waterDir .. mapID .. "_" .. key .. ".tga"
+		if water.path ~= path then
+			water:SetTexture(path, "CLAMP", "CLAMP", "LINEAR")
+			water.path = path
+		end
+		if water.bg ~= bgColor then
+			water:SetVertexColor(bgColor[1], bgColor[2], bgColor[3])
+			water.bg = bgColor
+		end
+		SetOn(water, true)
+	else
+		SetOn(tex.water, false)
 	end
 
 	local edge = colors and colors.edge and colors.edge[key]
@@ -853,7 +878,7 @@ local function RenderTiles()
 						tex.fdid = fdid
 					end
 					if tex.zoom ~= zoom or tex.bg ~= bgColor or tex.colors ~= colors then
-						LayoutTile(tex, tiles, key, zoom, colors)
+						LayoutTile(tex, tiles, key, zoom, colors, mapID)
 					end
 					seen[id] = true
 				end

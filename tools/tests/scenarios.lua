@@ -563,6 +563,7 @@ scenarios.tile_colors = function()
 		if (v and (v[1] ~= 1 or v[2] ~= 1 or v[3] ~= 1)) or Shown(t.add) then n = n + 1 end
 		for i = 1, 4 do if Shown(t.outs[i]) then n = n + 1 end end
 		for j = 1, 4 do if t.corners[j] and (Shown(t.corners[j][1]) or Shown(t.corners[j][2])) then n = n + 1 end end
+		if Shown(t.water) then n = n + 1 end
 		return n
 	end
 	-- An interior tile and a coast tile with a convex corner (left and top
@@ -595,6 +596,8 @@ scenarios.tile_colors = function()
 			[sea + 64] = { l = cs },
 		},
 		sea = { [sea] = true },
+		water = { [inner] = true },
+		waterDir = "Interface\\AddOns\\MagicMap\\Textures\\Water\\test\\",
 	} }
 	ns.state.dirty = true
 	Sim.Run(0.2)
@@ -606,12 +609,20 @@ scenarios.tile_colors = function()
 	check(add and add:IsVisible() and S[add].blend == "ADD", "and lifted by an additive overlay")
 	local c = add and S[add].color
 	check(c and c[1] == 0.1 and c[2] == 0.2 and c[3] == 0.3, "the overlay has the tint's additive colour")
+	local water = tex.water
 	if add then
 		local _, subTile = tex:GetDrawLayer()
 		local _, subAdd = add:GetDrawLayer()
 		local _, subFeather = tex.feathers[1]:GetDrawLayer()
-		check(subTile < subAdd and subAdd < subFeather, "tile < overlay < feathers")
+		local subWater = water and select(2, water:GetDrawLayer())
+		check(subWater and subTile < subAdd and subAdd < subWater and subWater < subFeather,
+			"tile < overlay < water mask < feathers")
 	end
+	check(Shown(water) and S[water].texture == "Interface\\AddOns\\MagicMap\\Textures\\Water\\test\\" .. map .. "_" .. inner .. ".tga",
+		"a tile with a water mask draws it, from its own file")
+	local bg = MagicMap_TileSets[next(MagicMap_TileSets)].maps[map].bg or { 0.03, 0.06, 0.065 }
+	local wv = water and S[water].vertex
+	check(wv and wv[1] == bg[1] and wv[2] == bg[2] and wv[3] == bg[3], "the water mask is the backdrop's colour")
 
 	tex = Drawn(coast)
 	local expect = { cl, Open(coast, 64) and cr, ct, Open(coast, 1) and cb }
@@ -664,17 +675,20 @@ scenarios.tile_colors = function()
 	check(Drawn(sea), "/mm tint off draws the sea tile again")
 	Sim.Slash("tint")
 	Sim.Run(0.2)
-	check(Shown(Drawn(inner).add) and Shown(Drawn(coast).outs[1]) and not Drawn(sea), "/mm tint on brings the colours back")
+	check(Shown(Drawn(inner).add) and Shown(Drawn(coast).outs[1]) and Shown(Drawn(inner).water)
+		and not Drawn(sea), "/mm tint on brings the colours back")
 
 	-- Tinted textures go back to the pool and come out plain for another map.
 	local was = {}
 	for key in pairs(tiles) do
 		if Drawn(key) then
 			MagicMap_TileColor[map].tint[key] = { 0.5, 0.5, 0.5, 0.1, 0.1, 0.1 }
+			MagicMap_TileColor[map].water[key] = true
 			was[Drawn(key)] = true
 		end
 	end
-	MagicMap_TileColor[map] = { tint = MagicMap_TileColor[map].tint, edge = MagicMap_TileColor[map].edge }
+	local old = MagicMap_TileColor[map]
+	MagicMap_TileColor[map] = { tint = old.tint, edge = old.edge, water = old.water, waterDir = old.waterDir }
 	ns.state.dirty = true
 	Sim.Run(0.2)
 	Sim.Slash("map 1")

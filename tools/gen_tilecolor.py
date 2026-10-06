@@ -13,6 +13,10 @@ are read from the source's own Map.db2 / WDTs, as gen_tiles.py does.
       -o Data/TileColor_wow_classic_beta.lua --preview /tmp/tilecolor
   python3 tools/gen_tilecolor.py wago wow_classic_era -o Data/TileColor_wow_classic_era.lua
 
+With -o, the water masks go to Textures/Water/<product>/ beside the output's
+folder (--water DIR to choose); that folder is the generator's: masks it no
+longer produces are deleted.
+
 How it works, per map:
   1. Each 512x512 DXT tile is reduced to its 128x128 block means (exact 4x4
      box filter, read off the DXT endpoints and index counts; no texel decode).
@@ -35,9 +39,14 @@ How it works, per map:
      identity and the rest refit with a weaker pull (REFIT, which takes out
      the L1 shrinkage), so what's written is self-consistent.
      Open-world maps only: instances get sea[] and edge[] but no tints.
-  5. Edge colours: per-channel median of the outer EDGE_DEPTH band (the
+  5. Shallow water: a 32x32 mask per tile of how much of the backdrop colour
+     to lay over its water (see "shallow water" below), written as
+     Textures/Water/<product>/<inst>_<key>.tga and listed in water[]. Tiles
+     that come out as nothing but sea become sea[] instead. Open-world maps
+     whose backdrop is open sea (they have sea tiles) only.
+  6. Edge colours: per-channel median of the outer EDGE_DEPTH band (the
      runtime's inward feather) on each side facing open space (no tile or a
-     sea tile), after the tint.
+     sea tile), after the tint and the water overlay.
 
 --preview DIR writes before/after PNGs and a seam heatmap per continent
 (needs Pillow).
@@ -51,12 +60,15 @@ import pickle
 import re
 import sys
 import time
+from collections import deque
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
+from itertools import accumulate
 
 from mmtools.formats import RGB, blp_dxt, box_downsample, wdt_maid
 from mmtools.maps import MAP_DB2, read_maps
 from mmtools.sources import Source, add_source_args, source_from_args
+from mmtools.tga import write_tga
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -382,16 +394,24 @@ def apply_tint(c: RGB, t: Tint | None) -> RGB:
     return tuple(min(1.0, c[k] * t[0][k] + t[1][k]) for k in range(3))
 
 
-def edge_colors(land: dict[int, TileData], tint: dict[int, Tint]) -> dict[int, dict[str, RGB]]:
+def edge_colors(land: dict[int, TileData], tint: dict[int, Tint], water: dict | None = None,
+                bg: RGB | None = None) -> dict[int, dict[str, RGB]]:
     """Per tile, the colour of each side that faces open space: no tile, or
-    a sea tile (which looks like the backdrop)."""
+    a sea tile (which looks like the backdrop). Tiles with a water mask are
+    sampled from their recoloured image."""
     out = {}
     for key, td in land.items():
         sides = {}
+        img = recoloured(td, tint.get(key), water[key], bg) if water and key in water else None
         for s in SIDES:
             nb = key + NEIGHBOUR[s]
             wraps = (s == "t" and key % 64 == 0) or (s == "b" and key % 64 == 63)
-            if wraps or nb not in land:
+            if not (wraps or nb not in land):
+                continue
+            if img:
+                n = len(img)
+                sides[s] = median_rgb(side_blocks(img, s, max(1, round(n * EDGE_DEPTH)), 0, n))
+            else:
                 sides[s] = apply_tint(td.outer[s], tint.get(key))
         if sides:
             out[key] = sides
@@ -424,6 +444,128 @@ def is_sea(td: TileData, bg: RGB | None) -> bool:
     return True
 
 
+# --- shallow water ----------------------------------------------------------------
+# Some tiles bake their water a light, shallow blue where the open sea next to
+# them is the dark backdrop colour, so they show as blue rectangles. The fix is
+# an overlay of the backdrop colour on that water: none near the shore (a thin
+# shallow band stays), fading in to full over the open water. Only water that
+# connects to open space (an absent or sea tile) counts, so lakes stay as they
+# are. Computed per map on a grid at PREVIEW_SIZE px per tile (the tiles'
+# 32x32 images), which is also the mask resolution: the fade is smooth enough
+# that 32x32 looks the same as 128x128 once bilinear-filtered.
+
+RAMP_BLURS = (4, 4, 3)  # box blur radii (px): ~ a Gaussian of 4 px (0.13 tile) off the shore
+KEEP_GAIN = 3.0         # untouched where the blurred land share is >= 1/3
+MASK_MIN = 8 / 255      # tiles whose pixels are all covered less than this need no mask
+MASK_EFFECT = 0.02      # ... nor those where it changes no pixel's colour by more than this
+SEA_MIN_TILES = 4       # maps get water masks only if they have this many sea tiles
+SEA_MIN_SHARE = 0.05    # ... and at least this share of their tiles is sea
+
+
+def box_blur(a: list[float], w: int, h: int, r: int, horizontal: bool) -> list[float]:
+    """One box blur pass of radius r along rows or columns, renormalised at
+    the borders."""
+    out = [0.0] * (w * h)
+    lines, length = (h, w) if horizontal else (w, h)
+    for i in range(lines):
+        idx = range(i * w, i * w + w) if horizontal else range(i, w * h, w)
+        pre = [0.0]
+        pre.extend(accumulate(a[j] for j in idx))
+        for x, j in enumerate(idx):
+            lo, hi = max(0, x - r), min(length, x + r + 1)
+            out[j] = (pre[hi] - pre[lo]) / (hi - lo)
+    return out
+
+
+def water_alpha(tiles: dict[int, TileData], sea: set[int], tint: dict[int, Tint],
+                bg: RGB | None) -> dict[int, list[list[float]]]:
+    """For each non-sea tile, PREVIEW_SIZE rows of how much of the backdrop
+    colour to lay over each pixel (0..1). Tiles with no such water are left out."""
+    land = [k for k in tiles if k not in sea]
+    if not land or bg is None:
+        return {}
+    n = PREVIEW_SIZE
+    c0, c1 = min(k // 64 for k in land) - 1, max(k // 64 for k in land) + 1
+    r0, r1 = min(k % 64 for k in land) - 1, max(k % 64 for k in land) + 1
+    w, h = (c1 - c0 + 1) * n, (r1 - r0 + 1) * n
+    water = bytearray(w * h)
+    seen = bytearray(w * h)
+    queue = deque()
+    for c in range(c0, c1 + 1):
+        for r in range(r0, r1 + 1):
+            key = c * 64 + r
+            is_tile = 0 <= c < 64 and 0 <= r < 64 and key in tiles and key not in sea
+            for y in range(n):
+                base = ((r - r0) * n + y) * w + (c - c0) * n
+                if not is_tile:  # open space: water, and where the flood starts
+                    for i in range(base, base + n):
+                        water[i] = seen[i] = 1
+                        queue.append(i)
+                    continue
+                row, t = tiles[key].image[y], tint.get(key)
+                for x in range(n):
+                    if is_water(apply_tint(row[x], t), bg):
+                        water[base + x] = 1
+    while queue:  # water connected to open space
+        i = queue.popleft()
+        x = i % w
+        for j in (i - w, i + w, i - 1 if x else -1, i + 1 if x + 1 < w else -1):
+            if 0 <= j < w * h and water[j] and not seen[j]:
+                seen[j] = 1
+                queue.append(j)
+    near = [0.0 if v else 1.0 for v in seen]  # land (anything not open water)
+    for rad in RAMP_BLURS:
+        near = box_blur(near, w, h, rad, True)
+    for rad in RAMP_BLURS:
+        near = box_blur(near, w, h, rad, False)
+    out = {}
+    for key in land:
+        ox, oy = (key // 64 - c0) * n, (key % 64 - r0) * n
+        rows = [[seen[(oy + y) * w + ox + x] * max(0.0, 1 - KEEP_GAIN * near[(oy + y) * w + ox + x])
+                 for x in range(n)] for y in range(n)]
+        if max(max(row) for row in rows) > MASK_MIN:
+            out[key] = rows
+    return out
+
+
+def recoloured(td: TileData, t: Tint | None, alpha: list[list[float]] | None, bg: RGB) -> list[list[RGB]]:
+    """The tile's PREVIEW_SIZE image as drawn: tint, then the water overlay."""
+    rows = []
+    for y, row in enumerate(td.image):
+        out = []
+        for x, c in enumerate(row):
+            c = apply_tint(c, t)
+            if alpha:
+                a = alpha[y][x]
+                c = tuple(c[k] * (1 - a) + bg[k] * a for k in range(3))
+            out.append(c)
+        rows.append(out)
+    return rows
+
+
+def write_masks(directory: str, results: list[MapResult]) -> int:
+    """Textures/Water/<product>/<inst>_<key>.tga for every tile with a water
+    mask: white, alpha = sea-colour coverage. Masks no longer produced are
+    deleted. Returns the bytes written."""
+    os.makedirs(directory, exist_ok=True)
+    wanted, size = set(), 0
+    for r in results:
+        for key, alpha in r.water.items():
+            name = f"{r.map.inst}_{key}.tga"
+            wanted.add(name)
+            data = write_tga(len(alpha[0]), len(alpha), [[(255, 255, 255, int(a * 255 + 0.5)) for a in row]
+                                                          for row in alpha])
+            size += len(data)
+            path = os.path.join(directory, name)
+            if not os.path.exists(path) or open(path, "rb").read() != data:
+                with open(path, "wb") as f:
+                    f.write(data)
+    for name in os.listdir(directory):
+        if re.fullmatch(r"\d+_\d+\.tga", name) and name not in wanted:
+            os.remove(os.path.join(directory, name))
+    return size
+
+
 # --- per map ------------------------------------------------------------------
 
 @dataclass
@@ -434,6 +576,7 @@ class MapResult:
     seams: list[Seam]                # between non-sea tiles
     tint: dict[int, Tint]
     edges: dict[int, dict[str, RGB]]
+    water: dict[int, list[list[float]]]  # tile -> its water mask (sea-colour coverage)
 
 
 def process_map(m: MapTiles, data: dict[int, TileData]) -> MapResult:
@@ -441,8 +584,23 @@ def process_map(m: MapTiles, data: dict[int, TileData]) -> MapResult:
     sea = {k for k, td in tiles.items() if is_sea(td, m.bg)}
     land = {k: td for k, td in tiles.items() if k not in sea}
     seams = find_seams(land, m.bg)
-    tint = solve(land, seams) if seams and not m.kind else {}  # instances: unverified, often odd art; edges only
-    return MapResult(m, tiles, sea, seams, tint, edge_colors(land, tint))
+    # Instances: tints and water unverified (often odd art); edges only.
+    tint = solve(land, seams) if seams and not m.kind else {}
+    # Water only where the backdrop is open sea (maps with sea tiles), not on
+    # map fragments whose backdrop is a land colour.
+    seaside = not m.kind and len(sea) >= max(SEA_MIN_TILES, SEA_MIN_SHARE * len(tiles))
+    water, full = {}, set()
+    for k, a in (water_alpha(tiles, sea, tint, m.bg) if seaside else {}).items():
+        img = recoloured(tiles[k], tint.get(k), a, m.bg)
+        if all(near(p, m.bg, SEA_DEV) for row in img for p in row):
+            full.add(k)  # nothing left but sea
+        elif max(a[y][x] * max(abs(tiles[k].image[y][x][c] - m.bg[c]) for c in range(3))
+                 for y in range(len(a)) for x in range(len(a))) > MASK_EFFECT:
+            water[k] = a
+    sea |= full
+    land = {k: td for k, td in land.items() if k not in full}
+    tint = {k: t for k, t in tint.items() if k not in full}
+    return MapResult(m, tiles, sea, seams, tint, edge_colors(land, tint, water, m.bg), water)
 
 
 # --- output ---------------------------------------------------------------------
@@ -457,6 +615,9 @@ def write_tilecolor(out, product: str, version: str, results: list[MapResult]) -
     w("-- tint[key] = { mr, mg, mb, ar, ag, ab }: drawn colour = texel * m + a (0 <= m <= 1, a >= 0); only tiles that need it\n")
     w("-- edge[key] = { l = {r,g,b}, r = ..., t = ..., b = ... }: mean colour of the outer texels on sides facing an absent tile (after tint)\n")
     w("-- sea[key] = true: open-sea tiles, the backdrop colour all over; edge[] treats them as absent (they need not be drawn)\n")
+    w("-- water[key] = true: the tile has a 32x32 mask waterDir .. inst .. \"_\" .. key .. \".tga\" (white, alpha = how much of\n")
+    w("--   the backdrop colour covers it) to draw over the whole tile with the vertex colour bg: recolours shallow water\n")
+    w("--   toward the open sea; edge[] colours are taken after it\n")
     w(f"-- key = col * 64 + row, as in Data/Tiles_{product}.lua\n")
     w(f"if not MagicMap_WantHeights(\"{product}\", \"{version}\") then return end\n")
     w("MagicMap_TileColor = MagicMap_TileColor or {}\n")
@@ -471,11 +632,13 @@ def write_tilecolor(out, product: str, version: str, results: list[MapResult]) -
         for key in sorted(r.edges):
             parts = ", ".join(f"{s} = {rgb_lua(r.edges[key][s])}" for s in SIDES if s in r.edges[key])
             w(f"    [{key}] = {{ {parts} }},\n")
-        w("  },\n  sea = {\n")
-        keys = sorted(r.sea)
-        for i in range(0, len(keys), 10):
-            w("    " + " ".join(f"[{k}]=true," for k in keys[i:i + 10]) + "\n")
-        w("  },\n}\n")
+        for name, keys in (("sea", sorted(r.sea)), ("water", sorted(r.water))):
+            w(f"  }},\n  {name} = {{\n")
+            for i in range(0, len(keys), 10):
+                w("    " + " ".join(f"[{k}]=true," for k in keys[i:i + 10]) + "\n")
+        w("  },\n")
+        w(f"  waterDir = \"Interface\\\\AddOns\\\\MagicMap\\\\Textures\\\\Water\\\\{product}\\\\\",\n")
+        w("}\n")
 
 
 # --- previews -------------------------------------------------------------------
@@ -494,7 +657,8 @@ def to8(c) -> tuple[int, int, int]:
 
 def render_map(r: MapResult, px: int, after: bool):
     """The map as the addon would draw it: tiles at px each on the backdrop;
-    `after`: tinted, sea tiles left out and the edge model applied."""
+    `after`: tinted, water recoloured, sea tiles left out and the edge model
+    applied."""
     from PIL import Image
     bg = r.map.bg or (0.0, 0.0, 0.0)
     cols = [k // 64 for k in r.tiles]
@@ -507,12 +671,12 @@ def render_map(r: MapResult, px: int, after: bool):
         if after and key in r.sea:
             continue
         ox, oy = (key // 64 - c0) * px, (key % 64 - r0) * px
-        t = r.tint.get(key) if after else None
-        f = len(td.image) / px
+        img = recoloured(td, r.tint.get(key), r.water.get(key), bg) if after else td.image
+        f = len(img) / px
         for y in range(px):
-            src_row = td.image[int(y * f)]
+            src_row = img[int(y * f)]
             for x in range(px):
-                buf[oy + y][ox + x] = apply_tint(src_row[int(x * f)], t)
+                buf[oy + y][ox + x] = src_row[int(x * f)]
     if after:
         def blend(x, y, c, al):
             if 0 <= x < W and 0 <= y < H and al > 0:
@@ -600,6 +764,8 @@ def main() -> None:
     parser.add_argument("--open-world", action="store_true", help="skip dungeons and raids")
     parser.add_argument("--preview", metavar="DIR", help="write before/after/seam PNGs of the continents here")
     parser.add_argument("--preview-px", type=int, default=16, help="preview pixels per tile (default 16)")
+    parser.add_argument("--water", metavar="DIR", help="water masks folder (default with -o: "
+                        "<output's folder>/../Textures/Water/<product>; without -o: none written)")
     parser.add_argument("--cache", metavar="FILE", help="keep per-tile analysis in FILE between runs")
     parser.add_argument("-j", "--jobs", type=int, default=os.cpu_count() or 1)
     ns = parser.parse_args()
@@ -628,7 +794,7 @@ def main() -> None:
         results.append(r)
         worst = sorted(r.seams, key=lambda s: -s.score)[:5]
         log(f"[{m.inst}] {m.name}: {len(r.tiles)} tiles ({len(r.sea)} sea), {len(r.seams)} seams, "
-            f"{len(r.tint)} tinted, {len(r.edges)} with open sides; worst seams: "
+            f"{len(r.tint)} tinted, {len(r.water)} water masks, {len(r.edges)} with open sides; worst seams: "
             + ", ".join(f"{tile_name(s.a)}|{tile_name(s.b)} {s.score:.3f}" for s in worst))
         wrap = wrapping_edges(r)
         if wrap:
@@ -645,6 +811,11 @@ def main() -> None:
         with open(ns.output, "w", encoding="utf-8", newline="\n") as f:
             write_tilecolor(f, product, version, results)
         log(f"wrote {ns.output}: {os.path.getsize(ns.output) // 1024} KB")
+    water = ns.water or (ns.output and os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(ns.output))),
+                                                     "Textures", "Water", product))
+    if water:
+        size = write_masks(water, results)
+        log(f"wrote {sum(len(r.water) for r in results)} water masks to {water}: {size // 1024} KB")
     else:
         write_tilecolor(sys.stdout, product, version, results)
     log(f"done in {time.time() - t0:.1f}s")

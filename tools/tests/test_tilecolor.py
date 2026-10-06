@@ -11,6 +11,7 @@ import pytest
 import fixtures
 import gen_tilecolor as gt
 from mmtools.formats import blp_dxt, box_downsample, dxt_palette, rgb565
+from mmtools.tga import read_tga, write_tga
 
 TOOLS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -204,7 +205,8 @@ def generated(world, tmp_path_factory):
     out = tmp_path_factory.mktemp("tilecolor")
     path, preview = out / "tilecolor.lua", out / "preview"
     subprocess.run([sys.executable, os.path.join(TOOLS, "gen_tilecolor.py"), "local", world, fixtures.PRODUCT,
-                    "-o", str(path), "-j", "1", "--preview", str(preview)], check=True, capture_output=True)
+                    "-o", str(path), "-j", "1", "--preview", str(preview), "--water", str(out / "water")],
+                   check=True, capture_output=True)
     return path
 
 
@@ -217,6 +219,8 @@ def test_generated_file_loads(generated):
     L.eval(b"function(p) return assert(loadfile(p))() end")(str(generated).encode())
     tc = L.globals().MagicMap_TileColor
     assert sorted(tc.keys()) == [0, 1, 36]
+    assert tc[1][b"waterDir"] == b"Interface\\AddOns\\MagicMap\\Textures\\Water\\wow_test\\"
+    assert tc[1][b"water"] is not None
     k = tc[1]
     # Kalimdor: a 3x2 block of tiles, every outer side open
     edges = {key: sorted(v.keys()) for key, v in k[b"edge"].items()}
@@ -227,3 +231,71 @@ def test_generated_file_loads(generated):
             assert all(0 <= c[i] <= 1 for i in (1, 2, 3))
     for t in k[b"tint"].values():
         assert all(0 <= t[i] <= 1 for i in (1, 2, 3)) and all(t[i] >= 0 for i in (4, 5, 6))
+
+
+# --- shallow water ---------------------------------------------------------------
+
+def test_tga_round_trip_keeps_rows_top_first():
+    rows = [[(255, 0, 0, 10), (0, 255, 0, 20), (0, 0, 255, 30)],
+            [(1, 2, 3, 40), (4, 5, 6, 50), (7, 8, 9, 60)]]
+    data = write_tga(3, 2, rows)
+    assert len(data) == 18 + 3 * 2 * 4
+    assert data[2] == 2 and data[16] == 32 and data[17] == 0x08  # uncompressed, 8 alpha bits, bottom-left origin
+    assert data[18:22] == bytes((3, 2, 1, 40))  # stored bottom row first, as BGRA
+    assert read_tga(data) == (3, 2, rows)
+    top_left = data[:17] + bytes((0x28,)) + data[18 + 12:] + data[18:18 + 12]  # same image stored top-down
+    assert read_tga(top_left) == (3, 2, rows)
+
+
+LAND, SHALLOW = (0.4, 0.3, 0.2), (0.12, 0.21, 0.29)
+
+
+def coast_map(lake: bool = False):
+    """A 3x3 map: sea all round, a land tile at (11, 10) (with an inland lake
+    if asked) and below it a coast tile, land in its top 8 rows and shallow
+    blue water below."""
+    def tile(fn):
+        return gt.analyse_tile(fixtures.build_blp(128, 128, lambda bx, by: (to565(*fn(bx, by)), 0)))
+
+    data = {
+        1: tile(lambda bx, by: BG),
+        2: tile(lambda bx, by: SHALLOW if lake and 12 <= bx < 20 and 12 <= by < 20 else LAND),
+        3: tile(lambda bx, by: LAND if by < 8 else SHALLOW),
+    }
+    tiles = {c * 64 + r: 1 for c in range(10, 13) for r in range(9, 13)}
+    tiles[11 * 64 + 10], tiles[11 * 64 + 11] = 2, 3
+    return gt.MapTiles(1, "Coast", BG, None, tiles), data
+
+
+def test_shallow_water_gets_a_mask(tmp_path):
+    m, data = coast_map()
+    r = gt.process_map(m, data)
+    coast = 11 * 64 + 11
+    assert set(r.water) == {coast}
+    a = r.water[coast]
+    assert max(a[y][x] for y in range(8) for x in range(32)) == 0  # land untouched
+    assert a[9][16] < 0.2  # a shallow band along the shore
+    assert min(a[31]) > 0.9  # open water: the sea colour
+    assert all(abs(r.edges[coast]["b"][k] - BG[k]) < 0.02 for k in range(3))  # edge taken after recolouring
+
+    (tmp_path / "1_999.tga").write_bytes(b"stale")
+    (tmp_path / "keep.txt").write_text("not ours")
+    gt.write_masks(str(tmp_path), [r])
+    assert sorted(os.listdir(tmp_path)) == [f"1_{coast}.tga", "keep.txt"]
+    w, h, rows = read_tga((tmp_path / f"1_{coast}.tga").read_bytes())
+    assert (w, h) == (32, 32)
+    assert all(p[:3] == (255, 255, 255) for row in rows for p in row)
+    assert rows[0][0][3] == 0 and rows[31][16][3] > 230  # top of the tile is the land: orientation kept
+
+
+def test_inland_lakes_are_untouched():
+    m, data = coast_map(lake=True)
+    r = gt.process_map(m, data)
+    assert 11 * 64 + 10 not in r.water and 11 * 64 + 11 in r.water
+
+
+def test_no_water_where_the_backdrop_is_land():
+    m, data = coast_map()
+    m.tiles = {k: (2 if f == 1 else f) for k, f in m.tiles.items()}  # no sea tiles: a map fragment
+    m.bg = LAND
+    assert gt.process_map(m, data).water == {}
