@@ -762,6 +762,11 @@ scenarios.corpse = function()
 	Sim.Run(3)
 	local t = ns.GetTarget()
 	check(t ~= nil and t.title == "Your corpse", "the corpse turns up without a toggle, as your target")
+	local corpsePin
+	for _, f in ipairs(Sim.Frames()) do
+		if f.entry and f.entry.title == "Your corpse" and f:IsVisible() then corpsePin = f end
+	end
+	check(corpsePin and not corpsePin.glow:IsShown(), "its pin has no gold halo (that's only the quest you follow)")
 	check(st.path and st.follow, "path mode on, following you again")
 	check(math.abs(st.cx - st.playerCol) < 1, "the view came back to you")
 	Sim.ghost, Sim.corpse = false, nil

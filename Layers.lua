@@ -324,7 +324,8 @@ end)
 
 local pinData = {} -- layer key -> list of { col, row, size, icon = { atlas, color, style }, title, lines }
 
--- icon: { texture } | { atlas, under (atlas drawn behind), scale } with color as the fallback dot
+-- icon: { texture } | { atlas, under (atlas drawn behind), scale, aspect (width / height) }
+-- with color as the fallback dot. glow (the gold halo) is only for the quest you follow.
 local function StylePin(pin, e)
 	local size = e.size or 14
 	-- A soft halo marks what you're following.
@@ -355,7 +356,7 @@ local function StylePin(pin, e)
 			pin.ring:Show()
 			local s = size * (icon.scale or 0.62)
 			pin.icon:SetAtlas(icon.atlas)
-			pin.icon:SetSize(s, s)
+			pin.icon:SetSize(s * (icon.aspect or 1), s)
 		else
 			pin.icon:SetAtlas(icon.atlas)
 			pin.icon:SetSize(size, size)
@@ -487,8 +488,11 @@ sources.corpse = function(mapID)
 	for _, uiMapID in ipairs(QueryMaps(mapID)) do
 		local x, y = PosXY(SafeCall(C_DeathInfo.GetCorpseMapPosition, uiMapID))
 		if x and AddAt(list, uiMapID, x, y, {
-			size = 20, title = "Your corpse", glow = IsGhost(),
-			icon = { atlas = "Navigation-Tombstone-Icon", color = { 1, 1, 1 } },
+			-- On the same disc as the quest pins. No halo: that's only for the
+			-- quest you follow (the one pin with an area), so it means one thing.
+			size = 22, title = "Your corpse",
+			icon = { atlas = "deathrecap-icon-tombstone", under = "UI-QuestPoi-QuestNumber", scale = 0.6, aspect = 15 / 20,
+				color = { 0.85, 0.85, 0.85 } },
 		}) then
 			break
 		end
