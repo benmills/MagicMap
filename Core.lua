@@ -702,19 +702,6 @@ local function TileBounds(mapID)
 	return c0, r0, c1, r1
 end
 
--- Terrain height in yards at (col, row) in mapID's own tile space, from
--- Data/Heights_<product>.lua (one byte per 33-yard chunk), or nil.
-local function HeightAt(mapID, col, row)
-	local hm = MagicMap_Heights and MagicMap_Heights[mapID]
-	if not hm then return nil end
-	local tc, tr = math.floor(col), math.floor(row)
-	if tr < 0 or tr > 63 then return nil end
-	local s = hm.tiles[tc * 64 + tr]
-	if not s then return nil end
-	local b = #s == 1 and s:byte(1) or s:byte(math.floor((row - tr) * 16) * 16 + math.floor((col - tc) * 16) + 1)
-	return hm.min + ((b - hm.shift) % 256) * hm.scale
-end
-
 -- Fade t (one of a tile's pieces) with colour c, unless it already is.
 local function FadeOnce(t, orientation, c, a1, a2)
 	if t.fadeColor ~= c then
@@ -1463,8 +1450,6 @@ local function UpdateTitle()
 		else
 			name = continent
 		end
-		local hgt = HeightAt(state.map, tc, tr)
-		if hgt then parts[#parts + 1] = string.format("%d yd", math.floor(hgt + 0.5)) end
 	elseif here or (state.playerMap and state.playerMap == state.map) then
 		local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
 		local info = mapID and C_Map.GetMapInfo(mapID)

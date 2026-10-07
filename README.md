@@ -73,7 +73,7 @@ alongside ours).
 - **Data, generated offline.** Python tools in `tools/` read the game files from a local install
   or wago.tools: each map's WDT (which tile goes where), `Map.db2` (which maps exist), and the
   ADT terrain (area IDs and heights per 33-yard chunk). They write `Data/*.lua`: tile lists,
-  zone borders and labels, and heights. At load, only the set for your client version is kept.
+  zone borders and labels (and heights, not shipped: they cost half a megabyte for a hover readout). At load, only the set for your client version is kept.
 - **Coasts, evened out.** The minimap art mixes bright shallow water with dark open sea, which
   showed as blue rectangles zoomed out. `tools/gen_tilecolor.py` reads the tiles' pixels and writes
   which tiles are open sea (not drawn), each coast tile's edge colour (faded outward), a few tile
@@ -100,8 +100,8 @@ alongside ours).
 - **Barely tested in-game.** Most features were written without the game at hand. They're now
   run headlessly in a simulated client on every push (see Development), which catches crashes,
   but not how things look or behave against the real client. Some code paths may simply be wrong.
-- **Detail outside Forever.** Generated borders and heights exist only for WoW Forever. Other
-  clients fall back to slower, rougher borders sampled at runtime, and have no height readout.
+- **Detail outside Forever.** Generated borders exist only for WoW Forever. Other
+  clients fall back to slower, rougher borders sampled at runtime.
 - **Minimap mode relies on undocumented behaviour:**
   - that `SetAlpha` on the Minimap hides only the terrain (FarmHud depends on this too);
   - HereBeDragons' internal pin table;
