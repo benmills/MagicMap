@@ -150,6 +150,8 @@ scenarios.minimap_mode = function()
 	Sim.Click(ns.modeButton)
 	Sim.Run(2)
 	check(ns.IsMinimapMode(), "minimap mode is on")
+	check(ns.viewport:GetWidth() >= ns.frame:GetWidth() - 16 and ns.viewport:GetHeight() >= ns.frame:GetHeight() - 16,
+		"the map fills the window, inside its border")
 	-- Its header: zone left, gear and back right, on one line above the map.
 	check(ns.gearButton:IsVisible() and ns.modeButton:IsVisible(), "gear and mode button above the map")
 	local _, backY = ns.modeButton:GetCenter()

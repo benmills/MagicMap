@@ -1408,10 +1408,19 @@ if RETAIL or FLAVOR == "forever" then
 		ATLASES[name] = true
 	end
 end
+-- The metal frame's pieces, sized as Forever reports them: the edges far
+-- bigger than the metal you see (which once shrank minimap mode's map).
+if RETAIL or FLAVOR == "forever" then
+	for _, name in ipairs({ "UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight" }) do ATLASES[name] = { 32, 32 } end
+	ATLASES["_UI-Frame-Metal-EdgeBottom"] = { 256, 200 }
+	ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }
+	ATLASES["!UI-Frame-Metal-EdgeRight"] = { 200, 256 }
+end
 C_Texture = {
 	GetAtlasInfo = function(name)
 		if ATLASES[name] then
-			return { file = "atlas/" .. name, width = 16, height = 16, leftTexCoord = 0, rightTexCoord = 1, topTexCoord = 0, bottomTexCoord = 1 }
+			local size = type(ATLASES[name]) == "table" and ATLASES[name] or { 16, 16 }
+			return { file = "atlas/" .. name, width = size[1], height = size[2], leftTexCoord = 0, rightTexCoord = 1, topTexCoord = 0, bottomTexCoord = 1 }
 		end
 	end,
 }
