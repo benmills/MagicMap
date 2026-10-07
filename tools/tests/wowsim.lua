@@ -8,20 +8,10 @@
 -- scenario drives, not rendering or taint problems. Unknown methods are
 -- simply absent, as in the game, so calling one is an error.
 --
--- Set SIM_FLAVOR ("forever", "era" or "retail") before loading this file.
+-- The client it simulates is WoW Forever (a Retail-engine client).
 
 local Sim = { time = 0, frame = 0, errors = {}, timers = {}, prints = {} }
 _G.Sim = Sim
-local FLAVOR = SIM_FLAVOR or "forever"
-Sim.flavor = FLAVOR
-local RETAIL = FLAVOR == "retail"
-WOW_PROJECT_MAINLINE, WOW_PROJECT_ID = 1, RETAIL and 1 or 2
-
-local BUILDS = {
-	forever = { "1.60.1", "70009", "Sep 1 2026", 16001 },
-	era = { "1.15.9", "69722", "Aug 1 2026", 11509 },
-	retail = { "12.1.0", "69933", "Aug 1 2026", 120100 },
-}
 
 ---------------------------------------------------------------------------
 -- Errors: every script, event and timer runs protected; failures are
@@ -481,12 +471,7 @@ function Frame:GetChildren() return unpack(S[self].children) end
 function Frame:GetNumChildren() return #S[self].children end
 function Frame:GetRegions() return unpack(S[self].regions) end
 function Frame:GetNumRegions() return #S[self].regions end
-if RETAIL or FLAVOR == "forever" then
-	function Frame:SetResizeBounds(minW, minH, maxW, maxH) end
-else
-	function Frame:SetMinResize(w, h) end
-	function Frame:SetMaxResize(w, h) end
-end
+function Frame:SetResizeBounds(minW, minH, maxW, maxH) end
 
 local Button = class("Button", "Frame")
 local function buttonTexture(self, key, tex)
@@ -588,9 +573,7 @@ local function RingsAt(v)
 	return true
 end
 Sim.BlobRingsAt = RingsAt
-if RETAIL then
-	function MinimapClass:UpdateMouseoverAtPoint(x, y) end
-end
+function MinimapClass:UpdateMouseoverAtPoint(x, y) end
 
 -- ScrollFrame: its scroll child is reparented to it.
 local ScrollFrame = class("ScrollFrame", "Frame")
@@ -622,7 +605,7 @@ function POI:UpdateMouseOverTooltip(x, y) return Sim.questUnderCursor end
 function POI:GetTooltipIndex() return 0 end
 
 local FRAME_TYPES = { Frame = "Frame", Button = "Button", GameTooltip = "GameTooltip", ScrollFrame = "ScrollFrame" }
-if RETAIL then FRAME_TYPES.QuestPOIFrame = "QuestPOIFrame" end
+FRAME_TYPES.QuestPOIFrame = "QuestPOIFrame"
 
 local TEMPLATES = { UIPanelCloseButton = true, GameTooltipTemplate = true, ButtonFrameTemplate = true, BackdropTemplate = true }
 
@@ -645,7 +628,7 @@ function CreateFrame(typ, name, parent, template)
 	end
 	if template and template:find("ButtonFrameTemplate") then
 		-- Retail's has a NineSlice border; the others take the addon's fallback.
-		if RETAIL then f.NineSlice = CreateFrame("Frame", nil, f) end
+		f.NineSlice = CreateFrame("Frame", nil, f)
 		f.TitleText = f:CreateFontString(nil, "OVERLAY")
 		f.CloseButton = CreateFrame("Button", nil, f)
 		f.CloseButton:SetSize(24, 24)
@@ -824,10 +807,7 @@ function GetTime() return Sim.time end
 time = os.time
 date = os.date
 
-function GetBuildInfo()
-	local b = BUILDS[FLAVOR]
-	return b[1], b[2], b[3], b[4]
-end
+function GetBuildInfo() return "1.60.1", "70009", "Sep 1 2026", 16001 end
 
 function GetCursorPosition() return Sim.cursorX, Sim.cursorY end
 function IsMouseButtonDown(button) return Sim.buttonsDown[button or "LeftButton"] == true end
@@ -871,12 +851,6 @@ SlashCmdList = {}
 UISpecialFrames = {}
 
 Sim.unknownEvents = {}
-if not RETAIL then
-	-- Events that don't exist on classic clients.
-	for _, e in ipairs({ "SUPER_TRACKING_CHANGED", "USER_WAYPOINT_UPDATED", "QUEST_POI_UPDATE" }) do
-		Sim.unknownEvents[e] = true
-	end
-end
 
 ---------------------------------------------------------------------------
 -- The standard frames
@@ -893,7 +867,7 @@ function DEFAULT_CHAT_FRAME:AddMessage(msg)
 	Sim.prints[#Sim.prints + 1] = msg
 end
 function ChatFrame_OpenChat(text) Sim.chat = text end
-if RETAIL then ChatFrameUtil = { OpenChat = function(text) Sim.chat = text end } end
+ChatFrameUtil = { OpenChat = function(text) Sim.chat = text end }
 
 GameFontNormal = { GetFont = function() return STANDARD_TEXT_FONT, 12, "" end }
 GameTooltip = CreateFrame("GameTooltip", "GameTooltip", UIParent, "GameTooltipTemplate")
@@ -958,16 +932,14 @@ function LibStub:IterateLibraries() return pairs(self.libs) end
 
 -- Retail-engine frames can pin their frame level (Questie does on its map
 -- icons): a fixed frame ignores SetFrameLevel until unfixed.
-if RETAIL or FLAVOR == "forever" then
-	local methods = classes.Frame.methods
-	local setLevel = methods.SetFrameLevel
-	function methods:SetFrameLevel(l)
-		if S[self].fixedLevel then return end
-		setLevel(self, l)
-	end
-	function methods:SetFixedFrameLevel(on) S[self].fixedLevel = not not on end
-	function methods:HasFixedFrameLevel() return S[self].fixedLevel == true end
+local methods = classes.Frame.methods
+local setLevel = methods.SetFrameLevel
+function methods:SetFrameLevel(l)
+	if S[self].fixedLevel then return end
+	setLevel(self, l)
 end
+function methods:SetFixedFrameLevel(on) S[self].fixedLevel = not not on end
+function methods:HasFixedFrameLevel() return S[self].fixedLevel == true end
 
 -- Questie's own renamed copy, HereBeDragonsQuestie-Pins-2.0, shaped like the
 -- real one (Questie/Libs/HereBeDragons/HereBeDragons-Pins-2.0.lua): pins by
@@ -1102,73 +1074,67 @@ WorldMapFrame.mapID = 1429 -- the map it shows (Elwynn Forest)
 -- The keybindings: M toggles the world map; L (Retail-engine clients) opens it
 -- on the quest log.
 function ToggleWorldMap() WorldMapFrame:SetShown(not WorldMapFrame:IsShown()) end
-if RETAIL or FLAVOR == "forever" then
-	function ToggleQuestLog() WorldMapFrame:SetShown(not WorldMapFrame:IsShown()) end
-end
+function ToggleQuestLog() WorldMapFrame:SetShown(not WorldMapFrame:IsShown()) end
 
-if RETAIL or FLAVOR == "forever" then -- Forever runs the Retail client
-	C_Minimap = {
-		GetViewRadius = function()
-			local d = ({ [0] = 466.67, 400, 333.33, 266.67, 200, 133.33 })[Minimap:GetZoom()]
-			return d / 2
-		end,
-		SetMinimapInsetInfo = function(minAngle, maxAngle, scalar) Sim.rimInset = scalar end,
-		ClearMinimapInsetInfo = function() Sim.rimInset = nil end,
-		-- Tracking: the client keeps it per character (a CVar).
-		GetNumTrackingTypes = function() return #Sim.tracking end,
-		GetTrackingInfo = function(i)
-			local t = Sim.tracking[i]
-			return t and { name = t.name, texture = 136456, active = t.active, type = "spell", subType = 2, spellID = t.spellID }
-		end,
-		GetTrackingFilter = function(i)
-			local t = Sim.tracking[i]
-			return t and { filterID = t.filterID, spellID = t.spellID }
-		end,
-		SetTracking = function(i, on)
-			assert(Sim.tracking[i] and type(on) == "boolean", "SetTracking: index, boolean expected")
-			Sim.tracking[i].active = on
-			C_Timer.After(0, function() Sim.FireEvent("MINIMAP_UPDATE_TRACKING") end)
-		end,
-		IsTrackingHiddenQuests = function() return false end,
-	}
-	Sim.tracking = {
-		{ name = "Flight Master", filterID = 8, active = true },
-		{ name = "Find Herbs", spellID = 2383, active = true },
-		{ name = "Track Quest POIs", filterID = 65536, active = true },
-		{ name = "Points of Interest", filterID = 8192, active = false },
-		{ name = "Mailbox", filterID = 64, active = true },
-	}
-end
+C_Minimap = {
+	GetViewRadius = function()
+		local d = ({ [0] = 466.67, 400, 333.33, 266.67, 200, 133.33 })[Minimap:GetZoom()]
+		return d / 2
+	end,
+	SetMinimapInsetInfo = function(minAngle, maxAngle, scalar) Sim.rimInset = scalar end,
+	ClearMinimapInsetInfo = function() Sim.rimInset = nil end,
+	-- Tracking: the client keeps it per character (a CVar).
+	GetNumTrackingTypes = function() return #Sim.tracking end,
+	GetTrackingInfo = function(i)
+		local t = Sim.tracking[i]
+		return t and { name = t.name, texture = 136456, active = t.active, type = "spell", subType = 2, spellID = t.spellID }
+	end,
+	GetTrackingFilter = function(i)
+		local t = Sim.tracking[i]
+		return t and { filterID = t.filterID, spellID = t.spellID }
+	end,
+	SetTracking = function(i, on)
+		assert(Sim.tracking[i] and type(on) == "boolean", "SetTracking: index, boolean expected")
+		Sim.tracking[i].active = on
+		C_Timer.After(0, function() Sim.FireEvent("MINIMAP_UPDATE_TRACKING") end)
+	end,
+	IsTrackingHiddenQuests = function() return false end,
+}
+Sim.tracking = {
+	{ name = "Flight Master", filterID = 8, active = true },
+	{ name = "Find Herbs", spellID = 2383, active = true },
+	{ name = "Track Quest POIs", filterID = 65536, active = true },
+	{ name = "Points of Interest", filterID = 8192, active = false },
+	{ name = "Mailbox", filterID = 64, active = true },
+}
 
 -- Context menus (retail-style MenuUtil): records the menu so scenarios can
 -- pick entries. Classic flavors have none, so the addon's fallback runs.
-if FLAVOR ~= "era" then
-	local function description(kind, text, isSelected, onSelect, data)
-		local d = { kind = kind, text = text, isSelected = isSelected, onSelect = onSelect, data = data, items = {} }
-		function d:CreateTitle(t) local e = description("title", t); table.insert(self.items, e); return e end
-		function d:CreateDivider() local e = description("divider"); table.insert(self.items, e); return e end
-		function d:CreateButton(t, fn, dat) local e = description("button", t, nil, fn, dat); table.insert(self.items, e); return e end
-		function d:CreateRadio(t, sel, fn, dat) local e = description("radio", t, sel, fn, dat); table.insert(self.items, e); return e end
-		function d:CreateCheckbox(t, sel, fn, dat) local e = description("checkbox", t, sel, fn, dat); table.insert(self.items, e); return e end
-		function d:SetScrollMode(h) end
-		function d:SetEnabled(e) self.enabled = e end
-		function d:IsEnabled()
-			if type(self.enabled) == "function" then return self.enabled(self) end
-			return self.enabled ~= false
-		end
-		function d:SetTooltip(fn) assert(type(fn) == "function", "SetTooltip: function expected"); self.tooltip = fn end
-		return d
+local function description(kind, text, isSelected, onSelect, data)
+	local d = { kind = kind, text = text, isSelected = isSelected, onSelect = onSelect, data = data, items = {} }
+	function d:CreateTitle(t) local e = description("title", t); table.insert(self.items, e); return e end
+	function d:CreateDivider() local e = description("divider"); table.insert(self.items, e); return e end
+	function d:CreateButton(t, fn, dat) local e = description("button", t, nil, fn, dat); table.insert(self.items, e); return e end
+	function d:CreateRadio(t, sel, fn, dat) local e = description("radio", t, sel, fn, dat); table.insert(self.items, e); return e end
+	function d:CreateCheckbox(t, sel, fn, dat) local e = description("checkbox", t, sel, fn, dat); table.insert(self.items, e); return e end
+	function d:SetScrollMode(h) end
+	function d:SetEnabled(e) self.enabled = e end
+	function d:IsEnabled()
+		if type(self.enabled) == "function" then return self.enabled(self) end
+		return self.enabled ~= false
 	end
-	MenuResponse = { Open = 1, Refresh = 2, Close = 3, CloseAll = 4 }
-	MenuUtil = {
-		CreateContextMenu = function(owner, generator)
-			local root = description("root")
-			generator(owner, root)
-			Sim.menu = root
-			return { Close = function() Sim.menu = nil end, IsShown = function() return Sim.menu == root end }
-		end,
-	}
+	function d:SetTooltip(fn) assert(type(fn) == "function", "SetTooltip: function expected"); self.tooltip = fn end
+	return d
 end
+MenuResponse = { Open = 1, Refresh = 2, Close = 3, CloseAll = 4 }
+MenuUtil = {
+	CreateContextMenu = function(owner, generator)
+		local root = description("root")
+		generator(owner, root)
+		Sim.menu = root
+		return { Close = function() Sim.menu = nil end, IsShown = function() return Sim.menu == root end }
+	end,
+}
 
 function Sim.MenuItems(kind)
 	local out = {}
@@ -1203,17 +1169,15 @@ function GetAddOnMemoryUsage(i)
 	end
 	return 0
 end
-if RETAIL or FLAVOR == "forever" then
-	Enum.AddOnProfilerMetric = { SessionAverageTime = 0, RecentAverageTime = 1, EncounterAverageTime = 2, LastTime = 3, PeakTime = 4 }
-	C_AddOnProfiler = {
-		IsEnabled = function() return true end,
-		GetAddOnMetric = function(name, metric) assert(type(name) == "string" and metric, "GetAddOnMetric: name, metric") return 0.05 end,
-		GetOverallMetric = function(metric) return 0.4 end,
-		GetTopKAddOnsForMetric = function(metric, k)
-			return { { addOnName = "Questie", value = 0.2 }, { addOnName = "MagicMap", value = 0.05 } }
-		end,
-	}
-end
+Enum.AddOnProfilerMetric = { SessionAverageTime = 0, RecentAverageTime = 1, EncounterAverageTime = 2, LastTime = 3, PeakTime = 4 }
+C_AddOnProfiler = {
+	IsEnabled = function() return true end,
+	GetAddOnMetric = function(name, metric) assert(type(name) == "string" and metric, "GetAddOnMetric: name, metric") return 0.05 end,
+	GetOverallMetric = function(metric) return 0.4 end,
+	GetTopKAddOnsForMetric = function(metric, k)
+		return { { addOnName = "Questie", value = 0.2 }, { addOnName = "MagicMap", value = 0.05 } }
+	end,
+}
 if C_Minimap then Enum.MinimapTrackingFilter = { Unfiltered = 0, TaxiNode = 8, Mailbox = 64, POI = 8192, QuestPOIs = 65536 } end
 local T = Enum.UIMapType
 
@@ -1396,26 +1360,20 @@ C_VignetteInfo = {
 -- Atlases: the ones MagicMap asks for that Retail-engine clients have
 -- (checked against Forever's UiTextureAtlasMember); none on classic clients.
 local ATLASES = {}
-if RETAIL or FLAVOR == "forever" then
-	for _, base in ipairs({ "ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-out" }) do
-		ATLASES[base], ATLASES[base .. "-mouseover"], ATLASES[base .. "-down"] = true, true, true
-	end
-	if FLAVOR == "forever" then -- Forever's own art
-		for _, name in ipairs({ "redbutton-expand-c60", "redbutton-expand-pressed-c60", "redbutton-highlight-c60" }) do ATLASES[name] = true end
-	end
-	for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutton-highlight",
-		"ui-hud-minimap-arrow-player", "ui-hud-minimap-arrow-questtracking", "minimaparrow" }) do
-		ATLASES[name] = true
-	end
+for _, base in ipairs({ "ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-out" }) do
+	ATLASES[base], ATLASES[base .. "-mouseover"], ATLASES[base .. "-down"] = true, true, true
+end
+for _, name in ipairs({ "redbutton-expand-c60", "redbutton-expand-pressed-c60", "redbutton-highlight-c60" }) do ATLASES[name] = true end
+for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutton-highlight",
+	"ui-hud-minimap-arrow-player", "ui-hud-minimap-arrow-questtracking", "minimaparrow" }) do
+	ATLASES[name] = true
 end
 -- The metal frame's pieces, sized as Forever reports them: the edges far
 -- bigger than the metal you see (which once shrank minimap mode's map).
-if RETAIL or FLAVOR == "forever" then
-	for _, name in ipairs({ "UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight" }) do ATLASES[name] = { 32, 32 } end
-	ATLASES["_UI-Frame-Metal-EdgeBottom"] = { 256, 200 }
-	ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }
-	ATLASES["!UI-Frame-Metal-EdgeRight"] = { 200, 256 }
-end
+for _, name in ipairs({ "UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight" }) do ATLASES[name] = { 32, 32 } end
+ATLASES["_UI-Frame-Metal-EdgeBottom"] = { 256, 200 }
+ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }
+ATLASES["!UI-Frame-Metal-EdgeRight"] = { 200, 256 }
 C_Texture = {
 	GetAtlasInfo = function(name)
 		if ATLASES[name] then
@@ -1446,48 +1404,40 @@ C_QuestLog = {
 	GetQuestObjectives = function(questID) local q = Sim.quests[questID]; return q and q.objectives or {} end,
 	AddQuestWatch = function(questID) Sim.watched = questID; return true end,
 }
-if RETAIL then
-	C_SuperTrack = {
-		GetSuperTrackedQuestID = function() return Sim.superTracked or 0 end,
-		SetSuperTrackedQuestID = function(id) Sim.superTracked = id end,
-		SetSuperTrackedUserWaypoint = function(on) if on then Sim.superTracked = 0 end end,
-	}
-	C_TooltipInfo = {
-		GetUnit = function(unit)
-			local name = UnitName(unit)
-			return name and { lines = { { leftText = name }, { leftText = Sim.unitSubtitle[unit] or "Level 10" } } }
-		end,
-	}
-	-- 12.x secret values: readable, but any arithmetic or comparison on them
-	-- from addon code is an error. GetUnitSpeed is one.
-	local SECRET = setmetatable({}, {
-		__add = function() error("attempt to perform arithmetic on a secret number value") end,
-		__lt = function() error("attempt to compare a secret number value") end,
-		__tostring = function() return "<secret number>" end,
-	})
-	function issecretvalue(v) return v == SECRET end
-	function GetUnitSpeed(unit) return SECRET end
-else
-	function AddQuestWatch(index) Sim.watchedIndex = index end
-	function QuestWatch_Update() end
-	function GetQuestLogIndexByID(questID) return Sim.quests[questID] and 1 or 0 end
-end
+C_SuperTrack = {
+	GetSuperTrackedQuestID = function() return Sim.superTracked or 0 end,
+	SetSuperTrackedQuestID = function(id) Sim.superTracked = id end,
+	SetSuperTrackedUserWaypoint = function(on) if on then Sim.superTracked = 0 end end,
+}
+C_TooltipInfo = {
+	GetUnit = function(unit)
+		local name = UnitName(unit)
+		return name and { lines = { { leftText = name }, { leftText = Sim.unitSubtitle[unit] or "Level 10" } } }
+	end,
+}
+-- 12.x secret values: readable, but any arithmetic or comparison on them
+-- from addon code is an error. GetUnitSpeed is one.
+local SECRET = setmetatable({}, {
+	__add = function() error("attempt to perform arithmetic on a secret number value") end,
+	__lt = function() error("attempt to compare a secret number value") end,
+	__tostring = function() return "<secret number>" end,
+})
+function issecretvalue(v) return v == SECRET end
+function GetUnitSpeed(unit) return SECRET end
 
 -- Quests to pick up (C_QuestLine, the world map's quest offers): given once
 -- a map has been asked for.
-if RETAIL or FLAVOR == "forever" then
-	Sim.offers = { [1429] = { { questID = 70, questName = "Wolves Across the Border", questLineName = "", questLineID = 1,
-		x = 0.45, y = 0.62, isHidden = false, inProgress = false, startMapID = 1429 } } }
-	Sim.offersAsked = {}
-	C_QuestLine = {
-		RequestQuestLinesForMap = function(id)
-			assert(type(id) == "number", "RequestQuestLinesForMap: uiMapID expected")
-			Sim.offersAsked[id] = true
-			C_Timer.After(0.1, function() Sim.FireEvent("QUESTLINE_UPDATE", false) end)
-		end,
-		GetAvailableQuestLines = function(id) return Sim.offersAsked[id] and Sim.offers[id] or {} end,
-	}
-end
+Sim.offers = { [1429] = { { questID = 70, questName = "Wolves Across the Border", questLineName = "", questLineID = 1,
+	x = 0.45, y = 0.62, isHidden = false, inProgress = false, startMapID = 1429 } } }
+Sim.offersAsked = {}
+C_QuestLine = {
+	RequestQuestLinesForMap = function(id)
+		assert(type(id) == "number", "RequestQuestLinesForMap: uiMapID expected")
+		Sim.offersAsked[id] = true
+		C_Timer.After(0.1, function() Sim.FireEvent("QUESTLINE_UPDATE", false) end)
+	end,
+	GetAvailableQuestLines = function(id) return Sim.offersAsked[id] and Sim.offers[id] or {} end,
+}
 
 function CanMerchantRepair() return Sim.canRepair == true end
 function ButtonFrameTemplate_HidePortrait(f) end

@@ -64,9 +64,7 @@ scenarios.boot = function()
 	check(ns.state.playerCol ~= nil, "knows where the player is")
 	Sim.Run(3) -- borders, labels, pins settle
 	check(QuestPin(60) ~= nil, "the Elwynn quest has a pin")
-	if Sim.flavor == "forever" then
-		check(ns.layoutStats and ns.layoutStats.lines > 0, "zone borders are drawn (from offline data)")
-	end
+	check(ns.layoutStats and ns.layoutStats.lines > 0, "zone borders are drawn (from offline data)")
 	check(#Sim.timers == 0 or Sim.timers[1].at > Sim.time - 1, "timers drain")
 end
 
@@ -492,34 +490,32 @@ scenarios.minimap_ours_first = function()
 	Sim.Run(2.5)
 
 	-- Tooltips over a quest area (where the client draws quest areas).
-	if Sim.flavor == "retail" then
-		local function Line1() return _G.GameTooltipTextLeft1 and _G.GameTooltipTextLeft1:GetText() end
-		Sim.MoveCursorTo(Minimap, 0.5, 0.5)
-		Sim.questUnderCursor = 60
-		Sim.Run(0.3)
-		check(GameTooltip:IsShown() and Line1() == "Kobold Candles", "over a quest area, the quest's tooltip")
-		Sim.FireScript(Minimap, "OnEnter", false)
-		Sim.blip = "Peacebloom"
-		local steady = true
-		for _ = 1, 10 do
-			Sim.Step()
-			steady = steady and GameTooltip:IsShown() and Line1() == "Peacebloom"
-		end
-		check(steady, "a Blizzard blip under the cursor wins over the quest area, every frame")
-		Sim.blip = nil
-		steady = true
-		for _ = 1, 10 do
-			Sim.Step()
-			steady = steady and GameTooltip:IsShown() and Line1() == "Kobold Candles"
-		end
-		check(steady, "off the blip, the quest area's again, every frame (no flicker)")
-		Sim.FireScript(Minimap, "OnLeave", false)
-		Sim.Run(0.2)
-		check(GameTooltip:IsShown() and Line1() == "Kobold Candles", "off the Minimap, the quest area keeps it")
-		Sim.questUnderCursor = nil
-		Sim.Run(0.2)
-		check(not GameTooltip:IsShown(), "and lets go off the area")
+	local function Line1() return _G.GameTooltipTextLeft1 and _G.GameTooltipTextLeft1:GetText() end
+	Sim.MoveCursorTo(Minimap, 0.5, 0.5)
+	Sim.questUnderCursor = 60
+	Sim.Run(0.3)
+	check(GameTooltip:IsShown() and Line1() == "Kobold Candles", "over a quest area, the quest's tooltip")
+	Sim.FireScript(Minimap, "OnEnter", false)
+	Sim.blip = "Peacebloom"
+	local steady = true
+	for _ = 1, 10 do
+		Sim.Step()
+		steady = steady and GameTooltip:IsShown() and Line1() == "Peacebloom"
 	end
+	check(steady, "a Blizzard blip under the cursor wins over the quest area, every frame")
+	Sim.blip = nil
+	steady = true
+	for _ = 1, 10 do
+		Sim.Step()
+		steady = steady and GameTooltip:IsShown() and Line1() == "Kobold Candles"
+	end
+	check(steady, "off the blip, the quest area's again, every frame (no flicker)")
+	Sim.FireScript(Minimap, "OnLeave", false)
+	Sim.Run(0.2)
+	check(GameTooltip:IsShown() and Line1() == "Kobold Candles", "off the Minimap, the quest area keeps it")
+	Sim.questUnderCursor = nil
+	Sim.Run(0.2)
+	check(not GameTooltip:IsShown(), "and lets go off the area")
 	local pin = QuestPin(60)
 	-- (Same strata in the client, which hands a frame's strata down to its children.)
 	check(pin and pin:GetFrameLevel() > Minimap:GetFrameLevel(),
@@ -964,7 +960,7 @@ end
 -- turns it all off, and none of it costs anything per frame.
 scenarios.tile_colors = function()
 	local map = ns.state.map
-	local tiles = MagicMap_TileSets[next(MagicMap_TileSets)].maps[map].tiles
+	local tiles = MagicMap_Tiles.maps[map].tiles
 	MagicMap_TileColor = nil -- the flavor's own data, if any: this test brings its own
 	ns.SetZoom(24)
 	Sim.Run(2)
@@ -1034,7 +1030,7 @@ scenarios.tile_colors = function()
 	end
 	check(Shown(water) and S[water].texture == "Interface\\AddOns\\MagicMap\\Textures\\Water\\test\\" .. map .. "_" .. inner .. ".tga",
 		"a tile with a water mask draws it, from its own file")
-	local bg = MagicMap_TileSets[next(MagicMap_TileSets)].maps[map].bg or { 0.03, 0.06, 0.065 }
+	local bg = MagicMap_Tiles.maps[map].bg or { 0.03, 0.06, 0.065 }
 	local wv = water and S[water].vertex
 	check(wv and wv[1] == bg[1] and wv[2] == bg[2] and wv[3] == bg[3], "the water mask is the backdrop's colour")
 

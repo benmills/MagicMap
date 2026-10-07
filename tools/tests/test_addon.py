@@ -1,5 +1,5 @@
 """The addon's Lua: compile + globals check, and the headless smoke test
-(each scenario on each simulated client flavor)."""
+(each scenario on the simulated WoW Forever client)."""
 import subprocess
 import sys
 
@@ -14,8 +14,7 @@ def test_luacheck():
     assert result.returncode == 0, result.stdout
 
 
-@pytest.mark.parametrize("flavor", smoketest.FLAVORS)
 @pytest.mark.parametrize("scenario", smoketest.scenario_names())
-def test_smoke(flavor, scenario):
-    problems = smoketest.run(flavor, scenario)
+def test_smoke(scenario):
+    problems = smoketest.run(scenario)
     assert not problems, "\n\n".join(problems)

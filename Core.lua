@@ -521,27 +521,18 @@ local function StepHover(elapsed)
 end
 
 ---------------------------------------------------------------------------
--- Tile sets
---
--- Each Data/Tiles_<product>.lua is generated from that game version's own
--- WDT files, which list the exact minimap FileDataID for every tile the
--- version uses. The same ID can hold different images in different
--- versions, and a client can ship leftover tiles its world never uses, so
--- the tile *list* has to come from the matching version. We pick the set
--- whose version matches GetBuildInfo() (major.minor, then major), else retail.
+-- The tile set: Data/Tiles.lua, generated from WoW Forever's own WDT files,
+-- which list the exact minimap FileDataID for every tile it uses (the same
+-- ID can hold different images in other versions, so the list has to come
+-- from Forever's). Regenerate it when a patch changes the terrain.
 ---------------------------------------------------------------------------
 
 local tileSetName, tileSetVersion
 local tileCounts = {}
 
--- Data/Select.lua lets only the set matching this client load, so there's one.
-local function PickTileSet()
-	return next(MagicMap_TileSets or {})
-end
-
-local function LoadTileSet(product)
-	local set = product and MagicMap_TileSets[product]
-	tileSetName, tileSetVersion = product, set and set.version
+local function LoadTileSet()
+	local set = MagicMap_Tiles
+	tileSetName, tileSetVersion = set and set.product, set and set.version
 	TileData = set and set.maps or {}
 	wipe(tileCounts)
 	for mapID, data in pairs(TileData) do
@@ -1847,7 +1838,7 @@ events:SetScript("OnEvent", ns.TimedEvents("core", function(self, event, arg1)
 		for k, v in pairs(defaults) do
 			if db[k] == nil then db[k] = v end
 		end
-		LoadTileSet(PickTileSet())
+		LoadTileSet()
 		frame:SetSize(db.width, db.height)
 		frame:ClearAllPoints()
 		frame:SetPoint(db.point[1], UIParent, db.point[2], db.point[3], db.point[4])

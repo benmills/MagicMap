@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Load MagicMap in a simulated WoW client and drive it, headlessly.
 
-Runs each scenario in tools/tests/scenarios.lua on a fresh simulated client
-(tools/tests/wowsim.lua) for each flavor, and reports every Lua error the
+Runs each scenario in tools/tests/scenarios.lua on a fresh simulated WoW
+Forever client (tools/tests/wowsim.lua), and reports every Lua error the
 addon raised and every failed expectation. It's no substitute for the game,
 but it executes the code: nil calls, typos, bad arithmetic and wrong
 assumptions about API shapes show up here first.
 
-  python3 tools/smoketest.py                      # all flavors, all scenarios
-  python3 tools/smoketest.py --flavor era minimap_mode
+  python3 tools/smoketest.py                 # every scenario
+  python3 tools/smoketest.py minimap_mode    # just these
 
 Needs `pip install lupa`.
 """
@@ -20,19 +20,17 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TESTS = os.path.join(ROOT, "tools", "tests")
-FLAVORS = ["forever", "era", "retail"]
 
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 from luacheck import toc_files  # noqa: E402
 
 
-def new_client(flavor: str):
+def new_client():
     try:
         from lupa import lua51
     except ImportError:
         sys.exit("smoketest needs Lua 5.1 from the lupa package: pip install lupa")
     L = lua51.LuaRuntime(encoding="latin-1", unpack_returned_tuples=True)
-    L.globals().SIM_FLAVOR = flavor
     sim = L.eval("function(path) return assert(loadfile(path))() end")(os.path.join(TESTS, "wowsim.lua"))
     return L, sim
 
@@ -56,15 +54,15 @@ def boot(L, sim):
 
 
 def scenario_names() -> list[str]:
-    L, sim = new_client("forever")
+    L, sim = new_client()
     scenarios = L.eval("function(path, ...) return assert(loadfile(path))(...) end")(
         os.path.join(TESTS, "scenarios.lua"), sim, L.table(), lambda *a: None)
     return sorted(scenarios.keys())
 
 
-def run(flavor: str, name: str) -> list[str]:
+def run(name: str) -> list[str]:
     """Problems from one scenario on one flavor (empty: it passed)."""
-    L, sim = new_client(flavor)
+    L, sim = new_client()
     ns = boot(L, sim)
     failures: list[str] = []
 
@@ -81,20 +79,18 @@ def run(flavor: str, name: str) -> list[str]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--flavor", choices=FLAVORS, action="append", help="default: all")
     parser.add_argument("scenarios", nargs="*", help="default: all")
     parser.add_argument("-v", "--verbose", action="store_true", help="full tracebacks")
     ns = parser.parse_args()
     names = ns.scenarios or scenario_names()
     failed = 0
-    for flavor in ns.flavor or FLAVORS:
-        for name in names:
-            problems = run(flavor, name)
-            print(f"{'ok  ' if not problems else 'FAIL'} {flavor:8} {name}")
-            for p in problems:
-                text = p if ns.verbose else p.split("\nstack traceback:")[0]
-                print("     " + text.replace("\n", "\n     "))
-            failed += bool(problems)
+    for name in names:
+        problems = run(name)
+        print(f"{'ok  ' if not problems else 'FAIL'} {name}")
+        for p in problems:
+            text = p if ns.verbose else p.split("\nstack traceback:")[0]
+            print("     " + text.replace("\n", "\n     "))
+        failed += bool(problems)
     print(f"{failed} failed" if failed else "all passed")
     sys.exit(1 if failed else 0)
 

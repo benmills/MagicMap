@@ -115,10 +115,10 @@ class MapTiles:
 
 
 def parse_tileset(path: str) -> tuple[str, str, list[MapTiles]]:
-    """(product, version, maps) from a generated Data/Tiles_<product>.lua."""
+    """(product, version, maps) from a generated Data/Tiles.lua."""
     with open(path, encoding="utf-8") as f:
         text = f.read()
-    m = re.search(r'MagicMap_WantTileSet\("([^"]+)", "([^"]+)"\)', text)
+    m = re.search(r'MagicMap_Tiles = \{ product = "([^"]+)", version = "([^"]+)"', text)
     if not m:
         raise SystemExit(f"{path}: not a tile set")
     product, version = m.groups()
@@ -618,8 +618,7 @@ def write_tilecolor(out, product: str, version: str, results: list[MapResult]) -
     w("-- water[key] = true: the tile has a 32x32 mask waterDir .. inst .. \"_\" .. key .. \".tga\" (white, alpha = how much of\n")
     w("--   the backdrop colour covers it) to draw over the whole tile with the vertex colour bg: recolours shallow water\n")
     w("--   toward the open sea; edge[] colours are taken after it\n")
-    w(f"-- key = col * 64 + row, as in Data/Tiles_{product}.lua\n")
-    w(f"if not MagicMap_WantHeights(\"{product}\", \"{version}\") then return end\n")
+    w("-- key = col * 64 + row, as in Data/Tiles.lua\n")
     w("MagicMap_TileColor = MagicMap_TileColor or {}\n")
     for r in results:
         name = r.map.name.replace("\n", " ")
@@ -760,7 +759,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     add_source_args(parser)
     parser.add_argument("-o", "--output", help="output file (default: stdout)")
-    parser.add_argument("--tiles", metavar="FILE", help="tile set (default: Data/Tiles_<product>.lua if it exists)")
+    parser.add_argument("--tiles", metavar="FILE", help="tile set (default: Data/Tiles.lua if it exists)")
     parser.add_argument("--open-world", action="store_true", help="skip dungeons and raids")
     parser.add_argument("--preview", metavar="DIR", help="write before/after/seam PNGs of the continents here")
     parser.add_argument("--preview-px", type=int, default=16, help="preview pixels per tile (default 16)")
@@ -772,9 +771,12 @@ def main() -> None:
     t0 = time.time()
     src = source_from_args(parser, ns)
 
-    tiles_path = ns.tiles or os.path.join(ROOT, "Data", f"Tiles_{src.product}.lua")
-    if os.path.exists(tiles_path):
-        product, version, maps = parse_tileset(tiles_path)
+    tiles_path = ns.tiles or os.path.join(ROOT, "Data", "Tiles.lua")
+    shipped = os.path.exists(tiles_path) and parse_tileset(tiles_path)
+    if shipped and not ns.tiles and shipped[0] != src.product:
+        shipped = None  # the addon's tile set is another product's: read this one's from the source
+    if shipped:
+        product, version, maps = shipped
         if product != src.product:
             raise SystemExit(f"{tiles_path} is for {product}, not {src.product}")
         if version != src.version:

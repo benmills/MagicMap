@@ -5,8 +5,7 @@
 -- water[key] = true: the tile has a 32x32 mask waterDir .. inst .. "_" .. key .. ".tga" (white, alpha = how much of
 --   the backdrop colour covers it) to draw over the whole tile with the vertex colour bg: recolours shallow water
 --   toward the open sea; edge[] colours are taken after it
--- key = col * 64 + row, as in Data/Tiles_wow_classic_beta.lua
-if not MagicMap_WantHeights("wow_classic_beta", "1.60.1.70009") then return end
+-- key = col * 64 + row, as in Data/Tiles.lua
 MagicMap_TileColor = MagicMap_TileColor or {}
 MagicMap_TileColor[0] = { -- Eastern Kingdoms
   tint = {

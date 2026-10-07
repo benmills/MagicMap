@@ -2,10 +2,7 @@
 -- tiles[col * 64 + row] = minimap FileDataID for map<col>_<row>
 -- bg = median colour of the water along the map's outer edge (for the backdrop)
 -- kind = "dungeon" | "raid" for instances (nil: open world); continent = instanceID of the entrance's continent
-if not MagicMap_WantTileSet("wow_classic_beta", "1.60.1.70009") then return end
-MagicMap_ActiveProduct = "wow_classic_beta"
-MagicMap_TileSets = MagicMap_TileSets or {}
-MagicMap_TileSets["wow_classic_beta"] = { version = "1.60.1.70009", maps = {
+MagicMap_Tiles = { product = "wow_classic_beta", version = "1.60.1.70009", maps = {
   [0] = { name = "Eastern Kingdoms", bg = { 0.032, 0.063, 0.065 }, tiles = {
     [1526]=5313057, [1527]=5313059, [1528]=5313091, [1529]=5313095, [1530]=5313097, [1531]=5313127, [1567]=5312909, [1568]=5312915,
     [1569]=371765, [1570]=371768, [1571]=371771, [1572]=371774, [1573]=320019, [1574]=317689, [1575]=317699, [1589]=204207,

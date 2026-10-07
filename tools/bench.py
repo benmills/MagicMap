@@ -43,7 +43,7 @@ return frames
 
 
 def run(name: str, verbose: bool, call_us: float = 0) -> dict:
-    L, sim = new_client("forever")
+    L, sim = new_client()
     ns = boot(L, sim)
     sim.Run(3)  # settle after login
     sim.CountCalls()

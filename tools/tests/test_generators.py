@@ -57,16 +57,15 @@ def test_deterministic(world, generated, tmp_path):
 def lua_load(path, product):
     from lupa import lua51
     L = lua51.LuaRuntime(encoding=None)
-    L.execute(b"function MagicMap_WantTileSet() return true end")
-    L.execute(b"function MagicMap_WantHeights() return true end")
-    L.execute(f'MagicMap_ActiveProduct = "{product}"'.encode())
     L.eval(b"function(p) return assert(loadfile(p))() end")(str(path).encode())
     return L
 
 
 def test_files_load_in_lua(generated):
     L = lua_load(generated["tiles"], fixtures.PRODUCT)
-    maps = L.globals().MagicMap_TileSets[fixtures.PRODUCT.encode()][b"maps"]
+    tiles = L.globals().MagicMap_Tiles
+    assert tiles[b"product"] == fixtures.PRODUCT.encode()
+    maps = tiles[b"maps"]
     assert sorted(maps.keys()) == [0, 1, 36]  # not the battleground; not maps without a WDT
     assert maps[36][b"kind"] == b"dungeon" and maps[36][b"continent"] == 0
     L = lua_load(generated["borders"], fixtures.PRODUCT)
