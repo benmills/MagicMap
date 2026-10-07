@@ -20,7 +20,7 @@ edgeArrow:SetTexture("Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW")
 edgeArrow:SetSize(32, 32)
 edgeArrow:Hide()
 
-ns.frame:HookScript("OnUpdate", function()
+ns.frame:HookScript("OnUpdate", ns.Timed("path arrow", function()
 	local t = ns.GetTarget and ns.GetTarget()
 	if t and state.playerCol and state.playerMap == state.map then
 		local w, h = ns.ViewSize()
@@ -53,7 +53,7 @@ ns.frame:HookScript("OnUpdate", function()
 		edgeArrow.on = false
 		edgeArrow:Hide()
 	end
-end)
+end))
 
 local layer = ns.layerFrames.path
 if not layer.CreateLine then return end
@@ -102,7 +102,7 @@ local function Unchanged(x1, y1, x2, y2, phase)
 	return false
 end
 
-ns.frame:HookScript("OnUpdate", function()
+ns.frame:HookScript("OnUpdate", ns.Timed("path line", function()
 	local n = 0
 	local t = state.path and ns.GetTarget and ns.GetTarget()
 	if t and state.playerCol and state.playerMap == state.map then
@@ -138,4 +138,4 @@ ns.frame:HookScript("OnUpdate", function()
 		Off(shadows[i])
 	end
 	used = n
-end)
+end))

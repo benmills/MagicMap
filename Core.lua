@@ -1659,7 +1659,7 @@ Tooltip(zoomOut, function() return "Zoom out  |cff888888(sets how close the map 
 Tooltip(gearButton, function() return "Layers" end)
 
 local titleElapsed = 0
-frame:SetScript("OnUpdate", function(_, elapsed)
+frame:SetScript("OnUpdate", ns.Timed("map", function(_, elapsed)
 	ViewSizeChanged()
 	local perf = ns.perf
 	local t0 = perf and debugprofilestop()
@@ -1714,7 +1714,7 @@ frame:SetScript("OnUpdate", function(_, elapsed)
 		UpdateTitle()
 	end
 	if perf then perf.Frame(elapsed or 0, debugprofilestop() - t0) end
-end)
+end))
 
 frame:SetScript("OnShow", function() db.shown = true; state.dirty = true end)
 frame:SetScript("OnHide", function()
@@ -1790,6 +1790,12 @@ ns.MapRect, ns.MapToTile, ns.TileToMap = MapRect, MapToTile, TileToMap
 ns.GetZones, ns.GetContinentMapID, ns.GetQuestMaps = GetZones, GetContinentMapID, GetQuestMaps
 ns.slash = {} -- extra /mm subcommands: name -> fn(arg)
 ns.activeTiles = activeTiles -- for tests: mapID * 4096 + key -> tile texture
+-- For /mm perf mem: tile textures drawn now, and spare ones kept for reuse.
+ns.TileCounts = function()
+	local n = 0
+	for _ in pairs(activeTiles) do n = n + 1 end
+	return n, #freeTextures
+end
 
 -- The tile colour data on and off, to compare it with the plain tiles.
 function ns.slash.tint()
@@ -1807,7 +1813,7 @@ ns.Toggle = function() frame:SetShown(not frame:IsShown()) end
 local events = CreateFrame("Frame")
 events:RegisterEvent("ADDON_LOADED")
 events:RegisterEvent("PLAYER_ENTERING_WORLD")
-events:SetScript("OnEvent", function(self, event, arg1)
+events:SetScript("OnEvent", ns.TimedEvents("core", function(self, event, arg1)
 	if event == "ADDON_LOADED" and arg1 == ADDON then
 		MagicMapDB = MagicMapDB or {}
 		db = MagicMapDB
@@ -1833,7 +1839,7 @@ events:SetScript("OnEvent", function(self, event, arg1)
 		UpdateControls()
 		if db.shown then frame:Show() end
 	end
-end)
+end))
 
 SLASH_MAGICMAP1 = "/mm"
 SLASH_MAGICMAP2 = "/magicmap"

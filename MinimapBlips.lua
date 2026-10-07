@@ -227,7 +227,7 @@ local function Update()
 end
 
 -- After the map's own OnUpdate, so the view has already moved this frame.
-ns.frame:HookScript("OnUpdate", Update)
+ns.frame:HookScript("OnUpdate", ns.Timed("minimap", Update))
 ns.frame:HookScript("OnHide", T.Release)
 
 ns.On("Loaded", function(savedDB)

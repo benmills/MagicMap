@@ -3,7 +3,7 @@
 # Add a name here when you start using new WoW API.
 
 # Lua 5.1 + WoW's Lua extensions
-_G assert coroutine date debugprofilestop error getmetatable ipairs math next
+_G assert collectgarbage coroutine date debugprofilestop error getmetatable ipairs math next
 pairs pcall rawget rawset select setmetatable string strsplit strtrim table
 time tinsert tremove tonumber tostring type unpack wipe xpcall hooksecurefunc
 

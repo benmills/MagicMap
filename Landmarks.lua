@@ -243,7 +243,7 @@ for event in pairs(INTERACT) do pcall(events.RegisterEvent, events, event) end
 for _, event in ipairs({ "MAIL_SHOW", "PLAYER_TARGET_CHANGED", "VIGNETTES_UPDATED", "VIGNETTE_MINIMAP_UPDATED", "AREA_POIS_UPDATED" }) do
 	pcall(events.RegisterEvent, events, event)
 end
-events:SetScript("OnEvent", function(_, event)
+events:SetScript("OnEvent", ns.TimedEvents("landmarks", function(_, event)
 	if INTERACT[event] ~= nil then
 		OnInteract(INTERACT[event] or nil)
 	elseif event == "MAIL_SHOW" then
@@ -256,7 +256,7 @@ events:SetScript("OnEvent", function(_, event)
 	else
 		ns.RefreshLayer("vignettes")
 	end
-end)
+end))
 
 ns.On("Loaded", function()
 	MagicMapLandmarks = MagicMapLandmarks or {}

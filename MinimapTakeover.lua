@@ -572,7 +572,7 @@ local function AfterMinimapHover()
 	if GameTooltip:IsShown() and GameTooltip:NumLines() > 0 and GameTooltip:IsOwned(UIParent) then return end -- a blip
 	ns.ShowQuestAreaTooltip(ns.CursorTile())
 end
-if Minimap_OnUpdate then hooksecurefunc("Minimap_OnUpdate", AfterMinimapHover) end
+if Minimap_OnUpdate then hooksecurefunc("Minimap_OnUpdate", ns.Timed("minimap hover", AfterMinimapHover)) end
 Minimap:HookScript("OnEnter", function() hover = true end)
 Minimap:HookScript("OnLeave", function() hover = false end)
 
@@ -591,8 +591,8 @@ local events = CreateFrame("Frame")
 for _, event in ipairs({ "PLAYER_LOGOUT", "PLAYER_ENTERING_WORLD", "MINIMAP_UPDATE_TRACKING" }) do
 	pcall(events.RegisterEvent, events, event)
 end
-events:SetScript("OnEvent", function(_, event)
+events:SetScript("OnEvent", ns.TimedEvents("takeover", function(_, event)
 	if event == "PLAYER_LOGOUT" or not (engaged and not indoor) then
 		if db and db.trackingOff and next(db.trackingOff) then SyncTracking(false) end
 	end
-end)
+end))

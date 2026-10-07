@@ -56,7 +56,7 @@ local function AddCopy(major, lib)
 	-- Hear about pins added and removed (a newer copy loading over this one
 	-- drops these hooks; the regular pass still catches up).
 	for _, method in ipairs({ "AddWorldMapIconWorld", "AddWorldMapIconMap", "RemoveWorldMapIcon", "RemoveAllWorldMapIcons" }) do
-		if type(lib[method]) == "function" then hooksecurefunc(lib, method, function() MarkDirty() end) end
+		if type(lib[method]) == "function" then hooksecurefunc(lib, method, ns.Timed("addon pins: " .. method, function() MarkDirty() end)) end
 	end
 end
 
@@ -290,13 +290,13 @@ end
 local dirty, sinceSync = true, 0
 function MarkDirty() dirty = true end
 
-host:SetScript("OnUpdate", function(_, elapsed)
+host:SetScript("OnUpdate", ns.Timed("addon pins", function(_, elapsed)
 	sinceSync = sinceSync + (elapsed or 0)
 	if (dirty and sinceSync >= SYNC_SOON) or sinceSync >= SYNC_EVERY then
 		dirty, sinceSync = false, 0
 		Sync()
 	end
-end)
+end))
 
 ns.On("ViewChanged", OnViewChanged)
 ns.On("MapChanged", function() Sync() end)
@@ -319,11 +319,11 @@ HookWorldMap()
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_LOGIN")
 events:RegisterEvent("ADDON_LOADED")
-events:SetScript("OnEvent", function()
+events:SetScript("OnEvent", ns.TimedEvents("addon pins", function()
 	HookWorldMap()
 	Scan()
 	dirty = true
-end)
+end))
 
 -- For tests and /mm debugging: what's on our map now.
 function ns.HostedAddonPins() return hosted end

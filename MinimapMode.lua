@@ -75,7 +75,7 @@ local SetHomeAlpha = ns.Takeover.SetHomeAlpha
 local tween
 local tweener = CreateFrame("Frame")
 tweener:Hide()
-tweener:SetScript("OnUpdate", function(self, elapsed)
+tweener:SetScript("OnUpdate", ns.Timed("minimap mode tween", function(self, elapsed)
 	local tw = tween
 	tw.t = tw.t + elapsed
 	local p = EaseOutCubic(math.min(1, tw.t / tw.dur))
@@ -88,7 +88,7 @@ tweener:SetScript("OnUpdate", function(self, elapsed)
 		self:Hide()
 		if tw.onDone then tw.onDone() end
 	end
-end)
+end))
 
 -- alpha (optional): { from, to } for the minimap's home corner.
 local function TweenTo(to, duration, onDone, alpha)
@@ -291,16 +291,16 @@ end)
 ns.slash.minimap = ToggleMinimapMode
 
 -- Left alone after you've panned away, glide back to following you.
-frame:HookScript("OnUpdate", function()
+frame:HookScript("OnUpdate", ns.Timed("minimap mode idle", function()
 	if not (db and db.minimapMode) or ns.IsMapExpanded() or state.follow or state.dragging or ns.IsAnimating() then return end
 	if frame:IsMouseOver() or GetTime() - (state.lastInteract or 0) < IDLE_FOLLOW then return end
 	ns.SetFollow(true, true)
-end)
+end))
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("ADDON_LOADED")
 events:RegisterEvent("PLAYER_LOGOUT")
-events:SetScript("OnEvent", function(_, event, name)
+events:SetScript("OnEvent", ns.TimedEvents("minimap mode", function(_, event, name)
 	if event == "ADDON_LOADED" then
 		HookWorldMap() -- load-on-demand world maps
 	elseif event == "PLAYER_LOGOUT" and small then
@@ -308,7 +308,7 @@ events:SetScript("OnEvent", function(_, event, name)
 		db.point = { "TOPLEFT", "BOTTOMLEFT", small[1], small[2] }
 		db.width, db.height = small[3], small[4]
 	end
-end)
+end))
 
 ns.On("Loaded", function(savedDB)
 	db = savedDB

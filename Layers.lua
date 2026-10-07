@@ -183,8 +183,10 @@ end
 
 -- Reusable pool of textures/lines/font strings. `cap` bounds how many one
 -- layout may use, so a dense map can never stall the frame.
+local allPools = {}
 local function Pool(create, cap)
 	local pool = { list = {}, used = 0, peak = 0, cap = cap or math.huge }
+	allPools[#allPools + 1] = pool
 	function pool:Reset()
 		for i = 1, math.max(self.used, self.peak) do
 			local obj = self.list[i]
@@ -735,7 +737,7 @@ local function UpdateGroup()
 	end
 	groupShown = n
 end
-ns.frame:HookScript("OnUpdate", UpdateGroup)
+ns.frame:HookScript("OnUpdate", ns.Timed("party dots", UpdateGroup))
 
 ---------------------------------------------------------------------------
 -- Quest areas
@@ -824,7 +826,7 @@ local function LayoutQuestAreas()
 	-- Which quests actually got an area? Check next frame, once blobs are built.
 	if not approxPending then
 		approxPending = true
-		C_Timer.After(0, function()
+		C_Timer.After(0, ns.Timed("quest area check", function()
 			approxPending = nil
 			for _, a in ipairs(questAreas) do
 				a.hasBlob = false
@@ -836,7 +838,7 @@ local function LayoutQuestAreas()
 				end
 			end
 			LayoutApproxAreas()
-		end)
+		end))
 	end
 	LayoutApproxAreas()
 end
@@ -1073,12 +1075,12 @@ local pendingRefresh = {}
 local function ScheduleRefresh(key)
 	if pendingRefresh[key] then return end
 	pendingRefresh[key] = true
-	C_Timer.After(0.3, function()
+	C_Timer.After(0.3, ns.Timed("refresh " .. key, function()
 		pendingRefresh[key] = nil
 		RefreshPins(key)
 		LayoutPins()
 		if key == "quests" then LayoutQuestAreas() end
-	end)
+	end))
 end
 
 function ns.RefreshLayer(key) ScheduleRefresh(key) end
@@ -1508,7 +1510,7 @@ local function EnsureGrid(mapID)
 end
 
 local jobRunner = CreateFrame("Frame")
-jobRunner:SetScript("OnUpdate", function()
+jobRunner:SetScript("OnUpdate", ns.Timed("zone sampling", function()
 	local job = jobs[1]
 	if not job then return end
 	local ok, err = coroutine.resume(job)
@@ -1518,7 +1520,7 @@ jobRunner:SetScript("OnUpdate", function()
 	elseif coroutine.status(job) == "dead" then
 		table.remove(jobs, 1)
 	end
-end)
+end))
 
 ---------------------------------------------------------------------------
 -- Static layout (re-run on zoom change or new data; panning moves canvases)
@@ -2053,7 +2055,7 @@ local function RequestGeometry(force)
 end
 
 local runner = CreateFrame("Frame")
-runner:SetScript("OnUpdate", function(_, elapsed)
+runner:SetScript("OnUpdate", ns.Timed("border builder", function(_, elapsed)
 	local b = build
 	if b then
 		sliceStart = debugprofilestop and debugprofilestop() or 0
@@ -2093,7 +2095,7 @@ runner:SetScript("OnUpdate", function(_, elapsed)
 		fs:SetAlpha(a)
 		if a >= 1 then fadingLabels[fs] = nil end
 	end
-end)
+end))
 
 -- Borders and labels for the view (after new data or a layer toggle).
 LayoutStatic = function()
@@ -2409,8 +2411,9 @@ local function PollCorpse()
 	if IsGhost() and not corpseFound and Enabled("corpse") and state.map then ScheduleRefresh("corpse") end
 	C_Timer.After(CORPSE_POLL, PollCorpse)
 end
+PollCorpse = ns.Timed("corpse poll", PollCorpse)
 C_Timer.After(CORPSE_POLL, PollCorpse)
-events:SetScript("OnEvent", function(_, event, arg1)
+events:SetScript("OnEvent", ns.TimedEvents("layers", function(_, event, arg1)
 	if event == "QUESTLINE_UPDATE" and arg1 then wipe(offersAsked) end -- asked to ask again
 	if event == "MAP_EXPLORATION_UPDATED" then
 		-- Keep showing the old shading until the new pass finishes.
@@ -2419,9 +2422,23 @@ events:SetScript("OnEvent", function(_, event, arg1)
 		return
 	end
 	for _, key in ipairs(EVENT_LAYERS[event] or {}) do ScheduleRefresh(key) end
-end)
+end))
 
 ---------------------------------------------------------------------------
+-- For /mm perf mem: what the pools have created, by kind, and how many are in use.
+function ns.PoolCounts(out)
+	for _, pool in ipairs(allPools) do
+		local first = pool.list[1]
+		if first then
+			local kind = first:GetObjectType()
+			local c = out[kind] or { made = 0, used = 0 }
+			out[kind] = c
+			c.made, c.used = c.made + #pool.list, c.used + pool.used
+		end
+	end
+	return out
+end
+
 -- Exports for ZoneInfo.lua (the big map's right-click info). Read on a
 -- right-click only.
 ---------------------------------------------------------------------------

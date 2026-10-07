@@ -69,6 +69,49 @@ local function Ranked(list, fmt, n)
 	return table.concat(parts, ", ")
 end
 
+-- Where the time went, busiest first: ms per frame, and calls and the
+-- slowest one where that says more.
+local function Where(r)
+	local list, total = {}, 0
+	for name, b in pairs(r.buckets) do
+		list[#list + 1] = { name, b[1], b[2], b[3] }
+		total = total + b[1]
+	end
+	table.sort(list, function(a, b) return a[2] > b[2] end)
+	ns.Print(string.format("  all of MagicMap's scripts and events: %.3f ms/frame. Where:", total / r.frames))
+	for i = 1, math.min(10, #list) do
+		local e = list[i]
+		local calls = (e[3] ~= r.frames) and string.format(", %d calls", e[3]) or ""
+		ns.Print(string.format("    %s  %.3f ms/frame (max %.1f ms%s)", e[1], e[2] / r.frames, e[4], calls))
+	end
+end
+
+-- /mm perf mem: MagicMap's memory before and after a full garbage
+-- collection (what's left is live; the rest was garbage waiting for the
+-- collector), and the objects behind it.
+local function MemoryCheck()
+	local update = UpdateAddOnMemoryUsage or (C_AddOns and C_AddOns.UpdateAddOnMemoryUsage)
+	local get = GetAddOnMemoryUsage or (C_AddOns and C_AddOns.GetAddOnMemoryUsage)
+	if update and get then
+		update()
+		local before = get(ADDON)
+		collectgarbage("collect")
+		update()
+		local after = get(ADDON)
+		ns.Print(string.format("perf mem: MagicMap %.0f KB, %.0f KB after a full collection (%.0f KB was garbage)",
+			before, after, before - after))
+	end
+	local counts = ns.PoolCounts and ns.PoolCounts({}) or {}
+	local parts = {}
+	for kind, c in pairs(counts) do parts[#parts + 1] = string.format("%d %s (%d in use)", c.made, kind, c.used) end
+	table.sort(parts)
+	if ns.TileCounts then
+		local active, spare = ns.TileCounts()
+		parts[#parts + 1] = string.format("%d tiles drawn, %d spare", active, spare)
+	end
+	ns.Print("  objects: " .. table.concat(parts, ", "))
+end
+
 -- /mm perf top: how MagicMap compares with your other addons, right now.
 local function Compare()
 	local P, M = Profiler()
@@ -104,12 +147,13 @@ local function Report()
 		(r.ms + r.buildMs) / r.frames, r.peak, r.buildMs / r.frames))
 	ns.Print(string.format("  borders: %d builds (%.0f ms each), %d extensions, %d frames (%.0f%%) showing past them",
 		r.builds, r.builds > 0 and r.buildTotal / r.builds or 0, r.extends, r.gaps, 100 * r.gaps / r.frames))
+	Where(r)
 	Compare()
 end
 
 local function Start()
 	rec = { t = 0, frames = 0, worst = 0, hitches = 0, ms = 0, peak = 0, buildMs = 0,
-		builds = 0, buildTotal = 0, extends = 0, gaps = 0 }
+		builds = 0, buildTotal = 0, extends = 0, gaps = 0, buckets = {} }
 	-- Core and Layers report into this while it's set.
 	ns.perf = {
 		Frame = function(elapsed, ms)
@@ -122,6 +166,17 @@ local function Start()
 			if rec.t >= DURATION then Report() end
 		end,
 		Slice = function(ms) rec.buildMs = rec.buildMs + ms end,
+		-- Every timed entry point (Profile.lua): { ms, calls, max } by name.
+		Spent = function(name, ms)
+			if not rec then return end -- the recording ended inside this call
+			local b = rec.buckets[name]
+			if not b then
+				b = { 0, 0, 0 }
+				rec.buckets[name] = b
+			end
+			b[1], b[2] = b[1] + ms, b[2] + 1
+			if ms > b[3] then b[3] = ms end
+		end,
 		Built = function(b)
 			if b.extend then
 				rec.extends = rec.extends + 1
@@ -134,6 +189,7 @@ local function Start()
 end
 
 ns.slash.perf = function(arg)
+	if arg == "mem" then return MemoryCheck() end
 	if arg == "top" then
 		ns.Print("perf: MagicMap against your other addons, right now")
 		return Compare()

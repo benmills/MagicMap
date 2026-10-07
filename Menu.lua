@@ -144,12 +144,12 @@ local function NewMenu(button, width)
 	end)
 
 	-- Close when clicking anywhere else.
-	list:SetScript("OnUpdate", function()
+	list:SetScript("OnUpdate", ns.Timed("menu", function()
 		if (IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton"))
 			and not list:IsMouseOver() and (menu.atCursor or not button:IsMouseOver()) then
 			list:Hide()
 		end
-	end)
+	end))
 	list:SetScript("OnHide", function() if openMenu == menu then openMenu = nil end end)
 
 	function menu:Close() list:Hide() end
