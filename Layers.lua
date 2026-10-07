@@ -288,9 +288,12 @@ local function AtlasExists(atlas)
 	return atlas and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas) ~= nil
 end
 
+local SetHoverQuest -- forward: lights up a quest's area (below)
+
 local function PinOnEnter(self)
 	local e = self.entry
 	if not e then return end
+	if e.questID then SetHoverQuest("pin", e.questID) end
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	GameTooltip:AddLine(e.title or "?")
 	for _, line in ipairs(e.lines or {}) do GameTooltip:AddLine(line, 1, 1, 1, true) end
@@ -312,7 +315,10 @@ local pinPool = Pool(function()
 	pin.glow:SetTexture(CIRCLE)
 	pin.glow:Hide()
 	pin:SetScript("OnEnter", PinOnEnter)
-	pin:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	pin:SetScript("OnLeave", function()
+		GameTooltip:Hide()
+		SetHoverQuest("pin", nil)
+	end)
 	return pin
 end)
 
@@ -778,6 +784,57 @@ local BLOB_STYLE = {
 	other = { art = "blue", fill = 0, border = 85, width = 0.6 },
 }
 
+-- Hovering a quest (its area, or its pin) lights its area up: drawn again on
+-- top, lightly filled, its edge clear. The pin and the area under the
+-- cursor are tracked apart, so one doesn't clear the other.
+local HOVER = { fill = 40, border = 150, width = 0.8 }
+local hover = {}  -- pin = questID, area = questID
+local hoverFrame  -- its own QuestPOIFrame
+local hoverDrawn  -- the quest it shows, and at which zoom: "questID@zoom"
+
+local function DrawHover()
+	local questID = hover.pin or hover.area
+	local z = layoutZoom[canvases.areas]
+	local a
+	for _, q in ipairs(questAreas) do
+		if q.questID == questID then a = q break end
+	end
+	local r = a and z and Enabled("quests") and Enabled("questAreas") and ns.MapRect(a.uiMapID)
+	local key = r and (questID .. "@" .. z)
+	if key == hoverDrawn then return end
+	hoverDrawn = key
+	if not r then
+		if hoverFrame then hoverFrame:Hide() end
+		return
+	end
+	local f = hoverFrame or NewBlobFrame()
+	hoverFrame = f
+	local art = BLOB_STYLE[questID == FollowedQuest() and "followed" or a.kind or "other"].art
+	if f.art ~= art then
+		f:SetFillTexture(BLOB_ART[art] .. "Inside")
+		f:SetBorderTexture(BLOB_ART[art] .. "Outside")
+		f.art = art
+	end
+	f:SetFillAlpha(HOVER.fill)
+	f:SetBorderAlpha(HOVER.border)
+	f:SetBorderScalar(HOVER.width)
+	f:SetFrameLevel(canvases.areas:GetFrameLevel() + 3)
+	f:ClearAllPoints()
+	f:SetPoint("TOPLEFT", canvases.areas, "TOPLEFT", r.col0 * z, -r.row0 * z)
+	f:SetSize((r.col1 - r.col0) * z, (r.row1 - r.row0) * z)
+	f:SetMapID(a.uiMapID)
+	f:DrawNone()
+	f:DrawBlob(questID, true)
+	f:Show()
+end
+
+-- source: "pin" or "area"; questID nil to let go.
+SetHoverQuest = function(source, questID)
+	if hover[source] == questID then return end
+	hover[source] = questID
+	DrawHover()
+end
+
 -- Does a drawn blob cover this map-normalized point? (What the world map uses for tooltips.)
 local function BlobAt(f, x, y)
 	if not f.UpdateMouseOverTooltip then return nil end
@@ -833,6 +890,8 @@ local function LayoutQuestAreas()
 			end
 		end
 	end
+
+	DrawHover() -- at the new zoom, or gone with its quest
 
 	-- Which quests actually got an area? Check next frame, once blobs are built.
 	if not approxPending then
@@ -927,6 +986,7 @@ end
 function ns.OnMapHover(col, row)
 	if ns.MinimapHasMouse and ns.MinimapHasMouse() then return end
 	local questID = col and BlobQuestAt(col, row)
+	SetHoverQuest("area", questID)
 	local owner = GameTooltip:GetOwner()
 	if questID then
 		if owner and owner ~= blobTooltipOwner and GameTooltip:IsShown() then return end -- a pin tooltip wins
@@ -943,6 +1003,7 @@ end
 -- rebuilt (Blizzard's handler clears GameTooltip every frame). True if shown.
 function ns.ShowQuestAreaTooltip(col, row)
 	local questID = col and BlobQuestAt(col, row)
+	SetHoverQuest("area", questID)
 	if questID then
 		ShowBlobTooltip(questID)
 		return true
@@ -2086,6 +2147,9 @@ events:SetScript("OnEvent", ns.TimedEvents("layers", function(_, event, arg1)
 end))
 
 ---------------------------------------------------------------------------
+-- For tests: the quest whose area is lit up by hovering, if any.
+function ns.HoveredQuestArea() return hoverFrame and hoverFrame:IsShown() and (hover.pin or hover.area) or nil end
+
 -- For tests: the zoom quest areas were drawn at, and whether they're showing.
 function ns.QuestAreaState() return layoutZoom[canvases.areas], canvases.areas:GetAlpha() end
 

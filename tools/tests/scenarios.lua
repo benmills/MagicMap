@@ -546,6 +546,30 @@ scenarios.quest_areas_follow_zoom = function()
 	check(a2 == 1 and math.abs(z - ns.state.zoom) < 1e-6, "after a flight too")
 end
 
+-- Hovering a quest, by its pin or its area, lights its area up.
+scenarios.quest_area_hover = function()
+	ns.SetZoom(300)
+	Sim.Run(2)
+	local pin = QuestPin(60)
+	check(pin ~= nil, "the quest with an area has a pin")
+	if not pin then return end
+	Sim.MoveCursorTo(pin)
+	Sim.FireScript(pin, "OnEnter", false)
+	Sim.Run(0.1)
+	check(ns.HoveredQuestArea() == 60, "hovering its pin lights its area up")
+	Sim.FireScript(pin, "OnLeave", false)
+	Sim.MoveCursorTo(UIParent, 0.05, 0.05)
+	Sim.Run(0.2)
+	check(ns.HoveredQuestArea() == nil, "and leaving lets it go")
+	Sim.questUnderCursor = 60
+	Sim.MoveCursorTo(ns.viewport, 0.3, 0.3)
+	Sim.Run(0.2)
+	check(ns.HoveredQuestArea() == 60, "hovering the area itself lights it up too")
+	Sim.questUnderCursor = nil
+	Sim.Run(0.2)
+	check(ns.HoveredQuestArea() == nil, "and off it, it's quiet again")
+end
+
 -- Party members: dots at their positions, moving with them.
 scenarios.group_members = function()
 	local function Dot()
