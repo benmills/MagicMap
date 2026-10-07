@@ -525,6 +525,18 @@ local function QuestShape(questID, complete)
 	return "point"
 end
 
+-- What the quest still needs, for its area's colour: "kill", "gather" (items,
+-- objects) or "other".
+local function QuestKind(questID)
+	for _, o in ipairs(QuestObjectives(questID)) do
+		if not o.finished then
+			if o.type == "monster" then return "kill" end
+			if o.type == "item" or o.type == "object" then return "gather" end
+		end
+	end
+	return "other"
+end
+
 local function QuestLines(questID, complete)
 	if complete then return { "|cff33ff33Ready to turn in|r" } end
 	local lines = {}
@@ -583,7 +595,7 @@ sources.quests = function(mapID)
 		if e and not complete then
 			questAreas[#questAreas + 1] = {
 				uiMapID = b.uiMapID, questID = questID, x = b.x, y = b.y,
-				col = e.col, row = e.row, shape = shape, title = title,
+				col = e.col, row = e.row, shape = shape, title = title, kind = QuestKind(questID),
 			}
 		end
 	end
@@ -741,19 +753,28 @@ local blobPool = {}
 
 local function NewBlobFrame()
 	local f = CreateFrame("QuestPOIFrame", nil, canvases.areas)
-	f:SetFillTexture("Interface\\WorldMap\\UI-QuestBlob-Inside")
-	f:SetBorderTexture("Interface\\WorldMap\\UI-QuestBlob-Outside")
-	f:SetBorderScalar(1.0)
 	-- Hover is worked out from the cursor (OnMapHover); the frame itself must
 	-- never take the mouse from the Minimap's blips above it.
 	f:EnableMouse(false)
 	return f
 end
 
--- Fill and edge alpha (0-255). The quest you follow gets its area filled,
--- lightly; the rest are only a faint edge, since fills stack where quests
--- overlap and several together turned into a solid patch.
-local BLOB_ALPHA = { followed = { 36, 90 }, other = { 0, 40 } }
+-- The client's own area art sets (each <base>Inside / <base>Outside in
+-- Forever's files): quest blue, bonus-objective green, archaeology rust.
+local BLOB_ART = {
+	blue = "Interface\\WorldMap\\UI-QuestBlob-",
+	green = "Interface\\WorldMap\\UI-BonusObjectiveBlob-",
+	rust = "Interface\\WorldMap\\UI-ArchaeologyBlob-",
+}
+-- Fill and edge alpha (0-255), and edge width. The quest you follow is
+-- filled, with the boldest edge; the rest are an edge only (fills stack
+-- where quests overlap), coloured by what they still need.
+local BLOB_STYLE = {
+	followed = { art = "blue", fill = 44, border = 255, width = 1.3 },
+	kill = { art = "rust", fill = 0, border = 190, width = 1.0 },
+	gather = { art = "green", fill = 0, border = 190, width = 1.0 },
+	other = { art = "blue", fill = 0, border = 190, width = 1.0 },
+}
 
 -- Does a drawn blob cover this map-normalized point? (What the world map uses for tooltips.)
 local function BlobAt(f, x, y)
@@ -776,10 +797,10 @@ local function LayoutQuestAreas()
 	wipe(blobFrames)
 
 	if Enabled("quests") and Enabled("questAreas") then
-		-- One frame per map and style (followed or not): alpha is per frame.
+		-- One frame per map and style: art and alpha are per frame.
 		local groups, followed = {}, FollowedQuest()
 		for _, a in ipairs(questAreas) do
-			local style = a.questID == followed and "followed" or "other"
+			local style = a.questID == followed and "followed" or a.kind or "other"
 			local key = a.uiMapID .. style
 			groups[key] = groups[key] or { uiMapID = a.uiMapID, style = style }
 			table.insert(groups[key], a.questID)
@@ -789,8 +810,15 @@ local function LayoutQuestAreas()
 			local r = ns.MapRect(uiMapID)
 			local f = r and (table.remove(blobPool) or NewBlobFrame())
 			if f then
-				f:SetFillAlpha(BLOB_ALPHA[quests.style][1])
-				f:SetBorderAlpha(BLOB_ALPHA[quests.style][2])
+				local st = BLOB_STYLE[quests.style]
+				if f.art ~= st.art then
+					f:SetFillTexture(BLOB_ART[st.art] .. "Inside")
+					f:SetBorderTexture(BLOB_ART[st.art] .. "Outside")
+					f.art = st.art
+				end
+				f:SetFillAlpha(st.fill)
+				f:SetBorderAlpha(st.border)
+				f:SetBorderScalar(st.width)
 				f:SetFrameLevel(canvases.areas:GetFrameLevel() + (quests.style == "followed" and 2 or 1))
 				f:ClearAllPoints()
 				f:SetPoint("TOPLEFT", canvases.areas, "TOPLEFT", r.col0 * z, -r.row0 * z)
@@ -1806,7 +1834,6 @@ function ns.ZonesInView()
 end
 
 local LABEL_DRIFT = math.log(1.25) -- mid-zoom, re-place labels once they've drifted this far
-local AREA_DRIFT = math.log(1.15)  -- at rest, redraw quest areas scaled further than this
 local pinZoom
 local function OnViewChanged()
 	if staticPending then LayoutStatic() end
@@ -1827,7 +1854,17 @@ local function OnViewChanged()
 		LayoutLabels() -- panned out of the placed region
 	end
 	local az = layoutZoom[canvases.areas]
-	if az and not animating and math.abs(math.log(z / az)) > AREA_DRIFT then LayoutQuestAreas() end
+	-- Quest areas are the client's own drawing, which doesn't follow a scaled
+	-- canvas smoothly: out of sight while the zoom moves, redrawn at the
+	-- zoom it settles at.
+	if az and z ~= az then
+		if animating then
+			canvases.areas:SetAlpha(0)
+		else
+			LayoutQuestAreas()
+		end
+	end
+	if not animating and canvases.areas:GetAlpha() < 1 then canvases.areas:SetAlpha(1) end
 	RequestGeometry(false)
 end
 
@@ -2047,6 +2084,9 @@ events:SetScript("OnEvent", ns.TimedEvents("layers", function(_, event, arg1)
 end))
 
 ---------------------------------------------------------------------------
+-- For tests: the zoom quest areas were drawn at, and whether they're showing.
+function ns.QuestAreaState() return layoutZoom[canvases.areas], canvases.areas:GetAlpha() end
+
 -- For /mm perf mem: what the pools have created, by kind, and how many are in use.
 function ns.PoolCounts(out)
 	for _, pool in ipairs(allPools) do

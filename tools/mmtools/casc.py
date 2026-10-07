@@ -58,6 +58,44 @@ def blte_decode(blte: bytes) -> bytes:
     return b"".join(out)
 
 
+
+def _rot(x: int, k: int) -> int:
+    return ((x << k) | (x >> (32 - k))) & 0xFFFFFFFF
+
+
+def name_hash(path: str) -> int:
+    """The root's name hash for a file path: Jenkins lookup3 hashlittle2 of
+    the path uppercased with backslashes, as (c << 32) | b."""
+    data = path.upper().replace("/", "\\").encode()
+    length = len(data)
+    a = b = c = (0xDEADBEEF + length) & 0xFFFFFFFF
+    M = 0xFFFFFFFF
+    i = 0
+    while length - i > 12:
+        a = (a + int.from_bytes(data[i:i + 4], "little")) & M
+        b = (b + int.from_bytes(data[i + 4:i + 8], "little")) & M
+        c = (c + int.from_bytes(data[i + 8:i + 12], "little")) & M
+        a = (a - c) & M; a ^= _rot(c, 4); c = (c + b) & M
+        b = (b - a) & M; b ^= _rot(a, 6); a = (a + c) & M
+        c = (c - b) & M; c ^= _rot(b, 8); b = (b + a) & M
+        a = (a - c) & M; a ^= _rot(c, 16); c = (c + b) & M
+        b = (b - a) & M; b ^= _rot(a, 19); a = (a + c) & M
+        c = (c - b) & M; c ^= _rot(b, 4); b = (b + a) & M
+        i += 12
+    tail = data[i:] + b"\0" * 12
+    if length - i > 0:
+        a = (a + int.from_bytes(tail[0:4], "little")) & M
+        b = (b + int.from_bytes(tail[4:8], "little")) & M
+        c = (c + int.from_bytes(tail[8:12], "little")) & M
+        c ^= b; c = (c - _rot(b, 14)) & M
+        a ^= c; a = (a - _rot(c, 11)) & M
+        b ^= a; b = (b - _rot(a, 25)) & M
+        c ^= b; c = (c - _rot(b, 16)) & M
+        a ^= c; a = (a - _rot(c, 4)) & M
+        b ^= a; b = (b - _rot(a, 14)) & M
+        c ^= b; c = (c - _rot(b, 24)) & M
+    return (c << 32) | b
+
 class CascStore:
     def __init__(self, install: str, product: str):
         self.install = install
@@ -196,6 +234,34 @@ class CascStore:
                     found[fdid] = root[ckey_base + 16 * i:ckey_base + 16 * i + 16].hex()
         for fdid in wanted:
             found.setdefault(fdid, None)
+
+    def fdids_for_paths(self, paths) -> dict[str, int | None]:
+        """FileDataIDs of files by path (via the root's name hashes); None if absent."""
+        want = {name_hash(p): p for p in paths}
+        out: dict[str, int | None] = {p: None for p in paths}
+        root = self._root_data
+        header_size, version = struct.unpack_from("<II", root, 4)
+        pos, version = (header_size, version) if header_size == 0x18 else (12, 0)
+        while pos < len(root):
+            if version >= 2:
+                n, locale_flags, f1, f2, f3 = struct.unpack_from("<IIIIB", root, pos)
+                content_flags = f1 | f2 | (f3 << 17)
+                pos += 17
+            else:
+                n, content_flags, locale_flags = struct.unpack_from("<III", root, pos)
+                pos += 12
+            deltas = struct.unpack_from(f"<{n}i", root, pos)
+            pos += 4 * n + 16 * n
+            if content_flags & 0x10000000:
+                continue
+            hashes = struct.unpack_from(f"<{n}Q", root, pos)
+            pos += 8 * n
+            fdid = -1
+            for d, h in zip(deltas, hashes):
+                fdid += 1 + d
+                if h in want:
+                    out[want[h]] = fdid
+        return out
 
     # --- public ---------------------------------------------------------------
     def resolve(self, fdids) -> None:

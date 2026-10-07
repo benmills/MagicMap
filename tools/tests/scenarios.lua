@@ -528,6 +528,24 @@ scenarios.minimap_ours_first = function()
 	check(not next(MagicMapDB.trackingOff), "and forgets what it turned off")
 end
 
+-- Quest areas hide while the zoom moves and are redrawn at the zoom it
+-- settles at (the client's drawing doesn't scale smoothly with the canvas).
+scenarios.quest_areas_follow_zoom = function()
+	ns.SetZoom(300)
+	Sim.Run(1)
+	for _ = 1, 3 do Sim.Wheel(ns.viewport, 1) end
+	Sim.Run(0.05)
+	local _, alpha = ns.QuestAreaState()
+	check(alpha == 0, "mid-zoom, quest areas are out of sight")
+	Sim.Run(1.5)
+	local z, a2 = ns.QuestAreaState()
+	check(a2 == 1 and math.abs(z - ns.state.zoom) < 1e-6, "settled, they're back, drawn at the new zoom")
+	ns.FlyTo(ns.state.cx + 1, ns.state.cy, 120)
+	Sim.Run(2)
+	z, a2 = ns.QuestAreaState()
+	check(a2 == 1 and math.abs(z - ns.state.zoom) < 1e-6, "after a flight too")
+end
+
 -- Party members: dots at their positions, moving with them.
 scenarios.group_members = function()
 	local function Dot()
