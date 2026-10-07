@@ -788,6 +788,23 @@ local BLOB_STYLE = {
 	other = { art = "blue", fill = 0, border = 85, width = 0.6 },
 }
 
+-- Size and place a blob frame on the areas canvas, then draw its quests.
+-- The client draws a blob into the frame's rect as it stands at DrawBlob,
+-- and applies a new size and anchor only when it next lays out (at the end
+-- of the frame), so a reused frame drew into its old rect: an earlier zoom,
+-- or another map's, offset and squashed. Reading the rect lays it out first;
+-- RedrawBlobs draws them all again next frame as well.
+local function PlaceBlob(f, r, z, uiMapID, quests)
+	f:ClearAllPoints()
+	f:SetPoint("TOPLEFT", canvases.areas, "TOPLEFT", r.col0 * z, -r.row0 * z)
+	f:SetSize((r.col1 - r.col0) * z, (r.row1 - r.row0) * z)
+	f:GetRect()
+	f:SetMapID(uiMapID)
+	f:DrawNone()
+	for _, questID in ipairs(quests) do f:DrawBlob(questID, true) end
+	f:Show()
+end
+
 -- Hovering a quest (its area, or its pin) lights its area up: drawn again on
 -- top, lightly filled, its edge clear. The pin and the area under the
 -- cursor are tracked apart, so one doesn't clear the other.
@@ -823,13 +840,10 @@ local function DrawHover()
 	f:SetBorderAlpha(HOVER.border)
 	f:SetBorderScalar(HOVER.width)
 	f:SetFrameLevel(canvases.areas:GetFrameLevel() + 3)
-	f:ClearAllPoints()
-	f:SetPoint("TOPLEFT", canvases.areas, "TOPLEFT", r.col0 * z, -r.row0 * z)
-	f:SetSize((r.col1 - r.col0) * z, (r.row1 - r.row0) * z)
-	f:SetMapID(a.uiMapID)
-	f:DrawNone()
-	f:DrawBlob(questID, true)
-	f:Show()
+	f.quests = f.quests or {}
+	f.quests[1] = questID
+	f.r, f.z, f.uiMapID = r, z, a.uiMapID
+	PlaceBlob(f, r, z, a.uiMapID, f.quests)
 end
 
 -- source: "pin" or "area"; questID nil to let go.
@@ -883,14 +897,8 @@ local function LayoutQuestAreas()
 				f:SetBorderAlpha(st.border)
 				f:SetBorderScalar(st.width)
 				f:SetFrameLevel(canvases.areas:GetFrameLevel() + (quests.style == "followed" and 2 or 1))
-				f:ClearAllPoints()
-				f:SetPoint("TOPLEFT", canvases.areas, "TOPLEFT", r.col0 * z, -r.row0 * z)
-				f:SetSize((r.col1 - r.col0) * z, (r.row1 - r.row0) * z)
-				f:SetMapID(uiMapID)
-				f:DrawNone()
-				for _, questID in ipairs(quests) do f:DrawBlob(questID, true) end
-				f:Show()
-				blobFrames[#blobFrames + 1] = { frame = f, uiMapID = uiMapID, rect = r, style = quests.style }
+				PlaceBlob(f, r, z, uiMapID, quests)
+				blobFrames[#blobFrames + 1] = { frame = f, uiMapID = uiMapID, rect = r, style = quests.style, quests = quests }
 			end
 		end
 	end
@@ -902,6 +910,12 @@ local function LayoutQuestAreas()
 		approxPending = true
 		C_Timer.After(0, ns.Timed("quest area check", function()
 			approxPending = nil
+			-- Drawn again now the client has laid the frames out (see PlaceBlob).
+			local z = layoutZoom[canvases.areas]
+			for _, b in ipairs(blobFrames) do PlaceBlob(b.frame, b.rect, z, b.uiMapID, b.quests) end
+			if hoverFrame and hoverFrame:IsShown() then
+				PlaceBlob(hoverFrame, hoverFrame.r, hoverFrame.z, hoverFrame.uiMapID, hoverFrame.quests)
+			end
 			for _, a in ipairs(questAreas) do
 				a.hasBlob = false
 				for _, b in ipairs(blobFrames) do
