@@ -636,7 +636,7 @@ scenarios.quests_and_path = function()
 	Sim.modifiers.ctrl = true
 	Sim.Click(ns.viewport, "LeftButton", 0.6, 0.4)
 	Sim.Run(0.5)
-	if ns.CanSetWaypoints() then check(ns.state.path, "a ctrl-click waypoint turns on path mode") end
+	check(ns.state.path, "a ctrl-click waypoint turns on path mode")
 	Sim.Click(ns.viewport, "RightButton", 0.6, 0.4)
 	Sim.modifiers.ctrl = false
 	Sim.Run(0.5)
@@ -644,17 +644,15 @@ scenarios.quests_and_path = function()
 	-- Right-click, "Waypoint here": it's your target, and path mode leans to it.
 	ns.SetFollow(false) -- looking around: the menu's waypoint brings you back
 	Sim.Click(ns.viewport, "RightButton", 0.7, 0.3)
-	if ns.CanSetWaypoints() then
-		check(PickMenu("Waypoint here"), "right-click offers a waypoint")
-		Sim.Run(2)
-		check(Sim.waypoint ~= nil and ns.GetTarget() ~= nil, "the waypoint is your target")
-		check(ns.state.path and ns.state.follow, "and path mode is on")
-		Sim.Click(ns.viewport, "RightButton", 0.5, 0.5)
-		check(PickMenu("Clear waypoint"), "right-click offers to clear it")
-		Sim.Run(1)
-		check(Sim.waypoint == nil, "and that clears it")
-		check(not ns.state.path, "and turns off path mode")
-	end
+	check(PickMenu("Waypoint here"), "right-click offers a waypoint")
+	Sim.Run(2)
+	check(Sim.waypoint ~= nil and ns.GetTarget() ~= nil, "the waypoint is your target")
+	check(ns.state.path and ns.state.follow, "and path mode is on")
+	Sim.Click(ns.viewport, "RightButton", 0.5, 0.5)
+	check(PickMenu("Clear waypoint"), "right-click offers to clear it")
+	Sim.Run(1)
+	check(Sim.waypoint == nil, "and that clears it")
+	check(not ns.state.path, "and turns off path mode")
 	-- Click a zone to fly there.
 	Sim.Click(ns.viewport, "LeftButton", 0.3, 0.6)
 	Fly()

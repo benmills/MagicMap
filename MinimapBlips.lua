@@ -106,8 +106,7 @@ ns.MinimapPlan = { Level = PickLevel, Mask = MaskFor }
 ---------------------------------------------------------------------------
 
 local function GetCVarValue(name)
-	if C_CVar and C_CVar.GetCVar then return C_CVar.GetCVar(name) end
-	return GetCVar and GetCVar(name)
+	return C_CVar.GetCVar(name)
 end
 
 -- nil if the Minimap can join the map right now, else why not.
@@ -122,11 +121,9 @@ end
 ns.MinimapBlocker = Blocker
 
 local function ViewRadius(kind)
-	if C_Minimap and C_Minimap.GetViewRadius then
-		local r = C_Minimap.GetViewRadius()
-		if r and r > 0 then return r end
-	end
-	return (DIAMETER[kind][T.Level()] or DIAMETER[kind][0]) / 2
+	local r = C_Minimap.GetViewRadius()
+	if r and r > 0 then return r end
+	return (DIAMETER[kind][T.Level()] or DIAMETER[kind][0]) / 2 -- (before the client has one)
 end
 
 ---------------------------------------------------------------------------
@@ -162,7 +159,7 @@ local function ReportSync(level, kind, d, zoom, side, mask)
 	if not syncCheck or (level == syncCheck.level and mask == syncCheck.mask) then return end
 	syncCheck.level, syncCheck.mask = level, mask
 	ns.Print(string.format("sync: Minimap zoom %d, radius %.1f yd (%s), %d px across at map zoom %.0f; blips in %d px (%s)",
-		level, ViewRadius(kind), (C_Minimap and C_Minimap.GetViewRadius) and "client" or "table", d, zoom,
+		level, ViewRadius(kind), C_Minimap.GetViewRadius() > 0 and "client" or "table", d, zoom,
 		side, mask == T.SQUARE_MASK and "whole square" or mask:match("Square%d+$")))
 end
 

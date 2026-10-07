@@ -86,12 +86,7 @@ end
 local BAND_HEIGHT = 21 -- the template's title band (its background starts at y = -21)
 local BAND_MID = -11
 
-local frame
-do
-	local ok, f = pcall(CreateFrame, "Frame", "MagicMapFrame", UIParent, "ButtonFrameTemplate")
-	frame = ok and f or CreateFrame("Frame", "MagicMapFrame", UIParent)
-end
-local templated = frame.NineSlice ~= nil
+local frame = CreateFrame("Frame", "MagicMapFrame", UIParent, "ButtonFrameTemplate")
 
 frame:SetFrameStrata("HIGH")
 frame:SetClampedToScreen(true)
@@ -99,30 +94,14 @@ frame:SetMovable(true)
 frame:SetResizable(true)
 frame:EnableMouse(true)
 frame:RegisterForDrag("LeftButton")
-if frame.SetResizeBounds then
-	frame:SetResizeBounds(120, 120)
-else
-	frame:SetMinResize(120, 120)
-end
+frame:SetResizeBounds(120, 120)
 frame:Hide()
 tinsert(UISpecialFrames, "MagicMapFrame") -- close on Escape
 
-if templated then
-	if ButtonFrameTemplate_HidePortrait then ButtonFrameTemplate_HidePortrait(frame) end
-	if ButtonFrameTemplate_HideButtonBar then ButtonFrameTemplate_HideButtonBar(frame) end
-	if frame.Inset then frame.Inset:Hide() end
-	if frame.TitleContainer and frame.TitleContainer.TitleText then frame.TitleContainer.TitleText:SetText("") end
-else
-	-- Fallback for clients without the template: dark panel, bronze border, a band.
-	local bg = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
-	bg:SetAllPoints()
-	bg:SetColorTexture(0.075, 0.065, 0.055, 0.98)
-	ns.ApplyBorder(frame, frame:GetFrameLevel() + 500)
-	local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
-	close:SetPoint("TOPRIGHT", 2, 2)
-	close:SetScript("OnClick", function() frame:Hide() end)
-	frame.CloseButton = close
-end
+ButtonFrameTemplate_HidePortrait(frame)
+ButtonFrameTemplate_HideButtonBar(frame)
+if frame.Inset then frame.Inset:Hide() end
+if frame.TitleContainer and frame.TitleContainer.TitleText then frame.TitleContainer.TitleText:SetText("") end
 
 frame:SetScript("OnDragStart", function() frame:StartMoving() end)
 frame:SetScript("OnDragStop", function()
@@ -510,7 +489,7 @@ end
 local function StepHover(elapsed)
 	-- Compact, the header line (above or below the map) counts as over it.
 	local reach = compact and HEADER_ICON + 12 or 0
-	local want = (frame:IsMouseOver(reach, -reach, 0, 0) or (ns.IsMenuOpen and ns.IsMenuOpen())) and 1 or 0
+	local want = (frame:IsMouseOver(reach, -reach, 0, 0) or ns.IsMenuOpen()) and 1 or 0
 	if hoverAlpha == want then return end
 	local step = (elapsed or 0) / 0.15
 	hoverAlpha = want > hoverAlpha and math.min(want, hoverAlpha + step) or math.max(want, hoverAlpha - step)
@@ -593,11 +572,7 @@ local bgColor = { 0, 0, 0 }
 
 local function SetFade(t, orientation, r, g, b, a1, a2)
 	t:SetColorTexture(1, 1, 1, 1)
-	if t.SetGradient and CreateColor then
-		t:SetGradient(orientation, CreateColor(r, g, b, a1), CreateColor(r, g, b, a2))
-	elseif t.SetGradientAlpha then
-		t:SetGradientAlpha(orientation, r, g, b, a1, r, g, b, a2)
-	end
+	t:SetGradient(orientation, CreateColor(r, g, b, a1), CreateColor(r, g, b, a2))
 end
 
 local function SetBackdrop(color)
@@ -1321,8 +1296,7 @@ end
 
 ---------------------------------------------------------------------------
 -- Map picker (the title): continents, other open-world maps, and instances
--- by kind and the continent their entrance is on. Uses the client's own
--- menu (MenuUtil) where it exists; otherwise a flat list in our own menu.
+-- by kind and the continent their entrance is on, in the client's own menu.
 ---------------------------------------------------------------------------
 
 local KINDS = { { "dungeon", "Dungeons" }, { "raid", "Raids" } }
@@ -1366,10 +1340,8 @@ local function MapGroups()
 end
 
 OpenMapMenu = function(owner)
-	-- Without MenuUtil, the fallback menu below opens from the title's clicks itself.
-	if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
 	local g = MapGroups()
-	MenuUtil.CreateContextMenu(owner, function(_, root)
+	ns.OpenClientMenu(owner, function(_, root)
 		local function Radio(parent, id)
 			parent:CreateRadio(TileData[id].name, function() return state.map == id end, function()
 				ShowMap(id)
@@ -1399,31 +1371,6 @@ OpenMapMenu = function(owner)
 			end
 		end
 	end)
-end
-
--- Older clients: one scrolling list with section headings, opened by
--- AttachMenu from the title's own clicks.
-if not (MenuUtil and MenuUtil.CreateContextMenu) then
-	local menu = ns.AttachMenu(titleButton, 220, "downleft")
-	menu.onSelect = function(id) ShowMap(id) end
-	menu.getItems = function()
-		local g, items = MapGroups(), {}
-		local function Head(text) items[#items + 1] = { text = "|cffffd100" .. text .. "|r", disabled = true } end
-		local function Item(id, indent)
-			items[#items + 1] = { text = (indent or "") .. TileData[id].name, value = id, selected = id == state.map }
-		end
-		Head("Continents")
-		for _, id in ipairs(g.continents) do Item(id) end
-		if #g.others > 0 then Head("Other maps") end
-		for _, id in ipairs(g.others) do Item(id) end
-		for _, k in ipairs(KINDS) do
-			for _, group in ipairs(g[k[1]]) do
-				Head(k[2] .. (#g[k[1]] > 1 and (" · " .. group.name) or ""))
-				for _, id in ipairs(group.ids) do Item(id, "  ") end
-			end
-		end
-		return items
-	end
 end
 
 ---------------------------------------------------------------------------
@@ -1527,7 +1474,7 @@ end)
 -- Right-click menu: only what makes sense where and how you clicked.
 local function MapMenuItems(col, row)
 	local items = {}
-	if ns.CanSetWaypoints and ns.CanSetWaypoints() and ns.GetZoneAt and ns.GetZoneAt(col, row) then
+	if ns.GetZoneAt and ns.GetZoneAt(col, row) then
 		items[#items + 1] = { text = "Waypoint here", value = function()
 			if ns.SetWaypointAt(col, row) then SetPath(true) end
 		end }
@@ -1547,23 +1494,13 @@ local function OpenMapMenuAt(col, row)
 	local items = MapMenuItems(col, row)
 	local info = not compact and ns.ZoneInfoAt and ns.ZoneInfoAt(col, row) or nil
 	if #items == 0 and not info then return end
-	if MenuUtil and MenuUtil.CreateContextMenu then
-		MenuUtil.CreateContextMenu(viewport, function(_, root)
-			if info then
-				for _, line in ipairs(info) do root:CreateTitle(line) end
-				if #items > 0 then root:CreateDivider() end
-			end
-			for _, it in ipairs(items) do root:CreateButton(it.text, it.value) end
-		end)
-	else
-		local rows = {}
+	ns.OpenClientMenu(viewport, function(_, root)
 		if info then
-			for _, line in ipairs(info) do rows[#rows + 1] = { text = line, disabled = true } end
-			if #items > 0 then rows[#rows + 1] = { text = "", divider = true, disabled = true } end
+			for _, line in ipairs(info) do root:CreateTitle(line) end
+			if #items > 0 then root:CreateDivider() end
 		end
-		for _, it in ipairs(items) do rows[#rows + 1] = it end
-		ns.OpenMenuAtCursor(viewport, info and 250 or 140, rows, function(fn) fn() end)
-	end
+		for _, it in ipairs(items) do root:CreateButton(it.text, it.value) end
+	end)
 end
 
 viewport:SetScript("OnMouseUp", function(_, button)

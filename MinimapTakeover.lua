@@ -38,10 +38,8 @@ local placed = {} -- where Place last anchored it: canvas, x, y
 local followed    -- the window strata and indoor state FollowWindow last applied
 
 T.SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
--- Blizzard's round mask, put back on release. (Retail-engine clients, Forever
--- included, have only the first.)
-local ROUND_MASK = GetFileIDFromPath and GetFileIDFromPath("Interface\\Masks\\CircleMaskScalable")
-	and "Interface\\Masks\\CircleMaskScalable" or "Textures\\MinimapMask"
+-- Blizzard's round mask, put back on release.
+local ROUND_MASK = "Interface\\Masks\\CircleMaskScalable"
 
 local function OnRelease(fn) undo[#undo + 1] = fn end
 
@@ -226,7 +224,6 @@ local function ClearRim(on)
 	for _, method in ipairs(BLOB_RINGS) do
 		if Minimap[method] then pcall(Minimap[method], Minimap, on and 0 or 1) end
 	end
-	if not (C_Minimap and C_Minimap.SetMinimapInsetInfo) then return end
 	if on then
 		pcall(C_Minimap.SetMinimapInsetInfo, 0, 360, 1000) -- the whole rim (degrees or radians), 1000x out
 	else
@@ -382,13 +379,9 @@ function T.Engage()
 	for _, pin in ipairs({ Minimap:GetChildren() }) do
 		if pin:GetFrameLevel() <= Minimap:GetFrameLevel() then pin:SetFrameLevel(Minimap:GetFrameLevel() + 1) end
 	end
-	if Minimap.SetMouseClickEnabled and Minimap.SetMouseMotionEnabled then
-		Minimap:EnableMouse(true)
-		Minimap:SetMouseClickEnabled(false)
-		Minimap:SetMouseMotionEnabled(true)
-	else
-		Minimap:EnableMouse(false)
-	end
+	Minimap:EnableMouse(true)
+	Minimap:SetMouseClickEnabled(false)
+	Minimap:SetMouseMotionEnabled(true)
 	Minimap:EnableMouseWheel(false)
 	Minimap:SetAlpha(0)
 	Minimap:SetClampedToScreen(false)

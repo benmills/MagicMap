@@ -56,7 +56,6 @@ ns.frame:HookScript("OnUpdate", ns.Timed("path arrow", function()
 end))
 
 local layer = ns.layerFrames.path
-if not layer.CreateLine then return end
 
 local dashes, shadows = {}, {}
 local used = 0

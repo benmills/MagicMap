@@ -75,8 +75,6 @@ for _, layer in ipairs(LAYERS) do layerByKey[layer.key] = layer end
 
 local CELL = 0.2              -- sampling grid cell, in tiles (~107 yards)
 local SAMPLES_PER_FRAME = 700
-local REFINE_STEPS = 5        -- bisection steps per border crossing (~3 yards)
-local GAP_FILL_CELLS = 6        -- close unassigned gaps between zones up to ~640 yards wide
 local LABEL_MAX_ZOOM = 200    -- hide zone labels when zoomed in further than this
 local APPROX_RADIUS = 110 / 533.33 -- rough objective area radius, in tiles
 local CIRCLE = ns.CIRCLE
@@ -107,15 +105,10 @@ local function SafeCall(fn, ...)
 	if ok then return a, b end
 end
 
--- The quest you follow: the game's super-tracked quest where the client has
--- one, else one remembered here for the session.
-local followedQuest
+-- The quest you follow: the game's super-tracked quest.
 local function FollowedQuest()
-	if C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID then
-		local id = SafeCall(C_SuperTrack.GetSuperTrackedQuestID)
-		if id and id ~= 0 then return id end
-	end
-	return followedQuest
+	local id = C_SuperTrack.GetSuperTrackedQuestID()
+	return id ~= 0 and id or nil
 end
 
 local function FollowHint(questID)
@@ -146,7 +139,6 @@ local front, back = buffers[1], buffers[2]
 local fade -- { from, to, t }: a swap cross-fading in
 
 local layoutZoom = {} -- shade/areas canvas -> zoom its contents were laid out at
-local hasLines = canvases.shade.CreateLine ~= nil
 
 -- A scaled frame's anchor offsets are in its own (scaled) units.
 -- (Each canvas remembers its scale, parent and spot, so an unchanged one costs nothing.)
@@ -237,17 +229,15 @@ local function LinePool(canvas, sublevel, cap)
 end
 
 local shadePool = Pool(function() return canvases.shade:CreateTexture(nil, "ARTWORK") end)
-if hasLines then
-	for _, b in ipairs(buffers) do
-		-- Roomier than most: panning extends these in place (see StartExtend).
-		b.sub = LinePool(b.canvas, -1, 5000)    -- subzone outlines
-		b.shadow = LinePool(b.canvas, 0, 5000)  -- soft shadow under zone borders
-		b.border = LinePool(b.canvas, 1, 5000)  -- zone borders
-		b.highlight = LinePool(b.canvas, 3) -- the hovered zone's borders
-	end
+for _, b in ipairs(buffers) do
+	-- Roomier than most: panning extends these in place (see StartExtend).
+	b.sub = LinePool(b.canvas, -1, 5000)    -- subzone outlines
+	b.shadow = LinePool(b.canvas, 0, 5000)  -- soft shadow under zone borders
+	b.border = LinePool(b.canvas, 1, 5000)  -- zone borders
+	b.highlight = LinePool(b.canvas, 3) -- the hovered zone's borders
 end
 local areaFillPool = Pool(function() return canvases.areas:CreateTexture(nil, "ARTWORK", nil, 0) end)
-local areaLinePool = hasLines and LinePool(canvases.areas, 1)
+local areaLinePool = LinePool(canvases.areas, 1)
 local labelPool = Pool(function()
 	local fs = canvases.labels:CreateFontString(nil, "OVERLAY")
 	fs:SetShadowOffset(1, -1)
@@ -688,7 +678,7 @@ local function GroupDot(i)
 	return dot
 end
 
-local function Secret(v) return issecretvalue and issecretvalue(v) end
+local function Secret(v) return issecretvalue(v) end
 
 local groupShown = 0
 local function UpdateGroup()
@@ -748,17 +738,15 @@ ns.frame:HookScript("OnUpdate", ns.Timed("party dots", UpdateGroup))
 -- size one per map to that map's rectangle in tile space.
 local blobFrames = {} -- in use: list of { frame, uiMapID }
 local blobPool = {}
-local blobSupported
 
 local function NewBlobFrame()
-	local ok, f = pcall(CreateFrame, "QuestPOIFrame", nil, canvases.areas)
-	if not (ok and f and f.DrawBlob and f.SetMapID) then return nil end
+	local f = CreateFrame("QuestPOIFrame", nil, canvases.areas)
 	f:SetFillTexture("Interface\\WorldMap\\UI-QuestBlob-Inside")
 	f:SetBorderTexture("Interface\\WorldMap\\UI-QuestBlob-Outside")
 	f:SetBorderScalar(1.0)
 	-- Hover is worked out from the cursor (OnMapHover); the frame itself must
 	-- never take the mouse from the Minimap's blips above it.
-	if f.EnableMouse then f:EnableMouse(false) end
+	f:EnableMouse(false)
 	return f
 end
 
@@ -766,14 +754,6 @@ end
 -- lightly; the rest are only a faint edge, since fills stack where quests
 -- overlap and several together turned into a solid patch.
 local BLOB_ALPHA = { followed = { 36, 90 }, other = { 0, 40 } }
-do
-	local probe = NewBlobFrame()
-	blobSupported = probe ~= nil
-	if probe then
-		probe:Hide()
-		blobPool[1] = probe
-	end
-end
 
 -- Does a drawn blob cover this map-normalized point? (What the world map uses for tooltips.)
 local function BlobAt(f, x, y)
@@ -795,7 +775,7 @@ local function LayoutQuestAreas()
 	end
 	wipe(blobFrames)
 
-	if blobSupported and Enabled("quests") and Enabled("questAreas") then
+	if Enabled("quests") and Enabled("questAreas") then
 		-- One frame per map and style (followed or not): alpha is per frame.
 		local groups, followed = {}, FollowedQuest()
 		for _, a in ipairs(questAreas) do
@@ -850,7 +830,7 @@ end
 LayoutApproxAreas = function()
 	local z = layoutZoom[canvases.areas] or state.zoom
 	areaFillPool:Reset()
-	if areaLinePool then areaLinePool:Reset() end
+	areaLinePool:Reset()
 	if not (Enabled("quests") and Enabled("questAreasApprox")) then return end
 
 	local centers = {}
@@ -877,15 +857,13 @@ LayoutApproxAreas = function()
 		disc:ClearAllPoints()
 		disc:SetPoint("CENTER", canvases.areas, "TOPLEFT", x, -y)
 		disc:SetSize(radius * 2, radius * 2)
-		if areaLinePool then
-			for s = 0, segments - 1, 2 do
-				local a1 = s / segments * 2 * math.pi
-				local a2 = (s + 1.2) / segments * 2 * math.pi
-				DrawLine(areaLinePool, canvases.areas,
-					x + math.cos(a1) * radius, y + math.sin(a1) * radius,
-					x + math.cos(a2) * radius, y + math.sin(a2) * radius,
-					1.5, 1, 0.85, 0.4, 0.35)
-			end
+		for s = 0, segments - 1, 2 do
+			local a1 = s / segments * 2 * math.pi
+			local a2 = (s + 1.2) / segments * 2 * math.pi
+			DrawLine(areaLinePool, canvases.areas,
+				x + math.cos(a1) * radius, y + math.sin(a1) * radius,
+				x + math.cos(a2) * radius, y + math.sin(a2) * radius,
+				1.5, 1, 0.85, 0.4, 0.35)
 		end
 	end
 end
@@ -955,18 +933,10 @@ end
 -- (super-tracked where the client can). Again to stop.
 local function ToggleFollowQuest(questID)
 	if FollowedQuest() == questID then
-		if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then SafeCall(C_SuperTrack.SetSuperTrackedQuestID, 0) end
-		followedQuest = nil
+		C_SuperTrack.SetSuperTrackedQuestID(0)
 	else
-		if C_QuestLog.AddQuestWatch then
-			SafeCall(C_QuestLog.AddQuestWatch, questID)
-		elseif AddQuestWatch and GetQuestLogIndexByID then
-			local index = GetQuestLogIndexByID(questID)
-			if index and index > 0 then SafeCall(AddQuestWatch, index) end
-			if QuestWatch_Update then SafeCall(QuestWatch_Update) end
-		end
-		if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then SafeCall(C_SuperTrack.SetSuperTrackedQuestID, questID) end
-		followedQuest = questID
+		SafeCall(C_QuestLog.AddQuestWatch, questID)
+		C_SuperTrack.SetSuperTrackedQuestID(questID)
 	end
 	RefreshPins("quests")
 	LayoutPins()
@@ -1119,89 +1089,6 @@ local function SampleZones(grid)
 	end
 end
 
--- Some ground belongs to no zone map, which leaves gaps and dead-ends in the
--- borders. Fill unassigned cells that sit *between* zones (zone cells on both
--- sides within GAP_FILL_CELLS, horizontally or vertically) with the nearest
--- zone. Coasts have zone on one side only, so borders don't bleed into the sea.
-local function FillGaps(grid)
-	local ids, nc, nr = grid.ids, grid.nc, grid.nr
-	local original = {}
-	for k = 1, nc * nr do original[k] = ids[k] end
-	local function Orig(i, j)
-		if i < 0 or i >= nc or j < 0 or j >= nr then return 0 end
-		return original[j * nc + i + 1]
-	end
-	local function Sandwiched(i, j)
-		local l, r, u, d
-		for s = 1, GAP_FILL_CELLS do
-			l = l or (Orig(i - s, j) ~= 0 and s)
-			r = r or (Orig(i + s, j) ~= 0 and s)
-			u = u or (Orig(i, j - s) ~= 0 and s)
-			d = d or (Orig(i, j + s) ~= 0 and s)
-		end
-		return (l and r) or (u and d)
-	end
-	local queue, head, dist = {}, 1, {}
-	for k = 1, nc * nr do
-		if original[k] ~= 0 then queue[#queue + 1] = k; dist[k] = 0 end
-	end
-	while head <= #queue do
-		local k = queue[head]
-		head = head + 1
-		if dist[k] < GAP_FILL_CELLS then
-			local i, j = (k - 1) % nc, math.floor((k - 1) / nc)
-			for _, o in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
-				local ni, nj = i + o[1], j + o[2]
-				if ni >= 0 and ni < nc and nj >= 0 and nj < nr then
-					local nk = nj * nc + ni + 1
-					if not dist[nk] and Sandwiched(ni, nj) then
-						ids[nk] = ids[k]
-						dist[nk] = dist[k] + 1
-						queue[#queue + 1] = nk
-					end
-				end
-			end
-		end
-		if head % 4000 == 0 then coroutine.yield() end
-	end
-end
-
--- The zone lookup flickers near some borders (a sample of zone B inside A, a
--- lone unzoned sample). Each flicker splits a border into dashes, so smooth
--- the grid with one pass of a 3x3 majority filter first. Zones only replace
--- "no zone" when clearly surrounded, and a zone speck only clears into "no
--- zone" when it's nearly isolated, so coastlines stay put.
-local function MajorityFilter(grid)
-	local ids, nc, nr = grid.ids, grid.nc, grid.nr
-	local out = {}
-	local counts = {}
-	for j = 0, nr - 1 do
-		for i = 0, nc - 1 do
-			local k = j * nc + i + 1
-			wipe(counts)
-			for dj = -1, 1 do
-				for di = -1, 1 do
-					local ii, jj = i + di, j + dj
-					local id = (ii >= 0 and ii < nc and jj >= 0 and jj < nr) and ids[jj * nc + ii + 1] or 0
-					counts[id] = (counts[id] or 0) + 1
-				end
-			end
-			local best, bestN = ids[k], 0
-			for id, n in pairs(counts) do
-				if n > bestN then best, bestN = id, n end
-			end
-			local cur = ids[k]
-			if best ~= cur and ((cur == 0 and bestN >= 6) or (best == 0 and bestN >= 7) or (cur ~= 0 and best ~= 0 and bestN >= 5)) then
-				out[k] = best
-			else
-				out[k] = cur
-			end
-			if k % 4000 == 0 then coroutine.yield() end
-		end
-	end
-	grid.ids = out
-end
-
 -- Douglas-Peucker on a flat list { c1, r1, c2, r2, ... }.
 local function Simplify(pts, tol)
 	local n = #pts / 2
@@ -1257,189 +1144,8 @@ local function Smooth(pts)
 	return out
 end
 
--- Multi-label marching squares over the sample grid. Crossing points sit on
--- grid edges between two different zones and are refined by bisection; a
--- square with 2 crossings joins them, 1 or 3+ join each to the square centre.
-local function TraceBorders(grid)
-	local ids, nc, nr = grid.ids, grid.nc, grid.nr
-	local nodePos = {} -- key -> { c, r }
-	local nodeZones = {} -- crossing key -> { zoneA, zoneB }
-	local adj = {}     -- key -> { edge indices }
-	local edges = {}
-
-	local function Id(i, j) return ids[j * nc + i + 1] end
-
-	-- Crossing on the grid edge from sample (i1,j1) to (i2,j2), or nil.
-	local function Crossing(key, i1, j1, i2, j2)
-		if nodePos[key] ~= nil then return nodePos[key] and key or nil end
-		local a, b = Id(i1, j1), Id(i2, j2)
-		if a == 0 or b == 0 or a == b then
-			nodePos[key] = false
-			return nil
-		end
-		local c1, r1 = SamplePos(grid, i1, j1)
-		local c2, r2 = SamplePos(grid, i2, j2)
-		for _ = 1, REFINE_STEPS do
-			local mc, mr = (c1 + c2) / 2, (r1 + r2) / 2
-			if ZoneIdAt(grid, mc, mr) == a then c1, r1 = mc, mr else c2, r2 = mc, mr end
-		end
-		nodePos[key] = { (c1 + c2) / 2, (r1 + r2) / 2 }
-		nodeZones[key] = { a, b }
-		return key
-	end
-
-	local function Link(k1, k2)
-		edges[#edges + 1] = { k1, k2 }
-		adj[k1] = adj[k1] or {}
-		adj[k2] = adj[k2] or {}
-		table.insert(adj[k1], #edges)
-		table.insert(adj[k2], #edges)
-	end
-
-	local found = {}
-	for j = 0, nr - 2 do
-		for i = 0, nc - 2 do
-			local base = (j * nc + i) * 3
-			wipe(found)
-			local top = Crossing(base, i, j, i + 1, j)                        -- H(i,j)
-			local bottom = Crossing(((j + 1) * nc + i) * 3, i, j + 1, i + 1, j + 1) -- H(i,j+1)
-			local left = Crossing(base + 1, i, j, i, j + 1)                  -- V(i,j)
-			local right = Crossing((j * nc + i + 1) * 3 + 1, i + 1, j, i + 1, j + 1) -- V(i+1,j)
-			if top then found[#found + 1] = top end
-			if bottom then found[#found + 1] = bottom end
-			if left then found[#found + 1] = left end
-			if right then found[#found + 1] = right end
-			if #found == 2 then
-				Link(found[1], found[2])
-			elseif #found > 0 then
-				local center = base + 2
-				local c, r = SamplePos(grid, i + 0.5, j + 0.5)
-				nodePos[center] = { c, r }
-				for _, k in ipairs(found) do Link(k, center) end
-			end
-		end
-	end
-
-	-- Walk edges into chains that break at junctions and dead ends.
-	local used = {}
-	local chains, chainZones = {}, {}
-	local function Walk(start, e)
-		local pts = { nodePos[start][1], nodePos[start][2] }
-		local zones = {}
-		local node = start
-		while e and not used[e] do
-			used[e] = true
-			local ed = edges[e]
-			node = (ed[1] == node) and ed[2] or ed[1]
-			pts[#pts + 1] = nodePos[node][1]
-			pts[#pts + 1] = nodePos[node][2]
-			local nz = nodeZones[node]
-			if nz then zones[nz[1]], zones[nz[2]] = true, true end
-			local list = adj[node]
-			if #list ~= 2 then break end
-			e = used[list[1]] and list[2] or list[1]
-		end
-		-- Drop slivers: tiny dangling fragments (e.g. specks out at sea) read as
-		-- noise. Short pieces between two junctions are real borders; keep those.
-		local dangling = #adj[start] == 1 or #adj[node] == 1
-		local len = 0
-		for k = 1, #pts / 2 - 1 do
-			len = len + math.sqrt((pts[k * 2 + 1] - pts[k * 2 - 1]) ^ 2 + (pts[k * 2 + 2] - pts[k * 2]) ^ 2)
-		end
-		if not dangling or len >= CELL * 2.5 then
-			chains[#chains + 1] = pts
-			chainZones[#chains] = zones
-		end
-	end
-	for key, list in pairs(adj) do
-		if #list ~= 2 then
-			for _, e in ipairs(list) do
-				if not used[e] then Walk(key, e) end
-			end
-		end
-	end
-	for e = 1, #edges do -- closed loops (islands, enclaves)
-		if not used[e] then Walk(edges[e][1], e) end
-	end
-	grid.rawChains = chains
-	grid.chainZones = chainZones -- which zones each chain separates (for hover highlight)
-	grid.lod = {}
-end
-
--- Border detail follows zoom: about a pixel of tolerance, bucketed and cached.
-local LOD_LEVELS = { 0.006, 0.015, 0.035, 0.08, 0.2 }
-local function ChainsForZoom(grid, z)
-	if not grid.rawChains then return nil end
-	local tol = 0.9 / z
-	local level = LOD_LEVELS[1]
-	for _, l in ipairs(LOD_LEVELS) do
-		if l <= tol then level = l end
-	end
-	local chains = grid.lod[level]
-	if not chains then
-		chains = {}
-		for i, pts in ipairs(grid.rawChains) do
-			chains[i] = Smooth(Simplify(pts, level))
-		end
-		grid.lod[level] = chains
-	end
-	return chains
-end
-
--- Label anchors: the cell deepest inside each zone (farthest from any border),
--- found with a multi-source BFS distance transform. Centroids of concave zones
--- can fall outside the zone; this can't. Weight = zone size, for priority.
-local function BuildLabels(grid)
-	local ids, nc, nr = grid.ids, grid.nc, grid.nr
-	local dist, queue, head = {}, {}, 1
-	local counts = {}
-	for j = 0, nr - 1 do
-		for i = 0, nc - 1 do
-			local k = j * nc + i + 1
-			local id = ids[k]
-			if id ~= 0 then
-				counts[id] = (counts[id] or 0) + 1
-				local edge = i == 0 or j == 0 or i == nc - 1 or j == nr - 1
-					or ids[k - 1] ~= id or ids[k + 1] ~= id or ids[k - nc] ~= id or ids[k + nc] ~= id
-				if edge then
-					dist[k] = 0
-					queue[#queue + 1] = k
-				end
-			end
-		end
-	end
-	while head <= #queue do
-		local k = queue[head]
-		head = head + 1
-		local i = (k - 1) % nc
-		for _, nk in ipairs({ i > 0 and k - 1, i < nc - 1 and k + 1, k - nc, k + nc }) do
-			if nk and nk >= 1 and nk <= nc * nr and not dist[nk] and ids[nk] == ids[k] then
-				dist[nk] = dist[k] + 1
-				queue[#queue + 1] = nk
-			end
-		end
-		if head % 4000 == 0 then coroutine.yield() end
-	end
-	local best = {}
-	for k, d in pairs(dist) do
-		local id = ids[k]
-		if not best[id] or d > best[id].d then best[id] = { k = k, d = d } end
-	end
-	local labels = {}
-	for id, b in pairs(best) do
-		local info = C_Map.GetMapInfo(id)
-		if info and counts[id] >= 12 then
-			local col, row = SamplePos(grid, (b.k - 1) % nc, math.floor((b.k - 1) / nc))
-			labels[#labels + 1] = { id = id, name = info.name, col = col, row = row, weight = counts[id] }
-		end
-	end
-	table.sort(labels, function(a, b) return a.weight > b.weight end)
-	grid.labels = labels
-end
-
 local function SampleExploration(grid)
-	local explored = C_MapExplorationInfo and C_MapExplorationInfo.GetExploredAreaIDsAtPosition
-	if not explored then grid.shade = {} return end
+	local explored = C_MapExplorationInfo.GetExploredAreaIDsAtPosition
 	local shade = {}
 	for j = 0, grid.nr - 1 do
 		local start
@@ -1468,12 +1174,10 @@ end
 
 local LayoutStatic -- forward
 
+-- The sampled grid is only for unexplored shading (zone borders and labels
+-- come from Data/Borders.lua).
 local function EnsureGrid(mapID)
-	-- The sampled grid feeds unexplored shading, and borders/labels on maps
-	-- without generated border data.
-	local hasOffline = MagicMap_Borders and MagicMap_Borders[mapID]
-	local needZones = Enabled("unexplored") or (not hasOffline and (Enabled("zoneBorders") or Enabled("zoneLabels")))
-	if not (mapID and needZones and C_Map and C_Map.GetMapInfoAtPosition) then return end
+	if not (mapID and Enabled("unexplored")) then return end
 	local grid = grids[mapID]
 	if not grid then
 		local cont = ns.GetContinentMapID(mapID)
@@ -1487,18 +1191,10 @@ local function EnsureGrid(mapID)
 		grids[mapID] = grid
 		RunJob(function()
 			SampleZones(grid)
-			BuildLabels(grid)
-			FillGaps(grid)
-			MajorityFilter(grid)
 			grid.zonesDone = true
-			if state.map == mapID then LayoutStatic() end
-			if hasLines then
-				TraceBorders(grid)
-				if state.map == mapID then LayoutStatic() end
-			end
 		end)
 	end
-	if Enabled("unexplored") and (not grid.shade or grid.shadeStale) and not grid.shadeQueued then
+	if (not grid.shade or grid.shadeStale) and not grid.shadeQueued then
 		grid.shadeStale = nil
 		grid.shadeQueued = true
 		RunJob(function()
@@ -1526,10 +1222,9 @@ end))
 ---------------------------------------------------------------------------
 -- Static layout (re-run on zoom change or new data; panning moves canvases)
 --
--- Borders come from Data/Borders_<product>.lua when present: exact zone and
--- subzone outlines traced from the terrain's own area data (see
--- tools/gen_borders.pl). Otherwise they're traced at runtime from the
--- sampled zone grid above.
+-- Borders come from Data/Borders.lua: exact zone and subzone outlines traced
+-- from the terrain's own area data (tools/gen_borders.py). Maps it doesn't
+-- cover (instances: one zone each) have none.
 ---------------------------------------------------------------------------
 
 local LABEL_FONT = (GameFontNormal and GameFontNormal:GetFont()) or STANDARD_TEXT_FONT
@@ -1632,11 +1327,11 @@ local function LinePts(l, z, minTol)
 	return pts
 end
 
--- Hover keys: uiMapIDs for the sampled grid, AreaTable IDs for offline data.
+-- The hovered zone (a uiMapID) as the border data's key, its AreaTable ID.
 local function HoverKey(uiMapID)
 	if not uiMapID then return nil end
 	local data = OfflineBorders(state.map)
-	if not data then return uiMapID end
+	if not data then return nil end
 	local info = C_Map.GetMapInfo(uiMapID)
 	return info and data.zoneAreaByName[info.name]
 end
@@ -1757,13 +1452,12 @@ local function LayoutLabels()
 	local z = state.zoom
 	labelZoom = z
 	labelRegion = { ViewRect(1.0) }
-	local grid = state.map and grids[state.map]
 	if Enabled("zoneLabels") and z <= LABEL_MAX_ZOOM then
 		local data = OfflineBorders(state.map)
 		local labels = {}
-		for _, l in ipairs(data and data.zoneLabels or (grid and grid.labels) or {}) do labels[#labels + 1] = l end
+		for _, l in ipairs(data and data.zoneLabels or {}) do labels[#labels + 1] = l end
 		table.sort(labels, function(a, b) return a.weight > b.weight end)
-		if #labels == 0 then -- fall back to zone rectangle centres until sampling finishes
+		if #labels == 0 then -- no border data: zone rectangle centres
 			for _, zone in ipairs(ns.GetZones(state.map)) do
 				labels[#labels + 1] = { id = zone.uiMapID, name = zone.name, col = (zone.col0 + zone.col1) / 2, row = (zone.row0 + zone.row1) / 2,
 					weight = (zone.col1 - zone.col0) * (zone.row1 - zone.row0) }
@@ -1819,7 +1513,6 @@ local EXTEND_MAX_FILL = 0.85
 -- Runs inside the builder coroutine (DrawLine yields). extend: add to what
 -- buf already shows (at this zoom) just the lines it doesn't have yet.
 local function BuildBorders(buf, z, region, extend, b)
-	if not hasLines then return end
 	if not extend then
 		buf.sub:Begin()
 		buf.shadow:Begin()
@@ -1845,7 +1538,6 @@ local function BuildBorders(buf, z, region, extend, b)
 		local c = buf.canvas
 		local thick, r, g, b, a = ZoneLineStyle(z)
 		local data = OfflineBorders(state.map)
-		local grid = state.map and grids[state.map]
 		if data then
 			for _, l in ipairs(data.zoneLines) do
 				if not drawn[l] and l.x1 >= c0 and l.x0 <= c1 and l.y1 >= r0 and l.y0 <= r1 then
@@ -1858,11 +1550,6 @@ local function BuildBorders(buf, z, region, extend, b)
 					end
 					DrawPolyline(buf.border, c, pts, z, thick, r, g, b, a, l.fadeStart, l.fadeEnd)
 				end
-			end
-		elseif grid and not extend then
-			for _, pts in ipairs(ChainsForZoom(grid, z) or {}) do
-				DrawPolyline(buf.shadow, c, pts, z, thick + 1.2, 0, 0, 0, 0.25)
-				DrawPolyline(buf.border, c, pts, z, thick, r, g, b, a)
 			end
 		end
 		if z >= SUBZONE_LINE_MIN_ZOOM then
@@ -1902,26 +1589,16 @@ end
 -- buffer, at its zoom.
 local function LayoutHighlight()
 	local buf = front
-	if not (hasLines and buf.zoom) then return end
+	if not buf.zoom then return end
 	buf.highlight:Reset()
 	if not (hoverZone and Enabled("zoneBorders")) then return end
 	local z = buf.zoom
 	local thick = math.max(1.6, math.min(2.4, z / 100))
 	local area = HoverKey(hoverZone)
 	local data = OfflineBorders(state.map)
-	if data then
-		for _, l in ipairs(area and data.zoneLines or {}) do
-			if l.a == area or l.b == area then
-				DrawPolyline(buf.highlight, buf.canvas, LinePts(l, z), z, thick, 1, 0.84, 0.4, 0.95, l.fadeStart, l.fadeEnd)
-			end
-		end
-		return
-	end
-	local grid = state.map and grids[state.map]
-	if not (grid and grid.chainZones) then return end
-	for i, pts in ipairs(ChainsForZoom(grid, z) or {}) do
-		if grid.chainZones[i] and grid.chainZones[i][hoverZone] then
-			DrawPolyline(buf.highlight, buf.canvas, pts, z, thick, 1, 0.84, 0.4, 0.95)
+	for _, l in ipairs(area and data and data.zoneLines or {}) do
+		if l.a == area or l.b == area then
+			DrawPolyline(buf.highlight, buf.canvas, LinePts(l, z), z, thick, 1, 0.84, 0.4, 0.95, l.fadeStart, l.fadeEnd)
 		end
 	end
 end
@@ -1962,7 +1639,7 @@ local function Swap(b)
 	LayoutShade(b.zoom)
 	PositionCanvases()
 	LayoutHighlight()
-	ns.layoutStats = { ms = b.ms, lines = hasLines and (buf.border.used + buf.shadow.used + buf.sub.used) or 0 }
+	ns.layoutStats = { ms = b.ms, lines = buf.border.used + buf.shadow.used + buf.sub.used }
 end
 
 -- Grow the front buffer to cover a new region at its own zoom: panning only
@@ -2017,7 +1694,7 @@ function ns.GeometryInfo()
 		zoom = front.zoom, region = r, canvas = front.canvas,
 		covers = Contains(r, ViewRect(0)), -- the view, right now
 		building = build ~= nil, extending = build and build.extend, fading = fade ~= nil,
-		lines = hasLines and (front.border.used + front.shadow.used + front.sub.used) or 0,
+		lines = front.border.used + front.shadow.used + front.sub.used,
 	}
 end
 
@@ -2111,45 +1788,20 @@ LayoutStatic = function()
 end
 ns.LayoutStatic = function() LayoutStatic() end
 
--- How many zones meaningfully share the view? With offline data: zones whose
--- heart (label anchor) is on screen. Otherwise sampled from the zone grid:
--- each must cover >= 4% of the *zoned* part of the view, so zooming far out
--- (continent small, lots of sea) still counts every zone on screen.
-local zonesInViewKey, zonesInViewCount
+-- How many zones meaningfully share the view: zones whose heart (label
+-- anchor) is on screen. Cached until the view moves.
+local inView = {}
 function ns.ZonesInView()
 	if not state.map then return 0 end
-	local key = state.map .. ":" .. state.cx .. ":" .. state.cy .. ":" .. state.zoom
-	if key == zonesInViewKey then return zonesInViewCount end
+	local v = inView
+	if v.map == state.map and v.cx == state.cx and v.cy == state.cy and v.zoom == state.zoom then return v.n end
 	local n = 0
 	local c0, r0, c1, r1 = ViewRect(0)
 	local data = OfflineBorders(state.map)
 	for _, l in ipairs(data and data.zoneLabels or {}) do
 		if l.weight >= 30 and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then n = n + 1 end
 	end
-	if not data then
-		local grid = state.map and grids[state.map]
-		if not (grid and grid.zonesDone) then return 2 end -- assume several until we know
-		local w, h = ns.ViewSize()
-		local z = state.zoom
-		local c0, r0 = state.cx - w / 2 / z, state.cy - h / 2 / z
-		local counts, STEPS = {}, 24
-		for a = 0, STEPS - 1 do
-			for b = 0, STEPS - 1 do
-				local i = math.floor((c0 + (a + 0.5) / STEPS * w / z - grid.c0) / CELL)
-				local j = math.floor((r0 + (b + 0.5) / STEPS * h / z - grid.r0) / CELL)
-				if i >= 0 and i < grid.nc and j >= 0 and j < grid.nr then
-					local id = grid.ids[j * grid.nc + i + 1]
-					if id ~= 0 then counts[id] = (counts[id] or 0) + 1 end
-				end
-			end
-		end
-		local zoned = 0
-		for _, c in pairs(counts) do zoned = zoned + c end
-		for _, c in pairs(counts) do
-			if c >= math.max(2, zoned * 0.04) then n = n + 1 end
-		end
-	end
-	zonesInViewKey, zonesInViewCount = key, n
+	v.map, v.cx, v.cy, v.zoom, v.n = state.map, state.cx, state.cy, state.zoom, n
 	return n
 end
 
@@ -2212,7 +1864,6 @@ local function OpenChat(text)
 end
 
 -- Waypoints: the game's user waypoint, super-tracked so it's your target.
-function ns.CanSetWaypoints() return C_Map.SetUserWaypoint and UiMapPoint and true or false end
 function ns.HasWaypoint() return C_Map.GetUserWaypoint and C_Map.GetUserWaypoint() ~= nil end
 function ns.ClearWaypoint()
 	if C_Map.ClearUserWaypoint then C_Map.ClearUserWaypoint() end
@@ -2223,16 +1874,11 @@ function ns.SetWaypointAt(col, row)
 	local z = ZoneAt(col, row)
 	if not z then
 		ns.Print("no zone here to put a waypoint in")
-	elseif not ns.CanSetWaypoints() then
-		ns.Print("waypoints aren't supported by this client")
-	elseif C_Map.CanSetUserWaypointOnMap and not C_Map.CanSetUserWaypointOnMap(z.mapID) then
+	elseif not C_Map.CanSetUserWaypointOnMap(z.mapID) then
 		ns.Print("can't place a waypoint in " .. z.name)
 	else
 		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(z.mapID, z.x, z.y))
-		if C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then
-			C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-		end
-		followedQuest = nil
+		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
 		ScheduleRefresh("quests")
 		-- The target comes from the pins, so don't wait for the event's refresh.
 		RefreshPins("waypoint")
@@ -2295,11 +1941,6 @@ local function OnLayerSelect(key)
 	end
 end
 
-local function LayerLabel(layer)
-	if layer.key == "questAreas" and not blobSupported then return layer.label .. " |cff888888(n/a)|r" end
-	return layer.label
-end
-
 -- The menu's sections in order, each { title, key, layers }; empty ones left out.
 local function LayerSections()
 	local out = {}
@@ -2317,56 +1958,37 @@ end
 local function Checked(key) return db.layers[key] and true or false end
 local function Usable(layer) return not layer.parent or Enabled(layer.parent) and true or false end
 
-if MenuUtil and MenuUtil.CreateContextMenu then
-	-- The client's own menu: section titles, checkboxes that stay open.
-	local function Tooltip(layer)
-		return function(tooltip)
-			tooltip:SetText(layer.label, 1, 1, 1)
-			tooltip:AddLine(layer.tip, 1, 0.82, 0, true)
-		end
+-- The client's own menu: section titles, checkboxes that stay open.
+local function Tooltip(layer)
+	return function(tooltip)
+		tooltip:SetText(layer.label, 1, 1, 1)
+		tooltip:AddLine(layer.tip, 1, 0.82, 0, true)
 	end
-	ns.gearButton:HookScript("OnClick", function(self)
-		ns.OpenClientMenu(self, function(_, root)
-			for i, sec in ipairs(LayerSections()) do
-				local parent = root
-				if i > 1 then root:CreateDivider() end
-				if sec.key == "addons" and #sec.layers > ADDONS_INLINE then
-					parent = root:CreateButton(sec.title)
-				else
-					root:CreateTitle(sec.title)
-				end
-				for _, layer in ipairs(sec.layers) do
-					local key = layer.key
-					local cb = parent:CreateCheckbox((layer.parent and "     " or "") .. LayerLabel(layer),
-						function() return Checked(key) end,
-						function()
-							OnLayerSelect(key)
-							return MenuResponse and MenuResponse.Refresh
-						end, key)
-					if layer.parent and cb.SetEnabled then cb:SetEnabled(function() return Usable(layer) end) end
-					if layer.tip and cb.SetTooltip then cb:SetTooltip(Tooltip(layer)) end
-				end
-			end
-		end)
-	end)
-else
-	-- Our own checklist: gold section headings, sub-options indented.
-	local layersMenu = ns.AttachMenu(ns.gearButton, 220, "down")
-	layersMenu.keepOpen = true
-	layersMenu.maxRows = 30
-	layersMenu.getItems = function()
-		local items = {}
-		for _, sec in ipairs(LayerSections()) do
-			items[#items + 1] = { text = "|cffffd100" .. sec.title .. "|r", disabled = true }
-			for _, layer in ipairs(sec.layers) do
-				items[#items + 1] = { text = LayerLabel(layer), value = layer.key, checked = Checked(layer.key),
-					tip = layer.tip, indent = layer.parent and 1 or nil, disabled = not Usable(layer) }
-			end
-		end
-		return items
-	end
-	layersMenu.onSelect = OnLayerSelect
 end
+ns.gearButton:HookScript("OnClick", function(self)
+	ns.OpenClientMenu(self, function(_, root)
+		for i, sec in ipairs(LayerSections()) do
+			local parent = root
+			if i > 1 then root:CreateDivider() end
+			if sec.key == "addons" and #sec.layers > ADDONS_INLINE then
+				parent = root:CreateButton(sec.title)
+			else
+				root:CreateTitle(sec.title)
+			end
+			for _, layer in ipairs(sec.layers) do
+				local key = layer.key
+				local cb = parent:CreateCheckbox((layer.parent and "     " or "") .. layer.label,
+					function() return Checked(key) end,
+					function()
+						OnLayerSelect(key)
+						return MenuResponse and MenuResponse.Refresh
+					end, key)
+				if layer.parent and cb.SetEnabled then cb:SetEnabled(function() return Usable(layer) end) end
+				if layer.tip and cb.SetTooltip then cb:SetTooltip(Tooltip(layer)) end
+			end
+		end
+	end)
+end)
 
 ns.slash.layers = function()
 	local parts = {}
@@ -2378,8 +2000,7 @@ ns.slash.layers = function()
 		parts[#parts + 1] = "|cffffd100" .. sec.title .. ":|r " .. table.concat(on, ", ")
 	end
 	ns.Print("layers: " .. table.concat(parts, "; ") .. ". Toggle them from the gear. "
-		.. "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it. "
-		.. "Quest areas: " .. (blobSupported and "exact blobs supported" or "approximate only"))
+		.. "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it.")
 end
 
 ns.On("Loaded", function(savedDB)
