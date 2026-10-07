@@ -570,6 +570,50 @@ scenarios.quest_area_hover = function()
 	check(ns.HoveredQuestArea() == nil, "and off it, it's quiet again")
 end
 
+-- Following a quest with an area: path mode heads for the area's nearest
+-- edge, and stands down once you're inside it.
+scenarios.path_to_quest_area = function()
+	local MAP = 1429
+	Sim.blobShapes[60] = { 0.35, 0.55, 0.05 } -- quest 60's area: a circle around its pin
+	local function At(x, y)
+		local _, col, row = ns.MapToTile(MAP, x, y)
+		Sim.player.col, Sim.player.row = col, row
+	end
+	local function Dashes()
+		local n = 0
+		for _, r in ipairs({ ns.layerFrames.path:GetRegions() }) do
+			if r:GetObjectType() == "Line" and r:IsShown() then n = n + 1 end
+		end
+		return n
+	end
+	At(0.20, 0.55) -- west of it, outside
+	C_SuperTrack.SetSuperTrackedQuestID(60)
+	Sim.FireEvent("SUPER_TRACKING_CHANGED")
+	ns.SetZoom(600)
+	ns.SetPath(true)
+	Sim.Run(2)
+	local t = ns.GetTarget()
+	check(t and not t.inside, "outside the area, it's a target")
+	if t then
+		local _, ex = ns.MapToTile(MAP, 0.30, 0.55) -- the area's west edge
+		local _, cx = ns.MapToTile(MAP, 0.35, 0.55) -- its centre
+		check(math.abs(t.col - ex) < math.abs(t.col - cx) / 4, "aimed at the area's near edge, not its centre")
+	end
+	check(Dashes() > 0, "with the path line drawn")
+	At(0.34, 0.56) -- inside
+	Sim.Run(1.5)
+	t = ns.GetTarget()
+	check(t and t.inside, "inside the area, you've arrived")
+	check(Dashes() == 0, "and the path line is gone")
+	At(0.20, 0.55)
+	Sim.Run(1.5)
+	t = ns.GetTarget()
+	check(t and not t.inside and Dashes() > 0, "out again, it points the way again")
+	C_SuperTrack.SetSuperTrackedQuestID(0)
+	Sim.FireEvent("SUPER_TRACKING_CHANGED")
+	Sim.blobShapes[60] = nil
+end
+
 -- Party members: dots at their positions, moving with them.
 scenarios.group_members = function()
 	local function Dot()

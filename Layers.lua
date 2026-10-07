@@ -886,7 +886,7 @@ local function LayoutQuestAreas()
 				f:DrawNone()
 				for _, questID in ipairs(quests) do f:DrawBlob(questID, true) end
 				f:Show()
-				blobFrames[#blobFrames + 1] = { frame = f, uiMapID = uiMapID, rect = r }
+				blobFrames[#blobFrames + 1] = { frame = f, uiMapID = uiMapID, rect = r, style = quests.style }
 			end
 		end
 	end
@@ -1066,17 +1066,101 @@ end
 -- What path mode frames with you: the quest you follow if it's on this map,
 -- else your waypoint. { col, row, title } (reused), or nil.
 local target = {}
+-- A followed quest with an area: the target is the nearest edge of the
+-- area (not its centre point), and once you're inside it you've arrived
+-- (target.inside: path mode's line, edge arrow and lean step aside). The
+-- client's drawn area answers "is this point inside?" (BlobAt); the edge is
+-- found along a fan of rays from you toward the area, a few times a second.
+local AREA_EVERY = 0.25       -- seconds between looks
+local AREA_SETTLE = 0.5       -- inside / outside must hold this long to count (no flicker at the edge)
+local FAN = { 0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05 } -- ray angles around the way to the centre (radians)
+local RAY_STEPS, REFINE = 16, 8
+
+local area = {} -- questID, at, inside, flipAt, col, row
+
+local function FollowedBlob()
+	for _, b in ipairs(blobFrames) do
+		if b.style == "followed" then return b end
+	end
+end
+
+local function InBlob(b, col, row)
+	local r = b.rect
+	return BlobAt(b.frame, (col - r.col0) / (r.col1 - r.col0), (row - r.row0) / (r.row1 - r.row0)) ~= nil
+end
+
+-- The nearest point of the area from (pc, pr), toward its centre (cc, cr), or nil.
+local function NearestEdge(b, pc, pr, cc, cr)
+	local dx, dy = cc - pc, cr - pr
+	local reach = math.sqrt(dx * dx + dy * dy) * 1.5
+	if reach <= 0 then return nil end
+	local base = math.atan2(dy, dx)
+	local best, bc, br
+	for _, off in ipairs(FAN) do
+		local ux, uy = math.cos(base + off), math.sin(base + off)
+		local lo = 0
+		for i = 1, RAY_STEPS do
+			local d = reach * i / RAY_STEPS
+			if best and d >= best then break end
+			if InBlob(b, pc + ux * d, pr + uy * d) then
+				local hi = d
+				for _ = 1, REFINE do
+					local mid = (lo + hi) / 2
+					if InBlob(b, pc + ux * mid, pr + uy * mid) then hi = mid else lo = mid end
+				end
+				best, bc, br = hi, pc + ux * hi, pr + uy * hi
+				break
+			end
+			lo = d
+		end
+	end
+	return bc, br
+end
+
+-- The area target for followed quest pin e, or nil (no area drawn for it).
+local function AreaTarget(e)
+	local b = FollowedBlob()
+	if not (b and state.playerCol and state.playerMap == state.map) then return nil end
+	local now = GetTime()
+	if area.questID == e.questID and now < area.at then return area end
+	if area.questID ~= e.questID then
+		area.questID, area.inside, area.flipAt = e.questID, nil, nil
+	end
+	area.at = now + AREA_EVERY
+	local inside = InBlob(b, state.playerCol, state.playerRow)
+	if area.inside == nil then
+		area.inside = inside
+	elseif inside ~= area.inside then
+		area.flipAt = area.flipAt or now
+		if now - area.flipAt >= AREA_SETTLE then area.inside, area.flipAt = inside, nil end
+	else
+		area.flipAt = nil
+	end
+	if not area.inside then
+		local c, r = NearestEdge(b, state.playerCol, state.playerRow, e.col, e.row)
+		area.col, area.row = c or e.col, r or e.row
+	end
+	return area
+end
+
 function ns.GetTarget()
 	local followed = FollowedQuest()
 	local found = IsGhost() and pinData.corpse and pinData.corpse[1]
+	local a
 	if not found and followed then
 		for _, e in ipairs(pinData.quests or {}) do
 			if e.questID == followed then found = e break end
 		end
+		a = found and AreaTarget(found)
 	end
 	found = found or (pinData.waypoint and pinData.waypoint[1])
 	if not found then return nil end
-	target.col, target.row, target.title = found.col, found.row, found.title
+	target.title = found.title
+	if a then
+		target.col, target.row, target.inside = a.col or found.col, a.row or found.row, a.inside
+	else
+		target.col, target.row, target.inside = found.col, found.row, nil
+	end
 	return target
 end
 

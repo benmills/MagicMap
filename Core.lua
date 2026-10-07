@@ -1088,7 +1088,8 @@ local leanX, leanY = 0, 0 -- in tiles, eased
 
 local function WantedLean()
 	local t = state.path and ns.GetTarget and ns.GetTarget()
-	if not (t and state.playerCol and state.playerMap == state.map) then return 0, 0 end
+	-- Inside the followed quest's area you've arrived: no lean (it eases out).
+	if not (t and not t.inside and state.playerCol and state.playerMap == state.map) then return 0, 0 end
 	local w, h = ViewSize()
 	local dx, dy = (t.col - state.playerCol) * state.zoom, (t.row - state.playerRow) * state.zoom
 	local d = math.sqrt(dx * dx + dy * dy)
@@ -1412,7 +1413,9 @@ local function UpdateTitle()
 			parts[#parts + 1] = Coords(x, y)
 		end
 		local t = state.path and (not compact or hovering) and ns.GetTarget and ns.GetTarget()
-		if t and state.playerCol then
+		if t and t.inside then
+			parts[#parts + 1] = string.format("|cffffd27f%s|r here", t.title or "Target")
+		elseif t and state.playerCol then
 			local yd = math.sqrt((t.col - state.playerCol) ^ 2 + (t.row - state.playerRow) ^ 2) * TILE_YARDS
 			parts[#parts + 1] = string.format("|cffffd27f%s|r %d yd", t.title or "Target", math.floor(yd + 0.5))
 		end

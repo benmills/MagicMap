@@ -22,7 +22,7 @@ edgeArrow:Hide()
 
 ns.frame:HookScript("OnUpdate", ns.Timed("path arrow", function()
 	local t = ns.GetTarget and ns.GetTarget()
-	if t and state.playerCol and state.playerMap == state.map then
+	if t and not t.inside and state.playerCol and state.playerMap == state.map then
 		local w, h = ns.ViewSize()
 		local x1, y1 = ns.TileToScreen(state.playerCol, state.playerRow)
 		local x2, y2 = ns.TileToScreen(t.col, t.row)
@@ -109,7 +109,7 @@ local function HalfPixel(v) return math.floor(v * 2 + 0.5) / 2 end
 ns.frame:HookScript("OnUpdate", ns.Timed("path line", function()
 	local n = 0
 	local t = state.path and ns.GetTarget and ns.GetTarget()
-	if t and state.playerCol and state.playerMap == state.map then
+	if t and not t.inside and state.playerCol and state.playerMap == state.map then
 		-- On the canvas: tile (col, row) is at (col * zoom, row * zoom) down from its top left.
 		local z = state.zoom
 		local x1, y1 = HalfPixel(state.playerCol * z), HalfPixel(state.playerRow * z)

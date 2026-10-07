@@ -589,8 +589,15 @@ function ScrollFrame:SetVerticalScroll(v) S[self].vscroll = v end
 -- QuestPOIFrame (retail): draws quest blobs for one uiMap.
 local POI = class("QuestPOIFrame", "Frame")
 function POI:SetMapID(id) assert(type(id) == "number", "SetMapID: number expected"); S[self].mapID = id end
-function POI:DrawBlob(questID, draw) assert(type(questID) == "number", "DrawBlob: questID expected") end
-function POI:DrawNone() end
+-- Quest areas are circles: Sim.blobShapes[questID] = { x, y, r } in its map's
+-- normalized coordinates; a frame knows which quests it has drawn.
+Sim.blobShapes = {}
+function POI:DrawBlob(questID, draw)
+	assert(type(questID) == "number", "DrawBlob: questID expected")
+	S[self].blobs = S[self].blobs or {}
+	S[self].blobs[questID] = true
+end
+function POI:DrawNone() S[self].blobs = {} end
 function POI:SetFillTexture(t) end
 function POI:SetFillAlpha(a) end
 function POI:SetBorderTexture(t) end
@@ -600,8 +607,15 @@ function POI:EnableMerging(on) end
 function POI:EnableSmoothing(on) end
 function POI:SetMergeThreshold(t) end
 function POI:SetNumSplinePoints(n) end
--- The quest whose drawn area is under the cursor: Sim.questUnderCursor.
-function POI:UpdateMouseOverTooltip(x, y) return Sim.questUnderCursor end
+-- The quest whose drawn area covers (x, y): Sim.questUnderCursor if set (for
+-- tooltip tests), else one of its quests whose circle holds the point.
+function POI:UpdateMouseOverTooltip(x, y)
+	if Sim.questUnderCursor then return Sim.questUnderCursor end
+	for questID in pairs(S[self].blobs or {}) do
+		local c = Sim.blobShapes[questID]
+		if c and (x - c[1]) ^ 2 + (y - c[2]) ^ 2 <= c[3] ^ 2 then return questID end
+	end
+end
 function POI:GetTooltipIndex() return 0 end
 
 local FRAME_TYPES = { Frame = "Frame", Button = "Button", GameTooltip = "GameTooltip", ScrollFrame = "ScrollFrame" }
