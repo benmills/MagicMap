@@ -36,10 +36,14 @@ local function Piece(parent, atlas, flipV)
 end
 
 -- ref: a template NineSlice to copy the corners' placement from.
+-- b.insets = { left, top, right, bottom }: how far in from the frame's edges
+-- the border's edges reach, so what it frames can stop there instead of
+-- showing through the art.
 function ns.ApplyBorder(frame, level, ref)
 	local b = CreateFrame("Frame", nil, frame)
 	b:SetAllPoints()
 	b:SetFrameLevel(level)
+	b.insets = { 2, 2, 2, 2 }
 
 	-- Only the thin bottom corners and edges; the top ones carry a header bar.
 	local bl = Piece(b, "UI-Frame-Metal-CornerBottomLeft")
@@ -72,6 +76,10 @@ function ns.ApplyBorder(frame, level, ref)
 		left:SetPoint("BOTTOMLEFT", bl, "TOPLEFT")
 		right:SetPoint("TOPRIGHT", tr, "BOTTOMRIGHT")
 		right:SetPoint("BOTTOMRIGHT", br, "TOPRIGHT")
+		-- Each edge starts |lx| (|y|) outside the frame; a pixel of overlap
+		-- so nothing shows between the art and what it frames.
+		local function In(thickness, outside) return math.max(2, math.floor(thickness - outside - 1)) end
+		b.insets = { In(left:GetWidth(), -lx), In(top:GetHeight(), -y), In(right:GetWidth(), rx), In(bottom:GetHeight(), -y) }
 	else
 		for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
 			local t = b:CreateTexture(nil, "OVERLAY")

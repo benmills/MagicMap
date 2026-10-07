@@ -2389,7 +2389,7 @@ ns.On("Loaded", function(savedDB)
 	end
 end)
 ns.On("MapChanged", OnMapChanged)
-ns.On("ViewChanged", OnViewChanged)
+ns.On("ViewChanged", ns.Timed("> map: view changed: layers", OnViewChanged))
 
 local events = CreateFrame("Frame")
 local EVENT_LAYERS = {

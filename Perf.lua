@@ -72,17 +72,29 @@ end
 -- Where the time went, busiest first: ms per frame, and calls and the
 -- slowest one where that says more.
 local function Where(r)
-	local list, total = {}, 0
+	local list, parts, total = {}, {}, 0
 	for name, b in pairs(r.buckets) do
-		list[#list + 1] = { name, b[1], b[2], b[3] }
-		total = total + b[1]
+		local part = name:match("^> (.*)")
+		if part then
+			parts[#parts + 1] = { part, b[1], b[2], b[3] }
+		else
+			list[#list + 1] = { name, b[1], b[2], b[3] }
+			total = total + b[1]
+		end
 	end
-	table.sort(list, function(a, b) return a[2] > b[2] end)
-	ns.Print(string.format("  all of MagicMap's scripts and events: %.3f ms/frame. Where:", total / r.frames))
-	for i = 1, math.min(10, #list) do
-		local e = list[i]
+	local function Busiest(a, b) return a[2] > b[2] end
+	table.sort(list, Busiest)
+	table.sort(parts, Busiest)
+	local function Line(indent, e)
 		local calls = (e[3] ~= r.frames) and string.format(", %d calls", e[3]) or ""
-		ns.Print(string.format("    %s  %.3f ms/frame (max %.1f ms%s)", e[1], e[2] / r.frames, e[4], calls))
+		ns.Print(string.format("%s%s  %.3f ms/frame (max %.1f ms%s)", indent, e[1], e[2] / r.frames, e[4], calls))
+	end
+	ns.Print(string.format("  all of MagicMap's scripts and events: %.3f ms/frame. Where:", total / r.frames))
+	for i = 1, math.min(8, #list) do
+		Line("    ", list[i])
+		if list[i][1] == "map" then
+			for j = 1, #parts do Line("        ", parts[j]) end
+		end
 	end
 end
 

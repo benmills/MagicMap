@@ -490,7 +490,7 @@ local function SetCompact(on)
 		for _, c in ipairs({ frame:GetChildren() }) do
 			if not KEEP[c] and c:IsShown() then c:Hide(); chromeHidden[c] = true end
 		end
-		SetViewportInsets(2, 2, 2, 2)
+		SetViewportInsets(unpack(compactBorder.insets)) -- the map stops where the border's art begins
 		chevron:Hide()
 		closeButton:Hide() -- the mode button leaves minimap mode instead
 		compactBorder:Show()
@@ -1659,15 +1659,25 @@ Tooltip(zoomOut, function() return "Zoom out  |cff888888(sets how close the map 
 Tooltip(gearButton, function() return "Layers" end)
 
 local titleElapsed = 0
+-- While /mm perf records, the map script's parts are timed too ("> " marks
+-- a part of "map", not counted again in the total).
+local function Mark(perf, name, t)
+	local now = debugprofilestop()
+	perf.Spent(name, now - t)
+	return now
+end
 frame:SetScript("OnUpdate", ns.Timed("map", function(_, elapsed)
 	ViewSizeChanged()
 	local perf = ns.perf
 	local t0 = perf and debugprofilestop()
+	local t = t0
 	UpdatePlayer()
+	if perf then t = Mark(perf, "> map: your position", t) end
 	StepAnimation(elapsed)
 	StepZoom(elapsed)
 	StepTargetChange()
 	StepLean(elapsed)
+	if perf then t = Mark(perf, "> map: camera", t) end
 
 	if state.dragging then
 		if not IsMouseButtonDown("LeftButton") then
@@ -1701,17 +1711,22 @@ frame:SetScript("OnUpdate", ns.Timed("map", function(_, elapsed)
 			state.dirty = true
 		end
 	end
+	if perf then t = Mark(perf, "> map: following", t) end
 	if state.dirty then
 		RenderTiles()
+		if perf then t = Mark(perf, "> map: tiles", t) end
 		state.dirty = false
 		Fire("ViewChanged")
+		if perf then t = Mark(perf, "> map: view changed (layers, addon pins)", t) end
 	end
 	RenderArrow()
 	StepHover(elapsed)
+	if perf then t = Mark(perf, "> map: arrow, hover", t) end
 	titleElapsed = titleElapsed + (elapsed or 0)
 	if titleElapsed > 0.05 then
 		titleElapsed = 0
 		UpdateTitle()
+		if perf then Mark(perf, "> map: title", t) end
 	end
 	if perf then perf.Frame(elapsed or 0, debugprofilestop() - t0) end
 end))

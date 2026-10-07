@@ -298,7 +298,7 @@ host:SetScript("OnUpdate", ns.Timed("addon pins", function(_, elapsed)
 	end
 end))
 
-ns.On("ViewChanged", OnViewChanged)
+ns.On("ViewChanged", ns.Timed("> map: view changed: addon pins", OnViewChanged))
 ns.On("MapChanged", function() Sync() end)
 ns.frame:HookScript("OnShow", function()
 	Scan()
