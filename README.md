@@ -25,7 +25,8 @@ there. Zone and sub-zone borders and names are traced from the terrain itself.
 ![Picking Eastern Kingdoms from the title, then clicking Dun Morogh to fly there](docs/pick-and-fly.gif)
 
 Also drawn: the game's own **quest areas**, and **landmarks** you've used (vendors, trainers,
-flight points and more).
+flight points and more). The gear picks what's shown, grouped into Map, Quests, Places, People,
+You and other addons' pins; hover an entry for what it does.
 
 **Minimap mode.** MagicMap takes your minimap's spot, square and framed, and zooms out far past
 it. MagicMap draws its own markers (quests, flight points, points of interest, party members)

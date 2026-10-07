@@ -165,8 +165,8 @@ scenarios.minimap_mode = function()
 	for _, f in ipairs(Sim.Frames()) do
 		if f:GetParent() == ns.gearButton and f:IsVisible() then gearMenu = f end
 	end
-	check(gearMenu ~= nil, "the gear opens the layers menu")
-	Sim.Click(ns.gearButton)
+	check(gearMenu ~= nil or Sim.menu ~= nil, "the gear opens the layers menu")
+	if Sim.menu then Sim.menu = nil else Sim.Click(ns.gearButton) end
 	-- Inside the map, while hovering: toggles and zoom.
 	local mc = ns.mapControls
 	Sim.MoveCursorTo(ns.viewport, 0.5, 0.5)
@@ -613,36 +613,146 @@ scenarios.corpse = function()
 	check(ns.GetTarget() == nil and not st.path, "alive again: no corpse, path mode off")
 end
 
-scenarios.layers = function()
-	Sim.Run(2)
-	Sim.Slash("layers")
-	Sim.Run(0.5)
-	-- Toggle every layer off and on via the layers menu.
-	Sim.Click(ns.gearButton)
-	Sim.Run(0.5)
-	local toggled = 0
+-- The open layers menu's rows in order, from the client's menu (MenuUtil)
+-- or our fallback: { title = text } or { key, text, checked, enabled, tip, indent, toggle }.
+local function LayerRows()
+	local rows = {}
 	if Sim.menu then
-		for _, item in ipairs(Sim.MenuItems()) do
-			if item.onSelect and (item.kind == "checkbox" or item.kind == "radio" or item.kind == "button") then
-				Sim.Call("menu " .. tostring(item.text), item.onSelect, item.data)
-				Sim.Run(0.4)
-				Sim.Call("menu " .. tostring(item.text), item.onSelect, item.data)
-				Sim.Run(0.4)
-				toggled = toggled + 1
+		for _, e in ipairs(Sim.MenuItems()) do
+			if e.kind == "title" or (e.kind == "button" and #e.items > 0) then
+				rows[#rows + 1] = { title = e.text }
+			elseif e.kind == "checkbox" then
+				rows[#rows + 1] = { key = e.data, text = e.text, checked = e.isSelected(), enabled = e:IsEnabled(),
+					tip = e.tooltip, indent = e.text:match("^ +") ~= nil,
+					toggle = function() Sim.Call("menu " .. e.text, e.onSelect, e.data) end }
+			end
+		end
+		return rows
+	end
+	-- Our own (Menu.lua): its rows were created top to bottom.
+	for _, f in ipairs(Sim.Frames()) do
+		local it = f.item
+		if it and f:IsVisible() and f:GetParent() and f:GetParent():GetParent() == ns.gearButton then
+			if it.value == nil then
+				rows[#rows + 1] = { title = it.text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "") }
+			else
+				rows[#rows + 1] = { key = it.value, text = it.text, checked = it.checked, enabled = not it.disabled,
+					tip = it.tip, indent = (it.indent or 0) > 0, toggle = function() Sim.Click(f) end }
 			end
 		end
 	end
-	-- Classic menus are our own (Menu.lua): click its rows.
-	for _, f in ipairs(Sim.Frames()) do
-		if S[f].type == "Button" and f:IsVisible() and f:GetParent() and f:GetParent():GetParent() == ns.gearButton then
-			Sim.Click(f)
+	return rows
+end
+
+local function LayersOpen() return Sim.menu ~= nil or #LayerRows() > 0 end
+local function CloseLayers()
+	if not LayersOpen() then return end
+	if Sim.menu then Sim.menu = nil else Sim.Click(ns.gearButton) end
+end
+local function OpenLayers()
+	CloseLayers()
+	Sim.Click(ns.gearButton)
+	Sim.Run(0.3)
+	return LayerRows()
+end
+
+local function FindRow(rows, key)
+	for i, r in ipairs(rows) do
+		if r.key == key then return r, i end
+	end
+end
+
+scenarios.layers = function()
+	Sim.Run(2)
+	Sim.Slash("layers")
+	local printed = Sim.prints[#Sim.prints] or ""
+	check(printed:find("Map:", 1, true) and printed:find("You:", 1, true), "/mm layers lists them by group: " .. printed)
+	Sim.Run(0.5)
+
+	-- Sections in order, each with its layers.
+	local rows = OpenLayers()
+	local want = {
+		{ "Map", "zoneLabels", "zoneBorders", "unexplored" },
+		{ "Quests", "quests", "questAreas", "questAreasApprox", "offers" },
+		{ "Places", "flight", "dungeons", "graveyards", "areaPOIs", "services" },
+		{ "People", "group", "rares", "vignettes" },
+		{ "You", "corpse", "waypoint" },
+	}
+	local i = 1
+	for _, sec in ipairs(want) do
+		check(rows[i] and rows[i].title == sec[1], "section " .. sec[1] .. " at row " .. i .. ", got " .. tostring(rows[i] and (rows[i].title or rows[i].key)))
+		for k = 2, #sec do
+			i = i + 1
+			check(rows[i] and rows[i].key == sec[k], sec[1] .. ": " .. sec[k] .. " at row " .. i .. ", got " .. tostring(rows[i] and (rows[i].title or rows[i].key)))
+		end
+		i = i + 1
+	end
+	check(rows[i] == nil or rows[i].title == "Other addons", "only other addons may follow, got " .. tostring(rows[i] and (rows[i].title or rows[i].key)))
+	local approx = FindRow(rows, "questAreasApprox")
+	check(approx and approx.indent and approx.text:find("Estimate missing areas", 1, true), "the estimate is a short, indented sub-option")
+	check(approx and approx.tip ~= nil, "with the long explanation as a tooltip")
+	if Sim.menu and approx then
+		approx.tip(GameTooltip)
+		check(GameTooltip:NumLines() >= 2, "the tooltip has a title and the explanation")
+	end
+
+	-- A sub-option is greyed while its parent is off.
+	check(approx and approx.enabled, "the estimate is usable while quest areas are on")
+	FindRow(rows, "questAreas").toggle()
+	Sim.Run(0.4)
+	rows = LayerRows()
+	check(not MagicMapDB.layers.questAreas and not FindRow(rows, "questAreasApprox").enabled, "and greyed while they're off")
+	check(not ns.LayerEnabled("questAreasApprox") and MagicMapDB.layers.questAreasApprox, "off in effect, the setting kept")
+	FindRow(rows, "questAreas").toggle()
+	Sim.Run(0.4)
+	rows = LayerRows()
+	check(MagicMapDB.layers.questAreas and FindRow(rows, "questAreasApprox").enabled, "usable again once they're back")
+
+	-- Toggle every layer off and on; the menu stays open and follows.
+	local toggled = 0
+	for _, r in ipairs(rows) do
+		if r.key then
+			local before = MagicMapDB.layers[r.key]
+			r.toggle()
 			Sim.Run(0.4)
-			Sim.Click(f)
+			check(MagicMapDB.layers[r.key] ~= before, "toggling " .. r.key .. " flips it")
+			check(LayersOpen(), "the menu stays open after toggling " .. r.key)
+			FindRow(LayerRows(), r.key).toggle()
 			Sim.Run(0.4)
+			check(MagicMapDB.layers[r.key] == before, "and back")
 			toggled = toggled + 1
 		end
 	end
-	check(toggled > 0, "the layers menu has toggles")
+	check(toggled >= 17, "every layer has a toggle, got " .. toggled)
+
+	-- Another addon's layer, added after login: under "Other addons", from its default.
+	local calls = {}
+	ns.AddLayer({ key = "addon:Test", label = "Test pins", group = "addons", default = true,
+		tip = "Pins from Test.", onToggle = function(on) calls[#calls + 1] = on end })
+	check(MagicMapDB.layers["addon:Test"] == true, "a late layer starts from its default")
+	rows = OpenLayers()
+	local row, at = FindRow(rows, "addon:Test")
+	local head
+	for k = (at or 1), 1, -1 do
+		if rows[k].title then head = rows[k].title break end
+	end
+	check(row and row.checked and head == "Other addons", "it shows under Other addons, on (heading " .. tostring(head) .. ")")
+	if row then
+		row.toggle()
+		Sim.Run(0.4)
+		check(MagicMapDB.layers["addon:Test"] == false and calls[1] == false, "toggling it calls onToggle(false)")
+		FindRow(LayerRows(), "addon:Test").toggle()
+		check(calls[2] == true, "and onToggle(true)")
+	end
+	-- Again with the same key: updated, not duplicated.
+	ns.AddLayer({ key = "addon:Test", label = "Test pins (renamed)", group = "addons", default = false })
+	rows = OpenLayers()
+	local n = 0
+	for _, r in ipairs(rows) do if r.key == "addon:Test" then n = n + 1 end end
+	row = FindRow(rows, "addon:Test")
+	check(n == 1 and row and row.text:find("renamed", 1, true) and row.checked, "re-adding renames it, once, keeping the setting")
+	CloseLayers()
+	check(not LayersOpen(), "the menu closes")
 	Sim.Run(2)
 end
 
@@ -1031,6 +1141,181 @@ scenarios.map_menu_info = function()
 	PickMenu("Clear waypoint")
 	ToggleWorldMap()
 	Sim.Run(1)
+end
+
+
+---------------------------------------------------------------------------
+-- Other addons' world-map pins (AddonPins.lua): Questie's renamed copy of
+-- HereBeDragons-Pins, loaded after us.
+---------------------------------------------------------------------------
+
+-- Questie, with an icon in Elwynn (on Blizzard's map, which shows Elwynn),
+-- one in Durotar and a route line (its zone map only).
+local function LoadQuestie()
+	local pins = Sim.LoadQuestie()
+	Sim.FireEvent("ADDON_LOADED", "Questie")
+	local icons = { elwynn = Sim.QuestieIcon(), durotar = Sim.QuestieIcon(), line = Sim.QuestieIcon() }
+	pins:AddWorldMapIconMap(Questie, icons.elwynn, 1429, 0.5, 0.5, HBD_PINS_WORLDMAP_SHOW_WORLD)
+	pins:AddWorldMapIconMap(Questie, icons.durotar, 1411, 0.5, 0.5, HBD_PINS_WORLDMAP_SHOW_WORLD)
+	pins:AddWorldMapIconMap(Questie, icons.line, 1429, 0.4, 0.4, HBD_PINS_WORLDMAP_SHOW_CURRENT)
+	Sim.Run(0.5)
+	return pins, icons
+end
+
+-- How far (px) `icon` sits from where tile (col, row) is on our map.
+local function PinOff(icon, col, row)
+	local x, y = ns.TileToScreen(col, row)
+	local cx, cy = icon:GetCenter()
+	if not cx then return math.huge end
+	return math.abs(cx - ns.viewport:GetLeft() - x) + math.abs(ns.viewport:GetTop() - cy - y)
+end
+
+local function OnOurMap(icon) return icon:GetParent() == _G.MagicMapAddonPins and icon:IsVisible() end
+
+-- Back with the library: on its Blizzard map pin, or hidden in UIParent.
+local function WithLibrary(icon)
+	local p = icon:GetParent()
+	return (p and p.icon == icon) or (p == UIParent and not icon:IsShown())
+end
+
+scenarios.addon_pins_questie = function()
+	local _, icons = LoadQuestie()
+	local _, col, row = ns.MapToTile(1429, 0.5, 0.5)
+	local a = icons.elwynn
+	check(OnOurMap(a), "Questie's Elwynn icon is on our map")
+	check(PinOff(a, col, row) < 1, "at its spot (" .. PinOff(a, col, row) .. " px off)")
+	check(a:GetWidth() == 16, "at its own size")
+	check(a:GetFrameLevel() > ns.layerFrames.areas:GetFrameLevel() and a:GetFrameLevel() <= ns.overlay:GetFrameLevel(),
+		"above quest areas, below the player marker (level " .. a:GetFrameLevel() .. ")")
+	check(not OnOurMap(icons.durotar), "the Durotar icon (another continent) isn't")
+	check(not OnOurMap(icons.line), "nor its route line (zone map only)")
+	check(ns.LayerEnabled("addon:Questie") or not ns.AddLayer, "Questie has a layer, on")
+	-- Zoom and pan: it keeps its spot and its size.
+	ns.SetZoom(900)
+	Sim.Run(0.3)
+	check(PinOff(a, col, row) < 1, "zoomed in, still at its spot")
+	check(a:GetWidth() == 16 and a:GetEffectiveScale() == ns.viewport:GetEffectiveScale(), "and not scaled with the map")
+	ns.SetFollow(false)
+	Sim.Drag(ns.viewport, 60, -40)
+	Sim.Run(0.3)
+	check(PinOff(a, col, row) < 1, "panned, still at its spot")
+	-- Zoomed out to a continent: pins flagged for continents stay, zone pins go.
+	local zonePin = Sim.QuestieIcon()
+	Sim.questiePins:AddWorldMapIconMap(Questie, zonePin, 1429, 0.6, 0.6) -- no flag: its zone (and zone-type maps) only
+	Sim.Run(0.3)
+	check(OnOurMap(zonePin), "a zone-only pin shows close up")
+	ns.SetZoom(20)
+	Sim.Run(0.3)
+	check(OnOurMap(a) and PinOff(a, col, row) < 1, "zoomed out to the continent, shown (flagged for the world map)")
+	check(not OnOurMap(zonePin) and WithLibrary(zonePin), "the zone-only pin isn't, at continent scale")
+	ns.SetZoom(400)
+	Sim.Run(0.3)
+	local _, zc, zr = ns.MapToTile(1429, 0.6, 0.6)
+	check(OnOurMap(zonePin) and PinOff(zonePin, zc, zr) < 1, "and is back, in place, zoomed in again")
+	-- Its turn-in for a quest whose turn-in we draw repeats ours: skipped. Its
+	-- quests to pick up (ours don't cover them) stay.
+	check(ns.ShowsTurnIn(62), "our quests layer shows quest 62's turn-in")
+	local turnIn, offer = Sim.QuestieIcon(), Sim.QuestieIcon()
+	turnIn.data = { Type = "complete", Id = 62 }
+	offer.data = { Type = "available", Id = 999 }
+	Sim.questiePins:AddWorldMapIconMap(Questie, turnIn, 1429, 0.40, 0.80, HBD_PINS_WORLDMAP_SHOW_WORLD)
+	Sim.questiePins:AddWorldMapIconMap(Questie, offer, 1429, 0.45, 0.70, HBD_PINS_WORLDMAP_SHOW_WORLD)
+	Sim.Run(0.3)
+	check(not OnOurMap(turnIn) and OnOurMap(offer), "Questie's repeat of our turn-in is skipped, its quest offer kept")
+	-- Added later: shows up shortly.
+	local b = Sim.QuestieIcon()
+	Sim.questiePins:AddWorldMapIconMap(Questie, b, 1436, 0.5, 0.5, HBD_PINS_WORLDMAP_SHOW_WORLD)
+	Sim.Run(0.3)
+	check(OnOurMap(b), "a pin added later joins our map")
+	-- Removed: gone from ours.
+	Sim.questiePins:RemoveWorldMapIcon(Questie, b)
+	b:Hide() -- (Questie unloads it)
+	Sim.Run(0.3)
+	check(b:GetParent() ~= _G.MagicMapAddonPins and not b:IsVisible(), "a removed pin leaves our map")
+	-- Another continent: only that continent's pins.
+	Sim.Slash("map 1")
+	Sim.Run(0.5)
+	check(ns.state.map == 1, "showing Kalimdor")
+	check(OnOurMap(icons.durotar), "on Kalimdor, the Durotar icon shows")
+	check(not OnOurMap(a) and WithLibrary(a), "and the Elwynn one is back with the library")
+	local _, dc, dr = ns.MapToTile(1411, 0.5, 0.5)
+	check(PinOff(icons.durotar, dc, dr) < 1, "at its spot")
+end
+
+scenarios.addon_pins_toggle_and_close = function()
+	local _, icons = LoadQuestie()
+	local a = icons.elwynn
+	check(OnOurMap(a), "Questie's icon is on our map")
+	local home = nil
+	if ns.AddLayer then
+		local layer = ns.AddLayer({ key = "addon:Questie" })
+		check(layer.group == "addons" and layer.label == "Questie", "its layer is Questie's, under other addons")
+		MagicMapDB.layers["addon:Questie"] = false
+		layer.onToggle(false)
+		check(not OnOurMap(a) and WithLibrary(a), "layer off: back with the library")
+		home = a:GetParent()
+		check(home.icon == a and a:IsShown() and a:GetFrameLevel() == 2016, "on its Blizzard map pin, at Questie's level")
+		Sim.Run(1.5)
+		check(not OnOurMap(a), "and stays off")
+		MagicMapDB.layers["addon:Questie"] = true
+		layer.onToggle(true)
+		check(OnOurMap(a), "layer on: back on our map")
+	end
+	-- Blizzard's world map (L) takes them while it's open.
+	if ToggleQuestLog then ToggleQuestLog() else WorldMapFrame:Show() end
+	Sim.Run(0.5)
+	check(WorldMapFrame:IsShown() and not OnOurMap(a) and a:IsVisible() and a:GetParent().icon == a,
+		"Blizzard's world map open: the icon shows on it")
+	WorldMapFrame:Hide()
+	Sim.Run(0.5)
+	check(OnOurMap(a), "closed again: back on ours")
+	-- Blizzard's map moved to Westfall meanwhile: Elwynn's pins were released.
+	WorldMapFrame.mapID = 1436
+	WorldMapFrame:Show()
+	Sim.Run(0.2)
+	WorldMapFrame:Hide()
+	Sim.Run(0.5)
+	check(OnOurMap(a), "after Blizzard's map changed maps, still ours")
+	-- Closing our map gives everything back.
+	ns.frame:Hide()
+	Sim.Run(0.2)
+	check(a:GetParent() == UIParent and not a:IsShown(), "our map closed: hidden in UIParent, as the library left it")
+	check(next(ns.HostedAddonPins()) == nil, "nothing hosted")
+	WorldMapFrame.mapID = 1429
+	WorldMapFrame:Show()
+	Sim.Run(0.2)
+	check(a:IsVisible() and a:GetParent().icon == a, "Blizzard's map back on Elwynn shows it")
+	WorldMapFrame:Hide()
+	ns.frame:Show()
+	Sim.Run(0.5)
+	check(OnOurMap(a), "our map open again: ours again")
+end
+
+-- Questie's minimap pins go to our clipped host in minimap mode, and back.
+scenarios.addon_pins_minimap = function()
+	local pins = Sim.LoadQuestie()
+	local dot = Sim.QuestieIcon()
+	local p = Sim.player
+	local x, y = ns.TileToMap(1429, p.col + 0.05, p.row)
+	pins:AddMinimapIconMap(Questie, dot, 1429, x, y, true, true)
+	check(dot:GetParent() == Minimap, "Questie's minimap pin starts on the Minimap")
+	Sim.Click(ns.modeButton)
+	Sim.Run(2)
+	ns.SetZoom(1500) -- the Minimap far bigger than the window: clipped
+	Sim.Run(1)
+	local host = _G.MagicMapMinimapPins
+	check(ns.state.minimapShown and pins.Minimap ~= Minimap and not dot:IsVisible(),
+		"Questie's world-map pins are on our map, so its minimap copies stay out of sight")
+	check(Sim.gatherPin:GetParent() == host and Sim.gatherPin:IsVisible(), "the shared copy's pins are on our host, in the window")
+	local db = MagicMapDB
+	db.layers["addon:Questie"] = false
+	Sim.Run(1)
+	check(pins.Minimap == host and dot:GetParent() == host and dot:IsVisible(),
+		"Questie's layer off: its minimap pins are on our host instead")
+	db.layers["addon:Questie"] = true
+	Sim.Click(ns.modeButton)
+	Sim.Run(1)
+	check(pins.Minimap == Minimap and dot:GetParent() == Minimap, "minimap mode off: back on the Minimap")
 end
 
 return scenarios

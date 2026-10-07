@@ -6,6 +6,8 @@
 --   menu.getItems = function() return { { text = "A", value = 1, selected = true }, ... } end
 --   menu.onSelect = function(value, text) end
 --   menu.keepOpen = true -- checklist mode: items may set checked = true|false
+--   menu.maxRows = 30   -- taller than the default before it scrolls
+-- Items may also set disabled (headings), indent (levels) and tip (hover tooltip).
 --
 -- Or a context menu at the cursor, owned by any frame (not opened by its clicks):
 --   ns.OpenMenuAtCursor(owner, width, items, onSelect)
@@ -16,8 +18,29 @@ local ROW_HEIGHT = 18
 local MAX_ROWS = 18
 
 local openMenu -- only one open at a time
+local clientMenu -- the last one opened with ns.OpenClientMenu
 
-function ns.IsMenuOpen() return openMenu ~= nil end
+function ns.IsMenuOpen()
+	return openMenu ~= nil or (clientMenu and clientMenu.IsShown and clientMenu:IsShown()) or false
+end
+
+-- The client's own context menu (MenuUtil, where it exists), counted as open
+-- like ours so the controls that opened it don't fade under it.
+function ns.OpenClientMenu(owner, generator)
+	clientMenu = MenuUtil.CreateContextMenu(owner, generator)
+	return clientMenu
+end
+
+local function RowOnEnter(self)
+	local tip = self.item and self.item.tip
+	if not tip then return end
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+	GameTooltip:SetText(tip, 1, 1, 1, 1, true)
+	GameTooltip:Show()
+end
+local function RowOnLeave(self)
+	if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
+end
 
 local function MakeBackground(f)
 	local edge = f:CreateTexture(nil, "BACKGROUND", nil, -2)
@@ -49,9 +72,10 @@ local function NewMenu(button, width)
 	local offset = 0
 
 	local function Refresh()
-		local visible = math.min(#items, MAX_ROWS)
+		local maxRows = menu.maxRows or MAX_ROWS
+		local visible = math.min(#items, maxRows)
 		list:SetHeight(visible * ROW_HEIGHT + 4)
-		for i = 1, MAX_ROWS do
+		for i = 1, maxRows do
 			local row = rows[i]
 			local item = items[i + offset]
 			if i <= visible and item then
@@ -66,6 +90,8 @@ local function NewMenu(button, width)
 					row.text:SetPoint("RIGHT", -6, 0)
 					row.text:SetJustifyH("LEFT")
 					row.text:SetWordWrap(false)
+					row:SetScript("OnEnter", RowOnEnter)
+					row:SetScript("OnLeave", RowOnLeave)
 					row:SetScript("OnClick", function(self)
 						local it = self.item
 						if menu.keepOpen then
@@ -81,6 +107,7 @@ local function NewMenu(button, width)
 					rows[i] = row
 				end
 				row.item = item
+				row.text:SetPoint("LEFT", 6 + (item.indent or 0) * 14, 0)
 				-- Disabled rows (headings, info) don't light up or take clicks.
 				row:EnableMouse(not item.disabled)
 				if item.divider and not row.rule then
@@ -111,7 +138,7 @@ local function NewMenu(button, width)
 	end
 
 	list:SetScript("OnMouseWheel", function(_, delta)
-		local maxOffset = math.max(0, #items - MAX_ROWS)
+		local maxOffset = math.max(0, #items - (menu.maxRows or MAX_ROWS))
 		offset = math.max(0, math.min(maxOffset, offset - delta * 3))
 		Refresh()
 	end)
@@ -138,7 +165,7 @@ local function NewMenu(button, width)
 		offset = 0
 		for i, it in ipairs(items) do
 			if it.selected then
-				offset = math.max(0, math.min(i - 1, #items - MAX_ROWS))
+				offset = math.max(0, math.min(i - 1, #items - (menu.maxRows or MAX_ROWS)))
 				break
 			end
 		end
