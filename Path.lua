@@ -10,6 +10,7 @@ local FLOW = 14            -- px per second the dashes drift toward the target
 local MAX_DASHES = 120     -- longer lines get longer dashes instead of more
 local CLEAR_YOU, CLEAR_TARGET = 14, 15 -- px left clear around your arrow and the target's pin
 local FADE = 40            -- px over which the line fades in and out at its ends
+local DRIFT_HZ = 20        -- the drift steps this often (0.7 px a step); the line redraws only when it or the view moves
 
 -- Off the map, your target gets a gold arrow on the map's edge, on the line
 -- from you toward it (Blizzard's own rim arrows are pushed away: MinimapBlips).
@@ -22,7 +23,7 @@ edgeArrow:Hide()
 ns.frame:HookScript("OnUpdate", function()
 	local t = ns.GetTarget and ns.GetTarget()
 	if t and state.playerCol and state.playerMap == state.map then
-		local w, h = ns.viewport:GetSize()
+		local w, h = ns.ViewSize()
 		local x1, y1 = ns.TileToScreen(state.playerCol, state.playerRow)
 		local x2, y2 = ns.TileToScreen(t.col, t.row)
 		local lo, hiX, hiY = EDGE_INSET, w - EDGE_INSET, h - EDGE_INSET
@@ -33,14 +34,25 @@ ns.frame:HookScript("OnUpdate", function()
 			local k = 1
 			if dx ~= 0 then k = math.min(k, ((dx > 0 and hiX or lo) - x1) / dx) end
 			if dy ~= 0 then k = math.min(k, ((dy > 0 and hiY or lo) - y1) / dy) end
-			edgeArrow:ClearAllPoints()
-			edgeArrow:SetPoint("CENTER", ns.overlay, "TOPLEFT", x1 + dx * k, -(y1 + dy * k))
-			edgeArrow:SetRotation(math.atan2(-dx, -dy)) -- the art points up
-			edgeArrow:Show()
+			local ax, ay = math.floor(x1 + dx * k + 0.5), math.floor(y1 + dy * k + 0.5)
+			local rot = math.atan2(-dx, -dy) -- the art points up
+			if ax ~= edgeArrow.x or ay ~= edgeArrow.y or rot ~= edgeArrow.rot then
+				edgeArrow.x, edgeArrow.y, edgeArrow.rot = ax, ay, rot
+				edgeArrow:ClearAllPoints()
+				edgeArrow:SetPoint("CENTER", ns.overlay, "TOPLEFT", ax, -ay)
+				edgeArrow:SetRotation(rot)
+			end
+			if not edgeArrow.on then
+				edgeArrow.on = true
+				edgeArrow:Show()
+			end
 			return
 		end
 	end
-	edgeArrow:Hide()
+	if edgeArrow.on then
+		edgeArrow.on = false
+		edgeArrow:Hide()
+	end
 end)
 
 local layer = ns.layerFrames.path
@@ -61,11 +73,33 @@ local function Get(list, i, sublevel, thick)
 	return l
 end
 
+-- Only what changed: most of a line's dashes keep their colour from frame to frame.
 local function Segment(l, ax, ay, bx, by, r, g, b, a)
-	l:SetColorTexture(r, g, b, a)
+	if l.r ~= r or l.a ~= a then
+		l.r, l.a = r, a
+		l:SetColorTexture(r, g, b, a)
+	end
 	l:SetStartPoint("TOPLEFT", layer, ax, -ay)
 	l:SetEndPoint("TOPLEFT", layer, bx, -by)
-	l:Show()
+	if not l.on then
+		l.on = true
+		l:Show()
+	end
+end
+
+local function Off(l)
+	if l.on then
+		l.on = false
+		l:Hide()
+	end
+end
+
+-- What the line was last drawn for; nothing moved, nothing to draw.
+local drawn = {}
+local function Unchanged(x1, y1, x2, y2, phase)
+	if drawn[1] == x1 and drawn[2] == y1 and drawn[3] == x2 and drawn[4] == y2 and drawn[5] == phase then return true end
+	drawn[1], drawn[2], drawn[3], drawn[4], drawn[5] = x1, y1, x2, y2, phase
+	return false
 end
 
 ns.frame:HookScript("OnUpdate", function()
@@ -74,6 +108,8 @@ ns.frame:HookScript("OnUpdate", function()
 	if t and state.playerCol and state.playerMap == state.map then
 		local x1, y1 = ns.TileToScreen(state.playerCol, state.playerRow)
 		local x2, y2 = ns.TileToScreen(t.col, t.row)
+		local phase = math.floor(GetTime() * DRIFT_HZ) / DRIFT_HZ
+		if Unchanged(x1, y1, x2, y2, phase) then return end
 		local dx, dy = x2 - x1, y2 - y1
 		local len = math.sqrt(dx * dx + dy * dy)
 		local s0, s1 = CLEAR_YOU, len - CLEAR_TARGET
@@ -81,7 +117,7 @@ ns.frame:HookScript("OnUpdate", function()
 			local ux, uy = dx / len, dy / len
 			local scale = math.max(1, (s1 - s0) / (DASH + GAP) / MAX_DASHES)
 			local dash, step = DASH * scale, (DASH + GAP) * scale
-			local s = s0 + (GetTime() * FLOW) % step - step
+			local s = s0 + (phase * FLOW) % step - step
 			while s < s1 and n < MAX_DASHES do
 				local a, b = math.max(s, s0), math.min(s + dash, s1)
 				if b > a then
@@ -96,9 +132,10 @@ ns.frame:HookScript("OnUpdate", function()
 			end
 		end
 	end
+	if n == 0 then drawn[1] = nil end
 	for i = n + 1, used do
-		dashes[i]:Hide()
-		shadows[i]:Hide()
+		Off(dashes[i])
+		Off(shadows[i])
 	end
 	used = n
 end)

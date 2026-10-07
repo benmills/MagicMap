@@ -74,7 +74,7 @@ def run(name: str, verbose: bool, call_us: float = 0) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("benches", nargs="*", default=["follow_ride", "fast_pan", "continent_pan", "wheel_zoom"])
+    parser.add_argument("benches", nargs="*", default=["follow_ride", "fast_pan", "continent_pan", "wheel_zoom", "minimap_still", "minimap_ride"])
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("--call-us", type=float, default=0, help="client cost per widget call, microseconds")
     ns = parser.parse_args()

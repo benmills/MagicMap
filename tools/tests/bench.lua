@@ -52,4 +52,31 @@ benches.wheel_zoom = function()
 	Sim.Run(1)
 end
 
+-- Minimap mode, as it's mostly used: a party of four, path mode toward a
+-- waypoint. The map is always open here, so even standing still counts.
+local function MinimapSetup()
+	Sim.Click(ns.modeButton)
+	Sim.Run(1)
+	for i = 1, 4 do
+		Sim.units["party" .. i] = { name = "Friend" .. i, class = "PRIEST", level = 6,
+			col = Sim.player.col + 0.03 * i, row = Sim.player.row - 0.02 * i }
+	end
+	Sim.group = { "party1", "party2", "party3", "party4" }
+	ns.SetWaypointAt(Sim.player.col + 0.6, Sim.player.row + 0.3)
+	ns.SetPath(true)
+	Sim.Run(2)
+end
+
+benches.minimap_still = function()
+	MinimapSetup()
+	Sim.Run(10)
+end
+
+benches.minimap_ride = function()
+	MinimapSetup()
+	Sim.player.speed, Sim.player.facing = 14, 0.6
+	Sim.Run(10)
+	Sim.player.speed = 0
+end
+
 return benches

@@ -34,6 +34,8 @@ local hover = false    -- the mouse is over the Minimap
 local undo = {}        -- what Engage changed, as functions that change it back
 local ours = {}        -- our own children of the Minimap, which stay on it
 local lastMask, lastInsets, lastSize
+local placed = {} -- where Place last anchored it: canvas, x, y
+local followed    -- the window strata and indoor state FollowWindow last applied
 
 T.SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
 -- Blizzard's round mask, put back on release. (Retail-engine clients, Forever
@@ -326,6 +328,9 @@ end
 -- above the backdrop.
 local function FollowWindow()
 	local strata = ns.frame:GetFrameStrata()
+	local key = strata .. (indoor and "+" or "-")
+	if key == followed then return end
+	followed = key
 	local base = ns.overlay:GetFrameLevel()
 	if Minimap:GetFrameStrata() ~= strata then Minimap:SetFrameStrata(strata) end
 	local level = base + (indoor and 2 or -1)
@@ -371,6 +376,7 @@ function T.Engage()
 	-- zooming. Never clamped: that would slide its blips off ours.
 	Minimap:SetParent(ns.viewport)
 	Minimap:SetScale(1)
+	followed = nil
 	FollowWindow()
 	-- The pins that stayed must still clear our terrain and layers.
 	for _, pin in ipairs({ Minimap:GetChildren() }) do
@@ -411,7 +417,8 @@ function T.Release()
 		if not ok and not failure then failure = err end
 		undo[i] = nil
 	end
-	lastMask, lastInsets, lastSize = nil, nil, nil
+	lastMask, lastInsets, lastSize, followed = nil, nil, nil, nil
+	wipe(placed)
 	if failure then error(failure, 0) end
 end
 
@@ -472,10 +479,13 @@ end
 -- Indoors: the Minimap whole, the size of the window, centred.
 function T.ShowWhole()
 	FollowWindow()
-	local w, h = ns.viewport:GetSize()
+	local w, h = ns.ViewSize()
 	local d = math.floor(math.min(w, h) + 0.5)
-	Minimap:ClearAllPoints()
-	Minimap:SetPoint("CENTER", ns.viewport)
+	if placed.canvas ~= ns.viewport then
+		placed.canvas, placed.x, placed.y = ns.viewport, 0, 0
+		Minimap:ClearAllPoints()
+		Minimap:SetPoint("CENTER", ns.viewport)
+	end
 	if d ~= lastSize then
 		lastSize = d
 		Minimap:SetSize(d, d)
@@ -491,10 +501,16 @@ end
 -- alpha: its terrain's (0 but for /mm sync).
 function T.Place(canvas, x, y, d, mask, insets, alpha)
 	FollowWindow()
-	Minimap:ClearAllPoints()
-	Minimap:SetPoint("CENTER", canvas, "TOPLEFT", x, y)
-	pinHost:ClearAllPoints()
-	pinHost:SetPoint("CENTER", canvas, "TOPLEFT", x, y)
+	-- Anchored to the canvas, so it only moves when you do (or the zoom does);
+	-- one cheap look each frame catches anything else moving it.
+	local _, rel, _, px, py = Minimap:GetPoint(1)
+	if canvas ~= placed.canvas or x ~= placed.x or y ~= placed.y or rel ~= canvas or px ~= x or py ~= y then
+		placed.canvas, placed.x, placed.y = canvas, x, y
+		Minimap:ClearAllPoints()
+		Minimap:SetPoint("CENTER", canvas, "TOPLEFT", x, y)
+		pinHost:ClearAllPoints()
+		pinHost:SetPoint("CENTER", canvas, "TOPLEFT", x, y)
+	end
 	T.SetMask(mask)
 	SetHitInsets(insets[1], insets[2], insets[3], insets[4])
 	d = math.floor(d + 0.5)
@@ -506,7 +522,7 @@ function T.Place(canvas, x, y, d, mask, insets, alpha)
 	end
 	if Minimap:GetAlpha() ~= alpha then Minimap:SetAlpha(alpha) end
 	if not Minimap:IsShown() then Minimap:Show() end
-	pinHost:Show()
+	if not pinHost:IsShown() then pinHost:Show() end
 	shown = true
 end
 

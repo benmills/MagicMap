@@ -149,11 +149,19 @@ local layoutZoom = {} -- shade/areas canvas -> zoom its contents were laid out a
 local hasLines = canvases.shade.CreateLine ~= nil
 
 -- A scaled frame's anchor offsets are in its own (scaled) units.
+-- (Each canvas remembers its scale, parent and spot, so an unchanged one costs nothing.)
 local function PlaceCanvas(c, x, y, z)
 	local s = z and state.zoom / z or 1
-	if c:GetScale() ~= s then c:SetScale(s) end
-	c:ClearAllPoints()
-	c:SetPoint("TOPLEFT", c:GetParent(), "TOPLEFT", x / s, -y / s)
+	if c.mmScale ~= s then
+		c.mmScale = s
+		c:SetScale(s)
+	end
+	local px, py = x / s, -y / s
+	if px ~= c.mmX or py ~= c.mmY then
+		c.mmX, c.mmY = px, py
+		c.mmParent = c.mmParent or c:GetParent()
+		c:SetPoint("TOPLEFT", c.mmParent, "TOPLEFT", px, py)
+	end
 	return s
 end
 
@@ -697,19 +705,34 @@ local function UpdateGroup()
 					local dot = GroupDot(n)
 					dot.unit = unit
 					local _, class = UnitClass(unit)
-					local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-					if UnitIsDeadOrGhost and UnitIsDeadOrGhost(unit) then
-						dot.icon:SetVertexColor(0.5, 0.5, 0.5, 1)
-					else
-						dot.icon:SetVertexColor(c and c.r or 1, c and c.g or 1, c and c.b or 1, 1)
+					local dead = UnitIsDeadOrGhost and UnitIsDeadOrGhost(unit) or false
+					-- Only what changed: they're on the pins' canvas, so panning moves them already.
+					if class ~= dot.class or dead ~= dot.dead then
+						dot.class, dot.dead = class, dead
+						local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+						if dead then
+							dot.icon:SetVertexColor(0.5, 0.5, 0.5, 1)
+						else
+							dot.icon:SetVertexColor(c and c.r or 1, c and c.g or 1, c and c.b or 1, 1)
+						end
 					end
-					dot:SetPoint("CENTER", canvases.pins, "TOPLEFT", col * z, -row * z)
-					if not dot:IsShown() then dot:Show() end
+					local x, y = col * z, -row * z
+					if x ~= dot.x or y ~= dot.y then
+						dot.x, dot.y = x, y
+						dot:SetPoint("CENTER", canvases.pins, "TOPLEFT", x, y)
+					end
+					if not dot.on then
+						dot.on = true
+						dot:Show()
+					end
 				end
 			end
 		end
 	end
-	for i = n + 1, groupShown do groupDots[i]:Hide() end
+	for i = n + 1, groupShown do
+		groupDots[i].on = false
+		groupDots[i]:Hide()
+	end
 	groupShown = n
 end
 ns.frame:HookScript("OnUpdate", UpdateGroup)
@@ -1678,7 +1701,7 @@ local subLabelPool = Pool(function() return canvases.labels:CreateFontString(nil
 local staticPending -- a layout was skipped while the window was hidden
 
 local function ViewRect(margin, z, cx, cy)
-	local w, h = ns.viewport:GetSize()
+	local w, h = ns.ViewSize()
 	z, cx, cy = z or state.zoom, cx or state.cx, cy or state.cy
 	local hw, hh = w / 2 / z * (1 + margin), h / 2 / z * (1 + margin)
 	return cx - hw, cy - hh, cx + hw, cy + hh
@@ -2103,7 +2126,7 @@ function ns.ZonesInView()
 	if not data then
 		local grid = state.map and grids[state.map]
 		if not (grid and grid.zonesDone) then return 2 end -- assume several until we know
-		local w, h = ns.viewport:GetSize()
+		local w, h = ns.ViewSize()
 		local z = state.zoom
 		local c0, r0 = state.cx - w / 2 / z, state.cy - h / 2 / z
 		local counts, STEPS = {}, 24

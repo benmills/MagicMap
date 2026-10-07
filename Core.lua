@@ -140,6 +140,17 @@ viewport:SetClipsChildren(true)
 viewport:EnableMouse(true)
 viewport:EnableMouseWheel(true)
 
+-- Its size, looked up at most once a frame (the map's OnUpdate forgets it)
+-- and again whenever it may have changed.
+local viewW, viewH
+local function ViewSize()
+	if not viewW then viewW, viewH = viewport:GetSize() end
+	return viewW, viewH
+end
+local function ViewSizeChanged() viewW = nil end
+viewport:HookScript("OnSizeChanged", ViewSizeChanged)
+frame:HookScript("OnSizeChanged", ViewSizeChanged)
+
 local viewportBg = viewport:CreateTexture(nil, "BACKGROUND", nil, -8)
 viewportBg:SetAllPoints()
 viewportBg:SetColorTexture(0, 0, 0, 1)
@@ -465,6 +476,7 @@ local function SetViewportInsets(l, t, r, b)
 	viewport:ClearAllPoints()
 	viewport:SetPoint("TOPLEFT", l, -t)
 	viewport:SetPoint("BOTTOMRIGHT", -r, b)
+	ViewSizeChanged()
 end
 
 local function SetCompact(on)
@@ -835,7 +847,7 @@ local function LayoutTile(tex, tiles, key, zoom, colors, mapID)
 end
 
 local function RenderTiles()
-	local w, h = viewport:GetSize()
+	local w, h = ViewSize()
 	if w <= 0 or h <= 0 then return end
 	local zoom = state.zoom
 	local halfW, halfH = w / 2, h / 2
@@ -903,22 +915,29 @@ local function RenderTiles()
 	end
 end
 
+-- Only what changed: most frames you've neither moved nor turned.
+local marker = {}
 local function RenderArrow()
 	if state.playerCol and state.playerMap == state.map and not (ns.MinimapShowsPlayer and ns.MinimapShowsPlayer()) then
-		local w, h = viewport:GetSize()
+		local w, h = ViewSize()
 		local x = (state.playerCol - state.cx) * state.zoom + w / 2
 		local y = (state.playerRow - state.cy) * state.zoom + h / 2
-		playerMarker:ClearAllPoints()
-		playerMarker:SetPoint("CENTER", overlay, "TOPLEFT", x, -y)
-		local facing = GetPlayerFacing()
-		if facing then
-			arrow:SetRotation(facing)
-			arrow:Show()
-		else
-			arrow:Hide()
+		if x ~= marker.x or y ~= marker.y then
+			marker.x, marker.y = x, y
+			playerMarker:SetPoint("CENTER", overlay, "TOPLEFT", x, -y)
 		end
-		playerMarker:Show()
-	else
+		local facing = GetPlayerFacing()
+		if facing ~= marker.facing then
+			marker.facing = facing
+			if facing then arrow:SetRotation(facing) end
+			arrow:SetShown(facing ~= nil)
+		end
+		if not marker.on then
+			marker.on = true
+			playerMarker:Show()
+		end
+	elseif marker.on then
+		marker.on = false
 		playerMarker:Hide()
 	end
 end
@@ -1053,7 +1072,6 @@ end
 local anim
 local zoomGoal, zoomAnchor -- wheel zoom target, and { tx, ty, dx, dy }: world point kept at that screen offset
 
-local function ViewSize() return viewport:GetSize() end
 
 local function SaveView()
 	db.zoom, db.cx, db.cy = state.zoom, state.cx, state.cy
@@ -1657,6 +1675,7 @@ Tooltip(gearButton, function() return "Layers" end)
 
 local titleElapsed = 0
 frame:SetScript("OnUpdate", function(_, elapsed)
+	ViewSizeChanged()
 	local perf = ns.perf
 	local t0 = perf and debugprofilestop()
 	UpdatePlayer()
@@ -1753,6 +1772,7 @@ ns.SaveFrameLayout = function()
 end
 ns.Print = Print
 ns.TileToScreen = TileToScreen
+ns.ViewSize = ViewSize
 ns.IsAnimating = function() return anim ~= nil or zoomGoal ~= nil end
 -- The tile under the cursor (nil before the window is laid out).
 ns.CursorTile = function()
