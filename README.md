@@ -63,8 +63,8 @@ yours (wheel or + / −); nothing else changes it.
 Slash commands (`/mm`): `follow`, `path`, `map <name>`, `zone <name>`, `minimap`, `layers`, `icon`,
 `debug`, `reset`. For checking things in game: `perf` (how the map keeps up) and `sync` (Blizzard's
 minimap terrain over ours, to see whether its blips line up; `sync full` to compare the two) and
-`tint` (tile colour correction and coast fades on/off), `clip` (`mask`, `scroll` or `off`: how the
-Minimap is kept inside the window) and `dupes` (keep Blizzard's own markers alongside ours).
+`tint` (tile colour correction and coast fades on/off) and `dupes` (keep Blizzard's own markers
+alongside ours).
 
 ## How it works
 
@@ -91,7 +91,9 @@ Minimap is kept inside the window) and `dupes` (keep Blizzard's own markers alon
   confines its blips to the biggest square around you inside the window, and HereBeDragons pins
   move to a plain frame the window does clip. Blizzard's tracking for flight masters, quest
   objectives and points of interest is switched off meanwhile (we draw those) and restored after.
-  The rest of Blizzard's minimap cluster is hidden meanwhile.
+  The rest of Blizzard's minimap cluster is hidden meanwhile. Every one of these changes lives in
+  `MinimapTakeover.lua`, paired with its undo; `MinimapBlips.lua` only decides where the Minimap
+  goes each frame, and a test checks that leaving puts everything back exactly as it was.
 
 ## Unknowns and risks
 

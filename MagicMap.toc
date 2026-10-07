@@ -25,6 +25,7 @@ AddonPins.lua
 ZoneInfo.lua
 Path.lua
 MinimapButton.lua
+MinimapTakeover.lua
 MinimapBlips.lua
 MinimapMode.lua
 Perf.lua

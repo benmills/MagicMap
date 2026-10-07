@@ -4,7 +4,7 @@
 --   * The window moves onto the minimap's spot, square, showing SPAN yards
 --     across (and keeping that as you resize it), with compact chrome (Core's SetCompact): just the map, the
 --     zone floating above it, the buttons on hover. Blizzard's minimap moves
---     inside (MinimapBlips.lua), so its blips and pins land on our terrain.
+--     inside (MinimapBlips.lua decides, MinimapTakeover.lua does it), so its blips and pins land on our terrain.
 --   * Pan away and leave it alone for a few seconds, and it glides back to
 --     following you.
 --   * It sits at the minimap's strata, so other windows go over it.
@@ -60,7 +60,7 @@ end
 -- The minimap's strata in minimap mode (other windows go over it); the
 -- window's own otherwise.
 local function SetHomeStrata()
-	frame:SetFrameStrata(db and db.minimapMode and (MinimapCluster and MinimapCluster:GetFrameStrata() or "LOW") or "HIGH")
+	frame:SetFrameStrata(db and db.minimapMode and ns.Takeover.HomeStrata() or "HIGH")
 end
 
 
@@ -70,10 +70,7 @@ local function EaseOutCubic(t) return 1 - (1 - t) ^ 3 end
 -- buttons that hung off the minimap) fades out while the window is expanded,
 -- so nothing of the minimap is left floating there.
 local homeAlpha = 1 -- the cluster's own alpha, to restore
-local function SetHomeAlpha(a)
-	if MinimapCluster then MinimapCluster:SetAlpha(a) end
-	if ns.minimapStandIn then ns.minimapStandIn:SetAlpha(a) end
-end
+local SetHomeAlpha = ns.Takeover.SetHomeAlpha
 
 local tween
 local tweener = CreateFrame("Frame")
@@ -118,7 +115,7 @@ end)
 
 -- The minimap's spot, as a square.
 local function MinimapSquare()
-	local left, top, w, h = ns.MinimapRect()
+	local left, top, w, h = ns.Takeover.HomeRect()
 	if not left then return nil end
 	local k = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
 	local side = math.max(w, h) * k
@@ -169,7 +166,7 @@ local function Expand()
 	-- Still shrinking back from the last time: the rect to return to stands.
 	if not small then
 		RememberSmall()
-		homeAlpha = MinimapCluster and MinimapCluster:GetAlpha() or 1
+		homeAlpha = ns.Takeover.HomeAlpha()
 	end
 	local k = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
 	local sw, sh = UIParent:GetWidth() * k, UIParent:GetHeight() * k
@@ -179,7 +176,7 @@ local function Expand()
 	escapeCatcher:Show()
 	frame:Show()
 	frame:Raise()
-	TweenTo({ (sw - w) / 2, (sh + h) / 2, w, h }, EXPAND_TIME, nil, { MinimapCluster and MinimapCluster:GetAlpha() or homeAlpha, 0 })
+	TweenTo({ (sw - w) / 2, (sh + h) / 2, w, h }, EXPAND_TIME, nil, { ns.Takeover.HomeAlpha(), 0 })
 	-- Still on you, a little further out: the bigger window does the rest.
 	-- Never further out than your whole zone, the way the world map opens.
 	local zoom = state.zoom / EXPAND_ZOOM_OUT
@@ -265,7 +262,7 @@ local function LeaveMinimapMode()
 	small = nil
 	db.minimapMode = false
 	SetHomeStrata()
-	ns.ReleaseMinimap()
+	ns.Takeover.Release()
 	SetCloseOnEscape(true)
 	ns.SetCompact(false)
 	local layout = db.normalLayout

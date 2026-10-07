@@ -888,10 +888,10 @@ end
 
 -- Who gets GameTooltip over the map: our pins (they take the mouse first),
 -- else a Blizzard blip under the cursor, else the quest area. While the
--- Minimap has the mouse (minimap mode), MinimapBlips settles the last two
+-- Minimap has the mouse (minimap mode), MinimapTakeover settles the last two
 -- right after Blizzard's own hover handler, every frame, so nothing flickers.
 function ns.OnMapHover(col, row)
-	if state.minimapHover and Minimap:IsVisible() then return end
+	if ns.MinimapHasMouse and ns.MinimapHasMouse() then return end
 	local questID = col and BlobQuestAt(col, row)
 	local owner = GameTooltip:GetOwner()
 	if questID then

@@ -904,7 +904,7 @@ local function RenderTiles()
 end
 
 local function RenderArrow()
-	if state.playerCol and state.playerMap == state.map and not state.minimapShown then
+	if state.playerCol and state.playerMap == state.map and not (ns.MinimapShowsPlayer and ns.MinimapShowsPlayer()) then
 		local w, h = viewport:GetSize()
 		local x = (state.playerCol - state.cx) * state.zoom + w / 2
 		local y = (state.playerRow - state.cy) * state.zoom + h / 2
@@ -1754,6 +1754,28 @@ end
 ns.Print = Print
 ns.TileToScreen = TileToScreen
 ns.IsAnimating = function() return anim ~= nil or zoomGoal ~= nil end
+-- The tile under the cursor (nil before the window is laid out).
+ns.CursorTile = function()
+	if not viewport:GetLeft() then return nil end
+	return CursorTile()
+end
+-- The view as it is this frame, for minimap mode: read-only, one table reused.
+local camera = {}
+ns.Camera = function()
+	local c = camera
+	c.zoom, c.cx, c.cy = state.zoom, state.cx, state.cy
+	c.viewW, c.viewH = ViewSize()
+	c.animating = anim ~= nil or zoomGoal ~= nil
+	c.onMap = state.playerCol ~= nil and state.playerMap == state.map
+	c.playerCol, c.playerRow = state.playerCol, state.playerRow
+	if c.onMap then
+		c.playerX, c.playerY = TileToScreen(state.playerCol, state.playerRow)
+	else
+		c.playerX, c.playerY = nil, nil
+	end
+	c.canvas = tileCanvas -- the tiles' canvas: tile (col, row) sits at (col * zoom, -row * zoom) on it
+	return c
+end
 ns.SetPath, ns.UpdateControls = SetPath, UpdateControls
 ns.GoalZoom, ns.GoalCenter = GoalZoom, GoalCenter
 ns.FlyTo = function(cx, cy, zoom, duration, onDone) AnimateTo(cx, cy, zoom, duration or FLY_TIME, { onDone = onDone }) end

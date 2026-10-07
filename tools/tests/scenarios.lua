@@ -224,24 +224,24 @@ scenarios.minimap_mode = function()
 	Sim.MoveCursorTo(UIParent, 0.1, 0.1)
 	Sim.Run(8)
 	check(ns.state.follow, "goes back to following after idling")
-	check(ns.state.minimapShown and Sim.minimapMask:find("MinimapMask\\Square%d+$"),
+	check(ns.MinimapShowsPlayer() and Sim.minimapMask:find("MinimapMask\\Square%d+$"),
 		"zoomed in past its closest level, the Minimap still shows, masked")
 	check(Sim.gatherPin:GetParent() == pinHost and pinHost:IsVisible(), "HereBeDragons' pins are on our host in the window")
 	ns.SetZoom(160)
 	Sim.Run(0.5)
-	check(ns.state.minimapShown and Minimap:IsVisible(), "settled, the Minimap's blips show")
+	check(ns.MinimapShowsPlayer() and Minimap:IsVisible(), "settled, the Minimap's blips show")
 	check(not C_Minimap or Sim.rimInset == 1000, "Blizzard's rim arrows are pushed off screen")
 	check(Sim.BlobRingsAt(0), "and its quest area rings are hidden")
 	check(Sim.minimapMask and not Minimap:IsClampedToScreen(), "square or masked, and never clamped to the screen")
 	Sim.Wheel(ns.viewport, 1)
 	Sim.Run(0.05)
-	check(not Minimap:IsVisible() and not ns.state.minimapShown, "mid-zoom, it steps aside")
+	check(not Minimap:IsVisible() and not ns.MinimapShowsPlayer(), "mid-zoom, it steps aside")
 	Sim.Run(1.5)
-	check(ns.state.minimapShown, "and is back once the zoom settles")
+	check(ns.MinimapShowsPlayer(), "and is back once the zoom settles")
 	-- Indoors: the window wears the Minimap itself, and the wheel zooms it.
 	Sim.indoors = true
 	Sim.Run(1)
-	check(Minimap:IsVisible() and Minimap:GetAlpha() == 1 and ns.state.minimapShown, "indoors, the Minimap shows whole")
+	check(Minimap:IsVisible() and Minimap:GetAlpha() == 1 and ns.MinimapShowsPlayer(), "indoors, the Minimap shows whole")
 	check(Sim.rimInset == nil and Sim.BlobRingsAt(1), "indoors, its own arrows and rings are back")
 	local mz = Minimap:GetZoom()
 	local top = ns.viewport -- what the cursor would wheel: the highest wheel-enabled frame over the map
@@ -324,7 +324,7 @@ local function InsideWindow(l, b, side)
 	return l >= vl - 1 and b >= vb - 1 and l + side <= vl + vw + 1 and b + side <= vb + vh + 1
 end
 
--- /mm clip: the Minimap bigger than the window, its blips kept inside it.
+-- The Minimap bigger than the window, its blips kept inside it by masks.
 scenarios.minimap_clip = function()
 	local parent = Minimap:GetParent()
 	Sim.Click(ns.modeButton)
@@ -332,7 +332,7 @@ scenarios.minimap_clip = function()
 	-- Zoomed in close: Blizzard's closest level is far bigger than the window.
 	ns.SetZoom(1500)
 	Sim.Run(1)
-	check(ns.state.minimapShown and Minimap:GetZoom() == 5, "zoomed in close, the Minimap still shows, at its closest level")
+	check(ns.MinimapShowsPlayer() and Minimap:GetZoom() == 5, "zoomed in close, the Minimap still shows, at its closest level")
 	local l, b, side = BlipSquare()
 	check(Minimap:GetWidth() > ns.viewport:GetWidth() and InsideWindow(l, b, side),
 		"bigger than the window, its mask keeps the blips inside it")
@@ -346,34 +346,109 @@ scenarios.minimap_clip = function()
 	Sim.Drag(ns.viewport, 30, 0)
 	Sim.Run(0.5)
 	l, b, side = BlipSquare()
-	check(ns.state.minimapShown and InsideWindow(l, b, side) and side < wide, "off-centre, a smaller square, still inside")
+	check(ns.MinimapShowsPlayer() and InsideWindow(l, b, side) and side < wide, "off-centre, a smaller square, still inside")
 	ns.SetFollow(true)
 	Sim.Run(1)
-	-- Off: as before, only while its whole square fits.
-	Sim.Slash("clip off")
-	ns.SetZoom(1500)
-	Sim.Run(1)
-	check(not ns.state.minimapShown and not Minimap:IsVisible(), "clip off: zoomed in close, it stays out")
-	check(Sim.gatherPin:GetParent() == Minimap, "clip off: HereBeDragons' pins stay on the Minimap")
-	ns.SetZoom(160)
-	Sim.Run(1)
-	l, b, side = BlipSquare()
-	check(ns.state.minimapShown and Sim.minimapMask:find("WHITE8X8") and InsideWindow(l, b, side), "clip off: shown when its square fits")
-	-- Scroll: in a ScrollFrame over the window, never masked.
-	Sim.Slash("clip scroll")
-	ns.SetZoom(1500)
-	Sim.Run(1)
-	local host = Minimap:GetParent()
-	check(host ~= ns.viewport and host:GetObjectType() == "ScrollFrame" and host:GetScrollChild() == Minimap,
-		"clip scroll: the Minimap is the scroll child of a frame over the window")
-	check(ns.state.minimapShown and Sim.minimapMask:find("WHITE8X8"), "clip scroll: shown, unmasked")
-	Sim.Slash("clip mask")
-	Sim.Run(1)
-	check(Minimap:GetParent() == ns.viewport and ns.state.minimapShown, "clip mask: back in the window")
 	Sim.Click(ns.modeButton)
 	Sim.Run(1)
 	check(Minimap:GetParent() == parent and Minimap:GetHitRectInsets() == 0, "leaving minimap mode, it's back, all of it hoverable")
 	check(Sim.gatherPin:GetParent() == Minimap and not _G.MagicMapMinimapPins:IsVisible(), "and the pins are back on it")
+end
+
+-- The plan's maths, on its own: which Minimap zoom level, and which mask.
+scenarios.minimap_plan = function()
+	local P = ns.MinimapPlan
+	local YARDS = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 }
+	local zoom = 200
+	local function px(level) return YARDS[level] * zoom / (1600 / 3) end -- 175 .. 50 px
+	check(P.Level("outdoor", zoom, 300, false) == 0, "unmasked, room for its widest: the widest")
+	local l = P.Level("outdoor", zoom, 100, false)
+	check(l and px(l) <= 100 and px(l - 1) > 100, "unmasked: the widest level whose square fits")
+	check(P.Level("outdoor", zoom, 40, false) == nil, "unmasked: none if even the closest won't fit")
+	check(P.Level("outdoor", zoom, 40, true) == 5, "masked: the closest level, which covers the room")
+	l = P.Level("outdoor", zoom, 120, true)
+	check(l and px(l) >= 120 and (l == 5 or px(l + 1) < 120), "masked: the closest level that still covers the room")
+	check(P.Level("outdoor", zoom, 1000, true) == 0, "masked: its widest when even that fits")
+	local mask, side = P.Mask(90, 100, true)
+	check(mask == "Interface\\Buttons\\WHITE8X8" and side == 90, "fits the room: plain square, all of it")
+	mask, side = P.Mask(300, 100, true)
+	check(mask and mask:find("MinimapMask\\Square%d+$") and side <= 98 and side > 98 - 3 * 300 / 64,
+		"bigger: a mask about the room's size (masks come in steps of 2 texels)")
+	check(P.Mask(300, 100, false) == nil, "bigger without masks: not shown")
+	check(P.Mask(3000, 100, true) == nil, "far bigger: no mask is small enough")
+end
+
+-- Everything minimap mode changes on Blizzard's side, as text: compared
+-- before and after a round of everything that engages and releases it.
+local function MinimapSnapshot()
+	local out = {}
+	local function add(key, ...)
+		local parts = {}
+		for i = 1, select("#", ...) do parts[i] = tostring((select(i, ...))) end
+		out[#out + 1] = key .. " = " .. table.concat(parts, ", ")
+	end
+	local function frame(name, f)
+		add(name .. " parent", f:GetParent())
+		for i = 1, f:GetNumPoints() do add(name .. " point " .. i, f:GetPoint(i)) end
+		add(name .. " size", f:GetSize())
+		add(name .. " shown", f:IsShown())
+		add(name .. " alpha", f:GetAlpha())
+		if f.GetFrameStrata then add(name .. " strata", f:GetFrameStrata(), f:GetFrameLevel()) end
+	end
+	frame("Minimap", Minimap)
+	add("Minimap scale", Minimap:GetScale())
+	add("Minimap zoom", Minimap:GetZoom())
+	add("Minimap mouse", Minimap:IsMouseEnabled(), Minimap:IsMouseWheelEnabled())
+	add("Minimap clamped", Minimap:IsClampedToScreen())
+	add("Minimap hit", Minimap:GetHitRectInsets())
+	frame("MinimapCluster", MinimapCluster)
+	for _, name in ipairs({ "MinimapBorder", "MinimapBorderTop", "MinimapZoneTextButton" }) do frame(name, _G[name]) end
+	frame("button", Sim.minimapButton)
+	add("gather pin parent", Sim.gatherPin:GetParent())
+	for _, t in ipairs(Sim.tracking or {}) do add("tracking " .. t.name, t.active) end
+	return out
+end
+
+scenarios.minimap_restores_everything = function()
+	local before = MinimapSnapshot()
+	Sim.Click(ns.modeButton)
+	Sim.Run(2)
+	check(ns.Takeover.IsEngaged(), "minimap mode takes the Minimap")
+	ns.Takeover.Engage() -- twice is once
+	ns.SetZoom(1500) -- masked
+	Sim.Run(1)
+	Sim.Slash("sync")
+	Sim.Run(0.5)
+	Sim.Slash("sync")
+	Sim.indoors = true
+	Sim.Run(1)
+	Sim.indoors = false
+	Sim.Run(1)
+	ToggleWorldMap() -- grown
+	Sim.Run(1)
+	ToggleWorldMap()
+	Sim.Run(1)
+	Sim.cvars.rotateMinimap = "1" -- given back...
+	Sim.Run(0.5)
+	check(not ns.Takeover.IsEngaged(), "rotate minimap releases it")
+	Sim.cvars.rotateMinimap = "0" -- ...and taken again
+	Sim.Run(1)
+	ns.frame:Hide()
+	Sim.Run(0.2)
+	check(not ns.Takeover.IsEngaged(), "closing the map releases it")
+	ns.frame:Show()
+	Sim.Run(1)
+	check(ns.Takeover.IsEngaged(), "and opening it takes it again")
+	Sim.Click(ns.modeButton)
+	Sim.Run(1)
+	ns.Takeover.Release() -- twice is once
+	check(not ns.Takeover.IsEngaged(), "leaving minimap mode releases it")
+	local after = MinimapSnapshot()
+	local diffs = {}
+	for i = 1, math.max(#before, #after) do
+		if before[i] ~= after[i] then diffs[#diffs + 1] = tostring(before[i]) .. "  ->  " .. tostring(after[i]) end
+	end
+	check(#diffs == 0, "everything is back as it was:\n    " .. table.concat(diffs, "\n    "))
 end
 
 -- Ours first: Blizzard's own markers for what we draw go off while the
@@ -1304,7 +1379,7 @@ scenarios.addon_pins_minimap = function()
 	ns.SetZoom(1500) -- the Minimap far bigger than the window: clipped
 	Sim.Run(1)
 	local host = _G.MagicMapMinimapPins
-	check(ns.state.minimapShown and pins.Minimap ~= Minimap and not dot:IsVisible(),
+	check(ns.MinimapShowsPlayer() and pins.Minimap ~= Minimap and not dot:IsVisible(),
 		"Questie's world-map pins are on our map, so its minimap copies stay out of sight")
 	check(Sim.gatherPin:GetParent() == host and Sim.gatherPin:IsVisible(), "the shared copy's pins are on our host, in the window")
 	local db = MagicMapDB
