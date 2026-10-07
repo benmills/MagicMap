@@ -121,7 +121,7 @@ end
 scenarios.slash_commands = function()
 	for _, cmd in ipairs({ "", "", "follow", "follow", "map 1", "map kalimdor", "map 0", "map nowhere", "zone elwynn",
 		"zone westfall", "zone nowhere", "tiles", "debug", "debug", "reset", "layers", "landmarks", "icon", "icon",
-		"blips", "minimap", "sync", "sync", "sync full", "sync", "minimap", "help" }) do
+		"blips", "minimap", "sync", "sync", "sync full", "sync", "minimap", "perf top", "perf", "perf", "help" }) do
 		Sim.Slash(cmd)
 		Sim.Run(0.3)
 	end

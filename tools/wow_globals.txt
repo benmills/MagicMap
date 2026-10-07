@@ -8,7 +8,7 @@ pairs pcall rawget rawset select setmetatable string strsplit strtrim table
 time tinsert tremove tonumber tostring type unpack wipe xpcall hooksecurefunc
 
 # Namespaces
-C_AreaPoiInfo C_CVar C_DeathInfo C_EncounterJournal C_Map C_MapExplorationInfo
+C_AddOnProfiler C_AddOns C_AreaPoiInfo C_CVar C_DeathInfo C_EncounterJournal C_Map C_MapExplorationInfo
 C_Minimap C_QuestLine C_QuestLog C_SuperTrack C_TaxiMap C_Texture C_Timer C_TooltipInfo
 C_VignetteInfo Enum
 
@@ -20,6 +20,7 @@ GetPlayerFacing GetQuestLogIndexByID GetSubZoneText GetTime GetZoneText
 HideUIPanel ToggleWorldMap IsAltKeyDown IsControlKeyDown IsIndoors IsMouseButtonDown
 IsShiftKeyDown QuestWatch_Update UnitClass UnitClassification UnitExists
 GetNumGroupMembers IsInRaid Minimap_OnUpdate UnitIsDeadOrGhost UnitIsUnit
+GetAddOnInfo GetAddOnMemoryUsage GetNumAddOns UpdateAddOnMemoryUsage
 UnitGUID UnitIsGhost UnitIsPlayer UnitLevel UnitName UnitPosition issecretvalue
 
 # Frames, objects and mixins

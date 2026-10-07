@@ -61,7 +61,7 @@ yours (wheel or + / −); nothing else changes it.
 | Layers / Minimap mode | Gear and red button by the zone name (on hover) |
 
 Slash commands (`/mm`): `follow`, `path`, `map <name>`, `zone <name>`, `minimap`, `layers`, `icon`,
-`debug`, `reset`. For checking things in game: `perf` (how the map keeps up) and `sync` (Blizzard's
+`debug`, `reset`. For checking things in game: `perf` (how the map keeps up; `perf top` ranks MagicMap's CPU and memory against your other addons) and `sync` (Blizzard's
 minimap terrain over ours, to see whether its blips line up; `sync full` to compare the two) and
 `tint` (tile colour correction and coast fades on/off) and `dupes` (keep Blizzard's own markers
 alongside ours).

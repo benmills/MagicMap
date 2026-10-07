@@ -1192,6 +1192,28 @@ local TILE = 1600 / 3
 local function toWorld(col, row) return (32 - row) * TILE, (32 - col) * TILE end
 
 Enum = { UIMapType = { Cosmic = 0, World = 1, Continent = 2, Zone = 3, Dungeon = 4, Micro = 5, Orphan = 6 } }
+-- Addon memory (every client) and the addon profiler (Retail-engine clients).
+Sim.addons = { { "MagicMap", 2400 }, { "Questie", 48000 }, { "Details", 9000 } }
+function UpdateAddOnMemoryUsage() end
+function GetNumAddOns() return #Sim.addons end
+function GetAddOnInfo(i) return Sim.addons[i] and Sim.addons[i][1] end
+function GetAddOnMemoryUsage(i)
+	for j, a in ipairs(Sim.addons) do
+		if j == i or a[1] == i then return a[2] end
+	end
+	return 0
+end
+if RETAIL or FLAVOR == "forever" then
+	Enum.AddOnProfilerMetric = { SessionAverageTime = 0, RecentAverageTime = 1, EncounterAverageTime = 2, LastTime = 3, PeakTime = 4 }
+	C_AddOnProfiler = {
+		IsEnabled = function() return true end,
+		GetAddOnMetric = function(name, metric) assert(type(name) == "string" and metric, "GetAddOnMetric: name, metric") return 0.05 end,
+		GetOverallMetric = function(metric) return 0.4 end,
+		GetTopKAddOnsForMetric = function(metric, k)
+			return { { addOnName = "Questie", value = 0.2 }, { addOnName = "MagicMap", value = 0.05 } }
+		end,
+	}
+end
 if C_Minimap then Enum.MinimapTrackingFilter = { Unfiltered = 0, TaxiNode = 8, Mailbox = 64, POI = 8192, QuestPOIs = 65536 } end
 local T = Enum.UIMapType
 
