@@ -77,8 +77,13 @@ function ns.ApplyBorder(frame, level, ref)
 		right:SetPoint("TOPRIGHT", tr, "BOTTOMRIGHT")
 		right:SetPoint("BOTTOMRIGHT", br, "TOPRIGHT")
 		-- Each edge starts |lx| (|y|) outside the frame; a pixel of overlap
-		-- so nothing shows between the art and what it frames.
-		local function In(thickness, outside) return math.max(2, math.floor(thickness - outside - 1)) end
+		-- so nothing shows between the art and what it frames. Capped: some
+		-- clients report an edge atlas far bigger than its visible metal
+		-- (Forever's insets came out ~190 px and shrank the map to a stamp).
+		local MAX_INSET = 6
+		local function In(thickness, outside)
+			return math.max(2, math.min(MAX_INSET, math.floor((thickness or 0) - outside - 1)))
+		end
 		b.insets = { In(left:GetWidth(), -lx), In(top:GetHeight(), -y), In(right:GetWidth(), rx), In(bottom:GetHeight(), -y) }
 	else
 		for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
