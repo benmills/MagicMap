@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Data/Tiles_<product>.lua (and optionally Data/Heights_<product>.lua)
+"""Generate Data/Tiles.lua (and optionally a heights file)
 from a game version's own data.
 
 Each map's WDT (MAID chunk) lists the exact minimap FileDataID for every tile
@@ -12,8 +12,7 @@ Each map's WDT (MAID chunk) lists the exact minimap FileDataID for every tile
          continents (as before); --all-maps reads Map.db2 like local mode.
 
   python3 tools/gen_tiles.py local "/Applications/World of Warcraft" wow_classic_beta \\
-      --heights Data/Heights_wow_classic_beta.lua -o Data/Tiles_wow_classic_beta.lua
-  python3 tools/gen_tiles.py wago wow_classic_era -o Data/Tiles_wow_classic_era.lua
+      -o Data/Tiles.lua
 
 Heights are one byte per 33-yard chunk (16x16 per tile), open world only.
 """

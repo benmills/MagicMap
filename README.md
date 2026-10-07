@@ -1,15 +1,14 @@
 # MagicMap
 
 A big, smooth, zoomable World of Warcraft map drawn from the game's own minimap terrain,
-not the parchment world-map art. Built for WoW Forever; also runs on Classic Era,
-Anniversary, MoP Classic and Retail.
+not the parchment world-map art. For WoW Forever only.
 
 **Status: beta.** Expect a few rough edges. Please report anything odd, with a screenshot.
 
 ## Install
 
 1. Download `MagicMap-<version>.zip` from [Releases](../../releases).
-2. Unzip it into `World of Warcraft/<flavor>/Interface/AddOns/` (WoW Forever: `_classic_beta_`).
+2. Unzip it into `World of Warcraft/_classic_beta_/Interface/AddOns/`.
 3. `/reload`, then open it with `/mm` or the minimap button.
 
 ## Features
@@ -72,8 +71,9 @@ alongside ours).
   lays them out on the 64×64 grid of 533⅓-yard tiles and places everything else in that grid.
 - **Data, generated offline.** Python tools in `tools/` read the game files from a local install
   or wago.tools: each map's WDT (which tile goes where), `Map.db2` (which maps exist), and the
-  ADT terrain (area IDs and heights per 33-yard chunk). They write `Data/*.lua`: tile lists,
-  zone borders and labels (and heights, not shipped: they cost half a megabyte for a hover readout). At load, only the set for your client version is kept.
+  ADT terrain (area IDs and heights per 33-yard chunk). They write `Data/*.lua` for WoW
+  Forever: tile lists, zone borders and labels (and heights, not shipped: they cost half a
+  megabyte for a hover readout).
 - **Coasts, evened out.** The minimap art mixes bright shallow water with dark open sea, which
   showed as blue rectangles zoomed out. `tools/gen_tilecolor.py` reads the tiles' pixels and writes
   which tiles are open sea (not drawn), each coast tile's edge colour (faded outward), a few tile
@@ -100,8 +100,8 @@ alongside ours).
 - **Barely tested in-game.** Most features were written without the game at hand. They're now
   run headlessly in a simulated client on every push (see Development), which catches crashes,
   but not how things look or behave against the real client. Some code paths may simply be wrong.
-- **Detail outside Forever.** Generated borders exist only for WoW Forever. Other
-  clients fall back to slower, rougher borders sampled at runtime.
+- **Forever only.** The TOC, data and code target WoW Forever (a Retail-engine client) and
+  nothing else; instances have no zone borders (one zone each).
 - **Minimap mode relies on undocumented behaviour:**
   - that `SetAlpha` on the Minimap hides only the terrain (FarmHud depends on this too);
   - HereBeDragons' internal pin table;
@@ -116,24 +116,23 @@ alongside ours).
   world map when M grows MagicMap instead). That could cause "action blocked" errors, especially
   in combat.
 - **Instances and restricted positions.** Where the game withholds your position (many
-  instances, some Retail contexts), following, path mode and minimap mode step aside.
-- **Data drifts with patches.** Tile IDs and terrain change between game versions. The data
-  files must be regenerated per client build, or tiles can be missing or wrong.
+  instances), following, path mode and minimap mode step aside.
+- **Data drifts with patches.** Tile IDs and terrain change between Forever builds. The data
+  files must be regenerated when they do, or tiles can be missing or wrong.
 
 ## Development
 
 The tools need Python 3.9+. Generators use only the standard library; the checks
 and tests need `pip install -r tools/requirements-dev.txt` (Lua 5.1 via `lupa`, and `pytest`).
 
-- `python3 tools/install.py [flavor]`: replaces the installed MagicMap in a WoW flavor folder
-  (`_classic_ptr_`, `_classic_beta_`, ...) with this working tree, after a Lua check; `/reload`
-  to test. Without a flavor it uses the one MagicMap is already installed in. The WoW folder
+- `python3 tools/install.py _classic_beta_`: replaces the installed MagicMap in WoW Forever's
+  folder with this working tree, after a Lua check; `/reload` to test. The WoW folder
   defaults to the standard location; set `MAGICMAP_WOW` or pass `--wow` if yours is elsewhere.
 - `python3 tools/luacheck.py`: compiles every file in the TOC with a real Lua 5.1 and checks
   globals from the bytecode: a global write is a missing `local`, a read of anything not set by
   the addon or listed in `tools/wow_globals.txt` is likely a typo. `--globals` lists them per file.
 - `python3 tools/smoketest.py`: loads the addon in a simulated client (`tools/tests/wowsim.lua`:
-  frames, layout, events, a mock world) as Forever, Era and Retail, and drives it through the
+  frames, layout, events, a mock world) as WoW Forever, and drives it through the
   scenarios in `tools/tests/scenarios.lua`, reporting every Lua error and failed expectation.
   It catches crashes and wrong API assumptions, not rendering or taint.
 - `python3 tools/bench.py`: drives the simulated client through a ride, fast pans, a continent
@@ -143,14 +142,13 @@ and tests need `pip install -r tools/requirements-dev.txt` (Lua 5.1 via `lupa`, 
   In game, `/mm perf` records 10 seconds of real use and reports the same things.
 - `python3 -m pytest tools/tests`: all of the above, plus the generators end to end on a synthetic
   game install (`tools/tests/fixtures.py`) against golden output. CI runs this on every push.
-- Regenerate data from a local install (or `wago <product>` instead of `local INSTALL <product>`;
-  wago.tools downloads are cached in `~/.cache/magicmap`):
+- Regenerate data from a local install (WoW Forever is the CASC product `wow_classic_beta`; or
+  `wago wow_classic_beta` instead of `local INSTALL ...`, cached in `~/.cache/magicmap`):
 
   ```sh
-  python3 tools/gen_tiles.py local "/Applications/World of Warcraft" wow_classic_beta \
-      -o Data/Tiles_wow_classic_beta.lua --heights Data/Heights_wow_classic_beta.lua
-  python3 tools/gen_borders.py local "/Applications/World of Warcraft" wow_classic_beta \
-      -o Data/Borders_wow_classic_beta.lua
+  python3 tools/gen_tiles.py local "/Applications/World of Warcraft" wow_classic_beta -o Data/Tiles.lua
+  python3 tools/gen_borders.py local "/Applications/World of Warcraft" wow_classic_beta -o Data/Borders.lua
+  python3 tools/gen_tilecolor.py local "/Applications/World of Warcraft" wow_classic_beta -o Data/TileColor.lua
   ```
 
   Borders are deterministic: the same game data always gives the same file.

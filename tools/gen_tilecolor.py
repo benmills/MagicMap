@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""Generate Data/TileColor_<product>.lua: per-tile colour corrections so the
+"""Generate Data/TileColor.lua: per-tile colour corrections so the
 minimap tiles' baked lighting meets at their seams, and the colour along each
 tile side that faces open space (no tile, or open sea), so the map can fade
 out into its backdrop instead of ending in a hard rectangle.
 
-The tile set is the one the addon ships (Data/Tiles_<product>.lua: its
+The tile set is the one the addon ships (Data/Tiles.lua: its
 version gates the output, and its FileDataIDs are the textures analysed); the
 textures are read from the source by FileDataID. Without that file the maps
 are read from the source's own Map.db2 / WDTs, as gen_tiles.py does.
 
   python3 tools/gen_tilecolor.py local "/Applications/World of Warcraft" wow_classic_beta \\
-      -o Data/TileColor_wow_classic_beta.lua --preview /tmp/tilecolor
-  python3 tools/gen_tilecolor.py wago wow_classic_era -o Data/TileColor_wow_classic_era.lua
+      -o Data/TileColor.lua --preview /tmp/tilecolor
 
 With -o, the water masks go to Textures/Water/<product>/ beside the output's
 folder (--water DIR to choose); that folder is the generator's: masks it no

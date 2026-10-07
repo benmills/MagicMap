@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Data/Borders_<product>.lua: exact zone and subzone borders, plus
+"""Generate Data/Borders.lua: exact zone and subzone borders, plus
 label anchors, from the game's own terrain.
 
 Every ADT tile is split into 16x16 chunks (~33 yards) and each chunk (MCNK)
@@ -11,8 +11,7 @@ edges into polylines and simplify them. Label anchors are the land chunk
 deepest inside each area (farthest from its edge).
 
   python3 tools/gen_borders.py local "/Applications/World of Warcraft" wow_classic_beta \\
-      -o Data/Borders_wow_classic_beta.lua
-  python3 tools/gen_borders.py wago wow_classic_era -o Data/Borders_wow_classic_era.lua
+      -o Data/Borders.lua
 
 Output is deterministic: the same game data always gives the same file.
 """
