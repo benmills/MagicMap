@@ -767,13 +767,15 @@ local BLOB_ART = {
 	rust = "Interface\\WorldMap\\UI-ArchaeologyBlob-",
 }
 -- Fill and edge alpha (0-255), and edge width. The quest you follow is
--- filled, with the boldest edge; the rest are an edge only (fills stack
--- where quests overlap), coloured by what they still need.
+-- filled, with the clearest edge; the rest are a thin, quiet edge only
+-- (fills stack where quests overlap), coloured by what they still need.
+-- The green art is much brighter than the others, so it's held further down.
+-- (In game: 40 was too faint to see, 190 at width 1.0 far too loud.)
 local BLOB_STYLE = {
-	followed = { art = "blue", fill = 44, border = 255, width = 1.3 },
-	kill = { art = "rust", fill = 0, border = 190, width = 1.0 },
-	gather = { art = "green", fill = 0, border = 190, width = 1.0 },
-	other = { art = "blue", fill = 0, border = 190, width = 1.0 },
+	followed = { art = "blue", fill = 32, border = 120, width = 0.8 },
+	kill = { art = "rust", fill = 0, border = 85, width = 0.6 },
+	gather = { art = "green", fill = 0, border = 55, width = 0.6 },
+	other = { art = "blue", fill = 0, border = 85, width = 0.6 },
 }
 
 -- Does a drawn blob cover this map-normalized point? (What the world map uses for tooltips.)
