@@ -762,9 +762,10 @@ local function NewBlobFrame()
 	return f
 end
 
--- The quest you follow gets its area drawn plainly; the rest are a faint
--- hint under the map (0-255).
-local BLOB_ALPHA = { followed = { 56, 110 }, other = { 14, 32 } }
+-- Fill and edge alpha (0-255). The quest you follow gets its area filled,
+-- lightly; the rest are only a faint edge, since fills stack where quests
+-- overlap and several together turned into a solid patch.
+local BLOB_ALPHA = { followed = { 36, 90 }, other = { 0, 40 } }
 do
 	local probe = NewBlobFrame()
 	blobSupported = probe ~= nil
