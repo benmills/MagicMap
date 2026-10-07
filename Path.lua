@@ -79,8 +79,8 @@ local function Segment(l, ax, ay, bx, by, r, g, b, a)
 		l.r, l.a = r, a
 		l:SetColorTexture(r, g, b, a)
 	end
-	l:SetStartPoint("TOPLEFT", layer, ax, -ay)
-	l:SetEndPoint("TOPLEFT", layer, bx, -by)
+	l:SetStartPoint("TOPLEFT", ns.tileCanvas, ax, -ay)
+	l:SetEndPoint("TOPLEFT", ns.tileCanvas, bx, -by)
 	if not l.on then
 		l.on = true
 		l:Show()
@@ -94,7 +94,10 @@ local function Off(l)
 	end
 end
 
--- What the line was last drawn for; nothing moved, nothing to draw.
+-- What the line was last drawn for; nothing moved, nothing to draw. It's
+-- drawn on the tiles' canvas, so panning and following carry it along with
+-- the map for free; it's redrawn when you or the target move half a pixel,
+-- the zoom changes, or the drift steps (DRIFT_HZ).
 local drawn = {}
 local function Unchanged(x1, y1, x2, y2, phase)
 	if drawn[1] == x1 and drawn[2] == y1 and drawn[3] == x2 and drawn[4] == y2 and drawn[5] == phase then return true end
@@ -102,12 +105,16 @@ local function Unchanged(x1, y1, x2, y2, phase)
 	return false
 end
 
+local function HalfPixel(v) return math.floor(v * 2 + 0.5) / 2 end
+
 ns.frame:HookScript("OnUpdate", ns.Timed("path line", function()
 	local n = 0
 	local t = state.path and ns.GetTarget and ns.GetTarget()
 	if t and state.playerCol and state.playerMap == state.map then
-		local x1, y1 = ns.TileToScreen(state.playerCol, state.playerRow)
-		local x2, y2 = ns.TileToScreen(t.col, t.row)
+		-- On the canvas: tile (col, row) is at (col * zoom, row * zoom) down from its top left.
+		local z = state.zoom
+		local x1, y1 = HalfPixel(state.playerCol * z), HalfPixel(state.playerRow * z)
+		local x2, y2 = HalfPixel(t.col * z), HalfPixel(t.row * z)
 		local phase = math.floor(GetTime() * DRIFT_HZ) / DRIFT_HZ
 		if Unchanged(x1, y1, x2, y2, phase) then return end
 		local dx, dy = x2 - x1, y2 - y1

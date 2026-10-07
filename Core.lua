@@ -663,6 +663,10 @@ end
 
 local function ReleaseTexture(tex)
 	tex:Hide()
+	-- Off the canvas: a spare (and its pieces, anchored to it) mustn't be
+	-- re-placed by the client every time the canvas moves. LayoutTile
+	-- anchors it again when it's next used.
+	tex:ClearAllPoints()
 	for i, f in ipairs(tex.feathers) do
 		SetOn(f, false)
 		SetOn(tex.outs[i], false)
@@ -842,7 +846,14 @@ local function RenderTiles()
 	-- Not rounded: the layers, the Minimap and your arrow move by fractions of
 	-- a pixel, so the terrain must too or they'd wobble against it. (Tiles
 	-- keep whole-pixel spots on the canvas, so seams stay exact.)
+	local perf = ns.perf
+	local t0 = perf and debugprofilestop()
 	tileCanvas:SetPoint("TOPLEFT", tileLayer, "TOPLEFT", halfW - cx * zoom, -(halfH - cy * zoom))
+	if perf then
+		local t1 = debugprofilestop()
+		perf.Spent("> map: tiles: moving the canvas", t1 - t0)
+		t0 = t1
+	end
 
 	wipe(seen)
 	local mapID = state.map
@@ -900,6 +911,7 @@ local function RenderTiles()
 			end
 		end
 	end
+	if perf then perf.Spent("> map: tiles: which are in view, new ones", debugprofilestop() - t0) end
 end
 
 -- Only what changed: most frames you've neither moved nor turned.
