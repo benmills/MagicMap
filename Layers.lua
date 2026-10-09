@@ -1,17 +1,16 @@
 -- Optional map layers built from game data: C_Map, C_TaxiMap, C_DeathInfo,
 -- C_EncounterJournal, C_QuestLog, C_MapExplorationInfo. Everything is placed
--- by world position; no Blizzard map artwork is drawn.
+-- by world position.
 --
--- Zone borders: the continent map is sampled on a grid with
--- C_Map.GetMapInfoAtPosition, boundaries are traced with (multi-label)
--- marching squares, each crossing is refined by bisection against the real
--- API, and the chains are simplified + smoothed and drawn with Line regions.
--- Sampling runs in a coroutine a slice per frame, so it never hitches.
+-- Zone borders and subzone outlines are drawn from Data/Borders.lua, which
+-- was traced offline from the terrain's area data. Unexplored shading is the
+-- one thing sampled at runtime: the continent is read on a grid with
+-- C_Map.GetMapInfoAtPosition, a slice per frame, so it never hitches.
 --
--- Quest areas: where the client supports it, a QuestPOIFrame per zone draws
--- the game's own objective blobs, positioned in tile space. Otherwise we
--- classify objectives (kill/collect = area, go-to/talk/turn-in = point) and
--- draw a dashed "rough area" circle for areas.
+-- Quest areas: a QuestPOIFrame per zone draws the game's own objective blobs,
+-- positioned in tile space. Objectives are classified (kill/collect = area,
+-- go-to/talk/turn-in = point), and an area-type objective with no blob gets a
+-- dashed "rough area" circle.
 --
 -- Each layer draws onto a 1x1 "canvas" frame positioned at tile (0,0): panning
 -- moves only the canvas. While zooming:
@@ -89,8 +88,7 @@ end
 ns.LayerEnabled = function(key) return Enabled(key) and true or false end
 
 local function MapPos(x, y)
-	if CreateVector2D then return CreateVector2D(x, y) end
-	return { x = x, y = y }
+	return CreateVector2D(x, y)
 end
 
 local function PosXY(pos)
@@ -222,8 +220,8 @@ local function LinePool(canvas, sublevel, cap)
 		local l = canvas:CreateLine(nil, "ARTWORK", nil, sublevel)
 		l:SetColorTexture(1, 1, 1, 1)
 		-- Without this, short or thin segments snap away and borders look dashed.
-		if l.SetSnapToPixelGrid then l:SetSnapToPixelGrid(false) end
-		if l.SetTexelSnappingBias then l:SetTexelSnappingBias(0) end
+		l:SetSnapToPixelGrid(false)
+		l:SetTexelSnappingBias(0)
 		return l
 	end, cap or 3000)
 end
@@ -256,11 +254,7 @@ local function MaybeYield(lineStart)
 	if build and build.extend and not lineStart then return end
 	drawn = drawn + 1
 	if not lineStart and drawn % 40 ~= 0 or not (build and coroutine.running() == build.co) then return end
-	if debugprofilestop then
-		if debugprofilestop() - sliceStart > (build.urgent and URGENT_SLICE_MS or BUILD_SLICE_MS) then coroutine.yield() end
-	elseif drawn % 400 == 0 then
-		coroutine.yield()
-	end
+	if debugprofilestop() - sliceStart > (build.urgent and URGENT_SLICE_MS or BUILD_SLICE_MS) then coroutine.yield() end
 end
 
 local function DrawLine(pool, canvas, x1, y1, x2, y2, thick, r, g, b, a)
@@ -285,7 +279,7 @@ end
 ---------------------------------------------------------------------------
 
 local function AtlasExists(atlas)
-	return atlas and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas) ~= nil
+	return atlas and C_Texture.GetAtlasInfo(atlas) ~= nil
 end
 
 local SetHoverQuest -- forward: lights up a quest's area (below)
@@ -309,7 +303,7 @@ local pinPool = Pool(function()
 	pin.icon:SetPoint("CENTER")
 	pin:EnableMouse(true)
 	-- Let clicks fall through to the map so dragging still works over pins.
-	if pin.SetPropagateMouseClicks then pin:SetPropagateMouseClicks(true) end
+	pin:SetPropagateMouseClicks(true)
 	pin.glow = pin:CreateTexture(nil, "BACKGROUND")
 	pin.glow:SetPoint("CENTER")
 	pin.glow:SetTexture(CIRCLE)
@@ -474,7 +468,7 @@ sources.graveyards = function(mapID)
 	return list
 end
 
-local function IsGhost() return UnitIsGhost and UnitIsGhost("player") or false end
+local function IsGhost() return UnitIsGhost("player") or false end
 
 -- While you're a ghost your corpse is your target (ahead of quests and
 -- waypoints). The client only knows where it is a while after you release,
@@ -523,7 +517,7 @@ end
 local AREA_OBJECTIVES = { monster = true, item = true, object = true }
 
 local function QuestObjectives(questID)
-	return (C_QuestLog.GetQuestObjectives and SafeCall(C_QuestLog.GetQuestObjectives, questID)) or {}
+	return SafeCall(C_QuestLog.GetQuestObjectives, questID) or {}
 end
 
 -- "point" (turn-in / go-to / talk) or "area" (kill / collect / interact with many).
@@ -569,7 +563,6 @@ local questAreas = {}
 sources.quests = function(mapID)
 	local list = {}
 	wipe(questAreas)
-	if not (C_QuestLog and C_QuestLog.GetQuestsOnMap) then return list end
 
 	-- A quest can show on a zone and on a sub-zone (e.g. Dun Morogh and
 	-- Coldridge Valley). Its objective area lives on the most specific one,
@@ -614,7 +607,7 @@ end
 
 sources.waypoint = function()
 	local list = {}
-	local point = C_Map and C_Map.GetUserWaypoint and C_Map.GetUserWaypoint()
+	local point = C_Map.GetUserWaypoint()
 	if point and point.uiMapID then
 		AddAtPos(list, point.uiMapID, point.position, {
 			size = 22, title = "Waypoint", lines = { "Ctrl-right-click the map to clear" },
@@ -631,10 +624,9 @@ local offersAsked = {}
 sources.offers = function(mapID)
 	local list, seen = {}, {}
 	local Q = C_QuestLine
-	if not (Q and Q.GetAvailableQuestLines) then return list end
-	local hidden = C_Minimap and C_Minimap.IsTrackingHiddenQuests and SafeCall(C_Minimap.IsTrackingHiddenQuests)
+	local hidden = SafeCall(C_Minimap.IsTrackingHiddenQuests)
 	for _, uiMapID in ipairs(ns.GetQuestMaps(mapID)) do
-		if Q.RequestQuestLinesForMap and not offersAsked[uiMapID] then
+		if not offersAsked[uiMapID] then
 			offersAsked[uiMapID] = true
 			SafeCall(Q.RequestQuestLinesForMap, uiMapID)
 		end
@@ -671,12 +663,12 @@ local function GroupDotOnEnter(self)
 	if not (unit and UnitExists(unit)) then return end
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	local _, class = UnitClass(unit)
-	local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+	local c = class and RAID_CLASS_COLORS[class]
 	GameTooltip:AddLine(UnitName(unit) or "?", c and c.r or 1, c and c.g or 1, c and c.b or 1)
-	local level = UnitLevel and UnitLevel(unit)
+	local level = UnitLevel(unit)
 	local className = UnitClass(unit)
 	if level and level > 0 and className then GameTooltip:AddLine((LEVEL or "Level") .. " " .. level .. " " .. className, 1, 1, 1) end
-	if UnitIsDeadOrGhost and UnitIsDeadOrGhost(unit) then GameTooltip:AddLine("|cff808080Dead|r") end
+	if UnitIsDeadOrGhost(unit) then GameTooltip:AddLine("|cff808080Dead|r") end
 	GameTooltip:Show()
 end
 
@@ -690,7 +682,7 @@ local function GroupDot(i)
 	dot.icon:SetTexCoord(0, 0.5, 0, 1)
 	dot.icon:SetAllPoints()
 	dot:EnableMouse(true)
-	if dot.SetPropagateMouseClicks then dot:SetPropagateMouseClicks(true) end
+	dot:SetPropagateMouseClicks(true)
 	dot:SetScript("OnEnter", GroupDotOnEnter)
 	dot:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	groupDots[i] = dot
@@ -702,13 +694,13 @@ local function Secret(v) return issecretvalue(v) end
 local groupShown = 0
 local function UpdateGroup()
 	local n = 0
-	local members = Enabled("group") and state.map and GetNumGroupMembers and GetNumGroupMembers() or 0
+	local members = Enabled("group") and state.map and GetNumGroupMembers() or 0
 	if members > 0 then
-		local raid = IsInRaid and IsInRaid()
+		local raid = IsInRaid()
 		local z = state.zoom
 		for i = 1, raid and members or members - 1 do
 			local unit = (raid and "raid" or "party") .. i
-			if not (UnitIsUnit and UnitIsUnit(unit, "player")) then
+			if not UnitIsUnit(unit, "player") then
 				local north, west, _, inst = UnitPosition(unit)
 				if north and not Secret(north) and inst == state.map then
 					local col, row = ns.WorldToTile(north, west)
@@ -716,11 +708,11 @@ local function UpdateGroup()
 					local dot = GroupDot(n)
 					dot.unit = unit
 					local _, class = UnitClass(unit)
-					local dead = UnitIsDeadOrGhost and UnitIsDeadOrGhost(unit) or false
+					local dead = UnitIsDeadOrGhost(unit) or false
 					-- Only what changed: they're on the pins' canvas, so panning moves them already.
 					if class ~= dot.class or dead ~= dot.dead then
 						dot.class, dot.dead = class, dead
-						local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+						local c = class and RAID_CLASS_COLORS[class]
 						if dead then
 							dot.icon:SetVertexColor(0.5, 0.5, 0.5, 1)
 						else
@@ -777,7 +769,7 @@ local BLOB_ART = {
 -- filled, with the clearest edge; the rest are a thin, quiet edge only
 -- (fills stack where quests overlap), coloured by what they still need.
 -- The green art is much brighter than the others, so it's held further down.
--- (In game: 40 was too faint to see, 190 at width 1.0 far too loud.)
+-- (In game, edges: 40 was too faint to see, 190 at width 1.0 far too loud.)
 local BLOB_STYLE = {
 	followed = { art = "blue", fill = 32, border = 120, width = 0.8 },
 	kill = { art = "rust", fill = 0, border = 85, width = 0.6 },
@@ -790,7 +782,7 @@ local BLOB_STYLE = {
 -- and applies a new size and anchor only when it next lays out (at the end
 -- of the frame), so a reused frame drew into its old rect: an earlier zoom,
 -- or another map's, offset and squashed. Reading the rect lays it out first;
--- RedrawBlobs draws them all again next frame as well.
+-- LayoutQuestAreas draws them all again on the next frame (its C_Timer.After(0)).
 local function PlaceBlob(f, r, z, uiMapID, quests)
 	f:ClearAllPoints()
 	f:SetPoint("TOPLEFT", canvases.areas, "TOPLEFT", r.col0 * z, -r.row0 * z)
@@ -1187,7 +1179,7 @@ function ns.TargetKey()
 	if corpseFound then return "corpse", true end -- true: back to following you
 	local followed = FollowedQuest()
 	if followed then return "quest:" .. followed end
-	local point = C_Map and C_Map.GetUserWaypoint and C_Map.GetUserWaypoint()
+	local point = C_Map.GetUserWaypoint()
 	if point and point.uiMapID then
 		local x, y = PosXY(point.position)
 		return string.format("waypoint:%d:%.4f:%.4f", point.uiMapID, x or 0, y or 0)
@@ -1478,7 +1470,7 @@ local function OfflineBorders(mapID)
 	end
 	data.zoneLabels, data.subLabels, data.zoneAreaByName = {}, {}, {}
 	for _, l in ipairs(data.labels) do
-		local name = C_Map.GetAreaInfo and C_Map.GetAreaInfo(l[1])
+		local name = C_Map.GetAreaInfo(l[1])
 		if name and name ~= "" then
 			local entry = { id = l[1], col = l[2], row = l[3], weight = l[4], name = name }
 			if l[5] == 1 then
@@ -1726,7 +1718,7 @@ local function BuildBorders(buf, z, region, extend, b)
 	if Enabled("zoneBorders") then
 		local c0, r0, c1, r1 = unpack(region)
 		local c = buf.canvas
-		local thick, r, g, b, a = ZoneLineStyle(z)
+		local thick, r, g, blue, a = ZoneLineStyle(z)
 		local data = OfflineBorders(state.map)
 		if data then
 			for _, l in ipairs(data.zoneLines) do
@@ -1738,17 +1730,17 @@ local function BuildBorders(buf, z, region, extend, b)
 					if z >= 60 then
 						DrawPolyline(buf.shadow, c, pts, z, thick + 1.2, 0, 0, 0, 0.25, l.fadeStart, l.fadeEnd)
 					end
-					DrawPolyline(buf.border, c, pts, z, thick, r, g, b, a, l.fadeStart, l.fadeEnd)
+					DrawPolyline(buf.border, c, pts, z, thick, r, g, blue, a, l.fadeStart, l.fadeEnd)
 				end
 			end
 		end
 		if z >= SUBZONE_LINE_MIN_ZOOM then
-			thick, r, g, b, a = SubLineStyle(z)
+			thick, r, g, blue, a = SubLineStyle(z)
 			for _, l in ipairs(data and data.subLines or {}) do
 				if not drawn[l] and l.x1 >= c0 and l.x0 <= c1 and l.y1 >= r0 and l.y0 <= r1 then
 					if not Room() then return end
 					drawn[l] = true
-					DrawPolyline(buf.sub, c, LinePts(l, z, SUBZONE_TOL), z, thick, r, g, b, a, false, false)
+					DrawPolyline(buf.sub, c, LinePts(l, z, SUBZONE_TOL), z, thick, r, g, blue, a, false, false)
 				end
 			end
 		end
@@ -1926,13 +1918,11 @@ local runner = CreateFrame("Frame")
 runner:SetScript("OnUpdate", ns.Timed("border builder", function(_, elapsed)
 	local b = build
 	if b then
-		sliceStart = debugprofilestop and debugprofilestop() or 0
+		sliceStart = debugprofilestop()
 		local ok, err = coroutine.resume(b.co)
-		if debugprofilestop then
-			local ms = debugprofilestop() - sliceStart
-			b.ms = b.ms + ms
-			if ns.perf then ns.perf.Slice(ms) end
-		end
+		local ms = debugprofilestop() - sliceStart
+		b.ms = b.ms + ms
+		if ns.perf then ns.perf.Slice(ms) end
 		if not ok then
 			build = nil
 			ns.Print("border layout failed: " .. tostring(err))
@@ -2058,15 +2048,13 @@ end
 ns.GetZoneAt = ZoneAt
 
 local function OpenChat(text)
-	local open = ChatFrame_OpenChat or (ChatFrameUtil and ChatFrameUtil.OpenChat)
-	if open then open(text) else ns.Print(text) end
+	local open = ChatFrame_OpenChat or ChatFrameUtil.OpenChat
+	open(text)
 end
 
 -- Waypoints: the game's user waypoint, super-tracked so it's your target.
-function ns.HasWaypoint() return C_Map.GetUserWaypoint and C_Map.GetUserWaypoint() ~= nil end
-function ns.ClearWaypoint()
-	if C_Map.ClearUserWaypoint then C_Map.ClearUserWaypoint() end
-end
+function ns.HasWaypoint() return C_Map.GetUserWaypoint() ~= nil end
+function ns.ClearWaypoint() C_Map.ClearUserWaypoint() end
 
 -- Returns true if the waypoint was placed (else says why not).
 function ns.SetWaypointAt(col, row)
@@ -2259,6 +2247,7 @@ function ns.PoolCounts(out)
 	return out
 end
 
+---------------------------------------------------------------------------
 -- Exports for ZoneInfo.lua (the big map's right-click info). Read on a
 -- right-click only.
 ---------------------------------------------------------------------------
