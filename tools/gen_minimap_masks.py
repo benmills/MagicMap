@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimap mask textures for minimap mode: Textures/MinimapMask/Square<n>.tga.
+"""Mask textures for the Minimap inside MagicMap: Textures/MinimapMask/Square<n>.tga.
 
 Each is SIZE x SIZE, opaque inside a centred n x n square and transparent
 outside it (n even, MIN..SIZE-2; the full square is WHITE8X8). The client

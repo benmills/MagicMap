@@ -12,22 +12,22 @@ For WoW Forever only.
 1. Download `MagicMap-v<version>.zip` from [Releases](../../releases).
 2. Unzip it into `World of Warcraft/_classic_beta_/Interface/AddOns/`.
 3. Restart the game (not just `/reload`: the addon's texture files only load at startup).
-4. Open it with `/mm` or the minimap button, then press the red button by the zone name to put
-   it on your minimap.
+4. It takes your minimap's spot. `/mm` (or gear → Settings → Use Blizzard's minimap) gives
+   Blizzard's minimap back, and `/mm` or the minimap button brings MagicMap back.
 
 ## Features
 
-**Minimap mode.** MagicMap sits where your minimap was, square and framed, starting at about
+**The minimap.** MagicMap sits where your minimap was, square and framed, starting at about
 200 yards across; the wheel takes it out as far as you like. Blizzard's blips and other addons'
 minimap pins (GatherMate, HandyNotes) show on it, tooltips and all, while MagicMap draws its own
 quests, flight points, points of interest, party members, corpse and waypoint. Move and resize it
 anywhere; it remembers. Pan away and leave it, and it glides back to you after a few seconds.
 Indoors it simply shows Blizzard's own minimap.
 
-![Minimap mode: zooming from a herb tooltip out to the whole coast](docs/zoomable-minimap.gif)
+![The minimap: zooming from a herb tooltip out to the whole coast](docs/zoomable-minimap.gif)
 
-**M grows it into a big map**, in the same frame, and M or Escape shrinks it back. The quest log
-(L) still opens Blizzard's world map.
+**M grows it into a big map** (so does the red button by the zone name), in the same frame, and
+M, the button or Escape shrinks it back. The quest log (L) still opens Blizzard's world map.
 
 ![Pressing M grows the minimap into a big map and back](docs/minimap-to-big-map.gif)
 
@@ -50,8 +50,8 @@ your corpse while you're a ghost) and never changes your zoom.
   interest), People (party and raid, rares you've seen, live rares and treasures), You (corpse,
   waypoint), and one entry for each other addon whose world-map pins MagicMap shows (Questie,
   HandyNotes and others using HereBeDragons). Hover an entry for what it does.
-- **Tracking**: Blizzard's minimap tracking (vendors, trainers, herbs...), which minimap mode
-  would otherwise hide along with the minimap's corner.
+- **Tracking**: Blizzard's minimap tracking (vendors, trainers, herbs...), which would
+  otherwise be hidden along with the minimap's corner.
 - **Settings**: the minimap button, tile colours, hiding Blizzard's copies of what MagicMap
   draws, resetting the position, and a few debug helpers.
 
@@ -67,12 +67,11 @@ your corpse while you're a ghost) and never changes your zoom.
 | `/way` for a spot | Shift-click (puts it in chat) |
 | Back to you, waypoint here, zone info | Right-click |
 | Follow / path mode | Toggles at the map's bottom-left (on hover) |
-| Minimap mode on / off | Red button by the zone name (on hover) |
+| Big map | M, or the red button by the zone name (on hover) |
+| Blizzard's minimap back | `/mm`, or gear → Settings |
 
-Slash commands (`/mm` or `/magicmap`): on its own, show or hide the map; `minimap` (minimap mode
-on or off), `follow`, `path`, `map <name or id>`, `zone <name>`, `layers`, `landmarks` (how many
-rares are remembered), `icon` (the minimap button), `reset` (in minimap mode: back onto the
-minimap's spot), `tiles`, `debug`. For checking things in game: `perf` (records 10 seconds of real
+Slash commands (`/mm` or `/magicmap`): on its own, MagicMap or Blizzard's minimap; `follow`, `path`, `map <name or id>`, `zone <name>`, `layers`, `landmarks` (how many
+rares are remembered), `icon` (the minimap button), `reset` (back onto the minimap's spot), `tiles`, `debug`. For checking things in game: `perf` (records 10 seconds of real
 use; `perf top` ranks MagicMap's CPU and memory against your other addons, `perf mem` splits its
 memory into live and garbage), `sync` (Blizzard's minimap terrain over ours, to see whether its
 blips line up; `sync full` to compare the two), `tint` (tile colour correction and coast fades)
@@ -98,7 +97,7 @@ Settings are per character (`MagicMapDB`); remembered rares are shared by all yo
 - **Rendering.** Only visible tiles are drawn, from a pool. Wheel zoom eases toward a target.
   Pins and labels move as you zoom and are re-laid out once it settles. Borders (thousands of
   lines) are built a slice per frame into a hidden buffer, then cross-faded in.
-- **Minimap mode** does what Blizzard's own HybridMinimap does: `C_Minimap.SetDrawGroundTextures(false)`
+- **The minimap takeover** does what Blizzard's own HybridMinimap does: `C_Minimap.SetDrawGroundTextures(false)`
   stops Blizzard's terrain but not its blips, and `C_Minimap.SetIgnoreRotateMinimap(true)` keeps it
   north up. The real Minimap then moves into MagicMap's window, centred on you and sized so its
   yards-per-pixel matches our zoom, so its blips (and HereBeDragons pins) line up with our
@@ -117,25 +116,25 @@ Settings are per character (`MagicMapDB`); remembered rares are shared by all yo
   things look or behave against the real client. Some code paths may simply be wrong.
 - **Forever only.** The TOC, data and code target WoW Forever (a Retail-engine client) and
   nothing else; instances have no zone borders (one zone each).
-- **Minimap mode relies on undocumented behaviour:**
+- **The takeover relies on undocumented behaviour:**
   - that the Minimap without its ground textures draws nothing behind its blips (if it doesn't,
     the gear's Settings can switch back to FarmHud's trick, `SetAlpha(0)`);
   - HereBeDragons' internal pin table;
   - `C_Minimap.SetMinimapInsetInfo` pushing the rim arrows off screen (its arguments aren't documented);
-  - Blizzard's default round mask texture, restored when minimap mode ends.
+  - Blizzard's default round mask texture, restored when MagicMap is hidden.
 
   Another minimap addon (SexyMap, square-minimap addons) may conflict. While FarmHud has the
-  minimap, minimap mode waits.
+  minimap, MagicMap leaves Blizzard's blips to it.
 - **Blip range is the minimap's.** Blizzard's blips only cover about 230 yards around you, so
   zoomed far out, only MagicMap's own pins remain. They also step aside while zooming, and when
   zoomed in closer than Blizzard's closest minimap zoom.
-- **Rotate Minimap**: in minimap mode the minimap stays north up, like the map; other addons'
+- **Rotate Minimap**: inside MagicMap the minimap stays north up, like the map; other addons'
   minimap pins (HereBeDragons turns them with you) stay hidden while it's on.
-- **Taint.** Minimap mode hides Blizzard frames from addon code (the minimap cluster, and the
+- **Taint.** MagicMap hides Blizzard frames from addon code (the minimap cluster, and the
   world map when M grows MagicMap instead). That could cause "action blocked" errors, especially
   in combat.
 - **Instances and restricted positions.** Where the game withholds your position (many
-  instances), following shows the instance whole, and path mode and minimap mode step aside.
+  instances), following shows the instance whole, and path mode and Blizzard's blips step aside.
 - **Data drifts with patches.** Tile IDs and terrain change between Forever builds. The data
   files must be regenerated when they do, or tiles can be missing or wrong.
 
@@ -159,7 +158,7 @@ The tools need Python 3.9+. Generators use only the standard library (`gen_tilec
   reporting every Lua error and failed expectation. It catches crashes and wrong API assumptions,
   not rendering or taint.
 - `tools/bench.py`: drives the simulated client through rides, pans, a continent pan, a wheel zoom
-  and minimap mode on real Forever data, and reports per-frame Lua time, widget calls and frames
+  and the minimap on real Forever data, and reports per-frame Lua time, widget calls and frames
   where the view ran past the drawn zone borders. `--call-us 3` charges each widget call a
   client-like cost, so the time-sliced border builder takes as many frames as it would in game.
 - The tests also run the generators end to end on a synthetic game install

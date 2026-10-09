@@ -3,7 +3,8 @@
 -- `check(cond, msg)` records a failed expectation; Lua errors anywhere in
 -- the addon are collected by the simulation itself.
 --
--- Each runs in a fresh client, after login, with the map open and following.
+-- Each runs in a fresh client, after login, with the map open on the
+-- minimap's spot (Blizzard's Minimap in it) and following.
 
 local Sim, ns, check = ...
 local S = Sim.state
@@ -119,7 +120,7 @@ end
 scenarios.slash_commands = function()
 	for _, cmd in ipairs({ "", "", "follow", "follow", "map 1", "map kalimdor", "map 0", "map nowhere", "zone elwynn",
 		"zone westfall", "zone nowhere", "tiles", "debug", "debug", "reset", "layers", "landmarks", "icon", "icon",
-		"minimap", "sync", "sync", "sync full", "sync", "minimap", "perf top", "perf mem", "perf", "perf", "help" }) do
+		"sync", "sync", "sync full", "sync", "perf top", "perf mem", "perf", "perf", "help" }) do
 		Sim.Slash(cmd)
 		Sim.Run(0.3)
 	end
@@ -144,10 +145,9 @@ scenarios.title_buttons = function()
 end
 
 scenarios.minimap_mode = function()
-	local parent = Minimap:GetParent()
-	Sim.Click(ns.modeButton)
-	Sim.Run(2)
-	check(ns.IsMinimapMode(), "minimap mode is on")
+	local parent = ns.minimapStandIn:GetParent() -- the Minimap's own
+	Sim.Run(1)
+	check(Minimap:GetParent() == ns.viewport, "the Minimap is in the map")
 	check(ns.viewport:GetWidth() >= ns.frame:GetWidth() - 16 and ns.viewport:GetHeight() >= ns.frame:GetHeight() - 16,
 		"the map fills the window, inside its border")
 	-- Its header: zone left, gear and back right, on one line above the map.
@@ -267,7 +267,7 @@ scenarios.minimap_mode = function()
 	Sim.Run(1)
 	check(ns.IsMapExpanded() and not WorldMapFrame:IsShown(), "M grows our window instead of opening Blizzard's map")
 	check(ns.frame:GetWidth() > smallW * 2 and ns.frame:GetParent() == UIParent, "to most of the screen")
-	check(ns.IsCompact() and not ns.frame.CloseButton:IsShown(), "in the same chrome: no title band, no close button")
+	check(not ns.frame.CloseButton:IsShown(), "in the same chrome: no title band, no close button")
 	check(ns.state.follow and ns.state.zoom < smallZoom and ns.state.zoom >= smallZoom / 1.5 - 0.5,
 		"still on you, zoomed out only a little")
 	ToggleWorldMap()
@@ -310,10 +310,9 @@ scenarios.minimap_mode = function()
 	Sim.Run(0.5)
 	check(Sim.gatherPin:IsVisible(), "and back when it's off")
 	Sim.FireEvent("PLAYER_LOGOUT")
-	-- Off again with the back button: everything goes home.
-	Sim.Click(ns.modeButton)
+	-- Hidden: everything goes home.
+	ns.frame:Hide()
 	Sim.Run(1)
-	check(not ns.IsMinimapMode(), "minimap mode is off")
 	check(Minimap:GetParent() == parent, "the Minimap is back in its cluster")
 	check(Minimap:GetAlpha() == 1 and Sim.minimapGround and not Sim.minimapUnrotated, "its terrain is back, and it follows Rotate Minimap again")
 	check(not Sim.minimapMask:find("WHITE8X8") and Sim.rimInset == nil and Sim.BlobRingsAt(1), "round again, its arrows and rings back")
@@ -323,38 +322,71 @@ scenarios.minimap_mode = function()
 	check(Sim.minimapButton:IsVisible(), "addon buttons are visible again")
 end
 
--- Minimap mode keeps its own place and size: moved and resized there, off
--- (the window goes back to its own), and on again, it's where you left it.
+-- It starts on the minimap's spot and keeps where you put it: moved and
+-- resized, hidden (Blizzard's minimap back) and shown, it's where you left
+-- it; hidden while grown, it comes back at the minimap's size.
 scenarios.minimap_mode_remembers = function()
-	local normalW = ns.frame:GetWidth()
-	Sim.Click(ns.modeButton)
-	Sim.Run(1)
 	local home = { ns.frame:GetLeft(), ns.frame:GetTop() }
-	local function Place(left, top, side)
-		ns.frame:ClearAllPoints()
-		ns.frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
-		ns.frame:SetSize(side, side)
-		ns.SaveFrameLayout()
-	end
-	Place(300, 500, 260)
+	local spot = ns.minimapStandIn
+	check(math.abs(home[1] - spot:GetLeft()) < 1 and math.abs(home[2] - spot:GetTop()) < 1, "it starts on the minimap's spot")
+	ns.frame:ClearAllPoints()
+	ns.frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 300, 500)
+	ns.frame:SetSize(260, 260)
+	ns.SaveFrameLayout()
 	Sim.Run(0.5)
 	local zoom = ns.state.zoom
-	-- Grown and left from there, the minimap-sized rect is the one kept.
+	ns.frame:Hide()
+	Sim.Run(1)
+	ns.frame:Show()
+	Sim.Run(1)
+	check(math.abs(ns.frame:GetLeft() - 300) < 1 and math.abs(ns.frame:GetTop() - 500) < 1, "shown again: where it was left")
+	check(math.abs(ns.frame:GetWidth() - 260) < 1 and math.abs(ns.state.zoom - zoom) < 1, "at the size and zoom it had")
+	check(MagicMapDB.point and math.abs(MagicMapDB.width - 260) < 1, "kept in saved variables")
+	-- The red button grows it, as M does, and again shrinks it.
+	Sim.Click(ns.modeButton)
+	Sim.Run(1)
+	check(ns.IsMapExpanded() and ns.frame:GetWidth() > 400, "the red button grows it")
+	Sim.Click(ns.modeButton)
+	Sim.Run(1)
+	check(not ns.IsMapExpanded() and math.abs(ns.frame:GetWidth() - 260) < 1, "and shrinks it back")
+	-- Hidden while grown, it comes back small.
 	ToggleWorldMap()
 	Sim.Run(1)
-	Sim.Click(ns.modeButton)
+	ns.frame:Hide()
+	Sim.Run(0.5)
+	check(not ns.IsMapExpanded() and math.abs(MagicMapDB.width - 260) < 1, "hidden while grown: saved at its small size")
+	check(MinimapCluster:GetAlpha() == 1, "and Blizzard's minimap corner is fully back")
+	ns.frame:Show()
 	Sim.Run(1)
-	check(not ns.IsMinimapMode() and math.abs(ns.frame:GetWidth() - normalW) < 1, "off: the window is back at its own size")
-	Sim.Click(ns.modeButton)
+	-- Escape: it shrinks the grown map back, but never closes the minimap.
+	Sim.Escape()
+	Sim.Run(0.5)
+	check(ns.frame:IsShown(), "Escape leaves the minimap-sized map alone")
+	ToggleWorldMap()
 	Sim.Run(1)
-	check(math.abs(ns.frame:GetLeft() - 300) < 1 and math.abs(ns.frame:GetTop() - 500) < 1, "on again: where it was left")
-	check(math.abs(ns.frame:GetWidth() - 260) < 1 and math.abs(ns.state.zoom - zoom) < 1, "at the size and zoom it had")
-	-- Off, it's kept in saved variables, so it lasts across a reload.
-	Sim.Click(ns.modeButton)
+	Sim.Escape()
 	Sim.Run(1)
-	check(MagicMapDB.minimapLayout and math.abs(MagicMapDB.minimapLayout[3] - 260) < 1, "kept in saved variables")
-	Sim.Click(ns.modeButton)
+	check(ns.frame:IsShown() and not ns.IsMapExpanded() and math.abs(ns.frame:GetWidth() - 260) < 1, "grown, Escape shrinks it back")
+	-- Logging out (or a /reload) while grown keeps the small window and its zoom.
+	ToggleWorldMap()
 	Sim.Run(1)
+	Sim.FireEvent("PLAYER_LOGOUT")
+	check(math.abs(MagicMapDB.width - 260) < 1 and math.abs(MagicMapDB.zoom - zoom) < 1, "logging out while grown saves the small window and zoom")
+	ToggleWorldMap()
+	ToggleWorldMap()
+	Sim.Run(0.05)
+	ns.frame:Hide() -- mid-shrink
+	Sim.Run(0.5)
+	check(not ns.IsMapExpanded() and math.abs(MagicMapDB.width - 260) < 1, "hidden mid-shrink: saved at its small size")
+	-- Hidden, M is Blizzard's again.
+	ToggleWorldMap()
+	Sim.Run(0.5)
+	check(WorldMapFrame:IsShown() and not ns.frame:IsShown(), "with the map hidden, M opens Blizzard's world map")
+	ToggleWorldMap()
+	Sim.Run(0.5)
+	ns.frame:Show()
+	Sim.Run(1)
+	check(math.abs(ns.frame:GetWidth() - 260) < 1 and math.abs(ns.frame:GetLeft() - 300) < 1, "shown again small, where it was")
 	-- Grown, it reads as a big map in the same chrome: your coordinates show
 	-- without hovering (at the minimap's size, only while you hover).
 	local function ShowsCoords()
@@ -369,15 +401,13 @@ scenarios.minimap_mode_remembers = function()
 	check(ShowsCoords(), "grown, the title shows your coordinates without hovering")
 	SlashCmdList.MAGICMAP("reset")
 	Sim.Run(0.5)
-	check(ns.IsMapExpanded() and ns.IsMinimapMode() and math.abs(ns.frame:GetWidth() - 260) > 50,
-		"/mm reset while grown leaves it alone")
+	check(ns.IsMapExpanded(), "/mm reset while grown leaves it alone")
 	ToggleWorldMap()
 	Sim.Run(1)
 	check(not ShowsCoords(), "at the minimap's size, not until you hover")
 	SlashCmdList.MAGICMAP("reset")
 	Sim.Run(1)
 	check(math.abs(ns.frame:GetLeft() - home[1]) < 1 and math.abs(ns.frame:GetTop() - home[2]) < 1, "/mm reset: back onto the minimap")
-	check(ns.IsMinimapMode() and MagicMapDB.minimapLayout == nil, "still in minimap mode, nothing remembered")
 end
 
 -- Where the Minimap's blips may show: its mask's opaque square (screen
@@ -397,9 +427,8 @@ end
 
 -- The Minimap bigger than the window, its blips kept inside it by masks.
 scenarios.minimap_clip = function()
-	local parent = Minimap:GetParent()
-	Sim.Click(ns.modeButton)
-	Sim.Run(2)
+	local parent = ns.minimapStandIn:GetParent() -- the Minimap's own
+	Sim.Run(1)
 	-- Zoomed in close: Blizzard's closest level is far bigger than the window.
 	ns.SetZoom(1500)
 	Sim.Run(1)
@@ -420,9 +449,9 @@ scenarios.minimap_clip = function()
 	check(ns.MinimapShowsPlayer() and InsideWindow(l, b, side) and side < wide, "off-centre, a smaller square, still inside")
 	ns.SetFollow(true)
 	Sim.Run(1)
-	Sim.Click(ns.modeButton)
+	ns.frame:Hide()
 	Sim.Run(1)
-	check(Minimap:GetParent() == parent and Minimap:GetHitRectInsets() == 0, "leaving minimap mode, it's back, all of it hoverable")
+	check(Minimap:GetParent() == parent and Minimap:GetHitRectInsets() == 0, "hiding the map, it's back, all of it hoverable")
 	check(Sim.gatherPin:GetParent() == Minimap and not _G.MagicMapMinimapPins:IsVisible(), "and the pins are back on it")
 end
 
@@ -482,10 +511,12 @@ local function MinimapSnapshot()
 end
 
 scenarios.minimap_restores_everything = function()
+	ns.frame:Hide() -- Blizzard's minimap as it is without us
+	Sim.Run(1)
 	local before = MinimapSnapshot()
-	Sim.Click(ns.modeButton)
+	ns.frame:Show()
 	Sim.Run(2)
-	check(ns.Takeover.IsEngaged(), "minimap mode takes the Minimap")
+	check(ns.Takeover.IsEngaged(), "showing the map takes the Minimap")
 	ns.Takeover.Engage() -- twice is once
 	ns.SetZoom(1500) -- masked
 	Sim.Run(1)
@@ -511,10 +542,12 @@ scenarios.minimap_restores_everything = function()
 	ns.frame:Show()
 	Sim.Run(1)
 	check(ns.Takeover.IsEngaged(), "and opening it takes it again")
-	Sim.Click(ns.modeButton)
+	ToggleWorldMap() -- hidden while grown
+	Sim.Run(0.1)
+	ns.frame:Hide()
 	Sim.Run(1)
 	ns.Takeover.Release() -- twice is once
-	check(not ns.Takeover.IsEngaged(), "leaving minimap mode releases it")
+	check(not ns.Takeover.IsEngaged(), "hiding the map releases it")
 	local after = MinimapSnapshot()
 	local diffs = {}
 	for i = 1, math.max(#before, #after) do
@@ -533,7 +566,6 @@ scenarios.minimap_ours_first = function()
 			if t.name == name then return t.active end
 		end
 	end
-	Sim.Click(ns.modeButton)
 	ns.SetZoom(160)
 	Sim.Run(2)
 	check(not Active("Flight Master") and not Active("Track Quest POIs"), "Blizzard's flight masters and quest objectives go off")
@@ -593,10 +625,10 @@ scenarios.minimap_ours_first = function()
 	check(pin and pin:GetFrameLevel() > Minimap:GetFrameLevel(),
 		"our pins sit above the Minimap, so they take the mouse first")
 
-	Sim.Click(ns.modeButton)
+	ns.frame:Hide()
 	Sim.Run(1)
 	check(Active("Flight Master") and Active("Track Quest POIs") and not Active("Points of Interest"),
-		"leaving minimap mode puts Blizzard's tracking back as it was")
+		"hiding the map puts Blizzard's tracking back as it was")
 	check(not next(MagicMapDB.trackingOff), "and forgets what it turned off")
 end
 
@@ -1162,6 +1194,9 @@ scenarios.tile_colors = function()
 	local map = ns.state.map
 	local tiles = MagicMap_Tiles.maps[map].tiles
 	MagicMap_TileColor = nil -- the flavor's own data, if any: this test brings its own
+	ns.frame:ClearAllPoints() -- room for interior, coast and sea at once
+	ns.frame:SetPoint("CENTER")
+	ns.frame:SetSize(860, 620)
 	ns.SetZoom(24)
 	Sim.Run(2)
 	local function Drawn(key) local t = ns.activeTiles[map * 4096 + key]; return t and t:IsVisible() and t end
@@ -1355,8 +1390,9 @@ end
 
 -- Right-click on the big map: what's there on top (zone, place and
 -- coordinates, levels and distance, quest areas, nearby landmarks), then the
--- usual actions. Compact (minimap mode) keeps to the actions.
+-- usual actions. At the minimap's size it keeps to the actions.
 scenarios.map_menu_info = function()
+	ToggleWorldMap() -- the big map
 	Sim.Run(3) -- pins and quest areas settle
 	ns.SetFollow(false)
 	-- Over Kobold Candles' (estimated) area in Elwynn, east of you.
@@ -1396,18 +1432,17 @@ scenarios.map_menu_info = function()
 	if pin then check(text:find("Kobold Candles (following)", 1, true), "the followed quest is marked:\n" .. text) end
 	PickMenu("Follow me")
 	Sim.unexplored = nil
-	-- Minimap mode: just the actions, as before.
-	Sim.Click(ns.modeButton)
-	Sim.Run(2)
-	check(ns.IsCompact(), "minimap mode is compact")
+	-- At the minimap's size: just the actions.
+	ToggleWorldMap()
+	Sim.Run(1)
 	Sim.Click(ns.viewport, "RightButton", 0.3, 0.3)
 	info, actions = MapMenu()
-	check(#info == 0 and actions[1] == "Waypoint here", "compact: the old menu, no info (" .. #info .. " lines)")
+	check(#info == 0 and actions[1] == "Waypoint here", "at the minimap's size: the actions, no info (" .. #info .. " lines)")
 	PickMenu("Waypoint here")
 	-- M grows it into a big map: the info is back.
 	ToggleWorldMap()
 	Sim.Run(1)
-	check(ns.IsMapExpanded() and ns.IsCompact(), "M grows it, in the same chrome")
+	check(ns.IsMapExpanded(), "M grows it")
 	Sim.Click(ns.viewport, "RightButton", 0.5, 0.5)
 	info = MapMenu()
 	check(info[1] ~= nil and #info >= 2, "expanded: the info is on top")
@@ -1576,15 +1611,17 @@ scenarios.addon_pins_toggle_and_close = function()
 	check(OnOurMap(a), "our map open again: ours again")
 end
 
--- Questie's minimap pins go to our clipped host in minimap mode, and back.
+-- Questie's minimap pins go to our clipped host while the map is shown, and back.
 scenarios.addon_pins_minimap = function()
+	ns.frame:Hide() -- Blizzard's minimap, as Questie finds it
+	Sim.Run(1)
 	local pins = Sim.LoadQuestie()
 	local dot = Sim.QuestieIcon()
 	local p = Sim.player
 	local x, y = ns.TileToMap(1429, p.col + 0.05, p.row)
 	pins:AddMinimapIconMap(Questie, dot, 1429, x, y, true, true)
 	check(dot:GetParent() == Minimap, "Questie's minimap pin starts on the Minimap")
-	Sim.Click(ns.modeButton)
+	ns.frame:Show()
 	Sim.Run(2)
 	ns.SetZoom(1500) -- the Minimap far bigger than the window: clipped
 	Sim.Run(1)
@@ -1598,9 +1635,9 @@ scenarios.addon_pins_minimap = function()
 	check(pins.Minimap == host and dot:GetParent() == host and dot:IsVisible(),
 		"Questie's layer off: its minimap pins are on our host instead")
 	db.layers["addon:Questie"] = true
-	Sim.Click(ns.modeButton)
+	ns.frame:Hide()
 	Sim.Run(1)
-	check(pins.Minimap == Minimap and dot:GetParent() == Minimap, "minimap mode off: back on the Minimap")
+	check(pins.Minimap == Minimap and dot:GetParent() == Minimap, "the map hidden: back on the Minimap")
 end
 
 return scenarios

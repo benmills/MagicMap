@@ -1,21 +1,18 @@
--- Minimap mode (the spyglass button): the MagicMap window takes the
--- minimap's place.
+-- The MagicMap window is the minimap: it takes the minimap's place.
 --
---   * The window moves onto the minimap's spot, square, showing SPAN yards
---     across (and keeping that as you resize it), with compact chrome (Core's SetCompact): just the map, the
---     zone floating above it, the buttons on hover. Blizzard's minimap moves
---     inside (MinimapBlips.lua decides, MinimapTakeover.lua does it), so its blips and pins land on our terrain.
+--   * It starts on the minimap's spot, square, showing SPAN yards across (and
+--     keeping that as you resize it): just the map, the zone floating above
+--     it, the buttons on hover. Move and resize it anywhere; /mm reset puts it
+--     back. Blizzard's minimap moves inside (MinimapBlips.lua decides,
+--     MinimapTakeover.lua does it), so its blips and pins land on our terrain.
+--     Hiding the window gives Blizzard's minimap back.
 --   * Pan away and leave it alone for a few seconds, and it glides back to
 --     following you.
 --   * It sits at the minimap's strata, so other windows go over it.
---   * The world map key (M) grows the window to most of the screen instead
---     of opening Blizzard's, in the same chrome; M or Escape shrink it back.
---     Anything else that opens Blizzard's world map (the quest log, L) still
---     opens it as usual.
---
--- Turning the mode off puts the window back where it was; turning it on
--- again puts it back where you last had it in minimap mode (/mm reset: onto
--- the minimap's spot).
+--   * The world map key (M) or the red button grows the window to most of the
+--     screen instead of opening Blizzard's map, in the same chrome; M, the
+--     button or Escape shrink it back. Anything else that opens Blizzard's
+--     world map (the quest log, L) still opens it as usual.
 
 local ADDON, ns = ...
 local TILE_YARDS = 1600 / 3
@@ -32,21 +29,7 @@ local frame = ns.frame
 local expanded = false -- grown to most of the screen (the world map, M)
 local small -- meanwhile: the minimap-sized rect { left, top, w, h, zoom = } to return to
 
-function ns.IsMinimapMode() return db and db.minimapMode end
-
 function ns.IsMapExpanded() return expanded end
-
-local function UpdateButton()
-	ns.SetModeButtonArt(db and db.minimapMode)
-end
-
--- Escape closes the map normally, but not while it stands in for the minimap.
-local function SetCloseOnEscape(on)
-	for i = #UISpecialFrames, 1, -1 do
-		if UISpecialFrames[i] == "MagicMapFrame" then table.remove(UISpecialFrames, i) end
-	end
-	if on then tinsert(UISpecialFrames, "MagicMapFrame") end
-end
 
 ---------------------------------------------------------------------------
 -- Window rect, in the frame's own coordinates from UIParent's bottom-left:
@@ -59,12 +42,10 @@ local function SetRect(r)
 	frame:SetSize(r[3], r[4])
 end
 
--- The minimap's strata in minimap mode (other windows go over it); the
--- window's own otherwise.
+-- The minimap's strata (other windows go over it); grown, the window's own.
 local function SetHomeStrata()
-	frame:SetFrameStrata(db and db.minimapMode and ns.Takeover.HomeStrata() or "HIGH")
+	frame:SetFrameStrata(ns.Takeover.HomeStrata())
 end
-
 
 local function EaseOutCubic(t) return 1 - (1 - t) ^ 3 end
 
@@ -103,13 +84,12 @@ local function StopTween()
 	tweener:Hide()
 end
 
-
 -- Resizing the small window keeps the same yards across it (the zoom scales
 -- with it), rather than showing more or less of the world.
 local lastSide
 frame:HookScript("OnSizeChanged", function(_, w, h)
 	local side = math.min(w, h)
-	if db and db.minimapMode and not ns.IsMapExpanded() and not tween and lastSide and lastSide > 0 then
+	if db and not expanded and not tween and lastSide and lastSide > 0 then
 		ns.SetZoom(ns.state.zoom * side / lastSide)
 	end
 	lastSide = side
@@ -124,18 +104,17 @@ local function MinimapSquare()
 	return { left * k, top * k, side, side }
 end
 
----------------------------------------------------------------------------
--- World map takeover
----------------------------------------------------------------------------
-
--- The window's rect as it stands, with the zoom it's heading for: { left, top, w, h, zoom = }.
-local function CurrentRect()
-	return { frame:GetLeft(), frame:GetTop(), frame:GetWidth(), frame:GetHeight(), zoom = ns.GoalZoom() }
+local function PlaceOnMinimap()
+	local rect = MinimapSquare()
+	if not rect then return end
+	SetRect(rect)
+	ns.SaveFrameLayout()
+	ns.SetZoom(rect[3] / (SPAN / TILE_YARDS))
 end
 
-local function RememberSmall()
-	small = CurrentRect()
-end
+---------------------------------------------------------------------------
+-- Growing into the world map (M)
+---------------------------------------------------------------------------
 
 -- Back on you at the zoom you had, following.
 local function ReturnToSmallView(target, duration)
@@ -146,8 +125,6 @@ local function ReturnToSmallView(target, duration)
 		ns.SetFollow(true)
 	end
 end
-
--- Expanded (the world map, M) ---------------------------------------------
 
 -- Escape while expanded shrinks the window back rather than closing it.
 local escapeCatcher = CreateFrame("Frame", "MagicMapWorldMapEscape", UIParent)
@@ -167,11 +144,11 @@ local function PlayerZoneRect()
 end
 
 local function Expand()
-	if expanded or not db.minimapMode then return end
+	if expanded then return end
 	expanded = true
 	-- Still shrinking back from the last time: the rect to return to stands.
 	if not small then
-		RememberSmall()
+		small = { frame:GetLeft(), frame:GetTop(), frame:GetWidth(), frame:GetHeight(), zoom = ns.GoalZoom() }
 		homeAlpha = ns.Takeover.HomeAlpha()
 	end
 	local k = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
@@ -179,7 +156,6 @@ local function Expand()
 	local w, h = sw * EXPANDED_SIZE, sh * EXPANDED_SIZE
 	frame:SetFrameStrata("HIGH")
 	escapeCatcher:Show()
-	frame:Show()
 	frame:Raise()
 	TweenTo({ (sw - w) / 2, (sh + h) / 2, w, h }, EXPAND_TIME, nil, { ns.Takeover.HomeAlpha(), 0 })
 	-- Still on you, a little further out: the bigger window does the rest.
@@ -211,111 +187,63 @@ end
 
 escapeCatcher:SetScript("OnHide", Collapse)
 
--- M (ToggleWorldMap) grows our window instead of opening Blizzard's world
--- map, and M again shrinks it back. (M closing Blizzard's map, opened from
--- the quest log, is left alone.)
-local function OnToggleWorldMap()
-	if not (db and db.minimapMode) or not WorldMapFrame:IsShown() then return end
-	HideUIPanel(WorldMapFrame)
+local function ToggleExpanded()
 	if expanded then Collapse() else Expand() end
 end
-hooksecurefunc("ToggleWorldMap", OnToggleWorldMap)
 
----------------------------------------------------------------------------
--- Entering and leaving
----------------------------------------------------------------------------
-
--- The window's rect at the minimap's size (the one it shrinks back to while grown).
-local function SmallRect()
-	local r = small or CurrentRect()
-	if not r[1] then return nil end -- never laid out
-	return { r[1], r[2], r[3], r[4], zoom = r.zoom }
-end
-
-local function PlaceOnMinimap()
-	local rect = MinimapSquare()
-	if not rect then return end
-	SetRect(rect)
-	ns.SaveFrameLayout()
-	ns.SetZoom(rect[3] / (SPAN / TILE_YARDS))
-end
-
-local function EnterMinimapMode()
-	local saved = db.minimapLayout
-	local p, _, rp, x, y = frame:GetPoint()
-	db.normalLayout = { point = { p, rp, x, y }, width = frame:GetWidth(), height = frame:GetHeight(), zoom = state.zoom }
-	db.minimapMode = true
-	SetCloseOnEscape(false)
-	SetHomeStrata()
-	ns.SetCompact(true)
-	if saved then
-		SetRect(saved)
-		ns.SaveFrameLayout()
-		ns.SetZoom(saved.zoom)
-	else
-		PlaceOnMinimap()
-	end
-	ns.SetFollow(true)
-	frame:Show()
-	ns.FitTitle()
-	UpdateButton()
-end
-
-local function LeaveMinimapMode()
-	db.minimapLayout = SmallRect() or db.minimapLayout
-	if expanded then
-		expanded = false
-		escapeCatcher:Hide()
-		SetHomeAlpha(homeAlpha)
-	end
-	StopTween()
-	small = nil
-	db.minimapMode = false
-	SetHomeStrata()
-	ns.Takeover.Release()
-	SetCloseOnEscape(true)
-	ns.SetCompact(false)
-	local layout = db.normalLayout
-	if layout then
-		frame:ClearAllPoints()
-		frame:SetPoint(layout.point[1], UIParent, layout.point[2], layout.point[3], layout.point[4])
-		frame:SetSize(layout.width, layout.height)
-		ns.SaveFrameLayout()
-		ns.SetZoom(layout.zoom)
-		db.normalLayout = nil
-	end
-	UpdateButton()
-end
-
-local function ToggleMinimapMode()
-	if db.minimapMode then LeaveMinimapMode() else EnterMinimapMode() end
-	local why = db.minimapMode and ns.MinimapBlocker()
-	if why then ns.Print("minimap mode: blips are waiting (" .. why .. ")") end
-end
-
-ns.modeButton:SetScript("OnClick", ToggleMinimapMode)
-ns.Tooltip(ns.modeButton, function()
-	return db and db.minimapMode and "Back to the window  |cff888888(leave minimap mode)|r"
-		or "Minimap mode  |cff888888(move onto the minimap, with its blips)|r"
+-- M (ToggleWorldMap) grows our window instead of opening Blizzard's world
+-- map, and M again shrinks it back. (M closing Blizzard's map, opened from
+-- the quest log, is left alone; so is M while MagicMap is hidden.)
+hooksecurefunc("ToggleWorldMap", function()
+	if not frame:IsShown() or not WorldMapFrame:IsShown() then return end
+	HideUIPanel(WorldMapFrame)
+	ToggleExpanded()
 end)
-ns.slash.minimap = ToggleMinimapMode
 
--- /mm reset in minimap mode: back onto the minimap's spot, at its size.
-ns.ResetMinimapLayout = function()
-	if not db.minimapMode then return false end
+ns.modeButton:SetScript("OnClick", ToggleExpanded)
+ns.Tooltip(ns.modeButton, function()
+	return expanded and "Back to the minimap  |cff888888(M)|r" or "Big map  |cff888888(M)|r"
+end)
+
+---------------------------------------------------------------------------
+-- Showing and hiding
+---------------------------------------------------------------------------
+
+-- Hidden while grown (or growing): straight back to the minimap's size, so
+-- it comes back there.
+frame:HookScript("OnHide", function()
+	if not (expanded or small) then return end
+	StopTween()
+	expanded = false
+	escapeCatcher:Hide()
+	SetHomeAlpha(homeAlpha)
+	SetRect(small)
+	ns.SaveFrameLayout()
+	ns.SetZoom(small.zoom)
+	small = nil
+	SetHomeStrata()
+end)
+
+-- The first time it shows (no saved place yet), onto the minimap's spot.
+frame:HookScript("OnShow", function()
+	if db and not db.point then PlaceOnMinimap() end
+	SetHomeStrata()
+end)
+
+-- /mm reset: back onto the minimap's spot, at its size.
+function ns.ResetLayout()
 	if expanded or tween then
 		ns.Print("reset: shrink the map back first (M)")
-		return true
+		return
 	end
-	db.minimapLayout = nil
 	PlaceOnMinimap()
 	ns.SetFollow(true)
-	return true
+	frame:Show()
 end
 
 -- Left alone after you've panned away, glide back to following you.
 frame:HookScript("OnUpdate", ns.Timed("minimap mode idle", function()
-	if not (db and db.minimapMode) or ns.IsMapExpanded() or state.follow or state.dragging or ns.IsAnimating() then return end
+	if expanded or state.follow or state.dragging or ns.IsAnimating() then return end
 	if frame:IsMouseOver() or GetTime() - (state.lastInteract or 0) < IDLE_FOLLOW then return end
 	ns.SetFollow(true, true)
 end))
@@ -326,18 +254,25 @@ events:SetScript("OnEvent", ns.TimedEvents("minimap mode", function()
 	if small then
 		-- Never come back expanded: save the minimap-sized window.
 		db.point = { "TOPLEFT", "BOTTOMLEFT", small[1], small[2] }
-		db.width, db.height = small[3], small[4]
+		db.width, db.height, db.zoom = small[3], small[4], small.zoom
 	end
 end))
 
 ns.On("Loaded", function(savedDB)
 	db = savedDB
-	db.minimapBlips = nil -- an earlier version's setting
-	if db.minimapMode == nil then db.minimapMode = false end
-	if db.minimapMode then
-		SetCloseOnEscape(false)
-		ns.SetCompact(true)
+	-- An earlier version's separate window: its layout was the window's, so
+	-- the one minimap mode kept takes over, else the minimap's spot.
+	if db.minimapMode == false then
+		local m = db.minimapLayout
+		if m then
+			db.point, db.width, db.height = { "TOPLEFT", "BOTTOMLEFT", m[1], m[2] }, m[3], m[4]
+			SetRect(m)
+			ns.SetZoom(m.zoom)
+		else
+			db.point, db.width, db.height = nil, 200, 200
+			frame:SetSize(200, 200)
+		end
 	end
+	db.minimapMode, db.minimapLayout, db.normalLayout, db.minimapBlips = nil, nil, nil, nil
 	SetHomeStrata()
-	UpdateButton()
 end)

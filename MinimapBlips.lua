@@ -24,7 +24,7 @@
 -- Indoors our terrain has nothing to show, so the window just wears the
 -- Minimap itself: full terrain, centred, the wheel zooming it.
 --
--- This runs while minimap mode (MinimapMode.lua) is on.
+-- This runs while the map is shown.
 
 local ADDON, ns = ...
 local T = ns.Takeover
@@ -107,13 +107,11 @@ ns.MinimapPlan = { Level = PickLevel, Mask = MaskFor }
 
 -- nil if the Minimap can join the map right now, else why not.
 local function Blocker()
-	if not ns.IsMinimapMode() then return "off" end
 	if not ns.frame:IsShown() then return "the map is closed" end
 	if FarmHud and FarmHud.IsShown and FarmHud:IsShown() then return "FarmHud has the minimap" end
 	if not ns.Camera().onMap then return "you're not on the map being shown" end
 	return nil
 end
-ns.MinimapBlocker = Blocker
 
 local function ViewRadius(kind)
 	local r = C_Minimap.GetViewRadius()

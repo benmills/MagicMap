@@ -15,8 +15,7 @@ local CLICK_SLOP, CLICK_TIME = 5, 0.35 -- a click moves less than this many px, 
 
 local defaults = {
 	shown = true,
-	width = 860, height = 620,
-	point = { "CENTER", "CENTER", 0, 0 },
+	width = 200, height = 200, -- point: none until MinimapMode puts it on the minimap's spot
 	zoom = 384,
 	follow = true,
 	path = false, -- following, lean toward your target (see FollowCenter)
@@ -73,18 +72,14 @@ local function SortedMapIDs()
 end
 
 ---------------------------------------------------------------------------
--- Window: Blizzard's own ButtonFrameTemplate (nine-slice border, title band,
--- close button), so it looks and lines up exactly like the client's other
--- windows - including Forever's re-skin. Everything lives in the title band:
+-- Window: the map inside the metal border of Blizzard's ButtonFrameTemplate
+-- (Forever's re-skin), the template's own title bar and buttons hidden. On a
+-- line just outside the map (above it, or below at the screen's top):
 --
---   [Zone name v  context · coords]              (gear) (mode) [X]
+--   Zone name  context · coords                          (gear) (mode)
 --
--- and the map fills the rest of the frame, edge to edge under the border.
--- The title is also the map picker: click it for continents and instances.
+-- The zone name is also the map picker: click it for continents and instances.
 ---------------------------------------------------------------------------
-
-local BAND_HEIGHT = 21 -- the template's title band (its background starts at y = -21)
-local BAND_MID = -11
 
 local frame = CreateFrame("Frame", "MagicMapFrame", UIParent, "ButtonFrameTemplate")
 
@@ -96,7 +91,6 @@ frame:EnableMouse(true)
 frame:RegisterForDrag("LeftButton")
 frame:SetResizeBounds(120, 120)
 frame:Hide()
-tinsert(UISpecialFrames, "MagicMapFrame") -- close on Escape
 
 ButtonFrameTemplate_HidePortrait(frame)
 ButtonFrameTemplate_HideButtonBar(frame)
@@ -115,11 +109,9 @@ frame:SetScript("OnDragStop", function()
 	SavePoint()
 end)
 
--- Viewport: the map, filling the frame below the band. Clips the tiles to it;
--- the template's border (drawn at frame level +500) frames its edges.
+-- Viewport: the map, filling the frame inside its border (placed with the
+-- border, below). Clips the tiles to it.
 local viewport = CreateFrame("Frame", nil, frame)
-viewport:SetPoint("TOPLEFT", 2, -BAND_HEIGHT)
-viewport:SetPoint("BOTTOMRIGHT", -2, 2)
 viewport:SetClipsChildren(true)
 viewport:EnableMouse(true)
 viewport:EnableMouseWheel(true)
@@ -170,18 +162,12 @@ arrow:SetAtlas("minimaparrow")
 arrow:SetSize(32, 32)
 arrow:SetPoint("CENTER")
 
--- The band: above the template's border (500) and title bar (510), so our
--- text and buttons draw on it. No mouse, so dragging the band moves the window.
+-- The band: a layer above the template's border (500) and title bar (510),
+-- holding the zone line and its buttons. No mouse of its own.
 local FONT = (GameFontNormal and GameFontNormal:GetFont()) or STANDARD_TEXT_FONT
 local band = CreateFrame("Frame", nil, frame)
 band:SetFrameLevel(frame:GetFrameLevel() + 515)
-band:SetPoint("TOPLEFT")
-band:SetPoint("TOPRIGHT")
-band:SetHeight(BAND_HEIGHT)
-
-local closeButton = frame.CloseButton -- the template's, already in the band's corner
-closeButton:SetFrameLevel(band:GetFrameLevel() + 5)
-closeButton:SetScript("OnClick", function() frame:Hide() end)
+band:SetAllPoints()
 
 local title = band:CreateFontString(nil, "OVERLAY")
 title:SetFont(FONT, 14, "")
@@ -199,21 +185,14 @@ subtitle:SetShadowColor(0, 0, 0, 1)
 subtitle:SetJustifyH("LEFT")
 subtitle:SetWordWrap(false)
 
--- The title doubles as the map picker (see OpenMapMenu): a button over it,
--- with a small chevron after the name. Dragging it still moves the window.
+-- The title doubles as the map picker (see OpenMapMenu): a button over it.
+-- Dragging it still moves the window.
 local TITLE_COLOR, TITLE_HOVER = { 1, 0.82, 0.25 }, { 1, 0.93, 0.6 }
-local CHEVRON = 14 -- chevron width plus its gap after the name
 local OpenMapMenu -- forward
-
-local chevron = band:CreateTexture(nil, "OVERLAY")
-chevron:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
-chevron:SetSize(12, 12)
-chevron:SetPoint("LEFT", title, "RIGHT", 1, -3)
-chevron:SetVertexColor(0.85, 0.7, 0.45)
 
 local titleButton = CreateFrame("Button", nil, band)
 titleButton:SetPoint("TOPLEFT", title, "TOPLEFT", -4, 3)
-titleButton:SetPoint("BOTTOMRIGHT", title, "BOTTOMRIGHT", CHEVRON + 2, -3)
+titleButton:SetPoint("BOTTOMRIGHT", title, "BOTTOMRIGHT", 4, -3)
 titleButton:RegisterForDrag("LeftButton")
 titleButton:SetScript("OnDragStart", function(self)
 	self.dragged = true
@@ -230,31 +209,18 @@ titleButton:SetScript("OnClick", function(self)
 	end
 	OpenMapMenu(self)
 end)
-titleButton:SetScript("OnEnter", function()
-	title:SetTextColor(unpack(TITLE_HOVER))
-	chevron:SetVertexColor(1, 0.9, 0.6)
-end)
-titleButton:SetScript("OnLeave", function()
-	title:SetTextColor(unpack(TITLE_COLOR))
-	chevron:SetVertexColor(0.85, 0.7, 0.45)
-end)
-
--- Backing for the name when it sits on the map (narrow windows only).
-local titlePlate = band:CreateTexture(nil, "BACKGROUND")
-titlePlate:SetColorTexture(0.03, 0.025, 0.02, 0.72)
-titlePlate:Hide()
+titleButton:SetScript("OnEnter", function() title:SetTextColor(unpack(TITLE_HOVER)) end)
+titleButton:SetScript("OnLeave", function() title:SetTextColor(unpack(TITLE_COLOR)) end)
 
 local function NaturalWidth(fs)
 	return fs:GetUnboundedStringWidth()
 end
 
-local compact = false -- minimap mode's chrome (see SetCompact)
+-- At the minimap's size it names where you are and keeps to actions; grown
+-- (M), it reads as a big map, in the same chrome.
+local function SmallMap() return not ns.IsMapExpanded() end
 
--- Minimap mode at the minimap's size: names where you are, keeps to actions.
--- Grown (M), it reads as a big map, in the same chrome.
-local function SmallMap() return compact and not ns.IsMapExpanded() end
-
--- Minimap mode's controls use Blizzard's own minimap art where the client
+-- The controls use Blizzard's own minimap art where the client
 -- has it, else plain textures.
 local function HasAtlas(name)
 	return C_Texture.GetAtlasInfo(name) ~= nil
@@ -298,34 +264,25 @@ local function ArtButton(parent, w, h, art)
 end
 
 -- On the zone's line, right-aligned and shown while you hover: the layers
--- menu (the world map's gold gear), and in or out of minimap mode (the world
--- map's red buttons: condense into the minimap, expand back to the window).
+-- menu (the world map's gold gear), and the world map's red expand button,
+-- which grows the map as M does (MinimapMode.lua).
 local HEADER_ICON = 20
-local MODE_ART = {
-	-- Forever has no condense art, so the spyglass stands in for it.
-	window = {
-		atlas = { "redbutton-condense-c60", "redbutton-condense" },
-		pushed = { "redbutton-condense-pressed-c60", "redbutton-condense-pressed" },
-		highlight = { "redbutton-highlight-c60", "redbutton-highlight" },
-		file = "Interface\\Icons\\INV_Misc_Spyglass_03",
-	},
-	minimap = {
-		atlas = { "redbutton-expand-c60", "redbutton-expand" },
-		pushed = { "redbutton-expand-pressed-c60", "redbutton-expand-pressed" },
-		highlight = { "redbutton-highlight-c60", "redbutton-highlight" },
-	},
-}
-local modeButton = ArtButton(band, HEADER_ICON, HEADER_ICON, MODE_ART.window)
+local modeButton = ArtButton(band, HEADER_ICON, HEADER_ICON, {
+	atlas = { "redbutton-expand-c60", "redbutton-expand" },
+	pushed = { "redbutton-expand-pressed-c60", "redbutton-expand-pressed" },
+	highlight = { "redbutton-highlight-c60", "redbutton-highlight" },
+})
 local gearButton = ArtButton(band, HEADER_ICON + 4, HEADER_ICON + 4, {
 	file = "Interface\\WorldMap\\Gear_64", coords = { 0, 0.5, 0, 0.5 }, pushedCoords = { 0, 0.5, 0.5, 1 },
 })
 gearButton:SetPoint("RIGHT", modeButton, "LEFT", -6, 0)
 
--- Compact: zone, then subzone, left-aligned on one line just above the map
--- (below it, if the map is at the top of the screen), with the gear and back
--- buttons at its right end - no plate, like the minimap's own.
-local function FitCompactTitle()
-	titlePlate:Hide()
+-- The zone, then subzone, left-aligned on one line just above the map (below
+-- it, if the map is at the top of the screen), with the gear and red buttons
+-- at its right end - no plate, like the minimap's own.
+local function FitTitle()
+	title:ClearAllPoints()
+	subtitle:ClearAllPoints()
 	local top, screenTop = frame:GetTop(), UIParent:GetTop()
 	if not top then return end
 	local room = frame:GetWidth() - 4 - (2 * HEADER_ICON + 4 + 6 + 8) -- left of the buttons
@@ -344,37 +301,6 @@ local function FitCompactTitle()
 	subtitle:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 6, 1)
 end
 
--- In the band when it fits; otherwise on the map's top-left corner.
-local function FitTitle()
-	title:ClearAllPoints()
-	subtitle:ClearAllPoints()
-	if compact then return FitCompactTitle() end
-	modeButton:ClearAllPoints()
-	modeButton:SetPoint("RIGHT", frame, "TOPRIGHT", -28, BAND_MID)
-	local left, controlsLeft = frame:GetLeft(), gearButton:GetLeft()
-	if not (left and controlsLeft) then return end
-	local room = controlsLeft - (left + 10) - 14 - CHEVRON
-	local tw, sw = NaturalWidth(title), NaturalWidth(subtitle)
-	if tw + 8 + math.min(sw, 80) <= room then
-		titlePlate:Hide()
-		title:SetPoint("LEFT", frame, "TOPLEFT", 10, BAND_MID)
-		title:SetWidth(tw)
-		-- Share the title's baseline: bottoms aligned, nudged for the smaller descender.
-		subtitle:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 8 + CHEVRON, 1)
-		subtitle:SetWidth(math.max(1, room - tw - 8))
-	else
-		local maxW = viewport:GetWidth() - 24
-		title:SetPoint("TOPLEFT", viewport, "TOPLEFT", 12, -9)
-		title:SetWidth(math.min(tw, maxW))
-		subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 1, -3)
-		subtitle:SetWidth(math.min(sw, maxW))
-		titlePlate:ClearAllPoints()
-		titlePlate:SetPoint("TOPLEFT", viewport, "TOPLEFT", 0, 0)
-		titlePlate:SetSize(math.min(math.max(tw + CHEVRON, sw), maxW) + 24, title:GetStringHeight() + subtitle:GetStringHeight() + 21)
-		titlePlate:Show()
-	end
-end
-
 local resizeGrip = CreateFrame("Button", nil, frame)
 resizeGrip:SetSize(14, 14)
 resizeGrip:SetPoint("BOTTOMRIGHT", -4, 4)
@@ -389,12 +315,10 @@ resizeGrip:SetScript("OnMouseUp", function()
 	db.width, db.height = frame:GetSize()
 end)
 
--- Compact chrome (minimap mode): the title band and the template's frame
--- (whose top is a header bar) go; the map fills the frame inside the same
--- metal border with plain top corners, the zone floats above it, and the
+-- The template's frame (whose top is a header bar) gives way to the same
+-- metal border with plain top corners (UI.lua); the map fills it, and the
 -- buttons and grip fade in while you hover.
-local compactBorder = ns.ApplyBorder(frame, frame:GetFrameLevel() + 505, frame.NineSlice)
-compactBorder:Hide()
+local border = ns.ApplyBorder(frame, frame:GetFrameLevel() + 505, frame.NineSlice)
 
 -- Inside the map, shown while you hover: follow and path toggles (bottom
 -- left) and zoom buttons (bottom right, where the minimap keeps them).
@@ -446,49 +370,23 @@ local function SetLit(b, on)
 	b.icon:SetAlpha(on and 1 or 0.6)
 end
 
-local chromeHidden = {} -- template parts SetCompact hid
-local KEEP = { [viewport] = true, [band] = true, [resizeGrip] = true, [compactBorder] = true, [closeButton] = true,
-	[mapControls] = true }
+-- Everything of the template but its border's art goes; the map stops where
+-- that art begins.
+local KEEP = { [viewport] = true, [band] = true, [resizeGrip] = true, [border] = true, [mapControls] = true }
+for _, r in ipairs({ frame:GetRegions() }) do r:Hide() end
+for _, c in ipairs({ frame:GetChildren() }) do
+	if not KEEP[c] then c:Hide() end
+end
+viewport:ClearAllPoints()
+viewport:SetPoint("TOPLEFT", border.insets[1], -border.insets[2])
+viewport:SetPoint("BOTTOMRIGHT", -border.insets[3], border.insets[4])
+
 local hoverAlpha = 1
-
-local function SetViewportInsets(l, t, r, b)
-	viewport:ClearAllPoints()
-	viewport:SetPoint("TOPLEFT", l, -t)
-	viewport:SetPoint("BOTTOMRIGHT", -r, b)
-	ViewSizeChanged()
-end
-
-local function SetCompact(on)
-	on = on and true or false
-	if on == compact then return end
-	compact = on
-	if on then
-		for _, r in ipairs({ frame:GetRegions() }) do
-			if r:IsShown() then r:Hide(); chromeHidden[r] = true end
-		end
-		for _, c in ipairs({ frame:GetChildren() }) do
-			if not KEEP[c] and c:IsShown() then c:Hide(); chromeHidden[c] = true end
-		end
-		SetViewportInsets(unpack(compactBorder.insets)) -- the map stops where the border's art begins
-		chevron:Hide()
-		closeButton:Hide() -- the mode button leaves minimap mode instead
-		compactBorder:Show()
-	else
-		for o in pairs(chromeHidden) do o:Show() end
-		wipe(chromeHidden)
-		SetViewportInsets(2, BAND_HEIGHT, 2, 2)
-		chevron:Show()
-		closeButton:Show()
-		compactBorder:Hide()
-	end
-	state.dirty = true
-	FitTitle()
-end
 
 -- The controls and grip fade in while the mouse is over the map.
 local function StepHover(elapsed)
-	-- Compact, the header line (above or below the map) counts as over it.
-	local reach = compact and HEADER_ICON + 12 or 0
+	-- The header line (above or below the map) counts as over it.
+	local reach = HEADER_ICON + 12
 	local want = (frame:IsMouseOver(reach, -reach, 0, 0) or ns.IsMenuOpen()) and 1 or 0
 	if hoverAlpha == want then return end
 	local step = (elapsed or 0) / 0.15
@@ -1674,13 +1572,8 @@ ns.layerFrames = layerFrames
 ns.overlay = overlay
 ns.tileCanvas = tileCanvas
 ns.gearButton, ns.modeButton = gearButton, modeButton
--- The mode button's art: condense (into the minimap) or expand (back out).
-ns.SetModeButtonArt = function(minimapMode) SkinButton(modeButton, minimapMode and MODE_ART.minimap or MODE_ART.window) end
 ns.titleText = title
 ns.mapControls = { frame = mapControls, zoomIn = zoomIn, zoomOut = zoomOut, follow = followToggle, path = pathToggle }
-ns.SetCompact = SetCompact
-ns.IsCompact = function() return compact end
-ns.FitTitle = FitTitle
 ns.SetFollow = SetFollow
 ns.Tooltip = Tooltip
 ns.SetZoom = function(zoom)
@@ -1702,7 +1595,7 @@ ns.CursorTile = function()
 	if not viewport:GetLeft() then return nil end
 	return CursorTile()
 end
--- The view as it is this frame, for minimap mode: read-only, one table reused.
+-- The view as it is this frame, for the Minimap's placing: read-only, one table reused.
 local camera = {}
 ns.Camera = function()
 	local c = camera
@@ -1760,7 +1653,11 @@ events:SetScript("OnEvent", ns.TimedEvents("core", function(self, event, arg1)
 		LoadTileSet()
 		frame:SetSize(db.width, db.height)
 		frame:ClearAllPoints()
-		frame:SetPoint(db.point[1], UIParent, db.point[2], db.point[3], db.point[4])
+		if db.point then
+			frame:SetPoint(db.point[1], UIParent, db.point[2], db.point[3], db.point[4])
+		else
+			frame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -20, -20) -- until MinimapMode places it
+		end
 		state.zoom = Clamp(db.zoom, MIN_ZOOM, MAX_ZOOM)
 		state.follow, state.path = db.follow, db.path
 		state.cx, state.cy = db.cx, db.cy
@@ -1829,21 +1726,13 @@ SlashCmdList.MAGICMAP = function(msg)
 		end
 		Print("tile set: " .. tostring(tileSetName) .. " " .. tostring(tileSetVersion) .. ". Maps: " .. table.concat(names, ", "))
 	elseif cmd == "reset" then
-		if not ns.ResetMinimapLayout() then -- (minimap mode resets its own)
-			frame:ClearAllPoints()
-			frame:SetPoint("CENTER")
-			frame:SetSize(defaults.width, defaults.height)
-			db.point, db.width, db.height = { "CENTER", "CENTER", 0, 0 }, defaults.width, defaults.height
-			state.zoom = defaults.zoom
-			SetFollow(true)
-			frame:Show()
-		end
+		ns.ResetLayout()
 	elseif cmd == "debug" then
 		db.debug = not db.debug
 		Print("debug info " .. (db.debug and "on" or "off"))
 	elseif ns.slash[cmd] then
 		ns.slash[cmd](arg)
 	else
-		Print("/mm [toggle] | follow | path | map <id|name> | zone <name> | icon | minimap | tiles | tint | dupes | layers | landmarks | perf | debug | reset")
+		Print("/mm [toggle] | follow | path | map <id|name> | zone <name> | icon | tiles | tint | dupes | layers | landmarks | perf | debug | reset")
 	end
 end

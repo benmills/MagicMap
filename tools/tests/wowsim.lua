@@ -856,6 +856,15 @@ LOCALIZED_CLASS_NAMES_MALE = setmetatable({}, { __index = function(_, k) return 
 LOCALIZED_CLASS_NAMES_FEMALE = LOCALIZED_CLASS_NAMES_MALE
 SlashCmdList = {}
 UISpecialFrames = {}
+-- Escape, as the client's CloseSpecialWindows: hides the shown frames named there.
+function Sim.Escape()
+	local closed = false
+	for _, name in ipairs(UISpecialFrames) do
+		local f = _G[name]
+		if f and f:IsShown() then f:Hide(); closed = true end
+	end
+	return closed
+end
 
 Sim.unknownEvents = {}
 
@@ -1380,7 +1389,7 @@ for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutt
 	ATLASES[name] = true
 end
 -- The metal frame's pieces, sized as Forever reports them: the edges far
--- bigger than the metal you see (which once shrank minimap mode's map).
+-- bigger than the metal you see (which once shrank the map).
 for _, name in ipairs({ "UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight" }) do ATLASES[name] = { 32, 32 } end
 ATLASES["_UI-Frame-Metal-EdgeBottom"] = { 256, 200 }
 ATLASES["UI-QuestPoi-QuestNumber"], ATLASES["deathrecap-icon-tombstone"] = { 32, 32 }, { 15, 20 }

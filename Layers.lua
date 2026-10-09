@@ -372,7 +372,7 @@ local function StylePin(pin, e)
 end
 
 -- Pins only move as you zoom; small landmarks appear once you're close
--- enough to use them. In minimap mode ours stay put over Blizzard's blips
+-- enough to use them. With the Minimap in, ours stay put over Blizzard's blips
 -- (they sit above the Minimap): ours first, its own fill the gaps.
 local function PositionPins()
 	local z = state.zoom
@@ -988,7 +988,7 @@ end
 
 -- Who gets GameTooltip over the map: our pins (they take the mouse first),
 -- else a Blizzard blip under the cursor, else the quest area. While the
--- Minimap has the mouse (minimap mode), MinimapTakeover settles the last two
+-- Minimap has the mouse, MinimapTakeover settles the last two
 -- right after Blizzard's own hover handler, every frame, so nothing flickers.
 function ns.OnMapHover(col, row)
 	if ns.MinimapHasMouse() then return end

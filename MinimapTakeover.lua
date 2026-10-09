@@ -338,7 +338,7 @@ local function KeepMinimap()
 	return parent, points, w, h, scale, strata, level
 end
 
--- The window's strata changes (minimap mode, expanding): the Minimap and our
+-- The window's strata changes (growing and shrinking): the Minimap and our
 -- host go with it. Above our layers, below our pins and overlay; indoors,
 -- above the backdrop.
 local function FollowWindow()
@@ -538,7 +538,7 @@ end
 
 ---------------------------------------------------------------------------
 -- The minimap's home corner (the cluster, and the stand-in holding what hung
--- off the Minimap), for minimap mode's expand and collapse.
+-- off the Minimap), for growing the window and shrinking it back.
 ---------------------------------------------------------------------------
 
 function T.HomeAlpha() return MinimapCluster:GetAlpha() end

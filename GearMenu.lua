@@ -1,6 +1,6 @@
 -- The gear menu: what's drawn (a submenu per layer section, Layers.lua),
 -- Blizzard's minimap tracking (its own button is hidden with the minimap's
--- corner in minimap mode), and settings and debug helpers.
+-- corner while MagicMap has it), and settings and debug helpers.
 
 local ADDON, ns = ...
 local db
@@ -31,7 +31,8 @@ local SETTINGS = {
 	{ "Minimap button", on = function() return not db.minimap.hide end, run = function() Command("icon") end },
 	{ "Tile colours", on = function() return db.tint end, run = function() Command("tint") end },
 	{ "Hide Blizzard's copies of ours", on = function() return db.hideDupes ~= false end, run = function() Command("dupes") end },
-	{ "Reset position and size", run = function() Command("reset") end },
+	{ "Back onto the minimap's spot", run = function() Command("reset") end },
+	{ "Use Blizzard's minimap", run = function() ns.frame:Hide() end },
 	"-",
 	{ "Debug info in the title", on = function() return db.debug end, run = function() Command("debug") end },
 	{ "Blizzard's terrain over ours", on = function() return ns.SyncShown() end, run = function() Command("sync") end },
