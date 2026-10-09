@@ -1,4 +1,4 @@
--- Minimap button (drag it around the minimap's edge) and the Retail addon
+-- Minimap button (drag it around the minimap's edge) and the addon
 -- compartment entry. Both toggle the map.
 
 local ADDON, ns = ...
@@ -52,7 +52,7 @@ ns.slash.icon = function()
 	ns.Print("minimap button " .. (db.minimap.hide and "hidden (/mm icon to show)" or "shown"))
 end
 
--- Retail's addon compartment (the drop-down by the minimap); see the TOC.
+-- The addon compartment (the drop-down by the minimap); see the TOC.
 function MagicMap_OnAddonCompartmentClick()
 	ns.Toggle()
 end

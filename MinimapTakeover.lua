@@ -64,7 +64,7 @@ local pinHost = CreateFrame("Frame", "MagicMapMinimapPins", ns.viewport)
 pinHost:Hide()
 pinHost.GetZoom = function() return Minimap:GetZoom() end
 pinHost.GetZoomLevels = function() return Minimap:GetZoomLevels() end
-pinHost.SetZoom = function(_, z) Minimap:SetZoom(z) end -- (clients without C_Minimap.GetViewRadius)
+pinHost.SetZoom = function(_, z) Minimap:SetZoom(z) end
 
 -- The minimap pins of an addon whose world-map pins we already host
 -- (AddonPins.lua) go here, out of sight: they'd only repeat those.
@@ -93,9 +93,8 @@ end)
 
 -- Every copy of HereBeDragons-Pins (Questie bundles its own, renamed; see
 -- AddonPins.lua). rescan: look for copies loaded since.
-local NO_LIBS = {}
 local function HBDPinsRaw(rescan)
-	return ns.HBDPinLibs and ns.HBDPinLibs(rescan) or NO_LIBS
+	return ns.HBDPinLibs(rescan)
 end
 
 -- The copies drawing on the real Minimap or our hosts (not, say, FarmHud's).
@@ -227,7 +226,7 @@ local BLOB_RINGS = { "SetQuestBlobRingScalar", "SetArchBlobRingScalar", "SetTask
 
 local function ClearRim(on)
 	for _, method in ipairs(BLOB_RINGS) do
-		if Minimap[method] then pcall(Minimap[method], Minimap, on and 0 or 1) end
+		pcall(Minimap[method], Minimap, on and 0 or 1)
 	end
 	if on then
 		pcall(C_Minimap.SetMinimapInsetInfo, 0, 360, 1000) -- the whole rim (degrees or radians), 1000x out
@@ -244,20 +243,14 @@ end
 -- restores them too. /mm dupes keeps Blizzard's.
 ---------------------------------------------------------------------------
 
-local F = Enum and Enum.MinimapTrackingFilter or {}
-local DUPLICATES = { [F.TaxiNode or 8] = "flight", [F.QuestPOIs or 65536] = "quests", [F.POI or 8192] = "areaPOIs" }
+local F = Enum.MinimapTrackingFilter
+local DUPLICATES = { [F.TaxiNode] = "flight", [F.QuestPOIs] = "quests", [F.POI] = "areaPOIs" }
 T.DUPLICATES = DUPLICATES
-
-local function TrackingAPI()
-	local C = C_Minimap
-	return C and C.GetNumTrackingTypes and C.GetTrackingFilter and C.GetTrackingInfo and C.SetTracking and C
-end
-T.CanTrack = function() return TrackingAPI() ~= nil end
 
 -- on: our layers are on the map in Blizzard's place.
 local function SyncTracking(on)
-	local C = TrackingAPI()
-	if not (db and C) then return end
+	if not db then return end
+	local C = C_Minimap
 	db.trackingOff = db.trackingOff or {}
 	local off = db.trackingOff
 	for i = 1, C.GetNumTrackingTypes() or 0 do
@@ -386,9 +379,8 @@ function T.Engage()
 	standIn:SetSize(w, h)
 	for _, obj in ipairs({ Minimap:GetChildren() }) do MoveToStandIn(obj) end
 	for _, obj in ipairs({ Minimap:GetRegions() }) do MoveToStandIn(obj) end
-	local root = MinimapCluster or parent
-	if root then ReanchorAround(root, 3) end
-	if MinimapCluster and MinimapCluster:IsShown() then
+	ReanchorAround(MinimapCluster, 3)
+	if MinimapCluster:IsShown() then
 		MinimapCluster:Hide()
 		OnRelease(function() MinimapCluster:Show() end)
 	end
@@ -480,7 +472,6 @@ function T.SetIndoor(on)
 end
 
 function T.Level() return Minimap:GetZoom() end
-function T.Levels() return Minimap:GetZoomLevels() end
 
 -- Its zoom level; true if that changed it (the client takes a moment to apply one).
 function T.SetLevel(z)
@@ -550,14 +541,14 @@ end
 -- off the Minimap), for minimap mode's expand and collapse.
 ---------------------------------------------------------------------------
 
-function T.HomeAlpha() return MinimapCluster and MinimapCluster:GetAlpha() or 1 end
+function T.HomeAlpha() return MinimapCluster:GetAlpha() end
 
 function T.SetHomeAlpha(a)
-	if MinimapCluster then MinimapCluster:SetAlpha(a) end
+	MinimapCluster:SetAlpha(a)
 	standIn:SetAlpha(a)
 end
 
-function T.HomeStrata() return MinimapCluster and MinimapCluster:GetFrameStrata() or "LOW" end
+function T.HomeStrata() return MinimapCluster:GetFrameStrata() end
 
 -- The minimap's rect in UIParent coordinates (the stand-in's while engaged).
 function T.HomeRect()
@@ -591,7 +582,7 @@ local function AfterMinimapHover()
 	if GameTooltip:IsShown() and GameTooltip:NumLines() > 0 and GameTooltip:IsOwned(UIParent) then return end -- a blip
 	ns.ShowQuestAreaTooltip(ns.CursorTile())
 end
-if Minimap_OnUpdate then hooksecurefunc("Minimap_OnUpdate", ns.Timed("minimap hover", AfterMinimapHover)) end
+hooksecurefunc("Minimap_OnUpdate", ns.Timed("minimap hover", AfterMinimapHover))
 Minimap:HookScript("OnEnter", function() hover = true end)
 Minimap:HookScript("OnLeave", function() hover = false end)
 
@@ -608,7 +599,7 @@ end)
 -- state is known only once the client has sent it).
 local events = CreateFrame("Frame")
 for _, event in ipairs({ "PLAYER_LOGOUT", "PLAYER_ENTERING_WORLD", "MINIMAP_UPDATE_TRACKING" }) do
-	pcall(events.RegisterEvent, events, event)
+	events:RegisterEvent(event)
 end
 events:SetScript("OnEvent", ns.TimedEvents("takeover", function(_, event)
 	if event == "PLAYER_LOGOUT" or not (engaged and not indoor) then

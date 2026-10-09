@@ -12,7 +12,7 @@ local RING_FILE = "Interface\\HUD\\UIMinimap2xC60"
 local RING_COORDS = { 510 / 1024, 591 / 1024, 511 / 1024, 592 / 1024 }
 
 local function AtlasInfo(name)
-	return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name)
+	return C_Texture.GetAtlasInfo(name)
 end
 
 -- An atlas piece with optional flips. Setting file + texcoords ourselves
@@ -96,12 +96,10 @@ function ns.CreateRoundButton(parent, size, opts)
 		icon:SetPoint("CENTER")
 		local inset = opts.iconInset or 7
 		icon:SetSize(size - inset, size - inset)
-		if not opts.noMask then
-			local mask = b:CreateMaskTexture()
-			mask:SetTexture(CIRCLE, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-			mask:SetAllPoints(icon)
-			icon:AddMaskTexture(mask)
-		end
+		local mask = b:CreateMaskTexture()
+		mask:SetTexture(CIRCLE, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+		mask:SetAllPoints(icon)
+		icon:AddMaskTexture(mask)
 		b.icon = icon
 	end
 
@@ -118,10 +116,9 @@ function ns.CreateRoundButton(parent, size, opts)
 	hl:SetSize(size - 3, size - 3)
 
 	b:SetScript("OnEnter", function(self)
-		local tip = type(opts.tooltip) == "function" and opts.tooltip() or opts.tooltip
-		if tip then
+		if opts.tooltip then
 			GameTooltip:SetOwner(self, "ANCHOR_TOP")
-			GameTooltip:SetText(tip, 1, 1, 1, 1, true)
+			GameTooltip:SetText(opts.tooltip, 1, 1, 1, 1, true)
 			GameTooltip:Show()
 		end
 	end)

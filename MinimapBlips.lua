@@ -34,7 +34,7 @@ local STILL = 0.002 -- a zoom change per frame smaller than this (log scale) cou
 local SETTLE_FRAMES = 3 -- frames the Minimap stays hidden after a change of its zoom level
 
 -- Minimap:GetZoom() -> view diameter in yards, for choosing a zoom level (and
--- the radius on clients without C_Minimap.GetViewRadius).
+-- the radius until the client reports one).
 local DIAMETER = {
 	outdoor = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 },
 	indoor = { [0] = 300, 240, 180, 120, 80, 50 },
@@ -107,7 +107,7 @@ ns.MinimapPlan = { Level = PickLevel, Mask = MaskFor }
 
 -- nil if the Minimap can join the map right now, else why not.
 local function Blocker()
-	if not (ns.IsMinimapMode and ns.IsMinimapMode()) then return "off" end
+	if not ns.IsMinimapMode() then return "off" end
 	if not ns.frame:IsShown() then return "the map is closed" end
 	if FarmHud and FarmHud.IsShown and FarmHud:IsShown() then return "FarmHud has the minimap" end
 	if not ns.Camera().onMap then return "you're not on the map being shown" end
@@ -117,7 +117,7 @@ ns.MinimapBlocker = Blocker
 
 local function ViewRadius(kind)
 	local r = C_Minimap.GetViewRadius()
-	if r and r > 0 then return r end
+	if r > 0 then return r end
 	return (DIAMETER[kind][T.Level()] or DIAMETER[kind][0]) / 2 -- (before the client has one)
 end
 
@@ -168,7 +168,7 @@ ns.slash.dupes = function()
 	local off = {}
 	for id in pairs(db.trackingOff or {}) do off[#off + 1] = T.DUPLICATES[id] or tostring(id) end
 	ns.Print(db.hideDupes and ("dupes: Blizzard's markers for what we draw are off while the minimap is in the map"
-		.. (#off > 0 and (" (" .. table.concat(off, ", ") .. ")") or (T.CanTrack() and "" or " (this client can't)")))
+		.. (#off > 0 and (" (" .. table.concat(off, ", ") .. ")") or ""))
 		or "dupes: Blizzard's markers stay on alongside ours")
 end
 
@@ -184,8 +184,8 @@ local function Update()
 		return
 	end
 	T.Engage()
-	local expanded = ns.IsMapExpanded and ns.IsMapExpanded()
-	local indoors = IsIndoors and IsIndoors() and true or false
+	local expanded = ns.IsMapExpanded()
+	local indoors = IsIndoors() and true or false
 	local whole = indoors and not expanded
 	T.SetIndoor(whole)
 	T.KeepTracking(not whole) -- indoors our pins are under the backdrop: Blizzard's stay
@@ -226,5 +226,5 @@ ns.frame:HookScript("OnHide", T.Release)
 
 ns.On("Loaded", function(savedDB)
 	db = savedDB
-	db.minimapClip = nil -- /mm clip's setting: masks are the only way now
+	db.minimapClip = nil -- an earlier version's setting (/mm clip)
 end)

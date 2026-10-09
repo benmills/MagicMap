@@ -23,7 +23,7 @@ local IDLE_FOLLOW = 6 -- seconds untouched before the map follows you again
 local EXPAND_TIME, COLLAPSE_TIME = 0.22, 0.18
 local EXPAND_ZOOM_OUT = 1.5 -- M zooms out this much (the window grows far more)
 local EXPANDED_SIZE = 0.7 -- of the screen, each way
-local MAPTYPE_ZONE = Enum and Enum.UIMapType and Enum.UIMapType.Zone or 3
+local MAPTYPE_ZONE = Enum.UIMapType.Zone
 local SPAN = 200 -- yards across the window's shorter side to start with (Blizzard's widest: 467)
 
 local db
@@ -156,7 +156,7 @@ tinsert(UISpecialFrames, "MagicMapWorldMapEscape")
 
 -- Your zone's rect in tile space (walking up from a sub-zone or micro map).
 local function PlayerZoneRect()
-	local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+	local mapID = C_Map.GetBestMapForUnit("player")
 	local info = mapID and C_Map.GetMapInfo(mapID)
 	while info and info.mapType and info.mapType > MAPTYPE_ZONE and info.parentMapID do
 		mapID = info.parentMapID
@@ -216,17 +216,10 @@ escapeCatcher:SetScript("OnHide", Collapse)
 -- the quest log, is left alone.)
 local function OnToggleWorldMap()
 	if not (db and db.minimapMode) or not WorldMapFrame:IsShown() then return end
-	if HideUIPanel then HideUIPanel(WorldMapFrame) else WorldMapFrame:Hide() end
+	HideUIPanel(WorldMapFrame)
 	if expanded then Collapse() else Expand() end
 end
-
-local worldMapHooked = false
-local function HookWorldMap()
-	if worldMapHooked or not ToggleWorldMap then return end
-	worldMapHooked = true
-	hooksecurefunc("ToggleWorldMap", OnToggleWorldMap)
-end
-HookWorldMap()
+hooksecurefunc("ToggleWorldMap", OnToggleWorldMap)
 
 ---------------------------------------------------------------------------
 -- Entering and leaving
@@ -328,12 +321,9 @@ frame:HookScript("OnUpdate", ns.Timed("minimap mode idle", function()
 end))
 
 local events = CreateFrame("Frame")
-events:RegisterEvent("ADDON_LOADED")
 events:RegisterEvent("PLAYER_LOGOUT")
-events:SetScript("OnEvent", ns.TimedEvents("minimap mode", function(_, event, name)
-	if event == "ADDON_LOADED" then
-		HookWorldMap() -- load-on-demand world maps
-	elseif event == "PLAYER_LOGOUT" and small then
+events:SetScript("OnEvent", ns.TimedEvents("minimap mode", function()
+	if small then
 		-- Never come back expanded: save the minimap-sized window.
 		db.point = { "TOPLEFT", "BOTTOMLEFT", small[1], small[2] }
 		db.width, db.height = small[3], small[4]
