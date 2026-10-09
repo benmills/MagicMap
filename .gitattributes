@@ -1,8 +1,7 @@
-# Left out of release zips (git archive), matching .pkgmeta's ignore list.
+# Left out of release zips (git archive, see tools/package.sh).
 tools export-ignore
 .gitignore export-ignore
 .gitattributes export-ignore
-.pkgmeta export-ignore
 docs export-ignore
 .github export-ignore
 .claude export-ignore
