@@ -1,5 +1,4 @@
 """The file-format readers, on synthetic files."""
-import struct
 
 from fixtures import build_adt, build_blp, build_wdc5, build_wdt
 from mmtools.db2 import format_value, read_wdc5
@@ -40,10 +39,8 @@ def test_adt_chunks():
     heights = [float(i % 7) for i in range(145)]
     chunks = list(adt_chunks(build_adt([(3, 4, 12, 10.0, heights), (5, 6, 13, -50.0, None)])))
     assert [(c.ix, c.iy, c.area) for c in chunks] == [(3, 4, 12), (5, 6, 13)]
-    f32 = struct.unpack("<145f", struct.pack("<145f", *heights))
-    assert chunks[0].mean_height == 10.0 + sum(f32) / 145
     assert chunks[0].max_height == 16.0
-    assert chunks[1].mean_height is None and chunks[1].max_height == -50.0
+    assert chunks[1].max_height == -50.0
 
 
 def test_blp_edge_colors():

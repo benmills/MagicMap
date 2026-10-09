@@ -1,6 +1,6 @@
 """The data generators, end to end on a synthetic install, against golden
-output. The goldens were checked against the original Perl generators:
-tiles and heights byte for byte, borders geometry for geometry (the Perl
+output. The goldens were checked against the generators' pre-port output:
+tiles byte for byte, borders geometry for geometry (the old generator
 chained and broke ties in hash order, so only its geometry was stable).
 
 Regenerate after an intended change: UPDATE_GOLDEN=1 pytest tools/tests
@@ -12,8 +12,6 @@ import sys
 import pytest
 
 import fixtures
-from mmtools.formats import adt_chunks, wdt_maid
-from mmtools.sources import LocalSource
 
 TOOLS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GOLDEN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "golden")
@@ -37,13 +35,13 @@ def check_golden(path, name):
 @pytest.fixture(scope="module")
 def generated(world, tmp_path_factory):
     out = tmp_path_factory.mktemp("out")
-    tiles, heights, borders = out / "tiles.lua", out / "heights.lua", out / "borders.lua"
-    run_tool("gen_tiles.py", "local", world, fixtures.PRODUCT, "-o", str(tiles), "--heights", str(heights))
+    tiles, borders = out / "tiles.lua", out / "borders.lua"
+    run_tool("gen_tiles.py", "local", world, fixtures.PRODUCT, "-o", str(tiles))
     run_tool("gen_borders.py", "local", world, fixtures.PRODUCT, "-o", str(borders))
-    return {"tiles": tiles, "heights": heights, "borders": borders}
+    return {"tiles": tiles, "borders": borders}
 
 
-@pytest.mark.parametrize("kind", ["tiles", "heights", "borders"])
+@pytest.mark.parametrize("kind", ["tiles", "borders"])
 def test_golden(generated, kind):
     check_golden(generated[kind], f"{kind}.lua")
 
@@ -70,23 +68,3 @@ def test_files_load_in_lua(generated):
     assert maps[36][b"kind"] == b"dungeon" and maps[36][b"continent"] == 0
     L = lua_load(generated["borders"], fixtures.PRODUCT)
     assert list(L.globals().MagicMap_Borders.keys()) == [0]  # Kalimdor is under --min-tiles
-
-
-def test_heights_decode_like_the_addon(world, generated):
-    """Every chunk's height, decoded the way Core.lua's HeightAt does, is
-    within half a quantization step of the terrain's mean height (plus the
-    rounding of min and scale, written to 2 and 4 decimals)."""
-    L = lua_load(generated["heights"], fixtures.PRODUCT)
-    hm = L.globals().MagicMap_Heights[0]
-    lo, scale, shift = hm[b"min"], hm[b"scale"], hm[b"shift"]
-    src = LocalSource(world, fixtures.PRODUCT)
-    checked = 0
-    for key, tile in wdt_maid(src.read(fixtures.AZEROTH_WDT)).items():
-        s = hm[b"tiles"][key]
-        for c in adt_chunks(src.read(tile.root_adt)):
-            if c.heights is None:
-                continue
-            b = s[0] if len(s) == 1 else s[c.iy * 16 + c.ix]
-            assert abs(lo + ((b - shift) % 256) * scale - c.mean_height) <= scale / 2 + 0.005 + 255 * 0.00005
-            checked += 1
-    assert checked > 5000

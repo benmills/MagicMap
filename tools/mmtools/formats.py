@@ -59,10 +59,6 @@ class AdtChunk:
     heights: tuple | None     # the 145 MCVT offsets from z, if present
 
     @property
-    def mean_height(self) -> float | None:
-        return None if self.heights is None else self.z + sum(self.heights) / 145
-
-    @property
     def max_height(self) -> float:
         if self.heights is None:
             return self.z

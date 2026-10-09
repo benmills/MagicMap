@@ -1,8 +1,0 @@
-package-as: MagicMap
-
-ignore:
-  - tools
-  - .gitignore
-  - .pkgmeta
-  - docs
-  - .github
