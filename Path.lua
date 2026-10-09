@@ -21,7 +21,7 @@ edgeArrow:SetSize(32, 32)
 edgeArrow:Hide()
 
 ns.frame:HookScript("OnUpdate", ns.Timed("path arrow", function()
-	local t = ns.GetTarget and ns.GetTarget()
+	local t = ns.GetTarget()
 	if t and not t.inside and state.playerCol and state.playerMap == state.map then
 		local w, h = ns.ViewSize()
 		local x1, y1 = ns.TileToScreen(state.playerCol, state.playerRow)
@@ -65,8 +65,8 @@ local function Get(list, i, sublevel, thick)
 	if not l then
 		l = layer:CreateLine(nil, "ARTWORK", nil, sublevel)
 		l:SetThickness(thick)
-		if l.SetSnapToPixelGrid then l:SetSnapToPixelGrid(false) end
-		if l.SetTexelSnappingBias then l:SetTexelSnappingBias(0) end
+		l:SetSnapToPixelGrid(false)
+		l:SetTexelSnappingBias(0)
 		list[i] = l
 	end
 	return l
@@ -108,7 +108,7 @@ local function HalfPixel(v) return math.floor(v * 2 + 0.5) / 2 end
 
 ns.frame:HookScript("OnUpdate", ns.Timed("path line", function()
 	local n = 0
-	local t = state.path and ns.GetTarget and ns.GetTarget()
+	local t = state.path and ns.GetTarget()
 	if t and not t.inside and state.playerCol and state.playerMap == state.map then
 		-- On the canvas: tile (col, row) is at (col * zoom, row * zoom) down from its top left.
 		local z = state.zoom

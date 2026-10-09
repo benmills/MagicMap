@@ -10,22 +10,19 @@ local HITCH = 1 / 30 -- a frame slower than this is a visible hitch
 local rec -- the recording in progress
 
 ---------------------------------------------------------------------------
--- The client's own numbers, where it has them: its addon profiler
--- (C_AddOnProfiler, Retail-engine clients) times everything an addon runs,
--- events and every frame's scripts, so it's fair against other addons; and
--- each addon's memory.
+-- The client's own numbers: its addon profiler (C_AddOnProfiler) times
+-- everything an addon runs, events and every frame's scripts, so it's fair
+-- against other addons; and each addon's memory.
 ---------------------------------------------------------------------------
 
 local function Profiler()
-	local P, M = C_AddOnProfiler, Enum and Enum.AddOnProfilerMetric
-	if not (P and M and P.GetAddOnMetric) then return nil end
-	if P.IsEnabled and not P.IsEnabled() then return nil end
-	return P, M
+	local P = C_AddOnProfiler
+	if not P.IsEnabled() then return nil end
+	return P, Enum.AddOnProfilerMetric
 end
 
 -- Up to k { name, value } for the busiest addons, from GetTopKAddOnsForMetric.
 local function TopAddOns(P, metric, k)
-	if not P.GetTopKAddOnsForMetric then return {} end
 	local ok, results = pcall(P.GetTopKAddOnsForMetric, metric, k)
 	local out = {}
 	for _, r in ipairs(ok and type(results) == "table" and results or {}) do
@@ -41,13 +38,18 @@ local function Metric(P, name, metric)
 	return ok and type(v) == "number" and v or nil
 end
 
--- KB per addon, biggest first: { { name, kb }, ... }.
-local function Memory()
+-- The memory queries: the client's C_AddOns ones, or the globals it had before.
+local function MemoryAPI()
 	local update = UpdateAddOnMemoryUsage or (C_AddOns and C_AddOns.UpdateAddOnMemoryUsage)
 	local get = GetAddOnMemoryUsage or (C_AddOns and C_AddOns.GetAddOnMemoryUsage)
 	local count = C_AddOns and C_AddOns.GetNumAddOns or GetNumAddOns
 	local info = C_AddOns and C_AddOns.GetAddOnInfo or GetAddOnInfo
-	if not (update and get and count and info) then return nil end
+	return update, get, count, info
+end
+
+-- KB per addon, biggest first: { { name, kb }, ... }.
+local function Memory()
+	local update, get, count, info = MemoryAPI()
 	update()
 	local out = {}
 	for i = 1, count() do
@@ -102,25 +104,20 @@ end
 -- collection (what's left is live; the rest was garbage waiting for the
 -- collector), and the objects behind it.
 local function MemoryCheck()
-	local update = UpdateAddOnMemoryUsage or (C_AddOns and C_AddOns.UpdateAddOnMemoryUsage)
-	local get = GetAddOnMemoryUsage or (C_AddOns and C_AddOns.GetAddOnMemoryUsage)
-	if update and get then
-		update()
-		local before = get(ADDON)
-		collectgarbage("collect")
-		update()
-		local after = get(ADDON)
-		ns.Print(string.format("perf mem: MagicMap %.0f KB, %.0f KB after a full collection (%.0f KB was garbage)",
-			before, after, before - after))
-	end
-	local counts = ns.PoolCounts and ns.PoolCounts({}) or {}
+	local update, get = MemoryAPI()
+	update()
+	local before = get(ADDON)
+	collectgarbage("collect")
+	update()
+	local after = get(ADDON)
+	ns.Print(string.format("perf mem: MagicMap %.0f KB, %.0f KB after a full collection (%.0f KB was garbage)",
+		before, after, before - after))
+	local counts = ns.PoolCounts({})
 	local parts = {}
 	for kind, c in pairs(counts) do parts[#parts + 1] = string.format("%d %s (%d in use)", c.made, kind, c.used) end
 	table.sort(parts)
-	if ns.TileCounts then
-		local active, spare = ns.TileCounts()
-		parts[#parts + 1] = string.format("%d tiles drawn, %d spare", active, spare)
-	end
+	local active, spare = ns.TileCounts()
+	parts[#parts + 1] = string.format("%d tiles drawn, %d spare", active, spare)
 	ns.Print("  objects: " .. table.concat(parts, ", "))
 end
 
@@ -129,7 +126,7 @@ local function Compare()
 	local P, M = Profiler()
 	if P then
 		local recent, peak = Metric(P, ADDON, M.RecentAverageTime), Metric(P, ADDON, M.PeakTime)
-		local overall = P.GetOverallMetric and select(2, pcall(P.GetOverallMetric, M.RecentAverageTime))
+		local overall = select(2, pcall(P.GetOverallMetric, M.RecentAverageTime))
 		ns.Print(string.format("  client profiler: MagicMap %.3f ms/frame recently, peak %.1f ms%s",
 			recent or 0, peak or 0, type(overall) == "number" and string.format("; all addons %.3f ms/frame", overall) or ""))
 		local top = TopAddOns(P, M.RecentAverageTime, 6)
@@ -138,14 +135,12 @@ local function Compare()
 		ns.Print("  client profiler: not available on this client")
 	end
 	local mem = Memory()
-	if mem then
-		local mine
-		for i, e in ipairs(mem) do
-			if e[1] == ADDON then mine = i end
-		end
-		ns.Print(string.format("  memory: MagicMap %s (#%s of %d); biggest: %s",
-			mine and string.format("%.0f KB", mem[mine][2]) or "?", mine or "?", #mem, Ranked(mem, "%s %.0f KB", 6)))
+	local mine
+	for i, e in ipairs(mem) do
+		if e[1] == ADDON then mine = i end
 	end
+	ns.Print(string.format("  memory: MagicMap %s (#%s of %d); biggest: %s",
+		mine and string.format("%.0f KB", mem[mine][2]) or "?", mine or "?", #mem, Ranked(mem, "%s %.0f KB", 6)))
 end
 
 local function Report()
@@ -208,6 +203,5 @@ ns.slash.perf = function(arg)
 		ns.Print("perf: MagicMap against your other addons, right now")
 		return Compare()
 	end
-	if not debugprofilestop then return ns.Print("perf: this client has no profiling timer") end
 	if rec then Report() else Start() end
 end

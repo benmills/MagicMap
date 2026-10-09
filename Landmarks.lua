@@ -67,8 +67,7 @@ ns.AddPinLayer({ key = "rares", label = "Rares you've seen", group = "people", d
 local function VignettePins(mapID)
 	local list = {}
 	local V = C_VignetteInfo
-	if not (V and V.GetVignettes and V.GetVignetteInfo and V.GetVignettePosition) then return list end
-	local uiMapID = C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+	local uiMapID = C_Map.GetBestMapForUnit("player")
 	if not uiMapID then return list end
 	for _, guid in ipairs(V.GetVignettes() or {}) do
 		local info = V.GetVignetteInfo(guid)
@@ -101,7 +100,6 @@ ns.AddPinLayer({ key = "vignettes", label = "Live rares & treasures", group = "p
 local function AreaPOIPins(mapID)
 	local list, seen = {}, {}
 	local A = C_AreaPoiInfo
-	if not (A and A.GetAreaPOIForMap and A.GetAreaPOIInfo) then return list end
 	for _, uiMapID in ipairs(ns.GetQuestMaps(mapID)) do
 		for _, poiID in ipairs(A.GetAreaPOIForMap(uiMapID) or {}) do
 			if not seen[poiID] then

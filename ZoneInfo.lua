@@ -57,10 +57,9 @@ local function Dist(c0, r0, c1, r1) return math.sqrt((c1 - c0) ^ 2 + (r1 - r0) ^
 
 -- "Level 1-10", coloured against yours: green in range, red below it, grey past it.
 local function LevelLine(mapID)
-	if not (C_Map.GetMapLevels) then return nil end
 	local lo, hi = SafeCall(C_Map.GetMapLevels, mapID)
 	if type(lo) ~= "number" or type(hi) ~= "number" or hi <= 0 then return nil end
-	local mine = UnitLevel and UnitLevel("player")
+	local mine = UnitLevel("player")
 	local color = WHITE
 	if type(mine) == "number" and mine > 0 then
 		color = mine < lo and "|cffff6040" or mine > hi and GREY or "|cff40c040"
@@ -72,17 +71,15 @@ end
 -- Sub-zone names explored at the spot (exploration knows the area there);
 -- false if the client says nothing is explored, nil if it can't say.
 local function ExploredAreas(zone)
-	local api = C_MapExplorationInfo and C_MapExplorationInfo.GetExploredAreaIDsAtPosition
-	if not api or not CreateVector2D then return nil end
-	local ids = SafeCall(api, zone.mapID, CreateVector2D(zone.x, zone.y))
+	local ids = SafeCall(C_MapExplorationInfo.GetExploredAreaIDsAtPosition, zone.mapID, CreateVector2D(zone.x, zone.y))
 	if not ids or #ids == 0 then
 		-- Cities have no fog of war to lift.
-		if C_Map.IsCityMap and SafeCall(C_Map.IsCityMap, zone.mapID) then return nil end
+		if SafeCall(C_Map.IsCityMap, zone.mapID) then return nil end
 		return false
 	end
 	local names, seen = {}, { [zone.name] = true }
 	for _, id in ipairs(ids) do
-		local name = C_Map.GetAreaInfo and SafeCall(C_Map.GetAreaInfo, id)
+		local name = SafeCall(C_Map.GetAreaInfo, id)
 		if name and name ~= "" and not seen[name] then
 			seen[name] = true
 			names[#names + 1] = name
@@ -102,7 +99,7 @@ local function PlaceLine(zone, col, row)
 		place = DIM .. "Unexplored|r"
 		-- The offline borders still know the sub-zones' names (they're labelled on the map).
 		local name, d, lc, lr
-		if ns.SubzoneNear then name, d, lc, lr = ns.SubzoneNear(col, row) end
+		name, d, lc, lr = ns.SubzoneNear(col, row)
 		if name and d * TILE_YARDS <= SUBZONE_NEAR_YARDS and name ~= zone.name then
 			local at = ns.GetZoneAt(lc, lr) -- the label's own zone: not one across a border
 			if at and at.mapID == zone.mapID then place = place .. DIM .. ", near|r " .. WHITE .. name .. "|r" end
@@ -120,7 +117,7 @@ local function YouLine(col, row)
 end
 
 local function QuestLines(col, row, out)
-	local quests = ns.QuestsAt and ns.QuestsAt(col, row) or {}
+	local quests = ns.QuestsAt(col, row) or {}
 	table.sort(quests, function(a, b)
 		if a.followed ~= b.followed then return a.followed end
 		return a.title < b.title
@@ -140,7 +137,6 @@ end
 
 -- The nearest notable landmarks around the click, one per kind, closest first.
 local function NearbyLines(col, row, out)
-	if not ns.LayerPins then return end
 	local found = {}
 	for _, n in ipairs(NOTABLE) do
 		local best, bestD
@@ -165,9 +161,9 @@ end
 -- Lines describing tile (col, row) on the shown map, the first being the
 -- zone's name (gold); nil if there's nothing to say.
 function ns.ZoneInfoAt(col, row)
-	if not (col and state.map and C_Map) then return nil end
+	if not (col and state.map) then return nil end
 	local out = {}
-	local zone = ns.GetZoneAt and ns.GetZoneAt(col, row)
+	local zone = ns.GetZoneAt(col, row)
 	if zone then
 		out[1] = GOLD .. zone.name .. "|r"
 		out[2] = PlaceLine(zone, col, row)
@@ -180,7 +176,7 @@ function ns.ZoneInfoAt(col, row)
 		end
 	else
 		-- Open sea, or a map without zones: name the map, and the distance.
-		local cont = ns.GetContinentMapID and ns.GetContinentMapID(state.map)
+		local cont = ns.GetContinentMapID(state.map)
 		local info = cont and SafeCall(C_Map.GetMapInfo, cont)
 		if info and info.name then out[1] = GOLD .. info.name .. "|r" end
 		out[#out + 1] = YouLine(col, row)

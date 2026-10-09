@@ -21,7 +21,7 @@
 -- for continents stay; pins for the zone map alone (Questie's -1, its route
 -- lines, drawn for Blizzard's canvas) never come.
 --
--- Also here: finding every copy of the library, for MinimapBlips.lua, which
+-- Also here: finding every copy of the library, for MinimapTakeover.lua, which
 -- hosts each copy's minimap pins.
 
 local ADDON, ns = ...
@@ -39,7 +39,7 @@ local SYNC_EVERY = 1       -- s regardless, to catch pins the library took back
 -- The copies of HereBeDragons-Pins-2.0
 ---------------------------------------------------------------------------
 
-local copies = {} -- { lib, major, tag (the renamed part: "Questie"), core }
+local copies = {} -- { lib, major, tag (the renamed part: "Questie") }
 local libs = {}   -- the libs alone, for MinimapBlips
 local known = {}  -- lib -> copy
 local MarkDirty, RegisterLayers
@@ -48,8 +48,7 @@ local function AddCopy(major, lib)
 	if type(lib) ~= "table" or known[lib] then return end
 	local tag = major:match(PINS_MAJOR)
 	if not tag then return end
-	local copy = { lib = lib, major = major, tag = (tag:gsub("^[-_ ]+", "")),
-		core = LibStub(major:gsub("%-Pins%-2%.0$", "-2.0"), true) }
+	local copy = { lib = lib, major = major, tag = (tag:gsub("^[-_ ]+", "")) }
 	known[lib] = copy
 	copies[#copies + 1] = copy
 	libs[#libs + 1] = lib
@@ -65,7 +64,6 @@ end
 local scanned = false
 local function Scan()
 	scanned = true
-	if not LibStub then return end
 	if type(LibStub) == "table" and type(LibStub.libs) == "table" then
 		for major, lib in pairs(LibStub.libs) do
 			if type(major) == "string" then AddCopy(major, lib) end
@@ -73,7 +71,7 @@ local function Scan()
 	else
 		for _, major in ipairs(KNOWN) do AddCopy(major, LibStub(major, true)) end
 	end
-	if RegisterLayers then RegisterLayers() end
+	RegisterLayers()
 end
 
 -- Every copy's library table (rescan: look for new ones first).
@@ -109,11 +107,9 @@ local function Register(name)
 	if key then return key end
 	key = "addon:" .. name
 	layerOf[name] = key
-	if ns.AddLayer then
-		ns.AddLayer({ key = key, label = name == "Other" and "Other addons' pins" or name, group = "addons", default = true,
-			tip = "Map pins " .. (name == "Other" and "other addons put" or name .. " puts") .. " on the world map, shown here too.",
-			onToggle = function() Sync() end })
-	end
+	ns.AddLayer({ key = key, label = name == "Other" and "Other addons' pins" or name, group = "addons", default = true,
+		tip = "Map pins " .. (name == "Other" and "other addons put" or name .. " puts") .. " on the world map, shown here too.",
+		onToggle = function() Sync() end })
 	return key
 end
 
@@ -132,7 +128,6 @@ function RegisterLayers()
 end
 
 local function LayerOn(key)
-	if not ns.AddLayer then return true end -- no menu for it yet: always on
 	return ns.LayerEnabled(key)
 end
 
@@ -149,7 +144,7 @@ local spot = {}   -- icon -> { x, y, inst, col, row }: its tile position, while 
 local seen = {}
 local placedZoom
 
-local function WorldMapShown() return WorldMapFrame and WorldMapFrame:IsShown() end
+local function WorldMapShown() return WorldMapFrame:IsShown() end
 
 local function Active()
 	return ns.frame:IsShown() and state.map ~= nil and not WorldMapShown()
@@ -172,15 +167,15 @@ local function Place(icon, rec, z)
 end
 
 local function SetLevel(icon, level, fixed)
-	if fixed and icon.SetFixedFrameLevel then icon:SetFixedFrameLevel(false) end
+	if fixed then icon:SetFixedFrameLevel(false) end
 	icon:SetFrameLevel(level)
-	if fixed and icon.SetFixedFrameLevel then icon:SetFixedFrameLevel(true) end
+	if fixed then icon:SetFixedFrameLevel(true) end
 end
 
 local function Claim(icon)
 	local rec = {
 		home = icon:GetParent(), points = {}, shown = icon:IsShown(), level = icon:GetFrameLevel(),
-		fixed = icon.HasFixedFrameLevel and icon:HasFixedFrameLevel() or false,
+		fixed = icon:HasFixedFrameLevel(),
 	}
 	for i = 1, icon:GetNumPoints() do rec.points[i] = { icon:GetPoint(i) } end
 	icon:SetParent(host)
@@ -221,7 +216,7 @@ end
 local function Repeats(icon)
 	local d = rawget(icon, "data")
 	return type(d) == "table" and d.Type == "complete" and type(d.Id) == "number"
-		and ns.ShowsTurnIn ~= nil and ns.ShowsTurnIn(d.Id)
+		and ns.ShowsTurnIn(d.Id)
 end
 
 function Sync()
@@ -291,7 +286,7 @@ local dirty, sinceSync = true, 0
 function MarkDirty() dirty = true end
 
 host:SetScript("OnUpdate", ns.Timed("addon pins", function(_, elapsed)
-	sinceSync = sinceSync + (elapsed or 0)
+	sinceSync = sinceSync + elapsed
 	if (dirty and sinceSync >= SYNC_SOON) or sinceSync >= SYNC_EVERY then
 		dirty, sinceSync = false, 0
 		Sync()

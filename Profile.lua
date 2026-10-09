@@ -8,7 +8,6 @@ local clock = debugprofilestop
 
 -- fn wrapped to time each call into bucket `name`.
 function ns.Timed(name, fn)
-	if not clock then return fn end
 	return function(...)
 		local perf = ns.perf
 		if not perf then return fn(...) end
@@ -21,7 +20,6 @@ end
 -- An OnEvent handler (self, event, ...) wrapped to time each event into
 -- bucket "<name>: <event>".
 function ns.TimedEvents(name, fn)
-	if not clock then return fn end
 	local names = {}
 	return function(self, event, ...)
 		local perf = ns.perf
