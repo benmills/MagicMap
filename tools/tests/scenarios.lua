@@ -1451,6 +1451,18 @@ local function WithLibrary(icon)
 	return (p and p.icon == icon) or (p == UIParent and not icon:IsShown())
 end
 
+-- No addon brings LibStub at all: nothing to borrow, and nothing breaks.
+scenarios.addon_pins_without_libstub = function()
+	local saved = LibStub
+	LibStub = nil
+	local libs = ns.HBDPinLibs(true)
+	check(type(libs) == "table", "no LibStub: the scan still answers (with the copies it already knew)")
+	ns.frame:Hide()
+	ns.frame:Show()
+	Sim.Run(0.5)
+	LibStub = saved
+end
+
 scenarios.addon_pins_questie = function()
 	local _, icons = LoadQuestie()
 	local _, col, row = ns.MapToTile(1429, 0.5, 0.5)

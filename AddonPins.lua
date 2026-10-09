@@ -68,7 +68,7 @@ local function Scan()
 		for major, lib in pairs(LibStub.libs) do
 			if type(major) == "string" then AddCopy(major, lib) end
 		end
-	else
+	elseif LibStub then -- (no addon at all may bring one)
 		for _, major in ipairs(KNOWN) do AddCopy(major, LibStub(major, true)) end
 	end
 	RegisterLayers()
