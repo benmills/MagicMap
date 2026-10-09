@@ -23,7 +23,7 @@ local defaults = {
 	map = nil, -- instanceID being viewed; nil = player's continent
 	cx = 32, cy = 32,
 	debug = false, -- show tile/FileDataID/zoom in the title band
-	tint = true, -- draw tiles with Data/TileColor_*.lua's tints and coast fades
+	tint = true, -- draw tiles with Data/TileColor.lua's tints and coast fades
 	minimap = { angle = 215, hide = false }, -- minimap button position (degrees) / visibility
 }
 
@@ -77,7 +77,7 @@ end
 -- close button), so it looks and lines up exactly like the client's other
 -- windows - including Forever's re-skin. Everything lives in the title band:
 --
---   [Zone name v  context · coords]              (layers) (follow) [X]
+--   [Zone name v  context · coords]              (gear) (mode) [X]
 --
 -- and the map fills the rest of the frame, edge to edge under the border.
 -- The title is also the map picker: click it for continents and instances.
@@ -103,11 +103,16 @@ ButtonFrameTemplate_HideButtonBar(frame)
 if frame.Inset then frame.Inset:Hide() end
 if frame.TitleContainer and frame.TitleContainer.TitleText then frame.TitleContainer.TitleText:SetText("") end
 
+-- Where the window sits, for the next session (its size is saved on resize).
+local function SavePoint()
+	local p, _, rp, x, y = frame:GetPoint()
+	db.point = { p, rp, x, y }
+end
+
 frame:SetScript("OnDragStart", function() frame:StartMoving() end)
 frame:SetScript("OnDragStop", function()
 	frame:StopMovingOrSizing()
-	local p, _, rp, x, y = frame:GetPoint()
-	db.point = { p, rp, x, y }
+	SavePoint()
 end)
 
 -- Viewport: the map, filling the frame below the band. Clips the tiles to it;
@@ -155,17 +160,13 @@ local overlay = CreateFrame("Frame", nil, viewport)
 overlay:SetAllPoints()
 overlay:SetFrameLevel(tileLayer:GetFrameLevel() + 8)
 
--- Player marker: the Minimap's own arrow (an atlas on Retail).
+-- Player marker: the Minimap's own arrow.
 local playerMarker = CreateFrame("Frame", nil, overlay)
 playerMarker:SetSize(1, 1)
 playerMarker:Hide()
 
 local arrow = playerMarker:CreateTexture(nil, "OVERLAY")
-if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("minimaparrow") then
-	arrow:SetAtlas("minimaparrow")
-else
-	arrow:SetTexture("Interface\\Minimap\\MinimapArrow")
-end
+arrow:SetAtlas("minimaparrow")
 arrow:SetSize(32, 32)
 arrow:SetPoint("CENTER")
 
@@ -220,8 +221,7 @@ titleButton:SetScript("OnDragStart", function(self)
 end)
 titleButton:SetScript("OnDragStop", function()
 	frame:StopMovingOrSizing()
-	local p, _, rp, x, y = frame:GetPoint()
-	db.point = { p, rp, x, y }
+	SavePoint()
 end)
 titleButton:SetScript("OnClick", function(self)
 	if self.dragged then
@@ -245,7 +245,7 @@ titlePlate:SetColorTexture(0.03, 0.025, 0.02, 0.72)
 titlePlate:Hide()
 
 local function NaturalWidth(fs)
-	return fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth() or fs:GetStringWidth()
+	return fs:GetUnboundedStringWidth()
 end
 
 local compact = false -- minimap mode's chrome (see SetCompact)
@@ -255,9 +255,9 @@ local compact = false -- minimap mode's chrome (see SetCompact)
 local function SmallMap() return compact and not ns.IsMapExpanded() end
 
 -- Minimap mode's controls use Blizzard's own minimap art where the client
--- has it (Retail-engine clients), else plain textures.
+-- has it, else plain textures.
 local function HasAtlas(name)
-	return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) ~= nil
+	return C_Texture.GetAtlasInfo(name) ~= nil
 end
 
 -- The first of these atlases the client has, if any.
@@ -302,6 +302,7 @@ end
 -- map's red buttons: condense into the minimap, expand back to the window).
 local HEADER_ICON = 20
 local MODE_ART = {
+	-- Forever has no condense art, so the spyglass stands in for it.
 	window = {
 		atlas = { "redbutton-condense-c60", "redbutton-condense" },
 		pushed = { "redbutton-condense-pressed-c60", "redbutton-condense-pressed" },
@@ -312,7 +313,6 @@ local MODE_ART = {
 		atlas = { "redbutton-expand-c60", "redbutton-expand" },
 		pushed = { "redbutton-expand-pressed-c60", "redbutton-expand-pressed" },
 		highlight = { "redbutton-highlight-c60", "redbutton-highlight" },
-		file = "Interface\\Icons\\INV_Misc_Spyglass_03",
 	},
 }
 local modeButton = ArtButton(band, HEADER_ICON, HEADER_ICON, MODE_ART.window)
@@ -403,18 +403,17 @@ mapControls:SetAllPoints(viewport)
 mapControls:SetFrameLevel(frame:GetFrameLevel() + 518) -- under the resize grip
 
 local PAD = 12 -- from the map's edges
-local function ZoomArt(name, fallback)
-	return { atlas = { name }, pushed = { name .. "-down" }, highlight = { name .. "-mouseover" }, file = fallback }
+local function ZoomArt(name)
+	return { atlas = { name }, pushed = { name .. "-down" }, highlight = { name .. "-mouseover" } }
 end
-local zoomOut = ArtButton(mapControls, 20, HasAtlas("ui-hud-minimap-zoom-out") and 11 or 20,
-	ZoomArt("ui-hud-minimap-zoom-out", "Interface\\Buttons\\UI-MinusButton-Up"))
+local zoomOut = ArtButton(mapControls, 20, 11, ZoomArt("ui-hud-minimap-zoom-out"))
 zoomOut:SetPoint("BOTTOMRIGHT", -PAD, PAD + 6) -- clear of the resize grip
-local zoomIn = ArtButton(mapControls, 20, 20, ZoomArt("ui-hud-minimap-zoom-in", "Interface\\Buttons\\UI-PlusButton-Up"))
+local zoomIn = ArtButton(mapControls, 20, 20, ZoomArt("ui-hud-minimap-zoom-in"))
 zoomIn:SetPoint("BOTTOM", zoomOut, "TOP", 0, 2)
 
 -- A toggle: a dark disc with an icon, ringed in gold and lit while on.
 local TOGGLE = 24
-local function Toggle(atlas, fallback)
+local function Toggle(atlas)
 	local b = CreateFrame("Button", nil, mapControls)
 	b:SetSize(TOGGLE, TOGGLE)
 	b.ring = b:CreateTexture(nil, "BACKGROUND", nil, -1)
@@ -427,7 +426,7 @@ local function Toggle(atlas, fallback)
 	disc:SetPoint("CENTER")
 	disc:SetSize(TOGGLE - 3, TOGGLE - 3)
 	b.icon = b:CreateTexture(nil, "ARTWORK")
-	if HasAtlas(atlas) then b.icon:SetAtlas(atlas) else b.icon:SetTexture(fallback) end
+	b.icon:SetAtlas(atlas)
 	b.icon:SetPoint("CENTER")
 	b.icon:SetSize(TOGGLE - 7, TOGGLE - 7)
 	local glow = b:CreateTexture(nil, "HIGHLIGHT")
@@ -436,9 +435,9 @@ local function Toggle(atlas, fallback)
 	glow:SetAllPoints(disc)
 	return b
 end
-local followToggle = Toggle("ui-hud-minimap-arrow-player", "Interface\\Minimap\\MinimapArrow")
+local followToggle = Toggle("ui-hud-minimap-arrow-player")
 followToggle:SetPoint("BOTTOMLEFT", PAD, PAD)
-local pathToggle = Toggle("ui-hud-minimap-arrow-questtracking", "Interface\\Icons\\Ability_Tracking")
+local pathToggle = Toggle("ui-hud-minimap-arrow-questtracking")
 pathToggle:SetPoint("LEFT", followToggle, "RIGHT", 5, 0)
 
 local function SetLit(b, on)
@@ -538,7 +537,7 @@ local seen = {}
 -- Where the map runs out (open sea past the last tile), each edge tile fades
 -- into the backdrop colour sampled from that map's own edge water, so the
 -- square tile edges dissolve instead of stopping dead against a flat colour.
--- With colour data (Data/TileColor_<product>.lua: the mean colour along each
+-- With colour data (Data/TileColor.lua: the mean colour along each
 -- open side), the tile instead spills that colour outward across the empty
 -- cell, fading to the backdrop there: a bright coast no longer gets cut into a
 -- rectangle, and only a sliver of the tile itself is blended into the seam.
@@ -586,8 +585,8 @@ end
 -- unevenly (grit, and shimmer as the map moves). Tiles skip that: the canvas
 -- they share is the only thing that moves.
 local function Unsnapped(tex)
-	if tex.SetSnapToPixelGrid then tex:SetSnapToPixelGrid(false) end
-	if tex.SetTexelSnappingBias then tex:SetTexelSnappingBias(0) end
+	tex:SetSnapToPixelGrid(false)
+	tex:SetTexelSnappingBias(0)
 	return tex
 end
 
@@ -650,13 +649,6 @@ local function ReleaseTexture(tex)
 	SetOn(tex.water, false)
 	tex.fdid, tex.zoom, tex.colors = nil, nil, nil
 	freeTextures[#freeTextures + 1] = tex
-end
-
-local function ReleaseAllTiles()
-	for key, tex in pairs(activeTiles) do
-		ReleaseTexture(tex)
-		activeTiles[key] = nil
-	end
 end
 
 -- The tile-space bounds of a map's tiles.
@@ -912,24 +904,14 @@ end
 -- Map geometry from C_Map (world-space rectangles; no map artwork is used)
 ---------------------------------------------------------------------------
 
-local MAPTYPE_CONTINENT = Enum and Enum.UIMapType and Enum.UIMapType.Continent or 2
-local MAPTYPE_ZONE = Enum and Enum.UIMapType and Enum.UIMapType.Zone or 3
-local MAPTYPE_MICRO = Enum and Enum.UIMapType and Enum.UIMapType.Micro or 5
+local MAPTYPE_CONTINENT = Enum.UIMapType.Continent
+local MAPTYPE_ZONE = Enum.UIMapType.Zone
+local MAPTYPE_MICRO = Enum.UIMapType.Micro
 
 local mapRects = {}        -- uiMapID -> { inst, col0, row0, col1, row1 } | false
 local zonesByMap           -- instanceID -> sorted list of zone rects (+ name, uiMapID)
 local continentByInst = {} -- instanceID -> uiMapID of the continent map
 local questMapsByInst = {} -- instanceID -> uiMapIDs (zones + micro maps) that can carry quests
-
-local function MapPos(x, y)
-	if CreateVector2D then return CreateVector2D(x, y) end
-	return { x = x, y = y }
-end
-
-local function WorldXY(v)
-	if v.GetXY then return v:GetXY() end
-	return v.x, v.y
-end
 
 -- A uiMap is an axis-aligned rectangle in world space, so two corners
 -- give us a linear transform between its normalized coords and tile space.
@@ -937,13 +919,13 @@ local function MapRect(uiMapID)
 	local rect = mapRects[uiMapID]
 	if rect ~= nil then return rect or nil end
 	rect = false
-	if uiMapID and C_Map and C_Map.GetWorldPosFromMapPos then
-		local ok, inst, tl = pcall(C_Map.GetWorldPosFromMapPos, uiMapID, MapPos(0, 0))
-		local ok2, inst2, br = pcall(C_Map.GetWorldPosFromMapPos, uiMapID, MapPos(1, 1))
+	if uiMapID then
+		local ok, inst, tl = pcall(C_Map.GetWorldPosFromMapPos, uiMapID, CreateVector2D(0, 0))
+		local ok2, inst2, br = pcall(C_Map.GetWorldPosFromMapPos, uiMapID, CreateVector2D(1, 1))
 		if ok and ok2 and inst and tl and br and inst == inst2 then
 			-- Same axis order as UnitPosition: (north, west).
-			local top, left = WorldXY(tl)
-			local bottom, right = WorldXY(br)
+			local top, left = tl:GetXY()
+			local bottom, right = br:GetXY()
 			local col0, row0 = WorldToTile(top, left)
 			local col1, row1 = WorldToTile(bottom, right)
 			if col1 > col0 and row1 > row0 then
@@ -973,7 +955,6 @@ local function BuildZones()
 	zonesByMap = {}
 	wipe(continentByInst)
 	wipe(questMapsByInst)
-	if not (C_Map and C_Map.GetMapInfo) then return end
 	local seenNames, continentArea = {}, {}
 	for uiMapID = 1, 4000 do
 		local info = C_Map.GetMapInfo(uiMapID)
@@ -1254,7 +1235,7 @@ local function UpdatePlayer()
 	else
 		-- Instances may withhold your position; still know which map you're on.
 		state.playerCol, state.playerRow = nil, nil
-		local inst = GetInstanceInfo and select(8, GetInstanceInfo())
+		local inst = select(8, GetInstanceInfo())
 		state.playerMap = inst and TileData[inst] and inst or nil
 	end
 end
@@ -1348,7 +1329,7 @@ OpenMapMenu = function(owner)
 			parent:CreateRadio(TileData[id].name, function() return state.map == id end, function()
 				ShowMap(id)
 				frame:Show()
-				return MenuResponse and MenuResponse.Close
+				return MenuResponse.Close
 			end)
 		end
 		root:CreateTitle("Continents")
@@ -1403,12 +1384,12 @@ local function UpdateTitle()
 			name = continent
 		end
 	elseif here or (state.playerMap and state.playerMap == state.map) then
-		local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+		local mapID = C_Map.GetBestMapForUnit("player")
 		local info = mapID and C_Map.GetMapInfo(mapID)
 		name = (info and info.name) or GetZoneText()
 		local subzone = GetSubZoneText and GetSubZoneText()
 		if subzone and subzone ~= "" and subzone ~= name then parts[#parts + 1] = subzone end
-		local pos = mapID and C_Map.GetPlayerMapPosition and C_Map.GetPlayerMapPosition(mapID, "player")
+		local pos = mapID and C_Map.GetPlayerMapPosition(mapID, "player")
 		if pos and (not SmallMap() or hovering) then
 			local x, y = pos:GetXY()
 			parts[#parts + 1] = Coords(x, y)
@@ -1511,8 +1492,7 @@ viewport:SetScript("OnMouseUp", function(_, button)
 	if state.movingFrame then
 		frame:StopMovingOrSizing()
 		state.movingFrame = nil
-		local p, _, rp, x, y = frame:GetPoint()
-		db.point = { p, rp, x, y }
+		SavePoint()
 		return
 	end
 	if button == "RightButton" then
@@ -1686,7 +1666,7 @@ frame:SetScript("OnHide", function()
 	SaveView()
 end)
 
--- API for Layers.lua / Landmarks.lua
+-- API for the other modules
 ns.state = state
 ns.frame = frame
 ns.viewport = viewport
@@ -1710,8 +1690,7 @@ ns.SetZoom = function(zoom)
 	state.dirty = true
 end
 ns.SaveFrameLayout = function()
-	local p, _, rp, x, y = frame:GetPoint()
-	db.point = { p, rp, x, y }
+	SavePoint()
 	db.width, db.height = frame:GetSize()
 end
 ns.Print = Print
@@ -1743,7 +1722,6 @@ end
 ns.SetPath, ns.UpdateControls = SetPath, UpdateControls
 ns.GoalZoom, ns.GoalCenter = GoalZoom, GoalCenter
 ns.FlyTo = function(cx, cy, zoom, duration, onDone) AnimateTo(cx, cy, zoom, duration or FLY_TIME, { onDone = onDone }) end
-ns.FitZoom = FitZoom
 ns.WorldToTile = WorldToTile
 ns.MapRect, ns.MapToTile, ns.TileToMap = MapRect, MapToTile, TileToMap
 ns.GetZones, ns.GetContinentMapID, ns.GetQuestMaps = GetZones, GetContinentMapID, GetQuestMaps
