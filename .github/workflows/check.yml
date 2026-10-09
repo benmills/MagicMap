@@ -13,8 +13,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -r tools/requirements-dev.txt
-      - name: Lua syntax and globals
-        run: python3 tools/luacheck.py
-      - name: Tools, data and smoke tests
-        run: python3 -m pytest tools/tests -q
+          cache: pip
+          cache-dependency-path: tools/requirements-dev.txt
+      - name: Lua globals, tools and data tests
+        run: tools/check.sh
