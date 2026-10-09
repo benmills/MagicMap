@@ -146,6 +146,8 @@ for _, e in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" },
 	if e[3] then t:SetWidth(1) else t:SetHeight(1) end
 end
 
+ns.SyncShown = function() return syncCheck ~= nil end
+
 ns.slash.sync = function(arg)
 	syncCheck = not syncCheck and { alpha = arg == "full" and 1 or 0.5 } or nil
 	if not syncCheck then syncOutline:Hide() end

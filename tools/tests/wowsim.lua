@@ -533,14 +533,6 @@ end
 function Tooltip:AddDoubleLine(left, right) self:AddLine(left) end
 function Tooltip:SetText(text, r, g, b, a, wrap) self:ClearLines(); self:AddLine(text) end
 function Tooltip:NumLines() return S[self].numLines or 0 end
-function Tooltip:SetUnit(unit)
-	self:ClearLines()
-	local name = UnitName(unit)
-	if name then
-		self:AddLine(name)
-		self:AddLine(Sim.unitSubtitle[unit] or "Level 10")
-	end
-end
 -- The Minimap's hover: Sim.blip names the blip under the cursor; with none
 -- the tooltip is left empty and hidden.
 local function minimapMouseover(self)
@@ -1262,14 +1254,13 @@ end
 function GetSubZoneText() return "Goldshire" end
 
 Sim.units = { player = { name = "Tester", class = "MAGE", level = 5 } }
-Sim.unitSubtitle = {}
 function UnitName(unit) local u = Sim.units[unit]; return u and u.name end
 function UnitIsGhost(unit) return unit == "player" and Sim.ghost or false end
 function UnitExists(unit) return Sim.units[unit] ~= nil end
 function UnitClass(unit) local u = Sim.units[unit]; if u then return u.class, u.class, 8 end end
 function UnitGUID(unit) local u = Sim.units[unit]; return u and (u.guid or "Player-1-00000001") end
 function UnitIsPlayer(unit) local u = Sim.units[unit]; return u ~= nil and u.npc == nil end
-function UnitClassification(unit) return "normal" end
+function UnitClassification(unit) return Sim.units[unit] and Sim.units[unit].classification or "normal" end
 function UnitLevel(unit) local u = Sim.units[unit]; return u and (u.level or 1) or 0 end
 -- A group: Sim.group lists the other members' unit tokens (party1...),
 -- each in Sim.units with a tile position (col, row) on the player's instance.
@@ -1423,12 +1414,6 @@ C_SuperTrack = {
 	GetSuperTrackedQuestID = function() return Sim.superTracked or 0 end,
 	SetSuperTrackedQuestID = function(id) Sim.superTracked = id end,
 	SetSuperTrackedUserWaypoint = function(on) if on then Sim.superTracked = 0 end end,
-}
-C_TooltipInfo = {
-	GetUnit = function(unit)
-		local name = UnitName(unit)
-		return name and { lines = { { leftText = name }, { leftText = Sim.unitSubtitle[unit] or "Level 10" } } }
-	end,
 }
 -- 12.x secret values: readable, but any arithmetic or comparison on them
 -- from addon code is an error. GetUnitSpeed is one.

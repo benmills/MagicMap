@@ -16,12 +16,10 @@ local MAX_NEARBY = 2
 local GOLD, WHITE, GREY, DIM = "|cffffd100", "|cffffffff", "|cffa8a8a8", "|cff808080"
 local SEP = DIM .. "  ·  |r"
 
--- Notable pins, in order of interest: layer key, label, and for services
--- the kinds that count (Landmarks.lua's entry.kind).
+-- Notable pins, in order of interest: layer key and label.
 local NOTABLE = {
 	{ key = "flight", label = "Flight point" },
 	{ key = "dungeons", label = "Dungeon" },
-	{ key = "services", label = "Innkeeper", kinds = { inn = true } },
 	{ key = "graveyards", label = "Graveyard" },
 }
 
@@ -147,7 +145,7 @@ local function NearbyLines(col, row, out)
 	for _, n in ipairs(NOTABLE) do
 		local best, bestD
 		for _, e in ipairs(ns.LayerPins(n.key) or {}) do
-			if e.col and (not n.kinds or n.kinds[e.kind]) then
+			if e.col then
 				local d = Dist(col, row, e.col, e.row)
 				if d * TILE_YARDS <= NEAR_YARDS and (not bestD or d < bestD) then best, bestD = e, d end
 			end

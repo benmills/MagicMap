@@ -2115,7 +2115,6 @@ end
 local STATIC_LAYERS = { zoneLabels = true, zoneBorders = true, unexplored = true }
 local GROUP_KEYS = {}
 for _, g in ipairs(GROUPS) do GROUP_KEYS[g.key] = true end
-local ADDONS_INLINE = 6 -- more addon layers than this fold into a submenu (MenuUtil)
 
 -- Redraw what a layer's setting affects, then tell its owner.
 local function ApplyLayer(key)
@@ -2167,30 +2166,24 @@ local function Tooltip(layer)
 		tooltip:AddLine(layer.tip, 1, 0.82, 0, true)
 	end
 end
-ns.gearButton:HookScript("OnClick", function(self)
-	ns.OpenClientMenu(self, function(_, root)
-		for i, sec in ipairs(LayerSections()) do
-			local parent = root
-			if i > 1 then root:CreateDivider() end
-			if sec.key == "addons" and #sec.layers > ADDONS_INLINE then
-				parent = root:CreateButton(sec.title)
-			else
-				root:CreateTitle(sec.title)
-			end
-			for _, layer in ipairs(sec.layers) do
-				local key = layer.key
-				local cb = parent:CreateCheckbox((layer.parent and "     " or "") .. layer.label,
-					function() return Checked(key) end,
-					function()
-						OnLayerSelect(key)
-						return MenuResponse and MenuResponse.Refresh
-					end, key)
-				if layer.parent and cb.SetEnabled then cb:SetEnabled(function() return Usable(layer) end) end
-				if layer.tip and cb.SetTooltip then cb:SetTooltip(Tooltip(layer)) end
-			end
+-- The gear menu's layer part (GearMenu.lua builds the rest): a submenu per
+-- section, of checkboxes that keep the menu open.
+function ns.AddLayerMenus(root)
+	for _, sec in ipairs(LayerSections()) do
+		local menu = root:CreateButton(sec.title)
+		for _, layer in ipairs(sec.layers) do
+			local key = layer.key
+			local cb = menu:CreateCheckbox((layer.parent and "     " or "") .. layer.label,
+				function() return Checked(key) end,
+				function()
+					OnLayerSelect(key)
+					return MenuResponse.Refresh
+				end, key)
+			if layer.parent then cb:SetEnabled(function() return Usable(layer) end) end
+			if layer.tip then cb:SetTooltip(Tooltip(layer)) end
 		end
-	end)
-end)
+	end
+end
 
 ns.slash.layers = function()
 	local parts = {}
@@ -2303,7 +2296,7 @@ end
 
 -- A layer's pins on the shown map, also while the layer is off. Only layers
 -- whose source just reads the game (quests and corpse keep state).
-local PURE_SOURCES = { flight = true, graveyards = true, dungeons = true, services = true, areaPOIs = true }
+local PURE_SOURCES = { flight = true, graveyards = true, dungeons = true, areaPOIs = true }
 function ns.LayerPins(key)
 	if pinData[key] then return pinData[key] end
 	if PURE_SOURCES[key] and sources[key] and state.map then return SafeCall(sources[key], state.map) end

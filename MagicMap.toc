@@ -24,3 +24,4 @@ MinimapTakeover.lua
 MinimapBlips.lua
 MinimapMode.lua
 Perf.lua
+GearMenu.lua

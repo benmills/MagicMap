@@ -200,6 +200,8 @@ local function Start()
 	ns.Print(string.format("perf: recording %d s; pan and zoom around (/mm perf again to stop early)", DURATION))
 end
 
+ns.PerfRecording = function() return rec ~= nil end
+
 ns.slash.perf = function(arg)
 	if arg == "mem" then return MemoryCheck() end
 	if arg == "top" then

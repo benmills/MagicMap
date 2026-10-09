@@ -1600,7 +1600,7 @@ Tooltip(followToggle, FollowTip)
 Tooltip(pathToggle, PathTip)
 Tooltip(zoomIn, function() return "Zoom in  |cff888888(sets how close the map rests)|r" end)
 Tooltip(zoomOut, function() return "Zoom out  |cff888888(sets how close the map rests)|r" end)
-Tooltip(gearButton, function() return "Layers" end)
+Tooltip(gearButton, function() return "Layers, tracking and settings" end)
 
 local titleElapsed = 0
 -- While /mm perf records, the map script's parts are timed too ("> " marks

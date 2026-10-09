@@ -119,7 +119,7 @@ end
 scenarios.slash_commands = function()
 	for _, cmd in ipairs({ "", "", "follow", "follow", "map 1", "map kalimdor", "map 0", "map nowhere", "zone elwynn",
 		"zone westfall", "zone nowhere", "tiles", "debug", "debug", "reset", "layers", "landmarks", "icon", "icon",
-		"blips", "minimap", "sync", "sync", "sync full", "sync", "minimap", "perf top", "perf mem", "perf", "perf", "help" }) do
+		"minimap", "sync", "sync", "sync full", "sync", "minimap", "perf top", "perf mem", "perf", "perf", "help" }) do
 		Sim.Slash(cmd)
 		Sim.Run(0.3)
 	end
@@ -894,7 +894,7 @@ scenarios.layers = function()
 	local want = {
 		{ "Map", "zoneLabels", "zoneBorders", "unexplored" },
 		{ "Quests", "quests", "questAreas", "questAreasApprox", "offers" },
-		{ "Places", "flight", "dungeons", "graveyards", "areaPOIs", "services" },
+		{ "Places", "flight", "dungeons", "graveyards", "areaPOIs" },
 		{ "People", "group", "rares", "vignettes" },
 		{ "You", "corpse", "waypoint" },
 	}
@@ -907,7 +907,31 @@ scenarios.layers = function()
 		end
 		i = i + 1
 	end
-	check(rows[i] == nil or rows[i].title == "Other addons", "only other addons may follow, got " .. tostring(rows[i] and (rows[i].title or rows[i].key)))
+	if rows[i] and rows[i].title == "Other addons" then
+		repeat i = i + 1 until not rows[i] or rows[i].title
+	end
+	check(rows[i] and rows[i].title == "Tracking", "then Blizzard's tracking, got " .. tostring(rows[i] and (rows[i].title or rows[i].key)))
+	-- Its own types, but not those ours replace (flight masters, quest POIs, POIs).
+	local tracking = {}
+	i = i + 1
+	while rows[i] and not rows[i].title do
+		tracking[#tracking + 1] = rows[i].text
+		i = i + 1
+	end
+	check(table.concat(tracking, ",") == "Find Herbs,Mailbox", "tracking lists Blizzard-only types, got " .. table.concat(tracking, ","))
+	check(rows[i] and rows[i].title == "Settings", "and settings last, got " .. tostring(rows[i] and (rows[i].title or rows[i].key)))
+	local mailbox = Sim.tracking[5]
+	for _, r in ipairs(rows) do
+		if r.text == "Mailbox" then r.toggle() end
+	end
+	Sim.Run(0.2)
+	check(not mailbox.active, "a tracking checkbox switches Blizzard's tracking")
+	local tint = MagicMapDB.tint
+	for _, r in ipairs(rows) do
+		if r.text == "Tile colours" then r.toggle() end
+	end
+	check(MagicMapDB.tint ~= tint, "a settings checkbox flips its setting")
+	check(LayersOpen(), "and the menu stays open")
 	local approx = FindRow(rows, "questAreasApprox")
 	check(approx and approx.indent and approx.text:find("Estimate missing areas", 1, true), "the estimate is a short, indented sub-option")
 	check(approx and approx.tip ~= nil, "with the long explanation as a tooltip")
@@ -943,7 +967,7 @@ scenarios.layers = function()
 			toggled = toggled + 1
 		end
 	end
-	check(toggled >= 17, "every layer has a toggle, got " .. toggled)
+	check(toggled >= 16, "every layer has a toggle, got " .. toggled)
 
 	-- Another addon's layer, added after login: under "Other addons", from its default.
 	local calls = {}
@@ -978,17 +1002,26 @@ end
 
 scenarios.landmarks = function()
 	Sim.units.target = { name = "Brog Hamfist", npc = true, guid = "Creature-0-0-0-0-1234-0" }
-	Sim.unitSubtitle.target = "<General Supplies>"
-	Sim.units.npc = Sim.units.target
-	Sim.unitSubtitle.npc = "<General Supplies>"
 	Sim.FireEvent("PLAYER_TARGET_CHANGED")
-	for _, e in ipairs({ "MERCHANT_SHOW", "GOSSIP_SHOW", "TRAINER_SHOW", "BANKFRAME_OPENED", "MAIL_SHOW", "CONFIRM_BINDER",
-		"VIGNETTES_UPDATED", "AREA_POIS_UPDATED", "QUEST_LOG_UPDATE", "MAP_EXPLORATION_UPDATED" }) do
+	Sim.Run(0.4)
+	local function Remembered()
+		local n = 0
+		for _, entries in pairs(MagicMapLandmarks) do
+			for _ in pairs(entries) do n = n + 1 end
+		end
+		return n
+	end
+	check(Remembered() == 0, "an ordinary NPC isn't remembered")
+	Sim.units.target.classification = "rare"
+	Sim.FireEvent("PLAYER_TARGET_CHANGED")
+	for _, e in ipairs({ "VIGNETTES_UPDATED", "AREA_POIS_UPDATED", "QUEST_LOG_UPDATE", "MAP_EXPLORATION_UPDATED" }) do
 		Sim.FireEvent(e)
 		Sim.Run(0.4)
 	end
+	local inst = select(4, UnitPosition("player"))
+	check(MagicMapLandmarks[inst] and MagicMapLandmarks[inst]["rare:1234"], "a rare you target is remembered")
 	Sim.Slash("landmarks")
-	check(next(MagicMapLandmarks or {}) ~= nil, "a vendor visit is remembered")
+	check((Sim.prints[#Sim.prints] or ""):find("1 rares remembered", 1, true), "/mm landmarks counts it")
 end
 
 scenarios.window = function()

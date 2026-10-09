@@ -23,9 +23,10 @@ there. Zone and sub-zone borders and names are traced from the terrain itself.
 
 ![Picking Eastern Kingdoms from the title, then clicking Dun Morogh to fly there](docs/pick-and-fly.gif)
 
-Also drawn: the game's own **quest areas**, and **landmarks** you've used (vendors, trainers,
-flight points and more). The gear picks what's shown, grouped into Map, Quests, Places, People,
-You and other addons' pins; hover an entry for what it does.
+Also drawn: the game's own **quest areas**, flight points, dungeon entrances, and **rares** you've
+seen. The gear picks what's shown (Map, Quests, Places, People, You and other addons' pins; hover
+an entry for what it does), Blizzard's minimap **tracking** (vendors, trainers, herbs...), and
+**settings**, debug helpers among them.
 
 **Minimap mode.** MagicMap takes your minimap's spot, square and framed, and zooms out far past
 it. MagicMap draws its own markers (quests, flight points, points of interest, party members)
@@ -57,7 +58,7 @@ yours (wheel or + / −); nothing else changes it.
 | Waypoint | Ctrl-click (Ctrl-right-click clears) |
 | Follow / Path | Toggles at the map's bottom-left (on hover) |
 | Resting zoom | + / − at the map's bottom-right (on hover) |
-| Layers / Minimap mode | Gear and red button by the zone name (on hover) |
+| Layers, tracking, settings / Minimap mode | Gear and red button by the zone name (on hover) |
 
 Slash commands (`/mm`): `follow`, `path`, `map <name>`, `zone <name>`, `minimap`, `layers`, `icon`,
 `debug`, `reset`. For checking things in game: `perf` (how the map keeps up; `perf top` ranks MagicMap's CPU and memory against your other addons, `perf mem` splits its memory into live and garbage) and `sync` (Blizzard's
