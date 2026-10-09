@@ -198,7 +198,14 @@ scenarios.minimap_mode = function()
 	check(math.abs(ns.state.zoom - 1.5 * side / (200 / (1600 / 3))) < 1, "and keeps showing 200 yards as it grows")
 	ns.frame:SetSize(side, side)
 	check(Minimap:GetParent() == ns.viewport, "the Minimap moved into the map")
-	check(Minimap:GetAlpha() == 0, "its terrain is hidden")
+	check(not Sim.minimapGround and Minimap:GetAlpha() == 1, "its terrain is off (not faded: its blips at full strength)")
+	check(Sim.minimapUnrotated, "and it stays north up, even with Rotate Minimap")
+	MagicMapDB.terrainByAlpha = true -- the gear's fallback: FarmHud's trick
+	ns.Takeover.RefreshTerrain()
+	check(Sim.minimapGround and Minimap:GetAlpha() == 0, "the fallback fades the Minimap instead")
+	MagicMapDB.terrainByAlpha = nil
+	ns.Takeover.RefreshTerrain()
+	check(not Sim.minimapGround and Minimap:GetAlpha() == 1, "and back")
 	check(Sim.minimapButton:GetParent() == ns.minimapStandIn, "other addons' minimap buttons moved to the stand-in")
 	local pinHost = _G.MagicMapMinimapPins
 	check(Sim.gatherPin:GetParent() == Minimap or Sim.gatherPin:GetParent() == pinHost, "pins stay with the Minimap")
@@ -241,7 +248,7 @@ scenarios.minimap_mode = function()
 	-- Indoors: the window wears the Minimap itself, and the wheel zooms it.
 	Sim.indoors = true
 	Sim.Run(1)
-	check(Minimap:IsVisible() and Minimap:GetAlpha() == 1 and ns.MinimapShowsPlayer(), "indoors, the Minimap shows whole")
+	check(Minimap:IsVisible() and Sim.minimapGround and Minimap:GetAlpha() == 1 and ns.MinimapShowsPlayer(), "indoors, the Minimap shows whole")
 	check(Sim.rimInset == nil and Sim.BlobRingsAt(1), "indoors, its own arrows and rings are back")
 	local mz = Minimap:GetZoom()
 	local top = ns.viewport -- what the cursor would wheel: the highest wheel-enabled frame over the map
@@ -252,7 +259,7 @@ scenarios.minimap_mode = function()
 	check(Minimap:GetZoom() ~= mz, "indoors, the wheel zooms the Minimap")
 	Sim.indoors = false
 	Sim.Run(2)
-	check(Minimap:GetAlpha() == 0, "back outdoors, our map again")
+	check(not Sim.minimapGround, "back outdoors, our map again")
 	check(ns.frame:GetFrameStrata() == MinimapCluster:GetFrameStrata(), "it sits at the minimap's strata")
 	-- M: ours grows to most of the screen instead of Blizzard's world map.
 	local smallW, smallZoom = ns.frame:GetWidth(), ns.state.zoom
@@ -290,19 +297,25 @@ scenarios.minimap_mode = function()
 	check(not WorldMapFrame:IsShown() and not ns.IsMapExpanded(), "M closes Blizzard's map rather than growing ours")
 	check(ns.frame:GetFrameStrata() == MinimapCluster:GetFrameStrata(), "at the minimap's strata again")
 	check(ns.frame:IsShown(), "...without closing the minimap")
-	-- Rotating minimap: hands the Minimap back.
+	-- Rotate Minimap: the Minimap stays (north up, ours don't turn), but
+	-- HereBeDragons would turn its pins, so they go out of sight.
+	ns.SetZoom(160)
+	Sim.Run(1)
+	check(Sim.gatherPin:IsVisible(), "HereBeDragons' pins show")
 	Sim.cvars.rotateMinimap = "1"
 	Sim.Run(0.5)
-	check(Minimap:GetParent() == parent, "rotate minimap gives the Minimap back")
+	check(Minimap:GetParent() == ns.viewport and ns.MinimapShowsPlayer(), "with Rotate Minimap, the Minimap stays in the map")
+	check(not Sim.gatherPin:IsVisible(), "but HereBeDragons' pins are out of sight")
 	Sim.cvars.rotateMinimap = "0"
 	Sim.Run(0.5)
+	check(Sim.gatherPin:IsVisible(), "and back when it's off")
 	Sim.FireEvent("PLAYER_LOGOUT")
 	-- Off again with the back button: everything goes home.
 	Sim.Click(ns.modeButton)
 	Sim.Run(1)
 	check(not ns.IsMinimapMode(), "minimap mode is off")
 	check(Minimap:GetParent() == parent, "the Minimap is back in its cluster")
-	check(Minimap:GetAlpha() == 1, "its terrain is visible again")
+	check(Minimap:GetAlpha() == 1 and Sim.minimapGround and not Sim.minimapUnrotated, "its terrain is back, and it follows Rotate Minimap again")
 	check(not Sim.minimapMask:find("WHITE8X8") and Sim.rimInset == nil and Sim.BlobRingsAt(1), "round again, its arrows and rings back")
 	check(math.abs(Minimap:GetWidth() - 140) < 0.01, "at its own size")
 	check(Sim.minimapButton:GetParent() == Minimap, "addon buttons are back on the Minimap")
@@ -458,6 +471,7 @@ local function MinimapSnapshot()
 	add("Minimap zoom", Minimap:GetZoom())
 	add("Minimap mouse", Minimap:IsMouseEnabled(), Minimap:IsMouseWheelEnabled())
 	add("Minimap clamped", Minimap:IsClampedToScreen())
+	add("Minimap ground, unrotated", Sim.minimapGround, Sim.minimapUnrotated)
 	add("Minimap hit", Minimap:GetHitRectInsets())
 	frame("MinimapCluster", MinimapCluster)
 	for _, name in ipairs({ "MinimapBorder", "MinimapBorderTop", "MinimapZoneTextButton" }) do frame(name, _G[name]) end
@@ -486,10 +500,10 @@ scenarios.minimap_restores_everything = function()
 	Sim.Run(1)
 	ToggleWorldMap()
 	Sim.Run(1)
-	Sim.cvars.rotateMinimap = "1" -- given back...
+	Sim.cvars.rotateMinimap = "1"
 	Sim.Run(0.5)
-	check(not ns.Takeover.IsEngaged(), "rotate minimap releases it")
-	Sim.cvars.rotateMinimap = "0" -- ...and taken again
+	check(ns.Takeover.IsEngaged(), "rotate minimap keeps it")
+	Sim.cvars.rotateMinimap = "0"
 	Sim.Run(1)
 	ns.frame:Hide()
 	Sim.Run(0.2)

@@ -35,6 +35,10 @@ local SETTINGS = {
 	"-",
 	{ "Debug info in the title", on = function() return db.debug end, run = function() Command("debug") end },
 	{ "Blizzard's terrain over ours", on = function() return ns.SyncShown() end, run = function() Command("sync") end },
+	{ "Hide its terrain by fading it (the old way)", on = function() return db.terrainByAlpha end, run = function()
+		db.terrainByAlpha = not db.terrainByAlpha or nil
+		ns.Takeover.RefreshTerrain()
+	end },
 	{ "Record performance", on = function() return ns.PerfRecording() end, run = function() Command("perf") end },
 	{ "CPU and memory vs. other addons", run = function() Command("perf top") end },
 	{ "Memory breakdown", run = function() Command("perf mem") end },

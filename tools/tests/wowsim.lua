@@ -823,6 +823,7 @@ function IsAltKeyDown() return Sim.modifiers.alt end
 Sim.modifiers = {}
 
 Sim.cvars = { rotateMinimap = "0" }
+Sim.minimapGround, Sim.minimapUnrotated = true, false
 function GetCVar(name) return Sim.cvars[name] end
 C_CVar = { GetCVar = GetCVar }
 
@@ -1089,6 +1090,11 @@ C_Minimap = {
 	end,
 	SetMinimapInsetInfo = function(minAngle, maxAngle, scalar) Sim.rimInset = scalar end,
 	ClearMinimapInsetInfo = function() Sim.rimInset = nil end,
+	-- Its ground (terrain) and whether it ignores Rotate Minimap (HybridMinimap's switches).
+	GetDrawGroundTextures = function() return Sim.minimapGround end,
+	SetDrawGroundTextures = function(on) assert(type(on) == "boolean", "SetDrawGroundTextures: boolean expected"); Sim.minimapGround = on end,
+	IsRotateMinimapIgnored = function() return Sim.minimapUnrotated end,
+	SetIgnoreRotateMinimap = function(on) assert(type(on) == "boolean", "SetIgnoreRotateMinimap: boolean expected"); Sim.minimapUnrotated = on end,
 	-- Tracking: the client keeps it per character (a CVar).
 	GetNumTrackingTypes = function() return #Sim.tracking end,
 	GetTrackingInfo = function(i)

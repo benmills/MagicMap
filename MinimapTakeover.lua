@@ -4,9 +4,10 @@
 --
 --   Engage()   takes the Minimap into the map window: its children and the
 --              things hanging off it go to a stand-in at its usual spot, the
---              cluster hides, the Minimap sits in our viewport, faded to its
---              blips (Minimap:SetAlpha only fades terrain, as FarmHud relies
---              on), square, its rim icons pushed off screen.
+--              cluster hides, the Minimap sits in our viewport, drawing only
+--              its blips (no ground, as Blizzard's HybridMinimap does it),
+--              square, north up even with Rotate Minimap, its rim icons
+--              pushed off screen.
 --   Release()  puts all of that back.
 --   In between, MinimapBlips.lua (the policy) only places it: Place (its
 --   blips over our terrain), ShowWhole (indoors), Hide, SetLevel.
@@ -16,7 +17,6 @@
 -- back is exactly what was taken.
 --
 -- Relies on behaviour the client doesn't document (README, "Unknowns"):
---   * Minimap:SetAlpha(0) hides its terrain but not its blips;
 --   * blips hide where the Minimap's mask texture is transparent;
 --   * C_Minimap.SetMinimapInsetInfo pushes the rim's icons outward;
 --   * HereBeDragons' SetMinimapObject and its minimapPins table.
@@ -34,6 +34,7 @@ local hover = false    -- the mouse is over the Minimap
 local undo = {}        -- what Engage changed, as functions that change it back
 local ours = {}        -- our own children of the Minimap, which stay on it
 local lastMask, lastInsets, lastSize
+local terrainAlpha, terrainByAlpha -- what SetTerrain last applied
 local placed = {} -- where Place last anchored it: canvas, x, y
 local followed    -- the window strata and indoor state FollowWindow last applied
 
@@ -116,8 +117,12 @@ local function IsPin(obj)
 	return name and name:find("GatherMatePin", 1, true) ~= nil
 end
 
+-- With Rotate Minimap, HereBeDragons turns its pins with your facing (it reads
+-- the setting, not the Minimap), while the Minimap stays north up in our map:
+-- they'd land in the wrong places, so they stay out of sight.
 local function HostFor(hbd, host)
-	if host ~= Minimap and ns.HostsWorldPins and ns.HostsWorldPins(hbd) then return hiddenHost end
+	if host == Minimap then return host end
+	if ns.HostsWorldPins(hbd) or C_CVar.GetCVar("rotateMinimap") == "1" then return hiddenHost end
 	return host
 end
 
@@ -291,6 +296,23 @@ end
 -- Engage and release
 ---------------------------------------------------------------------------
 
+-- Its terrain: alpha 0 hides it, else draws it at that alpha (indoors 1;
+-- /mm sync's look under it). Hidden, it's C_Minimap.SetDrawGroundTextures,
+-- Blizzard's own switch (HybridMinimap); with db.terrainByAlpha, the older
+-- way: the Minimap at alpha 0, which fades its terrain but not its blips.
+local function SetTerrain(alpha)
+	local byAlpha = db and db.terrainByAlpha or false
+	if alpha == terrainAlpha and byAlpha == terrainByAlpha then return end
+	terrainAlpha, terrainByAlpha = alpha, byAlpha
+	C_Minimap.SetDrawGroundTextures(byAlpha or alpha > 0)
+	Minimap:SetAlpha((byAlpha or alpha > 0) and alpha or 1)
+end
+
+-- Apply a change of db.terrainByAlpha now.
+function T.RefreshTerrain()
+	if engaged then SetTerrain(terrainAlpha or 0) end
+end
+
 -- The Minimap's own setup, put back last.
 local function KeepMinimap()
 	local m = Minimap
@@ -299,6 +321,7 @@ local function KeepMinimap()
 	for i = 1, m:GetNumPoints() do points[i] = { m:GetPoint(i) } end
 	local scale, strata, level = m:GetScale(), m:GetFrameStrata(), m:GetFrameLevel()
 	local zoom, alpha, shownBefore = m:GetZoom(), m:GetAlpha(), m:IsShown()
+	local ground, unrotated = C_Minimap.GetDrawGroundTextures(), C_Minimap.IsRotateMinimapIgnored()
 	local mouse, wheel, clamped = m:IsMouseEnabled(), m:IsMouseWheelEnabled(), m:IsClampedToScreen()
 	OnRelease(function()
 		m:SetParent(parent)
@@ -312,6 +335,8 @@ local function KeepMinimap()
 		m:EnableMouseWheel(wheel)
 		m:SetHitRectInsets(0, 0, 0, 0)
 		m:SetAlpha(alpha)
+		C_Minimap.SetDrawGroundTextures(ground)
+		C_Minimap.SetIgnoreRotateMinimap(unrotated)
 		m:SetZoom(zoom)
 		m:SetShown(shownBefore)
 		m:SetClampedToScreen(clamped)
@@ -383,9 +408,10 @@ function T.Engage()
 	Minimap:SetMouseClickEnabled(false)
 	Minimap:SetMouseMotionEnabled(true)
 	Minimap:EnableMouseWheel(false)
-	Minimap:SetAlpha(0)
+	C_Minimap.SetIgnoreRotateMinimap(true) -- our terrain doesn't turn
+	lastMask, lastInsets, lastSize, terrainAlpha = nil, nil, nil, nil
+	SetTerrain(0)
 	Minimap:SetClampedToScreen(false)
-	lastMask, lastInsets, lastSize = nil, nil, nil
 	T.SetMask(T.SQUARE_MASK)
 	ClearRim(true)
 	OnRelease(function() ClearRim(false) end)
@@ -410,7 +436,7 @@ function T.Release()
 		if not ok and not failure then failure = err end
 		undo[i] = nil
 	end
-	lastMask, lastInsets, lastSize, followed = nil, nil, nil, nil
+	lastMask, lastInsets, lastSize, terrainAlpha, followed = nil, nil, nil, nil, nil
 	wipe(placed)
 	if failure then error(failure, 0) end
 end
@@ -435,15 +461,15 @@ local function SetHitInsets(l, r, t, b)
 	Minimap:SetHitRectInsets(l, r, t, b)
 end
 
--- Indoors (on) or out: the Minimap shown whole over a backdrop, or faded to
--- just its blips under our markers.
+-- Indoors (on) or out: the Minimap shown whole over a backdrop, or just its
+-- blips under our markers.
 function T.SetIndoor(on)
 	if on == indoor then return end
 	indoor = on
 	indoorBg:SetFrameLevel(ns.overlay:GetFrameLevel() + 1)
 	indoorBg:SetShown(on)
 	FollowWindow()
-	Minimap:SetAlpha(on and 1 or 0)
+	SetTerrain(on and 1 or 0)
 	ClearRim(not on) -- indoors it's Blizzard's minimap, rim and all
 	if on then
 		T.SetMask(T.SQUARE_MASK)
@@ -491,7 +517,7 @@ end
 -- Outdoors: centred on (x, y) of `canvas` (you, on the tiles' canvas, so it
 -- moves with them pixel for pixel), d px across, `mask` confining its blips
 -- to the square `insets` leave for hover ({ left, right, top, bottom }).
--- alpha: its terrain's (0 but for /mm sync).
+-- alpha: its terrain's (0, hidden, but for /mm sync).
 function T.Place(canvas, x, y, d, mask, insets, alpha)
 	FollowWindow()
 	-- Anchored to the canvas, so it only moves when you do (or the zoom does);
@@ -513,7 +539,7 @@ function T.Place(canvas, x, y, d, mask, insets, alpha)
 		pinHost:SetSize(d, d)
 		PlacePins(pinHost)
 	end
-	if Minimap:GetAlpha() ~= alpha then Minimap:SetAlpha(alpha) end
+	SetTerrain(alpha)
 	if not Minimap:IsShown() then Minimap:Show() end
 	if not pinHost:IsShown() then pinHost:Show() end
 	shown = true

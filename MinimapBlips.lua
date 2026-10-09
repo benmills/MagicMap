@@ -105,16 +105,11 @@ ns.MinimapPlan = { Level = PickLevel, Mask = MaskFor }
 -- When it may join the map at all
 ---------------------------------------------------------------------------
 
-local function GetCVarValue(name)
-	return C_CVar.GetCVar(name)
-end
-
 -- nil if the Minimap can join the map right now, else why not.
 local function Blocker()
 	if not (ns.IsMinimapMode and ns.IsMinimapMode()) then return "off" end
 	if not ns.frame:IsShown() then return "the map is closed" end
 	if FarmHud and FarmHud.IsShown and FarmHud:IsShown() then return "FarmHud has the minimap" end
-	if GetCVarValue("rotateMinimap") == "1" then return "Rotate Minimap is on" end
 	if not ns.Camera().onMap then return "you're not on the map being shown" end
 	return nil
 end

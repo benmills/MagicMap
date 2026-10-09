@@ -85,8 +85,9 @@ alongside ours).
 - **Rendering.** Only visible tiles are drawn, from a pool. Wheel zoom eases toward a target.
   Pins and labels move as you zoom and are re-laid out once it settles. Borders (thousands of
   lines) are built a slice per frame into a hidden buffer, then cross-faded in.
-- **Minimap mode** copies FarmHud's trick: `Minimap:SetAlpha(0)` hides Blizzard's terrain but
-  not its blips. The real Minimap then moves into MagicMap's window, centred on you and sized
+- **Minimap mode** does what Blizzard's own HybridMinimap does: `C_Minimap.SetDrawGroundTextures(false)`
+  stops Blizzard's terrain but not its blips, and `C_Minimap.SetIgnoreRotateMinimap(true)` keeps it
+  north up. The real Minimap then moves into MagicMap's window, centred on you and sized
   so its yards-per-pixel matches our zoom, so its blips (and HereBeDragons pins) line up with our
   terrain. The client doesn't clip it to the window, so a mask texture (`Textures/MinimapMask/`)
   confines its blips to the biggest square around you inside the window, and HereBeDragons pins
@@ -104,7 +105,8 @@ alongside ours).
 - **Forever only.** The TOC, data and code target WoW Forever (a Retail-engine client) and
   nothing else; instances have no zone borders (one zone each).
 - **Minimap mode relies on undocumented behaviour:**
-  - that `SetAlpha` on the Minimap hides only the terrain (FarmHud depends on this too);
+  - that the Minimap without its ground textures draws nothing behind its blips (if it doesn't,
+    the gear's Settings can switch back to FarmHud's trick, `SetAlpha(0)`);
   - HereBeDragons' internal pin table;
   - `C_Minimap.SetMinimapInsetInfo` pushing the rim arrows off screen (its arguments aren't documented);
   - Blizzard's default round mask texture, restored when minimap mode ends.
@@ -112,7 +114,8 @@ alongside ours).
 - **Blip range is the minimap's.** Blizzard's blips only cover about 230 yards around you, so
   zoomed far out, only MagicMap's own pins remain. They also step aside while zooming, and when
   zoomed in closer than Blizzard's closest minimap zoom.
-- **Rotate Minimap isn't supported**; minimap mode hands the minimap back while it's on.
+- **Rotate Minimap**: in minimap mode the minimap stays north up, like the map; other addons'
+  minimap pins (HereBeDragons turns them with you) stay hidden while it's on.
 - **Taint.** Minimap mode hides Blizzard frames from addon code (the minimap cluster, and the
   world map when M grows MagicMap instead). That could cause "action blocked" errors, especially
   in combat.
