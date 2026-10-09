@@ -1866,6 +1866,6 @@ SlashCmdList.MAGICMAP = function(msg)
 	elseif ns.slash[cmd] then
 		ns.slash[cmd](arg)
 	else
-		Print("/mm [toggle] | follow | path | map <id|name> | zone <name> | icon | minimap | tiles | tint | clip | dupes | layers | landmarks | perf | debug | reset")
+		Print("/mm [toggle] | follow | path | map <id|name> | zone <name> | icon | minimap | tiles | tint | dupes | layers | landmarks | perf | debug | reset")
 	end
 end
