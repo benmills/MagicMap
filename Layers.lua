@@ -991,7 +991,7 @@ end
 -- Minimap has the mouse (minimap mode), MinimapTakeover settles the last two
 -- right after Blizzard's own hover handler, every frame, so nothing flickers.
 function ns.OnMapHover(col, row)
-	if ns.MinimapHasMouse and ns.MinimapHasMouse() then return end
+	if ns.MinimapHasMouse() then return end
 	local questID = col and BlobQuestAt(col, row)
 	SetHoverQuest("area", questID)
 	local owner = GameTooltip:GetOwner()

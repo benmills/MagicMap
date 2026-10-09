@@ -132,7 +132,7 @@ local function Compare()
 		local top = TopAddOns(P, M.RecentAverageTime, 6)
 		if #top > 0 then ns.Print("  busiest addons: " .. Ranked(top, "%s %.3f", 6)) end
 	else
-		ns.Print("  client profiler: not available on this client")
+		ns.Print("  client profiler: off")
 	end
 	local mem = Memory()
 	local mine

@@ -876,7 +876,7 @@ end
 -- Only what changed: most frames you've neither moved nor turned.
 local marker = {}
 local function RenderArrow()
-	if state.playerCol and state.playerMap == state.map and not (ns.MinimapShowsPlayer and ns.MinimapShowsPlayer()) then
+	if state.playerCol and state.playerMap == state.map and not ns.MinimapShowsPlayer() then
 		local w, h = ViewSize()
 		local x = (state.playerCol - state.cx) * state.zoom + w / 2
 		local y = (state.playerRow - state.cy) * state.zoom + h / 2
