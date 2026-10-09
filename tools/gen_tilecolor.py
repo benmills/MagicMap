@@ -65,6 +65,7 @@ from dataclasses import dataclass
 from itertools import accumulate
 
 from mmtools.formats import RGB, blp_dxt, box_downsample, wdt_maid
+from mmtools.log import log
 from mmtools.maps import MAP_DB2, read_maps
 from mmtools.sources import Source, add_source_args, source_from_args
 from mmtools.tga import write_tga
@@ -96,10 +97,6 @@ FRAME = 0.1           # tiles: how deep flat frame stripes on an open-sea tile m
 FRAME_MAX = 0.5       # at most this share of an open-sea tile may be a one-colour bracket
 FRAME_CONTRAST = 0.2  # ... whose colour is at least this far from the backdrop
 WATER_BLUE = 0.06     # a sample this much bluer than red is water (blue or teal)
-
-
-def log(msg: str) -> None:
-    print(msg, file=sys.stderr)
 
 
 # --- the tile set ---------------------------------------------------------------

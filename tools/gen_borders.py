@@ -23,6 +23,7 @@ import sys
 from collections import deque
 
 from mmtools.formats import adt_chunks, wdt_maid
+from mmtools.log import log
 from mmtools.maps import AREATABLE_DB2, MAP_DB2, read_area_parents, read_maps
 from mmtools.sources import Source, add_source_args, source_from_args
 
@@ -35,10 +36,6 @@ MIN_SUBZONE_CELLS = 6  # subzones smaller than this get no label
 # Chunk cells are keyed gc * 1024 + gr (global chunk column, row); chunk
 # corners (border vertices) vx * 1100 + vy.
 CELL, VERT = 1024, 1100
-
-
-def log(msg: str) -> None:
-    print(msg, file=sys.stderr)
 
 
 class Areas:
