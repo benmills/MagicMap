@@ -656,12 +656,14 @@ sources.offers = function(mapID)
 end
 
 ---------------------------------------------------------------------------
--- Party and raid members: dots in their class colours. They walk, so they
+-- Party and raid members: dots in their class colours, in the art the
+-- Minimap's own blips use, so ours and its look alike. They walk, so they
 -- are moved every frame, apart from the pin layout. (UnitPosition works for
 -- them outdoors; instances withhold it.)
 ---------------------------------------------------------------------------
 
 local GROUP_SIZE = 12
+local GROUP_BLIP = "Interface\\Minimap\\PartyRaidBlipsV2" -- a filled dot, then a ring, white with a black edge
 local groupDots = {}
 
 local function GroupDotOnEnter(self)
@@ -683,15 +685,10 @@ local function GroupDot(i)
 	if dot then return dot end
 	dot = CreateFrame("Frame", nil, canvases.pins)
 	dot:SetSize(GROUP_SIZE, GROUP_SIZE)
-	dot.ring = dot:CreateTexture(nil, "ARTWORK", nil, 0)
-	dot.ring:SetTexture(CIRCLE)
-	dot.ring:SetVertexColor(0, 0, 0, 0.9)
-	dot.ring:SetPoint("CENTER")
-	dot.ring:SetSize(GROUP_SIZE, GROUP_SIZE)
-	dot.icon = dot:CreateTexture(nil, "ARTWORK", nil, 1)
-	dot.icon:SetTexture(CIRCLE)
-	dot.icon:SetPoint("CENTER")
-	dot.icon:SetSize(GROUP_SIZE - 3, GROUP_SIZE - 3)
+	dot.icon = dot:CreateTexture(nil, "ARTWORK")
+	dot.icon:SetTexture(GROUP_BLIP)
+	dot.icon:SetTexCoord(0, 0.5, 0, 1)
+	dot.icon:SetAllPoints()
 	dot:EnableMouse(true)
 	if dot.SetPropagateMouseClicks then dot:SetPropagateMouseClicks(true) end
 	dot:SetScript("OnEnter", GroupDotOnEnter)

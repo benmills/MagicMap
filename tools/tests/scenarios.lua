@@ -690,6 +690,12 @@ scenarios.group_members = function()
 	Sim.Run(0.2)
 	local dot = Dot()
 	check(dot and At(dot, Sim.units.party1.col, Sim.units.party1.row), "a party member shows where they are")
+	check(dot and dot.icon:GetTexture() == "Interface\\Minimap\\PartyRaidBlipsV2", "in the art of the Minimap's own party blips")
+	Sim.units.party1.dead = true
+	Sim.Run(0.1)
+	check(dot and dot.icon:GetVertexColor() < 0.6, "greyed while dead")
+	Sim.units.party1.dead = nil
+	Sim.Run(0.1)
 	Sim.units.party1.row = Sim.units.party1.row + 0.04
 	Sim.Run(0.1)
 	check(dot and At(dot, Sim.units.party1.col, Sim.units.party1.row), "and moves with them")
