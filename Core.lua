@@ -180,10 +180,7 @@ band:SetHeight(BAND_HEIGHT)
 
 local closeButton = frame.CloseButton -- the template's, already in the band's corner
 closeButton:SetFrameLevel(band:GetFrameLevel() + 5)
-closeButton:SetScript("OnClick", function()
-	if ns.OnCloseClicked and ns.OnCloseClicked() then return end
-	frame:Hide()
-end)
+closeButton:SetScript("OnClick", function() frame:Hide() end)
 
 local title = band:CreateFontString(nil, "OVERLAY")
 title:SetFont(FONT, 14, "")
@@ -252,6 +249,10 @@ local function NaturalWidth(fs)
 end
 
 local compact = false -- minimap mode's chrome (see SetCompact)
+
+-- Minimap mode at the minimap's size: names where you are, keeps to actions.
+-- Grown (M), it reads as a big map, in the same chrome.
+local function SmallMap() return compact and not ns.IsMapExpanded() end
 
 -- Minimap mode's controls use Blizzard's own minimap art where the client
 -- has it (Retail-engine clients), else plain textures.
@@ -1390,8 +1391,8 @@ local function UpdateTitle()
 	local tc, tr
 	hoverZoneID = nil
 	if hovering then tc, tr = CursorTile() end
-	-- Compact (minimap mode) always names where you are; coordinates only on hover.
-	local here = compact and state.playerMap and state.playerMap == state.map
+	-- At the minimap's size it always names where you are; coordinates only on hover.
+	local here = SmallMap() and state.playerMap and state.playerMap == state.map
 	if hovering and not here then
 		local z = ns.GetZoneAt and ns.GetZoneAt(tc, tr)
 		if z then
@@ -1408,11 +1409,11 @@ local function UpdateTitle()
 		local subzone = GetSubZoneText and GetSubZoneText()
 		if subzone and subzone ~= "" and subzone ~= name then parts[#parts + 1] = subzone end
 		local pos = mapID and C_Map.GetPlayerMapPosition and C_Map.GetPlayerMapPosition(mapID, "player")
-		if pos and (not compact or hovering) then
+		if pos and (not SmallMap() or hovering) then
 			local x, y = pos:GetXY()
 			parts[#parts + 1] = Coords(x, y)
 		end
-		local t = state.path and (not compact or hovering) and ns.GetTarget and ns.GetTarget()
+		local t = state.path and (not SmallMap() or hovering) and ns.GetTarget and ns.GetTarget()
 		if t and t.inside then
 			parts[#parts + 1] = string.format("|cffffd27f%s|r here", t.title or "Target")
 		elseif t and state.playerCol then
@@ -1421,7 +1422,7 @@ local function UpdateTitle()
 		end
 	else
 		name = state.zoneName or continent
-		if not compact then parts[#parts + 1] = "|cff8a7f6eright-click to return to you|r" end
+		if not SmallMap() then parts[#parts + 1] = "|cff8a7f6eright-click to return to you|r" end
 	end
 	if db.debug then
 		tc, tr = tc or state.cx, tr or state.cy
@@ -1491,11 +1492,11 @@ local function MapMenuItems(col, row)
 	return items
 end
 
--- The big map leads with what's at the click (ZoneInfo.lua); compact
--- (minimap mode) keeps to the actions.
+-- The big map leads with what's at the click (ZoneInfo.lua); at the
+-- minimap's size it keeps to the actions.
 local function OpenMapMenuAt(col, row)
 	local items = MapMenuItems(col, row)
-	local info = not compact and ns.ZoneInfoAt and ns.ZoneInfoAt(col, row) or nil
+	local info = not SmallMap() and ns.ZoneInfoAt and ns.ZoneInfoAt(col, row) or nil
 	if #items == 0 and not info then return end
 	ns.OpenClientMenu(viewport, function(_, root)
 		if info then
@@ -1850,13 +1851,15 @@ SlashCmdList.MAGICMAP = function(msg)
 		end
 		Print("tile set: " .. tostring(tileSetName) .. " " .. tostring(tileSetVersion) .. ". Maps: " .. table.concat(names, ", "))
 	elseif cmd == "reset" then
-		frame:ClearAllPoints()
-		frame:SetPoint("CENTER")
-		frame:SetSize(defaults.width, defaults.height)
-		db.point, db.width, db.height = { "CENTER", "CENTER", 0, 0 }, defaults.width, defaults.height
-		state.zoom = defaults.zoom
-		SetFollow(true)
-		frame:Show()
+		if not ns.ResetMinimapLayout() then -- (minimap mode resets its own)
+			frame:ClearAllPoints()
+			frame:SetPoint("CENTER")
+			frame:SetSize(defaults.width, defaults.height)
+			db.point, db.width, db.height = { "CENTER", "CENTER", 0, 0 }, defaults.width, defaults.height
+			state.zoom = defaults.zoom
+			SetFollow(true)
+			frame:Show()
+		end
 	elseif cmd == "debug" then
 		db.debug = not db.debug
 		Print("debug info " .. (db.debug and "on" or "off"))

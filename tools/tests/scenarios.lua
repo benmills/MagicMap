@@ -260,6 +260,7 @@ scenarios.minimap_mode = function()
 	Sim.Run(1)
 	check(ns.IsMapExpanded() and not WorldMapFrame:IsShown(), "M grows our window instead of opening Blizzard's map")
 	check(ns.frame:GetWidth() > smallW * 2 and ns.frame:GetParent() == UIParent, "to most of the screen")
+	check(ns.IsCompact() and not ns.frame.CloseButton:IsShown(), "in the same chrome: no title band, no close button")
 	check(ns.state.follow and ns.state.zoom < smallZoom and ns.state.zoom >= smallZoom / 1.5 - 0.5,
 		"still on you, zoomed out only a little")
 	ToggleWorldMap()
@@ -307,6 +308,63 @@ scenarios.minimap_mode = function()
 	check(Sim.minimapButton:GetParent() == Minimap, "addon buttons are back on the Minimap")
 	check(MinimapCluster:IsShown() and _G.MinimapBorder:IsVisible(), "the minimap cluster is shown again")
 	check(Sim.minimapButton:IsVisible(), "addon buttons are visible again")
+end
+
+-- Minimap mode keeps its own place and size: moved and resized there, off
+-- (the window goes back to its own), and on again, it's where you left it.
+scenarios.minimap_mode_remembers = function()
+	local normalW = ns.frame:GetWidth()
+	Sim.Click(ns.modeButton)
+	Sim.Run(1)
+	local home = { ns.frame:GetLeft(), ns.frame:GetTop() }
+	local function Place(left, top, side)
+		ns.frame:ClearAllPoints()
+		ns.frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+		ns.frame:SetSize(side, side)
+		ns.SaveFrameLayout()
+	end
+	Place(300, 500, 260)
+	Sim.Run(0.5)
+	local zoom = ns.state.zoom
+	-- Grown and left from there, the minimap-sized rect is the one kept.
+	ToggleWorldMap()
+	Sim.Run(1)
+	Sim.Click(ns.modeButton)
+	Sim.Run(1)
+	check(not ns.IsMinimapMode() and math.abs(ns.frame:GetWidth() - normalW) < 1, "off: the window is back at its own size")
+	Sim.Click(ns.modeButton)
+	Sim.Run(1)
+	check(math.abs(ns.frame:GetLeft() - 300) < 1 and math.abs(ns.frame:GetTop() - 500) < 1, "on again: where it was left")
+	check(math.abs(ns.frame:GetWidth() - 260) < 1 and math.abs(ns.state.zoom - zoom) < 1, "at the size and zoom it had")
+	-- Off, it's kept in saved variables, so it lasts across a reload.
+	Sim.Click(ns.modeButton)
+	Sim.Run(1)
+	check(MagicMapDB.minimapLayout and math.abs(MagicMapDB.minimapLayout[3] - 260) < 1, "kept in saved variables")
+	Sim.Click(ns.modeButton)
+	Sim.Run(1)
+	-- Grown, it reads as a big map in the same chrome: your coordinates show
+	-- without hovering (at the minimap's size, only while you hover).
+	local function ShowsCoords()
+		for _, r in ipairs({ ns.titleText:GetParent():GetRegions() }) do
+			if r.GetText and (r:GetText() or ""):find("%d+%.%d, %d+%.%d") then return true end
+		end
+		return false
+	end
+	ToggleWorldMap()
+	Sim.MoveCursorTo(UIParent, 0.01, 0.01)
+	Sim.Run(1)
+	check(ShowsCoords(), "grown, the title shows your coordinates without hovering")
+	SlashCmdList.MAGICMAP("reset")
+	Sim.Run(0.5)
+	check(ns.IsMapExpanded() and ns.IsMinimapMode() and math.abs(ns.frame:GetWidth() - 260) > 50,
+		"/mm reset while grown leaves it alone")
+	ToggleWorldMap()
+	Sim.Run(1)
+	check(not ShowsCoords(), "at the minimap's size, not until you hover")
+	SlashCmdList.MAGICMAP("reset")
+	Sim.Run(1)
+	check(math.abs(ns.frame:GetLeft() - home[1]) < 1 and math.abs(ns.frame:GetTop() - home[2]) < 1, "/mm reset: back onto the minimap")
+	check(ns.IsMinimapMode() and MagicMapDB.minimapLayout == nil, "still in minimap mode, nothing remembered")
 end
 
 -- Where the Minimap's blips may show: its mask's opaque square (screen
@@ -1296,7 +1354,7 @@ scenarios.map_menu_info = function()
 	-- M grows it into a big map: the info is back.
 	ToggleWorldMap()
 	Sim.Run(1)
-	check(ns.IsMapExpanded() and not ns.IsCompact(), "M grows it, not compact")
+	check(ns.IsMapExpanded() and ns.IsCompact(), "M grows it, in the same chrome")
 	Sim.Click(ns.viewport, "RightButton", 0.5, 0.5)
 	info = MapMenu()
 	check(info[1] ~= nil and #info >= 2, "expanded: the info is on top")
