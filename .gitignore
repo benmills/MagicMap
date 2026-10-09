@@ -17,3 +17,6 @@ __pycache__/
 
 # Local test environment (tools/check.sh)
 /.venv/
+
+# Agent worktrees (Claude Code)
+/.claude/worktrees/
