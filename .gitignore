@@ -14,3 +14,6 @@
 # Python
 __pycache__/
 .pytest_cache/
+
+# Local test environment (tools/check.sh)
+/.venv/

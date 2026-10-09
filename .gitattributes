@@ -5,3 +5,4 @@ tools export-ignore
 .pkgmeta export-ignore
 docs export-ignore
 .github export-ignore
+.claude export-ignore
