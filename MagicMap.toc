@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: MagicMap
 ## Notes: For WoW Forever. Your minimap, zooming out to the whole world on the game's own minimap terrain, with Blizzard's blips on it; M grows it into a big map.
-## Version: 1.0.0-beta
+## Version: 1.0.0
 ## Category: Map & Minimap
 ## IconTexture: Interface\Icons\INV_Misc_Map_01
 ## AddonCompartmentFunc: MagicMap_OnAddonCompartmentClick

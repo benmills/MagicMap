@@ -5,7 +5,7 @@ game's own minimap terrain at any zoom, from street level out to a whole contine
 Blizzard's live blips (herbs, ore, tracked NPCs) still on it. Press M and it grows into a big map.
 For WoW Forever only.
 
-**Status: beta.** Expect a few rough edges. Please report anything odd, with a screenshot.
+Please report anything odd, with a screenshot.
 
 ## Install
 
@@ -117,9 +117,9 @@ Settings are per character (`MagicMapDB`); remembered rares are shared by all yo
 
 ## Unknowns and risks
 
-- **Barely tested in-game.** Most features were written without the game at hand. They run
-  headlessly in a simulated client in CI (see Development), which catches crashes, but not how
-  things look or behave against the real client. Some code paths may simply be wrong.
+- **Tested by few players.** It has been played through an alpha and a beta, and every feature
+  runs headlessly in a simulated client in CI (see Development), which catches crashes but not
+  how things look against the real client.
 - **Forever only.** The TOC, data and code target WoW Forever (a Retail-engine client) and
   nothing else; instances have no zone borders (one zone each).
 - **The takeover relies on undocumented behaviour:**
