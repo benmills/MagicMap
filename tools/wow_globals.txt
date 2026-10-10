@@ -9,12 +9,12 @@ time tinsert tremove tonumber tostring type unpack wipe xpcall hooksecurefunc
 
 # Namespaces
 C_AddOnProfiler C_AddOns C_AreaPoiInfo C_CVar C_DeathInfo C_EncounterJournal C_Map C_MapExplorationInfo
-C_Minimap C_QuestLine C_QuestLog C_SuperTrack C_TaxiMap C_Texture C_Timer C_TooltipInfo
+C_Minimap C_QuestLine C_QuestLog C_SuperTrack C_TaxiMap C_Texture C_Timer
 C_VignetteInfo Enum
 
 # Functions
 AddQuestWatch ButtonFrameTemplate_HideButtonBar ButtonFrameTemplate_HidePortrait
-CanMerchantRepair ChatFrame_OpenChat CreateColor CreateFrame CreateVector2D
+ChatFrame_OpenChat CreateColor CreateFrame CreateVector2D
 GetCVar GetCursorPosition GetInstanceInfo
 GetPlayerFacing GetSubZoneText GetTime GetZoneText
 HideUIPanel ToggleWorldMap IsAltKeyDown IsControlKeyDown IsIndoors IsMouseButtonDown
@@ -26,11 +26,11 @@ UnitGUID UnitIsGhost UnitIsPlayer UnitLevel UnitName UnitPosition issecretvalue
 # Frames, objects and mixins
 ChatFrameUtil DEFAULT_CHAT_FRAME GameFontNormal GameTooltip MenuResponse MenuUtil
 Minimap MinimapCluster SlashCmdList UIParent UISpecialFrames UiMapPoint
-WorldFrame WorldMapFrame
+WorldMapFrame
 
 # Constants
-LEVEL LOCALIZED_CLASS_NAMES_FEMALE LOCALIZED_CLASS_NAMES_MALE RAID_CLASS_COLORS
-STANDARD_TEXT_FONT WOW_PROJECT_ID WOW_PROJECT_MAINLINE
+LEVEL RAID_CLASS_COLORS
+STANDARD_TEXT_FONT
 
 # Other addons (always checked for before use)
 FarmHud LibStub

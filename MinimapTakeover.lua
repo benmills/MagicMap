@@ -25,7 +25,6 @@ local ADDON, ns = ...
 local T = {}
 ns.Takeover = T
 
-local state = ns.state
 local db
 local engaged = false
 local indoor = false   -- wearing the Minimap whole (ShowWhole) rather than its blips
@@ -92,17 +91,11 @@ end)
 -- HereBeDragons
 ---------------------------------------------------------------------------
 
--- Every copy of HereBeDragons-Pins (Questie bundles its own, renamed; see
--- AddonPins.lua). rescan: look for copies loaded since.
-local function HBDPinsRaw(rescan)
-	return ns.HBDPinLibs(rescan)
-end
-
 -- The copies drawing on the real Minimap or our hosts (not, say, FarmHud's).
 local mine = {}
 local function HBDPins()
 	wipe(mine)
-	for _, hbd in ipairs(HBDPinsRaw()) do
+	for _, hbd in ipairs(ns.HBDPinLibs()) do
 		if hbd.Minimap == Minimap or hbd.Minimap == pinHost or hbd.Minimap == hiddenHost then mine[#mine + 1] = hbd end
 	end
 	return mine
@@ -110,7 +103,7 @@ end
 
 -- Pins are positioned on the Minimap by their addons; they travel with it.
 local function IsPin(obj)
-	for _, hbd in ipairs(HBDPinsRaw()) do
+	for _, hbd in ipairs(ns.HBDPinLibs()) do
 		if type(hbd.minimapPins) == "table" and hbd.minimapPins[obj] then return true end
 	end
 	local name = obj.GetDebugName and obj:GetDebugName()
@@ -260,7 +253,7 @@ local function SyncTracking(on)
 		local layer = id and DUPLICATES[id]
 		if layer then
 			local info = C.GetTrackingInfo(i)
-			local want = on and db.hideDupes ~= false and ns.LayerEnabled and ns.LayerEnabled(layer)
+			local want = on and db.hideDupes ~= false and ns.LayerEnabled(layer)
 			if want and info and info.active then
 				if pcall(C.SetTracking, i, false) then off[id] = true end
 			elseif not want and off[id] and info then -- (no info yet at login: next time)
@@ -357,7 +350,7 @@ end
 function T.Engage()
 	if engaged then return end
 	engaged = true
-	HBDPinsRaw(true) -- any copy loaded since
+	ns.HBDPinLibs(true) -- any copy loaded since
 
 	-- Undone last: pins back on the Minimap once it's back at its own size.
 	OnRelease(function()

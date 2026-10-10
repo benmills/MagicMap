@@ -1,6 +1,5 @@
--- Chrome helpers: a metal border from the client's frame atlases (minimap
--- mode's frame) and small round icon buttons using Forever's minimap button
--- ring.
+-- Chrome helpers: the window's metal border from the client's frame atlases,
+-- and small round icon buttons using Forever's minimap button ring.
 
 local ADDON, ns = ...
 
@@ -36,7 +35,6 @@ function ns.ApplyBorder(frame, level, ref)
 	local b = CreateFrame("Frame", nil, frame)
 	b:SetAllPoints()
 	b:SetFrameLevel(level)
-	b.insets = { 2, 2, 2, 2 }
 
 	-- Only the thin bottom corners and edges; the top ones carry a header bar.
 	local bl = Piece(b, "UI-Frame-Metal-CornerBottomLeft")

@@ -13,7 +13,7 @@ local FADE = 40            -- px over which the line fades in and out at its end
 local DRIFT_HZ = 10        -- the drift steps this often (1.4 px a step); the line redraws only when it or the view moves
 
 -- Off the map, your target gets a gold arrow on the map's edge, on the line
--- from you toward it (Blizzard's own rim arrows are pushed away: MinimapBlips).
+-- from you toward it (Blizzard's own rim arrows are pushed away: MinimapTakeover).
 local EDGE_INSET = 16 -- px from the map's edge to the arrow's centre
 local edgeArrow = ns.overlay:CreateTexture(nil, "OVERLAY", nil, 3)
 edgeArrow:SetTexture("Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW")
