@@ -7,7 +7,9 @@
 
 local ADDON, ns = ...
 local TILE_YARDS = 1600 / 3 -- one ADT / minimap tile = 533.33 yards
-local MIN_ZOOM, MAX_ZOOM = 16, 2048 -- screen units per tile
+-- Screen units per tile. Closest is about Blizzard's own closest minimap zoom
+-- (its tiles are 256 px: any closer and they just smear).
+local MIN_ZOOM, MAX_ZOOM = 16, 800
 local WHEEL_STEP = 1.3
 local FLY_TIME = 0.55
 local ZOOM_RATE = 14 -- per second: how quickly wheel zoom closes on its target (higher = snappier)
