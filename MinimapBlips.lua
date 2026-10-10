@@ -161,6 +161,76 @@ local function ReportSync(level, kind, d, zoom, side, mask)
 end
 
 -- /mm dupes: Blizzard's own markers for what our layers draw, back on (or off again).
+---------------------------------------------------------------------------
+-- Experiment (/mm blips; to come out once answered): can we read the
+-- Minimap's blips without the mouse, everywhere on it? Blizzard's hover
+-- calls GameTooltip:SetMinimapMouseover(), which the client fills with the
+-- names under its hover point; Minimap:UpdateMouseoverAtPoint(x, y) moves
+-- that point, in coordinates nothing documents. So: scan the whole Minimap
+-- in each convention we can think of, and say what was found where -
+-- inside the mask (where its blips show) or outside it, inside the window
+-- or outside it - and what a probe costs. Blips found outside the mask
+-- would mean we could draw them ourselves, anywhere.
+---------------------------------------------------------------------------
+
+local probeTip
+local function ProbeText()
+	probeTip:SetOwner(UIParent, "ANCHOR_NONE")
+	probeTip:SetMinimapMouseover()
+	local text
+	for i = 1, probeTip:NumLines() do
+		local fs = _G["MagicMapBlipProbeTextLeft" .. i]
+		local t = fs and fs:GetText()
+		if t and issecretvalue(t) then return "<secret>" end
+		if t and t ~= "" then text = text and (text .. " / " .. t) or t end
+	end
+	probeTip:Hide()
+	return text
+end
+
+ns.slash.blips = function()
+	local sq = ns.BlipSquare
+	if not (T.IsEngaged() and ns.MinimapShowsPlayer() and sq and sq.on) then
+		return ns.Print("blips: needs Blizzard's blips on the map (outdoors, the map settled on you); zoom in close so the Minimap is bigger than the window")
+	end
+	probeTip = probeTip or CreateFrame("GameTooltip", "MagicMapBlipProbe", nil, "GameTooltipTemplate")
+	local cx, cy = Minimap:GetCenter()
+	local half = Minimap:GetWidth() / 2
+	local scale = Minimap:GetEffectiveScale()
+	local maskHalf = sq.half * ns.state.zoom -- px: where its blips show
+	local vl, vb, vw, vh = ns.viewport:GetRect()
+	local yd = C_Minimap.GetViewRadius() / half
+	local step = math.max(4, math.floor(half / 40))
+	for _, mode in ipairs({ "offset", "ui", "screen" }) do
+		local seen, n, inMask, outMask, outWindow, probes = {}, 0, 0, 0, 0, 0
+		local t0 = debugprofilestop()
+		for dy = -half, half, step do
+			for dx = -half, half, step do
+				local x, y = dx, dy
+				if mode == "ui" then x, y = cx + dx, cy + dy
+				elseif mode == "screen" then x, y = (cx + dx) * scale, (cy + dy) * scale end
+				probes = probes + 1
+				local text = pcall(Minimap.UpdateMouseoverAtPoint, Minimap, x, y) and ProbeText()
+				if text and not seen[text] then
+					seen[text] = true
+					n = n + 1
+					local px, py = cx + dx, cy + dy
+					local masked = math.abs(dx) > maskHalf or math.abs(dy) > maskHalf
+					if masked then outMask = outMask + 1 else inMask = inMask + 1 end
+					if px < vl or px > vl + vw or py < vb or py > vb + vh then outWindow = outWindow + 1 end
+					if n <= 6 then
+						ns.Print(string.format("  [%s] %s  (%+d, %+d yd%s)", mode, text, dx * yd, dy * yd, masked and ", masked out" or ""))
+					end
+				end
+			end
+		end
+		local us = (debugprofilestop() - t0) * 1000 / probes
+		ns.Print(string.format("blips [%s]: %d found, %d where its blips show, %d masked out (%d outside the window); %.1f us a probe",
+			mode, n, inMask, outMask, outWindow, us))
+	end
+	ns.Print(string.format("Minimap %d px across, its blips in %d px; view radius %d yd", half * 2, maskHalf * 2, C_Minimap.GetViewRadius()))
+end
+
 ns.slash.dupes = function()
 	if not db then return end
 	db.hideDupes = db.hideDupes == false
