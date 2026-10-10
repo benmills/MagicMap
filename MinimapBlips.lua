@@ -178,7 +178,14 @@ end
 
 local insets = {}
 
+-- Where the Minimap's blips show on our map: a square around you (tile
+-- space: centre and half its side), on while it's placed. Layers.lua's quest
+-- givers step aside inside it.
+local square = { on = false }
+ns.BlipSquare = square
+
 local function Update()
+	square.on = false
 	if Blocker() then
 		T.Release()
 		return
@@ -217,6 +224,7 @@ local function Update()
 	insets[1], insets[2] = math.max(inset, d / 2 - x), math.max(inset, d / 2 - (w - x))
 	insets[3], insets[4] = math.max(inset, d / 2 - y), math.max(inset, d / 2 - (h - y))
 	T.Place(cam.canvas, cam.playerCol * zoom, -cam.playerRow * zoom, d, mask, insets, syncCheck and syncCheck.alpha or 0)
+	square.on, square.col, square.row, square.half = true, cam.playerCol, cam.playerRow, side / 2 / zoom
 	ReportSync(level, kind, d, zoom, side, mask)
 end
 

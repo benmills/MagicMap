@@ -237,14 +237,16 @@ scenarios.minimap_mode = function()
 	local pinHost = _G.MagicMapMinimapPins
 	check(Sim.gatherPin:GetParent() == Minimap or Sim.gatherPin:GetParent() == pinHost, "pins stay with the Minimap")
 	check(not MinimapCluster:IsShown() and not Sim.minimapButton:IsVisible(), "nothing of the minimap is left in its corner")
-	-- Ours first: standing at a turn-in, our pin stays, over the Minimap's.
+	-- Standing at a turn-in, our "?" steps aside for the Minimap's own (no
+	-- tracking switch turns that one off); away from it, ours is back.
 	local home = { Sim.player.col, Sim.player.row }
 	local _, col, row = ns.MapToTile(1429, 0.40, 0.80)
 	Sim.player.col, Sim.player.row = col, row
 	Sim.Run(1)
-	check(QuestPin(62) ~= nil, "our turn-in pin stays where the Minimap is")
+	check(ns.BlipSquare.on and QuestPin(62) == nil, "at a turn-in, ours steps aside for the Minimap's \"?\"")
 	Sim.player.col, Sim.player.row = home[1], home[2]
 	Sim.Run(1)
+	check(QuestPin(62) ~= nil, "away from it, ours is back")
 	-- Ride, zoom out past the blips, back in.
 	Sim.player.speed = 14
 	Sim.Run(2)

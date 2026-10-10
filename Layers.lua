@@ -371,15 +371,25 @@ local function StylePin(pin, e)
 	pin.icon:SetSize(size * 0.6, size * 0.6)
 end
 
+-- Quest givers: Blizzard's Minimap draws its own "?" and "!" for them and no
+-- tracking switch turns those off, so where its blips show (the square
+-- around you, ns.BlipSquare), ours step aside for its. Elsewhere ours are
+-- the only ones.
+local blipYield = { at = 0 }
+function blipYield.Hides(e)
+	local sq = e.yields and ns.BlipSquare
+	return sq and sq.on and math.abs(e.col - sq.col) < sq.half and math.abs(e.row - sq.row) < sq.half or false
+end
+
 -- Pins only move as you zoom; small landmarks appear once you're close
--- enough to use them. With the Minimap in, ours stay put over Blizzard's blips
--- (they sit above the Minimap): ours first, its own fill the gaps.
+-- enough to use them. With the Minimap in, ours sit over Blizzard's blips
+-- (above the Minimap), but for quest givers inside its square (blipYield).
 local function PositionPins()
 	local z = state.zoom
 	for i = 1, pinPool.used do
 		local pin = pinPool.list[i]
 		local e = pin.entry
-		if e.minZoom and z < e.minZoom then
+		if (e.minZoom and z < e.minZoom) or blipYield.Hides(e) then
 			if pin:IsShown() then pin:Hide() end
 		else
 			if not pin:IsShown() then pin:Show() end
@@ -593,6 +603,7 @@ sources.quests = function(mapID)
 			or { atlas = "Quest-In-Progress-Icon-yellow", under = "UI-QuestPoi-QuestNumber", color = { 1, 0.82, 0 } }
 		local e = AddAt(list, b.uiMapID, b.x, b.y, {
 			size = followed and 26 or 22, glow = followed, questID = questID, title = title, icon = icon, turnIn = complete,
+			yields = complete or nil,
 			lines = lines,
 		})
 		if e and not complete then
@@ -638,7 +649,7 @@ sources.offers = function(mapID)
 					table.insert(lines, 1, q.questLineName)
 				end
 				AddAt(list, uiMapID, q.x, q.y, {
-					size = 18, title = q.questName or ("Quest " .. q.questID), lines = lines,
+					size = 18, title = q.questName or ("Quest " .. q.questID), lines = lines, yields = true,
 					icon = { atlas = "QuestNormal", color = { 1, 0.82, 0 } },
 				})
 			end
@@ -744,7 +755,29 @@ local function UpdateGroup()
 	end
 	groupShown = n
 end
-ns.frame:HookScript("OnUpdate", ns.Timed("party dots", UpdateGroup))
+-- As you move (and the square with you), ten times a second.
+local function UpdateYields()
+	local now = GetTime()
+	if now < blipYield.at then return end
+	blipYield.at = now + 0.1
+	local z = state.zoom
+	for i = 1, pinPool.used do
+		local pin = pinPool.list[i]
+		local e = pin.entry
+		if e.yields and not (e.minZoom and z < e.minZoom) then
+			local show = not blipYield.Hides(e)
+			if pin:IsShown() ~= show then
+				pin:SetShown(show)
+				if show then pin:SetPoint("CENTER", canvases.pins, "TOPLEFT", e.col * z, -e.row * z) end
+			end
+		end
+	end
+end
+
+ns.frame:HookScript("OnUpdate", ns.Timed("party dots, quest givers", function()
+	UpdateGroup()
+	UpdateYields()
+end))
 
 ---------------------------------------------------------------------------
 -- Quest areas
