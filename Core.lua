@@ -1386,7 +1386,7 @@ local function UpdateTitle()
 		end
 	else
 		name = state.zoneName or continent
-		if not SmallMap() then parts[#parts + 1] = "|cff8a7f6eright-click to return to you|r" end
+		if not SmallMap() then parts[#parts + 1] = "|cff8a7f6eright-click: Follow me|r" end
 	end
 	if db.debug then
 		tc, tr = tc or state.cx, tr or state.cy
