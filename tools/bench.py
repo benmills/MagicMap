@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Benchmark the addon's per-frame work on the simulated client, with the
-real Forever data: Lua time and widget calls per frame (calls into the
-engine are what an addon's frame cost is mostly made of), and how often zone
-borders failed to cover the view ("lines not keeping up").
+real Forever data: Lua time, widget calls and memory allocated per frame
+(calls into the engine are what an addon's frame cost is mostly made of, and
+allocations are garbage the client must collect), and how often zone borders
+failed to cover the view ("lines not keeping up"). Allocations include the
+simulator's own, so compare them between runs rather than read them alone.
 
   python3 tools/bench.py                 # every bench
   python3 tools/bench.py fast_pan -v     # one, with the busiest widget calls
@@ -29,10 +31,12 @@ if callUs > 0 then
     function debugprofilestop() return os.clock() * 1000 + Sim.callTotal * callUs / 1000 end
 end
 local step = Sim.Step
+collectgarbage("stop") -- so each frame's allocations show as growth
 Sim.Step = function(elapsed)
-    local calls0, t0 = Sim.callTotal, os.clock()
+    local calls0, kb0, t0 = Sim.callTotal, collectgarbage("count"), os.clock()
     step(elapsed)
-    local f = { ms = (os.clock() - t0) * 1000, calls = Sim.callTotal - calls0 }
+    local f = { ms = (os.clock() - t0) * 1000, calls = Sim.callTotal - calls0, kb = collectgarbage("count") - kb0 }
+    if collectgarbage("count") > 512 * 1024 then collectgarbage("restart"); collectgarbage("collect"); collectgarbage("stop") end
     -- Did the borders on screen cover the whole view?
     local g = ns.GeometryInfo and ns.GeometryInfo()
     if g then f.gap = not g.covers end
@@ -63,6 +67,7 @@ def run(name: str, verbose: bool, call_us: float = 0) -> dict:
         "frames": len(rows),
         "ms_mean": sum(ms) / len(ms), "ms_p95": pct(ms, 0.95), "ms_max": ms[-1],
         "calls_mean": sum(calls) / len(calls), "calls_p95": pct(calls, 0.95), "calls_max": calls[-1],
+        "kb_mean": sum(r["kb"] for r in rows) / len(rows),
         "gap_frames": sum(1 for r in rows if r["gap"]),
         "errors": errors,
     }
@@ -78,11 +83,11 @@ def main() -> None:
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("--call-us", type=float, default=0, help="client cost per widget call, microseconds")
     ns = parser.parse_args()
-    print(f"{'bench':15} {'frames':>6} {'ms mean':>8} {'p95':>6} {'max':>7} {'calls mean':>11} {'p95':>6} {'max':>6} {'border gaps':>12}")
+    print(f"{'bench':15} {'frames':>6} {'ms mean':>8} {'p95':>6} {'max':>7} {'calls mean':>11} {'p95':>6} {'max':>6} {'KB/frame':>9} {'border gaps':>12}")
     for name in ns.benches:
         r = run(name, ns.verbose, ns.call_us)
         print(f"{name:15} {r['frames']:6d} {r['ms_mean']:8.2f} {r['ms_p95']:6.2f} {r['ms_max']:7.2f} "
-              f"{r['calls_mean']:11.0f} {r['calls_p95']:6d} {r['calls_max']:6d} {r['gap_frames']:5d} frames")
+              f"{r['calls_mean']:11.0f} {r['calls_p95']:6d} {r['calls_max']:6d} {r['kb_mean']:9.2f} {r['gap_frames']:5d} frames")
         for k, v in r.get("busiest", []):
             print(f"    {k:28} {v}")
         for e in r["errors"]:
