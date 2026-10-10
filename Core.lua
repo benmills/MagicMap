@@ -918,10 +918,10 @@ end
 
 local anim
 local zoomGoal, zoomAnchor -- wheel zoom target, and { tx, ty, dx, dy }: world point kept at that screen offset
-
+local restZoom -- while path mode has zoomed out to show your target: your own zoom, to come back to
 
 local function SaveView()
-	db.zoom, db.cx, db.cy = state.zoom, state.cx, state.cy
+	db.zoom, db.cx, db.cy = restZoom or state.zoom, state.cx, state.cy
 end
 
 local function EaseOutCubic(t) return 1 - (1 - t) ^ 3 end
@@ -929,7 +929,7 @@ local function EaseOutCubic(t) return 1 - (1 - t) ^ 3 end
 -- opts.anchor = { tx, ty, dx, dy }: keep world point (tx,ty) at screen offset (dx,dy) from centre.
 local function AnimateTo(cx, cy, zoom, duration, opts)
 	opts = opts or {}
-	zoomGoal = nil
+	zoomGoal, restZoom = nil, nil
 	anim = {
 		t = 0, dur = duration,
 		fx = state.cx, fy = state.cy, fz = state.zoom,
@@ -960,35 +960,78 @@ local function StepZoom(elapsed)
 	if not zoomGoal then SaveView() end
 end
 
--- Following puts you in the middle; path mode leans toward your target (the
--- quest you follow, else your waypoint): you sit off-centre so the view shows
--- the way there - halfway when that keeps both in view, never further than
--- LEAN of the view's shorter side. The zoom is always yours.
-local LEAN = 0.35
-local LEAN_RATE = 4 -- per second: how quickly the lean settles when the target changes
+-- Following puts you in the middle. Path mode keeps your target (the quest
+-- you follow, else your waypoint) in view: you sit halfway toward it, and when
+-- it wouldn't fit at your zoom, the view eases out just enough to show you
+-- both, and back in as it comes closer or goes. Your zoom meanwhile is
+-- restZoom: the wheel changes it, and it's what's saved. Past MIN_ZOOM it
+-- stops; you stay in view and the edge arrow points the way.
+local PATH_MARGIN = 28 -- px kept clear around you and the target
+local PATH_SLACK = 0.8 -- zooming out for the target, this much further than needed
+local PATH_RATE, LEAN_RATE = 4, 4 -- per second: how quickly the zoom and the lean settle
 local leanX, leanY = 0, 0 -- in tiles, eased
-
-local function WantedLean()
-	local t = state.path and ns.GetTarget and ns.GetTarget()
-	-- Inside the followed quest's area you've arrived: no lean (it eases out).
-	if not (t and not t.inside and state.playerCol and state.playerMap == state.map) then return 0, 0 end
-	local w, h = ViewSize()
-	local dx, dy = (t.col - state.playerCol) * state.zoom, (t.row - state.playerRow) * state.zoom
-	local d = math.sqrt(dx * dx + dy * dy)
-	if d < 1 then return 0, 0 end
-	local k = math.min(d / 2, LEAN * math.min(w, h)) / d
-	return dx * k / state.zoom, dy * k / state.zoom
-end
+local pathFit -- the closest zoom that shows you both, this frame (nil: no target)
+local pathGoal -- the zoom path mode is easing to
 
 -- Where following puts the centre: you, plus the lean.
 local function FollowCenter()
 	return state.playerCol + leanX, state.playerRow + leanY
 end
 
-local function StepLean(elapsed)
-	local wx, wy = WantedLean()
+local function StepPath(elapsed)
+	local t = state.path and ns.GetTarget()
+	local w, h = ViewSize()
+	local wx, wy = 0, 0
+	pathFit = nil
+	-- Inside the followed quest's area you've arrived: no lean, your zoom.
+	if t and not t.inside and state.playerCol and state.playerMap == state.map then
+		local dc, dr = t.col - state.playerCol, t.row - state.playerRow
+		local d = math.sqrt(dc * dc + dr * dr) * state.zoom -- px
+		if d >= 1 then
+			local k = math.min(d / 2, math.min(w, h) / 2 - PATH_MARGIN) / d
+			wx, wy = dc * k, dr * k
+		end
+		local zx = dc ~= 0 and (w - 2 * PATH_MARGIN) / math.abs(dc) or MAX_ZOOM
+		local zy = dr ~= 0 and (h - 2 * PATH_MARGIN) / math.abs(dr) or MAX_ZOOM
+		pathFit = Clamp(math.min(zx, zy), MIN_ZOOM, MAX_ZOOM)
+	end
 	local k = math.min(1, LEAN_RATE * (elapsed or 0))
 	leanX, leanY = leanX + (wx - leanX) * k, leanY + (wy - leanY) * k
+
+	-- The zoom: yours, or as close as shows you both. Not while a flight or
+	-- the wheel has it, and only while following (pan away and it's yours).
+	-- Every zoom change lays the map out again, so it moves in steps, not every
+	-- frame as you ride: out a little further than needed (PATH_SLACK), held
+	-- while the target stays in view, back in only once there's clearly room.
+	if anim or zoomGoal then
+		pathGoal = nil
+		return
+	end
+	if not state.follow then
+		restZoom, pathGoal = nil, nil
+		return
+	end
+	local z, rest = state.zoom, restZoom or state.zoom
+	if not pathGoal then
+		local roomy = pathFit and math.min(rest, pathFit * PATH_SLACK) or rest
+		if pathFit and z > pathFit then
+			pathGoal = math.max(MIN_ZOOM, roomy)
+		elseif restZoom and (roomy > z * 1.25 or roomy == rest) and roomy ~= z then
+			pathGoal = roomy
+		else
+			return
+		end
+		restZoom = rest
+	end
+	local lz, lg = math.log(z), math.log(pathGoal)
+	if math.abs(lg - lz) < 0.01 then
+		state.zoom = pathGoal
+		if pathGoal == rest then restZoom = nil end
+		pathGoal = nil
+	else
+		state.zoom = math.exp(lz + (lg - lz) * (1 - math.exp(-PATH_RATE * (elapsed or 0))))
+	end
+	state.dirty = true
 end
 
 -- Where the camera is headed: the zoom and centre it will settle at.
@@ -1294,7 +1337,7 @@ local function UpdateTitle()
 			local x, y = pos:GetXY()
 			parts[#parts + 1] = Coords(x, y)
 		end
-		local t = state.path and (not SmallMap() or hovering) and ns.GetTarget and ns.GetTarget()
+		local t = state.path and (not SmallMap() or hovering) and ns.GetTarget()
 		if t and t.inside then
 			parts[#parts + 1] = string.format("|cffffd27f%s|r here", t.title or "Target")
 		elseif t and state.playerCol then
@@ -1427,8 +1470,13 @@ local function ZoomStep(delta, atCursor)
 	local w, h = ViewSize()
 	local factor = delta > 0 and WHEEL_STEP or 1 / WHEEL_STEP
 	state.lastInteract = GetTime()
-	-- Quick ticks stack onto the running target.
-	local target = Clamp((zoomGoal or state.zoom) * factor, MIN_ZOOM, MAX_ZOOM)
+	-- Quick ticks stack onto the running target. Path mode showing your target
+	-- (restZoom): the wheel changes your zoom, but never past what shows it.
+	local target = Clamp((restZoom or zoomGoal or state.zoom) * factor, MIN_ZOOM, MAX_ZOOM)
+	if restZoom then
+		restZoom = target
+		target = math.min(target, pathFit or target)
+	end
 	anim = nil
 	local ax, ay
 	if state.follow and state.playerCol then
@@ -1454,7 +1502,7 @@ end)
 local function OnFollowClick() SetFollow(not state.follow, true) end
 local function OnPathClick()
 	SetPath(not state.path)
-	if state.path and not (ns.GetTarget and ns.GetTarget()) then
+	if state.path and not ns.GetTarget() then
 		Print("path mode on: it leans toward your target once there is one. Ctrl-click the map for a waypoint, or click a quest to follow it.")
 	end
 end
@@ -1500,7 +1548,7 @@ frame:SetScript("OnUpdate", ns.Timed("map", function(_, elapsed)
 	StepAnimation(elapsed)
 	StepZoom(elapsed)
 	StepTargetChange()
-	StepLean(elapsed)
+	StepPath(elapsed)
 	if perf then t = Mark(perf, "> map: camera", t) end
 
 	if state.dragging then
@@ -1580,6 +1628,7 @@ ns.SetFollow = SetFollow
 ns.Tooltip = Tooltip
 ns.SetZoom = function(zoom)
 	StopAnimation()
+	restZoom = nil
 	state.zoom = Clamp(zoom, MIN_ZOOM, MAX_ZOOM)
 	SaveView()
 	state.dirty = true

@@ -39,10 +39,12 @@ fly there. Zone and sub-zone borders and names come from the terrain itself.
 ![Zooming smoothly from a city out to the whole island](docs/big-map-zoom.gif)
 
 **Follow a quest, and path mode.** Click a quest's icon or area to make it your target (click
-again to stop). Path mode then leans the view toward it with a faint line between you, and a gold
-arrow on the map's edge when it's off the map; it heads for the nearest edge of a quest's area
-and stands down once you're inside. It turns on by itself for a new target (a quest, a waypoint,
-your corpse while you're a ghost) and never changes your zoom.
+again to stop). Path mode then keeps it in view: you sit halfway toward it with a faint line
+between you, and when it's too far for your zoom, the map eases out just enough to show you both
+(the wheel still sets your zoom, which comes back once the target is near or gone). Past the
+widest zoom, a gold arrow on the map's edge points the way. It heads for the nearest edge of a
+quest's area and stands down once you're inside. It turns on by itself for a new target (a
+quest, a waypoint, your corpse while you're a ghost).
 
 **The gear menu** (by the zone name, on hover):
 - **Layers**, grouped into Map (zone labels, borders, unexplored shading), Quests (quests, their

@@ -790,24 +790,23 @@ scenarios.quests_and_path = function()
 		Sim.Run(0.5)
 		check(ns.GetTarget() ~= nil, "clicking a quest makes it the target")
 		check(ns.state.path, "and turns on path mode")
-		ns.SetZoom(2000) -- close in, the quest is off the map: an arrow on the edge points to it
-		Sim.Run(1)
+		ns.SetZoom(800) -- close in, the quest is off the map: an arrow on the edge points to it...
+		Sim.Run(0.1)
 		local edge
 		for _, r in ipairs({ ns.overlay:GetRegions() }) do
 			if tostring(S[r].texture):find("GUIDEARROW") and r:IsVisible() then edge = r end
 		end
 		check(edge ~= nil, "an off-map target gets an arrow on the map's edge")
 		check(Sim.watched == 60 or Sim.watchedIndex ~= nil, "the quest is tracked")
-		Sim.Run(2)
-		-- Path mode: at your zoom, you sit off-centre toward the target.
+		Sim.Run(3)
+		-- ...until path mode has eased out to show it, you halfway toward it.
 		local st, t = ns.state, ns.GetTarget()
-		local w, h = ns.viewport:GetSize()
 		local ox, oy = (st.cx - st.playerCol) * st.zoom, (st.cy - st.playerRow) * st.zoom
-		local tx, ty = t.col - st.playerCol, t.row - st.playerRow
+		local tx, ty = (t.col - st.playerCol) * st.zoom, (t.row - st.playerRow) * st.zoom
 		check(st.path and st.follow, "path mode is on, still following you")
-		check(st.zoom == 2000, "it keeps your zoom")
+		check(st.zoom < 800 and MagicMapDB.zoom == 800, "it zooms out to show the target, keeping your zoom to come back to")
 		check(ox * tx + oy * ty > 0, "the view leans toward the target")
-		check(math.abs(math.sqrt(ox * ox + oy * oy) - 0.35 * math.min(w, h)) < 3, "as far as path mode leans, with the target off the map")
+		check(math.abs(ox - tx / 2) < 2 and math.abs(oy - ty / 2) < 2, "halfway, so both are in view")
 		Sim.Click(ns.mapControls.path)
 		Sim.Run(2)
 		check(not st.path and math.abs(st.cx - st.playerCol) * st.zoom < 1, "path mode off: back to centred on you")
@@ -852,6 +851,37 @@ scenarios.quests_and_path = function()
 	-- Click a zone to fly there.
 	Sim.Click(ns.viewport, "LeftButton", 0.3, 0.6)
 	Fly()
+end
+
+-- Path mode keeps the target in view: a far waypoint, and the view eases out
+-- just enough to show you both; your zoom (what's saved) comes back once the
+-- target goes; the wheel can't zoom it back out of view.
+scenarios.path_shows_target = function()
+	Sim.Run(1)
+	local z0 = ns.state.zoom
+	local function InView(col, row)
+		local x, y = ns.TileToScreen(col, row)
+		local w, h = ns.ViewSize()
+		return x >= 0 and y >= 0 and x <= w and y <= h
+	end
+	local p = Sim.player
+	check(ns.SetWaypointAt(p.col + 0.8, p.row + 0.3), "a waypoint about 450 yards off")
+	Sim.Run(3)
+	local t = ns.GetTarget()
+	check(ns.state.path and t ~= nil, "it's the target, path mode on")
+	check(t and InView(t.col, t.row) and InView(p.col, p.row), "you and the target are both in view")
+	check(ns.state.zoom < z0 * 0.6, "zoomed out to show it (" .. math.floor(ns.state.zoom) .. " from " .. math.floor(z0) .. ")")
+	check(math.abs(MagicMapDB.zoom - z0) < 1, "your own zoom is what's saved")
+	local framed = ns.state.zoom
+	for _ = 1, 2 do Sim.Wheel(ns.viewport, 1) end
+	Sim.Run(1.5)
+	t = ns.GetTarget()
+	check(t and InView(t.col, t.row) and ns.state.zoom < framed * 1.3, "the wheel can't zoom it out of view")
+	for _ = 1, 2 do Sim.Wheel(ns.viewport, -1) end -- your zoom back where it was
+	Sim.Run(1.5)
+	ns.ClearWaypoint()
+	Sim.Run(4)
+	check(not ns.state.path and math.abs(ns.state.zoom - z0) < 1, "the target gone, back at your zoom (" .. math.floor(ns.state.zoom) .. ", saved " .. math.floor(MagicMapDB.zoom) .. ")")
 end
 
 -- Dying: once the client knows where your corpse is (a while after you
