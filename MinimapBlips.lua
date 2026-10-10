@@ -270,8 +270,4 @@ end
 ns.frame:HookScript("OnUpdate", ns.Timed("minimap", Update))
 ns.frame:HookScript("OnHide", T.Release)
 
-ns.On("Loaded", function(savedDB)
-	db = savedDB
-	-- Earlier versions' settings: /mm clip, and the clipping experiments.
-	db.minimapClip, db.testClip, db.testStretch = nil, nil, nil
-end)
+ns.On("Loaded", function(savedDB) db = savedDB end)

@@ -1,5 +1,5 @@
--- MagicMap: a large, pannable, zoomable map rendered from the game's own
--- minimap terrain tiles (Texture:SetTexture(fileDataID)).
+-- MagicMap: your minimap, pannable and zoomable out to the whole world,
+-- drawn from the game's own minimap terrain tiles (Texture:SetTexture(fileDataID)).
 --
 -- Coordinate system ("tile space"): (col, row) as floats, matching the
 -- minimap file names world/minimaps/<dir>/map<col>_<row>.blp. Tile (0,0) is
@@ -169,7 +169,7 @@ arrow:SetPoint("CENTER")
 
 -- The band: a layer above the template's border (500) and title bar (510),
 -- holding the zone line and its buttons. No mouse of its own.
-local FONT = (GameFontNormal and GameFontNormal:GetFont()) or STANDARD_TEXT_FONT
+local FONT = GameFontNormal:GetFont()
 local band = CreateFrame("Frame", nil, frame)
 band:SetFrameLevel(frame:GetFrameLevel() + 515)
 band:SetAllPoints()
@@ -1177,7 +1177,7 @@ local TARGET_CHECK = 0.2 -- seconds between looks
 local lastTargetKey, targetCheckAt = false, 0 -- false: not looked yet
 local function StepTargetChange()
 	local now = GetTime()
-	if now < targetCheckAt or not ns.TargetKey then return end
+	if now < targetCheckAt then return end
 	targetCheckAt = now + TARGET_CHECK
 	local key, bringBack = ns.TargetKey()
 	if key == lastTargetKey then return end
@@ -1354,7 +1354,7 @@ local function UpdateTitle()
 	-- At the minimap's size it always names where you are; coordinates only on hover.
 	local here = SmallMap() and state.playerMap and state.playerMap == state.map
 	if hovering and not here then
-		local z = ns.GetZoneAt and ns.GetZoneAt(tc, tr)
+		local z = ns.GetZoneAt(tc, tr)
 		if z then
 			hoverZoneID = z.mapID
 			name = z.name
@@ -1362,7 +1362,7 @@ local function UpdateTitle()
 		else
 			name = continent
 		end
-	elseif here or (state.playerMap and state.playerMap == state.map) then
+	elseif state.playerMap and state.playerMap == state.map then
 		local mapID = C_Map.GetBestMapForUnit("player")
 		name = (mapID and MapName(mapID)) or GetZoneText()
 		local subzone = GetSubZoneText()
@@ -1386,7 +1386,7 @@ local function UpdateTitle()
 		end
 	else
 		name = state.zoneName or continent
-		if not SmallMap() then parts[#parts + 1] = "|cff8a7f6eright-click to return to you|r" end
+		if not SmallMap() then parts[#parts + 1] = "|cff8a7f6eright-click: Follow me|r" end
 	end
 	if db.debug then
 		tc, tr = tc or state.cx, tr or state.cy
@@ -1406,11 +1406,9 @@ local function UpdateTitle()
 	end
 
 	-- Click-to-zone is offered only while more than one zone is in view.
-	local clickable = hoverZoneID and not state.dragging and ns.ZonesInView and ns.ZonesInView() > 1
-	if ns.SetHoverZone then ns.SetHoverZone(clickable and hoverZoneID or nil) end
-	if ns.OnMapHover then
-		if hovering then ns.OnMapHover(tc, tr) else ns.OnMapHover(nil) end
-	end
+	local clickable = hoverZoneID and not state.dragging and ns.ZonesInView() > 1
+	ns.SetHoverZone(clickable and hoverZoneID or nil)
+	if hovering then ns.OnMapHover(tc, tr) else ns.OnMapHover(nil) end
 	state.canClickZone = clickable
 end
 
@@ -1426,7 +1424,7 @@ viewport:SetScript("OnMouseDown", function(_, button)
 		state.movingFrame = true
 		return
 	end
-	if ns.OnMapClick and (IsShiftKeyDown() or IsControlKeyDown()) and ns.OnMapClick(button, CursorTile()) then
+	if (IsShiftKeyDown() or IsControlKeyDown()) and ns.OnMapClick(button, CursorTile()) then
 		return
 	end
 	if button == "LeftButton" then
@@ -1443,12 +1441,12 @@ end)
 -- Right-click menu: only what makes sense where and how you clicked.
 local function MapMenuItems(col, row)
 	local items = {}
-	if ns.GetZoneAt and ns.GetZoneAt(col, row) then
+	if ns.GetZoneAt(col, row) then
 		items[#items + 1] = { text = "Waypoint here", value = function()
 			if ns.SetWaypointAt(col, row) then SetPath(true) end
 		end }
 	end
-	if ns.HasWaypoint and ns.HasWaypoint() then
+	if ns.HasWaypoint() then
 		items[#items + 1] = { text = "Clear waypoint", value = ns.ClearWaypoint }
 	end
 	if not state.follow then
@@ -1461,7 +1459,7 @@ end
 -- minimap's size it keeps to the actions.
 local function OpenMapMenuAt(col, row)
 	local items = MapMenuItems(col, row)
-	local info = not SmallMap() and ns.ZoneInfoAt and ns.ZoneInfoAt(col, row) or nil
+	local info = not SmallMap() and ns.ZoneInfoAt(col, row) or nil
 	if #items == 0 and not info then return end
 	ns.OpenClientMenu(viewport, function(_, root)
 		if info then
@@ -1492,7 +1490,7 @@ viewport:SetScript("OnMouseUp", function(_, button)
 	-- several are in view), flies there.
 	if press and not press.moved and GetTime() - press.t < CLICK_TIME then
 		local col, row = CursorTile()
-		if ns.OnMapTap and ns.OnMapTap(col, row, not press.clickable) then
+		if ns.OnMapTap(col, row, not press.clickable) then
 			press = nil
 			return
 		end
@@ -1852,6 +1850,6 @@ SlashCmdList.MAGICMAP = function(msg)
 	elseif ns.slash[cmd] then
 		ns.slash[cmd](arg)
 	else
-		Print("/mm [toggle] | follow | path | map <id|name> | zone <name> | icon | tiles | tint | dupes | layers | landmarks | perf | debug | reset")
+		Print("/mm [toggle] | follow | path | map <id|name> | zone <name> | icon | tiles | tint | dupes | layers | landmarks | perf | sync | debug | reset")
 	end
 end

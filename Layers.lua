@@ -1068,8 +1068,8 @@ local function RefreshPins(key)
 	end
 end
 
--- Follow a quest: track it in the objective tracker and make it the target
--- (super-tracked where the client can). Again to stop.
+-- Follow a quest: track it in the objective tracker and super-track it as
+-- the target. Again to stop.
 local function ToggleFollowQuest(questID)
 	if FollowedQuest() == questID then
 		C_SuperTrack.SetSuperTrackedQuestID(0)
@@ -2021,7 +2021,8 @@ LayoutStatic = function()
 	RequestGeometry(true)
 	LayoutLabels()
 end
-ns.LayoutStatic = function() LayoutStatic() end
+
+ns.LayoutStatic = function() LayoutStatic() end -- for tests
 
 -- How many zones meaningfully share the view: zones whose heart (label
 -- anchor) is on screen. Cached until the view moves.
@@ -2199,7 +2200,6 @@ end
 local function Checked(key) return db.layers[key] and true or false end
 local function Usable(layer) return not layer.parent or Enabled(layer.parent) and true or false end
 
--- The client's own menu: section titles, checkboxes that stay open.
 local function Tooltip(layer)
 	return function(tooltip)
 		tooltip:SetText(layer.label, 1, 1, 1)

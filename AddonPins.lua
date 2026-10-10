@@ -40,7 +40,7 @@ local SYNC_EVERY = 1       -- s regardless, to catch pins the library took back
 ---------------------------------------------------------------------------
 
 local copies = {} -- { lib, major, tag (the renamed part: "Questie") }
-local libs = {}   -- the libs alone, for MinimapBlips
+local libs = {}   -- the libs alone, for MinimapTakeover
 local known = {}  -- lib -> copy
 local MarkDirty, RegisterLayers
 
@@ -320,7 +320,7 @@ events:SetScript("OnEvent", ns.TimedEvents("addon pins", function()
 	dirty = true
 end))
 
--- For tests and /mm debugging: what's on our map now.
+-- For tests: what's on our map now.
 function ns.HostedAddonPins() return hosted end
 
 -- Is our map showing this copy's world-map pins (so its minimap pins would
