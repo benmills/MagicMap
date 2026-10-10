@@ -1094,7 +1094,9 @@ function ToggleQuestLog() WorldMapFrame:SetShown(not WorldMapFrame:IsShown()) en
 
 C_Minimap = {
 	GetViewRadius = function()
-		local d = ({ [0] = 466.67, 400, 333.33, 266.67, 200, 133.33 })[Minimap:GetZoom()]
+		-- Indoors (or somewhere you may mount, Sim.floorPlan) its indoor map.
+		local inside = Sim.indoors or Sim.floorPlan
+		local d = (inside and { [0] = 300, 240, 180, 120, 80, 50 } or { [0] = 466.67, 400, 333.33, 266.67, 200, 133.33 })[Minimap:GetZoom()]
 		return d / 2
 	end,
 	SetMinimapInsetInfo = function(minAngle, maxAngle, scalar) Sim.rimInset = scalar end,

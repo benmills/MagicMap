@@ -289,6 +289,13 @@ scenarios.minimap_mode = function()
 	Sim.indoors = false
 	Sim.Run(2)
 	check(not Sim.minimapGround, "back outdoors, our map again")
+	-- Somewhere you may mount but the Minimap draws its floor plan (Orgrimmar's Cleft of Shadow).
+	Sim.floorPlan = true
+	Sim.Run(1)
+	check(Minimap:IsVisible() and Sim.minimapGround and ns.MinimapShowsPlayer(), "under a roof you may mount under, the Minimap still shows whole")
+	Sim.floorPlan = false
+	Sim.Run(2)
+	check(not Sim.minimapGround, "and out from under it, our map again")
 	check(ns.frame:GetFrameStrata() == MinimapCluster:GetFrameStrata(), "it sits at the minimap's strata")
 	-- M: ours grows to most of the screen instead of Blizzard's world map.
 	local smallW, smallZoom = ns.frame:GetWidth(), ns.state.zoom

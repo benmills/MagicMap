@@ -136,6 +136,18 @@ local function Blocker()
 	return nil
 end
 
+-- Whether the Minimap is drawing its indoor map. Not IsIndoors(): that's
+-- whether you may mount, and places like Orgrimmar's Cleft of Shadow let you
+-- while the Minimap shows the floor plan. Its view radius tells: the indoor
+-- and outdoor diameters at a zoom level never come near each other.
+local function MinimapIndoors()
+	local r = C_Minimap.GetViewRadius()
+	if not (r and r > 0) then return IsIndoors() and true or false end
+	local z = T.Level()
+	local din, dout = DIAMETER.indoor[z] or DIAMETER.indoor[0], DIAMETER.outdoor[z] or DIAMETER.outdoor[0]
+	return math.abs(2 * r - din) < math.abs(2 * r - dout)
+end
+
 local function ViewRadius(kind)
 	local r = C_Minimap.GetViewRadius()
 	if r > 0 then return r end
@@ -213,7 +225,7 @@ local function Update()
 	end
 	T.Engage()
 	local expanded = ns.IsMapExpanded()
-	local indoors = IsIndoors() and true or false
+	local indoors = MinimapIndoors()
 	local whole = indoors and not expanded
 	T.SetIndoor(whole)
 	T.KeepTracking(not whole) -- indoors our pins are under the backdrop: Blizzard's stay
