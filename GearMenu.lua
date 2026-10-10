@@ -42,6 +42,11 @@ local SETTINGS = {
 	end },
 	{ "Record performance", on = function() return ns.PerfRecording() end, run = function() Command("perf") end },
 	{ "CPU and memory vs. other addons", run = function() Command("perf top") end },
+	"-",
+	{ "Test: clip blips with a scroll frame", on = function() return ns.Takeover.TestClip() end,
+		run = function() ns.Takeover.SetTest("testClip", not ns.Takeover.TestClip()) end },
+	{ "Test: Minimap as wide as the window", on = function() return ns.Takeover.TestStretch() end,
+		run = function() ns.Takeover.SetTest("testStretch", not ns.Takeover.TestStretch()) end },
 	{ "Memory breakdown", run = function() Command("perf mem") end },
 }
 

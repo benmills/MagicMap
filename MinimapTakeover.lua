@@ -33,7 +33,7 @@ local shown = false    -- the Minimap is on the map this frame (its arrow stands
 local hover = false    -- the mouse is over the Minimap
 local undo = {}        -- what Engage changed, as functions that change it back
 local ours = {}        -- our own children of the Minimap, which stay on it
-local lastMask, lastInsets, lastSize
+local lastMask, lastInsets, lastSize, lastStretch
 local pinsCheckAt = 0 -- when Place next checks every HereBeDragons copy is on our host
 local terrainAlpha, terrainByAlpha -- what SetTerrain last applied
 local placed = {} -- where Place last anchored it: canvas, x, y
@@ -287,6 +287,27 @@ function T.RefreshTracking()
 end
 
 ---------------------------------------------------------------------------
+-- Experiments (gear > Settings), to be removed once answered in game:
+--   * TestClip: does a ScrollFrame clip the Minimap's blips to the window
+--     (a plain frame's SetClipsChildren doesn't)? If so, masks can go.
+--   * TestStretch: does a Minimap wider than it's tall show more of the
+--     world, or stretch it? /mm sync full shows which.
+---------------------------------------------------------------------------
+
+local scroller = CreateFrame("ScrollFrame", nil, ns.viewport)
+scroller:SetAllPoints()
+scroller:Hide()
+local scrollEmpty = CreateFrame("Frame", nil, scroller)
+scrollEmpty:SetSize(1, 1)
+scroller:SetScrollChild(scrollEmpty)
+function T.TestClip() return db and db.testClip or false end
+function T.TestStretch() return db and db.testStretch or false end
+function T.SetTest(key, on)
+	db[key] = on or nil
+	T.Release() -- taken again next frame, the new way
+end
+
+---------------------------------------------------------------------------
 -- Engage and release
 ---------------------------------------------------------------------------
 
@@ -388,7 +409,16 @@ function T.Engage()
 	-- Into the map. Hover still reaches the Minimap (the game's own blip
 	-- tooltips); clicks and the wheel go through to the map, for dragging and
 	-- zooming. Never clamped: that would slide its blips off ours.
-	Minimap:SetParent(ns.viewport)
+	if T.TestClip() and pcall(scroller.SetScrollChild, scroller, Minimap) then
+		scroller:SetFrameLevel(ns.overlay:GetFrameLevel() - 2)
+		scroller:Show()
+		OnRelease(function()
+			scroller:SetScrollChild(scrollEmpty)
+			scroller:Hide()
+		end)
+	else
+		Minimap:SetParent(ns.viewport)
+	end
 	Minimap:SetScale(1)
 	followed = nil
 	FollowWindow()
@@ -509,7 +539,7 @@ end
 -- moves with them pixel for pixel), d px across, `mask` confining its blips
 -- to the square `insets` leave for hover ({ left, right, top, bottom }).
 -- alpha: its terrain's (0, hidden, but for /mm sync).
-function T.Place(canvas, x, y, d, mask, insets, alpha)
+function T.Place(canvas, x, y, d, mask, insets, alpha, stretch)
 	FollowWindow()
 	-- Anchored to the canvas, so it only moves when you do (or the zoom does);
 	-- one cheap look each frame catches anything else moving it.
@@ -530,9 +560,10 @@ function T.Place(canvas, x, y, d, mask, insets, alpha)
 		pinsCheckAt = now + 0.5
 		pinsOff = PinsOff(pinHost)
 	end
-	if d ~= lastSize or pinsOff then
-		lastSize = d
-		Minimap:SetSize(d, d)
+	stretch = stretch or 1
+	if d ~= lastSize or stretch ~= lastStretch or pinsOff then
+		lastSize, lastStretch = d, stretch
+		Minimap:SetSize(d * stretch, d)
 		pinHost:SetSize(d, d)
 		PlacePins(pinHost)
 	end

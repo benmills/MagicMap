@@ -210,11 +210,14 @@ local function Update()
 	local kind = indoors and "indoor" or "outdoor"
 	local x, y, w, h = cam.playerX, cam.playerY, cam.viewW, cam.viewH
 	local room = 2 * math.min(x, w - x, y, h - y) -- the biggest square around you in the window
+	local clipTest, stretch = T.TestClip(), T.TestStretch() and w / h or 1
+	if clipTest then room = 2 * math.max(w, h) end -- (experiment: big enough for the whole window)
 	local level = PickLevel(kind, zoom, room, masksFound)
 	if level and still and T.SetLevel(level) then settling = SETTLE_FRAMES end
 	settling = math.max(0, settling - 1)
 	local d = 2 * ViewRadius(kind) / TILE_YARDS * zoom
 	local mask, side = MaskFor(d, room, masksFound)
+	if clipTest or stretch ~= 1 then mask, side = T.SQUARE_MASK, d end
 	if expanded or not (level and still) or settling > 0 or d < MIN_DIAMETER or not mask then
 		T.Hide()
 		return
@@ -223,7 +226,7 @@ local function Update()
 	local inset = (d - side) / 2
 	insets[1], insets[2] = math.max(inset, d / 2 - x), math.max(inset, d / 2 - (w - x))
 	insets[3], insets[4] = math.max(inset, d / 2 - y), math.max(inset, d / 2 - (h - y))
-	T.Place(cam.canvas, cam.playerCol * zoom, -cam.playerRow * zoom, d, mask, insets, syncCheck and syncCheck.alpha or 0)
+	T.Place(cam.canvas, cam.playerCol * zoom, -cam.playerRow * zoom, d, mask, insets, syncCheck and syncCheck.alpha or 0, stretch)
 	square.on, square.col, square.row, square.half = true, cam.playerCol, cam.playerRow, side / 2 / zoom
 	ReportSync(level, kind, d, zoom, side, mask)
 end
