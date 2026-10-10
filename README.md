@@ -39,8 +39,10 @@ fly there. Zone and sub-zone borders and names come from the terrain itself.
 ![Zooming smoothly from a city out to the whole island](docs/big-map-zoom.gif)
 
 **Follow a quest, and path mode.** Click a quest's icon or area to make it your target (click
-again to stop). Path mode then keeps it in view: you sit halfway toward it with a faint line
-between you, and when it's too far for your zoom, the map eases out just enough to show you both
+again to stop). Path mode then keeps it in view, with a faint line between you: at the
+minimap's size you stay in the middle (so Blizzard's blips keep the room around you), on the big
+map you sit halfway toward it, and when it's too far for your zoom, the map eases out just enough
+to show you both
 (the wheel still sets your zoom, which comes back once the target is near or gone). Past the
 widest zoom, a gold arrow on the map's edge points the way. It heads for the nearest edge of a
 quest's area and stands down once you're inside. It turns on by itself for a new target (a
@@ -103,8 +105,10 @@ Settings are per character (`MagicMapDB`); remembered rares are shared by all yo
   stops Blizzard's terrain but not its blips, and `C_Minimap.SetIgnoreRotateMinimap(true)` keeps it
   north up. The real Minimap then moves into MagicMap's window, centred on you and sized so its
   yards-per-pixel matches our zoom, so its blips (and HereBeDragons pins) line up with our
-  terrain. The client doesn't clip it to the window, so a mask texture (`Textures/MinimapMask/`)
-  confines its blips to the biggest square around you inside the window, and HereBeDragons pins
+  terrain. The client doesn't clip it to the window (nor as a scroll frame's child), so a mask
+  texture (`Textures/MinimapMask/`) confines its blips to the biggest rectangle around you inside
+  the window; masks can only be centred on you, and the client won't say what's under a point
+  other than the mouse, so that rectangle is all there is. HereBeDragons pins
   move to a plain frame the window does clip. Blizzard's tracking for flight masters, quest
   objectives and points of interest is switched off meanwhile (we draw those) and restored after,
   and the rest of Blizzard's minimap cluster is hidden. Every change to Blizzard's minimap lives
@@ -128,8 +132,9 @@ Settings are per character (`MagicMapDB`); remembered rares are shared by all yo
   Another minimap addon (SexyMap, square-minimap addons) may conflict. While FarmHud has the
   minimap, MagicMap leaves Blizzard's blips to it.
 - **Blip range is the minimap's.** Blizzard's blips only cover about 230 yards around you, so
-  zoomed far out, only MagicMap's own pins remain. They also step aside while zooming, and when
-  zoomed in closer than Blizzard's closest minimap zoom.
+  zoomed far out, only MagicMap's own pins remain. They step aside while zooming, and reach only
+  as far as the window's nearest edge from you each way: pan away from yourself and they go until
+  the map glides back to you.
 - **Rotate Minimap**: inside MagicMap the minimap stays north up, like the map; other addons'
   minimap pins (HereBeDragons turns them with you) stay hidden while it's on.
 - **Taint.** MagicMap hides Blizzard frames from addon code (the minimap cluster, and the

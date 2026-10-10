@@ -976,9 +976,11 @@ local function StepZoom(elapsed)
 end
 
 -- Following puts you in the middle. Path mode keeps your target (the quest
--- you follow, else your waypoint) in view: you sit halfway toward it, and when
--- it wouldn't fit at your zoom, the view eases out just enough to show you
--- both, and back in as it comes closer or goes. Your zoom meanwhile is
+-- you follow, else your waypoint) in view: on the big map you sit halfway
+-- toward it; at the minimap's size you stay in the middle, since Blizzard's
+-- blips only show in the room around you to the window's nearest edges.
+-- When it wouldn't fit at your zoom, the view eases out just enough to show
+-- you both, and back in as it comes closer or goes. Your zoom meanwhile is
 -- restZoom: the wheel changes it, and it's what's saved. Past MIN_ZOOM it
 -- stops; you stay in view and the edge arrow points the way.
 local PATH_MARGIN = 28 -- px kept clear around you and the target
@@ -1004,12 +1006,16 @@ local function StepPath(elapsed)
 	if t and not t.inside and state.playerCol and state.playerMap == state.map then
 		local dc, dr = t.col - state.playerCol, t.row - state.playerRow
 		local d = math.sqrt(dc * dc + dr * dr) * state.zoom -- px
-		if d >= 1 then
+		local centred = SmallMap()
+		if d >= 1 and not centred then
 			local k = math.min(d / 2, math.min(w, h) / 2 - PATH_MARGIN) / d
 			wx, wy = dc * k, dr * k
 		end
-		local zx = dc ~= 0 and (w - 2 * PATH_MARGIN) / math.abs(dc) or MAX_ZOOM
-		local zy = dr ~= 0 and (h - 2 * PATH_MARGIN) / math.abs(dr) or MAX_ZOOM
+		-- Room for the target: the whole view less margins (halfway), or the half of it on its side (centred).
+		local rw, rh = w - 2 * PATH_MARGIN, h - 2 * PATH_MARGIN
+		if centred then rw, rh = rw / 2, rh / 2 end
+		local zx = dc ~= 0 and rw / math.abs(dc) or MAX_ZOOM
+		local zy = dr ~= 0 and rh / math.abs(dr) or MAX_ZOOM
 		pathFit = Clamp(math.min(zx, zy), MIN_ZOOM, MAX_ZOOM)
 	end
 	local k = math.min(1, LEAN_RATE * (elapsed or 0))

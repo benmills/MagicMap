@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Mask textures for the Minimap inside MagicMap: Textures/MinimapMask/Square<n>.tga.
+"""Mask textures for the Minimap inside MagicMap: Textures/MinimapMask/Rect<w>x<h>.tga.
 
-Each is SIZE x SIZE, opaque inside a centred n x n square and transparent
-outside it (n even, MIN..SIZE-2; the full square is WHITE8X8). The client
-hides minimap blips where its mask is transparent, so MinimapBlips.lua can
-make the Minimap bigger than the window around you and still keep its blips
-inside: it picks the mask whose square is the biggest that fits the window.
+Each is SIZE x SIZE, opaque inside a centred w x h rectangle and transparent
+outside it (w and h even, MIN..SIZE; SIZE is the whole width or height, and
+the whole square is WHITE8X8, so it isn't written). The client hides minimap
+blips where its mask is transparent, and a mask can only cover the whole
+Minimap, centred on you, so MinimapBlips.lua makes the Minimap as big as its
+zoom wants and picks the biggest rectangle around you that fits the window.
 
   python3 tools/gen_minimap_masks.py            # writes Textures/MinimapMask/
   python3 tools/gen_minimap_masks.py -o DIR
@@ -20,14 +21,20 @@ import os
 
 from mmtools.tga import write_tga
 
-SIZE = 64
-MIN = 8
+SIZE = 32
+MIN = 4
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def mask(n: int) -> bytes:
-    lo, hi = (SIZE - n) // 2, (SIZE + n) // 2
-    rows = [[(255, 255, 255, 255 if lo <= x < hi and lo <= y < hi else 0) for x in range(SIZE)] for y in range(SIZE)]
+def sizes() -> list[tuple[int, int]]:
+    """Every (w, h) shipped."""
+    return [(w, h) for w in range(MIN, SIZE + 1, 2) for h in range(MIN, SIZE + 1, 2) if (w, h) != (SIZE, SIZE)]
+
+
+def mask(w: int, h: int) -> bytes:
+    x0, x1 = (SIZE - w) // 2, (SIZE + w) // 2
+    y0, y1 = (SIZE - h) // 2, (SIZE + h) // 2
+    rows = [[(255, 255, 255, 255 if x0 <= x < x1 and y0 <= y < y1 else 0) for x in range(SIZE)] for y in range(SIZE)]
     return write_tga(SIZE, SIZE, rows)
 
 
@@ -36,10 +43,13 @@ def main() -> None:
     ap.add_argument("-o", "--out", default=os.path.join(ROOT, "Textures", "MinimapMask"))
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
-    for n in range(MIN, SIZE, 2):
-        with open(os.path.join(args.out, f"Square{n}.tga"), "wb") as f:
-            f.write(mask(n))
-    print(f"{(SIZE - MIN) // 2} masks in {args.out}")
+    for name in os.listdir(args.out):  # an earlier set's
+        if name.endswith(".tga"):
+            os.remove(os.path.join(args.out, name))
+    for w, h in sizes():
+        with open(os.path.join(args.out, f"Rect{w}x{h}.tga"), "wb") as f:
+            f.write(mask(w, h))
+    print(f"{len(sizes())} masks in {args.out}")
 
 
 if __name__ == "__main__":

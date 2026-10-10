@@ -1,5 +1,5 @@
 """tools/gen_minimap_masks.py: the shipped mask textures are what it writes,
-and each is opaque exactly inside its centred square."""
+and each is opaque exactly inside its centred rectangle."""
 import os
 import subprocess
 import sys
@@ -14,16 +14,19 @@ def test_masks(tmp_path):
     subprocess.run([sys.executable, os.path.join(TOOLS, "gen_minimap_masks.py"), "-o", str(tmp_path)],
                    check=True, capture_output=True)
     names = sorted(os.listdir(tmp_path))
-    assert names == sorted(f"Square{n}.tga" for n in range(8, 64, 2))
+    want = sorted(f"Rect{w}x{h}.tga" for w in range(4, 33, 2) for h in range(4, 33, 2) if (w, h) != (32, 32))
+    assert names == want
+    assert sorted(os.listdir(SHIPPED)) == want, "the shipped masks aren't the set it writes: rerun tools/gen_minimap_masks.py"
     for name in names:
         data = (tmp_path / name).read_bytes()
         with open(os.path.join(SHIPPED, name), "rb") as f:
             assert f.read() == data, f"{name} is stale: rerun tools/gen_minimap_masks.py"
-        n = int(name[6:-4])
+        mw, mh = (int(v) for v in name[4:-4].split("x"))
         w, h, rows = read_tga(data)
-        lo, hi = (w - n) // 2, (w + n) // 2
-        assert (w, h) == (64, 64)
-        for y in (lo - 1, lo, hi - 1, hi):
-            for x in (lo - 1, lo, hi - 1, hi):
-                inside = lo <= x < hi and lo <= y < hi
-                assert rows[y][x][3] == (255 if inside else 0)
+        assert (w, h) == (32, 32)
+        x0, x1, y0, y1 = (w - mw) // 2, (w + mw) // 2, (h - mh) // 2, (h + mh) // 2
+        for y in (y0 - 1, y0, y1 - 1, y1):
+            for x in (x0 - 1, x0, x1 - 1, x1):
+                if 0 <= x < w and 0 <= y < h:
+                    inside = x0 <= x < x1 and y0 <= y < y1
+                    assert rows[y][x][3] == (255 if inside else 0)

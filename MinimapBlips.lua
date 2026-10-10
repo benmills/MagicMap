@@ -14,12 +14,17 @@
 -- also steps aside mid-zoom, and for a few frames after a change of its zoom
 -- level (the client takes a moment to apply one).
 --
--- The client doesn't clip the Minimap to the window, so its blips may only
--- show inside it. Zoomed in closer than its closest level, or with you off
--- centre, its square is bigger than the room around you; then a mask texture
--- whose opaque square fits that room confines its blips (the client hides
--- blips where the mask is transparent). Without the mask files (new files
--- need a client restart), it only shows while its whole square fits.
+-- The client doesn't clip the Minimap to the window (not with
+-- SetClipsChildren, nor as a ScrollFrame's child: tried in game), so its
+-- blips may only show inside it. When its square is bigger than the room
+-- around you (zoomed in closer than its closest level, a window wider than
+-- tall, you off centre), a mask texture whose opaque rectangle fits that room
+-- confines them: the client hides blips where the mask is transparent. A
+-- mask covers the whole Minimap, centred on you, so the room is what's
+-- around you to the window's nearest edge each way; past that, nothing (and
+-- no way to read the blips there either: the hover point can't be moved).
+-- Without the mask files (new files need a client restart), it only shows
+-- while its whole square fits.
 --
 -- Indoors our terrain has nothing to show, so the window just wears the
 -- Minimap itself: full terrain, centred, the wheel zooming it.
@@ -45,14 +50,15 @@ local lastZoom
 local settling = 0
 
 ---------------------------------------------------------------------------
--- Masks. Textures/MinimapMask/Square<n>: 64x64, opaque in a centred n x n
--- square (tools/gen_minimap_masks.py). Loaded up front so a switch never
--- waits on a file.
+-- Masks. Textures/MinimapMask/Rect<w>x<h>: 32x32, opaque in a centred w x h
+-- rectangle, w and h even (32: the whole width or height;
+-- tools/gen_minimap_masks.py). Loaded up front so a switch never waits on a
+-- file.
 ---------------------------------------------------------------------------
 
-local MASK_PATH = "Interface\\AddOns\\" .. ADDON .. "\\Textures\\MinimapMask\\Square"
-local maskPaths = {} -- n -> its path, built once
-local MASK_TEXELS, MASK_MIN = 64, 8
+local MASK_PATH = "Interface\\AddOns\\" .. ADDON .. "\\Textures\\MinimapMask\\Rect"
+local maskPaths = {} -- [w * 64 + h] -> its path, built once
+local MASK_TEXELS, MASK_MIN = 32, 4
 local MASK_MARGIN = 2 -- px kept clear inside the room's edge
 local masksFound
 do
@@ -60,12 +66,16 @@ do
 	holder:SetSize(1, 1)
 	holder:SetPoint("TOPLEFT", UIParent, "BOTTOMRIGHT", 8, -8) -- off screen
 	holder:SetAlpha(0)
-	for n = MASK_MIN, MASK_TEXELS - 2, 2 do
-		local t = holder:CreateTexture(nil, "BACKGROUND")
-		t:SetAllPoints()
-		maskPaths[n] = MASK_PATH .. n
-		local ok = t:SetTexture(maskPaths[n])
-		if n == MASK_MIN then masksFound = ok ~= false end
+	for w = MASK_MIN, MASK_TEXELS, 2 do
+		for h = MASK_MIN, MASK_TEXELS, 2 do
+			if w < MASK_TEXELS or h < MASK_TEXELS then
+				local t = holder:CreateTexture(nil, "BACKGROUND")
+				t:SetAllPoints()
+				maskPaths[w * 64 + h] = MASK_PATH .. w .. "x" .. h
+				local ok = t:SetTexture(maskPaths[w * 64 + h])
+				if masksFound == nil then masksFound = ok ~= false end
+			end
+		end
 	end
 end
 
@@ -75,12 +85,16 @@ end
 
 -- The Minimap's zoom level for `room` px around you at map zoom `zoom`:
 -- masked, the closest that still covers the room (its widest when even that
--- fits); unmasked, the widest whose square fits. nil if none does.
-local function PickLevel(kind, zoom, room, masks)
+-- fits), but never more than dMax px across (past that no mask is narrow
+-- enough for the room's short side); unmasked, the widest whose square
+-- fits. nil if none does.
+local function PickLevel(kind, zoom, room, masks, dMax)
 	local px = zoom / TILE_YARDS
 	if masks then
 		for z = 5, 0, -1 do
-			if DIAMETER[kind][z] * px >= room then return z end
+			local d = DIAMETER[kind][z] * px
+			if dMax and d > dMax then return z < 5 and z + 1 or nil end
+			if d >= room then return z end
 		end
 		return 0
 	end
@@ -89,16 +103,23 @@ local function PickLevel(kind, zoom, room, masks)
 	end
 end
 
--- The mask for a Minimap d px across in `room` px around you, and the side
--- (px) of the square its blips may show in; nil if none fits.
-local function MaskFor(d, room, masks)
-	if d <= room + 1 then return T.SQUARE_MASK, math.min(d, room) end
-	if not masks then return nil end
+-- A mask's texels across, for a Minimap d px across in `room` px: all of
+-- them if it fits whole that way; nil if no mask is narrow enough.
+local function Texels(d, room)
+	if d <= room + 1 then return MASK_TEXELS end
 	-- Half a texel of slack each side: the mask's edge is filtered.
 	local n = math.floor(((room - MASK_MARGIN) / d - 1 / MASK_TEXELS) * MASK_TEXELS / 2) * 2
-	if n < MASK_MIN then return nil end
-	n = math.min(n, MASK_TEXELS - 2)
-	return maskPaths[n], d * n / MASK_TEXELS
+	return n >= MASK_MIN and math.min(n, MASK_TEXELS - 2) or nil
+end
+
+-- The mask for a Minimap d px across in roomW x roomH px around you, and the
+-- size (px) of the rectangle its blips may show in; nil if none fits.
+local function MaskFor(d, roomW, roomH, masks)
+	if d <= roomW + 1 and d <= roomH + 1 then return T.SQUARE_MASK, math.min(d, roomW), math.min(d, roomH) end
+	if not masks then return nil end
+	local w, h = Texels(d, roomW), Texels(d, roomH)
+	if not (w and h) then return nil end
+	return maskPaths[w * 64 + h], d * w / MASK_TEXELS, d * h / MASK_TEXELS
 end
 
 ns.MinimapPlan = { Level = PickLevel, Mask = MaskFor }
@@ -125,7 +146,7 @@ end
 -- /mm sync: the Minimap's own terrain at half strength over ours, inside an
 -- outline of where we put it, so any drift between its blips and our map
 -- shows as doubled terrain. Its terrain is masked like its blips, so it
--- also shows the square they're confined to. /mm sync full: at full strength.
+-- also shows the rectangle they're confined to. /mm sync full: at full strength.
 ---------------------------------------------------------------------------
 
 local syncCheck
@@ -151,140 +172,16 @@ ns.slash.sync = function(arg)
 		or "sync: Blizzard's terrain at 50% over ours; zoom and pan, watch for doubling. /mm sync again to stop")
 end
 
-local function ReportSync(level, kind, d, zoom, side, mask)
+local function ReportSync(level, kind, d, zoom, sideW, sideH, mask)
 	if syncOutline:IsShown() ~= (syncCheck ~= nil) then syncOutline:SetShown(syncCheck ~= nil) end
 	if not syncCheck or (level == syncCheck.level and mask == syncCheck.mask) then return end
 	syncCheck.level, syncCheck.mask = level, mask
-	ns.Print(string.format("sync: Minimap zoom %d, radius %.1f yd (%s), %d px across at map zoom %.0f; blips in %d px (%s)",
+	ns.Print(string.format("sync: Minimap zoom %d, radius %.1f yd (%s), %d px across at map zoom %.0f; blips in %dx%d px (%s)",
 		level, ViewRadius(kind), C_Minimap.GetViewRadius() > 0 and "client" or "table", d, zoom,
-		side, mask == T.SQUARE_MASK and "whole square" or mask:match("Square%d+$")))
+		sideW, sideH, mask == T.SQUARE_MASK and "whole square" or mask:match("Rect%d+x%d+$")))
 end
 
 -- /mm dupes: Blizzard's own markers for what our layers draw, back on (or off again).
----------------------------------------------------------------------------
--- Experiment (/mm blips; to come out once answered): can we read the
--- Minimap's blips without the mouse, everywhere on it? Blizzard's hover
--- calls GameTooltip:SetMinimapMouseover(), which the client fills with the
--- names under its hover point; Minimap:UpdateMouseoverAtPoint(x, y) moves
--- that point, in coordinates nothing documents. So: scan the whole Minimap
--- in each convention we can think of, and say what was found where -
--- inside the mask (where its blips show) or outside it, inside the window
--- or outside it - and what a probe costs. Blips found outside the mask
--- would mean we could draw them ourselves, anywhere.
----------------------------------------------------------------------------
-
-local probeTip
-local function ProbeText()
-	probeTip:SetOwner(UIParent, "ANCHOR_NONE")
-	probeTip:SetMinimapMouseover()
-	local text
-	for i = 1, probeTip:NumLines() do
-		local fs = _G["MagicMapBlipProbeTextLeft" .. i]
-		local t = fs and fs:GetText()
-		if t and issecretvalue(t) then return "<secret>" end
-		if t and t ~= "" then text = text and (text .. " / " .. t) or t end
-	end
-	probeTip:Hide()
-	return text
-end
-
--- /mm blips slow: the client may only look under the hover point on its
--- next update, so move it once a frame and read it the frame after: a
--- coarse grid in each convention, a few seconds in all (keep the mouse off
--- the map meanwhile).
-local slow
-local slowFrame = CreateFrame("Frame")
-slowFrame:Hide()
-slowFrame:SetScript("OnUpdate", function(self)
-	local p = slow.points[slow.i]
-	if p then
-		local text = ProbeText()
-		if text and not slow.seen[p.mode .. text] then
-			slow.seen[p.mode .. text] = true
-			slow.found[p.mode] = (slow.found[p.mode] or 0) + 1
-			if (slow.found[p.mode] or 0) <= 4 then
-				ns.Print(string.format("  [%s, a frame later] %s  (%+d, %+d px%s)", p.mode, text, p.dx, p.dy, p.masked and ", masked out" or ""))
-			end
-		end
-	end
-	slow.i = slow.i + 1
-	local q = slow.points[slow.i]
-	if not q then
-		self:Hide()
-		for _, mode in ipairs({ "offset", "ui", "screen" }) do
-			ns.Print(string.format("blips slow [%s]: %d found", mode, slow.found[mode] or 0))
-		end
-		return
-	end
-	pcall(Minimap.UpdateMouseoverAtPoint, Minimap, q.x, q.y)
-end)
-
-local function SlowProbe()
-	local cx, cy = Minimap:GetCenter()
-	local half = Minimap:GetWidth() / 2
-	local scale = Minimap:GetEffectiveScale()
-	local maskHalf = ns.BlipSquare.half * ns.state.zoom
-	local points, step = {}, math.max(8, math.floor(half / 7))
-	for _, mode in ipairs({ "offset", "ui", "screen" }) do
-		for dy = -half, half, step do
-			for dx = -half, half, step do
-				local x, y = dx, dy
-				if mode == "ui" then x, y = cx + dx, cy + dy
-				elseif mode == "screen" then x, y = (cx + dx) * scale, (cy + dy) * scale end
-				points[#points + 1] = { mode = mode, x = x, y = y, dx = dx, dy = dy,
-					masked = math.abs(dx) > maskHalf or math.abs(dy) > maskHalf }
-			end
-		end
-	end
-	slow = { points = points, i = 0, seen = {}, found = {} }
-	ns.Print(string.format("blips slow: %d points over %d frames; keep the mouse off the map", #points, #points))
-	slowFrame:Show()
-end
-
-ns.slash.blips = function(arg)
-	local sq = ns.BlipSquare
-	if not (T.IsEngaged() and ns.MinimapShowsPlayer() and sq and sq.on) then
-		return ns.Print("blips: needs Blizzard's blips on the map (outdoors, the map settled on you); zoom in close so the Minimap is bigger than the window")
-	end
-	probeTip = probeTip or CreateFrame("GameTooltip", "MagicMapBlipProbe", nil, "GameTooltipTemplate")
-	if arg == "slow" then return SlowProbe() end
-	local cx, cy = Minimap:GetCenter()
-	local half = Minimap:GetWidth() / 2
-	local scale = Minimap:GetEffectiveScale()
-	local maskHalf = sq.half * ns.state.zoom -- px: where its blips show
-	local vl, vb, vw, vh = ns.viewport:GetRect()
-	local yd = C_Minimap.GetViewRadius() / half
-	local step = math.max(4, math.floor(half / 40))
-	for _, mode in ipairs({ "offset", "ui", "screen" }) do
-		local seen, n, inMask, outMask, outWindow, probes = {}, 0, 0, 0, 0, 0
-		local t0 = debugprofilestop()
-		for dy = -half, half, step do
-			for dx = -half, half, step do
-				local x, y = dx, dy
-				if mode == "ui" then x, y = cx + dx, cy + dy
-				elseif mode == "screen" then x, y = (cx + dx) * scale, (cy + dy) * scale end
-				probes = probes + 1
-				local text = pcall(Minimap.UpdateMouseoverAtPoint, Minimap, x, y) and ProbeText()
-				if text and not seen[text] then
-					seen[text] = true
-					n = n + 1
-					local px, py = cx + dx, cy + dy
-					local masked = math.abs(dx) > maskHalf or math.abs(dy) > maskHalf
-					if masked then outMask = outMask + 1 else inMask = inMask + 1 end
-					if px < vl or px > vl + vw or py < vb or py > vb + vh then outWindow = outWindow + 1 end
-					if n <= 6 then
-						ns.Print(string.format("  [%s] %s  (%+d, %+d yd%s)", mode, text, dx * yd, dy * yd, masked and ", masked out" or ""))
-					end
-				end
-			end
-		end
-		local us = (debugprofilestop() - t0) * 1000 / probes
-		ns.Print(string.format("blips [%s]: %d found, %d where its blips show, %d masked out (%d outside the window); %.1f us a probe",
-			mode, n, inMask, outMask, outWindow, us))
-	end
-	ns.Print(string.format("Minimap %d px across, its blips in %d px; view radius %d yd", half * 2, maskHalf * 2, C_Minimap.GetViewRadius()))
-end
-
 ns.slash.dupes = function()
 	if not db then return end
 	db.hideDupes = db.hideDupes == false
@@ -302,14 +199,14 @@ end
 
 local insets = {}
 
--- Where the Minimap's blips show on our map: a square around you (tile
--- space: centre and half its side), on while it's placed. Layers.lua's quest
--- givers step aside inside it.
-local square = { on = false }
-ns.BlipSquare = square
+-- Where the Minimap's blips show on our map: a rectangle around you (tile
+-- space: centre and half its width and height), on while it's placed.
+-- Layers.lua's quest givers step aside inside it.
+local area = { on = false }
+ns.BlipArea = area
 
 local function Update()
-	square.on = false
+	area.on = false
 	if Blocker() then
 		T.Release()
 		return
@@ -333,26 +230,28 @@ local function Update()
 	lastZoom = zoom
 	local kind = indoors and "indoor" or "outdoor"
 	local x, y, w, h = cam.playerX, cam.playerY, cam.viewW, cam.viewH
-	local room = 2 * math.min(x, w - x, y, h - y) -- the biggest square around you in the window
-	local clipTest, stretch = T.TestClip(), T.TestStretch() and w / h or 1
-	if clipTest then room = 2 * math.max(w, h) end -- (experiment: big enough for the whole window)
-	local level = PickLevel(kind, zoom, room, masksFound)
+	-- The biggest rectangle around you in the window: the mask needs the Minimap
+	-- to cover it; unmasked, its square must fit inside.
+	local roomW, roomH = 2 * math.min(x, w - x), 2 * math.min(y, h - y)
+	local short = math.min(roomW, roomH)
+	local level = PickLevel(kind, zoom, masksFound and math.max(roomW, roomH) or short, masksFound,
+		(short - MASK_MARGIN) * MASK_TEXELS / MASK_MIN)
 	if level and still and T.SetLevel(level) then settling = SETTLE_FRAMES end
 	settling = math.max(0, settling - 1)
 	local d = 2 * ViewRadius(kind) / TILE_YARDS * zoom
-	local mask, side = MaskFor(d, room, masksFound)
-	if clipTest or stretch ~= 1 then mask, side = T.SQUARE_MASK, d end
+	local mask, sideW, sideH = MaskFor(d, roomW, roomH, masksFound)
 	if expanded or not (level and still) or settling > 0 or d < MIN_DIAMETER or not mask then
 		T.Hide()
 		return
 	end
 
-	local inset = (d - side) / 2
-	insets[1], insets[2] = math.max(inset, d / 2 - x), math.max(inset, d / 2 - (w - x))
-	insets[3], insets[4] = math.max(inset, d / 2 - y), math.max(inset, d / 2 - (h - y))
-	T.Place(cam.canvas, cam.playerCol * zoom, -cam.playerRow * zoom, d, mask, insets, syncCheck and syncCheck.alpha or 0, stretch)
-	square.on, square.col, square.row, square.half = true, cam.playerCol, cam.playerRow, side / 2 / zoom
-	ReportSync(level, kind, d, zoom, side, mask)
+	local insetW, insetH = (d - sideW) / 2, (d - sideH) / 2
+	insets[1], insets[2] = math.max(insetW, d / 2 - x), math.max(insetW, d / 2 - (w - x))
+	insets[3], insets[4] = math.max(insetH, d / 2 - y), math.max(insetH, d / 2 - (h - y))
+	T.Place(cam.canvas, cam.playerCol * zoom, -cam.playerRow * zoom, d, mask, insets, syncCheck and syncCheck.alpha or 0)
+	area.on, area.col, area.row = true, cam.playerCol, cam.playerRow
+	area.halfW, area.halfH = sideW / 2 / zoom, sideH / 2 / zoom
+	ReportSync(level, kind, d, zoom, sideW, sideH, mask)
 end
 
 -- After the map's own OnUpdate, so the view has already moved this frame.
@@ -361,5 +260,6 @@ ns.frame:HookScript("OnHide", T.Release)
 
 ns.On("Loaded", function(savedDB)
 	db = savedDB
-	db.minimapClip = nil -- an earlier version's setting (/mm clip)
+	-- Earlier versions' settings: /mm clip, and the clipping experiments.
+	db.minimapClip, db.testClip, db.testStretch = nil, nil, nil
 end)

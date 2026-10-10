@@ -243,7 +243,7 @@ scenarios.minimap_mode = function()
 	local _, col, row = ns.MapToTile(1429, 0.40, 0.80)
 	Sim.player.col, Sim.player.row = col, row
 	Sim.Run(1)
-	check(ns.BlipSquare.on and QuestPin(62) == nil, "at a turn-in, ours steps aside for the Minimap's \"?\"")
+	check(ns.BlipArea.on and QuestPin(62) == nil, "at a turn-in, ours steps aside for the Minimap's \"?\"")
 	Sim.player.col, Sim.player.row = home[1], home[2]
 	Sim.Run(1)
 	check(QuestPin(62) ~= nil, "away from it, ours is back")
@@ -260,7 +260,7 @@ scenarios.minimap_mode = function()
 	Sim.MoveCursorTo(UIParent, 0.1, 0.1)
 	Sim.Run(8)
 	check(ns.state.follow, "goes back to following after idling")
-	check(ns.MinimapShowsPlayer() and Sim.minimapMask:find("MinimapMask\\Square%d+$"),
+	check(ns.MinimapShowsPlayer() and Sim.minimapMask:find("MinimapMask\\Rect%d+x%d+$"),
 		"zoomed in past its closest level, the Minimap still shows, masked")
 	check(Sim.gatherPin:GetParent() == pinHost and pinHost:IsVisible(), "HereBeDragons' pins are on our host in the window")
 	ns.SetZoom(160)
@@ -439,19 +439,19 @@ scenarios.minimap_mode_remembers = function()
 	check(math.abs(ns.frame:GetLeft() - home[1]) < 1 and math.abs(ns.frame:GetTop() - home[2]) < 1, "/mm reset: back onto the minimap")
 end
 
--- Where the Minimap's blips may show: its mask's opaque square (screen
--- left, bottom, side), centred on it.
-local function BlipSquare()
+-- Where the Minimap's blips may show: its mask's opaque rectangle (screen
+-- left, bottom, width, height), centred on it.
+local function BlipRect()
 	local cx, cy = Minimap:GetCenter()
-	local w = Minimap:GetWidth()
-	local n = Sim.minimapMask:match("Square(%d+)$")
-	local side = n and w * tonumber(n) / 64 or w
-	return cx - side / 2, cy - side / 2, side
+	local d = Minimap:GetWidth()
+	local mw, mh = Sim.minimapMask:match("Rect(%d+)x(%d+)$")
+	local w, h = mw and d * tonumber(mw) / 32 or d, mh and d * tonumber(mh) / 32 or d
+	return cx - w / 2, cy - h / 2, w, h
 end
 
-local function InsideWindow(l, b, side)
+local function InsideWindow(l, b, w, h)
 	local vl, vb, vw, vh = ns.viewport:GetRect()
-	return l >= vl - 1 and b >= vb - 1 and l + side <= vl + vw + 1 and b + side <= vb + vh + 1
+	return l >= vl - 1 and b >= vb - 1 and l + w <= vl + vw + 1 and b + h <= vb + vh + 1
 end
 
 -- The Minimap bigger than the window, its blips kept inside it by masks.
@@ -462,20 +462,25 @@ scenarios.minimap_clip = function()
 	ns.SetZoom(1500)
 	Sim.Run(1)
 	check(ns.MinimapShowsPlayer() and Minimap:GetZoom() == 5, "zoomed in close, the Minimap still shows, at its closest level")
-	local l, b, side = BlipSquare()
-	check(Minimap:GetWidth() > ns.viewport:GetWidth() and InsideWindow(l, b, side),
+	local l, b, w, h = BlipRect()
+	check(Minimap:GetWidth() > ns.viewport:GetWidth() and InsideWindow(l, b, w, h),
 		"bigger than the window, its mask keeps the blips inside it")
-	check(side > 0.8 * math.min(ns.viewport:GetSize()) - 4, "in about the biggest square around you that fits")
+	check(w > 0.8 * ns.viewport:GetWidth() - 4 and h > 0.8 * ns.viewport:GetHeight() - 4, "in about the biggest rectangle around you that fits")
 	local il, ir, it, ib = Minimap:GetHitRectInsets()
-	check(math.abs(il - (Minimap:GetWidth() - side) / 2) < 1 and math.abs(ib - il) < 1, "hover reaches it only in that square")
-	-- Off-centre (panned away from you): the square shrinks to the room left.
-	ns.SetZoom(400)
-	Sim.Run(1)
-	local _, _, wide = BlipSquare()
-	Sim.Drag(ns.viewport, 30, 0)
+	check(math.abs(il - (Minimap:GetWidth() - w) / 2) < 1 and math.abs(ib - (Minimap:GetWidth() - h) / 2) < 1, "hover reaches it only in that rectangle")
+	-- A wide window: the blips reach its sides, not just a square in the middle.
+	ns.frame:SetSize(420, 200)
+	ns.SetZoom(800)
+	Sim.Run(1.5)
+	l, b, w, h = BlipRect()
+	local vw, vh = ns.viewport:GetSize()
+	check(ns.MinimapShowsPlayer() and InsideWindow(l, b, w, h) and w > 0.85 * vw and w > 1.5 * h,
+		("a wide window: blips across it (%dx%d of %dx%d)"):format(w, h, vw, vh))
+	-- Off-centre (panned away from you): the rectangle shrinks to the room left.
+	Sim.Drag(ns.viewport, 60, 0)
 	Sim.Run(0.5)
-	l, b, side = BlipSquare()
-	check(ns.MinimapShowsPlayer() and InsideWindow(l, b, side) and side < wide, "off-centre, a smaller square, still inside")
+	local l2, b2, w2, h2 = BlipRect()
+	check(ns.MinimapShowsPlayer() and InsideWindow(l2, b2, w2, h2) and w2 < w, "off-centre, narrower, still inside")
 	ns.SetFollow(true)
 	Sim.Run(1)
 	ns.frame:Hide()
@@ -498,13 +503,19 @@ scenarios.minimap_plan = function()
 	l = P.Level("outdoor", zoom, 120, true)
 	check(l and px(l) >= 120 and (l == 5 or px(l + 1) < 120), "masked: the closest level that still covers the room")
 	check(P.Level("outdoor", zoom, 1000, true) == 0, "masked: its widest when even that fits")
-	local mask, side = P.Mask(90, 100, true)
-	check(mask == "Interface\\Buttons\\WHITE8X8" and side == 90, "fits the room: plain square, all of it")
-	mask, side = P.Mask(300, 100, true)
-	check(mask and mask:find("MinimapMask\\Square%d+$") and side <= 98 and side > 98 - 3 * 300 / 64,
-		"bigger: a mask about the room's size (masks come in steps of 2 texels)")
-	check(P.Mask(300, 100, false) == nil, "bigger without masks: not shown")
-	check(P.Mask(3000, 100, true) == nil, "far bigger: no mask is small enough")
+	l = P.Level("outdoor", zoom, 170, true, 100)
+	check(l and px(l) <= 100, "masked, a long thin room: no wider than a mask can still cut for its short side")
+	local mask, w, h = P.Mask(90, 100, 100, true)
+	check(mask == "Interface\\Buttons\\WHITE8X8" and w == 90 and h == 90, "fits the room: plain square, all of it")
+	mask, w, h = P.Mask(300, 100, 100, true)
+	check(mask and mask:find("MinimapMask\\Rect%d+x%d+$") and w <= 98 and w > 98 - 3 * 300 / 32 and h == w,
+		"bigger: a mask about the room's size (masks come in steps of 2 texels of 32)")
+	mask, w, h = P.Mask(300, 280, 100, true)
+	check(mask and w > 250 and w <= 280 and h <= 98, "a wide room: a wide rectangle (" .. tostring(w) .. "x" .. tostring(h) .. ")")
+	mask, w, h = P.Mask(200, 400, 100, true)
+	check(mask and mask:find("Rect32x%d+$") and w == 200 and h <= 98, "as wide as the Minimap: all of its width")
+	check(P.Mask(300, 100, 100, false) == nil, "bigger without masks: not shown")
+	check(P.Mask(3000, 100, 100, true) == nil, "far bigger: no mask is small enough")
 end
 
 -- Everything minimap mode changes on Blizzard's side, as text: compared
@@ -719,6 +730,7 @@ scenarios.path_to_quest_area = function()
 		end
 		return n
 	end
+	ns.frame:SetSize(400, 400) -- room for the line, you centred
 	At(0.20, 0.55) -- west of it, outside
 	C_SuperTrack.SetSuperTrackedQuestID(60)
 	Sim.FireEvent("SUPER_TRACKING_CHANGED")
@@ -828,14 +840,27 @@ scenarios.quests_and_path = function()
 		check(edge ~= nil, "an off-map target gets an arrow on the map's edge")
 		check(Sim.watched == 60 or Sim.watchedIndex ~= nil, "the quest is tracked")
 		Sim.Run(3)
-		-- ...until path mode has eased out to show it, you halfway toward it.
+		-- ...until path mode has eased out to show it: at the minimap's size
+		-- you stay centred (Blizzard's blips keep the room around you)...
 		local st, t = ns.state, ns.GetTarget()
-		local ox, oy = (st.cx - st.playerCol) * st.zoom, (st.cy - st.playerRow) * st.zoom
-		local tx, ty = (t.col - st.playerCol) * st.zoom, (t.row - st.playerRow) * st.zoom
+		local function Offsets()
+			return (st.cx - st.playerCol) * st.zoom, (st.cy - st.playerRow) * st.zoom,
+				(t.col - st.playerCol) * st.zoom, (t.row - st.playerRow) * st.zoom
+		end
+		local ox, oy, tx, ty = Offsets()
+		local w, h = ns.ViewSize()
 		check(st.path and st.follow, "path mode is on, still following you")
 		check(st.zoom < 800 and MagicMapDB.zoom == 800, "it zooms out to show the target, keeping your zoom to come back to")
-		check(ox * tx + oy * ty > 0, "the view leans toward the target")
+		check(math.abs(ox) < 1 and math.abs(oy) < 1, "at the minimap's size, you stay centred")
+		check(math.abs(tx) <= w / 2 and math.abs(ty) <= h / 2, "with the target in view")
+		-- ...and on the big map you sit halfway toward it.
+		ToggleWorldMap()
+		Sim.Run(3)
+		ox, oy, tx, ty = Offsets()
+		check(ox * tx + oy * ty > 0, "grown, the view leans toward the target")
 		check(math.abs(ox - tx / 2) < 2 and math.abs(oy - ty / 2) < 2, "halfway, so both are in view")
+		ToggleWorldMap()
+		Sim.Run(2)
 		Sim.Click(ns.mapControls.path)
 		Sim.Run(2)
 		check(not st.path and math.abs(st.cx - st.playerCol) * st.zoom < 1, "path mode off: back to centred on you")
