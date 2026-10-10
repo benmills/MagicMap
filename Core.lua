@@ -136,10 +136,17 @@ viewportBg:SetColorTexture(0, 0, 0, 1)
 -- Tiles live on their own child frame so the layers can sit above them.
 local tileLayer = CreateFrame("Frame", nil, viewport)
 tileLayer:SetAllPoints()
--- Tiles sit at fixed spots on a canvas that panning just slides (one SetPoint
--- a frame); they're only laid out again when the zoom changes.
+-- The tiles' canvas: tile (col, row) at (col * zoom, -row * zoom) on it, so
+-- panning just slides it (one SetPoint a frame). The Minimap and the path
+-- line are placed on it too.
 local tileCanvas = CreateFrame("Frame", nil, tileLayer)
 tileCanvas:SetSize(1, 1)
+-- The tiles themselves: on the canvas's spot, laid out at one zoom
+-- (tileZoom). While the zoom moves they're scaled to it, as the layers'
+-- geometry is, and laid out afresh once it settles.
+local tileArt = CreateFrame("Frame", nil, tileLayer)
+tileArt:SetSize(1, 1)
+local tileZoom, tileScale
 
 -- Layer frames between the tiles and the player marker, bottom to top.
 local layerFrames = {}
@@ -491,7 +498,7 @@ local function Unsnapped(tex)
 end
 
 local function Piece(sublevel)
-	local t = Unsnapped(tileCanvas:CreateTexture(nil, "ARTWORK", nil, sublevel))
+	local t = Unsnapped(tileArt:CreateTexture(nil, "ARTWORK", nil, sublevel))
 	t:Hide()
 	return t
 end
@@ -507,7 +514,7 @@ end
 local function AcquireTexture()
 	local tex = table.remove(freeTextures)
 	if not tex then
-		tex = Unsnapped(tileCanvas:CreateTexture(nil, "ARTWORK", nil, SUB_TILE))
+		tex = Unsnapped(tileArt:CreateTexture(nil, "ARTWORK", nil, SUB_TILE))
 		tex.feathers = {}
 		for i, s in ipairs(SIDES) do
 			-- A feather never changes side, so it's anchored once, for good.
@@ -589,7 +596,7 @@ local function LayoutTile(tex, tiles, key, zoom, colors, mapID)
 	local left, top = math.floor(col * zoom + 0.5), math.floor(row * zoom + 0.5)
 	local w = math.floor((col + 1) * zoom + 0.5) - left
 	local h = math.floor((row + 1) * zoom + 0.5) - top
-	tex:SetPoint("TOPLEFT", tileCanvas, "TOPLEFT", left, -top)
+	tex:SetPoint("TOPLEFT", tileArt, "TOPLEFT", left, -top)
 	tex:SetSize(w, h)
 
 	-- Tiles baked darker, lighter or off-tint from their neighbours are drawn
@@ -696,6 +703,10 @@ local function LayoutTile(tex, tiles, key, zoom, colors, mapID)
 	tex.zoom, tex.bg, tex.colors = zoom, bgColor, colors
 end
 
+-- What RenderTiles last looked over. While all of it is the same (panning
+-- within a tile), there's nothing new to draw or let go.
+local scanned = {}
+
 local function RenderTiles()
 	local w, h = ViewSize()
 	if w <= 0 or h <= 0 then return end
@@ -707,7 +718,16 @@ local function RenderTiles()
 	-- keep whole-pixel spots on the canvas, so seams stay exact.)
 	local perf = ns.perf
 	local t0 = perf and debugprofilestop()
-	tileCanvas:SetPoint("TOPLEFT", tileLayer, "TOPLEFT", halfW - cx * zoom, -(halfH - cy * zoom))
+	local x, y = halfW - cx * zoom, -(halfH - cy * zoom)
+	tileCanvas:SetPoint("TOPLEFT", tileLayer, "TOPLEFT", x, y)
+	-- Laid out afresh at rest, or once the zoom has moved half as far again.
+	if not (ns.IsAnimating() and tileZoom and zoom < tileZoom * 1.5 and tileZoom < zoom * 1.5) then tileZoom = zoom end
+	local scale = zoom / tileZoom
+	if scale ~= tileScale then
+		tileScale = scale
+		tileArt:SetScale(scale)
+	end
+	tileArt:SetPoint("TOPLEFT", tileLayer, "TOPLEFT", x / scale, y / scale) -- (in its own, scaled units)
 	if perf then
 		local t1 = debugprofilestop()
 		perf.Spent("> map: tiles: moving the canvas", t1 - t0)
@@ -729,6 +749,14 @@ local function RenderTiles()
 		local colMax = Clamp(math.floor(cx + halfW / zoom) + TILE_AHEAD, 0, 63)
 		local rowMin = Clamp(math.floor(cy - halfH / zoom) - TILE_AHEAD, 0, 63)
 		local rowMax = Clamp(math.floor(cy + halfH / zoom) + TILE_AHEAD, 0, 63)
+		local s = scanned
+		if s.map == mapID and s.zoom == tileZoom and s.colors == colors and s.bg == bgColor and s.tiles == tiles
+			and s.c0 == colMin and s.c1 == colMax and s.r0 == rowMin and s.r1 == rowMax then
+			if perf then perf.Spent("> map: tiles: which are in view, new ones", debugprofilestop() - t0) end
+			return
+		end
+		s.map, s.zoom, s.colors, s.bg, s.tiles = mapID, tileZoom, colors, bgColor, tiles
+		s.c0, s.c1, s.r0, s.r1 = colMin, colMax, rowMin, rowMax
 		for col = colMin, colMax do
 			for row = rowMin, rowMax do
 				local key = col * 64 + row
@@ -746,8 +774,8 @@ local function RenderTiles()
 						tex:SetTexture(fdid, "CLAMP", "CLAMP", "TRILINEAR")
 						tex.fdid = fdid
 					end
-					if tex.zoom ~= zoom or tex.bg ~= bgColor or tex.colors ~= colors then
-						LayoutTile(tex, tiles, key, zoom, colors, mapID)
+					if tex.zoom ~= tileZoom or tex.bg ~= bgColor or tex.colors ~= colors then
+						LayoutTile(tex, tiles, key, tileZoom, colors, mapID)
 					end
 					seen[id] = true
 				end
@@ -763,7 +791,7 @@ local function RenderTiles()
 		if not seen[id] then
 			local key = id % 4096
 			local col, row = math.floor(key / 64), key % 64
-			if not tiles or math.floor(id / 4096) ~= mapID or tex.zoom ~= zoom or (sea and sea[key])
+			if not tiles or math.floor(id / 4096) ~= mapID or tex.zoom ~= tileZoom or (sea and sea[key])
 				or col + 1 < c0 or col > c1 or row + 1 < r0 or row > r1 then
 				ReleaseTexture(tex)
 				activeTiles[id] = nil

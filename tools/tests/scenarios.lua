@@ -1328,13 +1328,29 @@ scenarios.tile_colors = function()
 	Sim.CountCalls()
 	Sim.Run(1)
 	local touched = 0
-	for _, r in ipairs(S[ns.tileCanvas].regions) do touched = touched + (Sim.callsOn[r] or 0) end
+	for _, r in pairs(ns.activeTiles) do touched = touched + (Sim.callsOn[r] or 0) end
 	check(touched == 0, ("idle frames leave the tiles alone (%d calls)"):format(touched))
 	ns.SetZoom(30)
 	Sim.Run(1)
 	touched = 0
-	for _, r in ipairs(S[ns.tileCanvas].regions) do touched = touched + (Sim.callsOn[r] or 0) end
+	for _, r in pairs(ns.activeTiles) do touched = touched + (Sim.callsOn[r] or 0) end
 	check(touched > 0, "(and that count sees a zoom's layout)")
+	-- Zooming: the tiles are scaled, not laid out again every frame, and laid
+	-- out at the zoom it settles at.
+	Sim.Wheel(ns.viewport, 1)
+	Sim.Run(0.05)
+	Sim.CountCalls()
+	Sim.Run(0.05)
+	touched = 0
+	for _, r in pairs(ns.activeTiles) do touched = touched + (Sim.callsOn[r] or 0) end
+	check(ns.IsAnimating() and touched == 0, ("mid-zoom, the tiles are left as they are (%d calls)"):format(touched))
+	Sim.Run(1.5)
+	local settled, n = true, 0
+	for _, t in pairs(ns.activeTiles) do
+		n = n + 1
+		if t:GetParent():GetScale() ~= 1 then settled = false end
+	end
+	check(not ns.IsAnimating() and n > 0 and settled, "settled, they're laid out at the zoom, unscaled")
 	ns.SetZoom(24)
 	Sim.Run(2)
 
