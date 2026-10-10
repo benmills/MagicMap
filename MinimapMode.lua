@@ -202,7 +202,7 @@ end)
 
 ns.modeButton:SetScript("OnClick", ToggleExpanded)
 ns.Tooltip(ns.modeButton, function()
-	return expanded and "Back to the minimap  |cff888888(M)|r" or "Big map  |cff888888(M)|r"
+	return expanded and "Minimap (M)" or "Big map (M)"
 end)
 
 ---------------------------------------------------------------------------

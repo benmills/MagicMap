@@ -1545,26 +1545,51 @@ end
 followToggle:SetScript("OnClick", OnFollowClick)
 pathToggle:SetScript("OnClick", OnPathClick)
 
+-- The buttons' tips: a word or two in small type just above the button,
+-- after a moment's hover, gone when you leave, click, open a menu, or after
+-- a couple of seconds anyway.
+local TIP_DELAY, TIP_LIFE, TIP_FADE = 0.35, 2.5, 0.12 -- seconds
+local tip = CreateFrame("Frame", nil, UIParent)
+tip:SetFrameStrata("TOOLTIP")
+tip:Hide()
+tip.bg = tip:CreateTexture(nil, "BACKGROUND")
+tip.bg:SetAllPoints()
+tip.bg:SetColorTexture(0, 0, 0, 0.6)
+tip.text = tip:CreateFontString(nil, "OVERLAY")
+tip.text:SetFont(FONT, 11, "")
+tip.text:SetTextColor(0.95, 0.9, 0.8)
+tip.text:SetPoint("CENTER")
+tip:SetScript("OnUpdate", function(self, elapsed)
+	self.t = self.t + elapsed
+	if self.t > TIP_DELAY + TIP_LIFE or ns.IsMenuOpen() or not self.owner:IsMouseOver() then
+		self:Hide()
+		return
+	end
+	if self.t >= TIP_DELAY then
+		if not self.placed then
+			self.placed = true
+			self.text:SetText(self.fn())
+			self:SetSize(self.text:GetStringWidth() + 10, self.text:GetStringHeight() + 6)
+			self:ClearAllPoints()
+			self:SetPoint("BOTTOM", self.owner, "TOP", 0, 3)
+		end
+		self:SetAlpha(math.min(1, (self.t - TIP_DELAY) / TIP_FADE))
+	end
+end)
 local function Tooltip(button, fn)
 	button:HookScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_BOTTOM", 0, -4)
-		GameTooltip:SetText(fn(), 1, 1, 1, 1, true)
-		GameTooltip:Show()
+		tip.owner, tip.fn, tip.t, tip.placed = self, fn, 0, false
+		tip:SetAlpha(0)
+		tip:Show()
 	end)
+	button:HookScript("OnLeave", function() tip:Hide() end)
+	button:HookScript("OnMouseDown", function() tip:Hide() end)
 end
-local function FollowTip()
-	return state.follow and "Following you  |cff888888(drag the map to stop)|r"
-		or "Follow me"
-end
-local function PathTip()
-	if state.path then return "Path mode  |cff888888(leaning toward your target; click to turn off)|r" end
-	return "Path mode  |cff888888(lean toward your waypoint or followed quest)|r"
-end
-Tooltip(followToggle, FollowTip)
-Tooltip(pathToggle, PathTip)
-Tooltip(zoomIn, function() return "Zoom in  |cff888888(sets how close the map rests)|r" end)
-Tooltip(zoomOut, function() return "Zoom out  |cff888888(sets how close the map rests)|r" end)
-Tooltip(gearButton, function() return "Layers, tracking and settings" end)
+Tooltip(followToggle, function() return state.follow and "Following" or "Follow" end)
+Tooltip(pathToggle, function() return state.path and "Path on" or "Path" end)
+Tooltip(zoomIn, function() return "Zoom in" end)
+Tooltip(zoomOut, function() return "Zoom out" end)
+Tooltip(gearButton, function() return "Layers & settings" end)
 
 local titleElapsed = 0
 -- While /mm perf records, the map script's parts are timed too ("> " marks

@@ -144,6 +144,33 @@ scenarios.title_buttons = function()
 	check(ns.gearButton:GetAlpha() < 0.1 and ns.mapControls.frame:GetAlpha() < 0.1, "they fade once the mouse leaves")
 end
 
+-- The buttons' tips: small, after a moment, gone on leaving, on a menu, and
+-- after a couple of seconds anyway.
+scenarios.button_tips = function()
+	local function Tip()
+		for _, f in ipairs(Sim.Frames()) do
+			if f.text and f.owner and f:IsVisible() and f:GetAlpha() > 0 then return f.text:GetText() end
+		end
+	end
+	Sim.MoveCursorTo(ns.gearButton)
+	Sim.FireScript(ns.gearButton, "OnEnter", false)
+	Sim.Run(0.1)
+	check(Tip() == nil, "not straight away")
+	Sim.Run(0.5)
+	check(Tip() == "Layers & settings", "after a moment, a word or two: " .. tostring(Tip()))
+	Sim.Run(3)
+	check(Tip() == nil, "and gone after a couple of seconds, still hovering")
+	Sim.FireScript(ns.gearButton, "OnLeave", false)
+	Sim.MoveCursorTo(ns.modeButton)
+	Sim.FireScript(ns.modeButton, "OnEnter", false)
+	Sim.Run(0.5)
+	check(Tip() == "Big map (M)", "the red button's: " .. tostring(Tip()))
+	Sim.MoveCursorTo(UIParent, 0.1, 0.1)
+	Sim.FireScript(ns.modeButton, "OnLeave", false)
+	Sim.Run(0.1)
+	check(Tip() == nil, "gone on leaving")
+end
+
 scenarios.minimap_mode = function()
 	local parent = ns.minimapStandIn:GetParent() -- the Minimap's own
 	Sim.Run(1)
