@@ -188,12 +188,66 @@ local function ProbeText()
 	return text
 end
 
-ns.slash.blips = function()
+-- /mm blips slow: the client may only look under the hover point on its
+-- next update, so move it once a frame and read it the frame after: a
+-- coarse grid in each convention, a few seconds in all (keep the mouse off
+-- the map meanwhile).
+local slow
+local slowFrame = CreateFrame("Frame")
+slowFrame:Hide()
+slowFrame:SetScript("OnUpdate", function(self)
+	local p = slow.points[slow.i]
+	if p then
+		local text = ProbeText()
+		if text and not slow.seen[p.mode .. text] then
+			slow.seen[p.mode .. text] = true
+			slow.found[p.mode] = (slow.found[p.mode] or 0) + 1
+			if (slow.found[p.mode] or 0) <= 4 then
+				ns.Print(string.format("  [%s, a frame later] %s  (%+d, %+d px%s)", p.mode, text, p.dx, p.dy, p.masked and ", masked out" or ""))
+			end
+		end
+	end
+	slow.i = slow.i + 1
+	local q = slow.points[slow.i]
+	if not q then
+		self:Hide()
+		for _, mode in ipairs({ "offset", "ui", "screen" }) do
+			ns.Print(string.format("blips slow [%s]: %d found", mode, slow.found[mode] or 0))
+		end
+		return
+	end
+	pcall(Minimap.UpdateMouseoverAtPoint, Minimap, q.x, q.y)
+end)
+
+local function SlowProbe()
+	local cx, cy = Minimap:GetCenter()
+	local half = Minimap:GetWidth() / 2
+	local scale = Minimap:GetEffectiveScale()
+	local maskHalf = ns.BlipSquare.half * ns.state.zoom
+	local points, step = {}, math.max(8, math.floor(half / 7))
+	for _, mode in ipairs({ "offset", "ui", "screen" }) do
+		for dy = -half, half, step do
+			for dx = -half, half, step do
+				local x, y = dx, dy
+				if mode == "ui" then x, y = cx + dx, cy + dy
+				elseif mode == "screen" then x, y = (cx + dx) * scale, (cy + dy) * scale end
+				points[#points + 1] = { mode = mode, x = x, y = y, dx = dx, dy = dy,
+					masked = math.abs(dx) > maskHalf or math.abs(dy) > maskHalf }
+			end
+		end
+	end
+	slow = { points = points, i = 0, seen = {}, found = {} }
+	ns.Print(string.format("blips slow: %d points over %d frames; keep the mouse off the map", #points, #points))
+	slowFrame:Show()
+end
+
+ns.slash.blips = function(arg)
 	local sq = ns.BlipSquare
 	if not (T.IsEngaged() and ns.MinimapShowsPlayer() and sq and sq.on) then
 		return ns.Print("blips: needs Blizzard's blips on the map (outdoors, the map settled on you); zoom in close so the Minimap is bigger than the window")
 	end
 	probeTip = probeTip or CreateFrame("GameTooltip", "MagicMapBlipProbe", nil, "GameTooltipTemplate")
+	if arg == "slow" then return SlowProbe() end
 	local cx, cy = Minimap:GetCenter()
 	local half = Minimap:GetWidth() / 2
 	local scale = Minimap:GetEffectiveScale()

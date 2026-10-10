@@ -48,6 +48,7 @@ local SETTINGS = {
 	{ "Test: Minimap as wide as the window", on = function() return ns.Takeover.TestStretch() end,
 		run = function() ns.Takeover.SetTest("testStretch", not ns.Takeover.TestStretch()) end },
 	{ "Test: read blips by hover (/mm blips)", run = function() Command("blips") end },
+	{ "Test: read blips by hover, a frame later (/mm blips slow)", run = function() Command("blips slow") end },
 	{ "Memory breakdown", run = function() Command("perf mem") end },
 }
 
