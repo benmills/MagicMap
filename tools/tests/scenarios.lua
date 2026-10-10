@@ -1731,4 +1731,41 @@ scenarios.addon_pins_minimap = function()
 	check(pins.Minimap == Minimap and dot:GetParent() == Minimap, "the map hidden: back on the Minimap")
 end
 
+-- A live rare has one pin: the rare you've seen steps aside while its vignette shows.
+scenarios.live_rare_one_pin = function()
+	local function Pins()
+		local live, seen = 0, 0
+		for _, f in ipairs(Sim.Frames()) do
+			local e = f.entry
+			if e and e.title == "Mother Fang" and f:IsVisible() then
+				if e.lines[1] == "Rare" then seen = seen + 1 else live = live + 1 end
+			end
+		end
+		return live, seen
+	end
+	ns.SetZoom(200)
+	Sim.vignetteAtlas = "VignetteKillElite"
+	Sim.FireEvent("VIGNETTES_UPDATED")
+	Sim.Run(2)
+	local live, seen = Pins()
+	check(live == 1 and seen == 0, "a live rare: just its vignette's pin, got " .. live .. " live, " .. seen .. " seen")
+	Sim.noVignettes = true
+	Sim.FireEvent("VIGNETTES_UPDATED")
+	Sim.Run(2)
+	live, seen = Pins()
+	check(live == 0 and seen == 1, "gone: the rare you've seen is back, got " .. live .. " live, " .. seen .. " seen")
+	Sim.noVignettes = nil
+	Sim.FireEvent("VIGNETTES_UPDATED")
+	Sim.Run(2)
+	check((Pins()) == 1, "live again: its vignette's pin")
+	FindRow(OpenLayers(), "vignettes").toggle()
+	CloseLayers()
+	Sim.Run(2)
+	live, seen = Pins()
+	check(live == 0 and seen == 1, "live rares switched off: the rare you've seen is back, got " .. live .. " live, " .. seen .. " seen")
+	FindRow(OpenLayers(), "vignettes").toggle()
+	CloseLayers()
+	Sim.vignetteAtlas = nil
+end
+
 return scenarios
