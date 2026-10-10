@@ -972,6 +972,7 @@ local PATH_RATE, LEAN_RATE = 4, 4 -- per second: how quickly the zoom and the le
 local leanX, leanY = 0, 0 -- in tiles, eased
 local pathFit -- the closest zoom that shows you both, this frame (nil: no target)
 local pathGoal -- the zoom path mode is easing to
+local frameTarget -- ns.GetTarget(), once a frame (StepPath), for everything that draws it
 
 -- Where following puts the centre: you, plus the lean.
 local function FollowCenter()
@@ -979,7 +980,8 @@ local function FollowCenter()
 end
 
 local function StepPath(elapsed)
-	local t = state.path and ns.GetTarget()
+	frameTarget = ns.GetTarget()
+	local t = state.path and frameTarget
 	local w, h = ViewSize()
 	local wx, wy = 0, 0
 	pathFit = nil
@@ -1036,7 +1038,7 @@ end
 
 -- Where the camera is headed: the zoom and centre it will settle at.
 local function GoalZoom()
-	return zoomGoal or (anim and anim.tz) or state.zoom
+	return zoomGoal or (anim and anim.tz) or pathGoal or state.zoom
 end
 
 local function GoalCenter()
@@ -1308,9 +1310,22 @@ local SEP = "  ·  "
 local function Coords(x, y) return string.format("%.1f, %.1f", x * 100, y * 100) end
 
 local hoverZoneID
+-- Kept between updates (it runs 20 times a second): the parts list, map
+-- names, and what the title last showed.
+local titleParts, mapNames, shownName, shownSub = {}, {}, nil, nil
+local function MapName(mapID)
+	local n = mapNames[mapID]
+	if n == nil then
+		local info = C_Map.GetMapInfo(mapID)
+		n = info and info.name or false
+		mapNames[mapID] = n
+	end
+	return n or nil
+end
+
 local function UpdateTitle()
 	local continent = TileData[state.map] and TileData[state.map].name or ("Instance " .. tostring(state.map))
-	local name, parts = nil, {}
+	local name, parts = nil, wipe(titleParts)
 	local hovering = viewport:IsMouseOver()
 	local tc, tr
 	hoverZoneID = nil
@@ -1328,16 +1343,20 @@ local function UpdateTitle()
 		end
 	elseif here or (state.playerMap and state.playerMap == state.map) then
 		local mapID = C_Map.GetBestMapForUnit("player")
-		local info = mapID and C_Map.GetMapInfo(mapID)
-		name = (info and info.name) or GetZoneText()
-		local subzone = GetSubZoneText and GetSubZoneText()
+		name = (mapID and MapName(mapID)) or GetZoneText()
+		local subzone = GetSubZoneText()
 		if subzone and subzone ~= "" and subzone ~= name then parts[#parts + 1] = subzone end
-		local pos = mapID and C_Map.GetPlayerMapPosition(mapID, "player")
-		if pos and (not SmallMap() or hovering) then
-			local x, y = pos:GetXY()
-			parts[#parts + 1] = Coords(x, y)
+		-- From where we already have you (no position object to make).
+		local x, y
+		if mapID and (not SmallMap() or hovering) then
+			if state.playerCol then x, y = TileToMap(mapID, state.playerCol, state.playerRow) end
+			if not x then -- (a map we have no rect for)
+				local pos = C_Map.GetPlayerMapPosition(mapID, "player")
+				if pos then x, y = pos:GetXY() end
+			end
 		end
-		local t = state.path and (not SmallMap() or hovering) and ns.GetTarget()
+		if x then parts[#parts + 1] = Coords(x, y) end
+		local t = state.path and (not SmallMap() or hovering) and frameTarget
 		if t and t.inside then
 			parts[#parts + 1] = string.format("|cffffd27f%s|r here", t.title or "Target")
 		elseif t and state.playerCol then
@@ -1358,7 +1377,8 @@ local function UpdateTitle()
 			col, row, fdid and tostring(fdid) or "-", state.zoom, ls and ls.ms or 0, ls and ls.lines or 0, tostring(tileSetVersion))
 	end
 	local sub = table.concat(parts, SEP)
-	if title:GetText() ~= name or subtitle:GetText() ~= sub then
+	if name ~= shownName or sub ~= shownSub then
+		shownName, shownSub = name, sub
 		title:SetText(name)
 		subtitle:SetText(sub)
 		FitTitle()
@@ -1494,7 +1514,8 @@ viewport:SetScript("OnMouseWheel", function(_, delta) ZoomStep(delta, true) end)
 zoomIn:SetScript("OnClick", function() ZoomStep(1) end)
 zoomOut:SetScript("OnClick", function() ZoomStep(-1) end)
 
-viewport:SetScript("OnSizeChanged", function()
+viewport:SetScript("OnSizeChanged", function() -- (in place of the hook above)
+	ViewSizeChanged()
 	state.dirty = true
 	FitTitle()
 end)
@@ -1502,7 +1523,7 @@ end)
 local function OnFollowClick() SetFollow(not state.follow, true) end
 local function OnPathClick()
 	SetPath(not state.path)
-	if state.path and not ns.GetTarget() then
+	if state.path and not frameTarget then
 		Print("path mode on: it leans toward your target once there is one. Ctrl-click the map for a waypoint, or click a quest to follow it.")
 	end
 end
@@ -1539,7 +1560,6 @@ local function Mark(perf, name, t)
 	return now
 end
 frame:SetScript("OnUpdate", ns.Timed("map", function(_, elapsed)
-	ViewSizeChanged()
 	local perf = ns.perf
 	local t0 = perf and debugprofilestop()
 	local t = t0
@@ -1640,7 +1660,9 @@ end
 ns.Print = Print
 ns.TileToScreen = TileToScreen
 ns.ViewSize = ViewSize
-ns.IsAnimating = function() return anim ~= nil or zoomGoal ~= nil end
+-- The target this frame (Path.lua): ns.GetTarget's, looked up once.
+ns.FrameTarget = function() return frameTarget end
+ns.IsAnimating = function() return anim ~= nil or zoomGoal ~= nil or pathGoal ~= nil end
 -- The tile under the cursor (nil before the window is laid out).
 ns.CursorTile = function()
 	if not viewport:GetLeft() then return nil end
@@ -1652,7 +1674,7 @@ ns.Camera = function()
 	local c = camera
 	c.zoom, c.cx, c.cy = state.zoom, state.cx, state.cy
 	c.viewW, c.viewH = ViewSize()
-	c.animating = anim ~= nil or zoomGoal ~= nil
+	c.animating = anim ~= nil or zoomGoal ~= nil or pathGoal ~= nil
 	c.onMap = state.playerCol ~= nil and state.playerMap == state.map
 	c.playerCol, c.playerRow = state.playerCol, state.playerRow
 	if c.onMap then

@@ -51,6 +51,7 @@ local settling = 0
 ---------------------------------------------------------------------------
 
 local MASK_PATH = "Interface\\AddOns\\" .. ADDON .. "\\Textures\\MinimapMask\\Square"
+local maskPaths = {} -- n -> its path, built once
 local MASK_TEXELS, MASK_MIN = 64, 8
 local MASK_MARGIN = 2 -- px kept clear inside the room's edge
 local masksFound
@@ -62,7 +63,8 @@ do
 	for n = MASK_MIN, MASK_TEXELS - 2, 2 do
 		local t = holder:CreateTexture(nil, "BACKGROUND")
 		t:SetAllPoints()
-		local ok = t:SetTexture(MASK_PATH .. n)
+		maskPaths[n] = MASK_PATH .. n
+		local ok = t:SetTexture(maskPaths[n])
 		if n == MASK_MIN then masksFound = ok ~= false end
 	end
 end
@@ -96,7 +98,7 @@ local function MaskFor(d, room, masks)
 	local n = math.floor(((room - MASK_MARGIN) / d - 1 / MASK_TEXELS) * MASK_TEXELS / 2) * 2
 	if n < MASK_MIN then return nil end
 	n = math.min(n, MASK_TEXELS - 2)
-	return MASK_PATH .. n, d * n / MASK_TEXELS
+	return maskPaths[n], d * n / MASK_TEXELS
 end
 
 ns.MinimapPlan = { Level = PickLevel, Mask = MaskFor }
@@ -150,7 +152,7 @@ ns.slash.sync = function(arg)
 end
 
 local function ReportSync(level, kind, d, zoom, side, mask)
-	syncOutline:SetShown(syncCheck ~= nil)
+	if syncOutline:IsShown() ~= (syncCheck ~= nil) then syncOutline:SetShown(syncCheck ~= nil) end
 	if not syncCheck or (level == syncCheck.level and mask == syncCheck.mask) then return end
 	syncCheck.level, syncCheck.mask = level, mask
 	ns.Print(string.format("sync: Minimap zoom %d, radius %.1f yd (%s), %d px across at map zoom %.0f; blips in %d px (%s)",

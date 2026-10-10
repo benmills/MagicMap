@@ -692,7 +692,13 @@ end
 local function Secret(v) return issecretvalue(v) end
 
 local groupShown = 0
+-- They walk: 20 times a second looks smooth. A new zoom or map can't wait,
+-- since the dots aren't on a canvas that scales.
+local groupStep = { at = 0 } -- the next update, and the zoom and map last drawn at
 local function UpdateGroup()
+	local now, g = GetTime(), groupStep
+	if now < g.at and state.zoom == g.zoom and state.map == g.map then return end
+	g.at, g.zoom, g.map = now + 0.05, state.zoom, state.map
 	local n = 0
 	local members = Enabled("group") and state.map and GetNumGroupMembers() or 0
 	if members > 0 then
@@ -978,6 +984,8 @@ local function BlobQuestAt(col, row)
 end
 
 local function ShowBlobTooltip(questID)
+	-- Already showing it (it follows the cursor): nothing to rebuild.
+	if blobTooltipOwner.questID == questID and GameTooltip:IsOwned(blobTooltipOwner) and GameTooltip:IsShown() then return end
 	blobTooltipOwner.questID = questID
 	GameTooltip:SetOwner(blobTooltipOwner, "ANCHOR_CURSOR_RIGHT", 12, 0)
 	GameTooltip:AddLine(SafeCall(C_QuestLog.GetTitleForQuestID, questID) or "Quest")
@@ -1039,7 +1047,8 @@ local function ToggleFollowQuest(questID)
 	RefreshPins("quests")
 	LayoutPins()
 	LayoutQuestAreas()
-	if ns.UpdateControls then ns.UpdateControls() end
+	blobTooltipOwner.questID = nil -- its follow hint changed: rebuild it
+	ns.UpdateControls()
 end
 
 -- A quick click on the map (Core): a quest pin, or (if allowAreas) a quest's
@@ -1522,10 +1531,15 @@ end
 -- dashes and fade out over the last FADE_PX, instead of stopping bluntly.
 local FADE_PX, DASH_PX, GAP_PX = 36, 5, 4
 local MIN_SEG_PX = 2.5
-local function DrawPolyline(pool, canvas, pts, z, thick, r, g, b, a, fadeStart, fadeEnd)
+local DrawPolyline
+do
+-- Scratch space, reused: borders draw thousands of polylines a build.
+local xs, ys, lens = {}, {}, {}
+function DrawPolyline(pool, canvas, pts, z, thick, r, g, b, a, fadeStart, fadeEnd)
 	-- Screen-space points, merging any closer than MIN_SEG_PX to the last one kept
 	-- (far out, most of a detailed border would otherwise be sub-pixel segments).
-	local xs, ys = {}, {}
+	wipe(xs)
+	wipe(ys)
 	local n = #pts / 2
 	for k = 1, n do
 		local x, y = pts[k * 2 - 1] * z, pts[k * 2] * z
@@ -1536,7 +1550,7 @@ local function DrawPolyline(pool, canvas, pts, z, thick, r, g, b, a, fadeStart, 
 	end
 	n = #xs
 	if n < 2 then return end
-	local lens, total = {}, 0
+	local total = 0
 	for k = 1, n - 1 do
 		local d = math.sqrt((xs[k + 1] - xs[k]) ^ 2 + (ys[k + 1] - ys[k]) ^ 2)
 		lens[k] = d
@@ -1568,6 +1582,7 @@ local function DrawPolyline(pool, canvas, pts, z, thick, r, g, b, a, fadeStart, 
 		end
 		along = along + d
 	end
+end
 end
 
 -- Refined, quiet styling: zones a thin warm line on a soft shadow;
@@ -1863,10 +1878,8 @@ end
 -- Room on a buffer's pools for more lines.
 local function Roomy(buf)
 	if buf.full then return false end
-	for _, pool in ipairs({ buf.sub, buf.shadow, buf.border }) do
-		if pool.used > pool.cap * EXTEND_MAX_FILL then return false end
-	end
-	return true
+	local m = EXTEND_MAX_FILL
+	return not (buf.sub.used > buf.sub.cap * m or buf.shadow.used > buf.shadow.cap * m or buf.border.used > buf.border.cap * m)
 end
 
 -- What the border buffers hold (for /mm perf and tests).
@@ -1882,11 +1895,19 @@ end
 
 -- Make sure the borders for where the camera is headed are on screen or on
 -- their way. force: the data changed, so rebuild even if they look current.
-local function RequestGeometry(force)
+local RequestGeometry
+do
+-- Every view change asks, so its two rects are reused.
+local view, ahead = {}, {}
+local function Fill(t, c0, r0, c1, r1)
+	t[1], t[2], t[3], t[4] = c0, r0, c1, r1
+	return t
+end
+function RequestGeometry(force)
 	local z = ns.GoalZoom()
 	local cx, cy = ns.GoalCenter()
-	local view = { ViewRect(0, z, cx, cy) }
-	local ahead = { ViewRect(PREFETCH, z, cx, cy) }
+	Fill(view, ViewRect(0, z, cx, cy))
+	Fill(ahead, ViewRect(PREFETCH, z, cx, cy))
 	if force then
 		front.stale = true
 	else
@@ -1912,6 +1933,7 @@ local function RequestGeometry(force)
 		StartBuild(z, cx, cy)
 	end
 	build.urgent = urgent
+end
 end
 
 local runner = CreateFrame("Frame")

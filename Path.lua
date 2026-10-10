@@ -10,7 +10,7 @@ local FLOW = 14            -- px per second the dashes drift toward the target
 local MAX_DASHES = 120     -- longer lines get longer dashes instead of more
 local CLEAR_YOU, CLEAR_TARGET = 14, 15 -- px left clear around your arrow and the target's pin
 local FADE = 40            -- px over which the line fades in and out at its ends
-local DRIFT_HZ = 20        -- the drift steps this often (0.7 px a step); the line redraws only when it or the view moves
+local DRIFT_HZ = 10        -- the drift steps this often (1.4 px a step); the line redraws only when it or the view moves
 
 -- Off the map, your target gets a gold arrow on the map's edge, on the line
 -- from you toward it (Blizzard's own rim arrows are pushed away: MinimapBlips).
@@ -21,7 +21,7 @@ edgeArrow:SetSize(32, 32)
 edgeArrow:Hide()
 
 ns.frame:HookScript("OnUpdate", ns.Timed("path arrow", function()
-	local t = ns.GetTarget()
+	local t = ns.FrameTarget()
 	if t and not t.inside and state.playerCol and state.playerMap == state.map then
 		local w, h = ns.ViewSize()
 		local x1, y1 = ns.TileToScreen(state.playerCol, state.playerRow)
@@ -108,7 +108,7 @@ local function HalfPixel(v) return math.floor(v * 2 + 0.5) / 2 end
 
 ns.frame:HookScript("OnUpdate", ns.Timed("path line", function()
 	local n = 0
-	local t = state.path and ns.GetTarget()
+	local t = state.path and ns.FrameTarget()
 	if t and not t.inside and state.playerCol and state.playerMap == state.map then
 		-- On the canvas: tile (col, row) is at (col * zoom, row * zoom) down from its top left.
 		local z = state.zoom

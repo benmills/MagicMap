@@ -34,9 +34,10 @@ local hover = false    -- the mouse is over the Minimap
 local undo = {}        -- what Engage changed, as functions that change it back
 local ours = {}        -- our own children of the Minimap, which stay on it
 local lastMask, lastInsets, lastSize
+local pinsCheckAt = 0 -- when Place next checks every HereBeDragons copy is on our host
 local terrainAlpha, terrainByAlpha -- what SetTerrain last applied
 local placed = {} -- where Place last anchored it: canvas, x, y
-local followed    -- the window strata and indoor state FollowWindow last applied
+local followed, followedIndoor -- the window strata and indoor state FollowWindow last applied
 
 T.SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
 -- Blizzard's round mask, put back on release.
@@ -343,9 +344,8 @@ end
 -- above the backdrop.
 local function FollowWindow()
 	local strata = ns.frame:GetFrameStrata()
-	local key = strata .. (indoor and "+" or "-")
-	if key == followed then return end
-	followed = key
+	if strata == followed and indoor == followedIndoor then return end
+	followed, followedIndoor = strata, indoor
 	local base = ns.overlay:GetFrameLevel()
 	if Minimap:GetFrameStrata() ~= strata then Minimap:SetFrameStrata(strata) end
 	local level = base + (indoor and 2 or -1)
@@ -447,7 +447,7 @@ end
 
 -- Hover reaches the Minimap only where its blips may show.
 local function SetHitInsets(l, r, t, b)
-	local key = string.format("%d %d %d %d", l, r, t, b)
+	local key = ((math.floor(l) * 4096 + math.floor(r)) * 4096 + math.floor(t)) * 4096 + math.floor(b)
 	if key == lastInsets then return end
 	lastInsets = key
 	Minimap:SetHitRectInsets(l, r, t, b)
@@ -524,7 +524,13 @@ function T.Place(canvas, x, y, d, mask, insets, alpha)
 	T.SetMask(mask)
 	SetHitInsets(insets[1], insets[2], insets[3], insets[4])
 	d = math.floor(d + 0.5)
-	if d ~= lastSize or PinsOff(pinHost) then
+	-- (HereBeDragons copies changing hosts is rare: a look twice a second.)
+	local now, pinsOff = GetTime(), false
+	if now >= pinsCheckAt then
+		pinsCheckAt = now + 0.5
+		pinsOff = PinsOff(pinHost)
+	end
+	if d ~= lastSize or pinsOff then
 		lastSize = d
 		Minimap:SetSize(d, d)
 		pinHost:SetSize(d, d)
@@ -578,7 +584,7 @@ function ns.MinimapHasMouse() return hover and engaged and Minimap:IsVisible() e
 ---------------------------------------------------------------------------
 
 local function AfterMinimapHover()
-	if not engaged or indoor or not ns.ShowQuestAreaTooltip then return end
+	if not (hover and engaged) or indoor then return end
 	if GameTooltip:IsShown() and GameTooltip:NumLines() > 0 and GameTooltip:IsOwned(UIParent) then return end -- a blip
 	ns.ShowQuestAreaTooltip(ns.CursorTile())
 end
