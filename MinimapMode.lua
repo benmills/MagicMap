@@ -260,19 +260,12 @@ end))
 
 ns.On("Loaded", function(savedDB)
 	db = savedDB
-	-- An earlier version's separate window: its layout was the window's, so
-	-- the one minimap mode kept takes over, else the minimap's spot.
+	-- The beta's separate window: its layout was the window's, so start
+	-- again on the minimap's spot.
 	if db.minimapMode == false then
-		local m = db.minimapLayout
-		if m then
-			db.point, db.width, db.height = { "TOPLEFT", "BOTTOMLEFT", m[1], m[2] }, m[3], m[4]
-			SetRect(m)
-			ns.SetZoom(m.zoom)
-		else
-			db.point, db.width, db.height = nil, 200, 200
-			frame:SetSize(200, 200)
-		end
+		db.point, db.width, db.height = nil, 200, 200
+		frame:SetSize(200, 200)
 	end
-	db.minimapMode, db.minimapLayout, db.normalLayout, db.minimapBlips = nil, nil, nil, nil
+	db.minimapMode, db.normalLayout, db.minimapBlips = nil, nil, nil
 	SetHomeStrata()
 end)

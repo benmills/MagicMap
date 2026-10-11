@@ -9,7 +9,7 @@
 -- it knows every one, where we'd only know those you've visited.
 
 local ADDON, ns = ...
-local store -- MagicMapLandmarks[instanceID][key] = { kind, name, sub, n, w, t }
+local store -- MagicMapLandmarks[instanceID][key] = { kind, name, n, w, t }
 
 local RARE_ICON, RARE_MIN_ZOOM = 137008, 60
 
@@ -46,16 +46,22 @@ end
 -- Layers
 ---------------------------------------------------------------------------
 
+-- Rares with a live vignette pin on the map right now, by name: that pin
+-- stands in for them.
+local live = {}
+
 local function RarePins(mapID)
 	local list = {}
 	for _, e in pairs(store and store[mapID] or {}) do
-		local col, row = ns.WorldToTile(e.n, e.w)
-		ns.PinAtTile(list, mapID, col, row, {
-			size = 15, -- about the size Blizzard draws them on the minimap
-			minZoom = RARE_MIN_ZOOM,
-			title = e.name, lines = { "Rare", "|cff808080Seen here " .. date("%b %d", e.t) .. "|r" },
-			icon = { texture = RARE_ICON },
-		})
+		if not live[e.name] then
+			local col, row = ns.WorldToTile(e.n, e.w)
+			ns.PinAtTile(list, mapID, col, row, {
+				size = 15, -- about the size Blizzard draws them on the minimap
+				minZoom = RARE_MIN_ZOOM,
+				title = e.name, lines = { "Rare", "|cff808080Seen here " .. date("%b %d", e.t) .. "|r" },
+				icon = { texture = RARE_ICON },
+			})
+		end
 	end
 	return list
 end
@@ -67,8 +73,13 @@ ns.AddPinLayer({ key = "rares", label = "Rares you've seen", group = "people", d
 local function VignettePins(mapID)
 	local list = {}
 	local V = C_VignetteInfo
+	local hadLive = next(live) ~= nil
+	wipe(live)
 	local uiMapID = C_Map.GetBestMapForUnit("player")
-	if not uiMapID then return list end
+	if not uiMapID then
+		if hadLive then ns.RefreshLayer("rares") end
+		return list
+	end
 	for _, guid in ipairs(V.GetVignettes() or {}) do
 		local info = V.GetVignetteInfo(guid)
 		if info and not info.isDead and info.name then
@@ -77,13 +88,14 @@ local function VignettePins(mapID)
 			if pos then x, y = pos:GetXY() end -- not `pos and pos:GetXY()`: `and` keeps only x
 			if x then
 				local inst, col, row = ns.MapToTile(uiMapID, x, y)
-				ns.PinAtTile(list, inst, col, row, {
+				local pin = ns.PinAtTile(list, inst, col, row, {
 					size = 20, title = info.name, lines = { "|cff808080Nearby now|r" },
 					icon = { atlas = info.atlasName, color = { 1, 0.4, 0.3 } },
 				})
 				-- Rare vignettes get remembered at their exact position.
 				local atlas = (info.atlasName or ""):lower()
 				if inst and (atlas:find("rare") or atlas:find("elite")) then
+					if pin then live[info.name] = true end
 					local north = (32 - row) * 1600 / 3
 					local west = (32 - col) * 1600 / 3
 					Remember(nil, info.name, north, west, inst)
@@ -91,10 +103,17 @@ local function VignettePins(mapID)
 			end
 		end
 	end
+	if hadLive and not next(live) then ns.RefreshLayer("rares") end -- gone: the ones you've seen are back
 	return list
 end
 ns.AddPinLayer({ key = "vignettes", label = "Live rares & treasures", group = "people", default = true,
-	tip = "Rares, treasures and events the game is showing near you right now." }, VignettePins)
+	tip = "Rares, treasures and events the game is showing near you right now.",
+	onToggle = function(on)
+		if not on and next(live) then
+			wipe(live)
+			ns.RefreshLayer("rares")
+		end
+	end }, VignettePins)
 
 -- Area POIs defined by the game for each zone.
 local function AreaPOIPins(mapID)

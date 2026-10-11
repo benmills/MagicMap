@@ -17,7 +17,8 @@
 -- back is exactly what was taken.
 --
 -- Relies on behaviour the client doesn't document (README, "Unknowns"):
---   * blips hide where the Minimap's mask texture is transparent;
+--   * the Minimap draws right only while its square is on the screen, and
+--     doesn't redraw while hidden;
 --   * C_Minimap.SetMinimapInsetInfo pushes the rim's icons outward;
 --   * HereBeDragons' SetMinimapObject and its minimapPins table.
 
@@ -25,7 +26,6 @@ local ADDON, ns = ...
 local T = {}
 ns.Takeover = T
 
-local state = ns.state
 local db
 local engaged = false
 local indoor = false   -- wearing the Minimap whole (ShowWhole) rather than its blips
@@ -33,13 +33,13 @@ local shown = false    -- the Minimap is on the map this frame (its arrow stands
 local hover = false    -- the mouse is over the Minimap
 local undo = {}        -- what Engage changed, as functions that change it back
 local ours = {}        -- our own children of the Minimap, which stay on it
-local lastMask, lastInsets, lastSize
+local lastSize
 local pinsCheckAt = 0 -- when Place next checks every HereBeDragons copy is on our host
 local terrainAlpha, terrainByAlpha -- what SetTerrain last applied
 local placed = {} -- where Place last anchored it: canvas, x, y
 local followed, followedIndoor -- the window strata and indoor state FollowWindow last applied
 
-T.SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
+local SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
 -- Blizzard's round mask, put back on release.
 local ROUND_MASK = "Interface\\Masks\\CircleMaskScalable"
 
@@ -92,17 +92,11 @@ end)
 -- HereBeDragons
 ---------------------------------------------------------------------------
 
--- Every copy of HereBeDragons-Pins (Questie bundles its own, renamed; see
--- AddonPins.lua). rescan: look for copies loaded since.
-local function HBDPinsRaw(rescan)
-	return ns.HBDPinLibs(rescan)
-end
-
 -- The copies drawing on the real Minimap or our hosts (not, say, FarmHud's).
 local mine = {}
 local function HBDPins()
 	wipe(mine)
-	for _, hbd in ipairs(HBDPinsRaw()) do
+	for _, hbd in ipairs(ns.HBDPinLibs()) do
 		if hbd.Minimap == Minimap or hbd.Minimap == pinHost or hbd.Minimap == hiddenHost then mine[#mine + 1] = hbd end
 	end
 	return mine
@@ -110,7 +104,7 @@ end
 
 -- Pins are positioned on the Minimap by their addons; they travel with it.
 local function IsPin(obj)
-	for _, hbd in ipairs(HBDPinsRaw()) do
+	for _, hbd in ipairs(ns.HBDPinLibs()) do
 		if type(hbd.minimapPins) == "table" and hbd.minimapPins[obj] then return true end
 	end
 	local name = obj.GetDebugName and obj:GetDebugName()
@@ -260,7 +254,7 @@ local function SyncTracking(on)
 		local layer = id and DUPLICATES[id]
 		if layer then
 			local info = C.GetTrackingInfo(i)
-			local want = on and db.hideDupes ~= false and ns.LayerEnabled and ns.LayerEnabled(layer)
+			local want = on and db.hideDupes ~= false and ns.LayerEnabled(layer)
 			if want and info and info.active then
 				if pcall(C.SetTracking, i, false) then off[id] = true end
 			elseif not want and off[id] and info then -- (no info yet at login: next time)
@@ -327,7 +321,6 @@ local function KeepMinimap()
 		m:SetFrameLevel(level)
 		m:EnableMouse(mouse)
 		m:EnableMouseWheel(wheel)
-		m:SetHitRectInsets(0, 0, 0, 0)
 		m:SetAlpha(alpha)
 		C_Minimap.SetDrawGroundTextures(ground)
 		C_Minimap.SetIgnoreRotateMinimap(unrotated)
@@ -357,7 +350,7 @@ end
 function T.Engage()
 	if engaged then return end
 	engaged = true
-	HBDPinsRaw(true) -- any copy loaded since
+	ns.HBDPinLibs(true) -- any copy loaded since
 
 	-- Undone last: pins back on the Minimap once it's back at its own size.
 	OnRelease(function()
@@ -401,10 +394,10 @@ function T.Engage()
 	Minimap:SetMouseMotionEnabled(true)
 	Minimap:EnableMouseWheel(false)
 	C_Minimap.SetIgnoreRotateMinimap(true) -- our terrain doesn't turn
-	lastMask, lastInsets, lastSize, terrainAlpha = nil, nil, nil, nil
+	lastSize, terrainAlpha = nil, nil
 	SetTerrain(0)
 	Minimap:SetClampedToScreen(false)
-	T.SetMask(T.SQUARE_MASK)
+	Minimap:SetMaskTexture(SQUARE_MASK)
 	ClearRim(true)
 	OnRelease(function() ClearRim(false) end)
 	OnRelease(function()
@@ -412,8 +405,7 @@ function T.Engage()
 		SyncTracking(false)
 	end)
 	OnRelease(function() T.SetIndoor(false) end) -- undone first
-	Minimap:Hide() -- until the policy finds it a settled spot
-	shown = false
+	T.Hide() -- until the policy finds it a spot
 end
 
 -- Everything Engage changed, changed back, newest first. Every step runs
@@ -428,7 +420,7 @@ function T.Release()
 		if not ok and not failure then failure = err end
 		undo[i] = nil
 	end
-	lastMask, lastInsets, lastSize, terrainAlpha, followed = nil, nil, nil, nil, nil
+	lastSize, terrainAlpha, followed = nil, nil, nil
 	wipe(placed)
 	if failure then error(failure, 0) end
 end
@@ -438,20 +430,6 @@ function T.IsEngaged() return engaged end
 ---------------------------------------------------------------------------
 -- Placing it (between Engage and Release)
 ---------------------------------------------------------------------------
-
-function T.SetMask(mask)
-	if mask == lastMask then return end
-	lastMask = mask
-	Minimap:SetMaskTexture(mask)
-end
-
--- Hover reaches the Minimap only where its blips may show.
-local function SetHitInsets(l, r, t, b)
-	local key = ((math.floor(l) * 4096 + math.floor(r)) * 4096 + math.floor(t)) * 4096 + math.floor(b)
-	if key == lastInsets then return end
-	lastInsets = key
-	Minimap:SetHitRectInsets(l, r, t, b)
-end
 
 -- Indoors (on) or out: the Minimap shown whole over a backdrop, or just its
 -- blips under our markers.
@@ -463,11 +441,7 @@ function T.SetIndoor(on)
 	FollowWindow()
 	SetTerrain(on and 1 or 0)
 	ClearRim(not on) -- indoors it's Blizzard's minimap, rim and all
-	if on then
-		T.SetMask(T.SQUARE_MASK)
-		SetHitInsets(0, 0, 0, 0)
-		pinHost:Hide()
-	end
+	if on then pinHost:Hide() end
 	lastSize = nil
 end
 
@@ -506,10 +480,9 @@ function T.ShowWhole()
 end
 
 -- Outdoors: centred on (x, y) of `canvas` (you, on the tiles' canvas, so it
--- moves with them pixel for pixel), d px across, `mask` confining its blips
--- to the rectangle `insets` leave for hover ({ left, right, top, bottom }).
--- alpha: its terrain's (0, hidden, but for /mm sync).
-function T.Place(canvas, x, y, d, mask, insets, alpha)
+-- moves with them pixel for pixel), d px across. alpha: its terrain's (0,
+-- hidden, but for /mm sync).
+function T.Place(canvas, x, y, d, alpha)
 	FollowWindow()
 	-- Anchored to the canvas, so it only moves when you do (or the zoom does);
 	-- one cheap look each frame catches anything else moving it.
@@ -521,8 +494,6 @@ function T.Place(canvas, x, y, d, mask, insets, alpha)
 		pinHost:ClearAllPoints()
 		pinHost:SetPoint("CENTER", canvas, "TOPLEFT", x, y)
 	end
-	T.SetMask(mask)
-	SetHitInsets(insets[1], insets[2], insets[3], insets[4])
 	d = math.floor(d + 0.5)
 	-- (HereBeDragons copies changing hosts is rare: a look twice a second.)
 	local now, pinsOff = GetTime(), false
@@ -573,7 +544,7 @@ end
 function ns.MinimapShowsPlayer() return shown end
 
 -- The Minimap has the mouse (its hover handler owns GameTooltip).
-function ns.MinimapHasMouse() return hover and engaged and Minimap:IsVisible() end
+function ns.MinimapHasMouse() return hover and engaged and shown end
 
 ---------------------------------------------------------------------------
 -- Tooltips. While the Minimap has the mouse, Blizzard's hover handler
@@ -584,7 +555,7 @@ function ns.MinimapHasMouse() return hover and engaged and Minimap:IsVisible() e
 ---------------------------------------------------------------------------
 
 local function AfterMinimapHover()
-	if not (hover and engaged) or indoor then return end
+	if not (hover and engaged and shown) or indoor then return end
 	if GameTooltip:IsShown() and GameTooltip:NumLines() > 0 and GameTooltip:IsOwned(UIParent) then return end -- a blip
 	ns.ShowQuestAreaTooltip(ns.CursorTile())
 end

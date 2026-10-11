@@ -852,8 +852,6 @@ C_Timer = {
 STANDARD_TEXT_FONT = "Fonts\\FRIZQT__.TTF"
 LEVEL = "Level"
 RAID_CLASS_COLORS = setmetatable({}, { __index = function() return { r = 1, g = 1, b = 1, colorStr = "ffffffff" } end })
-LOCALIZED_CLASS_NAMES_MALE = setmetatable({}, { __index = function(_, k) return k end })
-LOCALIZED_CLASS_NAMES_FEMALE = LOCALIZED_CLASS_NAMES_MALE
 SlashCmdList = {}
 UISpecialFrames = {}
 -- Escape, as the client's CloseSpecialWindows: hides the shown frames named there.
@@ -1375,8 +1373,9 @@ C_AreaPoiInfo = {
 	end,
 }
 C_VignetteInfo = {
-	GetVignettes = function() return { "Vignette-0-1" } end,
-	GetVignetteInfo = function(guid) return { vignetteGUID = guid, name = "Mother Fang", atlasName = "VignetteKill", onMinimap = true } end,
+	-- Sim.vignetteAtlas: its art ("VignetteKillElite" for a rare); Sim.noVignettes: none showing.
+	GetVignettes = function() return Sim.noVignettes and {} or { "Vignette-0-1" } end,
+	GetVignetteInfo = function(guid) return { vignetteGUID = guid, name = "Mother Fang", atlasName = Sim.vignetteAtlas or "VignetteKill", onMinimap = true } end,
 	GetVignettePosition = function(guid, id) return id == 1429 and CreateVector2D(0.38, 0.79) or nil end,
 }
 -- Atlases: the ones MagicMap asks for that Retail-engine clients have
@@ -1456,7 +1455,6 @@ C_QuestLine = {
 	GetAvailableQuestLines = function(id) return Sim.offersAsked[id] and Sim.offers[id] or {} end,
 }
 
-function CanMerchantRepair() return Sim.canRepair == true end
 function ButtonFrameTemplate_HidePortrait(f) end
 function ButtonFrameTemplate_HideButtonBar(f) end
 

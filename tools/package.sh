@@ -3,7 +3,7 @@
 # MagicMap/ folder ready to drop into Interface/AddOns. Files marked
 # export-ignore in .gitattributes (tools/, dotfiles) are left out.
 #
-#   tools/package.sh v0.1.0-alpha
+#   tools/package.sh v1.0.0
 set -eu
 tag=${1:?usage: tools/package.sh <tag>}
 cd "$(dirname "$0")/.."
