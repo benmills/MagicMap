@@ -32,13 +32,24 @@ local shown = false    -- the Minimap is on the map this frame (its arrow stands
 local hover = false    -- the mouse is over the Minimap
 local undo = {}        -- what Engage changed, as functions that change it back
 local ours = {}        -- our own children of the Minimap, which stay on it
-local lastMask, lastInsets, lastSize
+local lastMask, lastInsets, lastSize, hoverable
 local pinsCheckAt = 0 -- when Place next checks every HereBeDragons copy is on our host
 local terrainAlpha, terrainByAlpha -- what SetTerrain last applied
 local placed = {} -- where Place last anchored it: canvas, x, y
 local followed, followedIndoor -- the window strata and indoor state FollowWindow last applied
 
 T.SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
+-- Clear all over: "hidden" while it stays shown. A hidden Minimap doesn't
+-- redraw, and comes back drawn as it was when hidden (its old zoom level,
+-- you where you were) until you move or its level changes; so it's never
+-- hidden while it's ours, only masked away.
+local NO_MASK = "Interface\\AddOns\\" .. ADDON .. "\\Textures\\MinimapMask\\None"
+local noMaskFound -- (new files need a client restart; without it, Hide is all there is)
+do
+	local probe = UIParent:CreateTexture()
+	noMaskFound = probe:SetTexture(NO_MASK) ~= false
+	probe:SetTexture(nil)
+end
 -- Blizzard's round mask, put back on release.
 local ROUND_MASK = "Interface\\Masks\\CircleMaskScalable"
 
@@ -394,7 +405,7 @@ function T.Engage()
 	Minimap:SetMouseMotionEnabled(true)
 	Minimap:EnableMouseWheel(false)
 	C_Minimap.SetIgnoreRotateMinimap(true) -- our terrain doesn't turn
-	lastMask, lastInsets, lastSize, terrainAlpha = nil, nil, nil, nil
+	lastMask, lastInsets, lastSize, terrainAlpha, hoverable = nil, nil, nil, nil, nil
 	SetTerrain(0)
 	Minimap:SetClampedToScreen(false)
 	T.SetMask(T.SQUARE_MASK)
@@ -405,8 +416,8 @@ function T.Engage()
 		SyncTracking(false)
 	end)
 	OnRelease(function() T.SetIndoor(false) end) -- undone first
-	Minimap:Hide() -- until the policy finds it a settled spot
-	shown = false
+	Minimap:Show()
+	T.Hide() -- until the policy finds it a settled spot
 end
 
 -- Everything Engage changed, changed back, newest first. Every step runs
@@ -421,7 +432,7 @@ function T.Release()
 		if not ok and not failure then failure = err end
 		undo[i] = nil
 	end
-	lastMask, lastInsets, lastSize, terrainAlpha, followed = nil, nil, nil, nil, nil
+	lastMask, lastInsets, lastSize, terrainAlpha, followed, hoverable = nil, nil, nil, nil, nil, nil
 	wipe(placed)
 	if failure then error(failure, 0) end
 end
@@ -473,8 +484,21 @@ function T.SetLevel(z)
 	return true
 end
 
+local function Hoverable(on)
+	if on == hoverable then return end
+	hoverable = on
+	Minimap:SetMouseMotionEnabled(on)
+	if not on then hover = false end -- (no OnLeave once it can't be hovered)
+end
+
+-- Out of sight but still drawing (NO_MASK).
 function T.Hide()
-	if Minimap:IsShown() then Minimap:Hide() end
+	if noMaskFound then
+		T.SetMask(NO_MASK)
+		Hoverable(false)
+	elseif Minimap:IsShown() then
+		Minimap:Hide()
+	end
 	pinHost:Hide()
 	shown = false
 end
@@ -489,12 +513,14 @@ function T.ShowWhole()
 		Minimap:ClearAllPoints()
 		Minimap:SetPoint("CENTER", ns.viewport)
 	end
+	T.SetMask(T.SQUARE_MASK)
 	if d ~= lastSize then
 		lastSize = d
 		Minimap:SetSize(d, d)
 		PlacePins(Minimap)
 	end
 	if not Minimap:IsShown() then Minimap:Show() end
+	Hoverable(true)
 	shown = true
 end
 
@@ -532,6 +558,7 @@ function T.Place(canvas, x, y, d, mask, insets, alpha)
 	SetTerrain(alpha)
 	if not Minimap:IsShown() then Minimap:Show() end
 	if not pinHost:IsShown() then pinHost:Show() end
+	Hoverable(true)
 	shown = true
 end
 
@@ -566,7 +593,7 @@ end
 function ns.MinimapShowsPlayer() return shown end
 
 -- The Minimap has the mouse (its hover handler owns GameTooltip).
-function ns.MinimapHasMouse() return hover and engaged and Minimap:IsVisible() end
+function ns.MinimapHasMouse() return hover and engaged and shown end
 
 ---------------------------------------------------------------------------
 -- Tooltips. While the Minimap has the mouse, Blizzard's hover handler
@@ -577,7 +604,7 @@ function ns.MinimapHasMouse() return hover and engaged and Minimap:IsVisible() e
 ---------------------------------------------------------------------------
 
 local function AfterMinimapHover()
-	if not (hover and engaged) or indoor then return end
+	if not (hover and engaged and shown) or indoor then return end
 	if GameTooltip:IsShown() and GameTooltip:NumLines() > 0 and GameTooltip:IsOwned(UIParent) then return end -- a blip
 	ns.ShowQuestAreaTooltip(ns.CursorTile())
 end

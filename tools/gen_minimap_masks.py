@@ -7,6 +7,8 @@ the whole square is WHITE8X8, so it isn't written). The client hides minimap
 blips where its mask is transparent, and a mask can only cover the whole
 Minimap, centred on you, so MinimapBlips.lua makes the Minimap as big as its
 zoom wants and picks the biggest rectangle around you that fits the window.
+None.tga is transparent all over: the Minimap out of sight while it stays
+shown (hidden, it stops redrawing).
 
   python3 tools/gen_minimap_masks.py            # writes Textures/MinimapMask/
   python3 tools/gen_minimap_masks.py -o DIR
@@ -49,7 +51,9 @@ def main() -> None:
     for w, h in sizes():
         with open(os.path.join(args.out, f"Rect{w}x{h}.tga"), "wb") as f:
             f.write(mask(w, h))
-    print(f"{len(sizes())} masks in {args.out}")
+    with open(os.path.join(args.out, "None.tga"), "wb") as f:
+        f.write(mask(0, 0))
+    print(f"{len(sizes()) + 1} masks in {args.out}")
 
 
 if __name__ == "__main__":

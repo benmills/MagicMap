@@ -8,19 +8,22 @@
 -- size) land on our terrain, while our terrain shows far more than the
 -- Minimap ever could.
 --
--- The Minimap only knows what's within its view radius (about 233 yards
--- outdoors at its widest), so blips cover a circle around you; past a certain
--- zoom-out that circle is too small to read and the Minimap steps aside. It
--- also steps aside mid-zoom, and for a few frames after a change of its zoom
--- level (the client takes a moment to apply one).
+-- Its square must stay on the screen: where it runs off, the client draws
+-- its terrain and blips into the part still on screen, shifted and squashed
+-- (measured in game, /mm sync's terrain against ours); so its zoom level is
+-- never so wide that its square, sized to our zoom, leaves the screen. It
+-- only knows what's within its view radius (about 233 yards outdoors at its
+-- widest), so blips cover a circle around you; past a certain zoom-out that
+-- circle is too small to read and it steps aside. It also steps aside
+-- mid-zoom, and for a few frames after a change of its level.
 --
 -- The client doesn't clip the Minimap to the window (not with
 -- SetClipsChildren, nor as a ScrollFrame's child: tried in game), so its
 -- blips may only show inside it. When its square is bigger than the room
--- around you (zoomed in closer than its closest level, a window wider than
--- tall, you off centre), a mask texture whose opaque rectangle fits that room
--- confines them: the client hides blips where the mask is transparent. A
--- mask covers the whole Minimap, centred on you, so the room is what's
+-- around you (zoomed in, a window wider than tall, you off centre), a mask
+-- texture whose opaque rectangle fits that room confines them: the client
+-- hides blips where the mask is transparent. A mask covers the whole
+-- Minimap, centred on you, so the room is what's
 -- around you to the window's nearest edge each way; past that, nothing (and
 -- no way to read the blips there either: the hover point can't be moved).
 -- Without the mask files (new files need a client restart), it only shows
@@ -37,9 +40,10 @@ local TILE_YARDS = 1600 / 3
 local MIN_DIAMETER = 28 -- px; any smaller and the blips just pile up on your arrow
 local STILL = 0.002 -- a zoom change per frame smaller than this (log scale) counts as settled
 local SETTLE_FRAMES = 3 -- frames the Minimap stays hidden after a change of its zoom level
+local SCREEN_MARGIN = 4 -- px its square keeps inside the screen
 
--- Minimap:GetZoom() -> view diameter in yards, for choosing a zoom level (and
--- the radius until the client reports one).
+-- Minimap:GetZoom() -> view diameter in yards: which map it's drawing (indoor
+-- or outdoor), and the radius until the client reports one.
 local DIAMETER = {
 	outdoor = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 },
 	indoor = { [0] = 300, 240, 180, 120, 80, 50 },
@@ -86,8 +90,8 @@ end
 -- The Minimap's zoom level for `room` px around you at map zoom `zoom`:
 -- masked, the closest that still covers the room (its widest when even that
 -- fits), but never more than dMax px across (past that no mask is narrow
--- enough for the room's short side); unmasked, the widest whose square
--- fits. nil if none does.
+-- enough for the room's short side, or its square runs off the screen);
+-- unmasked, the widest whose square fits. nil if none does.
 local function PickLevel(kind, zoom, room, masks, dMax)
 	local px = zoom / TILE_YARDS
 	if masks then
@@ -240,17 +244,22 @@ local function Update()
 	local zoom = cam.zoom
 	local still = not cam.animating and lastZoom and math.abs(math.log(zoom / lastZoom)) < STILL
 	lastZoom = zoom
-	local kind = indoors and "indoor" or "outdoor"
 	local x, y, w, h = cam.playerX, cam.playerY, cam.viewW, cam.viewH
 	-- The biggest rectangle around you in the window: the mask needs the Minimap
 	-- to cover it; unmasked, its square must fit inside.
 	local roomW, roomH = 2 * math.min(x, w - x), 2 * math.min(y, h - y)
+	-- Its square must stay on the screen: off it, the client draws its blips
+	-- into the part still on screen, shifted and squashed.
+	local vp = ns.viewport
+	local k = UIParent:GetEffectiveScale() / vp:GetEffectiveScale()
+	local sx, sy = (vp:GetLeft() or 0) + x, (vp:GetTop() or 0) - y -- you, from the screen's bottom left (not laid out yet: none)
+	local onScreen = 2 * math.min(sx, UIParent:GetWidth() * k - sx, sy, UIParent:GetHeight() * k - sy) - SCREEN_MARGIN
 	local short = math.min(roomW, roomH)
-	local level = PickLevel(kind, zoom, masksFound and math.max(roomW, roomH) or short, masksFound,
-		(short - MASK_MARGIN) * MASK_TEXELS / MASK_MIN)
+	local level = PickLevel("outdoor", zoom, masksFound and math.max(roomW, roomH) or short, masksFound,
+		math.min((short - MASK_MARGIN) * MASK_TEXELS / MASK_MIN, onScreen))
 	if level and still and T.SetLevel(level) then settling = SETTLE_FRAMES end
 	settling = math.max(0, settling - 1)
-	local d = 2 * ViewRadius(kind) / TILE_YARDS * zoom
+	local d = 2 * ViewRadius("outdoor") / TILE_YARDS * zoom
 	local mask, sideW, sideH = MaskFor(d, roomW, roomH, masksFound)
 	if expanded or not (level and still) or settling > 0 or d < MIN_DIAMETER or not mask then
 		T.Hide()
@@ -263,7 +272,7 @@ local function Update()
 	T.Place(cam.canvas, cam.playerCol * zoom, -cam.playerRow * zoom, d, mask, insets, syncCheck and syncCheck.alpha or 0)
 	area.on, area.col, area.row = true, cam.playerCol, cam.playerRow
 	area.halfW, area.halfH = sideW / 2 / zoom, sideH / 2 / zoom
-	ReportSync(level, kind, d, zoom, sideW, sideH, mask)
+	ReportSync(level, "outdoor", d, zoom, sideW, sideH, mask)
 end
 
 -- After the map's own OnUpdate, so the view has already moved this frame.

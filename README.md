@@ -237,9 +237,11 @@ so its blips land on MagicMap's terrain. Every change to Blizzard's minimap is i
 
 ### Risks
 
-The takeover relies on behaviour the client doesn't document: blips hiding where the Minimap's
-mask is transparent, `C_Minimap.SetMinimapInsetInfo` pushing the rim's icons off screen, and
-HereBeDragons' internal pin table. The tests catch crashes and wrong API assumptions, not how it
+The takeover relies on behaviour the client doesn't document, found by measuring Blizzard's
+terrain against MagicMap's in game (`/mm sync`): blips hiding where the Minimap's mask is
+transparent; the Minimap drawing in the wrong place where its square runs off the screen, and
+not redrawing while hidden (so it's never hidden, only masked away); `C_Minimap.SetMinimapInsetInfo`
+pushing the rim's icons off screen; and HereBeDragons' internal pin table. The tests catch crashes and wrong API assumptions, not how it
 looks in the real client. Tile IDs change between Forever builds, so `Data/` must be regenerated
 when they do.
 

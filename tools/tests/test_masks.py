@@ -14,14 +14,14 @@ def test_masks(tmp_path):
     subprocess.run([sys.executable, os.path.join(TOOLS, "gen_minimap_masks.py"), "-o", str(tmp_path)],
                    check=True, capture_output=True)
     names = sorted(os.listdir(tmp_path))
-    want = sorted(f"Rect{w}x{h}.tga" for w in range(4, 33, 2) for h in range(4, 33, 2) if (w, h) != (32, 32))
+    want = sorted([f"Rect{w}x{h}.tga" for w in range(4, 33, 2) for h in range(4, 33, 2) if (w, h) != (32, 32)] + ["None.tga"])
     assert names == want
     assert sorted(os.listdir(SHIPPED)) == want, "the shipped masks aren't the set it writes: rerun tools/gen_minimap_masks.py"
     for name in names:
         data = (tmp_path / name).read_bytes()
         with open(os.path.join(SHIPPED, name), "rb") as f:
             assert f.read() == data, f"{name} is stale: rerun tools/gen_minimap_masks.py"
-        mw, mh = (int(v) for v in name[4:-4].split("x"))
+        mw, mh = (0, 0) if name == "None.tga" else (int(v) for v in name[4:-4].split("x"))
         w, h, rows = read_tga(data)
         assert (w, h) == (32, 32)
         x0, x1, y0, y1 = (w - mw) // 2, (w + mw) // 2, (h - mh) // 2, (h + mh) // 2
