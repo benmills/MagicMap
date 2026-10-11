@@ -17,7 +17,8 @@
 -- back is exactly what was taken.
 --
 -- Relies on behaviour the client doesn't document (README, "Unknowns"):
---   * blips hide where the Minimap's mask texture is transparent;
+--   * the Minimap draws right only while its square is on the screen, and
+--     doesn't redraw while hidden;
 --   * C_Minimap.SetMinimapInsetInfo pushes the rim's icons outward;
 --   * HereBeDragons' SetMinimapObject and its minimapPins table.
 
@@ -32,24 +33,13 @@ local shown = false    -- the Minimap is on the map this frame (its arrow stands
 local hover = false    -- the mouse is over the Minimap
 local undo = {}        -- what Engage changed, as functions that change it back
 local ours = {}        -- our own children of the Minimap, which stay on it
-local lastMask, lastInsets, lastSize, hoverable
+local lastSize
 local pinsCheckAt = 0 -- when Place next checks every HereBeDragons copy is on our host
 local terrainAlpha, terrainByAlpha -- what SetTerrain last applied
 local placed = {} -- where Place last anchored it: canvas, x, y
 local followed, followedIndoor -- the window strata and indoor state FollowWindow last applied
 
-T.SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
--- Clear all over: "hidden" while it stays shown. A hidden Minimap doesn't
--- redraw, and comes back drawn as it was when hidden (its old zoom level,
--- you where you were) until you move or its level changes; so it's never
--- hidden while it's ours, only masked away.
-local NO_MASK = "Interface\\AddOns\\" .. ADDON .. "\\Textures\\MinimapMask\\None"
-local noMaskFound -- (new files need a client restart; without it, Hide is all there is)
-do
-	local probe = UIParent:CreateTexture()
-	noMaskFound = probe:SetTexture(NO_MASK) ~= false
-	probe:SetTexture(nil)
-end
+local SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
 -- Blizzard's round mask, put back on release.
 local ROUND_MASK = "Interface\\Masks\\CircleMaskScalable"
 
@@ -331,7 +321,6 @@ local function KeepMinimap()
 		m:SetFrameLevel(level)
 		m:EnableMouse(mouse)
 		m:EnableMouseWheel(wheel)
-		m:SetHitRectInsets(0, 0, 0, 0)
 		m:SetAlpha(alpha)
 		C_Minimap.SetDrawGroundTextures(ground)
 		C_Minimap.SetIgnoreRotateMinimap(unrotated)
@@ -405,10 +394,10 @@ function T.Engage()
 	Minimap:SetMouseMotionEnabled(true)
 	Minimap:EnableMouseWheel(false)
 	C_Minimap.SetIgnoreRotateMinimap(true) -- our terrain doesn't turn
-	lastMask, lastInsets, lastSize, terrainAlpha, hoverable = nil, nil, nil, nil, nil
+	lastSize, terrainAlpha = nil, nil
 	SetTerrain(0)
 	Minimap:SetClampedToScreen(false)
-	T.SetMask(T.SQUARE_MASK)
+	Minimap:SetMaskTexture(SQUARE_MASK)
 	ClearRim(true)
 	OnRelease(function() ClearRim(false) end)
 	OnRelease(function()
@@ -416,8 +405,7 @@ function T.Engage()
 		SyncTracking(false)
 	end)
 	OnRelease(function() T.SetIndoor(false) end) -- undone first
-	Minimap:Show()
-	T.Hide() -- until the policy finds it a settled spot
+	T.Hide() -- until the policy finds it a spot
 end
 
 -- Everything Engage changed, changed back, newest first. Every step runs
@@ -432,7 +420,7 @@ function T.Release()
 		if not ok and not failure then failure = err end
 		undo[i] = nil
 	end
-	lastMask, lastInsets, lastSize, terrainAlpha, followed, hoverable = nil, nil, nil, nil, nil, nil
+	lastSize, terrainAlpha, followed = nil, nil, nil
 	wipe(placed)
 	if failure then error(failure, 0) end
 end
@@ -442,20 +430,6 @@ function T.IsEngaged() return engaged end
 ---------------------------------------------------------------------------
 -- Placing it (between Engage and Release)
 ---------------------------------------------------------------------------
-
-function T.SetMask(mask)
-	if mask == lastMask then return end
-	lastMask = mask
-	Minimap:SetMaskTexture(mask)
-end
-
--- Hover reaches the Minimap only where its blips may show.
-local function SetHitInsets(l, r, t, b)
-	local key = ((math.floor(l) * 4096 + math.floor(r)) * 4096 + math.floor(t)) * 4096 + math.floor(b)
-	if key == lastInsets then return end
-	lastInsets = key
-	Minimap:SetHitRectInsets(l, r, t, b)
-end
 
 -- Indoors (on) or out: the Minimap shown whole over a backdrop, or just its
 -- blips under our markers.
@@ -467,11 +441,7 @@ function T.SetIndoor(on)
 	FollowWindow()
 	SetTerrain(on and 1 or 0)
 	ClearRim(not on) -- indoors it's Blizzard's minimap, rim and all
-	if on then
-		T.SetMask(T.SQUARE_MASK)
-		SetHitInsets(0, 0, 0, 0)
-		pinHost:Hide()
-	end
+	if on then pinHost:Hide() end
 	lastSize = nil
 end
 
@@ -484,21 +454,8 @@ function T.SetLevel(z)
 	return true
 end
 
-local function Hoverable(on)
-	if on == hoverable then return end
-	hoverable = on
-	Minimap:SetMouseMotionEnabled(on)
-	if not on then hover = false end -- (no OnLeave once it can't be hovered)
-end
-
--- Out of sight but still drawing (NO_MASK).
 function T.Hide()
-	if noMaskFound then
-		T.SetMask(NO_MASK)
-		Hoverable(false)
-	elseif Minimap:IsShown() then
-		Minimap:Hide()
-	end
+	if Minimap:IsShown() then Minimap:Hide() end
 	pinHost:Hide()
 	shown = false
 end
@@ -513,22 +470,19 @@ function T.ShowWhole()
 		Minimap:ClearAllPoints()
 		Minimap:SetPoint("CENTER", ns.viewport)
 	end
-	T.SetMask(T.SQUARE_MASK)
 	if d ~= lastSize then
 		lastSize = d
 		Minimap:SetSize(d, d)
 		PlacePins(Minimap)
 	end
 	if not Minimap:IsShown() then Minimap:Show() end
-	Hoverable(true)
 	shown = true
 end
 
 -- Outdoors: centred on (x, y) of `canvas` (you, on the tiles' canvas, so it
--- moves with them pixel for pixel), d px across, `mask` confining its blips
--- to the rectangle `insets` leave for hover ({ left, right, top, bottom }).
--- alpha: its terrain's (0, hidden, but for /mm sync).
-function T.Place(canvas, x, y, d, mask, insets, alpha)
+-- moves with them pixel for pixel), d px across. alpha: its terrain's (0,
+-- hidden, but for /mm sync).
+function T.Place(canvas, x, y, d, alpha)
 	FollowWindow()
 	-- Anchored to the canvas, so it only moves when you do (or the zoom does);
 	-- one cheap look each frame catches anything else moving it.
@@ -540,8 +494,6 @@ function T.Place(canvas, x, y, d, mask, insets, alpha)
 		pinHost:ClearAllPoints()
 		pinHost:SetPoint("CENTER", canvas, "TOPLEFT", x, y)
 	end
-	T.SetMask(mask)
-	SetHitInsets(insets[1], insets[2], insets[3], insets[4])
 	d = math.floor(d + 0.5)
 	-- (HereBeDragons copies changing hosts is rare: a look twice a second.)
 	local now, pinsOff = GetTime(), false
@@ -558,7 +510,6 @@ function T.Place(canvas, x, y, d, mask, insets, alpha)
 	SetTerrain(alpha)
 	if not Minimap:IsShown() then Minimap:Show() end
 	if not pinHost:IsShown() then pinHost:Show() end
-	Hoverable(true)
 	shown = true
 end
 

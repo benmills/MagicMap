@@ -136,9 +136,9 @@ By the zone name, on hover.
   does.
 - **Tracking:** Blizzard's minimap tracking (herbs, minerals, vendors, trainers...). Its own
   button is hidden with the minimap's corner, so it lives here.
-- **Settings:** the minimap button, tile colours, hiding Blizzard's copies of what MagicMap draws,
-  putting the map back on the minimap's spot, switching to Blizzard's minimap, and some debug
-  helpers.
+- **Settings:** *Map* (colour-matched tiles, Blizzard's blips past the window's edge, one marker
+  for each thing), *Minimap* (the minimap button, reset position, use Blizzard's minimap), and
+  *Advanced* for diagnostics and performance. Hover a setting for what it does.
 
 <!-- SCREENSHOT: the gear menu open with the Quests submenu showing. -->
 
@@ -184,7 +184,9 @@ Settings and remembered rares are shared by every character on your account.
 ## Limits
 
 - **WoW Forever only.** The data and code target its client.
-- **Blizzard's blips only show around you,** about 230 yards at most, and only inside the window.
+- **Blizzard's blips only show around you,** about 230 yards at most, in the biggest square around
+  you that fits the window (Settings, "Show blips past the edge", lets them cover a long window,
+  spilling past its short sides).
   Zoomed far out, or while the map is zooming, they step aside and MagicMap's own markers remain.
 - **Panning away shrinks the area where blips show,** since it has to stay centred on you, until
   the map glides back.
@@ -238,11 +240,10 @@ so its blips land on MagicMap's terrain. Every change to Blizzard's minimap is i
 ### Risks
 
 The takeover relies on behaviour the client doesn't document, found by measuring Blizzard's
-terrain against MagicMap's in game (`/mm sync`): blips hiding where the Minimap's mask is
-transparent; the Minimap drawing in the wrong place where its square runs off the screen, and
-not redrawing while hidden (so it's never hidden, only masked away); `C_Minimap.SetMinimapInsetInfo`
-pushing the rim's icons off screen; and HereBeDragons' internal pin table. The tests catch crashes and wrong API assumptions, not how it
-looks in the real client. Tile IDs change between Forever builds, so `Data/` must be regenerated
+terrain against MagicMap's in game (`/mm sync`): the Minimap drawing in the wrong place where its
+square runs off the screen, and not redrawing while hidden; `C_Minimap.SetMinimapInsetInfo`
+pushing the rim's icons off screen; and HereBeDragons' internal pin table. The tests catch crashes
+and wrong API assumptions, not how it looks in the real client. Tile IDs change between Forever builds, so `Data/` must be regenerated
 when they do.
 
 ## Credits

@@ -372,13 +372,13 @@ local function StylePin(pin, e)
 end
 
 -- Quest givers: Blizzard's Minimap draws its own "?" and "!" for them and no
--- tracking switch turns those off, so where its blips show (the rectangle
+-- tracking switch turns those off, so where its blips show (the square
 -- around you, ns.BlipArea), ours step aside for its. Elsewhere ours are
 -- the only ones.
 local blipYield = { at = 0 }
 function blipYield.Hides(e)
 	local a = e.yields and ns.BlipArea
-	return a and a.on and math.abs(e.col - a.col) < a.halfW and math.abs(e.row - a.row) < a.halfH or false
+	return a and a.on and math.abs(e.col - a.col) < a.half and math.abs(e.row - a.row) < a.half or false
 end
 
 -- Pins only move as you zoom; small landmarks appear once you're close
