@@ -291,11 +291,12 @@ local function PinOnEnter(self)
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	local c = e.titleColor
 	if c then GameTooltip:AddLine(e.title or "?", c[1], c[2], c[3]) else GameTooltip:AddLine(e.title or "?") end
-	for _, line in ipairs(e.lines or (e.questID and ns.QuestTooltipLines(e.questID, e.turnIn)) or {}) do
-		GameTooltip:AddLine(line, 1, 1, 1, true)
-	end
+	local lines, shown = e.lines, nil
+	if not lines and e.questID then lines, shown = ns.QuestTooltipLines(e.questID, e.turnIn) end
+	for _, line in ipairs(lines or {}) do GameTooltip:AddLine(line, 1, 1, 1, true) end
 	if e.questID then GameTooltip:AddLine(FollowHint(e.questID)) end
 	GameTooltip:Show()
+	if shown then ns.ShowTooltipPortraits(GameTooltip, 1, shown) end
 end
 
 local INNER_SIZE, INNER_SHADE = 0.56, 0.55 -- a quest's objective icon: share of its disc, and how dark (the "..." on it reads)
@@ -1038,9 +1039,11 @@ local function ShowBlobTooltip(questID)
 	GameTooltip:SetOwner(blobTooltipOwner, "ANCHOR_CURSOR_RIGHT", 12, 0)
 	local title, c = ns.QuestTitle(questID)
 	if c then GameTooltip:AddLine(title, c[1], c[2], c[3]) else GameTooltip:AddLine(title) end
-	for _, line in ipairs(ns.QuestTooltipLines(questID, false)) do GameTooltip:AddLine(line, 1, 1, 1, true) end
+	local lines, shown = ns.QuestTooltipLines(questID, false)
+	for _, line in ipairs(lines) do GameTooltip:AddLine(line, 1, 1, 1, true) end
 	GameTooltip:AddLine(FollowHint(questID))
 	GameTooltip:Show()
+	ns.ShowTooltipPortraits(GameTooltip, 1, shown)
 end
 
 -- Who gets GameTooltip over the map: our pins (they take the mouse first),

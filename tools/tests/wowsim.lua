@@ -1281,6 +1281,11 @@ function UnitIsPlayer(unit) local u = Sim.units[unit]; return u ~= nil and u.npc
 function UnitClassification(unit) return Sim.units[unit] and Sim.units[unit].classification or "normal" end
 function UnitLevel(unit) local u = Sim.units[unit]; return u and (u.level or 1) or 0 end
 function UnitQuestTrivialLevelRange(unit) return 5 end
+-- A unit's portrait drawn into a texture (the unit's GUID, for tests).
+function SetPortraitTexture(tex, unit)
+	assert(S[tex] and S[tex].type == "Texture", "SetPortraitTexture: texture expected")
+	S[tex].portrait = UnitGUID(unit)
+end
 -- A group: Sim.group lists the other members' unit tokens (party1...),
 -- each in Sim.units with a tile position (col, row) on the player's instance.
 Sim.group = {}

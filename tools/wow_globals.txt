@@ -10,7 +10,7 @@ time tinsert tremove tonumber tostring type unpack wipe xpcall hooksecurefunc
 # Namespaces
 C_AddOnProfiler C_AddOns C_AreaPoiInfo C_CVar C_DeathInfo C_EncounterJournal C_Item C_Map C_MapExplorationInfo
 C_Minimap C_QuestLine C_QuestLog C_SuperTrack C_TaxiMap C_Texture C_Timer
-LibQuestieDB UnitQuestTrivialLevelRange
+LibQuestieDB UnitQuestTrivialLevelRange SetPortraitTexture
 C_VignetteInfo Enum
 
 # Functions

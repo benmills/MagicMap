@@ -765,6 +765,20 @@ scenarios.quest_meta = function()
 	check(text:find("|cffffd1004-5|r", 1, true) and text:find("|cffff7f3f7-8|r", 1, true), "with their level ranges, coloured for you (5): yellow, orange:\n" .. text)
 	check(text:find("Goldtooth", 1, true) and text:find("Elite", 1, true), "an elite one says so:\n" .. text)
 	check(text:find("Turn in to|r |cffffffffWilliam Pestle", 1, true), "and who to turn it in to:\n" .. text)
+	-- A mob met (under the mouse): its own portrait on its line from then on.
+	Sim.FireScript(pin, "OnLeave", false)
+	Sim.units.mouseover = { name = "Kobold Tunneler", guid = "Creature-0-1-0-1-475-00001", npc = true }
+	Sim.FireEvent("UPDATE_MOUSEOVER_UNIT")
+	Sim.units.mouseover = nil
+	Sim.FireScript(pin, "OnEnter", false)
+	local portrait
+	for _, r in ipairs({ GameTooltip:GetRegions() }) do
+		if S[r].portrait == "Creature-0-1-0-1-475-00001" and r:IsShown() then portrait = r end
+	end
+	check(portrait ~= nil, "a mob you've moused over shows its own portrait in the tooltip")
+	local line
+	if portrait then line = select(2, portrait:GetPoint(1)) end
+	check(line and (line:GetText() or ""):find("Kobold Tunneler", 1, true), "on its line")
 	Sim.FireScript(pin, "OnLeave", false)
 	local done = QuestPin(62)
 	check(done and done.count:GetText() == nil, "a quest ready to turn in has no count")

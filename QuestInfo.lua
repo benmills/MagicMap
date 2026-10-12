@@ -126,11 +126,57 @@ function ns.QuestObjectiveIcon(questID)
 	end
 end
 
--- A mob, as a tooltip line: icon, name, level range in its difficulty
--- colour for you, rank.
+---------------------------------------------------------------------------
+-- Mob portraits: the game draws one only from a unit that's there (your
+-- target, the mob under the mouse, a nameplate), so each mob's is kept as
+-- it's met, for this session, and its quest tooltip lines show it.
+---------------------------------------------------------------------------
+
+local PORTRAIT = 14  -- px
+local MAX_PORTRAITS = 300
+local portraitHolder = CreateFrame("Frame")
+portraitHolder:Hide()
+local portraits, portraitCount = {}, 0 -- NPC ID -> texture
+
+local function NpcID(unit)
+	local guid = UnitGUID(unit)
+	if not guid or (issecretvalue and issecretvalue(guid)) then return nil end
+	local kind, _, _, _, _, id = strsplit("-", guid)
+	return (kind == "Creature" or kind == "Vehicle") and tonumber(id) or nil
+end
+
+local function Capture(unit)
+	local id = NpcID(unit)
+	if not id or portraits[id] or portraitCount >= MAX_PORTRAITS then return end
+	local tex = portraitHolder:CreateTexture(nil, "OVERLAY")
+	SetPortraitTexture(tex, unit)
+	tex:SetSize(PORTRAIT, PORTRAIT)
+	portraits[id], portraitCount = tex, portraitCount + 1
+end
+
+local capture = CreateFrame("Frame")
+capture:SetScript("OnEvent", function(_, event, unit)
+	if event == "UPDATE_MOUSEOVER_UNIT" then
+		Capture("mouseover")
+	elseif event == "PLAYER_TARGET_CHANGED" then
+		Capture("target")
+	else
+		Capture(unit) -- NAME_PLATE_UNIT_ADDED
+	end
+end)
+for _, event in ipairs({ "UPDATE_MOUSEOVER_UNIT", "PLAYER_TARGET_CHANGED", "NAME_PLATE_UNIT_ADDED" }) do
+	pcall(capture.RegisterEvent, capture, event)
+end
+
+-- A mob, as a tooltip line: its portrait (a dark disc under it, placed by
+-- ns.ShowTooltipPortraits) or until it's been seen a sword (a skull for
+-- elites), name, level range in its difficulty colour for you, rank.
 local MAX_MOBS = 3
+local INDENT = "    "
 local RANKS = { [1] = "Elite", [2] = "Rare Elite", [3] = "Boss", [4] = "Rare" }
-local MOB_ICON, ELITE_ICON = "|T135274:12:12:0:0:64:64:5:59:5:59|t", "|TInterface\\TargetingFrame\\UI-TargetingFrame-Skull:12:12|t"
+local MOB_ICON = string.format("|T135274:%d:%d:0:0:64:64:5:59:5:59|t", PORTRAIT, PORTRAIT)
+local ELITE_ICON = string.format("|TInterface\\TargetingFrame\\UI-TargetingFrame-Skull:%d:%d|t", PORTRAIT, PORTRAIT)
+local DISC = string.format("|T%s:%d:%d:0:0:64:64:0:64:0:64:0:0:0|t", ns.CIRCLE, PORTRAIT, PORTRAIT)
 local DIM, WHITE = "|cff9d9d9d", "|cffffffff"
 
 local function MobLine(npcID)
@@ -138,7 +184,8 @@ local function MobLine(npcID)
 	if not name then return nil end
 	local lo, hi = Read("Npc", "minLevel", npcID), Read("Npc", "maxLevel", npcID)
 	local rank = RANKS[Read("Npc", "rank", npcID) or 0]
-	local text = "    " .. (rank and ELITE_ICON or MOB_ICON) .. " " .. WHITE .. name .. "|r"
+	local icon = portraits[npcID] and DISC or rank and ELITE_ICON or MOB_ICON
+	local text = INDENT .. icon .. " " .. WHITE .. name .. "|r"
 	if hi and hi > 0 then
 		lo = lo and lo > 0 and lo or hi
 		local trivial = (UnitLevel("player") or hi) - hi > (SafeCall(UnitQuestTrivialLevelRange, "player") or 5)
@@ -161,9 +208,9 @@ local function Names(entity, ids, max)
 	return table.concat(names, ", ")
 end
 
--- Where an objective's item comes from: the mobs that drop it, else the
--- objects it's in, else who sells it.
-local function ItemSources(lines, itemID)
+-- Where an objective's item comes from: the mobs that drop it (shown[line]
+-- = NPC ID for those with a portrait), else the objects it's in, else who sells it.
+local function ItemSources(lines, shown, itemID)
 	local mobs = Read("Item", "npcDrops", itemID)
 	if mobs and #mobs > 0 then
 		lines[#lines + 1] = "    " .. DIM .. "Dropped by|r"
@@ -175,7 +222,11 @@ local function ItemSources(lines, itemID)
 				lines[#lines + 1] = "    " .. DIM .. string.format("(+%d more)", #sorted - MAX_MOBS) .. "|r"
 				break
 			end
-			lines[#lines + 1] = MobLine(id)
+			local line = MobLine(id)
+			if line then
+				lines[#lines + 1] = line
+				shown[#lines] = portraits[id] and id or nil
+			end
 		end
 		return
 	end
@@ -192,9 +243,10 @@ end
 
 -- The quest's tooltip lines (after its title): what's left to do and,
 -- for items mobs drop, which mobs (a kill objective already names its
--- mob); its tag (Elite, Group, Dungeon) and who to turn it in to.
+-- mob); its tag (Elite, Group, Dungeon) and who to turn it in to. Second:
+-- { [line] = NPC ID } of the mobs with portraits, for ns.ShowTooltipPortraits.
 function ns.QuestTooltipLines(questID, complete)
-	local lines = {}
+	local lines, shown = {}, {}
 	if complete then
 		lines[1] = "|cff33ff33Ready to turn in|r"
 	else
@@ -203,7 +255,7 @@ function ns.QuestTooltipLines(questID, complete)
 			if o.text and o.text ~= "" then
 				lines[#lines + 1] = (o.finished and "|cff808080" or WHITE) .. "- " .. o.text .. "|r"
 				local id = not o.finished and o.type == "item" and ObjectiveID(questID, objectives, i)
-				if id then ItemSources(lines, id) end
+				if id then ItemSources(lines, shown, id) end
 			end
 		end
 	end
@@ -216,5 +268,32 @@ function ns.QuestTooltipLines(questID, complete)
 	local npc = finishers and finishers[1] and finishers[1][1]
 	local who = npc and Read("Npc", "name", npc) or (finishers and finishers[2] and Read("Object", "name", finishers[2][1]))
 	if who then lines[#lines + 1] = DIM .. "Turn in to|r " .. WHITE .. who .. "|r" end
-	return lines
+	return lines, shown
 end
+
+-- Portraits onto a shown tooltip, over their lines' dark discs: shown[i] is
+-- the mob on line first + i. Lent to the tooltip while it's up.
+local lent = {}
+local probe = portraitHolder:CreateFontString()
+function ns.ShowTooltipPortraits(tooltip, first, shown)
+	for _, tex in ipairs(lent) do tex:Hide() end
+	wipe(lent)
+	for i, npcID in pairs(shown) do
+		local fs = _G[tooltip:GetName() .. "TextLeft" .. (first + i)]
+		local tex = portraits[npcID]
+		if fs and tex then
+			probe:SetFont(fs:GetFont())
+			probe:SetText(INDENT)
+			tex:SetParent(tooltip)
+			tex:SetDrawLayer("OVERLAY", 7)
+			tex:ClearAllPoints()
+			tex:SetPoint("LEFT", fs, "LEFT", probe:GetStringWidth(), 0)
+			tex:Show()
+			lent[#lent + 1] = tex
+		end
+	end
+end
+GameTooltip:HookScript("OnHide", function()
+	for _, tex in ipairs(lent) do tex:Hide() end
+	wipe(lent)
+end)
