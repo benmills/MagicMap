@@ -12,7 +12,7 @@ local CHUNKS = 16                  -- per tile
 local W = 1024                     -- node id = gc * W + gr (global chunk column, row)
 local BLOCKED, LAND, WATER = 0, 1, 2
 local COST = { [LAND] = 1, [WATER] = 3, [3] = 25 } -- per chunk crossed: swimming is slow, magma and slime hurt
-local SLICE_MS = 2                 -- A*'s time per frame
+local SLICE_MS = 1                 -- A*'s time per frame
 local MAX_NODES = 60000            -- give up (straight line) past this many
 local PAD, PAD_SHARE = 24, 0.6     -- search box: start and goal's box, grown by this many chunks or this share of the distance
 local SNAP = 4                     -- chunks to look around a spot you can't stand on (a bridge, a building) for one you can
@@ -175,7 +175,7 @@ local function Search(inst, sc, sr, gc, gr)
 					end
 				end
 			end
-			if count % 200 == 0 then Pace() end
+			if count % 50 == 0 then Pace() end
 		end
 	end
 	if nearD <= math.max(GAP, d * GAP_SHARE) and nearD < d then return Way(near) end
