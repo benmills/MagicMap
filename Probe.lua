@@ -306,7 +306,7 @@ end
 -- `most` yards: found, mean and worst gap (yd), and how many of `got`
 -- matched nothing. `keep(b)` picks which of ref count.
 local function Match(ref, got, most, keep)
-	local used, found, sum, worst, total = {}, 0, 0, 0, 0
+	local used, found, sum, worst, total, missing = {}, 0, 0, 0, 0, {}
 	for _, a in ipairs(ref) do
 		if not keep or keep(a) then
 			total = total + 1
@@ -320,6 +320,8 @@ local function Match(ref, got, most, keep)
 			if best then
 				used[best] = true
 				found, sum, worst = found + 1, sum + gap, math.max(worst, gap)
+			else
+				missing[#missing + 1] = string.format("%s (%s yd)", a.name, Yd(a.yards))
 			end
 		end
 	end
@@ -327,7 +329,7 @@ local function Match(ref, got, most, keep)
 	for _, b in ipairs(got) do
 		if not used[b] then extra = extra + 1 end
 	end
-	return { found = found, total = total, mean = found > 0 and sum / found or nil, worst = found > 0 and worst or nil, extra = extra }
+	return { found = found, total = total, mean = found > 0 and sum / found or nil, worst = found > 0 and worst or nil, extra = extra, missing = missing }
 end
 
 ---------------------------------------------------------------------------
@@ -584,6 +586,7 @@ function tests.sense()
 			end
 			Say("%s: %d of %d found (within its %s yd radius), %d new or merged, gap mean %s worst %s yd; %d past the round edge",
 				c[1], m.found, m.total, Yd(r), m.extra, Yd(m.mean), Yd(m.worst), corners)
+			if #m.missing > 0 then Say("  missing: %s", table.concat(m.missing, ", ")) end
 			if c.halves then
 				local on = 0
 				for _, b in ipairs(exact) do
@@ -822,6 +825,7 @@ function tests.race()
 		local m = Match(ref, got, 15, function(b) return b.yards < r end)
 		Say("%s: %d probes, %.2f ms; found %d of %d, %d extra; error mean %s, worst %s yd",
 			s[1], probes, ms, m.found, m.total, m.extra, Yd(m.mean), Yd(m.worst))
+		if #m.missing > 0 then Say("  missing: %s", table.concat(m.missing, ", ")) end
 		Reset()
 	end
 end
