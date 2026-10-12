@@ -43,7 +43,7 @@ pan. Take the mouse off it for a few seconds after panning and it glides back to
 the zone name or the border, or Alt-drag the map. Resize it from the bottom-right corner; it keeps
 the same yards across as it grows. It remembers where you put it, and `/mm reset` puts it back.
 
-The buttons show while you hover: follow and path at the bottom left, zoom at the bottom right,
+The buttons show while you hover: follow at the bottom left, zoom at the bottom right,
 and the gear and the big map button by the zone name.
 
 Blizzard draws its blips (herbs, ore, tracked NPCs) and other addons' minimap pins around you.
@@ -78,23 +78,20 @@ in view, click a zone to fly there. Zone borders and names are traced from the t
 
 ![Picking Eastern Kingdoms from the title, then clicking Dun Morogh to fly there](docs/pick-and-fly.gif)
 
-### Follow a quest, and path mode
+### Follow a quest
 
 Click a quest's icon on the map to follow it, and click again to stop. Zoomed in to a single
 zone, clicking its area works too. The quest you follow is also the game's tracked quest.
 
-Path mode keeps your target in view with a faint line toward it. On the minimap you stay in the
-middle; on the big map you sit halfway toward the target. When the target is too far for your
-zoom, the map eases out just enough to show both, and your zoom comes back once the target is near
-or gone. For a quest with an area, the line goes to the area's nearest edge and stops once you're
-inside. When the target is off the map, a gold arrow on its edge points the way.
-
-Path mode turns on by itself when you get a new target: a quest you follow, a waypoint, or your
-corpse while you're a ghost. The path button at the bottom left turns it off.
+Whatever you track (the quest you follow, a waypoint, or your corpse while you're a ghost) gets a
+soft line from you to it. It follows the way you'd walk, around cliffs, mountains, lava and lakes,
+read from the game's own terrain, and leaves you the way you're facing. For a quest with an area,
+it goes to the area's nearest edge and stops once you're inside. When the target is off the map, a
+gold arrow on its edge points the way.
 
 <!-- GIF: riding south out of the Crossroads after following a Barrens kill quest. The quest
-     area sits at the minimap's edge, the dashed line runs to it, the map eases out to fit, and the
-     line goes away as you ride into the area. -->
+     area sits at the minimap's edge, the line runs round the hills to it, and goes away as you
+     ride into the area. -->
 
 ### Waypoints
 
@@ -153,7 +150,7 @@ By the zone name, on hover.
 | Pick a map | Click the zone name |
 | Fly to a zone | Click it, while more than one zone is in view |
 | Follow a quest | Click its icon (or its area, zoomed in); again to stop |
-| Follow you / path mode | The two buttons at the bottom left |
+| Follow you | The button at the bottom left |
 | Waypoint | Ctrl-click; Ctrl-right-click clears |
 | `/way` for a spot | Shift-click |
 | Menu (waypoint, follow me; zone info on the big map) | Right-click |
@@ -164,7 +161,7 @@ Slash commands, `/mm` or `/magicmap`:
 | Command | Does |
 | --- | --- |
 | `/mm` | MagicMap or Blizzard's minimap |
-| `/mm follow`, `/mm path` | Toggle following you, and path mode |
+| `/mm follow` | Toggle following you |
 | `/mm map <name or id>` | Show a map; on its own, lists them |
 | `/mm zone <name>` | Fly to a zone |
 | `/mm reset` | Back onto the minimap's spot, at its size |
@@ -193,7 +190,7 @@ Settings and remembered rares are shared by every character on your account.
 - **The big map has no Blizzard blips.** It shows MagicMap's markers and other addons' world-map
   pins.
 - **Indoors, it's Blizzard's floor plan,** not MagicMap's terrain.
-- **Instances that hide your position** are shown whole, without path mode or blips.
+- **Instances that hide your position** are shown whole, without the line or blips.
   Instances have no zone borders.
 - **Rotate Minimap:** MagicMap stays north up, and other addons' minimap pins stay hidden while
   Rotate Minimap is on (they'd land in the wrong places).

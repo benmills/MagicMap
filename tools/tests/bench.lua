@@ -52,7 +52,7 @@ benches.wheel_zoom = function()
 	Sim.Run(1)
 end
 
--- The minimap, as it's mostly used: a party of four, path mode toward a
+-- The minimap, as it's mostly used: a party of four, a line to a
 -- waypoint. The map is always open here, so even standing still counts.
 local function MinimapSetup()
 	Sim.Run(1)
@@ -62,7 +62,6 @@ local function MinimapSetup()
 	end
 	Sim.group = { "party1", "party2", "party3", "party4" }
 	ns.SetWaypointAt(Sim.player.col + 0.6, Sim.player.row + 0.3)
-	ns.SetPath(true)
 	Sim.Run(2)
 end
 

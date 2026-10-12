@@ -155,7 +155,7 @@ scenarios.title_buttons = function()
 	Sim.Run(0.5)
 	check(ns.gearButton:IsVisible() and ns.gearButton:GetAlpha() > 0.9, "the gear shows while hovering the window")
 	check(ns.mapControls.frame:IsVisible() and ns.mapControls.frame:GetAlpha() > 0.9, "and the map's controls")
-	for _, button in ipairs({ ns.gearButton, ns.mapControls.follow, ns.mapControls.path, ns.mapControls.zoomIn, ns.mapControls.zoomOut }) do
+	for _, button in ipairs({ ns.gearButton, ns.mapControls.follow, ns.mapControls.zoomIn, ns.mapControls.zoomOut }) do
 		Sim.Hover(button)
 		Sim.Click(button)
 		Sim.Run(0.3)
@@ -220,7 +220,7 @@ scenarios.minimap_mode = function()
 	Sim.MoveCursorTo(ns.viewport, 0.5, 0.5)
 	Sim.Run(0.5)
 	check(mc.frame:IsVisible() and mc.frame:GetAlpha() > 0.9, "hovering shows the map's controls")
-	check(mc.follow.ring:IsShown() and not mc.path.ring:IsShown(), "the follow toggle is lit while following")
+	check(mc.follow.ring:IsShown(), "the follow toggle is lit while following")
 	local z1 = ns.state.zoom
 	Sim.Click(mc.zoomIn)
 	Sim.Run(0.6)
@@ -767,7 +767,7 @@ scenarios.quest_meta = function()
 	Sim.units.player.level = 5
 end
 
--- Following a quest with an area: path mode heads for the area's nearest
+-- Following a quest with an area: the line heads for the area's nearest
 -- edge, and stands down once you're inside it.
 scenarios.path_to_quest_area = function()
 	local MAP = 1429
@@ -788,8 +788,7 @@ scenarios.path_to_quest_area = function()
 	C_SuperTrack.SetSuperTrackedQuestID(60)
 	Sim.FireEvent("SUPER_TRACKING_CHANGED")
 	ns.SetZoom(600)
-	ns.SetPath(true)
-	Sim.Run(2)
+		Sim.Run(2)
 	local t = ns.GetTarget()
 	check(t and not t.inside, "outside the area, it's a target")
 	if t then
@@ -826,14 +825,13 @@ scenarios.path_routes = function()
 	check(ns.FindRoute(9999, 1, 1, 2, 2) == nil, "no terrain data, no route (straight line)")
 end
 
--- Path mode follows its route: found over a few frames, the dashes along
+-- The line follows its route: found over a few frames, the dashes along
 -- it, and found again once you stray off it.
 scenarios.path_follows_route = function()
 	Sim.player.col, Sim.player.row = 32.84, 49.03
 	ns.frame:SetSize(400, 400)
 	ns.SetZoom(60)
 	ns.SetWaypointAt(36.0, 49.5) -- Lakeshire, past Redridge's mountains
-	ns.SetPath(true)
 	Sim.Run(2)
 	local pts, found = ns.RouteTo(ns.FrameTarget())
 	check(pts and #pts > 2, "a route, not a straight line")
@@ -864,20 +862,12 @@ scenarios.path_follows_route = function()
 	local west = FirstDash()
 	check(east and west and east > 32.84 * ns.state.zoom and west < east, "the line leaves you the way you face")
 	Sim.player.facing = 0
-	ns.SetPath(false)
-	Sim.Run(0.5)
-	local thin = 0
-	for _, r in ipairs({ ns.layerFrames.path:GetRegions() }) do
-		if r:GetObjectType() == "Line" and r:IsShown() and r:GetThickness() < 2 then thin = thin + 1 end
-	end
-	check(thin > 0, "outside path mode, the tracked target keeps a thin solid line")
-	ns.SetPath(true)
 	Sim.player.col, Sim.player.row = 32.84, 50.0 -- well off it, south
 	Sim.Run(2)
 	local pts2, found2 = ns.RouteTo(ns.FrameTarget())
 	check(pts2 and found2 ~= found, "strayed off it, it's found again from where you are")
 	check(pts2 and pts2[1][2] == 50.0, "and starts from you")
-	ns.SetPath(false)
+	ns.ClearWaypoint()
 end
 
 -- Party members: dots at their positions, moving with them.
@@ -941,7 +931,7 @@ scenarios.quest_offers = function()
 	check(Offer() == nil, "once taken, it's no longer offered")
 end
 
-scenarios.quests_and_path = function()
+scenarios.quests_and_target = function()
 	Sim.Run(2)
 	-- Click the Elwynn quest's pin: Kobold Candles.
 	local pin = QuestPin(60)
@@ -951,41 +941,15 @@ scenarios.quests_and_path = function()
 		ClickOn(pin)
 		Sim.Run(0.5)
 		check(ns.GetTarget() ~= nil, "clicking a quest makes it the target")
-		check(ns.state.path, "and turns on path mode")
-		ns.SetZoom(800) -- close in, the quest is off the map: an arrow on the edge points to it...
+		ns.SetZoom(800) -- close in, the quest is off the map: an arrow on the edge points to it
 		Sim.Run(0.1)
 		local edge
 		for _, r in ipairs({ ns.overlay:GetRegions() }) do
 			if tostring(S[r].texture):find("GUIDEARROW") and r:IsVisible() then edge = r end
 		end
 		check(edge ~= nil, "an off-map target gets an arrow on the map's edge")
+		check(ns.state.zoom == 800, "and the view stays at your zoom")
 		check(Sim.watched == 60 or Sim.watchedIndex ~= nil, "the quest is tracked")
-		Sim.Run(3)
-		-- ...until path mode has eased out to show it: at the minimap's size
-		-- you stay centred (Blizzard's blips keep the room around you)...
-		local st, t = ns.state, ns.GetTarget()
-		local function Offsets()
-			return (st.cx - st.playerCol) * st.zoom, (st.cy - st.playerRow) * st.zoom,
-				(t.col - st.playerCol) * st.zoom, (t.row - st.playerRow) * st.zoom
-		end
-		local ox, oy, tx, ty = Offsets()
-		local w, h = ns.ViewSize()
-		check(st.path and st.follow, "path mode is on, still following you")
-		check(st.zoom < 800 and MagicMapDB.zoom == 800, "it zooms out to show the target, keeping your zoom to come back to")
-		check(math.abs(ox) < 1 and math.abs(oy) < 1, "at the minimap's size, you stay centred")
-		check(math.abs(tx) <= w / 2 and math.abs(ty) <= h / 2, "with the target in view")
-		-- ...and on the big map you sit halfway toward it.
-		ToggleWorldMap()
-		Sim.Run(3)
-		ox, oy, tx, ty = Offsets()
-		check(ox * tx + oy * ty > 0, "grown, the view leans toward the target")
-		check(math.abs(ox - tx / 2) < 2 and math.abs(oy - ty / 2) < 2, "halfway, so both are in view")
-		ToggleWorldMap()
-		Sim.Run(2)
-		Sim.Click(ns.mapControls.path)
-		Sim.Run(2)
-		check(not st.path and math.abs(st.cx - st.playerCol) * st.zoom < 1, "path mode off: back to centred on you")
-		Sim.Click(ns.mapControls.path)
 		Sim.player.speed, Sim.player.facing = 200, 2.5
 		Sim.Run(4)
 		Sim.player.speed = 0
@@ -994,7 +958,6 @@ scenarios.quests_and_path = function()
 			ClickOn(pin) -- again: unfollow
 			Sim.Run(1)
 			check(ns.GetTarget() == nil, "clicking it again stops following it")
-			check(not ns.state.path, "and turns off path mode")
 		end
 	end
 	-- Hover over zones and pins.
@@ -1006,62 +969,28 @@ scenarios.quests_and_path = function()
 	Sim.modifiers.ctrl = true
 	Sim.Click(ns.viewport, "LeftButton", 0.6, 0.4)
 	Sim.Run(0.5)
-	check(ns.state.path, "a ctrl-click waypoint turns on path mode")
+	check(Sim.waypoint ~= nil, "ctrl-click sets a waypoint")
 	Sim.Click(ns.viewport, "RightButton", 0.6, 0.4)
 	Sim.modifiers.ctrl = false
 	Sim.Run(0.5)
-	check(not ns.state.path, "clearing the waypoint turns it off")
-	-- Right-click, "Waypoint here": it's your target, and path mode leans to it.
-	ns.SetFollow(false) -- looking around: the menu's waypoint brings you back
+	check(Sim.waypoint == nil, "and ctrl-right-click clears it")
+	-- Right-click, "Waypoint here": it's your target.
 	Sim.Click(ns.viewport, "RightButton", 0.7, 0.3)
 	check(PickMenu("Waypoint here"), "right-click offers a waypoint")
 	Sim.Run(2)
 	check(Sim.waypoint ~= nil and ns.GetTarget() ~= nil, "the waypoint is your target")
-	check(ns.state.path and ns.state.follow, "and path mode is on")
 	Sim.Click(ns.viewport, "RightButton", 0.5, 0.5)
 	check(PickMenu("Clear waypoint"), "right-click offers to clear it")
 	Sim.Run(1)
 	check(Sim.waypoint == nil, "and that clears it")
-	check(not ns.state.path, "and turns off path mode")
 	-- Click a zone to fly there.
 	Sim.Click(ns.viewport, "LeftButton", 0.3, 0.6)
 	Fly()
 end
 
--- Path mode keeps the target in view: a far waypoint, and the view eases out
--- just enough to show you both; your zoom (what's saved) comes back once the
--- target goes; the wheel can't zoom it back out of view.
-scenarios.path_shows_target = function()
-	Sim.Run(1)
-	local z0 = ns.state.zoom
-	local function InView(col, row)
-		local x, y = ns.TileToScreen(col, row)
-		local w, h = ns.ViewSize()
-		return x >= 0 and y >= 0 and x <= w and y <= h
-	end
-	local p = Sim.player
-	check(ns.SetWaypointAt(p.col + 0.8, p.row + 0.3), "a waypoint about 450 yards off")
-	Sim.Run(3)
-	local t = ns.GetTarget()
-	check(ns.state.path and t ~= nil, "it's the target, path mode on")
-	check(t and InView(t.col, t.row) and InView(p.col, p.row), "you and the target are both in view")
-	check(ns.state.zoom < z0 * 0.6, "zoomed out to show it (" .. math.floor(ns.state.zoom) .. " from " .. math.floor(z0) .. ")")
-	check(math.abs(MagicMapDB.zoom - z0) < 1, "your own zoom is what's saved")
-	local framed = ns.state.zoom
-	for _ = 1, 2 do Sim.Wheel(ns.viewport, 1) end
-	Sim.Run(1.5)
-	t = ns.GetTarget()
-	check(t and InView(t.col, t.row) and ns.state.zoom < framed * 1.3, "the wheel can't zoom it out of view")
-	for _ = 1, 2 do Sim.Wheel(ns.viewport, -1) end -- your zoom back where it was
-	Sim.Run(1.5)
-	ns.ClearWaypoint()
-	Sim.Run(4)
-	check(not ns.state.path and math.abs(ns.state.zoom - z0) < 1, "the target gone, back at your zoom (" .. math.floor(ns.state.zoom) .. ", saved " .. math.floor(MagicMapDB.zoom) .. ")")
-end
-
 -- Dying: once the client knows where your corpse is (a while after you
 -- release, with no event), it shows, becomes your target, and the view
--- follows you, leaning toward it. Back alive, it's gone and so is path mode.
+-- follows you again. Back alive, it's gone.
 scenarios.corpse = function()
 	Sim.Run(2)
 	local st = ns.state
@@ -1082,12 +1011,12 @@ scenarios.corpse = function()
 		if f.entry and f.entry.title == "Your corpse" and f:IsVisible() then corpsePin = f end
 	end
 	check(corpsePin and not corpsePin.glow:IsShown(), "its pin has no gold halo (that's only the quest you follow)")
-	check(st.path and st.follow, "path mode on, following you again")
+	check(st.follow, "following you again")
 	check(math.abs(st.cx - st.playerCol) < 1, "the view came back to you")
 	Sim.ghost, Sim.corpse = false, nil
 	Sim.FireEvent("PLAYER_UNGHOST")
 	Sim.Run(2)
-	check(ns.GetTarget() == nil and not st.path, "alive again: no corpse, path mode off")
+	check(ns.GetTarget() == nil, "alive again: no corpse")
 end
 
 -- The open layers menu's rows in order, from the client's menu (MenuUtil)
@@ -1618,7 +1547,7 @@ scenarios.map_menu_info = function()
 	check(actions[#actions] == "Follow me", "the actions follow the info")
 	check(PickMenu("Waypoint here"), "the actions still work: waypoint here")
 	Sim.Run(1)
-	check(Sim.waypoint ~= nil and ns.state.follow, "and that sets the waypoint and follows you")
+	check(Sim.waypoint ~= nil, "and that sets the waypoint")
 	Sim.Click(ns.viewport, "RightButton", 0.5, 0.5)
 	check(PickMenu("Clear waypoint"), "clear waypoint is offered")
 	Sim.Run(0.5)

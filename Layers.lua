@@ -1121,12 +1121,12 @@ function ns.ShowsTurnIn(questID)
 	return false
 end
 
--- What path mode frames with you: the quest you follow if it's on this map,
+-- What the line leads to: the quest you follow if it's on this map,
 -- else your waypoint. { col, row, title } (reused), or nil.
 local target = {}
 -- A followed quest with an area: the target is the nearest edge of the
 -- area (not its centre point), and once you're inside it you've arrived
--- (target.inside: path mode's line, edge arrow and lean step aside). The
+-- (target.inside: the line and edge arrow step aside). The
 -- client's drawn area answers "is this point inside?" (BlobAt); the edge is
 -- found along a fan of rays from you toward the area, a few times a second.
 local AREA_EVERY = 0.25       -- seconds between looks
@@ -1223,7 +1223,7 @@ function ns.GetTarget()
 end
 
 -- Which target you have, wherever it is: a key that changes when you follow
--- another quest or move the waypoint, nil with none (Core's path mode keys
+-- another quest or move the waypoint, nil with none (Core keys
 -- off it).
 function ns.TargetKey()
 	if not IsGhost() then corpseFound = nil end
