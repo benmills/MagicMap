@@ -123,18 +123,17 @@ local function Locate(name, x, y)
 	end
 	local xs, ys = Middles(x - l, x + r), Middles(y - b, y + t)
 	local out = {}
+	-- Squares of a name overlapping give more than one candidate, some of
+	-- them ghosts (an x from one, a y from another): all four corners of a
+	-- real one answer.
+	local check = #xs * #ys > 1
+	local e = 0.75 * HALF -- (a middle can be off by up to 0.15 of it where overlaps read as one)
 	for _, mx in ipairs(xs) do
 		for _, my in ipairs(ys) do
-			-- Two of a name overlapping both ways give four candidates, two
-			-- of them ghosts: a real one's corner of the pair's box answers.
-			local real = true
-			if #xs == 2 and #ys == 2 then
-				local e = 0.05 * HALF
-				local cx = mx < x - l + HALF + e and x - l + e or x + r - e
-				local cy = my < y - b + HALF + e and y - b + e or y + t - e
-				real = Answers(cx, cy, name)
+			if not check or (Answers(mx - e, my - e, name) and Answers(mx + e, my - e, name)
+				and Answers(mx - e, my + e, name) and Answers(mx + e, my + e, name)) then
+				out[#out + 1] = { mx, my }
 			end
-			if real then out[#out + 1] = { mx, my } end
 		end
 	end
 	return out
@@ -299,12 +298,21 @@ for _, n in ipairs({
 }) do HERBS[n] = true end
 
 local GOLD = { 1, 0.82, 0 }
--- Blizzard's tracking icons (Interface\Minimap\Tracking), by QuestieDB NPC flag.
+-- Blizzard's tracking icons (Interface\Minimap\Tracking), by QuestieDB NPC
+-- flag. Forever's data uses Classic's flag values (QuestieDB's
+-- corrections/enum/expansions.lua; not exported), first match wins.
 local SERVICES = {
-	{ "INNKEEPER", 136458 }, { "BANKER", 136453 }, { "AUCTIONEER", 136452 }, { "STABLEMASTER", 136466 },
-	{ "BATTLEMASTER", 136454 }, { "REPAIR", 136465 }, { "TRAINER", 136463 },
+	{ 128, 136458 },   -- innkeeper
+	{ 256, 136453 },   -- banker
+	{ 4096, 136452 },  -- auctioneer
+	{ 8192, 136466 },  -- stable master
+	{ 2048, 136454 },  -- battlemaster
+	{ 16, 136463 },    -- trainer (class trainers below)
+	{ 16384, 136465 }, -- repair
 }
 local MAILBOX = 136459
+local QUEST_GIVER = 132049 -- Interface\GossipFrame\AvailableQuestIcon: the "!"
+local QUEST_ENDER = 132048 -- ActiveQuestIcon: the "?"
 local CLASS_TRAINER = 136455
 local CLASSES = { "Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "Mage", "Warlock", "Druid" }
 
@@ -318,8 +326,10 @@ local function Npc(name)
 	if not id then return nil end
 	local _, flags = pcall(DB.Npc.npcFlags, id)
 	local _, sub = pcall(DB.Npc.subName, id)
-	local F = DB.Enum and DB.Enum.npcFlags
-	return type(flags) == "number" and flags or nil, type(sub) == "string" and sub or nil, F
+	local _, starts = pcall(DB.Npc.questStarts, id)
+	local _, ends = pcall(DB.Npc.questEnds, id)
+	return type(flags) == "number" and flags or nil, type(sub) == "string" and sub or nil,
+		type(starts) == "table" and #starts > 0, type(ends) == "table" and #ends > 0
 end
 
 local kinds = {} -- name -> { icon, size, lines }
@@ -333,11 +343,13 @@ local function Kind(name)
 	elseif name == "Mailbox" then
 		k = { icon = { texture = MAILBOX }, size = 14 }
 	else
-		local flags, sub, F = Npc(name)
+		local flags, sub, starts, ends = Npc(name)
 		local icon
 		for _, s in ipairs(SERVICES) do
-			if not icon and HasFlag(flags, F and F[s[1]]) then icon = s[2] end
+			if not icon and HasFlag(flags, s[1]) then icon = s[2] end
 		end
+		-- Quest givers our own layers don't cover (they'd be skipped as ours).
+		icon = icon or (starts and QUEST_GIVER) or (ends and QUEST_ENDER) or nil
 		if icon == 136463 and sub then
 			for _, c in ipairs(CLASSES) do
 				if sub:find(c, 1, true) then icon = CLASS_TRAINER end

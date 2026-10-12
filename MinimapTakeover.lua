@@ -42,7 +42,8 @@ local TILE_YARDS = 1600 / 3
 -- closer two blips of a name can be told apart; but the more points a
 -- sweep tries.
 local SENSOR_PX = 300
-local SENSOR_OFFSCREEN = 50 -- units its right edge keeps past the screen's left edge
+local SENSOR_ICONS = 0.05 -- its own icons' scale: tiny (what it answers doesn't change with it)
+local STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP" }
 local OUTDOOR = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 } -- yards across its outdoor view, by zoom level
 local OUTDOOR_WIDEST = OUTDOOR[0]
 local INDOOR = { [0] = 300, 240, 180, 120, 80, 50 } -- yards across its indoor view, by zoom level
@@ -298,13 +299,26 @@ end
 -- The window's strata changes (growing and shrinking): the Minimap and our
 -- host go with it. Outdoors, under our layers; indoors, above the backdrop.
 -- The pins' host sits just under our layers and overlay.
+-- Just beneath `frame`: the strata and level to draw under it.
+local function Beneath(frame)
+	local strata, level = frame:GetFrameStrata(), frame:GetFrameLevel()
+	if level > 0 then return strata, level - 1 end
+	for i = 2, #STRATA do
+		if STRATA[i] == strata then return STRATA[i - 1], 100 end
+	end
+	return strata, 0
+end
+
 local function FollowWindow()
 	local strata = ns.frame:GetFrameStrata()
 	if strata == followed and mode == followedMode then return end
 	followed, followedMode = strata, mode
 	local base = ns.overlay:GetFrameLevel()
-	if Minimap:GetFrameStrata() ~= strata then Minimap:SetFrameStrata(strata) end
-	local level = base + (mode == "whole" and 2 or -1)
+	-- Indoors above our backdrop; the sensor beneath the whole window, so
+	-- our terrain covers what's left of its blips (alpha doesn't fade them).
+	local mStrata, level = strata, base + 2
+	if mode == "sensor" then mStrata, level = Beneath(ns.frame) end
+	if Minimap:GetFrameStrata() ~= mStrata then Minimap:SetFrameStrata(mStrata) end
 	if Minimap:GetFrameLevel() ~= level then Minimap:SetFrameLevel(level) end
 	if pinHost:GetFrameStrata() ~= strata then pinHost:SetFrameStrata(strata) end
 	if pinHost:GetFrameLevel() ~= base - 1 then pinHost:SetFrameLevel(base - 1) end
@@ -341,6 +355,7 @@ local function Engage()
 		OnRelease(function() MinimapCluster:Show() end)
 	end
 
+	OnRelease(function() Minimap:SetIconScale(1) end) -- (the client's own; it can't be read back)
 	-- Into the window. Never clamped: that would slide its blips off ours.
 	Minimap:SetParent(ns.viewport)
 	Minimap:SetScale(1)
@@ -390,14 +405,14 @@ local function SetMode(m)
 	FollowWindow()
 	indoorBg:SetFrameLevel(ns.overlay:GetFrameLevel() + 1)
 	indoorBg:SetShown(m == "whole")
+	-- The sensor must stay on the screen (off it, the client stops updating
+	-- its blips) and draws under our window; indoors it's in the window.
+	Minimap:SetParent(m == "whole" and ns.viewport or UIParent)
+	followed = nil
+	FollowWindow()
 	Minimap:ClearAllPoints()
-	if m == "whole" then
-		Minimap:SetPoint("CENTER", ns.viewport)
-	else
-		-- Off the screen's left edge: alpha 0 fades its terrain but not its
-		-- blips or arrow, and it still answers out there (measured).
-		Minimap:SetPoint("RIGHT", UIParent, "LEFT", -SENSOR_OFFSCREEN, 0)
-	end
+	Minimap:SetPoint("CENTER", ns.viewport)
+	Minimap:SetIconScale(m == "whole" and 1 or SENSOR_ICONS)
 	if m == "whole" then
 		-- Blizzard's minimap as it is: terrain, rim, its own hover tooltips.
 		-- The wheel goes to the backdrop, which zooms it.
@@ -506,7 +521,10 @@ local function Update()
 	else
 		if not Minimap:IsShown() then Minimap:Show() end
 		if Minimap:GetZoom() ~= 0 then Minimap:SetZoom(0) end -- (HereBeDragons may zoom it through our host)
-		local d = SENSOR_PX / ns.viewport:GetEffectiveScale()
+		-- SENSOR_PX across, but inside the window (under its terrain).
+		local vs, ms = ns.viewport:GetEffectiveScale(), Minimap:GetEffectiveScale()
+		local vw, vh = ns.viewport:GetSize()
+		local d = math.min(SENSOR_PX, vw * vs - 4, vh * vs - 4) / ms
 		if math.abs(Minimap:GetWidth() - d) > 0.01 then Minimap:SetSize(d, d) end
 		PlaceHost(cam)
 	end

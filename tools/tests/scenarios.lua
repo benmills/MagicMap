@@ -195,7 +195,7 @@ end
 scenarios.minimap_mode = function()
 	local parent = ns.minimapStandIn:GetParent() -- the Minimap's own
 	Sim.Run(1)
-	check(Minimap:GetParent() == ns.viewport, "the Minimap is in the map")
+	check(ns.Takeover.Sensing(), "the Minimap is our sensor")
 	check(ns.viewport:GetWidth() >= ns.frame:GetWidth() - 16 and ns.viewport:GetHeight() >= ns.frame:GetHeight() - 16,
 		"the map fills the window, inside its border")
 	-- Its header: zone left, gear and back right, on one line above the map.
@@ -248,7 +248,9 @@ scenarios.minimap_mode = function()
 	check(Minimap:GetAlpha() == 0 and not Sim.minimapGround and Minimap:GetZoom() == 0,
 		"outdoors the Minimap is an invisible sensor, at its widest zoom")
 	check(not Minimap:IsMouseEnabled(), "that never takes the mouse")
-	check(Minimap:GetRight() < 0, "and off the screen: its blips ignore its alpha")
+	check(Minimap:GetLeft() >= ns.viewport:GetLeft() and Minimap:GetRight() <= ns.viewport:GetRight()
+		and Minimap:GetFrameLevel() < ns.frame:GetFrameLevel() and S[Minimap].iconScale < 0.1,
+		"on screen (off it, its blips stop updating), under our window, its own icons tiny (alpha doesn't fade them)")
 	check(Sim.minimapUnrotated, "and it stays north up, even with Rotate Minimap")
 	check(ns.Takeover.Sensing(), "it's sensing")
 	check(Sim.minimapButton:GetParent() == ns.minimapStandIn, "other addons' minimap buttons moved to the stand-in")
@@ -1729,6 +1731,7 @@ scenarios.minimap_blips = function()
 		{ "Copper Vein", n + 12.5, w + 70 },
 		{ "Mailbox", n - 30, w + 10 },
 		{ "Gruff Stranger", n - 60.3, w + 35.7 },
+		{ "Innkeeper Tess", n + 70, w - 60 },
 		{ "Peacebloom", n - 20, w - 80 },
 		{ "Peacebloom", n - 26, w - 88 }, -- (their squares overlap)
 	}
@@ -1739,7 +1742,12 @@ scenarios.minimap_blips = function()
 	Sim.units.party1 = { name = "Friend", class = "PRIEST", col = p.col + 50 / (1600 / 3), row = p.row }
 	local fn, fw = UnitPosition("party1")
 	table.insert(Sim.minimapBlips, { "Friend", fn, fw })
-	ns.frame:SetScale(0.7) -- (the answer square is in screen units: the sensor's scale must not matter)
+	-- (The answer square is in screen units: the sensor's scale mustn't
+	-- matter. Room for the whole sensor: smaller, its squares are wider in
+	-- yards and blips of a name this close merge.)
+	local w0, h0 = ns.frame:GetSize()
+	ns.frame:SetScale(0.7)
+	ns.frame:SetSize(480, 480)
 	ns.SetZoom(300)
 	Sim.Run(2)
 	local function Where()
@@ -1767,6 +1775,8 @@ scenarios.minimap_blips = function()
 	check(#Pins("Peacebloom") == 3 and herb.entry.icon.atlas == "Professions_Tracking_Herb", "herbs: the herb icon")
 	check(Pins("Copper Vein")[1] and Pins("Copper Vein")[1].entry.icon.atlas == "Professions_Tracking_Ore", "ore: the ore icon")
 	check(Pins("Mailbox")[1] and Pins("Mailbox")[1].entry.icon.texture == 136459, "the mailbox: its tracking icon")
+	check(Pins("Innkeeper Tess")[1] and Pins("Innkeeper Tess")[1].entry.icon.texture == 136458,
+		"town services: Blizzard's tracking icon, by QuestieDB's NPC flags")
 	check(Pins("Gruff Stranger")[1] and Pins("Gruff Stranger")[1].entry.icon.color, "anything else: a dot")
 	check(#Pins("Friend") == 0, "party members aren't repeated (their dots are ours)")
 	-- Walking: they stay where they are in the world.
@@ -1799,6 +1809,7 @@ scenarios.minimap_blips = function()
 	Sim.Run(1)
 	check(not Near("Peacebloom", truth[1][2], truth[1][3], 5), "out of it, reading resumes")
 	ns.frame:SetScale(1)
+	ns.frame:SetSize(w0, h0)
 	Sim.group, Sim.units.party1, Sim.minimapBlips = {}, nil, {}
 end
 

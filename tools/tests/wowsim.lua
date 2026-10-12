@@ -1500,7 +1500,10 @@ Sim.questie = {
 		finishedBy = { [60] = { { 253 } }, [62] = { { 240 } } },
 	},
 	Npc = {
-		name = { [253] = "William Pestle", [240] = "Marshal Dughan", [475] = "Kobold Tunneler", [40] = "Kobold Miner", [327] = "Goldtooth" },
+		name = { [253] = "William Pestle", [240] = "Marshal Dughan", [475] = "Kobold Tunneler", [40] = "Kobold Miner", [327] = "Goldtooth",
+			[6790] = "Innkeeper Tess" },
+		npcFlags = { [6790] = 128 + 2 + 1 }, -- (Classic's values: innkeeper, quest giver, gossip)
+		subName = { [6790] = "Innkeeper" },
 		minLevel = { [475] = 4, [40] = 7, [327] = 9 },
 		maxLevel = { [475] = 5, [40] = 8, [327] = 9 },
 		rank = { [475] = 0, [40] = 0, [327] = 1 },
@@ -1515,6 +1518,11 @@ for entity, fields in pairs(Sim.questie) do
 	for field, rows in pairs(fields) do reader[field] = function(id) return rows[id] end end
 	setmetatable(reader, { __index = function() return function() return nil end end })
 	LibQuestieDB[entity] = reader
+end
+function LibQuestieDB.Npc.IdsByName(name)
+	for id, n in pairs(Sim.questie.Npc.name) do
+		if n == name then return { id } end
+	end
 end
 C_SuperTrack = {
 	GetSuperTrackedQuestID = function() return Sim.superTracked or 0 end,
