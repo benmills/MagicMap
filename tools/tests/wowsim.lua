@@ -928,6 +928,8 @@ function ChatFrame_OpenChat(text) Sim.chat = text end
 ChatFrameUtil = { OpenChat = function(text) Sim.chat = text end }
 
 GameFontNormal = { GetFont = function() return STANDARD_TEXT_FONT, 12, "" end }
+GameTooltipText = { GetFont = function() return STANDARD_TEXT_FONT, 12, "" end }
+GameTooltipTextSmall = { GetFont = function() return STANDARD_TEXT_FONT, 10, "" end }
 GameTooltip = CreateFrame("GameTooltip", "GameTooltip", UIParent, "GameTooltipTemplate")
 GameTooltip:Hide()
 

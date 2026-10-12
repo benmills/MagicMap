@@ -169,7 +169,7 @@ for _, event in ipairs({ "UPDATE_MOUSEOVER_UNIT", "PLAYER_TARGET_CHANGED", "NAME
 end
 
 -- A mob, as a tooltip line: its portrait (a dark disc under it, placed by
--- ns.ShowTooltipPortraits) or until it's been seen a sword (a skull for
+-- ns.ShowQuestTooltip) or until it's been seen a sword (a skull for
 -- elites), name, level range in its difficulty colour for you, rank.
 local MAX_MOBS = 3
 local INDENT = "    "
@@ -241,45 +241,42 @@ local function ItemSources(lines, shown, itemID)
 	end
 end
 
--- The quest's tooltip lines (after its title): what's left to do and,
--- for items mobs drop, which mobs (a kill objective already names its
--- mob); its tag (Elite, Group, Dungeon) and who to turn it in to. Second:
--- { [line] = NPC ID } of the mobs with portraits, for ns.ShowTooltipPortraits.
-function ns.QuestTooltipLines(questID, complete)
-	local lines, shown = {}, {}
-	if complete then
-		lines[1] = "|cff33ff33Ready to turn in|r"
-	else
-		local objectives = SafeCall(C_QuestLog.GetQuestObjectives, questID) or {}
-		for i, o in ipairs(objectives) do
-			if o.text and o.text ~= "" then
-				lines[#lines + 1] = (o.finished and "|cff808080" or WHITE) .. "- " .. o.text .. "|r"
-				local id = not o.finished and o.type == "item" and ObjectiveID(questID, objectives, i)
-				if id then ItemSources(lines, shown, id) end
-			end
-		end
+---------------------------------------------------------------------------
+-- Tooltips: the title; a small line of facts (level, tag); what's left to
+-- do, with the mobs that drop it in small type; then, apart and dim, who to
+-- turn it in to and the click hint. Small lines get their font back when
+-- the tooltip is cleared or hidden.
+---------------------------------------------------------------------------
+
+local SMALL = GameTooltipTextSmall
+local NORMAL = GameTooltipText
+local GREEN, ORANGE_TAG, SEP = "|cff33ff33", "|cffff8040", DIM .. "  ·  |r"
+
+local styled = {} -- font strings set small
+local function Small(tooltip, i)
+	local fs = _G[tooltip:GetName() .. "TextLeft" .. i]
+	if fs and SMALL then
+		fs:SetFontObject(SMALL)
+		styled[#styled + 1] = fs
 	end
-	local tag = SafeCall(C_QuestLog.GetQuestTagInfo, questID)
-	local group = SafeCall(C_QuestLog.GetSuggestedGroupSize, questID)
-	if tag and tag.tagName and tag.tagName ~= "" then
-		lines[#lines + 1] = "|cffff8040" .. tag.tagName .. (group and group > 1 and string.format(" (%d)", group) or "") .. "|r"
-	end
-	local finishers = Read("Quest", "finishedBy", questID)
-	local npc = finishers and finishers[1] and finishers[1][1]
-	local who = npc and Read("Npc", "name", npc) or (finishers and finishers[2] and Read("Object", "name", finishers[2][1]))
-	if who then lines[#lines + 1] = DIM .. "Turn in to|r " .. WHITE .. who .. "|r" end
-	return lines, shown
+end
+local function Unstyle()
+	for _, fs in ipairs(styled) do fs:SetFontObject(NORMAL) end
+	wipe(styled)
 end
 
--- Portraits onto a shown tooltip, over their lines' dark discs: shown[i] is
--- the mob on line first + i. Lent to the tooltip while it's up.
+-- Lines first + 1.. of a shown tooltip in small type (the facts under a pin's name).
+function ns.SmallTooltipLines(tooltip, first, last)
+	for i = first + 1, last do Small(tooltip, i) end
+	tooltip:Show() -- (resizes to the smaller lines)
+end
+
+-- Portraits onto a shown tooltip, over their lines' dark discs: shown[line] = NPC ID.
 local lent = {}
 local probe = portraitHolder:CreateFontString()
-function ns.ShowTooltipPortraits(tooltip, first, shown)
-	for _, tex in ipairs(lent) do tex:Hide() end
-	wipe(lent)
-	for i, npcID in pairs(shown) do
-		local fs = _G[tooltip:GetName() .. "TextLeft" .. (first + i)]
+local function ShowPortraits(tooltip, shown)
+	for line, npcID in pairs(shown) do
+		local fs = _G[tooltip:GetName() .. "TextLeft" .. line]
 		local tex = portraits[npcID]
 		if fs and tex then
 			probe:SetFont(fs:GetFont())
@@ -293,7 +290,80 @@ function ns.ShowTooltipPortraits(tooltip, first, shown)
 		end
 	end
 end
-GameTooltip:HookScript("OnHide", function()
+local function Return()
 	for _, tex in ipairs(lent) do tex:Hide() end
 	wipe(lent)
+end
+
+GameTooltip:HookScript("OnHide", function()
+	Return()
+	Unstyle()
 end)
+pcall(GameTooltip.HookScript, GameTooltip, "OnTooltipCleared", function()
+	Return()
+	Unstyle()
+end)
+
+-- The quest's tooltip on tooltip (owned and cleared by the caller); hint: the click hint.
+function ns.ShowQuestTooltip(tooltip, questID, complete, hint)
+	Return()
+	Unstyle()
+	local title = SafeCall(C_QuestLog.GetTitleForQuestID, questID) or ("Quest " .. questID)
+	local level = Level(questID)
+	local c = level and Difficulty(level, SafeCall(C_QuestLog.IsQuestTrivial, questID))
+	if c then tooltip:AddLine(title, c[1], c[2], c[3]) else tooltip:AddLine(title) end
+
+	-- Facts: level, tag (Elite, Group (3), Dungeon), ready.
+	local facts = {}
+	if level then facts[#facts + 1] = DIM .. "Level|r " .. Hex(c) .. level .. "|r" end
+	local tag = SafeCall(C_QuestLog.GetQuestTagInfo, questID)
+	local group = SafeCall(C_QuestLog.GetSuggestedGroupSize, questID)
+	if tag and tag.tagName and tag.tagName ~= "" then
+		facts[#facts + 1] = ORANGE_TAG .. tag.tagName .. (group and group > 1 and string.format(" (%d)", group) or "") .. "|r"
+	end
+	if complete then facts[#facts + 1] = GREEN .. "Ready to turn in|r" end
+	local small, shown = {}, {}
+	if #facts > 0 then
+		tooltip:AddLine(table.concat(facts, SEP))
+		small[tooltip:NumLines()] = true
+	end
+
+	if not complete then
+		local objectives = SafeCall(C_QuestLog.GetQuestObjectives, questID) or {}
+		for i, o in ipairs(objectives) do
+			if o.text and o.text ~= "" then
+				if o.finished then tooltip:AddLine(o.text, 0.5, 0.5, 0.5, true) else tooltip:AddLine(o.text, 1, 1, 1, true) end
+				local id = not o.finished and o.type == "item" and ObjectiveID(questID, objectives, i)
+				if id then
+					local lines, mobs = {}, {}
+					ItemSources(lines, mobs, id)
+					for k, line in ipairs(lines) do
+						tooltip:AddLine(line, 1, 1, 1)
+						local n = tooltip:NumLines()
+						small[n] = true
+						shown[n] = mobs[k]
+					end
+				end
+			end
+		end
+	end
+
+	-- Apart and dim: who to turn it in to, and the click hint.
+	local finishers = Read("Quest", "finishedBy", questID)
+	local npc = finishers and finishers[1] and finishers[1][1]
+	local who = npc and Read("Npc", "name", npc) or (finishers and finishers[2] and Read("Object", "name", finishers[2][1]))
+	tooltip:AddLine(" ")
+	small[tooltip:NumLines()] = true
+	if who then
+		tooltip:AddLine(DIM .. "Turn in to|r " .. who, 0.85, 0.85, 0.85)
+		small[tooltip:NumLines()] = true
+	end
+	if hint then
+		tooltip:AddLine(hint)
+		small[tooltip:NumLines()] = true
+	end
+	tooltip:Show()
+	for line in pairs(small) do Small(tooltip, line) end
+	tooltip:Show() -- (resizes to the smaller lines)
+	ShowPortraits(tooltip, shown)
+end

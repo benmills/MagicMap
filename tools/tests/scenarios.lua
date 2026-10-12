@@ -664,7 +664,7 @@ scenarios.minimap_ours_first = function()
 	Sim.MoveCursorTo(Minimap, 0.5, 0.5)
 	Sim.questUnderCursor = 60
 	Sim.Run(0.3)
-	check(GameTooltip:IsShown() and Line1() == "[7] Kobold Candles", "over a quest area, the quest's tooltip")
+	check(GameTooltip:IsShown() and Line1() == "Kobold Candles", "over a quest area, the quest's tooltip")
 	Sim.FireScript(Minimap, "OnEnter", false)
 	Sim.blip = "Peacebloom"
 	local steady = true
@@ -677,12 +677,12 @@ scenarios.minimap_ours_first = function()
 	steady = true
 	for _ = 1, 10 do
 		Sim.Step()
-		steady = steady and GameTooltip:IsShown() and Line1() == "[7] Kobold Candles"
+		steady = steady and GameTooltip:IsShown() and Line1() == "Kobold Candles"
 	end
 	check(steady, "off the blip, the quest area's again, every frame (no flicker)")
 	Sim.FireScript(Minimap, "OnLeave", false)
 	Sim.Run(0.2)
-	check(GameTooltip:IsShown() and Line1() == "[7] Kobold Candles", "off the Minimap, the quest area keeps it")
+	check(GameTooltip:IsShown() and Line1() == "Kobold Candles", "off the Minimap, the quest area keeps it")
 	Sim.questUnderCursor = nil
 	Sim.Run(0.2)
 	check(not GameTooltip:IsShown(), "and lets go off the area")
@@ -764,7 +764,8 @@ scenarios.quest_meta = function()
 	check(tunneler and miner and tunneler < miner, "the mobs, lowest level first:\n" .. text)
 	check(text:find("|cffffd1004-5|r", 1, true) and text:find("|cffff7f3f7-8|r", 1, true), "with their level ranges, coloured for you (5): yellow, orange:\n" .. text)
 	check(text:find("Goldtooth", 1, true) and text:find("Elite", 1, true), "an elite one says so:\n" .. text)
-	check(text:find("Turn in to|r |cffffffffWilliam Pestle", 1, true), "and who to turn it in to:\n" .. text)
+	check(text:find("Turn in to|r William Pestle", 1, true), "and who to turn it in to:\n" .. text)
+	check(text:find("Level|r |cffffd1007|r", 1, true), "its level among the facts under its name:\n" .. text)
 	-- A mob met (under the mouse): its own portrait on its line from then on.
 	Sim.FireScript(pin, "OnLeave", false)
 	Sim.units.mouseover = { name = "Kobold Tunneler", guid = "Creature-0-1-0-1-475-00001", npc = true }

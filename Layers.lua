@@ -74,7 +74,7 @@ for _, layer in ipairs(LAYERS) do layerByKey[layer.key] = layer end
 
 local CELL = 0.2              -- sampling grid cell, in tiles (~107 yards)
 local SAMPLES_PER_FRAME = 700
-local LABEL_MAX_ZOOM = 200    -- hide zone labels when zoomed in further than this
+local LABEL_MAX_ZOOM = 450    -- hide zone labels when zoomed in further than this
 local APPROX_RADIUS = 110 / 533.33 -- rough objective area radius, in tiles
 local CIRCLE = ns.CIRCLE
 
@@ -236,10 +236,11 @@ for _, b in ipairs(buffers) do
 end
 local areaFillPool = Pool(function() return canvases.areas:CreateTexture(nil, "ARTWORK", nil, 0) end)
 local areaLinePool = LinePool(canvases.areas, 1)
+local LABEL_SHADOW = 0.55 -- a soft shadow under map names
 local labelPool = Pool(function()
 	local fs = canvases.labels:CreateFontString(nil, "OVERLAY")
 	fs:SetShadowOffset(1, -1)
-	fs:SetShadowColor(0, 0, 0, 1)
+	fs:SetShadowColor(0, 0, 0, LABEL_SHADOW)
 	return fs
 end)
 
@@ -289,14 +290,14 @@ local function PinOnEnter(self)
 	if not e then return end
 	if e.questID then SetHoverQuest("pin", e.questID) end
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-	local c = e.titleColor
-	if c then GameTooltip:AddLine(e.title or "?", c[1], c[2], c[3]) else GameTooltip:AddLine(e.title or "?") end
-	local lines, shown = e.lines, nil
-	if not lines and e.questID then lines, shown = ns.QuestTooltipLines(e.questID, e.turnIn) end
-	for _, line in ipairs(lines or {}) do GameTooltip:AddLine(line, 1, 1, 1, true) end
-	if e.questID then GameTooltip:AddLine(FollowHint(e.questID)) end
+	if e.questID then
+		ns.ShowQuestTooltip(GameTooltip, e.questID, e.turnIn, FollowHint(e.questID))
+		return
+	end
+	GameTooltip:AddLine(e.title or "?")
+	for _, line in ipairs(e.lines or {}) do GameTooltip:AddLine(line, 0.85, 0.85, 0.85, true) end
 	GameTooltip:Show()
-	if shown then ns.ShowTooltipPortraits(GameTooltip, 1, shown) end
+	ns.SmallTooltipLines(GameTooltip, 1, GameTooltip:NumLines())
 end
 
 local INNER_SIZE, INNER_SHADE = 0.56, 0.55 -- a quest's objective icon: share of its disc, and how dark (the "..." on it reads)
@@ -619,7 +620,7 @@ sources.quests = function(mapID)
 				inner = ns.QuestObjectiveIcon(questID), color = { 1, 0.82, 0 } }
 		local e = AddAt(list, b.uiMapID, b.x, b.y, {
 			size = followed and 26 or 22, glow = followed, questID = questID, icon = icon, turnIn = complete,
-			title = label, titleColor = difficulty, count = not complete and ns.QuestProgress(questID) or nil,
+			title = label, count = not complete and ns.QuestProgress(questID) or nil,
 			yields = complete or nil, -- lines: on hover (QuestieDB reads), see PinOnEnter
 		})
 		if e and not complete then
@@ -1037,13 +1038,7 @@ local function ShowBlobTooltip(questID)
 	if blobTooltipOwner.questID == questID and GameTooltip:IsOwned(blobTooltipOwner) and GameTooltip:IsShown() then return end
 	blobTooltipOwner.questID = questID
 	GameTooltip:SetOwner(blobTooltipOwner, "ANCHOR_CURSOR_RIGHT", 12, 0)
-	local title, c = ns.QuestTitle(questID)
-	if c then GameTooltip:AddLine(title, c[1], c[2], c[3]) else GameTooltip:AddLine(title) end
-	local lines, shown = ns.QuestTooltipLines(questID, false)
-	for _, line in ipairs(lines) do GameTooltip:AddLine(line, 1, 1, 1, true) end
-	GameTooltip:AddLine(FollowHint(questID))
-	GameTooltip:Show()
-	ns.ShowTooltipPortraits(GameTooltip, 1, shown)
+	ns.ShowQuestTooltip(GameTooltip, questID, false, FollowHint(questID))
 end
 
 -- Who gets GameTooltip over the map: our pins (they take the mouse first),
@@ -1471,12 +1466,15 @@ end))
 ---------------------------------------------------------------------------
 
 local LABEL_FONT = (GameFontNormal and GameFontNormal:GetFont()) or STANDARD_TEXT_FONT
-local LABEL_COLOR = { 1, 0.87, 0.55 }
-local LABEL_HOVER = { 1, 1, 0.85 }
-local SUBLABEL_COLOR = { 0.93, 0.89, 0.8 }
+-- Map names, quiet as on a printed map: zones in small capitals, places in
+-- smaller lower case, both a little see-through.
+local LABEL_COLOR = { 1, 0.9, 0.7, 0.75 }
+local LABEL_HOVER = { 1, 1, 0.9, 1 }
+local SUBLABEL_COLOR = { 0.95, 0.92, 0.85, 0.62 }
+local LABEL_SIZE, SUBLABEL_SIZE = 10, 9
 local SUBZONE_LINE_MIN_ZOOM = 140  -- subzone outlines appear from about here
 local SUBZONE_TOL = 0.035          -- tiles: melts the 33-yard steps of subzone outlines into diagonals
-local SUBZONE_LABEL_MIN_ZOOM = 200 -- ...and their names from here (zone names hide)
+local SUBZONE_LABEL_MIN_ZOOM = 120 -- ...and their names from here
 local labelByZone = {} -- hover key -> placed label
 local hoverZone        -- zone uiMapID highlighted for click-to-zone
 
@@ -1644,7 +1642,12 @@ local function SubLineStyle(z) return math.max(0.8, math.min(1.1, z / 300)), 1, 
 
 -- Subzone names are dense, so only those near the view are placed; panning
 -- past that region places them again (see OnViewChanged).
-local subLabelPool = Pool(function() return canvases.labels:CreateFontString(nil, "OVERLAY") end)
+local subLabelPool = Pool(function()
+	local fs = canvases.labels:CreateFontString(nil, "OVERLAY")
+	fs:SetShadowOffset(1, -1)
+	fs:SetShadowColor(0, 0, 0, LABEL_SHADOW)
+	return fs
+end)
 local staticPending -- a layout was skipped while the window was hidden
 
 local function ViewRect(margin, z, cx, cy)
@@ -1676,19 +1679,17 @@ local function PositionLabels()
 	end
 end
 
--- Subzone names within the label region.
-local function LayoutSubzoneLabels(z)
+-- Subzone names within the label region, around the zone names already placed.
+local function LayoutSubzoneLabels(z, placed)
 	subLabelPool:Reset()
 	if not Enabled("zoneLabels") or z < SUBZONE_LABEL_MIN_ZOOM then return end
 	local c0, r0, c1, r1 = unpack(labelRegion)
-	local placed = {}
 	local data = OfflineBorders(state.map)
 	for _, l in ipairs(data and data.subLabels or {}) do
 		-- Small places only once you're close.
-		local minZoom = l.weight >= 40 and SUBZONE_LABEL_MIN_ZOOM or (l.weight >= 15 and 350 or 600)
+		local minZoom = l.weight >= 40 and SUBZONE_LABEL_MIN_ZOOM or (l.weight >= 15 and 220 or 400)
 		if z >= minZoom and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-			local fs = PlaceLabel(subLabelPool, placed, l.name, l.col, l.row, z, 11, SUBLABEL_COLOR)
-			if fs then fs:SetShadowOffset(1, -1); fs:SetShadowColor(0, 0, 0, 1) end
+			PlaceLabel(subLabelPool, placed, l.name, l.col, l.row, z, SUBLABEL_SIZE, SUBLABEL_COLOR)
 		end
 	end
 end
@@ -1701,6 +1702,7 @@ local function LayoutLabels()
 	local z = state.zoom
 	labelZoom = z
 	labelRegion = { ViewRect(1.0) }
+	local placed = {}
 	if Enabled("zoneLabels") and z <= LABEL_MAX_ZOOM then
 		local data = OfflineBorders(state.map)
 		local labels = {}
@@ -1714,16 +1716,14 @@ local function LayoutLabels()
 			table.sort(labels, function(a, b) return a.weight > b.weight end)
 		end
 		-- Biggest zones first; a label that would collide is skipped until you zoom in.
-		local size = z < 48 and 11 or 12
 		local hover = HoverKey(hoverZone)
-		local placed = {}
 		for _, l in ipairs(labels) do
-			local fs = PlaceLabel(labelPool, placed, l.name, l.col, l.row, z, size,
+			local fs = PlaceLabel(labelPool, placed, l.name:upper(), l.col, l.row, z, LABEL_SIZE,
 				l.id == hover and LABEL_HOVER or LABEL_COLOR)
 			if fs and l.id then labelByZone[l.id] = fs end
 		end
 	end
-	LayoutSubzoneLabels(z)
+	LayoutSubzoneLabels(z, placed)
 
 	local now = {}
 	wipe(fadingLabels)
