@@ -1,6 +1,6 @@
 -- The line to what you track (the quest you follow, your waypoint, your
--- corpse): wide, soft and a little uneven, like a pencilled route, a light
--- stroke over a darker wash so it reads on pale ground without shouting.
+-- corpse): narrow dashes like a route on a printed map, a little uneven as
+-- if inked by hand, light on a faint dark edge so they read on pale ground.
 -- It follows the way you'd walk (Route.lua) once that's found, else it's
 -- straight - "that way". It leaves you the way you're facing and bends onto
 -- the way, and it sits under the labels and pins.
@@ -10,13 +10,13 @@ local state = ns.state
 
 local CLEAR_YOU, CLEAR_TARGET = 14, 15 -- px left clear around your arrow and the target's pin
 local FADE = 40            -- px over which the line fades in and out at its ends
-local STROKE, WASH = 3, 7  -- px: the light stroke and the dark wash under it
-local STROKE_RGBA = { 1, 0.92, 0.72, 0.4 }
-local WASH_RGBA = { 0.14, 0.09, 0.04, 0.22 }
-local PIECE = 10           -- px per piece of the line (longer when there'd be more than MAX_PIECES)
+local STROKE, WASH = 1.6, 3.4 -- px: the light dash and the dark edge under it
+local STROKE_RGBA = { 1, 0.93, 0.76, 0.7 }
+local WASH_RGBA = { 0.12, 0.08, 0.03, 0.3 }
+local DASH, GAP = 6, 4     -- px (longer, in proportion, when there'd be more than MAX_PIECES dashes)
 local MAX_PIECES = 160
-local WOBBLE = 1.4         -- px the line strays either side of true, in long slow waves
-local UNEVEN = 0.3         -- share of the stroke's alpha that comes and goes along it
+local WOBBLE = 0.8         -- px the line strays either side of true, in long slow waves
+local UNEVEN = 0.25        -- share of the dashes' alpha that comes and goes along it
 local LEAD = 48            -- px of line (at most half of it) that bends from where you face onto the way
 local LEAD_STEPS = 8
 local FACING_STEP = math.rad(3) -- turning less than this doesn't redraw the line
@@ -243,13 +243,14 @@ ns.frame:HookScript("OnUpdate", ns.Timed("path line", function()
 		local len = along[m]
 		local s0, s1 = CLEAR_YOU, len - CLEAR_TARGET
 		if s1 > s0 then
-			-- Pieces of a fixed length laid back from the target, so they too stay put as you walk.
-			local step = math.max(PIECE, (s1 - s0) / MAX_PIECES)
+			-- Dashes laid back from the target, so they stay put as you walk.
+			local step = math.max(DASH + GAP, (s1 - s0) / MAX_PIECES)
+			local dash = step * DASH / (DASH + GAP)
 			local i = m - 1
-			local a = s1
-			while a > s0 and n < MAX_PIECES do
-				local b = a
-				a = math.max(s0, b - step)
+			local b = s1 + step
+			while b - step > s0 and n < MAX_PIECES do
+				b = b - step
+				local a = math.max(s0, b - dash)
 				while i > 1 and along[i] > a do i = i - 1 end
 				local j = i
 				while j < m - 1 and along[j + 1] < b do j = j + 1 end
