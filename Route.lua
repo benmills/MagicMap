@@ -190,9 +190,10 @@ local function Sight(inst, ac, ar, bc, br, worst)
 	local nx, ny = math.abs(dx), math.abs(dy)
 	local c, r, ix, iy = ac, ar, 0, 0
 	while ix < nx or iy < ny do
-		local ex, ey = (ix + 0.5) / nx, (iy + 0.5) / ny -- how far along the next column / row boundary is
-		if nx == 0 then ex = math.huge end
-		if ny == 0 then ey = math.huge end
+		-- How far along the next column / row boundary is. (WoW's Lua errors
+		-- on division by zero, where plain Lua gives inf.)
+		local ex = nx > 0 and (ix + 0.5) / nx or math.huge
+		local ey = ny > 0 and (iy + 0.5) / ny or math.huge
 		if ex < ey then
 			if not Step(inst, c, r, sx, 0) then return false end
 			c, ix = c + sx, ix + 1
