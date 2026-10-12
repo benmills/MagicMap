@@ -1450,7 +1450,7 @@ for _, base in ipairs({ "ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-out" }) d
 end
 for _, name in ipairs({ "redbutton-expand-c60", "redbutton-expand-pressed-c60", "redbutton-highlight-c60" }) do ATLASES[name] = true end
 for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutton-highlight",
-	"ui-hud-minimap-arrow-player", "ui-hud-minimap-arrow-questtracking", "minimaparrow", "Quest-In-Progress-Icon-yellow" }) do
+	"ui-hud-minimap-arrow-player", "ui-hud-minimap-arrow-player-2x", "ui-hud-minimap-arrow-questtracking", "minimaparrow", "Quest-In-Progress-Icon-yellow" }) do
 	ATLASES[name] = true
 end
 -- The metal frame's pieces, sized as Forever reports them: the edges far

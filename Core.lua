@@ -156,14 +156,19 @@ local overlay = CreateFrame("Frame", nil, viewport)
 overlay:SetAllPoints()
 overlay:SetFrameLevel(tileLayer:GetFrameLevel() + 8)
 
--- Player marker: the Minimap's own arrow.
+-- Player marker: the Minimap's own arrow, its high-resolution art at the
+-- size the Minimap draws it (22; the 2x art is 45 px, so it stays sharp on
+-- high-DPI screens), unsnapped so it turns smoothly.
 local playerMarker = CreateFrame("Frame", nil, overlay)
 playerMarker:SetSize(1, 1)
 playerMarker:Hide()
 
+local ARROW_ATLAS, ARROW_SIZE = "ui-hud-minimap-arrow-player-2x", 22
 local arrow = playerMarker:CreateTexture(nil, "OVERLAY")
-arrow:SetAtlas("minimaparrow")
-arrow:SetSize(32, 32)
+arrow:SetAtlas(C_Texture.GetAtlasInfo(ARROW_ATLAS) and ARROW_ATLAS or "minimaparrow")
+arrow:SetSize(ARROW_SIZE, ARROW_SIZE)
+arrow:SetSnapToPixelGrid(false)
+arrow:SetTexelSnappingBias(0)
 arrow:SetPoint("CENTER")
 
 -- The band: a layer above the template's border (500) and title bar (510),
