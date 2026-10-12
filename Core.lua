@@ -156,16 +156,18 @@ local overlay = CreateFrame("Frame", nil, viewport)
 overlay:SetAllPoints()
 overlay:SetFrameLevel(tileLayer:GetFrameLevel() + 8)
 
--- Player marker: the Minimap's own arrow, its high-resolution art at the
--- size the Minimap draws it (22; the 2x art is 45 px, so it stays sharp on
--- high-DPI screens), unsnapped so it turns smoothly.
+-- Player marker: the Minimap's own arrow (its 2x art, 45 px, so it stays
+-- sharp on high-DPI screens) with its drop shadow softened, from
+-- tools/gen_arrow.py: 64 px with the arrow centred. Drawn the size the
+-- Minimap draws it (22), unsnapped so it turns smoothly.
 local playerMarker = CreateFrame("Frame", nil, overlay)
 playerMarker:SetSize(1, 1)
 playerMarker:Hide()
 
-local ARROW_ATLAS, ARROW_SIZE = "ui-hud-minimap-arrow-player-2x", 22
+local ARROW_TEXTURE = "Interface\\AddOns\\MagicMap\\Textures\\PlayerArrow"
+local ARROW_SIZE = 22 * 64 / 45 -- the texture, for a 22-unit arrow
 local arrow = playerMarker:CreateTexture(nil, "OVERLAY")
-arrow:SetAtlas(C_Texture.GetAtlasInfo(ARROW_ATLAS) and ARROW_ATLAS or "minimaparrow")
+arrow:SetTexture(ARROW_TEXTURE)
 arrow:SetSize(ARROW_SIZE, ARROW_SIZE)
 arrow:SetSnapToPixelGrid(false)
 arrow:SetTexelSnappingBias(0)
