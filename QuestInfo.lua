@@ -126,7 +126,8 @@ function ns.QuestObjectiveIcon(questID)
 	end
 end
 
--- A mob, as a tooltip line: icon, name, level range in its difficulty colour, rank.
+-- A mob, as a tooltip line: icon, name, level range in its difficulty
+-- colour for you, rank.
 local MAX_MOBS = 3
 local RANKS = { [1] = "Elite", [2] = "Rare Elite", [3] = "Boss", [4] = "Rare" }
 local MOB_ICON, ELITE_ICON = "|T135274:12:12:0:0:64:64:5:59:5:59|t", "|TInterface\\TargetingFrame\\UI-TargetingFrame-Skull:12:12|t"
@@ -189,8 +190,9 @@ local function ItemSources(lines, itemID)
 	end
 end
 
--- The quest's tooltip lines (after its title): what's left to do and where
--- it comes from, its tag (Elite, Group, Dungeon) and who to turn it in to.
+-- The quest's tooltip lines (after its title): what's left to do and,
+-- for items mobs drop, which mobs (a kill objective already names its
+-- mob); its tag (Elite, Group, Dungeon) and who to turn it in to.
 function ns.QuestTooltipLines(questID, complete)
 	local lines = {}
 	if complete then
@@ -200,14 +202,8 @@ function ns.QuestTooltipLines(questID, complete)
 		for i, o in ipairs(objectives) do
 			if o.text and o.text ~= "" then
 				lines[#lines + 1] = (o.finished and "|cff808080" or WHITE) .. "- " .. o.text .. "|r"
-				if not o.finished then
-					local id = ObjectiveID(questID, objectives, i)
-					if o.type == "item" then
-						if id then ItemSources(lines, id) end
-					elseif o.type == "monster" then
-						lines[#lines + 1] = id and MobLine(id) or nil
-					end
-				end
+				local id = not o.finished and o.type == "item" and ObjectiveID(questID, objectives, i)
+				if id then ItemSources(lines, id) end
 			end
 		end
 	end

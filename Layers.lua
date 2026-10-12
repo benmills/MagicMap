@@ -298,7 +298,7 @@ local function PinOnEnter(self)
 	GameTooltip:Show()
 end
 
-local INNER_SIZE, INNER_SHADE = 0.66, 0.55 -- a quest's objective icon: share of its disc, and how dark (the "..." on it reads)
+local INNER_SIZE, INNER_SHADE = 0.56, 0.55 -- a quest's objective icon: share of its disc, and how dark (the "..." on it reads)
 local pinPool = Pool(function()
 	local pin = CreateFrame("Frame", nil, canvases.pins)
 	pin.ring = pin:CreateTexture(nil, "ARTWORK", nil, 0)
