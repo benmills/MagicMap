@@ -399,25 +399,14 @@ local function StylePin(pin, e)
 	pin.icon:SetSize(size * 0.6, size * 0.6)
 end
 
--- Quest givers: Blizzard's Minimap draws its own "?" and "!" for them and no
--- tracking switch turns those off, so where its blips show (the square
--- around you, ns.BlipArea), ours step aside for its. Elsewhere ours are
--- the only ones.
-local blipYield = { at = 0 }
-function blipYield.Hides(e)
-	local a = e.yields and ns.BlipArea
-	return a and a.on and math.abs(e.col - a.col) < a.half and math.abs(e.row - a.row) < a.half or false
-end
-
 -- Pins only move as you zoom; small landmarks appear once you're close
--- enough to use them. With the Minimap in, ours sit over Blizzard's blips
--- (above the Minimap), but for quest givers inside its rectangle (blipYield).
+-- enough to use them.
 local function PositionPins()
 	local z = state.zoom
 	for i = 1, pinPool.used do
 		local pin = pinPool.list[i]
 		local e = pin.entry
-		if (e.minZoom and z < e.minZoom) or blipYield.Hides(e) then
+		if e.minZoom and z < e.minZoom then
 			if pin:IsShown() then pin:Hide() end
 		else
 			if not pin:IsShown() then pin:Show() end
@@ -621,7 +610,6 @@ sources.quests = function(mapID)
 		local e = AddAt(list, b.uiMapID, b.x, b.y, {
 			size = followed and 26 or 22, glow = followed, questID = questID, icon = icon, turnIn = complete,
 			title = label, count = not complete and ns.QuestProgress(questID) or nil,
-			yields = complete or nil, -- lines: on hover (QuestieDB reads), see PinOnEnter
 		})
 		if e and not complete then
 			questAreas[#questAreas + 1] = {
@@ -666,7 +654,7 @@ sources.offers = function(mapID)
 					table.insert(lines, 1, q.questLineName)
 				end
 				AddAt(list, uiMapID, q.x, q.y, {
-					size = 18, title = q.questName or ("Quest " .. q.questID), lines = lines, yields = true,
+					size = 18, title = q.questName or ("Quest " .. q.questID), lines = lines,
 					icon = { atlas = "QuestNormal", color = { 1, 0.82, 0 } },
 				})
 			end
@@ -772,29 +760,7 @@ local function UpdateGroup()
 	end
 	groupShown = n
 end
--- As you move (and the square with you), ten times a second.
-local function UpdateYields()
-	local now = GetTime()
-	if now < blipYield.at then return end
-	blipYield.at = now + 0.1
-	local z = state.zoom
-	for i = 1, pinPool.used do
-		local pin = pinPool.list[i]
-		local e = pin.entry
-		if e.yields and not (e.minZoom and z < e.minZoom) then
-			local show = not blipYield.Hides(e)
-			if pin:IsShown() ~= show then
-				pin:SetShown(show)
-				if show then pin:SetPoint("CENTER", canvases.pins, "TOPLEFT", e.col * z, -e.row * z) end
-			end
-		end
-	end
-end
-
-ns.frame:HookScript("OnUpdate", ns.Timed("party dots, quest givers", function()
-	UpdateGroup()
-	UpdateYields()
-end))
+ns.frame:HookScript("OnUpdate", ns.Timed("party dots", UpdateGroup))
 
 ---------------------------------------------------------------------------
 -- Quest areas
@@ -809,7 +775,7 @@ local blobPool = {}
 local function NewBlobFrame()
 	local f = CreateFrame("QuestPOIFrame", nil, canvases.areas)
 	-- Hover is worked out from the cursor (OnMapHover); the frame itself must
-	-- never take the mouse from the Minimap's blips above it.
+	-- never take the mouse from the pins above it.
 	f:EnableMouse(false)
 	return f
 end
@@ -1042,11 +1008,8 @@ local function ShowBlobTooltip(questID)
 end
 
 -- Who gets GameTooltip over the map: our pins (they take the mouse first),
--- else a Blizzard blip under the cursor, else the quest area. While the
--- Minimap has the mouse, MinimapTakeover settles the last two
--- right after Blizzard's own hover handler, every frame, so nothing flickers.
+-- else the quest area under the cursor.
 function ns.OnMapHover(col, row)
-	if ns.MinimapHasMouse() then return end
 	local questID = col and BlobQuestAt(col, row)
 	SetHoverQuest("area", questID)
 	local owner = GameTooltip:GetOwner()
@@ -1059,20 +1022,6 @@ function ns.OnMapHover(col, row)
 		blobTooltipOwner.questID = nil
 		GameTooltip:Hide()
 	end
-end
-
--- Under the Minimap, with no blip under the cursor: the quest area's tooltip,
--- rebuilt (Blizzard's handler clears GameTooltip every frame). True if shown.
-function ns.ShowQuestAreaTooltip(col, row)
-	local questID = col and BlobQuestAt(col, row)
-	SetHoverQuest("area", questID)
-	if questID then
-		ShowBlobTooltip(questID)
-		return true
-	end
-	if GameTooltip:IsOwned(blobTooltipOwner) then GameTooltip:Hide() end
-	blobTooltipOwner.questID = nil
-	return false
 end
 
 local function RefreshPins(key)

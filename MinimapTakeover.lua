@@ -2,51 +2,57 @@
 -- its cluster, its tracking and the HereBeDragons pins on it lives here, so
 -- all of it can be put back.
 --
---   Engage()   takes the Minimap into the map window: its children and the
+--   Engage()   takes the Minimap out of its corner: its children and the
 --              things hanging off it go to a stand-in at its usual spot, the
---              cluster hides, the Minimap sits in our viewport, drawing only
---              its blips (no ground, as Blizzard's HybridMinimap does it),
---              square, north up even with Rotate Minimap, its rim icons
---              pushed off screen.
+--              cluster hides, and the Minimap is parented into our viewport.
 --   Release()  puts all of that back.
---   In between, MinimapBlips.lua (the policy) only places it: Place (its
---   blips over our terrain), ShowWhole (indoors), Hide, SetLevel.
 --
 -- Every change Engage makes is paired with its undo on a list, and Release
 -- runs the list backwards. Nothing else restores anything, so what comes
 -- back is exactly what was taken.
 --
+-- While engaged, the Minimap has one of two jobs, set each frame:
+--   * outdoors, the sensor: invisible (alpha 0, no ground, no mouse), 200
+--     units square at the centre of our map, at its widest zoom, north up.
+--     Blips.lua reads its blips through a pretend mouse and draws them on our
+--     map itself. The HereBeDragons pins on it (addons' minimap pins, such as
+--     GatherMate's) are hosted on a frame of ours, the Minimap's view in map
+--     pixels, centred on you;
+--   * indoors, the whole Minimap: its terrain, rim and hover tooltips, in the
+--     window over a black backdrop, the wheel zooming it. Its arrow stands in
+--     for ours.
+--
+-- Tracking: Blizzard's own markers for what our layers draw (flight masters,
+-- quest objectives, points of interest) are off while we're outdoors, and
+-- back on at release and logout. MagicMapDB remembers which we turned off, so
+-- a /reload mid-way restores them too.
+--
 -- Relies on behaviour the client doesn't document (README, "Unknowns"):
---   * the Minimap draws right only while its square is on the screen, and
---     doesn't redraw while hidden;
---   * C_Minimap.SetMinimapInsetInfo pushes the rim's icons outward;
+--   * the Minimap answers a pretend mouse (Blips.lua) while it's invisible;
 --   * HereBeDragons' SetMinimapObject and its minimapPins table.
 
 local ADDON, ns = ...
 local T = {}
 ns.Takeover = T
 
+local TILE_YARDS = 1600 / 3
+local SENSOR_SIZE = 200 -- units square: the sensor, outdoors
+local OUTDOOR = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 } -- yards across its outdoor view, by zoom level
+local OUTDOOR_WIDEST = OUTDOOR[0]
+local INDOOR = { [0] = 300, 240, 180, 120, 80, 50 } -- yards across its indoor view, by zoom level
+
 local db
 local engaged = false
-local indoor = false   -- wearing the Minimap whole (ShowWhole) rather than its blips
-local shown = false    -- the Minimap is on the map this frame (its arrow stands in for ours)
-local hover = false    -- the mouse is over the Minimap
-local undo = {}        -- what Engage changed, as functions that change it back
-local ours = {}        -- our own children of the Minimap, which stay on it
-local lastSize
-local pinsCheckAt = 0 -- when Place next checks every HereBeDragons copy is on our host
-local terrainAlpha, terrainByAlpha -- what SetTerrain last applied
-local placed = {} -- where Place last anchored it: canvas, x, y
-local followed, followedIndoor -- the window strata and indoor state FollowWindow last applied
-
-local SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
--- Blizzard's round mask, put back on release.
-local ROUND_MASK = "Interface\\Masks\\CircleMaskScalable"
+local mode                -- "whole" (indoors) or "sensor" (outdoors) while engaged; nil before
+local undo = {}           -- what Engage changed, as functions that change it back
+local lastSize           -- indoors: the size the whole Minimap was last set to
+local pinSize             -- outdoors: the size the pins' host was last set to
+local pinsCheckAt = 0     -- when the pins next check every HereBeDragons copy is on our host
+local placed = {}         -- where the pins' host was last anchored: canvas, x, y
+local followed, followedMode -- the window strata and mode FollowWindow last applied
+local trackingOn, trackingAt -- what SyncTracking last did, and when
 
 local function OnRelease(fn) undo[#undo + 1] = fn end
-
--- A frame of ours parented to the Minimap: it stays there when Engage clears it out.
-function T.Own(frame) ours[frame] = true end
 
 ---------------------------------------------------------------------------
 -- Our frames
@@ -58,9 +64,8 @@ standIn:Hide()
 ns.minimapStandIn = standIn
 
 -- HereBeDragons' minimap pins, outdoors: an ordinary frame in the window, the
--- Minimap's size and in its place, which the window clips (the Minimap
--- itself isn't clipped). It answers what HereBeDragons asks a minimap
--- (FarmHud does the same).
+-- Minimap's view in size, which the window clips. It answers what
+-- HereBeDragons asks a minimap (FarmHud does the same).
 local pinHost = CreateFrame("Frame", "MagicMapMinimapPins", ns.viewport)
 pinHost:Hide()
 pinHost.GetZoom = function() return Minimap:GetZoom() end
@@ -178,7 +183,7 @@ end
 
 local function Movable(obj)
 	local t = obj:GetObjectType()
-	return t ~= "Line" and t ~= "MaskTexture" and not IsPin(obj) and not ours[obj]
+	return t ~= "Line" and t ~= "MaskTexture" and not IsPin(obj)
 		and not (obj.IsProtected and obj:IsProtected())
 end
 
@@ -210,32 +215,9 @@ local function ReanchorAround(frame, depth)
 end
 
 ---------------------------------------------------------------------------
--- The rim: Blizzard's big arrows toward your target sit on it; ours
--- (Path.lua) point the way instead. The client won't swap their art, but it
--- lets the rim's icons be pushed outward, so they go far off screen. Its
--- quest, dig-site and bonus-objective rings (the patterned circle where an
--- area runs past the edge) mark a rim we don't show, so they go too.
----------------------------------------------------------------------------
-
-local BLOB_RINGS = { "SetQuestBlobRingScalar", "SetArchBlobRingScalar", "SetTaskBlobRingScalar" }
-
-local function ClearRim(on)
-	for _, method in ipairs(BLOB_RINGS) do
-		pcall(Minimap[method], Minimap, on and 0 or 1)
-	end
-	if on then
-		pcall(C_Minimap.SetMinimapInsetInfo, 0, 360, 1000) -- the whole rim (degrees or radians), 1000x out
-	else
-		pcall(C_Minimap.ClearMinimapInsetInfo)
-	end
-end
-
----------------------------------------------------------------------------
--- Ours first: Blizzard's own markers for what our layers draw are tracking
--- filters (flight masters, quest objectives, points of interest). They go
--- off while the Minimap's blips are on our map and come back after (and at
--- logout). MagicMapDB remembers which we turned off, so a /reload mid-way
--- restores them too. /mm dupes keeps Blizzard's.
+-- Tracking. Ours first: Blizzard's own markers for what our layers draw are
+-- tracking filters, off while we're outdoors (the sensor's blips are drawn
+-- on our map, and our layers draw these too).
 ---------------------------------------------------------------------------
 
 local F = Enum.MinimapTrackingFilter
@@ -254,7 +236,7 @@ local function SyncTracking(on)
 		local layer = id and DUPLICATES[id]
 		if layer then
 			local info = C.GetTrackingInfo(i)
-			local want = on and db.hideDupes ~= false and ns.LayerEnabled(layer)
+			local want = on and ns.LayerEnabled(layer)
 			if want and info and info.active then
 				if pcall(C.SetTracking, i, false) then off[id] = true end
 			elseif not want and off[id] and info then -- (no info yet at login: next time)
@@ -265,41 +247,17 @@ local function SyncTracking(on)
 	end
 end
 
-local trackingOn, trackingAt -- what SyncTracking last did, and when
 -- Each frame; acts on a change, and again now and then (a layer was toggled).
-function T.KeepTracking(on)
+local function KeepTracking(on)
 	local now = GetTime()
 	if on == trackingOn and now - trackingAt < 2 then return end
 	trackingOn, trackingAt = on, now
 	SyncTracking(on)
 end
 
--- Apply a change of db.hideDupes now.
-function T.RefreshTracking()
-	trackingOn = nil
-	if engaged and not indoor then T.KeepTracking(true) end
-end
-
 ---------------------------------------------------------------------------
 -- Engage and release
 ---------------------------------------------------------------------------
-
--- Its terrain: alpha 0 hides it, else draws it at that alpha (indoors 1;
--- /mm sync's look under it). Hidden, it's C_Minimap.SetDrawGroundTextures,
--- Blizzard's own switch (HybridMinimap); with db.terrainByAlpha, the older
--- way: the Minimap at alpha 0, which fades its terrain but not its blips.
-local function SetTerrain(alpha)
-	local byAlpha = db and db.terrainByAlpha or false
-	if alpha == terrainAlpha and byAlpha == terrainByAlpha then return end
-	terrainAlpha, terrainByAlpha = alpha, byAlpha
-	C_Minimap.SetDrawGroundTextures(byAlpha or alpha > 0)
-	Minimap:SetAlpha((byAlpha or alpha > 0) and alpha or 1)
-end
-
--- Apply a change of db.terrainByAlpha now.
-function T.RefreshTerrain()
-	if engaged then SetTerrain(terrainAlpha or 0) end
-end
 
 -- The Minimap's own setup, put back last.
 local function KeepMinimap()
@@ -327,27 +285,26 @@ local function KeepMinimap()
 		m:SetZoom(zoom)
 		m:SetShown(shownBefore)
 		m:SetClampedToScreen(clamped)
-		m:SetMaskTexture(ROUND_MASK)
 	end)
 	return parent, points, w, h, scale, strata, level
 end
 
 -- The window's strata changes (growing and shrinking): the Minimap and our
--- host go with it. Above our layers, below our pins and overlay; indoors,
--- above the backdrop.
+-- host go with it. Outdoors, under our layers; indoors, above the backdrop.
+-- The pins' host sits just under our layers and overlay.
 local function FollowWindow()
 	local strata = ns.frame:GetFrameStrata()
-	if strata == followed and indoor == followedIndoor then return end
-	followed, followedIndoor = strata, indoor
+	if strata == followed and mode == followedMode then return end
+	followed, followedMode = strata, mode
 	local base = ns.overlay:GetFrameLevel()
 	if Minimap:GetFrameStrata() ~= strata then Minimap:SetFrameStrata(strata) end
-	local level = base + (indoor and 2 or -1)
+	local level = base + (mode == "whole" and 2 or -1)
 	if Minimap:GetFrameLevel() ~= level then Minimap:SetFrameLevel(level) end
 	if pinHost:GetFrameStrata() ~= strata then pinHost:SetFrameStrata(strata) end
 	if pinHost:GetFrameLevel() ~= base - 1 then pinHost:SetFrameLevel(base - 1) end
 end
 
-function T.Engage()
+local function Engage()
 	if engaged then return end
 	engaged = true
 	ns.HBDPinLibs(true) -- any copy loaded since
@@ -378,140 +335,172 @@ function T.Engage()
 		OnRelease(function() MinimapCluster:Show() end)
 	end
 
-	-- Into the map. Hover still reaches the Minimap (the game's own blip
-	-- tooltips); clicks and the wheel go through to the map, for dragging and
-	-- zooming. Never clamped: that would slide its blips off ours.
+	-- Into the window. Never clamped: that would slide its blips off ours.
 	Minimap:SetParent(ns.viewport)
 	Minimap:SetScale(1)
 	followed = nil
 	FollowWindow()
-	-- The pins that stayed must still clear our terrain and layers.
+	-- Pins that stayed on it (indoors, they're in view) must clear our layers.
 	for _, pin in ipairs({ Minimap:GetChildren() }) do
 		if pin:GetFrameLevel() <= Minimap:GetFrameLevel() then pin:SetFrameLevel(Minimap:GetFrameLevel() + 1) end
 	end
-	Minimap:EnableMouse(true)
-	Minimap:SetMouseClickEnabled(false)
-	Minimap:SetMouseMotionEnabled(true)
-	Minimap:EnableMouseWheel(false)
-	C_Minimap.SetIgnoreRotateMinimap(true) -- our terrain doesn't turn
-	lastSize, terrainAlpha = nil, nil
-	SetTerrain(0)
+	C_Minimap.SetIgnoreRotateMinimap(true) -- our map doesn't turn, nor does the sensor
 	Minimap:SetClampedToScreen(false)
-	Minimap:SetMaskTexture(SQUARE_MASK)
-	ClearRim(true)
-	OnRelease(function() ClearRim(false) end)
 	OnRelease(function()
 		trackingOn = nil
 		SyncTracking(false)
 	end)
-	OnRelease(function() T.SetIndoor(false) end) -- undone first
-	T.Hide() -- until the policy finds it a spot
 end
 
 -- Everything Engage changed, changed back, newest first. Every step runs
 -- even if one fails; the first failure is raised after.
-function T.Release()
+local function Release()
 	if not engaged then return end
 	engaged = false
-	shown = false
+	mode = nil
+	indoorBg:Hide()
 	local failure
 	for i = #undo, 1, -1 do
 		local ok, err = pcall(undo[i])
 		if not ok and not failure then failure = err end
 		undo[i] = nil
 	end
-	lastSize, terrainAlpha, followed = nil, nil, nil
+	lastSize, pinSize, followed = nil, nil, nil
 	wipe(placed)
 	if failure then error(failure, 0) end
 end
 
-function T.IsEngaged() return engaged end
-
 ---------------------------------------------------------------------------
--- Placing it (between Engage and Release)
+-- The two modes
 ---------------------------------------------------------------------------
 
--- Indoors (on) or out: the Minimap shown whole over a backdrop, or just its
--- blips under our markers.
-function T.SetIndoor(on)
-	if on == indoor then return end
-	indoor = on
-	indoorBg:SetFrameLevel(ns.overlay:GetFrameLevel() + 1)
-	indoorBg:SetShown(on)
+-- Indoors ("whole") or out ("sensor"): what the Minimap is set up as. Applied
+-- once per change; each mode's frame work is in Update.
+local function SetMode(m)
+	if m == mode then return end
+	mode = m
+	lastSize, pinSize = nil, nil
+	wipe(placed)
 	FollowWindow()
-	SetTerrain(on and 1 or 0)
-	ClearRim(not on) -- indoors it's Blizzard's minimap, rim and all
-	if on then pinHost:Hide() end
-	lastSize = nil
-end
-
-function T.Level() return Minimap:GetZoom() end
-
--- Its zoom level; true if that changed it (the client takes a moment to apply one).
-function T.SetLevel(z)
-	if Minimap:GetZoom() == z then return false end
-	Minimap:SetZoom(z)
-	return true
-end
-
-function T.Hide()
-	if Minimap:IsShown() then Minimap:Hide() end
-	pinHost:Hide()
-	shown = false
+	indoorBg:SetFrameLevel(ns.overlay:GetFrameLevel() + 1)
+	indoorBg:SetShown(m == "whole")
+	Minimap:ClearAllPoints()
+	Minimap:SetPoint("CENTER", ns.viewport)
+	if m == "whole" then
+		-- Blizzard's minimap as it is: terrain, rim, its own hover tooltips.
+		-- The wheel goes to the backdrop, which zooms it.
+		Minimap:SetAlpha(1)
+		C_Minimap.SetDrawGroundTextures(true)
+		Minimap:EnableMouse(true)
+		Minimap:SetMouseClickEnabled(false)
+		Minimap:SetMouseMotionEnabled(true)
+		Minimap:EnableMouseWheel(false)
+		pinHost:Hide()
+	else
+		-- The sensor: drawn nowhere, at its widest zoom, the mouse left alone.
+		Minimap:SetAlpha(0)
+		C_Minimap.SetDrawGroundTextures(false)
+		Minimap:SetZoom(0)
+		Minimap:EnableMouse(false)
+		Minimap:SetMouseMotionEnabled(false)
+		Minimap:EnableMouseWheel(false)
+		Minimap:SetSize(SENSOR_SIZE, SENSOR_SIZE)
+		Minimap:Show()
+	end
 end
 
 -- Indoors: the Minimap whole, the size of the window, centred.
-function T.ShowWhole()
+local function ShowWhole()
 	FollowWindow()
 	local w, h = ns.ViewSize()
 	local d = math.floor(math.min(w, h) + 0.5)
-	if placed.canvas ~= ns.viewport then
-		placed.canvas, placed.x, placed.y = ns.viewport, 0, 0
-		Minimap:ClearAllPoints()
-		Minimap:SetPoint("CENTER", ns.viewport)
-	end
 	if d ~= lastSize then
 		lastSize = d
 		Minimap:SetSize(d, d)
 		PlacePins(Minimap)
 	end
 	if not Minimap:IsShown() then Minimap:Show() end
-	shown = true
 end
 
--- Outdoors: centred on (x, y) of `canvas` (you, on the tiles' canvas, so it
--- moves with them pixel for pixel), d px across. alpha: its terrain's (0,
--- hidden, but for /mm sync).
-function T.Place(canvas, x, y, d, alpha)
+-- Outdoors: the pins' host centred on you, on the tiles' canvas (so it moves
+-- with them pixel for pixel), at the Minimap's view in map pixels: its
+-- diameter in yards at this zoom, over a tile's yards.
+local function PlaceHost(cam)
 	FollowWindow()
+	local canvas, x, y = cam.canvas, cam.playerCol * cam.zoom, -cam.playerRow * cam.zoom
 	-- Anchored to the canvas, so it only moves when you do (or the zoom does);
 	-- one cheap look each frame catches anything else moving it.
-	local _, rel, _, px, py = Minimap:GetPoint(1)
+	local _, rel, _, px, py = pinHost:GetPoint(1)
 	if canvas ~= placed.canvas or x ~= placed.x or y ~= placed.y or rel ~= canvas or px ~= x or py ~= y then
 		placed.canvas, placed.x, placed.y = canvas, x, y
-		Minimap:ClearAllPoints()
-		Minimap:SetPoint("CENTER", canvas, "TOPLEFT", x, y)
 		pinHost:ClearAllPoints()
 		pinHost:SetPoint("CENTER", canvas, "TOPLEFT", x, y)
 	end
-	d = math.floor(d + 0.5)
+	local r = C_Minimap.GetViewRadius()
+	if not r or issecretvalue(r) or r <= 0 then r = OUTDOOR_WIDEST / 2 end
+	local d = math.floor(2 * r / TILE_YARDS * cam.zoom + 0.5)
 	-- (HereBeDragons copies changing hosts is rare: a look twice a second.)
 	local now, pinsOff = GetTime(), false
 	if now >= pinsCheckAt then
 		pinsCheckAt = now + 0.5
 		pinsOff = PinsOff(pinHost)
 	end
-	if d ~= lastSize or pinsOff then
-		lastSize = d
-		Minimap:SetSize(d, d)
+	if d ~= pinSize or pinsOff then
+		pinSize = d
 		pinHost:SetSize(d, d)
 		PlacePins(pinHost)
 	end
-	SetTerrain(alpha)
-	if not Minimap:IsShown() then Minimap:Show() end
 	if not pinHost:IsShown() then pinHost:Show() end
-	shown = true
 end
+
+---------------------------------------------------------------------------
+-- When it may join the map at all
+---------------------------------------------------------------------------
+
+-- nil if the Minimap can join the map right now, else why not.
+local function Blocker(cam)
+	if not ns.frame:IsShown() then return "the map is closed" end
+	if FarmHud and FarmHud.IsShown and FarmHud:IsShown() then return "FarmHud has the minimap" end
+	if not cam.onMap then return "you're not on the map being shown" end
+	return nil
+end
+
+-- Whether the Minimap is drawing its indoor map. Not IsIndoors(): that's
+-- whether you may mount, and places like Orgrimmar's Cleft of Shadow let you
+-- while the Minimap shows the floor plan. Its view radius tells: at its zoom
+-- level the indoor view is nearer to it than the widest outdoor one.
+local function MinimapIndoors()
+	local r = C_Minimap.GetViewRadius()
+	if not r or issecretvalue(r) or r <= 0 then return IsIndoors() and true or false end
+	local z = Minimap:GetZoom()
+	return math.abs(2 * r - (INDOOR[z] or INDOOR[0])) < math.abs(2 * r - (OUTDOOR[z] or OUTDOOR_WIDEST))
+end
+
+---------------------------------------------------------------------------
+-- Each frame. After the map's own OnUpdate, so the view has already moved.
+---------------------------------------------------------------------------
+
+local function Update()
+	local cam = ns.Camera()
+	if Blocker(cam) then
+		Release()
+		return
+	end
+	Engage()
+	local whole = MinimapIndoors() and not ns.IsMapExpanded()
+	SetMode(whole and "whole" or "sensor")
+	KeepTracking(not whole)
+	if whole then
+		ShowWhole()
+	else
+		if not Minimap:IsShown() then Minimap:Show() end
+		if Minimap:GetZoom() ~= 0 then Minimap:SetZoom(0) end -- (HereBeDragons may zoom it through our host)
+		PlaceHost(cam)
+	end
+end
+
+ns.frame:HookScript("OnUpdate", ns.Timed("minimap", Update))
+ns.frame:HookScript("OnHide", Release)
 
 ---------------------------------------------------------------------------
 -- The minimap's home corner (the cluster, and the stand-in holding what hung
@@ -540,28 +529,14 @@ end
 -- Queries for the rest of the addon
 ---------------------------------------------------------------------------
 
--- The Minimap is on the map, its arrow standing in for ours.
-function ns.MinimapShowsPlayer() return shown end
+T.Engage, T.Release = Engage, Release
+function T.IsEngaged() return engaged end
 
--- The Minimap has the mouse (its hover handler owns GameTooltip).
-function ns.MinimapHasMouse() return hover and engaged and shown end
+-- Outdoors: the Minimap is our sensor this frame (Blips.lua reads it).
+function T.Sensing() return engaged and mode == "sensor" and Minimap:IsShown() end
 
----------------------------------------------------------------------------
--- Tooltips. While the Minimap has the mouse, Blizzard's hover handler
--- (Minimap_OnUpdate, every frame) takes GameTooltip for the blips under the
--- cursor. Right after it, if it found none, the quest area there gets it;
--- our pins sit above the Minimap and take the mouse before either. Layers'
--- own hover (OnMapHover) stands aside meanwhile, so nothing flickers.
----------------------------------------------------------------------------
-
-local function AfterMinimapHover()
-	if not (hover and engaged and shown) or indoor then return end
-	if GameTooltip:IsShown() and GameTooltip:NumLines() > 0 and GameTooltip:IsOwned(UIParent) then return end -- a blip
-	ns.ShowQuestAreaTooltip(ns.CursorTile())
-end
-hooksecurefunc("Minimap_OnUpdate", ns.Timed("minimap hover", AfterMinimapHover))
-Minimap:HookScript("OnEnter", function() hover = true end)
-Minimap:HookScript("OnLeave", function() hover = false end)
+-- Indoors, Blizzard's minimap is on the map whole, its arrow standing in for ours.
+function ns.MinimapShowsPlayer() return engaged and mode == "whole" end
 
 ---------------------------------------------------------------------------
 -- Saved state
@@ -569,7 +544,8 @@ Minimap:HookScript("OnLeave", function() hover = false end)
 
 ns.On("Loaded", function(savedDB)
 	db = savedDB
-	if db.hideDupes == nil then db.hideDupes = true end
+	-- Settings that are gone (2026-10-12): their saved values go too. Safe to drop this line after a few releases.
+	db.terrainByAlpha, db.blipsPastEdge, db.hideDupes = nil, nil, nil
 end)
 
 -- Tracking we turned off comes back at logout, and after a /reload (its
@@ -579,7 +555,7 @@ for _, event in ipairs({ "PLAYER_LOGOUT", "PLAYER_ENTERING_WORLD", "MINIMAP_UPDA
 	events:RegisterEvent(event)
 end
 events:SetScript("OnEvent", ns.TimedEvents("takeover", function(_, event)
-	if event == "PLAYER_LOGOUT" or not (engaged and not indoor) then
+	if event == "PLAYER_LOGOUT" or not (engaged and mode == "sensor") then
 		if db and db.trackingOff and next(db.trackingOff) then SyncTracking(false) end
 	end
 end))

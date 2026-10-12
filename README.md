@@ -48,9 +48,12 @@ the same yards across as it grows. It remembers where you put it, and `/mm reset
 The buttons show while you hover: follow at the bottom left, zoom at the bottom right,
 and the gear and the big map button by the zone name.
 
-Blizzard draws its blips (herbs, ore, tracked NPCs) and other addons' minimap pins around you.
-MagicMap draws everything else: quests and their areas, flight points, dungeon entrances, points
-of interest, party members, rares, your corpse and your waypoint. Where both could draw something,
+Outdoors, Blizzard's minimap stays invisible and is read as a sensor, so MagicMap draws its blips
+(herbs, ore, tracked NPCs) itself with its own icons. Each blip within about 233 yards of you gets
+a pin, anywhere on the map, at any zoom, with Rotate Minimap on or off. Anything without an icon
+of its own is a gold dot. These are the "Minimap blips" layer in the gear's Places. MagicMap also
+draws everything else: quests and their areas, flight points, dungeon entrances, points of
+interest, party members, rares, your corpse and your waypoint. Where both could draw something,
 only one does.
 
 <!-- SCREENSHOT: the minimap at about 600 yards in Hillsbrad Foothills with Find Herbs and Find
@@ -135,9 +138,9 @@ By the zone name, on hover.
   does.
 - **Tracking:** Blizzard's minimap tracking (herbs, minerals, vendors, trainers...). Its own
   button is hidden with the minimap's corner, so it lives here.
-- **Settings:** *Map* (colour-matched tiles, Blizzard's blips past the window's edge, one marker
-  for each thing), *Minimap* (the minimap button, reset position, use Blizzard's minimap), and
-  *Advanced* for diagnostics and performance. Hover a setting for what it does.
+- **Settings:** *Map* (colour-matched tiles), *Minimap* (the minimap button, reset position,
+  use Blizzard's minimap), and *Advanced* for diagnostics and performance. Hover a setting for
+  what it does.
 
 <!-- SCREENSHOT: the gear menu open with the Quests submenu showing. -->
 
@@ -171,11 +174,9 @@ Slash commands, `/mm` or `/magicmap`:
 | `/mm landmarks` | How many rares are remembered |
 | `/mm icon` | Show or hide the minimap button |
 | `/mm tint` | Tile colour correction on or off |
-| `/mm dupes` | Keep Blizzard's own markers alongside MagicMap's |
 
 For reporting problems: `/mm perf` records 10 seconds of play (`perf top` compares MagicMap's CPU
-and memory with your other addons, `perf mem` breaks down its memory), `/mm sync` lays Blizzard's
-terrain over MagicMap's to check its blips line up (`sync full` for full strength), `/mm tiles`
+and memory with your other addons, `perf mem` breaks down its memory), `/mm tiles`
 lists the tile set, and `/mm debug` shows tile details in the title.
 
 Settings and remembered rares are shared by every character on your account.
@@ -183,14 +184,8 @@ Settings and remembered rares are shared by every character on your account.
 ## Limits
 
 - **WoW Forever only.** The data and code target its client.
-- **Blizzard's blips only show around you,** about 230 yards at most, in the biggest square around
-  you that fits the window (Settings, "Show blips past the edge", lets them cover a long window,
-  spilling past its short sides).
-  Zoomed far out, or while the map is zooming, they step aside and MagicMap's own markers remain.
-- **Panning away shrinks the area where blips show,** since it has to stay centred on you, until
-  the map glides back.
-- **The big map has no Blizzard blips.** It shows MagicMap's markers and other addons' world-map
-  pins.
+- **Blizzard's blips are only sensed within about 233 yards of you,** and a blip is dropped once a
+  full sweep no longer finds it.
 - **Indoors, it's Blizzard's floor plan,** not MagicMap's terrain.
 - **Instances that hide your position** are shown whole, without the line or blips.
   Instances have no zone borders.
@@ -231,19 +226,20 @@ Python 3.9+. Generators use only the standard library (`gen_tilecolor.py --previ
 
 Minimap tiles are textures an addon can draw by FileDataID; MagicMap lays them out on the 64×64
 grid of 533⅓-yard tiles and places everything else by world position. The tile lists, zone
-borders and coast colours in `Data/` are generated offline from the game files. Blizzard's real
-Minimap sits inside the window with its terrain switched off, centred on you and scaled to match,
-so its blips land on MagicMap's terrain. Every change to Blizzard's minimap is in
-`MinimapTakeover.lua`, paired with its undo; `MinimapBlips.lua` decides where it goes each frame.
+borders and coast colours in `Data/` are generated offline from the game files. Outdoors,
+Blizzard's Minimap is kept invisible at its widest zoom, north up, with the soft cursor on, and
+`Blips.lua` reads it as a sensor: it sweeps a pretend mouse over it and draws each blip it finds
+on our map, in world yards. Indoors, the Minimap is shown in the window as the floor plan. Every
+change to Blizzard's minimap is in `MinimapTakeover.lua`, paired with its undo.
 
 ### Risks
 
-The takeover relies on behaviour the client doesn't document, found by measuring Blizzard's
-terrain against MagicMap's in game (`/mm sync`): the Minimap drawing in the wrong place where its
-square runs off the screen, and not redrawing while hidden; `C_Minimap.SetMinimapInsetInfo`
-pushing the rim's icons off screen; and HereBeDragons' internal pin table. The tests catch crashes
-and wrong API assumptions, not how it looks in the real client. Tile IDs change between Forever builds, so `Data/` must be regenerated
-when they do.
+The sensor relies on behaviour the client doesn't document, found by measuring in game:
+`UpdateMouseoverAtPoint` only works while `SetUsingSoftCursor(true)`; blips answer in a square
+7.84 Minimap units each way from their middle, at any size; and reading works while the Minimap
+is invisible. It also relies on HereBeDragons' internal pin table (`SetMinimapObject`,
+`minimapPins`). The tests catch crashes and wrong API assumptions, not how it looks in the real
+client. Tile IDs change between Forever builds, so `Data/` must be regenerated when they do.
 
 ## Credits
 

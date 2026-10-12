@@ -573,7 +573,7 @@ Sim.BlobRingsAt = RingsAt
 -- the real cursor. Sim.minimapBlips = { { name, north, west } } (yards)
 -- each answer within a square Sim.BLIP_HIT units (times SetIconScale) of
 -- where they sit on the shown Minimap, inside its view radius.
-Sim.minimapBlips, Sim.BLIP_HIT = {}, 6
+Sim.minimapBlips, Sim.BLIP_HIT = {}, 7.84 -- (the client's, measured)
 function MinimapClass:SetUsingSoftCursor(on) S[self].soft = on and true or false end
 function MinimapClass:SetIconScale(s) S[self].iconScale = s end
 function MinimapClass:UpdateMouseoverAtPoint(x, y)
@@ -1434,7 +1434,7 @@ C_VignetteInfo = {
 }
 -- Atlases: the ones MagicMap asks for that Retail-engine clients have
 -- (checked against Forever's UiTextureAtlasMember); none on classic clients.
-local ATLASES = {}
+local ATLASES = { Professions_Tracking_Herb = true, Professions_Tracking_Ore = true }
 for _, base in ipairs({ "ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-out" }) do
 	ATLASES[base], ATLASES[base .. "-mouseover"], ATLASES[base .. "-down"] = true, true, true
 end

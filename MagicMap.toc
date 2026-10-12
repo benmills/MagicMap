@@ -25,8 +25,7 @@ Route.lua
 Path.lua
 MinimapButton.lua
 MinimapTakeover.lua
-MinimapBlips.lua
-Probe.lua
+Blips.lua
 MinimapMode.lua
 Perf.lua
 GearMenu.lua

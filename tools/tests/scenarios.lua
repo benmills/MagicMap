@@ -141,7 +141,7 @@ end
 scenarios.slash_commands = function()
 	for _, cmd in ipairs({ "", "", "follow", "follow", "map 1", "map kalimdor", "map 0", "map nowhere", "zone elwynn",
 		"zone westfall", "zone nowhere", "tiles", "debug", "debug", "reset", "layers", "landmarks", "icon", "icon",
-		"sync", "sync", "sync full", "sync", "perf top", "perf mem", "perf", "perf", "help" }) do
+		"perf top", "perf mem", "perf", "perf", "help" }) do
 		Sim.Slash(cmd)
 		Sim.Run(0.3)
 	end
@@ -245,30 +245,25 @@ scenarios.minimap_mode = function()
 	ns.frame:SetSize(side * 1.5, side * 1.5)
 	check(math.abs(ns.state.zoom - 1.5 * side / (200 / (1600 / 3))) < 1, "and keeps showing 200 yards as it grows")
 	ns.frame:SetSize(side, side)
-	check(Minimap:GetParent() == ns.viewport, "the Minimap moved into the map")
-	check(not Sim.minimapGround and Minimap:GetAlpha() == 1, "its terrain is off (not faded: its blips at full strength)")
+	check(Minimap:GetAlpha() == 0 and not Sim.minimapGround and Minimap:GetZoom() == 0,
+		"outdoors the Minimap is an invisible sensor, at its widest zoom")
+	check(not Minimap:IsMouseEnabled(), "that never takes the mouse")
 	check(Sim.minimapUnrotated, "and it stays north up, even with Rotate Minimap")
-	MagicMapDB.terrainByAlpha = true -- the gear's fallback: FarmHud's trick
-	ns.Takeover.RefreshTerrain()
-	check(Sim.minimapGround and Minimap:GetAlpha() == 0, "the fallback fades the Minimap instead")
-	MagicMapDB.terrainByAlpha = nil
-	ns.Takeover.RefreshTerrain()
-	check(not Sim.minimapGround and Minimap:GetAlpha() == 1, "and back")
+	check(ns.Takeover.Sensing(), "it's sensing")
 	check(Sim.minimapButton:GetParent() == ns.minimapStandIn, "other addons' minimap buttons moved to the stand-in")
 	local pinHost = _G.MagicMapMinimapPins
 	check(Sim.gatherPin:GetParent() == Minimap or Sim.gatherPin:GetParent() == pinHost, "pins stay with the Minimap")
 	check(not MinimapCluster:IsShown() and not Sim.minimapButton:IsVisible(), "nothing of the minimap is left in its corner")
-	-- Standing at a turn-in, our "?" steps aside for the Minimap's own (no
-	-- tracking switch turns that one off); away from it, ours is back.
+	check(not ns.MinimapShowsPlayer(), "outdoors our arrow is you")
+	-- At a turn-in our "?" stays: the Minimap draws nothing of its own.
 	local home = { Sim.player.col, Sim.player.row }
 	local _, col, row = ns.MapToTile(1429, 0.40, 0.80)
 	Sim.player.col, Sim.player.row = col, row
 	Sim.Run(1)
-	check(ns.BlipArea.on and QuestPin(62) == nil, "at a turn-in, ours steps aside for the Minimap's \"?\"")
+	check(QuestPin(62) ~= nil, "at a turn-in, ours shows")
 	Sim.player.col, Sim.player.row = home[1], home[2]
 	Sim.Run(1)
-	check(QuestPin(62) ~= nil, "away from it, ours is back")
-	-- Ride, zoom out past the blips, back in.
+	-- Ride, zoom out, back in.
 	Sim.player.speed = 14
 	Sim.Run(2)
 	for _ = 1, 30 do Sim.Wheel(ns.viewport, -1) end
@@ -281,27 +276,17 @@ scenarios.minimap_mode = function()
 	Sim.MoveCursorTo(UIParent, 0.1, 0.1)
 	Sim.Run(8)
 	check(ns.state.follow, "goes back to following after idling")
-	check(OnScreen() or not ns.MinimapShowsPlayer(), "zoomed in in the screen's corner, its square stays on screen, or it steps aside")
-	Midscreen()
-	Sim.Run(1)
-	check(not ns.MinimapShowsPlayer() or InWindow(Minimap), "zoomed in, the Minimap is in the window or steps aside")
 	ns.SetZoom(160)
 	Sim.Run(0.5)
 	check(Sim.gatherPin:GetParent() == pinHost and pinHost:IsVisible(), "HereBeDragons' pins are on our host in the window")
-	check(ns.MinimapShowsPlayer() and Minimap:IsVisible(), "settled, the Minimap's blips show")
-	check(not C_Minimap or Sim.rimInset == 1000, "Blizzard's rim arrows are pushed off screen")
-	check(Sim.BlobRingsAt(0), "and its quest area rings are hidden")
-	check(Sim.minimapMask:find("WHITE8X8") and not Minimap:IsClampedToScreen(), "square, and never clamped to the screen")
+	check(ns.Takeover.Sensing() and Minimap:GetZoom() == 0, "zooming our map leaves the sensor at its widest")
 	Sim.Wheel(ns.viewport, 1)
-	Sim.Run(0.05)
-	check(not ns.MinimapShowsPlayer() and not Minimap:IsVisible(), "mid-zoom, it steps aside")
 	Sim.Run(1.5)
-	check(ns.MinimapShowsPlayer(), "and is back once the zoom settles")
 	-- Indoors: the window wears the Minimap itself, and the wheel zooms it.
 	Sim.indoors = true
 	Sim.Run(1)
 	check(Minimap:IsVisible() and Sim.minimapGround and Minimap:GetAlpha() == 1 and ns.MinimapShowsPlayer(), "indoors, the Minimap shows whole")
-	check(Sim.rimInset == nil and Sim.BlobRingsAt(1), "indoors, its own arrows and rings are back")
+	check(not ns.Takeover.Sensing(), "and doesn't sense")
 	local mz = Minimap:GetZoom()
 	local top = ns.viewport -- what the cursor would wheel: the highest wheel-enabled frame over the map
 	for _, c in ipairs({ ns.viewport:GetChildren() }) do
@@ -309,9 +294,11 @@ scenarios.minimap_mode = function()
 	end
 	Sim.Wheel(top, mz < 5 and 1 or -1)
 	check(Minimap:GetZoom() ~= mz, "indoors, the wheel zooms the Minimap")
+	Sim.Wheel(top, 1)
+	Sim.Wheel(top, 1)
 	Sim.indoors = false
 	Sim.Run(2)
-	check(not Sim.minimapGround, "back outdoors, our map again")
+	check(not Sim.minimapGround and Minimap:GetAlpha() == 0 and Minimap:GetZoom() == 0, "back outdoors, our map again, the sensor at its widest")
 	-- Somewhere you may mount but the Minimap draws its floor plan (Orgrimmar's Cleft of Shadow).
 	Sim.floorPlan = true
 	Sim.Run(1)
@@ -363,7 +350,7 @@ scenarios.minimap_mode = function()
 	check(Sim.gatherPin:IsVisible(), "HereBeDragons' pins show")
 	Sim.cvars.rotateMinimap = "1"
 	Sim.Run(0.5)
-	check(Minimap:GetParent() == ns.viewport and ns.MinimapShowsPlayer(), "with Rotate Minimap, the Minimap stays in the map")
+	check(ns.Takeover.Sensing(), "with Rotate Minimap, the sensor keeps sensing")
 	check(not Sim.gatherPin:IsVisible(), "but HereBeDragons' pins are out of sight")
 	Sim.cvars.rotateMinimap = "0"
 	Sim.Run(0.5)
@@ -374,7 +361,7 @@ scenarios.minimap_mode = function()
 	Sim.Run(1)
 	check(Minimap:GetParent() == parent, "the Minimap is back in its cluster")
 	check(Minimap:GetAlpha() == 1 and Sim.minimapGround and not Sim.minimapUnrotated, "its terrain is back, and it follows Rotate Minimap again")
-	check(not Sim.minimapMask:find("WHITE8X8") and Sim.rimInset == nil and Sim.BlobRingsAt(1), "round again, its arrows and rings back")
+	check(Minimap:IsMouseEnabled() and Minimap:GetZoom() == 0, "it takes the mouse again, at its own zoom")
 	check(math.abs(Minimap:GetWidth() - 140) < 0.01, "at its own size")
 	check(Sim.minimapButton:GetParent() == Minimap, "addon buttons are back on the Minimap")
 	check(MinimapCluster:IsShown() and _G.MinimapBorder:IsVisible(), "the minimap cluster is shown again")
@@ -469,81 +456,6 @@ scenarios.minimap_mode_remembers = function()
 	check(math.abs(ns.frame:GetLeft() - home[1]) < 1 and math.abs(ns.frame:GetTop() - home[2]) < 1, "/mm reset: back onto the minimap")
 end
 
--- By default the Minimap's whole square fits the window around you: its
--- blips can't show outside it (nothing confines them: no mask hides its
--- arrow or every icon, tried in game).
-scenarios.minimap_fits = function()
-	local parent = ns.minimapStandIn:GetParent() -- the Minimap's own
-	Midscreen()
-	ns.frame:SetSize(420, 200) -- a long window
-	ns.SetZoom(250)
-	Sim.Run(1.5)
-	check(ns.MinimapShowsPlayer() and InWindow(Minimap) and OnScreen(), "it shows, all of it in the window")
-	local vw, vh = ns.viewport:GetSize()
-	check(Minimap:GetWidth() > 0.6 * vh, ("as big as the window's short side lets it (%d of %d)"):format(Minimap:GetWidth(), vh))
-	-- Zoomed in past where even its closest level fits: it steps aside.
-	ns.SetZoom(800)
-	Sim.Run(1.5)
-	check(not ns.MinimapShowsPlayer() and not Minimap:IsVisible() or InWindow(Minimap), "zoomed right in: in the window, or stepped aside")
-	ns.SetZoom(250)
-	Sim.Run(1.5)
-	-- Off-centre (panned away from you): a closer level, or none, never past the window.
-	local wide = Minimap:GetWidth()
-	Sim.Drag(ns.viewport, 160, 0)
-	Sim.Run(0.5)
-	check(not ns.MinimapShowsPlayer() or (InWindow(Minimap) and Minimap:GetWidth() < wide), "off-centre, smaller or stepped aside, never past the window")
-	ns.SetFollow(true)
-	Sim.Run(1.5)
-	-- Near the screen's top: never so wide its square leaves the screen.
-	ns.frame:ClearAllPoints()
-	ns.frame:SetPoint("TOP", UIParent, "TOP", 0, 60)
-	Sim.Run(1.5)
-	check(OnScreen() or not ns.MinimapShowsPlayer(), "near the screen's top: its square stays on screen, or it steps aside")
-	ns.frame:Hide()
-	Sim.Run(1)
-	check(Minimap:GetParent() == parent and Sim.minimapMask == "Interface\\Masks\\CircleMaskScalable", "hiding the map, it's back, and round")
-	check(Sim.gatherPin:GetParent() == Minimap and not _G.MagicMapMinimapPins:IsVisible(), "and the pins are back on it")
-end
-
--- "Blizzard's blips past the edge": its square covers the whole window, its
--- blips spilling past a long window's short sides; still on the screen.
-scenarios.minimap_past_edge = function()
-	Midscreen()
-	ns.frame:SetSize(420, 200)
-	ns.SetZoom(600)
-	Sim.Run(1.5)
-	local fit = Minimap:GetWidth()
-	MagicMapDB.blipsPastEdge = true
-	Sim.Run(1.5)
-	local vw = ns.viewport:GetWidth()
-	check(ns.MinimapShowsPlayer() and Minimap:GetWidth() >= vw - 1 and Minimap:GetWidth() > fit and OnScreen(),
-		("past the edge: as wide as the window (%d of %d), bigger than it fits (%d)"):format(Minimap:GetWidth(), vw, fit))
-	MagicMapDB.blipsPastEdge = nil
-	Sim.Run(1.5)
-	check(math.abs(Minimap:GetWidth() - fit) < 1, "off again: back inside")
-end
-
--- The plan's maths, on its own: which Minimap zoom level.
-scenarios.minimap_plan = function()
-	local P = ns.MinimapPlan
-	local YARDS = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 }
-	local zoom = 200
-	local function px(level) return YARDS[level] * zoom / (1600 / 3) end -- 175 .. 50 px
-	check(P.Level(zoom, 300, false, 1000) == 0, "inside, room for its widest: the widest")
-	local l = P.Level(zoom, 100, false, 1000)
-	check(l and px(l) <= 100 and px(l - 1) > 100, "inside: the widest level whose square fits")
-	check(P.Level(zoom, 40, false, 1000) == nil, "inside: none if even the closest won't fit")
-	l = P.Level(zoom, 300, false, 120)
-	check(l and px(l) <= 120, "inside, near the screen's edge: no wider than the screen lets it")
-	check(P.Level(zoom, 40, true, 1000) == 5, "covering: the closest level, which covers the room")
-	l = P.Level(zoom, 120, true, 1000)
-	check(l and px(l) >= 120 and (l == 5 or px(l + 1) < 120), "covering: the closest level that still covers the room")
-	check(P.Level(zoom, 1000, true, 2000) == 0, "covering: its widest when even that doesn't")
-	l = P.Level(zoom, 300, true, 160)
-	check(l and px(l) <= 160 and px(l - 1) > 160, "covering, near the screen's edge: the widest that stays on screen")
-	check(P.Level(zoom, 300, true, 40) == nil, "and none when even its closest would run off it")
-end
-
 -- Everything minimap mode changes on Blizzard's side, as text: compared
 -- before and after a round of everything that engages and releases it.
 local function MinimapSnapshot()
@@ -586,9 +498,6 @@ scenarios.minimap_restores_everything = function()
 	ns.Takeover.Engage() -- twice is once
 	ns.SetZoom(1500) -- (our closest)
 	Sim.Run(1)
-	Sim.Slash("sync")
-	Sim.Run(0.5)
-	Sim.Slash("sync")
 	Sim.indoors = true
 	Sim.Run(1)
 	Sim.indoors = false
@@ -623,8 +532,7 @@ scenarios.minimap_restores_everything = function()
 end
 
 -- Ours first: Blizzard's own markers for what we draw go off while the
--- Minimap is in the map; the tooltip goes to our pins, then its blips, then
--- the quest area.
+-- Minimap is our sensor, so it doesn't report them twice.
 scenarios.minimap_ours_first = function()
 	if not (C_Minimap and C_Minimap.SetTracking) then return end
 	local function Active(name)
@@ -642,12 +550,6 @@ scenarios.minimap_ours_first = function()
 	MagicMapDB.layers.flight = true
 	Sim.Run(2.5)
 	check(not Active("Flight Master"), "and go again with ours")
-	Sim.Slash("dupes")
-	Sim.Run(0.2)
-	check(Active("Flight Master") and Active("Track Quest POIs"), "/mm dupes keeps Blizzard's")
-	Sim.Slash("dupes")
-	Sim.Run(0.2)
-	check(not Active("Flight Master"), "/mm dupes again: ours only")
 	Sim.indoors = true
 	Sim.Run(1)
 	check(Active("Flight Master") and Active("Track Quest POIs"), "indoors (Blizzard's minimap whole) its markers are back")
@@ -661,35 +563,13 @@ scenarios.minimap_ours_first = function()
 
 	-- Tooltips over a quest area (where the client draws quest areas).
 	local function Line1() return _G.GameTooltipTextLeft1 and _G.GameTooltipTextLeft1:GetText() end
-	Sim.MoveCursorTo(Minimap, 0.5, 0.5)
+	Sim.MoveCursorTo(ns.viewport, 0.5, 0.5)
 	Sim.questUnderCursor = 60
 	Sim.Run(0.3)
 	check(GameTooltip:IsShown() and Line1() == "Kobold Candles", "over a quest area, the quest's tooltip")
-	Sim.FireScript(Minimap, "OnEnter", false)
-	Sim.blip = "Peacebloom"
-	local steady = true
-	for _ = 1, 10 do
-		Sim.Step()
-		steady = steady and GameTooltip:IsShown() and Line1() == "Peacebloom"
-	end
-	check(steady, "a Blizzard blip under the cursor wins over the quest area, every frame")
-	Sim.blip = nil
-	steady = true
-	for _ = 1, 10 do
-		Sim.Step()
-		steady = steady and GameTooltip:IsShown() and Line1() == "Kobold Candles"
-	end
-	check(steady, "off the blip, the quest area's again, every frame (no flicker)")
-	Sim.FireScript(Minimap, "OnLeave", false)
-	Sim.Run(0.2)
-	check(GameTooltip:IsShown() and Line1() == "Kobold Candles", "off the Minimap, the quest area keeps it")
 	Sim.questUnderCursor = nil
 	Sim.Run(0.2)
 	check(not GameTooltip:IsShown(), "and lets go off the area")
-	local pin = QuestPin(60)
-	-- (Same strata in the client, which hands a frame's strata down to its children.)
-	check(pin and pin:GetFrameLevel() > Minimap:GetFrameLevel(),
-		"our pins sit above the Minimap, so they take the mouse first")
 
 	ns.frame:Hide()
 	Sim.Run(1)
@@ -1106,7 +986,7 @@ scenarios.layers = function()
 	local want = {
 		{ "Map", "zoneLabels", "zoneBorders", "unexplored" },
 		{ "Quests", "quests", "questAreas", "questAreasApprox", "offers" },
-		{ "Places", "flight", "dungeons", "graveyards", "areaPOIs" },
+		{ "Places", "flight", "dungeons", "graveyards", "areaPOIs", "blips" },
 		{ "People", "group", "rares", "vignettes" },
 		{ "You", "corpse", "waypoint" },
 	}
@@ -1787,7 +1667,7 @@ scenarios.addon_pins_minimap = function()
 	ns.SetZoom(160)
 	Sim.Run(1.5)
 	local host = _G.MagicMapMinimapPins
-	check(ns.MinimapShowsPlayer() and pins.Minimap ~= Minimap and not dot:IsVisible(),
+	check(ns.Takeover.Sensing() and pins.Minimap ~= Minimap and not dot:IsVisible(),
 		"Questie's world-map pins are on our map, so its minimap copies stay out of sight")
 	check(Sim.gatherPin:GetParent() == host and Sim.gatherPin:IsVisible(), "the shared copy's pins are on our host, in the window")
 	local db = MagicMapDB
@@ -1838,61 +1718,84 @@ scenarios.live_rare_one_pin = function()
 	Sim.vignetteAtlas = nil
 end
 
--- /mm probe on blips the simulated Minimap answers for at known spots: the
--- tests find each one's real place, every test runs to the end, and the
--- Minimap and the map come back as they were.
-scenarios.probe_blips = function()
+-- Blizzard's blips, read off the invisible Minimap and drawn as our pins:
+-- each where it is, with its own icon; what we draw ourselves isn't
+-- repeated; they stay put as you walk and go when Blizzard's do.
+scenarios.minimap_blips = function()
 	local n, w = UnitPosition("player")
-	Sim.minimapBlips = {
+	local truth = {
 		{ "Peacebloom", n + 40, w - 25 },
-		{ "Silverleaf", n - 60.3, w + 35.7 },
 		{ "Copper Vein", n + 12.5, w + 70 },
+		{ "Mailbox", n - 30, w + 10 },
+		{ "Gruff Stranger", n - 60.3, w + 35.7 },
 		{ "Peacebloom", n - 20, w - 80 },
+		{ "Peacebloom", n - 26, w - 88 }, -- (their squares overlap)
 	}
+	Sim.minimapBlips = {}
+	for _, b in ipairs(truth) do Sim.minimapBlips[#Sim.minimapBlips + 1] = b end
 	local p = Sim.player
 	Sim.group = { "party1" }
 	Sim.units.party1 = { name = "Friend", class = "PRIEST", col = p.col + 50 / (1600 / 3), row = p.row }
 	local fn, fw = UnitPosition("party1")
 	table.insert(Sim.minimapBlips, { "Friend", fn, fw })
-	ns.frame:Hide()
-	Sim.Run(1)
-	local before = MinimapSnapshot()
-	ns.frame:Show()
-	Sim.Run(1)
-	local function Run(test, seconds)
-		Sim.Slash("probe " .. test)
-		Sim.Run(seconds or 10)
-		check(ns.ProbeJob() == nil, test .. ": finished")
-		local saved = MagicMapDB.probe and MagicMapDB.probe[test]
-		check(saved ~= nil, test .. ": kept in MagicMapDB.probe")
-		for _, line in ipairs(saved and saved.lines or {}) do
-			check(not line:find("stopped:", 1, true), test .. ": " .. line)
+	ns.SetZoom(300)
+	Sim.Run(2)
+	local function Where()
+		local out = {}
+		for _, b in ipairs(ns.Blips()) do out[#out + 1] = ("%s %.2f,%.2f"):format(b.name, b.north - n, b.west - w) end
+		return table.concat(out, "; ")
+	end
+	local function Near(name, north, west, most)
+		for _, b in ipairs(ns.Blips()) do
+			if b.name == name and math.sqrt((b.north - north) ^ 2 + (b.west - west) ^ 2) <= (most or 0.3) then return b end
 		end
-		return saved and saved.lines or {}
 	end
-	Run("basic")
-	local found = MagicMapDB.probe.basic and #MagicMapDB.probe.basic.lines or 0
-	check(found > 3, "basic: reports")
-	-- Every blip found where it is, to a fraction of a yard.
-	for _, line in ipairs(Run("basic")) do
-		if line:find("soft cursor off:", 1, true) then check(line:find(": 0 of", 1, true), "soft cursor off finds nothing: " .. line) end
+	for _, t in ipairs(truth) do
+		check(Near(t[1], t[2], t[3]), ("%s found where it is (%.1f, %.1f)"):format(t[1], t[2] - n, t[3] - w))
 	end
-	local lines = Run("truth")
-	local truth = table.concat(lines, "\n")
-	local yd = tonumber(truth:match("Friend: ([%d%.]+) yd"))
-	check(yd and yd < 0.25, "truth: Friend's blip where Friend is, got " .. tostring(yd))
-	for _, test in ipairs({ "sense", "shape", "cost", "race" }) do Run(test, 20) end
-	local race = table.concat(MagicMapDB.probe.race.lines, "\n")
-	check(race:find("grid 8 %+ edges: %d+ probes, [%d%.]+ ms; found 5 of 5"), "race: grid 8 + edges finds all five")
-	Run("drift", 25)
-	Run("here", 1)
-	check(ns.frame:IsShown(), "the map is back")
-	ns.frame:Hide()
+	check(#ns.Blips() == #truth + 1, "one blip each, got " .. #ns.Blips())
+	local function Pins(title)
+		local out = {}
+		for _, f in ipairs(Sim.Frames()) do
+			if f.entry and f.entry.title == title and f:IsVisible() then out[#out + 1] = f end
+		end
+		return out
+	end
+	local herb = Pins("Peacebloom")[1]
+	check(#Pins("Peacebloom") == 3 and herb.entry.icon.atlas == "Professions_Tracking_Herb", "herbs: the herb icon")
+	check(Pins("Copper Vein")[1] and Pins("Copper Vein")[1].entry.icon.atlas == "Professions_Tracking_Ore", "ore: the ore icon")
+	check(Pins("Mailbox")[1] and Pins("Mailbox")[1].entry.icon.texture == 136459, "the mailbox: its tracking icon")
+	check(Pins("Gruff Stranger")[1] and Pins("Gruff Stranger")[1].entry.icon.color, "anything else: a dot")
+	check(#Pins("Friend") == 0, "party members aren't repeated (their dots are ours)")
+	-- Walking: they stay where they are in the world.
+	p.speed = 7
+	Sim.Run(1.5)
+	p.speed = 0
 	Sim.Run(1)
-	local after = MinimapSnapshot()
-	for i = 1, math.max(#before, #after) do
-		check(before[i] == after[i], "Minimap put back: " .. tostring(before[i]) .. " -> " .. tostring(after[i]))
+	for _, t in ipairs(truth) do
+		check(Near(t[1], t[2], t[3], 0.5), t[1] .. " stays put as you walk: " .. Where())
 	end
+	-- Gone from Blizzard's: gone from ours.
+	table.remove(Sim.minimapBlips, 3)
+	Sim.Run(1)
+	check(not Near("Mailbox", truth[3][2], truth[3][3], 5) and #Pins("Mailbox") == 0, "a blip that's gone goes")
+	-- The layer off: none drawn, nothing read.
+	MagicMapDB.layers.blips = false
+	ns.RefreshLayer("blips")
+	Sim.Run(1)
+	check(#Pins("Peacebloom") == 0, "the layer off hides them")
+	MagicMapDB.layers.blips = true
+	ns.RefreshLayer("blips")
+	Sim.Run(1)
+	check(#Pins("Peacebloom") == 3, "and on again shows them: " .. #Pins("Peacebloom") .. " " .. Where())
+	-- In combat the sensor rests; what it knew stays.
+	Sim.inCombat = true
+	table.remove(Sim.minimapBlips, 1)
+	Sim.Run(1)
+	check(Near("Peacebloom", truth[1][2], truth[1][3]), "in combat nothing is read")
+	Sim.inCombat = false
+	Sim.Run(1)
+	check(not Near("Peacebloom", truth[1][2], truth[1][3], 5), "out of it, reading resumes")
 	Sim.group, Sim.units.party1, Sim.minimapBlips = {}, nil, {}
 end
 

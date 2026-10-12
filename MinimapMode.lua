@@ -3,9 +3,10 @@
 --   * It starts on the minimap's spot, square, showing SPAN yards across (and
 --     keeping that as you resize it): just the map, the zone floating above
 --     it, the buttons on hover. Move and resize it anywhere; /mm reset puts it
---     back. Blizzard's minimap moves inside (MinimapBlips.lua decides,
---     MinimapTakeover.lua does it), so its blips and pins land on our terrain.
---     Hiding the window gives Blizzard's minimap back.
+--     back. Blizzard's minimap is only a sensor inside (MinimapTakeover.lua):
+--     Blips.lua reads its blips and we draw them on our terrain, and the
+--     addons' minimap pins are placed on it. Hiding the window gives Blizzard's
+--     minimap back.
 --   * Pan away and leave it alone for a few seconds, and it glides back to
 --     following you.
 --   * It sits at the minimap's strata, so other windows go over it.

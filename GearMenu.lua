@@ -7,7 +7,7 @@ local ADDON, ns = ...
 local db
 
 -- Blizzard's tracking types, but for those ours replace (MinimapTakeover's
--- DUPLICATES: their filters stay off while the Minimap is in our map).
+-- DUPLICATES: their filters stay off while the Minimap is our sensor).
 local function AddTracking(root)
 	local C = C_Minimap
 	local menu = root:CreateButton("Tracking")
@@ -34,12 +34,6 @@ local ADVANCED = {
 	{ "Diagnostics", {
 		{ "Debug info in the title", on = function() return db.debug end, run = function() Command("debug") end,
 			tip = "Tile, zoom and layout timings next to the zone name." },
-		{ "Blizzard's terrain over ours", on = function() return ns.SyncShown() end, run = function() Command("sync") end,
-			tip = "Blizzard's own minimap at half strength, to check its blips land on our map." },
-		{ "Hide Blizzard's terrain by fading", on = function() return db.terrainByAlpha end, run = function()
-			db.terrainByAlpha = not db.terrainByAlpha or nil
-			ns.Takeover.RefreshTerrain()
-		end, tip = "The older way to hide Blizzard's minimap terrain, if its own switch shows a solid square." },
 	} },
 	{ "Performance", {
 		{ "Record 10 seconds", on = function() return ns.PerfRecording() end, run = function() Command("perf") end,
@@ -52,12 +46,6 @@ local SETTINGS = {
 	{ "Map", {
 		{ "Colour-matched tiles", on = function() return db.tint end, run = function() Command("tint") end,
 			tip = "Evens out the minimap art's colours where tiles meet, and fades the coasts into the sea." },
-		{ "Blizzard's blips past the edge", on = function() return db.blipsPastEdge end,
-			run = function() db.blipsPastEdge = not db.blipsPastEdge or nil end,
-			tip = "On a long window, Blizzard's herbs, ore and tracked NPCs cover all of it, spilling past its "
-				.. "shorter sides. Off, they stay in the biggest square around you inside the window." },
-		{ "One marker for each thing", on = function() return db.hideDupes ~= false end, run = function() Command("dupes") end,
-			tip = "Turns off Blizzard's own markers for what MagicMap draws (flight points, quest objectives, points of interest)." },
 	} },
 	{ "Minimap", {
 		{ "Minimap button", on = function() return not db.minimap.hide end, run = function() Command("icon") end,
