@@ -1,4 +1,4 @@
--- Path mode's route: the way you'd walk to your target, around cliffs,
+-- The route to what you track: the way you'd walk there, around cliffs,
 -- mountains and lava and (when it's shorter) around lakes, over the terrain
 -- chunks in Data/Walk.lua (~33 yards each). A* finds it a slice per frame,
 -- line of sight straightens it, and its corners are rounded off. Without a
@@ -22,6 +22,7 @@ local RETRY_MOVED = 12             -- chunks you move before a target with no ro
 local GOAL_SLACK = 2               -- chunks the target can move (an area's nearest edge slides as you go) and keep its route
 local KEEP_SHOWN = 8               -- ...and still show it while the new one's found
 local SMOOTH = 2                   -- corner-rounding passes
+local LOOKAHEAD = 40               -- route points ahead of you checked for a straight way to them
 
 local walk = MagicMap_Walk or {}
 local expanded = {} -- [inst][tile key] = its 256 chunk letters, run-length decoded
@@ -268,7 +269,7 @@ end
 ns.FindRoute = Find -- for tests
 
 ---------------------------------------------------------------------------
--- The route to path mode's target, kept up to date: found again when the
+-- The route to the target, kept up to date: found again when the
 -- target moves more than GOAL_SLACK chunks or you stray off it.
 ---------------------------------------------------------------------------
 
@@ -316,7 +317,24 @@ local function StepJob()
 	end
 end
 
-local out, you, onto, dest = {}, {}, {}, {} -- reused: the route from where you are now
+local out, you, dest = {}, {}, {} -- reused: the route from where you are now
+
+-- The furthest point of the route ahead of leg i you can walk straight to
+-- from (pc, pr): its index, or nil. Looked for once per route and chunk you're in.
+local ahead = {} -- pts, chunk, index
+local function Ahead(inst, pts, i, pc, pr)
+	local yc, yr = math.floor(pc * CHUNKS), math.floor(pr * CHUNKS)
+	local here = yc * W + yr
+	if ahead.pts == pts and ahead.chunk == here and ahead.i == i then return ahead.index end
+	local worst = math.max(COST[LAND], COST[Class(Cell(inst, yc, yr))] or 0)
+	local best
+	for j = i + 1, math.min(#pts, i + LOOKAHEAD) do
+		if not Sight(inst, yc, yr, math.floor(pts[j][1] * CHUNKS), math.floor(pts[j][2] * CHUNKS), worst) then break end
+		best = j
+	end
+	ahead.pts, ahead.chunk, ahead.i, ahead.index = pts, here, i, best
+	return best
+end
 
 -- The way from you to target t (a ns.FrameTarget()), as tile positions,
 -- you first: the route trimmed to where you are. Nil: draw it straight.
@@ -339,16 +357,14 @@ function ns.RouteTo(t)
 	if job then StepJob() end
 	if not For(route, inst, goal, job and KEEP_SHOWN or GOAL_SLACK) then return nil end
 	local pts = route.pts
-	local _, i, k = Nearest(pts, pc, pr)
+	local _, i = Nearest(pts, pc, pr)
+	-- Straight on from you to as far along it as you can see: no hop back
+	-- onto a route found from where you were.
+	local from = Ahead(inst, pts, i, pc, pr) or i + 1
 	wipe(out)
 	you[1], you[2] = pc, pr
 	out[1] = you
-	local a, b = pts[i], pts[i + 1]
-	if k > 0 and k < 1 then
-		onto[1], onto[2] = a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k
-		out[2] = onto
-	end
-	for j = i + 1, #pts - 1 do out[#out + 1] = pts[j] end
+	for j = from, #pts - 1 do out[#out + 1] = pts[j] end
 	dest[1], dest[2] = t.col, t.row -- as it is now (an area's nearest edge drifts as you go)
 	out[#out + 1] = dest
 	return out, pts
