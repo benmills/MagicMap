@@ -1280,6 +1280,7 @@ function UnitGUID(unit) local u = Sim.units[unit]; return u and (u.guid or "Play
 function UnitIsPlayer(unit) local u = Sim.units[unit]; return u ~= nil and u.npc == nil end
 function UnitClassification(unit) return Sim.units[unit] and Sim.units[unit].classification or "normal" end
 function UnitLevel(unit) local u = Sim.units[unit]; return u and (u.level or 1) or 0 end
+function UnitQuestTrivialLevelRange(unit) return 5 end
 -- A group: Sim.group lists the other members' unit tokens (party1...),
 -- each in Sim.units with a tile position (col, row) on the player's instance.
 Sim.group = {}
@@ -1432,14 +1433,38 @@ C_QuestLog = {
 	IsQuestTrivial = function(questID) local q = Sim.quests[questID]; return q ~= nil and UnitLevel("player") - q.level > 5 end,
 	AddQuestWatch = function(questID) Sim.watched = questID; return true end,
 }
--- Items the client has cached, by name: GetItemInfoInstant's itemID .. icon.
-Sim.items = { ["Large Candle"] = { 772, "Quest", "Quest", "", 134335 } }
+-- Items by ID: GetItemInfoInstant's itemID .. icon.
+Sim.items = { [772] = { 772, "Quest", "Quest", "", 134335 } }
 C_Item = {
 	GetItemInfoInstant = function(item)
 		local i = Sim.items[item]
 		if i then return i[1], i[2], i[3], i[4], i[5] end
 	end,
 }
+
+-- QuestieDB (a dependency): its entity readers, for the quests above.
+Sim.questie = {
+	Quest = {
+		objectives = { [60] = { nil, nil, { { 772 } } } },
+		finishedBy = { [60] = { { 253 } }, [62] = { { 240 } } },
+	},
+	Npc = {
+		name = { [253] = "William Pestle", [240] = "Marshal Dughan", [475] = "Kobold Tunneler", [40] = "Kobold Miner", [327] = "Goldtooth" },
+		minLevel = { [475] = 4, [40] = 7, [327] = 9 },
+		maxLevel = { [475] = 5, [40] = 8, [327] = 9 },
+		rank = { [475] = 0, [40] = 0, [327] = 1 },
+	},
+	Item = { npcDrops = { [772] = { 40, 475, 327 } } },
+	Object = { name = {} },
+}
+LibQuestieDB = { contractVersion = 3, minSupportedContract = 1 }
+function LibQuestieDB.RequireContract(v) return v >= 1 and v <= 3, "contract mismatch" end
+for entity, fields in pairs(Sim.questie) do
+	local reader = {}
+	for field, rows in pairs(fields) do reader[field] = function(id) return rows[id] end end
+	setmetatable(reader, { __index = function() return function() return nil end end })
+	LibQuestieDB[entity] = reader
+end
 C_SuperTrack = {
 	GetSuperTrackedQuestID = function() return Sim.superTracked or 0 end,
 	SetSuperTrackedQuestID = function(id) Sim.superTracked = id end,

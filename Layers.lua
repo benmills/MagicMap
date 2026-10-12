@@ -291,7 +291,10 @@ local function PinOnEnter(self)
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	local c = e.titleColor
 	if c then GameTooltip:AddLine(e.title or "?", c[1], c[2], c[3]) else GameTooltip:AddLine(e.title or "?") end
-	for _, line in ipairs(e.lines or {}) do GameTooltip:AddLine(line, 1, 1, 1, true) end
+	for _, line in ipairs(e.lines or (e.questID and ns.QuestTooltipLines(e.questID, e.turnIn)) or {}) do
+		GameTooltip:AddLine(line, 1, 1, 1, true)
+	end
+	if e.questID then GameTooltip:AddLine(FollowHint(e.questID)) end
 	GameTooltip:Show()
 end
 
@@ -574,17 +577,6 @@ local function QuestKind(questID)
 	return "other"
 end
 
-local function QuestLines(questID, complete)
-	if complete then return { "|cff33ff33Ready to turn in|r" } end
-	local lines = {}
-	for _, o in ipairs(QuestObjectives(questID)) do
-		if o.text and o.text ~= "" then
-			lines[#lines + 1] = (o.finished and "|cff808080" or "|cffffffff") .. "- " .. o.text .. "|r"
-		end
-	end
-	return lines
-end
-
 local function MapArea(uiMapID)
 	local r = ns.MapRect(uiMapID)
 	return r and (r.col1 - r.col0) * (r.row1 - r.row0) or math.huge
@@ -619,8 +611,6 @@ sources.quests = function(mapID)
 		local title = SafeCall(C_QuestLog.GetTitleForQuestID, questID) or ("Quest " .. questID)
 		local label, difficulty = ns.QuestTitle(questID, title)
 		local followed = questID == FollowedQuest()
-		local lines = QuestLines(questID, complete)
-		lines[#lines + 1] = FollowHint(questID)
 		-- Same art as the world map's quest buttons (re-skinned by the client).
 		local icon = complete
 			and { atlas = "UI-QuestIcon-TurnIn-Normal", color = { 0.2, 1, 0.2 } }
@@ -629,8 +619,7 @@ sources.quests = function(mapID)
 		local e = AddAt(list, b.uiMapID, b.x, b.y, {
 			size = followed and 26 or 22, glow = followed, questID = questID, icon = icon, turnIn = complete,
 			title = label, titleColor = difficulty, count = not complete and ns.QuestProgress(questID) or nil,
-			yields = complete or nil,
-			lines = lines,
+			yields = complete or nil, -- lines: on hover (QuestieDB reads), see PinOnEnter
 		})
 		if e and not complete then
 			questAreas[#questAreas + 1] = {
@@ -1049,7 +1038,7 @@ local function ShowBlobTooltip(questID)
 	GameTooltip:SetOwner(blobTooltipOwner, "ANCHOR_CURSOR_RIGHT", 12, 0)
 	local title, c = ns.QuestTitle(questID)
 	if c then GameTooltip:AddLine(title, c[1], c[2], c[3]) else GameTooltip:AddLine(title) end
-	for _, line in ipairs(QuestLines(questID, false)) do GameTooltip:AddLine(line, 1, 1, 1, true) end
+	for _, line in ipairs(ns.QuestTooltipLines(questID, false)) do GameTooltip:AddLine(line, 1, 1, 1, true) end
 	GameTooltip:AddLine(FollowHint(questID))
 	GameTooltip:Show()
 end

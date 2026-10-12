@@ -28,7 +28,9 @@ For **WoW Forever** only.
 1. Download `MagicMap-v<version>.zip` from [Releases](../../releases).
 2. Unzip it into `World of Warcraft/_classic_beta_/Interface/AddOns/`, so you have
    `Interface/AddOns/MagicMap/MagicMap.toc`. When updating, delete the old `MagicMap` folder first.
-3. Restart the game. A `/reload` isn't enough the first time, because new texture files only load
+3. Install [QuestieDB](https://github.com/Questie/QuestieDB) the same way (MagicMap needs it for
+   what each quest objective is: the mobs that drop an item, their levels, who to turn it in to).
+4. Restart the game. A `/reload` isn't enough the first time, because new texture files only load
    at startup.
 
 MagicMap takes your minimap's spot at once. `/mm` swaps back to Blizzard's minimap. To return,
