@@ -79,6 +79,46 @@ def adt_chunks(buf: bytes) -> Iterator[AdtChunk]:
         yield AdtChunk(ix, iy, area, z, heights)
 
 
+@dataclass(frozen=True)
+class AdtLiquid:
+    ix: int                   # the MCNK chunk it lies in
+    iy: int
+    liquid_type: int          # LiquidType.db2 ID
+    surface: float            # highest point of its surface
+    x0: int                   # the 8x8 quads it covers: x0, y0, width, height
+    y0: int
+    w: int
+    h: int
+    exists: bytes | None      # w*h bits (row-major, LSB first) of quads it covers; None: all of them
+
+    def covers(self, qx: int, qy: int) -> bool:
+        x, y = qx - self.x0, qy - self.y0
+        if not (0 <= x < self.w and 0 <= y < self.h):
+            return False
+        if self.exists is None:
+            return True
+        i = y * self.w + x
+        return bool(self.exists[i >> 3] >> (i & 7) & 1)
+
+
+def adt_liquids(buf: bytes) -> Iterator[AdtLiquid]:
+    """The liquid layers (MH2O) of a root ADT, one per chunk and layer."""
+    for magic, off, size in iter_chunks(buf):
+        if magic != b"MH2O" or size < 256 * 12:
+            continue
+        for i in range(256):
+            inst_off, layers, _ = struct.unpack_from("<III", buf, off + i * 12)
+            if not inst_off or not layers:
+                continue
+            for k in range(layers):
+                p = off + inst_off + k * 24
+                if p + 24 > off + size:
+                    break
+                ltype, _, _lo, hi, x0, y0, w, h, ex_off, _ = struct.unpack_from("<HHffBBBBII", buf, p)
+                exists = buf[off + ex_off:off + ex_off + (w * h + 7) // 8] if ex_off else None
+                yield AdtLiquid(i % 16, i // 16, ltype, hi, x0, y0, w, h, exists)
+
+
 # --- BLP --------------------------------------------------------------------
 
 def blp_edge_colors(blp: bytes, sides: dict[str, bool]) -> list[tuple[float, float, float]]:
