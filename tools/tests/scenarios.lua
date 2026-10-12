@@ -844,6 +844,26 @@ scenarios.path_follows_route = function()
 		if r:GetObjectType() == "Line" and r:IsShown() then dashes = dashes + 1 end
 	end
 	check(dashes > 0, "drawn as dashes")
+	-- It leaves you the way you face: the first dash, facing east, then west.
+	local function FirstDash()
+		local best, bx, by
+		for _, r in ipairs({ ns.layerFrames.path:GetRegions() }) do
+			if r:GetObjectType() == "Line" and r:IsShown() then
+				local _, _, x, y = r:GetStartPoint()
+				local d = (x - 32.84 * ns.state.zoom) ^ 2 + (-y - 49.03 * ns.state.zoom) ^ 2
+				if not best or d < best then best, bx = d, x end
+			end
+		end
+		return bx
+	end
+	Sim.player.facing = -math.pi / 2 -- east
+	Sim.Run(0.3)
+	local east = FirstDash()
+	Sim.player.facing = math.pi / 2 -- west
+	Sim.Run(0.3)
+	local west = FirstDash()
+	check(east and west and east > 32.84 * ns.state.zoom and west < east, "the line leaves you the way you face")
+	Sim.player.facing = 0
 	Sim.player.col, Sim.player.row = 32.84, 50.0 -- well off it, south
 	Sim.Run(2)
 	local pts2, found2 = ns.RouteTo(ns.FrameTarget())

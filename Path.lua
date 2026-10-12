@@ -1,7 +1,8 @@
--- Path mode's line: a faint dashed line from you to your target, its dashes
--- drifting slowly toward the target. It follows the way you'd walk
--- (Route.lua) once that's found, else it's straight - "that way" - and it
--- sits under the labels and pins.
+-- Path mode's line: a dashed line from you to your target, light on a dark
+-- edge so it reads on pale ground too, its dashes drifting slowly toward
+-- the target. It follows the way you'd walk (Route.lua) once that's found,
+-- else it's straight - "that way". It leaves you the way you're facing and
+-- bends onto the way, and it sits under the labels and pins.
 
 local ADDON, ns = ...
 local state = ns.state
@@ -12,6 +13,11 @@ local MAX_DASHES = 120     -- longer lines get longer dashes instead of more
 local CLEAR_YOU, CLEAR_TARGET = 14, 15 -- px left clear around your arrow and the target's pin
 local FADE = 40            -- px over which the line fades in and out at its ends
 local DRIFT_HZ = 10        -- the drift steps this often (1.4 px a step); the line redraws only when it or the view moves
+local CORE, EDGE = 2.2, 4.5 -- px: the dash and the dark edge under it
+local CORE_ALPHA, EDGE_ALPHA = 0.85, 0.45
+local LEAD = 48            -- px of line (at most half of it) that bends from where you face onto the way
+local LEAD_STEPS = 8
+local FACING_STEP = math.rad(3) -- turning less than this doesn't redraw the line
 
 -- Off the map, your target gets a gold arrow on the map's edge, where the
 -- line toward it leaves the map (Blizzard's own rim arrows are pushed away:
@@ -113,10 +119,11 @@ end
 -- the map for free; it's redrawn when you or the target move half a pixel,
 -- the zoom changes, the route is found again, or the drift steps (DRIFT_HZ).
 local drawn = {}
-local function Unchanged(x1, y1, x2, y2, phase, route)
+local drawnRoute -- routePts as last drawn
+local function Unchanged(x1, y1, x2, y2, phase, route, facing)
 	if drawn[1] == x1 and drawn[2] == y1 and drawn[3] == x2 and drawn[4] == y2 and drawn[5] == phase
-		and drawn[6] == route then return true end
-	drawn[1], drawn[2], drawn[3], drawn[4], drawn[5], drawn[6] = x1, y1, x2, y2, phase, route
+		and drawn[6] == route and drawn[7] == facing then return true end
+	drawn[1], drawn[2], drawn[3], drawn[4], drawn[5], drawn[6], drawn[7] = x1, y1, x2, y2, phase, route, facing
 	return false
 end
 
@@ -126,6 +133,59 @@ local function HalfPixel(v) return math.floor(v * 2 + 0.5) / 2 end
 -- ([1..m] this frame; past that, left over).
 local xs, ys, along = {}, {}, {}
 local straight = { {}, {} }
+
+-- The line leaving you the way you face (radians, 0 north, turning left):
+-- a curve from you along it onto the way, `lead` tiles along, joining the
+-- way's own direction there; then the rest of the way. Tables reused.
+local bent, bentPts = {}, {}
+local function BentPoint(i)
+	local p = bentPts[i]
+	if not p then
+		p = {}
+		bentPts[i] = p
+	end
+	return p
+end
+local function LeadIn(pts, facing, lead)
+	local m, total = #pts, 0
+	for i = 2, m do total = total + math.sqrt((pts[i][1] - pts[i - 1][1]) ^ 2 + (pts[i][2] - pts[i - 1][2]) ^ 2) end
+	lead = math.min(lead, total / 2)
+	if lead <= 0 then return pts end
+	-- Where the curve joins the way: `lead` along it, on leg j.
+	local j, left = 1, lead
+	local jx, jy, ux, uy
+	while j < m do
+		local a, b = pts[j], pts[j + 1]
+		local seg = math.sqrt((b[1] - a[1]) ^ 2 + (b[2] - a[2]) ^ 2)
+		if seg > 0 then
+			ux, uy = (b[1] - a[1]) / seg, (b[2] - a[2]) / seg
+			if left <= seg or j == m - 1 then
+				left = math.min(left, seg)
+				jx, jy = a[1] + ux * left, a[2] + uy * left
+				break
+			end
+		end
+		left = left - seg
+		j = j + 1
+	end
+	if not jx then return pts end
+	local x0, y0 = pts[1][1], pts[1][2]
+	local k = math.sqrt((jx - x0) ^ 2 + (jy - y0) ^ 2) / 2
+	-- A cubic Bezier: out along your facing, in along the way.
+	local ax, ay = x0 - math.sin(facing) * k, y0 - math.cos(facing) * k
+	local bx, by = jx - ux * k, jy - uy * k
+	wipe(bent)
+	for i = 0, LEAD_STEPS do
+		local t = i / LEAD_STEPS
+		local u = 1 - t
+		local p = BentPoint(i + 1)
+		p[1] = u * u * u * x0 + 3 * u * u * t * ax + 3 * u * t * t * bx + t * t * t * jx
+		p[2] = u * u * u * y0 + 3 * u * u * t * ay + 3 * u * t * t * by + t * t * t * jy
+		bent[#bent + 1] = p
+	end
+	for i = j + 1, m do bent[#bent + 1] = pts[i] end
+	return bent
+end
 
 -- Point at distance s along the line, from corner i on (s past along[i]).
 local function At(i, s)
@@ -145,12 +205,19 @@ ns.frame:HookScript("OnUpdate", ns.Timed("path line", function()
 		local x2, y2 = HalfPixel(t.col * z), HalfPixel(t.row * z)
 		local phase = math.floor(GetTime() * DRIFT_HZ) / DRIFT_HZ
 		local pts, found = ns.RouteTo(t)
-		routePts = pts
-		if Unchanged(x1, y1, x2, y2, phase, found) then return end
+		local facing = GetPlayerFacing()
+		facing = facing and math.floor(facing / FACING_STEP + 0.5) * FACING_STEP
+		if Unchanged(x1, y1, x2, y2, phase, found, facing) then
+			routePts = drawnRoute
+			return
+		end
 		if not pts then
 			pts = straight
 			pts[1][1], pts[1][2], pts[2][1], pts[2][2] = state.playerCol, state.playerRow, t.col, t.row
 		end
+		if facing then pts = LeadIn(pts, facing, LEAD / z) end
+		routePts = found and pts
+		drawnRoute = routePts
 		local m = #pts
 		for i = 1, m do
 			xs[i], ys[i] = pts[i][1] * z, pts[i][2] * z
@@ -173,8 +240,8 @@ ns.frame:HookScript("OnUpdate", ns.Timed("path line", function()
 					while j < m - 1 and along[j + 1] < b do j = j + 1 end
 					local ax, ay = At(i, a)
 					local bx, by = At(j, b)
-					Segment(Get(shadows, n, 0, 3.5), ax, ay, bx, by, 0, 0, 0, 0.3 * f)
-					Segment(Get(dashes, n, 1, 1.8), ax, ay, bx, by, 1, 0.9, 0.65, 0.6 * f)
+					Segment(Get(shadows, n, 0, EDGE), ax, ay, bx, by, 0, 0, 0, EDGE_ALPHA * f)
+					Segment(Get(dashes, n, 1, CORE), ax, ay, bx, by, 1, 0.93, 0.75, CORE_ALPHA * f)
 				end
 				s = s + step
 			end
