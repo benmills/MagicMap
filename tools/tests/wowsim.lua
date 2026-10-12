@@ -567,7 +567,49 @@ local function RingsAt(v)
 	return true
 end
 Sim.BlobRingsAt = RingsAt
-function MinimapClass:UpdateMouseoverAtPoint(x, y) end
+-- The pretend mouse (the controller's soft cursor): while
+-- SetUsingSoftCursor(true), UpdateMouseoverAtPoint(x, y) (screen pixels)
+-- moves the point C_TooltipInfo.GetMinimapMouseover() reads; off, it reads
+-- the real cursor. Sim.minimapBlips = { { name, north, west } } (yards)
+-- each answer within a square Sim.BLIP_HIT units (times SetIconScale) of
+-- where they sit on the shown Minimap, inside its view radius.
+Sim.minimapBlips, Sim.BLIP_HIT = {}, 6
+function MinimapClass:SetUsingSoftCursor(on) S[self].soft = on and true or false end
+function MinimapClass:SetIconScale(s) S[self].iconScale = s end
+function MinimapClass:UpdateMouseoverAtPoint(x, y)
+	if S[self].soft then S[self].hoverX, S[self].hoverY = x, y end
+end
+local function blipsAt(m, px, py)
+	if not visible(m) then return nil end
+	local l, b, w, h = rect(m)
+	local pn, pw = UnitPosition("player")
+	if not (l and pn) then return nil end
+	local s = effScale(m)
+	local W, H = w / s, h / s
+	local fx, fy = (px - l) / s, (py - b) / s
+	local r = C_Minimap.GetViewRadius()
+	local u = r / (W / 2)
+	local hit = Sim.BLIP_HIT * (S[m].iconScale or 1)
+	local names = {}
+	for _, blip in ipairs(Sim.minimapBlips) do
+		local east, north = pw - blip[3], blip[2] - pn
+		if east * east + north * north <= r * r then
+			local bx, by = W / 2 + east / u, H / 2 + north / u
+			if math.abs(fx - bx) <= hit and math.abs(fy - by) <= hit then names[#names + 1] = blip[1] end
+		end
+	end
+	return #names > 0 and names or nil
+end
+C_TooltipInfo = {
+	GetMinimapMouseover = function()
+		local st = S[Minimap]
+		local x, y = Sim.cursorX, Sim.cursorY
+		if st.soft then x, y = st.hoverX, st.hoverY end
+		local names = x and blipsAt(Minimap, x, y)
+		if not names then return nil end
+		return { type = 21, lines = { { leftText = table.concat(names, "\n") } } }
+	end,
+}
 
 -- ScrollFrame: its scroll child is reparented to it.
 local ScrollFrame = class("ScrollFrame", "Frame")
@@ -1292,6 +1334,7 @@ Sim.group = {}
 function GetNumGroupMembers() return #Sim.group > 0 and #Sim.group + 1 or 0 end
 function IsInRaid() return false end
 function UnitIsUnit(a, b) return a == b end
+function InCombatLockdown() return Sim.inCombat == true end
 function UnitIsDeadOrGhost(unit) local u = Sim.units[unit]; return u ~= nil and u.dead == true end
 
 C_Map = {}

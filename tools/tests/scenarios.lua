@@ -1837,4 +1837,62 @@ scenarios.live_rare_one_pin = function()
 	Sim.vignetteAtlas = nil
 end
 
+-- /mm probe on blips the simulated Minimap answers for at known spots: the
+-- tests find each one's real place, every test runs to the end, and the
+-- Minimap and the map come back as they were.
+scenarios.probe_blips = function()
+	local n, w = UnitPosition("player")
+	Sim.minimapBlips = {
+		{ "Peacebloom", n + 40, w - 25 },
+		{ "Silverleaf", n - 60.3, w + 35.7 },
+		{ "Copper Vein", n + 12.5, w + 70 },
+		{ "Peacebloom", n - 20, w - 80 },
+	}
+	local p = Sim.player
+	Sim.group = { "party1" }
+	Sim.units.party1 = { name = "Friend", class = "PRIEST", col = p.col + 50 / (1600 / 3), row = p.row }
+	local fn, fw = UnitPosition("party1")
+	table.insert(Sim.minimapBlips, { "Friend", fn, fw })
+	ns.frame:Hide()
+	Sim.Run(1)
+	local before = MinimapSnapshot()
+	ns.frame:Show()
+	Sim.Run(1)
+	local function Run(test, seconds)
+		Sim.Slash("probe " .. test)
+		Sim.Run(seconds or 10)
+		check(ns.ProbeJob() == nil, test .. ": finished")
+		local saved = MagicMapDB.probe and MagicMapDB.probe[test]
+		check(saved ~= nil, test .. ": kept in MagicMapDB.probe")
+		for _, line in ipairs(saved and saved.lines or {}) do
+			check(not line:find("stopped:", 1, true), test .. ": " .. line)
+		end
+		return saved and saved.lines or {}
+	end
+	Run("basic")
+	local found = MagicMapDB.probe.basic and #MagicMapDB.probe.basic.lines or 0
+	check(found > 3, "basic: reports")
+	-- Every blip found where it is, to a fraction of a yard.
+	for _, line in ipairs(Run("basic")) do
+		if line:find("soft cursor off:", 1, true) then check(line:find(": 0 of", 1, true), "soft cursor off finds nothing: " .. line) end
+	end
+	local lines = Run("truth")
+	local truth = table.concat(lines, "\n")
+	local yd = tonumber(truth:match("Friend: ([%d%.]+) yd"))
+	check(yd and yd < 0.25, "truth: Friend's blip where Friend is, got " .. tostring(yd))
+	for _, test in ipairs({ "sense", "shape", "cost", "race" }) do Run(test, 20) end
+	local race = table.concat(MagicMapDB.probe.race.lines, "\n")
+	check(race:find("grid 8 %+ edges: %d+ probes, [%d%.]+ ms; found 5 of 5"), "race: grid 8 + edges finds all five")
+	Run("drift", 25)
+	Run("here", 1)
+	check(ns.frame:IsShown(), "the map is back")
+	ns.frame:Hide()
+	Sim.Run(1)
+	local after = MinimapSnapshot()
+	for i = 1, math.max(#before, #after) do
+		check(before[i] == after[i], "Minimap put back: " .. tostring(before[i]) .. " -> " .. tostring(after[i]))
+	end
+	Sim.group, Sim.units.party1, Sim.minimapBlips = {}, nil, {}
+end
+
 return scenarios

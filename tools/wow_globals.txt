@@ -9,7 +9,7 @@ time tinsert tremove tonumber tostring type unpack wipe xpcall hooksecurefunc
 
 # Namespaces
 C_AddOnProfiler C_AddOns C_AreaPoiInfo C_CVar C_DeathInfo C_EncounterJournal C_Item C_Map C_MapExplorationInfo
-C_Minimap C_QuestLine C_QuestLog C_SuperTrack C_TaxiMap C_Texture C_Timer
+C_Minimap C_QuestLine C_TooltipInfo C_QuestLog C_SuperTrack C_TaxiMap C_Texture C_Timer
 LibQuestieDB UnitQuestTrivialLevelRange SetPortraitTexture
 C_VignetteInfo Enum
 
@@ -19,7 +19,7 @@ ChatFrame_OpenChat CreateColor CreateFrame CreateVector2D
 GetCVar GetCursorPosition GetInstanceInfo
 GetPlayerFacing GetSubZoneText GetTime GetZoneText
 HideUIPanel ToggleWorldMap IsAltKeyDown IsControlKeyDown IsIndoors IsMouseButtonDown
-IsShiftKeyDown UnitClass UnitClassification UnitExists
+IsShiftKeyDown InCombatLockdown UnitClass UnitClassification UnitExists
 GetNumGroupMembers IsInRaid Minimap_OnUpdate UnitIsDeadOrGhost UnitIsUnit
 GetAddOnInfo GetAddOnMemoryUsage GetNumAddOns UpdateAddOnMemoryUsage
 UnitGUID UnitIsGhost UnitIsPlayer UnitLevel UnitName UnitPosition issecretvalue
