@@ -864,6 +864,14 @@ scenarios.path_follows_route = function()
 	local west = FirstDash()
 	check(east and west and east > 32.84 * ns.state.zoom and west < east, "the line leaves you the way you face")
 	Sim.player.facing = 0
+	ns.SetPath(false)
+	Sim.Run(0.5)
+	local thin = 0
+	for _, r in ipairs({ ns.layerFrames.path:GetRegions() }) do
+		if r:GetObjectType() == "Line" and r:IsShown() and r:GetThickness() < 2 then thin = thin + 1 end
+	end
+	check(thin > 0, "outside path mode, the tracked target keeps a thin solid line")
+	ns.SetPath(true)
 	Sim.player.col, Sim.player.row = 32.84, 50.0 -- well off it, south
 	Sim.Run(2)
 	local pts2, found2 = ns.RouteTo(ns.FrameTarget())

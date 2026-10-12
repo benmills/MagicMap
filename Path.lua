@@ -2,7 +2,8 @@
 -- edge so it reads on pale ground too, its dashes drifting slowly toward
 -- the target. It follows the way you'd walk (Route.lua) once that's found,
 -- else it's straight - "that way". It leaves you the way you're facing and
--- bends onto the way, and it sits under the labels and pins.
+-- bends onto the way, and it sits under the labels and pins. Outside path
+-- mode, whatever you track still gets the same line, thin, faint and solid.
 
 local ADDON, ns = ...
 local state = ns.state
@@ -15,6 +16,8 @@ local FADE = 40            -- px over which the line fades in and out at its end
 local DRIFT_HZ = 10        -- the drift steps this often (1.4 px a step); the line redraws only when it or the view moves
 local CORE, EDGE = 2.2, 4.5 -- px: the dash and the dark edge under it
 local CORE_ALPHA, EDGE_ALPHA = 0.85, 0.45
+local THIN, THIN_EDGE = 1.2, 2.6 -- px: outside path mode, the solid line and its edge
+local THIN_ALPHA, THIN_EDGE_ALPHA = 0.5, 0.25
 local LEAD = 48            -- px of line (at most half of it) that bends from where you face onto the way
 local LEAD_STEPS = 8
 local FACING_STEP = math.rad(3) -- turning less than this doesn't redraw the line
@@ -41,7 +44,7 @@ ns.frame:HookScript("OnUpdate", ns.Timed("path arrow", function()
 		local x1, y1 = ns.TileToScreen(state.playerCol, state.playerRow)
 		local x2, y2 = ns.TileToScreen(t.col, t.row)
 		-- Along the route, the leg that leaves the inset rect.
-		local pts = state.path and routePts
+		local pts = routePts
 		if pts and In(x1, y1, lo, hiX, hiY) then
 			for i = 2, #pts do
 				x2, y2 = ns.TileToScreen(pts[i][1], pts[i][2])
@@ -85,10 +88,13 @@ local function Get(list, i, sublevel, thick)
 	local l = list[i]
 	if not l then
 		l = layer:CreateLine(nil, "ARTWORK", nil, sublevel)
-		l:SetThickness(thick)
 		l:SetSnapToPixelGrid(false)
 		l:SetTexelSnappingBias(0)
 		list[i] = l
+	end
+	if l.thick ~= thick then
+		l.thick = thick
+		l:SetThickness(thick)
 	end
 	return l
 end
@@ -197,13 +203,14 @@ end
 ns.frame:HookScript("OnUpdate", ns.Timed("path line", function()
 	local n = 0
 	routePts = nil
-	local t = state.path and ns.FrameTarget()
+	local t = ns.FrameTarget()
 	if t and not t.inside and state.playerCol and state.playerMap == state.map then
+		local solid = not state.path
 		-- On the canvas: tile (col, row) is at (col * zoom, row * zoom) down from its top left.
 		local z = state.zoom
 		local x1, y1 = HalfPixel(state.playerCol * z), HalfPixel(state.playerRow * z)
 		local x2, y2 = HalfPixel(t.col * z), HalfPixel(t.row * z)
-		local phase = math.floor(GetTime() * DRIFT_HZ) / DRIFT_HZ
+		local phase = solid and -1 or math.floor(GetTime() * DRIFT_HZ) / DRIFT_HZ
 		local pts, found = ns.RouteTo(t)
 		local facing = GetPlayerFacing()
 		facing = facing and math.floor(facing / FACING_STEP + 0.5) * FACING_STEP
@@ -225,7 +232,21 @@ ns.frame:HookScript("OnUpdate", ns.Timed("path line", function()
 		end
 		local len = along[m]
 		local s0, s1 = CLEAR_YOU, len - CLEAR_TARGET
-		if s1 > s0 then
+		if s1 > s0 and solid then
+			-- A piece per leg, faded toward the ends like the dashes.
+			for i = 1, m - 1 do
+				local a, b = math.max(along[i], s0), math.min(along[i + 1], s1)
+				if b > a and n < MAX_DASHES then
+					n = n + 1
+					local mid = (a + b) / 2
+					local f = math.min(1, (mid - s0) / FADE, (s1 - mid) / FADE)
+					local ax, ay = At(i, a)
+					local bx, by = At(i, b)
+					Segment(Get(shadows, n, 0, THIN_EDGE), ax, ay, bx, by, 0, 0, 0, THIN_EDGE_ALPHA * f)
+					Segment(Get(dashes, n, 1, THIN), ax, ay, bx, by, 1, 0.93, 0.75, THIN_ALPHA * f)
+				end
+			end
+		elseif s1 > s0 then
 			local scale = math.max(1, (s1 - s0) / (DASH + GAP) / MAX_DASHES)
 			local dash, step = DASH * scale, (DASH + GAP) * scale
 			local s = s0 + (phase * FLOW) % step - step
