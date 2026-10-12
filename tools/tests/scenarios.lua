@@ -1738,6 +1738,7 @@ scenarios.minimap_blips = function()
 	Sim.units.party1 = { name = "Friend", class = "PRIEST", col = p.col + 50 / (1600 / 3), row = p.row }
 	local fn, fw = UnitPosition("party1")
 	table.insert(Sim.minimapBlips, { "Friend", fn, fw })
+	ns.frame:SetScale(0.7) -- (the answer square is in screen units: the sensor's scale must not matter)
 	ns.SetZoom(300)
 	Sim.Run(2)
 	local function Where()
@@ -1777,7 +1778,7 @@ scenarios.minimap_blips = function()
 	end
 	-- Gone from Blizzard's: gone from ours.
 	table.remove(Sim.minimapBlips, 3)
-	Sim.Run(1)
+	Sim.Run(2)
 	check(not Near("Mailbox", truth[3][2], truth[3][3], 5) and #Pins("Mailbox") == 0, "a blip that's gone goes")
 	-- The layer off: none drawn, nothing read.
 	MagicMapDB.layers.blips = false
@@ -1796,6 +1797,7 @@ scenarios.minimap_blips = function()
 	Sim.inCombat = false
 	Sim.Run(1)
 	check(not Near("Peacebloom", truth[1][2], truth[1][3], 5), "out of it, reading resumes")
+	ns.frame:SetScale(1)
 	Sim.group, Sim.units.party1, Sim.minimapBlips = {}, nil, {}
 end
 

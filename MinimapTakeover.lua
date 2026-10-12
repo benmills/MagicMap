@@ -36,7 +36,12 @@ local T = {}
 ns.Takeover = T
 
 local TILE_YARDS = 1600 / 3
-local SENSOR_SIZE = 200 -- units square: the sensor, outdoors
+-- The sensor's side in screen units, whatever our window's scale: a blip
+-- answers in a square about 16 screen units wide (Blips.lua), so the
+-- bigger it is, the smaller that square in yards (about 25 yd here) and the
+-- closer two blips of a name can be told apart; but the more points a
+-- sweep tries.
+local SENSOR_PX = 300
 local OUTDOOR = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 } -- yards across its outdoor view, by zoom level
 local OUTDOOR_WIDEST = OUTDOOR[0]
 local INDOOR = { [0] = 300, 240, 180, 120, 80, 50 } -- yards across its indoor view, by zoom level
@@ -404,7 +409,6 @@ local function SetMode(m)
 		Minimap:EnableMouse(false)
 		Minimap:SetMouseMotionEnabled(false)
 		Minimap:EnableMouseWheel(false)
-		Minimap:SetSize(SENSOR_SIZE, SENSOR_SIZE)
 		Minimap:Show()
 	end
 end
@@ -495,6 +499,8 @@ local function Update()
 	else
 		if not Minimap:IsShown() then Minimap:Show() end
 		if Minimap:GetZoom() ~= 0 then Minimap:SetZoom(0) end -- (HereBeDragons may zoom it through our host)
+		local d = SENSOR_PX / ns.viewport:GetEffectiveScale()
+		if math.abs(Minimap:GetWidth() - d) > 0.01 then Minimap:SetSize(d, d) end
 		PlaceHost(cam)
 	end
 end

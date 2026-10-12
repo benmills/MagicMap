@@ -3,8 +3,9 @@
 -- answers a pretend mouse anywhere on it (the controller's soft cursor,
 -- Minimap:SetUsingSoftCursor) with the names of the blips under it, in the
 -- same frame, whether or not it's drawn. Measured in game (2026-10-12): each
--- blip answers inside a square HALF units each way from its middle, whatever
--- the Minimap's size or icon scale, exactly (no snapping to pixels); a probe
+-- blip answers inside a square HALF_PX screen units each way from its
+-- middle (7.84 Minimap units at scale 1.02), whatever the Minimap's size or
+-- icon scale, exactly (no snapping to pixels); a probe
 -- costs about 1.5 us on empty ground and 16 on a blip through C_TooltipInfo
 -- (GameTooltip:SetMinimapMouseover costs ten times that).
 --
@@ -21,11 +22,11 @@
 
 local ADDON, ns = ...
 
-local HALF = 7.84       -- Minimap units a blip answers each way from its middle (measured)
-local STEP = 15         -- grid spacing, under 2 * HALF
+local HALF_PX = 8.0     -- screen units a blip answers each way from its middle (measured; refined as blips are measured)
+local GRID = 0.95       -- grid spacing, of a square's width: no blip fits between its points
 local PER_FRAME = 24    -- grid points tried each frame
 local MAX_LOCATES = 2   -- new blips measured each frame (about 40 probes each)
-local HALVINGS = 8      -- an edge to 2 * HALF / 2^8 of a unit (about 0.15 yd at the widest zoom)
+local HALVINGS = 8      -- an edge to a square's width / 2^8 (about 0.15 yd at the widest zoom)
 local REST = 0.5        -- s between sweeps while you stand still (each read is a new table for the client to collect)
 local MOVED = 1         -- yd you've moved since a sweep began that ends the rest
 local SAME = 6          -- yd: a blip measured this close to a known one of its name is that one, moved
@@ -33,7 +34,8 @@ local NEAR_OURS = 8     -- yd: a blip this close to one of our own pins is that 
 local TILE_YARDS = 1600 / 3
 
 local blips = {}        -- { name, north, west, inst, seen }
-local grid, gridW = {}, nil
+local grid, gridKey = {}, nil
+local HALF, STEP        -- this frame, in Minimap units: HALF_PX over its scale, and the grid spacing
 local sweep = { i = 1, id = 1 }
 local changed = false
 local g = {}            -- this frame: left, bottom, scale (screen), w, h, u (yd per unit), north, west, inst
@@ -105,7 +107,7 @@ end
 -- The middles along one axis: one square's, or where squares of the same
 -- name overlap, the two at its ends.
 local function Middles(lo, hi)
-	if hi - lo <= 2 * HALF + 0.6 then return { (lo + hi) / 2 } end
+	if hi - lo <= 2.3 * HALF then return { (lo + hi) / 2 } end
 	return { lo + HALF, hi - HALF }
 end
 
@@ -114,10 +116,25 @@ local function Locate(name, x, y)
 	local r, l = Edge(name, x, y, 1, 0), Edge(name, x, y, -1, 0)
 	local t, b = Edge(name, x, y, 0, 1), Edge(name, x, y, 0, -1)
 	if not (r and l and t and b) then return nil end
+	-- A lone square (not two of a name overlapping) tells its true size.
+	local wide, tall = l + r, t + b
+	if wide <= 2.3 * HALF and tall <= 2.3 * HALF and math.abs(wide - tall) < 0.1 * HALF then
+		HALF_PX = HALF_PX + ((wide + tall) / 4 * g.scale - HALF_PX) / 4
+	end
+	local xs, ys = Middles(x - l, x + r), Middles(y - b, y + t)
 	local out = {}
-	for _, mx in ipairs(Middles(x - l, x + r)) do
-		for _, my in ipairs(Middles(y - b, y + t)) do
-			if math.abs(mx - x) <= HALF and math.abs(my - y) <= HALF then out[#out + 1] = { mx, my } end
+	for _, mx in ipairs(xs) do
+		for _, my in ipairs(ys) do
+			-- Two of a name overlapping both ways give four candidates, two
+			-- of them ghosts: a real one's corner of the pair's box answers.
+			local real = true
+			if #xs == 2 and #ys == 2 then
+				local e = 0.05 * HALF
+				local cx = mx < x - l + HALF + e and x - l + e or x + r - e
+				local cy = my < y - b + HALF + e and y - b + e or y + t - e
+				real = Answers(cx, cy, name)
+			end
+			if real then out[#out + 1] = { mx, my } end
 		end
 	end
 	return out
@@ -141,10 +158,11 @@ end
 
 local function BuildGrid(w, h)
 	wipe(grid)
+	STEP = GRID * 2 * HALF
 	for x = STEP / 2, w, STEP do
 		for y = STEP / 2, h, STEP do grid[#grid + 1] = { x, y } end
 	end
-	gridW = w
+	gridKey = w .. ":" .. h .. ":" .. HALF
 	sweep.i = 1
 end
 
@@ -252,7 +270,8 @@ local function Update()
 		lastInst = g.inst
 		Restart()
 	end
-	if g.w ~= gridW then BuildGrid(g.w, g.h) end
+	HALF = HALF_PX / g.scale
+	if gridKey ~= g.w .. ":" .. g.h .. ":" .. HALF then BuildGrid(g.w, g.h) end
 	if sweep.i == 1 and sweep.rest and GetTime() < sweep.rest
 		and (g.north - sweep.north) ^ 2 + (g.west - sweep.west) ^ 2 < MOVED * MOVED then
 		return -- standing still: nothing new comes in over the edge

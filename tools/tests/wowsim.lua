@@ -571,9 +571,10 @@ Sim.BlobRingsAt = RingsAt
 -- SetUsingSoftCursor(true), UpdateMouseoverAtPoint(x, y) (screen pixels)
 -- moves the point C_TooltipInfo.GetMinimapMouseover() reads; off, it reads
 -- the real cursor. Sim.minimapBlips = { { name, north, west } } (yards)
--- each answer within a square Sim.BLIP_HIT units (times SetIconScale) of
--- where they sit on the shown Minimap, inside its view radius.
-Sim.minimapBlips, Sim.BLIP_HIT = {}, 7.84 -- (the client's, measured)
+-- each answer within a square Sim.BLIP_HIT screen units of where they sit
+-- on the shown Minimap, inside its view radius, whatever its scale or icon
+-- scale (as the client does).
+Sim.minimapBlips, Sim.BLIP_HIT = {}, 8.1 -- (the client's: 7.84 Minimap units at scale 1.02)
 function MinimapClass:SetUsingSoftCursor(on) S[self].soft = on and true or false end
 function MinimapClass:SetIconScale(s) S[self].iconScale = s end
 function MinimapClass:UpdateMouseoverAtPoint(x, y)
@@ -589,7 +590,7 @@ local function blipsAt(m, px, py)
 	local fx, fy = (px - l) / s, (py - b) / s
 	local r = C_Minimap.GetViewRadius()
 	local u = r / (W / 2)
-	local hit = Sim.BLIP_HIT * (S[m].iconScale or 1)
+	local hit = Sim.BLIP_HIT / s
 	local names = {}
 	for _, blip in ipairs(Sim.minimapBlips) do
 		local east, north = pw - blip[3], blip[2] - pn
