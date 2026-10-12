@@ -528,7 +528,9 @@ end
 function Tooltip:AddLine(text, r, g, b, wrap)
 	local st = S[self]
 	st.numLines = (st.numLines or 0) + 1
-	tooltipLine(self, st.numLines):SetText(text)
+	local fs = tooltipLine(self, st.numLines)
+	fs:SetText(text)
+	S[fs].textColor = r and { r, g, b } or nil
 end
 function Tooltip:AddDoubleLine(left, right) self:AddLine(left) end
 function Tooltip:SetText(text, r, g, b, a, wrap) self:ClearLines(); self:AddLine(text) end
@@ -1386,7 +1388,7 @@ for _, base in ipairs({ "ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-out" }) d
 end
 for _, name in ipairs({ "redbutton-expand-c60", "redbutton-expand-pressed-c60", "redbutton-highlight-c60" }) do ATLASES[name] = true end
 for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutton-highlight",
-	"ui-hud-minimap-arrow-player", "ui-hud-minimap-arrow-questtracking", "minimaparrow" }) do
+	"ui-hud-minimap-arrow-player", "ui-hud-minimap-arrow-questtracking", "minimaparrow", "Quest-In-Progress-Icon-yellow" }) do
 	ATLASES[name] = true
 end
 -- The metal frame's pieces, sized as Forever reports them: the edges far
@@ -1407,10 +1409,10 @@ C_Texture = {
 
 -- Quests: one in Elwynn, with an objective area.
 Sim.quests = {
-	[60] = { title = "Kobold Candles", map = 1429, x = 0.35, y = 0.55, complete = false,
-		objectives = { { text = "Large Candle: 0/8", type = "item", finished = false } } },
-	[62] = { title = "The Fargodeep Mine", map = 1429, x = 0.40, y = 0.80, complete = true,
-		objectives = { { text = "Scout through the Fargodeep Mine", type = "event", finished = true } } },
+	[60] = { title = "Kobold Candles", level = 7, map = 1429, x = 0.35, y = 0.55, complete = false,
+		objectives = { { text = "Large Candle: 3/8", type = "item", finished = false, numFulfilled = 3, numRequired = 8 } } },
+	[62] = { title = "The Fargodeep Mine", level = 4, map = 1429, x = 0.40, y = 0.80, complete = true,
+		objectives = { { text = "Scout through the Fargodeep Mine", type = "event", finished = true, numFulfilled = 1, numRequired = 1 } } },
 }
 C_QuestLog = {
 	GetQuestsOnMap = function(id)
@@ -1424,6 +1426,9 @@ C_QuestLog = {
 	GetTitleForQuestID = function(questID) local q = Sim.quests[questID]; return q and q.title end,
 	IsComplete = function(questID) local q = Sim.quests[questID]; return q and q.complete end,
 	GetQuestObjectives = function(questID) local q = Sim.quests[questID]; return q and q.objectives or {} end,
+	GetQuestDifficultyLevel = function(questID) local q = Sim.quests[questID]; return q and q.level or 0 end,
+	-- Grey more than 5 levels below you (the client's range grows with level).
+	IsQuestTrivial = function(questID) local q = Sim.quests[questID]; return q ~= nil and UnitLevel("player") - q.level > 5 end,
 	AddQuestWatch = function(questID) Sim.watched = questID; return true end,
 }
 C_SuperTrack = {

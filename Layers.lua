@@ -289,7 +289,8 @@ local function PinOnEnter(self)
 	if not e then return end
 	if e.questID then SetHoverQuest("pin", e.questID) end
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-	GameTooltip:AddLine(e.title or "?")
+	local c = e.titleColor
+	if c then GameTooltip:AddLine(e.title or "?", c[1], c[2], c[3]) else GameTooltip:AddLine(e.title or "?") end
 	for _, line in ipairs(e.lines or {}) do GameTooltip:AddLine(line, 1, 1, 1, true) end
 	GameTooltip:Show()
 end
@@ -308,6 +309,8 @@ local pinPool = Pool(function()
 	pin.glow:SetPoint("CENTER")
 	pin.glow:SetTexture(CIRCLE)
 	pin.glow:Hide()
+	pin.count = pin:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmallOutline")
+	pin.count:SetPoint("TOP", pin, "BOTTOM", 0, 2)
 	pin:SetScript("OnEnter", PinOnEnter)
 	pin:SetScript("OnLeave", function()
 		GameTooltip:Hide()
@@ -318,10 +321,12 @@ end)
 
 local pinData = {} -- layer key -> list of { col, row, size, icon = { atlas, color, style }, title, lines }
 
--- icon: { texture } | { atlas, under (atlas drawn behind), scale, aspect (width / height) }
+-- icon: { texture } | { atlas, under (atlas drawn behind), tint (of under), scale, aspect (width / height) }
 -- with color as the fallback dot. glow (the gold halo) is only for the quest you follow.
+-- count: a short line under the pin (a quest's progress).
 local function StylePin(pin, e)
 	local size = e.size or 14
+	pin.count:SetText(e.count)
 	-- A soft halo marks what you're following.
 	if e.glow then
 		pin.glow:SetVertexColor(1, 0.82, 0.3, 0.45)
@@ -345,7 +350,8 @@ local function StylePin(pin, e)
 	if icon.atlas and AtlasExists(icon.atlas) then
 		if icon.under and AtlasExists(icon.under) then
 			pin.ring:SetAtlas(icon.under)
-			pin.ring:SetVertexColor(1, 1, 1, 1)
+			local t = icon.tint
+			pin.ring:SetVertexColor(t and t[1] or 1, t and t[2] or 1, t and t[3] or 1, 1)
 			pin.ring:SetSize(size, size)
 			pin.ring:Show()
 			local s = size * (icon.scale or 0.62)
@@ -594,15 +600,17 @@ sources.quests = function(mapID)
 		local complete = SafeCall(C_QuestLog.IsComplete, questID)
 		local shape = QuestShape(questID, complete)
 		local title = SafeCall(C_QuestLog.GetTitleForQuestID, questID) or ("Quest " .. questID)
+		local label, difficulty = ns.QuestTitle(questID, title)
 		local followed = questID == FollowedQuest()
 		local lines = QuestLines(questID, complete)
 		lines[#lines + 1] = FollowHint(questID)
 		-- Same art as the world map's quest buttons (re-skinned by the client).
 		local icon = complete
 			and { atlas = "UI-QuestIcon-TurnIn-Normal", color = { 0.2, 1, 0.2 } }
-			or { atlas = "Quest-In-Progress-Icon-yellow", under = "UI-QuestPoi-QuestNumber", color = { 1, 0.82, 0 } }
+			or { atlas = "Quest-In-Progress-Icon-yellow", under = "UI-QuestPoi-QuestNumber", tint = difficulty, color = { 1, 0.82, 0 } }
 		local e = AddAt(list, b.uiMapID, b.x, b.y, {
-			size = followed and 26 or 22, glow = followed, questID = questID, title = title, icon = icon, turnIn = complete,
+			size = followed and 26 or 22, glow = followed, questID = questID, icon = icon, turnIn = complete,
+			title = label, titleColor = difficulty, count = not complete and ns.QuestProgress(questID) or nil,
 			yields = complete or nil,
 			lines = lines,
 		})
@@ -1021,7 +1029,8 @@ local function ShowBlobTooltip(questID)
 	if blobTooltipOwner.questID == questID and GameTooltip:IsOwned(blobTooltipOwner) and GameTooltip:IsShown() then return end
 	blobTooltipOwner.questID = questID
 	GameTooltip:SetOwner(blobTooltipOwner, "ANCHOR_CURSOR_RIGHT", 12, 0)
-	GameTooltip:AddLine(SafeCall(C_QuestLog.GetTitleForQuestID, questID) or "Quest")
+	local title, c = ns.QuestTitle(questID)
+	if c then GameTooltip:AddLine(title, c[1], c[2], c[3]) else GameTooltip:AddLine(title) end
 	for _, line in ipairs(QuestLines(questID, false)) do GameTooltip:AddLine(line, 1, 1, 1, true) end
 	GameTooltip:AddLine(FollowHint(questID))
 	GameTooltip:Show()
@@ -2256,6 +2265,7 @@ local EVENT_LAYERS = {
 	QUEST_POI_UPDATE = { "quests" },
 	USER_WAYPOINT_UPDATED = { "waypoint" },
 	SUPER_TRACKING_CHANGED = { "quests" },
+	PLAYER_LEVEL_UP = { "quests" }, -- difficulty colours
 	PLAYER_DEAD = { "corpse", "graveyards" },
 	PLAYER_ALIVE = { "corpse", "graveyards" },
 	PLAYER_UNGHOST = { "corpse", "graveyards" },

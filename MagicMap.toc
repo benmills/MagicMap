@@ -14,6 +14,7 @@ Profile.lua
 UI.lua
 Menu.lua
 Core.lua
+QuestInfo.lua
 Layers.lua
 Landmarks.lua
 AddonPins.lua

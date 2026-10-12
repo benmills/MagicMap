@@ -664,7 +664,7 @@ scenarios.minimap_ours_first = function()
 	Sim.MoveCursorTo(Minimap, 0.5, 0.5)
 	Sim.questUnderCursor = 60
 	Sim.Run(0.3)
-	check(GameTooltip:IsShown() and Line1() == "Kobold Candles", "over a quest area, the quest's tooltip")
+	check(GameTooltip:IsShown() and Line1() == "[7] Kobold Candles", "over a quest area, the quest's tooltip")
 	Sim.FireScript(Minimap, "OnEnter", false)
 	Sim.blip = "Peacebloom"
 	local steady = true
@@ -677,12 +677,12 @@ scenarios.minimap_ours_first = function()
 	steady = true
 	for _ = 1, 10 do
 		Sim.Step()
-		steady = steady and GameTooltip:IsShown() and Line1() == "Kobold Candles"
+		steady = steady and GameTooltip:IsShown() and Line1() == "[7] Kobold Candles"
 	end
 	check(steady, "off the blip, the quest area's again, every frame (no flicker)")
 	Sim.FireScript(Minimap, "OnLeave", false)
 	Sim.Run(0.2)
-	check(GameTooltip:IsShown() and Line1() == "Kobold Candles", "off the Minimap, the quest area keeps it")
+	check(GameTooltip:IsShown() and Line1() == "[7] Kobold Candles", "off the Minimap, the quest area keeps it")
 	Sim.questUnderCursor = nil
 	Sim.Run(0.2)
 	check(not GameTooltip:IsShown(), "and lets go off the area")
@@ -738,6 +738,33 @@ scenarios.quest_area_hover = function()
 	Sim.questUnderCursor = nil
 	Sim.Run(0.2)
 	check(ns.HoveredQuestArea() == nil, "and off it, it's quiet again")
+end
+
+-- A quest pin says the quest's level, coloured by how hard it is for you,
+-- and how far along it is.
+scenarios.quest_meta = function()
+	ns.SetZoom(300)
+	Sim.Run(2)
+	local pin = QuestPin(60)
+	check(pin ~= nil, "the quest has a pin")
+	if not pin then return end
+	local function Near(c, r, g, b) return c and math.abs(c[1] - r) + math.abs(c[2] - g) + math.abs(c[3] - b) < 0.01 end
+	check(pin.entry.title == "[7] Kobold Candles", "its title has its level, got " .. tostring(pin.entry.title))
+	check(Near(S[pin.ring].vertex, 1, 0.82, 0), "two levels above you, its disc is yellow")
+	check(pin.count:GetText() == "3/8", "its progress is under it, got " .. tostring(pin.count:GetText()))
+	Sim.FireScript(pin, "OnEnter", false)
+	check(Near(S[_G.GameTooltipTextLeft1].textColor, 1, 0.82, 0), "and its tooltip title is yellow")
+	Sim.FireScript(pin, "OnLeave", false)
+	local done = QuestPin(62)
+	check(done and done.count:GetText() == nil, "a quest ready to turn in has no count")
+	check(ns.QuestTitleText(60):find("Kobold Candles", 1, true) ~= nil, "titles in text carry their colour")
+
+	Sim.units.player.level = 13
+	Sim.FireEvent("PLAYER_LEVEL_UP", 13)
+	Sim.Run(1)
+	pin = QuestPin(60)
+	check(pin and Near(S[pin.ring].vertex, 0.5, 0.5, 0.5), "levels later, it's grey")
+	Sim.units.player.level = 5
 end
 
 -- Following a quest with an area: path mode heads for the area's nearest
@@ -1517,7 +1544,7 @@ scenarios.map_menu_info = function()
 	check(text:find("Goldshire", 1, true) and text:find("35.0, 55.0", 1, true), "the place and /way coordinates:\n" .. text)
 	check(text:find("Level 1-10", 1, true), "the zone's level range:\n" .. text)
 	check(text:find("180 yd E of you", 1, true), "how far and which way from you:\n" .. text)
-	check(text:find("Quest Kobold Candles", 1, true), "the quest area under the click:\n" .. text)
+	check(text:find("[7] Kobold Candles", 1, true), "the quest area under the click:\n" .. text)
 	check(text:find("Graveyard Goldshire", 1, true), "the nearest graveyard:\n" .. text)
 	check(divider, "a divider before the actions")
 	check(actions[#actions] == "Follow me", "the actions follow the info")

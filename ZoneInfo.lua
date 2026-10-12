@@ -128,9 +128,9 @@ local function QuestLines(col, row, out)
 			break
 		end
 		if q.followed then
-			out[#out + 1] = GOLD .. "Quest|r " .. GOLD .. q.title .. "|r " .. DIM .. "(following)|r"
+			out[#out + 1] = GOLD .. "Quest|r " .. ns.QuestTitleText(q.questID, q.title) .. " " .. DIM .. "(following)|r"
 		else
-			out[#out + 1] = GREY .. "Quest|r " .. WHITE .. q.title .. "|r"
+			out[#out + 1] = GREY .. "Quest|r " .. ns.QuestTitleText(q.questID, q.title)
 		end
 	end
 end
