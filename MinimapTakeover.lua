@@ -42,6 +42,7 @@ local TILE_YARDS = 1600 / 3
 -- closer two blips of a name can be told apart; but the more points a
 -- sweep tries.
 local SENSOR_PX = 300
+local SENSOR_OFFSCREEN = 50 -- units its right edge keeps past the screen's left edge
 local OUTDOOR = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 } -- yards across its outdoor view, by zoom level
 local OUTDOOR_WIDEST = OUTDOOR[0]
 local INDOOR = { [0] = 300, 240, 180, 120, 80, 50 } -- yards across its indoor view, by zoom level
@@ -390,7 +391,13 @@ local function SetMode(m)
 	indoorBg:SetFrameLevel(ns.overlay:GetFrameLevel() + 1)
 	indoorBg:SetShown(m == "whole")
 	Minimap:ClearAllPoints()
-	Minimap:SetPoint("CENTER", ns.viewport)
+	if m == "whole" then
+		Minimap:SetPoint("CENTER", ns.viewport)
+	else
+		-- Off the screen's left edge: alpha 0 fades its terrain but not its
+		-- blips or arrow, and it still answers out there (measured).
+		Minimap:SetPoint("RIGHT", UIParent, "LEFT", -SENSOR_OFFSCREEN, 0)
+	end
 	if m == "whole" then
 		-- Blizzard's minimap as it is: terrain, rim, its own hover tooltips.
 		-- The wheel goes to the backdrop, which zooms it.

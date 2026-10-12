@@ -248,6 +248,7 @@ scenarios.minimap_mode = function()
 	check(Minimap:GetAlpha() == 0 and not Sim.minimapGround and Minimap:GetZoom() == 0,
 		"outdoors the Minimap is an invisible sensor, at its widest zoom")
 	check(not Minimap:IsMouseEnabled(), "that never takes the mouse")
+	check(Minimap:GetRight() < 0, "and off the screen: its blips ignore its alpha")
 	check(Sim.minimapUnrotated, "and it stays north up, even with Rotate Minimap")
 	check(ns.Takeover.Sensing(), "it's sensing")
 	check(Sim.minimapButton:GetParent() == ns.minimapStandIn, "other addons' minimap buttons moved to the stand-in")
