@@ -189,6 +189,24 @@ local function Explain(name, x, y)
 	return any
 end
 
+-- A record of what the sensor did (MagicMapDB.blipLog, the last LOG_SIZE
+-- lines), for working out in-game surprises like copies; /mm blips lists
+-- what it knows now.
+local LOG_SIZE = 400
+local db
+local function Log(fmt, ...)
+	if not db then return end
+	local log = db.blipLog or {}
+	db.blipLog = log
+	log[#log + 1] = ("%.2f %s"):format(GetTime(), fmt:format(...))
+	if #log > LOG_SIZE then table.remove(log, 1) end
+end
+
+-- Where a blip is from you, in yards (east, north), for the log.
+local function Rel(north, west)
+	return ("%+.1fE %+.1fN"):format((g.west or 0) - west, north - (g.north or 0))
+end
+
 local function Add(name, x, y)
 	local north, west = ToWorld(x, y)
 	local same = g.moving and math.max(SAME, HALF * g.u) or SAME
@@ -196,6 +214,7 @@ local function Add(name, x, y)
 		if b.name == name and b.inst == g.inst and (b.north - north) ^ 2 + (b.west - west) ^ 2 < same * same then
 			b.seen = sweep.id
 			if not g.moving or b.rough then -- (a still measure isn't spoilt by one on the move)
+				Log("move %s %s -> %s%s", name, Rel(b.north, b.west), Rel(north, west), g.moving and " (moving)" or "")
 				b.north, b.west, b.rough = north, west, g.moving -- (it walked)
 				changed = true
 			end
@@ -203,6 +222,7 @@ local function Add(name, x, y)
 		end
 	end
 	blips[#blips + 1] = { name = name, north = north, west = west, inst = g.inst, seen = sweep.id, rough = g.moving }
+	Log("add %s %s%s; half %.2f units = %.1f yd", name, Rel(north, west), g.moving and " (moving)" or "", HALF, HALF * g.u)
 	changed = true
 end
 
@@ -219,7 +239,9 @@ local function Settle()
 					if not gap or d < gap then best, gap = m, d end
 				end
 				if best then
-					b.north, b.west = ToWorld(best[1], best[2])
+					local north, west = ToWorld(best[1], best[2])
+					Log("settle %s %s -> %s", b.name, Rel(b.north, b.west), Rel(north, west))
+					b.north, b.west = north, west
 					changed = true
 				end
 			end
@@ -247,6 +269,7 @@ end
 local function EndSweep()
 	for i = #blips, 1, -1 do
 		if blips[i].seen ~= sweep.id then
+			Log("drop %s %s", blips[i].name, Rel(blips[i].north, blips[i].west))
 			table.remove(blips, i)
 			changed = true
 		end
@@ -585,3 +608,13 @@ ns.AddPinLayer({ key = "blips", label = "Minimap blips", group = "places", defau
 
 -- The blips known now (only the tests read it).
 ns.Blips = function() return blips end
+
+ns.slash.blips = function()
+	ns.Print(("blips: %d known, answer square %.2f screen units each way, %d log lines in MagicMapDB.blipLog (/reload to write them)")
+		:format(#blips, HALF_PX, db and db.blipLog and #db.blipLog or 0))
+	for _, b in ipairs(blips) do ns.Print(("  %s %s%s"):format(b.name, Rel(b.north, b.west), b.rough and " (rough)" or "")) end
+	Log("/mm blips: %d known", #blips)
+	for _, b in ipairs(blips) do Log("  known %s %s%s", b.name, Rel(b.north, b.west), b.rough and " (rough)" or "") end
+end
+
+ns.On("Loaded", function(savedDB) db = savedDB end)
