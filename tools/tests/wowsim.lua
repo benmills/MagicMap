@@ -574,7 +574,7 @@ Sim.BlobRingsAt = RingsAt
 -- each answer within a square Sim.BLIP_HIT screen units of where they sit
 -- on the shown Minimap, inside its view radius, whatever its scale or icon
 -- scale (as the client does).
-Sim.minimapBlips, Sim.BLIP_HIT = {}, 8.1 -- (the client's: 7.84 Minimap units at scale 1.02)
+Sim.minimapBlips, Sim.BLIP_HIT, Sim.BLIP_STEP = {}, 8.1, 0.25 -- (the client's: 7.84 Minimap units at scale 1.02)
 function MinimapClass:SetUsingSoftCursor(on) S[self].soft = on and true or false end
 function MinimapClass:SetIconScale(s) S[self].iconScale = s end
 function MinimapClass:UpdateMouseoverAtPoint(x, y)
@@ -583,8 +583,16 @@ end
 local function blipsAt(m, px, py)
 	if not visible(m) then return nil end
 	local l, b, w, h = rect(m)
+	-- The client seems to move its blips in steps as you walk: where it
+	-- last placed you, refreshed every Sim.BLIP_STEP seconds.
 	local pn, pw = UnitPosition("player")
 	if not (l and pn) then return nil end
+	local at = S[m].blipsAt
+	if not at or Sim.time - at.t >= Sim.BLIP_STEP then
+		at = { n = pn, w = pw, t = Sim.time }
+		S[m].blipsAt = at
+	end
+	pn, pw = at.n, at.w
 	local s = effScale(m)
 	local W, H = w / s, h / s
 	local fx, fy = (px - l) / s, (py - b) / s
@@ -1155,7 +1163,7 @@ C_Minimap = {
 	GetNumTrackingTypes = function() return #Sim.tracking end,
 	GetTrackingInfo = function(i)
 		local t = Sim.tracking[i]
-		return t and { name = t.name, texture = 136456, active = t.active, type = "spell", subType = 2, spellID = t.spellID }
+		return t and { name = t.name, texture = t.texture or 136456, active = t.active, type = "spell", subType = 2, spellID = t.spellID }
 	end,
 	GetTrackingFilter = function(i)
 		local t = Sim.tracking[i]
@@ -1173,7 +1181,8 @@ Sim.tracking = {
 	{ name = "Find Herbs", spellID = 2383, active = true },
 	{ name = "Track Quest POIs", filterID = 65536, active = true },
 	{ name = "Points of Interest", filterID = 8192, active = false },
-	{ name = "Mailbox", filterID = 64, active = true },
+	{ name = "Mailbox", filterID = 64, active = true, texture = 136459 },
+	{ name = "Innkeeper", filterID = 128, active = true, texture = 136458 },
 }
 
 -- Context menus (retail-style MenuUtil): records the menu so scenarios can
@@ -1501,9 +1510,12 @@ Sim.questie = {
 	},
 	Npc = {
 		name = { [253] = "William Pestle", [240] = "Marshal Dughan", [475] = "Kobold Tunneler", [40] = "Kobold Miner", [327] = "Goldtooth",
-			[6790] = "Innkeeper Tess" },
-		npcFlags = { [6790] = 128 + 2 + 1 }, -- (Classic's values: innkeeper, quest giver, gossip)
+			[6790] = "Innkeeper Tess", [6791] = "Innkeeper Allie", [6792] = "Innkeeper Horus" },
+		npcFlags = { [6790] = 128 + 2 + 1, [6791] = 128, [6792] = 128 }, -- (Classic's values: innkeeper, quest giver, gossip)
 		subName = { [6790] = "Innkeeper" },
+		friendlyToFaction = { [6790] = "AH", [6791] = "A", [6792] = "H" },
+		-- Spawns: { [zone] = { { x, y } } } in 0-100; zone 12 is Elwynn Forest.
+		spawns = { [6790] = { [12] = { { 40, 80 } } }, [6791] = { [12] = { { 45, 85 } } }, [6792] = { [12] = { { 50, 85 } } } },
 		minLevel = { [475] = 4, [40] = 7, [327] = 9 },
 		maxLevel = { [475] = 5, [40] = 8, [327] = 9 },
 		rank = { [475] = 0, [40] = 0, [327] = 1 },
@@ -1519,6 +1531,17 @@ for entity, fields in pairs(Sim.questie) do
 	setmetatable(reader, { __index = function() return function() return nil end end })
 	LibQuestieDB[entity] = reader
 end
+function LibQuestieDB.Npc.GetAllIds()
+	local ids = {}
+	for id in pairs(Sim.questie.Npc.name) do ids[#ids + 1] = id end
+	table.sort(ids)
+	return ids
+end
+-- Its support data: zone IDs to uiMap IDs, as Lua source (as QuestieDB keeps it).
+LibQuestieDB.Support = { Get = function(name)
+	if name == "ZoneDB" then return { private = { areaIdToUiMapId = "return { [12] = 1429 }" } } end
+end }
+function UnitFactionGroup(unit) return Sim.faction or "Alliance", Sim.faction or "Alliance" end
 function LibQuestieDB.Npc.IdsByName(name)
 	for id, n in pairs(Sim.questie.Npc.name) do
 		if n == name then return { id } end

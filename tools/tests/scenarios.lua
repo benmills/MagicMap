@@ -1021,7 +1021,7 @@ scenarios.layers = function()
 		tracking[#tracking + 1] = rows[i].text
 		i = i + 1
 	end
-	check(table.concat(tracking, ",") == "Find Herbs,Mailbox", "tracking lists Blizzard-only types, got " .. table.concat(tracking, ","))
+	check(table.concat(tracking, ",") == "Find Herbs,Mailbox,Innkeeper", "tracking lists Blizzard-only types, got " .. table.concat(tracking, ","))
 	check(rows[i] and rows[i].title == "Settings", "and settings last, got " .. tostring(rows[i] and (rows[i].title or rows[i].key)))
 	local mailbox = Sim.tracking[5]
 	for _, r in ipairs(rows) do
@@ -1787,11 +1787,15 @@ scenarios.minimap_blips = function()
 		"town services: Blizzard's tracking icon, by QuestieDB's NPC flags")
 	check(Pins("Gruff Stranger")[1] and Pins("Gruff Stranger")[1].entry.icon.color, "anything else: a dot")
 	check(#Pins("Friend") == 0, "party members aren't repeated (their dots are ours)")
-	-- Walking: they stay where they are in the world.
-	p.speed = 7
-	Sim.Run(1.5)
+	-- Riding (the client moves its blips in steps): no copies, and they
+	-- settle where they are in the world once you stop.
+	p.speed = 14
+	for _ = 1, 6 do
+		Sim.Run(0.5)
+		check(#ns.Blips() == #truth + 1, "riding: one blip each, got " .. #ns.Blips() .. ": " .. Where())
+	end
 	p.speed = 0
-	Sim.Run(1)
+	Sim.Run(2)
 	for _, t in ipairs(truth) do
 		check(Near(t[1], t[2], t[3], 0.5), t[1] .. " stays put as you walk: " .. Where())
 	end
@@ -1808,6 +1812,39 @@ scenarios.minimap_blips = function()
 	ns.RefreshLayer("blips")
 	Sim.Run(1)
 	check(#Pins("Peacebloom") == 3, "and on again shows them: " .. #Pins("Peacebloom") .. " " .. Where())
+	-- Away from you: town services from QuestieDB, for your faction, from
+	-- town scale in, for the kinds Blizzard tracks; and blips seen before.
+	local _, tc, tr = ns.MapToTile(1429, 0.40, 0.80)
+	local pc, pr = ns.WorldToTile(UnitPosition("player"))
+	check(math.sqrt((tc - pc) ^ 2 + (tr - pr) ^ 2) * 1600 / 3 > 300, "(the remote innkeeper is out of the sensor's reach)")
+	local function Remote(name)
+		for _, f in ipairs(Sim.Frames()) do
+			if f.entry and f.entry.title == name and f.entry.minZoom and f:IsVisible() then return f end
+		end
+	end
+	ns.SetZoom(150)
+	Sim.Run(3)
+	check(Remote("Innkeeper Tess") and Remote("Innkeeper Allie") and Remote("Innkeeper Horus") == nil,
+		"town services away from you: QuestieDB's, those friendly to you")
+	check(Remote("Innkeeper Tess").entry.icon.texture == 136458, "with their tracking icon")
+	ns.SetZoom(30)
+	Sim.Run(1)
+	check(Remote("Innkeeper Tess") == nil, "not zoomed out past town scale")
+	ns.SetZoom(150)
+	Sim.tracking[#Sim.tracking].active = false -- (Innkeeper)
+	ns.RefreshLayer("blips")
+	Sim.Run(1)
+	check(Remote("Innkeeper Tess") == nil, "nor for what Blizzard's tracking has off")
+	Sim.tracking[#Sim.tracking].active = true
+	-- The mailbox seen near you is remembered; far from it, it stays.
+	table.insert(Sim.minimapBlips, truth[3])
+	Sim.Run(2)
+	p.col = p.col + 400 / (1600 / 3)
+	Sim.Run(2)
+	check(Remote("Mailbox"), "a mailbox seen before still shows once you're far from it")
+	p.col = p.col - 400 / (1600 / 3)
+	Sim.Run(2)
+	check(Remote("Mailbox") == nil and #Pins("Mailbox") == 1, "back near it, only the live one")
 	-- In combat the sensor rests; what it knew stays.
 	Sim.inCombat = true
 	table.remove(Sim.minimapBlips, 1)

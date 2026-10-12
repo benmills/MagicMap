@@ -30,15 +30,22 @@ local HALVINGS = 8      -- an edge to a square's width / 2^8 (about 0.15 yd at t
 local REST = 0.5        -- s between sweeps while you stand still (each read is a new table for the client to collect)
 local MOVED = 1         -- yd you've moved since a sweep began that ends the rest
 local SAME = 6          -- yd: a blip measured this close to a known one of its name is that one, moved
+-- While you move, the client seems to move its blips in steps, so a
+-- measure can be a few yards off: hits are matched more loosely (LAG), a
+-- blip measured within half a square of one of its name is that one, and
+-- what was measured on the move is measured again once you've stood
+-- still for SETTLE seconds.
+local LAG = 8           -- yd
+local SETTLE = 0.5      -- s
 local NEAR_OURS = 8     -- yd: a blip this close to one of our own pins is that pin's
 local TILE_YARDS = 1600 / 3
 
-local blips = {}        -- { name, north, west, inst, seen }
+local blips = {}        -- { name, north, west, inst, seen, rough (measured on the move) }
 local grid, gridKey = {}, nil
 local HALF, STEP        -- this frame, in Minimap units: HALF_PX over its scale, and the grid spacing
 local sweep = { i = 1, id = 1 }
 local changed = false
-local g = {}            -- this frame: left, bottom, scale (screen), w, h, u (yd per unit), north, west, inst
+local g = {}            -- this frame: left, bottom, scale (screen), w, h, u (yd per unit), north, west, inst, moving
 
 ---------------------------------------------------------------------------
 -- Probing
@@ -173,7 +180,8 @@ local function Explain(name, x, y)
 	for _, b in ipairs(blips) do
 		if b.name == name and b.inst == g.inst then
 			local bx, by = ToLocal(b)
-			if math.abs(x - bx) <= HALF + 0.5 and math.abs(y - by) <= HALF + 0.5 then
+			local slack = HALF + 0.5 + (g.moving and LAG / g.u or 0)
+			if math.abs(x - bx) <= slack and math.abs(y - by) <= slack then
 				b.seen, any = sweep.id, true
 			end
 		end
@@ -183,15 +191,41 @@ end
 
 local function Add(name, x, y)
 	local north, west = ToWorld(x, y)
+	local same = g.moving and math.max(SAME, HALF * g.u) or SAME
 	for _, b in ipairs(blips) do
-		if b.name == name and b.inst == g.inst and (b.north - north) ^ 2 + (b.west - west) ^ 2 < SAME * SAME then
-			b.north, b.west, b.seen = north, west, sweep.id -- (it walked)
-			changed = true
+		if b.name == name and b.inst == g.inst and (b.north - north) ^ 2 + (b.west - west) ^ 2 < same * same then
+			b.seen = sweep.id
+			if not g.moving or b.rough then -- (a still measure isn't spoilt by one on the move)
+				b.north, b.west, b.rough = north, west, g.moving -- (it walked)
+				changed = true
+			end
 			return
 		end
 	end
-	blips[#blips + 1] = { name = name, north = north, west = west, inst = g.inst, seen = sweep.id }
+	blips[#blips + 1] = { name = name, north = north, west = west, inst = g.inst, seen = sweep.id, rough = g.moving }
 	changed = true
+end
+
+-- Standing still: one blip measured on the move, measured again.
+local function Settle()
+	for _, b in ipairs(blips) do
+		if b.rough and b.inst == g.inst then
+			b.rough = false
+			local bx, by = ToLocal(b)
+			if Answers(bx, by, b.name) then
+				local best, gap
+				for _, m in ipairs(Locate(b.name, bx, by) or {}) do
+					local d = (m[1] - bx) ^ 2 + (m[2] - by) ^ 2
+					if not gap or d < gap then best, gap = m, d end
+				end
+				if best then
+					b.north, b.west = ToWorld(best[1], best[2])
+					changed = true
+				end
+			end
+			return
+		end
+	end
 end
 
 local locates = 0
@@ -233,7 +267,11 @@ local function Measure()
 	local w, h = Minimap:GetSize()
 	if w <= 0 then return false end
 	g.left, g.bottom, g.scale, g.w, g.h = left, bottom, Minimap:GetEffectiveScale(), w, h
-	g.u, g.north, g.west, g.inst = r / (w / 2), north, west, inst
+	g.u, g.inst = r / (w / 2), inst
+	local now = GetTime()
+	if not g.north or (north - g.north) ^ 2 + (west - g.west) ^ 2 > 0.0025 then g.movedAt = now end
+	g.north, g.west = north, west
+	g.moving = now - (g.movedAt or 0) < SETTLE
 	return true
 end
 
@@ -278,6 +316,7 @@ local function Update()
 	locates = 0
 	Minimap:SetUsingSoftCursor(true)
 	local ok, err = pcall(Sweep)
+	if ok and not g.moving then ok, err = pcall(Settle) end
 	Minimap:SetUsingSoftCursor(false) -- (whatever happened: never left on)
 	if not ok then error(err, 0) end
 end
@@ -318,6 +357,20 @@ local CLASSES = { "Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "
 
 local function HasFlag(flags, bit) return bit and flags and math.floor(flags / bit) % 2 == 1 end
 
+-- The tracking icon for an NPC's flags and title, nil if it offers none.
+local function ServiceIcon(flags, sub)
+	local icon
+	for _, s in ipairs(SERVICES) do
+		if not icon and HasFlag(flags, s[1]) then icon = s[2] end
+	end
+	if icon == 136463 and sub then
+		for _, c in ipairs(CLASSES) do
+			if sub:find(c, 1, true) then icon = CLASS_TRAINER end
+		end
+	end
+	return icon
+end
+
 local function Npc(name)
 	local DB = LibQuestieDB
 	if not (DB and DB.Npc and DB.Npc.IdsByName) then return nil end
@@ -344,17 +397,8 @@ local function Kind(name)
 		k = { icon = { texture = MAILBOX }, size = 14 }
 	else
 		local flags, sub, starts, ends = Npc(name)
-		local icon
-		for _, s in ipairs(SERVICES) do
-			if not icon and HasFlag(flags, s[1]) then icon = s[2] end
-		end
 		-- Quest givers our own layers don't cover (they'd be skipped as ours).
-		icon = icon or (starts and QUEST_GIVER) or (ends and QUEST_ENDER) or nil
-		if icon == 136463 and sub then
-			for _, c in ipairs(CLASSES) do
-				if sub:find(c, 1, true) then icon = CLASS_TRAINER end
-			end
-		end
+		local icon = ServiceIcon(flags, sub) or (starts and QUEST_GIVER) or (ends and QUEST_ENDER) or nil
 		k = { icon = icon and { texture = icon } or { color = GOLD }, size = icon and 14 or 10, lines = sub and { sub } or nil }
 	end
 	kinds[name] = k
@@ -389,6 +433,135 @@ local function NearOurs(col, row)
 	return false
 end
 
+---------------------------------------------------------------------------
+-- Away from you, where the sensor can't see: town services QuestieDB knows
+-- (every NPC with a service flag, friendly to you, at each spawn), and
+-- blips the sensor has seen before (kept with the rares in
+-- MagicMapLandmarks, for what QuestieDB lacks, like mailboxes). Shown from
+-- town scale in, only for the kinds Blizzard's tracking has on; within
+-- the sensor's reach only what it sees now counts.
+---------------------------------------------------------------------------
+
+local REMOTE_MIN_ZOOM = 60 -- px per tile
+local LIVE_YARDS = 220     -- around you, the sensor's word
+local BUILD_PER_FRAME = 300 -- NPCs looked at each frame while the services are gathered
+
+local services            -- instance -> list of { name, col, row, icon, sub }, once gathered
+local gathering
+
+-- QuestieDB's zone IDs to uiMap IDs (its support data keeps them as Lua source).
+local function AreaMaps(DB)
+	local zone = DB.Support and DB.Support.Get and DB.Support.Get("ZoneDB")
+	local p = zone and zone.private
+	local out = {}
+	for _, src in ipairs({ p and p.areaIdToUiMapId or false, p and p.areaIdToUiMapIdOverride or false }) do
+		local fn = type(src) == "string" and loadstring(src)
+		local ok, t = false, nil
+		if fn then ok, t = pcall(fn) end
+		if ok and type(t) == "table" then
+			for k, v in pairs(t) do out[k] = v end
+		end
+	end
+	return out
+end
+
+local function Read(fn, id)
+	local ok, v = pcall(fn, id)
+	if ok then return v end
+end
+
+local function Gather()
+	local DB = LibQuestieDB
+	local ids = DB and DB.Npc and DB.Npc.GetAllIds and Read(DB.Npc.GetAllIds)
+	if type(ids) ~= "table" then return {} end
+	local maps = AreaMaps(DB)
+	local mine = UnitFactionGroup("player") == "Horde" and "H" or "A"
+	local out = {}
+	for i, id in ipairs(ids) do
+		local flags = Read(DB.Npc.npcFlags, id)
+		local icon = type(flags) == "number" and ServiceIcon(flags) -- (most NPCs stop here)
+		local sub = icon and Read(DB.Npc.subName, id)
+		icon = icon and ServiceIcon(flags, type(sub) == "string" and sub or nil)
+		local friendly = icon and Read(DB.Npc.friendlyToFaction, id)
+		if type(friendly) == "string" and friendly:find(mine, 1, true) then
+			local name = Read(DB.Npc.name, id)
+			for area, coords in pairs(Read(DB.Npc.spawns, id) or {}) do
+				local uiMap = maps[area]
+				for _, c in ipairs(uiMap and uiMap > 0 and coords or {}) do
+					local inst, col, row
+					if c[1] and c[1] >= 0 then inst, col, row = ns.MapToTile(uiMap, c[1] / 100, c[2] / 100) end
+					if inst then
+						out[inst] = out[inst] or {}
+						table.insert(out[inst], { name = name, col = col, row = row, icon = icon, sub = type(sub) == "string" and sub or nil })
+					end
+				end
+			end
+		end
+		if i % BUILD_PER_FRAME == 0 then coroutine.yield() end
+	end
+	return out
+end
+
+local gatherer = CreateFrame("Frame")
+gatherer:Hide()
+gatherer:SetScript("OnUpdate", ns.Timed("town services", function(self)
+	local ok, result = coroutine.resume(gathering)
+	if not ok or coroutine.status(gathering) == "dead" then
+		self:Hide()
+		services = ok and result or {}
+		ns.RefreshLayer("blips")
+	end
+end))
+
+-- The tracking icons Blizzard's tracking has on now.
+local function Tracked()
+	local on = {}
+	for i = 1, C_Minimap.GetNumTrackingTypes() or 0 do
+		local info = C_Minimap.GetTrackingInfo(i)
+		if info and info.active and info.texture then on[info.texture] = true end
+	end
+	if on[136463] then on[CLASS_TRAINER] = true end -- (one switch for both kinds of trainer)
+	return on
+end
+
+local function Remember(b, icon)
+	local store = MagicMapLandmarks
+	if not store then return end
+	local key = "blip:" .. b.name .. ":" .. math.floor(b.north / 8 + 0.5) .. ":" .. math.floor(b.west / 8 + 0.5)
+	store[b.inst] = store[b.inst] or {}
+	local e = store[b.inst][key]
+	if e and e.t > time() - 3600 then return end
+	store[b.inst][key] = { kind = "blip", name = b.name, icon = icon,
+		n = math.floor(b.north * 10 + 0.5) / 10, w = math.floor(b.west * 10 + 0.5) / 10, t = time() }
+end
+
+local function Remote(list, mapID, skip)
+	if not services and not gathering and LibQuestieDB then
+		gathering = coroutine.create(Gather)
+		gatherer:Show()
+	end
+	local on = Tracked()
+	local pn, pw = UnitPosition("player")
+	local here = ns.Takeover.Sensing() and pn and not issecretvalue(pn)
+	local pc, pr
+	if here then pc, pr = ns.WorldToTile(pn, pw) end
+	local reach = LIVE_YARDS / TILE_YARDS
+	local shown = {}
+	local function Add(name, col, row, icon, sub)
+		if not on[icon] or skip[name] or (here and (col - pc) ^ 2 + (row - pr) ^ 2 < reach * reach) then return end
+		shown[name] = true
+		ns.PinAtTile(list, mapID, col, row, { size = 14, minZoom = REMOTE_MIN_ZOOM, title = name,
+			lines = { sub, "|cff808080Not in sight|r" }, icon = { texture = icon } })
+	end
+	for _, e in ipairs(services and services[mapID] or {}) do Add(e.name, e.col, e.row, e.icon, e.sub) end
+	for _, e in pairs(MagicMapLandmarks and MagicMapLandmarks[mapID] or {}) do
+		if e.kind == "blip" and not shown[e.name] then
+			local col, row = ns.WorldToTile(e.n, e.w)
+			Add(e.name, col, row, e.icon)
+		end
+	end
+end
+
 local function BlipPins(mapID)
 	local list = {}
 	local skip = Skipped()
@@ -398,9 +571,12 @@ local function BlipPins(mapID)
 			if not NearOurs(col, row) then
 				local k = Kind(b.name)
 				ns.PinAtTile(list, mapID, col, row, { size = k.size, title = b.name, lines = k.lines, icon = k.icon })
+				local t = k.icon.texture
+				if t and t ~= QUEST_GIVER and t ~= QUEST_ENDER and not b.rough then Remember(b, t) end
 			end
 		end
 	end
+	Remote(list, mapID, skip)
 	return list
 end
 

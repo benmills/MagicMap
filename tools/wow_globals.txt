@@ -22,7 +22,7 @@ HideUIPanel ToggleWorldMap IsAltKeyDown IsControlKeyDown IsIndoors IsMouseButton
 IsShiftKeyDown InCombatLockdown UnitClass UnitClassification UnitExists
 GetNumGroupMembers IsInRaid Minimap_OnUpdate UnitIsDeadOrGhost UnitIsUnit
 GetAddOnInfo GetAddOnMemoryUsage GetNumAddOns UpdateAddOnMemoryUsage
-UnitGUID UnitIsGhost UnitIsPlayer UnitLevel UnitName UnitPosition issecretvalue
+UnitFactionGroup loadstring MagicMapLandmarks UnitGUID UnitIsGhost UnitIsPlayer UnitLevel UnitName UnitPosition issecretvalue
 
 # Frames, objects and mixins
 ChatFrameUtil DEFAULT_CHAT_FRAME GameFontNormal GameTooltip MenuResponse MenuUtil

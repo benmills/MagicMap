@@ -9,7 +9,7 @@
 -- it knows every one, where we'd only know those you've visited.
 
 local ADDON, ns = ...
-local store -- MagicMapLandmarks[instanceID][key] = { kind, name, n, w, t }
+local store -- MagicMapLandmarks[instanceID][key] = { kind ("rare", or "blip": Blips.lua's), name, n, w, t }
 
 local RARE_ICON, RARE_MIN_ZOOM = 137008, 60
 
@@ -53,7 +53,7 @@ local live = {}
 local function RarePins(mapID)
 	local list = {}
 	for _, e in pairs(store and store[mapID] or {}) do
-		if not live[e.name] then
+		if e.kind == "rare" and not live[e.name] then
 			local col, row = ns.WorldToTile(e.n, e.w)
 			ns.PinAtTile(list, mapID, col, row, {
 				size = 15, -- about the size Blizzard draws them on the minimap
