@@ -141,7 +141,7 @@ end
 scenarios.slash_commands = function()
 	for _, cmd in ipairs({ "", "", "follow", "follow", "map 1", "map kalimdor", "map 0", "map nowhere", "zone elwynn",
 		"zone westfall", "zone nowhere", "tiles", "debug", "debug", "reset", "layers", "landmarks", "icon", "icon",
-		"perf top", "perf mem", "perf", "perf", "sensor", "sensor", "blips", "help" }) do
+		"perf top", "perf mem", "perf", "perf", "blips", "help" }) do
 		Sim.Slash(cmd)
 		Sim.Run(0.3)
 	end
@@ -1845,6 +1845,26 @@ scenarios.minimap_blips = function()
 	p.col = p.col - 400 / (1600 / 3)
 	Sim.Run(2)
 	check(Remote("Mailbox") == nil and #Pins("Mailbox") == 1, "back near it, only the live one")
+	-- Two remembered mailboxes on a map both show.
+	local inst = select(4, UnitPosition("player"))
+	MagicMapLandmarks[inst]["blip:Mailbox:far"] = { kind = "blip", name = "Mailbox", icon = 136459,
+		n = truth[3][2] + 600, w = truth[3][3], t = time() }
+	p.col = p.col + 400 / (1600 / 3)
+	Sim.Run(2)
+	local mailboxes = 0
+	for _, f in ipairs(Sim.Frames()) do
+		if f.entry and f.entry.title == "Mailbox" and f.entry.minZoom and f:IsVisible() then mailboxes = mailboxes + 1 end
+	end
+	check(mailboxes == 2, "every remembered mailbox shows, got " .. mailboxes)
+	p.col = p.col - 400 / (1600 / 3)
+	-- Seen gone where it was remembered: forgotten.
+	table.remove(Sim.minimapBlips, #Sim.minimapBlips)
+	Sim.Run(3)
+	local kept = 0
+	for _, e in pairs(MagicMapLandmarks[inst]) do
+		if e.kind == "blip" and e.name == "Mailbox" then kept = kept + 1 end
+	end
+	check(kept == 1, "a remembered mailbox the sensor sees gone is forgotten (the far one stays), kept " .. kept)
 	-- In combat the sensor rests; what it knew stays.
 	Sim.inCombat = true
 	table.remove(Sim.minimapBlips, 1)

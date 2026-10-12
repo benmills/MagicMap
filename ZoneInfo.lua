@@ -7,7 +7,7 @@
 local ADDON, ns = ...
 local state = ns.state
 
-local TILE_YARDS = 1600 / 3
+local TILE_YARDS = ns.TILE_YARDS
 local NEAR_YARDS = 900       -- landmarks further from the click than this aren't "nearby"
 local SUBZONE_NEAR_YARDS = 350 -- an unexplored spot is "near" a sub-zone label this close
 local MAX_QUESTS = 2

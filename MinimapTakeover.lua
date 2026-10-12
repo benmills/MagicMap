@@ -12,8 +12,9 @@
 -- back is exactly what was taken.
 --
 -- While engaged, the Minimap has one of two jobs, set each frame:
---   * outdoors, the sensor: invisible (alpha 0, no ground, no mouse), 200
---     units square at the centre of our map, at its widest zoom, north up.
+--   * outdoors, the sensor: SENSOR_PX screen units square, centred under our
+--     window but kept on the screen, its own icons shrunk out of sight (alpha
+--     0 doesn't hide them), no ground, no mouse, at its widest zoom, north up.
 --     Blips.lua reads its blips through a pretend mouse and draws them on our
 --     map itself. The HereBeDragons pins on it (addons' minimap pins, such as
 --     GatherMate's) are hosted on a frame of ours, the Minimap's view in map
@@ -35,7 +36,7 @@ local ADDON, ns = ...
 local T = {}
 ns.Takeover = T
 
-local TILE_YARDS = 1600 / 3
+local TILE_YARDS = ns.TILE_YARDS
 -- The sensor's side in screen units, whatever our window's size or scale:
 -- a blip answers in a square about 16 screen units wide (Blips.lua), so
 -- the bigger it is, the smaller that square in yards (about 25 yd here)
@@ -298,9 +299,6 @@ local function KeepMinimap()
 	return parent, points, w, h, scale, strata, level
 end
 
--- The window's strata changes (growing and shrinking): the Minimap and our
--- host go with it. Outdoors, under our layers; indoors, above the backdrop.
--- The pins' host sits just under our layers and overlay.
 -- Just beneath `frame`: the strata and level to draw under it.
 local function Beneath(frame)
 	local strata, level = frame:GetFrameStrata(), frame:GetFrameLevel()
@@ -311,6 +309,9 @@ local function Beneath(frame)
 	return strata, 0
 end
 
+-- The window's strata changes (growing and shrinking): the Minimap and our
+-- host go with it. Outdoors, under the whole window; indoors, above the
+-- backdrop. The pins' host sits just under our layers and overlay.
 local function FollowWindow()
 	local strata = ns.frame:GetFrameStrata()
 	if strata == followed and mode == followedMode then return end
@@ -547,27 +548,6 @@ local function Update()
 		PlaceSensor()
 		PlaceHost(cam)
 	end
-end
-
--- /mm sensor: an outline where the sensor is, to see whether anything of
--- Blizzard's shows on it.
-local outline = CreateFrame("Frame", nil, UIParent)
-outline:SetFrameStrata("TOOLTIP")
-outline:Hide()
-for _, e in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT", true }, { "TOPRIGHT", "BOTTOMRIGHT", true } }) do
-	local t = outline:CreateTexture(nil, "OVERLAY")
-	t:SetColorTexture(1, 0.2, 0.8, 0.9)
-	t:SetPoint(e[1])
-	t:SetPoint(e[2])
-	if e[3] then t:SetWidth(1) else t:SetHeight(1) end
-end
-ns.slash.sensor = function()
-	outline:SetShown(not outline:IsShown())
-	if outline:IsShown() then
-		outline:ClearAllPoints()
-		outline:SetAllPoints(Minimap)
-	end
-	ns.Print(outline:IsShown() and "sensor: outlined in pink (/mm sensor again to hide)" or "sensor: outline off")
 end
 
 ns.frame:HookScript("OnUpdate", ns.Timed("minimap", Update))

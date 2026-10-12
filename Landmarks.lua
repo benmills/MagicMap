@@ -5,8 +5,9 @@
 --  * Live vignettes: rares and treasures the game is currently showing.
 --  * Area POIs the game defines for each zone.
 --
--- Vendors, trainers, innkeepers and the like are Blizzard's minimap tracking:
--- it knows every one, where we'd only know those you've visited.
+-- Vendors, trainers, innkeepers and the like are Blips.lua's (the minimap
+-- sensor and QuestieDB), which also keeps blips it has seen in this store
+-- (kind "blip").
 
 local ADDON, ns = ...
 local store -- MagicMapLandmarks[instanceID][key] = { kind ("rare", or "blip": Blips.lua's), name, n, w, t }
@@ -163,10 +164,10 @@ end))
 ns.On("Loaded", function()
 	MagicMapLandmarks = MagicMapLandmarks or {}
 	store = MagicMapLandmarks
-	-- Vendors and the like an earlier version learned: Blizzard's tracking now.
+	-- Vendors and the like an earlier version learned (other kinds): Blips.lua's now.
 	for _, entries in pairs(store) do
 		for key, e in pairs(entries) do
-			if e.kind ~= "rare" then entries[key] = nil end
+			if e.kind ~= "rare" and e.kind ~= "blip" then entries[key] = nil end
 		end
 	end
 end)
@@ -174,7 +175,9 @@ end)
 ns.slash.landmarks = function()
 	local total = 0
 	for _, entries in pairs(store or {}) do
-		for _ in pairs(entries) do total = total + 1 end
+		for _, e in pairs(entries) do
+			if e.kind == "rare" then total = total + 1 end
+		end
 	end
 	ns.Print(total .. " rares remembered" .. (total > 0 and "" or ". Target one, or pass one the game shows, and it'll appear on the map."))
 end

@@ -48,10 +48,13 @@ the same yards across as it grows. It remembers where you put it, and `/mm reset
 The buttons show while you hover: follow at the bottom left, zoom at the bottom right,
 and the gear and the big map button by the zone name.
 
-Outdoors, Blizzard's minimap stays invisible and is read as a sensor, so MagicMap draws its blips
-(herbs, ore, tracked NPCs) itself with its own icons. Each blip within about 233 yards of you gets
-a pin, anywhere on the map, at any zoom, with Rotate Minimap on or off. Anything without an icon
-of its own is a gold dot. These are the "Minimap blips" layer in the gear's Places. MagicMap also
+Outdoors, Blizzard's minimap stays out of sight and is read as a sensor, so MagicMap draws its
+blips (herbs, ore, tracked NPCs) itself, with Blizzard's tracking icons: herbs and ore, the
+mailbox, innkeepers, bankers, trainers and the other town services. Each blip within about 233
+yards of you gets a pin, anywhere on the map, at any zoom, with Rotate Minimap on or off. Further
+away, zoomed in to town scale, the town services you track show too (from QuestieDB), and so do
+blips seen before, like mailboxes. These are the "Minimap blips" layer in the gear's Places.
+Anything without an icon of its own is a gold dot. MagicMap also
 draws everything else: quests and their areas, flight points, dungeon entrances, points of
 interest, party members, rares, your corpse and your waypoint. Where both could draw something,
 only one does.
@@ -172,6 +175,7 @@ Slash commands, `/mm` or `/magicmap`:
 | `/mm reset` | Back onto the minimap's spot, at its size |
 | `/mm layers` | What's drawn, in chat |
 | `/mm landmarks` | How many rares are remembered |
+| `/mm blips` | What the minimap sensor knows now (and its log, for bug reports) |
 | `/mm icon` | Show or hide the minimap button |
 | `/mm tint` | Tile colour correction on or off |
 
@@ -185,7 +189,7 @@ Settings and remembered rares are shared by every character on your account.
 
 - **WoW Forever only.** The data and code target its client.
 - **Blizzard's blips are only sensed within about 233 yards of you,** and a blip is dropped once a
-  full sweep no longer finds it.
+  full sweep no longer finds it. Two of a name closer than a few yards show as one.
 - **Indoors, it's Blizzard's floor plan,** not MagicMap's terrain.
 - **Instances that hide your position** are shown whole, without the line or blips.
   Instances have no zone borders.
@@ -227,17 +231,18 @@ Python 3.9+. Generators use only the standard library (`gen_tilecolor.py --previ
 Minimap tiles are textures an addon can draw by FileDataID; MagicMap lays them out on the 64×64
 grid of 533⅓-yard tiles and places everything else by world position. The tile lists, zone
 borders and coast colours in `Data/` are generated offline from the game files. Outdoors,
-Blizzard's Minimap is kept invisible at its widest zoom, north up, with the soft cursor on, and
-`Blips.lua` reads it as a sensor: it sweeps a pretend mouse over it and draws each blip it finds
-on our map, in world yards. Indoors, the Minimap is shown in the window as the floor plan. Every
+Blizzard's Minimap sits under our window at its widest zoom, north up, its own icons shrunk out
+of sight, and `Blips.lua` reads it as a sensor: it sweeps a pretend mouse over it and draws each
+blip it finds on our map, in world yards. Indoors, the Minimap is shown in the window as the floor plan. Every
 change to Blizzard's minimap is in `MinimapTakeover.lua`, paired with its undo.
 
 ### Risks
 
 The sensor relies on behaviour the client doesn't document, found by measuring in game:
 `UpdateMouseoverAtPoint` only works while `SetUsingSoftCursor(true)`; blips answer in a square
-7.84 Minimap units each way from their middle, at any size; and reading works while the Minimap
-is invisible. It also relies on HereBeDragons' internal pin table (`SetMinimapObject`,
+about 8 screen units each way from their middle, whatever the Minimap's size, scale or icon scale;
+alpha 0 doesn't hide its blips; and off screen it stops updating them. QuestieDB's NPC flags are
+read with Classic's values, which it doesn't export. It also relies on HereBeDragons' internal pin table (`SetMinimapObject`,
 `minimapPins`). The tests catch crashes and wrong API assumptions, not how it looks in the real
 client. Tile IDs change between Forever builds, so `Data/` must be regenerated when they do.
 

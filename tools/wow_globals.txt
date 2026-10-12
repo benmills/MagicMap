@@ -5,7 +5,7 @@
 # Lua 5.1 + WoW's Lua extensions
 _G assert collectgarbage coroutine date debugprofilestop error getmetatable ipairs math next
 pairs pcall rawget rawset select setmetatable string strsplit strtrim table
-time tinsert tremove tonumber tostring type unpack wipe xpcall hooksecurefunc
+time tinsert tremove tonumber tostring type unpack wipe xpcall hooksecurefunc geterrorhandler
 
 # Namespaces
 C_AddOnProfiler C_AddOns C_AreaPoiInfo C_CVar C_DeathInfo C_EncounterJournal C_Item C_Map C_MapExplorationInfo

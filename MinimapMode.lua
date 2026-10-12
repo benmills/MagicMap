@@ -16,7 +16,7 @@
 --     world map (the quest log, L) still opens it as usual.
 
 local ADDON, ns = ...
-local TILE_YARDS = 1600 / 3
+local TILE_YARDS = ns.TILE_YARDS
 local IDLE_FOLLOW = 6 -- seconds untouched before the map follows you again
 local EXPAND_TIME, COLLAPSE_TIME = 0.22, 0.18
 local EXPAND_ZOOM_OUT = 1.5 -- M zooms out this much (the window grows far more)

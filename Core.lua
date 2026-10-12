@@ -7,6 +7,7 @@
 
 local ADDON, ns = ...
 local TILE_YARDS = 1600 / 3 -- one ADT / minimap tile = 533.33 yards
+ns.TILE_YARDS = TILE_YARDS
 -- Screen units per tile. Closest is about Blizzard's own closest minimap zoom
 -- (its tiles are 256 px: any closer and they just smear).
 local MIN_ZOOM, MAX_ZOOM = 16, 800
@@ -1748,6 +1749,6 @@ SlashCmdList.MAGICMAP = function(msg)
 	elseif ns.slash[cmd] then
 		ns.slash[cmd](arg)
 	else
-		Print("/mm [toggle] | follow | map <id|name> | zone <name> | icon | tiles | tint | layers | landmarks | perf | debug | reset")
+		Print("/mm [toggle] | follow | map <id|name> | zone <name> | icon | tiles | tint | layers | landmarks | blips | perf | debug | reset")
 	end
 end

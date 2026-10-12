@@ -38,10 +38,10 @@ local SAME = 6          -- yd: a blip measured this close to a known one of its 
 local LAG = 8           -- yd
 local SETTLE = 0.5      -- s
 local NEAR_OURS = 8     -- yd: a blip this close to one of our own pins is that pin's
-local TILE_YARDS = 1600 / 3
+local TILE_YARDS = ns.TILE_YARDS
 
 local blips = {}        -- { name, north, west, inst, seen, rough (measured on the move) }
-local grid, gridKey = {}, nil
+local grid, gridW, gridH, gridHalf = {}, nil, nil, nil
 local HALF, STEP        -- this frame, in Minimap units: HALF_PX over its scale, and the grid spacing
 local sweep = { i = 1, id = 1 }
 local changed = false
@@ -168,7 +168,7 @@ local function BuildGrid(w, h)
 	for x = STEP / 2, w, STEP do
 		for y = STEP / 2, h, STEP do grid[#grid + 1] = { x, y } end
 	end
-	gridKey = w .. ":" .. h .. ":" .. HALF
+	gridW, gridH, gridHalf = w, h, HALF
 	sweep.i = 1
 end
 
@@ -199,7 +199,11 @@ local function Log(fmt, ...)
 	local log = db.blipLog or {}
 	db.blipLog = log
 	log[#log + 1] = ("%.2f %s"):format(GetTime(), fmt:format(...))
-	if #log > LOG_SIZE then table.remove(log, 1) end
+	if #log > LOG_SIZE * 1.5 then -- (trimmed now and then, not shifted every line)
+		local keep = {}
+		for i = #log - LOG_SIZE + 1, #log do keep[#keep + 1] = log[i] end
+		db.blipLog = keep
+	end
 end
 
 -- Where a blip is from you, in yards (east, north), for the log.
@@ -226,11 +230,13 @@ local function Add(name, x, y)
 	changed = true
 end
 
--- Standing still: one blip measured on the move, measured again.
+-- Standing still: one blip measured on the move, measured again (each
+-- tried once a sweep; one that doesn't answer where it should is left for
+-- the sweep to drop).
 local function Settle()
 	for _, b in ipairs(blips) do
-		if b.rough and b.inst == g.inst then
-			b.rough = false
+		if b.rough and b.inst == g.inst and b.settleTry ~= sweep.id then
+			b.settleTry = sweep.id
 			local bx, by = ToLocal(b)
 			if Answers(bx, by, b.name) then
 				local best, gap
@@ -241,7 +247,7 @@ local function Settle()
 				if best then
 					local north, west = ToWorld(best[1], best[2])
 					Log("settle %s %s -> %s", b.name, Rel(b.north, b.west), Rel(north, west))
-					b.north, b.west = north, west
+					b.north, b.west, b.rough = north, west, false
 					changed = true
 				end
 			end
@@ -266,6 +272,8 @@ local function Visit(x, y)
 end
 
 -- A whole sweep done: what none of its points named is gone.
+local ForgetUnseen -- forward: remembered blips it didn't see (below)
+
 local function EndSweep()
 	for i = #blips, 1, -1 do
 		if blips[i].seen ~= sweep.id then
@@ -274,6 +282,7 @@ local function EndSweep()
 			changed = true
 		end
 	end
+	ForgetUnseen()
 	sweep.id = sweep.id + 1
 	sweep.rest, sweep.north, sweep.west = GetTime() + REST, g.north, g.west
 	if changed then
@@ -331,7 +340,9 @@ local function Update()
 		Restart()
 	end
 	HALF = HALF_PX / g.scale
-	if gridKey ~= g.w .. ":" .. g.h .. ":" .. HALF then BuildGrid(g.w, g.h) end
+	-- (A new size, or the square's size refined by more than a little.)
+	if g.w ~= gridW or g.h ~= gridH or math.abs(HALF - gridHalf) > 0.05 * gridHalf then BuildGrid(g.w, g.h) end
+	if #grid == 0 then return end
 	if sweep.i == 1 and sweep.rest and GetTime() < sweep.rest
 		and (g.north - sweep.north) ^ 2 + (g.west - sweep.west) ^ 2 < MOVED * MOVED then
 		return -- standing still: nothing new comes in over the edge
@@ -369,13 +380,13 @@ local SERVICES = {
 	{ 4096, 136452 },  -- auctioneer
 	{ 8192, 136466 },  -- stable master
 	{ 2048, 136454 },  -- battlemaster
-	{ 16, 136463 },    -- trainer (class trainers below)
+	{ 16, 136463 },    -- trainer (TRAINER; class trainers get CLASS_TRAINER)
 	{ 16384, 136465 }, -- repair
 }
 local MAILBOX = 136459
 local QUEST_GIVER = 132049 -- Interface\GossipFrame\AvailableQuestIcon: the "!"
 local QUEST_ENDER = 132048 -- ActiveQuestIcon: the "?"
-local CLASS_TRAINER = 136455
+local TRAINER, CLASS_TRAINER = 136463, 136455
 local CLASSES = { "Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "Mage", "Warlock", "Druid" }
 
 local function HasFlag(flags, bit) return bit and flags and math.floor(flags / bit) % 2 == 1 end
@@ -386,7 +397,7 @@ local function ServiceIcon(flags, sub)
 	for _, s in ipairs(SERVICES) do
 		if not icon and HasFlag(flags, s[1]) then icon = s[2] end
 	end
-	if icon == 136463 and sub then
+	if icon == TRAINER and sub then
 		for _, c in ipairs(CLASSES) do
 			if sub:find(c, 1, true) then icon = CLASS_TRAINER end
 		end
@@ -470,7 +481,10 @@ local LIVE_YARDS = 220     -- around you, the sensor's word
 local BUILD_PER_FRAME = 300 -- NPCs looked at each frame while the services are gathered
 
 local services            -- instance -> list of { name, col, row, icon, sub }, once gathered
-local gathering
+local gathering, gatherAgain -- the gathering in progress; when to try again after one found nothing
+local GATHER_AGAIN = 30    -- s
+local MAX_REMEMBERED = 300 -- blips kept per instance (the oldest go)
+local NEAR_SAME = 30       -- yd: a remembered blip this close to a service of its name is that one
 
 -- QuestieDB's zone IDs to uiMap IDs (its support data keeps them as Lua source).
 local function AreaMaps(DB)
@@ -531,7 +545,15 @@ gatherer:SetScript("OnUpdate", ns.Timed("town services", function(self)
 	local ok, result = coroutine.resume(gathering)
 	if not ok or coroutine.status(gathering) == "dead" then
 		self:Hide()
-		services = ok and result or {}
+		gathering = nil
+		if not ok then
+			geterrorhandler()(result)
+			services = {} -- (not tried again this session: it would fail again)
+		elseif next(result) then
+			services = result
+		else
+			gatherAgain = GetTime() + GATHER_AGAIN -- (QuestieDB not ready yet?)
+		end
 		ns.RefreshLayer("blips")
 	end
 end))
@@ -543,23 +565,68 @@ local function Tracked()
 		local info = C_Minimap.GetTrackingInfo(i)
 		if info and info.active and info.texture then on[info.texture] = true end
 	end
-	if on[136463] then on[CLASS_TRAINER] = true end -- (one switch for both kinds of trainer)
+	if on[TRAINER] then on[CLASS_TRAINER] = true end -- (one switch for both kinds of trainer)
 	return on
 end
 
+-- A town service QuestieDB has of this name near (col, row).
+local function KnownService(inst, name, col, row)
+	local reach = NEAR_SAME / TILE_YARDS
+	for _, e in ipairs(services and services[inst] or {}) do
+		if e.name == name and (e.col - col) ^ 2 + (e.row - row) ^ 2 < reach * reach then return true end
+	end
+	return false
+end
+
+-- A blip seen now, kept for when you're away (but those QuestieDB has
+-- anyway); at most MAX_REMEMBERED an instance, the oldest going first.
 local function Remember(b, icon)
 	local store = MagicMapLandmarks
 	if not store then return end
+	local col, row = ns.WorldToTile(b.north, b.west)
+	if KnownService(b.inst, b.name, col, row) then return end
 	local key = "blip:" .. b.name .. ":" .. math.floor(b.north / 8 + 0.5) .. ":" .. math.floor(b.west / 8 + 0.5)
 	store[b.inst] = store[b.inst] or {}
-	local e = store[b.inst][key]
+	local entries = store[b.inst]
+	local e = entries[key]
 	if e and e.t > time() - 3600 then return end
-	store[b.inst][key] = { kind = "blip", name = b.name, icon = icon,
+	if not e then
+		local count, oldest = 0, nil
+		for k, x in pairs(entries) do
+			if x.kind == "blip" then
+				count = count + 1
+				if not oldest or x.t < entries[oldest].t then oldest = k end
+			end
+		end
+		if count >= MAX_REMEMBERED then entries[oldest] = nil end
+	end
+	entries[key] = { kind = "blip", name = b.name, icon = icon,
 		n = math.floor(b.north * 10 + 0.5) / 10, w = math.floor(b.west * 10 + 0.5) / 10, t = time() }
 end
 
+-- A sweep done: remembered blips well inside its reach that it didn't
+-- see (of a kind it's tracking) are gone from there.
+ForgetUnseen = function()
+	local entries = MagicMapLandmarks and MagicMapLandmarks[g.inst]
+	if not entries then return end
+	local on = Tracked()
+	local reach = 0.8 * LIVE_YARDS
+	for key, e in pairs(entries) do
+		if e.kind == "blip" and on[e.icon] and (e.n - g.north) ^ 2 + (e.w - g.west) ^ 2 < reach * reach then
+			local seen = false
+			for _, b in ipairs(blips) do
+				if b.name == e.name and b.inst == g.inst and (b.north - e.n) ^ 2 + (b.west - e.w) ^ 2 < 15 * 15 then seen = true end
+			end
+			if not seen then
+				Log("forget %s %s", e.name, Rel(e.n, e.w))
+				entries[key] = nil
+			end
+		end
+	end
+end
+
 local function Remote(list, mapID, skip)
-	if not services and not gathering and LibQuestieDB then
+	if not services and not gathering and LibQuestieDB and GetTime() >= (gatherAgain or 0) then
 		gathering = coroutine.create(Gather)
 		gatherer:Show()
 	end
@@ -569,18 +636,16 @@ local function Remote(list, mapID, skip)
 	local pc, pr
 	if here then pc, pr = ns.WorldToTile(pn, pw) end
 	local reach = LIVE_YARDS / TILE_YARDS
-	local shown = {}
 	local function Add(name, col, row, icon, sub)
 		if not on[icon] or skip[name] or (here and (col - pc) ^ 2 + (row - pr) ^ 2 < reach * reach) then return end
-		shown[name] = true
 		ns.PinAtTile(list, mapID, col, row, { size = 14, minZoom = REMOTE_MIN_ZOOM, title = name,
 			lines = { sub, "|cff808080Not in sight|r" }, icon = { texture = icon } })
 	end
 	for _, e in ipairs(services and services[mapID] or {}) do Add(e.name, e.col, e.row, e.icon, e.sub) end
 	for _, e in pairs(MagicMapLandmarks and MagicMapLandmarks[mapID] or {}) do
-		if e.kind == "blip" and not shown[e.name] then
+		if e.kind == "blip" then
 			local col, row = ns.WorldToTile(e.n, e.w)
-			Add(e.name, col, row, e.icon)
+			if not KnownService(mapID, e.name, col, row) then Add(e.name, col, row, e.icon) end
 		end
 	end
 end
