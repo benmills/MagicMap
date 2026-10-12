@@ -36,12 +36,13 @@ local T = {}
 ns.Takeover = T
 
 local TILE_YARDS = 1600 / 3
--- The sensor's side in screen units, whatever our window's scale: a blip
--- answers in a square about 16 screen units wide (Blips.lua), so the
--- bigger it is, the smaller that square in yards (about 25 yd here) and the
--- closer two blips of a name can be told apart; but the more points a
--- sweep tries.
+-- The sensor's side in screen units, whatever our window's size or scale:
+-- a blip answers in a square about 16 screen units wide (Blips.lua), so
+-- the bigger it is, the smaller that square in yards (about 25 yd here)
+-- and the closer two blips of a name can be told apart; but the more
+-- points a sweep tries. (Positions are exact at any size.)
 local SENSOR_PX = 300
+local SENSOR_MARGIN = 2 -- screen units it keeps inside the screen's edge (off it, the client stops updating its blips)
 local SENSOR_ICONS = 0.05 -- its own icons' scale: tiny (what it answers doesn't change with it)
 local STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP" }
 local OUTDOOR = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 } -- yards across its outdoor view, by zoom level
@@ -56,6 +57,7 @@ local lastSize           -- indoors: the size the whole Minimap was last set to
 local pinSize             -- outdoors: the size the pins' host was last set to
 local pinsCheckAt = 0     -- when the pins next check every HereBeDragons copy is on our host
 local placed = {}         -- where the pins' host was last anchored: canvas, x, y
+local sensorAt            -- where PlaceSensor last put the sensor (screen units)
 local followed, followedMode -- the window strata and mode FollowWindow last applied
 local trackingOn, trackingAt -- what SyncTracking last did, and when
 
@@ -411,7 +413,8 @@ local function SetMode(m)
 	followed = nil
 	FollowWindow()
 	Minimap:ClearAllPoints()
-	Minimap:SetPoint("CENTER", ns.viewport)
+	sensorAt = nil
+	if m == "whole" then Minimap:SetPoint("CENTER", ns.viewport) end
 	Minimap:SetIconScale(m == "whole" and 1 or SENSOR_ICONS)
 	if m == "whole" then
 		-- Blizzard's minimap as it is: terrain, rim, its own hover tooltips.
@@ -432,6 +435,26 @@ local function SetMode(m)
 		Minimap:SetMouseMotionEnabled(false)
 		Minimap:EnableMouseWheel(false)
 		Minimap:Show()
+	end
+end
+
+-- Outdoors: SENSOR_PX across, centred on our map (under it, so our terrain
+-- covers what of its blips shows at all), but all of it on the screen.
+local function PlaceSensor()
+	local ms = Minimap:GetEffectiveScale()
+	local vx, vy = ns.viewport:GetCenter()
+	if not vx then return end
+	local vs = ns.viewport:GetEffectiveScale()
+	local sw, sh = UIParent:GetWidth() * UIParent:GetEffectiveScale(), UIParent:GetHeight() * UIParent:GetEffectiveScale()
+	local half = SENSOR_PX / 2 + SENSOR_MARGIN
+	local x = math.max(half, math.min(sw - half, vx * vs))
+	local y = math.max(half, math.min(sh - half, vy * vs))
+	local d = SENSOR_PX / ms
+	if math.abs(Minimap:GetWidth() - d) > 0.01 then Minimap:SetSize(d, d) end
+	if not sensorAt or x ~= sensorAt.x or y ~= sensorAt.y then
+		sensorAt = { x = x, y = y }
+		Minimap:ClearAllPoints()
+		Minimap:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x / ms, y / ms)
 	end
 end
 
@@ -521,13 +544,30 @@ local function Update()
 	else
 		if not Minimap:IsShown() then Minimap:Show() end
 		if Minimap:GetZoom() ~= 0 then Minimap:SetZoom(0) end -- (HereBeDragons may zoom it through our host)
-		-- SENSOR_PX across, but inside the window (under its terrain).
-		local vs, ms = ns.viewport:GetEffectiveScale(), Minimap:GetEffectiveScale()
-		local vw, vh = ns.viewport:GetSize()
-		local d = math.min(SENSOR_PX, vw * vs - 4, vh * vs - 4) / ms
-		if math.abs(Minimap:GetWidth() - d) > 0.01 then Minimap:SetSize(d, d) end
+		PlaceSensor()
 		PlaceHost(cam)
 	end
+end
+
+-- /mm sensor: an outline where the sensor is, to see whether anything of
+-- Blizzard's shows on it.
+local outline = CreateFrame("Frame", nil, UIParent)
+outline:SetFrameStrata("TOOLTIP")
+outline:Hide()
+for _, e in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT", true }, { "TOPRIGHT", "BOTTOMRIGHT", true } }) do
+	local t = outline:CreateTexture(nil, "OVERLAY")
+	t:SetColorTexture(1, 0.2, 0.8, 0.9)
+	t:SetPoint(e[1])
+	t:SetPoint(e[2])
+	if e[3] then t:SetWidth(1) else t:SetHeight(1) end
+end
+ns.slash.sensor = function()
+	outline:SetShown(not outline:IsShown())
+	if outline:IsShown() then
+		outline:ClearAllPoints()
+		outline:SetAllPoints(Minimap)
+	end
+	ns.Print(outline:IsShown() and "sensor: outlined in pink (/mm sensor again to hide)" or "sensor: outline off")
 end
 
 ns.frame:HookScript("OnUpdate", ns.Timed("minimap", Update))

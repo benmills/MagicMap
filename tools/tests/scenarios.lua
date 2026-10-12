@@ -141,7 +141,7 @@ end
 scenarios.slash_commands = function()
 	for _, cmd in ipairs({ "", "", "follow", "follow", "map 1", "map kalimdor", "map 0", "map nowhere", "zone elwynn",
 		"zone westfall", "zone nowhere", "tiles", "debug", "debug", "reset", "layers", "landmarks", "icon", "icon",
-		"perf top", "perf mem", "perf", "perf", "help" }) do
+		"perf top", "perf mem", "perf", "perf", "sensor", "sensor", "help" }) do
 		Sim.Slash(cmd)
 		Sim.Run(0.3)
 	end
@@ -248,9 +248,17 @@ scenarios.minimap_mode = function()
 	check(Minimap:GetAlpha() == 0 and not Sim.minimapGround and Minimap:GetZoom() == 0,
 		"outdoors the Minimap is an invisible sensor, at its widest zoom")
 	check(not Minimap:IsMouseEnabled(), "that never takes the mouse")
-	check(Minimap:GetLeft() >= ns.viewport:GetLeft() and Minimap:GetRight() <= ns.viewport:GetRight()
-		and Minimap:GetFrameLevel() < ns.frame:GetFrameLevel() and S[Minimap].iconScale < 0.1,
+	check(OnScreen(Minimap) and Minimap:GetFrameLevel() < ns.frame:GetFrameLevel() and S[Minimap].iconScale < 0.1,
 		"on screen (off it, its blips stop updating), under our window, its own icons tiny (alpha doesn't fade them)")
+	check(math.abs(Minimap:GetWidth() * Minimap:GetEffectiveScale() - 300) < 0.5, "300 screen units across, whatever our window")
+	local p1 = { ns.frame:GetPoint(1) }
+	ns.frame:ClearAllPoints()
+	ns.frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
+	Sim.Run(0.2)
+	check(OnScreen(), "with our window in the screen's corner, the sensor still all on screen")
+	ns.frame:ClearAllPoints()
+	ns.frame:SetPoint(unpack(p1))
+	Sim.Run(0.2)
 	check(Sim.minimapUnrotated, "and it stays north up, even with Rotate Minimap")
 	check(ns.Takeover.Sensing(), "it's sensing")
 	check(Sim.minimapButton:GetParent() == ns.minimapStandIn, "other addons' minimap buttons moved to the stand-in")
