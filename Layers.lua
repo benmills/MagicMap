@@ -295,12 +295,23 @@ local function PinOnEnter(self)
 	GameTooltip:Show()
 end
 
+local INNER_SIZE, INNER_SHADE = 0.66, 0.55 -- a quest's objective icon: share of its disc, and how dark (the "..." on it reads)
 local pinPool = Pool(function()
 	local pin = CreateFrame("Frame", nil, canvases.pins)
 	pin.ring = pin:CreateTexture(nil, "ARTWORK", nil, 0)
 	pin.ring:SetPoint("CENTER")
 	pin.ring:SetTexture(CIRCLE)
-	pin.icon = pin:CreateTexture(nil, "ARTWORK", nil, 1)
+	-- What a quest still needs, inside its disc and under its "...".
+	pin.inner = pin:CreateTexture(nil, "ARTWORK", nil, 1)
+	pin.inner:SetPoint("CENTER")
+	pin.inner:SetTexCoord(0.08, 0.92, 0.08, 0.92) -- an icon's own border trimmed off
+	pin.inner:SetVertexColor(INNER_SHADE, INNER_SHADE, INNER_SHADE, 1)
+	local mask = pin:CreateMaskTexture()
+	mask:SetTexture(CIRCLE, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+	mask:SetAllPoints(pin.inner)
+	pin.inner:AddMaskTexture(mask)
+	pin.inner:Hide()
+	pin.icon = pin:CreateTexture(nil, "ARTWORK", nil, 2)
 	pin.icon:SetPoint("CENTER")
 	pin:EnableMouse(true)
 	-- Let clicks fall through to the map so dragging still works over pins.
@@ -321,12 +332,13 @@ end)
 
 local pinData = {} -- layer key -> list of { col, row, size, icon = { atlas, color, style }, title, lines }
 
--- icon: { texture } | { atlas, under (atlas drawn behind), tint (of under), scale, aspect (width / height) }
+-- icon: { texture } | { atlas, under (atlas drawn behind), tint (of under), inner (texture in under, behind atlas), scale, aspect (width / height) }
 -- with color as the fallback dot. glow (the gold halo) is only for the quest you follow.
 -- count: a short line under the pin (a quest's progress).
 local function StylePin(pin, e)
 	local size = e.size or 14
 	pin.count:SetText(e.count)
+	pin.inner:Hide()
 	-- A soft halo marks what you're following.
 	if e.glow then
 		pin.glow:SetVertexColor(1, 0.82, 0.3, 0.45)
@@ -354,6 +366,11 @@ local function StylePin(pin, e)
 			pin.ring:SetVertexColor(t and t[1] or 1, t and t[2] or 1, t and t[3] or 1, 1)
 			pin.ring:SetSize(size, size)
 			pin.ring:Show()
+			if icon.inner then
+				pin.inner:SetTexture(icon.inner)
+				pin.inner:SetSize(size * INNER_SIZE, size * INNER_SIZE)
+				pin.inner:Show()
+			end
 			local s = size * (icon.scale or 0.62)
 			pin.icon:SetAtlas(icon.atlas)
 			pin.icon:SetSize(s * (icon.aspect or 1), s)
@@ -607,7 +624,8 @@ sources.quests = function(mapID)
 		-- Same art as the world map's quest buttons (re-skinned by the client).
 		local icon = complete
 			and { atlas = "UI-QuestIcon-TurnIn-Normal", color = { 0.2, 1, 0.2 } }
-			or { atlas = "Quest-In-Progress-Icon-yellow", under = "UI-QuestPoi-QuestNumber", tint = difficulty, color = { 1, 0.82, 0 } }
+			or { atlas = "Quest-In-Progress-Icon-yellow", under = "UI-QuestPoi-QuestNumber", tint = difficulty,
+				inner = ns.QuestObjectiveIcon(questID), color = { 1, 0.82, 0 } }
 		local e = AddAt(list, b.uiMapID, b.x, b.y, {
 			size = followed and 26 or 22, glow = followed, questID = questID, icon = icon, turnIn = complete,
 			title = label, titleColor = difficulty, count = not complete and ns.QuestProgress(questID) or nil,
@@ -2266,6 +2284,7 @@ local EVENT_LAYERS = {
 	USER_WAYPOINT_UPDATED = { "waypoint" },
 	SUPER_TRACKING_CHANGED = { "quests" },
 	PLAYER_LEVEL_UP = { "quests" }, -- difficulty colours
+	GET_ITEM_INFO_RECEIVED = { "quests" }, -- an objective's item icon
 	PLAYER_DEAD = { "corpse", "graveyards" },
 	PLAYER_ALIVE = { "corpse", "graveyards" },
 	PLAYER_UNGHOST = { "corpse", "graveyards" },

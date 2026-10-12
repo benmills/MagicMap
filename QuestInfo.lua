@@ -59,3 +59,31 @@ function ns.QuestProgress(questID)
 		end
 	end
 end
+
+-- The first unfinished objective's icon, for inside its pin: an item's own
+-- (looked up by the name in the objective's text, once the client has the
+-- item cached), else one for the kind of objective; nil for the rest
+-- (go somewhere, talk to someone). FileDataIDs.
+local KIND_ICONS = {
+	monster = 135274, -- INV_Sword_04
+	object = 134063,  -- INV_Misc_Gear_01
+	item = 133633,    -- INV_Misc_Bag_08, until the item's known
+}
+
+-- "Large Candle: 3/8" (or "3/8 Large Candle") -> "Large Candle"
+local function ObjectiveName(text)
+	local name = (text or ""):gsub("^%d+/%d+%s+", ""):gsub(":%s*%d+/%d+$", "")
+	return name
+end
+
+function ns.QuestObjectiveIcon(questID)
+	for _, o in ipairs(SafeCall(C_QuestLog.GetQuestObjectives, questID) or {}) do
+		if not o.finished then
+			if o.type == "item" then
+				local ok, _, _, _, _, icon = pcall(C_Item.GetItemInfoInstant, ObjectiveName(o.text))
+				if ok and icon then return icon end
+			end
+			return KIND_ICONS[o.type]
+		end
+	end
+end

@@ -1432,6 +1432,14 @@ C_QuestLog = {
 	IsQuestTrivial = function(questID) local q = Sim.quests[questID]; return q ~= nil and UnitLevel("player") - q.level > 5 end,
 	AddQuestWatch = function(questID) Sim.watched = questID; return true end,
 }
+-- Items the client has cached, by name: GetItemInfoInstant's itemID .. icon.
+Sim.items = { ["Large Candle"] = { 772, "Quest", "Quest", "", 134335 } }
+C_Item = {
+	GetItemInfoInstant = function(item)
+		local i = Sim.items[item]
+		if i then return i[1], i[2], i[3], i[4], i[5] end
+	end,
+}
 C_SuperTrack = {
 	GetSuperTrackedQuestID = function() return Sim.superTracked or 0 end,
 	SetSuperTrackedQuestID = function(id) Sim.superTracked = id end,

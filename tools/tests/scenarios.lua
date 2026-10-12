@@ -19,7 +19,7 @@ local function TilesDrawn()
 		end
 		for _, c in ipairs(S[f].children) do walk(c) end
 	end
-	walk(ns.frame)
+	walk(ns.tileCanvas)
 	return n
 end
 
@@ -752,6 +752,18 @@ scenarios.quest_meta = function()
 	check(pin.entry.title == "[7] Kobold Candles", "its title has its level, got " .. tostring(pin.entry.title))
 	check(Near(S[pin.ring].vertex, 1, 0.82, 0), "two levels above you, its disc is yellow")
 	check(pin.count:GetText() == "3/8", "its progress is under it, got " .. tostring(pin.count:GetText()))
+	check(pin.inner:IsShown() and S[pin.inner].texture == 134335, "the item it still needs sits in its disc, behind the \"...\"")
+	Sim.items["Large Candle"] = nil
+	Sim.FireEvent("QUEST_LOG_UPDATE")
+	Sim.Run(1)
+	pin = QuestPin(60)
+	check(pin and S[pin.inner].texture == 133633, "an item the client doesn't know yet: a bag for now")
+	Sim.items["Large Candle"] = { 772, "Quest", "Quest", "", 134335 }
+	Sim.FireEvent("GET_ITEM_INFO_RECEIVED", 772, true)
+	Sim.Run(1)
+	pin = QuestPin(60)
+	check(pin and S[pin.inner].texture == 134335, "and its own icon once it does")
+	check(not QuestPin(62).inner:IsShown(), "a quest ready to turn in has none")
 	Sim.FireScript(pin, "OnEnter", false)
 	check(Near(S[_G.GameTooltipTextLeft1].textColor, 1, 0.82, 0), "and its tooltip title is yellow")
 	Sim.FireScript(pin, "OnLeave", false)
@@ -1306,7 +1318,7 @@ scenarios.tiles_seamless = function()
 			end
 			for _, c in ipairs(S[f].children) do walk(c) end
 		end
-		walk(ns.frame)
+		walk(ns.tileCanvas)
 		check(#edges > 0, "tiles drawn")
 		check(bad == 0, ("tiles whole pixels in size (%d fractional)"):format(bad))
 		local near = 0
