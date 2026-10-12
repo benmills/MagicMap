@@ -1159,6 +1159,8 @@ C_Minimap = {
 	SetDrawGroundTextures = function(on) assert(type(on) == "boolean", "SetDrawGroundTextures: boolean expected"); Sim.minimapGround = on end,
 	IsRotateMinimapIgnored = function() return Sim.minimapUnrotated end,
 	SetIgnoreRotateMinimap = function(on) assert(type(on) == "boolean", "SetIgnoreRotateMinimap: boolean expected"); Sim.minimapUnrotated = on end,
+	-- Cities Blizzard_HybridMinimap paints (Orgrimmar): Sim.hybrid.
+	ShouldUseHybridMinimap = function() return Sim.hybrid == true end,
 	-- Tracking: the client keeps it per character (a CVar).
 	GetNumTrackingTypes = function() return #Sim.tracking end,
 	GetTrackingInfo = function(i)

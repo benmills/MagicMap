@@ -310,6 +310,15 @@ scenarios.minimap_mode = function()
 	Sim.indoors = false
 	Sim.Run(2)
 	check(not Sim.minimapGround and Minimap:GetAlpha() == 0 and Minimap:GetZoom() == 0, "back outdoors, our map again, the sensor at its widest")
+	-- A city Blizzard_HybridMinimap paints (Orgrimmar): the Minimap reads
+	-- as indoors, but our terrain and the sensor stay.
+	Sim.indoors, Sim.hybrid = true, true
+	Sim.Run(1)
+	check(ns.Takeover.Sensing() and not ns.MinimapShowsPlayer(), "in a hybrid-minimap city, our map and the sensor")
+	Sim.minimapUnrotated, Sim.minimapGround = false, true -- (HybridMinimap hiding as you leave)
+	Sim.indoors, Sim.hybrid = false, false
+	Sim.Run(0.5)
+	check(Sim.minimapUnrotated and not Sim.minimapGround, "leaving it, the sensor stays north up with no ground")
 	-- Somewhere you may mount but the Minimap draws its floor plan (Orgrimmar's Cleft of Shadow).
 	Sim.floorPlan = true
 	Sim.Run(1)

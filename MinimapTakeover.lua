@@ -537,7 +537,12 @@ local function Update()
 		return
 	end
 	Engage()
-	local whole = MinimapIndoors() and not ns.IsMapExpanded()
+	-- (In cities the client hands to Blizzard_HybridMinimap, Orgrimmar say,
+	-- the Minimap reads as indoors but draws its ground grey: that addon
+	-- paints the city over it, on a frame pinned under our window. There
+	-- our terrain and the sensor do.)
+	local hybrid = C_Minimap.ShouldUseHybridMinimap and C_Minimap.ShouldUseHybridMinimap()
+	local whole = MinimapIndoors() and not hybrid and not ns.IsMapExpanded()
 	SetMode(whole and "whole" or "sensor")
 	KeepTracking(not whole)
 	if whole then
@@ -545,6 +550,9 @@ local function Update()
 	else
 		if not Minimap:IsShown() then Minimap:Show() end
 		if Minimap:GetZoom() ~= 0 then Minimap:SetZoom(0) end -- (HereBeDragons may zoom it through our host)
+		-- HybridMinimap turns these back as it hides (leaving a city).
+		if not C_Minimap.IsRotateMinimapIgnored() then C_Minimap.SetIgnoreRotateMinimap(true) end
+		if C_Minimap.GetDrawGroundTextures() then C_Minimap.SetDrawGroundTextures(false) end
 		PlaceSensor()
 		PlaceHost(cam)
 	end
