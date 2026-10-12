@@ -1,6 +1,7 @@
 -- Path mode's line: a faint dashed line from you to your target, its dashes
--- drifting slowly toward the target. It's straight, not a route - it reads
--- as "that way" - and sits under the labels and pins.
+-- drifting slowly toward the target. It follows the way you'd walk
+-- (Route.lua) once that's found, else it's straight - "that way" - and it
+-- sits under the labels and pins.
 
 local ADDON, ns = ...
 local state = ns.state
@@ -12,24 +13,38 @@ local CLEAR_YOU, CLEAR_TARGET = 14, 15 -- px left clear around your arrow and th
 local FADE = 40            -- px over which the line fades in and out at its ends
 local DRIFT_HZ = 10        -- the drift steps this often (1.4 px a step); the line redraws only when it or the view moves
 
--- Off the map, your target gets a gold arrow on the map's edge, on the line
--- from you toward it (Blizzard's own rim arrows are pushed away: MinimapTakeover).
+-- Off the map, your target gets a gold arrow on the map's edge, where the
+-- line toward it leaves the map (Blizzard's own rim arrows are pushed away:
+-- MinimapTakeover).
 local EDGE_INSET = 16 -- px from the map's edge to the arrow's centre
+-- The route the path line last followed (tile positions, you first), or nil:
+-- straight. Set by the line's hook below, so the arrow is a frame behind.
+local routePts
 local edgeArrow = ns.overlay:CreateTexture(nil, "OVERLAY", nil, 3)
 edgeArrow:SetTexture("Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW")
 edgeArrow:SetSize(32, 32)
 edgeArrow:Hide()
 
+local function In(x, y, lo, hiX, hiY) return x >= lo and x <= hiX and y >= lo and y <= hiY end
+
 ns.frame:HookScript("OnUpdate", ns.Timed("path arrow", function()
 	local t = ns.FrameTarget()
 	if t and not t.inside and state.playerCol and state.playerMap == state.map then
 		local w, h = ns.ViewSize()
+		local lo, hiX, hiY = EDGE_INSET, w - EDGE_INSET, h - EDGE_INSET
 		local x1, y1 = ns.TileToScreen(state.playerCol, state.playerRow)
 		local x2, y2 = ns.TileToScreen(t.col, t.row)
-		local lo, hiX, hiY = EDGE_INSET, w - EDGE_INSET, h - EDGE_INSET
-		local inside = x1 >= lo and x1 <= hiX and y1 >= lo and y1 <= hiY
-		if inside and (x2 < lo or x2 > hiX or y2 < lo or y2 > hiY) then
-			-- How far along you -> target the line leaves the inset rect.
+		-- Along the route, the leg that leaves the inset rect.
+		local pts = state.path and routePts
+		if pts and In(x1, y1, lo, hiX, hiY) then
+			for i = 2, #pts do
+				x2, y2 = ns.TileToScreen(pts[i][1], pts[i][2])
+				if not In(x2, y2, lo, hiX, hiY) then break end
+				x1, y1 = x2, y2
+			end
+		end
+		if In(x1, y1, lo, hiX, hiY) and not In(x2, y2, lo, hiX, hiY) then
+			-- How far along it the line leaves the inset rect.
 			local dx, dy = x2 - x1, y2 - y1
 			local k = 1
 			if dx ~= 0 then k = math.min(k, ((dx > 0 and hiX or lo) - x1) / dx) end
@@ -96,18 +111,32 @@ end
 -- What the line was last drawn for; nothing moved, nothing to draw. It's
 -- drawn on the tiles' canvas, so panning and following carry it along with
 -- the map for free; it's redrawn when you or the target move half a pixel,
--- the zoom changes, or the drift steps (DRIFT_HZ).
+-- the zoom changes, the route is found again, or the drift steps (DRIFT_HZ).
 local drawn = {}
-local function Unchanged(x1, y1, x2, y2, phase)
-	if drawn[1] == x1 and drawn[2] == y1 and drawn[3] == x2 and drawn[4] == y2 and drawn[5] == phase then return true end
-	drawn[1], drawn[2], drawn[3], drawn[4], drawn[5] = x1, y1, x2, y2, phase
+local function Unchanged(x1, y1, x2, y2, phase, route)
+	if drawn[1] == x1 and drawn[2] == y1 and drawn[3] == x2 and drawn[4] == y2 and drawn[5] == phase
+		and drawn[6] == route then return true end
+	drawn[1], drawn[2], drawn[3], drawn[4], drawn[5], drawn[6] = x1, y1, x2, y2, phase, route
 	return false
 end
 
 local function HalfPixel(v) return math.floor(v * 2 + 0.5) / 2 end
 
+-- The line's corners on the canvas, and how far along it each one is
+-- ([1..m] this frame; past that, left over).
+local xs, ys, along = {}, {}, {}
+local straight = { {}, {} }
+
+-- Point at distance s along the line, from corner i on (s past along[i]).
+local function At(i, s)
+	local seg = along[i + 1] - along[i]
+	local k = seg > 0 and (s - along[i]) / seg or 0
+	return xs[i] + (xs[i + 1] - xs[i]) * k, ys[i] + (ys[i + 1] - ys[i]) * k
+end
+
 ns.frame:HookScript("OnUpdate", ns.Timed("path line", function()
 	local n = 0
+	routePts = nil
 	local t = state.path and ns.FrameTarget()
 	if t and not t.inside and state.playerCol and state.playerMap == state.map then
 		-- On the canvas: tile (col, row) is at (col * zoom, row * zoom) down from its top left.
@@ -115,22 +144,35 @@ ns.frame:HookScript("OnUpdate", ns.Timed("path line", function()
 		local x1, y1 = HalfPixel(state.playerCol * z), HalfPixel(state.playerRow * z)
 		local x2, y2 = HalfPixel(t.col * z), HalfPixel(t.row * z)
 		local phase = math.floor(GetTime() * DRIFT_HZ) / DRIFT_HZ
-		if Unchanged(x1, y1, x2, y2, phase) then return end
-		local dx, dy = x2 - x1, y2 - y1
-		local len = math.sqrt(dx * dx + dy * dy)
+		local pts, found = ns.RouteTo(t)
+		routePts = pts
+		if Unchanged(x1, y1, x2, y2, phase, found) then return end
+		if not pts then
+			pts = straight
+			pts[1][1], pts[1][2], pts[2][1], pts[2][2] = state.playerCol, state.playerRow, t.col, t.row
+		end
+		local m = #pts
+		for i = 1, m do
+			xs[i], ys[i] = pts[i][1] * z, pts[i][2] * z
+			along[i] = i == 1 and 0 or along[i - 1] + math.sqrt((xs[i] - xs[i - 1]) ^ 2 + (ys[i] - ys[i - 1]) ^ 2)
+		end
+		local len = along[m]
 		local s0, s1 = CLEAR_YOU, len - CLEAR_TARGET
 		if s1 > s0 then
-			local ux, uy = dx / len, dy / len
 			local scale = math.max(1, (s1 - s0) / (DASH + GAP) / MAX_DASHES)
 			local dash, step = DASH * scale, (DASH + GAP) * scale
 			local s = s0 + (phase * FLOW) % step - step
+			local i, j = 1, 1 -- the legs a dash starts and ends on
 			while s < s1 and n < MAX_DASHES do
 				local a, b = math.max(s, s0), math.min(s + dash, s1)
 				if b > a then
 					n = n + 1
 					local mid = (a + b) / 2
 					local f = math.min(1, (mid - s0) / FADE, (s1 - mid) / FADE)
-					local ax, ay, bx, by = x1 + ux * a, y1 + uy * a, x1 + ux * b, y1 + uy * b
+					while i < m - 1 and along[i + 1] < a do i = i + 1 end
+					while j < m - 1 and along[j + 1] < b do j = j + 1 end
+					local ax, ay = At(i, a)
+					local bx, by = At(j, b)
 					Segment(Get(shadows, n, 0, 3.5), ax, ay, bx, by, 0, 0, 0, 0.3 * f)
 					Segment(Get(dashes, n, 1, 1.8), ax, ay, bx, by, 1, 0.9, 0.65, 0.6 * f)
 				end

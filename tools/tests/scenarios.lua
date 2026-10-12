@@ -812,6 +812,46 @@ scenarios.path_to_quest_area = function()
 	Sim.blobShapes[60] = nil
 end
 
+-- Path mode's route goes the way you'd walk (Data/Walk.lua's terrain).
+scenarios.path_routes = function()
+	-- Elwynn Forest to Lakeshire: Redridge's mountains are in the way.
+	local pts = ns.FindRoute(0, 32.84, 49.03, 36.0, 49.5)
+	check(pts and #pts > 2, "Elwynn to Lakeshire bends")
+	local south = false
+	for _, p in ipairs(pts or {}) do south = south or p[2] > 49.6 end
+	check(south, "round the mountains by Three Corners, south of the straight line")
+	check(pts and pts[1][1] == 32.84 and pts[#pts][2] == 49.5, "from you, to the target")
+	pts = ns.FindRoute(0, 32.84, 49.03, 33.0, 49.1)
+	check(pts and #pts == 2, "across open ground, straight")
+	check(ns.FindRoute(9999, 1, 1, 2, 2) == nil, "no terrain data, no route (straight line)")
+end
+
+-- Path mode follows its route: found over a few frames, the dashes along
+-- it, and found again once you stray off it.
+scenarios.path_follows_route = function()
+	Sim.player.col, Sim.player.row = 32.84, 49.03
+	ns.frame:SetSize(400, 400)
+	ns.SetZoom(60)
+	ns.SetWaypointAt(36.0, 49.5) -- Lakeshire, past Redridge's mountains
+	ns.SetPath(true)
+	Sim.Run(2)
+	local pts, found = ns.RouteTo(ns.FrameTarget())
+	check(pts and #pts > 2, "a route, not a straight line")
+	if not pts then return end
+	check(pts[1][1] == 32.84 and pts[1][2] == 49.03, "from you")
+	local dashes = 0
+	for _, r in ipairs({ ns.layerFrames.path:GetRegions() }) do
+		if r:GetObjectType() == "Line" and r:IsShown() then dashes = dashes + 1 end
+	end
+	check(dashes > 0, "drawn as dashes")
+	Sim.player.col, Sim.player.row = 32.84, 50.0 -- well off it, south
+	Sim.Run(2)
+	local pts2, found2 = ns.RouteTo(ns.FrameTarget())
+	check(pts2 and found2 ~= found, "strayed off it, it's found again from where you are")
+	check(pts2 and pts2[1][2] == 50.0, "and starts from you")
+	ns.SetPath(false)
+end
+
 -- Party members: dots at their positions, moving with them.
 scenarios.group_members = function()
 	local function Dot()

@@ -78,4 +78,15 @@ benches.minimap_ride = function()
 	Sim.player.speed = 0
 end
 
+-- Path mode to Lakeshire, round Redridge's mountains: finding the route,
+-- then riding along it.
+benches.path_far_ride = function()
+	MinimapSetup()
+	ns.SetWaypointAt(36.0, 49.5)
+	Sim.Run(2)
+	Sim.player.speed, Sim.player.facing = 14, 4.2
+	Sim.Run(10)
+	Sim.player.speed = 0
+end
+
 return benches
