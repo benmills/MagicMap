@@ -508,10 +508,12 @@ end
 ---------------------------------------------------------------------------
 
 -- nil if the Minimap can join the map right now, else why not.
-local function Blocker(cam)
+local function Blocker()
 	if not ns.frame:IsShown() then return "the map is closed" end
 	if FarmHud and FarmHud.IsShown and FarmHud:IsShown() then return "FarmHud has the minimap" end
-	if not cam.onMap then return "you're not on the map being shown" end
+	-- (Not while you're off the map being shown, crossing to another
+	-- continent or browsing one: our window sits on the Minimap's home spot,
+	-- so letting it go there puts Blizzard's whole minimap over ours.)
 	return nil
 end
 
@@ -532,7 +534,7 @@ end
 
 local function Update()
 	local cam = ns.Camera()
-	if Blocker(cam) then
+	if Blocker() then
 		Release()
 		return
 	end
@@ -551,7 +553,11 @@ local function Update()
 		if not C_Minimap.IsRotateMinimapIgnored() then C_Minimap.SetIgnoreRotateMinimap(true) end
 		if C_Minimap.GetDrawGroundTextures() then C_Minimap.SetDrawGroundTextures(false) end
 		PlaceSensor()
-		PlaceHost(cam)
+		if cam.onMap then
+			PlaceHost(cam)
+		elseif pinHost:IsShown() then
+			pinHost:Hide() -- (its pins are around you, not on the map shown)
+		end
 	end
 end
 

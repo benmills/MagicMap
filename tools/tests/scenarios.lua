@@ -525,6 +525,18 @@ scenarios.minimap_restores_everything = function()
 	check(ns.Takeover.IsEngaged(), "rotate minimap keeps it")
 	Sim.cvars.rotateMinimap = "0"
 	Sim.Run(1)
+	-- Off the map being shown (browsing another continent, or crossing to
+	-- one): still ours, Blizzard's minimap kept out of its home spot.
+	ToggleWorldMap() -- (grown, to browse)
+	Sim.Run(1)
+	Sim.Slash("map 1")
+	Sim.Run(1)
+	check(ns.state.map == 1 and ns.Takeover.IsEngaged() and not MinimapCluster:IsShown() and not _G.MagicMapMinimapPins:IsShown(),
+		"off the map shown, the minimap stays ours (its pins' host hidden)")
+	ToggleWorldMap()
+	ns.SetFollow(true)
+	Sim.Run(1)
+	check(ns.Takeover.Sensing() and _G.MagicMapMinimapPins:IsShown(), "back on your map, the sensor and pins again")
 	ns.frame:Hide()
 	Sim.Run(0.2)
 	check(not ns.Takeover.IsEngaged(), "closing the map releases it")
