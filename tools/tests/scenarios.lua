@@ -310,16 +310,23 @@ scenarios.minimap_mode = function()
 	Sim.indoors = false
 	Sim.Run(2)
 	check(not Sim.minimapGround and Minimap:GetAlpha() == 0 and Minimap:GetZoom() == 0, "back outdoors, our map again, the sensor at its widest")
-	-- A city you may mount in where the Minimap draws its floor plan (and
-	-- much of it grey): Orgrimmar, its Cleft of Shadow. Our map and the sensor.
+	-- Somewhere you may mount but the Minimap draws its floor plan
+	-- (Undercity, underground): the whole Minimap.
 	Sim.floorPlan = true
 	Sim.Run(1)
-	check(ns.Takeover.Sensing() and not ns.MinimapShowsPlayer(), "in a city you may mount in, our map and the sensor")
+	check(Minimap:IsVisible() and Sim.minimapGround and ns.MinimapShowsPlayer(), "where you may mount but it draws a floor plan, the Minimap shows whole")
+	-- But Orgrimmar, open-air, which it draws grey: our map and the sensor.
+	local best = C_Map.GetBestMapForUnit
+	C_Map.GetBestMapForUnit = function() return 1454 end
+	Sim.Run(1)
+	check(ns.Takeover.Sensing() and not ns.MinimapShowsPlayer(), "in Orgrimmar, our map and the sensor")
 	Sim.minimapUnrotated, Sim.minimapGround = false, true -- (as Blizzard_HybridMinimap leaves them, hiding)
 	Sim.Run(0.5)
 	check(Sim.minimapUnrotated and not Sim.minimapGround, "the sensor keeps itself north up with no ground")
+	C_Map.GetBestMapForUnit = best
 	Sim.floorPlan = false
 	Sim.Run(1)
+	check(not Sim.minimapGround, "and out from under it, our map again")
 	check(ns.frame:GetFrameStrata() == MinimapCluster:GetFrameStrata(), "it sits at the minimap's strata")
 	-- M: ours grows to most of the screen instead of Blizzard's world map.
 	local smallW, smallZoom = ns.frame:GetWidth(), ns.state.zoom

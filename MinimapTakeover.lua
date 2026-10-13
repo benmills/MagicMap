@@ -45,6 +45,9 @@ local TILE_YARDS = ns.TILE_YARDS
 local SENSOR_PX = 300
 local SENSOR_MARGIN = 2 -- screen units it keeps inside the screen's edge (off it, the client stops updating its blips)
 local SENSOR_ICONS = 0.05 -- its own icons' scale: tiny (what it answers doesn't change with it)
+-- Open-air cities the Minimap draws as an indoor map, much of its ground
+-- grey (seen in game): our terrain there instead of its floor plan. By uiMap.
+local OPEN_CITIES = { [1454] = "Orgrimmar" }
 local STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP" }
 local OUTDOOR = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 } -- yards across its outdoor view, by zoom level
 local OUTDOOR_WIDEST = OUTDOOR[0]
@@ -519,8 +522,8 @@ end
 
 -- Whether the Minimap is drawing its indoor map. Its view radius tells: at
 -- its zoom level the indoor view is nearer to it than the widest outdoor
--- one. (It does in cities you may mount in, too: Orgrimmar, its Cleft of
--- Shadow; there it draws much of the ground grey, so they're ours.)
+-- one. Not IsIndoors(): that's whether you may mount, and Forever lets you
+-- in Undercity, deep underground, where the floor plan is what you want.
 local function MinimapIndoors()
 	local r = C_Minimap.GetViewRadius()
 	if not r or issecretvalue(r) or r <= 0 then return IsIndoors() and true or false end
@@ -539,9 +542,9 @@ local function Update()
 		return
 	end
 	Engage()
-	-- Blizzard's floor plan only where it draws one and you can't mount
-	-- (caves, buildings): elsewhere our terrain and the sensor.
-	local whole = MinimapIndoors() and IsIndoors() and not ns.IsMapExpanded()
+	-- Blizzard's floor plan wherever it draws one, but in open-air cities
+	-- it draws badly (OPEN_CITIES): there our terrain and the sensor.
+	local whole = MinimapIndoors() and not OPEN_CITIES[C_Map.GetBestMapForUnit("player") or 0] and not ns.IsMapExpanded()
 	SetMode(whole and "whole" or "sensor")
 	KeepTracking(not whole)
 	if whole then
