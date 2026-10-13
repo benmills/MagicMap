@@ -515,10 +515,10 @@ local function Blocker(cam)
 	return nil
 end
 
--- Whether the Minimap is drawing its indoor map. Not IsIndoors(): that's
--- whether you may mount, and places like Orgrimmar's Cleft of Shadow let you
--- while the Minimap shows the floor plan. Its view radius tells: at its zoom
--- level the indoor view is nearer to it than the widest outdoor one.
+-- Whether the Minimap is drawing its indoor map. Its view radius tells: at
+-- its zoom level the indoor view is nearer to it than the widest outdoor
+-- one. (It does in cities you may mount in, too: Orgrimmar, its Cleft of
+-- Shadow; there it draws much of the ground grey, so they're ours.)
 local function MinimapIndoors()
 	local r = C_Minimap.GetViewRadius()
 	if not r or issecretvalue(r) or r <= 0 then return IsIndoors() and true or false end
@@ -537,12 +537,9 @@ local function Update()
 		return
 	end
 	Engage()
-	-- (In cities the client hands to Blizzard_HybridMinimap, Orgrimmar say,
-	-- the Minimap reads as indoors but draws its ground grey: that addon
-	-- paints the city over it, on a frame pinned under our window. There
-	-- our terrain and the sensor do.)
-	local hybrid = C_Minimap.ShouldUseHybridMinimap and C_Minimap.ShouldUseHybridMinimap()
-	local whole = MinimapIndoors() and not hybrid and not ns.IsMapExpanded()
+	-- Blizzard's floor plan only where it draws one and you can't mount
+	-- (caves, buildings): elsewhere our terrain and the sensor.
+	local whole = MinimapIndoors() and IsIndoors() and not ns.IsMapExpanded()
 	SetMode(whole and "whole" or "sensor")
 	KeepTracking(not whole)
 	if whole then
@@ -550,7 +547,7 @@ local function Update()
 	else
 		if not Minimap:IsShown() then Minimap:Show() end
 		if Minimap:GetZoom() ~= 0 then Minimap:SetZoom(0) end -- (HereBeDragons may zoom it through our host)
-		-- HybridMinimap turns these back as it hides (leaving a city).
+		-- Blizzard_HybridMinimap, where the client uses it, turns these back as it hides.
 		if not C_Minimap.IsRotateMinimapIgnored() then C_Minimap.SetIgnoreRotateMinimap(true) end
 		if C_Minimap.GetDrawGroundTextures() then C_Minimap.SetDrawGroundTextures(false) end
 		PlaceSensor()
