@@ -24,6 +24,7 @@ ZoneInfo.lua
 Route.lua
 Path.lua
 MinimapButton.lua
+IndoorArt.lua
 MinimapTakeover.lua
 Blips.lua
 MinimapMode.lua

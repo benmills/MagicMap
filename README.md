@@ -175,6 +175,7 @@ Slash commands, `/mm` or `/magicmap`:
 | `/mm reset` | Back onto the minimap's spot, at its size |
 | `/mm layers` | What's drawn, in chat |
 | `/mm landmarks` | How many rares are remembered |
+| `/mm indoor` | Report what the map shows indoors, and why |
 | `/mm blips` | What the minimap sensor knows now (and its log, for bug reports) |
 | `/mm icon` | Show or hide the minimap button |
 | `/mm tint` | Tile colour correction on or off |
@@ -190,7 +191,9 @@ Settings and remembered rares are shared by every character on your account.
 - **WoW Forever only.** The data and code target its client.
 - **Blizzard's blips are only sensed within about 233 yards of you,** and a blip is dropped once a
   full sweep no longer finds it. Two of a name closer than a few yards show as one.
-- **Indoors, it's Blizzard's floor plan,** not MagicMap's terrain.
+- **Indoors** (Undercity, a city's halls), the map shows the art of the map you're on (the world
+  map's), with everything else as outdoors; where a place has no map art, Blizzard's floor plan.
+  `/mm indoor` says what it decided and why.
 - **Instances that hide your position** are shown whole, without the line or blips.
   Instances have no zone borders.
 - **Rotate Minimap:** MagicMap stays north up, and other addons' minimap pins stay hidden while
@@ -233,7 +236,9 @@ grid of 533⅓-yard tiles and places everything else by world position. The tile
 borders and coast colours in `Data/` are generated offline from the game files. Outdoors,
 Blizzard's Minimap sits under our window at its widest zoom, north up, its own icons shrunk out
 of sight, and `Blips.lua` reads it as a sensor: it sweeps a pretend mouse over it and draws each
-blip it finds on our map, in world yards. Indoors, the Minimap is shown in the window as the floor plan. Every
+blip it finds on our map, in world yards. Indoors, `IndoorArt.lua` draws the world map's art for the map you're on in the terrain's place
+(as Blizzard's own HybridMinimap does); only where there's none is the Minimap shown in the window
+as the floor plan. Every
 change to Blizzard's minimap is in `MinimapTakeover.lua`, paired with its undo.
 
 ### Risks

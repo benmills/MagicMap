@@ -385,6 +385,7 @@ local function Release()
 	if not engaged then return end
 	engaged = false
 	mode = nil
+	ns.IndoorArt.Show(nil)
 	indoorBg:Hide()
 	local failure
 	for i = #undo, 1, -1 do
@@ -542,9 +543,16 @@ local function Update()
 		return
 	end
 	Engage()
-	-- Blizzard's floor plan wherever it draws one, but in open-air cities
-	-- it draws badly (OPEN_CITIES): there our terrain and the sensor.
-	local whole = MinimapIndoors() and not OPEN_CITIES[C_Map.GetBestMapForUnit("player") or 0] and not ns.IsMapExpanded()
+	-- Where the Minimap draws its indoor map: the art of the map you're on
+	-- (IndoorArt.lua) under our layers, the sensor running as outdoors; where
+	-- there's none, Blizzard's floor plan. But in open-air cities it draws
+	-- badly (OPEN_CITIES), our terrain.
+	local best = C_Map.GetBestMapForUnit("player")
+	local indoor = MinimapIndoors() and not OPEN_CITIES[best or 0]
+	local art = indoor and cam.onMap and ns.IndoorArt.Usable(best) and best or nil
+	ns.IndoorArt.Show(art)
+	local whole = indoor and not art and not ns.IsMapExpanded()
+	ns.IndoorArt.Note(best, indoor, art and "art" or whole and "floor plan" or "terrain")
 	SetMode(whole and "whole" or "sensor")
 	KeepTracking(not whole)
 	if whole then

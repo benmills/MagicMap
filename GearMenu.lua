@@ -34,6 +34,8 @@ local ADVANCED = {
 	{ "Diagnostics", {
 		{ "Debug info in the title", on = function() return db.debug end, run = function() Command("debug") end,
 			tip = "Tile, zoom and layout timings next to the zone name." },
+		{ "Indoor maps", on = function() return ns.IndoorArt.Debugging() end, run = function() Command("indoor") end,
+			tip = "Says in chat which map you're on indoors, whether it has art, and what the map shows; outlines the art." },
 	} },
 	{ "Performance", {
 		{ "Record 10 seconds", on = function() return ns.PerfRecording() end, run = function() Command("perf") end,

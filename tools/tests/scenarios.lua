@@ -1900,4 +1900,51 @@ scenarios.minimap_blips = function()
 	Sim.group, Sim.units.party1, Sim.minimapBlips = {}, nil, {}
 end
 
+-- Indoors with map art (Undercity, a dungeon floor): the art of the map
+-- you're on, under our layers, the sensor running; without art, Blizzard's
+-- floor plan; outdoors again, neither.
+scenarios.indoor_art = function()
+	local map = C_Map.GetBestMapForUnit("player")
+	Sim.mapArt[map] = { 1002, 668, 256 }
+	local function ArtShown()
+		local n = 0
+		for _, r in ipairs({ ns.tileCanvas:GetRegions() }) do
+			if r:IsVisible() and type(S[r].texture) == "number" and S[r].texture > 900000 then n = n + 1 end
+		end
+		return n
+	end
+	Sim.floorPlan = true
+	Sim.Run(1)
+	check(ArtShown() == 4 * 3, "indoors, the map's art: 4 x 3 pieces, got " .. ArtShown())
+	check(ns.Takeover.Sensing() and not ns.MinimapShowsPlayer(), "with our map and the sensor, not Blizzard's floor plan")
+	local r = ns.MapRect(map)
+	local first
+	for _, t in ipairs({ ns.tileCanvas:GetRegions() }) do
+		if S[t].texture == 900001 then first = t end
+	end
+	local z = ns.state.zoom
+	local _, _, _, x, y = first:GetPoint(1)
+	check(math.abs(x - r.col0 * z) < 0.01 and math.abs(y + r.row0 * z) < 0.01, "its first piece at the map's corner")
+	ns.SetZoom(z * 1.5)
+	Sim.Run(1)
+	_, _, _, x = first:GetPoint(1)
+	check(math.abs(x - r.col0 * ns.state.zoom) < 0.01, "and laid out again as you zoom")
+	Sim.Slash("indoor")
+	Sim.Run(0.2)
+	check(MagicMapDB.indoorDebug, "/mm indoor reports")
+	Sim.Slash("indoor")
+	Sim.floorPlan = false
+	Sim.Run(1)
+	check(ArtShown() == 0, "outdoors, no art")
+	local best = C_Map.GetBestMapForUnit
+	C_Map.GetBestMapForUnit = function() return 1436 end -- (a map with no art)
+	Sim.floorPlan = true
+	Sim.Run(1)
+	check(ArtShown() == 0 and ns.MinimapShowsPlayer(), "indoors where a map has no art: Blizzard's floor plan")
+	C_Map.GetBestMapForUnit = best
+	Sim.floorPlan = false
+	Sim.Run(1)
+	Sim.mapArt[map] = nil
+end
+
 return scenarios

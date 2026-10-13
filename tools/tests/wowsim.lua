@@ -1351,6 +1351,21 @@ function UnitIsDeadOrGhost(unit) local u = Sim.units[unit]; return u ~= nil and 
 
 C_Map = {}
 function C_Map.GetMapInfo(id) return mapInfo(id) end
+-- Map art (the world map's, and HybridMinimap's): Sim.mapArt[uiMapID] =
+-- { w, h, tile } in pixels; its textures are made-up FileDataIDs.
+Sim.mapArt = {}
+function C_Map.GetMapArtLayers(id)
+	local a = Sim.mapArt[id]
+	if not a then return nil end
+	return { { layerWidth = a[1], layerHeight = a[2], tileWidth = a[3], tileHeight = a[3], minScale = 1, maxScale = 1, additionalZoomSteps = 0 } }
+end
+function C_Map.GetMapArtLayerTextures(id, layer)
+	local a = Sim.mapArt[id]
+	if not a or layer ~= 1 then return nil end
+	local files = {}
+	for i = 1, math.ceil(a[1] / a[3]) * math.ceil(a[2] / a[3]) do files[i] = 900000 + i end
+	return files
+end
 function C_Map.GetBestMapForUnit(unit)
 	if unit ~= "player" then return nil end
 	local p = Sim.player
