@@ -16,6 +16,10 @@ local A = {}
 ns.IndoorArt = A
 
 local BACKDROP = { 0.06, 0.05, 0.04, 1 } -- under the art, over the terrain above
+-- Only the art of the place itself: a dungeon floor or a sub-zone map, or a
+-- city's (narrower than this). Indoors in a hut, the map you're on is the
+-- whole zone, and its art is the zone's painting.
+local MAX_ART_YARDS = 1600
 
 local db
 local canvas = ns.tileCanvas
@@ -38,6 +42,11 @@ local function Art(uiMapID)
 	if art ~= nil then return art end
 	art = false
 	local rect = ns.MapRect(uiMapID)
+	local info = C_Map.GetMapInfo(uiMapID)
+	if rect and info and info.mapType and info.mapType < Enum.UIMapType.Dungeon
+		and (rect.col1 - rect.col0) * ns.TILE_YARDS > MAX_ART_YARDS then
+		rect = nil -- (a zone's, or bigger)
+	end
 	local ok, layers = pcall(C_Map.GetMapArtLayers, uiMapID)
 	local layer = ok and type(layers) == "table" and layers[1]
 	local ok2, files = false, nil

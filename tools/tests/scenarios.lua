@@ -1904,8 +1904,9 @@ end
 -- you're on, under our layers, the sensor running; without art, Blizzard's
 -- floor plan; outdoors again, neither.
 scenarios.indoor_art = function()
-	local map = C_Map.GetBestMapForUnit("player")
-	Sim.mapArt[map] = { 1002, 668, 256 }
+	local zone = C_Map.GetBestMapForUnit("player")
+	Sim.mapArt[zone] = { 1002, 668, 256 } -- (a zone's painting)
+	Sim.mapArt[1455] = { 1002, 668, 256 } -- Ironforge's
 	local function ArtShown()
 		local n = 0
 		for _, r in ipairs({ ns.tileCanvas:GetRegions() }) do
@@ -1913,11 +1914,17 @@ scenarios.indoor_art = function()
 		end
 		return n
 	end
+	-- In a hut: the map you're on is the zone, its art the zone's painting.
 	Sim.floorPlan = true
 	Sim.Run(1)
-	check(ArtShown() == 4 * 3, "indoors, the map's art: 4 x 3 pieces, got " .. ArtShown())
+	check(ArtShown() == 0 and ns.MinimapShowsPlayer(), "indoors where the map is the whole zone: no art, Blizzard's floor plan")
+	-- In a city: its own map's art.
+	local best = C_Map.GetBestMapForUnit
+	C_Map.GetBestMapForUnit = function() return 1455 end
+	Sim.Run(1)
+	check(ArtShown() == 4 * 3, "in a city, its map's art: 4 x 3 pieces, got " .. ArtShown())
 	check(ns.Takeover.Sensing() and not ns.MinimapShowsPlayer(), "with our map and the sensor, not Blizzard's floor plan")
-	local r = ns.MapRect(map)
+	local r = ns.MapRect(1455)
 	local first
 	for _, t in ipairs({ ns.tileCanvas:GetRegions() }) do
 		if S[t].texture == 900001 then first = t end
@@ -1936,15 +1943,8 @@ scenarios.indoor_art = function()
 	Sim.floorPlan = false
 	Sim.Run(1)
 	check(ArtShown() == 0, "outdoors, no art")
-	local best = C_Map.GetBestMapForUnit
-	C_Map.GetBestMapForUnit = function() return 1436 end -- (a map with no art)
-	Sim.floorPlan = true
-	Sim.Run(1)
-	check(ArtShown() == 0 and ns.MinimapShowsPlayer(), "indoors where a map has no art: Blizzard's floor plan")
 	C_Map.GetBestMapForUnit = best
-	Sim.floorPlan = false
-	Sim.Run(1)
-	Sim.mapArt[map] = nil
+	Sim.mapArt[zone], Sim.mapArt[1455] = nil, nil
 end
 
 return scenarios
