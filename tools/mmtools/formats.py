@@ -253,6 +253,21 @@ class DxtImage:
                         rows[y][x] = c
         return rows
 
+    def rgb8(self) -> bytes:
+        """The whole image as 8-bit RGB, rows top first (for exporting)."""
+        out = bytearray(self.width * self.height * 3)
+        for by in range(self.blocks_high):
+            for bx in range(self.blocks_wide):
+                c0, c1, idx = self._color_block(bx, by)
+                pal = [bytes(round(v * 255) for v in c)
+                       for c in dxt_palette(c0, c1, self.block_bytes == 16 or c0 > c1)]
+                for k in range(16):
+                    y, x = by * 4 + k // 4, bx * 4 + k % 4
+                    if y < self.height and x < self.width:
+                        p = (y * self.width + x) * 3
+                        out[p:p + 3] = pal[(idx >> (2 * k)) & 3]
+        return bytes(out)
+
     def block_means(self) -> list[list[RGB]]:
         """The image at 1/4 size: rows of block means."""
         return [[self.block_mean(bx, by) for bx in range(self.blocks_wide)] for by in range(self.blocks_high)]

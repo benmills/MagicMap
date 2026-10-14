@@ -13,6 +13,7 @@ compiled bytecode, so scoping is exact.
   python3 tools/luacheck.py              # the files in MagicMap.toc
   python3 tools/luacheck.py Core.lua     # just these
   python3 tools/luacheck.py --globals Core.lua   # list globals read / written
+  python3 tools/luacheck.py --allow tools/lua51_globals.txt atlas/*.lua   # a library: plain Lua only
 
 Needs `pip install lupa`.
 """
@@ -114,9 +115,9 @@ def toc_files() -> list[str]:
     return files
 
 
-def load_allowlist() -> set[str]:
+def load_allowlist(path: str = ALLOWLIST) -> set[str]:
     names = set()
-    with open(ALLOWLIST, encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             names.update(line.split("#", 1)[0].split())
     return names
@@ -126,7 +127,7 @@ def is_own(name: str) -> bool:
     return any(fnmatch.fnmatchcase(name, p) for p in OWN_GLOBALS)
 
 
-def check(paths: list[str], list_globals: bool = False) -> int:
+def check(paths: list[str], list_globals: bool = False, allowlist: str = ALLOWLIST) -> int:
     L = lua51()
     compile_ = L.eval(b"function(src, name) local f, err = loadstring(src, name) "
                       b"if not f then return nil, err end return string.dump(f) end")
@@ -156,7 +157,9 @@ def check(paths: list[str], list_globals: bool = False) -> int:
                 print(f"  {op} {name:32} {','.join(map(str, sorted(set(lines))[:6]))}")
         return problems
 
-    allowed = load_allowlist()
+    # A strict allowlist also stops the addon's own globals passing as read.
+    strict = allowlist != ALLOWLIST
+    allowed = load_allowlist(allowlist)
     for rel, acc in accesses.items():
         reported = set()
         for op, name, line in sorted(acc, key=lambda a: a[2]):
@@ -164,8 +167,8 @@ def check(paths: list[str], list_globals: bool = False) -> int:
                 continue
             if op == "set" and not is_own(name):
                 print(f"{rel}:{line}: sets global '{name}' (missing 'local'? or add it to OWN_GLOBALS)")
-            elif op == "get" and name not in allowed and name not in set_anywhere and not is_own(name):
-                print(f"{rel}:{line}: reads unknown global '{name}' (typo? or add it to tools/wow_globals.txt)")
+            elif op == "get" and name not in allowed and (strict or (name not in set_anywhere and not is_own(name))):
+                print(f"{rel}:{line}: reads unknown global '{name}' (typo? or add it to {os.path.relpath(allowlist, ROOT)})")
             else:
                 continue
             reported.add((op, name))
@@ -191,13 +194,14 @@ def check_toc() -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--globals", action="store_true", help="list each file's global reads and writes")
+    parser.add_argument("--allow", default=ALLOWLIST, help="globals the files may read (default: tools/wow_globals.txt)")
     parser.add_argument("files", nargs="*", help="default: everything in MagicMap.toc")
     ns = parser.parse_args()
     if ns.files:
         paths, problems = [os.path.abspath(f) for f in ns.files], 0
     else:
         paths, problems = [os.path.join(ROOT, f) for f in toc_files()], check_toc()
-    problems += check(paths, ns.globals)
+    problems += check(paths, ns.globals, os.path.abspath(ns.allow))
     if not ns.globals:
         print(f"{len(paths)} files, {problems} problem{'s' if problems != 1 else ''}")
     sys.exit(1 if problems else 0)

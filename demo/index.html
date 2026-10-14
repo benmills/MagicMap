@@ -1,0 +1,187 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Atlas demo</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #111; color: #ddd; font: 13px system-ui, sans-serif; overflow: hidden; }
+  canvas { display: block; cursor: grab; }
+  #ui { position: fixed; top: 8px; left: 8px; background: rgba(0,0,0,.7); padding: 8px; border-radius: 4px; }
+  #ui select, #ui label { display: block; margin-bottom: 6px; }
+  #readout { white-space: pre; font: 12px ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<canvas id="map"></canvas>
+<div id="ui">
+  <select id="zone"><option value="">Fly to zone...</option></select>
+  <label><input type="checkbox" id="walk"> walk grid</label>
+  <div id="readout">hover the map</div>
+</div>
+<script>
+// Everything shown comes from the server's Atlas calls; this file only draws.
+const INST = 0, CHUNKS = 16;
+const canvas = document.getElementById("map"), ctx = canvas.getContext("2d");
+const get = (path) => fetch(path).then((r) => r.json());
+let W, H, cam, bg = "#000", tiles = [], borders = { lines: [], labels: [] }, walk = null;
+const imgs = {};
+
+function resize() { W = canvas.width = innerWidth; H = canvas.height = innerHeight; draw(); }
+
+// Atlas.Camera.ScreenToTile / TileToScreen / ZoomAt, per frame.
+const toTile = (x, y) => [cam.cx + (x - W / 2) / cam.zoom, cam.cy + (y - H / 2) / cam.zoom];
+const toScreen = (c, r) => [(c - cam.cx) * cam.zoom + W / 2, (r - cam.cy) * cam.zoom + H / 2];
+function zoomAt(x, y, zoom) {
+  const [c, r] = toTile(x, y);
+  cam = { cx: c - (x - W / 2) / zoom, cy: r - (y - H / 2) / zoom, zoom };
+}
+
+const rgb = (c) => `rgb(${c.map((v) => Math.round(v * 255)).join(",")})`;
+
+// One tile baked once: texel * m + a, then the water mask in the backdrop colour.
+function bake(t, img, mask) {
+  const c = document.createElement("canvas");
+  c.width = c.height = img.width;
+  const g = c.getContext("2d");
+  g.drawImage(img, 0, 0);
+  if (t.tint) {
+    g.globalCompositeOperation = "multiply"; g.fillStyle = rgb(t.tint.slice(0, 3)); g.fillRect(0, 0, c.width, c.height);
+    g.globalCompositeOperation = "lighter"; g.fillStyle = rgb(t.tint.slice(3)); g.fillRect(0, 0, c.width, c.height);
+  }
+  if (mask) {
+    const m = document.createElement("canvas");
+    m.width = m.height = c.width;
+    const mg = m.getContext("2d");
+    mg.drawImage(mask, 0, 0, m.width, m.height);
+    mg.globalCompositeOperation = "source-in"; mg.fillStyle = bg; mg.fillRect(0, 0, m.width, m.height);
+    g.globalCompositeOperation = "source-over"; g.drawImage(m, 0, 0);
+  }
+  return c;
+}
+
+function load(t) {
+  imgs[t.key] = "loading";
+  const img = new Image(), mask = t.water ? new Image() : null;
+  let n = mask ? 2 : 1;
+  const done = () => { if (--n === 0) { imgs[t.key] = bake(t, img, mask); draw(); } };
+  img.onload = done; img.src = `tiles/${INST}/${t.key}.png`;
+  if (mask) { mask.onload = done; mask.src = `tiles/${INST}/water_${t.key}.png`; }
+}
+
+let pending = false;
+function draw() { if (cam && !pending) { pending = true; requestAnimationFrame(frame); } }
+
+function frame() {
+  pending = false;
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  const [c0, r0] = toTile(0, 0), [c1, r1] = toTile(W, H);
+  for (const t of tiles) {
+    if (t.sea) continue; // backdrop colour all over
+    const col = Math.floor(t.key / 64), row = t.key % 64;
+    if (col + 1 < c0 || col > c1 || row + 1 < r0 || row > r1) continue;
+    if (!imgs[t.key]) load(t);
+    if (imgs[t.key] === "loading") continue;
+    const [x, y] = toScreen(col, row);
+    ctx.drawImage(imgs[t.key], x, y, cam.zoom + 0.5, cam.zoom + 0.5);
+  }
+  if (walk) drawWalk();
+  for (const line of borders.lines) {
+    ctx.strokeStyle = line[0] === 1 ? "rgba(255,230,150,.8)" : "rgba(255,255,255,.25)";
+    ctx.lineWidth = line[0] === 1 ? 1.5 : 1;
+    ctx.beginPath();
+    for (let i = 1; i < line.length; i += 2) {
+      const [x, y] = toScreen(line[i], line[i + 1]);
+      i === 1 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.font = "bold 13px system-ui"; ctx.textAlign = "center";
+  for (const l of borders.labels) {
+    const [x, y] = toScreen(l.col, l.row);
+    ctx.lineWidth = 3; ctx.strokeStyle = "#000"; ctx.strokeText(l.name, x, y);
+    ctx.fillStyle = "#ffe9a0"; ctx.fillText(l.name, x, y);
+  }
+}
+
+// Walk overlay: class 0 blocked, 1 land, 2 water, 3 magma/slime; a line where you can't cross east/south.
+const CLASS = ["rgba(255,0,0,.35)", "rgba(0,255,0,.12)", "rgba(0,120,255,.3)", "rgba(255,140,0,.45)"];
+function drawWalk() {
+  const s = cam.zoom / CHUNKS;
+  ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 1;
+  walk.rows.forEach((rowStr, j) => {
+    for (let i = 0; i < rowStr.length; i++) {
+      const v = parseInt(rowStr[i], 16);
+      const [x, y] = toScreen((walk.c0 + i) / CHUNKS, (walk.r0 + j) / CHUNKS);
+      ctx.fillStyle = CLASS[v % 4]; ctx.fillRect(x, y, s, s);
+      ctx.beginPath();
+      if (!(v & 4)) { ctx.moveTo(x + s, y); ctx.lineTo(x + s, y + s); }
+      if (!(v & 8)) { ctx.moveTo(x, y + s); ctx.lineTo(x + s, y + s); }
+      ctx.stroke();
+    }
+  });
+}
+
+let walkTimer;
+function refreshWalk() {
+  clearTimeout(walkTimer);
+  if (!document.getElementById("walk").checked) { walk = null; draw(); return; }
+  walkTimer = setTimeout(async () => {
+    const [c0, r0] = toTile(0, 0), [c1, r1] = toTile(W, H);
+    const q = [c0, r0, c1, r1].map((v, i) => Math.floor(v * CHUNKS) + (i > 1 ? 1 : 0));
+    if ((q[2] - q[0]) * (q[3] - q[1]) > 40000) { walk = null; draw(); return; } // zoom in for the grid
+    walk = await get(`/api/walk?inst=${INST}&c0=${q[0]}&r0=${q[1]}&c1=${q[2]}&r1=${q[3]}`);
+    draw();
+  }, 150);
+}
+document.getElementById("walk").onchange = refreshWalk;
+
+// Pan, zoom, hover.
+let drag = null;
+canvas.onmousedown = (e) => { drag = [e.clientX, e.clientY]; canvas.style.cursor = "grabbing"; };
+addEventListener("mouseup", () => { drag = null; canvas.style.cursor = "grab"; });
+addEventListener("mousemove", (e) => {
+  if (drag) {
+    cam.cx -= (e.clientX - drag[0]) / cam.zoom; cam.cy -= (e.clientY - drag[1]) / cam.zoom;
+    drag = [e.clientX, e.clientY]; draw(); refreshWalk();
+  }
+});
+canvas.onwheel = (e) => {
+  e.preventDefault();
+  zoomAt(e.clientX, e.clientY, Math.min(2048, Math.max(4, cam.zoom * Math.exp(-e.deltaY * 0.002))));
+  draw(); refreshWalk();
+};
+
+let hoverSeq = 0;
+canvas.addEventListener("mousemove", async (e) => {
+  const [col, row] = toTile(e.clientX, e.clientY), seq = ++hoverSeq;
+  const a = await get(`/api/at?inst=${INST}&col=${col}&row=${row}`);
+  if (seq !== hoverSeq) return;
+  const z = a.zone;
+  document.getElementById("readout").textContent =
+    `tile   ${col.toFixed(3)}, ${row.toFixed(3)}  (key ${Math.floor(col) * 64 + Math.floor(row)})\n` +
+    `world  north ${a.north.toFixed(1)}, west ${a.west.toFixed(1)}\n` +
+    `zone   ${z ? `${z.name} (${z.mapID})  ${(z.x * 100).toFixed(1)}, ${(z.y * 100).toFixed(1)}` : "-"}\n` +
+    `walk   chunk ${a.chunk.join(", ")}  class ${a.walk.class}  east ${a.walk.east}  south ${a.walk.south}`;
+});
+
+document.getElementById("zone").onchange = async (e) => {
+  if (!e.target.value) return;
+  cam = (await get(`/api/fit?uiMapID=${e.target.value}&w=${W}&h=${H}`)).cam;
+  draw(); refreshWalk();
+};
+
+(async () => {
+  const maps = await get("/api/maps");
+  const m = maps.find((x) => x.inst === INST);
+  bg = rgb(m.bg);
+  const sel = document.getElementById("zone");
+  for (const z of m.zones) sel.add(new Option(z.name, z.uiMapID));
+  [{ tiles }, borders] = await Promise.all([get(`/api/tiles?inst=${INST}`), get(`/api/borders?inst=${INST}`)]);
+  W = innerWidth; H = innerHeight;
+  cam = (await get(`/api/fit?uiMapID=${m.uiMapID}&w=${W}&h=${H}`)).cam;
+  addEventListener("resize", resize);
+  resize();
+})();
+</script>
+</body>
+</html>

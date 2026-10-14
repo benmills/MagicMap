@@ -1,0 +1,10 @@
+# Globals atlas/ may read, for tools/luacheck.py --allow: Lua 5.1 as WoW has
+# it (no io, os, debug, require), and the generated data. No WoW API, so any
+# use of it in a library fails the check.
+#   python3 tools/luacheck.py --allow tools/lua51_globals.txt atlas/*.lua
+
+_G _VERSION assert collectgarbage coroutine error getfenv getmetatable ipairs
+loadstring math next pairs pcall rawequal rawget rawset select setfenv
+setmetatable string table tonumber tostring type unpack xpcall
+
+MagicMap_Tiles MagicMap_TileColor MagicMap_Borders MagicMap_Walk
