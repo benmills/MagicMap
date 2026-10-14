@@ -67,6 +67,7 @@ file is a global table, written by a generator in `tools/` from one game build
 ### Data/Objects.lua — `MagicMap_Objects` (QuestieDB; gitignored)
 `[objectID] = { name, kind, questStarts, questEnds, spawns, instances }`
 - kind: "mailbox" | "herb" | "ore" | nil (by name: the herb list, " Vein"/" Deposit" suffix, "Mailbox").
+- Nameless QuestieDB stubs are skipped.
 
 ### Data/Items.lua — `MagicMap_Items` (QuestieDB; gitignored)
 `[itemID] = { name, npcDrops, objectDrops, itemDrops, vendors, startQuest, class, subClass, requiredLevel }`

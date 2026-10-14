@@ -390,9 +390,11 @@ def main() -> None:
     rows = []
     for i in store.ids("Object"):
         r = store.row("Object", i)
-        pts, insts = project(r.get(OBJECT["spawns"]))
         name = r.get(OBJECT["name"])
-        rows.append((i, [name, object_kind(name or ""), ids(r.get(OBJECT["questStarts"])), ids(r.get(OBJECT["questEnds"])),
+        if not name:  # a stub (417353): nothing to show or find
+            continue
+        pts, insts = project(r.get(OBJECT["spawns"]))
+        rows.append((i, [name, object_kind(name), ids(r.get(OBJECT["questStarts"])), ids(r.get(OBJECT["questEnds"])),
                          pts, insts]))
     write(out("Objects.lua"), "MagicMap_Objects", [
         "[objectID] = { name, kind, questStarts, questEnds, spawns, instances }",

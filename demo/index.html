@@ -13,7 +13,7 @@
   html, body { margin: 0; height: 100%; background: #111; color: #ddd; font: 13px system-ui, -apple-system, sans-serif;
     overflow: hidden; overscroll-behavior: none; -webkit-user-select: none; user-select: none;
     -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
-  canvas { position: fixed; inset: 0; display: block; cursor: grab; touch-action: none; }
+  #map { position: fixed; inset: 0; display: block; cursor: grab; touch-action: none; }
   .panel { position: fixed; background: rgba(0,0,0,.72); border-radius: 10px; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
   #ui { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); padding: 6px; display: flex; gap: 6px; }
   /* 16px+ text stops iOS zooming the page when the picker gets focus; 44px is a finger. */
@@ -24,15 +24,74 @@
   #readout { left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom));
     padding: 8px 10px; white-space: pre; font: 12px ui-monospace, Menlo, monospace; max-width: calc(100vw - 36px); overflow: hidden; }
   @media (max-width: 480px) { #readout { font-size: 10.5px; right: max(8px, env(safe-area-inset-right)); } }
+  #ui { flex-wrap: wrap; }
+  @media (min-width: 700px) { #ui { max-width: calc(100vw - 400px); } } /* clear of the card */
+  #q { font: 16px system-ui, -apple-system, sans-serif; min-height: 44px; border-radius: 8px; border: 1px solid #444;
+    background: #222; color: #eee; padding: 0 12px; width: 260px; box-sizing: border-box; -webkit-appearance: none; appearance: none; }
+  button { -webkit-user-select: none; user-select: none; }
+  [hidden] { display: none !important; }
+  /* Sheets under the bar: search results, layers. --below is the bar's bottom edge. */
+  .sheet { z-index: 2; top: var(--below, 64px); left: max(8px, env(safe-area-inset-left)); width: 340px; padding: 6px;
+    max-height: calc(100vh - var(--below, 64px) - 16px); overflow: auto; overscroll-behavior: contain; box-sizing: border-box; }
+  .row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; border-radius: 8px; width: 100%;
+    box-sizing: border-box; font: 15px system-ui, -apple-system, sans-serif; color: #eee; background: none; border: 0; text-align: left; }
+  .row:active, .row:hover { background: rgba(255,255,255,.08); }
+  .row input { width: 20px; height: 20px; margin: 0; accent-color: #5a8a5a; }
+  .row small, .ref small { color: #999; font-size: 12px; margin-left: auto; white-space: nowrap; }
+  .tag { font: 600 10px ui-monospace, Menlo, monospace; text-transform: uppercase; color: #111; background: #bbb;
+    border-radius: 4px; padding: 2px 4px; flex: none; }
+  .tag.npc { background: #9fd18b; } .tag.quest { background: #ffd200; } .tag.object { background: #8fd3ff; }
+  .tag.item { background: #d6a8ff; } .tag.flight { background: #7fb2ff; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px; color: #aaa; font-size: 12px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  #hl { display: flex; align-items: center; gap: 4px; padding-left: 12px; min-height: 44px; max-width: 360px; box-sizing: border-box;
+    border-radius: 8px; border: 1px solid #6a3a66; background: #2a1428; color: #ffb8f8; font-size: 14px; }
+  #hl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .x { min-width: 44px; min-height: 44px; background: none; border: 0; color: #ddd; font: 20px system-ui, sans-serif; flex: none; }
+  /* The card: a bottom sheet on phones, a side panel when there's room. */
+  #card { left: 0; right: 0; bottom: 0; max-height: 52vh; overflow: auto; overscroll-behavior: contain;
+    border-radius: 14px 14px 0 0; background: rgba(16,16,16,.92); padding: 0 14px calc(14px + env(safe-area-inset-bottom));
+    padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); box-sizing: border-box; }
+  @media (min-width: 700px) { #card { left: auto; bottom: auto; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right));
+    width: 360px; max-height: calc(100vh - 16px); border-radius: 10px; } }
+  #card .bar { display: flex; align-items: center; position: sticky; top: 0; margin: 0 -10px 0 -6px; padding-top: 4px; background: rgb(16,16,16); }
+  #card .bar .x:first-child { margin-left: -6px; }
+  #card h2 { margin: 0 0 0 6px; font-size: 18px; color: #fff; flex: 1; min-width: 0; }
+  #card .sub { color: #aaa; margin-bottom: 8px; line-height: 1.4; }
+  #card h3 { margin: 12px 0 2px; font-size: 12px; color: #999; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+  #card p { margin: 4px 0; line-height: 1.4; color: #ccc; }
+  #card .note { color: #ffb8f8; }
+  .ref { display: flex; align-items: center; gap: 8px; min-height: 44px; flex: 1; min-width: 0; padding: 0 8px; border-radius: 8px;
+    background: rgba(255,255,255,.06); border: 0; color: #eee; font: 14px system-ui, -apple-system, sans-serif; text-align: left; }
+  .ref span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .refs { display: flex; flex-direction: column; gap: 4px; }
+  .src { display: flex; gap: 4px; }
+  .src .x { background: rgba(255,255,255,.06); border-radius: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+  .chips span { background: #2a2a2a; border: 1px solid #444; border-radius: 12px; padding: 3px 9px; font-size: 12px; }
+  @media (max-width: 600px) {
+    #ui { right: max(8px, env(safe-area-inset-right)); }
+    #q { flex: 1 1 100%; width: auto; }
+    #ui select { flex: 1 1 0; min-width: 0; max-width: none; }
+    .sheet { right: max(8px, env(safe-area-inset-right)); width: auto; }
+    #hl { flex: 1 1 100%; max-width: none; }
+  }
 </style>
 </head>
 <body>
 <canvas id="map"></canvas>
 <div id="ui" class="panel">
+  <input id="q" type="search" placeholder="Search NPCs, quests, objects, items" autocomplete="off" autocorrect="off"
+    spellcheck="false" enterkeyhint="search" aria-label="Search">
   <select id="zone"><option value="">Fly to zone…</option></select>
   <button id="walk" aria-pressed="false">Walk grid</button>
+  <button id="layersBtn" aria-expanded="false">Layers</button>
+  <div id="hl" hidden><span></span><button class="x" aria-label="Clear highlight">✕</button></div>
 </div>
+<div id="results" class="panel sheet" hidden></div>
+<div id="layers" class="panel sheet" hidden></div>
 <div id="readout" class="panel"></div>
+<div id="card" class="panel" hidden></div>
 <script>
 // Everything shown comes from the server's Atlas calls; this file only draws.
 const INST = 0, CHUNKS = 16, MIN_ZOOM = 4, MAX_ZOOM = 2048;
@@ -49,7 +108,7 @@ function resize() {
   W = innerWidth; H = innerHeight;
   canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
   canvas.style.width = W + "px"; canvas.style.height = H + "px";
-  draw(); refreshWalk();
+  draw(); settled(); placeSheets();
 }
 
 // Atlas.Camera.ScreenToTile / TileToScreen / ZoomAt, per frame.
@@ -165,13 +224,13 @@ function frame() {
     }
     ctx.stroke();
   }
-  ctx.font = "600 13px system-ui, -apple-system, sans-serif"; ctx.textAlign = "center"; ctx.lineJoin = "round";
-  for (const l of labels) {
-    const [x, y] = toScreen(l.col, l.row);
-    if (x < -100 || x > W + 100 || y < -20 || y > H + 20) continue;
-    ctx.lineWidth = 3; ctx.strokeStyle = "#000"; ctx.strokeText(l.name, x, y);
-    ctx.fillStyle = "#ffe9a0"; ctx.fillText(l.name, x, y);
+  drawLabels();
+  for (const p of pins) {
+    if (!shown(p.layer)) continue;
+    const [x, y] = toScreen(p.col, p.row);
+    if (x > -20 && x < W + 20 && y > -20 && y < H + 20) drawPin(ctx, p.layer, p, x, y);
   }
+  if (highlight) drawHighlight();
   if (marker) {
     const [x, y] = toScreen(marker[0], marker[1]);
     ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2);
@@ -179,6 +238,131 @@ function frame() {
     ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
   }
 }
+
+// Labels: zones always, subzones zoomed in; heaviest first, and none over another.
+const SUBZONE_ZOOM = 80;
+function drawLabels() {
+  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.lineJoin = "round";
+  const boxes = [];
+  for (const l of labels) {
+    if (l.kind === 2 && cam.zoom < SUBZONE_ZOOM) continue;
+    const [x, y] = toScreen(l.col, l.row);
+    if (x < -100 || x > W + 100 || y < -20 || y > H + 20) continue;
+    ctx.font = l.kind === 1 ? "600 13px system-ui, -apple-system, sans-serif" : "500 11px system-ui, -apple-system, sans-serif";
+    const w = (l.w ??= {})[ctx.font] ??= ctx.measureText(l.name).width;
+    const b = [x - w / 2 - 3, y - 13, x + w / 2 + 3, y + 4];
+    if (boxes.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1])) continue;
+    boxes.push(b);
+    ctx.lineWidth = 3; ctx.strokeStyle = "#000"; ctx.strokeText(l.name, x, y);
+    ctx.fillStyle = l.kind === 1 ? "#ffe9a0" : "rgba(255,255,255,.9)"; ctx.fillText(l.name, x, y);
+  }
+}
+
+// Pins: plain vector shapes, coloured by faction where it has one.
+const FACTION = { A: "#4a8cff", H: "#ff4d40", AH: "#f2c94c" }, NO_FACTION = "#c8c8c8";
+const FACTION_NAME = { A: "Alliance", H: "Horde", AH: "Alliance & Horde" };
+const SERVICE_LETTER = { innkeeper: "I", flightmaster: "F", banker: "B", auctioneer: "A", stablemaster: "S", trainer: "T", repair: "R" };
+const DUNGEON = { dungeon: ["#9b59ff", "D"], raid: ["#ff8a1f", "R"], battleground: ["#1fbf9a", "B"] };
+const RANK = { 1: "Elite", 2: "Rare elite", 3: "Boss", 4: "Rare" };
+const LAYERS = [ // id, name, shown from this zoom (px per tile), a sample pin for the legend
+  ["flight", "Flight points", 0, { faction: "A" }], ["poi", "Points of interest", 0, {}],
+  ["dungeon", "Dungeon entrances", 0, { mark: "dungeon" }], ["rare", "Rares", 48, { mark: 4 }],
+  ["service", "Town services", 96, { faction: "A", mark: "innkeeper" }], ["quest", "Quest givers", 160, {}],
+  ["mail", "Mailboxes", 160, {}], ["herb", "Herbs", 256, {}], ["ore", "Ore", 256, {}],
+];
+const layerOn = new Set(["flight", "poi", "dungeon", "rare", "service", "quest"]);
+const shown = (id) => layerOn.has(id) && cam.zoom >= LAYERS.find((l) => l[0] === id)[2];
+let pins = [], highlight = null;
+
+function star(g, x, y, r) {
+  g.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5, d = i % 2 ? r * .45 : r;
+    g.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d);
+  }
+  g.closePath();
+}
+function letter(g, s, x, y, px) {
+  g.font = `700 ${px}px system-ui, -apple-system, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillStyle = "#fff"; g.fillText(s, x, y + .5);
+}
+function drawPin(g, layer, p, x, y) {
+  g.lineWidth = 1.5; g.strokeStyle = "rgba(0,0,0,.8)";
+  const fc = FACTION[p.faction] || NO_FACTION;
+  if (layer === "flight") {
+    g.beginPath(); g.moveTo(x, y - 8); g.lineTo(x + 8, y); g.lineTo(x, y + 8); g.lineTo(x - 8, y); g.closePath();
+    g.fillStyle = fc; g.fill(); g.strokeStyle = "#fff"; g.stroke();
+    g.beginPath(); g.arc(x, y, 2.5, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill();
+  } else if (layer === "service") {
+    g.beginPath(); g.arc(x, y, 8, 0, Math.PI * 2); g.fillStyle = fc; g.fill(); g.stroke();
+    letter(g, SERVICE_LETTER[p.mark], x, y, 10);
+  } else if (layer === "dungeon") {
+    const [c, s] = DUNGEON[p.mark] || DUNGEON.dungeon;
+    g.fillStyle = c; g.fillRect(x - 7, y - 7, 14, 14); g.strokeStyle = "#fff"; g.strokeRect(x - 7, y - 7, 14, 14);
+    letter(g, s, x, y, 10);
+  } else if (layer === "quest") {
+    g.font = "900 17px system-ui, -apple-system, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.lineWidth = 3.5; g.strokeStyle = "#000"; g.strokeText("!", x, y); g.fillStyle = "#ffd200"; g.fillText("!", x, y);
+  } else if (layer === "rare") {
+    star(g, x, y, 8); g.fillStyle = p.mark === 2 ? "#ffcf33" : "#dcdce8"; g.fill(); g.stroke();
+  } else if (layer === "poi") {
+    g.beginPath(); g.arc(x, y, 4.5, 0, Math.PI * 2); g.fillStyle = "rgba(255,255,255,.95)"; g.fill(); g.stroke();
+  } else if (layer === "mail") {
+    g.fillStyle = "#8fd3ff"; g.fillRect(x - 6, y - 4, 12, 8); g.lineWidth = 1; g.strokeRect(x - 6, y - 4, 12, 8);
+    g.beginPath(); g.moveTo(x - 6, y - 4); g.lineTo(x, y + 1); g.lineTo(x + 6, y - 4); g.stroke();
+  } else if (layer === "herb") {
+    g.beginPath(); g.arc(x, y, 4, 0, Math.PI * 2); g.fillStyle = "#4cd964"; g.fill(); g.lineWidth = 1; g.stroke();
+  } else if (layer === "ore") {
+    g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 5, y + 4); g.lineTo(x - 5, y + 4); g.closePath();
+    g.fillStyle = "#e08a3c"; g.fill(); g.lineWidth = 1; g.stroke();
+  } else if (layer === "hl") {
+    g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.lineWidth = 4.5; g.strokeStyle = "#000"; g.stroke();
+    g.lineWidth = 2.5; g.strokeStyle = "#ff3df0"; g.stroke();
+    g.beginPath(); g.arc(x, y, 2.5, 0, Math.PI * 2); g.fillStyle = "#ff3df0"; g.fill();
+  }
+}
+// Highlighted spawns (and, for a flight point, lines to where it flies).
+function drawHighlight() {
+  if (highlight.from) {
+    const [x0, y0] = toScreen(...highlight.from);
+    ctx.setLineDash([6, 5]); ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,61,240,.8)";
+    ctx.beginPath();
+    for (const p of highlight.pts) { const [x, y] = toScreen(p.col, p.row); ctx.moveTo(x0, y0); ctx.lineTo(x, y); }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  const s = highlight.pts.length > 40 ? 0.65 : 1; // many: smaller rings, so they don't merge into a blob
+  for (const p of highlight.pts) {
+    const [x, y] = toScreen(p.col, p.row);
+    if (x < -20 || x > W + 20 || y < -20 || y > H + 20) continue;
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s); drawPin(ctx, "hl", p, 0, 0); ctx.restore();
+  }
+}
+// The pin (or highlighted spawn) under a point, if any: the nearest within a finger's reach.
+function pinAt(x, y, reach) {
+  let best = null, bd = reach;
+  const consider = (p) => {
+    const [px, py] = toScreen(p.col, p.row), d = Math.hypot(px - x, py - y);
+    if (d <= bd) { bd = d; best = p; }
+  };
+  if (highlight) highlight.pts.forEach(consider);
+  if (!best) pins.forEach((p) => shown(p.layer) && consider(p));
+  return best;
+}
+
+// Pins for the view, once it settles: only layers shown at this zoom; the server thins them.
+let pinTimer, pinSeq = 0;
+function refreshPins() {
+  clearTimeout(pinTimer);
+  pinTimer = setTimeout(async () => {
+    const want = LAYERS.filter((l) => shown(l[0])).map((l) => l[0]).reverse(), seq = ++pinSeq; // dense layers drawn first, under
+    renderLayers();
+    if (!want.length) { pins = []; draw(); return; }
+    const [c0, r0] = toTile(0, 0), [c1, r1] = toTile(W, H);
+    const got = await get(`/api/pins?inst=${INST}&c0=${c0}&r0=${r0}&c1=${c1}&r1=${r1}&zoom=${cam.zoom}&layers=${want.join(",")}`);
+    if (seq === pinSeq) { pins = got; draw(); }
+  }, 200);
+}
+function settled() { refreshWalk(); refreshPins(); }
 
 // Walk overlay: class 0 blocked, 1 land, 2 water, 3 magma/slime; a line where you can't cross east/south.
 const CLASS = ["rgba(255,0,0,.35)", "rgba(0,255,0,.12)", "rgba(0,120,255,.3)", "rgba(255,140,0,.45)"];
@@ -223,11 +407,12 @@ async function inspect(x, y, mark) {
   if (mark) { marker = [col, row]; draw(); }
   const a = await get(`/api/at?inst=${INST}&col=${col}&row=${row}`);
   if (seq !== atSeq) return;
-  const z = a.zone;
+  const z = a.zone, ar = a.area;
   readout.textContent =
     `tile   ${col.toFixed(3)}, ${row.toFixed(3)}  (key ${Math.floor(col) * 64 + Math.floor(row)})\n` +
     `world  north ${a.north.toFixed(1)}, west ${a.west.toFixed(1)}\n` +
-    `zone   ${z ? `${z.name} (${z.mapID})  ${(z.x * 100).toFixed(1)}, ${(z.y * 100).toFixed(1)}` : "-"}\n` +
+    `zone   ${ar ? ar.zone : "-"}${z ? ` (${z.mapID})  ${(z.x * 100).toFixed(1)}, ${(z.y * 100).toFixed(1)}` : ""}\n` +
+    `area   ${ar ? `${ar.subzone || "-"}  ${ar.levels.length ? `lv ${ar.levels.join("–")}` : ""}  ${FACTION_NAME[ar.faction] || "no faction"}` : "-"}\n` +
     `walk   chunk ${a.chunk.join(", ")}  class ${a.walk.class}  E ${a.walk.east}  S ${a.walk.south}`;
 }
 
@@ -242,7 +427,7 @@ function flyTo(goal, ms = 350) {
     cam = { cx: from.cx + (goal.cx - from.cx) * e, cy: from.cy + (goal.cy - from.cy) * e,
             zoom: from.zoom * (goal.zoom / from.zoom) ** e };
     draw();
-    if (t < 1) motion = requestAnimationFrame(step); else { motion = null; refreshWalk(); }
+    if (t < 1) motion = requestAnimationFrame(step); else { motion = null; settled(); }
   };
   motion = requestAnimationFrame(step);
 }
@@ -255,7 +440,7 @@ function glide(vx, vy) { // px/ms, slowing like iOS scrolling
     cam = { ...cam, cx: cam.cx - vx * dt / cam.zoom, cy: cam.cy - vy * dt / cam.zoom };
     const k = Math.exp(-dt / 325); vx *= k; vy *= k;
     draw();
-    if (Math.hypot(vx, vy) > 0.02) motion = requestAnimationFrame(step); else { motion = null; refreshWalk(); }
+    if (Math.hypot(vx, vy) > 0.02) motion = requestAnimationFrame(step); else { motion = null; settled(); }
   };
   motion = requestAnimationFrame(step);
 }
@@ -268,7 +453,7 @@ const mid = () => { const p = [...pts.values()]; return p.length < 2 ? p[0] : { 
 const spread = () => { const p = [...pts.values()]; return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y); };
 
 canvas.addEventListener("pointerdown", (e) => {
-  stopMotion();
+  stopMotion(); closeSheets();
   pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
   canvas.setPointerCapture(e.pointerId);
   tap = pts.size === 1 ? { x: e.clientX, y: e.clientY, t: e.timeStamp } : null;
@@ -278,7 +463,10 @@ canvas.addEventListener("pointerdown", (e) => {
 
 canvas.addEventListener("pointermove", (e) => {
   if (!pts.has(e.pointerId)) {
-    if (e.pointerType === "mouse") inspect(e.clientX, e.clientY, false);
+    if (e.pointerType === "mouse") {
+      inspect(e.clientX, e.clientY, false);
+      canvas.style.cursor = pinAt(e.clientX, e.clientY, 12) ? "pointer" : "grab";
+    }
     return;
   }
   const m0 = mid(), d0 = pts.size === 2 ? spread() : 0;
@@ -302,12 +490,14 @@ function release(e, cancelled) {
     if (lastTap && e.timeStamp - lastTap.t < 300 && Math.hypot(tap.x - lastTap.x, tap.y - lastTap.y) < 30 && e.pointerType !== "mouse") {
       flyTo(zoomGoal(tap.x, tap.y, cam.zoom * 2), 250); lastTap = null;
     } else {
-      inspect(tap.x, tap.y, true); lastTap = tap;
+      const pin = pinAt(tap.x, tap.y, e.pointerType === "mouse" ? 12 : 22);
+      if (pin) openPin(pin); else inspect(tap.x, tap.y, true);
+      lastTap = tap;
     }
   } else if (pts.size === 0 && e.timeStamp - vel.t < 80 && Math.hypot(vel.x, vel.y) > 0.1) {
     glide(vel.x, vel.y);
   } else if (pts.size === 0) {
-    refreshWalk();
+    settled();
   }
   tap = null;
   vel.t = 0; // a finger left mid-pinch: the other's next move isn't a flick
@@ -319,7 +509,7 @@ canvas.addEventListener("wheel", (e) => {
   e.preventDefault(); stopMotion();
   // A trackpad pinch arrives as ctrl+wheel with small deltas.
   zoomAt(e.clientX, e.clientY, cam.zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002)));
-  draw(); refreshWalk();
+  draw(); settled();
 }, { passive: false });
 canvas.addEventListener("dblclick", (e) => flyTo(zoomGoal(e.clientX, e.clientY, cam.zoom * 2), 250));
 // Safari's own pinch-to-zoom the page (iPad trackpads, older iOS ignoring user-scalable).
@@ -331,9 +521,210 @@ document.getElementById("zone").onchange = async (e) => {
   e.target.blur();
 };
 
+// ---- Sheets, search, cards and highlights: all their facts come from the server. ----
+const $ = (id) => document.getElementById(id);
+const ui = $("ui"), q = $("q"), results = $("results"), layersEl = $("layers"), layersBtn = $("layersBtn"),
+  card = $("card"), hl = $("hl");
+const narrow = matchMedia("(max-width: 600px)");
+let MAP_NAME = "";
+function h(tag, props, ...kids) {
+  const e = Object.assign(document.createElement(tag), props);
+  for (const k of kids.flat(Infinity)) if (k != null && k !== false && k !== "" && k !== 0) e.append(k);
+  return e;
+}
+function placeSheets() { document.documentElement.style.setProperty("--below", `${ui.getBoundingClientRect().bottom + 6}px`); }
+function closeSheets() {
+  results.hidden = true; q.blur();
+  if (narrow.matches) setLayersOpen(false);
+}
+function setLayersOpen(open) { layersEl.hidden = !open; layersBtn.setAttribute("aria-expanded", open); if (open) results.hidden = true; }
+layersBtn.onclick = () => setLayersOpen(layersEl.hidden);
+
+// The layers sheet: a toggle per layer, each with its pin as the legend.
+function swatch(layer, sample) {
+  const c = h("canvas", { width: 28 * dpr, height: 28 * dpr });
+  c.style.cssText = "width:28px;height:28px;flex:none";
+  const g = c.getContext("2d"); g.scale(dpr, dpr); drawPin(g, layer, sample, 14, 14);
+  return c;
+}
+function renderLayers() {
+  if (!layersEl.firstChild) {
+    for (const [id, name, , sample] of LAYERS) {
+      const box = h("input", { type: "checkbox", checked: layerOn.has(id) });
+      box.onchange = () => { box.checked ? layerOn.add(id) : layerOn.delete(id); draw(); refreshPins(); };
+      const row = h("label", { className: "row" }, box, swatch(id, sample), h("span", {}, name), h("small"));
+      row.dataset.layer = id;
+      layersEl.append(row);
+    }
+    const dot = (c, t) => h("span", {}, h("i", { style: `background:${c}` }), t);
+    layersEl.append(h("div", { className: "legend" }, dot(FACTION.A, "Alliance"), dot(FACTION.H, "Horde"), dot(FACTION.AH, "Both"),
+      dot(NO_FACTION, "Neither"), h("span", {}, "Services: I inn · B bank · A auction · F flight · S stable · T trainer · R repair"),
+      h("span", { style: "display:flex;align-items:center;gap:4px" }, swatch("hl", {}), "Highlighted spawns")));
+  }
+  for (const [id, , minZoom] of LAYERS) {
+    layersEl.querySelector(`[data-layer="${id}"] small`).textContent = cam.zoom < minZoom ? "zoom in to see" : "";
+  }
+}
+
+// Search: Atlas.Find over NPCs, quests, objects and items.
+let findTimer, findSeq = 0;
+q.addEventListener("input", () => {
+  clearTimeout(findTimer);
+  const text = q.value.trim();
+  if (text.length < 2) { results.hidden = true; return; }
+  findTimer = setTimeout(async () => {
+    const seq = ++findSeq, found = await get(`/api/find?q=${encodeURIComponent(text)}`);
+    if (seq !== findSeq) return;
+    results.replaceChildren(...(found.length ? found.map((r) => h("button", { className: "row", onclick: () => pick(r) },
+      h("span", { className: `tag ${r.kind}` }, r.kind), h("span", {}, r.name), r.detail && h("small", {}, r.detail)))
+      : [h("div", { className: "row" }, "No matches")]));
+    results.hidden = false; setLayersOpen(false);
+  }, 200);
+});
+q.addEventListener("focus", () => { if (results.firstChild && q.value.trim().length > 1) results.hidden = false; });
+q.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") results.querySelector("button")?.click();
+  if (e.key === "Escape") closeSheets();
+});
+function pick(r) {
+  results.hidden = true; q.blur();
+  openCard(r.kind, r.id, { highlight: true, fly: true });
+}
+
+// Entities, fetched once each.
+const fetched = new Map();
+const entity = (kind, id) => {
+  const k = `${kind}:${id}`;
+  if (!fetched.has(k)) fetched.set(k, get(`/api/${kind}?id=${id}`));
+  return fetched.get(k);
+};
+const spawnsOf = (e) => (e.spawns.find((s) => s.inst === INST)?.points || []).map(([col, row]) => ({ col, row, kind: e.kind, id: e.id }));
+function elsewhere(e) { // where an entity is that this map doesn't show
+  const parts = e.spawns.filter((s) => s.inst !== INST).map((s) => `${s.points.length} spawn${s.points.length > 1 ? "s" : ""} on ${s.map}`);
+  for (const d of e.instances) parts.push(`inside ${d.name}`);
+  return parts.join(", ");
+}
+
+// The highlight: a set of spawns drawn on top until cleared.
+function setHighlight(text, points, from) {
+  highlight = points.length ? { pts: points, from } : null;
+  hl.firstChild.textContent = text; hl.hidden = false;
+  placeSheets(); draw();
+}
+hl.lastChild.onclick = () => { highlight = null; hl.hidden = true; placeSheets(); draw(); };
+
+// Fly so points fill the part of the map the card and bar don't cover (Atlas.Camera.Fit).
+async function fitTo(points) {
+  const cs = points.map((p) => p.col), rs = points.map((p) => p.row);
+  let x0 = 0, y0 = ui.getBoundingClientRect().bottom, x1 = W, y1 = H;
+  if (!card.hidden) { const r = card.getBoundingClientRect(); if (r.left < 10) y1 = r.top; else x1 = r.left; }
+  const c = (await get(`/api/fit?c0=${Math.min(...cs)}&r0=${Math.min(...rs)}&c1=${Math.max(...cs)}&r1=${Math.max(...rs)}` +
+    `&w=${x1 - x0}&h=${y1 - y0}`)).cam;
+  flyTo({ cx: c.cx - ((x0 + x1) / 2 - W / 2) / c.zoom, cy: c.cy - ((y0 + y1) / 2 - H / 2) / c.zoom, zoom: c.zoom }, 500);
+}
+
+// Highlight the spawns of some npcs / objects (a quest objective's or an item's sources) and fit to them.
+async function showSources(refs, label) {
+  const es = await Promise.all(refs.filter((r) => r.kind === "npc" || r.kind === "object").map((r) => entity(r.kind, r.id)));
+  const points = es.flatMap(spawnsOf);
+  if (points.length) {
+    setHighlight(`${label} · ${points.length} spawn${points.length > 1 ? "s" : ""}`, points);
+    fitTo(points);
+  } else {
+    const where = es.map(elsewhere).filter(Boolean).join("; ") || "no known spawns";
+    setHighlight(`${label}: not on ${MAP_NAME}`, []);
+    const status = card.querySelector(".status");
+    if (status) status.textContent = `${label} isn't on ${MAP_NAME}: ${where}.`;
+  }
+}
+
+// Cards: one entity each; refs inside open more cards (with a way back).
+const stack = [];
+const levels = (a, b) => a && (b && b !== a ? `lv ${a}–${b}` : `lv ${a}`);
+const money = (c) => [[Math.floor(c / 10000), "g"], [Math.floor(c / 100) % 100, "s"], [c % 100, "c"]].filter(([v]) => v).map((x) => x.join("")).join(" ");
+const sub = (...parts) => h("div", { className: "sub" }, parts.filter(Boolean).join(" · "));
+function refButton(r, onclick) {
+  return h("button", { className: "ref", onclick }, h("span", { className: `tag ${r.kind}` }, r.kind), h("span", {}, r.name),
+    r.level && h("small", {}, `lv ${r.level}`), r.cost != null && h("small", {}, money(r.cost)));
+}
+const follow = (r) => () => openCard(r.kind, r.id, { highlight: true, fly: true });
+const refList = (title, refs) => refs.length && [h("h3", {}, title), h("div", { className: "refs" }, refs.map((r) => refButton(r, follow(r))))];
+// Sources: tap to highlight their spawns, › for the card.
+function sourceList(title, refs) {
+  if (!refs.length) return null;
+  return [h("h3", {}, title), h("div", { className: "refs" },
+    refs.length > 1 && h("button", { className: "ref", onclick: () => showSources(refs, title) }, h("span", {}, `◎ Show all ${refs.length} on the map`)),
+    refs.map((r) => r.kind === "item" ? refButton(r, follow(r)) : h("div", { className: "src" },
+      h("button", { className: "ref", onclick: () => showSources([r], r.name) }, h("span", {}, `◎ ${r.name}`)),
+      h("button", { className: "x", ariaLabel: `${r.name} details`, onclick: follow(r) }, "›"))))];
+}
+function spawnInfo(e) {
+  const here = spawnsOf(e).length, other = elsewhere(e);
+  return [h("p", {}, here ? `${here} spawn${here > 1 ? "s" : ""} on ${MAP_NAME}` : `Not on ${MAP_NAME}.`),
+    other && h("p", { className: "note" }, `${here ? "Also" : "Found"} ${other}.`)];
+}
+const RENDER = {
+  npc: (d) => [h("h2", {}, d.name), sub(d.subName && `<${d.subName}>`, "NPC", levels(d.minLevel, d.maxLevel), RANK[d.rank], FACTION_NAME[d.faction]),
+    d.services.length && h("div", { className: "chips" }, d.services.map((s) => h("span", {}, s))),
+    spawnInfo(d), refList("Starts", d.questStarts), refList("Ends", d.questEnds)],
+  object: (d) => [h("h2", {}, d.name), sub("Object", d.objectKind), spawnInfo(d), refList("Starts", d.questStarts), refList("Ends", d.questEnds)],
+  item: (d) => [h("h2", {}, d.name), sub("Item", d.requiredLevel && `requires lv ${d.requiredLevel}`),
+    d.startQuest && refList("Starts quest", [d.startQuest]), sourceList("Dropped by", d.npcDrops),
+    sourceList("Contained in", d.objectDrops), sourceList("Sold by", d.vendors), refList("Comes from", d.itemDrops)],
+  quest: (d) => [h("h2", {}, d.name), sub("Quest", d.level && `lv ${d.level}`, d.requiredLevel && `requires ${d.requiredLevel}`,
+    FACTION_NAME[d.faction] || "either faction", d.zone), d.objectivesText.map((t) => h("p", {}, t)),
+    refList("Starts at", d.startedBy), refList("Ends at", d.finishedBy),
+    d.objectives.map((o) => o.sources.length ? sourceList(`${o.kind}: ${o.name || o.text}`, o.sources)
+      : [h("h3", {}, o.kind), h("p", {}, o.text || o.name || `#${o.id}`)]),
+    d.triggerEnd && [h("h3", {}, "Explore"), h("button", { className: "ref", onclick: () => {
+      const points = spawnsOf({ ...d.triggerEnd, kind: "quest", id: d.id });
+      if (points.length) { setHighlight(d.triggerEnd.text, points); fitTo(points); } else card.querySelector(".status").textContent = `Not on ${MAP_NAME}.`;
+    } }, h("span", {}, `◎ ${d.triggerEnd.text}`))]],
+  flight: (d) => [h("h2", {}, d.name), sub("Flight point", FACTION_NAME[d.faction], d.area),
+    refList(`Flies to (${d.destinations.length})`, d.destinations)],
+  dungeon: (d) => [h("h2", {}, d.name), sub(d.dungeonKind, d.minLevel && `from lv ${d.minLevel}`, d.maxPlayers && `${d.maxPlayers} players`),
+    d.bosses.length && [h("h3", {}, "Bosses"), h("div", { className: "chips" }, d.bosses.map((b) => h("span", {}, b)))]],
+  poi: (d) => [h("h2", {}, d.name), sub("Point of interest"), d.description && h("p", {}, d.description)],
+};
+function renderCard() {
+  const d = stack[stack.length - 1];
+  const [title, ...body] = RENDER[d.kind](d); // the title sits in the bar, between back and close
+  card.replaceChildren(h("div", { className: "bar" },
+    stack.length > 1 && h("button", { className: "x", ariaLabel: "Back", onclick: () => { stack.pop(); renderCard(); } }, "‹"),
+    title, h("button", { className: "x", ariaLabel: "Close", onclick: closeCard }, "✕")),
+    h("div", {}, body), h("p", { className: "note status" }));
+  card.hidden = false; card.scrollTop = 0;
+}
+function closeCard() { stack.length = 0; card.hidden = true; }
+let cardSeq = 0;
+async function openCard(kind, id, opts = {}) {
+  const seq = ++cardSeq, d = opts.data || await entity(kind, id);
+  if (seq !== cardSeq) return;
+  if (card.hidden) stack.length = 0;
+  stack.push(d);
+  renderCard();
+  if (!opts.highlight) return;
+  if (kind === "npc" || kind === "object") {
+    const points = spawnsOf(d);
+    if (!points.length) return; // the card says where it is instead
+    setHighlight(`${d.name} · ${points.length} spawn${points.length > 1 ? "s" : ""}`, points);
+    if (opts.fly) fitTo(points);
+  } else if (kind === "flight") {
+    const dests = d.destinations.filter((x) => x.inst === INST).map((x) => ({ col: x.col, row: x.row, kind: "flight", id: x.id }));
+    setHighlight(`${d.name} · flies to ${d.destinations.length}`, dests, [d.col, d.row]);
+    if (opts.fly) fitTo([...dests, { col: d.col, row: d.row }]);
+  }
+}
+function openPin(p) {
+  if (p.kind === "poi") openCard("poi", p.id, { data: { ...p } });
+  else openCard(p.kind, p.id, { highlight: p.kind !== "dungeon", fly: p.kind === "flight" }); // a flight point: show its routes
+}
+addEventListener("keydown", (e) => { if (e.key === "Escape" && document.activeElement !== q) closeCard(); });
+
 (async () => {
   const maps = await get("/api/maps");
   const m = maps.find((x) => x.inst === INST);
+  MAP_NAME = m.name;
   bg = rgb(m.bg);
   document.body.style.background = bg;
   const sel = document.getElementById("zone");
@@ -348,7 +739,8 @@ document.getElementById("zone").onchange = async (e) => {
   W = innerWidth; H = innerHeight;
   cam = (await get(`/api/fit?uiMapID=${m.uiMapID}&w=${W}&h=${H}`)).cam;
   addEventListener("resize", resize);
-  resize();
+  resize(); renderLayers();
+  setLayersOpen(matchMedia("(min-width: 700px) and (hover: hover)").matches);
 })();
 </script>
 </body>

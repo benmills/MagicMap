@@ -11,6 +11,12 @@ them.
   /api/at?inst=&col=&row=            TileToWorld, ZoneAt, Walk.Cell at that chunk
   /api/fit?uiMapID=&w=&h=            MapRect and Camera.Fit
   /api/walk?inst=&c0=&r0=&c1=&r1=    Walk.Cell over a chunk range, one hex digit each
+  /api/pins?inst=&c0=&r0=&c1=&r1=&zoom=&layers=
+                                     FlightPoints, POIs, Dungeons, SpawnsIn (by NPC flags, quests,
+                                     rank, object kind) in a box, thinned to one per layer per cell
+  /api/npc|object|item|quest|flight|dungeon?id=
+                                     one entity, its links named (QuestSources for a quest)
+  /api/find?q=                       Atlas.Find over npc, quest, object, item
 """
 from __future__ import annotations
 
@@ -36,6 +42,8 @@ def py(v):
     if lua_type(v) != "table":
         return v
     d = dict(v.items())
+    if not d:
+        return []
     if d and all(isinstance(k, int) for k in d) and sorted(d) == list(range(1, len(d) + 1)):
         return [py(d[i]) for i in range(1, len(d) + 1)]
     return {str(k): py(x) for k, x in d.items()}
@@ -61,12 +69,10 @@ def tiles(q):
 def borders(q):
     inst = int(q["inst"])
     b = Atlas.Borders(inst)
-    best = {}  # zone name -> its heaviest zone label
-    for _, col, row, weight, kind in (py(x) for x in b.labels.values()):
-        z = kind == 1 and Atlas.ZoneAt(inst, col, row)
-        if z and weight > best.get(z.name, (0,))[0]:
-            best[z.name] = (weight, col, row)
-    labels = [{"name": n, "col": c, "row": r} for n, (_, c, r) in best.items()]
+    # kind 1 zone, 2 subzone; named by their areaID
+    labels = [{"name": Atlas.Area(area).name, "kind": kind, "weight": weight, "col": col, "row": row}
+              for area, col, row, weight, kind in (py(x) for x in b.labels.values())]
+    labels.sort(key=lambda l: (l["kind"], -l["weight"]))
     # kind, then the points (skip areaA, areaB, fadeStart, fadeEnd)
     lines = [[x[0]] + x[5:] for x in (py(line) for line in b.lines.values())]
     return {"lines": lines, "labels": labels}
@@ -79,14 +85,28 @@ def at(q):
     gc, gr = int(col * n // 1), int(row * n // 1)
     cls, east, south = Atlas.Walk.Cell(inst, gc, gr)
     z = Atlas.ZoneAt(inst, col, row)
-    return {"north": north, "west": west, "zone": py(z), "chunk": [gc, gr],
-            "walk": {"class": cls, "east": east, "south": south}}
+    out = {"north": north, "west": west, "zone": py(z), "chunk": [gc, gr],
+           "walk": {"class": cls, "east": east, "south": south}}
+    id = Atlas.AreaAt(inst, col, row)
+    if id:
+        a = Atlas.Area(id)
+        zone = Atlas.Area(a.zone)
+        out["area"] = {"zone": zone.name, "subzone": a.parent and a.name,
+                       "levels": list(Atlas.ZoneLevels(a.zone) or ()), "faction": a.faction or zone.faction}
+    return out
 
 
 def fit(q):
-    r = Atlas.MapRect(int(q["uiMapID"]))
-    cx, cy, zoom = Atlas.Camera.Fit(r.col0, r.row0, r.col1, r.row1, float(q["w"]), float(q["h"]), None, 16, 2048)
-    return {"inst": r.inst, "rect": py(r), "cam": {"cx": cx, "cy": cy, "zoom": zoom}}
+    w, h = float(q["w"]), float(q["h"])
+    if "uiMapID" in q:
+        r = Atlas.MapRect(int(q["uiMapID"]))
+        cx, cy, zoom = Atlas.Camera.Fit(r.col0, r.row0, r.col1, r.row1, w, h, None, 16, 2048)
+        return {"inst": r.inst, "rect": py(r), "cam": {"cx": cx, "cy": cy, "zoom": zoom}}
+    # a box of spawns: at least ~300 yards across, so one spawn isn't zoomed in on all the way
+    c0, r0, c1, r1 = (float(q[k]) for k in ("c0", "r0", "c1", "r1"))
+    pc, pr = max(0.6 - (c1 - c0), 0) / 2, max(0.6 - (r1 - r0), 0) / 2
+    cx, cy, zoom = Atlas.Camera.Fit(c0 - pc, r0 - pr, c1 + pc, r1 + pr, w, h, 0.8, 16, 1024)
+    return {"cam": {"cx": cx, "cy": cy, "zoom": zoom}}
 
 
 def walk(q):
@@ -102,7 +122,176 @@ def walk(q):
     return {"c0": c0, "r0": r0, "rows": rows}
 
 
-API = {"maps": maps, "tiles": tiles, "borders": borders, "at": at, "fit": fit, "walk": walk}
+MAP_NAMES = {m["inst"]: m["name"] for m in py(Atlas.Maps())}
+GET = {"npc": Atlas.Npc, "object": Atlas.Object, "item": Atlas.Item, "quest": Atlas.Quest}
+
+# Which spawns each pin layer shows (Lua, so SpawnsIn's filter stays in Lua).
+FILTERS = L.eval("""function(Atlas)
+  local function Has(flags, bit) return math.floor(flags / bit) % 2 == 1 end
+  local SERVICE = { 128, 256, 4096, 8, 8192, 16, 16384 } -- inn, bank, auction, flight, stable, trainer, repair
+  return {
+    service = function(id)
+      local f = Atlas.Npc(id).flags
+      for _, b in ipairs(SERVICE) do if Has(f, b) then return true end end
+      return false
+    end,
+    questNpc = function(id) return #Atlas.Npc(id).questStarts > 0 end,
+    questObject = function(id) return #Atlas.Object(id).questStarts > 0 end,
+    rare = function(id) local r = Atlas.Npc(id).rank return r == 2 or r == 4 end,
+    mail = function(id) return Atlas.Object(id).kind == "mailbox" end,
+    herb = function(id) return Atlas.Object(id).kind == "herb" end,
+    ore = function(id) return Atlas.Object(id).kind == "ore" end,
+  }
+end""")(Atlas)
+SERVICES = ["innkeeper", "flightmaster", "banker", "auctioneer", "stablemaster", "trainer", "repair"]
+SPAWN_LAYERS = {"service": [("npc", "service")], "quest": [("npc", "questNpc"), ("object", "questObject")],
+                "rare": [("npc", "rare")], "mail": [("object", "mail")], "herb": [("object", "herb")],
+                "ore": [("object", "ore")]}
+PIN_CELL, PIN_CAP = 22, 400  # px per thinning cell; most pins per layer
+
+
+def pins(q):
+    inst, zoom = int(q["inst"]), float(q["zoom"])
+    c0, r0, c1, r1 = (float(q[k]) for k in ("c0", "r0", "c1", "r1"))
+    inside = lambda p: c0 <= p["col"] <= c1 and r0 <= p["row"] <= r1  # noqa: E731
+    out, cell = [], PIN_CELL / zoom
+    for layer in q["layers"].split(","):
+        found = []
+        if layer == "flight":
+            found = [dict(p, kind="flight") for p in py(Atlas.FlightPoints(inst)) if inside(p)]
+        elif layer == "poi":
+            found = [dict(p, kind="poi") for p in py(Atlas.POIs(inst)) if inside(p)]
+        elif layer == "dungeon":
+            found = [{"kind": "dungeon", "id": d["id"], "name": d["name"], "col": d["col"], "row": d["row"],
+                      "mark": d["kind"]} for d in py(Atlas.Dungeons(inst)) if inside(d)]
+        else:
+            for kind, f in SPAWN_LAYERS[layer]:
+                for s in Atlas.SpawnsIn(kind, inst, c0, r0, c1, r1, FILTERS[f]).values():
+                    found.append({"kind": kind, "id": s.id, "col": s.col, "row": s.row})
+        if layer == "service":  # the most useful service wins a crowded cell
+            for p in found:
+                services = py(Atlas.Npc(p["id"]).services)
+                p["mark"] = next(s for s in SERVICES if s in services)
+            found.sort(key=lambda p: SERVICES.index(p["mark"]))
+        seen = set()
+        for p in found:
+            key = (int(p["col"] // cell), int(p["row"] // cell))
+            if key in seen:
+                continue
+            seen.add(key)
+            pin = {"layer": layer, "kind": p["kind"], "id": p["id"], "col": p["col"], "row": p["row"],
+                   "mark": p.get("mark")}
+            if p["kind"] in ("npc", "object"):
+                e = GET[p["kind"]](p["id"])
+                pin["name"] = e.name
+                if p["kind"] == "npc":
+                    pin["faction"] = e.faction
+                    if layer == "rare":
+                        pin["mark"] = e.rank
+            else:
+                pin.update(name=p["name"], faction=p.get("faction"), description=p.get("description"))
+            out.append(pin)
+            if len(seen) >= PIN_CAP:
+                break
+    return out
+
+
+def ref(kind, id):
+    e = GET[kind](id)
+    r = {"kind": kind, "id": id, "name": e.name if e else f"#{id}"}
+    if kind == "quest" and e:
+        r["level"] = e.level
+    return r
+
+
+def refs(kind, ids):
+    return [ref(kind, i) for i in ids.values()]
+
+
+def where(e):
+    """Spawns per inst as [col, row] pairs, and the dungeons it's inside."""
+    spawns = []
+    for inst, pts in sorted(e.spawns.items()):
+        p = list(pts.values())
+        spawns.append({"inst": inst, "map": MAP_NAMES.get(inst, f"#{inst}"),
+                       "points": [p[i:i + 2] for i in range(0, len(p), 2)]})
+    inside = [{"id": i, "name": (Atlas.Dungeon(i) or {"name": MAP_NAMES.get(i, f"#{i}")})["name"]}
+              for i in e.instances.values()]
+    return {"spawns": spawns, "instances": inside}
+
+
+def npc(q):
+    n = Atlas.Npc(int(q["id"]))
+    return dict(where(n), kind="npc", id=n.id, name=n.name, subName=n.subName, minLevel=n.minLevel,
+                maxLevel=n.maxLevel, rank=n.rank, faction=n.faction, services=py(n.services),
+                questStarts=refs("quest", n.questStarts), questEnds=refs("quest", n.questEnds))
+
+
+def object(q):
+    o = Atlas.Object(int(q["id"]))
+    return dict(where(o), kind="object", id=o.id, name=o.name, objectKind=o.kind,
+                questStarts=refs("quest", o.questStarts), questEnds=refs("quest", o.questEnds))
+
+
+def item(q):
+    i = Atlas.Item(int(q["id"]))
+    return {"kind": "item", "id": i.id, "name": i.name, "requiredLevel": i.requiredLevel,
+            "startQuest": i.startQuest and ref("quest", i.startQuest),
+            "npcDrops": refs("npc", i.npcDrops), "objectDrops": refs("object", i.objectDrops),
+            "vendors": refs("npc", i.vendors), "itemDrops": refs("item", i.itemDrops)}
+
+
+def quest(q):
+    id = int(q["id"])
+    x = Atlas.Quest(id)
+    zone = x.zone and Atlas.Area(x.zone)
+    objectives = [{"kind": o.kind, "id": o.id, "text": o.text, "name": o.name,
+                   "sources": [ref(s.kind, s.id) for s in o.sources.values()]}
+                  for o in Atlas.QuestSources(id).values()]
+    t = x.triggerEnd
+    return {"kind": "quest", "id": id, "name": x.name, "level": x.level, "requiredLevel": x.requiredLevel,
+            "faction": x.faction, "zone": zone and zone.name, "objectivesText": py(x.objectivesText),
+            "startedBy": refs("npc", x.startedBy.npcs) + refs("object", x.startedBy.objects)
+            + refs("item", x.startedBy["items"]),
+            "finishedBy": refs("npc", x.finishedBy.npcs) + refs("object", x.finishedBy.objects),
+            "objectives": objectives, "triggerEnd": t and dict(where(t), text=t.text)}
+
+
+FLIGHTS = {p["id"]: dict(p, inst=m) for m in MAP_NAMES for p in py(Atlas.FlightPoints(m))}
+
+
+def flight(q):
+    id = int(q["id"])
+    f = FLIGHTS[id]
+    area = f.get("areaID") and Atlas.Area(f["areaID"])
+    dest = [dict(FLIGHTS[p.to], cost=p.cost, kind="flight") for p in Atlas.TaxiPaths().values() if p["from"] == id]
+    dest.sort(key=lambda d: d["name"])
+    return dict(f, kind="flight", area=area and area.name, destinations=dest)
+
+
+def dungeon(q):
+    d = py(Atlas.Dungeon(int(q["id"])))
+    return dict(d, dungeonKind=d["kind"], kind="dungeon")
+
+
+def find(q):
+    out = []
+    for kind in ("npc", "quest", "object", "item"):
+        for id in Atlas.Find(kind, q["q"], 8).values():
+            e, r = GET[kind](id), ref(kind, id)
+            if kind == "npc":
+                r["detail"] = " ".join(x for x in (e.subName and f"<{e.subName}>", e.minLevel and f"lv {e.minLevel}") if x)
+            elif kind == "quest":
+                r["detail"] = f"lv {e.level}" if e.level else ""
+            elif kind == "object":
+                r["detail"] = e.kind or ""
+            out.append(r)
+    return out
+
+
+API = {"maps": maps, "tiles": tiles, "borders": borders, "at": at, "fit": fit, "walk": walk, "pins": pins,
+       "npc": npc, "object": object, "item": item, "quest": quest, "flight": flight, "dungeon": dungeon,
+       "find": find}
 
 
 # Tiles load many at once (a phone asks for dozens per pan), so requests run on
