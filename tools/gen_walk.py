@@ -29,6 +29,7 @@ import sys
 from mmtools.db2 import read_wdc5
 from mmtools.formats import adt_chunks, adt_liquids, wdt_maid
 from mmtools.log import log
+from mmtools.luaout import run_letters
 from mmtools.maps import MAP_DB2, read_maps
 from mmtools.sources import Source, add_source_args, source_from_args
 
@@ -127,15 +128,7 @@ def classify(quads: dict[int, bytearray]) -> dict[int, int]:
 def encode_tile(cells: dict[int, int], col: int, row: int) -> str:
     """The tile's 256 chunks (iy * 16 + ix) as letters ('a' + value, 'a' where
     there's no chunk), runs written as the letter and a count: "n200b3n53"."""
-    vals = [cells.get((col * 16 + i % 16) * 1024 + row * 16 + i // 16, 0) for i in range(256)]
-    out, i = [], 0
-    while i < 256:
-        j = i
-        while j < 256 and vals[j] == vals[i]:
-            j += 1
-        out.append(chr(97 + vals[i]) + (str(j - i) if j - i > 1 else ""))
-        i = j
-    return "".join(out)
+    return run_letters([chr(97 + cells.get((col * 16 + i % 16) * 1024 + row * 16 + i // 16, 0)) for i in range(256)])
 
 
 def write_preview(cells: dict[int, int], path: str) -> None:

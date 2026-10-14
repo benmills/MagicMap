@@ -5,3 +5,8 @@ __pycache__/
 /demo/tiles/
 /.claude/worktrees/
 /.claude/
+# QuestieDB-derived (QuestieDB declares no license; tools/gen_questie.py)
+/Data/Npcs.lua
+/Data/Objects.lua
+/Data/Items.lua
+/Data/Quests.lua
