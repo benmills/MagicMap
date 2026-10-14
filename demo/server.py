@@ -14,10 +14,12 @@ answers as JSON, and index.html only draws them.
 """
 from __future__ import annotations
 
+import gzip
 import json
 import os
 import sys
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+import threading
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 DEMO = os.path.dirname(os.path.abspath(__file__))
@@ -103,7 +105,14 @@ def walk(q):
 API = {"maps": maps, "tiles": tiles, "borders": borders, "at": at, "fit": fit, "walk": walk}
 
 
+# Tiles load many at once (a phone asks for dozens per pan), so requests run on
+# threads; the one Lua runtime isn't thread-safe, so Atlas calls take turns.
+atlas_lock = threading.Lock()
+
+
 class Handler(SimpleHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"  # keep-alive: one connection for a screenful of tiles
+
     def __init__(self, *args, **kw):
         super().__init__(*args, directory=DEMO, **kw)
 
@@ -111,14 +120,27 @@ class Handler(SimpleHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path.startswith("/api/"):
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
-            body = json.dumps(API[u.path[5:]](q)).encode()
+            with atlas_lock:
+                body = json.dumps(API[u.path[5:]](q)).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
+            if len(body) > 1024 and "gzip" in self.headers.get("Accept-Encoding", ""):
+                body = gzip.compress(body, 6)
+                self.send_header("Content-Encoding", "gzip")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
         else:
             super().do_GET()
+
+    def send_response(self, code, message=None):
+        self.code = code
+        super().send_response(code, message)
+
+    def end_headers(self):
+        if self.path.startswith("/tiles/") and self.code == 200:
+            self.send_header("Cache-Control", "public, max-age=86400")
+        super().end_headers()
 
     def log_message(self, *args):
         pass
@@ -127,4 +149,4 @@ class Handler(SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
     print(f"Atlas demo on http://localhost:{port}")
-    HTTPServer(("", port), Handler).serve_forever()
+    ThreadingHTTPServer(("", port), Handler).serve_forever()

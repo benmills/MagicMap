@@ -2,104 +2,181 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Atlas">
+<meta name="theme-color" content="#111111">
 <title>Atlas demo</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #111; color: #ddd; font: 13px system-ui, sans-serif; overflow: hidden; }
-  canvas { display: block; cursor: grab; }
-  #ui { position: fixed; top: 8px; left: 8px; background: rgba(0,0,0,.7); padding: 8px; border-radius: 4px; }
-  #ui select, #ui label { display: block; margin-bottom: 6px; }
-  #readout { white-space: pre; font: 12px ui-monospace, monospace; }
+  html, body { margin: 0; height: 100%; background: #111; color: #ddd; font: 13px system-ui, -apple-system, sans-serif;
+    overflow: hidden; overscroll-behavior: none; -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+  canvas { position: fixed; inset: 0; display: block; cursor: grab; touch-action: none; }
+  .panel { position: fixed; background: rgba(0,0,0,.72); border-radius: 10px; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  #ui { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); padding: 6px; display: flex; gap: 6px; }
+  /* 16px+ text stops iOS zooming the page when the picker gets focus; 44px is a finger. */
+  #ui select, #ui button { font: 16px system-ui, -apple-system, sans-serif; min-height: 44px; border-radius: 8px;
+    border: 1px solid #444; background: #222; color: #eee; padding: 0 12px; }
+  #ui select { max-width: 48vw; }
+  #ui button[aria-pressed="true"] { background: #2d4a2d; border-color: #5a8a5a; }
+  #readout { left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom));
+    padding: 8px 10px; white-space: pre; font: 12px ui-monospace, Menlo, monospace; max-width: calc(100vw - 36px); overflow: hidden; }
+  @media (max-width: 480px) { #readout { font-size: 10.5px; right: max(8px, env(safe-area-inset-right)); } }
 </style>
 </head>
 <body>
 <canvas id="map"></canvas>
-<div id="ui">
-  <select id="zone"><option value="">Fly to zone...</option></select>
-  <label><input type="checkbox" id="walk"> walk grid</label>
-  <div id="readout">hover the map</div>
+<div id="ui" class="panel">
+  <select id="zone"><option value="">Fly to zone…</option></select>
+  <button id="walk" aria-pressed="false">Walk grid</button>
 </div>
+<div id="readout" class="panel"></div>
 <script>
 // Everything shown comes from the server's Atlas calls; this file only draws.
-const INST = 0, CHUNKS = 16;
+const INST = 0, CHUNKS = 16, MIN_ZOOM = 4, MAX_ZOOM = 2048;
 const canvas = document.getElementById("map"), ctx = canvas.getContext("2d");
+const readout = document.getElementById("readout");
 const get = (path) => fetch(path).then((r) => r.json());
-let W, H, cam, bg = "#000", tiles = [], borders = { lines: [], labels: [] }, walk = null;
-const imgs = {};
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+let W, H, dpr, cam, bg = "#000", tiles = [], lines = [], labels = [], walk = null, marker = null;
 
-function resize() { W = canvas.width = innerWidth; H = canvas.height = innerHeight; draw(); }
+readout.textContent = matchMedia("(hover: hover)").matches ? "hover the map" : "tap the map";
+
+function resize() {
+  dpr = Math.min(devicePixelRatio || 1, 3);
+  W = innerWidth; H = innerHeight;
+  canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
+  draw(); refreshWalk();
+}
 
 // Atlas.Camera.ScreenToTile / TileToScreen / ZoomAt, per frame.
 const toTile = (x, y) => [cam.cx + (x - W / 2) / cam.zoom, cam.cy + (y - H / 2) / cam.zoom];
 const toScreen = (c, r) => [(c - cam.cx) * cam.zoom + W / 2, (r - cam.cy) * cam.zoom + H / 2];
-function zoomAt(x, y, zoom) {
+// The tile under (x, y) stays there; with (x1, y1), it moves there (a pinch's midpoint).
+function zoomAt(x, y, zoom, x1 = x, y1 = y) {
   const [c, r] = toTile(x, y);
-  cam = { cx: c - (x - W / 2) / zoom, cy: r - (y - H / 2) / zoom, zoom };
+  zoom = clamp(zoom, MIN_ZOOM, MAX_ZOOM);
+  cam = { cx: c - (x1 - W / 2) / zoom, cy: r - (y1 - H / 2) / zoom, zoom };
 }
 
 const rgb = (c) => `rgb(${c.map((v) => Math.round(v * 255)).join(",")})`;
 
-// One tile baked once: texel * m + a, then the water mask in the backdrop colour.
+// Tiles: the smallest copy that's still sharp at this zoom (64, 128, or the 512 original),
+// baked once (tint, water), kept within a pixel budget so a phone's canvas memory holds.
+const SIZES = [64, 128, 512], BUDGET = 40e6, MAX_LOADING = 12;
+const baked = new Map(); // "key@size" -> canvas, oldest use first
+let bakedPx = 0, loading = 0, frameNo = 0;
+const used = new Map(); // "key@size" -> frameNo last drawn
+const want = () => SIZES.find((s) => s >= cam.zoom * dpr) || 512;
+const url = (key, size) => size === 512 ? `tiles/${INST}/${key}.png` : `tiles/${INST}/${size}/${key}.png`;
+
 function bake(t, img, mask) {
   const c = document.createElement("canvas");
   c.width = c.height = img.width;
   const g = c.getContext("2d");
   g.drawImage(img, 0, 0);
-  if (t.tint) {
+  if (t.tint) { // texel * m + a
     g.globalCompositeOperation = "multiply"; g.fillStyle = rgb(t.tint.slice(0, 3)); g.fillRect(0, 0, c.width, c.height);
     g.globalCompositeOperation = "lighter"; g.fillStyle = rgb(t.tint.slice(3)); g.fillRect(0, 0, c.width, c.height);
   }
-  if (mask) {
+  if (mask) { // the backdrop colour where the mask says so
     const m = document.createElement("canvas");
     m.width = m.height = c.width;
     const mg = m.getContext("2d");
     mg.drawImage(mask, 0, 0, m.width, m.height);
     mg.globalCompositeOperation = "source-in"; mg.fillStyle = bg; mg.fillRect(0, 0, m.width, m.height);
     g.globalCompositeOperation = "source-over"; g.drawImage(m, 0, 0);
+    m.width = m.height = 0;
   }
   return c;
 }
 
-function load(t) {
-  imgs[t.key] = "loading";
+function load(t, size) {
+  const id = `${t.key}@${size}`;
+  baked.set(id, null); loading++;
   const img = new Image(), mask = t.water ? new Image() : null;
   let n = mask ? 2 : 1;
-  const done = () => { if (--n === 0) { imgs[t.key] = bake(t, img, mask); draw(); } };
-  img.onload = done; img.src = `tiles/${INST}/${t.key}.png`;
-  if (mask) { mask.onload = done; mask.src = `tiles/${INST}/water_${t.key}.png`; }
+  const done = () => {
+    if (--n) return;
+    loading--;
+    if (!img.naturalWidth) { baked.set(id, false); return draw(); } // missing: don't ask again
+    const c = bake(t, img, mask);
+    baked.set(id, c); bakedPx += c.width * c.height;
+    img.src = ""; if (mask) mask.src = "";
+    evict(); draw();
+  };
+  img.onload = img.onerror = done; img.src = url(t.key, size);
+  if (mask) { mask.onload = mask.onerror = done; mask.src = `tiles/${INST}/water_${t.key}.png`; }
+}
+
+function evict() {
+  for (const [id, c] of baked) {
+    if (bakedPx <= BUDGET) break;
+    if (!c || used.get(id) === frameNo) continue;
+    baked.delete(id); used.delete(id);
+    bakedPx -= c.width * c.height; c.width = c.height = 0; // frees it now on iOS
+  }
+}
+
+// The wanted copy if baked, else any other of the tile's (sharper first) while it loads.
+function tileImage(t, size) {
+  const id = `${t.key}@${size}`, c = baked.get(id);
+  if (c) { baked.delete(id); baked.set(id, c); used.set(id, frameNo); return c; }
+  if (c === undefined && loading < MAX_LOADING) load(t, size);
+  for (const s of [...SIZES].reverse()) {
+    const other = baked.get(`${t.key}@${s}`);
+    if (other) { used.set(`${t.key}@${s}`, frameNo); return other; }
+  }
 }
 
 let pending = false;
 function draw() { if (cam && !pending) { pending = true; requestAnimationFrame(frame); } }
 
 function frame() {
-  pending = false;
+  pending = false; frameNo++;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-  const [c0, r0] = toTile(0, 0), [c1, r1] = toTile(W, H);
-  for (const t of tiles) {
-    if (t.sea) continue; // backdrop colour all over
-    const col = Math.floor(t.key / 64), row = t.key % 64;
-    if (col + 1 < c0 || col > c1 || row + 1 < r0 || row > r1) continue;
-    if (!imgs[t.key]) load(t);
-    if (imgs[t.key] === "loading") continue;
-    const [x, y] = toScreen(col, row);
-    ctx.drawImage(imgs[t.key], x, y, cam.zoom + 0.5, cam.zoom + 0.5);
+  const [c0, r0] = toTile(0, 0), [c1, r1] = toTile(W, H), size = want();
+  // Centre first, so a slow connection fills in from where you're looking.
+  const vis = tiles.filter((t) => !t.sea && t.col + 1 >= c0 && t.col <= c1 && t.row + 1 >= r0 && t.row <= r1);
+  vis.sort((a, b) => Math.hypot(a.col + .5 - cam.cx, a.row + .5 - cam.cy) - Math.hypot(b.col + .5 - cam.cx, b.row + .5 - cam.cy));
+  ctx.imageSmoothingQuality = "high";
+  for (const t of vis) {
+    const img = tileImage(t, size);
+    if (!img) continue;
+    const [x, y] = toScreen(t.col, t.row);
+    // Snap edges to device pixels so neighbours share them (no hairline seams).
+    const sx = Math.round(x * dpr) / dpr, sy = Math.round(y * dpr) / dpr;
+    const ex = Math.round((x + cam.zoom) * dpr) / dpr, ey = Math.round((y + cam.zoom) * dpr) / dpr;
+    ctx.drawImage(img, sx, sy, ex - sx, ey - sy);
   }
   if (walk) drawWalk();
-  for (const line of borders.lines) {
-    ctx.strokeStyle = line[0] === 1 ? "rgba(255,230,150,.8)" : "rgba(255,255,255,.25)";
-    ctx.lineWidth = line[0] === 1 ? 1.5 : 1;
+  for (const l of lines) {
+    if (l.c1 < c0 || l.c0 > c1 || l.r1 < r0 || l.r0 > r1) continue;
+    ctx.strokeStyle = l.kind === 1 ? "rgba(255,230,150,.8)" : "rgba(255,255,255,.25)";
+    ctx.lineWidth = l.kind === 1 ? 1.5 : 1;
     ctx.beginPath();
-    for (let i = 1; i < line.length; i += 2) {
-      const [x, y] = toScreen(line[i], line[i + 1]);
-      i === 1 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    for (let i = 0; i < l.pts.length; i += 2) {
+      const [x, y] = toScreen(l.pts[i], l.pts[i + 1]);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
     }
     ctx.stroke();
   }
-  ctx.font = "bold 13px system-ui"; ctx.textAlign = "center";
-  for (const l of borders.labels) {
+  ctx.font = "600 13px system-ui, -apple-system, sans-serif"; ctx.textAlign = "center"; ctx.lineJoin = "round";
+  for (const l of labels) {
     const [x, y] = toScreen(l.col, l.row);
+    if (x < -100 || x > W + 100 || y < -20 || y > H + 20) continue;
     ctx.lineWidth = 3; ctx.strokeStyle = "#000"; ctx.strokeText(l.name, x, y);
     ctx.fillStyle = "#ffe9a0"; ctx.fillText(l.name, x, y);
+  }
+  if (marker) {
+    const [x, y] = toScreen(marker[0], marker[1]);
+    ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2);
+    ctx.lineWidth = 3; ctx.strokeStyle = "#000"; ctx.stroke();
+    ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
   }
 }
 
@@ -121,10 +198,11 @@ function drawWalk() {
   });
 }
 
-let walkTimer;
+const walkButton = document.getElementById("walk");
+let walkOn = false, walkTimer;
 function refreshWalk() {
   clearTimeout(walkTimer);
-  if (!document.getElementById("walk").checked) { walk = null; draw(); return; }
+  if (!walkOn) { walk = null; draw(); return; }
   walkTimer = setTimeout(async () => {
     const [c0, r0] = toTile(0, 0), [c1, r1] = toTile(W, H);
     const q = [c0, r0, c1, r1].map((v, i) => Math.floor(v * CHUNKS) + (i > 1 ? 1 : 0));
@@ -133,50 +211,140 @@ function refreshWalk() {
     draw();
   }, 150);
 }
-document.getElementById("walk").onchange = refreshWalk;
-
-// Pan, zoom, hover.
-let drag = null;
-canvas.onmousedown = (e) => { drag = [e.clientX, e.clientY]; canvas.style.cursor = "grabbing"; };
-addEventListener("mouseup", () => { drag = null; canvas.style.cursor = "grab"; });
-addEventListener("mousemove", (e) => {
-  if (drag) {
-    cam.cx -= (e.clientX - drag[0]) / cam.zoom; cam.cy -= (e.clientY - drag[1]) / cam.zoom;
-    drag = [e.clientX, e.clientY]; draw(); refreshWalk();
-  }
-});
-canvas.onwheel = (e) => {
-  e.preventDefault();
-  zoomAt(e.clientX, e.clientY, Math.min(2048, Math.max(4, cam.zoom * Math.exp(-e.deltaY * 0.002))));
-  draw(); refreshWalk();
+walkButton.onclick = () => {
+  walkOn = !walkOn; walkButton.setAttribute("aria-pressed", walkOn);
+  refreshWalk();
 };
 
-let hoverSeq = 0;
-canvas.addEventListener("mousemove", async (e) => {
-  const [col, row] = toTile(e.clientX, e.clientY), seq = ++hoverSeq;
+// The readout: Atlas at one point (hover with a mouse, tap with a finger).
+let atSeq = 0;
+async function inspect(x, y, mark) {
+  const [col, row] = toTile(x, y), seq = ++atSeq;
+  if (mark) { marker = [col, row]; draw(); }
   const a = await get(`/api/at?inst=${INST}&col=${col}&row=${row}`);
-  if (seq !== hoverSeq) return;
+  if (seq !== atSeq) return;
   const z = a.zone;
-  document.getElementById("readout").textContent =
+  readout.textContent =
     `tile   ${col.toFixed(3)}, ${row.toFixed(3)}  (key ${Math.floor(col) * 64 + Math.floor(row)})\n` +
     `world  north ${a.north.toFixed(1)}, west ${a.west.toFixed(1)}\n` +
     `zone   ${z ? `${z.name} (${z.mapID})  ${(z.x * 100).toFixed(1)}, ${(z.y * 100).toFixed(1)}` : "-"}\n` +
-    `walk   chunk ${a.chunk.join(", ")}  class ${a.walk.class}  east ${a.walk.east}  south ${a.walk.south}`;
+    `walk   chunk ${a.chunk.join(", ")}  class ${a.walk.class}  E ${a.walk.east}  S ${a.walk.south}`;
+}
+
+// Camera motion: flights (fly-to, double-tap) and a flick's glide; any touch stops it.
+let motion = null;
+function stopMotion() { if (motion) cancelAnimationFrame(motion); motion = null; }
+function flyTo(goal, ms = 350) {
+  stopMotion();
+  const from = cam, t0 = performance.now();
+  const step = (now) => {
+    const t = Math.min(1, (now - t0) / ms), e = 1 - (1 - t) ** 3;
+    cam = { cx: from.cx + (goal.cx - from.cx) * e, cy: from.cy + (goal.cy - from.cy) * e,
+            zoom: from.zoom * (goal.zoom / from.zoom) ** e };
+    draw();
+    if (t < 1) motion = requestAnimationFrame(step); else { motion = null; refreshWalk(); }
+  };
+  motion = requestAnimationFrame(step);
+}
+function zoomGoal(x, y, zoom) { const keep = cam; zoomAt(x, y, zoom); const goal = cam; cam = keep; return goal; }
+function glide(vx, vy) { // px/ms, slowing like iOS scrolling
+  stopMotion();
+  let last = performance.now();
+  const step = (now) => {
+    const dt = Math.min(32, now - last); last = now; // a stalled frame (tab hidden) mustn't fling it off the map
+    cam = { ...cam, cx: cam.cx - vx * dt / cam.zoom, cy: cam.cy - vy * dt / cam.zoom };
+    const k = Math.exp(-dt / 325); vx *= k; vy *= k;
+    draw();
+    if (Math.hypot(vx, vy) > 0.02) motion = requestAnimationFrame(step); else { motion = null; refreshWalk(); }
+  };
+  motion = requestAnimationFrame(step);
+}
+
+// Pointers: one drags (and flicks), two pinch (zoom and pan about their midpoint),
+// a tap inspects, a double tap zooms in. The mouse hovers and wheels as well.
+const pts = new Map();
+let tap = null, lastTap = null, vel = { x: 0, y: 0, t: 0 };
+const mid = () => { const p = [...pts.values()]; return p.length < 2 ? p[0] : { x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 }; };
+const spread = () => { const p = [...pts.values()]; return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y); };
+
+canvas.addEventListener("pointerdown", (e) => {
+  stopMotion();
+  pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  canvas.setPointerCapture(e.pointerId);
+  tap = pts.size === 1 ? { x: e.clientX, y: e.clientY, t: e.timeStamp } : null;
+  vel = { x: 0, y: 0, t: e.timeStamp };
+  if (e.pointerType === "mouse") canvas.style.cursor = "grabbing";
 });
+
+canvas.addEventListener("pointermove", (e) => {
+  if (!pts.has(e.pointerId)) {
+    if (e.pointerType === "mouse") inspect(e.clientX, e.clientY, false);
+    return;
+  }
+  const m0 = mid(), d0 = pts.size === 2 ? spread() : 0;
+  pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const m1 = mid();
+  if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 8) tap = null;
+  if (pts.size === 2) {
+    zoomAt(m0.x, m0.y, cam.zoom * spread() / d0, m1.x, m1.y);
+  } else if (pts.size === 1) {
+    const dx = m1.x - m0.x, dy = m1.y - m0.y, dt = Math.max(1, e.timeStamp - vel.t);
+    cam = { ...cam, cx: cam.cx - dx / cam.zoom, cy: cam.cy - dy / cam.zoom };
+    vel = { x: 0.8 * dx / dt + 0.2 * vel.x, y: 0.8 * dy / dt + 0.2 * vel.y, t: e.timeStamp };
+  }
+  draw();
+});
+
+function release(e, cancelled) {
+  if (!pts.delete(e.pointerId)) return;
+  if (e.pointerType === "mouse") canvas.style.cursor = "grab";
+  if (!cancelled && tap && e.timeStamp - tap.t < 300) {
+    if (lastTap && e.timeStamp - lastTap.t < 300 && Math.hypot(tap.x - lastTap.x, tap.y - lastTap.y) < 30 && e.pointerType !== "mouse") {
+      flyTo(zoomGoal(tap.x, tap.y, cam.zoom * 2), 250); lastTap = null;
+    } else {
+      inspect(tap.x, tap.y, true); lastTap = tap;
+    }
+  } else if (pts.size === 0 && e.timeStamp - vel.t < 80 && Math.hypot(vel.x, vel.y) > 0.1) {
+    glide(vel.x, vel.y);
+  } else if (pts.size === 0) {
+    refreshWalk();
+  }
+  tap = null;
+  vel.t = 0; // a finger left mid-pinch: the other's next move isn't a flick
+}
+canvas.addEventListener("pointerup", (e) => release(e, false));
+canvas.addEventListener("pointercancel", (e) => release(e, true));
+
+canvas.addEventListener("wheel", (e) => {
+  e.preventDefault(); stopMotion();
+  // A trackpad pinch arrives as ctrl+wheel with small deltas.
+  zoomAt(e.clientX, e.clientY, cam.zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002)));
+  draw(); refreshWalk();
+}, { passive: false });
+canvas.addEventListener("dblclick", (e) => flyTo(zoomGoal(e.clientX, e.clientY, cam.zoom * 2), 250));
+// Safari's own pinch-to-zoom the page (iPad trackpads, older iOS ignoring user-scalable).
+for (const ev of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(ev, (e) => e.preventDefault());
 
 document.getElementById("zone").onchange = async (e) => {
   if (!e.target.value) return;
-  cam = (await get(`/api/fit?uiMapID=${e.target.value}&w=${W}&h=${H}`)).cam;
-  draw(); refreshWalk();
+  flyTo((await get(`/api/fit?uiMapID=${e.target.value}&w=${W}&h=${H}`)).cam, 450);
+  e.target.blur();
 };
 
 (async () => {
   const maps = await get("/api/maps");
   const m = maps.find((x) => x.inst === INST);
   bg = rgb(m.bg);
+  document.body.style.background = bg;
   const sel = document.getElementById("zone");
   for (const z of m.zones) sel.add(new Option(z.name, z.uiMapID));
-  [{ tiles }, borders] = await Promise.all([get(`/api/tiles?inst=${INST}`), get(`/api/borders?inst=${INST}`)]);
+  const [t, b] = await Promise.all([get(`/api/tiles?inst=${INST}`), get(`/api/borders?inst=${INST}`)]);
+  tiles = t.tiles.map((x) => ({ ...x, col: Math.floor(x.key / 64), row: x.key % 64 }));
+  labels = b.labels;
+  lines = b.lines.map(([kind, ...pts]) => {
+    const cs = pts.filter((_, i) => i % 2 === 0), rs = pts.filter((_, i) => i % 2 === 1);
+    return { kind, pts, c0: Math.min(...cs), c1: Math.max(...cs), r0: Math.min(...rs), r1: Math.max(...rs) };
+  });
   W = innerWidth; H = innerHeight;
   cam = (await get(`/api/fit?uiMapID=${m.uiMapID}&w=${W}&h=${H}`)).cam;
   addEventListener("resize", resize);

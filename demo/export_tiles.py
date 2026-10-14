@@ -4,7 +4,10 @@
 For each map (instanceID) in Data/Tiles.lua, every tile's BLP is read from the
 local install and written to demo/tiles/<inst>/<key>.png (key = col * 64 + row),
 and its water mask (Textures/Water/<product>/<inst>_<key>.tga, if any) to
-demo/tiles/<inst>/water_<key>.png.
+demo/tiles/<inst>/water_<key>.png. Smaller copies go to
+demo/tiles/<inst>/<size>/<key>.png (LODS), so a zoomed-out view (or a phone)
+doesn't download and hold 512px tiles it draws at 20px. Minimap BLPs have no
+mipmaps, so they're the means of the 4x4 DXT blocks (128px), boxed down from there.
 
   .venv/bin/python demo/export_tiles.py                 # Eastern Kingdoms (0)
   .venv/bin/python demo/export_tiles.py --inst 0 --inst 1
@@ -23,9 +26,12 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 from lupa import LuaRuntime  # noqa: E402
 
-from mmtools.formats import blp_dxt  # noqa: E402
+from mmtools.formats import blp_dxt, box_downsample  # noqa: E402
 from mmtools.sources import open_source  # noqa: E402
 from mmtools.tga import read_tga  # noqa: E402
+
+
+LODS = (64, 128)
 
 
 def png(w: int, h: int, pixels: bytes, channels: int) -> bytes:
@@ -36,6 +42,10 @@ def png(w: int, h: int, pixels: bytes, channels: int) -> bytes:
     raw = b"".join(b"\0" + pixels[y * stride:(y + 1) * stride] for y in range(h))
     ihdr = struct.pack(">IIBBBBB", w, h, 8, 2 if channels == 3 else 6, 0, 0, 0)
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(raw, 6)) + chunk(b"IEND", b"")
+
+
+def rgb8(grid) -> bytes:
+    return bytes(min(255, round(v * 255)) for row in grid for c in row for v in c)
 
 
 def read_tiles() -> tuple[str, dict[int, dict[int, int]]]:
@@ -67,9 +77,16 @@ def main() -> None:
         src.prefetch(tiles.values())
         n_water = 0
         for key, fdid in sorted(tiles.items()):
-            img = blp_dxt(src.read(fdid))
+            blp = src.read(fdid)
+            img = blp_dxt(blp)
             with open(os.path.join(out, f"{key}.png"), "wb") as f:
                 f.write(png(img.width, img.height, img.rgb8(), 3))
+            means = img.block_means()
+            for size in LODS:
+                grid = box_downsample(means, size)
+                os.makedirs(os.path.join(out, str(size)), exist_ok=True)
+                with open(os.path.join(out, str(size), f"{key}.png"), "wb") as f:
+                    f.write(png(size, size, rgb8(grid), 3))
             tga = os.path.join(water_dir, f"{inst}_{key}.tga")
             if os.path.exists(tga):
                 with open(tga, "rb") as f:
