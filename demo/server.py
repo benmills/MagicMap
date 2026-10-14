@@ -300,7 +300,8 @@ atlas_lock = threading.Lock()
 
 
 class Handler(SimpleHTTPRequestHandler):
-    protocol_version = "HTTP/1.1"  # keep-alive: one connection for a screenful of tiles
+    protocol_version = "HTTP/1.1"
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".webp": "image/webp"}  # older Pythons lack it  # keep-alive: one connection for a screenful of tiles
 
     def __init__(self, *args, **kw):
         super().__init__(*args, directory=DEMO, **kw)

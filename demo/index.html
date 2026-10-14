@@ -94,7 +94,9 @@
 <div id="card" class="panel" hidden></div>
 <script>
 // Everything shown comes from the server's Atlas calls; this file only draws.
-const INST = 0, CHUNKS = 16, MIN_ZOOM = 4, MAX_ZOOM = 2048;
+// Zoom stops at twice the tiles' own resolution (512 texels a tile): past that it's only blur.
+const INST = 0, CHUNKS = 16, MIN_ZOOM = 4, TEXELS = 512, MAX_STRETCH = 2;
+const maxZoom = () => TEXELS * MAX_STRETCH / dpr;
 const canvas = document.getElementById("map"), ctx = canvas.getContext("2d");
 const readout = document.getElementById("readout");
 const get = (path) => fetch(path).then((r) => r.json());
@@ -117,20 +119,20 @@ const toScreen = (c, r) => [(c - cam.cx) * cam.zoom + W / 2, (r - cam.cy) * cam.
 // The tile under (x, y) stays there; with (x1, y1), it moves there (a pinch's midpoint).
 function zoomAt(x, y, zoom, x1 = x, y1 = y) {
   const [c, r] = toTile(x, y);
-  zoom = clamp(zoom, MIN_ZOOM, MAX_ZOOM);
+  zoom = clamp(zoom, MIN_ZOOM, maxZoom());
   cam = { cx: c - (x1 - W / 2) / zoom, cy: r - (y1 - H / 2) / zoom, zoom };
 }
 
 const rgb = (c) => `rgb(${c.map((v) => Math.round(v * 255)).join(",")})`;
 
-// Tiles: the smallest copy that's still sharp at this zoom (64, 128, or the 512 original),
+// Tiles: the smallest copy that's still sharp at this zoom (64, 128, 256, or the 512 original),
 // baked once (tint, water), kept within a pixel budget so a phone's canvas memory holds.
-const SIZES = [64, 128, 512], BUDGET = 40e6, MAX_LOADING = 12;
+const SIZES = [64, 128, 256, 512], BUDGET = 40e6, MAX_LOADING = 12;
 const baked = new Map(); // "key@size" -> canvas, oldest use first
 let bakedPx = 0, loading = 0, frameNo = 0;
 const used = new Map(); // "key@size" -> frameNo last drawn
 const want = () => SIZES.find((s) => s >= cam.zoom * dpr) || 512;
-const url = (key, size) => size === 512 ? `tiles/${INST}/${key}.png` : `tiles/${INST}/${size}/${key}.png`;
+const url = (key, size) => size === 512 ? `tiles/${INST}/${key}.webp` : `tiles/${INST}/${size}/${key}.webp`;
 
 function bake(t, img, mask) {
   const c = document.createElement("canvas");
@@ -420,6 +422,7 @@ async function inspect(x, y, mark) {
 let motion = null;
 function stopMotion() { if (motion) cancelAnimationFrame(motion); motion = null; }
 function flyTo(goal, ms = 350) {
+  goal = { ...goal, zoom: clamp(goal.zoom, MIN_ZOOM, maxZoom()) };
   stopMotion();
   const from = cam, t0 = performance.now();
   const step = (now) => {
