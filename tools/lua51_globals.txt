@@ -8,3 +8,5 @@ loadstring math next pairs pcall rawequal rawget rawset select setfenv
 setmetatable string table tonumber tostring type unpack xpcall
 
 MagicMap_Tiles MagicMap_TileColor MagicMap_Borders MagicMap_Walk
+MagicMap_UiMaps MagicMap_Areas MagicMap_AreaGrid MagicMap_Places MagicMap_ItemIcons
+MagicMap_Npcs MagicMap_Objects MagicMap_Items MagicMap_Quests

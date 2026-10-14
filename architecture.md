@@ -58,9 +58,9 @@ The blip sensor reads where the last Apply placed the Minimap, and waits until t
   shows   title · tooltips · inspector · menus & settings
 
 **Atlas** (library)
-  holds   tiles · tile colour + water · borders · walk grid · map catalogue
+  holds   tiles · tile colour + water · borders · walk grid · uiMaps · areas + area grid
+          · flight points · POIs · dungeons · NPCs · objects · items · quests (Data/, generated)
   gives   coordinates · map rects · zone at point · camera maths · walk cells
-  login   map scan, through readers Game hands it
 
 **Runtime** (library)
   frame steps · slices and budgets · timers · events · perf (/mm perf)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""A web demo of the Atlas library on its own: Atlas runs in Lua (lupa), fed
-the fixture readers (demo/catalogue.lua, demo/readers.lua); this serves its
-answers as JSON, and index.html only draws them.
+"""A web demo of the Atlas library on its own: Atlas runs in Lua (lupa) over
+its bundled data; this serves its answers as JSON, and index.html only draws
+them.
 
   .venv/bin/python demo/server.py [port]      # then open http://localhost:8000
 
@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(DEMO), "tools"))
 
 from atlas_lua import load_atlas  # noqa: E402
 
-L, Atlas = load_atlas("FixtureReaders", extra=["demo/catalogue.lua", "demo/readers.lua"])
+L, Atlas = load_atlas()
 lua_type = L.globals().type
 
 

@@ -1,4 +1,4 @@
-"""The web demo's server answers from Atlas over the fixture readers."""
+"""The web demo's server answers from Atlas over its bundled data."""
 import os
 import sys
 

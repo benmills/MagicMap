@@ -2,18 +2,24 @@
 
 A rebuild of the MagicMap WoW addon (Lua 5.1). See [architecture.md](architecture.md).
 So far this is the foundation: **Atlas** (`atlas/`, load order in `atlas/files.txt`), the
-library of facts that hold — tiles, tile colour + water, borders, walk grid, map catalogue,
-coordinates and camera maths — plus the offline tools that generate its data (`Data/`).
+library of facts that hold — tiles, tile colour + water, borders, walk grid, uiMaps, areas,
+places, NPCs / objects / items / quests, coordinates and camera maths — plus the offline
+tools that generate its data (`Data/`, see [docs/atlas-data.md](docs/atlas-data.md)).
 
 ## Regenerate data
 
-Each generator reads a local install (see its docstring for options):
+Each generator reads a local install (see its docstring for options). `gen_world.py` writes
+UiMaps, Areas, Places and ItemIcons; `gen_questie.py` writes Npcs, Objects, Items and Quests
+from an installed QuestieDB, through Data/UiMaps.lua (so run it after gen_world). Those four
+are gitignored: QuestieDB declares no license (see docs/atlas-data.md).
 
     python3 tools/gen_tiles.py     local "/Applications/World of Warcraft" wow_classic_beta -o Data/Tiles.lua
     python3 tools/gen_tilecolor.py local "/Applications/World of Warcraft" wow_classic_beta -o Data/TileColor.lua
     python3 tools/gen_borders.py   local "/Applications/World of Warcraft" wow_classic_beta -o Data/Borders.lua
     python3 tools/gen_walk.py      local "/Applications/World of Warcraft" wow_classic_beta -o Data/Walk.lua
-    python3 tools/gen_catalogue.py local "/Applications/World of Warcraft" wow_classic_beta -o demo/catalogue.lua
+    python3 tools/gen_areagrid.py  local "/Applications/World of Warcraft" wow_classic_beta -o Data/AreaGrid.lua
+    python3 tools/gen_world.py     local "/Applications/World of Warcraft" wow_classic_beta -o Data
+    .venv/bin/python tools/gen_questie.py "/Applications/World of Warcraft/_classic_beta_/Interface/AddOns/QuestieDB"
     .venv/bin/python demo/export_tiles.py          # demo/tiles/0 PNGs (--inst N, --all)
 
 ## Test and lint
@@ -23,9 +29,8 @@ Each generator reads a local install (see its docstring for options):
 
 ## Demo
 
-Atlas on its own in a browser: the server runs Atlas in Lua (lupa) over fixture readers
-(`demo/catalogue.lua`, `demo/readers.lua`) and serves its answers as JSON; `demo/index.html`
-only draws them (Eastern Kingdoms: drag to pan, wheel to zoom, hover readout, zone fly-to,
+Atlas on its own in a browser: the server runs Atlas in Lua (lupa) over its bundled data and
+serves its answers as JSON; `demo/index.html` only draws them (Eastern Kingdoms: drag to pan, wheel to zoom, hover readout, zone fly-to,
 walk-grid overlay).
 
     .venv/bin/python demo/server.py        # http://localhost:8000 (optional port argument)
