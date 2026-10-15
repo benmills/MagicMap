@@ -41,8 +41,8 @@ Allocation is the Lua heap's growth (`collectgarbage("count")`) over each frame'
 same frames as the cost: `kbFrameP95`, `kbFrameMax` (KB a frame), `kbPerSec`, `kbFrames`. A
 frame in which the collector freed more than we allocated (the heap shrank) can't be measured
 and is left out, so it's a lower bound; event handlers between frames aren't in it. In the sim,
-widget calls cost no Lua memory (as in the client), so the replays (tools/tests/test_spike_bugs.py
-P3) measure ours alone.
+widget calls cost no Lua memory (as in the client), so the replays (tools/tests/replays/R-P3.lua)
+measure ours alone.
 
 `tools/telemetry.py --budgets` checks the newest session's `perf` against these
 (PASS / FAIL each, exit 1 on a FAIL). The limits live there in `BUDGETS`, and
@@ -183,4 +183,7 @@ addon loads. Each owner's `fn` runs once a session, at ADDON_LOADED (or at once,
 - Memory is sampled as the whole Lua heap (`collectgarbage("count")`: every addon)
   every 10 s outside graces; ours alone (`GetAddOnMemoryUsage`), after a full collect, only
   twice: 10 s after login and at logout, since a full collect and `UpdateAddOnMemoryUsage`
-  are too slow to call while playing (the one at load is graced as `gc`).
+  are too slow to call while playing (the one at load is graced as `gc`). That collect walks
+  every addon's heap and Blizzard's UI too: a visible hitch (tens to hundreds of ms in the
+  client) 10 s after every login and `/reload`. Expected, the price of `ourKBLoad`; not a
+  stutter to triage.

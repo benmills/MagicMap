@@ -15,9 +15,9 @@ local function Clamp(v, lo, hi)
 end
 
 -- Centre on a box and zoom to fit it, with margin (share of the view) to spare. A side
--- under minSpan tiles (default MIN_SPAN; one point's is 0) is fitted as minSpan.
+-- under minSpan tiles (default and least MIN_SPAN; one point's is 0) is fitted as minSpan.
 function Camera.Fit(c0, r0, c1, r1, w, h, margin, minZoom, maxZoom, minSpan)
-	local span = minSpan or MIN_SPAN
+	local span = math.max(minSpan or MIN_SPAN, MIN_SPAN)
 	local sc, sr = math.max(c1 - c0, span), math.max(r1 - r0, span)
 	local zoom = math.min(w / sc, h / sr) * (margin or 0.92) -- /: never 0 (sc, sr: at least a span > 0)
 	return (c0 + c1) / 2, (r0 + r1) / 2, Clamp(zoom, minZoom, maxZoom)

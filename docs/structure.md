@@ -88,8 +88,10 @@ no names with the MagicMap spike, so both can be enabled.
 1. `runtime/Boot.lua` — marks the load start (time, Lua memory)
 2. `Data/*.lua` — in `atlas/files.txt` order
 3. `atlas/*.lua` — in `atlas/files.txt` order
-4. `runtime/*.lua` (rest), `model/*.lua`, `game/*.lua`, `ui/*.lua` (Model first: Game hands it
-   observations and its saved part; UI sends Game commands at load)
+4. `runtime/files.txt`, `model/files.txt`, `game/files.txt`, `game/commands/files.txt`,
+   `game/parts/files.txt`, `ui/files.txt` (`MANIFESTS` in tools/install.py). Model first: Game
+   hands it observations and its saved part; UI sends Game commands at load. Game's subfolders
+   after all of game/: they register into it, and game/parts/ registers in observe order.
 
 The TOC lists files explicitly (no XML), and is generated: each folder lists its files, in
 order, in its own `files.txt` (paths from the repo root; `atlas/files.txt` holds Data/ too),
@@ -144,6 +146,7 @@ the same ones (each listed in its folder's `files.txt`):
 | `Game.Part(name, read)` | game/Observe.lua | game/parts/ (`You`, `Blips`, `MinimapState`) | observe step, each frame: `obs[name] = read(obs)` in game/parts/files.txt's order, so a part may read those before it; each its own wrapped call (`game.part <name>`: timed, its KB counted, a failing one leaves its field nil); per-frame parts refill one table, on-change parts hand a new one only when it changed (types/observation.lua) |
 | `Game.Handle(kind, fn)` | game/Command.lua | game/commands/ (`slash`, `load`) | input step: `fn(cmd)` for each queued command of that kind (types/view.lua Commands) |
 | `Game.Apply(name, fn)` | game/Apply.lua | game/ (`Minimap`) | apply phase, each frame: `fn(view)` as its own step `game.<name>`; view is `UI.View()`, or SAFE when Game doesn't know its `v` |
+| `Model.Part(observe, load)`, `Model.Kind(kind, fn)` | model/Model.lua | model/ (`Blips`, `Rares`) | `observe(obs, oracles)` each frame after Model's own `you`, `load(saved)` with Model's saved part; `Known(kind)` answers with `fn()` → list, rev (ADR 0006) |
 | `Engine.Layer(name, level, build, rev)` | ui/Engine.lua | ui/ (`Tiles`, `Borders`, `Labels`, `Blips`, `Rares`) | `build(canvas, inst, zoom, c0, r0, c1, r1)` in a layout job when the view, zoom, map or `rev()` needs it; regions from `Engine.Get` |
 
 The map window is four files: ui/Camera.lua (where it looks: `cam`, `inst`, `follow`;

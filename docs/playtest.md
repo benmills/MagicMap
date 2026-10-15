@@ -16,7 +16,8 @@ Before:
    Minimap), MagicMapAtlas on, every other addon off unless the script names it. The one
    exception is the reference session (below): the spike only.
 3. Log in where the script starts. Wait **10 s** before doing anything: the login grace (5 s)
-   and the memory read after it (`ourKBLoad`, a full collect: one graced hitch).
+   and the memory read after it (`ourKBLoad`, a full collect: one graced hitch, tens to hundreds
+   of ms, ~10 s after every login and `/reload`; expected, don't mark it).
 4. `/mma check clear` (the log is this session's), then `/mma check log`: a toggle that says
    which; run it again if it says `off`. It stays on, across `/reload` too: don't toggle it again
    during the session.
@@ -58,7 +59,8 @@ M0 changes nothing visible; this session prices the client so M1's fixes aim at 
 | 7 | Every session's "after". | — |
 
 The lead writes `docs/evidence/perf-m0.md` from it: the ~20 µs/region price (bench), the top
-allocator (perf.alloc), the swap and gap costs, ourKB after GC.
+allocator (perf.alloc: `game.part blips` against `model.observe`), the swap costs (stats
+`swap <layer>`: ms, live) and gaps, ourKB after GC.
 
 ## Script (a): Dun Morogh motion (M1, M5)
 

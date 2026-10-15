@@ -21,6 +21,7 @@ def test_atlas():
     assert Atlas.Walk.Cell(0, gc, gr)[0] == 1 and Atlas.Walk.Snap(0, gc, gr) == (gc, gr)
     assert Atlas.Camera.Fit(28, 30, 36, 38, 800, 400, 1, 16, 800) == (32, 34, 50)
     assert Atlas.Camera.Fit(32, 34, 32, 34, 800, 400, 1) == (32, 34, 6400)  # one point: MIN_SPAN wide, finite (E3)
+    assert Atlas.Camera.Fit(32, 34, 32, 34, 800, 400, 1, None, None, 0) == (32, 34, 6400)  # a span under it: MIN_SPAN
 
     # Maps and areas: Elwynn Forest, Goldshire in it.
     assert Atlas.Continent(0) == 1415 and Atlas.Continent(1) == 1414
