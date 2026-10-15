@@ -21,10 +21,21 @@ def test_you_round_trip():
     sim.Step()
     assert you.ghost is True
 
-    # Into Westfall: uiMap follows on the client's zone event.
-    sim.player.col, sim.player.row = 29.0, 52.0
+    # Into Westfall: uiMap follows on the client's zone event, and is read again a second later (an
+    # event can come before the zone changes); in a micro map (Fargodeep Mine), every second.
     sim.FireEvent("ZONE_CHANGED_NEW_AREA")
     sim.Step()
+    sim.player.col, sim.player.row = 29.0, 52.0
+    sim.Step()
+    assert you.uiMap == 1429
+    sim.Run(1.1)
+    assert you.uiMap == 1436
+    sim.player.col, sim.player.row, sim.indoors = 31.8, 50.3, True
+    sim.FireEvent("ZONE_CHANGED_INDOORS")
+    sim.Run(1.5)  # (past the event's second read)
+    assert you.uiMap == 1601
+    sim.player.col, sim.player.row, sim.indoors = 29.0, 52.0, False  # out, no event
+    sim.Run(1.1)
     assert you.uiMap == 1436
 
     # An instance with no map of its own: no uiMap, no position; the rest still known.
