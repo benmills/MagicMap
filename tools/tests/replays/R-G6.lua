@@ -55,11 +55,13 @@ for _, a in ipairs(ns.Game.obs.addons) do addons[a.key] = (a.world and "w" or ""
 T.Print("G6: obs.addons Questie %s, GatherMate2 %s", tostring(addons.Questie), tostring(addons.GatherMate2))
 assert(addons.Questie == "wm" and addons.GatherMate2 == "m")
 assert(view.layers["addon:Questie"], "its layer on, as UI found it with world pins")
-ns.UI.Motion.SetZoom(128) -- the socket's zoom changes: re-placed at once
+ns.UI.Motion.SetZoom(128) -- the socket's zoom changes once the camera's holds a frame: re-placed at once
 sim.Step()
-assert(view.sockets.world.zoom == 128 and Hosted(), "re-placed at the new zoom")
+assert(view.sockets.world.zoom ~= 128 and canvas:GetAlpha() == 0, "the zoom moving: the pins out of sight")
+sim.Step()
+assert(view.sockets.world.zoom == 128 and Hosted() and canvas:GetAlpha() == 1, "re-placed at the new zoom")
 
-view.layers["addon:Questie"] = nil -- its layer off: back on its pin (by the next regular pass)
+view.layers["addon:Questie"] = nil -- its layer off: back on its pin (by the next pass)
 sim.Run(1.1)
 assert(Same(Where(pin), home), "layer off: as it was")
 view.layers["addon:Questie"] = true

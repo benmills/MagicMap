@@ -9,9 +9,12 @@
 -- (a frame is in one place only, and that map is the library's: it takes back the ones it shows
 -- itself). One the library has placed again meanwhile is the library's: left be. Pins drawn for
 -- its own zone map alone (Questie's -1, its route lines) and frames bigger than pins aren't
--- borrowed. A Questie log is thousands of pins, so borrowing and giving back is a Runtime.Job,
--- JOB_MS a frame; the library adding or removing world pins cancels a borrowing pass (it walks
--- the library's tables) and starts another SYNC_SOON later.
+-- borrowed. A Questie log is thousands of pins, so borrowing and giving back is a Runtime.Job:
+-- NEWS_MS a frame for one with something to show soon (opened, a new socket or map, an addon's
+-- layer toggled, the library changed, given back), JOB_MS for the regular one every SYNC_EVERY
+-- (pins the library took back: its frames stay well under the frame p95). The library adding or removing world
+-- pins cancels a borrowing pass (it walks the library's tables) and starts another SYNC_SOON
+-- later. A pass borrows for the addon layers on when it started (View is read in apply only).
 -- Game.Addons(): obs.addons (game/parts/Addons.lua), a new list only when it changed.
 
 local _, ns = ...
@@ -20,10 +23,11 @@ local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 local PINS_MAJOR = "^HereBeDragons(.*)%-Pins%-2%.0$" -- AddonPins.lua:30
 local MAX_SIZE = 128 -- px; bigger frames are drawn for Blizzard's canvas, not as pins (AddonPins.lua:34)
 local SYNC_SOON, SYNC_EVERY = 0.1, 1 -- s after the library adds or removes pins; regardless (AddonPins.lua:35-36)
-local JOB_MS = 1 -- ms a frame of borrowing or giving back
+local JOB_MS, NEWS_MS = 0.25, 1 -- ms a frame of a pass: the regular one; one with news
 
 local copies, hooks = {}, {} -- { lib, tag (the renamed part: "Questie") }; lib -> { [method] = the function hooked }
 local hosted, seen = {}, {} -- icon -> { home, points, shown, level, fixed, socket, inst, col, row }
+local on = {} -- the pass's addon layers on: "addon:<key>" -> true
 local socket, inst, zoom -- where they're hosted: the socket's frame, instance and zoom
 local open, dirty, syncAt = false, true, 0
 local job -- the pass running: { kind = "borrow" | "give back" } on Runtime's job handle
@@ -161,14 +165,14 @@ local function Place(icon, rec)
 	icon:SetPoint("CENTER", socket, "TOPLEFT", rec.col * zoom, -rec.row * zoom)
 end
 
--- Borrow what should be on the socket, give back what shouldn't.
-local function Sync(layers, level)
-	GiveBack()
+-- Borrow what should be on the socket, give back what shouldn't (another socket's or map's too:
+-- not seen here).
+local function Sync(level)
 	wipe(seen)
 	for _, copy in ipairs(copies) do
 		local pins = copy.lib.worldmapPins
 		for ref, icons in pairs(copy.lib.worldmapPinRegistry) do
-			if layers["addon:" .. Key(copy, ref)] then
+			if on["addon:" .. Key(copy, ref)] then
 				for icon in pairs(icons) do
 					local data = pins[icon]
 					if data and data.instanceID == inst and data.worldMapShowFlag >= 0 then
@@ -207,27 +211,38 @@ local function Any()
 	return false
 end
 
-local function Pass(kind, fn)
+-- An addon's layer toggled since the last pass started.
+local function Toggled(layers)
+	for k, v in pairs(layers) do
+		if v and not on[k] and k:find("^addon:") then return true end
+	end
+	for k in pairs(on) do
+		if not layers[k] then return true end
+	end
+	return false
+end
+
+local function Pass(kind, fn, ms)
 	Stop()
-	job = Runtime.Job("game.addon pins: " .. kind, fn, JOB_MS)
+	job = Runtime.Job("game.addon pins: " .. kind, fn, ms)
 	job.kind = kind
 end
 
 local function Close()
 	if not open then return end
 	open = false
-	if next(hosted) then Pass("give back", GiveBack) else Stop() end
+	if next(hosted) then Pass("give back", GiveBack, NEWS_MS) else Stop() end
 end
 
 -- Each frame: given back while closed; borrowed at once on opening or a new socket or map, then
--- after the library adds or removes pins, and every SYNC_EVERY (pins it took back, layers toggled).
+-- after an addon's layer is toggled or the library adds or removes pins, and every SYNC_EVERY.
 Game.Apply("addon pins", function(view)
 	local s = view.sockets.world
 	if not (view.window.shown and s) or WorldMapFrame:IsShown() then return Close() end
 	if not open then Scan() end -- (LibStub has no events: look again)
 	local t = GetTime()
 	if not open or s.frame ~= socket or s.inst ~= inst then
-		open, socket, inst, zoom, syncAt = true, s.frame, s.inst, s.zoom, -SYNC_EVERY
+		open, socket, inst, zoom, syncAt, dirty = true, s.frame, s.inst, s.zoom, -SYNC_EVERY, true
 		Stop()
 	elseif s.zoom ~= zoom then -- (the socket's zoom changes where the view comes to rest)
 		zoom = s.zoom
@@ -235,10 +250,16 @@ Game.Apply("addon pins", function(view)
 			if rec.socket == socket then Place(icon, rec) end
 		end
 	end
+	dirty = dirty or Toggled(view.layers)
 	if not Running("borrow") and ((dirty and t - syncAt >= SYNC_SOON) or t - syncAt >= SYNC_EVERY) then
+		local ms = dirty and NEWS_MS or JOB_MS
 		dirty, syncAt = false, t
-		local layers, level = view.layers, s.level or socket:GetFrameLevel() + 1
-		if Any() then Pass("borrow", function() Sync(layers, level) end) end
+		wipe(on)
+		for k, v in pairs(view.layers) do
+			if v and k:find("^addon:") then on[k] = true end
+		end
+		local level = s.level or socket:GetFrameLevel() + 1
+		if Any() then Pass("borrow", function() Sync(level) end, ms) end
 	end
 end)
 

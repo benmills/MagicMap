@@ -112,22 +112,22 @@ end
 
 -- Measure our frame alone: wraps Runtime's OnUpdate (the one OnUpdate the addon set) to sum
 -- the Lua heap's growth and widget calls inside it. Returns a reader: frames, KB, calls, and
--- the last frame's KB.
+-- the last frame's KB and ms (debugprofilestop's: the sim's clock).
 function T.Ours(sim)
-	local m = { n = 0, kb = 0, calls = 0, last = 0 }
+	local m = { n = 0, kb = 0, calls = 0, last = 0, ms = 0 }
 	for _, f in ipairs(sim.Frames()) do
 		local s = sim.state[f].scripts.OnUpdate
 		if s and f ~= Minimap then
 			local fn = s.main
 			s.main = function(...)
-				local k0, c0 = collectgarbage("count"), sim.callTotal or 0
+				local k0, c0, t0 = collectgarbage("count"), sim.callTotal or 0, debugprofilestop()
 				fn(...)
-				m.last = collectgarbage("count") - k0
+				m.ms, m.last = debugprofilestop() - t0, collectgarbage("count") - k0
 				m.n, m.kb, m.calls = m.n + 1, m.kb + m.last, m.calls + (sim.callTotal or 0) - c0
 			end
 		end
 	end
-	return function() return m.n, m.kb, m.calls, m.last end
+	return function() return m.n, m.kb, m.calls, m.last, m.ms end
 end
 
 return T
