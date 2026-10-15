@@ -1,4 +1,4 @@
-"""The map window (ui/Window.lua, ui/Engine.lua and the layers) on the simulated client: /mma map
+"""The map window (ui/Window.lua, ui/Engine.lua and the layers) on the simulated client: /mma toggle
 shows your continent around you, its layouts finish within their jobs, wheel
 and drag move the camera, and nothing errors."""
 from test_addon import boot, errors
@@ -12,7 +12,7 @@ def stats(e):
 def test_map():
     L, sim, ns = boot()
     e, c, w = ns.UI.Engine, ns.UI.Camera, ns.UI.Window
-    sim.Slash("/mma map")
+    sim.Slash("/mma toggle")
     assert w.frame.IsShown(w.frame)
     sim.Run(1)
     assert c.inst == 0 and abs(c.cam.cx - 31.95) < 1e-6 and abs(c.cam.cy - 49.75) < 1e-6
@@ -49,7 +49,7 @@ def test_map():
     sim.Click(w.view, "RightButton")  # following: nothing to offer
     assert sim.menu is None
     sim.Slash("/mma mapstats")
-    sim.Slash("/mma map")
+    sim.Slash("/mma toggle")
     assert not w.frame.IsShown(w.frame)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
@@ -61,7 +61,7 @@ def test_rares():
     if not ns.Data.Npcs:
         pytest.skip("no QuestieDB-derived data (tools/gen_questie.py)")
     e = ns.UI.Engine
-    sim.Slash("/mma map")
+    sim.Slash("/mma toggle")
     sim.Run(2)
     got = list(ns.Model.Known("rares")[0].values())
     assert got and all(r.kind == "rares" and r.pos.inst == 0 and not r.live for r in got)

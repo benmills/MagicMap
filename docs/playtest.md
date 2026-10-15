@@ -53,7 +53,7 @@ M0 changes nothing visible; this session prices the client so M1's fixes aim at 
 | 1 | Every session's "before" at the Kharanos inn (Dun Morogh, uiMap 1426). Map closed. | — |
 | 2 | `/mma bench regions`, standing still. It hitches while it runs (expected); wait for it to print its result. Once only. | — |
 | 3 | `/mma check art`. Expect no misses; each one prints and is traced (`art`). | `/mma mark m0 art` if it named a miss |
-| 4 | `/mma map` (it opens following you; right-click follows again after a drag). Wheel in a tick at a time to the closest zoom, then out to the farthest, then back to the default. | `/mma mark m0 wheel` |
+| 4 | `/mma` (it opens following you; right-click, Follow me, follows again after a drag). Wheel in a tick at a time to the closest zoom, then out to the farthest, then back to the default. | `/mma mark m0 wheel` |
 | 5 | At the closest zoom (1024 today), walk west to east through Kharanos for **2 minutes**, crossing the col 33 tile edge (it runs through Kharanos: the play-test's tear) several times. Watch for a tear. | `/mma mark m0 walk` at ~1 min; `/mma shot small-seam` while crossing the edge; `/mma mark m0 tear <what>` the moment you see one |
 | 6 | Drag the map away (follow off), fling it a few times, let it settle; right-click to follow again. | `/mma mark m0 fling` |
 | 7 | Every session's "after". | — |

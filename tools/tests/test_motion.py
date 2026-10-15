@@ -8,7 +8,7 @@ from test_addon import boot, errors
 
 def shown():
     L, sim, ns = boot()
-    sim.Slash("/mma map")
+    sim.Slash("/mma toggle")
     sim.Run(3)
     return L, sim, ns
 

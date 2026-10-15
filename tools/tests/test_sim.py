@@ -180,7 +180,7 @@ def test_fidelity():
     L, sim, ns = boot()
     sim.Price(True)
     sim.Run(1)
-    sim.Slash("/mma map")
+    sim.Slash("/mma toggle")
     sim.Run(3)
     observe = ns.Runtime.Perf()[0]["game.observe"]
     print(f"priced: game.observe max {observe.max:.1f} ms, {observe.ms / observe.n:.2f} ms a frame over {observe.n} frames")

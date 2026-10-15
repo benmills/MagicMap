@@ -73,7 +73,7 @@ def scenario(L, sim, ns, check=lambda *_: None):
     """Stand among the blips with the map shown; one mailbox goes; walk 600 yd east and back off."""
     put_blips(L, sim, ns, BLIPS)
     sim.Slash("/mma record on")
-    sim.Slash("/mma map")
+    sim.Slash("/mma toggle")
     sim.Run(3)
     check("still")
     put_blips(L, sim, ns, BLIPS[:1] + BLIPS[2:])  # the second mailbox: gone (as if mismeasured)
@@ -212,7 +212,7 @@ def test_blips_priced():
     here = BLIPS + [("Peacebloom", -52, 36), ("Innkeeper Belm", 70, -30)]
     vein = ("Copper Vein", 330, 10)
     put_blips(L, sim, ns, here + [vein])
-    sim.Slash("/mma map")
+    sim.Slash("/mma toggle")
     sweep = lambda: ns.Game.obs.blips.sweep if ns.Game.obs.blips else 0
 
     def until(n):

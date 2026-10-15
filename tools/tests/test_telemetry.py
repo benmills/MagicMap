@@ -135,7 +135,7 @@ end"""
 
 def test_telemetry_sim(tmp_path, capsys):
     L, sim, ns = boot()
-    sim.Slash("/mma map")
+    sim.Slash("/mma toggle")
     sim.player.speed = 7  # yd/s, north: the map follows
     sim.Run(11)  # past the first open's grace and ourKBLoad (10 s after login)
     sim.FireEvent("ADDON_ACTION_BLOCKED", "MagicMapAtlas", "Minimap:Hide()")

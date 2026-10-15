@@ -29,5 +29,5 @@ end
 
 Runtime.Step("input", "game.commands", Run, { budgetMs = false })
 -- Those sent while loading are carried out at login, before the first frame
--- (so /mma map works as soon as you're in).
+-- (so /mma toggle works as soon as you're in).
 Runtime.On("PLAYER_LOGIN", "game.commands login", Run)

@@ -110,4 +110,6 @@ function UI.Icon()
 	UI.Print("minimap button " .. (saved.button and "shown" or "hidden (/mma icon to show)"))
 end
 Command({ kind = "slash", name = "icon", help = "show or hide the minimap button", fn = UI.Icon })
+-- /mma alone or /mma toggle (Core.lua:1700); /mma map <id|name> is the map picker's (M3.4).
+Command({ kind = "slash", name = "", help = "our map, or Blizzard's minimap (as toggle)", fn = Window.Toggle })
 Command({ kind = "slash", name = "toggle", help = "our map, or Blizzard's minimap", fn = Window.Toggle })

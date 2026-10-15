@@ -192,4 +192,3 @@ function Window.State()
 		follow = Camera.follow, w = R2(w), h = R2(h) }
 end
 
-ns.Game.Command({ kind = "slash", name = "map", help = "show or hide the map window", fn = Window.Toggle })

@@ -82,7 +82,7 @@ def test_hooks():
     sim.Step()
     assert not shown()
 
-    sim.Slash("/mma map")
+    sim.Slash("/mma toggle")
     sim.Run(1)
     sim.Press("M")  # shown: Blizzard's hidden again at once, "worldmap" through Model for a frame: UI grows
     assert not shown()
@@ -168,7 +168,7 @@ def test_button_home_release():
 
     # The map shown, big, the rim's parts hidden, the home faded: the Minimap taken.
     before, home = H.Snapshot(), H.Rect(mm)
-    sim.Slash("/mma map")
+    sim.Slash("/mma toggle")
     sim.Step()
     ns.UI.BigMap.Toggle()
     view.chrome = L.table(rimArrows=False, questRing=False)
@@ -192,7 +192,7 @@ def test_button_home_release():
     sim.FireEvent("UI_SCALE_CHANGED")
 
     # Hidden (UI snaps back: not big, home at 1): released, every property as it was.
-    sim.Slash("/mma map")
+    sim.Slash("/mma toggle")
     sim.Run(0.5)
     assert not Game.minimap.engaged and H.Snapshot() == before, (before, H.Snapshot())
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

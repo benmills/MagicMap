@@ -11,7 +11,7 @@ ns.UI.View().sockets.world = { frame = canvas, inst = 0, zoom = 64 }
 ns.UI.View().layers["addon:Questie"] = true
 sim.Run(1)
 for _ = 1, 3 do -- open, close, open
-	sim.Slash("/mma map")
+	sim.Slash("/mma toggle")
 	sim.Run(1.2)
 end
 sim.FireEvent("ADDON_LOADED", "Questie")

@@ -64,7 +64,7 @@ end
 function T.Shown(saved, seconds)
 	local sim, ns = T.Boot(saved)
 	sim.Run(1)
-	sim.Slash("/mma map")
+	sim.Slash("/mma toggle")
 	sim.Run(seconds or 3)
 	return sim, ns
 end

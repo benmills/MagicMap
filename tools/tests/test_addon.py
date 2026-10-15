@@ -13,7 +13,7 @@ import luacheck
 
 TESTS = os.path.dirname(os.path.abspath(__file__))
 # No saved data given: the map's window as the tests have it (UI's saved part, ui/View.lua): hidden
-# at login (/mma map opens it), 720x520 in the screen's middle, 96 px a tile. A first login's shows
+# at login (/mma toggle opens it), 720x520 in the screen's middle, 96 px a tile. A first login's shows
 # on the minimap's spot (test_chrome.py).
 TEST_UI = "MagicMapAtlasDB = { UI = { _v = 1, shown = false, zoom = 96, window = { left = 600, top = 800, w = 720, h = 520 } } }"
 
@@ -114,7 +114,7 @@ def test_open_fields_nil():
     """A View and an Observation with only their required fields (every OPEN one nil:
     types/view.lua, observation.lua) run whole frames: Game applies, Model merges, UI draws."""
     L, sim, ns = boot()
-    sim.Slash("/mma map")
+    sim.Slash("/mma toggle")
     sim.Run(1)
     got = L.eval("""function(ns)
         local UI, Model, got = ns.UI, ns.Model, {}

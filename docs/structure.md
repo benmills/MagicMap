@@ -164,7 +164,8 @@ file each, tools/tests/replays/R-<id>.lua, collected by tools/tests/test_spike_b
 ## Slash commands
 
 `ns.Game.Slash(name, help, fn)` registers `/mma <name>` (`fn(args)`, wrapped); `/mma`
-alone lists them. A name may be two words (`check art`): it wins over its first word's.
+alone is the name `""` (UI's: the map shown or hidden, as the spike's `/mm`), and an unknown
+name lists them. A name may be two words (`check art`): it wins over its first word's.
 UI registers its own through `Game.Command({ kind = "slash", ... })`.
 
 ## One flow end to end: Minimap blips

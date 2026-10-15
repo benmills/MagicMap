@@ -1,6 +1,6 @@
--- /mma <name> [args]: Game.Slash(name, help, fn) registers fn(args);
--- /mma alone lists them. Runtime's own: perf, errors.
--- A name may be two words ("check art"): it wins over its first word's.
+-- /mma <name> [args]: Game.Slash(name, help, fn) registers fn(args); /mma alone is the
+-- name "" (UI's: the map shown or hidden, Core.lua:1700); an unknown name lists them.
+-- Runtime's own: perf, errors. A name may be two words ("check art"): it wins over its first word's.
 
 local _, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
@@ -22,7 +22,7 @@ SlashCmdList.MAGICMAPATLAS = function(msg)
 	c = commands[name:lower()]
 	if c then return c.fn(args) end
 	Game.Print("commands:")
-	for _, n in ipairs(Game.commands) do print("  /mma " .. n .. " - " .. commands[n].help) end
+	for _, n in ipairs(Game.commands) do print("  /mma" .. (n ~= "" and " " .. n or "") .. " - " .. commands[n].help) end
 end
 
 Game.Slash("perf", "load cost, and time per step / event / timer / job (ms)", function()

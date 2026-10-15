@@ -8,7 +8,7 @@ local sim, ns = T.Boot()
 sim.CountCalls()
 sim.Clock = function() return os.clock() * 1000 + sim.callTotal * 0.003 end
 sim.Run(1)
-sim.Slash("/mma map")
+sim.Slash("/mma toggle")
 sim.Run(3)
 local m, layers = ns.UI.Camera, ns.UI.Engine.layers
 for _, lay in ipairs(layers) do -- the first open's layouts done: maxima from here
