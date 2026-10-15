@@ -1,7 +1,11 @@
 """Smoke test: Atlas loads in Lua 5.1 over the real data and its facts hold end to end."""
+import os
+
 import pytest
 
 from atlas_lua import load_atlas
+
+LABELS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "golden", "labels.tsv")
 
 
 def ids(t):
@@ -97,3 +101,23 @@ def test_stale_format_is_one_error_and_dropped():
     # No QuestieDB-derived data: empty answers, not errors.
     assert len(Atlas.QuestSources(33)) == 0 and len(Atlas.Find("npc", "hogger")) == 0
     assert Atlas.BlipService("Mailbox") is None and len(Atlas.Rares(0)) == 0 and len(Atlas.SpawnsIn("npc", 0, 31, 49, 33, 50)) == 0
+
+
+def test_labels_golden():
+    """Atlas.Labels, a lookup into Data/Labels.lua (tools/gen_labels.py), against the golden: what it
+    ranked at first use before M1.1, every inst. Same names, tiers and ids in the same order; col, row
+    and size within 0.01. UPDATE_GOLDEN=1 pytest tools/tests to accept a change."""
+    L, Atlas = load_atlas()
+    got = [[inst, a.rank, a.tier, a.text, a.col, a.row, a.size, a.areaID, a.poiID]
+           for inst in sorted(Atlas.Data.Labels.keys()) for a in ids(Atlas.Labels(inst))]
+    cell = lambda v: "" if v is None else str(v)  # noqa: E731
+    if os.environ.get("UPDATE_GOLDEN"):
+        with open(LABELS, "w", encoding="utf-8", newline="\n") as f:
+            f.writelines("\t".join(map(cell, r)) + "\n" for r in got)
+    with open(LABELS, encoding="utf-8") as f:
+        want = [line.rstrip("\n").split("\t") for line in f]
+    assert len(got) == len(want)
+    for g, w in zip(got, want):
+        assert [cell(g[i]) for i in (0, 1, 2, 3, 7, 8)] == [w[i] for i in (0, 1, 2, 3, 7, 8)], w
+        for i in (4, 5, 6):  # col, row, size
+            assert (g[i] is None) == (w[i] == "") and (g[i] is None or abs(g[i] - float(w[i])) <= 0.01), (g, w)

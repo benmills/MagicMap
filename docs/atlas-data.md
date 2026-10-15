@@ -158,7 +158,7 @@ that read it.
 - labels: `{ areaID, col, row, weight, kind }`: the land chunk deepest inside each zone
   (kind 1) and subzone (kind 2, ≥ 6 chunks); weight = its land chunks.
 - `Atlas.Borders(inst)`, `Atlas.BorderLines(inst, zoom)` (far below `Atlas.BORDER_FAR_ZOOM`),
-  `Atlas.ZoneOutline(inst, zone)`; `Atlas.Labels(inst)` ranks these labels with the
+  `Atlas.ZoneOutline(inst, zone)`; Data/Labels.lua ranks these labels with the
   continent's name and AreaPOI towns and landmarks (Places).
 
 ### Data/Walk.lua — `ns.Data.Walk` (ADT MCVT heights, MH2O liquids)
@@ -182,6 +182,29 @@ that read it.
   message; bosses = names in OrderIndex order.
 - `Atlas.FlightPoints(inst)`, `Atlas.TaxiPaths()`, `Atlas.POIs(inst)` (sorted by id),
   `Atlas.Dungeon(instID)`, `Atlas.Dungeons(entranceInst)`.
+
+### Data/Labels.lua — `ns.Data.Labels` (Data/Tiles, Walk, UiMaps, Areas, Borders, Places)
+`[inst] = { { text, col, row, tier, size, areaID, poiID }, ... }` in rank order (1 first)
+- Every map name as a ranked anchor, ranked offline by tools/gen_labels.py from the
+  other Data files: it was Atlas.Labels' first-use work, ~50 ms for the two continents in
+  lupa and the play-test's first-open FAIL (docs/v1-plan.md §2); a lookup now, ~0.1 ms each.
+  Regenerate it after any of them: tools/tests/test_generators.py fails while it's stale.
+- tier, most important first: `continent` (its name, at the land's visual centre: the
+  land sample, 4 per tile side, farthest from deep water or the map's edge by a chamfer
+  distance transform), `zone` (Borders labels of kind 1), `town` (AreaPOI icons 4 town,
+  5 capital, or 2/6 with importance ≥ 2), `subzone` (Borders labels of kind 2), `poi`
+  (AreaPOI icons 2/6 otherwise). POIs with a description (events, world-PvP states) are
+  left out. Within a tier by score, high first (zone, subzone: land chunks; town:
+  importance × 10, + 2 capital, + 1 town), then by text.
+- A town and the subzone label of its name within 0.5 tiles are one name: the town, at its
+  POI, keeping the subzone's size and areaID. A landmark that duplicates one is skipped.
+- size: the land named (continent: its zones'; zone, subzone: its chunks) as the side of
+  a square, in tiles; nil for towns and landmarks that aren't also a subzone. 4 decimals,
+  so `floor((size * 16)^2 + 0.5)` is the label's land chunks (the spike's `weight`).
+- Every inst with a name: the open-world maps, and instances with POIs (Alterac Valley).
+- `Atlas.Labels(inst)` → `{ text, col, row, tier, rank, size?, areaID?, poiID? }` in rank
+  order (named rows, per inst at first use); tools/tests/test_atlas.py holds it to the
+  golden of the ranking it replaced.
 
 ### Data/ItemIcons.lua — `ns.Data.ItemIcons` (Item DB2)
 `[itemID] = iconFileDataID`

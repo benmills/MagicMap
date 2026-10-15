@@ -20,6 +20,7 @@ Data\UiMaps.lua
 Data\Areas.lua
 Data\AreaGrid.lua
 Data\Places.lua
+Data\Labels.lua
 Data\ItemIcons.lua
 Data\Npcs.lua
 Data\Objects.lua

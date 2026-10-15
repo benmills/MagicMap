@@ -142,3 +142,12 @@ def test_files_load_in_lua(generated):
     assert maps[36][b"kind"] == b"dungeon" and maps[36][b"continent"] == 0
     D = lua_load(generated["borders"])
     assert list(D[b"Borders"].keys()) == [0]  # Kalimdor is under --min-tiles
+
+
+def test_labels_regenerate(tmp_path):
+    """tools/gen_labels.py over the committed Data files gives the committed Data/Labels.lua, byte for byte:
+    deterministic, and Data/Labels.lua is current with Borders, Places, ... (test_atlas: its golden)."""
+    out = tmp_path / "labels.lua"
+    run_tool("gen_labels.py", "-o", str(out))
+    with open(os.path.join(os.path.dirname(TOOLS), "Data", "Labels.lua"), "rb") as f:
+        assert out.read_bytes() == f.read(), "Data/Labels.lua is stale: tools/gen_labels.py -o Data/Labels.lua"
