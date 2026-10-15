@@ -6,7 +6,8 @@
 -- Model.you = { inst, col, row, facing, stale }: tile space (Atlas), facing in
 -- radians (0 north, counter-clockwise). While the position isn't known (instances,
 -- loading) the last known one is kept with stale = true; nil: never known
--- (or not on the map we're now on).
+-- (or not on the map we're now on). uiMap, level, faction, dead, ghost, combat:
+-- this frame's, as handed (nil: the client gave nothing).
 --
 -- Each kind lives in its own file: Model.Part(observe, load) hooks it into
 -- Observe and Load, Model.Kind(kind, fn) answers Known(kind) with fn() -> list, rev.
@@ -51,6 +52,8 @@ function Model.Observe(obs, oracles)
 		if o.inst and o.inst ~= you.inst then you.inst, you.col, you.row = o.inst, nil, nil end
 	end
 	if o.facing then you.facing = o.facing end
+	you.uiMap, you.level, you.faction = o.uiMap, o.level, o.faction
+	you.dead, you.ghost, you.combat = o.dead, o.ghost, o.combat
 	for _, p in ipairs(parts) do
 		if p.observe then p.observe(obs, oracles) end
 	end
