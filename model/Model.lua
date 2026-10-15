@@ -1,13 +1,15 @@
 -- Model: what we know. Plain Lua: no WoW API; sees only what it's handed:
 -- Model.Observe(obs, oracles) from Game's observe step, Model.Focus(focus) from
 -- UI, Model.Load(saved) (its saved part) from Game. UI reads it back through
--- types/model.lua: Known(kind), you, hooked, Target, Route.
+-- types/model.lua: Known(kind), you, hooked, minimap, addons, Target, Route.
 --
 -- Model.you = { inst, col, row, facing, stale }: tile space (Atlas), facing in
 -- radians (0 north, counter-clockwise). While the position isn't known (instances,
 -- loading) the last known one is kept with stale = true; nil: never known
 -- (or not on the map we're now on). uiMap, level, faction, dead, ghost, combat:
 -- this frame's, as handed (nil: the client gave nothing).
+-- Model.hooked, Model.minimap: this frame's obs.hooked and obs.minimap, handed on unchanged
+-- (UI reads them the same frame). Model.addons: obs.addons, the last handed ({} until then).
 --
 -- Each kind lives in its own file: Model.Part(observe, load) hooks it into
 -- Observe and Load, Model.Kind(kind, fn) answers Known(kind) with fn() -> list, rev.
@@ -16,7 +18,7 @@ local _, ns = ...
 local Model = ns.Model or {}; ns.Model = Model
 
 local NONE = {}
-Model.you, Model.hooked = {}, NONE
+Model.you, Model.hooked, Model.addons = {}, NONE, NONE
 Model.SAVED = { version = 1, defaults = { rares = {}, blips = {} } } -- types/saved.lua MM.SavedModel
 
 local parts, kinds = {}, {}
@@ -44,7 +46,7 @@ function Model.Focus(focus) Model.focus = focus end
 
 function Model.Observe(obs, oracles)
 	local o, you = obs.you, Model.you
-	Model.hooked = obs.hooked or NONE
+	Model.hooked, Model.minimap, Model.addons = obs.hooked or NONE, obs.minimap, obs.addons or Model.addons
 	if o.col then
 		you.inst, you.col, you.row, you.stale = o.inst, o.col, o.row, false
 	else

@@ -11,13 +11,14 @@ SEP = "  \u00b7  ".encode("utf-8").decode("latin-1")  # the title's joins, as th
 
 
 def fresh():
-    """A first login (no saved data) with the minimap's spot known: the sim's Minimap's rect
-    (obs.minimap.home, which Model hands on to BigMap.home)."""
+    """A first login (no saved data): Game reads the minimap's spot, the sim's Minimap's rect
+    (obs.minimap.home, with its cluster's strata), and Model hands it on to BigMap.home."""
     L, sim, ns = boot("MagicMapAtlasDB = {}")
     mm = L.globals().Minimap
-    ns.UI.BigMap.home = L.table_from({"left": mm.GetLeft(mm), "top": mm.GetTop(mm), "w": mm.GetWidth(mm),
-                                      "h": mm.GetHeight(mm)})
+    spot = (mm.GetLeft(mm), mm.GetTop(mm), mm.GetWidth(mm), mm.GetHeight(mm))
     sim.Step()
+    home = ns.UI.BigMap.home
+    assert (home.left, home.top, home.w, home.h) == spot and ns.UI.BigMap.homeStrata == "LOW"
     return L, sim, ns
 
 

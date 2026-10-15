@@ -1113,6 +1113,7 @@ GameTooltip = CreateFrame("GameTooltip", "GameTooltip", UIParent, "GameTooltipTe
 GameTooltip:Hide()
 
 MinimapCluster = CreateFrame("Frame", "MinimapCluster", UIParent)
+MinimapCluster:SetFrameStrata("LOW") -- (Blizzard's Minimap.xml)
 MinimapCluster:SetSize(230, 230)
 MinimapCluster:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", 0, 0)
 Minimap = new("Minimap", "Minimap", nil)

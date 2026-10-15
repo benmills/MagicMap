@@ -88,8 +88,6 @@ function Motion.SetFollow(on, glide)
 	end
 end
 
-function Motion.Follow() Motion.SetFollow(true) end
-
 -- Fly to fit a tile rect (a zone), following off (Core.lua:1123-1127).
 function Motion.FlyToRect(c0, r0, c1, r1)
 	Motion.SetFollow(false)

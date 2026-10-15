@@ -149,11 +149,13 @@ def test_button_home_release():
     sim.Slash("/mma icon")
     sim.Step()
     assert button.IsVisible(button) and at(215)
-    sim.Click(button)  # click, and the compartment entry: "toggle" for UI
-    assert kinds(ns) == ["toggle"]
+    frame = ns.UI.Window.frame
+    sim.Click(button)  # click, and the compartment entry: "toggle" for UI, which shows or hides the map
+    assert kinds(ns) == ["toggle"] and frame.IsShown(frame)
     G.MagicMapAtlasOnAddonCompartmentClick()
     sim.Step()
-    assert kinds(ns) == ["toggle"]
+    assert kinds(ns) == ["toggle"] and not frame.IsShown(frame)
+    sim.Step()
     mx, my = mm.GetCenter(mm)
     bx, by = button.GetCenter(button)
     sim.Drag(button, mx - bx, my + 100 - by)  # dragged to straight above the Minimap

@@ -10,26 +10,12 @@ from test_blips import lua_tools
 from test_chrome import SEP, fresh, rect
 
 
-def keys(L, ns):
-    """press(kind): Model.hooked holds it the next frame (types/view.lua HookedInput), as Game's hooks hand it on."""
-    return L.eval("""function(Model)
-        local queued = {}
-        local observe = Model.Observe
-        Model.Observe = function(obs, oracles)
-            observe(obs, oracles)
-            if queued[1] then Model.hooked = queued; queued = {} end
-        end
-        return function(kind) queued[#queued + 1] = { kind = kind } end
-    end""")(ns.Model)
-
-
 def near(a, b, px=1):
     return all(abs(x - y) <= px for x, y in zip(a, b))
 
 
 def test_bigmap():
     L, sim, ns = fresh()
-    press = keys(L, ns)
     UI, G = ns.UI, L.globals()
     f, big, view, cam = UI.Window.frame, UI.BigMap, UI.View(), lambda: UI.Camera.cam  # noqa: E731
     saved = G.MagicMapAtlasDB.UI
@@ -38,7 +24,7 @@ def test_bigmap():
     small, zoom = rect(f), cam().zoom
 
     # M: big, HIGH, centred at 0.7 of the screen, the home corner faded; on you, further out.
-    press("worldmap")
+    sim.Press("M")  # Game hides Blizzard's map again: "worldmap" through Model the next frame
     sim.Step()
     assert big.big and view.window.big and f.GetFrameStrata(f) == "HIGH"
     sim.Run(0.4)
@@ -52,23 +38,23 @@ def test_bigmap():
     assert sim.prints[len(sim.prints)].endswith("reset: shrink the map back first (M)") and big.big
 
     # Escape: back to the small rect and zoom, the minimap's strata, the home corner back.
-    press("escape")
+    assert sim.Escape()[0]  # Game's catcher: "escape"
     sim.Run(0.4)
     assert not big.big and rect(f) == small and abs(cam().zoom - zoom) < 1e-9 and f.GetFrameStrata(f) == "LOW"
     assert view.window.homeAlpha == 1 and not view.window.big
-    press("escape")  # small: nothing
+    assert not sim.Escape()[0]  # small: nothing
     sim.Run(0.3)
     assert rect(f) == small
 
     # L3: M, M mid-shrink, M, M: back on the small rect.
     for wait in (0.5, 0.05, 1, 1):
-        press("worldmap")
+        sim.Press("M")
         sim.Run(wait)
     assert near(rect(f), small) and not big.big and abs(cam().zoom - zoom) < 1e-9
 
     # Your zone (you.uiMap: Elwynn Forest) bounds the zoom out; the red button grows and shrinks too.
     UI.Camera.cam = L.table_from({"cx": cam().cx, "cy": cam().cy, "zoom": 150})
-    ns.Model.you.uiMap = 1429
+    assert ns.Model.you.uiMap == 1429  # (game/parts/You.lua)
     sim.Click(UI.Controls.mode)
     sim.Run(0.4)
     r = ns.Atlas.MapRect(1429)
@@ -80,7 +66,7 @@ def test_bigmap():
     assert not big.big and near(rect(f), small) and abs(cam().zoom - 150) < 1e-9
 
     # L4: logging out while big keeps the small rect and zoom; hidden while big, it comes back small.
-    press("worldmap")
+    sim.Press("M")
     sim.Run(0.4)
     sim.FireEvent("PLAYER_LOGOUT")
     assert near(tuple(saved.window[k] for k in ("left", "top", "w", "h")), small) and abs(saved.zoom - 150) < 1e-9

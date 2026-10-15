@@ -102,21 +102,13 @@ local function SetLit(b, on)
 	b.icon:SetAlpha(on and 1 or 0.6)
 end
 
--- Following you, or free (Core.lua:1081-1093; the glide back to you: Motion's, M1.8).
-function Controls.SetFollow(on)
-	if on then
-		UI.Motion.Follow()
-	elseif Camera.follow then
-		Camera.follow = false
-		Camera.Trace("follow off")
-	end
-end
+-- Following you, or free: back to you with a glide (Core.lua:1081-1093, 1451, 1703).
+local function ToggleFollow() UI.Motion.SetFollow(not Camera.follow, true) end
 
--- The buttons zoom held on you while following, else on the view's centre (Core.lua:1420-1443;
--- Motion's step: its anchor for the buttons comes with M1.8).
-zoomIn:SetScript("OnClick", Runtime.Wrap("map: zoom in", function() UI.Motion.Wheel(1) end))
-zoomOut:SetScript("OnClick", Runtime.Wrap("map: zoom out", function() UI.Motion.Wheel(-1) end))
-follow:SetScript("OnClick", Runtime.Wrap("map: follow", function() Controls.SetFollow(not Camera.follow) end))
+-- The buttons zoom held on you while following, else on the view's centre (Core.lua:1420-1443).
+zoomIn:SetScript("OnClick", Runtime.Wrap("map: zoom in", function() UI.Motion.ZoomStep(1) end))
+zoomOut:SetScript("OnClick", Runtime.Wrap("map: zoom out", function() UI.Motion.ZoomStep(-1) end))
+follow:SetScript("OnClick", Runtime.Wrap("map: follow", ToggleFollow))
 gear:SetScript("OnClick", Runtime.Wrap("map: gear", function(self) Menus.Gear(self) end))
 
 ---------------------------------------------------------------------------
@@ -188,4 +180,4 @@ Controls.Tip(zoomOut, function() return "Zoom out" end)
 Controls.Tip(gear, function() return "Layers & settings" end)
 
 ns.Game.Command({ kind = "slash", name = "follow", help = "follow you on the map, or stop",
-	fn = function() Controls.SetFollow(not Camera.follow) end })
+	fn = ToggleFollow })

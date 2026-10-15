@@ -1,7 +1,7 @@
 """The wheel's zoom (ui/Motion.lua; the spike's Core.lua:13-17, 965-980, 1420-1438) on the
 simulated client: a tick chases its target in log space at 14/s and lands on it, quick ticks
-stack, the tile under the cursor stays put, the range is 16..800, and Camera.Settled /
-Camera.Velocity say when it's moving.
+stack, the tile under the cursor stays put (the buttons': the view's centre), the range is
+16..800, and Camera.Settled / Camera.Velocity say when it's moving.
 
   .venv/bin/python -m pytest tools/tests/test_zoom.py -s   # prints the priced draw while zooming
 """
@@ -56,6 +56,12 @@ def test_zoom_chase():
         assert abs(col - under[0]) < 1e-9 and abs(row - under[1]) < 1e-9
         moved = moved or c.Velocity() != (0, 0)
     assert moved and c.cam.zoom == goal / 1.3 and c.Velocity() == (0, 0)
+
+    # The + button (ui/Controls.lua): one step, about the view's centre.
+    cx, cy, zoom = c.cam.cx, c.cam.cy, c.cam.zoom
+    sim.Click(ns.UI.Controls.zoomIn)
+    sim.Run(1)
+    assert c.cam.zoom == pytest.approx(zoom * 1.3) and (c.cam.cx, c.cam.cy) == pytest.approx((cx, cy))
 
     # The range: 16..800 px per tile.
     for d, end in ((1, 800), (-1, 16)):

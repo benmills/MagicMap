@@ -77,7 +77,7 @@ NS_RULES = {
     "runtime": ({"Runtime"}, {}),
     "model": ({"Model", "Atlas", "Runtime"}, {}),
     "ui": ({"UI", "Atlas", "Runtime"}, {"Game": {"Command"},
-                                       "Model": {"Known", "Target", "Route", "you", "hooked", "Focus"}}),  # types/model.lua, focus.lua
+                                       "Model": {"Known", "Target", "Route", "you", "hooked", "minimap", "addons", "Focus"}}),  # types/model.lua, focus.lua
     "game": ({"Game", "Atlas", "Runtime"}, {"UI": {"View"}, "Model": {"Observe", "Load", "SAVED"}}),
     "game/parts": ({"Game", "Atlas", "Runtime"}, {}),
     "game/commands": ({"Game", "Atlas", "Runtime"}, {}),
