@@ -5,15 +5,13 @@
 -- stops a cleanup dropping that line again; this replay would fail.)
 local T = ...
 local sim, ns = T.Boot("LibStub = nil; " .. T.TEST_UI)
-local canvas = CreateFrame("Frame", nil, ns.UI.Window.view)
-canvas:SetPoint("TOPLEFT")
-ns.UI.View().sockets.world = { frame = canvas, inst = 0, zoom = 64 }
 ns.UI.View().layers["addon:Questie"] = true
 sim.Run(1)
-for _ = 1, 3 do -- open, close, open
+for _ = 1, 3 do -- open, close, open (the world socket published while open)
 	sim.Slash("/mma toggle")
 	sim.Run(1.2)
 end
+assert(ns.UI.View().sockets.world ~= nil)
 sim.FireEvent("ADDON_LOADED", "Questie")
 sim.Run(0.2)
 assert(LibStub == nil and ns.UI.Window.frame:IsShown())

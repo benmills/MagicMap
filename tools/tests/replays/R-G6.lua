@@ -2,18 +2,16 @@
 -- pins spilled out of the window; pins drifted as HBD re-placed them. MOVED (Game borrows HBD
 -- pins on its internals); the world half here (minimap pins, Rotate Minimap: M4.2). Every copy
 -- is found through LibStub, the renamed one loaded after us too, and obs.addons names their
--- addons. While the window shows, a world pin of an addon whose layer is on is hosted on
--- View.sockets.world at its spot, and handed back to its parent, points, shown state and level
--- on each way out (the HBD round trip): its layer off, Blizzard's world map opening, the window
--- hiding. One the library takes back meanwhile is left as the library left it.
+-- addons. While the window shows, a world pin of an addon whose layer is on (UI turns on each
+-- with world pins) is hosted on the socket UI publishes (View.sockets.world, ui/Sockets.lua) at
+-- its spot, and handed back to its parent, points, shown state and level on each way out (the
+-- HBD round trip): its layer off, Blizzard's world map opening, the window hiding. One the
+-- library takes back meanwhile is left as the library left it.
 local T = ...
 local sim, ns = T.Shown()
 local view = ns.UI.View()
-local canvas = CreateFrame("Frame", nil, ns.UI.Window.view) -- tile (col, row) at (col * zoom, -row * zoom)
-canvas:SetPoint("TOPLEFT")
-canvas:SetSize(1, 1)
-view.sockets.world = { frame = canvas, inst = 0, zoom = 64 }
-view.layers["addon:Questie"] = true
+local canvas = view.sockets.world.frame -- tile (col, row) at (col * zoom, -row * zoom)
+assert(canvas and view.sockets.world.inst == 0 and view.sockets.world.zoom == ns.UI.Camera.cam.zoom, "the socket's published")
 
 -- Questie loads after us: a pin in Elwynn (on Blizzard's map, which shows Elwynn), one in
 -- Durotar, its route line (its own map only), a frame drawn for Blizzard's canvas, a minimap pin.
@@ -56,9 +54,10 @@ local addons = {}
 for _, a in ipairs(ns.Game.obs.addons) do addons[a.key] = (a.world and "w" or "") .. (a.minimap and "m" or "") end
 T.Print("G6: obs.addons Questie %s, GatherMate2 %s", tostring(addons.Questie), tostring(addons.GatherMate2))
 assert(addons.Questie == "wm" and addons.GatherMate2 == "m")
-view.sockets.world.zoom = 128 -- the socket's zoom changes: re-placed at once
+assert(view.layers["addon:Questie"], "its layer on, as UI found it with world pins")
+ns.UI.Motion.SetZoom(128) -- the socket's zoom changes: re-placed at once
 sim.Step()
-assert(Hosted(), "re-placed at the new zoom")
+assert(view.sockets.world.zoom == 128 and Hosted(), "re-placed at the new zoom")
 
 view.layers["addon:Questie"] = nil -- its layer off: back on its pin (by the next regular pass)
 sim.Run(1.1)
@@ -67,8 +66,10 @@ view.layers["addon:Questie"] = true
 sim.Run(1.1)
 assert(Hosted(), "layer on: borrowed again")
 
--- Blizzard's world map gets it the moment it opens (the first time, the library re-places every pin).
+-- Blizzard's world map gets it as it opens (the first time, the library re-places every pin; the
+-- level it had there is put back within the frame).
 WorldMapFrame:Show()
+sim.Step()
 local function OnBlizzards() return pin:GetParent().icon == pin and pin:IsVisible() and pin:GetFrameLevel() == 2016 end
 assert(OnBlizzards(), "Blizzard's map open: on a pin there")
 local there = Where(pin)
@@ -77,7 +78,8 @@ assert(Same(Where(pin), there))
 WorldMapFrame:Hide()
 sim.Run(0.2)
 assert(Hosted(), "closed: ours again")
-WorldMapFrame:Show() -- again (the library leaves its pins be): back where it was taken from
+WorldMapFrame:Show() -- again (the library leaves its pins be): back where it was taken from, that frame
+sim.Step()
 assert(OnBlizzards() and Same(Where(pin), there), "open again: as it was")
 WorldMapFrame:Hide()
 sim.Run(0.2)
@@ -94,5 +96,22 @@ assert(Hosted(), "added again: borrowed again")
 ns.UI.Window.frame:Hide() -- the window hides: everything back
 sim.Step()
 assert(Same(Where(pin), home), "window hidden: as it was")
+
+-- A newer minor of the shared copy loads over it (its methods redefined on the same table: our
+-- hooks gone, AddonPins.lua:55-56): hooked again, so an addon's first pin on it is heard.
+local shared = sim.hbdPins
+function shared:AddWorldMapIconWorld(ref, icon, instanceID, x, y, showFlag) -- the newer minor's own
+	self.worldmapPinRegistry[ref] = self.worldmapPinRegistry[ref] or {}
+	self.worldmapPinRegistry[ref][icon] = true
+	self.worldmapPins[icon] = { instanceID = instanceID, x = x, y = y, worldMapShowFlag = showFlag or 0 }
+end
+sim.FireEvent("ADDON_LOADED", "NewerHBD")
+local note = CreateFrame("Frame", nil, UIParent)
+note:SetSize(12, 12)
+shared:AddWorldMapIconWorld("HandyNotes", note, 0, -8900, -150, HBD_PINS_WORLDMAP_SHOW_WORLD)
+sim.Step()
+local keys = {}
+for _, a in ipairs(ns.Game.obs.addons) do keys[a.key] = a.world end
+assert(keys.HandyNotes == true, "a pin on the upgraded copy: its addon listed")
 local errs = T.Errors(sim, ns)
 assert(#errs == 0, table.concat(errs, "\n"))

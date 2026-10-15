@@ -93,5 +93,6 @@ ui\Borders.lua
 ui\Labels.lua
 ui\Blips.lua
 ui\Rares.lua
+ui\Sockets.lua
 ui\View.lua
 ui\Art.lua

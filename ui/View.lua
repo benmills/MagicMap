@@ -79,6 +79,7 @@ Runtime.Step("ui", "ui: view", function()
 	window.big, window.homeAlpha, window.strata, window.level = BigMap.big, BigMap.homeAlpha, strata, level
 	view.minimap, view.inst, view.button = saved.minimap, Camera.inst or 0, saved.button
 	view.layers.blips = layersOn or nil
+	UI.Sockets.Update(view)
 	local cam = Camera.cam
 	camera.cx, camera.cy, camera.zoom, camera.w, camera.h = cam.cx, cam.cy, cam.zoom, Window.Size()
 	-- Saved as it goes (the client writes it at logout): the small window's zoom only.

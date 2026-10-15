@@ -5,10 +5,13 @@
 -- socket (View.sockets.world) and Blizzard's world map isn't, Game borrows the pin frames
 -- ("icons") of each addon whose layer is on (View.layers "addon:<key>") onto the socket at their
 -- world position; each goes back where it was (parent, points, shown, level) when our window
--- hides, the socket goes or moves frame, its layer goes off, or Blizzard's world map opens (a
--- frame is in one place only, and that map is the library's). One the library has placed again
--- meanwhile is the library's: left be. Pins drawn for its own zone map alone (Questie's -1, its
--- route lines) and frames bigger than pins aren't borrowed.
+-- hides, the socket goes or moves frame or map, its layer goes off, or Blizzard's world map opens
+-- (a frame is in one place only, and that map is the library's: it takes back the ones it shows
+-- itself). One the library has placed again meanwhile is the library's: left be. Pins drawn for
+-- its own zone map alone (Questie's -1, its route lines) and frames bigger than pins aren't
+-- borrowed. A Questie log is thousands of pins, so borrowing and giving back is a Runtime.Job,
+-- JOB_MS a frame; the library adding or removing world pins cancels a borrowing pass (it walks
+-- the library's tables) and starts another SYNC_SOON later.
 -- Game.Addons(): obs.addons (game/parts/Addons.lua), a new list only when it changed.
 
 local _, ns = ...
@@ -17,27 +20,50 @@ local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 local PINS_MAJOR = "^HereBeDragons(.*)%-Pins%-2%.0$" -- AddonPins.lua:30
 local MAX_SIZE = 128 -- px; bigger frames are drawn for Blizzard's canvas, not as pins (AddonPins.lua:34)
 local SYNC_SOON, SYNC_EVERY = 0.1, 1 -- s after the library adds or removes pins; regardless (AddonPins.lua:35-36)
-local METHODS = { "AddWorldMapIconWorld", "AddWorldMapIconMap", "RemoveWorldMapIcon", "RemoveAllWorldMapIcons",
-	"AddMinimapIconWorld", "AddMinimapIconMap", "RemoveMinimapIcon", "RemoveAllMinimapIcons" }
+local JOB_MS = 1 -- ms a frame of borrowing or giving back
 
-local copies, known = {}, {} -- { lib, tag (the renamed part: "Questie") }; lib -> true
-local hosted, seen = {}, {} -- icon -> { home, points, shown, level, fixed, col, row }
+local copies, hooks = {}, {} -- { lib, tag (the renamed part: "Questie") }; lib -> { [method] = the function hooked }
+local hosted, seen = {}, {} -- icon -> { home, points, shown, level, fixed, socket, inst, col, row }
 local socket, inst, zoom -- where they're hosted: the socket's frame, instance and zoom
 local open, dirty, syncAt = false, true, 0
+local job -- the pass running: { kind = "borrow" | "give back" } on Runtime's job handle
 local list, byKey, listDirty = {}, {}, true -- obs.addons, by key
 
-local Changed = Runtime.Wrap("game.addon pins: changed", function() dirty, listDirty = true, true end)
+-- A world pin added or removed: borrow again soon (a pass walking the library's tables stops:
+-- they changed under it); a minimap pin: only the list.
+local function Running(kind) return job and not (job.done or job.cancelled) and (kind == nil or job.kind == kind) end
+local function Stop(kind)
+	if Running(kind) then Runtime.Cancel(job) end
+end
+local World = Runtime.Wrap("game.addon pins: changed", function()
+	dirty, listDirty = true, true
+	Stop("borrow")
+end)
+local Minimap = Runtime.Wrap("game.addon pins: minimap", function() listDirty = true end)
+local METHODS = { AddWorldMapIconWorld = World, AddWorldMapIconMap = World, RemoveWorldMapIcon = World,
+	RemoveAllWorldMapIcons = World, AddMinimapIconWorld = Minimap, AddMinimapIconMap = Minimap,
+	RemoveMinimapIcon = Minimap, RemoveAllMinimapIcons = Minimap }
 
 -- Every copy in LibStub (it has no events: at login, when an addon loads, when our window opens).
+-- A newer minor loading over a copy redefines its methods, dropping our hooks: hooked again
+-- (AddonPins.lua:55-56).
 local function Scan()
 	if not LibStub then return end -- no addon brought one (spike-bugs E4)
 	for major, lib in LibStub:IterateLibraries() do
-		local tag = not known[lib] and major:match(PINS_MAJOR)
+		local tag = major:match(PINS_MAJOR)
 		if tag then
-			known[lib] = true
-			copies[#copies + 1] = { lib = lib, tag = (tag:gsub("^[-_ ]+", "")) }
-			for _, m in ipairs(METHODS) do hooksecurefunc(lib, m, Changed) end
-			listDirty = true
+			local h = hooks[lib]
+			if not h then
+				h = {}
+				hooks[lib] = h
+				copies[#copies + 1] = { lib = lib, tag = (tag:gsub("^[-_ ]+", "")) }
+			end
+			for m, fn in pairs(METHODS) do
+				if type(lib[m]) == "function" and lib[m] ~= h[m] then
+					hooksecurefunc(lib, m, fn)
+					h[m], dirty, listDirty = lib[m], true, true
+				end
+			end
 		end
 	end
 end
@@ -95,7 +121,7 @@ end
 
 local function Claim(icon, level)
 	local rec = { home = icon:GetParent(), points = {}, shown = icon:IsShown(), level = icon:GetFrameLevel(),
-		fixed = icon:HasFixedFrameLevel() }
+		fixed = icon:HasFixedFrameLevel(), socket = socket, inst = inst }
 	for i = 1, icon:GetNumPoints() do rec.points[i] = { icon:GetPoint(i) } end
 	icon:SetParent(socket)
 	SetLevel(icon, level, rec.fixed)
@@ -105,18 +131,24 @@ local function Claim(icon, level)
 	return rec
 end
 
+-- Where it was; one the library has placed since is the library's, but its level is still ours.
 local function Restore(icon, rec)
 	hosted[icon] = nil
-	if icon:GetParent() ~= socket then return end -- the library has placed it since
-	icon:SetParent(rec.home)
-	icon:ClearAllPoints()
-	for _, p in ipairs(rec.points) do icon:SetPoint(unpack(p)) end
-	icon:SetShown(rec.shown)
+	if icon:GetParent() == rec.socket then
+		icon:SetParent(rec.home)
+		icon:ClearAllPoints()
+		for _, p in ipairs(rec.points) do icon:SetPoint(unpack(p)) end
+		icon:SetShown(rec.shown)
+	end
 	SetLevel(icon, rec.level, rec.fixed)
 end
 
-local function ReleaseAll()
-	for icon, rec in pairs(hosted) do Restore(icon, rec) end
+-- Give back those not on this socket and map (all, while closed).
+local function GiveBack()
+	for icon, rec in pairs(hosted) do
+		if not open or rec.socket ~= socket or rec.inst ~= inst then Restore(icon, rec) end
+		Runtime.Yield()
+	end
 end
 
 local function Place(icon, rec)
@@ -125,6 +157,7 @@ end
 
 -- Borrow what should be on the socket, give back what shouldn't.
 local function Sync(layers, level)
+	GiveBack()
 	wipe(seen)
 	for _, copy in ipairs(copies) do
 		local pins = copy.lib.worldmapPins
@@ -134,7 +167,7 @@ local function Sync(layers, level)
 					local data = pins[icon]
 					if data and data.instanceID == inst and data.worldMapShowFlag >= 0 then
 						local rec = hosted[icon]
-						if rec and icon:GetParent() ~= socket then hosted[icon], rec = nil, nil end -- the library took it back
+						if rec and icon:GetParent() ~= socket then Restore(icon, rec); rec = nil end -- the library took it back
 						if rec or (icon:GetWidth() <= MAX_SIZE and icon:GetHeight() <= MAX_SIZE) then
 							seen[icon] = true
 							rec = rec or Claim(icon, level)
@@ -146,48 +179,66 @@ local function Sync(layers, level)
 							end
 						end
 					end
+					Runtime.Yield()
 				end
 			end
 		end
 	end
 	for icon, rec in pairs(hosted) do
 		if not seen[icon] then Restore(icon, rec) end
+		Runtime.Yield()
 	end
 end
 
--- Each frame: given back while closed; borrowed at once on opening or a new socket, then after
--- the library adds or removes pins, and every SYNC_EVERY (pins it took back, layers toggled).
+-- Any world pins to borrow or give back (a pass is a job: nothing to do, none made).
+local function Any()
+	if next(hosted) then return true end
+	for _, copy in ipairs(copies) do
+		for _, icons in pairs(copy.lib.worldmapPinRegistry) do
+			if next(icons) then return true end
+		end
+	end
+	return false
+end
+
+local function Pass(kind, fn)
+	Stop()
+	job = Runtime.Job("game.addon pins: " .. kind, fn, JOB_MS)
+	job.kind = kind
+end
+
+local function Close()
+	if not open then return end
+	open = false
+	if next(hosted) then Pass("give back", GiveBack) else Stop() end
+end
+
+-- Each frame: given back while closed; borrowed at once on opening or a new socket or map, then
+-- after the library adds or removes pins, and every SYNC_EVERY (pins it took back, layers toggled).
 Game.Apply("addon pins", function(view)
 	local s = view.sockets.world
-	if not (view.window.shown and s) or WorldMapFrame:IsShown() then
-		if open then ReleaseAll() end
-		open = false
-		return
-	end
-	if not open then
-		Scan() -- (LibStub has no events: look again)
-		open, syncAt = true, -SYNC_EVERY
-	end
-	if s.frame ~= socket or s.inst ~= inst then
-		ReleaseAll()
-		socket, inst, zoom, syncAt = s.frame, s.inst, s.zoom, -SYNC_EVERY
-	elseif s.zoom ~= zoom then
-		zoom = s.zoom
-		for icon, rec in pairs(hosted) do Place(icon, rec) end
-	end
+	if not (view.window.shown and s) or WorldMapFrame:IsShown() then return Close() end
+	if not open then Scan() end -- (LibStub has no events: look again)
 	local t = GetTime()
-	if (dirty and t - syncAt >= SYNC_SOON) or t - syncAt >= SYNC_EVERY then
+	if not open or s.frame ~= socket or s.inst ~= inst then
+		open, socket, inst, zoom, syncAt = true, s.frame, s.inst, s.zoom, -SYNC_EVERY
+		Stop()
+	elseif s.zoom ~= zoom then -- (the socket's zoom changes where the view comes to rest)
+		zoom = s.zoom
+		for icon, rec in pairs(hosted) do
+			if rec.socket == socket then Place(icon, rec) end
+		end
+	end
+	if not Running("borrow") and ((dirty and t - syncAt >= SYNC_SOON) or t - syncAt >= SYNC_EVERY) then
 		dirty, syncAt = false, t
-		Sync(view.layers, s.level or socket:GetFrameLevel() + 1)
+		local layers, level = view.layers, s.level or socket:GetFrameLevel() + 1
+		if Any() then Pass("borrow", function() Sync(layers, level) end) end
 	end
 end)
 
--- Blizzard's world map gets them back the moment it opens.
+-- Blizzard's world map gets them back as it opens.
 local function Login()
 	Scan()
-	WorldMapFrame:HookScript("OnShow", Runtime.Wrap("game.addon pins: world map", function()
-		if open then ReleaseAll() end
-		open = false
-	end))
+	WorldMapFrame:HookScript("OnShow", Runtime.Wrap("game.addon pins: world map", Close))
 end
 Runtime.On("PLAYER_LOGIN", "game.addon pins: login", Login)

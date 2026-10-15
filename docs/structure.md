@@ -158,7 +158,9 @@ The map window: ui/Camera.lua (where it looks: `cam`, `inst`, `follow`; `Camera.
 and button zoom, drag, follow, chase, flights, idle return), ui/Chrome.lua (the metal border,
 band and grip), ui/Controls.lua (the buttons, hover reveal, tips), ui/Title.lua (the title
 band), ui/BigMap.lua (the minimap form, grow and shrink: Model.hooked, the home spot from
-Model.minimap) and ui/Menus.lua (the client's menus; the gear). The spike bugs' replays are one
+Model.minimap), ui/Menus.lua (the client's menus; the gear, the map's right-click) and
+ui/Sockets.lua (View.sockets: the world socket Game hosts other addons' HereBeDragons pins on,
+game/AddonPins.lua). The spike bugs' replays are one
 file each, tools/tests/replays/R-<id>.lua, collected by tools/tests/test_spike_bugs.py.
 
 ## Slash commands
