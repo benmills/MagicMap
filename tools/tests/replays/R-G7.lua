@@ -1,10 +1,11 @@
 -- G7: tooltips, Game's half (game/Tooltip.lua: GameTooltip's one hide path). MOVED: owners still
--- share GameTooltip, but Game hides it only through Game.HideTooltip(owner), while that owner has
--- it, and each frame when its owner can't be seen: a tip neither lingers on a hidden owner nor is
--- taken from another. Here the minimap button's tip (shown on hover, built once a hover; leave or
--- a drag hides it, but not another owner's), a tip on a widget in the map window (the window
--- hidden: gone) and the button's (the takeover taking the button away: gone). UI's tips (hover
--- 0.5 s, leave, a menu, 2.5 s) and quest areas' (one build a hover) come with M1.7 and M2.4.
+-- share GameTooltip, but Game hides its own only through Game.HideTooltip(owner), while that owner
+-- has it, and each frame when its owner can't be seen: a tip neither lingers on a hidden owner nor
+-- is taken from another. Here the minimap button's tip (shown on hover, built once a hover; leave
+-- or a drag hides it, but not another owner's), another addon's on a hidden anchor (kept), a tip on
+-- a widget in the map window (the window hidden: UI's own goes with it) and the button's (the
+-- takeover taking the button away: gone). UI's tiny tips (hover 0.35 s, leave, a menu, 2.5 s):
+-- test_chrome.py; quest areas' (one build a hover) come with M2.4.
 local T = ...
 local sim, ns = T.Boot()
 sim.Run(1)
@@ -35,6 +36,15 @@ tip:Hide()
 sim.FireScript(button, "OnEnter", false)
 sim.Drag(button, 0, 30)
 assert(not tip:IsShown(), "dragged: gone")
+
+local anchor = CreateFrame("Frame", nil, UIParent) -- another addon's tip on its hidden anchor
+anchor:Hide()
+tip:SetOwner(anchor, "ANCHOR_NONE")
+tip:SetPoint("CENTER")
+tip:Show()
+sim.Step()
+assert(tip:IsShown() and tip:IsOwned(anchor), "another's on a hidden owner: kept")
+tip:Hide()
 
 sim.Slash("/mma map") -- a widget in the window (a pin, UI's) owns it; the window hides
 sim.Run(3)

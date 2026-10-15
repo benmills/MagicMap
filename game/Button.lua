@@ -70,7 +70,7 @@ end)
 
 button:SetScript("OnClick", Runtime.Wrap("game: button", function() Game.Hooked("toggle") end))
 button:SetScript("OnEnter", Runtime.Wrap("game: button tip", function(self)
-	GameTooltip:SetOwner(self, "ANCHOR_TOP")
+	Game.Tooltip(self, "ANCHOR_TOP")
 	GameTooltip:SetText(TIP, 1, 1, 1, 1, true)
 	GameTooltip:Show()
 end))

@@ -105,8 +105,18 @@ view:SetScript("OnMouseUp", Runtime.Wrap("map: release", function()
 	end
 	UI.Motion.Release()
 end))
+-- In the window (a tip on one of its widgets goes with it: Game hides only its own, spike-bugs G7).
+local function Within(f)
+	while f do
+		if f == frame then return true end
+		f = f:GetParent()
+	end
+	return false
+end
 frame:SetScript("OnHide", Runtime.Wrap("map: hidden", function()
 	if moving then frame:StopMovingOrSizing(); moving = nil end
+	local owner = GameTooltip:GetOwner()
+	if owner and Within(owner) then GameTooltip:Hide() end
 	Runtime.Trace("map", "hidden")
 	Runtime.SetState("closed")
 end))
