@@ -42,11 +42,11 @@ end
 
 -- View as Game's apply step last read it (types/view.lua: Game reads View only there): the
 -- motion ring's camera, shot stamps, and marks' diag (called only for a mark, ADR 0003).
-local last = { inst = 0, big = false }
+local applied = { inst = 0, big = false }
 
 local function State()
 	local you = Game.obs.you
-	local diag = last.diag and last.diag() or {}
+	local diag = applied.diag and applied.diag() or {}
 	local map, layers = diag.map, diag.layers
 	return {
 		you = { inst = you.inst, col = you.col, row = you.row, facing = you.facing },
@@ -201,8 +201,8 @@ end)
 Game.Apply("telemetry", function(view)
 	local cam, place, you = view.camera, view.window.place, Game.obs.you
 	local c, p = cam or NONE, place or NONE
-	last.inst, last.big, last.diag, last.left, last.top = view.inst, view.window.big, view.diag, p.left, p.top
-	last.cx, last.cy, last.zoom, last.w, last.h = c.cx, c.cy, c.zoom, c.w, c.h
+	applied.inst, applied.big, applied.diag, applied.left, applied.top = view.inst, view.window.big, view.diag, p.left, p.top
+	applied.cx, applied.cy, applied.zoom, applied.w, applied.h = c.cx, c.cy, c.zoom, c.w, c.h
 	if cam then
 		at = at % MOTION + 1
 		local m = motion[at]
@@ -249,8 +249,9 @@ Game.Slash("mark", "<note>: save state and the recent trace (written on /reload)
 end)
 
 Game.Slash("shot", "[id note]: a screenshot, and a mark matched to it (docs/playtest.md shot ids)", function(note)
-	shot = { note = note, at = { inst = last.inst, cx = R(last.cx, 1e4), cy = R(last.cy, 1e4), zoom = R(last.zoom, 100),
-		w = R(last.w, 10), h = R(last.h, 10), left = last.left, top = last.top, big = last.big,
+	local a = applied
+	shot = { note = note, at = { inst = a.inst, cx = R(a.cx, 1e4), cy = R(a.cy, 1e4), zoom = R(a.zoom, 100),
+		w = R(a.w, 10), h = R(a.h, 10), left = a.left, top = a.top, big = a.big,
 		uiScale = R(UIParent:GetEffectiveScale(), 1e3), screenW = R(UIParent:GetWidth(), 10),
 		screenH = R(UIParent:GetHeight(), 10) } }
 	Screenshot()
