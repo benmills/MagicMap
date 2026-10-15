@@ -35,7 +35,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REFS = os.path.join(ROOT, "docs", "evidence", "shots")
 SECTIONS = ("perf", "kept", "errors", "marks", "shots", "validation", "logs")
 KEPT = ("taint", "art", "sensor")  # game/Telemetry.lua KEEP: each one a bug, kept past the ring
-UNTRACED = {"sensor": "M1.5"}  # kept kinds nothing traces yet: an empty list proves nothing (delete with the producer)
 BENCH = "bench: regions"  # game/Bench.lua's job: a timed call can't be split, so its overruns and gaps aren't bugs
 
 
@@ -603,9 +602,6 @@ def budgets(sessions, errs) -> int:
         items = get(p, s)
         if items is None:
             print(f"  ----  {label:<10} not recorded (a build before M0)")
-            continue
-        if not items and label in UNTRACED:
-            print(f"  ----  {label:<10} not traced yet ({UNTRACED[label]} adds its producer)")
             continue
         failed += bool(items)
         print(f"  {'FAIL' if items else 'PASS'}  {label:<10} {len(items)}")

@@ -17,9 +17,11 @@ folders, load order and the Runtime contract are in [docs/structure.md](docs/str
 Each generator reads a local install (see its docstring for options) and states the build
 in its output's header. Run them in this order: gen_tilecolor reads Data/Tiles.lua, gen_sea
 reads Tiles and TileColor (and writes Textures/Sea/<product>/ beside Data/), gen_questie
-reads Data/UiMaps.lua from gen_world. The rest are independent. gen_questie's four files
-(Npcs, Objects, Items, Quests) are gitignored: QuestieDB declares no license (see
-docs/atlas-data.md).
+reads Data/UiMaps.lua from gen_world and gen_world's ItemIcons reads gen_questie's
+Data/Items.lua (the data diet), so gen_world runs again after it; gen_labels reads Borders,
+Places, Areas, UiMaps, Tiles and Walk, so it runs last. The rest are independent. gen_questie's
+five files (Npcs, Objects, Items, Quests, BlipServices) are gitignored: QuestieDB declares no
+license (see docs/atlas-data.md).
 
     W="/Applications/World of Warcraft"
     .venv/bin/python tools/gen_tiles.py     local "$W" wow_classic_beta -o Data/Tiles.lua
@@ -30,6 +32,8 @@ docs/atlas-data.md).
     .venv/bin/python tools/gen_areagrid.py  local "$W" wow_classic_beta -o Data/AreaGrid.lua
     .venv/bin/python tools/gen_world.py     local "$W" wow_classic_beta -o Data   # UiMaps, Areas, Places, ItemIcons
     .venv/bin/python tools/gen_questie.py "$W/_classic_beta_/Interface/AddOns/QuestieDB"
+    .venv/bin/python tools/gen_world.py     local "$W" wow_classic_beta -o Data   # again: ItemIcons for the items kept
+    .venv/bin/python tools/gen_labels.py    -o Data/Labels.lua
 
 The demo's assets, after the above:
 
@@ -46,7 +50,8 @@ data too, when generated). It shares no globals with the
 **MagicMap** spike (its data is `ns.Data`: docs/atlas-data.md), so both can be enabled. Log in
 (a restart for a new TOC, files or textures, else `/reload`), then:
 
-- `/mma` lists the commands; `/mma map` shows the map window
+- `/mma` lists the commands; the map sits on the Minimap's spot from login (`/mma toggle` or
+  the minimap button hides and shows it, M grows it into the big map, `/mma reset` puts it back)
 - with the map shown, Blizzard's Minimap becomes an unseen sensor and its blips (mailboxes,
   herbs, services) are drawn on the map; `/mma minimap blizzard` gives it back, `/mma layer <name>`
   toggles a layer, `/mma record on|off` keeps the observations for Model replay tests

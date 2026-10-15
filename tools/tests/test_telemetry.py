@@ -184,4 +184,4 @@ def test_telemetry_sim(tmp_path, capsys):
     telemetry.main(base + ["--budgets"])
     out = capsys.readouterr().out
     assert "our memory at logout, after GC" in out and "FAIL  taint      2" in out and "FAIL  art        1" in out
-    assert "----  sensor     not traced yet (M1.5 adds its producer)" in out  # nothing traces it: no PASS
+    assert "PASS  sensor     0" in out  # (game/Blips.lua traces it: M1.5)

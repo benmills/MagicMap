@@ -105,8 +105,7 @@ regions and where it was placed), `error`, `taint`, `mark`, `shot`; and Runtime'
 Yields over its budget), `throttled`, `job` (cancelled), `enter` (PLAYER_ENTERING_WORLD),
 `position` (lost or back), `saved`; Game's `minimap` (the takeover engaged or released),
 `blips` (a sensor sweep ended), `art` (`/mma check art`: a name ui/Art.lua lists that the
-client lacks). `sensor` (the sensor blind, or a square drifting: M1.5) has no producer yet:
-`--budgets` prints it as not traced until a session keeps one.
+client lacks), `sensor` (the sensor blind, or its square off the client's: game/Blips.lua).
 
 Their `d`:
 
@@ -115,7 +114,7 @@ Their `d`:
 | `login` | the version |
 | `zone` | the zone's name |
 | `map` | `"shown"` or `"hidden"` |
-| `cam` | `{ e, cx, cy, zoom }`, `e` = `drag start` (follow turns off), `drag end`, `wheel`, `follow on` |
+| `cam` | `{ e, cx, cy, zoom }`, `e` = `drag start` (follow turns off), `drag end`, `wheel`, `follow on`, `follow off` |
 | `layout` | `{ e = "start", layer, inst, zoom, c0, r0, c1, r1 }`, then `{ e = "end", layer, ms, regions }` (`ms` wall time, over several frames), or `{ e = "failed", layer, retry }` |
 | `swap` | `{ layer, ms, live, parked, x, y, scale }`: `ms` the swap's own time (old canvas hidden, new one placed and shown: it can't yield), `live` the regions it shows, `parked` the regions it parked (0 until M1.3's park pools), `x, y, scale` where it was placed |
 | `error` | the error's key |
@@ -131,7 +130,8 @@ Their `d`:
 | `position` | `"lost"` or `"back"` |
 | `saved` | `{ owner, e = "reset", was }` or `{ owner, e = "newer", v }` |
 | `minimap` | `"engaged"` or `"released"` |
-| `blips` | `{ sweep, blips, yd }`: the sweep's number, the blips the sensor knows after it, its reach (yd) |
+| `blips` | `{ sweep, blips, yd, frames, probes }`: the sweep's number, the blips the sensor knows after it, its reach (yd), and the frames and probes it took |
+| `sensor` | `{ e = "blind", why }`: for 1 s the sensor couldn't read the Minimap where Apply placed it, `why` = `hidden`, `rotated` or `moved` (something fights Apply: G3); or `{ e = "square", px [, n = 4] }`: the refined answer square (screen units each way) strayed past 25% of the measured 8, or `n = 4`: a square too big to read as lone, one blip measured as four (D3) |
 
 ## Reading it
 

@@ -1033,7 +1033,8 @@ C_CVar = { GetCVar = GetCVar }
 local FILES = {}
 for i, path in ipairs({ "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up", "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight",
 	"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down", "Interface\\Minimap\\MinimapArrow", "Interface\\COMMON\\Indicator-Yellow",
-	"Fonts\\MORPHEUS.TTF", "Fonts\\FRIZQT__.TTF" }) do
+	"Fonts\\MORPHEUS.TTF", "Fonts\\FRIZQT__.TTF", "Interface\\WorldMap\\Gear_64", "Interface\\CharacterFrame\\TempPortraitAlphaMask",
+	"Interface\\HUD\\UIMinimap2xC60", "Interface\\Icons\\INV_Misc_Map_01" }) do
 	FILES[path:lower()] = 100000 + i
 end
 function GetFileIDFromPath(path) return FILES[(path:lower():gsub("/", "\\"))] end

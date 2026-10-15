@@ -70,12 +70,12 @@ small on the Minimap's spot, follow on, default zoom.
 | # | Do | Mark / shot |
 |---|---|---|
 | a1 | Open: if the map is hidden, `/mma toggle`. First open of the session. At the Thunderbrew door, cursor off. | `/mma shot small-home` |
-| a2 | Wheel in a tick at a time to the closest zoom, then out to the farthest, and back: 4→1024→4 today (16→800→16 once M1.8 has the spike's range). Then the same as fast as the wheel turns. | `/mma mark a2 wheel` |
+| a2 | Wheel in a tick at a time to the closest zoom, then out to the farthest, and back: 16→800→16 (the spike's range). Then the same as fast as the wheel turns. | `/mma mark a2 wheel` |
 | a3 | Fling: drag-pan fast in several directions, release, let it settle each time. | `/mma mark a3 fling` |
-| a4 | Zoom to the closest (1024), small, follow on. Walk for **2 minutes** through Kharanos, crossing the col 33 tile edge (it runs through the village) several times. | `/mma shot small-seam` on the edge; `/mma mark a4 tear <what>` on any tear |
+| a4 | Zoom to the closest (800), small, follow on. Walk for **2 minutes** through Kharanos, crossing the col 33 tile edge (it runs through the village) several times. | `/mma shot small-seam` on the edge; `/mma mark a4 tear <what>` on any tear |
 | a5 | Grow and shrink ×5 (M, or the red button): let each animation end. | `/mma mark a5 grow` after the 5th; `/mma shot big-home` once as M lands, cursor off |
 | a6 | Walk or ride into Ironforge (uiMap 1455), The Commons. Small at the default zoom, then big. | `/mma shot small-indoor`, `/mma shot big-indoor` |
-| a7 | Big map: zoom out to the continent (4–24 px/tile) and pan over the Eastern Kingdoms. | `/mma shot big-continent` (all the way out); `/mma mark a7 continent` |
+| a7 | Big map: zoom out to the continent (16–24 px/tile) and pan over the Eastern Kingdoms. | `/mma shot big-continent` (all the way out); `/mma mark a7 continent` |
 | a8 | Shrink. Every session's "after". | — |
 
 ## Script (b): a 25-quest hub (M2)
@@ -131,7 +131,7 @@ enabled (the only other addons), in Elwynn Forest.
 
 | # | Do | Mark / shot |
 |---|---|---|
-| e1 | Big map, zoom out to the continent (4–24) and back into Elwynn at 140, then 384: their pins on our map, skipped past 48 px/tile and over 128 px. | `/mma shot big-addon-pins` at 140, big |
+| e1 | Big map, zoom out to the continent (16–24) and back into Elwynn at 140, then 384: their pins on our map, skipped past 48 px/tile and over 128 px. | `/mma shot big-addon-pins` at 140, big |
 | e2 | Shrink: their minimap pins around you on the small map; Rotate Minimap on (Interface options): hidden; off again. | `/mma shot small-addon-pins` before Rotate; `/mma mark e2 minimap pins` |
 | e3 | Close ours and open Blizzard's world map: their pins are back on it. | `/mma mark e3 pins returned` |
 | e4 | Every session's "after". | — |
@@ -141,9 +141,8 @@ enabled (the only other addons), in Elwynn Forest.
 A shot's id is a row of the reference list, docs/evidence/shots/README.md (M0.8): the spike shot
 once at that spot, zoom and form, saved as `docs/evidence/shots/ref-<id>.jpg` by tools/refshots.py.
 The reader pairs `/mma shot <id>` with it (`telemetry.py --shots`). Take a shot standing still,
-cursor off unless the row says otherwise, at the row's zoom: the spike's units (16..800 a tile)
-until M1.8 adopts them, so before then the closest zoom stands in for 800 (1024 today). The stamp
-records the real zoom, camera, window and UI scale.
+cursor off unless the row says otherwise, at the row's zoom: the spike's units (16..800 a tile,
+the map's own since M1.8). The stamp records the real zoom, camera, window and UI scale.
 
 The scripts take these (the rest of the list is for M5's full pass):
 
