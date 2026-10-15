@@ -61,9 +61,11 @@ Runtime.Step("ui", "ui: view", function()
 	view.layers.blips = layersOn or nil
 	local cam = Camera.cam
 	camera.cx, camera.cy, camera.zoom, camera.w, camera.h = cam.cx, cam.cy, cam.zoom, Window.Size()
-	-- Focus: Model only compares, but send it only on a change.
-	if focus.inst ~= view.inst or focus.shown ~= shown or focus.follow ~= Camera.follow or focus.zoom ~= cam.zoom then
-		focus = { inst = view.inst, shown = shown, follow = Camera.follow, zoom = cam.zoom }
+	-- Focus: Model only compares, but send it only on a change (the rect: a new table when it changes).
+	local rect = UI.Motion.Rect()
+	if focus.inst ~= view.inst or focus.shown ~= shown or focus.follow ~= Camera.follow or focus.zoom ~= cam.zoom
+		or focus.rect ~= rect then
+		focus = { inst = view.inst, rect = rect, shown = shown, follow = Camera.follow, zoom = cam.zoom }
 		Model.Focus(focus)
 	end
 end)
