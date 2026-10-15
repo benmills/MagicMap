@@ -184,13 +184,13 @@ def test_attribution():
     ks = [(e.k, e.d) for e in worst.events.values()]
     assert ks[-11][0] == "spike" and ks[-10:] == [("test", i) for i in range(10)] and len(ks) <= 20
     # frames by map state
-    m = ns.UI.Map
-    m.Toggle()
+    w = ns.UI.Window
+    w.Toggle()
     sim.Run(3)
-    sim.Wheel(m.view, 4)
+    sim.Wheel(w.view, 4)
     sim.Run(1)
-    sim.Drag(m.view, 200, 0)
-    m.Toggle()
+    sim.Drag(w.view, 200, 0)
+    w.Toggle()
     sim.Run(0.5)
     stats = R.FrameStats()
     by = stats.byState
@@ -260,7 +260,7 @@ def test_failures():
     sim.Step(2.0)
     assert got.every == n + 1
     # nil position (instance), map shown: last known kept, stale; then back
-    ns.UI.Map.Toggle()
+    ns.UI.Window.Toggle()
     sim.Run(0.5)
     sim.restricted = True
     sim.FireEvent("PLAYER_ENTERING_WORLD", False, False)

@@ -6,7 +6,7 @@
 
 local _, ns = ...
 local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
-local Map = UI.Map
+local Camera, Window, Engine = UI.Camera, UI.Window, UI.Engine
 local Command = ns.Game.Command
 
 local saved = { layers = {}, minimap = "ours" } -- until loaded
@@ -18,15 +18,14 @@ local focus = { inst = 0, shown = false, follow = true }
 
 -- For telemetry marks (docs/telemetry.md "State" map, layers): Game stores it, never acts on it.
 function view.diag()
-	local map, layers = Map.State()
-	return { map = map, layers = layers }
+	return { map = Window.State(), layers = Engine.State() }
 end
 
 function UI.View() return view end
 
 Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = { layers = {}, minimap = "ours" } }, fn = function(s)
 	saved = s
-	Map.toggles = s.layers
+	Engine.toggles = s.layers
 end })
 
 local function R(v) return math.floor(v * 100 + 0.5) / 100 end
@@ -34,16 +33,16 @@ local function R(v) return math.floor(v * 100 + 0.5) / 100 end
 -- The view's scale in UIParent's units, and the window's strata and level: read when it's
 -- shown (they change only with the window's own scale and strata, which UI sets).
 local scale = 1
-Map.frame:HookScript("OnShow", Runtime.Wrap("ui: view shown", function()
-	scale = Map.view:GetEffectiveScale() / UIParent:GetEffectiveScale()
-	window.strata, window.level = Map.frame:GetFrameStrata(), Map.frame:GetFrameLevel()
+Window.frame:HookScript("OnShow", Runtime.Wrap("ui: view shown", function()
+	scale = Window.view:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	window.strata, window.level = Window.frame:GetFrameStrata(), Window.frame:GetFrameLevel()
 end))
 
 Runtime.Step("ui", "ui: view", function()
-	local shown = Map.frame:IsShown()
+	local shown = Window.frame:IsShown()
 	local place, still = window.place, false
 	local left, bottom, w, h
-	if shown then left, bottom, w, h = Map.view:GetRect() end
+	if shown then left, bottom, w, h = Window.view:GetRect() end
 	if left then
 		local l, t = R(left * scale), R((bottom + h) * scale)
 		w, h = R(w * scale), R(h * scale)
@@ -52,19 +51,19 @@ Runtime.Step("ui", "ui: view", function()
 	else
 		place = nil
 	end
-	local layersOn = Map.LayerOn("blips")
+	local layersOn = Engine.LayerOn("blips")
 	if shown ~= window.shown or place ~= window.place or saved.minimap ~= view.minimap
-		or layersOn ~= (view.layers.blips == true) or (Map.inst or 0) ~= view.inst then
+		or layersOn ~= (view.layers.blips == true) or (Camera.inst or 0) ~= view.inst then
 		view.frame = Runtime.frames
 	end
 	window.shown, window.place, window.still = shown, place, still
-	view.minimap, view.inst = saved.minimap, Map.inst or 0
+	view.minimap, view.inst = saved.minimap, Camera.inst or 0
 	view.layers.blips = layersOn or nil
-	local cam = Map.cam
-	camera.cx, camera.cy, camera.zoom, camera.w, camera.h = cam.cx, cam.cy, cam.zoom, Map.Size()
+	local cam = Camera.cam
+	camera.cx, camera.cy, camera.zoom, camera.w, camera.h = cam.cx, cam.cy, cam.zoom, Window.Size()
 	-- Focus: Model only compares, but send it only on a change.
-	if focus.inst ~= view.inst or focus.shown ~= shown or focus.follow ~= Map.follow or focus.zoom ~= cam.zoom then
-		focus = { inst = view.inst, shown = shown, follow = Map.follow, zoom = cam.zoom }
+	if focus.inst ~= view.inst or focus.shown ~= shown or focus.follow ~= Camera.follow or focus.zoom ~= cam.zoom then
+		focus = { inst = view.inst, shown = shown, follow = Camera.follow, zoom = cam.zoom }
 		Model.Focus(focus)
 	end
 end)

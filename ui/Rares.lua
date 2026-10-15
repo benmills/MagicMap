@@ -4,8 +4,8 @@
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
-local Map = UI.Map
-local Get = Map.Get
+local Engine = UI.Engine
+local Get = Engine.Get
 
 local ICON = 16 -- px
 
@@ -17,7 +17,7 @@ local function MakePin(c)
 	return t
 end
 
-UI.Rares = Map.NewLayer("rares", 5, function(c, inst, zoom, c0, r0, c1, r1)
+UI.Rares = Engine.Layer("rares", 5, function(c, inst, zoom, c0, r0, c1, r1)
 	for _, b in ipairs((Model.Known("rares"))) do
 		local p = b.pos
 		if p.inst == inst and p.col >= c0 and p.col <= c1 and p.row >= r0 and p.row <= r1 then

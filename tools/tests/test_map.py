@@ -1,49 +1,49 @@
-"""The map window (ui/Map.lua and its layers) on the simulated client: /mma map
+"""The map window (ui/Window.lua, ui/Engine.lua and the layers) on the simulated client: /mma map
 shows your continent around you, its layouts finish within their jobs, wheel
 and drag move the camera, and nothing errors."""
 from test_addon import boot, errors
 
 
-def stats(m):
-    live, made = m.Stats()
+def stats(e):
+    live, made = e.Stats()
     return dict(live.items()), dict(made.items())
 
 
 def test_map():
     L, sim, ns = boot()
-    m = ns.UI.Map
+    e, c, w = ns.UI.Engine, ns.UI.Camera, ns.UI.Window
     sim.Slash("/mma map")
-    assert m.frame.IsShown(m.frame)
+    assert w.frame.IsShown(w.frame)
     sim.Run(1)
-    assert m.inst == 0 and abs(m.cam.cx - 31.95) < 1e-6 and abs(m.cam.cy - 49.75) < 1e-6
-    for layer in m.layers.values():
+    assert c.inst == 0 and abs(c.cam.cx - 31.95) < 1e-6 and abs(c.cam.cy - 49.75) < 1e-6
+    for layer in e.layers.values():
         assert layer.front and not layer.busy, layer.name
-    live, _ = stats(m)
+    live, _ = stats(e)
     assert live["tex"] > 10 and live["line"] > 10 and live["font"] > 0, live
 
     # Wheel in about the cursor (following: about you), drag pans and stops following.
-    zoom = m.cam.zoom
-    sim.Wheel(m.view, 1)
-    assert m.cam.zoom > zoom and abs(m.cam.cx - 31.95) < 1e-6
-    sim.Drag(m.view, 120, -80)
-    assert not m.follow and m.cam.cx < 31.95 - 0.5
+    zoom = c.cam.zoom
+    sim.Wheel(w.view, 1)
+    assert c.cam.zoom > zoom and abs(c.cam.cx - 31.95) < 1e-6
+    sim.Drag(w.view, 120, -80)
+    assert not c.follow and c.cam.cx < 31.95 - 0.5
     sim.Run(1)
-    for layer in m.layers.values():
-        assert layer.front.zoom == m.cam.zoom, layer.name
+    for layer in e.layers.values():
+        assert layer.front.zoom == c.cam.zoom, layer.name
 
     # Out to the whole continent, and back to you on a right click.
     for _ in range(20):
-        sim.Wheel(m.view, -1)
+        sim.Wheel(w.view, -1)
         sim.Step()
     sim.Run(2)
-    assert m.cam.zoom == 4
-    live, _ = stats(m)
+    assert c.cam.zoom == 4
+    live, _ = stats(e)
     assert live["font"] > 0, live
-    sim.Click(m.view, "RightButton")
-    assert m.follow
+    sim.Click(w.view, "RightButton")
+    assert c.follow
     sim.Slash("/mma mapstats")
     sim.Slash("/mma map")
-    assert not m.frame.IsShown(m.frame)
+    assert not w.frame.IsShown(w.frame)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
@@ -53,14 +53,14 @@ def test_rares():
     L, sim, ns = boot()
     if not ns.Data.Npcs:
         pytest.skip("no QuestieDB-derived data (tools/gen_questie.py)")
-    m = ns.UI.Map
+    e = ns.UI.Engine
     sim.Slash("/mma map")
     sim.Run(2)
     got = list(ns.Model.Known("rares")[0].values())
     assert got and all(r.kind == "rares" and r.pos.inst == 0 and not r.live for r in got)
-    front = m.layers[[l.name for l in m.layers.values()].index("rares") + 1].front
+    front = e.layers[[l.name for l in e.layers.values()].index("rares") + 1].front
     atlases = {sim.state[front.pools.pin[i]].atlas for i in range(1, front.pools.pin.n + 1)}
     assert atlases and atlases <= {"vignettekill", "vignettekillelite"}, atlases
     sim.Slash("/mma layer rares")
-    assert m.LayerOn("rares") is False and m.toggles.rares is False
+    assert e.LayerOn("rares") is False and e.toggles.rares is False
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

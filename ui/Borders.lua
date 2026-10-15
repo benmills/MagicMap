@@ -4,8 +4,8 @@
 
 local _, ns = ...
 local UI = ns.UI
-local Atlas, Runtime, Map = ns.Atlas, ns.Runtime, ns.UI.Map
-local Get, Yield = Map.Get, Runtime.Yield
+local Atlas, Runtime, Engine = ns.Atlas, ns.Runtime, ns.UI.Engine
+local Get, Yield = Engine.Get, Runtime.Yield
 
 local STYLE = { -- demo/borders.js BORDER_STYLE
 	steps = { -- from zoom (px per tile) up: the light line's width, alpha; halo { extra width, alpha }, widest first
@@ -91,7 +91,7 @@ local function Bounds(l)
 	return b
 end
 
-UI.Borders = Map.NewLayer("borders", 2, function(c, inst, zoom, c0, r0, c1, r1)
+UI.Borders = Engine.Layer("borders", 2, function(c, inst, zoom, c0, r0, c1, r1)
 	local lines = Atlas.BorderLines(inst, zoom)
 	if not lines then return end
 	local s = STYLE.steps[1]

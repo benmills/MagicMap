@@ -14,6 +14,6 @@ sim.player.inst = 389
 sim.FireEvent("PLAYER_ENTERING_WORLD", false, false)
 sim.Run(1)
 local you = ns.Model.you
-T.Print("K5: you.inst %s, col %s, map inst %s", tostring(you.inst), tostring(you.col), tostring(ns.UI.Map.inst))
+T.Print("K5: you.inst %s, col %s, map inst %s", tostring(you.inst), tostring(you.col), tostring(ns.UI.Camera.inst))
 assert(you.inst == 389 and you.col == nil and not arrow:IsShown())
 assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n\n"))

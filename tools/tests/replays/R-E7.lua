@@ -3,14 +3,14 @@
 -- step failing every frame takes one stack, not one per failure.
 local T = ...
 local sim, ns = T.Shown()
-local m, borders = ns.UI.Map, T.Layer(ns, "borders")
+local m, borders = ns.UI.Camera, T.Layer(ns, "borders")
 local orig, failed = borders.build, nil
 borders.build = function(...)
 	if not failed then failed = true; error("layout boom") end
 	return orig(...)
 end
 local zoom = m.cam.zoom
-sim.Wheel(m.view, 1)
+sim.Wheel(ns.UI.Window.view, 1)
 sim.Run(1)
 assert(m.cam.zoom ~= zoom)
 local errors = ns.Runtime.errors

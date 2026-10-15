@@ -137,9 +137,9 @@ def test_telemetry_sim(tmp_path, capsys):
     ring = list(walk.motion.values())
     assert len(ring) == 120 and [r.f for r in ring] == list(range(walk.frame - 119, walk.frame + 1))
     assert ring[-1].py < ring[0].py and all(r.cx == r.px and r.cy == r.py for r in ring)  # walking north, followed
-    assert ring[-1].zoom == ns.UI.Map.cam.zoom and ring[-1].w > 0 and ring[-1].h > 0
+    assert ring[-1].zoom == ns.UI.Camera.cam.zoom and ring[-1].w > 0 and ring[-1].h > 0
     a = shot.shot
-    assert shot.note == "kharanos-1024-small tear" and a.zoom == ns.UI.Map.cam.zoom and a.uiScale == 1
+    assert shot.note == "kharanos-1024-small tear" and a.zoom == ns.UI.Camera.cam.zoom and a.uiScale == 1
     assert a.w > 0 and a.left is not None and a.screenW == 1920 and a.big is False and len(shot.motion) == 120
     p = s.perf
     assert p.ourKBLoad == 2400 and p.ourKB == 2400 and p.grace.gc is not None  # the sim's GetAddOnMemoryUsage

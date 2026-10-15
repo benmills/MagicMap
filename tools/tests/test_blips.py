@@ -143,7 +143,7 @@ def test_blips_end_to_end():
     sim2.Run(0.5)
     got = blips(ns2)
     assert [b["name"] for b in got] == ["Mailbox"] and not got[0]["live"] and near(got[0], 40, 20), got
-    assert ns2.UI.Map.LayerOn("labels") is False and ns2.UI.Map.LayerOn("blips") is True
+    assert ns2.UI.Engine.LayerOn("labels") is False and ns2.UI.Engine.LayerOn("blips") is True
     assert ns2.UI.View().minimap == "blizzard"
     assert not errors(sim2, ns2), "\n\n".join(errors(sim2, ns2))
 

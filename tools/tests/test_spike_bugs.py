@@ -62,16 +62,16 @@ function T.Errors(sim, ns)
 end
 
 function T.Layer(ns, name)
-	for _, l in ipairs(ns.UI.Map.layers) do
+	for _, l in ipairs(ns.UI.Engine.layers) do
 		if l.name == name then return l end
 	end
 end
 
 -- The layer shows a layout at the camera's zoom on the map shown, covering the view.
 function T.Fresh(ns, lay)
-	local m, c = ns.UI.Map, lay.front
+	local m, c = ns.UI.Camera, lay.front
 	if c == nil or c.zoom ~= m.cam.zoom or c.inst ~= m.inst then return false end
-	local w, h = m.Size()
+	local w, h = ns.UI.Window.Size()
 	local cam, r = m.cam, c.region
 	return r[1] <= cam.cx - w / 2 / cam.zoom and r[3] >= cam.cx + w / 2 / cam.zoom
 		and r[2] <= cam.cy - h / 2 / cam.zoom and r[4] >= cam.cy + h / 2 / cam.zoom

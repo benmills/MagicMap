@@ -15,10 +15,10 @@ local Art = {
 		"vignettekill", "vignettekillelite",                       -- ui/Rares.lua (model/Rares.lua ICON)
 	},
 	files = {
-		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",        -- ui/Map.lua: the grip
+		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",        -- ui/Window.lua: the grip
 		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight",
 		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down",
-		"Interface\\Minimap\\MinimapArrow",                      -- ui/Map.lua: you
+		"Interface\\Minimap\\MinimapArrow",                      -- ui/Window.lua: you
 		"Interface\\COMMON\\Indicator-Yellow",                   -- ui/Blips.lua: a blip without an icon
 		"Fonts\\MORPHEUS.TTF", "Fonts\\FRIZQT__.TTF",            -- ui/Labels.lua
 		136458, 136453, 136452, 136466, 136454, 136463, 136465,  -- ui/Blips.lua: services (game/Blips.lua SERVICE)

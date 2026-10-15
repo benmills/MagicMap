@@ -1,4 +1,7 @@
-ui/Map.lua
+ui/Camera.lua
+ui/Window.lua
+ui/Engine.lua
+ui/Motion.lua
 ui/Tiles.lua
 ui/Borders.lua
 ui/Labels.lua

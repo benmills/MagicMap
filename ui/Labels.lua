@@ -6,8 +6,8 @@
 
 local _, ns = ...
 local UI = ns.UI
-local Atlas, Runtime, Map = ns.Atlas, ns.Runtime, ns.UI.Map
-local Get, Unget, Yield = Map.Get, Map.Unget, Runtime.Yield
+local Atlas, Runtime, Engine = ns.Atlas, ns.Runtime, ns.UI.Engine
+local Get, Unget, Yield = Engine.Get, Engine.Unget, Runtime.Yield
 
 local TITLE, BODY = "Fonts\\MORPHEUS.TTF", "Fonts\\FRIZQT__.TTF"
 local PAD = 3 -- px a label keeps clear of placed labels and pins
@@ -68,7 +68,7 @@ local function Spots(l, w, h)
 	return spots
 end
 
-UI.Labels = Map.NewLayer("labels", 3, function(c, inst, zoom, c0, r0, c1, r1)
+UI.Labels = Engine.Layer("labels", 3, function(c, inst, zoom, c0, r0, c1, r1)
 	local pins = {}
 	for _, f in ipairs(Atlas.FlightPoints(inst)) do
 		if f.col >= c0 and f.col <= c1 and f.row >= r0 and f.row <= r1 then

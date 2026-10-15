@@ -10,8 +10,8 @@
 
 local _, ns = ...
 local UI = ns.UI
-local Atlas, Runtime, Map = ns.Atlas, ns.Runtime, ns.UI.Map
-local Get, Px, Yield = Map.Get, Map.Px, Runtime.Yield
+local Atlas, Runtime, Engine = ns.Atlas, ns.Runtime, ns.UI.Engine
+local Get, Px, Yield = Engine.Get, Engine.Px, Runtime.Yield
 
 local CELLS_MIN_PX = 48 -- px a tile: below, one fill (the variants wouldn't show)
 local MACRO, MACRO_ALPHA, MACRO_AT = 2.7, 0.35, { 0.37, 0.61 }
@@ -181,7 +181,7 @@ local function Tiles(c, inst, zoom, sea, c0, r0, c1, r1)
 	end
 end
 
-UI.Tiles = Map.NewLayer("tiles", 1, function(c, inst, zoom, c0, r0, c1, r1)
+UI.Tiles = Engine.Layer("tiles", 1, function(c, inst, zoom, c0, r0, c1, r1)
 	local sea = Atlas.Sea(inst)
 	if sea then
 		Sea(c, inst, zoom, sea, c0, r0, c1, r1)

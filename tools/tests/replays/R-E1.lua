@@ -10,7 +10,7 @@ for k in pairs(_G) do
 end
 assert(#leaked == 0, table.concat(leaked, ", "))
 MagicMap_Borders = { [0] = { lines = { { 1, 12, 40, 0, 0, 31.0, 49.0, 32.0, 50.0 } }, labels = {} } }
-local view, borders = ns.UI.Map.view, T.Layer(ns, "borders")
+local view, borders = ns.UI.Window.view, T.Layer(ns, "borders")
 sim.Wheel(view, 1)
 sim.Run(1)
 sim.Drag(view, 200, 0)

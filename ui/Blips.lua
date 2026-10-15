@@ -4,8 +4,8 @@
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
-local Map = UI.Map
-local Get = Map.Get
+local Engine = UI.Engine
+local Get = Engine.Get
 
 local ICON, DOT = 14, 8 -- px
 local GOLD = { 1, 0.82, 0 }
@@ -17,7 +17,7 @@ local function MakePin(c)
 	return t
 end
 
-UI.Blips = Map.NewLayer("blips", 6, function(c, inst, zoom, c0, r0, c1, r1)
+UI.Blips = Engine.Layer("blips", 6, function(c, inst, zoom, c0, r0, c1, r1)
 	for _, b in ipairs((Model.Known("blips"))) do
 		local p = b.pos
 		if p.inst == inst and p.col >= c0 and p.col <= c1 and p.row >= r0 and p.row <= r1 then

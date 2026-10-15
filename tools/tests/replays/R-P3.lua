@@ -30,11 +30,11 @@ local function Walk(w)
 	for _, c in ipairs(sim.state[w].children or {}) do Walk(c) end
 	for _, r in ipairs(sim.state[w].regions or {}) do Walk(r) end
 end
-Walk(ns.UI.Map.frame)
+Walk(ns.UI.Window.frame)
 Run(120, nil)
 local n, kb, calls = read()
 local idle = { kb / n, sets.v / n }
-Run(120, ns.UI.Map.view)
+Run(120, ns.UI.Window.view)
 local n2, kb2, calls2 = read()
 local drag = { (kb2 - kb) / (n2 - n), (calls2 - calls) / (n2 - n) }
 T.Print("P3: our frame idle %.0f B, %.1f setter calls on the map's widgets (%.1f widget calls in all, getters and "
