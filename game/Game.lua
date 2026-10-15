@@ -60,6 +60,9 @@ function Game.Load(owner, fn, spec)
 	end
 end
 
+-- Game's own part (types/saved.lua MM.SavedGame): the minimap button's angle (game/Button.lua), tracking it turned off.
+Game.Load("Game", function(saved) Game.saved = saved end, { version = 1, defaults = { trackingOff = {} } })
+
 Runtime.On("ADDON_LOADED", "game.loaded", function(_, name)
 	if name ~= ADDON then return end
 	if type(MagicMapAtlasDB) ~= "table" then MagicMapAtlasDB = {} end -- absent, or not ours

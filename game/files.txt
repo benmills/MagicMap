@@ -11,3 +11,8 @@ game/Blips.lua
 game/Record.lua
 game/Validate.lua
 game/Bench.lua
+game/Home.lua
+game/Chrome.lua
+game/Hooks.lua
+game/Button.lua
+game/Tooltip.lua

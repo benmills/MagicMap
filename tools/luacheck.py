@@ -3,8 +3,9 @@
 via the `lupa` package): syntax errors, plus a globals check from the
 compiled bytecode, so scoping is exact.
 
-  * Nothing defines a global but game/: its SavedVariables (the TOC's) and
-    SLASH_* (SlashCmdList's entries are fields, not globals). Any other global
+  * Nothing defines a global but game/: its SavedVariables and the functions
+    the client calls by name (the TOC's: AddonCompartmentFunc), and SLASH_*
+    (SlashCmdList's entries are fields, not globals). Any other global
     write is an error (usually a missing `local`), and so is reaching for
     globals around this check (_G, setglobal, getfenv, setfenv): a global is
     shared with every addon (docs/structure.md; the spike's E1 collision).
@@ -48,7 +49,7 @@ TOC = os.path.join(ROOT, "MagicMapAtlas.toc")
 ADDON_DIRS = ["Data", "atlas", "runtime", "game", "model", "ui"]
 ALLOWLIST = os.path.join(ROOT, "tools", "wow_globals.txt")
 LUA51 = os.path.join(ROOT, "tools", "lua51_globals.txt")
-# The only globals the addon creates, and only in game/: the SavedVariables (TOC) and these.
+# The only globals the addon creates, and only in game/: the TOC's (toc_globals) and these.
 GAME_GLOBALS = ["SLASH_*"]
 GAME = "game"
 # Ways to read or write a global by name, past the bytecode check: banned outright.
@@ -92,8 +93,9 @@ ONLY = {
 HOME = {"Data": "Data", "Atlas": "atlas", "Runtime": "runtime", "Game": "game", "Model": "model", "UI": "ui"}
 HOOKS = {("Runtime", "onError"), ("Runtime", "onTrace")}
 # The only named frames (globals; docs/structure.md "Namespace"): the client keeps a moved frame's
-# place by its name; the Minimap's children wait on the stand-in, named as the spike's was.
-FRAME_NAMES = {"MagicMapAtlasMap", "MagicMapAtlasMinimapStandIn"}
+# place by its name; the Minimap's children wait on the stand-in, named as the spike's was;
+# Escape closes what UISpecialFrames names (game/Hooks.lua's catcher).
+FRAME_NAMES = {"MagicMapAtlasMap", "MagicMapAtlasMinimapStandIn", "MagicMapAtlasEscape"}
 
 # Known violations, each waiting on a contract: (file, System, field). Keep it
 # short; the check fails on any entry that no longer matches, so it only shrinks.
@@ -217,6 +219,13 @@ def saved_variables() -> set[str]:
     return set()
 
 
+def toc_globals() -> set[str]:
+    """The globals the TOC names: its SavedVariables, and the functions the client calls (## AddonCompartmentFunc*)."""
+    with open(TOC, encoding="utf-8-sig") as f:
+        funcs = {line.split(":", 1)[1].strip() for line in f if line.startswith("## AddonCompartmentFunc")}
+    return saved_variables() | funcs
+
+
 def check_boundaries(accesses: dict[str, list[tuple[str, str, int]]]) -> int:
     """Each folder reads only its BOUNDARIES globals; only game/ touches the SavedVariables."""
     problems, sv = 0, saved_variables()
@@ -337,8 +346,8 @@ def check_ns(paths: list[str]) -> int:
 
 
 def may_set(rel: str, name: str) -> bool:
-    """Only game/ defines globals: the SavedVariables and SLASH_*."""
-    return folder(rel) == GAME and (name in saved_variables() or any(fnmatch.fnmatchcase(name, p) for p in GAME_GLOBALS))
+    """Only game/ defines globals: the TOC's and SLASH_*."""
+    return folder(rel) == GAME and (name in toc_globals() or any(fnmatch.fnmatchcase(name, p) for p in GAME_GLOBALS))
 
 
 def check(paths: list[str], list_globals: bool = False, allowlist: str = ALLOWLIST) -> int:
