@@ -1,17 +1,24 @@
 -- Telemetry (docs/telemetry.md): sessions, errors with stacks, and marks
--- (state + Runtime's trace ring) in MagicMapAtlasDB.telemetry, written to
--- disk on /reload or logout for tools/telemetry.py.
+-- (state + Runtime's trace ring + the motion ring) in MagicMapAtlasDB.telemetry,
+-- written to disk on /reload or logout for tools/telemetry.py.
 -- Errors come from Runtime.onError (every Wrap) and the global error handler
 -- (anything else whose stack is in our folder). An error's first occurrence
--- in a session traces "error" and takes an "error" mark.
--- Each session's perf (Runtime.FrameStats, errors, load, memory: docs/runtime.md)
--- is written at logout and with each mark.
+-- in a session traces "error" and takes an "error" mark; a taint's
+-- (ADDON_ACTION_BLOCKED/FORBIDDEN naming us) traces "taint" and takes a "taint" mark.
+-- Each session's perf (Runtime.FrameStats, errors, load, memory after a full
+-- collect: docs/runtime.md) is written at logout and with each mark, with the
+-- bench (game/Bench.lua) if one ran. Every trace passes here too: the kinds that
+-- must stay empty are kept past the ring, layouts, swaps and sweeps counted.
 
 local ADDON, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
 
-local SESSIONS, ERRORS, MARKS, ZONES = 10, 50, 20, 30
+local SESSIONS, ERRORS, MARKS, ZONES, KEPT = 10, 50, 20, 30, 50
 local MSG, STACK = 300, 2000 -- chars kept
+local MOTION = 120 -- frames of camera and you in each mark
+local LOAD_KB_AT = 10 -- s after login: past its grace (5 s, game/Game.lua) and the world streaming in
+local KEEP = { taint = true, art = true, sensor = true } -- trace kinds kept for the session (each a bug)
+local STATS = { layout = true, swap = true, blips = true } -- counted per layer: n and each number's max
 local OURS = "AddOns[/\\]" .. ADDON .. "[/\\]"
 
 local version = C_AddOns.GetAddOnMetadata(ADDON, "Version")
@@ -19,6 +26,18 @@ local db, session
 local errors, loginAt = 0, nil -- this session's errors; GetTime() at login
 local pending = {} -- errors before SavedVariables load
 local seen = {} -- error keys this session
+local kbLoad, kbOut -- our KB after a full collect: past the login grace, at logout
+
+local function R(v, n) return v and math.floor(v * n + 0.5) / n end
+local boot = Runtime.boot
+local function Ms() return R(debugprofilestop() - (boot.login and boot.login.t or boot.t0), 10) end -- as Trace's
+
+local function Copy(v)
+	if type(v) ~= "table" then return v end
+	local t = {}
+	for k, x in pairs(v) do t[k] = Copy(x) end
+	return t
+end
 
 local function State()
 	local you, view = Game.obs.you, ns.UI.View()
@@ -30,22 +49,47 @@ local function State()
 	}
 end
 
--- session.perf: Runtime.FrameStats() plus errors, errors an hour, load ms (and our KB at logout).
-local function Perf(ourKB)
+-- Our memory alone, garbage collected first (else ~a third is garbage: docs/runtime.md). Slow: a frame of ~100 ms.
+local function OurKB()
+	collectgarbage("collect")
+	UpdateAddOnMemoryUsage()
+	return math.floor(GetAddOnMemoryUsage(ADDON))
+end
+
+-- session.perf: Runtime.FrameStats() (alloc, gaps, ledger, byState with it) plus errors, errors an
+-- hour, load ms, our KB at load and logout; session.bench[build]: the last /mma bench.
+local function Perf()
 	local p = Runtime.FrameStats()
 	local hours = math.max((GetTime() - (loginAt or 0)) / 3600, 1 / 60) -- at least a minute
 	p.errors, p.errorsPerHour, p.loadMs = errors, math.floor(errors / hours * 10 + 0.5) / 10, session.boot.loadMs
-	p.ourKB = ourKB or (session.perf and session.perf.ourKB)
+	p.ourKBLoad, p.ourKB = kbLoad, kbOut
 	session.perf, session.frames = p, Runtime.frames
+	local bench = Game.Bench and Game.Bench.result -- game/Bench.lua (M0.5)
+	if bench then session.bench[bench.build] = Copy(bench) end
 end
 
-local function Mark(kind, note, stamp)
-	Runtime.Trace(kind, note)
+-- The motion ring: the camera (View.camera) and you each frame, in preallocated slots (no garbage).
+local motion, at = {}, 0
+for i = 1, MOTION do motion[i] = {} end
+
+local function Motion() -- oldest first
+	local out = {}
+	for i = 1, MOTION do
+		local m = motion[(at + i - 1) % MOTION + 1]
+		if m.f then
+			out[#out + 1] = { f = m.f, ms = m.ms, cx = R(m.cx, 1e4), cy = R(m.cy, 1e4), zoom = R(m.zoom, 100),
+				px = R(m.px, 1e4), py = R(m.py, 1e4), w = R(m.w, 10), h = R(m.h, 10) }
+		end
+	end
+	return out
+end
+
+local function Mark(kind, note, stamp, shot)
 	Perf()
 	local marks = db.marks
 	marks[#marks + 1] = {
 		kind = kind, note = note, t = time(), stamp = stamp, session = session.id, version = version,
-		frame = Runtime.frames, state = State(), trace = Runtime.TraceCopy(),
+		frame = Runtime.frames, state = State(), trace = Runtime.TraceCopy(), motion = Motion(), shot = shot,
 	}
 	if #marks > MARKS then table.remove(marks, 1) end
 end
@@ -90,13 +134,39 @@ seterrorhandler(function(msg, ...)
 	return previous(msg, ...)
 end)
 
+-- Every trace passes here too (after the ring has it): KEEP kinds go to session.kept (the
+-- ring forgets them), STATS kinds to session.stats["<kind> <layer>"] = { n, <field> = max |value| },
+-- a swap's `lag` being frames since its layer's last layout end.
+local ends = {} -- [layer] = Runtime.frames at its last layout end
+local Keep = Runtime.Wrap("telemetry: trace", function(kind, d)
+	if KEEP[kind] then
+		local kept = session.kept
+		if #kept < KEPT then kept[#kept + 1] = { f = Runtime.frames, ms = Ms(), k = kind, d = d } end
+	end
+	if not (STATS[kind] and type(d) == "table") or (kind == "layout" and d.e ~= "end") then return end
+	local key = d.layer and kind .. " " .. d.layer or kind
+	local s = session.stats[key]
+	if not s then s = { n = 0 }; session.stats[key] = s end
+	s.n = s.n + 1
+	for k, v in pairs(d) do
+		if type(v) == "number" and math.abs(v) > (s[k] or 0) then s[k] = math.abs(v) end
+	end
+	if kind == "layout" then ends[d.layer] = Runtime.frames end
+	if kind == "swap" and ends[d.layer] then s.lag = math.max(s.lag or 0, Runtime.frames - ends[d.layer]) end
+end, false)
+local trace = Runtime.Trace
+function Runtime.Trace(kind, d)
+	trace(kind, d)
+	if session then Keep(kind, d) end -- not before SavedVariables load
+end
+
 Game.Load("telemetry", function(saved)
 	local last = saved.sessions[#saved.sessions]
 	local v, build = GetBuildInfo()
-	local b = Runtime.boot
 	session = {
 		id = (tonumber(type(last) == "table" and last.id) or 0) + 1, version = version, build = v .. "." .. build,
-		started = time(), boot = { loadMs = b.loaded.t - b.t0, loadKB = b.loaded.mem - b.mem0 }, frames = 0, zones = {},
+		started = time(), boot = { loadMs = boot.loaded.t - boot.t0, loadKB = boot.loaded.mem - boot.mem0 }, frames = 0,
+		zones = {}, kept = {}, stats = {}, bench = {},
 	}
 	db = saved
 	db.sessions[#db.sessions + 1] = session
@@ -111,35 +181,72 @@ local function Zone()
 	if zones[#zones] ~= zone and #zones < ZONES then zones[#zones + 1] = zone end
 end
 
+local loadAt -- GetTime() to read ourKBLoad at
 Runtime.On("PLAYER_LOGIN", "telemetry.login", function()
-	local b = Runtime.boot
-	session.boot.loginMs = b.login.t - b.t0
-	loginAt = GetTime()
+	session.boot.loginMs = boot.login.t - boot.t0
+	loginAt, loadAt = GetTime(), GetTime() + LOAD_KB_AT
 	Runtime.Trace("login", version)
 	Zone()
 end)
 Runtime.On("ZONE_CHANGED_NEW_AREA", "telemetry.zone", Zone)
 Runtime.On("PLAYER_LOGOUT", "telemetry.logout", function() -- also /reload
-	UpdateAddOnMemoryUsage()
-	Perf(math.floor(GetAddOnMemoryUsage(ADDON)))
+	kbOut = OurKB()
+	Perf()
 end)
 
--- Shots: the mark waits for SCREENSHOT_SUCCEEDED; stamp as in WoWScrnShot_<stamp>.jpg.
-local shot -- the pending /mma shot's note ("" for none)
+-- Each frame: the motion ring; once, ourKBLoad. Unbudgeted: the full collect is graced ("gc"), not ours to count.
+Runtime.Step("apply", "telemetry: frame", function()
+	local cam, you = ns.UI.View().camera, Game.obs.you
+	at = at % MOTION + 1
+	local m = motion[at]
+	m.f, m.ms, m.cx, m.cy, m.zoom, m.w, m.h = Runtime.frames, Ms(), cam.cx, cam.cy, cam.zoom, cam.w, cam.h
+	m.px, m.py = you.col, you.row
+	if loadAt and GetTime() >= loadAt then
+		loadAt = nil
+		Runtime.Grace("gc", 0.1)
+		kbLoad = OurKB()
+	end
+end, { budgetMs = false })
+
+-- Taint (spike-bugs K2): the client blocked a protected call and blamed us. The first per function takes a mark.
+local tainted = {}
+local function Taint(event, addon, fn)
+	if addon ~= ADDON then return end
+	local d = { e = event == "ADDON_ACTION_BLOCKED" and "blocked" or "forbidden", fn = tostring(fn) }
+	Runtime.Trace("taint", d)
+	if tainted[d.fn] then return end
+	tainted[d.fn] = true
+	Mark("taint", d.e .. " " .. d.fn)
+end
+Runtime.On("ADDON_ACTION_BLOCKED", "telemetry.taint", Taint)
+Runtime.On("ADDON_ACTION_FORBIDDEN", "telemetry.taint", Taint)
+
+-- Shots: stamped when asked (what the screenshot shows), marked on SCREENSHOT_SUCCEEDED;
+-- stamp as in WoWScrnShot_<stamp>.jpg.
+local shot -- the pending /mma shot: { note, at = its stamp }
 Runtime.On("SCREENSHOT_SUCCEEDED", "telemetry.shot", function()
 	if not shot then return end -- not ours (Print Screen)
-	Mark("shot", shot ~= "" and shot or nil, date("%m%d%y_%H%M%S"))
+	local note = shot.note ~= "" and shot.note or nil
+	Runtime.Trace("shot", note)
+	Mark("shot", note, date("%m%d%y_%H%M%S"), shot.at)
 	shot = nil
 end)
 Runtime.On("SCREENSHOT_FAILED", "telemetry.shot failed", function() shot = nil end)
 
 Game.Slash("mark", "<note>: save state and the recent trace (written on /reload)", function(note)
-	Mark("mark", note ~= "" and note or nil)
+	note = note ~= "" and note or nil
+	Runtime.Trace("mark", note)
+	Mark("mark", note)
 	Game.Print("marked")
 end)
 
-Game.Slash("shot", "[note]: a screenshot, and a mark matched to it", function(note)
-	shot = note
+Game.Slash("shot", "[id note]: a screenshot, and a mark matched to it (docs/playtest.md shot ids)", function(note)
+	local view = ns.UI.View()
+	local cam, place = view.camera, view.window.place
+	shot = { note = note, at = { inst = view.inst, cx = R(cam.cx, 1e4), cy = R(cam.cy, 1e4), zoom = R(cam.zoom, 100),
+		w = R(cam.w, 10), h = R(cam.h, 10), left = place and place.left, top = place and place.top, big = view.window.big,
+		uiScale = R(UIParent:GetEffectiveScale(), 1e3), screenW = R(UIParent:GetWidth(), 10),
+		screenH = R(UIParent:GetHeight(), 10) } }
 	Screenshot()
 end)
 

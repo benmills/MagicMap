@@ -11,8 +11,9 @@ local Command = ns.Game.Command
 
 local saved = { layers = {}, minimap = "ours" } -- until loaded
 local window = { shown = false, big = false, still = false, strata = "LOW", level = 0, homeAlpha = 1 }
+local camera = { cx = 0, cy = 0, zoom = 0, w = 0, h = 0 } -- the map's, each frame (telemetry's motion ring, shot stamps)
 local view = { v = 1, frame = 0, minimap = "ours", renderer = "ours", inst = 0, window = window,
-	layers = {}, sockets = {}, button = true }
+	layers = {}, sockets = {}, button = true, camera = camera }
 local focus = { inst = 0, shown = false, follow = true }
 
 -- For telemetry marks (docs/telemetry.md "State" map, layers): Game stores it, never acts on it.
@@ -59,8 +60,9 @@ Runtime.Step("ui", "ui: view", function()
 	window.shown, window.place, window.still = shown, place, still
 	view.minimap, view.inst = saved.minimap, Map.inst or 0
 	view.layers.blips = layersOn or nil
-	-- Focus: Model only compares, but send it only on a change.
 	local cam = Map.cam
+	camera.cx, camera.cy, camera.zoom, camera.w, camera.h = cam.cx, cam.cy, cam.zoom, Map.Size()
+	-- Focus: Model only compares, but send it only on a change.
 	if focus.inst ~= view.inst or focus.shown ~= shown or focus.follow ~= Map.follow or focus.zoom ~= cam.zoom then
 		focus = { inst = view.inst, shown = shown, follow = Map.follow, zoom = cam.zoom }
 		Model.Focus(focus)

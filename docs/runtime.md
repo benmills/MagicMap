@@ -27,7 +27,7 @@ a loading screen) and 2 s after the first map open (`map`).
 | one call (step, handler, timer) | ≤ 2 ms | `CALL_MS`: a step taking more starves the rest; work that size belongs in a Job. A job's resume: ≤ 2× its own budget. |
 | first map open, slowest frame | ≤ 50 ms | first-use Atlas indexes (Labels: 17 ms in one call in the sim, 22 ms frame); ~3 frames, once a session. |
 | load (Data + Atlas at login) | ≤ 250 ms | the sim measures 84–110 ms (`/mma atlas`); the client also reads the files from disk, so ~2.5× room. |
-| our Lua memory (at logout) | ≤ 64 MB | the sim: 44 MB of Data + Atlas at load, 45–58 MB heap while playing (garbage included). Over it: a leak or data growth to look at. |
+| our Lua memory, after a full collect (at logout) | ≤ 64 MB | ours alone (`GetAddOnMemoryUsage`) after `collectgarbage("collect")`, so garbage isn't counted (the play-test's 70.8 MB held ~24 MB of it: docs/v1-plan.md §2). Read at logout (`ourKB`) and 10 s after login (`ourKBLoad`: Data + Atlas, ~40 MB expected). Over it: a leak (`ourKB` − `ourKBLoad`, and `perf.alloc`) or data growth (`ourKBLoad`). |
 | Lua allocation, outside graces | ≤ 50 KB/s | garbage is paid for later, by the collector, in someone's frame. A standing frame should make next to none: the sim, map open, measures 0.7 KB/s standing, 1.7 walking, ~80 during a sustained 1.5 views/s fling (layouts, and the first layout on a canvas creating its regions: one frame of several MB). `kbFrameP95` (KB a frame) is reported beside it, to find the frames. |
 | errors per hour | 0 | every error is a bug; the counts make a regression obvious. |
 
@@ -176,5 +176,6 @@ addon loads. Each owner's `fn` runs once a session, at ADDON_LOADED (or at once,
 - Event handlers called by the client between frames can't be delayed: only ones
   fired during our frame are queued.
 - Memory is sampled as the whole Lua heap (`collectgarbage("count")`: every addon)
-  every 10 s outside graces; ours alone (`GetAddOnMemoryUsage`) only at logout, since
-  `UpdateAddOnMemoryUsage` is too slow to call while playing.
+  every 10 s outside graces; ours alone (`GetAddOnMemoryUsage`), after a full collect, only
+  twice: 10 s after login and at logout, since a full collect and `UpdateAddOnMemoryUsage`
+  are too slow to call while playing (the one at load is graced as `gc`).
