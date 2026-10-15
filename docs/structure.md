@@ -195,7 +195,7 @@ UI registers its own through `Game.Command({ kind = "slash", ... })`.
   Model.SAVED)` (game/Observe.lua), UI's comes through a `load` Command. `spec = { version, defaults,
   migrate(saved, from) }`: fn always gets a table of the current version (docs/runtime.md "Saved data").
 - Each frame's observe step hands `ns.Model.Observe(obs, oracles)` an observation (types/observation.lua):
-  `obs.you = { inst, col, row, facing, uiMap, level, faction, dead, ghost, combat }` (nil fields:
+  `obs.you = { inst, col, row, facing, uiMap, zone, subzone, level, faction, dead, ghost, combat }` (nil fields:
   unknown), `obs.blips`, `obs.minimap`, `obs.hooked`, `obs.addons`, and Model keeps `ns.Model.you`:
   the last known position, `stale = true` while there's none (the rest: this frame's).
 - Game's own part, `Game.Load("Game", ...)` (game/Game.lua): `Game.saved`, the minimap button's

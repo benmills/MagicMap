@@ -121,7 +121,7 @@
 ---@field indoors? boolean     the Minimap draws its indoor floor plan here (its view radius tells)
 ---@field sensing boolean      the blip sensor ran this frame
 ---@field home? MM.ScreenRect  the Minimap's home spot (its cluster), for placing our window there
----                           (kept: a new table only when Game reads it again)
+---                           (kept: Game reads it each frame and hands a new table only when the spot moved, so UI may hold it)
 ---@field homeStrata? string   the cluster's frame strata: UI's small window sits in it (spike MinimapMode.lua:46-49)
 
 ---A rect in UIParent units from its bottom-left (what SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT") takes).
