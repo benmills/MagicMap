@@ -51,6 +51,8 @@ def test_telemetry_fixture(tmp_path, capsys):
                  "game.observe                    180.2 KB/s  max 12.4 KB/call  5400 calls",
                  "map: borders 14.2 ms (x3)", "ui/Borders.lua:88", "f9118 11.2 ms  top map: borders  [layout x2, swap x1, gap x1, spike x1]",
                  "zoom         900    0.6    2.1    9.8   11.2", "39.2 MB at load, 70.8 MB at logout",
+                 "graces (slowest frame; its slowest call): gc 88.2 ms (game.telemetry 87.9 ms), login 96.4 ms"
+                 " (game.loaded 60.2 ms), map 31.5 ms (map: labels 16.3 ms)",
                  "swap tiles       n 40    lag=0 scale=1.3 x=33012 y=25510", "canvas.SetScale@1000live         2000 µs",
                  # kept, marks' motion and shot stamp, shot pairing
                  "taint {e=blocked fn=Minimap:Hide()}", "art redbutton-expand-c60",
@@ -77,6 +79,11 @@ def test_telemetry_fixture(tmp_path, capsys):
                  "FAIL  taint      1", "owner: {e=blocked fn=Minimap:Hide()}", "FAIL  art        1", "PASS  sensor     0"):
         assert want in out, (want, out)
     assert "== perf" not in out and "owner: bench" not in out and "job bench" not in out  # its overruns and gaps are the bench
+    # the first open's owner: its grace's slowest call; older sessions: perf.slow without the bench
+    assert telemetry.owner_open({"graceTop": {"map": {"top": "map: labels", "topMs": 16.3}},
+                                 "slow": [{"name": "bench: regions", "max": 68}]}, {}, []).startswith("map: labels (16.3 ms")
+    assert telemetry.owner_open({"slow": [{"name": "bench: regions", "max": 68}, {"name": "map: labels", "max": 56.2}]},
+                                {}, []).startswith("map: labels (slowest call, 56.2 ms")
     assert telemetry.main(base + ["--budgets", "--trace"]) == 1
     out = capsys.readouterr().out
     for want in ("== perf", "        f9118 +402398ms swap {layer=borders scale=1 x=-12 y=40}", "== kept", "== marks (2)",
@@ -143,6 +150,7 @@ def test_telemetry_sim(tmp_path, capsys):
     assert a.w > 0 and a.left is not None and a.screenW == 1920 and a.big is False and len(shot.motion) == 120
     p = s.perf
     assert p.ourKBLoad == 2400 and p.ourKB == 2400 and p.grace.gc is not None  # the sim's GetAddOnMemoryUsage
+    assert p.graceTop.map.top.startswith("map: ")  # opened during login's grace: the first open's frames are map's
     assert [(e.k, e.d if isinstance(e.d, str) else e.d.fn) for e in s.kept.values()] == [
         ("taint", "Minimap:Hide()"), ("taint", "Minimap:Hide()"), ("art", "redbutton-expand-c60")]
     assert [m.note for m in tel.marks.values() if m.kind == "taint"] == ["blocked Minimap:Hide()"]  # the first only

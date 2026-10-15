@@ -116,7 +116,8 @@ isn't listed.
 - `Runtime.Perf()` — per-name totals `{ n, ms, max, over }` and frames run, for `/mma perf`;
   `Runtime.errors` — `{ name, err, n }` per failing name.
 - `Runtime.FrameStats()` — our cost a frame, outside graces: `{ frames, p50, p95, p99, max, overruns,
-  kbMin, kbMax, grace = { [name] = slowest ms }, slow = { { name, n, max } } }` and who to blame:
+  kbMin, kbMax, grace = { [name] = slowest ms }, graceTop = { [name] = { top, topMs } }, slow = { { name, n, max } } }`
+  and who to blame:
   `alloc`, `gaps`, `ledger`, `byState` (docs/runtime.md "Attribution");
   `Runtime.Grace(name, seconds)` — the next frames are expected slow (login, loading, first map open);
   `Runtime.SetState(state)` — UI's map state (`closed`, `small`, `big`, `zoom`, `drag`), for `byState`.

@@ -40,6 +40,8 @@ MagicMapAtlasDB = {
 ["kbMin"] = 47100, ["kbMax"] = 61800, ["ourKBLoad"] = 40100, ["ourKB"] = 72500, ["loadMs"] = 398.1,
 ["errors"] = 37, ["errorsPerHour"] = 148, ["kbPerSec"] = 274.3, ["kbFrameP95"] = 4.1, ["kbFrameMax"] = 850.2, ["kbFrames"] = 17600,
 ["grace"] = { ["login"] = 96.4, ["map"] = 31.5, ["gc"] = 88.2 },
+["graceTop"] = { ["login"] = { ["top"] = "game.loaded", ["topMs"] = 60.2 }, ["map"] = { ["top"] = "map: labels", ["topMs"] = 16.3 },
+["gc"] = { ["top"] = "game.telemetry", ["topMs"] = 87.9 } },
 ["slow"] = { { ["name"] = "map: labels", ["n"] = 3, ["max"] = 11.0 }, { ["name"] = "bench: regions", ["n"] = 2, ["max"] = 9.5 } },
 ["alloc"] = {
 { ["name"] = "game.observe", ["kbPerSec"] = 180.2, ["kbMax"] = 12.4, ["calls"] = 5400 }, -- [1]

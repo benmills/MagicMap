@@ -43,11 +43,11 @@ end
 
 local top, topMs = nil, 0 -- this frame's slowest call, for a spike's trace
 local alloc, allocKb = nil, 0 -- and its biggest allocator
-local graced = true -- the running frame is in a grace (loading until the first frame): its calls' KB aren't counted
+local graced = true -- the running frame is in a grace (loading until the first frame): its calls' KB, overruns and gaps aren't counted
 
--- budget: ms one call may take (false: not checked, nor its KB: it calls wrapped calls); over it is an
--- overrun, traced at its 1st, 10th, 100th... kb0: the heap before the call; its growth is the call's KB
--- (wrapped calls inside it included). A call in which the collector freed more than it made is left out.
+-- budget: ms one call may take (false: not checked, nor its KB: it calls wrapped calls); over it, outside
+-- a grace, is an overrun, traced at its 1st, 10th, 100th... kb0: the heap before the call; its growth is the
+-- call's KB (wrapped calls inside it included). A call in which the collector freed more than it made is left out.
 local function Done(p, t0, budget, kb0)
 	local dt = now() - t0
 	p.n, p.ms = p.n + 1, p.ms + dt
@@ -60,7 +60,7 @@ local function Done(p, t0, budget, kb0)
 		if kb > p.kbMax then p.kbMax = kb end
 		if kb > allocKb then alloc, allocKb = p.name, kb end
 	end
-	if dt > budget then
+	if dt > budget and not graced then
 		p.over = p.over + 1
 		local o = p.over
 		if o == 1 or o == 10 or o % 100 == 0 then Runtime.Trace("slow", { name = p.name, ms = R1(dt), n = o }) end
@@ -300,8 +300,8 @@ function Runtime.Job(name, fn, budgetMs, maxFrames)
 	return job
 end
 
--- A job's stretch between Yields (from its resume, or to its end) over its budget: a frame it
--- couldn't give back. Traced at a name's 1st, 10th, every 100th gap; its first keeps a stack.
+-- A job's stretch between Yields (from its resume, or to its end) over its budget, outside a grace: a
+-- frame it couldn't give back. Traced at a name's 1st, 10th, every 100th gap; its first keeps a stack.
 local function Gap(job, ms, stack)
 	local p = job.p
 	p.gaps = p.gaps + 1
@@ -316,7 +316,7 @@ function Runtime.Yield()
 	local job = current
 	if not job then return end
 	local t = now()
-	if t - job.mark > job.budget then Gap(job, t - job.mark, job.p.gapStack or debugstack(2)) end
+	if t - job.mark > job.budget and not graced then Gap(job, t - job.mark, job.p.gapStack or debugstack(2)) end
 	job.mark = t
 	if t - job.t0 >= job.budget and coroutine.running() == job.co then coroutine.yield() end
 end
@@ -338,7 +338,7 @@ local function RunJobs()
 			current = nil
 			Done(job.p, t0, job.budget * 2, kb0) -- not yielding (often enough) shows as an overrun
 			local last = now() - job.mark -- since its last Yield: to its end, or a bare coroutine.yield
-			if last > job.budget then
+			if last > job.budget and not graced then
 				Gap(job, last, job.p.gapStack or (coroutine.status(job.co) == "dead" and "(ran to the job's end)"
 					or debugstack(job.co)))
 			end
@@ -354,7 +354,8 @@ local function RunJobs()
 end
 
 -- Frame cost: our time each frame (its steps, timers and jobs, and the events since the last),
--- in a histogram for percentiles; frames inside a grace (login, loading, first map open) apart.
+-- in a histogram for percentiles; frames inside a grace (login, loading, first map open) apart:
+-- each counts to the newest grace only, which keeps its slowest frame and that frame's slowest call.
 -- Allocation: the Lua heap's growth over the frame's run (collectgarbage("count") before and
 -- after), KB/frame in a histogram and KB/s; a frame in which the collector freed more than we
 -- allocated (the heap shrank) can't be measured and is left out. The same frames again in one
@@ -363,12 +364,16 @@ end
 local BUCKET, NB = 0.05, 400 -- ms per bucket; the last (20 ms+) holds the rest
 local KB_BUCKET = 0.1 -- KB per allocation bucket (NB of them: the last, 40 KB+, holds the rest)
 local hist, kbHist, graces, graceMax = {}, {}, {}, {}
+local graceAt, graceN, graceTop, graceTopMs = {}, 0, {}, {} -- each grace's start (a count: newest wins); its slowest frame's top call
 for i = 1, NB do hist[i], kbHist[i] = 0, 0 end
 local stats = { frames = 0, secs = 0, max = 0, overruns = 0, kbFrames = 0, kb = 0, kbSecs = 0, kbMaxFrame = 0 }
 local MEM_EVERY, memAt = 10, 0
 
 -- The next `seconds` of frames are expected to be slow: kept apart, as graceMax[name].
-function Runtime.Grace(name, seconds) graces[name] = GetTime() + seconds; graced = true end
+function Runtime.Grace(name, seconds)
+	graces[name], graceN, graced = GetTime() + seconds, graceN + 1, true
+	graceAt[name] = graceN
+end
 
 -- Whether this frame is in a grace (at its start; one started meanwhile counts from then on).
 local function Graced(time)
@@ -400,10 +405,12 @@ function Runtime.SetState(name)
 end
 
 local function Count(cost, kb, elapsed)
-	if graced then
+	if graced then -- the newest grace's (the map opened in login's: map's)
+		local g = nil
 		for name in pairs(graces) do
-			if cost > (graceMax[name] or 0) then graceMax[name] = cost end
+			if not g or graceAt[name] > graceAt[g] then g = name end
 		end
+		if cost > (graceMax[g] or 0) then graceMax[g], graceTop[g], graceTopMs[g] = cost, top, topMs end
 		return
 	end
 	local s = stats
@@ -448,7 +455,8 @@ end
 
 -- { frames, p50, p95, p99, max, overruns, kbMin, kbMax (ms, KB) } outside graces;
 -- allocation: kbFrameP95, kbFrameMax (KB a frame), kbPerSec, kbFrames (frames measured);
--- grace = { [name] = slowest frame }; slow = the 5 calls with most overruns { name, n, max };
+-- grace = { [name] = slowest frame }; graceTop = { [name] = { top, topMs } }: that frame's slowest call;
+-- slow = the 5 calls with most overruns { name, n, max };
 -- alloc = the 5 names making most KB/s { name, kbPerSec, kbMax (one call), calls (measured) };
 -- gaps = each job's { job, ms (longest), n, stack (its first) }, longest first;
 -- ledger = the 5 worst frames { frame, ms, top, topMs, events = the trace around it }, worst first;
@@ -462,8 +470,10 @@ function Runtime.FrameStats()
 		kbFrames = s.kbFrames, kbFrameMax = R2(s.kbMaxFrame),
 		kbFrameP95 = s.kbFrames > 0 and Pct(0.95, kbHist, s.kbFrames, KB_BUCKET, R2(s.kbMaxFrame)) or nil,
 		kbPerSec = s.kbSecs > 0 and R1(s.kb / s.kbSecs) or nil, -- /: never 0 (kbSecs > 0: checked)
-		grace = {}, slow = {}, alloc = {}, gaps = {}, ledger = {}, byState = {} }
-	for name, ms in pairs(graceMax) do out.grace[name] = R1(ms) end
+		grace = {}, graceTop = {}, slow = {}, alloc = {}, gaps = {}, ledger = {}, byState = {} }
+	for name, ms in pairs(graceMax) do
+		out.grace[name], out.graceTop[name] = R1(ms), { top = graceTop[name], topMs = R1(graceTopMs[name]) }
+	end
 	for _, p in pairs(perf) do
 		if p.over > 0 then out.slow[#out.slow + 1] = { name = p.name, n = p.over, max = R1(p.max) } end
 		if p.kb > 0 and s.secs > 0 then

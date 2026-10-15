@@ -228,10 +228,9 @@ def test_failures():
         end)
         R.Every(0.1, "test.every", function() got.every = got.every + 1 end)
         got.stuck = R.Job("test.stuck", function() while true do coroutine.yield() end end, 1, 30)
-        got.hog = R.Job("test.hog", function() local t = debugprofilestop(); while debugprofilestop() - t < 6 do end end, 1)
         return got
     end""")(R, ns.Game)
-    sim.Run(6)  # past login's grace
+    sim.Run(6)  # past login's grace (inside a grace nothing overruns)
     assert got.load.old.n == 0 and got.load.old.list is not None and got.load.old._v == 2
     assert G.MagicMapAtlasDB.new.keep == 1 and G.MagicMapAtlasDB.new._v == 9 and got.load.new.n == 0
     assert G.MagicMapAtlasDB.telemetry.sessions[1].id == 1 and G.MagicMapAtlasDB.bad.x is None  # migrate failed: reset
@@ -243,8 +242,12 @@ def test_failures():
     assert len([e for e in tel.errors.values() if e.name == "test.fails"]) == 1
     assert len([m for m in tel.marks.values() if m.note and "test.fails" in m.note]) == 1
     # stuck job cancelled and reported; a job that never yields overran
+    hog = L.eval("""function(R)
+        return R.Job("test.hog", function() local t = debugprofilestop(); while debugprofilestop() - t < 6 do end end, 1)
+    end""")(R)
+    sim.Step()
     assert got.stuck.done and "cancelled" in got.stuck.err and any(e.name == "test.stuck" for e in R.errors.values())
-    assert got.hog.done and R.Perf()[0]["test.hog"].over == 1
+    assert hog.done and R.Perf()[0]["test.hog"].over == 1
     # overrunning step: counted, and the frame traced as a spike naming it
     got.spin = True
     sim.Step()

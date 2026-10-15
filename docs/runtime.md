@@ -17,7 +17,11 @@ the event handlers since the previous frame. It's measured with `debugprofilesto
 into a histogram (0.05 ms buckets up to 20 ms), so p50/p95/p99 are a bucket's top.
 Frames inside a *grace* are kept apart (their slowest is reported, not counted):
 5 s after each PLAYER_ENTERING_WORLD (`login` for login and /reload, `loading` for
-a loading screen) and 2 s after the first map open (`map`).
+a loading screen), 2 s after the first map open (`map`), the memory read's collect
+(`gc`) and `/mma bench` (`bench`). A frame inside two counts to the newest only (the map
+opened during login's: `map`), which keeps its slowest frame (`grace`) and that frame's
+slowest call (`graceTop`). Nothing inside a grace counts against the budgets: no
+overruns, gaps, allocation or ledger frames.
 
 | Budget | Limit | Why |
 |---|---|---|
@@ -46,7 +50,8 @@ P3) measure ours alone.
 
 ## Attribution: who to blame for a FAIL
 
-`Runtime.FrameStats()` names an owner for each budget, outside graces like the frame stats.
+`Runtime.FrameStats()` names an owner for each budget, outside graces like the frame stats
+(a grace's own owner is `graceTop`: its slowest frame's slowest call; the first open's FAIL reads it).
 All of it is kept in tables made at load: a measured frame allocates nothing more.
 
 | Key | What | How |
@@ -64,7 +69,7 @@ All of it is kept in tables made at load: a measured frame allocates nothing mor
 | Failure | Guarantee | Enforced by | Observed |
 |---|---|---|---|
 | a step errors | the frame's other steps, timers and jobs still run; recorded once per key with its stack; after 10 failing calls in a row it runs once a second until one succeeds; a stack is walked for a name's first failure, then at most once per 10 s | `Wrap`: `xpcall` + its catch (stack, `StackDue`), `Fail`, strikes in `Finish` | `errors[key]` (count, stack on first), an `error` mark with the trace, `throttled` trace, `perf.errors`, `errorsPerHour`; `/mma errors` |
-| a step overruns its budget | it finishes (Lua can't be preempted); counted per name; the frame is counted as an overrun if over 8 ms | `Done` (per call), `Count` (per frame) | `slow` trace (1st, 10th, every 100th), `spike` trace naming the frame's slowest call, `perf.overruns`, `perf.slow`, `perf.max`; `/mma perf` |
+| a step overruns its budget | it finishes (Lua can't be preempted); counted per name outside graces; the frame is counted as an overrun if over 8 ms | `Done` (per call), `Count` (per frame) | `slow` trace (1st, 10th, every 100th), `spike` trace naming the frame's slowest call, `perf.overruns`, `perf.slow`, `perf.max`; `/mma perf` |
 | an event arrives mid-frame | handlers never run inside a phase: an event fired during a frame is dispatched after its phases; Game's handlers only note what changed and the observe step reads, so Model sees one snapshot a frame | `inFrame` + `queued` + `Flush` in Runtime; the rule for Game | handlers' time counts in the next frame's cost |
 | a stuck job | a job still running after 600 resumes (its `maxFrames`) is cancelled and reported; one that doesn't `Yield` can't be stopped, but shows as an overrun; Map's layout jobs that fail or are cancelled leave their layer on its last good canvas and lay out again after a backoff (0.5 s, doubling to 30 s) | `RunJobs` watchdog; `Done(job, 2× budget)`; ui/Engine.lua `Failed` | `job` trace, `errors[key]` ("still running after N frames: cancelled"), `slow`/`spike` traces; handle `.done`, `.err` |
 | nil position (instances, loading) | Observation carries nil fields; Model keeps the last known with `stale = true`; the map follows it with the arrow greyed; no step assumes a position | game/parts/You.lua, model/Model.lua, ui/Window.lua (`you.stale`) | `position` trace (`lost`/`back`); marks' `state.you` |
@@ -96,7 +101,7 @@ nothing while it doesn't.
 
 Lua in WoW can't be preempted (there are no debug hooks), so Runtime never stops
 a call; it measures it. A call over its budget (`CALL_MS` 2 ms, a step's
-`opts.budgetMs`, a job resume's 2× its budget) adds to the name's `over` and traces
+`opts.budgetMs`, a job resume's 2× its budget) outside a grace adds to the name's `over` and traces
 `slow` on the 1st, 10th and every 100th, so repeated overruns show as a rising `n`
 without flooding the ring. A frame whose cost is over `FRAME_MS` (8 ms) outside a
 grace is an overrun: counted in `perf.overruns`, and traced as `spike` with the

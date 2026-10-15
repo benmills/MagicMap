@@ -34,7 +34,8 @@ telemetry = {
     { id = 1, version = "7aa8b30-dirty", build = "1.60.1.70374", started = <time()>,
       boot = { loadMs, loadKB, loginMs }, frames = <n>, zones = { "Elwynn Forest", ... }, -- zones: first 30
       perf = { frames, p50, p95, p99, max, overruns,  -- our cost a frame (ms), outside graces
-               grace = { login, loading, map, gc },   -- slowest frame (ms) in each grace
+               grace = { login, loading, map, gc, bench }, -- slowest frame (ms) in each grace (a frame: the newest's)
+               graceTop = { [grace] = { top, topMs } },  -- that frame's slowest call (the first open's owner)
                slow = { { name, n, max }, ... },      -- the 5 calls with most overruns
                kbMin, kbMax,                          -- Lua KB: all addons' heap (sampled)
                kbPerSec, kbFrameP95, kbFrameMax, kbFrames, -- allocation outside graces (docs/runtime.md)
@@ -150,9 +151,10 @@ globals breaking it) named only its own files, so a filter on "MagicMapAtlas" mi
   PASS / FAIL line each and, under each FAIL, its **owner**: the frame budgets from the ledger
   (the call slowest in the worst frames, what that frame did), the per-state histograms and
   the gaps; allocation from `perf.alloc`; memory from `ourKBLoad` against `ourKB`; first open
-  from `perf.slow`; errors from the session's errors. Then the gate's empties (docs/v1-plan.md §1):
-  `perf.slow`, `perf.gaps`, `taint`, `art`, `sensor`, each named (`bench: regions` left out of
-  `perf.slow` and `perf.gaps`: `/mma bench` times calls that can't be split). Exit 1 on any FAIL.
+  from `perf.graceTop.map` (older sessions: `perf.slow`); errors from the session's errors. Then the
+  gate's empties (docs/v1-plan.md §1): `perf.slow`, `perf.gaps`, `taint`, `art`, `sensor`, each named
+  (`/mma bench` runs in its own grace, so it's in neither; older sessions' `bench: regions` is left out).
+  Exit 1 on any FAIL.
   `--budgets --trace` also prints the perf, kept and marks sections it judged from.
 - `--compare A B`: two sessions side by side with B − A: the budgets, memory after GC,
   per-state p95/p99/max, allocators, bench ops. A session is its id in the SavedVariables

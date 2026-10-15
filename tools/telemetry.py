@@ -91,9 +91,12 @@ def owner_max(p, s, errs):
 
 
 def owner_open(p, s, errs):
-    slow = sorted(p.get("slow") or [], key=lambda x: -(x.get("max") or 0))
-    return (f"{slow[0].get('name')} (slowest call, {num(slow[0].get('max'))} ms: perf.slow; graced frames aren't in the ledger)"
-            if slow else "unattributed: no call overran (perf.slow empty)")
+    top = (p.get("graceTop") or {}).get("map")
+    if top:
+        return f"{top.get('top')} ({num(top.get('topMs'))} ms: the slowest call in the first open's slowest frame, perf.graceTop)"
+    slow = sorted(but_bench(p.get("slow"), "name") or [], key=lambda x: -(x.get("max") or 0))
+    return (f"{slow[0].get('name')} (slowest call, {num(slow[0].get('max'))} ms: perf.slow; no perf.graceTop: an older build)"
+            if slow else "unattributed: no perf.graceTop, and no call overran (perf.slow)")
 
 
 def owner_load(p, s, errs):
@@ -511,6 +514,10 @@ def show_perf(s, args) -> list[str]:
     """The newest session's attribution: alloc, gaps, ledger, by state, memory, layouts, bench."""
     p, full, out = s["perf"], args.trace == 0, []
     out.append(f"session #{s.get('id')} {s.get('version')} build {s.get('build')}, {p.get('frames', 0)} frames")
+    tops = p.get("graceTop") or {}
+    out.append("graces (slowest frame; its slowest call): " + (", ".join(
+        f"{k} {num(v)} ms" + (f" ({tops[k].get('top')} {num(tops[k].get('topMs'))} ms)" if tops.get(k) else "")
+        for k, v in sorted((p.get("grace") or {}).items())) or "none"))
     top = alloc(p)
     out.append(f"alloc (top {len(top)} by KB/s, of {num(p.get('kbPerSec'))}):" if top else "alloc: none (no perf.alloc)")
     out += [f"  {a.get('name'):<28} {num(a.get('kbPerSec')):>8} KB/s  max {num(a.get('kbMax'))} KB/call  {a.get('calls')} calls"
