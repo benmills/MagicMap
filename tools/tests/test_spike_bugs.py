@@ -111,9 +111,10 @@ function T.Errs(ns, name)
 end
 
 -- Measure our frame alone: wraps Runtime's OnUpdate (the one OnUpdate the addon set) to sum
--- the Lua heap's growth and widget calls inside it. Returns a reader: frames, KB, calls.
+-- the Lua heap's growth and widget calls inside it. Returns a reader: frames, KB, calls, and
+-- the last frame's KB.
 function T.Ours(sim)
-	local m = { n = 0, kb = 0, calls = 0 }
+	local m = { n = 0, kb = 0, calls = 0, last = 0 }
 	for _, f in ipairs(sim.Frames()) do
 		local s = sim.state[f].scripts.OnUpdate
 		if s and f ~= Minimap then
@@ -121,11 +122,12 @@ function T.Ours(sim)
 			s.main = function(...)
 				local k0, c0 = collectgarbage("count"), sim.callTotal or 0
 				fn(...)
-				m.n, m.kb, m.calls = m.n + 1, m.kb + collectgarbage("count") - k0, m.calls + (sim.callTotal or 0) - c0
+				m.last = collectgarbage("count") - k0
+				m.n, m.kb, m.calls = m.n + 1, m.kb + m.last, m.calls + (sim.callTotal or 0) - c0
 			end
 		end
 	end
-	return function() return m.n, m.kb, m.calls end
+	return function() return m.n, m.kb, m.calls, m.last end
 end
 
 return T

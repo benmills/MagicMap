@@ -160,6 +160,10 @@ def test_telemetry_sim(tmp_path, capsys):
     assert a.w > 0 and a.left is not None and a.screenW == 1920 and a.big is False and len(shot.motion) == 120
     p = s.perf
     assert p.ourKBLoad == 2400 and p.ourKB == 2400 and p.grace.gc is not None  # the sim's GetAddOnMemoryUsage
+    # What Data and Atlas load to (garbage included), the sim's measure of memory: with the QuestieDB-derived
+    # files (gitignored), D3's diet holds it (25-28 MB; 43.5 before it).
+    if os.path.exists(os.path.join(os.path.dirname(__file__), "..", "..", "Data", "Npcs.lua")):
+        assert s.boot.loadKB < 36 * 1024, s.boot.loadKB
     assert p.graceTop.map.top.startswith("map: ")  # opened during login's grace: the first open's frames are map's
     assert [(e.k, e.d if isinstance(e.d, str) else e.d.fn) for e in s.kept.values()] == [
         ("taint", "Minimap:Hide()"), ("taint", "Minimap:Hide()"), ("art", "redbutton-expand-c60")]

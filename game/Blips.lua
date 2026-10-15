@@ -38,7 +38,8 @@ local YD = 1 / Atlas.TILE_YARDS
 local SAME, LAG = 6 * YD, 8 * YD -- a measure this close to a known one of its name is that one; the client's lag moving
 
 local blips = {}     -- { name, pos = { inst, col, row }, rough, icon, seen }
-local out = { list = blips, sweep = 0, reach = 0 } -- obs.blips
+local center = {}
+local out = { list = blips, sweep = 0, reach = 0 } -- obs.blips (its center refilled each sweep)
 local grid, gridW, gridH, gridHalf = {}, nil, nil, nil -- x, y, x, y... (Minimap units)
 local px, drifted = SQUARE, false
 local sweepId, at, rest, frames, probes = 1, 0, 0, 0, 0 -- at: the point being visited, 0 between sweeps
@@ -258,7 +259,8 @@ local function EndSweep()
 	end
 	sweepId = sweepId + 1
 	out.sweep, out.reach = out.sweep + 1, g.r * YD
-	out.center = { inst = g.inst, col = g.col, row = g.row }
+	center.inst, center.col, center.row = g.inst, g.col, g.row
+	out.center = center
 	rest = GetTime() + REST
 	Changed()
 	Runtime.Trace("blips", { sweep = out.sweep, blips = #blips, yd = math.floor(g.r + 0.5), frames = frames, probes = probes })

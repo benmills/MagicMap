@@ -75,7 +75,7 @@ no names with the MagicMap spike, so both can be enabled.
   guarantees: an effective scale is > 0).
   Fix at the source first: `Atlas.Camera.Fit` takes a minimum span, so one point fits.
   `tools/lint_div.py` (in `tools/check.sh`) fails on any other `/`; `MM_STRICT=1` makes
-  the sim raise as the client does.
+  the sim raise as the client does (check.sh, so CI, runs the tests both ways).
 - **Atlas first use.** A whole-table Atlas index (built by walking every row of a Data
   table of thousands: NPCs, objects, items, quests, areas) is built offline, by its
   generator into Data/, or takes `step` and calls it every 128 rows, so a caller in a

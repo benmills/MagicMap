@@ -132,8 +132,9 @@ local POINT_X = { LEFT = 0, TOPLEFT = 0, BOTTOMLEFT = 0, CENTER = 0.5, TOP = 0.5
 local POINT_Y = { BOTTOM = 0, BOTTOMLEFT = 0, BOTTOMRIGHT = 0, CENTER = 0.5, LEFT = 0.5, RIGHT = 0.5, TOP = 1, TOPLEFT = 1, TOPRIGHT = 1 }
 
 -- Screen rect (pixels from the bottom-left): left, bottom, width, height.
--- Allocates nothing (the client's layout costs no Lua memory; allocation per frame is measured).
-local resolving = {}
+-- Allocates nothing (the client's layout costs no Lua memory; allocation per frame is measured):
+-- the anchors being resolved (a cycle answers nil) are a stack, an array: a hash set's new keys rehash.
+local resolving, depth = {}, 0
 -- One axis from its anchors: the first (fa at va) and the last whose fraction differs (fb at vb).
 local function solve(fa, va, fb, vb, size)
 	if fa and fb then
@@ -145,12 +146,15 @@ local function solve(fa, va, fb, vb, size)
 end
 local function rect(obj)
 	if obj == Sim.UIParent then return 0, 0, UI_W, UI_H end
-	if resolving[obj] then return nil end
+	for i = 1, depth do
+		if resolving[i] == obj then return nil end
+	end
 	local st = S[obj]
 	local scale = effScale(obj)
 	local w, h = st.width and st.width * scale, st.height and st.height * scale
 	local xfa, xva, xfb, xvb, yfa, yva, yfb, yvb
-	resolving[obj] = true
+	depth = depth + 1
+	resolving[depth] = obj
 	local points = st.points
 	for i = 1, #points do
 		local p = points[i]
@@ -164,7 +168,7 @@ local function rect(obj)
 			if not yfa then yfa, yva = fy, y elseif fy ~= yfa then yfb, yvb = fy, y end
 		end
 	end
-	resolving[obj] = nil
+	depth = depth - 1
 	local left, width = solve(xfa, xva, xfb, xvb, w)
 	local bottom, height = solve(yfa, yva, yfb, yvb, h)
 	if not (left and bottom) then return nil end
