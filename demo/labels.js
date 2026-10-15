@@ -108,7 +108,7 @@ function setFont(text, st, size) {
 // above / below; a town or landmark beside its pin (right, left, above, below).
 function spots(l, w, h) {
   if (l.tier === "town" || l.tier === "poi") {
-    const g = 10; // clear of its own pin (PIN_R.poi + pad)
+    const g = PIN_R.poi + LABEL_STYLE.pad; // clear of its own pin
     return [[0, 0], [g + w / 2, 0], [-g - w / 2, 0], [0, -g - h / 2], [0, g + h / 2]];
   }
   const dx = Math.min(w * 0.35, 40), dy = h * 1.1;

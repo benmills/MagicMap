@@ -24,25 +24,38 @@ file is a global table, written by a generator in `tools/` from one game build
 
 ## Files
 
-### Data/Sea.lua — `MagicMap_Sea` (ADT MH2O ocean + MCVT heights, minimap tiles) and Textures/Sea
-`{ product, version, dir, maps = { [inst] = { shallow, deep, masks, open } } }`
-- One ocean under the tiles. Sea = an "Ocean" LiquidType over the ground, per terrain
-  quad (8x8 per chunk, 128x128 per tile, ~4 yd); depth = its surface − the ground.
-  Lakes and rivers aren't sea (the art draws them). Off the map's tiles: deep sea.
-- shallow, deep: `{ r, g, b }` sampled from the art itself (medians over sea 4–12 /
-  ≥ 60 yd deep); deep ≤ shallow per channel.
-- masks: `[key] = true` for tiles with a 128x128 TGA `dir .. inst .. "_" .. key .. ".tga"`:
-  alpha = land (1 land, 0 sea; the coast a Gaussian feather of 2 quads; piers and
-  ships over the sea kept as land), grey = shelf = exp(−depth / 28 yd), 1 at the shore
-  and on land. Sea colour = deep + shelf × (shallow − deep).
-- open: `[key] = true` for tiles that are all deep sea: draw no art. Any other tile is
-  all land: its art as it is.
-- Drawn with textures only: a solid `deep` under the map; per masked tile the mask
-  opaque (blend DISABLE) tinted shallow − deep plus a solid `deep` added (ADD); then
-  the art with the mask as its MaskTexture (alpha). Maps with < 4 open-sea tiles get none.
-- `Atlas.Sea(inst)` → the map's entry; `Atlas.SeaTile(inst, key)` → `"coast", maskPath`
-  | `"open"` | `"land"` (nil without sea). Supersedes TileColor's water masks (kept for
-  the demo's `before`).
+### Data/TileColor.lua — `MagicMap_TileColor` (minimap tiles)
+`[inst] = { tint, edge, sea }`, key = col * 64 + row
+- tint[key] = `{ mr, mg, mb, ar, ag, ab }`: drawn = texel * m + a, for tiles whose baked
+  lighting is off from their neighbours' (open-world maps; only those that need it).
+- edge[key] = `{ l = {r,g,b}, ... }`: the median of the outer 0.08 tile on each side facing
+  open space (no tile or a sea tile), after the tint.
+- sea[key] = true: open-sea tiles (the art's flat deep water all over, or that plus a frame):
+  not drawn; `Atlas.Drawn` is false there. The art's own water is otherwise left as it is.
+
+### Data/Sea.lua — `MagicMap_Sea` (minimap tiles, ADT MH2O ocean + MCVT heights) and Textures/Sea
+`{ product, version, dir, variants, gain, feather, maps = { [inst] = { tint, far, coast } } }`
+- The open sea beyond the tiles (no tile, or TileColor sea[]), continuing the art's own water:
+  the art is drawn as it is and the sea fills the rest. Open-world maps with ≥ 4 open-sea
+  tiles and ocean in the terrain (Eastern Kingdoms, Kalimdor).
+- `dir .. inst .. "_ocean" .. v .. ".blp"`, v = 0..variants-1: 256 px grey DXT1 BLPs with mips,
+  seamless, one repeat per tile, mean `gain`: brightness synthesised from the map's own water
+  (art over ocean 6–45 yd deep: the seabed showing through; the art's deep sea is one flat
+  colour), rocks and wrecks removed. Every variant equals variant 0 near its edges, so any
+  variant sits beside any other. `Atlas.SeaVariant(col, row)` picks one per cell by a hash.
+- `dir .. inst .. "_tint.tga"`: the sea's colour / gain, 4 px per tile over
+  tint = `{ col0, row0, col1, row1 }` (the tiles and 8 around): along each coast side the art's
+  own water there (by quarter tile), fading within about a tile to the art's open-sea colour,
+  a little darker far out and gently varied. far = its border colour (0..255), for beyond it.
+- coast[key] = code: tiles with a side (bits 1 l, 2 r, 4 t, 8 b) or only a corner (16 tl, 32 tr,
+  64 bl, 128 br) touching the sea; `dir .. "feather_" .. code .. ".tga"` (64 px, white) is the
+  art's mask: 0 at those sides, smoothstep to 1 over `feather` of a tile.
+- Drawn with textures only: per sea cell its variant (world-anchored); over the view variant 0
+  REPEAT at a repeat every 2.7 tiles, turned a quarter, at alpha 0.35; the tint map with
+  SetBlendMode("MOD"); then the tiles, coast tiles with their feather as MaskTexture. See
+  tools/gen_sea.py and demo/tiles.js.
+- `Atlas.Sea(inst)` → `{ textures, gain, tint, rect, far }` (far 0..1) or nil;
+  `Atlas.SeaFeather(inst, key)` → mask path or nil.
 
 ### Data/UiMaps.lua — `MagicMap_UiMaps` (UiMap + UiMapAssignment DB2)
 `[uiMapID] = { name, mapType, parent, inst, col0, row0, col1, row1, areaID }`

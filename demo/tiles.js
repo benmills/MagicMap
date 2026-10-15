@@ -1,120 +1,98 @@
-// Tiles and the sea under them: which copy to draw, baked once, within a pixel budget.
+// Tiles and the sea around them: which copy to draw, baked once, within a pixel budget.
 // Shares the page's globals (cam, ctx, dpr, toScreen, ...): classic scripts, one scope.
 
-// The sea (Atlas.Sea / Data/Sea.lua, made by tools/gen_sea.py from the terrain's ocean and depth).
-// The addon draws it with plain textures, and this draws the same:
-//   1. the ocean: a solid texture of `deep` under the map (SetColorTexture).
-//   2. per coast tile: its mask (128px: grey = shelf, alpha = land) with SetBlendMode("DISABLE") and
-//      vertex colour shallow - deep, then a solid `deep` with SetBlendMode("ADD"):
-//      sea = deep + shelf * (shallow - deep), shallow over the shelf, deep further out.
-//   3. the tile's art (tinted by vertex colour) with the mask as its MaskTexture (AddMaskTexture):
-//      land shows, the art's own water becomes our sea, and the coast fades over FEATHER yards.
-//   Open-sea tiles draw no art; other tiles are all land, drawn as they are.
-// colours: null = the map's own, sampled from the art's water. shelf and feather are baked into the
-// masks by gen_sea.py (SHELF, FEATHER); other values here remap the baked ones (for tuning only:
-// the addon would regenerate the masks with them).
+// The sea (Atlas.Sea / Data/Sea.lua, made by tools/gen_sea.py). The tiles' art is drawn as it is, its
+// own water included; the sea continues it where there is no art: off the tiles, and over the art's
+// open-sea tiles (TileColor sea[]: flat, not drawn). The addon draws it with plain textures, and this
+// draws the same:
+//   1. per sea cell in view: a tiling water texture (grey, mean `gain`), variant Atlas.SeaVariant(col,
+//      row): any variant fits beside any other (they share their edges). World-anchored, one repeat per
+//      tile (SetTexCoord the whole texture). Here: one pattern fill per variant, the cells as one path.
+//   2. over them, one texture filling the view: variant 0, SetTexture(path, "REPEAT", "REPEAT") with
+//      SetTexCoord scaled by the zoom to a repeat every `macro` tiles, turned a quarter, at alpha
+//      `macroAlpha`: the repeat stops lining up with the cells.
+//   3. the tint map (the sea's colour / gain, 4 px a tile: the art's water along each coast, spreading
+//      out to the art's open-sea colour, a little darker and gently varied far out) with
+//      SetBlendMode("MOD") over the view; past its rect, its border colour `far` (CLAMP).
+//   4. the tiles' art; on a coast tile AddMaskTexture(feather_<code>.tga): its sides facing the sea
+//      fade out over `feather` of a tile into the sea under it. The masks are baked by gen_sea.py
+//      (FEATHER); here they're made from SEA_STYLE.feather, for tuning.
+// `before`: the previous look, the art on the backdrop colour with no sea and no fades.
 const SEA_STYLE = {
-  deep: null,       // [r, g, b] 0..1: open water
-  shallow: null,    // [r, g, b] 0..1: over the shelf, at the shore
-  shelf: 28,        // yards: shelf = exp(-depth / shelf); gen_sea.py SHELF = 28
-  feather: 2,       // the coast's softness, Gaussian sigma in mask px (~4 yd); gen_sea.py FEATHER = 2
+  detail: 1,        // 0..1: the water texture's contrast (1: as sampled from the art's seabed)
+  macro: 2.7,       // tiles per repeat of the second layer
+  macroAlpha: 0.35,
+  variants: true,   // false: variant 0 in every cell (to see the repetition the variants hide)
+  tint: true,       // false: no tint map (the texture's own grey, to see it)
+  feather: 0.15,    // tiles: the coast's fade; gen_sea.py FEATHER = 0.15
 };
-const BAKED_SHELF = 28, BAKED_FEATHER = 2;
 
 // Tiles: the smallest copy that's still sharp at this zoom (64, 128, 256, or the 512 original),
-// baked once (tint, sea or water), kept within a pixel budget so a phone's canvas memory holds.
+// baked once (tint, coast fade), kept within a pixel budget so a phone's canvas memory holds.
 const SIZES = [64, 128, 256, 512], BUDGET = 40e6, MAX_LOADING = 12;
 const baked = new Map(); // "key@size" (+ "b" before) -> canvas, oldest use first
 let bakedPx = 0, loading = 0, frameNo = 0;
-let sea = null; // { deep, shallow, masks: Set, open: Set } for INST, or null: no sea there
+// The sea of INST, or null: { rect, far, gain, variants, coast: Map key -> code, tint: img,
+// ocean: [variant][lod] -> img }
+let sea = null;
+const OCEAN_SIZES = [32, 64, 128, 256], CELLS_MIN_PX = 48; // device px a tile: below, one fill
 const used = new Map(); // "key@size" -> frameNo last drawn
 const want = () => SIZES.find((s) => s >= cam.zoom * dpr) || 512;
 const url = (key, size) => size === 512 ? `tiles/${INST}/${key}.webp` : `tiles/${INST}/${size}/${key}.webp`;
 const withSea = () => !before && sea;
 const canvas2d = (w) => { const c = document.createElement("canvas"); c.width = c.height = w; return c; };
+const smoothstep = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
 
-// Remaps from the baked shelf and feather to SEA_STYLE's, as 256-entry tables.
-// Shelf: exp(-d / a) ** (a / b) = exp(-d / b). Coast: the baked alpha is Phi(distance / BAKED_FEATHER).
-const erf = (x) => { // Abramowitz & Stegun 7.1.26
-  const t = 1 / (1 + 0.3275911 * Math.abs(x));
-  const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
-  return x < 0 ? -y : y;
-};
-const phi = (x) => 0.5 * (1 + erf(x / Math.SQRT2));
-function phiInv(p) { let lo = -8, hi = 8; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (phi(m) < p) lo = m; else hi = m; } return lo; }
-let luts = null;
-function seaLuts() {
-  const key = `${SEA_STYLE.shelf}/${SEA_STYLE.feather}`;
-  if (luts && luts.key === key) return luts;
-  const shelf = new Float32Array(256), land = new Uint8ClampedArray(256), k = BAKED_FEATHER / SEA_STYLE.feather;
-  for (let i = 0; i < 256; i++) {
-    shelf[i] = (i / 255) ** (BAKED_SHELF / SEA_STYLE.shelf);
-    land[i] = i === 0 || i === 255 ? i : 255 * phi(phiInv(i / 255) * k);
+// A coast tile's fade (gen_sea.py feather_mask): alpha 0 at each side the code names (bits 1 l, 2 r,
+// 4 t, 8 b), 1 within `feather`; a corner bit (16 tl, 32 tr, 64 bl, 128 br) cuts that corner round.
+const masks = new Map(); // code -> 64px canvas
+function featherMask(code) {
+  const id = `${code}/${SEA_STYLE.feather}`;
+  if (masks.has(id)) return masks.get(id);
+  const n = 64, c = canvas2d(n), g = c.getContext("2d"), img = g.createImageData(n, n), f = SEA_STYLE.feather;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const u = (x + 0.5) / n, v = (y + 0.5) / n;
+    const l = smoothstep(0, f, u), r = smoothstep(0, f, 1 - u), t = smoothstep(0, f, v), b = smoothstep(0, f, 1 - v);
+    let a = 1;
+    if (code & 1) a *= l; if (code & 2) a *= r; if (code & 4) a *= t; if (code & 8) a *= b;
+    if (code & 16) a *= Math.max(t, l); if (code & 32) a *= Math.max(t, r);
+    if (code & 64) a *= Math.max(b, l); if (code & 128) a *= Math.max(b, r);
+    const i = (y * n + x) * 4;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = 255; img.data[i + 3] = Math.round(255 * a);
   }
-  return (luts = { key, shelf, land });
+  g.putImageData(img, 0, 0);
+  masks.set(id, c);
+  return c;
 }
 
-// A coast tile's sea mask (red = shelf, green = land; see export_tiles.py) as two mask-sized canvases:
-// the sea's colour, and the land as alpha.
-function seaLayers(mask) {
-  const n = mask.width, color = canvas2d(n), land = canvas2d(n);
-  const cg = color.getContext("2d", { willReadFrequently: true });
-  cg.drawImage(mask, 0, 0);
-  const px = cg.getImageData(0, 0, n, n), d = px.data, al = new ImageData(n, n), a = al.data;
-  const { shelf, land: lut } = seaLuts(), deep = sea.deep, sh = sea.shallow;
-  for (let i = 0; i < d.length; i += 4) {
-    const s = shelf[d[i]];
-    a[i] = a[i + 1] = a[i + 2] = 255; a[i + 3] = lut[d[i + 1]];
-    for (let k = 0; k < 3; k++) d[i + k] = 255 * (deep[k] + s * (sh[k] - deep[k]));
-  }
-  cg.putImageData(px, 0, 0);
-  land.getContext("2d").putImageData(al, 0, 0);
-  return [color, land];
-}
-
-// The tile's art (tinted), then before: the backdrop over its water (Textures/Water); with the sea:
-// the art through the land on the sea's colour.
-function bake(t, img, mask, seaMask) {
+// The tile's art (tinted: texel * m + a), and with the sea its coast fade.
+function bake(t, img) {
   const n = img.width, c = canvas2d(n), g = c.getContext("2d");
   g.drawImage(img, 0, 0);
-  if (t.tint) { // texel * m + a
+  if (t.tint) {
     g.globalCompositeOperation = "multiply"; g.fillStyle = rgb(t.tint.slice(0, 3)); g.fillRect(0, 0, n, n);
     g.globalCompositeOperation = "lighter"; g.fillStyle = rgb(t.tint.slice(3)); g.fillRect(0, 0, n, n);
   }
-  if (mask) { // the backdrop colour where the mask says so
-    const m = canvas2d(n), mg = m.getContext("2d");
-    mg.drawImage(mask, 0, 0, n, n);
-    mg.globalCompositeOperation = "source-in"; mg.fillStyle = bg; mg.fillRect(0, 0, n, n);
-    g.globalCompositeOperation = "source-over"; g.drawImage(m, 0, 0);
-    m.width = m.height = 0;
+  const code = withSea() && sea.coast.get(t.key);
+  if (code) {
+    g.globalCompositeOperation = "destination-in"; g.imageSmoothingQuality = "high";
+    g.drawImage(featherMask(code), 0, 0, n, n);
   }
-  if (!seaMask) return c;
-  const [color, land] = seaLayers(seaMask), out = canvas2d(n), og = out.getContext("2d");
-  og.imageSmoothingQuality = g.imageSmoothingQuality = "high";
-  og.drawImage(color, 0, 0, n, n);
-  g.globalCompositeOperation = "destination-in"; g.drawImage(land, 0, 0, n, n);
-  og.drawImage(c, 0, 0);
-  for (const x of [c, color, land]) x.width = x.height = 0;
-  return out;
+  return c;
 }
 
 function load(t, size, id) {
   baked.set(id, null); loading++;
-  const img = new Image(), seaMask = withSea() && sea.masks.has(t.key) ? new Image() : null;
-  const mask = !withSea() && t.water ? new Image() : null;
-  let n = 1 + !!mask + !!seaMask;
-  const done = () => {
-    if (--n) return;
-    loading--;
+  const img = new Image();
+  img.onload = img.onerror = () => {
+    img.onload = img.onerror = null; loading--;
     if (!img.naturalWidth) { baked.set(id, false); return draw(); } // missing: don't ask again
-    const c = bake(t, img, mask, seaMask);
+    const c = bake(t, img);
     baked.set(id, c); bakedPx += c.width * c.height;
-    for (const x of [img, mask, seaMask]) if (x) x.src = "";
+    img.src = "";
     evict(); draw();
   };
-  img.onload = img.onerror = done; img.src = url(t.key, size);
-  if (mask) { mask.onload = mask.onerror = done; mask.src = `tiles/${INST}/water_${t.key}.png`; }
-  if (seaMask) { seaMask.onload = seaMask.onerror = done; seaMask.src = `tiles/${INST}/sea_${t.key}.webp`; }
+  img.src = url(t.key, size);
 }
 
 function evict() {
@@ -137,13 +115,72 @@ function tileImage(t, size) {
   }
 }
 
+// Atlas.SeaVariant (Lua's % is floored: so is this).
+const mod = (a, m) => ((a % m) + m) % m;
+function seaVariant(col, row) {
+  if (!SEA_STYLE.variants) return 0;
+  let h = mod(col * 1619 + row * 31337 + 1013, 65521);
+  h = mod(h * h + col * 7, 65521);
+  return h % sea.variants;
+}
+
+// A variant's pattern at the copy that suits `px` device pixels a repeat, anchored so a repeat is
+// `tiles` tiles (turned a quarter if `turn`) from world (0, 0), or `at`.
+const patterns = new Map();
+function oceanPattern(v, px, tiles, turn, at = [0, 0]) {
+  const size = OCEAN_SIZES.find((s) => s >= px) || 256, id = `${v}@${size}`;
+  let p = patterns.get(id);
+  if (!p) {
+    const img = sea.ocean[v][size];
+    if (!img.naturalWidth) return null;
+    p = ctx.createPattern(img, "repeat"); patterns.set(id, p);
+  }
+  const k = cam.zoom * tiles / size, [x, y] = toScreen(...at);
+  p.setTransform(turn ? new DOMMatrix([0, k, -k, 0, x, y]) : new DOMMatrix([k, 0, 0, k, x, y]));
+  return p;
+}
+
+// The sea under the whole view: the cells' textures, the larger layer, the tint.
+function drawSea(drawn) {
+  const s = SEA_STYLE, g = Math.round(sea.gain * 255);
+  ctx.fillStyle = `rgb(${g},${g},${g})`; ctx.fillRect(0, 0, W, H);
+  ctx.globalAlpha = s.detail;
+  const px = cam.zoom * dpr;
+  if (px < CELLS_MIN_PX) { // too small for the variants to matter: one fill
+    const p = oceanPattern(0, px, 1, false);
+    if (p) { ctx.fillStyle = p; ctx.fillRect(0, 0, W, H); }
+  } else {
+    const [c0, r0] = toTile(0, 0), [c1, r1] = toTile(W, H), paths = [];
+    for (let c = Math.floor(c0); c <= Math.floor(c1); c++) for (let r = Math.floor(r0); r <= Math.floor(r1); r++) {
+      const key = c * 64 + r;
+      if (c >= 0 && c < 64 && r >= 0 && r < 64 && drawn.has(key) && !sea.coast.has(key)) continue; // under art
+      const v = seaVariant(c, r), [x, y] = toScreen(c, r);
+      const sx = Math.round(x * dpr) / dpr, sy = Math.round(y * dpr) / dpr;
+      const ex = Math.round((x + cam.zoom) * dpr) / dpr, ey = Math.round((y + cam.zoom) * dpr) / dpr;
+      (paths[v] ||= new Path2D()).rect(sx, sy, ex - sx, ey - sy);
+    }
+    paths.forEach((path, v) => { const p = oceanPattern(v, px, 1, false); if (p) { ctx.fillStyle = p; ctx.fill(path); } });
+  }
+  const macro = oceanPattern(0, px * s.macro, s.macro, true, [0.37, 0.61]);
+  if (macro) { ctx.globalAlpha = s.detail * s.macroAlpha; ctx.fillStyle = macro; ctx.fillRect(0, 0, W, H); }
+  ctx.globalAlpha = 1;
+  if (!s.tint) return;
+  ctx.globalCompositeOperation = "multiply";
+  const [c0, r0, c1, r1] = sea.rect, [x0, y0] = toScreen(c0, r0), [x1, y1] = toScreen(c1, r1);
+  const outside = new Path2D(); outside.rect(0, 0, W, H); outside.rect(x0, y0, x1 - x0, y1 - y0);
+  ctx.fillStyle = rgb(sea.far); ctx.fill(outside, "evenodd");
+  if (sea.tint.naturalWidth) { ctx.imageSmoothingEnabled = true; ctx.drawImage(sea.tint, x0, y0, x1 - x0, y1 - y0); }
+  ctx.globalCompositeOperation = "source-over";
+}
+
 // The sea (or before: the backdrop), then the land, centre first, so a slow connection fills in from
 // where you're looking.
 function drawTiles() {
-  ctx.fillStyle = withSea() ? rgb(sea.deep) : bg; ctx.fillRect(0, 0, W, H);
+  const drawable = withSea() ? tiles.filter((t) => !t.sea) : tiles;
+  if (withSea()) drawSea(new Set(drawable.map((t) => t.key)));
+  else { ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H); }
   const [c0, r0] = toTile(0, 0), [c1, r1] = toTile(W, H), size = want();
-  const open = (t) => withSea() ? sea.open.has(t.key) : t.sea;
-  const vis = tiles.filter((t) => !open(t) && t.col + 1 >= c0 && t.col <= c1 && t.row + 1 >= r0 && t.row <= r1);
+  const vis = drawable.filter((t) => t.col + 1 >= c0 && t.col <= c1 && t.row + 1 >= r0 && t.row <= r1);
   vis.sort((a, b) => Math.hypot(a.col + .5 - cam.cx, a.row + .5 - cam.cy) - Math.hypot(b.col + .5 - cam.cx, b.row + .5 - cam.cy));
   ctx.imageSmoothingQuality = "high";
   for (const t of vis) {
@@ -160,6 +197,10 @@ function drawTiles() {
 async function loadTiles() {
   const [t, s] = await Promise.all([get(`/api/tiles?inst=${INST}`), get(`/api/sea?inst=${INST}`)]);
   tiles = t.tiles.map((x) => ({ ...x, col: Math.floor(x.key / 64), row: x.key % 64 }));
-  sea = s && { deep: SEA_STYLE.deep || s.deep, shallow: SEA_STYLE.shallow || s.shallow,
-    masks: new Set(s.masks), open: new Set(s.open) };
+  if (!s) return;
+  const image = (src) => { const i = new Image(); i.onload = draw; i.src = src; return i; };
+  sea = { ...s, coast: new Map(Object.entries(s.coast).map(([k, c]) => [+k, c])),
+    tint: image(`tiles/${INST}/ocean_tint.png`),
+    ocean: Array.from({ length: s.variants }, (_, v) => Object.fromEntries(OCEAN_SIZES.map((n) =>
+      [n, image(n === 256 ? `tiles/${INST}/ocean${v}.webp` : `tiles/${INST}/${n}/ocean${v}.webp`)]))) };
 }

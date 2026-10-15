@@ -225,7 +225,7 @@ class CascStore:
             pos += 16 * n
             if not content_flags & 0x10000000:  # named: a name hash per file
                 pos += 8 * n
-            if not locale_flags & 0x2:  # enUS only
+            if not locale_flags & 0x2 or content_flags & 0x80:  # enUS only; not the low-violence variant
                 continue
             fdid = -1
             for i, d in enumerate(struct.unpack_from(f"<{n}i", root, deltas_at)):

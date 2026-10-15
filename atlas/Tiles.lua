@@ -54,8 +54,7 @@ function Atlas.Drawn(inst, key)
 end
 
 -- tint: drawn colour = texel * m + a, for tiles baked off from their neighbours.
--- edge: each open side's mean colour, to spill outward. sea: backdrop all over.
--- water: a mask (at mask) tinted the backdrop pulls shallow water toward the sea.
+-- edge: each open side's mean colour, to spill outward. sea: open sea all over (not drawn).
 local info = {} -- [inst][key] -> info | false
 function Atlas.TileInfo(inst, key)
 	local cache = info[inst]
@@ -70,10 +69,8 @@ function Atlas.TileInfo(inst, key)
 		t = false
 		if fdid then
 			local c = MagicMap_TileColor and MagicMap_TileColor[inst] or {}
-			local water = c.water and c.water[key] and true or false
 			t = { fdid = fdid, tint = c.tint and c.tint[key], edge = c.edge and c.edge[key],
-				sea = c.sea and c.sea[key] and true or false, water = water,
-				mask = water and c.waterDir .. inst .. "_" .. key .. ".tga" or nil }
+				sea = c.sea and c.sea[key] and true or false }
 		end
 		cache[key] = t
 	end

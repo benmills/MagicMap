@@ -6,8 +6,8 @@ them.
   .venv/bin/python demo/server.py [port]      # then open http://localhost:8000
 
   /api/maps                          Atlas.Maps, with Continent and Zones per inst
-  /api/tiles?inst=                   TileBounds, and TileInfo per tile (tint, sea, water)
-  /api/sea?inst=                     Sea: its colours, the coast tiles (masked) and the open-sea ones
+  /api/tiles?inst=                   TileBounds, and TileInfo per tile (tint, sea)
+  /api/sea?inst=                     Sea: its tint rect and far colour, variants, gain; SeaFeather's code per coast tile
   /api/borders?inst=                 Borders lines and far (zone borders, two levels of detail)
   /api/zone-outline?inst=&zone=      ZoneOutline: a zone's land as rings
   /api/labels?inst=                  Atlas.Labels: ranked name anchors (continent, zone, town, subzone, poi)
@@ -65,7 +65,7 @@ def tiles(q):
     out = []
     for key in Atlas.Tiles(inst).keys():
         t = Atlas.TileInfo(inst, key)
-        out.append({"key": key, "tint": py(t.tint), "sea": t.sea, "water": t.water})
+        out.append({"key": key, "tint": py(t.tint), "sea": t.sea})
     return {"bounds": list(Atlas.TileBounds(inst)), "tiles": out}
 
 
@@ -75,7 +75,12 @@ def sea(q):
     m = Atlas.Sea(inst)
     if not m:
         return None
-    return {"shallow": py(m.shallow), "deep": py(m.deep), "masks": list(m.masks.keys()), "open": list(m.open.keys())}
+    coast = {}
+    for key in Atlas.Tiles(inst).keys():
+        path = Atlas.SeaFeather(inst, key)
+        if path:
+            coast[key] = int(path.rsplit("_", 1)[1][:-4])  # feather_<code>.tga
+    return {"rect": py(m.rect), "far": py(m.far), "gain": m.gain, "variants": len(m.textures), "coast": coast}
 
 def borders(q):
     inst = int(q["inst"])
@@ -206,7 +211,7 @@ def pins(q):
                     if layer == "rare":
                         pin["mark"] = e.rank
             else:
-                pin.update(name=p["name"], faction=p.get("faction"), description=p.get("description"))
+                pin.update(name=p["name"], faction=p.get("faction"), description=p.get("description"), icon=p.get("icon"))
             out.append(pin)
             if len(seen) >= PIN_CAP:
                 break

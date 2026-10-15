@@ -47,7 +47,8 @@
   .tag.npc { background: #9fd18b; } .tag.quest { background: #ffd200; } .tag.object { background: #8fd3ff; }
   .tag.item { background: #d6a8ff; } .tag.flight { background: #7fb2ff; }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px; color: #aaa; font-size: 12px; }
-  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .legend div { flex-basis: 100%; }
   #hl { display: flex; align-items: center; gap: 4px; padding-left: 12px; min-height: 44px; max-width: 360px; box-sizing: border-box;
     border-radius: 8px; border: 1px solid #6a3a66; background: #2a1428; color: #ffb8f8; font-size: 14px; }
   #hl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
@@ -156,8 +157,7 @@ function frame() {
   ctx.globalAlpha = quiet.a;
   for (const [i, [p, x, y]] of onScreen.entries()) {
     if (covered.has(i)) continue; // under a name that wins over it
-    if (quiet.s === 1) { drawPin(ctx, p.layer, p, x, y); continue; }
-    ctx.save(); ctx.translate(x, y); ctx.scale(quiet.s, quiet.s); drawPin(ctx, p.layer, p, 0, 0); ctx.restore();
+    drawPin(ctx, p.layer, p, x, y, quiet.s);
   }
   ctx.globalAlpha = 1;
   if (highlight) drawHighlight();
@@ -170,69 +170,79 @@ function frame() {
 }
 
 
-// Pins: plain vector shapes, coloured by faction where it has one.
-const FACTION = { A: "#4a8cff", H: "#ff4d40", AH: "#f2c94c" }, NO_FACTION = "#c8c8c8";
+// Pins: the game's own map icons, cut by tools/export_icons.py into demo/icons (one sheet + a
+// manifest). Which icon a pin gets is a UI choice, so the table is here; export_icons.py reads it
+// to export exactly these. A value is a UiTextureAtlasMember name, all cut from ObjectIconsAtlas
+// (1121272) in this build; the addon draws one with tex:SetAtlas(name). A POI uses its own Icon:
+// cell N of Interface/Minimap/POIIcons (136441), 14 cells of 18 px a row; the addon:
+// tex:SetTexture(136441); tex:SetTexCoord(x / 256, (x + 18) / 256, y / 512, (y + 18) / 512)
+// with x = N % 14 * 18, y = floor(N / 14) * 18 (the game's GetPOITextureCoords).
+const GAME_ICON = {
+  flight: { A: "taxinode_alliance", H: "taxinode_horde", AH: "taxinode_neutral", none: "taxinode_neutral" },
+  dungeon: { dungeon: "dungeon", raid: "raid", battleground: "battlemaster" },
+  service: { innkeeper: "innkeeper", flightmaster: "flightmaster", banker: "banker", auctioneer: "auctioneer",
+    stablemaster: "stablemaster", trainer: "profession", repair: "repair" },
+  quest: "questnormal",
+  rare: { 4: "vignettekill", 2: "vignettekillelite" },
+  mail: "mailbox", herb: "professions_tracking_herb", ore: "professions_tracking_ore",
+};
+// Drawn size per layer, px (the icon's longer side), near the game's map and minimap icons.
+const PIN_SIZE = { flight: 20, poi: 18, dungeon: 24, rare: 22, service: 18, quest: 20, mail: 14, herb: 16, ore: 16 };
+const PIN_R = Object.fromEntries(Object.entries(PIN_SIZE).map(([k, s]) => [k, s / 2])); // half a pin's box, px
+// Icons that don't show a faction themselves sit on a soft glow of its colour (the addon: a
+// feathered disc texture under the icon, SetVertexColor per faction).
+const FACTION = { A: "#4a8cff", H: "#ff4d40", AH: "#f2c94c" }, TINTED = new Set(["service", "quest"]);
 const FACTION_NAME = { A: "Alliance", H: "Horde", AH: "Alliance & Horde" };
-const SERVICE_LETTER = { innkeeper: "I", flightmaster: "F", banker: "B", auctioneer: "A", stablemaster: "S", trainer: "T", repair: "R" };
-const DUNGEON = { dungeon: ["#9b59ff", "D"], raid: ["#ff8a1f", "R"], battleground: ["#1fbf9a", "B"] };
+const SERVICE_NAME = { innkeeper: "Inn", flightmaster: "Flight master", banker: "Bank", auctioneer: "Auction",
+  stablemaster: "Stable", trainer: "Trainer", repair: "Repair" };
 const RANK = { 1: "Elite", 2: "Rare elite", 3: "Boss", 4: "Rare" };
 const LAYERS = [ // id, name, shown from this zoom (px per tile), a sample pin for the legend
-  ["flight", "Flight points", 0, { faction: "A" }], ["poi", "Points of interest", 0, {}],
+  ["flight", "Flight points", 0, { faction: "A" }], ["poi", "Points of interest", 0, { icon: 6 }],
   ["dungeon", "Dungeon entrances", 0, { mark: "dungeon" }], ["rare", "Rares", 48, { mark: 4 }],
-  ["service", "Town services", 96, { faction: "A", mark: "innkeeper" }], ["quest", "Quest givers", 160, {}],
+  ["service", "Town services", 96, { mark: "innkeeper" }], ["quest", "Quest givers", 160, {}],
   ["mail", "Mailboxes", 160, {}], ["herb", "Herbs", 256, {}], ["ore", "Ore", 256, {}],
 ];
-const PIN_R = { flight: 8, poi: 5, dungeon: 8, rare: 8, service: 8, quest: 9, mail: 6, herb: 4, ore: 5 }; // half a pin's box, px
 const layerOn = new Set(["flight", "poi", "dungeon", "rare", "service", "quest"]);
 const shown = (id) => layerOn.has(id) && cam.zoom >= LAYERS.find((l) => l[0] === id)[2];
-let pins = [], highlight = null;
+let pins = [], highlight = null, iconSheet, ICONS;
 
-function star(g, x, y, r) {
-  g.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const a = -Math.PI / 2 + i * Math.PI / 5, d = i % 2 ? r * .45 : r;
-    g.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d);
-  }
-  g.closePath();
+// The sheet and its manifest ({ key: [x, y, w, h] }); pins wait for both.
+async function loadIcons() {
+  const img = new Image();
+  img.src = "icons/icons.png";
+  [{ icons: ICONS }] = await Promise.all([get("icons/icons.json"), img.decode()]);
+  iconSheet = img;
 }
-function letter(g, s, x, y, px) {
-  g.font = `700 ${px}px system-ui, -apple-system, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
-  g.fillStyle = "#fff"; g.fillText(s, x, y + .5);
+function iconOf(layer, p) {
+  const m = GAME_ICON[layer];
+  if (layer === "poi") return `poi:${p.icon}`;
+  if (layer === "flight") return m[p.faction] || m.none;
+  return typeof m === "string" ? m : m[p.mark];
 }
-function drawPin(g, layer, p, x, y) {
-  g.lineWidth = 1.5; g.strokeStyle = "rgba(0,0,0,.8)";
-  const fc = FACTION[p.faction] || NO_FACTION;
-  if (layer === "flight") {
-    g.beginPath(); g.moveTo(x, y - 8); g.lineTo(x + 8, y); g.lineTo(x, y + 8); g.lineTo(x - 8, y); g.closePath();
-    g.fillStyle = fc; g.fill(); g.strokeStyle = "#fff"; g.stroke();
-    g.beginPath(); g.arc(x, y, 2.5, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill();
-  } else if (layer === "service") {
-    g.beginPath(); g.arc(x, y, 8, 0, Math.PI * 2); g.fillStyle = fc; g.fill(); g.stroke();
-    letter(g, SERVICE_LETTER[p.mark], x, y, 10);
-  } else if (layer === "dungeon") {
-    const [c, s] = DUNGEON[p.mark] || DUNGEON.dungeon;
-    g.fillStyle = c; g.fillRect(x - 7, y - 7, 14, 14); g.strokeStyle = "#fff"; g.strokeRect(x - 7, y - 7, 14, 14);
-    letter(g, s, x, y, 10);
-  } else if (layer === "quest") {
-    g.font = "900 17px system-ui, -apple-system, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
-    g.lineWidth = 3.5; g.strokeStyle = "#000"; g.strokeText("!", x, y); g.fillStyle = "#ffd200"; g.fillText("!", x, y);
-  } else if (layer === "rare") {
-    star(g, x, y, 8); g.fillStyle = p.mark === 2 ? "#ffcf33" : "#dcdce8"; g.fill(); g.stroke();
-  } else if (layer === "poi") {
-    g.beginPath(); g.arc(x, y, 4.5, 0, Math.PI * 2); g.fillStyle = "rgba(255,255,255,.95)"; g.fill(); g.stroke();
-  } else if (layer === "mail") {
-    g.fillStyle = "#8fd3ff"; g.fillRect(x - 6, y - 4, 12, 8); g.lineWidth = 1; g.strokeRect(x - 6, y - 4, 12, 8);
-    g.beginPath(); g.moveTo(x - 6, y - 4); g.lineTo(x, y + 1); g.lineTo(x + 6, y - 4); g.stroke();
-  } else if (layer === "herb") {
-    g.beginPath(); g.arc(x, y, 4, 0, Math.PI * 2); g.fillStyle = "#4cd964"; g.fill(); g.lineWidth = 1; g.stroke();
-  } else if (layer === "ore") {
-    g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 5, y + 4); g.lineTo(x - 5, y + 4); g.closePath();
-    g.fillStyle = "#e08a3c"; g.fill(); g.lineWidth = 1; g.stroke();
-  } else if (layer === "hl") {
-    g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.lineWidth = 4.5; g.strokeStyle = "#000"; g.stroke();
-    g.lineWidth = 2.5; g.strokeStyle = "#ff3df0"; g.stroke();
-    g.beginPath(); g.arc(x, y, 2.5, 0, Math.PI * 2); g.fillStyle = "#ff3df0"; g.fill();
+const glows = {};
+function glow(f) {
+  if (!glows[f]) {
+    const c = h("canvas", { width: 64, height: 64 }), g = c.getContext("2d"), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, FACTION[f] + "a0"); gr.addColorStop(0.55, FACTION[f] + "60"); gr.addColorStop(1, FACTION[f] + "00");
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    glows[f] = c;
   }
+  return glows[f];
+}
+// An icon centred on (x, y) at scale s, on whole device pixels; pixel-exact sizes stay unsmoothed.
+function drawPin(g, layer, p, x, y, s = 1) {
+  const size = PIN_SIZE[layer] * s, [sx, sy, sw, sh] = ICONS[iconOf(layer, p)];
+  if (TINTED.has(layer) && FACTION[p.faction]) g.drawImage(glow(p.faction), x - size * 0.65, y - size * 0.65, size * 1.3, size * 1.3);
+  const k = size / Math.max(sw, sh), w = sw * k, ht = sh * k, snap = (v) => Math.round(v * dpr) / dpr;
+  g.imageSmoothingEnabled = !Number.isInteger(k * dpr);
+  g.imageSmoothingQuality = "high";
+  g.drawImage(iconSheet, sx, sy, sw, sh, snap(x - w / 2), snap(y - ht / 2), w, ht);
+}
+// A highlighted spawn: our own ring, not a game icon (it marks many points of one thing).
+function drawRing(g, x, y, s = 1) {
+  g.beginPath(); g.arc(x, y, 9 * s, 0, Math.PI * 2); g.lineWidth = 4.5 * s; g.strokeStyle = "#000"; g.stroke();
+  g.lineWidth = 2.5 * s; g.strokeStyle = "#ff3df0"; g.stroke();
+  g.beginPath(); g.arc(x, y, 2.5 * s, 0, Math.PI * 2); g.fillStyle = "#ff3df0"; g.fill();
 }
 // Highlighted spawns (and, for a flight point, lines to where it flies).
 function drawHighlight() {
@@ -247,7 +257,7 @@ function drawHighlight() {
   for (const p of highlight.pts) {
     const [x, y] = toScreen(p.col, p.row);
     if (x < -20 || x > W + 20 || y < -20 || y > H + 20) continue;
-    ctx.save(); ctx.translate(x, y); ctx.scale(s, s); drawPin(ctx, "hl", p, 0, 0); ctx.restore();
+    drawRing(ctx, x, y, s);
   }
 }
 // The pin (or highlighted spawn) under a point, if any: the nearest within a finger's reach.
@@ -458,26 +468,34 @@ function closeSheets() {
 function setLayersOpen(open) { layersEl.hidden = !open; layersBtn.setAttribute("aria-expanded", open); if (open) results.hidden = true; }
 layersBtn.onclick = () => setLayersOpen(layersEl.hidden);
 
-// The layers sheet: a toggle per layer, each with its pin as the legend.
-function swatch(layer, sample) {
-  const c = h("canvas", { width: 28 * dpr, height: 28 * dpr });
-  c.style.cssText = "width:28px;height:28px;flex:none";
-  const g = c.getContext("2d"); g.scale(dpr, dpr); drawPin(g, layer, sample, 14, 14);
+// The layers sheet: a toggle per layer, each with its icon as the legend.
+function swatch(px, paint) {
+  const c = h("canvas", { width: px * dpr, height: px * dpr });
+  c.style.cssText = `width:${px}px;height:${px}px;flex:none`;
+  const g = c.getContext("2d"); g.scale(dpr, dpr); paint(g, px / 2);
   return c;
 }
+const pinSwatch = (layer, sample, px = 28) => swatch(px, (g, m) => drawPin(g, layer, sample, m, m, Math.min(1, px / PIN_SIZE[layer])));
 function renderLayers() {
   if (!layersEl.firstChild) {
     for (const [id, name, , sample] of LAYERS) {
       const box = h("input", { type: "checkbox", checked: layerOn.has(id) });
       box.onchange = () => { box.checked ? layerOn.add(id) : layerOn.delete(id); draw(); refreshPins(); };
-      const row = h("label", { className: "row" }, box, swatch(id, sample), h("span", {}, name), h("small"));
+      const row = h("label", { className: "row" }, box, pinSwatch(id, sample), h("span", {}, name), h("small"));
       row.dataset.layer = id;
       layersEl.append(row);
     }
-    const dot = (c, t) => h("span", {}, h("i", { style: `background:${c}` }), t);
-    layersEl.append(h("div", { className: "legend" }, dot(FACTION.A, "Alliance"), dot(FACTION.H, "Horde"), dot(FACTION.AH, "Both"),
-      dot(NO_FACTION, "Neither"), h("span", {}, "Services: I inn · B bank · A auction · F flight · S stable · T trainer · R repair"),
-      h("span", { style: "display:flex;align-items:center;gap:4px" }, swatch("hl", {}), "Highlighted spawns")));
+    const key = (layer, sample, text) => h("span", {}, pinSwatch(layer, sample, 20), text);
+    layersEl.append(h("div", { className: "legend" },
+      ...Object.keys(FACTION).map((f) => key("flight", { faction: f }, f === "AH" ? "Neutral" : FACTION_NAME[f])),
+      h("div", {}, "Services and quest givers glow in their faction's colour:"),
+      ...Object.keys(FACTION).map((f) => key("service", { mark: "innkeeper", faction: f }, FACTION_NAME[f])),
+      h("div", {}),
+      ...Object.entries(SERVICE_NAME).map(([mark, name]) => key("service", { mark }, name)),
+      h("div", {}),
+      ...Object.keys(GAME_ICON.dungeon).map((mark) => key("dungeon", { mark }, mark[0].toUpperCase() + mark.slice(1))),
+      ...Object.keys(GAME_ICON.rare).map((mark) => key("rare", { mark }, RANK[mark])),
+      h("span", {}, swatch(20, (g, m) => drawRing(g, m, m, 0.9)), "Highlighted spawns")));
   }
   for (const [id, , minZoom] of LAYERS) {
     layersEl.querySelector(`[data-layer="${id}"] small`).textContent = cam.zoom < minZoom ? "zoom in to see" : "";
@@ -647,7 +665,7 @@ addEventListener("keydown", (e) => { if (e.key === "Escape" && document.activeEl
   document.body.style.background = bg;
   const sel = document.getElementById("zone");
   for (const z of m.zones) sel.add(new Option(z.name, z.uiMapID));
-  await Promise.all([loadTiles(), loadBorders(), loadLabels()]);
+  await Promise.all([loadTiles(), loadBorders(), loadLabels(), loadIcons()]);
   W = innerWidth; H = innerHeight;
   cam = (await get(`/api/fit?uiMapID=${m.uiMapID}&w=${W}&h=${H}`)).cam;
   addEventListener("resize", resize);
