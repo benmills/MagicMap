@@ -39,6 +39,14 @@ def texture_files() -> list[str]:
     return out
 
 
+def stamp_version(toc: str, rev: str) -> None:
+    """The installed TOC's ## Version: becomes the checkout's (docs/telemetry.md)."""
+    with open(toc, encoding="utf-8") as f:
+        lines = f.read().splitlines(keepends=True)
+    with open(toc, "w", encoding="utf-8", newline="") as f:
+        f.writelines(f"## Version: {rev}\n" if line.startswith("## Version:") else line for line in lines)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("flavor", nargs="?", default="_classic_beta_", help="flavor folder (default: _classic_beta_)")
@@ -77,6 +85,7 @@ def main() -> None:
         rev = subprocess.check_output(["git", "-C", ROOT, "describe", "--always", "--dirty"], text=True).strip()
     except (OSError, subprocess.CalledProcessError):
         rev = "?"
+    stamp_version(os.path.join(dest, f"{ADDON}.toc"), rev)
     print(f"installed {ADDON} {rev} ({len(files)} files) into {dest}")
     if skipped:
         print(f"not generated (gitignored), so left out: {', '.join(skipped)} (tools/gen_questie.py)")

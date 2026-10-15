@@ -2,10 +2,11 @@
 -- Nil fields: not known (UnitPosition gives nothing in instances).
 
 local _, ns = ...
-local Atlas, Runtime = ns.Atlas, ns.Runtime
+local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
 local you = {}
 local obs = { you = you }
+Game.obs = obs -- the last one handed over (Telemetry's state)
 
 Runtime.Step("observe", "game.observe", function()
 	local north, west, _, inst = UnitPosition("player")

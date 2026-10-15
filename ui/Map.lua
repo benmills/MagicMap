@@ -34,6 +34,8 @@ frame:SetResizeBounds(240, 180)
 frame:SetClampedToScreen(true)
 frame:EnableMouse(true)
 frame:Hide()
+frame:SetScript("OnShow", Runtime.Wrap("map: shown", function() Runtime.Trace("map", "shown") end))
+frame:SetScript("OnHide", Runtime.Wrap("map: hidden", function() Runtime.Trace("map", "hidden") end))
 Map.frame = frame
 
 local bg = frame:CreateTexture(nil, "BACKGROUND")
@@ -158,17 +160,24 @@ end
 
 local Place
 
+local function R2(v) return math.floor(v * 100 + 0.5) / 100 end -- for traces
+
 local function Rebuild(layer)
 	local back = layer.canvases[layer.front == layer.canvases[1] and 2 or 1]
 	local inst, zoom = Map.inst, Map.cam.zoom
 	local c0, r0, c1, r1 = Region()
 	layer.busy = true
+	Runtime.Trace("layout", { e = "start", layer = layer.name, inst = inst, zoom = R2(zoom),
+		c0 = R2(c0), r0 = R2(r0), c1 = R2(c1), r1 = R2(r1) })
 	Runtime.Job("map: " .. layer.name, function()
+		local t0, used = debugprofilestop(), 0
 		for _, p in pairs(back.pools) do p.n = 0 end
 		layer.build(back, inst, zoom, c0, r0, c1, r1)
 		for _, p in pairs(back.pools) do
 			for i = p.n + 1, #p do p[i]:Hide() end
+			used = used + p.n
 		end
+		Runtime.Trace("layout", { e = "end", layer = layer.name, ms = R2(debugprofilestop() - t0), regions = used })
 		back.inst, back.zoom, back.region, back.scale, back.x, back.y = inst, zoom, { c0, r0, c1, r1 }, nil, nil, nil
 		layer.busy = false
 		if inst ~= Map.inst then return end -- moved to another map meanwhile
@@ -178,6 +187,7 @@ local function Rebuild(layer)
 		-- next draw would show it a frame at wherever it last was (a jump while panning).
 		Place(layer, Map.cam, Map.Size())
 		back:Show()
+		Runtime.Trace("swap", { layer = layer.name, x = R2(back.x), y = R2(back.y), scale = R2(back.scale) })
 	end, JOB_MS)
 end
 
@@ -200,7 +210,15 @@ end
 -- Input: wheel zooms about the cursor, drag pans, right click follows you again
 ---------------------------------------------------------------------------
 
-local drag -- { x, y, cx, cy } while the left button is down
+local drag -- { x, y, cx, cy, moved } while the left button is down
+
+local camFrame -- the frame of the last "cam" trace: at most one a frame
+local function Cam(e)
+	if camFrame == Runtime.frames then return end
+	camFrame = Runtime.frames
+	local cam = Map.cam
+	Runtime.Trace("cam", { e = e, cx = R2(cam.cx), cy = R2(cam.cy), zoom = R2(cam.zoom) })
+end
 
 local function Cursor()
 	local x, y = GetCursorPosition()
@@ -215,18 +233,23 @@ view:SetScript("OnMouseWheel", Runtime.Wrap("map: wheel", function(_, delta)
 	local x, y = Cursor()
 	if Map.follow then x, y = w / 2, h / 2 end -- following: about you
 	Map.cam = Camera.ZoomAt(cam, w, h, x, y, zoom)
+	Cam("wheel")
 end))
 
 view:SetScript("OnMouseDown", Runtime.Wrap("map: press", function(_, button)
 	if button == "LeftButton" then
 		local x, y = Cursor()
 		drag = { x = x, y = y, cx = Map.cam.cx, cy = Map.cam.cy }
-	elseif button == "RightButton" then
+	elseif button == "RightButton" and not Map.follow then
 		Map.follow = true
+		Cam("follow on")
 	end
 end))
 
-view:SetScript("OnMouseUp", Runtime.Wrap("map: release", function() drag = nil end))
+view:SetScript("OnMouseUp", Runtime.Wrap("map: release", function()
+	if drag and drag.moved then Cam("drag end") end
+	drag = nil
+end))
 
 Runtime.Step("input", "map: drag", function()
 	if not drag then return end
@@ -235,6 +258,7 @@ Runtime.Step("input", "map: drag", function()
 	Map.follow = false
 	local cam = Map.cam
 	Map.cam = { cx = drag.cx - (x - drag.x) / cam.zoom, cy = drag.cy - (y - drag.y) / cam.zoom, zoom = cam.zoom }
+	if not drag.moved and (x ~= drag.x or y ~= drag.y) then drag.moved = true; Cam("drag start") end -- follow's off now
 end, { shownOnly = frame })
 
 ---------------------------------------------------------------------------
@@ -293,9 +317,22 @@ function Map.Toggle()
 	if frame:IsShown() then
 		frame:Hide()
 	else
-		Map.follow = true
+		if not Map.follow then Map.follow = true; Cam("follow on") end
 		frame:Show()
 	end
+end
+
+-- For telemetry: the camera, and each layer's shown layout.
+function Map.State()
+	local cam, w, h = Map.cam, Map.Size()
+	local layers = {}
+	for i, l in ipairs(Map.layers) do
+		local c = l.front
+		local r = c and c.region
+		layers[i] = { name = l.name, busy = l.busy, zoom = c and R2(c.zoom), region = r and { R2(r[1]), R2(r[2]), R2(r[3]), R2(r[4]) } }
+	end
+	return { shown = frame:IsShown(), inst = Map.inst, cx = R2(cam.cx), cy = R2(cam.cy), zoom = R2(cam.zoom),
+		follow = Map.follow, w = R2(w), h = R2(h) }, layers
 end
 
 -- Live regions on the shown canvases, and all made (pooled), by kind.

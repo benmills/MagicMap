@@ -42,6 +42,7 @@ runtime\Runtime.lua
 # Game
 game\Game.lua
 game\Slash.lua
+game\Telemetry.lua
 game\Observe.lua
 game\Validate.lua
 

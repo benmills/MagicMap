@@ -1,7 +1,9 @@
 -- Runtime: when things run. One OnUpdate frame drives every frame's steps
 -- (in phase order), timers and jobs; one frame dispatches events. Every
--- callback is wrapped: timed for Perf, and isolated (an error is caught,
--- printed once per name, kept in Runtime.errors, and the rest run on).
+-- callback is wrapped: timed for Perf, and isolated (an error is caught
+-- with its stack, printed once per name, kept in Runtime.errors, handed to
+-- Runtime.onError(name, err, stack) if set, and the rest run on).
+-- Runtime.Trace keeps a ring of recent events (docs/telemetry.md).
 -- The first file after Atlas, so it marks Atlas's load end (boot.loaded).
 
 local _, ns = ...
@@ -29,24 +31,57 @@ local function Done(p, t0)
 	if dt > p.max then p.max = dt end
 end
 
-local function Fail(name, err)
+local function Fail(name, err, stack)
 	local e = failed[name]
-	if e then e.n = e.n + 1; return end
-	e = { name = name, err = tostring(err), n = 1 }
-	failed[name] = e
-	Runtime.errors[#Runtime.errors + 1] = e
-	print("|cffff6060MagicMap Atlas|r error in " .. name .. ": " .. e.err)
+	if e then
+		e.n = e.n + 1
+	else
+		e = { name = name, err = tostring(err), n = 1 }
+		failed[name] = e
+		Runtime.errors[#Runtime.errors + 1] = e
+		print("|cffff6060MagicMap Atlas|r error in " .. name .. ": " .. e.err)
+	end
+	if Runtime.onError then Runtime.onError(name, err, stack) end -- Game persists it
+end
+
+local stack -- the failing call's, set by Catch while its frames still exist
+local function Catch(err)
+	stack = debugstack(2)
+	return err
 end
 
 local function Finish(name, p, t0, ok, ...)
 	Done(p, t0)
-	if not ok then return Fail(name, (...)) end
+	if not ok then return Fail(name, (...), stack) end
 	return ...
 end
 
 function Runtime.Wrap(name, fn)
 	local p = Stat(name)
-	return function(...) return Finish(name, p, now(), pcall(fn, ...)) end
+	return function(...) return Finish(name, p, now(), xpcall(fn, Catch, ...)) end
+end
+
+-- Trace: a ring of recent events { f = frame, ms = since login, k = kind, d = detail } ------
+
+local RING = 300
+local ring, head, boot = {}, 0, Runtime.boot
+for i = 1, RING do ring[i] = {} end
+
+-- detail: a short string or a flat table of numbers and strings.
+function Runtime.Trace(kind, detail)
+	head = head % RING + 1
+	local e = ring[head]
+	e.f, e.ms, e.k, e.d = Runtime.frames, now() - (boot.login and boot.login.t or boot.t0), kind, detail
+end
+
+-- A copy of the ring, oldest first (ms to 0.1).
+function Runtime.TraceCopy()
+	local out = {}
+	for i = 1, RING do
+		local e = ring[(head + i - 1) % RING + 1]
+		if e.k then out[#out + 1] = { f = e.f, ms = math.floor(e.ms * 10 + 0.5) / 10, k = e.k, d = e.d } end
+	end
+	return out
 end
 
 -- Per-name { n = calls, ms = total, max = slowest call }, and frames run.
@@ -146,7 +181,7 @@ local function RunJobs()
 			local ok, err = coroutine.resume(job.co)
 			current = nil
 			Done(job.p, job.t0)
-			if not ok then Fail(job.name, err) end
+			if not ok then Fail(job.name, err, debugstack(job.co)) end
 		end
 		if job.cancelled or coroutine.status(job.co) == "dead" then
 			job.done = true

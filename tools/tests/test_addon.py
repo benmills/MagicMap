@@ -73,5 +73,11 @@ def test_smoke():
     assert got.after and 8 <= got.every <= 11 and got.steps == 60
     assert got.job.done and got.sum == 5e4 * (5e4 + 1) / 2 and ns.Runtime.Perf()[0]["test.job"].n > 1
     assert [(e.name, e.n) for e in ns.Runtime.errors.values()] == [("test.fails", 60)]
+    # Telemetry: kept with its stack, and its first occurrence took an "error" mark with the trace.
+    tel = L.globals().MagicMapAtlasDB.telemetry
+    err = next(e for e in tel.errors.values() if e.name == "test.fails")
+    assert err.count == 60 and "boom" in err.msg and "Runtime.lua" in err.stack
+    mark = next(m for m in tel.marks.values() if m.kind == "error" and "test.fails" in m.note)
+    assert mark.state.map and len(mark.trace) > 0 and mark.trace[len(mark.trace)].k == "error"
     del ns.Runtime.errors[1]
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

@@ -879,6 +879,27 @@ date = os.date
 
 function GetBuildInfo() return "1.60.1", "70009", "Sep 1 2026", 16001 end
 
+-- WoW's xpcall passes extra args to f (Lua 5.1's doesn't).
+local xpcall51 = xpcall
+function xpcall(f, handler, ...)
+	local n, args = select("#", ...), { ... }
+	return xpcall51(function() return f(unpack(args, 1, n)) end, handler)
+end
+-- debugstack([thread,] [start]): the stack, without traceback's header.
+function debugstack(a, b)
+	local s
+	if type(a) == "thread" then s = debug.traceback(a, "", b or 0) else s = debug.traceback("", (a or 1) + 1) end
+	return (s:gsub("^\n?stack traceback:\n", ""))
+end
+Sim.errorHandler = function(msg) Sim.errors[#Sim.errors + 1] = "error handler: " .. tostring(msg) end
+function geterrorhandler() return Sim.errorHandler end
+function seterrorhandler(fn) assert(type(fn) == "function", "seterrorhandler: function expected"); Sim.errorHandler = fn end
+-- The client writes the file, then fires SCREENSHOT_SUCCEEDED.
+function Screenshot()
+	Sim.screenshots = (Sim.screenshots or 0) + 1
+	C_Timer.After(0, function() Sim.FireEvent("SCREENSHOT_SUCCEEDED") end)
+end
+
 function GetCursorPosition() return Sim.cursorX, Sim.cursorY end
 function IsMouseButtonDown(button) return Sim.buttonsDown[button or "LeftButton"] == true end
 function IsShiftKeyDown() return Sim.modifiers.shift end

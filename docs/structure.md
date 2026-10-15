@@ -52,6 +52,10 @@ The TOC lists files explicitly (no XML).
   isolated (an error is caught, reported once, and the rest keep running).
 - `Runtime.Perf()` — per-name totals `{ n, ms, max }` and frames run, for `/mma perf`;
   `Runtime.errors` — `{ name, err, n }` per failing name.
+  Each caught error (every time, with its stack) goes to `Runtime.onError(name, err, stack)`
+  if set (game/Telemetry.lua persists it).
+- `Runtime.Trace(kind, detail)` — a ring of the last 300 events; `Runtime.TraceCopy()`
+  copies it, oldest first (docs/telemetry.md).
 - `Runtime.boot` — `t0, mem0` at load start (runtime/Boot.lua); `loaded` = `{ t, mem }`
   once Atlas has loaded; `login` = `{ t, mem }` at PLAYER_LOGIN.
 

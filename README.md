@@ -51,6 +51,18 @@ textures, else `/reload`), then:
 
 `tools/package.sh [ref]` zips a committed ref as `dist/MagicMapAtlas-<ref>.zip`.
 
+## Telemetry
+
+Play, `/reload`, then read what the addon saved (sessions, errors with stacks, marks with
+state and trace, screenshots matched to `/mma shot`, the validation log, client `Logs/` lines
+that mention the addon). The contract is [docs/telemetry.md](docs/telemetry.md).
+
+    .venv/bin/python tools/telemetry.py                  # everything, newest first
+    .venv/bin/python tools/telemetry.py --errors --full  # one section: --errors --marks --shots --validation --logs
+    .venv/bin/python tools/telemetry.py --since 30 --json   # last 30 minutes (or an ISO time), as JSON
+
+Options: `--wow` (or `MAGICMAP_WOW`), `--flavor` (default `_classic_beta_`), `--sv <file>`, `--trace N`.
+
 ## Test and lint
 
 The tests include a headless smoke test: the TOC's files loaded in order on a simulated WoW

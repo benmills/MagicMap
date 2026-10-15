@@ -5,7 +5,7 @@
 # Lua 5.1 + WoW's Lua extensions
 _G assert collectgarbage coroutine date debugprofilestop error getmetatable ipairs math next
 pairs pcall rawget rawset select setmetatable string strsplit strtrim table
-time tinsert tremove tonumber tostring type unpack wipe xpcall hooksecurefunc geterrorhandler print
+time tinsert tremove tonumber tostring type unpack wipe xpcall hooksecurefunc geterrorhandler seterrorhandler debugstack print
 
 # Namespaces
 C_AddOnProfiler C_AddOns C_AreaPoiInfo C_CVar C_DeathInfo C_EncounterJournal C_Item C_Map C_MapExplorationInfo
@@ -16,7 +16,7 @@ C_VignetteInfo Enum
 # Functions
 AddQuestWatch ButtonFrameTemplate_HideButtonBar ButtonFrameTemplate_HidePortrait
 ChatFrame_OpenChat CreateColor CreateFrame CreateVector2D
-GetCVar GetCursorPosition GetInstanceInfo
+GetBuildInfo GetCVar GetCursorPosition GetInstanceInfo Screenshot
 GetPlayerFacing GetRealZoneText GetSubZoneText GetTime GetZoneText
 IsFalling IsFlying IsSwimming UnitOnTaxi
 HideUIPanel ToggleWorldMap IsAltKeyDown IsControlKeyDown IsIndoors IsMouseButtonDown
