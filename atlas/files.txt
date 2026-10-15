@@ -1,5 +1,6 @@
 Data/Tiles.lua
 Data/TileColor.lua
+Data/Sea.lua
 Data/Borders.lua
 Data/Walk.lua
 Data/UiMaps.lua
@@ -13,6 +14,7 @@ Data/Items.lua
 Data/Quests.lua
 atlas/Coords.lua
 atlas/Tiles.lua
+atlas/Sea.lua
 atlas/Borders.lua
 atlas/Walk.lua
 atlas/UiMaps.lua
@@ -20,3 +22,4 @@ atlas/Areas.lua
 atlas/Places.lua
 atlas/Entities.lua
 atlas/Camera.lua
+atlas/Labels.lua

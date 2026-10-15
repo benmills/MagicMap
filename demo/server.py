@@ -7,7 +7,10 @@ them.
 
   /api/maps                          Atlas.Maps, with Continent and Zones per inst
   /api/tiles?inst=                   TileBounds, and TileInfo per tile (tint, sea, water)
-  /api/borders?inst=                 Borders lines, zone labels named by ZoneAt
+  /api/sea?inst=                     Sea: its colours, the coast tiles (masked) and the open-sea ones
+  /api/borders?inst=                 Borders lines and far (zone borders, two levels of detail)
+  /api/zone-outline?inst=&zone=      ZoneOutline: a zone's land as rings
+  /api/labels?inst=                  Atlas.Labels: ranked name anchors (continent, zone, town, subzone, poi)
   /api/at?inst=&col=&row=            TileToWorld, ZoneAt, Walk.Cell at that chunk
   /api/fit?uiMapID=&w=&h=            MapRect and Camera.Fit
   /api/walk?inst=&c0=&r0=&c1=&r1=    Walk.Cell over a chunk range, one hex digit each
@@ -66,22 +69,30 @@ def tiles(q):
     return {"bounds": list(Atlas.TileBounds(inst)), "tiles": out}
 
 
+
+def sea(q):
+    inst = int(q["inst"])
+    m = Atlas.Sea(inst)
+    if not m:
+        return None
+    return {"shallow": py(m.shallow), "deep": py(m.deep), "masks": list(m.masks.keys()), "open": list(m.open.keys())}
+
 def borders(q):
     inst = int(q["inst"])
     b = Atlas.Borders(inst)
-    # kind, then the points (skip areaA, areaB, fadeStart, fadeEnd)
-    lines = [[x[0]] + x[5:] for x in (py(line) for line in b.lines.values())]
-    return {"lines": lines}
+    # both levels of detail, { areaA, areaB, fadeStart, fadeEnd, x1, y1, ... } each; the page picks
+    # by zoom as Atlas.BorderLines does
+    return {"lines": py(b.lines), "far": py(b.far), "farZoom": Atlas.BORDER_FAR_ZOOM}
+
+
+def zone_outline(q):
+    return {"rings": py(Atlas.ZoneOutline(int(q["inst"]), int(q["zone"]))) or []}
 
 
 def labels(q):
     inst = int(q["inst"])
-    b = Atlas.Borders(inst)
-    # kind 1 zone, 2 subzone; named by their areaID
-    out = [{"name": Atlas.Area(area).name, "kind": kind, "weight": weight, "col": col, "row": row}
-           for area, col, row, weight, kind in (py(x) for x in b.labels.values())]
-    out.sort(key=lambda l: (l["kind"], -l["weight"]))
-    return {"labels": out}
+    # Atlas.Labels: { text, col, row, tier, rank, areaID?, poiID?, size? }, rank order
+    return {"labels": py(Atlas.Labels(inst))}
 
 
 def at(q):
@@ -295,7 +306,7 @@ def find(q):
     return out
 
 
-API = {"maps": maps, "tiles": tiles, "borders": borders, "labels": labels, "at": at, "fit": fit, "walk": walk, "pins": pins,
+API = {"maps": maps, "tiles": tiles, "sea": sea, "borders": borders, "zone-outline": zone_outline, "labels": labels, "at": at, "fit": fit, "walk": walk, "pins": pins,
        "npc": npc, "object": object, "item": item, "quest": quest, "flight": flight, "dungeon": dungeon,
        "find": find}
 

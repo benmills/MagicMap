@@ -24,6 +24,26 @@ file is a global table, written by a generator in `tools/` from one game build
 
 ## Files
 
+### Data/Sea.lua — `MagicMap_Sea` (ADT MH2O ocean + MCVT heights, minimap tiles) and Textures/Sea
+`{ product, version, dir, maps = { [inst] = { shallow, deep, masks, open } } }`
+- One ocean under the tiles. Sea = an "Ocean" LiquidType over the ground, per terrain
+  quad (8x8 per chunk, 128x128 per tile, ~4 yd); depth = its surface − the ground.
+  Lakes and rivers aren't sea (the art draws them). Off the map's tiles: deep sea.
+- shallow, deep: `{ r, g, b }` sampled from the art itself (medians over sea 4–12 /
+  ≥ 60 yd deep); deep ≤ shallow per channel.
+- masks: `[key] = true` for tiles with a 128x128 TGA `dir .. inst .. "_" .. key .. ".tga"`:
+  alpha = land (1 land, 0 sea; the coast a Gaussian feather of 2 quads; piers and
+  ships over the sea kept as land), grey = shelf = exp(−depth / 28 yd), 1 at the shore
+  and on land. Sea colour = deep + shelf × (shallow − deep).
+- open: `[key] = true` for tiles that are all deep sea: draw no art. Any other tile is
+  all land: its art as it is.
+- Drawn with textures only: a solid `deep` under the map; per masked tile the mask
+  opaque (blend DISABLE) tinted shallow − deep plus a solid `deep` added (ADD); then
+  the art with the mask as its MaskTexture (alpha). Maps with < 4 open-sea tiles get none.
+- `Atlas.Sea(inst)` → the map's entry; `Atlas.SeaTile(inst, key)` → `"coast", maskPath`
+  | `"open"` | `"land"` (nil without sea). Supersedes TileColor's water masks (kept for
+  the demo's `before`).
+
 ### Data/UiMaps.lua — `MagicMap_UiMaps` (UiMap + UiMapAssignment DB2)
 `[uiMapID] = { name, mapType, parent, inst, col0, row0, col1, row1, areaID }`
 - mapType per Enum.UIMapType (1 world, 2 continent, 3 zone, 6 orphan).
@@ -42,6 +62,23 @@ file is a global table, written by a generator in `tools/` from one game build
 - cells: the 256 chunks (index iy * 16 + ix) as letters, `a`..`z` then `A`..`Z`
   = palette index 1..52, each optionally followed by a run length (as Walk.lua).
 - A chunk is 1/16 tile (~33 yd). Area 0 = none.
+
+### Data/Borders.lua — `MagicMap_Borders` (ADT chunk areas)
+`[inst] = { lines, far, outlines, labels }`, positions in tile space (3 decimals).
+- lines: zone borders `{ areaA, areaB, fadeStart, fadeEnd, x1, y1, x2, y2, ... }`, one
+  per stretch between junctions. Traced along chunk edges between two zones' land,
+  then smoothed offline (Gaussian, ~2 chunks) into curves and simplified to 0.003
+  tiles. Ends stay exact: neighbours meet, three zones at one point. No subzone borders.
+- fadeStart / fadeEnd: tiles over which that end fades out, 0 none. A border that
+  reaches the shore runs on a few chunks over water and fades there; one that stops
+  on land of no zone fades over 0.1.
+- far: the same lines, simplified to 0.03 tiles (Atlas.BorderLines picks by zoom).
+- outlines: `[zone areaID] = { ring, ... }`, ring `{ x1, y1, ... }` closed (last joins
+  first): the zone's land, from the same smoothed chains (shared stretches match
+  `lines`; the coast within 0.01). Even-odd: a ring inside another is a hole. Rings
+  under 12 chunks (islets, ponds) are dropped. For hit-testing and highlighting a zone.
+- labels: `{ areaID, col, row, weight, kind }`: the land chunk deepest inside each zone
+  (kind 1) and subzone (kind 2, ≥ 6 chunks); weight = its land chunks.
 
 ### Data/Places.lua — `MagicMap_Places` (DB2)
 - `flight[nodeID] = { name, faction, inst, col, row, areaID }` (TaxiNodes)

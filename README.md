@@ -15,12 +15,13 @@ are gitignored: QuestieDB declares no license (see docs/atlas-data.md).
 
     python3 tools/gen_tiles.py     local "/Applications/World of Warcraft" wow_classic_beta -o Data/Tiles.lua
     python3 tools/gen_tilecolor.py local "/Applications/World of Warcraft" wow_classic_beta -o Data/TileColor.lua
+    .venv/bin/python tools/gen_sea.py local "/Applications/World of Warcraft" wow_classic_beta -o Data/Sea.lua
     python3 tools/gen_borders.py   local "/Applications/World of Warcraft" wow_classic_beta -o Data/Borders.lua
     python3 tools/gen_walk.py      local "/Applications/World of Warcraft" wow_classic_beta -o Data/Walk.lua
     python3 tools/gen_areagrid.py  local "/Applications/World of Warcraft" wow_classic_beta -o Data/AreaGrid.lua
     python3 tools/gen_world.py     local "/Applications/World of Warcraft" wow_classic_beta -o Data
     .venv/bin/python tools/gen_questie.py "/Applications/World of Warcraft/_classic_beta_/Interface/AddOns/QuestieDB"
-    .venv/bin/python demo/export_tiles.py          # demo/tiles/0 PNGs (--inst N, --all)
+    .venv/bin/python demo/export_tiles.py          # demo/tiles/0 WebPs + masks (--inst N, --all, --masks-only)
 
 ## Test and lint
 

@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Export minimap tiles as PNGs for the web demo.
+"""Export minimap tiles and their masks for the web demo.
 
 For each map (instanceID) in Data/Tiles.lua, every tile's BLP is read from the
 local install and written to demo/tiles/<inst>/<key>.webp (key = col * 64 + row),
-and its water mask (Textures/Water/<product>/<inst>_<key>.tga, if any) to
-demo/tiles/<inst>/water_<key>.png. Tiles are WebP (about a fifth of a PNG's
+its water mask (Textures/Water/<product>/<inst>_<key>.tga, if any; the
+`before` look) to demo/tiles/<inst>/water_<key>.png, and its sea mask
+(Textures/Sea/<product>/<inst>_<key>.tga, if any) to
+demo/tiles/<inst>/sea_<key>.webp: lossless and opaque, red = the shelf (the
+TGA's grey), green = land (its alpha), since a canvas loses the colour of
+pixels whose alpha is 0. Tiles are WebP (about a fifth of a PNG's
 size, so a phone gets sharp tiles quickly); smaller Lanczos copies go to
 demo/tiles/<inst>/<size>/<key>.webp (LODS), so a zoomed-out view doesn't
 download and hold 512px tiles it draws at 20px.
@@ -12,6 +16,7 @@ download and hold 512px tiles it draws at 20px.
   .venv/bin/python demo/export_tiles.py                 # Eastern Kingdoms (0)
   .venv/bin/python demo/export_tiles.py --inst 0 --inst 1
   .venv/bin/python demo/export_tiles.py --all
+  .venv/bin/python demo/export_tiles.py --masks-only   # just the water and sea masks
 """
 from __future__ import annotations
 
@@ -60,6 +65,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--inst", type=int, action="append", help="instanceID to export (repeatable; default 0)")
     ap.add_argument("--all", action="store_true", help="export every map in Data/Tiles.lua")
+    ap.add_argument("--masks-only", action="store_true", help="only the water and sea masks, not the tiles")
     ap.add_argument("--wow", default=os.environ.get("MAGICMAP_WOW", "/Applications/World of Warcraft"))
     ap.add_argument("-o", "--out", default=os.path.join(ROOT, "demo", "tiles"))
     ns = ap.parse_args()
@@ -68,21 +74,31 @@ def main() -> None:
     insts = sorted(maps) if ns.all else (ns.inst or [0])
     src = open_source("local", product, install=ns.wow)
     water_dir = os.path.join(ROOT, "Textures", "Water", product)
+    sea_dir = os.path.join(ROOT, "Textures", "Sea", product)
 
     for inst in insts:
         tiles = maps[inst]
         out = os.path.join(ns.out, str(inst))
         os.makedirs(out, exist_ok=True)
-        src.prefetch(tiles.values())
-        n_water = 0
+        if not ns.masks_only:
+            src.prefetch(tiles.values())
+        n_water = n_sea = 0
         for key, fdid in sorted(tiles.items()):
-            img = blp_dxt(src.read(fdid))
-            full = Image.frombytes("RGB", (img.width, img.height), img.rgb8())
-            full.save(os.path.join(out, f"{key}.webp"), quality=QUALITY, method=6)
-            for size in LODS:
-                os.makedirs(os.path.join(out, str(size)), exist_ok=True)
-                full.resize((size, size), Image.LANCZOS).save(
-                    os.path.join(out, str(size), f"{key}.webp"), quality=QUALITY, method=6)
+            if not ns.masks_only:
+                img = blp_dxt(src.read(fdid))
+                full = Image.frombytes("RGB", (img.width, img.height), img.rgb8())
+                full.save(os.path.join(out, f"{key}.webp"), quality=QUALITY, method=6)
+                for size in LODS:
+                    os.makedirs(os.path.join(out, str(size)), exist_ok=True)
+                    full.resize((size, size), Image.LANCZOS).save(
+                        os.path.join(out, str(size), f"{key}.webp"), quality=QUALITY, method=6)
+            tga = os.path.join(sea_dir, f"{inst}_{key}.tga")
+            if os.path.exists(tga):
+                with open(tga, "rb") as f:
+                    w, h, rows = read_tga(f.read())
+                Image.frombytes("RGB", (w, h), bytes(v for row in rows for p in row for v in (p[0], p[3], 0))).save(
+                    os.path.join(out, f"sea_{key}.webp"), lossless=True, method=6)
+                n_sea += 1
             tga = os.path.join(water_dir, f"{inst}_{key}.tga")
             if os.path.exists(tga):
                 with open(tga, "rb") as f:
@@ -90,7 +106,7 @@ def main() -> None:
                 with open(os.path.join(out, f"water_{key}.png"), "wb") as f:
                     f.write(png(w, h, bytes(v for row in rows for p in row for v in p), 4))
                 n_water += 1
-        print(f"[{inst}] {len(tiles)} tiles, {n_water} water masks -> {out}", file=sys.stderr)
+        print(f"[{inst}] {len(tiles)} tiles, {n_water} water masks, {n_sea} sea masks -> {out}", file=sys.stderr)
 
 
 if __name__ == "__main__":

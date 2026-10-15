@@ -9,6 +9,10 @@
 <meta name="apple-mobile-web-app-title" content="Atlas">
 <meta name="theme-color" content="#111111">
 <title>Atlas demo</title>
+<!-- Label faces (see labels.js): Cinzel for Morpheus's titles, Marcellus for Friz Quadrata. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Marcellus&display=swap">
 <style>
   html, body { margin: 0; height: 100%; background: #111; color: #ddd; font: 13px system-ui, -apple-system, sans-serif;
     overflow: hidden; overscroll-behavior: none; -webkit-user-select: none; user-select: none;
@@ -140,12 +144,22 @@ function frame() {
   drawTiles();
   if (walk) drawWalk();
   drawBorders();
-  drawLabels();
+  // Pins: where they'll be drawn first, so labels keep clear of them; quieter at continent zoom,
+  // where names win; pins a name covers aren't drawn.
+  const quiet = before ? { s: 1, a: 1 } : pinQuiet(), onScreen = [];
   for (const p of pins) {
     if (!shown(p.layer)) continue;
     const [x, y] = toScreen(p.col, p.row);
-    if (x > -20 && x < W + 20 && y > -20 && y < H + 20) drawPin(ctx, p.layer, p, x, y);
+    if (x > -20 && x < W + 20 && y > -20 && y < H + 20) onScreen.push([p, x, y]);
   }
+  const covered = drawLabels(onScreen.map(([p, x, y]) => { const r = PIN_R[p.layer] * quiet.s; return [x - r, y - r, x + r, y + r, p.layer]; }));
+  ctx.globalAlpha = quiet.a;
+  for (const [i, [p, x, y]] of onScreen.entries()) {
+    if (covered.has(i)) continue; // under a name that wins over it
+    if (quiet.s === 1) { drawPin(ctx, p.layer, p, x, y); continue; }
+    ctx.save(); ctx.translate(x, y); ctx.scale(quiet.s, quiet.s); drawPin(ctx, p.layer, p, 0, 0); ctx.restore();
+  }
+  ctx.globalAlpha = 1;
   if (highlight) drawHighlight();
   if (marker) {
     const [x, y] = toScreen(marker[0], marker[1]);
@@ -168,6 +182,7 @@ const LAYERS = [ // id, name, shown from this zoom (px per tile), a sample pin f
   ["service", "Town services", 96, { faction: "A", mark: "innkeeper" }], ["quest", "Quest givers", 160, {}],
   ["mail", "Mailboxes", 160, {}], ["herb", "Herbs", 256, {}], ["ore", "Ore", 256, {}],
 ];
+const PIN_R = { flight: 8, poi: 5, dungeon: 8, rare: 8, service: 8, quest: 9, mail: 6, herb: 4, ore: 5 }; // half a pin's box, px
 const layerOn = new Set(["flight", "poi", "dungeon", "rare", "service", "quest"]);
 const shown = (id) => layerOn.has(id) && cam.zoom >= LAYERS.find((l) => l[0] === id)[2];
 let pins = [], highlight = null;
@@ -309,6 +324,7 @@ async function inspect(x, y, mark) {
   const a = await get(`/api/at?inst=${INST}&col=${col}&row=${row}`);
   if (seq !== atSeq) return;
   const z = a.zone, ar = a.area;
+  setZoneHighlight(z && z.zone); // borders.js: the zone under the pointer
   readout.textContent =
     `tile   ${col.toFixed(3)}, ${row.toFixed(3)}  (key ${Math.floor(col) * 64 + Math.floor(row)})\n` +
     `world  north ${a.north.toFixed(1)}, west ${a.west.toFixed(1)}\n` +

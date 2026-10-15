@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Generate Data/Borders.lua: exact zone and subzone borders, plus
-label anchors, from the game's own terrain.
+"""Generate Data/Borders.lua: zone borders, zone outlines and label anchors,
+from the game's own terrain.
 
 Every ADT tile is split into 16x16 chunks (~33 yards) and each chunk (MCNK)
 records its AreaTable ID: the game's own definition of where zones and
 subzones are. AreaTable's parent links give each area's zone. We trace the
-chunk edges where the zone (or, within a zone, the subzone) changes, skip
-edges out in deep sea on both sides (so borders stop at the coast), chain the
-edges into polylines and simplify them. Label anchors are the land chunk
-deepest inside each area (farthest from its edge).
+chunk edges around each zone's land (chunks above the shore line), chain them
+into polylines between junctions, and smooth each chain (its ends stay put, so
+neighbours still meet, three at a junction) into a curve. Zone-to-zone chains
+are the borders, at two levels of detail; where one reaches the shore it runs
+on a little over water, to fade out there. Each zone's chains also close into
+its outline. Label anchors are the land chunk deepest inside each zone and
+subzone (farthest from its edge).
 
   python3 tools/gen_borders.py local "/Applications/World of Warcraft" wow_classic_beta \\
       -o Data/Borders.lua
@@ -22,15 +25,21 @@ import math
 import sys
 from collections import deque
 
-from mmtools.formats import adt_chunks, wdt_maid
+from mmtools.formats import adt_chunks, adt_liquids, wdt_maid
 from mmtools.log import log
 from mmtools.maps import AREATABLE_DB2, MAP_DB2, read_area_parents, read_maps
 from mmtools.sources import Source, add_source_args, source_from_args
 
-SEA_LEVEL = -2       # chunks whose highest point is below this are open sea (zone borders stop)
-SHORE_LEVEL = 0.5    # ...below this, water: no subzone borders out there
-MIN_SUBZONE_EDGE_CELLS = 4  # subzones smaller than this (land chunks) get no outline
-SIMPLIFY = 0.4       # Douglas-Peucker tolerance, in chunks
+SEA_LEVEL = -2       # chunks whose highest point is below this are open sea (no labels there)
+SHORE_LEVEL = 0.5    # ...below this, water (and so is a chunk mostly under the sea): borders and
+                     # outlines stop at the shore
+SEA_SURFACE = 3      # liquid whose surface is within this of 0 is the sea
+SIGMA = 2.0          # smoothing, in chunks
+NEAR, FAR = 0.003, 0.03  # Douglas-Peucker tolerances of the two levels of detail, in tiles
+COAST = 0.01         # ...and of outlines along the coast (and land of no zone)
+TAIL = 4             # chunk edges a border runs on over water, fading out
+DEAD_END = 0.1       # tiles a border fades over where it stops on land (no zone beyond)
+MIN_RING = 12        # outline rings enclosing fewer chunks (islets, ponds) are dropped
 MIN_SUBZONE_CELLS = 6  # subzones smaller than this get no label
 
 # Chunk cells are keyed gc * 1024 + gr (global chunk column, row); chunk
@@ -88,15 +97,37 @@ def simplify(pts: list[tuple[int, int]], tol: float) -> list[tuple[int, int]]:
     return [pts[k] for k in sorted(keep)]
 
 
+def under_sea(ch, liquids) -> bool:
+    """Is most of the chunk under sea-level water? (Its highest point can still
+    be a cliff top: a chunk off a cliffy coast is sea, not land.)"""
+    if ch.max_height < SHORE_LEVEL:
+        return True
+    h = ch.heights
+    sea = [liq for liq in liquids if abs(liq.surface) < SEA_SURFACE]
+    if h is None or not sea:
+        return False
+    n = 0
+    for qy in range(8):
+        for qx in range(8):
+            ground = ch.z + (h[qy * 17 + qx] + h[qy * 17 + qx + 1] + h[(qy + 1) * 17 + qx]
+                             + h[(qy + 1) * 17 + qx + 1] + h[qy * 17 + 9 + qx]) / 5
+            n += any(liq.covers(qx, qy) and liq.surface > ground for liq in sea)
+    return n * 2 >= 64
+
+
 def read_terrain(src: Source, adts: dict[int, int]):
-    """Per chunk cell: area ID, and whether it's open sea / water."""
-    area, sea, wet = {}, set(), set()
+    """Per chunk cell: area ID, and whether it's open sea / below the shore line /
+    under the sea."""
+    area, sea, wet, water = {}, set(), set(), set()
     src.prefetch(adts.values())
     for key in sorted(adts):
         buf = src.read(adts[key])
         if buf is None:
             continue
         col, row = key // 64, key % 64
+        liquids = {}
+        for liq in adt_liquids(buf):
+            liquids.setdefault((liq.ix, liq.iy), []).append(liq)
         for ch in adt_chunks(buf):
             c = (col * 16 + ch.ix) * CELL + (row * 16 + ch.iy)
             area[c] = ch.area
@@ -105,102 +136,192 @@ def read_terrain(src: Source, adts: dict[int, int]):
                 sea.add(c)
             if top < SHORE_LEVEL:
                 wet.add(c)
-    return area, sea, wet
+            if under_sea(ch, liquids.get((ch.ix, ch.iy), ())):
+                water.add(c)
+    return area, sea, wet, water
 
 
 def neighbours(c: int):
     return (c - CELL, c + CELL, c - 1, c + 1)
 
 
-def trace_map(area: dict, sea: set, wet: set, areas: Areas, tol: float):
+def smooth(pts: list, closed: bool) -> list:
+    """Gaussian smoothing (SIGMA chunks) of a chain of unit chunk edges: the
+    33-yard steps melt into curves. An open chain's ends stay put (reflected
+    through them), so chains still meet where they did."""
+    n = len(pts) - 1
+    if closed:
+        pts = pts[:-1]
+    r = min(int(3 * SIGMA), n)
+    w = [math.exp(-k * k / (2 * SIGMA * SIGMA)) for k in range(-r, r + 1)]
+    total = sum(w)
+
+    def at(j):
+        if closed:
+            return pts[j % len(pts)]
+        if j < 0:
+            return 2 * pts[0][0] - pts[-j][0], 2 * pts[0][1] - pts[-j][1]
+        if j > n:
+            return 2 * pts[n][0] - pts[2 * n - j][0], 2 * pts[n][1] - pts[2 * n - j][1]
+        return pts[j]
+
+    out = []
+    for i in range(len(pts)):
+        x = y = 0.0
+        for k in range(-r, r + 1):
+            px, py = at(i + k)
+            x += w[k + r] * px
+            y += w[k + r] * py
+        out.append((x / total, y / total))
+    if closed:
+        out.append(out[0])
+    else:
+        out[0], out[-1] = pts[0], pts[n]  # exact, not just nearly
+    return out
+
+
+def length(pts: list) -> float:
+    return sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:]))
+
+
+def chains(edges: dict):
+    """Chain edges {(v1, v2): pair} into polylines of one pair each, broken
+    wherever anything else meets them. Yields (pair, [vertex, ...], closed)."""
+    adj = {}
+    for e in edges:
+        adj.setdefault(e[0], []).append(e)
+        adj.setdefault(e[1], []).append(e)
+    used = set()
+
+    def walk(start, e):
+        pair, pts, node = edges[e], [start], start
+        while e is not None and e not in used:
+            used.add(e)
+            node = e[1] if e[0] == node else e[0]
+            pts.append(node)
+            nxt = [x for x in adj[node] if x not in used and edges[x] == pair]
+            e = nxt[0] if len(adj[node]) == 2 and nxt else None
+        return pair, pts, node == start and len(adj[start]) == 2
+
+    for v in sorted(adj):
+        if len(adj[v]) != 2 or edges[adj[v][0]] != edges[adj[v][1]]:
+            for e in sorted(adj[v]):
+                if e not in used:
+                    yield walk(v, e)
+    for e in sorted(edges):  # closed loops: no junction on them
+        if e not in used:
+            yield walk(e[0], e)
+
+
+def edge_of(c: int, n: int):
+    """The chunk edge between neighbouring cells c and n, as (vertex, vertex)."""
+    (gc, gr), (nc, nr) = divmod(c, CELL), divmod(n, CELL)
+    x, y = max(gc, nc), max(gr, nr)
+    if nc != gc:  # vertical edge
+        return (x * VERT + y, x * VERT + y + 1)
+    return (x * VERT + y, (x + 1) * VERT + y)
+
+
+def ring_area(pts: list) -> float:
+    return abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(pts, pts[1:]))) / 2
+
+
+def trace_map(area: dict, sea: set, wet: set, water: set, areas: Areas):
     zone, sub = {}, {}
     for c, a in area.items():
         if a:
             zone[c] = areas.zone_of(a)
             sub[c] = areas.sub_of(a)
-    sub_land, zone_land, zone_all = {}, {}, {}
+    zone_land, zone_all = {}, {}
     for c in sub:
         zone_all[zone[c]] = zone_all.get(zone[c], 0) + 1
-        if c in wet:
-            continue
-        sub_land[sub[c]] = sub_land.get(sub[c], 0) + 1
-        zone_land[zone[c]] = zone_land.get(zone[c], 0) + 1
+        if c not in wet:
+            zone_land[zone[c]] = zone_land.get(zone[c], 0) + 1
     # "Zones" that are mostly water (e.g. The Great Sea, even with a few
     # islets) aren't zones on a map.
     sea_zone = {z for z, n in zone_all.items() if zone_land.get(z, 0) < 10 or zone_land[z] < n * 0.25}
     zone = {c: z for c, z in zone.items() if z not in sea_zone}
 
-    # --- edges between chunks ----------------------------------------------
-    edges = []  # (kind, v1, v2, (a, b))
-    for c in sorted(area):
-        gc, gr = divmod(c, CELL)
-        for dc, dr in ((1, 0), (0, 1)):
-            n = (gc + dc) * CELL + gr + dr
-            if n not in area or (c in sea and n in sea):
-                continue
-            za, zb = zone.get(c, 0), zone.get(n, 0)
-            if za and zb and za != zb:
-                kind, a, b = 1, za, zb
-            elif za and za == zb and sub.get(c, 0) != sub.get(n, 0):
-                # Subzones: only on land, and only for areas big enough to matter.
-                if c in wet or n in wet:
-                    continue
-                if sub_land.get(sub[c], 0) < MIN_SUBZONE_EDGE_CELLS or sub_land.get(sub[n], 0) < MIN_SUBZONE_EDGE_CELLS:
-                    continue
-                kind, a, b = 2, sub[c], sub[n]
-            else:
-                continue
-            if a > b:
-                a, b = b, a
-            if dc:  # vertical edge
-                v1, v2 = (gc + 1) * VERT + gr, (gc + 1) * VERT + gr + 1
-            else:   # horizontal edge
-                v1, v2 = gc * VERT + gr + 1, (gc + 1) * VERT + gr + 1
-            edges.append((kind, v1, v2, (a, b)))
+    # --- every edge of every zone's land (to another zone, or 0: water, no zone)
+    land = {c: z for c, z in zone.items() if c not in water}
+    edges = {}
+    for c in sorted(land):
+        for n in neighbours(c):
+            if land.get(n, 0) != land[c]:
+                edges[edge_of(c, n)] = tuple(sorted((land[c], land.get(n, 0))))
+    # ...and zone borders out over water, for the ends that run on and fade out
+    wet_edges = {}
+    for c in sorted(zone):
+        for n in (c + CELL, c + 1):
+            if n in zone and zone[n] != zone[c] and (c not in land or n not in land):
+                wet_edges[edge_of(c, n)] = tuple(sorted((zone[c], zone[n])))
+    wet_adj = {}
+    for e in wet_edges:
+        wet_adj.setdefault(e[0], []).append(e)
+        wet_adj.setdefault(e[1], []).append(e)
+    vert = lambda v: divmod(v, VERT)  # noqa: E731
 
-    adj, degree = {}, {}
-    for i, (_, v1, v2, _) in enumerate(edges):
-        adj.setdefault(v1, []).append(i)
-        adj.setdefault(v2, []).append(i)
-        degree[v1] = degree.get(v1, 0) + 1
-        degree[v2] = degree.get(v2, 0) + 1
-
-    # --- chain edges of one kind + one area pair into polylines ------------
-    used = [False] * len(edges)
-    lines = []
-
-    def same_line(i: int, kind: int, pair) -> bool:
-        return edges[i][0] == kind and edges[i][3] == pair
-
-    def walk(start: int, ei: int) -> None:
-        kind, _, _, pair = edges[ei]
-        pts, node = [start], start
-        while ei is not None and not used[ei]:
-            used[ei] = True
-            _, v1, v2, _ = edges[ei]
-            node = v2 if v1 == node else v1
-            pts.append(node)
-            same = [i for i in adj[node] if same_line(i, kind, pair)]
-            nxt = [i for i in same if not used[i]]
-            if not (len(same) == 2 and len(nxt) == 1):
+    def tail(v, pair):
+        """The border of pair running on from shore vertex v over water."""
+        pts, seen = [v], set()
+        for _ in range(TAIL):
+            nxt = [e for e in wet_adj.get(v, ()) if wet_edges[e] == pair and e not in seen]
+            if len(nxt) != 1:
                 break
-            ei = nxt[0]
-        # A true dead end (nothing else meets it) fades out instead of stopping.
-        fade_start = 1 if degree[start] == 1 else 0
-        fade_end = 1 if degree[node] == 1 else 0
-        xy = simplify([divmod(v, VERT) for v in pts], tol)
-        lines.append((kind, pair[0], pair[1], fade_start, fade_end, xy))
+            seen.add(nxt[0])
+            v = nxt[0][1] if nxt[0][0] == v else nxt[0][0]
+            pts.append(v)
+        return [vert(p) for p in pts]
 
-    for v in sorted(adj):
-        for ei in adj[v]:
-            if used[ei]:
+    def coast(v):  # does land of no zone (or water) touch vertex v?
+        x, y = divmod(v, VERT)
+        return any(land.get((x - dx) * CELL + y - dy, 0) == 0 for dx in (0, 1) for dy in (0, 1))
+
+    lines, rims = [], {}  # rims: zone -> its outline chains
+    for pair, vs, closed in chains(edges):
+        pts = smooth([vert(v) for v in vs], closed)
+        rim = simplify(pts, (COAST if not pair[0] else NEAR) * 16)
+        for z in pair:
+            if z:
+                rims.setdefault(z, []).append(rim)
+        if not pair[0]:
+            continue
+        ends = []
+        for v in (vs[0], vs[-1]):
+            t = tail(v, pair) if not closed and coast(v) else []
+            t = smooth(t, False) if len(t) > 1 else []
+            ends.append((t, length(t) / 16 if t else DEAD_END if not closed and coast(v) else 0))
+        (t0, f0), (t1, f1) = ends
+        lod = []
+        for tol in (NEAR, FAR):
+            def part(p):
+                return simplify(p, tol * 16)
+            xy = part(t0[::-1])[:-1] + part(pts) + part(t1)[1:] if t0 else part(pts) + part(t1)[1:]
+            lod.append(xy)
+        lines.append((pair[0], pair[1], f0, f1, lod[0], lod[1]))
+
+    # --- each zone's land as closed rings, from the same chains --------------
+    outlines = {}
+    for z in sorted(rims):
+        todo, by_end = list(rims[z]), {}
+        for i, p in enumerate(todo):
+            by_end.setdefault(p[0], []).append(i)
+            by_end.setdefault(p[-1], []).append(i)
+        used, rings = set(), []
+        for i in range(len(todo)):
+            if i in used:
                 continue
-            kind, _, _, pair = edges[ei]
-            if sum(1 for i in adj[v] if same_line(i, kind, pair)) != 2:
-                walk(v, ei)
-    for ei, e in enumerate(edges):  # closed loops
-        if not used[ei]:
-            walk(e[1], ei)
+            used.add(i)
+            ring = list(todo[i])
+            while ring[-1] != ring[0]:
+                j = next(j for j in by_end[ring[-1]] if j not in used)
+                used.add(j)
+                p = todo[j] if todo[j][0] == ring[-1] else todo[j][::-1]
+                ring += p[1:]
+            if ring_area(ring) >= MIN_RING:
+                rings.append(ring[:-1])
+        if rings:
+            outlines[z] = rings
 
     # --- label anchors: deepest land chunk of each zone / subzone ------------
     labels = []
@@ -231,8 +352,7 @@ def trace_map(area: dict, sea: set, wet: set, areas: Areas, tol: float):
             c = best[i]
             labels.append((i, (c // CELL + 0.5) / 16, (c % CELL + 0.5) / 16, count[i], kind))
 
-    lines.sort(key=lambda l: l[0])  # stable: zones first, then subzones
-    return lines, labels
+    return lines, outlines, labels
 
 
 def main() -> None:
@@ -240,7 +360,6 @@ def main() -> None:
     add_source_args(parser)
     parser.add_argument("-o", "--output", help="output file (default: stdout)")
     parser.add_argument("--min-tiles", type=int, default=20, help="skip maps with fewer terrain tiles (default 20)")
-    parser.add_argument("--simplify", type=float, default=SIMPLIFY, help=argparse.SUPPRESS)
     ns = parser.parse_args()
     src = source_from_args(parser, ns)
 
@@ -252,10 +371,16 @@ def main() -> None:
     maps = [m for m in read_maps(map_db2) if m.kind is None]
     src.prefetch(m.wdt for m in maps)
 
+    def flat(xy):
+        return ", ".join("%.3f, %.3f" % (x / 16, y / 16) for x, y in xy)
+
     out = open(ns.output, "w", encoding="utf-8", newline="\n") if ns.output else sys.stdout
     w = out.write
     w(f"-- GENERATED by tools/gen_borders.py from the {src.product} {src.version} terrain (ADT chunk areas). Do not edit.\n")
-    w("-- lines: { kind (1 zone, 2 subzone), areaA, areaB, fadeStart, fadeEnd, x1, y1, x2, y2, ... } in tile units\n")
+    w("-- lines: zone borders, smoothed: { areaA, areaB, fadeStart, fadeEnd, x1, y1, x2, y2, ... } in tile units,\n")
+    w(f"--   within {NEAR} tiles; fadeStart/fadeEnd: tiles over which that end fades out (over water), 0 none\n")
+    w(f"-- far: the same, within {FAR} tiles (for zoomed out)\n")
+    w(f"-- outlines: [zone areaID] = {{ ring, ... }}, ring = {{ x1, y1, x2, y2, ... }} closed, its land (even-odd)\n")
     w("-- labels: { areaID, col, row, weight (land chunks), kind }\n")
     w("MagicMap_Borders = {\n")
     for m in sorted(maps, key=lambda m: m.inst):
@@ -265,18 +390,26 @@ def main() -> None:
         adts = {k: t.root_adt for k, t in wdt_maid(wdt).items() if t.root_adt}
         if len(adts) < ns.min_tiles:
             continue
-        area, sea, wet = read_terrain(src, adts)
+        area, sea, wet, water = read_terrain(src, adts)
         if not area:
             continue
-        lines, labels = trace_map(area, sea, wet, areas, ns.simplify)
-        log("%s: [%d] %s: %d zone lines, %d subzone lines, %d labels" % (
-            src.product, m.inst, m.name, sum(1 for l in lines if l[0] == 1),
-            sum(1 for l in lines if l[0] == 2), len(labels)))
+        lines, outlines, labels = trace_map(area, sea, wet, water, areas)
+        log("%s: [%d] %s: %d border lines (%d / %d points), %d zone outlines, %d labels" % (
+            src.product, m.inst, m.name, len(lines), sum(len(l[4]) for l in lines),
+            sum(len(l[5]) for l in lines), len(outlines), len(labels)))
         name = m.name.replace("\n", " ")
-        w(f"  [{m.inst}] = {{ -- {name}\n    lines = {{\n")
-        for kind, a, b, fs, fe, xy in lines:
-            pts = ", ".join("%.2f, %.2f" % (x / 16, y / 16) for x, y in xy)
-            w(f"      {{ {kind}, {a}, {b}, {fs}, {fe}, {pts} }},\n")
+        w(f"  [{m.inst}] = {{ -- {name}\n")
+        for key, lod in (("lines", 4), ("far", 5)):
+            w(f"    {key} = {{\n")
+            for line in lines:
+                w("      { %d, %d, %.3f, %.3f, %s },\n" % (line[0], line[1], line[2], line[3], flat(line[lod])))
+            w("    },\n")
+        w("    outlines = {\n")
+        for z, rings in outlines.items():
+            w(f"      [{z}] = {{\n")
+            for ring in rings:
+                w(f"        {{ {flat(ring)} }},\n")
+            w("      },\n")
         w("    },\n    labels = {\n")
         for label in labels:
             w("      { %d, %.2f, %.2f, %d, %d },\n" % label)

@@ -10,3 +10,5 @@ __pycache__/
 /Data/Objects.lua
 /Data/Items.lua
 /Data/Quests.lua
+# Addon sea masks (~39 MB of TGAs): regenerate with tools/gen_sea.py
+/Textures/Sea/
