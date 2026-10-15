@@ -1,9 +1,10 @@
 -- The map window: Blizzard's ButtonFrameTemplate (Forever's re-skin) stripped to its
 -- metal border (ui/Chrome.lua), the view inside it where the layers draw (ui/Engine.lua),
--- and input routing: the view's wheel, presses and releases go to Motion (ui/Motion.lua);
--- dragging the border or Alt+left-dragging the map moves the window. Its draw step, each
--- frame while shown: grow/shrink (ui/BigMap.lua), the map shown (yours while following),
--- Motion's chase, Engine's layers, the map state, your arrow.
+-- and input routing: the view's wheel and left presses and releases go to Motion
+-- (ui/Motion.lua), a right release opens the map's menu (ui/Menus.lua); dragging the border
+-- or Alt+left-dragging the map moves the window. Its draw step, each frame while shown:
+-- grow/shrink (ui/BigMap.lua), Motion's chase, the map shown (yours while following),
+-- Engine's layers, the map state, your arrow.
 
 local _, ns = ...
 local UI = ns.UI
