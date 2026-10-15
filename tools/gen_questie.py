@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Generate Data/Npcs.lua, Data/Objects.lua, Data/Items.lua and Data/Quests.lua
-from the user's installed QuestieDB (baked mode), projected into tile space
-through Data/UiMaps.lua. See docs/atlas-data.md for the layouts.
+"""Generate Data/Npcs.lua, Data/Objects.lua, Data/Items.lua, Data/Quests.lua and
+Data/BlipServices.lua from the user's installed QuestieDB (baked mode), projected
+into tile space through Data/UiMaps.lua. See docs/atlas-data.md for the layouts.
 
 QuestieDB declares no license: these files are gitignored, never commit them.
 
   .venv/bin/python tools/gen_questie.py \\
       "/Applications/World of Warcraft/_classic_beta_/Interface/AddOns/QuestieDB" [-o Data]
+
+The data diet (docs/v1-plan.md D3): Items only those quests reach, NPCs only those
+with an open-world spawn (a Data/Tiles.lua map without a kind) or that a quest, an
+item quests reach, a rare rank or a service needs. --full keeps every one (to compare).
 
 QuestieDB_<flavor>.toc holds the data as `## X-<Ent>-<key>: <base64>` lines
 (`~N~` = value split over keys <key>-1..<key>-N). X-<Ent>-IDS is
@@ -55,6 +59,14 @@ OBJECTIVE_ENT = {"monster": "Npc", "killcredit": "Npc", "object": "Object", "ite
 # ChrRaces masks (src/corrections/enum/expansions.lua, Forever): bits 32/33 are Skyborne.
 ALLIANCE_RACES = 1 | 4 | 8 | 64 | (1 << 32)   # Human, Dwarf, Night Elf, Gnome, Skyborne Alliance
 HORDE_RACES = 2 | 16 | 32 | 128 | (1 << 33)   # Orc, Undead, Tauren, Troll, Skyborne Horde
+
+# A blip's service by its NPC's npcFlags, first match in the spike's order (Blips.lua:377-385),
+# else "questgiver" if it starts a quest (Blips.lua:435), else a flight master's; "Mailbox" its own.
+BLIP_SERVICES = ((128, "innkeeper"), (256, "banker"), (4096, "auctioneer"), (8192, "stablemaster"),
+                 (2048, "battlemaster"), (16, "trainer"), (16384, "repair"))
+FLIGHT_MASTER = 8
+SERVICE_FLAGS = FLIGHT_MASTER | sum(f for f, _ in BLIP_SERVICES)  # (distinct bits)
+RARE = (2, 4)  # rank: rare elite, rare
 
 HERBS = {"Peacebloom", "Silverleaf", "Earthroot", "Mageroyal", "Briarthorn", "Stranglekelp", "Bruiseweed",
          "Wild Steelbloom", "Grave Moss", "Kingsblood", "Liferoot", "Fadeleaf", "Goldthorn", "Khadgar's Whisker",
@@ -236,6 +248,11 @@ def load_uimaps(path: str) -> dict[int, tuple]:
     return out
 
 
+def load_open_world(path: str) -> set[int]:
+    """Instance IDs of the open-world maps: Data/Tiles.lua's maps without a kind."""
+    return {i for i, m in load_data(lupa.LuaRuntime(), path).Data.Tiles.maps.items() if m.kind is None}
+
+
 # --- Projection -------------------------------------------------------------------------------------------
 
 class Projector:
@@ -316,7 +333,7 @@ def write(path, name, header, rows, meta):
         f.write(data_head(name))
         f.write(f"D.{name} = {{\n")
         for i, row in rows:
-            f.write(f"[{i}]={lua_val(row)},\n")
+            f.write(f"[{lua_val(i)}]={lua_val(row)},\n")
         f.write("}\n")
     log(f"{path}: {len(rows)} rows, {os.path.getsize(path) / 1e6:.1f} MB")
 
@@ -378,11 +395,76 @@ def placeholder(ent, name):
     return bool(PLACEHOLDER.search(name) or ent in TEST_WORD and TEST_WORD[ent].search(name))
 
 
+def diet(raw, drop, spawns, open_world):
+    """D3: drops (adds to drop) the items no kept quest reaches (objectives, startedBy, startQuest,
+    and the items those drop from), and the NPCs without an open-world spawn that no kept quest or
+    reached item (npcDrops, vendors), rare rank or service needs. Nothing kept names a dropped one."""
+    quests = {i for i in raw["Quest"] if i not in drop["Quest"]}
+    items, npcs = set(), set()
+    for i in quests:
+        r = raw["Quest"][i]
+        for kind, oid, *_ in objectives(r.get(QUEST["objectives"])) or ():
+            if kind == "item":
+                items.add(oid)
+            elif OBJECTIVE_ENT.get(kind) == "Npc":
+                npcs.add(oid)
+        started, finished = as_map(r.get(QUEST["startedBy"]) or {}), as_map(r.get(QUEST["finishedBy"]) or {})
+        npcs.update(ids(started.get(1)) or (), ids(finished.get(1)) or ())
+        items.update(ids(started.get(3)) or ())
+    items.update(i for i, r in raw["Item"].items() if r.get(ITEM["startQuest"]) in quests)
+    items -= drop["Item"]
+    todo = list(items)
+    while todo:
+        r = raw["Item"].get(todo.pop())
+        for x in ids(r and r.get(ITEM["itemDrops"]), drop["Item"]) or ():
+            if x not in items:
+                items.add(x)
+                todo.append(x)
+    for i in items:
+        r = raw["Item"].get(i)
+        if r:
+            npcs.update(ids(r.get(ITEM["npcDrops"])) or (), ids(r.get(ITEM["vendors"])) or ())
+    drop["Item"].update(set(raw["Item"]) - items)
+    for i, r in raw["Npc"].items():
+        if i in npcs or i in drop["Npc"] or r.get(NPC["rank"]) in RARE or (r.get(NPC["flags"]) or 0) & SERVICE_FLAGS:
+            continue
+        if any(inst in open_world for inst in spawns[i][0] or ()):
+            continue
+        if set(ids(r.get(NPC["questStarts"])) or ()) & quests or set(ids(r.get(NPC["questEnds"])) or ()) & quests:
+            continue
+        drop["Npc"].add(i)
+
+
+def blip_services(raw, drop):
+    """Blip tooltip name -> service (BLIP_SERVICES) of the lowest NPC id of that name, as the spike's
+    Kind() read LibQuestieDB's IdsByName(name)[1] (Blips.lua:411-413); and "Mailbox"."""
+    first = {}
+    for i in sorted(raw["Npc"]):
+        name = raw["Npc"][i].get(NPC["name"])
+        if name and i not in drop["Npc"]:
+            first.setdefault(name, i)
+    out = {}
+    for name, i in first.items():
+        r = raw["Npc"][i]
+        flags = r.get(NPC["flags"]) or 0
+        service = next((s for f, s in BLIP_SERVICES if flags & f), None)
+        if not service and ids(r.get(NPC["questStarts"]), drop["Quest"]):
+            service = "questgiver"
+        if not service and flags & FLIGHT_MASTER:
+            service = "flightmaster"
+        if service:
+            out[name] = service
+    out["Mailbox"] = "mailbox"
+    return out
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("questiedb", help="the QuestieDB addon directory")
     parser.add_argument("-o", "--output", default="Data", help="output directory (default Data)")
     parser.add_argument("--uimaps", default="Data/UiMaps.lua")
+    parser.add_argument("--tiles", default="Data/Tiles.lua", help="its maps without a kind are the open world")
+    parser.add_argument("--full", action="store_true", help="no data diet: every item and NPC")
     ns = parser.parse_args()
 
     store = Store(os.path.join(ns.questiedb, f"QuestieDB_{FLAVOR}.toc"))
@@ -407,10 +489,29 @@ def main() -> None:
             + "; ".join(f"{i} {raw[ent][i][1]}" for i in sorted(d)))
     npcs, objects, items, quests = drop["Npc"], drop["Object"], drop["Item"], drop["Quest"]
     kept = lambda ent: ((i, r) for i, r in raw[ent].items() if i not in drop[ent])  # noqa: E731
+    services = blip_services(raw, drop)
+    spawns = {i: project(r.get(NPC["spawns"])) for i, r in kept("Npc")}
+    if not ns.full:
+        before = {ent: len(raw[ent]) - len(drop[ent]) for ent in ("Npc", "Item")}
+        diet(raw, drop, spawns, load_open_world(ns.tiles))
+        log("diet (D3): " + ", ".join(f"{len(raw[ent]) - len(drop[ent])} of {n} {ent.lower()}s"
+                                      for ent, n in before.items()))
+    drop["Object"].update(i for i, r in raw["Object"].items() if not r.get(OBJECT["name"]))  # stubs (417353)
+    # QuestieDB's gaps: ids an item names (drops, vendors) that Forever's data has no row for (Season of
+    # Discovery's npcs, stubs): left out of the item too, so every source Atlas gives resolves.
+    gone = Counter()
+    for _, r in kept("Item"):
+        for f, ent in ((ITEM["npcDrops"], "Npc"), (ITEM["objectDrops"], "Object"), (ITEM["itemDrops"], "Item"),
+                       (ITEM["vendors"], "Npc")):
+            for x in ids(r.get(f), drop[ent]) or ():
+                if x not in raw[ent]:
+                    drop[ent].add(x)
+                    gone[ent] += 1
+    log(f"ids items name that QuestieDB lacks, left out: {dict(gone)}")
 
     rows = []
     for i, r in kept("Npc"):
-        pts, insts = project(r.get(NPC["spawns"]))
+        pts, insts = spawns[i]
         rows.append((i, [r.get(NPC["name"]), r.get(NPC["subName"]), r.get(NPC["minLevel"]), r.get(NPC["maxLevel"]),
                          r.get(NPC["rank"]) or None, r.get(NPC["friendly"]) or None, r.get(NPC["flags"]) or None,
                          ids(r.get(NPC["questStarts"]), quests), ids(r.get(NPC["questEnds"]), quests), pts, insts]))
@@ -418,13 +519,11 @@ def main() -> None:
         "[npcID] = { name, subName, minLevel, maxLevel, rank, faction, flags, questStarts, questEnds, spawns, instances }",
         "rank: 1 elite, 2 rare elite, 3 boss, 4 rare. faction: \"A\" | \"H\" | \"AH\" (friendly to). flags: npcFlags.",
         "spawns: { [inst] = { col, row, ... } } tile space. instances: instIDs of dungeons it spawns inside.",
-    ], rows, meta)
+    ] + ([] if ns.full else ["D3 diet: an open-world spawn, or a quest, item, rare rank or service needs it."]), rows, meta)
 
     rows = []
-    for i, r in kept("Object"):
+    for i, r in kept("Object"):  # (not the stubs: nothing to show or find)
         name = r.get(OBJECT["name"])
-        if not name:  # a stub (417353): nothing to show or find
-            continue
         pts, insts = project(r.get(OBJECT["spawns"]))
         rows.append((i, [name, object_kind(name), ids(r.get(OBJECT["questStarts"]), quests),
                          ids(r.get(OBJECT["questEnds"]), quests), pts, insts]))
@@ -442,7 +541,8 @@ def main() -> None:
                          r.get(ITEM["cls"]), r.get(ITEM["subClass"]), r.get(ITEM["requiredLevel"]) or None]))
     write(out("Items.lua"), "Items", [
         "[itemID] = { name, npcDrops, objectDrops, itemDrops, vendors, startQuest, class, subClass, requiredLevel }",
-    ], rows, meta)
+    ] + ([] if ns.full else ["D3 diet: the items quests reach (objectives, startedBy, startQuest, the items they drop from)."]),
+        rows, meta)
 
     rows = []
     for i, r in kept("Quest"):
@@ -469,6 +569,11 @@ def main() -> None:
         "objectives: { { kind, id, text }, ... }, kind monster | object | item | reputation | killcredit | spell.",
         "zone: areaID (zoneOrSort > 0); sort: QuestSort (-zoneOrSort). triggerEnd = { text, spawns }.",
     ], rows, meta)
+
+    write(out("BlipServices.lua"), "BlipServices", [
+        "[blip tooltip name] = service: innkeeper | banker | auctioneer | stablemaster | battlemaster | trainer",
+        "  | repair | questgiver | flightmaster | mailbox. By the lowest NPC id of the name (every NPC, before the diet).",
+    ], sorted(services.items()), meta)
 
     log(f"spawn points: {dict(project.stats)}; mailboxes with spawns: {mailboxes}")
     log(f"unmapped areas (area: points): {dict(project.unmapped.most_common(20))}")

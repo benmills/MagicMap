@@ -5,6 +5,9 @@ build's own tables. Columns are named by the WoWDBDefs layouts in tools/dbd/.
 
   python3 tools/gen_world.py local "/Applications/World of Warcraft" wow_classic_beta -o Data
 
+ItemIcons has the items Data/Items.lua keeps (tools/gen_questie.py, which reads
+UiMaps from here): on a new build run this, gen_questie, then this again.
+
 Positions are projected from world yards (X north, Y west) into tile space.
 Flight points (and POIs the table gives no area) take their areaID from the
 ADT chunk under them.
@@ -15,10 +18,12 @@ import argparse
 import os
 import re
 
+import lupa.lua51 as lupa
+
 from mmtools.dbd import read_table
 from mmtools.formats import adt_chunks, wdt_maid
 from mmtools.log import log
-from mmtools.luaout import data_head, lua_str
+from mmtools.luaout import data_head, load_data, lua_str
 from mmtools.sources import Source, add_source_args, source_from_args
 
 FDIDS = {
@@ -193,11 +198,16 @@ def write_places(path: str, src: Source, t: dict) -> dict:
     return counts
 
 
-def write_item_icons(path: str, src: Source, t: dict) -> int:
-    items = sorted((i["ID"], i["IconFileDataID"]) for i in t["Item"] if i["IconFileDataID"])
+def quest_items(path: str) -> set[int]:
+    """The item IDs Data/Items.lua keeps (tools/gen_questie.py: the items quests reach, D3)."""
+    return set(load_data(lupa.LuaRuntime(), path).Data.Items.keys())
+
+
+def write_item_icons(path: str, src: Source, t: dict, keep: set[int]) -> int:
+    items = sorted((i["ID"], i["IconFileDataID"]) for i in t["Item"] if i["IconFileDataID"] and i["ID"] in keep)
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         w = f.write
-        header(w, src, "Item table", "-- [itemID] = iconFileDataID\n")
+        header(w, src, "Item table", "-- [itemID] = iconFileDataID, for the items in Data/Items.lua (those quests reach)\n")
         w(data_head("ItemIcons"))
         w("D.ItemIcons = {\n")
         for iid, icon in items:
@@ -210,6 +220,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     add_source_args(parser)
     parser.add_argument("-o", "--out-dir", default="Data")
+    parser.add_argument("--items", default="Data/Items.lua", help="ItemIcons keeps its items (none there: not written)")
     ns = parser.parse_args()
     src = source_from_args(parser, ns)
     src.prefetch(FDIDS.values())
@@ -218,7 +229,10 @@ def main() -> None:
     log(f"UiMaps: {write_uimaps(os.path.join(out, 'UiMaps.lua'), src, t)}")
     log(f"Areas: {write_areas(os.path.join(out, 'Areas.lua'), src, t)}")
     log(f"Places: {write_places(os.path.join(out, 'Places.lua'), src, t)}")
-    log(f"ItemIcons: {write_item_icons(os.path.join(out, 'ItemIcons.lua'), src, t)}")
+    if os.path.exists(ns.items):
+        log(f"ItemIcons: {write_item_icons(os.path.join(out, 'ItemIcons.lua'), src, t, quest_items(ns.items))}")
+    else:
+        log(f"ItemIcons: not written, no {ns.items} (tools/gen_questie.py, then this again)")
 
 
 if __name__ == "__main__":

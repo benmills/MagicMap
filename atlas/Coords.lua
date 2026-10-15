@@ -42,6 +42,7 @@ Atlas.FORMATS = {
 	Objects = 1,   -- Data/Objects.lua (tools/gen_questie.py)
 	Items = 1,     -- Data/Items.lua (tools/gen_questie.py)
 	Quests = 1,    -- Data/Quests.lua (tools/gen_questie.py)
+	BlipServices = 1, -- Data/BlipServices.lua (tools/gen_questie.py)
 }
 local Data = ns.Data or {}; ns.Data = Data
 Atlas.Data = Data -- raw datasets, read only: for tests (which data loaded); use Atlas's functions
