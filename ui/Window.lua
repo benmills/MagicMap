@@ -3,8 +3,8 @@
 -- and input routing: the view's wheel and left presses and releases go to Motion
 -- (ui/Motion.lua), a right release opens the map's menu (ui/Menus.lua); dragging the border
 -- or Alt+left-dragging the map moves the window. Its draw step, each frame while shown:
--- grow/shrink (ui/BigMap.lua), Motion's chase, the map shown (yours while following),
--- Engine's layers, the map state, your arrow.
+-- grow/shrink (ui/BigMap.lua), Motion's chase, the map shown (yours while following), the
+-- camera's speed, Engine's layers, the map state, your arrow.
 
 local _, ns = ...
 local UI = ns.UI
@@ -137,6 +137,12 @@ local function You()
 	return you and you.inst and you
 end
 
+-- Your map, if we can show it: an instance that withholds where you are counts only with its
+-- tiles; in one we have none for, the map stays the one you came from (Core.lua:1110-1121).
+local function Mine(you)
+	return you and (you.col or Atlas.Tiles(you.inst)) and you.inst
+end
+
 local drawn -- the map the layers show
 local function SetInst(inst)
 	drawn = inst
@@ -152,7 +158,9 @@ Runtime.Step("ui", "map: draw", function(elapsed)
 	UI.BigMap.Step(elapsed)
 	local you, Motion = You(), UI.Motion
 	Motion.Chase(you) -- (a map that withholds where you are: the whole of it)
-	if not Camera.inst or (Camera.follow and you) then Camera.inst = you and you.inst or Camera.inst or 0 end -- following: your map
+	local mine = Mine(you)
+	if not Camera.inst or (Camera.follow and mine) then Camera.inst = mine or Camera.inst or 0 end -- following: your map
+	Motion.Measure(elapsed)
 	local inst = Camera.inst
 	if inst ~= drawn then SetInst(inst) end
 	local cam = Camera.cam

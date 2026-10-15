@@ -36,7 +36,8 @@ local press -- the left button down: { x, y (the press), lx, ly (the last pan), 
 local touched = 0 -- the last press or zoom step (GetTime): the idle return's clock
 
 Camera.moving, Camera.zoomedAt, Camera.vx, Camera.vy = false, 0, 0, 0
-local px, py = Camera.cam.cx, Camera.cam.cy -- the centre at the last step
+local px, py, pinst -- the centre and map at the last draw; nil: none since the window showed
+local JUMP = 0.5 -- of the view in a frame: further is a jump (a teleport, a hearth), not a speed
 
 local function Clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
@@ -134,13 +135,14 @@ function Motion.Goal()
 end
 
 -- Following: the view centred on you (Model.you with an inst, or nil), but while a flight flies;
--- on a map that withholds where you are, the whole of it (Core.lua:1540-1542: K5).
+-- on a map that withholds where you are, the whole of it if we have its tiles, else the map
+-- you came from stays (Core.lua:1119, 1540-1542: K5).
 function Motion.Chase(you)
 	if not (Camera.follow and you) or flight then return end
 	if you.col then
 		local cam = Camera.cam
 		cam.cx, cam.cy = you.col, you.row
-	elseif you.inst ~= Camera.inst then
+	elseif you.inst ~= Camera.inst and Atlas.Tiles(you.inst) then
 		Motion.FitMap(you.inst)
 	end
 end
@@ -182,9 +184,17 @@ end
 -- A press that has moved: the map is being dragged.
 function Motion.Dragging() return press ~= nil and press.moved == true end
 
+-- The cursor on the screen, in the view's units, y up: a press and its pans are measured there, so the
+-- window moving under a still cursor (growing, shrinking) isn't a drag (Core.lua:1345-1351, 1523-1534).
+local function Screen()
+	local x, y = GetCursorPosition()
+	local s = Window.view:GetEffectiveScale()
+	return x / s, y / s -- /: never 0 (an effective scale is > 0)
+end
+
 -- The left button down (Core.lua:1344-1352).
 function Motion.Press()
-	local x, y = Window.Cursor()
+	local x, y = Screen()
 	touched = GetTime()
 	goal, flight = nil, nil
 	press = { x = x, y = y, lx = x, ly = y, t = touched, moved = false }
@@ -201,7 +211,7 @@ end
 
 local function StepDrag()
 	if not IsMouseButtonDown("LeftButton") then Motion.Release(); return end -- let go off the view
-	local x, y = Window.Cursor()
+	local x, y = Screen()
 	if not press.moved and (math.abs(x - press.x) > CLICK_SLOP or math.abs(y - press.y) > CLICK_SLOP) then
 		press.moved, Camera.moving = true, true
 		Camera.follow = false
@@ -209,7 +219,8 @@ local function StepDrag()
 	end
 	if press.moved and (x ~= press.lx or y ~= press.ly) then
 		local cam = Camera.cam -- moved in place: no table a frame
-		cam.cx, cam.cy = cam.cx - (x - press.lx) / cam.zoom, cam.cy - (y - press.ly) / cam.zoom -- /: never 0 (zoom >= MIN_ZOOM)
+		-- (screen y is up, rows grow south)
+		cam.cx, cam.cy = cam.cx - (x - press.lx) / cam.zoom, cam.cy + (y - press.ly) / cam.zoom -- /: never 0 (zoom >= MIN_ZOOM)
 		press.lx, press.ly = x, y
 	end
 end
@@ -226,16 +237,25 @@ local function StepIdle()
 end
 
 Runtime.Step("input", "map: motion", function(elapsed)
-	local cam = Camera.cam
-	-- The centre's move over the last frame (the steps here, Chase's in the draw, scripts').
-	Camera.vx, Camera.vy = (cam.cx - px) / elapsed, (cam.cy - py) / elapsed -- /: never 0 (a frame's elapsed is > 0)
-	px, py = cam.cx, cam.cy
 	if flight then StepFlight(elapsed) end
 	if goal then StepZoom(elapsed) end
 	if press then StepDrag() end
 	StepIdle()
 	Camera.moving = Animating() or Motion.Dragging()
 end, { shownOnly = Window.frame })
+
+-- What Camera.Velocity reports: the centre's move since the last draw (the steps here, Chase's,
+-- scripts'), measured in the draw once the map shown is settled. None on the first draw after the
+-- window shows (the camera catches up with you then), across maps, or for a jump.
+function Motion.Measure(elapsed)
+	local cam, w, h = Camera.cam, Window.Size()
+	local dx, dy = 0, 0
+	if px and Camera.inst == pinst then dx, dy = cam.cx - px, cam.cy - py end
+	if math.abs(dx) * cam.zoom > JUMP * w or math.abs(dy) * cam.zoom > JUMP * h then dx, dy = 0, 0 end
+	Camera.vx, Camera.vy = dx / elapsed, dy / elapsed -- /: never 0 (a frame's elapsed is > 0)
+	px, py, pinst = cam.cx, cam.cy, Camera.inst
+end
+Window.frame:HookScript("OnShow", Runtime.Wrap("map: motion shown", function() px = nil end))
 
 -- Focus's rect (types/focus.lua): the tile rect in view, out to whole walk chunks; the same
 -- table until that changes, and while a drag, chase or flight moves the camera (Model wants

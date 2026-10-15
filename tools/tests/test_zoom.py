@@ -69,6 +69,18 @@ def test_zoom_chase():
             sim.Wheel(w.view, d)
         sim.Run(1)
         assert c.cam.zoom == end
+
+    # Reopened after you moved (a flight path, a hearth): the camera catches up with you, at no speed.
+    m.SetFollow(True)
+    sim.Run(0.5)
+    sim.Slash("/mma toggle")
+    sim.player.col = sim.player.col + 1.5
+    sim.Run(0.5)
+    sim.Slash("/mma toggle")
+    for _ in range(3):
+        sim.Step()
+        assert c.Velocity() == (0, 0)
+    assert c.cam.cx == ns.Model.you.col
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

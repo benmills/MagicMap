@@ -82,9 +82,11 @@ Runtime.Step("ui", "ui: view", function()
 	UI.Sockets.Update(view)
 	local cam = Camera.cam
 	camera.cx, camera.cy, camera.zoom, camera.w, camera.h = cam.cx, cam.cy, cam.zoom, Window.Size()
-	-- Saved as it goes (the client writes it at logout): the small window's zoom only.
+	-- Saved as it goes (the client writes it at logout): the small window's zoom only, while big the
+	-- one it goes back to (MinimapMode.lua:252-260).
 	saved.shown, saved.follow = shown, Camera.follow
-	if not BigMap.Small() then saved.zoom = cam.zoom end
+	local small = BigMap.Small()
+	saved.zoom = small and small.zoom or cam.zoom
 	if not Camera.follow and Camera.inst then
 		local c = saved.center
 		if not c then c = {}; saved.center = c end

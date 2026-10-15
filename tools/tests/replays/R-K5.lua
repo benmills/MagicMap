@@ -1,7 +1,8 @@
 -- K5: a restricted instance. PREVENTED (as a failure): with no position, inst comes from
 -- GetInstanceInfo; Model drops the old continent's position, the arrow hides, nothing errors.
 -- Following, the map shown is the instance's, whole: its continent's rect, else its tiles'
--- bounds, filling the view (Core.lua:1133-1152, 1540-1542); with neither, its middle.
+-- bounds, filling the view (Core.lua:1133-1152, 1540-1542); one we have no tiles for (most
+-- dungeons) leaves the map you came from, titled with its name (Core.lua:1119, 1302).
 local T = ...
 local sim, ns = T.Shown()
 local arrow
@@ -15,11 +16,16 @@ sim.restricted = true
 sim.player.inst = 389
 sim.FireEvent("PLAYER_ENTERING_WORLD", false, false)
 sim.Run(1)
-local you = ns.Model.you
-T.Print("K5: you.inst %s, col %s, map inst %s", tostring(you.inst), tostring(you.col), tostring(ns.UI.Camera.inst))
+local you, cam0 = ns.Model.you, ns.UI.Camera.cam
+sim.cursorX, sim.cursorY = 10, 10 -- (not hovering: that names the zone under the cursor)
+sim.Run(0.1)
+local title = ns.UI.Title.title:GetText()
+T.Print("K5: you.inst %s, col %s, map inst %s, title %s", tostring(you.inst), tostring(you.col),
+	tostring(ns.UI.Camera.inst), title)
 assert(you.inst == 389 and you.col == nil and not arrow:IsShown())
+assert(ns.Atlas.Tiles(389) == nil and ns.UI.Camera.inst == 0 and ns.UI.Camera.follow, "no tiles: the map you came from")
 local cam = ns.UI.Camera.cam
-assert(ns.Atlas.TileBounds(389) == nil and cam.cx == 32 and cam.cy == 32, "no tiles: its middle")
+assert(cam.cx == cam0.cx and cam.cy == cam0.cy and title == ns.Atlas.Maps()[1].name, "where it was, the continent named")
 
 sim.player.inst = 36 -- the Deadmines: its tiles, whole
 sim.FireEvent("PLAYER_ENTERING_WORLD", false, false)

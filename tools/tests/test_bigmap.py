@@ -2,9 +2,10 @@
 hands it on) or the red button grows the window to 0.7 of the screen, centred, HIGH, the minimap's
 home corner faded out (View.window.homeAlpha), on you 1.5 further out but never past your zone (fit
 0.92); M, the button or Escape (hooked "escape") shrink it back to its small rect and zoom. /mma reset
-is refused while big. Spike-bugs L3: M again mid-shrink still comes back to the small rect. L4:
-logging out or hiding while big keeps the small rect and zoom; a moved and sized window stays put
-through hiding and a reload."""
+is refused while big. A still press while it grows is a click. Spike-bugs L3: M again mid-shrink
+still comes back to the small rect. L4: logging out or hiding while big (moved meanwhile, or grown
+mid-chase) keeps the small rect and zoom; a moved and sized window stays put through hiding and a
+reload."""
 from test_addon import boot, errors
 from test_blips import lua_tools
 from test_chrome import SEP, fresh, rect
@@ -65,13 +66,35 @@ def test_bigmap():
     sim.Run(0.4)
     assert not big.big and near(rect(f), small) and abs(cam().zoom - 150) < 1e-9
 
-    # L4: logging out while big keeps the small rect and zoom; hidden while big, it comes back small.
+    # A still press while it grows is a click: the window moving under the cursor isn't a drag.
+    sim.Press("M")
+    sim.Step()
+    sim.MoveCursorTo(UI.Window.view)
+    sim.buttonsDown["LeftButton"] = True
+    sim.FireScript(UI.Window.view, "OnMouseDown", "LeftButton")
+    sim.Run(0.2)
+    sim.buttonsDown["LeftButton"] = None
+    sim.FireScript(UI.Window.view, "OnMouseUp", "LeftButton")
+    assert UI.Camera.follow and not UI.Motion.Dragging()
     sim.Press("M")
     sim.Run(0.4)
+    assert not big.big and near(rect(f), small) and abs(cam().zoom - 150) < 1e-9
+
+    # L4: logging out while big keeps the small rect and the zoom a wheel's chase was headed for, though
+    # the big window was dragged; hidden while big, it comes back small.
+    sim.Wheel(UI.Window.view, -1)
+    sim.Step()
+    sim.Press("M")
+    sim.Run(0.4)
+    sim.FireScript(f, "OnDragStart", "LeftButton")
+    f.ClearAllPoints(f)
+    f.SetPoint(f, "TOPLEFT", G.UIParent, "BOTTOMLEFT", 300, 950)
+    sim.FireScript(f, "OnDragStop")
     sim.FireEvent("PLAYER_LOGOUT")
-    assert near(tuple(saved.window[k] for k in ("left", "top", "w", "h")), small) and abs(saved.zoom - 150) < 1e-9
+    goal = 150 / 1.3
+    assert near(tuple(saved.window[k] for k in ("left", "top", "w", "h")), small) and abs(saved.zoom - goal) < 1e-9
     sim.Slash("/mma toggle")
-    assert not f.IsShown(f) and not big.big and near(rect(f), small) and abs(cam().zoom - 150) < 1e-9
+    assert not f.IsShown(f) and not big.big and near(rect(f), small) and abs(cam().zoom - goal) < 1e-9
     sim.Slash("/mma toggle")
     sim.Run(0.2)
     assert f.IsShown(f) and near(rect(f), small) and f.GetFrameStrata(f) == "LOW" and view.window.homeAlpha == 1

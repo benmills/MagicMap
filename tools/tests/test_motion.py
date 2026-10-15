@@ -44,6 +44,11 @@ def test_click_drag_idle():
     sim.cursorX = sim.cursorX + 6
     sim.Step()
     assert m.Dragging() and not c.follow and c.cam.cx == cx - 6 / zoom and c.cam.cy == cy
+    sim.cursorY = sim.cursorY - 3  # down the screen: the map with it, so the view shows further north
+    sim.Step()
+    assert c.cam.cy == cy - 3 / zoom
+    sim.cursorY = sim.cursorY + 3
+    sim.Step()
     assert release(sim, m) is False
 
     # Hovered, it stays where you left it.
