@@ -53,7 +53,8 @@ def test_telemetry_fixture(tmp_path, capsys):
                  "zoom         900    0.6    2.1    9.8   11.2", "39.2 MB at load, 70.8 MB at logout",
                  "graces (slowest frame; its slowest call): gc 88.2 ms (game.telemetry 87.9 ms), login 96.4 ms"
                  " (game.loaded 60.2 ms), map 31.5 ms (map: labels 16.3 ms)",
-                 "swap tiles       n 40    lag=0 scale=1.3 x=33012 y=25510", "canvas.SetScale@1000live         2000 µs",
+                 "swap tiles       n 40    lag=0 live=36 ms=0.4 parked=0 scale=1.3 x=33012 y=25510",
+                 "swap borders     n 38    lag=0 live=1012 ms=6.2 parked=0", "canvas.SetScale@1000live         2000 µs",
                  # kept, marks' motion and shot stamp, shot pairing
                  "taint {e=blocked fn=Minimap:Hide()}", "art redbutton-expand-c60",
                  "motion (4 frames f14999-f15002, 0.07 s)", "crossed col 32|33 f15001",
@@ -66,9 +67,11 @@ def test_telemetry_fixture(tmp_path, capsys):
     out = capsys.readouterr().out
     for want in ("PASS  frame cost p95", "FAIL  frame cost p99                     5.40 ms (limit 5)",
                  "owner: state 'zoom' worst at p99 9.8 ms; map: borders slowest in 2 of the 3 worst frames"
-                 " (worst f9118 11.2 ms: layout borders, swap borders, gap map: borders); job map: borders ran 14.2 ms between yields",
+                 " (worst f9118 11.2 ms: layout borders, swap borders 6.2 ms 1012 live, gap map: borders);"
+                 " job map: borders ran 14.2 ms between yields; swap borders 6.2 ms max, 1012 live (stats)",
                  "FAIL  frame cost max (outside graces)    11.20 ms (limit 8)",
-                 "owner: map: borders in the worst frame f9118 (11.2 ms; with layout borders, swap borders, gap map: borders)",
+                 "owner: map: borders 10.4 ms in the worst frame f9118 (11.2 ms; with layout borders,"
+                 " swap borders 6.2 ms 1012 live, gap map: borders); swap borders 6.2 ms max, 1012 live (stats)",
                  "PASS  first map open", "FAIL  load (Data + Atlas)", "owner: Data + Atlas at load: 37.3 MB",
                  "FAIL  our memory at logout, after GC     70.80 MB",
                  "owner: Data + Atlas: 39.2 MB at load after GC; +31.6 MB by logout (top allocator game.observe)",
@@ -86,7 +89,7 @@ def test_telemetry_fixture(tmp_path, capsys):
                                 {}, []).startswith("map: labels (slowest call, 56.2 ms")
     assert telemetry.main(base + ["--budgets", "--trace"]) == 1
     out = capsys.readouterr().out
-    for want in ("== perf", "        f9118 +402398ms swap {layer=borders scale=1 x=-12 y=40}", "== kept", "== marks (2)",
+    for want in ("== perf", "        f9118 +402398ms swap {layer=borders live=1012 ms=6.2 parked=0 scale=1 x=-12 y=40}", "== kept", "== marks (2)",
                  "f15001 +1101200ms dt 33.3 cam 33.0002,48.1 z384 320x203 you 33.0002,48.1  step +0.23,+0.00 px  you-cam +0.00,+0.00 px |col",
                  "trace (all 6)"):
         assert want in out, (want, out)
@@ -155,6 +158,8 @@ def test_telemetry_sim(tmp_path, capsys):
         ("taint", "Minimap:Hide()"), ("taint", "Minimap:Hide()"), ("art", "redbutton-expand-c60")]
     assert [m.note for m in tel.marks.values() if m.kind == "taint"] == ["blocked Minimap:Hide()"]  # the first only
     assert s.stats["layout tiles"].n >= 1 and s.stats["layout tiles"].regions > 0 and s.stats["swap tiles"].lag == 0
+    swap = s.stats["swap borders"]  # each swap's own cost and what it shows (M1.3: parked)
+    assert swap.ms is not None and swap.live > 0 and swap.parked == 0
     assert s.bench["1.60.1.70009"].ops.CreateLine.us == 21
     assert not errors(sim, ns), errors(sim, ns)
 

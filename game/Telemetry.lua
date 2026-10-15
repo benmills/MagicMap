@@ -151,7 +151,7 @@ local Keep = Runtime.Wrap("telemetry: trace", function(kind, d)
 	if not s then s = { n = 0 }; session.stats[key] = s end
 	s.n = s.n + 1
 	for k, v in pairs(d) do
-		if type(v) == "number" and math.abs(v) > (s[k] or 0) then s[k] = math.abs(v) end
+		if type(v) == "number" and not (s[k] and s[k] >= math.abs(v)) then s[k] = math.abs(v) end -- (a 0 is kept: recorded)
 	end
 	if kind == "layout" then ends[d.layer] = Runtime.frames end
 	if kind == "swap" and ends[d.layer] then s.lag = math.max(s.lag or 0, Runtime.frames - ends[d.layer]) end

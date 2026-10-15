@@ -59,7 +59,7 @@ MagicMapAtlasDB = {
 { ["frame"] = 9118, ["ms"] = 11.2, ["top"] = "map: borders", ["topMs"] = 10.4, ["events"] = {
 { ["f"] = 9109, ["ms"] = 402250, ["k"] = "layout", ["d"] = { ["e"] = "start", ["layer"] = "borders", ["inst"] = 0, ["zoom"] = 384 } }, -- [1]
 { ["f"] = 9118, ["ms"] = 402398, ["k"] = "layout", ["d"] = { ["e"] = "end", ["layer"] = "borders", ["ms"] = 22.3, ["regions"] = 1012 } }, -- [2]
-{ ["f"] = 9118, ["ms"] = 402398, ["k"] = "swap", ["d"] = { ["layer"] = "borders", ["x"] = -12, ["y"] = 40, ["scale"] = 1 } }, -- [3]
+{ ["f"] = 9118, ["ms"] = 402398, ["k"] = "swap", ["d"] = { ["layer"] = "borders", ["ms"] = 6.2, ["live"] = 1012, ["parked"] = 0, ["x"] = -12, ["y"] = 40, ["scale"] = 1 } }, -- [3]
 { ["f"] = 9118, ["ms"] = 402399, ["k"] = "gap", ["d"] = { ["job"] = "map: borders", ["ms"] = 14.2, ["n"] = 1 } }, -- [4]
 { ["f"] = 9118, ["ms"] = 402399, ["k"] = "spike", ["d"] = { ["ms"] = 11.2, ["top"] = "map: borders", ["topMs"] = 10.4, ["alloc"] = "map: borders", ["allocKb"] = 850.2 } }, -- [5]
 } }, -- [2]
@@ -78,7 +78,8 @@ MagicMapAtlasDB = {
 ["stats"] = {
 ["layout tiles"] = { ["n"] = 40, ["ms"] = 11.4, ["regions"] = 36 },
 ["layout borders"] = { ["n"] = 38, ["ms"] = 22.3, ["regions"] = 1012 },
-["swap tiles"] = { ["n"] = 40, ["x"] = 33012, ["y"] = 25510, ["scale"] = 1.3, ["lag"] = 0 },
+["swap tiles"] = { ["n"] = 40, ["ms"] = 0.4, ["live"] = 36, ["parked"] = 0, ["x"] = 33012, ["y"] = 25510, ["scale"] = 1.3, ["lag"] = 0 },
+["swap borders"] = { ["n"] = 38, ["ms"] = 6.2, ["live"] = 1012, ["parked"] = 0, ["x"] = 31990, ["y"] = 25100, ["scale"] = 1.3, ["lag"] = 0 },
 },
 ["bench"] = {
 ["1.60.1.70374"] = { ["build"] = "1.60.1.70374", ["t"] = 1791993700, ["ops"] = {

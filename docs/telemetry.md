@@ -87,9 +87,9 @@ telemetry = {
 - **Kept**: every event of a kind in Telemetry's `KEEP` (`taint`, `art`, `sensor`) as it's traced,
   the first 50 a session: the ring forgets them, and each one fails the gate.
 - **Stats**: every `layout` end, `swap` and `blips` sweep as it's traced, by kind and layer:
-  `n`, and the largest absolute value of each number in its `d` (a swap's `x`, `y` are canvas
-  offsets: the tear's ~33,000 px suspect); a swap's `lag` is frames since its layer's last layout
-  end (the end→swap delay).
+  `n`, and the largest absolute value of each number in its `d` (a swap's `ms` and `live`: the
+  frame max's suspect; its `x`, `y` are canvas offsets: the tear's ~33,000 px suspect); a swap's `lag`
+  is frames since its layer's last layout end (the end→swap delay).
 - **Bench**: `Game.Bench.result` (M0.5, `/mma bench regions`) copied at logout and with each mark,
   keyed by its build: `ops[op] = { n, ms, us }`, `us` a call's µs (op names like `CreateLine`,
   `SetPoint`, `canvas.SetScale@1000live`, `canvas.Show@1000hidden`, `SetParent.park`).
@@ -98,8 +98,8 @@ telemetry = {
 
 `login`, `zone` (zone changed), `map` (shown or hidden), `cam` (a drag starts or
 ends, wheel zoom, follow on/off: at most one per frame), `layout` (a rebuild:
-start with its region, end with ms and regions used), `swap` (a layout shown,
-with where it was placed), `error`, `taint`, `mark`, `shot`; and Runtime's (docs/runtime.md):
+start with its region, end with ms and regions used), `swap` (a layout shown: its cost,
+regions and where it was placed), `error`, `taint`, `mark`, `shot`; and Runtime's (docs/runtime.md):
 `slow` (a call over its budget), `spike` (a frame over its budget), `gap` (a job between
 Yields over its budget), `throttled`, `job` (cancelled), `enter` (PLAYER_ENTERING_WORLD),
 `position` (lost or back), `saved`; Game's `minimap` (the takeover engaged or released),
@@ -114,7 +114,7 @@ Their `d`:
 | `map` | `"shown"` or `"hidden"` |
 | `cam` | `{ e, cx, cy, zoom }`, `e` = `drag start` (follow turns off), `drag end`, `wheel`, `follow on` |
 | `layout` | `{ e = "start", layer, inst, zoom, c0, r0, c1, r1 }`, then `{ e = "end", layer, ms, regions }` (`ms` wall time, over several frames), or `{ e = "failed", layer, retry }` |
-| `swap` | `{ layer, x, y, scale }` |
+| `swap` | `{ layer, ms, live, parked, x, y, scale }`: `ms` the swap's own time (old canvas hidden, new one placed and shown: it can't yield), `live` the regions it shows, `parked` the regions it parked (0 until M1.3's park pools), `x, y, scale` where it was placed |
 | `error` | the error's key |
 | `taint` | `{ e, fn }`: `e` = `blocked` (ADDON_ACTION_BLOCKED) or `forbidden` (ADDON_ACTION_FORBIDDEN), `fn` the protected function the client named |
 | `art` | the missing atlas name or file |

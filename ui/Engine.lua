@@ -126,13 +126,17 @@ local function Rebuild(layer)
 		back.inst, back.zoom, back.region, back.scale, back.x, back.y = inst, zoom, { c0, r0, c1, r1 }, nil, nil, nil
 		layer.busy, layer.retryAt, layer.backoff = false, nil, nil
 		if inst ~= Camera.inst then return end -- moved to another map meanwhile
+		-- The swap: can't yield (both canvases would show), so it's timed (ms) with what it shows (live)
+		-- and parks (parked: 0 until park pools, M1.3).
+		local t = debugprofilestop()
 		if layer.front then layer.front:Hide() end
 		layer.front = back
 		-- Placed before it's shown: jobs run after the frame's steps, so waiting for the
 		-- next draw would show it a frame at wherever it last was (a jump while panning).
 		Place(layer, Camera.cam, Window.Size())
 		back:Show()
-		Runtime.Trace("swap", { layer = layer.name, x = R2(back.x), y = R2(back.y), scale = R2(back.scale) })
+		Runtime.Trace("swap", { layer = layer.name, ms = R2(debugprofilestop() - t), live = used, parked = 0,
+			x = R2(back.x), y = R2(back.y), scale = R2(back.scale) })
 	end, JOB_MS)
 end
 

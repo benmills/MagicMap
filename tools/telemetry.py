@@ -49,14 +49,27 @@ def alloc(p) -> list:
 
 
 def in_frame(e) -> str:
-    """A ledger frame's own events, short: 'swap borders, layout borders'."""
+    """A ledger frame's own events, short: 'swap borders 6.2 ms 1012 live, layout borders'."""
     out = []
     for ev in e.get("events") or []:
         if ev.get("f") == e.get("frame") and ev.get("k") not in ("spike", "slow"):
             d = ev.get("d")
             what = (d.get("layer") or d.get("name") or d.get("job") or d.get("e")) if isinstance(d, dict) else d
+            if ev.get("k") == "swap" and isinstance(d, dict) and d.get("ms") is not None:
+                what = f"{what} {num(d['ms'])} ms {d.get('live')} live"
             out.append(f"{ev.get('k')} {what}" if what is not None else ev.get("k"))
     return ", ".join(dict.fromkeys(out))
+
+
+def worst_swap(s) -> str:
+    """The session's costliest swap (stats: each field's max, so ms and live may be two swaps')."""
+    swaps = [(k.split(" ", 1)[-1], x) for k, x in (s.get("stats") or {}).items()
+             if k.startswith("swap") and x.get("ms") is not None]
+    if not swaps:
+        return ""
+    layer, x = max(swaps, key=lambda kv: kv[1].get("ms") or 0)
+    return (f"swap {layer} {num(x.get('ms'))} ms max, {x.get('live')} live"
+            + (f", {x.get('parked')} parked" if x.get("parked") else "") + " (stats)")
 
 
 def owner_frames(which):
@@ -76,6 +89,8 @@ def owner_frames(which):
         if gaps:
             g = max(gaps, key=lambda g: g.get("ms") or 0)
             bits.append(f"job {g.get('job')} ran {num(g.get('ms'))} ms between yields")
+        if worst_swap(s):
+            bits.append(worst_swap(s))
         return "; ".join(bits) or "unattributed: no perf.byState / ledger / gaps (a build before M0)"
     return owner
 
@@ -86,8 +101,8 @@ def owner_max(p, s, errs):
         slow = p.get("slow") or []
         return f"{slow[0].get('name')} (most overruns; no perf.ledger: a build before M0)" if slow else "unattributed: no perf.ledger"
     w = worst[0]
-    return (f"{w.get('top')} in the worst frame f{w.get('frame')} ({num(w.get('ms'))} ms"
-            + (f"; with {in_frame(w)}" if in_frame(w) else "") + ")")
+    return (f"{w.get('top')} {num(w.get('topMs'))} ms in the worst frame f{w.get('frame')} ({num(w.get('ms'))} ms"
+            + (f"; with {in_frame(w)}" if in_frame(w) else "") + ")" + (f"; {worst_swap(s)}" if worst_swap(s) else ""))
 
 
 def owner_open(p, s, errs):
@@ -280,7 +295,9 @@ def layout_line(r) -> str:
     head = f"{r['layer']:<10} " + (f"f{s.get('f')}" if s else "(start before the ring)")
     if d.get("e") == "failed":
         return f"{head} -> f{e.get('f')} failed, retry in {num(d.get('retry'))} s"
-    swap = (f"+{w.get('f') - e.get('f')} f +{num(round(w.get('ms') - e.get('ms'), 1))} ms" if w else "no swap in the ring")
+    wd = (w or {}).get("d") or {}
+    swap = (f"+{w.get('f') - e.get('f')} f +{num(round(w.get('ms') - e.get('ms'), 1))} ms"
+            + (f", swap {num(wd['ms'])} ms {wd.get('live')} live" if wd.get("ms") is not None else "") if w else "no swap in the ring")
     return f"{head} -> f{e.get('f')} {num(d.get('ms'))} ms {d.get('regions')} regions | end->swap {swap}"
 
 
