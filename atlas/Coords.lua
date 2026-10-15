@@ -31,7 +31,7 @@ Atlas.FORMATS = {
 	AreaGrid = 1, Places = 1, ItemIcons = 1, Npcs = 1, Objects = 1, Items = 1, Quests = 1,
 }
 local Data = ns.Data or {}; ns.Data = Data
-Atlas.Data = Data -- raw datasets, read only: for counts (game/Validate.lua); use Atlas's functions
+Atlas.Data = Data -- raw datasets, read only: for tests (which data loaded); use Atlas's functions
 local stale, formats = {}, Data.formats or {}
 for name, want in pairs(Atlas.FORMATS) do
 	if Data[name] ~= nil and formats[name] ~= want then

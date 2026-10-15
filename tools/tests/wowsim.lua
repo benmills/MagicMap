@@ -1029,7 +1029,14 @@ Sim.minimapGround, Sim.minimapUnrotated = true, false
 function GetCVar(name) return Sim.cvars[name] end
 C_CVar = { GetCVar = GetCVar }
 
-function GetFileIDFromPath(path) return nil end
+-- Client files by path (case and slash direction don't matter): the ones MagicMap asks for.
+local FILES = {}
+for i, path in ipairs({ "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up", "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight",
+	"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down", "Interface\\Minimap\\MinimapArrow", "Interface\\COMMON\\Indicator-Yellow",
+	"Fonts\\MORPHEUS.TTF", "Fonts\\FRIZQT__.TTF" }) do
+	FILES[path:lower()] = 100000 + i
+end
+function GetFileIDFromPath(path) return FILES[(path:lower():gsub("/", "\\"))] end
 function HideUIPanel(frame) frame:Hide() end
 
 function CreateColor(r, g, b, a)
@@ -1573,6 +1580,10 @@ ATLASES["_UI-Frame-Metal-EdgeBottom"] = { 256, 200 }
 ATLASES["UI-QuestPoi-QuestNumber"], ATLASES["deathrecap-icon-tombstone"] = { 32, 32 }, { 15, 20 }
 ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }
 ATLASES["!UI-Frame-Metal-EdgeRight"] = { 200, 256 }
+-- ui/Art.lua's (Forever's ObjectIconsAtlas, as tools/export_icons.py cuts them for the demo)
+for _, name in ipairs({ "taxinode_alliance", "taxinode_horde", "taxinode_neutral", "vignettekill", "vignettekillelite" }) do
+	ATLASES[name] = true
+end
 Sim.atlases = ATLASES -- [name] = true (16 px) or { w, h }: a scenario adds, resizes or removes one
 C_Texture = {
 	GetAtlasInfo = function(name)

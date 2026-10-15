@@ -21,7 +21,7 @@ D.Tiles = { ... }
 
 - **`ns.Data.<Name>`** is the dataset (the headings below); Atlas reads only that
   (`local Data = ns.Data` in each atlas/ file). Nothing else reads ns.Data
-  (tools/luacheck.py NS_RULES); game/Validate.lua counts rows through `Atlas.Data`.
+  (tools/luacheck.py NS_RULES); tests see which loaded through `Atlas.Data`.
 - **`ns.Data.formats.<Name>`** is the file's format, a whole number bumped when the
   dataset's shape changes. It lives beside the dataset, not in it, so `pairs` over an
   ID-keyed dataset never meets it. The numbers are `FORMATS` in
