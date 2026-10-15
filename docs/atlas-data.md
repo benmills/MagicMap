@@ -20,7 +20,9 @@ file is a global table, written by a generator in `tools/` from one game build
 - **Names** are enUS for now.
 - QuestieDB-derived files (`Npcs`, `Objects`, `Items`, `Quests`) are generated
   from the user's installed QuestieDB and **gitignored** (QuestieDB declares no
-  license; don't commit or publish them until that's settled).
+  license; don't commit or publish them until that's settled). QuestieDB's test and placeholder
+  entities ("TEST WOLF (ALPHA FIRST)", "[PH] ...", "... UNUSED", "<NYI> ...") are dropped, and every
+  reference to them, unless a quest's objective names them (tools/gen_questie.py PLACEHOLDER).
 
 ## Files
 
@@ -54,12 +56,15 @@ that read it.
 - The open sea beyond the tiles (no tile, or TileColor sea[]), continuing the art's own water:
   the art is drawn as it is and the sea fills the rest. Open-world maps with ≥ 4 open-sea
   tiles and ocean in the terrain (Eastern Kingdoms, Kalimdor).
+- dir is relative to the addon's folder (`Textures\Sea\<product>\`); Atlas prefixes
+  `Atlas.ROOT` (`Interface\AddOns\<the addon's folder name>\`), so a rename needs no regeneration.
 - `dir .. inst .. "_ocean" .. v .. ".blp"`, v = 0..variants-1: 256 px grey DXT1 BLPs with mips,
   seamless, one repeat per tile, mean `gain`: brightness synthesised from the map's own water
   (art over ocean 6–45 yd deep: the seabed showing through; the art's deep sea is one flat
   colour), rocks and wrecks removed. Every variant equals variant 0 near its edges, so any
   variant sits beside any other. `Atlas.SeaVariant(col, row)` picks one per cell by a hash.
-- `dir .. inst .. "_tint.tga"`: the sea's colour / gain, 4 px per tile over
+- `dir .. inst .. "_tint.tga"`: the sea's colour / gain, 4 px per tile (stretched to power-of-two
+  sides, as WoW textures must be) over
   tint = `{ col0, row0, col1, row1 }` (the tiles and 8 around): along each coast side the art's
   own water there (by quarter tile), fading within about a tile to the art's open-sea colour,
   a little darker far out and gently varied. far = its border colour (0..255), for beyond it.

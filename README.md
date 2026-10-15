@@ -5,6 +5,8 @@ So far this is the foundation: **Atlas** (`atlas/`, load order in `atlas/files.t
 library of facts that hold — tiles, tile colour, the sea, borders, map labels, walk grid,
 uiMaps, areas, places, NPCs / objects / items / quests, coordinates and camera maths — plus
 the offline tools that generate its data (`Data/`, see [docs/atlas-data.md](docs/atlas-data.md)).
+The addon is **MagicMapAtlas** (the repo root is the addon root, `MagicMapAtlas.toc`); its
+folders, load order and the Runtime contract are in [docs/structure.md](docs/structure.md).
 
 ## Setup
 
@@ -34,10 +36,31 @@ The demo's assets, after the above:
     .venv/bin/python demo/export_tiles.py   # demo/tiles/<inst>: tile WebPs + sea textures (--inst N, --all, --sea-only); after gen_tiles, gen_sea
     .venv/bin/python tools/export_icons.py local "$W" wow_classic_beta   # demo/icons: the icons named in demo/index.html's GAME_ICON
 
+## Install and try it in game
+
+    .venv/bin/python tools/install.py      # into _classic_beta_ (WoW Forever); another flavor folder as argument
+
+It copies the TOC, its files and Textures/ into `Interface/AddOns/MagicMapAtlas` (the
+gitignored QuestieDB-derived data too, when generated). In game: disable the **MagicMap**
+spike addon (same `MagicMap_*` data globals), log in (a restart for a new TOC, files or
+textures, else `/reload`), then:
+
+- `/mma` lists the commands; `/mma map` shows the map window
+- `/mma perf`: Atlas's load cost (ms, KB) and time per step / event / timer / job
+- `/mma errors`: errors caught so far (each is also printed once when it happens)
+
+`tools/package.sh [ref]` zips a committed ref as `dist/MagicMapAtlas-<ref>.zip`.
+
 ## Test and lint
 
+The tests include a headless smoke test: the TOC's files loaded in order on a simulated WoW
+Forever client (`tools/tests/wowsim.lua`), logged in, ~60 frames and every `/mma` command,
+with no Lua error expected; and `tools/luacheck.py` over the TOC (globals, every file listed,
+the Atlas section = `atlas/files.txt`).
+
     .venv/bin/python -m pytest tools/tests -q -p no:cacheprovider
-    .venv/bin/python tools/luacheck.py --allow tools/lua51_globals.txt atlas/*.lua
+    .venv/bin/python tools/luacheck.py                       # the TOC's files, against tools/wow_globals.txt
+    .venv/bin/python tools/luacheck.py --allow tools/lua51_globals.txt atlas/*.lua model/*.lua   # plain Lua only
 
 ## Demo
 

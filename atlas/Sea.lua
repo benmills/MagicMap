@@ -21,7 +21,7 @@ function Atlas.Sea(inst)
 		local m = MapData(inst)
 		s = false
 		if m then
-			local dir = MagicMap_Sea.dir
+			local dir = Atlas.ROOT .. MagicMap_Sea.dir
 			s = { textures = {}, gain = MagicMap_Sea.gain, tint = dir .. inst .. "_tint.tga", rect = m.tint,
 				far = { m.far[1] / 255, m.far[2] / 255, m.far[3] / 255 } }
 			for v = 0, MagicMap_Sea.variants - 1 do
@@ -46,5 +46,5 @@ end
 function Atlas.SeaFeather(inst, key)
 	local m = MapData(inst)
 	local code = m and m.coast[key]
-	return code and MagicMap_Sea.dir .. "feather_" .. code .. ".tga"
+	return code and Atlas.ROOT .. MagicMap_Sea.dir .. "feather_" .. code .. ".tga"
 end

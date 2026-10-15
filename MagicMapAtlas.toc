@@ -1,0 +1,55 @@
+## Interface: 16001
+## Title: MagicMap Atlas
+## Notes: For WoW Forever. The MagicMap rebuild: a map drawn from bundled game data (Atlas).
+## Version: 0.1.0
+## Category: Map & Minimap
+## IconTexture: Interface\Icons\INV_Misc_Map_01
+## SavedVariables: MagicMapAtlasDB
+
+# Load order: docs/structure.md. The Atlas section is atlas/files.txt, in order (tools/luacheck.py checks).
+runtime\Boot.lua
+
+# Atlas
+Data\Tiles.lua
+Data\TileColor.lua
+Data\Sea.lua
+Data\Borders.lua
+Data\Walk.lua
+Data\UiMaps.lua
+Data\Areas.lua
+Data\AreaGrid.lua
+Data\Places.lua
+Data\ItemIcons.lua
+Data\Npcs.lua
+Data\Objects.lua
+Data\Items.lua
+Data\Quests.lua
+atlas\Coords.lua
+atlas\Tiles.lua
+atlas\Sea.lua
+atlas\Borders.lua
+atlas\Walk.lua
+atlas\UiMaps.lua
+atlas\Areas.lua
+atlas\Places.lua
+atlas\Entities.lua
+atlas\Camera.lua
+atlas\Labels.lua
+
+# Runtime
+runtime\Runtime.lua
+
+# Game
+game\Game.lua
+game\Slash.lua
+game\Observe.lua
+game\Validate.lua
+
+# Model
+model\Model.lua
+
+# UI
+ui\Map.lua
+ui\Tiles.lua
+ui\Borders.lua
+ui\Labels.lua

@@ -4,8 +4,11 @@
 -- map<col>_<row>. Tile (0,0) is the north-west corner of a 64x64 grid;
 -- col grows east, row grows south. key = col * 64 + row.
 
-local _, ns = ...
+local ADDON, ns = ...
 local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
+
+-- The addon's folder (its name), which data paths (Data/Sea.lua's dir) are relative to.
+Atlas.ROOT = "Interface\\AddOns\\" .. ADDON .. "\\"
 
 Atlas.TILE_YARDS = 1600 / 3 -- one ADT / minimap tile = 533.33 yards
 local TILE_YARDS = Atlas.TILE_YARDS

@@ -24,7 +24,8 @@ deleted):
       variant equals variant 0 within BORDER tiles of its edges, so any two
       sit side by side without a seam.
   <inst>_tint.tga  the sea's colour as multipliers of the texture (colour /
-      GAIN), TINT_PX px per tile over the map's tiles and MARGIN tiles around
+      GAIN), TINT_PX px per tile (then stretched to power-of-two sides, as WoW
+      wants) over the map's tiles and MARGIN tiles around
       (bilinear-filtered, it is smooth): along each coast side facing the sea,
       the art's own water there (the median of the outer FEATHER band, by
       segment, after Data/TileColor.lua's tint; water = ocean in the terrain),
@@ -459,13 +460,14 @@ def write_sea(out, product: str, version: str, seas: list[MapSea]) -> None:
     w("-- The open sea beyond the tiles (no tile, or TileColor sea[]), continuing the art's own water. Files in dir:\n")
     w(f"--   inst .. \"_ocean\" .. v .. \".blp\", v = 0..variants-1: {SIZE}px grey, one repeat per tile, mean gain;"
       " any v beside any other\n")
-    w(f"--   inst .. \"_tint.tga\": the sea's colour / gain, {TINT_PX} px per tile over tint = {{ col0, row0, col1, row1 }};"
+    w(f"--   inst .. \"_tint.tga\": the sea's colour / gain, {TINT_PX} px per tile stretched to power-of-two sides, over"
+      " tint = { col0, row0, col1, row1 };"
       " far = its border (0..255)\n")
     w(f"--   \"feather_\" .. code .. \".tga\": a coast tile's mask, 0 at its sides facing the sea, 1 within {FEATHER:g} tile\n")
     w("-- coast[key] = code: bits 1 l, 2 r, 4 t, 8 b; 16 tl, 32 tr, 64 bl, 128 br corners touching the sea diagonally\n")
     w("-- key = col * 64 + row, as in Data/Tiles.lua\n")
     w(f"MagicMap_Sea = {{ product = \"{product}\", version = \"{version}\",\n")
-    w(f"  dir = \"Interface\\\\AddOns\\\\MagicMap\\\\Textures\\\\Sea\\\\{product}\\\\\",\n")
+    w(f"  dir = \"Textures\\\\Sea\\\\{product}\\\\\",\n")  # in the addon's folder: Atlas.Sea adds Atlas.ROOT
     w(f"  variants = {VARIANTS}, gain = {GAIN:g}, feather = {FEATHER:g}, maps = {{\n")
     for m in seas:
         w(f"  [{m.inst}] = {{ -- {m.name}\n")
@@ -476,6 +478,18 @@ def write_sea(out, product: str, version: str, seas: list[MapSea]) -> None:
             w("      " + " ".join(f"[{k}]={m.coast[k]}," for k in keys[i:i + 12]) + "\n")
         w("    },\n  },\n")
     w("} }\n")
+
+
+def pow2(n: int) -> int:
+    return 1 << (n - 1).bit_length()
+
+
+def tint_tga(m: MapSea) -> bytes:
+    """The tint map stretched to power-of-two sides (WoW's textures), still over m.rect: it is smooth."""
+    img = Image.frombytes("RGB", m.size, bytes(v for c in m.tint for v in c))
+    w, h = pow2(m.size[0]), pow2(m.size[1])
+    px = img.resize((w, h), Image.BILINEAR).load()
+    return write_tga(w, h, [[(*px[x, y], 255) for x in range(w)] for y in range(h)])
 
 
 def write_textures(directory: str, files: dict[str, bytes]) -> int:
@@ -574,9 +588,7 @@ def main() -> None:
         log(f"  {len(m.coast)} coast tiles, tint map {m.size[0]}x{m.size[1]}, textures in {time.time() - t1:.1f}s")
         for v, img in enumerate(texs):
             files[f"{ts.inst}_ocean{v}.blp"] = blp_dxt1(img)
-        w, h = m.size
-        files[f"{ts.inst}_tint.tga"] = write_tga(w, h, [[(*m.tint[y * w + x], 255) for x in range(w)]
-                                                        for y in range(h)])
+        files[f"{ts.inst}_tint.tga"] = tint_tga(m)
         seas.append(m)
         if ns.preview:
             os.makedirs(ns.preview, exist_ok=True)

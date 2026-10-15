@@ -8,9 +8,11 @@ compiled bytecode, so scoping is exact.
   * Reading a global is an error unless the addon sets it somewhere or it's
     listed in tools/wow_globals.txt (the WoW API and Lua's own library):
     usually a typo'd local.
-  * Every file in MagicMap.toc must exist, and every addon .lua must be in it.
+  * Every file in MagicMapAtlas.toc must exist (a gitignored one may be
+    missing: QuestieDB-derived data), every addon .lua must be in it, and its
+    Data/ + atlas/ files must be atlas/files.txt, in that order.
 
-  python3 tools/luacheck.py              # the files in MagicMap.toc
+  python3 tools/luacheck.py              # the files in MagicMapAtlas.toc
   python3 tools/luacheck.py Core.lua     # just these
   python3 tools/luacheck.py --globals Core.lua   # list globals read / written
   python3 tools/luacheck.py --allow tools/lua51_globals.txt atlas/*.lua   # a library: plain Lua only
@@ -23,10 +25,12 @@ import argparse
 import fnmatch
 import os
 import struct
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TOC = os.path.join(ROOT, "MagicMap.toc")
+TOC = os.path.join(ROOT, "MagicMapAtlas.toc")
+ADDON_DIRS = ["Data", "atlas", "runtime", "game", "model", "ui"]
 ALLOWLIST = os.path.join(ROOT, "tools", "wow_globals.txt")
 # Globals the addon may create.
 OWN_GLOBALS = ["MagicMap*", "SLASH_*", "BINDING_*"]
@@ -176,17 +180,37 @@ def check(paths: list[str], list_globals: bool = False, allowlist: str = ALLOWLI
     return problems
 
 
+def gitignored(paths: list[str]) -> set[str]:
+    if not paths:
+        return set()
+    r = subprocess.run(["git", "-C", ROOT, "check-ignore", "--no-index", *paths], capture_output=True, text=True)
+    return set(r.stdout.split())
+
+
+def existing_toc_files() -> list[str]:
+    """The TOC's files that are here; a missing one may only be gitignored."""
+    listed = toc_files()
+    missing = [f for f in listed if not os.path.exists(os.path.join(ROOT, f))]
+    ignored = gitignored(missing)
+    return [f for f in listed if f not in missing or f not in ignored]
+
+
 def check_toc() -> int:
     problems = 0
     listed = toc_files()
-    for f in listed:
+    for f in existing_toc_files():
         if not os.path.exists(os.path.join(ROOT, f)):
-            print(f"MagicMap.toc: lists {f}, which doesn't exist")
+            print(f"MagicMapAtlas.toc: lists {f}, which doesn't exist")
             problems += 1
-    on_disk = [f for f in os.listdir(ROOT) if f.endswith(".lua")]
-    on_disk += ["Data/" + f for f in os.listdir(os.path.join(ROOT, "Data")) if f.endswith(".lua")]
+    with open(os.path.join(ROOT, "atlas", "files.txt")) as fh:
+        atlas = fh.read().split()
+    if [f for f in listed if f.split("/")[0] in ("Data", "atlas")] != atlas:
+        print("MagicMapAtlas.toc: its Data/ and atlas/ files aren't atlas/files.txt in order")
+        problems += 1
+    on_disk = [f"{d}/{f}" for d in ADDON_DIRS if os.path.isdir(os.path.join(ROOT, d))
+               for f in os.listdir(os.path.join(ROOT, d)) if f.endswith(".lua")]
     for f in sorted(set(on_disk) - set(listed)):
-        print(f"MagicMap.toc: {f} isn't listed, so the game never loads it")
+        print(f"MagicMapAtlas.toc: {f} isn't listed, so the game never loads it")
         problems += 1
     return problems
 
@@ -195,12 +219,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--globals", action="store_true", help="list each file's global reads and writes")
     parser.add_argument("--allow", default=ALLOWLIST, help="globals the files may read (default: tools/wow_globals.txt)")
-    parser.add_argument("files", nargs="*", help="default: everything in MagicMap.toc")
+    parser.add_argument("files", nargs="*", help="default: everything in MagicMapAtlas.toc")
     ns = parser.parse_args()
     if ns.files:
         paths, problems = [os.path.abspath(f) for f in ns.files], 0
     else:
-        paths, problems = [os.path.join(ROOT, f) for f in toc_files()], check_toc()
+        problems = check_toc()
+        paths = [os.path.join(ROOT, f) for f in existing_toc_files() if os.path.exists(os.path.join(ROOT, f))]
     problems += check(paths, ns.globals, os.path.abspath(ns.allow))
     if not ns.globals:
         print(f"{len(paths)} files, {problems} problem{'s' if problems != 1 else ''}")

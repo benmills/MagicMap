@@ -49,6 +49,7 @@ QUEST = dict(name=1, startedBy=2, finishedBy=3, requiredLevel=4, questLevel=5, r
              exclusiveTo=16, zoneOrSort=17, nextQuest=22, breadcrumbFor=27)
 
 OBJECTIVE_KINDS = {1: "monster", 2: "object", 3: "item", 4: "reputation", 5: "killcredit", 6: "spell"}
+OBJECTIVE_ENT = {"monster": "Npc", "killcredit": "Npc", "object": "Object", "item": "Item"}
 
 # ChrRaces masks (src/corrections/enum/expansions.lua, Forever): bits 32/33 are Skyborne.
 ALLIANCE_RACES = 1 | 4 | 8 | 64 | (1 << 32)   # Human, Dwarf, Night Elf, Gnome, Skyborne Alliance
@@ -295,10 +296,15 @@ def lua_val(v) -> str:
 ESC = {"\\": "\\\\", '"': '\\"', "\n": "\\n", "\r": "\\r", "\0": "\\0"}
 
 
-def ids(v):
-    """An ID list, nil when empty."""
-    out = [x for x in (v or ()) if x is not None]
+def ids(v, drop=frozenset()):
+    """An ID list without dropped ids, nil when empty."""
+    out = [x for x in (v or ()) if x is not None and x not in drop]
     return out or None
+
+
+def one(v, drop):
+    """An ID unless dropped (or 0), else nil."""
+    return v if v and v not in drop else None
 
 
 def write(path, global_name, header, rows, meta):
@@ -350,11 +356,27 @@ def objectives(raw):
     return out or None
 
 
-def by_slot(v, n):
-    """A 1..n table of ID lists (CBOR array or map) as n ID lists, nil when all empty."""
+def by_slot(v, drops):
+    """A 1..n table of ID lists (CBOR array or map) as n ID lists (slot k without drops[k]), nil when all empty."""
     m = as_map(v or {})
-    out = [ids(m.get(k)) for k in range(1, n + 1)]
+    out = [ids(m.get(k), d) for k, d in enumerate(drops, 1)]
     return out if any(out) else None
+
+
+# Blizzard's test and placeholder entities, never in the world: "TEST WOLF (ALPHA FIRST)" (it shares
+# quest 33's wolf meat), "[PH] Mine Boss", "Webwood Creeper UNUSED", "<NYI> No Longer a Shadow".
+# Dropped, and with them every reference to them. "[DNT]" / "(DND)" stay: kill credits and spell
+# foci that quests use.
+PLACEHOLDER = re.compile(r"\bTEST\b|\(test\)|\bUNUSED\b|\bDEPRECATED\b|DELETE ME|^REUSE ME$|^zzOLD|\bPlaceholder\b"
+                         r"|^\[(PH|TMP)\b|^\[PH\[|\[PH\]|<PH>|\(PH\)|^<(NYI|TXT)>")
+# "Test" alone marks npcs and objects ("Test Squirrel", "Jesse The Tester") and some items ("Test
+# Stationery", "Tim's Test Ranged Weapon"), not quests ("Test of Faith") or "High Test Eternium Fishing Line".
+TEST_WORD = {"Npc": re.compile(r"\b[Tt]est(er)?\b"), "Object": re.compile(r"\b[Tt]est(er)?\b"),
+             "Item": re.compile(r"^Test |'s Test ")}
+
+
+def placeholder(ent, name):
+    return bool(PLACEHOLDER.search(name) or ent in TEST_WORD and TEST_WORD[ent].search(name))
 
 
 def main() -> None:
@@ -374,13 +396,25 @@ def main() -> None:
     project = Projector(*load_zones(ns.questiedb, FLAVOR), load_uimaps(ns.uimaps))
     out = lambda name: os.path.join(ns.output, name)  # noqa: E731
 
+    raw = {ent: {i: store.row(ent, i) for i in store.ids(ent)} for ent in ("Npc", "Object", "Item", "Quest")}
+    drop = {ent: {i for i, r in rs.items() if r.get(1) and placeholder(ent, r[1])} for ent, rs in raw.items()}
+    for i, r in raw["Quest"].items():  # what a kept quest asks for stays (9664's "<TXT>... Capture Quest Doodad")
+        if i not in drop["Quest"]:
+            for kind, oid, *_ in objectives(r.get(QUEST["objectives"])) or ():
+                if kind in OBJECTIVE_ENT:
+                    drop[OBJECTIVE_ENT[kind]].discard(oid)
+    for ent, d in drop.items():
+        log(f"dropped {len(d)} test/placeholder {ent.lower()}s: "
+            + "; ".join(f"{i} {raw[ent][i][1]}" for i in sorted(d)))
+    npcs, objects, items, quests = drop["Npc"], drop["Object"], drop["Item"], drop["Quest"]
+    kept = lambda ent: ((i, r) for i, r in raw[ent].items() if i not in drop[ent])  # noqa: E731
+
     rows = []
-    for i in store.ids("Npc"):
-        r = store.row("Npc", i)
+    for i, r in kept("Npc"):
         pts, insts = project(r.get(NPC["spawns"]))
         rows.append((i, [r.get(NPC["name"]), r.get(NPC["subName"]), r.get(NPC["minLevel"]), r.get(NPC["maxLevel"]),
                          r.get(NPC["rank"]) or None, r.get(NPC["friendly"]) or None, r.get(NPC["flags"]) or None,
-                         ids(r.get(NPC["questStarts"])), ids(r.get(NPC["questEnds"])), pts, insts]))
+                         ids(r.get(NPC["questStarts"]), quests), ids(r.get(NPC["questEnds"]), quests), pts, insts]))
     write(out("Npcs.lua"), "MagicMap_Npcs", [
         "[npcID] = { name, subName, minLevel, maxLevel, rank, faction, flags, questStarts, questEnds, spawns, instances }",
         "rank: 1 elite, 2 rare elite, 3 boss, 4 rare. faction: \"A\" | \"H\" | \"AH\" (friendly to). flags: npcFlags.",
@@ -388,14 +422,13 @@ def main() -> None:
     ], rows, meta)
 
     rows = []
-    for i in store.ids("Object"):
-        r = store.row("Object", i)
+    for i, r in kept("Object"):
         name = r.get(OBJECT["name"])
         if not name:  # a stub (417353): nothing to show or find
             continue
         pts, insts = project(r.get(OBJECT["spawns"]))
-        rows.append((i, [name, object_kind(name), ids(r.get(OBJECT["questStarts"])), ids(r.get(OBJECT["questEnds"])),
-                         pts, insts]))
+        rows.append((i, [name, object_kind(name), ids(r.get(OBJECT["questStarts"]), quests),
+                         ids(r.get(OBJECT["questEnds"]), quests), pts, insts]))
     write(out("Objects.lua"), "MagicMap_Objects", [
         "[objectID] = { name, kind, questStarts, questEnds, spawns, instances }",
         "kind: \"mailbox\" | \"herb\" | \"ore\" | nil. spawns: { [inst] = { col, row, ... } } tile space.",
@@ -403,18 +436,17 @@ def main() -> None:
     mailboxes = sum(1 for _, r in rows if r[1] == "mailbox" and r[4])
 
     rows = []
-    for i in store.ids("Item"):
-        r = store.row("Item", i)
-        rows.append((i, [r.get(ITEM["name"]), ids(r.get(ITEM["npcDrops"])), ids(r.get(ITEM["objectDrops"])),
-                         ids(r.get(ITEM["itemDrops"])), ids(r.get(ITEM["vendors"])), r.get(ITEM["startQuest"]) or None,
+    for i, r in kept("Item"):
+        rows.append((i, [r.get(ITEM["name"]), ids(r.get(ITEM["npcDrops"]), npcs), ids(r.get(ITEM["objectDrops"]), objects),
+                         ids(r.get(ITEM["itemDrops"]), items), ids(r.get(ITEM["vendors"]), npcs),
+                         one(r.get(ITEM["startQuest"]), quests),
                          r.get(ITEM["cls"]), r.get(ITEM["subClass"]), r.get(ITEM["requiredLevel"]) or None]))
     write(out("Items.lua"), "MagicMap_Items", [
         "[itemID] = { name, npcDrops, objectDrops, itemDrops, vendors, startQuest, class, subClass, requiredLevel }",
     ], rows, meta)
 
     rows = []
-    for i in store.ids("Quest"):
-        r = store.row("Quest", i)
+    for i, r in kept("Quest"):
         races = r.get(QUEST["races"]) or 0
         zs = r.get(QUEST["zoneOrSort"]) or 0
         trigger = None
@@ -423,12 +455,13 @@ def main() -> None:
             trigger = [t.get(1), project(t.get(2))[0]]
         rows.append((i, [r.get(QUEST["name"]), r.get(QUEST["questLevel"]), r.get(QUEST["requiredLevel"]),
                          quest_faction(races), races or None, r.get(QUEST["classes"]) or None,
-                         by_slot(r.get(QUEST["startedBy"]), 3), by_slot(r.get(QUEST["finishedBy"]), 2),
+                         by_slot(r.get(QUEST["startedBy"]), (npcs, objects, items)),
+                         by_slot(r.get(QUEST["finishedBy"]), (npcs, objects)),
                          objectives(r.get(QUEST["objectives"])), ids(r.get(QUEST["objectivesText"])),
                          zs if zs > 0 else None, -zs if zs < 0 else None,
-                         ids(r.get(QUEST["preQuestSingle"])), ids(r.get(QUEST["preQuestGroup"])),
-                         ids(r.get(QUEST["exclusiveTo"])), r.get(QUEST["nextQuest"]) or None,
-                         r.get(QUEST["breadcrumbFor"]) or None, trigger]))
+                         ids(r.get(QUEST["preQuestSingle"]), quests), ids(r.get(QUEST["preQuestGroup"]), quests),
+                         ids(r.get(QUEST["exclusiveTo"]), quests), one(r.get(QUEST["nextQuest"]), quests),
+                         one(r.get(QUEST["breadcrumbFor"]), quests), trigger]))
     write(out("Quests.lua"), "MagicMap_Quests", [
         "[questID] = { name, level, requiredLevel, faction, races, classes, startedBy, finishedBy, objectives,",
         "  objectivesText, zone, sort, preQuestSingle, preQuestGroup, exclusiveTo, nextQuest, breadcrumbFor, triggerEnd }",
