@@ -37,6 +37,7 @@ Target and Route beyond the typed fields.
 - A kind may be scoped to Focus's instance (rares: built from Atlas on demand, in a
   budgeted job). Found adding the first such kind; the shape didn't change.
 - Proven: adding rares touched atlas/, model/, ui/ and the TOC only.
+- OPEN additions (v1 plan M0.1): Target `inside?`, `title?`, `quest?`; Route still `MM.Pos[]` with `straight?`, `partial?` on the array; typed kinds quests, offers, places, group, corpse, waypoint, vignettes, services (MM.Known plus optional fields).
 
 ## Revisit if
 

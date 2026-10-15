@@ -97,6 +97,47 @@ def test_boundaries(capsys):
     assert "ui/X.lua:2" in out and "ui/X.lua:3" in out and "model/X.lua:1" in out and "game/X" not in out
 
 
+def test_open_fields_nil():
+    """A View and an Observation with only their required fields (every OPEN one nil:
+    types/view.lua, observation.lua) run whole frames: Game applies, Model merges, UI draws."""
+    L, sim, ns = boot()
+    sim.Slash("/mma map")
+    sim.Run(1)
+    got = L.eval("""function(ns)
+        local UI, Model, got = ns.UI, ns.Model, {}
+        local w = UI.View().window
+        local view = { v = 1, frame = 0, minimap = "ours", renderer = "ours", inst = 0, layers = { blips = true },
+            sockets = {}, button = true, window = { shown = true, big = false, place = w.place, still = true,
+            strata = w.strata, level = w.level, homeAlpha = 1 } }
+        got.View, got.Observe = UI.View, Model.Observe
+        UI.View = function() return view end
+        Model.Observe = function(obs, oracles)
+            local y = obs.you
+            got.Observe({ frame = obs.frame, t = obs.t, hooked = {},
+                you = { inst = y.inst, col = y.col, row = y.row, facing = y.facing } }, oracles)
+        end
+        return got
+    end""")(ns)
+    sim.Run(1)
+    sim.Slash("/mma mark bare")
+    assert ns.Game.minimap.engaged
+    marks = L.globals().MagicMapAtlasDB.telemetry.marks
+    assert marks[len(marks)].note == "bare" and marks[len(marks)].state.map is None  # no diag
+    kinds = ["blips", "rares", "quests", "offers", "places", "group", "corpse", "waypoint", "vignettes", "services"]
+    for kind in kinds:
+        items, rev = ns.Model.Known(kind)
+        assert isinstance(rev, (int, float)), kind
+        for k in items.values():
+            assert k.kind == kind and isinstance(k.key, str) and isinstance(k.name, str) and k.live in (True, False)
+            assert k.pos.inst is not None and k.pos.col is not None and k.pos.row is not None
+    target, route = ns.Model.Target(), ns.Model.Route()
+    assert target in (None, False) or target.pos.col is not None
+    assert route is None or all(p.col is not None for p in route.values())
+    ns.UI.View, ns.Model.Observe = got.View, got.Observe
+    sim.Run(0.5)
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
 def test_failures():
     """docs/runtime.md: each frame-loop failure driven in the sim, and its guarantee held."""
     L, sim, ns = boot("""MagicMapAtlasDB = { telemetry = "corrupt", old = { _v = 1, n = "x" }, new = { _v = 9, keep = 1 }, bad = { x = 1 } }""")

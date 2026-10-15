@@ -41,6 +41,21 @@
 ---@field button boolean         Game's minimap button is shown
 ---@field diag? fun(): table      UI's state for telemetry marks (camera, layouts: docs/telemetry.md "State" `map`, `layers`).
 ---                              Game calls it only when taking a mark and stores the result; it never acts on it. Its shape is UI's (OPEN).
+---@field chrome? MM.ViewChrome  Blizzard's Minimap rim parts while the Minimap is ours; nil: left as Blizzard has them
+---@field camera? MM.ViewCamera  where the map looks now, for telemetry's motion ring (docs/telemetry.md); Game copies it, never acts on it
+
+---Each field nil: that part left as Blizzard has it.
+---@class MM.ViewChrome
+---@field rimArrows? boolean     its arrows at the rim toward tracked things out of view; false: hidden (our edge arrow stands in)
+---@field questRing? boolean     its quest / dig-site / bonus-objective rings at the rim (Set*BlobRingScalar); false: hidden
+
+---The same table every frame is fine (UI updates it in place): Game copies the numbers.
+---@class MM.ViewCamera
+---@field cx MM.Col              the view's centre, on View.inst
+---@field cy MM.Row
+---@field zoom number            pixels per tile
+---@field w number               the view's size, pixels
+---@field h number
 
 ---@class MM.ViewWindow
 ---@field shown boolean
