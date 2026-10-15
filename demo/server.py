@@ -69,13 +69,19 @@ def tiles(q):
 def borders(q):
     inst = int(q["inst"])
     b = Atlas.Borders(inst)
-    # kind 1 zone, 2 subzone; named by their areaID
-    labels = [{"name": Atlas.Area(area).name, "kind": kind, "weight": weight, "col": col, "row": row}
-              for area, col, row, weight, kind in (py(x) for x in b.labels.values())]
-    labels.sort(key=lambda l: (l["kind"], -l["weight"]))
     # kind, then the points (skip areaA, areaB, fadeStart, fadeEnd)
     lines = [[x[0]] + x[5:] for x in (py(line) for line in b.lines.values())]
-    return {"lines": lines, "labels": labels}
+    return {"lines": lines}
+
+
+def labels(q):
+    inst = int(q["inst"])
+    b = Atlas.Borders(inst)
+    # kind 1 zone, 2 subzone; named by their areaID
+    out = [{"name": Atlas.Area(area).name, "kind": kind, "weight": weight, "col": col, "row": row}
+           for area, col, row, weight, kind in (py(x) for x in b.labels.values())]
+    out.sort(key=lambda l: (l["kind"], -l["weight"]))
+    return {"labels": out}
 
 
 def at(q):
@@ -289,7 +295,7 @@ def find(q):
     return out
 
 
-API = {"maps": maps, "tiles": tiles, "borders": borders, "at": at, "fit": fit, "walk": walk, "pins": pins,
+API = {"maps": maps, "tiles": tiles, "borders": borders, "labels": labels, "at": at, "fit": fit, "walk": walk, "pins": pins,
        "npc": npc, "object": object, "item": item, "quest": quest, "flight": flight, "dungeon": dungeon,
        "find": find}
 
@@ -330,6 +336,8 @@ class Handler(SimpleHTTPRequestHandler):
     def end_headers(self):
         if self.path.startswith("/tiles/") and self.code == 200:
             self.send_header("Cache-Control", "public, max-age=86400")
+        else:  # the page and its scripts: always the current ones
+            self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 
     def log_message(self, *args):
