@@ -1,7 +1,8 @@
 -- P3: per-frame garbage and idle work. MOVED (now measured): our frame's Lua allocation and widget
--- calls, idle and dragging, inside Runtime's frame; and Runtime's frame stats report it.
+-- calls, idle, walking (following you, the title and arrow with you) and dragging, inside
+-- Runtime's frame; and Runtime's frame stats report it.
 local T = ...
-local sim, ns = T.Shown()
+local sim, ns = T.Shown(nil, 10) -- past telemetry's one full collect (ourKBLoad, 10 s after login)
 sim.CountCalls()
 local read = T.Ours(sim)
 local function Run(n, dragging)
@@ -29,6 +30,11 @@ Walk(ns.UI.Window.frame)
 Run(120)
 local n, kb, calls = read()
 local idle = { kb / n, sets.v / n, calls / n }
+sim.player.facing, sim.player.speed = math.pi / 2, 7 -- walking east, followed
+Run(120)
+sim.player.speed = 0
+local nw, kbw = read()
+local walk = (kbw - kb) / (nw - n)
 -- Dragging, once it is one: pressed and moved past a click's slop first (the drag's start, once:
 -- its trace, follow off, Focus and the saved centre made), then a frame each pixel.
 local view = ns.UI.Window.view
@@ -42,9 +48,10 @@ sim.buttonsDown.LeftButton = nil; sim.FireScript(view, "OnMouseUp", "LeftButton"
 local n2, kb2, calls2 = read()
 local drag = { (kb2 - kb) / (n2 - n), (calls2 - calls) / (n2 - n) }
 T.Print("P3: our frame idle %.0f B, %.1f setter calls on the map's widgets (%.1f widget calls in all, getters and "
-	.. "the Minimap sensor's included); dragging %.0f B, %.1f widget calls", idle[1] * 1024, idle[2], idle[3],
-	drag[1] * 1024, drag[2])
-assert(idle[1] <= 0.1 and drag[1] <= 0.1) -- KB a frame: no table a frame (the drag step's camera was ~0.2)
+	.. "the Minimap sensor's included); walking %.0f B; dragging %.0f B, %.1f widget calls", idle[1] * 1024, idle[2],
+	idle[3], walk * 1024, drag[1] * 1024, drag[2])
+-- KB a frame: no table a frame (the drag step's camera was ~0.2; the title's zone walking, ~0.13)
+assert(idle[1] <= 0.1 and walk <= 0.1 and drag[1] <= 0.1)
 assert(idle[2] == 0) -- standing still: the arrow and the canvases are left alone
 local stats = ns.Runtime.FrameStats()
 T.Print("P3: FrameStats: %d frames measured, p95 %s KB/frame, max %s KB/frame, %s KB/s",

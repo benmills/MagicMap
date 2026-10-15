@@ -3,7 +3,8 @@
 -- right end; no plate, like the minimap's own (Core.lua:177-226, 292-314). Dragging the
 -- title moves the window. Its text (Core.lua:1240-1320), 20 times a second while shown:
 --   hovering the map (big, or not on your map): the zone under the cursor and its coordinates
---   on your map: your zone (your uiMap's name), subzone; coordinates while big or hovered
+--   on your map: your zone (your uiMap's name, else the client's), the client's subzone (the
+--     inn, inside it); coordinates while big or hovered
 --   otherwise: the map's name; big: the hint to follow you again
 
 local _, ns = ...
@@ -81,7 +82,14 @@ end
 Title.Fit = Fit
 frame:HookScript("OnSizeChanged", Runtime.Wrap("map: title fit", Fit))
 
-local function Coords(x, y) return string.format("%.1f, %.1f", x * 100, y * 100) end
+-- "x, y" at a tenth of a percent: a new string only when that changes (a walk crosses one every
+-- few yards, the update runs 20 times a second).
+local qx, qy, coords
+local function Coords(x, y)
+	local nx, ny = math.floor(x * 1000 + 0.5), math.floor(y * 1000 + 0.5)
+	if nx ~= qx or ny ~= qy then qx, qy, coords = nx, ny, string.format("%.1f, %.1f", x * 100, y * 100) end
+	return coords
+end
 
 -- The map's name: Atlas's (the tile set's) or the instance's number (Core.lua:1262).
 local names = {}
@@ -95,6 +103,18 @@ local function MapName(inst)
 		names[inst] = n
 	end
 	return n
+end
+
+-- The zone at (a, b): its uiMap and name, worked out again only when the area under it changes
+-- (a walk or a hover makes no table each update).
+local at = {}
+local function ZoneAt(inst, a, b)
+	local id = Atlas.AreaAt(inst, a, b)
+	if id ~= at.area or inst ~= at.inst then
+		local z = Atlas.ZoneAt(inst, a, b)
+		at.area, at.inst, at.mapID, at.name = id, inst, z and z.mapID, z and z.name
+	end
+	return at.mapID and at
 end
 
 -- What it was last worked out from, so a still map works nothing out (and allocates nothing).
@@ -114,27 +134,30 @@ local function Update()
 		a, b = you.col, you.row
 	end
 	local l = last
-	if l.inst == inst and l.big == big and l.hovering == hovering and l.a == a and l.b == b and l.uiMap == you.uiMap then return end
-	l.inst, l.big, l.hovering, l.a, l.b, l.uiMap = inst, big, hovering, a, b, you.uiMap
+	if l.inst == inst and l.big == big and l.hovering == hovering and l.a == a and l.b == b and l.uiMap == you.uiMap
+		and l.subzone == you.subzone then return end
+	l.inst, l.big, l.hovering, l.a, l.b, l.uiMap, l.subzone = inst, big, hovering, a, b, you.uiMap, you.subzone
 	local name
 	wipe(parts)
 	if hovering and not here then
-		local z = Atlas.ZoneAt(inst, a, b)
-		if z then
+		local z = ZoneAt(inst, a, b)
+		local x, y
+		if z then x, y = Atlas.TileToMap(z.mapID, a, b) end
+		if x then
 			name = z.name
-			parts[#parts + 1] = Coords(z.x, z.y)
+			parts[#parts + 1] = Coords(x, y)
 		else
 			name = MapName(inst)
 		end
 	elseif onMap then
-		-- Your uiMap's name (the client's best map for you), else the zone you're in.
-		local zone = a and Atlas.ZoneAt(inst, a, b)
-		local mapID = you.uiMap or (zone and zone.mapID)
-		local map = mapID and Atlas.UiMap(mapID)
-		name = map and map.name or zone and zone.name or MapName(inst)
-		local area = zone and Atlas.Area(zone.area)
-		if area and area.id ~= area.zone and area.name ~= name then parts[#parts + 1] = area.name end
-		if a and map and (big or hovering) then
+		-- Your uiMap's name (the client's best map for you), else the client's zone, else the
+		-- zone you're in (Core.lua:1278-1291).
+		local map = you.uiMap and Atlas.UiMap(you.uiMap)
+		local zone = not map and a and ZoneAt(inst, a, b)
+		local mapID = map and map.id or zone and zone.mapID
+		name = map and map.name or you.zone or zone and zone.name or MapName(inst)
+		if you.subzone and you.subzone ~= name then parts[#parts + 1] = you.subzone end
+		if a and mapID and (big or hovering) then
 			local x, y = Atlas.TileToMap(mapID, a, b)
 			if x then parts[#parts + 1] = Coords(x, y) end
 		end

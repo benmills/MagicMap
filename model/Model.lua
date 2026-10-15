@@ -6,7 +6,7 @@
 -- Model.you = { inst, col, row, facing, stale }: tile space (Atlas), facing in
 -- radians (0 north, counter-clockwise). While the position isn't known (instances,
 -- loading) the last known one is kept with stale = true; nil: never known
--- (or not on the map we're now on). uiMap, level, faction, dead, ghost, combat:
+-- (or not on the map we're now on). uiMap, zone, subzone, level, faction, dead, ghost, combat:
 -- this frame's, as handed (nil: the client gave nothing).
 -- Model.hooked, Model.minimap: this frame's obs.hooked and obs.minimap, handed on unchanged
 -- (UI reads them the same frame). Model.addons: obs.addons, the last handed ({} until then).
@@ -54,7 +54,7 @@ function Model.Observe(obs, oracles)
 		if o.inst and o.inst ~= you.inst then you.inst, you.col, you.row = o.inst, nil, nil end
 	end
 	if o.facing then you.facing = o.facing end
-	you.uiMap, you.level, you.faction = o.uiMap, o.level, o.faction
+	you.uiMap, you.zone, you.subzone, you.level, you.faction = o.uiMap, o.zone, o.subzone, o.level, o.faction
 	you.dead, you.ghost, you.combat = o.dead, o.ghost, o.combat
 	for _, p in ipairs(parts) do
 		if p.observe then p.observe(obs, oracles) end

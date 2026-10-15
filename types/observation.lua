@@ -45,6 +45,8 @@
 ---@field row? MM.Row
 ---@field facing? number       radians, 0 north, counter-clockwise (GetPlayerFacing)
 ---@field uiMap? MM.UiMapID    C_Map.GetBestMapForUnit("player")
+---@field zone? string         GetZoneText(): the client's name for your zone; nil: none
+---@field subzone? string      GetSubZoneText(): its name for where you are in it (an inn, a keep); nil: none
 ---@field level? integer
 ---@field faction? MM.Faction  "A" or "H"
 ---@field dead? boolean        dead or a ghost
@@ -132,8 +134,9 @@
 ---@class MM.ObsBlip
 ---@field name string          what the Minimap's tooltip calls it
 ---@field pos MM.Pos
----@field rough boolean        met while moving, not measured: where a sweep point hit it, up to a square
----                           (~12 yd at the widest zoom) plus the client's lag off; measured once you stand still
+---@field rough boolean        its position wasn't measured (met while moving): don't keep it or merge on it;
+---                           measured once you stand still. (How far off is the sensor's, not this contract's:
+---                           today where a sweep point hit it, up to a square, ~12 yd at the widest zoom, plus lag.)
 ---@field icon? MM.FileID      the tracking icon Game matched it to, if any
 
 ---@class MM.ObsBlips

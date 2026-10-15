@@ -2,7 +2,8 @@
 -- Nil fields: not known (UnitPosition gives nothing in instances and on some
 -- loading frames; inst comes from GetInstanceInfo, known there too; uiMap is nil
 -- where no map has you); losing and regaining the position is traced ("position").
--- uiMap is read again only after the events that change it (as HereBeDragons does).
+-- uiMap and the zone's names are read again only after the events that change them (as
+-- HereBeDragons does).
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
@@ -24,7 +25,11 @@ Game.Part("you", function()
 	you.inst, you.col, you.row = select(8, GetInstanceInfo()), nil, nil
 	if north then you.col, you.row = Atlas.WorldToTile(north, west) end
 	you.facing = GetPlayerFacing()
-	if moved then you.uiMap, moved = C_Map.GetBestMapForUnit("player"), false end
+	if moved then
+		local zone, sub = GetZoneText(), GetSubZoneText()
+		you.uiMap, you.zone, you.subzone, moved = C_Map.GetBestMapForUnit("player"), zone ~= "" and zone or nil,
+			sub ~= "" and sub or nil, false
+	end
 	you.level, you.faction = UnitLevel("player"), FACTION[UnitFactionGroup("player")]
 	you.dead, you.ghost, you.combat = UnitIsDeadOrGhost("player"), UnitIsGhost("player"), InCombatLockdown()
 	if (had == nil) ~= (you.col == nil) and Runtime.frames > 1 then Runtime.Trace("position", you.col and "back" or "lost") end

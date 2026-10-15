@@ -55,9 +55,14 @@ unknown ones), and new oracles.
 - Identity-compare means Game must build a new table to signal a change. That garbage
   only appears on change, never per frame.
 - OPEN additions (v1 plan M1): `minimap.homeStrata`, the cluster's strata, beside `home`
-  (M1.6), and `home` is kept: a new table only when Game reads it again, so UI may hold it.
-  `ObsBlip.rough` says what it is now that the sensor measures only while you stand still
-  (M1.5): met while moving, up to a square plus the client's lag off, measured once you stop.
+  (M1.6), and `home` is kept: a new table only when the spot moved, so UI may hold it.
+  `you.zone` and `you.subzone`, the client's names for where you are (GetZoneText,
+  GetSubZoneText: the title names the inn, not the chunk's area, as the spike did).
+- LOCKED clarification (v1 plan M1): `ObsBlip.rough` was "measured while moving: a few yards
+  off". Its meaning stays what Model relies on: the position wasn't measured, so don't keep it
+  or merge on it; it's measured once you stand still (M1.5 measures only then). How far off a
+  rough one is belongs to the sensor (OPEN, non-binding: today up to a square, ~12 yd at the
+  widest zoom, plus the client's lag), not to the contract.
 
 ## Revisit if
 

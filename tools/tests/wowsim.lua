@@ -194,7 +194,7 @@ function Region:SetPoint(point, rel, relPoint, x, y)
 	for i = #points, 1, -1 do
 		if points[i].point == point then e = table.remove(points, i) end
 	end
-	e = e or {} -- reused when re-anchoring the same point (no garbage per SetPoint)
+	e = e or (S[self].spare and table.remove(S[self].spare)) or {} -- reused (no garbage per SetPoint)
 	e.point, e.rel, e.relPoint, e.x, e.y = point, rel, relPoint, x or 0, y or 0
 	points[#points + 1] = e
 end
@@ -205,7 +205,16 @@ function Region:SetAllPoints(rel)
 	self:SetPoint("BOTTOMRIGHT", rel or S[self].parent, "BOTTOMRIGHT")
 end
 
-function Region:ClearAllPoints() S[self].points = {} end
+-- Its anchors kept aside for the next SetPoint (the client's setters make no Lua garbage).
+function Region:ClearAllPoints()
+	local st = S[self]
+	local points, spare = st.points, st.spare or {}
+	st.spare = spare
+	for i = #points, 1, -1 do
+		spare[#spare + 1] = points[i]
+		points[i] = nil
+	end
+end
 function Region:GetNumPoints() return #S[self].points end
 function Region:GetPoint(i)
 	local p = S[self].points[i or 1]
@@ -1429,7 +1438,8 @@ function GetZoneText()
 	local id = mapAt(Sim.player.inst, Sim.player.col, Sim.player.row, { [T.Zone] = true })
 	return id and Sim.maps[id][1] or ""
 end
-function GetSubZoneText() return "Goldshire" end
+Sim.subzone = "Goldshire" -- the client's name for where you are (an inn's, inside it)
+function GetSubZoneText() return Sim.subzone end
 GetRealZoneText, GetMinimapZoneText = GetZoneText, GetSubZoneText
 
 Sim.units = { player = { name = "Tester", class = "MAGE", level = 5 } }

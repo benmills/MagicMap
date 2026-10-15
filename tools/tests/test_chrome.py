@@ -67,6 +67,10 @@ def test_chrome():
     sim.Run(0.1)
     x, y = ns.Atlas.TileToMap(1429, ns.Model.you.col, ns.Model.you.row)
     assert text() == ("Elwynn Forest", "Goldshire" + SEP + "%.1f, %.1f" % (x * 100, y * 100))
+    sim.subzone = "Lion's Pride Inn"  # the client's subzone (inside the inn), not the terrain chunk's area
+    sim.FireEvent("ZONE_CHANGED_INDOORS")
+    sim.Run(0.1)
+    assert text() == ("Elwynn Forest", "Lion's Pride Inn" + SEP + "%.1f, %.1f" % (x * 100, y * 100))
 
     # Hover reveal: out over 0.15 s once the mouse leaves, in again as it comes back.
     alpha = lambda: ctl.mode.GetAlpha(ctl.mode)  # noqa: E731

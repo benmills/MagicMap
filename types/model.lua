@@ -102,6 +102,8 @@
 ---@field facing? number
 ---@field stale boolean        the position is the last known, not this frame's
 ---@field uiMap? MM.UiMapID    this frame's (obs.you.uiMap); nil: the client gives none (an instance without a map)
+---@field zone? string         this frame's (obs.you.zone): the client's name for your zone
+---@field subzone? string      this frame's (obs.you.subzone): its name for where you are in it
 ---@field level? integer
 ---@field faction? MM.Faction
 ---@field dead? boolean        dead or a ghost

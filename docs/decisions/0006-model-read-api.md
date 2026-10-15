@@ -43,7 +43,8 @@ Target and Route beyond the typed fields.
   `Model.minimap` hands on this frame's `obs.minimap` unchanged, as `hooked` is (M1.7 places
   the small window on `home` in `homeStrata`; it stands for M1.6's asked-for `Model.home` and
   `Model.homeStrata`, and carries `indoors` for M4.4's renderer). `Model.addons` hands on
-  `obs.addons`, `{}` until known (M1.9, for the "Other addons" layers).
+  `obs.addons`, `{}` until known (M1.9, for the "Other addons" layers). `Model.you.zone` and
+  `subzone`, this frame's from `obs.you` (the title, as the spike's GetZoneText/GetSubZoneText).
 
 ## Revisit if
 
