@@ -29,6 +29,7 @@ local seen = {} -- error keys this session
 local kbLoad, kbOut -- our KB after a full collect: past the login grace, at logout
 
 local function R(v, n) return v and math.floor(v * n + 0.5) / n end
+local NONE = {}
 local boot = Runtime.boot
 local function Ms() return R(debugprofilestop() - (boot.login and boot.login.t or boot.t0), 10) end -- as Trace's
 
@@ -64,7 +65,7 @@ local function Perf()
 	p.errors, p.errorsPerHour, p.loadMs = errors, math.floor(errors / hours * 10 + 0.5) / 10, session.boot.loadMs
 	p.ourKBLoad, p.ourKB = kbLoad, kbOut
 	session.perf, session.frames = p, Runtime.frames
-	local bench = Game.Bench and Game.Bench.result -- game/Bench.lua (M0.5)
+	local bench = Game.Bench.result
 	if bench then session.bench[bench.build] = Copy(bench) end
 end
 
@@ -194,13 +195,16 @@ Runtime.On("PLAYER_LOGOUT", "telemetry.logout", function() -- also /reload
 	Perf()
 end)
 
--- Each frame: the motion ring; once, ourKBLoad. Unbudgeted: the full collect is graced ("gc"), not ours to count.
+-- Each frame: the motion ring (View.camera is OPEN: none, no row); once, ourKBLoad.
+-- Unbudgeted: the full collect is graced ("gc"), not ours to count.
 Runtime.Step("apply", "telemetry: frame", function()
 	local cam, you = ns.UI.View().camera, Game.obs.you
-	at = at % MOTION + 1
-	local m = motion[at]
-	m.f, m.ms, m.cx, m.cy, m.zoom, m.w, m.h = Runtime.frames, Ms(), cam.cx, cam.cy, cam.zoom, cam.w, cam.h
-	m.px, m.py = you.col, you.row
+	if cam then
+		at = at % MOTION + 1
+		local m = motion[at]
+		m.f, m.ms, m.cx, m.cy, m.zoom, m.w, m.h = Runtime.frames, Ms(), cam.cx, cam.cy, cam.zoom, cam.w, cam.h
+		m.px, m.py = you.col, you.row
+	end
 	if loadAt and GetTime() >= loadAt then
 		loadAt = nil
 		Runtime.Grace("gc", 0.1)
@@ -242,7 +246,7 @@ end)
 
 Game.Slash("shot", "[id note]: a screenshot, and a mark matched to it (docs/playtest.md shot ids)", function(note)
 	local view = ns.UI.View()
-	local cam, place = view.camera, view.window.place
+	local cam, place = view.camera or NONE, view.window.place
 	shot = { note = note, at = { inst = view.inst, cx = R(cam.cx, 1e4), cy = R(cam.cy, 1e4), zoom = R(cam.zoom, 100),
 		w = R(cam.w, 10), h = R(cam.h, 10), left = place and place.left, top = place and place.top, big = view.window.big,
 		uiScale = R(UIParent:GetEffectiveScale(), 1e3), screenW = R(UIParent:GetWidth(), 10),
