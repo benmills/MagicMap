@@ -7,8 +7,8 @@
 -- (ADDON_ACTION_BLOCKED/FORBIDDEN naming us) traces "taint" and takes a "taint" mark.
 -- Each session's perf (Runtime.FrameStats, errors, load, memory after a full
 -- collect: docs/runtime.md) is written at logout and with each mark, with the
--- bench (game/Bench.lua) if one ran. Every trace passes here too: the kinds that
--- must stay empty are kept past the ring, layouts, swaps and sweeps counted.
+-- bench (game/Bench.lua) if one ran. Every trace passes here too (Runtime.onTrace): the
+-- kinds that must stay empty are kept past the ring, layouts, swaps and sweeps counted.
 
 local ADDON, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
@@ -136,9 +136,9 @@ seterrorhandler(function(msg, ...)
 	return previous(msg, ...)
 end)
 
--- Every trace passes here too (after the ring has it): KEEP kinds go to session.kept (the
--- ring forgets them), STATS kinds to session.stats["<kind> <layer>"] = { n, <field> = max |value| },
--- a swap's `lag` being frames since its layer's last layout end.
+-- Every trace passes here too (Runtime.onTrace, after the ring has it): KEEP kinds go to
+-- session.kept (the ring forgets them), STATS kinds to session.stats["<kind> <layer>"] =
+-- { n, <field> = max |value| }, a swap's `lag` being frames since its layer's last layout end.
 local ends = {} -- [layer] = Runtime.frames at its last layout end
 local Keep = Runtime.Wrap("telemetry: trace", function(kind, d)
 	if KEEP[kind] then
@@ -156,11 +156,6 @@ local Keep = Runtime.Wrap("telemetry: trace", function(kind, d)
 	if kind == "layout" then ends[d.layer] = Runtime.frames end
 	if kind == "swap" and ends[d.layer] then s.lag = math.max(s.lag or 0, Runtime.frames - ends[d.layer]) end
 end, false)
-local trace = Runtime.Trace
-function Runtime.Trace(kind, d)
-	trace(kind, d)
-	if session then Keep(kind, d) end -- not before SavedVariables load
-end
 
 Game.Load("telemetry", function(saved)
 	local last = saved.sessions[#saved.sessions]
@@ -173,6 +168,7 @@ Game.Load("telemetry", function(saved)
 	db = saved
 	db.sessions[#db.sessions + 1] = session
 	if #db.sessions > SESSIONS then table.remove(db.sessions, 1) end
+	Runtime.onTrace = Keep -- (from here: the session holds what it keeps)
 	for _, p in ipairs(pending) do Record(p[1], p[2], p[3]) end
 	pending = nil
 end, { version = 1, defaults = { sessions = {}, errors = {}, marks = {} } })

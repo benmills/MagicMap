@@ -38,7 +38,9 @@ So are these guarantees (docs/runtime.md states each one with its failure mode):
 7. **Trace** keeps the event shape in docs/telemetry.md.
 
 Open: the budget numbers (`FRAME_MS`, `CALL_MS`, job defaults), the throttling policy,
-the `Perf` and `FrameStats` shapes, `Grace`, and new optional `opts`.
+the `Perf` and `FrameStats` shapes, `Grace`, `SetState` (UI's map state, for `FrameStats`
+by state), `onTrace(kind, detail)` (every trace after the ring has it, set by Game: telemetry
+keeps some kinds and counts others; the only other hook besides `onError`), and new optional `opts`.
 
 ## Consequences
 

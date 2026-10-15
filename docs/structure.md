@@ -123,8 +123,10 @@ isn't listed.
   `Runtime.SetState(state)` — UI's map state (`closed`, `small`, `big`, `zoom`, `drag`), for `byState`.
   Each caught error (every time, with its stack) goes to `Runtime.onError(name, err, stack)`
   if set (game/Telemetry.lua persists it).
-- `Runtime.Trace(kind, detail)` — a ring of the last 300 events; `Runtime.TraceCopy()`
-  copies it, oldest first (docs/telemetry.md).
+- `Runtime.Trace(kind, detail)` — a ring of the last 300 events, each handed on to
+  `Runtime.onTrace(kind, detail)` if set (game/Telemetry.lua: the kinds it keeps or counts);
+  `Runtime.TraceCopy()` copies it, oldest first (docs/telemetry.md). `onError` and `onTrace` are
+  the only Runtime fields another system sets.
 - `Runtime.boot` — `t0, mem0` at load start (runtime/Boot.lua); `loaded` = `{ t, mem }`
   once Atlas has loaded; `login` = `{ t, mem }` at PLAYER_LOGIN.
 

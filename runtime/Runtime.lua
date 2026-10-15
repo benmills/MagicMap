@@ -4,7 +4,8 @@
 -- with its stack, printed once per name, kept in Runtime.errors, handed to
 -- Runtime.onError(name, err, stack) if set, and the rest run on).
 -- The guarantees, budgets and how each is observed: docs/runtime.md.
--- Runtime.Trace keeps a ring of recent events (docs/telemetry.md).
+-- Runtime.Trace keeps a ring of recent events (docs/telemetry.md), each handed on to
+-- Runtime.onTrace(kind, detail) if set (game/Telemetry.lua keeps some, counts others).
 -- Attribution (docs/runtime.md): each call's Lua KB, jobs' stretches between
 -- Yields, the worst frames with the events around them, frames by map state.
 -- The first file after Atlas, so it marks Atlas's load end (boot.loaded).
@@ -162,8 +163,7 @@ function Runtime.Trace(kind, detail)
 	head = head % RING + 1
 	local e = ring[head]
 	e.f, e.ms, e.k, e.d = Runtime.frames, now() - (boot.login and boot.login.t or boot.t0), kind, detail
-	if pending == 0 then return end
-	for i = 1, LEDGER do
+	for i = 1, pending > 0 and LEDGER or 0 do -- (the ledger's frames still taking the events after them)
 		local s = ledger[i]
 		if s.want > 0 then
 			Keep(s, e)
@@ -171,6 +171,7 @@ function Runtime.Trace(kind, detail)
 			if s.want == 0 then pending = pending - 1 end
 		end
 	end
+	if Runtime.onTrace then Runtime.onTrace(kind, detail) end
 end
 
 -- A frame among the worst: replaces the least costly, with the last AROUND events (its own included).

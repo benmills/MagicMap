@@ -19,7 +19,7 @@
 --         keeps failing is throttled
 --   * Trace's event shape (docs/telemetry.md)
 -- OPEN: the budget numbers, throttling policy, Perf / FrameStats shapes,
--- new optional opts.
+-- new optional opts; Grace, SetState, FrameStats; the onTrace hook.
 
 ---@alias MM.Phase "input"|"observe"|"model"|"ui"|"apply"
 
@@ -50,8 +50,30 @@
 ---@field n integer              calls
 ---@field ms number              total
 ---@field max number             slowest call
----@field over integer           calls over budget
+---@field over integer           calls over budget, outside graces
 ---@field fails integer          failures in a row
+---@field kb? number             Lua KB its calls made, outside graces (docs/runtime.md "Attribution")
+---@field kbN? integer           calls measured
+---@field kbMax? number          most in one call
+---@field gaps? integer          a job's stretches between Yields over its budget
+---@field gapMax? number         the longest (ms)
+---@field gapStack? string       the first one's stack
+
+---Our cost a frame and who to blame (docs/runtime.md "Budgets", "Attribution"). Its keys are OPEN.
+---@class MM.FrameStats
+---@field frames integer         outside graces
+---@field p50 number
+---@field p95 number
+---@field p99 number
+---@field max number
+---@field overruns integer
+---@field grace table<string, number>  each grace's slowest frame (ms)
+---@field graceTop table<string, { top: string?, topMs: number }>  that frame's slowest call
+---@field slow { name: string, n: integer, max: number }[]
+---@field alloc { name: string, kbPerSec: number, kbMax: number, calls: integer }[]
+---@field gaps { job: string, ms: number, n: integer, stack: string? }[]
+---@field ledger { frame: MM.Frame, ms: number, top: string?, topMs: number, events: MM.TraceEvent[] }[]
+---@field byState table<string, { frames: integer, p50: number, p95: number, p99: number, max: number }>
 
 ---@class MM.RuntimeError
 ---@field name string            the Wrap name
@@ -71,6 +93,7 @@
 ---@field FRAME_MS number            our budget for one frame (docs/runtime.md)
 ---@field CALL_MS number             default budget for one call
 ---@field onError? fun(name: string, err: any, stack: string?)  every caught error; set by Game (telemetry). If it fails it is turned off.
+---@field onTrace? fun(kind: string, detail: MM.TraceDetail)  every trace, after the ring has it; set by Game (telemetry: kept kinds, stats). OPEN
 local Runtime = {}
 
 ---fn(elapsed) every frame in `phase`.
@@ -140,3 +163,10 @@ function Runtime.Perf() end
 ---@param name string
 ---@param seconds number
 function Runtime.Grace(name, seconds) end
+
+---The map's state now (UI's): the frames from here on count under it too (FrameStats byState).
+---@param name "closed"|"small"|"big"|"zoom"|"drag"|string
+function Runtime.SetState(name) end
+
+---@return MM.FrameStats
+function Runtime.FrameStats() end

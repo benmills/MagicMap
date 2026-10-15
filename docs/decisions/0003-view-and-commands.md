@@ -29,6 +29,12 @@ apply step and never writes it. It holds only what Game acts on:
   addons' pins. Game never moves, sizes or hides them.
 - `button` controls whether the minimap button is shown.
 - `diag` is optional. Game calls it only for telemetry marks and stores the result without acting on it.
+- `camera` is optional: where the map looks, which Game copies in its apply step for telemetry's
+  motion ring and shot stamps, without acting on it.
+
+`diag` and `camera` are the exception to "only what Game acts on": they are sampled for
+telemetry, never acted on, and their shapes are UI's (OPEN), so Game never depends on UI's
+internals through them.
 
 View is **versioned** (`v = 1`). Game acts only on a `v` it knows. Otherwise it falls back
 to a safe View: Blizzard's minimap, nothing borrowed, tracking restored. Adding an optional
@@ -59,8 +65,8 @@ command and hooked kinds, and everything inside UI (camera, layout, menus, chrom
 - Game can be tested by feeding it Views, and UI by recording the commands it sends.
 - The takeover's undo list (the spike's MinimapTakeover) stays inside Game. View only says
   what is wanted, never how.
-- `diag` keeps telemetry's camera and layout snapshot out of the contract (lifting
-  luacheck's `game/Telemetry.lua → UI.Map` baseline entry) without Game reading UI internals.
+- Telemetry reads UI only through `diag` and `camera` (lifting luacheck's
+  `game/Telemetry.lua → UI.Map` baseline entry), whose shapes stay UI's.
 - OPEN additions (v1 plan M0.1, `v` stays 1): `chrome` {rimArrows?, questRing?} for Blizzard's Minimap rim parts; `camera` {cx, cy, zoom, w, h}, sampled for telemetry's motion ring, never acted on.
 
 ## Revisit if

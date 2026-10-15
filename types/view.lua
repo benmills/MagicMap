@@ -4,7 +4,9 @@
 --
 -- View is the one place Game reads UI. It is cross-system, so it is minimal
 -- and versioned: only what Game acts on, nothing UI keeps for itself (camera,
--- animation, layout, menus stay inside UI).
+-- animation, layout, menus stay inside UI). The one exception is telemetry's:
+-- `diag` and `camera` are sampled for telemetry and never acted on, and their
+-- shapes are UI's (OPEN), so they don't widen what Game depends on.
 --
 -- LOCKED (one-way door):
 --   * UI publishes with UI.View() -> MM.View (the same table each call is fine);
@@ -42,14 +44,15 @@
 ---@field diag? fun(): table      UI's state for telemetry marks (camera, layouts: docs/telemetry.md "State" `map`, `layers`).
 ---                              Game calls it only when taking a mark and stores the result; it never acts on it. Its shape is UI's (OPEN).
 ---@field chrome? MM.ViewChrome  Blizzard's Minimap rim parts while the Minimap is ours; nil: left as Blizzard has them
----@field camera? MM.ViewCamera  where the map looks now, for telemetry's motion ring (docs/telemetry.md); Game copies it, never acts on it
+---@field camera? MM.ViewCamera  where the map looks now, for telemetry's motion ring (docs/telemetry.md); Game copies it
+---                              in its apply step, never acts on it. Its shape is UI's (OPEN).
 
 ---Each field nil: that part left as Blizzard has it.
 ---@class MM.ViewChrome
 ---@field rimArrows? boolean     its arrows at the rim toward tracked things out of view; false: hidden (our edge arrow stands in)
 ---@field questRing? boolean     its quest / dig-site / bonus-objective rings at the rim (Set*BlobRingScalar); false: hidden
 
----The same table every frame is fine (UI updates it in place): Game copies the numbers.
+---The same table every frame is fine (UI updates it in place): Game copies the numbers. OPEN (telemetry only).
 ---@class MM.ViewCamera
 ---@field cx MM.Col              the view's centre, on View.inst
 ---@field cy MM.Row
