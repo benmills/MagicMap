@@ -89,14 +89,17 @@ gitignored QuestieDB-derived data those tests skip.
 `tools/luacheck.py` enforces [architecture.md](architecture.md)'s Rules per folder: the
 globals each may read (`BOUNDARIES`: sections of `tools/lua51_globals.txt` and
 `tools/wow_globals.txt`) and the `ns.<System>`s it may use (`NS_RULES`, a static scan).
+Also: `Runtime.On` only in game/ (Game registers game events) and `UI.View` only in
+game/Apply.lua (`ONLY`); only a system's own folder sets its fields, but for the hooks it
+declares (`HOOKS`: Runtime's `onError`, `onTrace`); named frames only from `FRAME_NAMES`.
 
 | folder   | globals                                       | ns                                         |
 |----------|-----------------------------------------------|--------------------------------------------|
 | atlas/   | Lua 5.1 only                                  | Atlas, Data (its generated `ns.Data`)      |
 | runtime/ | Lua 5.1 + `[lua]` `[runtime]`: frame, clocks | Runtime                                    |
 | model/   | Lua 5.1 only                                  | Model, Atlas, Runtime                      |
-| ui/      | Lua 5.1 + `[lua]` `[ui]`: widgets, input     | UI, Model, Atlas, Runtime; `Game.Command` (slash and saved data too) |
-| game/    | all of it, and only it the SavedVariables     | Game, Atlas, Runtime; `UI.View`, `Model.Observe` / `Load` / `SAVED` |
+| ui/      | Lua 5.1 + `[lua]` `[ui]`: widgets, input     | UI, Atlas, Runtime; Model's read API (`Known`, `Target`, `Route`, `you`, `hooked`, `Focus`); `Game.Command` (slash and saved data too) |
+| game/    | all of it, and only it the SavedVariables     | Game, Atlas, Runtime; `UI.View` (game/Apply.lua), `Model.Observe` / `Load` / `SAVED` |
 | game/parts/, game/commands/ | as game/                     | Game, Atlas, Runtime (no View, no Model: Observe and Apply have those) |
 
 Known violations waiting on a contract are `BASELINE` in `tools/luacheck.py` (each with

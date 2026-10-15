@@ -15,9 +15,12 @@ compiled bytecode, so scoping is exact.
   * Boundaries (architecture.md Rules; README "Boundaries"): each folder
     may read only its own globals (BOUNDARIES: sections of
     tools/lua51_globals.txt and tools/wow_globals.txt), only game/ may touch
-    the SavedVariables, and each folder may use only the ns.<System>s that
-    NS_RULES allow (a static scan; limits at check_ns). Known violations
-    waiting on a contract are in BASELINE; one that's gone must be removed.
+    the SavedVariables, each folder may use only the ns.<System>s that
+    NS_RULES allow, a few fields only where ONLY says, and only a system's
+    own folder sets its fields, but for the HOOKS it declares (a static
+    scan; limits at check_ns). Known violations waiting on a contract are in
+    BASELINE; one that's gone must be removed.
+  * Named frames are globals (CreateFrame's name): only FRAME_NAMES.
   * MagicMapAtlas.toc must be what the folders' files.txt manifests make
     (tools/install.py generates it), every file in it must exist (a gitignored
     one may be missing: QuestieDB-derived data), and every addon .lua must be
@@ -72,11 +75,25 @@ NS_RULES = {
     "atlas": ({"Atlas", "Data"}, {}),
     "runtime": ({"Runtime"}, {}),
     "model": ({"Model", "Atlas", "Runtime"}, {}),
-    "ui": ({"UI", "Model", "Atlas", "Runtime"}, {"Game": {"Command"}}),
+    "ui": ({"UI", "Atlas", "Runtime"}, {"Game": {"Command"},
+                                       "Model": {"Known", "Target", "Route", "you", "hooked", "Focus"}}),  # types/model.lua, focus.lua
     "game": ({"Game", "Atlas", "Runtime"}, {"UI": {"View"}, "Model": {"Observe", "Load", "SAVED"}}),
     "game/parts": ({"Game", "Atlas", "Runtime"}, {}),
     "game/commands": ({"Game", "Atlas", "Runtime"}, {}),
 }
+
+# Fields only these places may use, though their system is open to more (its own folder always may).
+ONLY = {
+    ("Runtime", "On"): ("game/",),  # Game registers game events; Runtime dispatches (ADR 0005)
+    ("UI", "View"): ("game/Apply.lua",),  # Game reads View only in its apply step (types/view.lua)
+}
+# Each system's folder: only it sets the system's fields (else it replaces another's function),
+# but for the hooks a system declares for others to set (types/runtime.lua: Game sets both).
+HOME = {"Data": "Data", "Atlas": "atlas", "Runtime": "runtime", "Game": "game", "Model": "model", "UI": "ui"}
+HOOKS = {("Runtime", "onError"), ("Runtime", "onTrace")}
+# The only named frames (globals; docs/structure.md "Namespace"): the client keeps a moved frame's
+# place by its name; the Minimap's children wait on the stand-in, named as the spike's was.
+FRAME_NAMES = {"MagicMapAtlasMap", "MagicMapAtlasMinimapStandIn"}
 
 # Known violations, each waiting on a contract: (file, System, field). Keep it
 # short; the check fails on any entry that no longer matches, so it only shrinks.
@@ -225,10 +242,9 @@ NS_REF = re.compile(r"\bns\s*\.\s*([A-Za-z_]\w*)(?:\s*[.:]\s*([A-Za-z_]\w*))?")
 ALIAS = re.compile(r"\blocal\s+([\w\s,]+?)\s*=\s*([^\n;]+)")
 
 
-def ns_refs(src: str) -> list[tuple[str, str | None, int]]:
-    """(System, field or None, line) for each ns.System use, through `local X = ns.System` aliases too."""
+def scan(src: str):
+    """src without comments and strings (lines kept), and its `local X = ns.System` aliases."""
     src = LUA_NOISE.sub(lambda m: "\n" * m.group(0).count("\n"), src)  # comments and strings; lines kept
-    line_at = lambda pos: src.count("\n", 0, pos) + 1  # noqa: E731
     aliases, skip = {}, set()
     for m in ALIAS.finditer(src):
         for name, expr in zip(m.group(1).split(","), m.group(2).split(",")):
@@ -236,6 +252,13 @@ def ns_refs(src: str) -> list[tuple[str, str | None, int]]:
             if a:
                 aliases[name.strip()] = a.group(1)
                 skip.add(m.start(2) + m.group(2).index(expr) + expr.index("ns"))
+    return src, aliases, skip
+
+
+def ns_refs(src: str) -> list[tuple[str, str | None, int]]:
+    """(System, field or None, line) for each ns.System use, through `local X = ns.System` aliases too."""
+    src, aliases, skip = scan(src)
+    line_at = lambda pos: src.count("\n", 0, pos) + 1  # noqa: E731
     refs = [(m.group(1), m.group(2), line_at(m.start())) for m in NS_REF.finditer(src) if m.start() not in skip]
     for name, system in aliases.items():
         for m in re.finditer(rf"(?<![\w.:])\b{re.escape(name)}\s*[.:]\s*([A-Za-z_]\w*)", src):
@@ -243,31 +266,69 @@ def ns_refs(src: str) -> list[tuple[str, str | None, int]]:
     return refs
 
 
+def ns_writes(src: str) -> list[tuple[str, str, int]]:
+    """(System, field, line) for each `X.f = ...` and `function X.f` on ns.System or an alias of it."""
+    src, aliases, _ = scan(src)
+    line_at = lambda pos: src.count("\n", 0, pos) + 1  # noqa: E731
+    heads = [(r"\bns\s*\.\s*([A-Za-z_]\w*)", None)] + [(rf"(?<![\w.:]){re.escape(a)}", s) for a, s in aliases.items()]
+    out = []
+    for head, system in heads:
+        for form in (rf"{head}\s*\.\s*([A-Za-z_]\w*)\s*=(?!=)", rf"\bfunction\s+{head}\s*[.:]\s*([A-Za-z_]\w*)"):
+            for m in re.finditer(form, src):
+                out.append((system or m.group(1), m.group(m.lastindex), line_at(m.start())))
+    return out
+
+
+COMMENT = re.compile(r"--\[(=*)\[.*?\]\1\]|--[^\n]*", re.S)
+FRAME_NAME = re.compile(r"""\bCreateFrame\s*\(\s*(["'])[^"']*\1\s*,\s*(["'])([^"']+)\2""")
+
+
+def ns_problems(rel: str, src: str, used: set) -> list[str]:
+    """NS_RULES, ONLY, HOME / HOOKS and FRAME_NAMES for one file (rel: from the repo root); BASELINE
+    entries it matched go in used."""
+    where = area(rel, NS_RULES)
+    rule = NS_RULES.get(where)
+    if not rule:
+        return []
+    own, fields = rule
+    out, reported = [], set()
+    for system, field, line in sorted(ns_refs(src), key=lambda r: r[2]):
+        only = ONLY.get((system, field))
+        if only and folder(rel) != HOME.get(system) and not rel.startswith(only):
+            out.append(f"{rel}:{line}: only {', '.join(only)} may use ns.{system}.{field} (ONLY in tools/luacheck.py)")
+        if system in own or field in fields.get(system, ()) or (system, field) in reported:
+            continue
+        reported.add((system, field))
+        if (rel, system, field) in BASELINE:
+            used.add((rel, system, field))
+            continue
+        what = f"ns.{system}.{field}" if field else f"ns.{system}"
+        out.append(f"{rel}:{line}: {where}/ may not use {what} (NS_RULES in tools/luacheck.py)")
+    for system, field, line in ns_writes(src):
+        if system in HOME and folder(rel) != HOME[system] and (system, field) not in HOOKS:
+            out.append(f"{rel}:{line}: sets ns.{system}.{field}: only {HOME[system]}/ sets {system}'s fields,"
+                       " but for its HOOKS (tools/luacheck.py)")
+    plain = COMMENT.sub(lambda m: "\n" * m.group(0).count("\n"), src)
+    for m in FRAME_NAME.finditer(plain):
+        if m.group(3) not in FRAME_NAMES:
+            out.append(f"{rel}:{plain.count(chr(10), 0, m.start()) + 1}: names a frame '{m.group(3)}' (a global):"
+                       " pass nil, or add it to FRAME_NAMES (tools/luacheck.py) and docs/structure.md")
+    return out
+
+
 def check_ns(paths: list[str]) -> int:
-    """NS_RULES over each folder's files. A static scan: it sees ns.X.f and
-    `local A, B = ns.X, ns.Y` then A.f; not ns["X"], an alias passed on or
-    reassigned, nor a table of ns's handed through a call."""
+    """NS_RULES, ONLY, HOME / HOOKS and FRAME_NAMES over each folder's files. A static scan: it
+    sees ns.X.f and `local A, B = ns.X, ns.Y` then A.f (`A.f =`, `function A.f` for writes); not
+    ns["X"], an alias passed on or reassigned, a multiple assignment, nor a table of ns's handed
+    through a call."""
     problems, used = 0, set()
     for path in paths:
         rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
-        where = area(rel, NS_RULES)
-        rule = NS_RULES.get(where)
-        if not rule:
-            continue
-        own, fields = rule
         with open(path, encoding="utf-8", errors="replace") as f:
-            refs = ns_refs(f.read())
-        reported = set()
-        for system, field, line in sorted(refs, key=lambda r: r[2]):
-            if system in own or field in fields.get(system, ()) or (system, field) in reported:
-                continue
-            reported.add((system, field))
-            if (rel, system, field) in BASELINE:
-                used.add((rel, system, field))
-                continue
-            what = f"ns.{system}.{field}" if field else f"ns.{system}"
-            print(f"{rel}:{line}: {where}/ may not use {what} (NS_RULES in tools/luacheck.py)")
-            problems += 1
+            found = ns_problems(rel, f.read(), used)
+        for line in found:
+            print(line)
+        problems += len(found)
     for rel, system, field in sorted(BASELINE - used):
         if os.path.join(ROOT, rel) in paths:
             print(f"tools/luacheck.py: BASELINE ({rel}, ns.{system}.{field}) no longer happens: remove it")

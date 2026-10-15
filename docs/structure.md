@@ -53,8 +53,11 @@ wrapper"), never a global: a global is shared with every addon, and the rebuild'
 (docs/evidence/spike-bugs.md E1).
 
 **Nothing is global** except, in game/ only, the SavedVariables (the TOC's) and the
-`SLASH_*` names (`SlashCmdList` entries are fields of WoW's table). tools/luacheck.py
-fails any other global write anywhere, and any use of `_G`, `setglobal`, `getfenv` or
+`SLASH_*` names (`SlashCmdList` entries are fields of WoW's table), and two named frames:
+`MagicMapAtlasMap` (the client keeps a moved frame's place by its name) and
+`MagicMapAtlasMinimapStandIn` (the Minimap's children wait on it; named as the spike's was,
+for code that reads a parent's name). tools/luacheck.py fails any other global write anywhere,
+any other frame name (`FRAME_NAMES`), and any use of `_G`, `setglobal`, `getfenv` or
 `setfenv` (they reach globals past the bytecode check).
 
 While this is "MagicMapAtlas": SavedVariables `MagicMapAtlasDB`, slash `/mma`. It shares
@@ -101,7 +104,8 @@ isn't listed.
   `input, observe, model, ui, apply` (architecture.md "Each frame"). Steps marked
   `opts = { shownOnly = frame }` run only while that frame is shown (IsVisible);
   `opts.budgetMs` overrides the per-call budget (2 ms). A step added during a frame runs from the next.
-- `Runtime.On(event, name, fn)` — WoW event handler, `fn(event, ...)` (Game registers; Runtime dispatches).
+- `Runtime.On(event, name, fn)` — WoW event handler, `fn(event, ...)` (Game registers; Runtime dispatches;
+  luacheck's `ONLY` keeps it in game/).
   An event fired during a frame (by an API call a step made) is dispatched after the frame's phases.
 - `Runtime.After(seconds, name, fn)`, `Runtime.Every(seconds, name, fn)` — timers, `fn()`;
   they return a handle for `Runtime.Cancel(handle)` (jobs too).

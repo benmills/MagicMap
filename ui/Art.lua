@@ -26,7 +26,7 @@ local Art = {
 }
 UI.Art = Art
 
-local GRACE = 6 -- s after login or /reload: past its grace (5 s, game/Game.lua)
+local GRACE = 6 -- s after the first frame (login or /reload: each loads us anew): past login's grace (5 s, game/Game.lua)
 
 -- A path the client resolves; a FileDataID a texture takes (the client has no lookup by id).
 local probe = UIParent:CreateTexture()
@@ -54,8 +54,8 @@ local function Report(misses)
 		or string.format("  art: all %d there", #Art.atlases + #Art.files))
 end
 
-Runtime.On("PLAYER_ENTERING_WORLD", "ui: art", function(_, login, reload)
-	if not (login or reload) then return end
+-- Armed on the first frame (timers run there), not on a game event: only Game registers those.
+Runtime.After(0, "ui: art arm", function()
 	Runtime.After(GRACE, "ui: art check", function()
 		local misses = Check()
 		if misses[1] then Report(misses) end
