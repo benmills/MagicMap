@@ -30,7 +30,8 @@ local function FirstAtlas(...)
 end
 
 -- A button from art = { atlas = {names...}, pushed = {...}, highlight = {...} } (the first each
--- client has), else from file = path with coords / pushedCoords into it (Core.lua:249-276).
+-- client has), else from file = path with optional coords / pushedCoords into it (Core.lua:249-276):
+-- a client without the atlas gets a blank button, as the spike's.
 local function ArtButton(parent, w, h, art)
 	local b = CreateFrame("Button", nil, parent)
 	b:SetSize(w, h)
@@ -44,9 +45,11 @@ local function ArtButton(parent, w, h, art)
 		b:SetNormalTexture(art.file)
 		b:SetPushedTexture(art.file)
 		b:SetHighlightTexture(art.file, "ADD")
-		b:GetNormalTexture():SetTexCoord(unpack(art.coords))
-		b:GetHighlightTexture():SetTexCoord(unpack(art.coords))
-		b:GetPushedTexture():SetTexCoord(unpack(art.pushedCoords))
+		if art.coords then -- Core.lua:263
+			b:GetNormalTexture():SetTexCoord(unpack(art.coords))
+			b:GetHighlightTexture():SetTexCoord(unpack(art.coords))
+			b:GetPushedTexture():SetTexCoord(unpack(art.pushedCoords or art.coords))
+		end
 	end
 	return b
 end

@@ -13,7 +13,10 @@
 
   test_blips_priced (the sim on the priced clock: a probe costs 0.1 ms, nothing else
   moves it): the sensor within 2 ms a frame standing, measuring and walking; every
-  blip exact within 2 sweeps of standing still; icons from Atlas.BlipService.
+  blip exact within 2 sweeps of standing still; icons from Atlas.BlipService; frame p95 <= 1 ms.
+
+  test_default_ui_priced: the same budgets with the window a first login has (shown at
+  login, small on the minimap's spot), standing and walking.
 
   .venv/bin/python tools/tests/test_blips.py   # records the scenario again into the fixture
 """
@@ -255,6 +258,28 @@ def test_blips_priced():
           f"{fs.p95} ms over {fs.frames}; {sweep()} sweeps, the longest {stats.frames} frames, {stats.probes} probes")
     # A sweep spans many frames (far more than 5% of them, standing or walking): its slice and the rest under p95.
     assert part.max <= 2 and observe.max <= 2 and fs.p95 <= 1
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_default_ui_priced():
+    """The window as a first login has it (shown at login, small on the minimap's spot, the sensor
+    engaged from the start), on the priced clock: the frame p95 within 1 ms and allocation within
+    budget, standing and walking, with the blips layer on (the tests' window is hidden at login and
+    720x520: the replays' budgets don't cover this one)."""
+    L, sim, ns = boot("MagicMapAtlasDB = nil")
+    stub_services(L, ns)
+    put_blips(L, sim, ns, BLIPS)
+    sim.Run(12)  # past login's grace and telemetry's one full collect
+    assert ns.UI.Window.frame.IsShown(ns.UI.Window.frame) and ns.Game.minimap.sensor
+    sim.Clock = L.eval("function() return 0 end")  # only what's priced moves the clock
+    sim.Price(True)
+    sim.Run(10)
+    sim.player.facing, sim.player.speed = math.pi / 2, 7
+    sim.Run(10)
+    fs = ns.Runtime.FrameStats()
+    print(f"default UI, priced: standing then walking, frame p95 {fs.p95} ms, max {fs.max} ms, {fs.kbPerSec} KB/s "
+          f"(p95 {fs.kbFrameP95} KB a frame)")
+    assert fs.p95 <= 1 and fs.kbPerSec <= 50 and fs.kbFrameP95 <= 0.1
     assert not errors(sim, ns), errors(sim, ns)
 
 
