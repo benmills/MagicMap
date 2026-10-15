@@ -4,6 +4,7 @@
   .venv/bin/python tools/telemetry.py --errors --full  # one section (--errors --marks --shots --validation --logs)
   .venv/bin/python tools/telemetry.py --since 30       # last 30 minutes (or an ISO time)
   .venv/bin/python tools/telemetry.py --json           # everything, machine-readable
+  .venv/bin/python tools/telemetry.py --budgets        # newest session's perf against docs/runtime.md: PASS/FAIL
 
 The install is "/Applications/World of Warcraft" (MAGICMAP_WOW, --wow), flavor _classic_beta_
 (--flavor); SavedVariables is the newest WTF/Account/*/SavedVariables/MagicMapAtlas.lua (--sv).
@@ -25,6 +26,18 @@ ADDON = "MagicMapAtlas"
 NOW = time.time()
 DAY = 86400
 SECTIONS = ("errors", "marks", "shots", "validation", "logs")
+
+# docs/runtime.md "Budgets": (label, value from a session's perf, limit, unit).
+BUDGETS = (
+    ("frame cost p95", lambda p: p.get("p95"), 1.0, "ms"),
+    ("frame cost p99", lambda p: p.get("p99"), 5.0, "ms"),
+    ("frame cost max (outside graces)", lambda p: p.get("max"), 8.0, "ms"),
+    ("first map open, slowest frame", lambda p: (p.get("grace") or {}).get("map"), 50.0, "ms"),
+    ("load (Data + Atlas)", lambda p: p.get("loadMs"), 250.0, "ms"),
+    ("our Lua memory at logout", lambda p: p.get("ourKB") and p["ourKB"] / 1024, 64.0, "MB"),
+    ("Lua allocation (outside graces)", lambda p: p.get("kbPerSec"), 50.0, "KB/s"),
+    ("errors per hour", lambda p: p.get("errorsPerHour"), 0, "/h"),
+)
 
 
 # Loading -------------------------------------------------------------------------------------
@@ -151,15 +164,36 @@ def log_time(m) -> float:
     return t.timestamp()
 
 
-def logs(flavor: str, since: float):
+# Another addon's error: its file in the first line. It's flagged shared when it may be ours
+# too: the addon shares our prefix (the MagicMap spike) or it names a MagicMap_ global. E1
+# (docs/evidence/spike-bugs.md): our data globals broke the spike, whose errors named only its files.
+OTHER = re.compile(r"Interface[/\\]AddOns[/\\]([^/\\\]\"]+)[/\\]")
+SHARED = re.compile(r"\bMagicMap_\w+")
+
+
+def other_addon(text: str, more: list[str]):
+    """(addon, shared) for an error line in another addon's file, else None."""
+    m = OTHER.search(text)
+    if not m or m.group(1) == ADDON or not re.search(r"\[E\]|error", text, re.I):
+        return None
+    return m.group(1), m.group(1).startswith("MagicMap") or bool(SHARED.search(text + "\n".join(more)))
+
+
+def logs(flavor: str, since: float, loaded=None):
     """Client Logs/*.log entries (a timestamped line and its continuation lines) and Errors/* lines
-    from files touched since `since` that mention the addon, deduped: [{file, t, n, text, more}]."""
+    from files touched since `since` that mention the addon, deduped: [{file, t, n, text, more}].
+    Also other addons' errors while ours was loaded (`loaded`: [(start, end)], our sessions;
+    None: any time), with addon = its name and shared = see OTHER."""
     seen = {}
 
-    def add(file, t, text, more):
+    def add(file, t, text, more, addon=None, shared=False):
         key = (file, text)
-        e = seen.setdefault(key, {"file": file, "t": t, "n": 0, "text": text, "more": more})
+        e = seen.setdefault(key, {"file": file, "t": t, "n": 0, "text": text, "more": more,
+                                  "addon": addon, "shared": shared})
         e["n"], e["t"] = e["n"] + 1, max(e["t"], t)
+
+    def ours_loaded(t):
+        return loaded is None or any(a <= t < b for a, b in loaded)
 
     for path in glob.glob(os.path.join(flavor, "Logs", "*.log")):
         if os.path.getmtime(path) < since:
@@ -173,8 +207,12 @@ def logs(flavor: str, since: float):
                 elif entries:
                     entries[-1][2].append(line.rstrip("\n"))
         for t, text, more in entries:
-            if t >= since and ADDON in text + "".join(more):
+            if t < since:
+                continue
+            if ADDON in text + "".join(more):
                 add(name, t, text, more)
+            elif ours_loaded(t) and (other := other_addon(text, more)):
+                add(name, t, text, more, *other)
     for path in glob.glob(os.path.join(flavor, "Errors", "*")):
         t = os.path.getmtime(path)
         if t < since:
@@ -207,10 +245,16 @@ def collect(db, flavor, since, log_since):
     shot_marks, unmarked = shots(flavor, marks, since)
     return {
         "telemetry": bool(tel),
-        "sessions": [s for s in reversed(tel.get("sessions") or []) if s.get("started", 0) >= since],
+        "sessions": [s for s in reversed(tel.get("sessions") or []) if isinstance(s, dict) and s.get("started", 0) >= since],
         "errors": errors, "marks": marks, "shots": shot_marks, "unmarked_screenshots": unmarked,
-        "validation": validation((db or {}).get("validation")), "logs": logs(flavor, log_since),
+        "validation": validation((db or {}).get("validation")), "logs": logs(flavor, log_since, loaded(tel)),
     }
+
+
+def loaded(tel):
+    """When our addon was loaded, from its sessions: each from its start to the next one's (or now)."""
+    starts = sorted(s["started"] for s in tel.get("sessions") or [] if isinstance(s, dict) and s.get("started"))
+    return [(a, b) for a, b in zip(starts, starts[1:] + [NOW + DAY])] if starts else None
 
 
 # Printing ------------------------------------------------------------------------------------
@@ -222,6 +266,39 @@ def boot(b):
     return f"load {num(round(b.get('loadMs', 0)))} ms {num(round(b.get('loadKB', 0)))} KB, login {num(round(b.get('loginMs', 0)))} ms"
 
 
+def perf(p) -> str:
+    if not isinstance(p, dict):
+        return "no perf"
+    g = p.get("grace") or {}
+    kb = "-".join(f"{v / 1024:.0f}" for v in (p.get("kbMin"), p.get("kbMax")) if v)
+    return (f"frame ms p50 {num(p.get('p50'))} p95 {num(p.get('p95'))} p99 {num(p.get('p99'))} max {num(p.get('max'))},"
+            f" {p.get('overruns', 0)} over, graces " + (" ".join(f"{k} {num(v)}" for k, v in sorted(g.items())) or "-")
+            + f"; {p.get('errors', 0)} errors ({num(p.get('errorsPerHour', 0))}/h); Lua {kb or '?'} MB,"
+            f" ours {num(round((p.get('ourKB') or 0) / 1024))} MB"
+            + (f"; alloc p95 {num(p.get('kbFrameP95'))} KB/frame, {num(p.get('kbPerSec'))} KB/s"
+               if p.get("kbPerSec") is not None else "")
+            + "".join(f"\n      slow: {s.get('name')} x{s.get('n')} max {num(s.get('max'))} ms" for s in p.get("slow") or []))
+
+
+def budgets(sessions) -> int:
+    """The newest session with perf against BUDGETS: a PASS/FAIL line each; 1 if any FAIL."""
+    s = next((s for s in sessions if isinstance(s.get("perf"), dict)), None)
+    if not s:
+        print("! no session with perf yet: /reload in game")
+        return 1
+    p, failed = s["perf"], 0
+    print(f"== budgets: session #{s.get('id')} {s.get('version')}, {p.get('frames', 0)} frames (docs/runtime.md)")
+    for label, get, limit, unit in BUDGETS:
+        v = get(p)
+        if v is None:
+            print(f"  ----  {label:<34} no data (limit {num(limit)} {unit})")
+            continue
+        ok = v <= limit
+        failed += not ok
+        print(f"  {'PASS' if ok else 'FAIL'}  {label:<34} {v:.2f} {unit} (limit {num(limit)})")
+    return 1 if failed else 0
+
+
 def show(out, sections, args, shot_files):
     say = print
     if "sessions" in sections:
@@ -229,6 +306,7 @@ def show(out, sections, args, shot_files):
         for s in out["sessions"][:3]:
             say(f"  #{s.get('id')} {s.get('version')} build {s.get('build')}  {when(s.get('started'))}  {boot(s.get('boot'))}"
                 f"  {s.get('frames', 0)} frames  {', '.join(s.get('zones') or []) or '-'}")
+            say(f"    {perf(s.get('perf'))}")
         if not out["sessions"]:
             say("  none")
     if "errors" in sections:
@@ -278,13 +356,21 @@ def show(out, sections, args, shot_files):
                 e = p["example"]
                 say(f"  x{p['n']:<4} {p['pair']}  (e.g. inst {e.get('inst')} {num(e.get('col'))} {num(e.get('row'))})")
     if "logs" in sections:
-        say(f"== client logs ({len(out['logs'])})")
-        for e in out["logs"]:
+        ours = [e for e in out["logs"] if not e.get("addon")]
+        others = [e for e in out["logs"] if e.get("addon")]
+        say(f"== client logs ({len(ours)})")
+        for e in ours:
             say(f"  {when(e['t'])} x{e['n']} {e['file']}: {e['text']}")
             for line in trim("\n".join(e["more"]), args.full):
                 say(f"      {line}")
-        if not out["logs"]:
+        if not ours:
             say("  none mentioning " + ADDON)
+        if others:
+            say(f"== other addons' errors while {ADDON} was loaded ({len(others)}; SHARED: may be a name both use)")
+            for e in sorted(others, key=lambda e: (not e["shared"], -e["t"])):
+                say(f"  {'SHARED ' if e['shared'] else ''}{e['addon']}: {when(e['t'])} x{e['n']} {e['file']}: {e['text']}")
+                for line in e["more"][:None if args.full else 3]:
+                    say(f"      {line}")
 
 
 def since_arg(s: str) -> float:
@@ -303,6 +389,7 @@ def main(argv=None):
     for s in SECTIONS:
         ap.add_argument("--" + s, action="store_true", help=f"show only {s} (combinable)")
     ap.add_argument("--json", action="store_true", help="everything, as JSON")
+    ap.add_argument("--budgets", action="store_true", help="newest session's perf against the budgets; exit 1 on a FAIL")
     ap.add_argument("--trace", type=int, default=40, help="trace events per mark (default 40)")
     ap.add_argument("--full", action="store_true", help="full stacks and log entries, not just our frames")
     args = ap.parse_args(argv)
@@ -324,6 +411,8 @@ def main(argv=None):
     since = args.since or 0
     out = collect(db, flavor, since, args.since or NOW - DAY)
     out.update(sv=sv, missing=missing)
+    if args.budgets:
+        return budgets(out["sessions"])
     if args.json:
         json.dump(out, sys.stdout, indent=1, default=str)
         print()

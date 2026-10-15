@@ -89,8 +89,6 @@ def main() -> None:
     print(f"installed {ADDON} {rev} ({len(files)} files) into {dest}")
     if skipped:
         print(f"not generated (gitignored), so left out: {', '.join(skipped)} (tools/gen_questie.py)")
-    if os.path.isdir(os.path.join(addons, "MagicMap")):
-        print("disable the MagicMap spike addon while testing this one: they share the MagicMap_* data globals")
     print("/reload in game (a restart for new files or textures); /mma lists the commands")
 
 

@@ -4,6 +4,8 @@
 -- Errors come from Runtime.onError (every Wrap) and the global error handler
 -- (anything else whose stack is in our folder). An error's first occurrence
 -- in a session traces "error" and takes an "error" mark.
+-- Each session's perf (Runtime.FrameStats, errors, load, memory: docs/runtime.md)
+-- is written at logout and with each mark.
 
 local ADDON, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
@@ -14,20 +16,32 @@ local OURS = "AddOns[/\\]" .. ADDON .. "[/\\]"
 
 local version = C_AddOns.GetAddOnMetadata(ADDON, "Version")
 local db, session
+local errors, loginAt = 0, nil -- this session's errors; GetTime() at login
 local pending = {} -- errors before SavedVariables load
 local seen = {} -- error keys this session
 
 local function State()
-	local you, map, layers = Game.obs.you, ns.UI.Map.State()
+	local you, view = Game.obs.you, ns.UI.View()
+	local diag = view.diag and view.diag() or {}
+	local map, layers = diag.map, diag.layers
 	return {
 		you = { inst = you.inst, col = you.col, row = you.row, facing = you.facing },
 		zone = GetZoneText(), subzone = GetSubZoneText(), map = map, layers = layers,
 	}
 end
 
+-- session.perf: Runtime.FrameStats() plus errors, errors an hour, load ms (and our KB at logout).
+local function Perf(ourKB)
+	local p = Runtime.FrameStats()
+	local hours = math.max((GetTime() - (loginAt or 0)) / 3600, 1 / 60) -- at least a minute
+	p.errors, p.errorsPerHour, p.loadMs = errors, math.floor(errors / hours * 10 + 0.5) / 10, session.boot.loadMs
+	p.ourKB = ourKB or (session.perf and session.perf.ourKB)
+	session.perf, session.frames = p, Runtime.frames
+end
+
 local function Mark(kind, note, stamp)
 	Runtime.Trace(kind, note)
-	session.frames = Runtime.frames
+	Perf()
 	local marks = db.marks
 	marks[#marks + 1] = {
 		kind = kind, note = note, t = time(), stamp = stamp, session = session.id, version = version,
@@ -39,18 +53,19 @@ end
 local function Record(name, msg, stack)
 	msg = tostring(msg)
 	if not db then pending[#pending + 1] = { name, msg, stack }; return end
+	errors = errors + 1
 	local key = name .. ": " .. msg:match("^[^\n]*"):sub(1, MSG)
-	local errors, t = db.errors, time()
-	local e = errors[key]
+	local kept, t = db.errors, time()
+	local e = kept[key]
 	if not e then
 		local n, oldest = 0, nil
-		for k, o in pairs(errors) do
+		for k, o in pairs(kept) do
 			n = n + 1
-			if not oldest or o.last < errors[oldest].last then oldest = k end
+			if not oldest or (o.last or 0) < (kept[oldest].last or 0) then oldest = k end
 		end
-		if n >= ERRORS then errors[oldest] = nil end
+		if n >= ERRORS then kept[oldest] = nil end
 		e = { name = name, msg = msg:sub(1, MSG), count = 0, first = t }
-		errors[key] = e
+		kept[key] = e
 	end
 	e.count, e.last = e.count + 1, t
 	if seen[key] then return end
@@ -62,28 +77,33 @@ end
 
 Runtime.onError = Record
 
-local previous = geterrorhandler()
+-- Everything else's errors: ours (by stack) recorded; never re-entered (an error while
+-- recording one is dropped), and the previous handler always runs.
+local previous, inHandler = geterrorhandler(), false
 seterrorhandler(function(msg, ...)
-	local stack = debugstack(2)
-	if (tostring(msg) .. stack):find(OURS) then Record("lua", msg, stack) end
+	if not inHandler then
+		inHandler = true
+		local stack = debugstack(2)
+		if (tostring(msg) .. stack):find(OURS) then pcall(Record, "lua", msg, stack) end
+		inHandler = false
+	end
 	return previous(msg, ...)
 end)
 
 Game.Load("telemetry", function(saved)
-	db = saved
-	db.sessions, db.errors, db.marks = db.sessions or {}, db.errors or {}, db.marks or {}
-	local last = db.sessions[#db.sessions]
+	local last = saved.sessions[#saved.sessions]
 	local v, build = GetBuildInfo()
 	local b = Runtime.boot
 	session = {
-		id = (last and last.id or 0) + 1, version = version, build = v .. "." .. build, started = time(),
-		boot = { loadMs = b.loaded.t - b.t0, loadKB = b.loaded.mem - b.mem0 }, frames = 0, zones = {},
+		id = (tonumber(type(last) == "table" and last.id) or 0) + 1, version = version, build = v .. "." .. build,
+		started = time(), boot = { loadMs = b.loaded.t - b.t0, loadKB = b.loaded.mem - b.mem0 }, frames = 0, zones = {},
 	}
+	db = saved
 	db.sessions[#db.sessions + 1] = session
 	if #db.sessions > SESSIONS then table.remove(db.sessions, 1) end
 	for _, p in ipairs(pending) do Record(p[1], p[2], p[3]) end
 	pending = nil
-end)
+end, { version = 1, defaults = { sessions = {}, errors = {}, marks = {} } })
 
 local function Zone()
 	local zone, zones = GetZoneText(), session.zones
@@ -94,11 +114,15 @@ end
 Runtime.On("PLAYER_LOGIN", "telemetry.login", function()
 	local b = Runtime.boot
 	session.boot.loginMs = b.login.t - b.t0
+	loginAt = GetTime()
 	Runtime.Trace("login", version)
 	Zone()
 end)
 Runtime.On("ZONE_CHANGED_NEW_AREA", "telemetry.zone", Zone)
-Runtime.On("PLAYER_LOGOUT", "telemetry.logout", function() session.frames = Runtime.frames end)
+Runtime.On("PLAYER_LOGOUT", "telemetry.logout", function() -- also /reload
+	UpdateAddOnMemoryUsage()
+	Perf(math.floor(GetAddOnMemoryUsage(ADDON)))
+end)
 
 -- Shots: the mark waits for SCREENSHOT_SUCCEEDED; stamp as in WoWScrnShot_<stamp>.jpg.
 local shot -- the pending /mma shot's note ("" for none)
@@ -126,6 +150,7 @@ Game.Slash("telemetry", "counts of sessions, errors and marks kept; telemetry cl
 		wipe(db.sessions)
 		db.sessions[1] = session
 		wipe(seen)
+		errors = 0
 	end
 	local n = 0
 	for _ in pairs(db.errors) do n = n + 1 end

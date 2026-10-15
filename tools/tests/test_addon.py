@@ -14,8 +14,9 @@ import luacheck
 TESTS = os.path.dirname(os.path.abspath(__file__))
 
 
-def boot():
-    """A simulated client with MagicMapAtlas loaded and logged in: (Lua, Sim, ns)."""
+def boot(saved=None):
+    """A simulated client with MagicMapAtlas loaded and logged in: (Lua, Sim, ns).
+    saved: Lua source for the SavedVariables (MagicMapAtlasDB = ...) found at load."""
     L = lua51.LuaRuntime(encoding="latin-1", unpack_returned_tuples=True)
     sim = L.eval("function(path) return assert(loadfile(path))() end")(os.path.join(TESTS, "wowsim.lua"))
     ns = L.table()
@@ -27,6 +28,8 @@ def boot():
     for f in luacheck.toc_files():  # what exists (test_luacheck flags what's missing)
         if os.path.exists(os.path.join(luacheck.ROOT, f)):
             load(os.path.join(luacheck.ROOT, f), ns)
+    if saved:
+        L.execute(saved)
     sim.FireEvent("ADDON_LOADED", "MagicMapAtlas")
     sim.FireEvent("PLAYER_LOGIN")
     sim.FireEvent("PLAYER_ENTERING_WORLD", True, False)
@@ -55,7 +58,7 @@ def test_smoke():
         sim.Step()
     assert ns.Runtime.Perf()[0]["game.observe"].n >= 60
 
-    # Runtime: timers, a budgeted job, and a failing step kept apart from the rest.
+    # Runtime: timers, a budgeted job, and a failing step kept apart from the rest (throttled after 10).
     got = L.eval("""function(R)
         local got = { every = 0, steps = 0 }
         R.After(0.1, "test.after", function() got.after = true end)
@@ -72,12 +75,110 @@ def test_smoke():
     sim.Run(1)
     assert got.after and 8 <= got.every <= 11 and got.steps == 60
     assert got.job.done and got.sum == 5e4 * (5e4 + 1) / 2 and ns.Runtime.Perf()[0]["test.job"].n > 1
-    assert [(e.name, e.n) for e in ns.Runtime.errors.values()] == [("test.fails", 60)]
+    assert [(e.name, e.n) for e in ns.Runtime.errors.values()] == [("test.fails", 10)]
     # Telemetry: kept with its stack, and its first occurrence took an "error" mark with the trace.
     tel = L.globals().MagicMapAtlasDB.telemetry
     err = next(e for e in tel.errors.values() if e.name == "test.fails")
-    assert err.count == 60 and "boom" in err.msg and "Runtime.lua" in err.stack
+    assert err.count == 10 and "boom" in err.msg and "Runtime.lua" in err.stack
     mark = next(m for m in tel.marks.values() if m.kind == "error" and "test.fails" in m.note)
     assert mark.state.map and len(mark.trace) > 0 and mark.trace[len(mark.trace)].k == "error"
     del ns.Runtime.errors[1]
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_boundaries(capsys):
+    """luacheck's boundary rules fire (the default run checks the real files)."""
+    refs = luacheck.ns_refs('local G, A = ns.Game, ns.Atlas -- ns.UI.Map\nG.Load(1); A:X(); s = "ns.Model.x"\nns.UI.View.y')
+    assert sorted(refs) == [("Atlas", "X", 2), ("Game", "Load", 2), ("UI", "View", 3)]
+    acc = {"ui/X.lua": [("get", "CreateFrame", 1), ("get", "C_Map", 2), ("get", "MagicMapAtlasDB", 3)],
+           "model/X.lua": [("get", "print", 1)], "game/X.lua": [("get", "MagicMapAtlasDB", 1)]}
+    assert luacheck.check_boundaries(acc) == 3
+    out = capsys.readouterr().out
+    assert "ui/X.lua:2" in out and "ui/X.lua:3" in out and "model/X.lua:1" in out and "game/X" not in out
+
+
+def test_failures():
+    """docs/runtime.md: each frame-loop failure driven in the sim, and its guarantee held."""
+    L, sim, ns = boot("""MagicMapAtlasDB = { telemetry = "corrupt", old = { _v = 1, n = "x" }, new = { _v = 9, keep = 1 }, bad = { x = 1 } }""")
+    R, G = ns.Runtime, L.globals()
+    got = L.eval("""function(R, Game)
+        local got = { steps = 0, every = 0, added = 0, load = {} }
+        -- saved data: not a table (reset, above), older (defaults by type), newer (left alone)
+        Game.Load("old", function(s) got.load.old = s end, { version = 2, defaults = { n = 0, list = {} } })
+        Game.Load("new", function(s) got.load.new = s end, { version = 2, defaults = { n = 0 } })
+        Game.Load("bad", function() error("loader") end, { version = 1, migrate = function() error("migrate") end })
+        R.Step("model", "test.fails", function() error("boom") end)
+        R.Step("ui", "test.slow", function()
+            if got.spin then got.spin = nil; local t = debugprofilestop(); while debugprofilestop() - t < 12 do end end
+        end)
+        R.Step("apply", "test.runs", function() got.steps = got.steps + 1 end)
+        R.Step("input", "test.adder", function()
+            if got.adder then return end
+            got.adder = true
+            R.Step("input", "test.added", function() got.added = got.added + 1 end)
+        end)
+        R.On("TEST_EVENT", "test.event", function() got.eventInFrame = got.inStep end)
+        R.Step("model", "test.fires", function()
+            if not got.fire then return end
+            got.fire, got.inStep = nil, true
+            Sim.FireEvent("TEST_EVENT")
+            got.inStep = false
+        end)
+        R.Every(0.1, "test.every", function() got.every = got.every + 1 end)
+        got.stuck = R.Job("test.stuck", function() while true do coroutine.yield() end end, 1, 30)
+        got.hog = R.Job("test.hog", function() local t = debugprofilestop(); while debugprofilestop() - t < 6 do end end, 1)
+        return got
+    end""")(R, ns.Game)
+    sim.Run(6)  # past login's grace
+    assert got.load.old.n == 0 and got.load.old.list is not None and got.load.old._v == 2
+    assert G.MagicMapAtlasDB.new.keep == 1 and G.MagicMapAtlasDB.new._v == 9 and got.load.new.n == 0
+    assert G.MagicMapAtlasDB.telemetry.sessions[1].id == 1 and G.MagicMapAtlasDB.bad.x is None  # migrate failed: reset
+    # erroring step: the rest ran every frame; recorded once (one entry, one stack, one mark), then throttled
+    assert got.steps == 360 and got.added == 359
+    fails = next(e for e in R.errors.values() if e.name == "test.fails")
+    assert 10 <= fails.n <= 17
+    tel = G.MagicMapAtlasDB.telemetry
+    assert len([e for e in tel.errors.values() if e.name == "test.fails"]) == 1
+    assert len([m for m in tel.marks.values() if m.note and "test.fails" in m.note]) == 1
+    # stuck job cancelled and reported; a job that never yields overran
+    assert got.stuck.done and "cancelled" in got.stuck.err and any(e.name == "test.stuck" for e in R.errors.values())
+    assert got.hog.done and R.Perf()[0]["test.hog"].over == 1
+    # overrunning step: counted, and the frame traced as a spike naming it
+    got.spin = True
+    sim.Step()
+    assert R.Perf()[0]["test.slow"].over == 1
+    spike = [e for e in R.TraceCopy().values() if e.k == "spike"][-1]
+    assert spike.d.top == "test.slow" and R.FrameStats().overruns >= 1
+    # an event fired mid-frame waits for the frame's end
+    got.fire = True
+    sim.Step()
+    assert got.eventInFrame is False
+    # a hitch: an Every fires once, not a burst
+    n = got.every
+    sim.Step(2.0)
+    assert got.every == n + 1
+    # nil position (instance), map shown: last known kept, stale; then back
+    ns.UI.Map.Toggle()
+    sim.Run(0.5)
+    sim.restricted = True
+    sim.FireEvent("PLAYER_ENTERING_WORLD", False, False)
+    sim.Run(1)
+    you = ns.Model.you
+    assert you.stale and you.inst == 0 and you.col is not None
+    sim.restricted = False
+    sim.Run(0.2)
+    assert not you.stale
+    # error reporting that itself fails: switched off, no recursion
+    R.onError = L.eval("function() error('report') end")
+    R.Step("model", "test.fails2", L.eval("function() error('again') end"))
+    sim.Step()
+    assert R.onError is None
+    # telemetry: the session's perf, written at logout
+    sim.FireEvent("PLAYER_LOGOUT")
+    perf = tel.sessions[1].perf
+    assert perf.frames > 0 and 0 < perf.p50 <= perf.p95 <= perf.p99 <= perf.max and perf.overruns >= 1
+    assert perf.errors >= 3 and perf.errorsPerHour > 0 and perf.loadMs > 0 and perf.ourKB > 0
+    assert perf.grace.login > 0 and perf.grace.map > 0 and perf.grace.loading is not None
+    expected = {"test.fails", "test.fails2", "test.stuck", "load bad", "load bad (migrate)"}
+    assert {e.name for e in R.errors.values()} == expected
+    assert not list(sim.errors.values()), "\n\n".join(sim.errors.values())

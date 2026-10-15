@@ -54,13 +54,18 @@ end
 
 -- Where a label may sit relative to its anchor, in order: on it, above / below, beside;
 -- a town or landmark beside its spot first after on it.
+-- One scratch list, refilled per label (a layout makes no tables per label).
+local spots = { { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } }
+local function Spot(i, x, y) spots[i][1], spots[i][2] = x, y end
 local function Spots(l, w, h)
 	if l.tier == "town" or l.tier == "poi" then
 		local g = PIN / 2 + PAD
-		return { { 0, 0 }, { g + w / 2, 0 }, { -g - w / 2, 0 }, { 0, -g - h / 2 }, { 0, g + h / 2 } }
+		Spot(2, g + w / 2, 0); Spot(3, -g - w / 2, 0); Spot(4, 0, -g - h / 2); Spot(5, 0, g + h / 2)
+		return spots
 	end
 	local dx, dy = math.min(w * 0.35, 40), h * 1.1
-	return { { 0, 0 }, { 0, -dy }, { 0, dy }, { dx, 0 }, { -dx, 0 } }
+	Spot(2, 0, -dy); Spot(3, 0, dy); Spot(4, dx, 0); Spot(5, -dx, 0)
+	return spots
 end
 
 UI.Labels = Map.NewLayer("labels", 3, function(c, inst, zoom, c0, r0, c1, r1)

@@ -57,6 +57,7 @@ from dataclasses import dataclass
 
 from mmtools.formats import RGB, blp_dxt, box_downsample, wdt_maid
 from mmtools.log import log
+from mmtools.luaout import data_head
 from mmtools.maps import MAP_DB2, read_maps
 from mmtools.sources import Source, add_source_args, source_from_args
 
@@ -104,7 +105,7 @@ def parse_tileset(path: str) -> tuple[str, str, list[MapTiles]]:
     """(product, version, maps) from a generated Data/Tiles.lua."""
     with open(path, encoding="utf-8") as f:
         text = f.read()
-    m = re.search(r'MagicMap_Tiles = \{ product = "([^"]+)", version = "([^"]+)"', text)
+    m = re.search(r'D\.Tiles = \{ product = "([^"]+)", version = "([^"]+)"', text)
     if not m:
         raise SystemExit(f"{path}: not a tile set")
     product, version = m.groups()
@@ -464,10 +465,11 @@ def write_tilecolor(out, product: str, version: str, results: list[MapResult]) -
     w("--   facing open space (no tile, or a sea tile), after tint\n")
     w("-- sea[key] = true: open-sea tiles, the backdrop colour all over; edge[] treats them as absent (they need not be drawn)\n")
     w("-- key = col * 64 + row, as in Data/Tiles.lua\n")
-    w("MagicMap_TileColor = MagicMap_TileColor or {}\n")
+    w(data_head("TileColor"))
+    w("D.TileColor = D.TileColor or {}\n")
     for r in results:
         name = r.map.name.replace("\n", " ")
-        w(f"MagicMap_TileColor[{r.map.inst}] = {{ -- {name}\n")
+        w(f"D.TileColor[{r.map.inst}] = {{ -- {name}\n")
         w("  tint = {\n")
         for key in sorted(r.tint):
             (mr, mg, mb), (ar, ag, ab) = r.tint[key]

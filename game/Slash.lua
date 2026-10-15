@@ -8,8 +8,8 @@ local commands = {}
 Game.commands = {} -- names, in registration order
 
 function Game.Slash(name, help, fn)
+	if not commands[name] then Game.commands[#Game.commands + 1] = name end
 	commands[name] = { help = help, fn = Runtime.Wrap("/mma " .. name, fn) }
-	Game.commands[#Game.commands + 1] = name
 end
 
 SLASH_MAGICMAPATLAS1 = "/mma"
@@ -32,10 +32,14 @@ Game.Slash("perf", "load cost, and time per step / event / timer / job (ms)", fu
 		if p.n > 0 then list[#list + 1] = { name, p } end
 	end
 	table.sort(list, function(a, c) return a[2].ms > c[2].ms end)
+	local f = Runtime.FrameStats()
+	Game.Print(string.format("our cost a frame (outside graces, %d frames): p50 %.2f p95 %.2f p99 %.2f max %.1f ms, %d over %d ms",
+		f.frames, f.p50, f.p95, f.p99, f.max, f.overruns, Runtime.FRAME_MS))
 	Game.Print(string.format("%d frames; busiest:", frames))
 	for i = 1, math.min(15, #list) do
 		local name, p = list[i][1], list[i][2]
-		print(string.format("  %s  %.3f ms/frame, %d calls, max %.2f ms", name, p.ms / math.max(frames, 1), p.n, p.max))
+		print(string.format("  %s  %.3f ms/frame, %d calls, max %.2f ms%s", name, p.ms / math.max(frames, 1), p.n, p.max,
+			p.over > 0 and string.format(", %d over budget", p.over) or ""))
 	end
 end)
 

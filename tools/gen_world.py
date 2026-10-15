@@ -18,7 +18,7 @@ import re
 from mmtools.dbd import read_table
 from mmtools.formats import adt_chunks, wdt_maid
 from mmtools.log import log
-from mmtools.luaout import lua_str
+from mmtools.luaout import data_head, lua_str
 from mmtools.sources import Source, add_source_args, source_from_args
 
 FDIDS = {
@@ -94,7 +94,8 @@ def write_uimaps(path: str, src: Source, t: dict) -> int:
         header(w, src, "UiMap and UiMapAssignment tables",
                "-- [uiMapID] = { name, mapType (Enum.UIMapType), parent, inst, col0, row0, col1, row1, areaID }\n"
                "-- rect (tile space, top-left to bottom-right) from the first assignment; world maps: no inst/rect\n")
-        w("MagicMap_UiMaps = {\n")
+        w(data_head("UiMaps"))
+        w("D.UiMaps = {\n")
         for m in sorted(t["UiMap"], key=lambda m: m["ID"]):
             a = assigns.get(m["ID"])
             vals = [m["Name_lang"], m["Type"], m["ParentUiMapID"] or None]
@@ -128,7 +129,8 @@ def write_areas(path: str, src: Source, t: dict) -> int:
         w = f.write
         header(w, src, "AreaTable and UiMapAssignment tables",
                "-- [areaID] = { name, parent (nil: zone), inst, level (ExplorationLevel), faction, uiMap }\n")
-        w("MagicMap_Areas = {\n")
+        w(data_head("Areas"))
+        w("D.Areas = {\n")
         for aid in sorted(areas):
             a = areas[aid]
             mask = a["FactionGroupMask"]
@@ -148,7 +150,8 @@ def write_places(path: str, src: Source, t: dict) -> dict:
                "-- taxiPaths = { { from, to, cost }, ... }\n"
                "-- pois[poiID] = { name, description, icon, importance, inst, col, row, areaID }\n"
                "-- dungeons[instID] = { name, kind, entranceInst, col, row, minLevel, maxPlayers, bosses }\n")
-        w("MagicMap_Places = {\n  flight = {\n")
+        w(data_head("Places"))
+        w("D.Places = {\n  flight = {\n")
         nodes = sorted(t["TaxiNodes"], key=lambda n: n["ID"])
         for n in nodes:
             col, rw = tile(n["Pos"][0], n["Pos"][1])
@@ -194,7 +197,8 @@ def write_item_icons(path: str, src: Source, t: dict) -> int:
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         w = f.write
         header(w, src, "Item table", "-- [itemID] = iconFileDataID\n")
-        w("MagicMap_ItemIcons = {\n")
+        w(data_head("ItemIcons"))
+        w("D.ItemIcons = {\n")
         for iid, icon in items:
             w(f"  [{iid}] = {icon},\n")
         w("}\n")

@@ -26,11 +26,12 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
-from lupa import LuaRuntime  # noqa: E402
+from lupa import lua51  # noqa: E402
 
 from PIL import Image  # noqa: E402
 
 from mmtools.formats import blp_dxt  # noqa: E402
+from mmtools.luaout import load_data  # noqa: E402
 from mmtools.sources import open_source  # noqa: E402
 from mmtools.tga import read_tga  # noqa: E402
 
@@ -41,10 +42,7 @@ QUALITY = 90
 
 
 def read_tiles() -> tuple[str, dict[int, dict[int, int]]]:
-    lua = LuaRuntime()
-    with open(os.path.join(ROOT, "Data", "Tiles.lua")) as f:
-        lua.execute(f.read())
-    t = lua.globals().MagicMap_Tiles
+    t = load_data(lua51.LuaRuntime(), os.path.join(ROOT, "Data", "Tiles.lua")).Data.Tiles
     maps = {int(inst): {int(k): int(v) for k, v in m.tiles.items()} for inst, m in t.maps.items()}
     return t.product, maps
 

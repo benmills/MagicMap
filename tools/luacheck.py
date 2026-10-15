@@ -3,11 +3,21 @@
 via the `lupa` package): syntax errors, plus a globals check from the
 compiled bytecode, so scoping is exact.
 
-  * Writing a global is an error unless it's one of the addon's own
-    (MagicMap*, SLASH_*, BINDING_*, ...): usually a missing `local`.
+  * Nothing defines a global but game/: its SavedVariables (the TOC's) and
+    SLASH_* (SlashCmdList's entries are fields, not globals). Any other global
+    write is an error (usually a missing `local`), and so is reaching for
+    globals around this check (_G, setglobal, getfenv, setfenv): a global is
+    shared with every addon (docs/structure.md; the spike's E1 collision).
+    The generated data is ns.Data, not globals (docs/atlas-data.md).
   * Reading a global is an error unless the addon sets it somewhere or it's
     listed in tools/wow_globals.txt (the WoW API and Lua's own library):
     usually a typo'd local.
+  * Boundaries (architecture.md Rules; README "Boundaries"): each folder
+    may read only its own globals (BOUNDARIES: sections of
+    tools/lua51_globals.txt and tools/wow_globals.txt), only game/ may touch
+    the SavedVariables, and each folder may use only the ns.<System>s that
+    NS_RULES allow (a static scan; limits at check_ns). Known violations
+    waiting on a contract are in BASELINE; one that's gone must be removed.
   * Every file in MagicMapAtlas.toc must exist (a gitignored one may be
     missing: QuestieDB-derived data), every addon .lua must be in it, and its
     Data/ + atlas/ files must be atlas/files.txt, in that order.
@@ -15,7 +25,7 @@ compiled bytecode, so scoping is exact.
   python3 tools/luacheck.py              # the files in MagicMapAtlas.toc
   python3 tools/luacheck.py Core.lua     # just these
   python3 tools/luacheck.py --globals Core.lua   # list globals read / written
-  python3 tools/luacheck.py --allow tools/lua51_globals.txt atlas/*.lua   # a library: plain Lua only
+  python3 tools/luacheck.py --allow tools/lua51_globals.txt atlas/*.lua   # only this allowlist (no boundaries)
 
 Needs `pip install lupa`.
 """
@@ -24,6 +34,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -32,8 +43,37 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOC = os.path.join(ROOT, "MagicMapAtlas.toc")
 ADDON_DIRS = ["Data", "atlas", "runtime", "game", "model", "ui"]
 ALLOWLIST = os.path.join(ROOT, "tools", "wow_globals.txt")
-# Globals the addon may create.
-OWN_GLOBALS = ["MagicMap*", "SLASH_*", "BINDING_*"]
+LUA51 = os.path.join(ROOT, "tools", "lua51_globals.txt")
+# The only globals the addon creates, and only in game/: the SavedVariables (TOC) and these.
+GAME_GLOBALS = ["SLASH_*"]
+GAME = "game"
+# Ways to read or write a global by name, past the bytecode check: banned outright.
+GLOBAL_ESCAPES = {"_G", "setglobal", "getfenv", "setfenv"}
+
+# The globals each folder may read: (allowlist, its sections; None = all).
+BOUNDARIES = {
+    "atlas": [(LUA51, {"lua51"})],
+    "model": [(LUA51, {"lua51"})],
+    "runtime": [(LUA51, {"lua51"}), (ALLOWLIST, {"lua", "runtime"})],
+    "ui": [(LUA51, {"lua51"}), (ALLOWLIST, {"lua", "ui"})],
+}
+
+# The ns.<System>s each folder may use: any field of these, or just the
+# listed fields of another. Game talks to UI only through View, Model only
+# through Observe (and Load / SAVED: its saved part, types/model.lua); UI talks to
+# Game only through Command (the commands channel: slash and load too).
+NS_RULES = {
+    "Data": ({"Data"}, {}),
+    "atlas": ({"Atlas", "Data"}, {}),
+    "runtime": ({"Runtime"}, {}),
+    "model": ({"Model", "Atlas", "Runtime"}, {}),
+    "ui": ({"UI", "Model", "Atlas", "Runtime"}, {"Game": {"Command"}}),
+    "game": ({"Game", "Atlas", "Runtime"}, {"UI": {"View"}, "Model": {"Observe", "Load", "SAVED"}}),
+}
+
+# Known violations, each waiting on a contract: (file, System, field). Keep it
+# short; the check fails on any entry that no longer matches, so it only shrinks.
+BASELINE: set[tuple[str, str, str]] = set()
 
 OP_GETGLOBAL, OP_SETGLOBAL = 5, 7
 
@@ -119,16 +159,108 @@ def toc_files() -> list[str]:
     return files
 
 
-def load_allowlist(path: str = ALLOWLIST) -> set[str]:
-    names = set()
+def load_allowlist(path: str = ALLOWLIST, sections: set[str] | None = None) -> set[str]:
+    """The names in an allowlist; only those under the given [section]s if any."""
+    names, section = set(), None
     with open(path, encoding="utf-8") as f:
         for line in f:
-            names.update(line.split("#", 1)[0].split())
+            line = line.split("#", 1)[0].strip()
+            if line.startswith("["):
+                section = line.strip("[]")
+            elif sections is None or section in sections:
+                names.update(line.split())
     return names
 
 
-def is_own(name: str) -> bool:
-    return any(fnmatch.fnmatchcase(name, p) for p in OWN_GLOBALS)
+def folder(rel: str) -> str:
+    return rel.replace("\\", "/").split("/")[0]
+
+
+def saved_variables() -> set[str]:
+    with open(TOC, encoding="utf-8-sig") as f:
+        for line in f:
+            if line.startswith("## SavedVariables"):
+                return {v.strip() for v in line.split(":", 1)[1].split(",") if v.strip()}
+    return set()
+
+
+def check_boundaries(accesses: dict[str, list[tuple[str, str, int]]]) -> int:
+    """Each folder reads only its BOUNDARIES globals; only game/ touches the SavedVariables."""
+    problems, sv = 0, saved_variables()
+    allowed = {d: set().union(*(load_allowlist(p, s) for p, s in lists)) for d, lists in BOUNDARIES.items()}
+    for rel, acc in accesses.items():
+        d, reported = folder(rel), set()
+        for op, name, line in sorted(acc, key=lambda a: a[2]):
+            if name in reported:
+                continue
+            if name in sv and d != "game":
+                print(f"{rel}:{line}: uses SavedVariables '{name}': only game/ loads and saves")
+            elif op == "get" and d in allowed and name not in allowed[d]:
+                print(f"{rel}:{line}: {d}/ may not read '{name}' (BOUNDARIES in tools/luacheck.py)")
+            else:
+                continue
+            reported.add(name)
+            problems += 1
+    return problems
+
+
+LUA_NOISE = re.compile(r"""--\[(=*)\[.*?\]\1\]|\[(=*)\[.*?\]\2\]|--[^\n]*|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'""", re.S)
+NS_REF = re.compile(r"\bns\s*\.\s*([A-Za-z_]\w*)(?:\s*[.:]\s*([A-Za-z_]\w*))?")
+ALIAS = re.compile(r"\blocal\s+([\w\s,]+?)\s*=\s*([^\n;]+)")
+
+
+def ns_refs(src: str) -> list[tuple[str, str | None, int]]:
+    """(System, field or None, line) for each ns.System use, through `local X = ns.System` aliases too."""
+    src = LUA_NOISE.sub(lambda m: "\n" * m.group(0).count("\n"), src)  # comments and strings; lines kept
+    line_at = lambda pos: src.count("\n", 0, pos) + 1  # noqa: E731
+    aliases, skip = {}, set()
+    for m in ALIAS.finditer(src):
+        for name, expr in zip(m.group(1).split(","), m.group(2).split(",")):
+            a = re.match(r"\s*ns\s*\.\s*([A-Za-z_]\w*)\s*(?:or\b.*)?$", expr)
+            if a:
+                aliases[name.strip()] = a.group(1)
+                skip.add(m.start(2) + m.group(2).index(expr) + expr.index("ns"))
+    refs = [(m.group(1), m.group(2), line_at(m.start())) for m in NS_REF.finditer(src) if m.start() not in skip]
+    for name, system in aliases.items():
+        for m in re.finditer(rf"(?<![\w.:])\b{re.escape(name)}\s*[.:]\s*([A-Za-z_]\w*)", src):
+            refs.append((system, m.group(1), line_at(m.start())))
+    return refs
+
+
+def check_ns(paths: list[str]) -> int:
+    """NS_RULES over each folder's files. A static scan: it sees ns.X.f and
+    `local A, B = ns.X, ns.Y` then A.f; not ns["X"], an alias passed on or
+    reassigned, nor a table of ns's handed through a call."""
+    problems, used = 0, set()
+    for path in paths:
+        rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
+        rule = NS_RULES.get(folder(rel))
+        if not rule:
+            continue
+        own, fields = rule
+        with open(path, encoding="utf-8", errors="replace") as f:
+            refs = ns_refs(f.read())
+        reported = set()
+        for system, field, line in sorted(refs, key=lambda r: r[2]):
+            if system in own or field in fields.get(system, ()) or (system, field) in reported:
+                continue
+            reported.add((system, field))
+            if (rel, system, field) in BASELINE:
+                used.add((rel, system, field))
+                continue
+            what = f"ns.{system}.{field}" if field else f"ns.{system}"
+            print(f"{rel}:{line}: {folder(rel)}/ may not use {what} (NS_RULES in tools/luacheck.py)")
+            problems += 1
+    for rel, system, field in sorted(BASELINE - used):
+        if os.path.join(ROOT, rel) in paths:
+            print(f"tools/luacheck.py: BASELINE ({rel}, ns.{system}.{field}) no longer happens: remove it")
+            problems += 1
+    return problems
+
+
+def may_set(rel: str, name: str) -> bool:
+    """Only game/ defines globals: the SavedVariables and SLASH_*."""
+    return folder(rel) == GAME and (name in saved_variables() or any(fnmatch.fnmatchcase(name, p) for p in GAME_GLOBALS))
 
 
 def check(paths: list[str], list_globals: bool = False, allowlist: str = ALLOWLIST) -> int:
@@ -169,14 +301,19 @@ def check(paths: list[str], list_globals: bool = False, allowlist: str = ALLOWLI
         for op, name, line in sorted(acc, key=lambda a: a[2]):
             if (op, name) in reported:
                 continue
-            if op == "set" and not is_own(name):
-                print(f"{rel}:{line}: sets global '{name}' (missing 'local'? or add it to OWN_GLOBALS)")
-            elif op == "get" and name not in allowed and (strict or (name not in set_anywhere and not is_own(name))):
+            if op == "set" and not may_set(rel, name):
+                print(f"{rel}:{line}: sets global '{name}': only game/ defines globals, its SavedVariables and "
+                      "SLASH_* (missing 'local'? data goes in ns: docs/structure.md)")
+            elif op == "get" and name in GLOBAL_ESCAPES and not strict:
+                print(f"{rel}:{line}: uses '{name}', which reaches globals past this check: use a local or ns")
+            elif op == "get" and name not in allowed and (strict or name not in set_anywhere):
                 print(f"{rel}:{line}: reads unknown global '{name}' (typo? or add it to {os.path.relpath(allowlist, ROOT)})")
             else:
                 continue
             reported.add((op, name))
             problems += 1
+    if not strict:  # the default run: the boundaries too
+        problems += check_boundaries(accesses) + check_ns(paths)
     return problems
 
 

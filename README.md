@@ -41,11 +41,15 @@ The demo's assets, after the above:
     .venv/bin/python tools/install.py      # into _classic_beta_ (WoW Forever); another flavor folder as argument
 
 It copies the TOC, its files and Textures/ into `Interface/AddOns/MagicMapAtlas` (the
-gitignored QuestieDB-derived data too, when generated). In game: disable the **MagicMap**
-spike addon (same `MagicMap_*` data globals), log in (a restart for a new TOC, files or
-textures, else `/reload`), then:
+gitignored QuestieDB-derived data too, when generated). It shares no globals with the
+**MagicMap** spike (its data is `ns.Data`: docs/atlas-data.md), so both can be enabled. Log in
+(a restart for a new TOC, files or textures, else `/reload`), then:
 
 - `/mma` lists the commands; `/mma map` shows the map window
+- with the map shown, Blizzard's Minimap becomes an unseen sensor and its blips (mailboxes,
+  herbs, services) are drawn on the map; `/mma minimap blizzard` gives it back, `/mma layer <name>`
+  toggles a layer, `/mma record on|off` keeps the observations for Model replay tests
+  (flow: docs/structure.md "One flow end to end")
 - `/mma perf`: Atlas's load cost (ms, KB) and time per step / event / timer / job
 - `/mma errors`: errors caught so far (each is also printed once when it happens)
 
@@ -55,7 +59,7 @@ textures, else `/reload`), then:
 
 Play, `/reload`, then read what the addon saved (sessions, errors with stacks, marks with
 state and trace, screenshots matched to `/mma shot`, the validation log, client `Logs/` lines
-that mention the addon). The contract is [docs/telemetry.md](docs/telemetry.md).
+that mention the addon, and other addons' errors while ours was loaded). The contract is [docs/telemetry.md](docs/telemetry.md).
 
     .venv/bin/python tools/telemetry.py                  # everything, newest first
     .venv/bin/python tools/telemetry.py --errors --full  # one section: --errors --marks --shots --validation --logs
@@ -70,9 +74,29 @@ Forever client (`tools/tests/wowsim.lua`), logged in, ~60 frames and every `/mma
 with no Lua error expected; and `tools/luacheck.py` over the TOC (globals, every file listed,
 the Atlas section = `atlas/files.txt`).
 
+    tools/check.sh                                     # both, as CI runs them (makes .venv if missing)
     .venv/bin/python -m pytest tools/tests -q -p no:cacheprovider
-    .venv/bin/python tools/luacheck.py                       # the TOC's files, against tools/wow_globals.txt
-    .venv/bin/python tools/luacheck.py --allow tools/lua51_globals.txt atlas/*.lua model/*.lua   # plain Lua only
+    .venv/bin/python tools/luacheck.py                 # the TOC's files: globals, TOC, boundaries
+
+CI (`.github/workflows/check.yml`) runs `tools/check.sh` on every push and PR; without the
+gitignored QuestieDB-derived data those tests skip.
+
+## Boundaries
+
+`tools/luacheck.py` enforces [architecture.md](architecture.md)'s Rules per folder: the
+globals each may read (`BOUNDARIES`: sections of `tools/lua51_globals.txt` and
+`tools/wow_globals.txt`) and the `ns.<System>`s it may use (`NS_RULES`, a static scan).
+
+| folder   | globals                                       | ns                                         |
+|----------|-----------------------------------------------|--------------------------------------------|
+| atlas/   | Lua 5.1 only                                  | Atlas, Data (its generated `ns.Data`)      |
+| runtime/ | Lua 5.1 + `[lua]` `[runtime]`: frame, clocks | Runtime                                    |
+| model/   | Lua 5.1 only                                  | Model, Atlas, Runtime                      |
+| ui/      | Lua 5.1 + `[lua]` `[ui]`: widgets, input     | UI, Model, Atlas, Runtime; `Game.Command` (slash and saved data too) |
+| game/    | all of it, and only it the SavedVariables     | Game, Atlas, Runtime; `UI.View`, `Model.Observe` / `Load` / `SAVED` |
+
+Known violations waiting on a contract are `BASELINE` in `tools/luacheck.py` (each with
+its TODO); the check fails once one is gone, so the list only shrinks.
 
 ## Demo
 

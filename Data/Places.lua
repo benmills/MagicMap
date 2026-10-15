@@ -3,7 +3,10 @@
 -- taxiPaths = { { from, to, cost }, ... }
 -- pois[poiID] = { name, description, icon, importance, inst, col, row, areaID }
 -- dungeons[instID] = { name, kind, entranceInst, col, row, minLevel, maxPlayers, bosses }
-MagicMap_Places = {
+local _, ns = ...
+local D = ns.Data or {}; ns.Data = D
+D.formats = D.formats or {}; D.formats.Places = 1
+D.Places = {
   flight = {
     [1] = { "Northshire Abbey", nil, 0, 32.001, 48.667, 9 },
     [2] = { "Stormwind, Elwynn", "A", 0, 31.103, 48.561, 1519 },

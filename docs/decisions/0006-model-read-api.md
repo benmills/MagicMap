@@ -1,0 +1,42 @@
+# 0006 Model's read API (UI → Model)
+
+Status: accepted (v1). Types: [types/model.lua](../../types/model.lua).
+
+## Context
+
+UI reads only Model and View (architecture.md). Model's two entry points (Observe, Focus)
+were locked in ADR 0001/0002, but what UI reads back wasn't. Every pin kind we'll add
+(blips, rares, services, quests, offers, places, group) would otherwise grow its own getter,
+and each new kind would touch the contract. Model also needs its saved part (ADR 0004)
+without reading the SavedVariables or calling Game.
+
+## Decision
+
+- **`Model.Known(kind) → list, rev`**: one shape for every kind, `MM.Known { key, kind, pos,
+  name, icon?, live, t?, text? }`. The list is the same table until it changes; `rev` goes
+  up when it does, so a UI layer redraws on a rev change and costs nothing otherwise.
+  An unknown kind gives `{}, 0`. Adding a kind means a Model file that fills it and a UI
+  layer that draws it (and Atlas data if it is static): no change to this contract.
+- **`Model.you`** (last known position, `stale`), **`Model.hooked`** (this frame's hooked
+  keys, handed on from `obs.hooked`, ADR 0003), **`Model.Target()`**, **`Model.Route()`**.
+  Target and Route are typed with the fields we're sure of; their full shapes stay open
+  until they're built.
+- **`Model.Load(saved)` and `Model.SAVED`**: Game calls
+  `Game.Load("Model", Model.Load, Model.SAVED)`. Model keeps the table and changes it in
+  place; Game's luacheck rule allows `Model.Observe`, `Model.Load`, `Model.SAVED`.
+- Model has no clock: saved times come from `obs.epoch` (ADR 0001).
+
+Locked: the calls and fields above and their meanings. Open: kinds, new optional fields,
+Target and Route beyond the typed fields.
+
+## Consequences
+
+- UI draws any kind with the same pin code; a kind's look is `icon` or the layer's default.
+- `live` lets UI tell sensed-now from remembered (greyed, or only past some zoom).
+- Model's internals (merge state, indexes) can change freely.
+
+## Revisit if
+
+- A kind needs data that doesn't fit a pin (an area, a path): give it its own getter
+  rather than stretching `MM.Known`.
+- Lists get large enough that UI wants only a rect: add an optional `Known(kind, rect)`.

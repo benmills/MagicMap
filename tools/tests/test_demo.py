@@ -17,7 +17,7 @@ def test_at_elwynn():
 
 
 def test_find_npc_and_quest_sources():
-    if server.L.globals().MagicMap_Npcs is None:
+    if server.Atlas.Data.Npcs is None:
         pytest.skip("no QuestieDB-derived data (tools/gen_questie.py)")
     hogger = next(r for r in server.find({"q": "hogger"}) if r["kind"] == "npc")
     assert server.npc({"id": str(hogger["id"])})["spawns"][0]["inst"] == 0

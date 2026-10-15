@@ -4,6 +4,7 @@
 
 local _, ns = ...
 local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
+local Data = ns.Data -- the generated datasets (Data/*.lua; atlas/Coords.lua)
 local Walk = {}
 Atlas.Walk = Walk
 
@@ -22,7 +23,7 @@ local function Tile(inst, key)
 	end
 	local s = cache[key]
 	if s == nil then
-		local enc = MagicMap_Walk and MagicMap_Walk[inst] and MagicMap_Walk[inst][key]
+		local enc = Data.Walk and Data.Walk[inst] and Data.Walk[inst][key]
 		if enc then
 			local parts = {}
 			for letter, n in enc:gmatch("(%a)(%d*)") do parts[#parts + 1] = letter:rep(tonumber(n) or 1) end

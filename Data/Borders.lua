@@ -4,7 +4,10 @@
 -- far: the same, within 0.03 tiles (for zoomed out)
 -- outlines: [zone areaID] = { ring, ... }, ring = { x1, y1, x2, y2, ... } closed, its land (even-odd)
 -- labels: { areaID, col, row, weight (land chunks), kind }
-MagicMap_Borders = {
+local _, ns = ...
+local D = ns.Data or {}; ns.Data = D
+D.formats = D.formats or {}; D.formats.Borders = 1
+D.Borders = {
   [0] = { -- Eastern Kingdoms
     lines = {
       { 85, 130, 0.250, 0.089, 26.562, 28.688, 26.812, 28.688, 26.866, 28.696, 26.914, 28.711, 26.951, 28.736, 26.976, 28.774, 26.990, 28.822, 27.000, 28.938, 27.062, 29.000 },

@@ -39,18 +39,25 @@ atlas\Labels.lua
 # Runtime
 runtime\Runtime.lua
 
+# Model (before Game, which hands it observations and its saved part)
+model\Model.lua
+model\Blips.lua
+
 # Game
 game\Game.lua
 game\Slash.lua
+game\Command.lua
 game\Telemetry.lua
+game\Minimap.lua
+game\Blips.lua
 game\Observe.lua
+game\Record.lua
 game\Validate.lua
-
-# Model
-model\Model.lua
 
 # UI
 ui\Map.lua
 ui\Tiles.lua
 ui\Borders.lua
 ui\Labels.lua
+ui\Blips.lua
+ui\View.lua

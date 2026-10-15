@@ -67,10 +67,12 @@ local function Polyline(c, kind, sub, p, w, col, a, fs, fe, box)
 				if f >= 0.05 then
 					Line(c, kind, sub, x1 + (x2 - x1) * k / n, y1 + (y2 - y1) * k / n,
 						x1 + (x2 - x1) * (k + 1) / n, y1 + (y2 - y1) * (k + 1) / n, w * (0.6 + 0.4 * f), col, a * f)
+					Yield() -- a long fading segment is many Lines
 				end
 			end
 		end
 		along = along + d
+		Yield() -- per segment: a long border mustn't overrun its layout's budget (spike-bugs P1)
 	end
 end
 

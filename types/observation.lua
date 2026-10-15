@@ -1,0 +1,178 @@
+---@meta
+-- Contract 1: Observation and Oracles (Game -> Model).
+-- docs/decisions/0001-observation-and-oracles.md
+--
+-- Each frame, Game's observe step calls Model.Observe(obs, oracles) once.
+--
+-- LOCKED (one-way door):
+--   * the delivery: one call a frame, in the observe phase, obs and oracles
+--   * positions in tile space (MM.Pos), the nil / false rule (types/core.lua)
+--   * the two cadences and the identity rule:
+--       per frame  `you`, `group`, `minimap`, `blips`, `hooked`: Game may reuse
+--                  and mutate these tables next frame; Model copies what it keeps.
+--       on change  every other part: a snapshot never mutated after handover.
+--                  A new table (by identity) means it changed; the same table
+--                  means nothing new. Model compares `obs.x ~= last.x`.
+--   * the part names below and the meaning of the fields given here
+--   * Oracles are pure reads of this frame's game state, called only inside
+--     Model.Observe or a Model step in the same frame, never kept
+-- OPEN: how Game reads each part (events, polling, sweeps, slices), new
+-- optional fields, new parts (Model ignores what it doesn't know).
+
+---@class MM.Observation
+---@field frame MM.Frame             when Game assembled it
+---@field t MM.Time                  GetTime() then
+---@field epoch? MM.Epoch            time() then: what Model stamps saved things with (it has no clock)
+---@field you MM.ObsYou              per frame; always present (fields may be nil)
+---@field group? MM.ObsMember[]      per frame (Game may throttle to ~20 Hz); you are not in it
+---@field minimap? MM.ObsMinimap     per frame
+---@field blips? MM.ObsBlips         per frame while the sensor runs; nil while it doesn't
+---@field hooked MM.HookedInput[]    per frame; usually empty (see types/view.lua)
+---@field quests? MM.ObsQuest[]      on change: your quest log
+---@field places? MM.ObsPlace[]      on change: live places the game marks (Atlas has the static ones)
+---@field corpse? MM.Pos|false       on change: false = no corpse known
+---@field waypoint? MM.Pos|false     on change: the user waypoint (C_Map); false = none
+---@field vignettes? MM.ObsVignette[] on change: what the game shows near you now
+---@field offers? MM.ObsOffer[]      on change: quests to pick up on the maps Game asked about
+---@field explored? table<MM.AreaID, boolean> on change: per area Game has checked; a missing key is unknown
+---@field tracking? MM.ObsTracking[] on change: Blizzard's minimap tracking types
+---@field indoorArt? MM.ObsArt|false on change: the world map's art for the map you're on; false = none
+---@field addons? MM.ObsAddon[]      on change: other addons whose pins Game can borrow (View.layers "addon:<key>")
+
+---@class MM.ObsYou
+---@field inst? MM.Inst        the instance you're in (GetInstanceInfo: known in instances too)
+---@field col? MM.Col          nil where the game hides your position (instances)
+---@field row? MM.Row
+---@field facing? number       radians, 0 north, counter-clockwise (GetPlayerFacing)
+---@field uiMap? MM.UiMapID    C_Map.GetBestMapForUnit("player")
+---@field level? integer
+---@field faction? MM.Faction  "A" or "H"
+---@field dead? boolean        dead or a ghost
+---@field ghost? boolean       a ghost (released): your corpse becomes the target
+---@field combat? boolean      InCombatLockdown(): what Game can't do now
+
+---@class MM.ObsMember
+---@field id string            the unit's GUID (stable across frames)
+---@field name string
+---@field class? string        class token ("WARRIOR"), for its colour
+---@field level? integer
+---@field dead? boolean
+---@field pos? MM.Pos          nil: withheld (instances, another continent)
+
+---@alias MM.ObjectiveType "monster"|"item"|"object"|"event"|"log"|"progressbar"|"reputation"|"other"
+
+---@class MM.ObsObjective
+---@field type MM.ObjectiveType
+---@field text string
+---@field have? integer
+---@field need? integer
+---@field finished boolean
+---@field itemID? integer      for "item": its icon / tooltip (Atlas.Item)
+
+---@class MM.ObsQuest
+---@field id MM.QuestID
+---@field title string
+---@field level? integer       nil: the client doesn't say
+---@field trivial? boolean     the client calls it grey
+---@field complete boolean     ready to turn in
+---@field followed boolean     the super-tracked quest (one at most)
+---@field objectives MM.ObsObjective[]
+---@field pin? MM.Pos          where the game puts its map pin (the smallest map that has it); nil: none
+---@field areaMap? MM.UiMapID  the uiMap whose objective area holds it (for Inside and for drawing)
+
+---@alias MM.PlaceKind "flight"|"poi"|"dungeon"|"graveyard"
+
+---@class MM.ObsPlace
+---@field key string           stable across reads: kind .. ":" .. the game's id
+---@field kind MM.PlaceKind
+---@field pos MM.Pos
+---@field name string
+---@field text? string         a description line
+---@field icon? MM.Icon
+---@field faction? MM.Faction
+---@field known? boolean       flight: you have it (nil: not known)
+
+---@class MM.ObsVignette
+---@field id string            the vignette GUID
+---@field name string
+---@field pos MM.Pos
+---@field rare boolean         a rare or elite: Model remembers it (account-wide)
+---@field npcID? MM.NpcID
+---@field icon? MM.Icon
+
+---@class MM.ObsOffer
+---@field questID MM.QuestID
+---@field name string
+---@field line? string         the quest line's name when it isn't the quest's
+---@field pos MM.Pos
+
+---@class MM.ObsTracking
+---@field id integer           the tracking filter id (Enum.MinimapTrackingFilter) or, without one, Game's own stable id
+---@field name string
+---@field texture MM.FileID    its icon: also how a blip's kind is matched to "is this tracked"
+---@field active boolean
+---@field kind? "duplicate"    Game keeps it off while our layer draws the same (flight, quests, POIs): not offered to the user
+
+---@class MM.ObsMinimap
+---@field engaged boolean      Game has taken the Minimap (View.minimap ~= "blizzard" and nothing blocks it)
+---@field blocker? string      why it isn't, in words ("FarmHud has the minimap")
+---@field indoors? boolean     the Minimap draws its indoor floor plan here (its view radius tells)
+---@field sensing boolean      the blip sensor ran this frame
+---@field home? MM.ScreenRect  the Minimap's home spot (its cluster), for placing our window there
+
+---A rect in UIParent units from its bottom-left (what SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT") takes).
+---@class MM.ScreenRect
+---@field left number
+---@field top number
+---@field w number
+---@field h number
+
+---@class MM.ObsBlip
+---@field name string          what the Minimap's tooltip calls it
+---@field pos MM.Pos
+---@field rough boolean        measured while moving: a few yards off
+---@field icon? MM.FileID      the tracking icon Game matched it to, if any
+
+---@class MM.ObsBlips
+---@field list MM.ObsBlip[]    what the sensor knows now
+---@field sweep integer        completed sweeps; goes up by one when a sweep ends
+---@field center? MM.Pos       where the last completed sweep was centred
+---@field reach number         its radius in tiles: a blip inside it that the sweep didn't see is gone
+
+---@class MM.ObsArt
+---@field uiMap MM.UiMapID
+---@field pieces MM.ArtPiece[]
+
+---@class MM.ArtPiece
+---@field file MM.FileID
+---@field rect MM.Rect
+---@field u? number            texcoord right (1 if nil)
+---@field v? number            texcoord bottom (1 if nil)
+
+---@class MM.ObsAddon
+---@field key string           stable: the library copy's tag and the addon's name ("Questie")
+---@field name string          for the layer menu
+---@field world boolean        it has world-map pins
+---@field minimap boolean      it has minimap pins
+
+-- No WoW object crosses into Model: an NPC's portrait is drawn by Game into UI's
+-- tooltip on a `tooltip` Command (types/view.lua), never handed over.
+
+-- Oracles ---------------------------------------------------------------------------
+
+---Functions Game backs and Model may call, within the frame they were handed.
+---Each answers from this frame's game state, never errors (nil on failure)
+---and never yields. Model budgets its own calls (see each one).
+---@class MM.Oracles
+local Oracles = {}
+
+---Is (col, row) inside the quest's objective area, as the game draws it?
+---nil: the game gives this quest no area (or it can't tell now): Model estimates.
+---Cost: a hit test on a hidden QuestPOI frame, ~tens of us; Model calls it at
+---most a few dozen times a frame (the followed quest's edge search, hover).
+---The instance is the quest's areaMap's.
+---@param quest MM.QuestID
+---@param col MM.Col
+---@param row MM.Row
+---@return boolean|nil
+function Oracles.Inside(quest, col, row) end

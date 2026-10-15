@@ -1,6 +1,7 @@
 """Load the Atlas library into Lua 5.1 (lupa), as WoW would: each file in
-atlas/files.txt, in order, called with (addonName, ns). Atlas reads only its
-data globals (Data/*.lua), so loading is all there is.
+atlas/files.txt, in order, called with (addonName, ns). The Data/*.lua files put
+their datasets in ns.Data (no globals) and Atlas reads them there, so loading is
+all there is.
 
   L, Atlas = load_atlas()
   L, Atlas = load_atlas(extra=["demo/something.lua"])   # more files after, same ns

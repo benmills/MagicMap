@@ -2,7 +2,10 @@
 -- tiles[col * 64 + row] = minimap FileDataID for map<col>_<row>
 -- bg = median colour of the water along the map's outer edge (for the backdrop)
 -- kind = "dungeon" | "raid" for instances (nil: open world); continent = instanceID of the entrance's continent
-MagicMap_Tiles = { product = "wow_test", version = "1.60.1.12345", maps = {
+local _, ns = ...
+local D = ns.Data or {}; ns.Data = D
+D.formats = D.formats or {}; D.formats.Tiles = 1
+D.Tiles = { product = "wow_test", version = "1.60.1.12345", maps = {
   [0] = { name = "Eastern Kingdoms", bg = { 0.097, 0.143, 0.419 }, tiles = {
     [1950]=2000001, [1951]=2000003, [1952]=2000005, [1953]=2000007, [1954]=2000009, [2014]=2000011, [2015]=2000013, [2016]=2000015,
     [2017]=2000017, [2018]=2000019, [2078]=2000021, [2079]=2000023, [2080]=2000025, [2081]=2000027, [2082]=2000029, [2142]=2000031,

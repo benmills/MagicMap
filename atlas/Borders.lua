@@ -4,6 +4,7 @@
 
 local _, ns = ...
 local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
+local Data = ns.Data -- the generated datasets (Data/*.lua; atlas/Coords.lua)
 
 -- far is within 0.03 tiles of lines (tools/gen_borders.py FAR): under 1.5 px below this zoom.
 Atlas.BORDER_FAR_ZOOM = 50 -- px per tile
@@ -13,7 +14,7 @@ Atlas.BORDER_FAR_ZOOM = 50 -- px per tile
 --   outlines   = { [zone areaID] = { { x1, y1, ... }, ... } }
 --   labels     = { { areaID, col, row, weight, kind } }
 function Atlas.Borders(inst)
-	return MagicMap_Borders and MagicMap_Borders[inst]
+	return Data.Borders and Data.Borders[inst]
 end
 
 -- The zone borders to draw at a zoom (px per tile): the coarser level when it's still within a pixel or so.

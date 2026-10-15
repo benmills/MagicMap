@@ -40,7 +40,7 @@ def test_atlas():
     assert any(f.name.startswith("Stormwind") for f in ids(Atlas.FlightPoints(0)))
 
     # NPCs, items, quests (QuestieDB-derived, gitignored).
-    if L.globals().MagicMap_Npcs is None:
+    if Atlas.Data.Npcs is None:
         pytest.skip("no QuestieDB-derived data (tools/gen_questie.py)")
     hogger = ids(Atlas.NpcsByName("Hogger"))
     assert hogger == [448] and Atlas.Npc(448).spawns[0][1] > 0
@@ -52,3 +52,34 @@ def test_atlas():
     near = Atlas.SpawnsIn("npc", 0, 31.8, 49.6, 32.1, 49.9)
     assert 295 in [s.id for s in ids(near)]
     assert "innkeeper" in ids(Atlas.Npc(295).services)
+
+
+def test_data_is_not_global_and_formats_agree():
+    from mmtools.luaout import FORMATS
+    L, Atlas = load_atlas()
+    assert not [k for k in L.globals() if str(k).startswith("MagicMap")]  # no data globals (spike-bugs E1)
+    assert dict(Atlas.FORMATS.items()) == FORMATS  # atlas/Coords.lua and tools/mmtools/luaout.py
+    assert all(Atlas.Data.formats[name] == f for name, f in FORMATS.items() if Atlas.Data[name] is not None)
+
+
+def test_stale_format_is_one_error_and_dropped():
+    """A Data file of another format: one error naming it, then Atlas answers as if it were missing."""
+    import os
+    from lupa import lua51
+    from atlas_lua import ROOT, files
+    L = lua51.LuaRuntime(unpack_returned_tuples=True)
+    run = L.eval("function(src, name, ns) local f = assert(loadstring(src, name)); local ok, err = pcall(f, 'MagicMapAtlas', ns); return ok, err or '' end")
+    ns, errors = L.table(), []
+    for rel in files():
+        if rel.startswith("Data/") and rel not in ("Data/UiMaps.lua", "Data/Areas.lua"):
+            continue
+        with open(os.path.join(ROOT, rel), "rb") as f:
+            ok, err = run(f.read(), "@" + rel, ns)
+        if not ok:
+            errors.append(err)
+        if rel == "Data/UiMaps.lua":
+            ns.Data.formats.UiMaps = 0
+    assert errors == ["MagicMapAtlas: Data/UiMaps.lua is format 0, Atlas reads 1: regenerate (README, tools/gen_*.py)"]
+    Atlas = ns.Atlas
+    assert Atlas.UiMap(1429) is None and Atlas.Continent(0) is None and len(Atlas.Zones(0)) == 0
+    assert Atlas.Area(12).name == "Elwynn Forest" and Atlas.Dungeon(36) is None and Atlas.Npc(448) is None

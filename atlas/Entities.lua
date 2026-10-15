@@ -4,6 +4,7 @@
 
 local _, ns = ...
 local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
+local Data = ns.Data -- the generated datasets (Data/*.lua; atlas/Coords.lua)
 
 local NONE = {}
 
@@ -32,7 +33,7 @@ local NAMED = {
 			spawns = r[5] or NONE, instances = r[6] or NONE }
 	end,
 	item = function(id, r)
-		return { id = id, name = r[1], icon = MagicMap_ItemIcons[id], npcDrops = r[2] or NONE,
+		return { id = id, name = r[1], icon = (Data.ItemIcons or NONE)[id], npcDrops = r[2] or NONE,
 			objectDrops = r[3] or NONE, itemDrops = r[4] or NONE, vendors = r[5] or NONE,
 			startQuest = r[6], class = r[7], subClass = r[8], requiredLevel = r[9] }
 	end,
@@ -50,10 +51,12 @@ local NAMED = {
 }
 
 local function Rows(kind)
-	if kind == "npc" then return MagicMap_Npcs end
-	if kind == "object" then return MagicMap_Objects end
-	if kind == "item" then return MagicMap_Items end
-	return MagicMap_Quests
+	local rows
+	if kind == "npc" then rows = Data.Npcs
+	elseif kind == "object" then rows = Data.Objects
+	elseif kind == "item" then rows = Data.Items
+	else rows = Data.Quests end
+	return rows or NONE
 end
 
 local cache = { npc = {}, object = {}, item = {}, quest = {} } -- [kind][id] = named row | false
@@ -180,7 +183,7 @@ local npcsByName -- name -> npc ids
 function Atlas.NpcsByName(name)
 	if not npcsByName then
 		npcsByName = {}
-		for id, r in pairs(MagicMap_Npcs) do
+		for id, r in pairs(Data.Npcs or NONE) do
 			local list = npcsByName[r[1]]
 			if not list then
 				list = {}

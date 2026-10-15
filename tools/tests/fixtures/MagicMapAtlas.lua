@@ -28,6 +28,12 @@ MagicMapAtlasDB = {
 ["loginMs"] = 1588.4,
 },
 ["frames"] = 18342,
+["perf"] = {
+["frames"] = 17890, ["p50"] = 0.25, ["p95"] = 0.8, ["p99"] = 4.3, ["max"] = 11.2, ["overruns"] = 2,
+["kbMin"] = 47100, ["kbMax"] = 61800, ["ourKB"] = 52300, ["loadMs"] = 398.1, ["errors"] = 37, ["errorsPerHour"] = 148,
+["grace"] = { ["login"] = 96.4, ["map"] = 31.5 },
+["slow"] = { { ["name"] = "map: labels", ["n"] = 3, ["max"] = 11.0 } },
+},
 ["zones"] = {
 "Elwynn Forest", -- [1]
 "Westfall", -- [2]

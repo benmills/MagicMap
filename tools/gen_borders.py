@@ -27,6 +27,7 @@ from collections import deque
 
 from mmtools.formats import adt_chunks, adt_liquids, wdt_maid
 from mmtools.log import log
+from mmtools.luaout import data_head
 from mmtools.maps import AREATABLE_DB2, MAP_DB2, read_area_parents, read_maps
 from mmtools.sources import Source, add_source_args, source_from_args
 
@@ -382,7 +383,8 @@ def main() -> None:
     w(f"-- far: the same, within {FAR} tiles (for zoomed out)\n")
     w(f"-- outlines: [zone areaID] = {{ ring, ... }}, ring = {{ x1, y1, x2, y2, ... }} closed, its land (even-odd)\n")
     w("-- labels: { areaID, col, row, weight (land chunks), kind }\n")
-    w("MagicMap_Borders = {\n")
+    w(data_head("Borders"))
+    w("D.Borders = {\n")
     for m in sorted(maps, key=lambda m: m.inst):
         wdt = src.read(m.wdt)
         if wdt is None:

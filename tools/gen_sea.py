@@ -75,6 +75,7 @@ from gen_tilecolor import ROOT, parse_tileset
 from mmtools.db2 import read_wdc5
 from mmtools.formats import adt_chunks, adt_liquids, blp_dxt, wdt_maid
 from mmtools.log import log
+from mmtools.luaout import data_head
 from mmtools.maps import MAP_DB2, read_maps
 from mmtools.sources import add_source_args, source_from_args
 from mmtools.tga import write_tga
@@ -466,7 +467,8 @@ def write_sea(out, product: str, version: str, seas: list[MapSea]) -> None:
     w(f"--   \"feather_\" .. code .. \".tga\": a coast tile's mask, 0 at its sides facing the sea, 1 within {FEATHER:g} tile\n")
     w("-- coast[key] = code: bits 1 l, 2 r, 4 t, 8 b; 16 tl, 32 tr, 64 bl, 128 br corners touching the sea diagonally\n")
     w("-- key = col * 64 + row, as in Data/Tiles.lua\n")
-    w(f"MagicMap_Sea = {{ product = \"{product}\", version = \"{version}\",\n")
+    w(data_head("Sea"))
+    w(f"D.Sea = {{ product = \"{product}\", version = \"{version}\",\n")
     w(f"  dir = \"Textures\\\\Sea\\\\{product}\\\\\",\n")  # in the addon's folder: Atlas.Sea adds Atlas.ROOT
     w(f"  variants = {VARIANTS}, gain = {GAIN:g}, feather = {FEATHER:g}, maps = {{\n")
     for m in seas:
@@ -510,7 +512,7 @@ def parse_open(path: str) -> dict[int, set[int]]:
     with open(path, encoding="utf-8") as f:
         text = f.read()
     out = {}
-    for m in re.finditer(r"MagicMap_TileColor\[(\d+)\] = \{.*?\n  sea = \{(.*?)\n  \}", text, re.S):
+    for m in re.finditer(r"D\.TileColor\[(\d+)\] = \{.*?\n  sea = \{(.*?)\n  \}", text, re.S):
         out[int(m.group(1))] = {int(k) for k in re.findall(r"\[(\d+)\]=true", m.group(2))}
     return out
 
@@ -519,7 +521,7 @@ def parse_tints(path: str) -> dict[int, dict[int, tuple]]:
     with open(path, encoding="utf-8") as f:
         text = f.read()
     out = {}
-    for m in re.finditer(r"MagicMap_TileColor\[(\d+)\] = \{.*?\n  tint = \{(.*?)\n  \}", text, re.S):
+    for m in re.finditer(r"D\.TileColor\[(\d+)\] = \{.*?\n  tint = \{(.*?)\n  \}", text, re.S):
         out[int(m.group(1))] = {int(k): tuple(float(v) for v in vs.split(","))
                                 for k, vs in re.findall(r"\[(\d+)\] = \{ ([^}]*) \}", m.group(2))}
     return out

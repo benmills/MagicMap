@@ -21,7 +21,7 @@ import sys
 
 from mmtools.formats import blp_edge_colors, wdt_maid
 from mmtools.log import log
-from mmtools.luaout import lua_str
+from mmtools.luaout import data_head, lua_str
 from mmtools.maps import MAP_DB2, MapInfo, read_maps
 from mmtools.sources import Source, add_source_args, source_from_args
 
@@ -71,7 +71,8 @@ def write_tiles(out, src: Source, maps: list[MapInfo], tiles_of: dict, samples: 
     w("-- tiles[col * 64 + row] = minimap FileDataID for map<col>_<row>\n")
     w("-- bg = median colour of the water along the map's outer edge (for the backdrop)\n")
     w("-- kind = \"dungeon\" | \"raid\" for instances (nil: open world); continent = instanceID of the entrance's continent\n")
-    w(f"MagicMap_Tiles = {{ product = \"{src.product}\", version = \"{src.version}\", maps = {{\n")
+    w(data_head("Tiles"))
+    w(f"D.Tiles = {{ product = \"{src.product}\", version = \"{src.version}\", maps = {{\n")
     for m in sorted(maps, key=lambda m: m.inst):
         tiles = tiles_of.get(m.inst)
         if not tiles:

@@ -3,9 +3,10 @@
 
 local _, ns = ...
 local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
+local Data = ns.Data -- the generated datasets (Data/*.lua; atlas/Coords.lua)
 
 local function MapData(inst)
-	local maps = MagicMap_Tiles and MagicMap_Tiles.maps
+	local maps = Data.Tiles and Data.Tiles.maps
 	return maps and maps[inst]
 end
 
@@ -13,7 +14,7 @@ local maps -- sorted list, built once
 function Atlas.Maps()
 	if maps then return maps end
 	maps = {}
-	for inst, m in pairs(MagicMap_Tiles and MagicMap_Tiles.maps or {}) do
+	for inst, m in pairs(Data.Tiles and Data.Tiles.maps or {}) do
 		maps[#maps + 1] = { inst = inst, name = m.name, kind = m.kind, continent = m.continent, bg = m.bg }
 	end
 	table.sort(maps, function(a, b) return a.inst < b.inst end)
@@ -49,7 +50,7 @@ end
 -- Is a tile drawn at key? Open sea tiles aren't, so beside them counts as open.
 function Atlas.Drawn(inst, key)
 	local tiles = Atlas.Tiles(inst)
-	local colors = MagicMap_TileColor and MagicMap_TileColor[inst]
+	local colors = Data.TileColor and Data.TileColor[inst]
 	return tiles and tiles[key] and not (colors and colors.sea and colors.sea[key]) and true or false
 end
 
@@ -68,7 +69,7 @@ function Atlas.TileInfo(inst, key)
 		local fdid = tiles and tiles[key]
 		t = false
 		if fdid then
-			local c = MagicMap_TileColor and MagicMap_TileColor[inst] or {}
+			local c = Data.TileColor and Data.TileColor[inst] or {}
 			t = { fdid = fdid, tint = c.tint and c.tint[key], edge = c.edge and c.edge[key],
 				sea = c.sea and c.sea[key] and true or false }
 		end

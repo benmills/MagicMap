@@ -6,6 +6,7 @@
 
 local ADDON, ns = ...
 local Atlas, Runtime, Game = ns.Atlas, ns.Runtime, ns.Game
+local D = Atlas.Data -- the raw datasets, for counts
 
 local YD = 1 / Atlas.TILE_YARDS -- one yard in tiles
 local TOL = {
@@ -40,14 +41,14 @@ end
 local function Builds(inst)
 	local out = {}
 	out[#out + 1] = Time("area grid: decode every tile", function()
-		for key in pairs(MagicMap_AreaGrid[inst] or {}) do Atlas.AreaAt(inst, math.floor(key / 64) + 0.5, key % 64 + 0.5) end
+		for key in pairs(D.AreaGrid and D.AreaGrid[inst] or {}) do Atlas.AreaAt(inst, math.floor(key / 64) + 0.5, key % 64 + 0.5) end
 	end)
 	out[#out + 1] = Time("walk grid: decode every tile", function()
-		for key in pairs(MagicMap_Walk[inst] or {}) do Atlas.Walk.Cell(inst, math.floor(key / 64) * 16, key % 64 * 16) end
+		for key in pairs(D.Walk and D.Walk[inst] or {}) do Atlas.Walk.Cell(inst, math.floor(key / 64) * 16, key % 64 * 16) end
 	end)
 	out[#out + 1] = Time("ZoneLevels (all zones)", function() Atlas.ZoneLevels(12) end)
 	out[#out + 1] = Time("Labels(" .. inst .. ")", function() Atlas.Labels(inst) end)
-	if MagicMap_Npcs then
+	if D.Npcs then
 		out[#out + 1] = Time("SpawnsIn npc (index inst)", function() Atlas.SpawnsIn("npc", inst, 0, 0, 1, 1) end)
 		out[#out + 1] = Time("SpawnsIn object (index inst)", function() Atlas.SpawnsIn("object", inst, 0, 0, 1, 1) end)
 		out[#out + 1] = Time("Find npc (names)", function() Atlas.Find("npc", "wolf", 10) end)
@@ -64,19 +65,19 @@ Game.Slash("atlas", "Atlas load cost, data counts and first-use index builds", f
 	Game.Print(string.format("Data + Atlas loaded in %.0f ms, %.0f KB Lua; %s now uses %.0f KB",
 		b.loaded.t - b.t0, b.loaded.mem - b.mem0, ADDON, GetAddOnMemoryUsage(ADDON)))
 	local tiles, grid, walk = 0, 0, 0
-	for inst, m in pairs(MagicMap_Tiles.maps) do
+	for inst, m in pairs(D.Tiles and D.Tiles.maps or {}) do
 		tiles = tiles + Count(m.tiles)
-		grid, walk = grid + Count(MagicMap_AreaGrid[inst]), walk + Count(MagicMap_Walk[inst])
+		grid, walk = grid + Count(D.AreaGrid and D.AreaGrid[inst]), walk + Count(D.Walk and D.Walk[inst])
 	end
-	local P = MagicMap_Places
+	local P = D.Places or {}
 	print(string.format("  maps %d, tiles %d, area grid tiles %d, walk tiles %d, sea maps %d",
-		Count(MagicMap_Tiles.maps), tiles, grid, walk, Count(MagicMap_Sea.maps)))
+		Count(D.Tiles and D.Tiles.maps), tiles, grid, walk, Count(D.Sea and D.Sea.maps)))
 	print(string.format("  uiMaps %d, areas %d, flight points %d, taxi paths %d, POIs %d, dungeons %d, item icons %d",
-		Count(MagicMap_UiMaps), Count(MagicMap_Areas), Count(P.flight), #P.taxiPaths, Count(P.pois), Count(P.dungeons),
-		Count(MagicMap_ItemIcons)))
-	if MagicMap_Npcs then
-		print(string.format("  QuestieDB data: npcs %d, objects %d, items %d, quests %d", Count(MagicMap_Npcs),
-			Count(MagicMap_Objects), Count(MagicMap_Items), Count(MagicMap_Quests)))
+		Count(D.UiMaps), Count(D.Areas), Count(P.flight), #(P.taxiPaths or {}), Count(P.pois), Count(P.dungeons),
+		Count(D.ItemIcons)))
+	if D.Npcs then
+		print(string.format("  QuestieDB data: npcs %d, objects %d, items %d, quests %d", Count(D.Npcs),
+			Count(D.Objects), Count(D.Items), Count(D.Quests)))
 	else
 		print(RED .. "  QuestieDB data not loaded|r (Data/Npcs, Objects, Items, Quests: tools/gen_questie.py)")
 	end

@@ -3,8 +3,10 @@
 
 local _, ns = ...
 local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
+local Data = ns.Data -- the generated datasets (Data/*.lua; atlas/Coords.lua)
 
 local NONE = {}
+local function Places() return Data.Places or NONE end
 
 -- Rows of one Places table grouped per inst as named tables, sorted by id.
 local function ByInst(rows, instOf, named)
@@ -25,7 +27,7 @@ end
 local flights
 function Atlas.FlightPoints(inst)
 	if not flights then
-		flights = ByInst(MagicMap_Places.flight, function(r) return r[3] end, function(id, r)
+		flights = ByInst(Places().flight or NONE, function(r) return r[3] end, function(id, r)
 			return { id = id, name = r[1], faction = r[2], col = r[4], row = r[5], areaID = r[6] }
 		end)
 	end
@@ -36,7 +38,7 @@ local paths
 function Atlas.TaxiPaths()
 	if not paths then
 		paths = {}
-		for i, r in ipairs(MagicMap_Places.taxiPaths) do paths[i] = { from = r[1], to = r[2], cost = r[3] } end
+		for i, r in ipairs(Places().taxiPaths or NONE) do paths[i] = { from = r[1], to = r[2], cost = r[3] } end
 	end
 	return paths
 end
@@ -44,7 +46,7 @@ end
 local pois
 function Atlas.POIs(inst)
 	if not pois then
-		pois = ByInst(MagicMap_Places.pois, function(r) return r[5] end, function(id, r)
+		pois = ByInst(Places().pois or NONE, function(r) return r[5] end, function(id, r)
 			return { id = id, name = r[1], description = r[2], icon = r[3], importance = r[4],
 				col = r[6], row = r[7], areaID = r[8] }
 		end)
@@ -61,7 +63,7 @@ local dungeons = {} -- instID -> named row | false
 function Atlas.Dungeon(id)
 	local d = dungeons[id]
 	if d == nil then
-		local r = MagicMap_Places.dungeons[id]
+		local r = (Places().dungeons or NONE)[id]
 		d = r and Named(id, r) or false
 		dungeons[id] = d
 	end
@@ -71,7 +73,7 @@ end
 local entrances -- entrance inst -> dungeons
 function Atlas.Dungeons(inst)
 	if not entrances then
-		entrances = ByInst(MagicMap_Places.dungeons, function(r) return r[3] end, function(id)
+		entrances = ByInst(Places().dungeons or NONE, function(r) return r[3] end, function(id)
 			return Atlas.Dungeon(id)
 		end)
 	end

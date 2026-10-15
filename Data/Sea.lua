@@ -5,7 +5,10 @@
 --   "feather_" .. code .. ".tga": a coast tile's mask, 0 at its sides facing the sea, 1 within 0.15 tile
 -- coast[key] = code: bits 1 l, 2 r, 4 t, 8 b; 16 tl, 32 tr, 64 bl, 128 br corners touching the sea diagonally
 -- key = col * 64 + row, as in Data/Tiles.lua
-MagicMap_Sea = { product = "wow_classic_beta", version = "1.60.1.70374",
+local _, ns = ...
+local D = ns.Data or {}; ns.Data = D
+D.formats = D.formats or {}; D.formats.Sea = 1
+D.Sea = { product = "wow_classic_beta", version = "1.60.1.70374",
   dir = "Textures\\Sea\\wow_classic_beta\\",
   variants = 4, gain = 0.6, feather = 0.15, maps = {
   [0] = { -- Eastern Kingdoms

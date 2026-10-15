@@ -4,8 +4,11 @@
 --   facing open space (no tile, or a sea tile), after tint
 -- sea[key] = true: open-sea tiles, the backdrop colour all over; edge[] treats them as absent (they need not be drawn)
 -- key = col * 64 + row, as in Data/Tiles.lua
-MagicMap_TileColor = MagicMap_TileColor or {}
-MagicMap_TileColor[0] = { -- Eastern Kingdoms
+local _, ns = ...
+local D = ns.Data or {}; ns.Data = D
+D.formats = D.formats or {}; D.formats.TileColor = 1
+D.TileColor = D.TileColor or {}
+D.TileColor[0] = { -- Eastern Kingdoms
   tint = {
     [1897] = { 0.935, 0.930, 0.919, 0.000, 0.000, 0.000 },
     [2024] = { 0.912, 0.914, 0.929, 0.018, 0.016, 0.005 },
@@ -160,7 +163,7 @@ MagicMap_TileColor[0] = { -- Eastern Kingdoms
     [2928]=true, [2929]=true,
   },
 }
-MagicMap_TileColor[1] = { -- Kalimdor
+D.TileColor[1] = { -- Kalimdor
   tint = {
     [2090] = { 0.932, 0.825, 0.544, 0.017, 0.040, 0.060 },
   },
@@ -334,7 +337,7 @@ MagicMap_TileColor[1] = { -- Kalimdor
     [3035]=true, [3036]=true, [3037]=true, [3038]=true, [3093]=true, [3094]=true, [3095]=true, [3096]=true, [3097]=true,
   },
 }
-MagicMap_TileColor[33] = { -- Shadowfang Keep
+D.TileColor[33] = { -- Shadowfang Keep
   tint = {
   },
   edge = {
@@ -358,7 +361,7 @@ MagicMap_TileColor[33] = { -- Shadowfang Keep
   sea = {
   },
 }
-MagicMap_TileColor[36] = { -- Deadmines
+D.TileColor[36] = { -- Deadmines
   tint = {
   },
   edge = {
@@ -382,7 +385,7 @@ MagicMap_TileColor[36] = { -- Deadmines
     [2270]=true, [2271]=true, [2272]=true, [2273]=true, [2274]=true, [2275]=true,
   },
 }
-MagicMap_TileColor[37] = { -- Azshara Crater
+D.TileColor[37] = { -- Azshara Crater
   tint = {
   },
   edge = {
@@ -405,7 +408,7 @@ MagicMap_TileColor[37] = { -- Azshara Crater
     [2209]=true,
   },
 }
-MagicMap_TileColor[47] = { -- Razorfen Kraul
+D.TileColor[47] = { -- Razorfen Kraul
   tint = {
   },
   edge = {
@@ -419,7 +422,7 @@ MagicMap_TileColor[47] = { -- Razorfen Kraul
   sea = {
   },
 }
-MagicMap_TileColor[129] = { -- Razorfen Downs
+D.TileColor[129] = { -- Razorfen Downs
   tint = {
   },
   edge = {
@@ -432,7 +435,7 @@ MagicMap_TileColor[129] = { -- Razorfen Downs
     [2076]=true, [2077]=true,
   },
 }
-MagicMap_TileColor[169] = { -- Emerald Dream
+D.TileColor[169] = { -- Emerald Dream
   tint = {
   },
   edge = {
@@ -509,7 +512,7 @@ MagicMap_TileColor[169] = { -- Emerald Dream
     [2024]=true, [2081]=true, [2086]=true, [2087]=true, [2088]=true,
   },
 }
-MagicMap_TileColor[189] = { -- Scarlet Monastery
+D.TileColor[189] = { -- Scarlet Monastery
   tint = {
   },
   edge = {
@@ -528,7 +531,7 @@ MagicMap_TileColor[189] = { -- Scarlet Monastery
     [2078]=true, [2080]=true, [2139]=true, [2140]=true, [2141]=true, [2142]=true, [2143]=true, [2144]=true,
   },
 }
-MagicMap_TileColor[209] = { -- Zul'Farrak
+D.TileColor[209] = { -- Zul'Farrak
   tint = {
   },
   edge = {
@@ -551,7 +554,7 @@ MagicMap_TileColor[209] = { -- Zul'Farrak
     [1889]=true, [2017]=true,
   },
 }
-MagicMap_TileColor[269] = { -- Caverns of Time
+D.TileColor[269] = { -- Caverns of Time
   tint = {
   },
   edge = {
@@ -585,7 +588,7 @@ MagicMap_TileColor[269] = { -- Caverns of Time
   sea = {
   },
 }
-MagicMap_TileColor[289] = { -- Scholomance
+D.TileColor[289] = { -- Scholomance
   tint = {
   },
   edge = {
@@ -605,7 +608,7 @@ MagicMap_TileColor[289] = { -- Scholomance
   sea = {
   },
 }
-MagicMap_TileColor[309] = { -- Zul'Gurub
+D.TileColor[309] = { -- Zul'Gurub
   tint = {
   },
   edge = {
@@ -629,7 +632,7 @@ MagicMap_TileColor[309] = { -- Zul'Gurub
   sea = {
   },
 }
-MagicMap_TileColor[329] = { -- Stratholme
+D.TileColor[329] = { -- Stratholme
   tint = {
   },
   edge = {
@@ -651,7 +654,7 @@ MagicMap_TileColor[329] = { -- Stratholme
   sea = {
   },
 }
-MagicMap_TileColor[469] = { -- Blackwing Lair
+D.TileColor[469] = { -- Blackwing Lair
   tint = {
   },
   edge = {
@@ -671,7 +674,7 @@ MagicMap_TileColor[469] = { -- Blackwing Lair
   sea = {
   },
 }
-MagicMap_TileColor[509] = { -- Ruins of Ahn'Qiraj
+D.TileColor[509] = { -- Ruins of Ahn'Qiraj
   tint = {
   },
   edge = {
@@ -698,7 +701,7 @@ MagicMap_TileColor[509] = { -- Ruins of Ahn'Qiraj
     [1845]=true, [1908]=true, [1909]=true, [1972]=true, [1973]=true,
   },
 }
-MagicMap_TileColor[531] = { -- Ahn'Qiraj Temple
+D.TileColor[531] = { -- Ahn'Qiraj Temple
   tint = {
   },
   edge = {
@@ -721,7 +724,7 @@ MagicMap_TileColor[531] = { -- Ahn'Qiraj Temple
     [1969]=true,
   },
 }
-MagicMap_TileColor[533] = { -- Naxxramas
+D.TileColor[533] = { -- Naxxramas
   tint = {
   },
   edge = {
@@ -745,7 +748,7 @@ MagicMap_TileColor[533] = { -- Naxxramas
   sea = {
   },
 }
-MagicMap_TileColor[2720] = { -- The Searing Basin
+D.TileColor[2720] = { -- The Searing Basin
   tint = {
   },
   edge = {
@@ -763,7 +766,7 @@ MagicMap_TileColor[2720] = { -- The Searing Basin
   sea = {
   },
 }
-MagicMap_TileColor[2784] = { -- Demon Fall Canyon
+D.TileColor[2784] = { -- Demon Fall Canyon
   tint = {
   },
   edge = {
@@ -779,7 +782,7 @@ MagicMap_TileColor[2784] = { -- Demon Fall Canyon
   sea = {
   },
 }
-MagicMap_TileColor[2789] = { -- The Tainted Scar
+D.TileColor[2789] = { -- The Tainted Scar
   tint = {
   },
   edge = {
@@ -795,7 +798,7 @@ MagicMap_TileColor[2789] = { -- The Tainted Scar
   sea = {
   },
 }
-MagicMap_TileColor[2791] = { -- Storm Cliffs
+D.TileColor[2791] = { -- Storm Cliffs
   tint = {
   },
   edge = {
@@ -817,7 +820,7 @@ MagicMap_TileColor[2791] = { -- Storm Cliffs
   sea = {
   },
 }
-MagicMap_TileColor[2804] = { -- The Crystal Vale
+D.TileColor[2804] = { -- The Crystal Vale
   tint = {
   },
   edge = {
@@ -833,7 +836,7 @@ MagicMap_TileColor[2804] = { -- The Crystal Vale
   sea = {
   },
 }
-MagicMap_TileColor[2806] = { -- Shadow Hold
+D.TileColor[2806] = { -- Shadow Hold
   tint = {
   },
   edge = {
@@ -849,7 +852,7 @@ MagicMap_TileColor[2806] = { -- Shadow Hold
   sea = {
   },
 }
-MagicMap_TileColor[2807] = { -- Burning of Andorhal
+D.TileColor[2807] = { -- Burning of Andorhal
   tint = {
   },
   edge = {
@@ -873,7 +876,7 @@ MagicMap_TileColor[2807] = { -- Burning of Andorhal
   sea = {
   },
 }
-MagicMap_TileColor[2817] = { -- Starfall Barrow Den
+D.TileColor[2817] = { -- Starfall Barrow Den
   tint = {
   },
   edge = {
@@ -889,7 +892,7 @@ MagicMap_TileColor[2817] = { -- Starfall Barrow Den
   sea = {
   },
 }
-MagicMap_TileColor[2832] = { -- Nightmare Grove
+D.TileColor[2832] = { -- Nightmare Grove
   tint = {
   },
   edge = {
@@ -929,7 +932,7 @@ MagicMap_TileColor[2832] = { -- Nightmare Grove
   sea = {
   },
 }
-MagicMap_TileColor[2853] = { -- Deadwind Pass
+D.TileColor[2853] = { -- Deadwind Pass
   tint = {
   },
   edge = {
@@ -947,7 +950,7 @@ MagicMap_TileColor[2853] = { -- Deadwind Pass
   sea = {
   },
 }
-MagicMap_TileColor[2856] = { -- Scarlet Enclave
+D.TileColor[2856] = { -- Scarlet Enclave
   tint = {
   },
   edge = {
@@ -977,7 +980,7 @@ MagicMap_TileColor[2856] = { -- Scarlet Enclave
   sea = {
   },
 }
-MagicMap_TileColor[2868] = { -- Eastern Plaguelands (Scarlet Raid Phase)
+D.TileColor[2868] = { -- Eastern Plaguelands (Scarlet Raid Phase)
   tint = {
   },
   edge = {
@@ -996,7 +999,7 @@ MagicMap_TileColor[2868] = { -- Eastern Plaguelands (Scarlet Raid Phase)
   sea = {
   },
 }
-MagicMap_TileColor[2875] = { -- Karazhan Crypts
+D.TileColor[2875] = { -- Karazhan Crypts
   tint = {
   },
   edge = {
@@ -1014,7 +1017,7 @@ MagicMap_TileColor[2875] = { -- Karazhan Crypts
   sea = {
   },
 }
-MagicMap_TileColor[2902] = { -- The Scarab Dais
+D.TileColor[2902] = { -- The Scarab Dais
   tint = {
   },
   edge = {
@@ -1038,7 +1041,7 @@ MagicMap_TileColor[2902] = { -- The Scarab Dais
   sea = {
   },
 }
-MagicMap_TileColor[2921] = { -- Naxxramas
+D.TileColor[2921] = { -- Naxxramas
   tint = {
   },
   edge = {
@@ -1062,7 +1065,7 @@ MagicMap_TileColor[2921] = { -- Naxxramas
   sea = {
   },
 }
-MagicMap_TileColor[2959] = { -- City of Dalaran
+D.TileColor[2959] = { -- City of Dalaran
   tint = {
   },
   edge = {
@@ -1086,7 +1089,7 @@ MagicMap_TileColor[2959] = { -- City of Dalaran
   sea = {
   },
 }
-MagicMap_TileColor[2980] = { -- Dalaran City
+D.TileColor[2980] = { -- Dalaran City
   tint = {
   },
   edge = {
@@ -1106,7 +1109,7 @@ MagicMap_TileColor[2980] = { -- Dalaran City
   sea = {
   },
 }
-MagicMap_TileColor[2991] = { -- Zephras Isle
+D.TileColor[2991] = { -- Zephras Isle
   tint = {
   },
   edge = {
@@ -1136,7 +1139,7 @@ MagicMap_TileColor[2991] = { -- Zephras Isle
     [2077]=true, [2134]=true, [2135]=true, [2136]=true, [2137]=true, [2138]=true, [2139]=true, [2140]=true, [2141]=true,
   },
 }
-MagicMap_TileColor[2996] = { -- Warsong Gulch (Winter)
+D.TileColor[2996] = { -- Warsong Gulch (Winter)
   tint = {
   },
   edge = {
@@ -1152,7 +1155,7 @@ MagicMap_TileColor[2996] = { -- Warsong Gulch (Winter)
   sea = {
   },
 }
-MagicMap_TileColor[2998] = { -- Excavation Site: Wetlands
+D.TileColor[2998] = { -- Excavation Site: Wetlands
   tint = {
   },
   edge = {
@@ -1179,7 +1182,7 @@ MagicMap_TileColor[2998] = { -- Excavation Site: Wetlands
     [2151]=true, [2152]=true, [2153]=true, [2217]=true, [2345]=true, [2468]=true, [2474]=true, [2532]=true, [2538]=true,
   },
 }
-MagicMap_TileColor[2999] = { -- Ruins of Lordaeron
+D.TileColor[2999] = { -- Ruins of Lordaeron
   tint = {
   },
   edge = {
@@ -1195,7 +1198,7 @@ MagicMap_TileColor[2999] = { -- Ruins of Lordaeron
   sea = {
   },
 }
-MagicMap_TileColor[3021] = { -- Eastern Kingdoms Preserved
+D.TileColor[3021] = { -- Eastern Kingdoms Preserved
   tint = {
     [2216] = { 0.856, 0.861, 0.880, 0.086, 0.082, 0.066 },
     [2280] = { 0.951, 0.950, 0.949, 0.000, 0.000, 0.000 },
@@ -1234,7 +1237,7 @@ MagicMap_TileColor[3021] = { -- Eastern Kingdoms Preserved
   sea = {
   },
 }
-MagicMap_TileColor[3065] = { -- The Hall of Thanes
+D.TileColor[3065] = { -- The Hall of Thanes
   tint = {
   },
   edge = {
@@ -1255,7 +1258,7 @@ MagicMap_TileColor[3065] = { -- The Hall of Thanes
     [2268]=true, [2269]=true, [2270]=true, [2271]=true, [2272]=true, [2273]=true,
   },
 }
-MagicMap_TileColor[3104] = { -- nothing to see here
+D.TileColor[3104] = { -- nothing to see here
   tint = {
   },
   edge = {

@@ -4,19 +4,22 @@
 
 local _, ns = ...
 local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
+local Data = ns.Data -- the generated datasets (Data/*.lua; atlas/Coords.lua)
 
 local CHUNKS = 16
+local NONE = {}
 
 local areas = {} -- areaID -> named row | false
 function Atlas.Area(id)
 	local a = areas[id]
 	if a == nil then
-		local r = MagicMap_Areas[id]
+		local rows = Data.Areas or NONE
+		local r = rows[id]
 		a = false
 		if r then
 			local zone = id
-			while MagicMap_Areas[zone][2] and MagicMap_Areas[MagicMap_Areas[zone][2]] do
-				zone = MagicMap_Areas[zone][2]
+			while rows[zone][2] and rows[rows[zone][2]] do
+				zone = rows[zone][2]
 			end
 			a = { id = id, name = r[1], parent = r[2], inst = r[3], level = r[4], faction = r[5],
 				uiMap = r[6], zone = zone }
@@ -42,7 +45,7 @@ local function Tile(inst, key)
 	end
 	local t = cache[key]
 	if t == nil then
-		local enc = MagicMap_AreaGrid[inst] and MagicMap_AreaGrid[inst][key]
+		local enc = Data.AreaGrid and Data.AreaGrid[inst] and Data.AreaGrid[inst][key]
 		t = false
 		if enc then
 			local parts = {}
@@ -82,7 +85,7 @@ local levels -- zone areaID -> { min, max }
 function Atlas.ZoneLevels(zone)
 	if not levels then
 		levels = {}
-		for id, r in pairs(MagicMap_Areas) do
+		for id, r in pairs(Data.Areas or NONE) do
 			if r[4] and r[4] > 0 then
 				local z = Atlas.Area(id).zone
 				local l = levels[z]

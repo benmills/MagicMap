@@ -15,6 +15,7 @@ local MIN_ZOOM, MAX_ZOOM = 4, 1024 -- px per tile
 local START_ZOOM = 96
 local MARGIN = 0.5 -- share of the view laid out past each side, so a pan finds it drawn
 local JOB_MS = 4 -- a layout's budget a frame
+local RETRY_S, RETRY_MAX_S = 0.5, 30 -- a failed layout is tried again after this, doubling each failure in a row
 
 local Map = { layers = {}, cam = { cx = 32, cy = 32, zoom = START_ZOOM }, follow = true }
 UI.Map = Map
@@ -34,7 +35,11 @@ frame:SetResizeBounds(240, 180)
 frame:SetClampedToScreen(true)
 frame:EnableMouse(true)
 frame:Hide()
-frame:SetScript("OnShow", Runtime.Wrap("map: shown", function() Runtime.Trace("map", "shown") end))
+local opened -- the first open builds Atlas's indexes: its frames are budgeted apart (docs/runtime.md)
+frame:SetScript("OnShow", Runtime.Wrap("map: shown", function()
+	if not opened then opened = true; Runtime.Grace("map", 2) end
+	Runtime.Trace("map", "shown")
+end))
 frame:SetScript("OnHide", Runtime.Wrap("map: hidden", function() Runtime.Trace("map", "hidden") end))
 Map.frame = frame
 
@@ -97,11 +102,13 @@ end
 
 -- build(canvas, inst, zoom, c0, r0, c1, r1): lay the layer out on canvas (in
 -- canvas units, tile * zoom) over that tile rect, calling Runtime.Yield() now and then.
-function Map.NewLayer(name, level, build)
+-- rev (optional): a function whose value changing lays it out again (Model.Known's rev).
+-- Each layer can be toggled (Map.toggles[name], UI's saved layers: a missing key is on).
+function Map.NewLayer(name, level, build, rev)
 	local f = CreateFrame("Frame", nil, view)
 	f:SetAllPoints()
 	f:SetFrameLevel(view:GetFrameLevel() + level)
-	local layer = { name = name, frame = f, build = build, canvases = {} }
+	local layer = { name = name, frame = f, build = build, rev = rev, canvases = {} }
 	for i = 1, 2 do
 		local c = CreateFrame("Frame", nil, f)
 		c:SetSize(1, 1)
@@ -162,24 +169,37 @@ local Place
 
 local function R2(v) return math.floor(v * 100 + 0.5) / 100 end -- for traces
 
+-- A layout job that errored or was cancelled (Runtime reported it): the layer lays out
+-- again after a backoff, keeping its last good canvas meanwhile.
+local function Failed(layer)
+	layer.busy = false
+	layer.backoff = math.min((layer.backoff or RETRY_S / 2) * 2, RETRY_MAX_S)
+	layer.retryAt = GetTime() + layer.backoff
+	Runtime.Trace("layout", { e = "failed", layer = layer.name, retry = layer.backoff })
+end
+
 local function Rebuild(layer)
 	local back = layer.canvases[layer.front == layer.canvases[1] and 2 or 1]
 	local inst, zoom = Map.inst, Map.cam.zoom
 	local c0, r0, c1, r1 = Region()
-	layer.busy = true
+	back.rev = layer.rev and layer.rev()
+	layer.busy = true -- until the job ends: its last stretch clears it; a failure, the draw step (Failed)
 	Runtime.Trace("layout", { e = "start", layer = layer.name, inst = inst, zoom = R2(zoom),
 		c0 = R2(c0), r0 = R2(r0), c1 = R2(c1), r1 = R2(r1) })
-	Runtime.Job("map: " .. layer.name, function()
+	layer.job = Runtime.Job("map: " .. layer.name, function()
 		local t0, used = debugprofilestop(), 0
 		for _, p in pairs(back.pools) do p.n = 0 end
 		layer.build(back, inst, zoom, c0, r0, c1, r1)
-		for _, p in pairs(back.pools) do
-			for i = p.n + 1, #p do p[i]:Hide() end
+		for _, p in pairs(back.pools) do -- the back canvas is hidden: this may yield
+			for i = p.n + 1, #p do
+				p[i]:Hide()
+				Runtime.Yield()
+			end
 			used = used + p.n
 		end
 		Runtime.Trace("layout", { e = "end", layer = layer.name, ms = R2(debugprofilestop() - t0), regions = used })
 		back.inst, back.zoom, back.region, back.scale, back.x, back.y = inst, zoom, { c0, r0, c1, r1 }, nil, nil, nil
-		layer.busy = false
+		layer.busy, layer.retryAt, layer.backoff = false, nil, nil
 		if inst ~= Map.inst then return end -- moved to another map meanwhile
 		if layer.front then layer.front:Hide() end
 		layer.front = back
@@ -257,7 +277,7 @@ Runtime.Step("input", "map: drag", function()
 	if Map.follow and (x - drag.x) ^ 2 + (y - drag.y) ^ 2 < 9 then return end -- a click, not yet a drag
 	Map.follow = false
 	local cam = Map.cam
-	Map.cam = { cx = drag.cx - (x - drag.x) / cam.zoom, cy = drag.cy - (y - drag.y) / cam.zoom, zoom = cam.zoom }
+	cam.cx, cam.cy = drag.cx - (x - drag.x) / cam.zoom, drag.cy - (y - drag.y) / cam.zoom -- in place: no table a frame
 	if not drag.moved and (x ~= drag.x or y ~= drag.y) then drag.moved = true; Cam("drag start") end -- follow's off now
 end, { shownOnly = frame })
 
@@ -291,27 +311,45 @@ Runtime.Step("ui", "map: draw", function()
 	local inst = you and you.inst or Map.inst or 0
 	if inst ~= Map.inst then SetInst(inst) end
 	local cam = Map.cam
-	if Map.follow and you then
+	if Map.follow and you and you.col then
 		cam.cx, cam.cy = you.col, you.row
 	end
 	local w, h = Map.Size()
 	if w <= 0 or h <= 0 then return end
 	for _, layer in ipairs(Map.layers) do
-		local c = layer.front
-		if not layer.busy and (not c or c.inst ~= inst or c.zoom ~= cam.zoom or not Covers(c, cam, w, h)) then
+		local c, on = layer.front, Map.LayerOn(layer.name)
+		if layer.on ~= on then layer.on = on; layer.frame:SetShown(on) end
+		if layer.busy and layer.job.done then Failed(layer) end -- done but still busy: it didn't finish
+		if on and not layer.busy and (not layer.retryAt or GetTime() >= layer.retryAt)
+			and (not c or c.inst ~= inst or c.zoom ~= cam.zoom or not Covers(c, cam, w, h)
+				or (layer.rev and c.rev ~= layer.rev())) then
 			Rebuild(layer)
 		end
 		if layer.front then Place(layer, cam, w, h) end
 	end
+	-- The arrow: only what changed is applied (an idle frame makes no widget calls for it).
 	if you and you.col then
 		local x, y = Camera.TileToScreen(cam, w, h, you.col, you.row)
-		arrow:SetPoint("CENTER", overlay, "TOPLEFT", x, -y)
-		arrow:SetRotation(you.facing or 0)
-		arrow:Show()
-	else
+		local facing, stale = you.facing or 0, you.stale and true or false
+		if arrow.x ~= x or arrow.y ~= y then
+			arrow.x, arrow.y = x, y
+			arrow:SetPoint("CENTER", overlay, "TOPLEFT", x, -y)
+		end
+		if arrow.facing ~= facing then arrow.facing = facing; arrow:SetRotation(facing) end
+		if arrow.stale ~= stale then
+			arrow.stale = stale
+			arrow:SetDesaturated(stale) -- last known: greyed
+			arrow:SetAlpha(stale and 0.5 or 1)
+		end
+		if not arrow.shown then arrow.shown = true; arrow:Show() end
+	elseif arrow.shown then
+		arrow.shown = false
 		arrow:Hide()
 	end
 end, { shownOnly = frame })
+
+Map.toggles = {} -- UI's saved layers (ui/View.lua loads them)
+function Map.LayerOn(name) return Map.toggles[name] ~= false end
 
 function Map.Toggle()
 	if frame:IsShown() then
@@ -349,11 +387,18 @@ function Map.Stats()
 	return live, made
 end
 
-ns.Game.Slash("map", "show or hide the map window", Map.Toggle)
-ns.Game.Slash("mapstats", "the map's live textures, lines and font strings", function()
+local Command = ns.Game.Command
+Command({ kind = "slash", name = "map", help = "show or hide the map window", fn = Map.Toggle })
+Command({ kind = "slash", name = "layer", help = "<name>: show or hide a map layer; alone, list them", fn = function(name)
+	local known = false
+	for _, l in ipairs(Map.layers) do known = known or l.name == name end
+	if known then Map.toggles[name] = not Map.LayerOn(name) end
+	for _, l in ipairs(Map.layers) do print(string.format("  %s %s", l.name, Map.LayerOn(l.name) and "on" or "off")) end
+end })
+Command({ kind = "slash", name = "mapstats", help = "the map's live textures, lines and font strings", fn = function()
 	local live, made = Map.Stats()
 	local cam = Map.cam
 	print(string.format("MagicMapAtlas map: inst %s, zoom %.1f px/tile; live %d textures, %d lines, %d font strings"
 		.. " (made %d, %d, %d)", tostring(Map.inst), cam.zoom, live.tex, live.line, live.font, made.tex, made.line,
 		made.font))
-end)
+end })

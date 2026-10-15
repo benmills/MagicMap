@@ -3,6 +3,7 @@
 
 local _, ns = ...
 local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
+local Data = ns.Data -- the generated datasets (Data/*.lua; atlas/Coords.lua)
 
 local WORLD, CONTINENT, ZONE = 1, 2, 3 -- Enum.UIMapType
 local NONE = {}
@@ -11,7 +12,7 @@ local maps = {} -- uiMapID -> named row | false
 function Atlas.UiMap(id)
 	local m = maps[id]
 	if m == nil then
-		local r = MagicMap_UiMaps[id]
+		local r = Data.UiMaps and Data.UiMaps[id]
 		m = r and { id = id, name = r[1], mapType = r[2], parent = r[3], inst = r[4],
 			col0 = r[5], row0 = r[6], col1 = r[7], row1 = r[8], areaID = r[9] } or false
 		maps[id] = m
@@ -51,7 +52,7 @@ local zones, continents
 local function Index()
 	zones, continents = {}, {}
 	local ids = {}
-	for id in pairs(MagicMap_UiMaps) do ids[#ids + 1] = id end
+	for id in pairs(Data.UiMaps or NONE) do ids[#ids + 1] = id end
 	table.sort(ids)
 	local seen = {}
 	for _, id in ipairs(ids) do

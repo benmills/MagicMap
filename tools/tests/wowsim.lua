@@ -103,40 +103,41 @@ local POINT_X = { LEFT = 0, TOPLEFT = 0, BOTTOMLEFT = 0, CENTER = 0.5, TOP = 0.5
 local POINT_Y = { BOTTOM = 0, BOTTOMLEFT = 0, BOTTOMRIGHT = 0, CENTER = 0.5, LEFT = 0.5, RIGHT = 0.5, TOP = 1, TOPLEFT = 1, TOPRIGHT = 1 }
 
 -- Screen rect (pixels from the bottom-left): left, bottom, width, height.
+-- Allocates nothing (the client's layout costs no Lua memory; allocation per frame is measured).
 local resolving = {}
+-- One axis from its anchors: the first (fa at va) and the last whose fraction differs (fb at vb).
+local function solve(fa, va, fb, vb, size)
+	if fa and fb then
+		local span = (vb - va) / (fb - fa)
+		return va - fa * span, span
+	elseif fa and size then
+		return va - fa * size, size
+	end
+end
 local function rect(obj)
 	if obj == Sim.UIParent then return 0, 0, UI_W, UI_H end
 	if resolving[obj] then return nil end
 	local st = S[obj]
 	local scale = effScale(obj)
 	local w, h = st.width and st.width * scale, st.height and st.height * scale
-	local xs, ys = {}, {}
+	local xfa, xva, xfb, xvb, yfa, yva, yfb, yvb
 	resolving[obj] = true
-	for _, p in ipairs(st.points) do
+	local points = st.points
+	for i = 1, #points do
+		local p = points[i]
 		local rel = p.rel or st.parent or Sim.UIParent
 		local rl, rb, rw, rh = rect(rel)
 		if rl then
 			local x = rl + rw * POINT_X[p.relPoint] + p.x * scale
 			local y = rb + rh * POINT_Y[p.relPoint] + p.y * scale
-			xs[#xs + 1] = { POINT_X[p.point], x }
-			ys[#ys + 1] = { POINT_Y[p.point], y }
+			local fx, fy = POINT_X[p.point], POINT_Y[p.point]
+			if not xfa then xfa, xva = fx, x elseif fx ~= xfa then xfb, xvb = fx, x end
+			if not yfa then yfa, yva = fy, y elseif fy ~= yfa then yfb, yvb = fy, y end
 		end
 	end
 	resolving[obj] = nil
-	local function solve(list, size)
-		local a, b
-		for _, e in ipairs(list) do
-			if not a then a = e elseif e[1] ~= a[1] then b = e end
-		end
-		if a and b then
-			local span = (b[2] - a[2]) / (b[1] - a[1])
-			return a[2] - a[1] * span, span
-		elseif a and size then
-			return a[2] - a[1] * size, size
-		end
-	end
-	local left, width = solve(xs, w)
-	local bottom, height = solve(ys, h)
+	local left, width = solve(xfa, xva, xfb, xvb, w)
+	local bottom, height = solve(yfa, yva, yfb, yvb, h)
 	if not (left and bottom) then return nil end
 	return left, bottom, width, height
 end
@@ -160,11 +161,13 @@ function Region:SetPoint(point, rel, relPoint, x, y)
 	assert(VALID_POINTS[relPoint], "SetPoint: bad relative point " .. tostring(relPoint))
 	if rel ~= nil then assert(S[rel], "SetPoint: relative to a non-region") end
 	assert(rel ~= self, "SetPoint: anchored to itself")
-	local points = S[self].points
+	local points, e = S[self].points, nil
 	for i = #points, 1, -1 do
-		if points[i].point == point then table.remove(points, i) end
+		if points[i].point == point then e = table.remove(points, i) end
 	end
-	points[#points + 1] = { point = point, rel = rel, relPoint = relPoint, x = x or 0, y = y or 0 }
+	e = e or {} -- reused when re-anchoring the same point (no garbage per SetPoint)
+	e.point, e.rel, e.relPoint, e.x, e.y = point, rel, relPoint, x or 0, y or 0
+	points[#points + 1] = e
 end
 
 function Region:SetAllPoints(rel)
@@ -243,6 +246,7 @@ end
 local function setShown(self, shown)
 	local st = S[self]
 	if st.shown == shown then return end
+	if not isFrame(self) then st.shown = shown; return end -- a region: no scripts (and no garbage)
 	local before = visibleFrames(self, {})
 	st.shown = shown
 	if shown then
@@ -299,7 +303,9 @@ function Texture:GetTexture() return S[self].texture end
 function Texture:GetTextureFileID() return type(S[self].texture) == "number" and S[self].texture or nil end
 function Texture:SetColorTexture(r, g, b, a)
 	assert(type(r) == "number" and type(g) == "number" and type(b) == "number", "SetColorTexture: numbers expected")
-	S[self].color = { r, g, b, a or 1 }
+	local c = S[self].color or {} -- reused: the client's setters make no Lua garbage
+	c[1], c[2], c[3], c[4] = r, g, b, a or 1
+	S[self].color = c
 	S[self].texture = nil
 end
 function Texture:SetAtlas(atlas, useSize)
@@ -312,7 +318,9 @@ function Texture:GetVertexColor() local v = S[self].vertex or { 1, 1, 1, 1 }; re
 function Texture:SetTexCoord(...)
 	local n = select("#", ...)
 	assert(n == 4 or n == 8, "SetTexCoord: 4 or 8 numbers expected")
-	S[self].texCoord = { ... }
+	local t = S[self].texCoord or {}
+	for i = 1, 8 do t[i] = (select(i, ...)) end
+	S[self].texCoord = t
 end
 function Texture:SetDesaturated(on) S[self].desaturated = not not on end
 function Texture:IsDesaturated() return S[self].desaturated end
@@ -340,7 +348,9 @@ function Texture:GetDrawLayer() return S[self].layer, S[self].sublevel end
 local Line = class("Line", "Texture")
 local function lineAnchor(self, which, point, rel, x, y)
 	assert(VALID_POINTS[point], "Line point: bad point")
-	S[self][which] = { point, rel or S[self].parent, x or 0, y or 0 }
+	local e = S[self][which] or {}
+	e[1], e[2], e[3], e[4] = point, rel or S[self].parent, x or 0, y or 0
+	S[self][which] = e
 end
 function Line:SetStartPoint(point, rel, x, y) lineAnchor(self, "startPoint", point, rel, x, y) end
 function Line:SetEndPoint(point, rel, x, y) lineAnchor(self, "endPoint", point, rel, x, y) end
@@ -590,7 +600,8 @@ local function blipsAt(m, px, py)
 	if not (l and pn) then return nil end
 	local at = S[m].blipsAt
 	if not at or Sim.time - at.t >= Sim.BLIP_STEP then
-		at = { n = pn, w = pw, t = Sim.time }
+		at = at or {}
+		at.n, at.w, at.t = pn, pw, Sim.time
 		S[m].blipsAt = at
 	end
 	pn, pw = at.n, at.w
@@ -600,15 +611,15 @@ local function blipsAt(m, px, py)
 	local r = C_Minimap.GetViewRadius()
 	local u = r / (W / 2)
 	local hit = Sim.BLIP_HIT / s
-	local names = {}
+	local names -- made on a hit only: a miss allocates nothing (allocation per frame is measured)
 	for _, blip in ipairs(Sim.minimapBlips) do
 		local east, north = pw - blip[3], blip[2] - pn
 		if east * east + north * north <= r * r then
 			local bx, by = W / 2 + east / u, H / 2 + north / u
-			if math.abs(fx - bx) <= hit and math.abs(fy - by) <= hit then names[#names + 1] = blip[1] end
+			if math.abs(fx - bx) <= hit and math.abs(fy - by) <= hit then names = names or {}; names[#names + 1] = blip[1] end
 		end
 	end
-	return #names > 0 and names or nil
+	return names
 end
 C_TooltipInfo = {
 	GetMinimapMouseover = function()
@@ -872,17 +883,34 @@ function strsplit(sep, s, limit)
 	end
 	return unpack(out)
 end
-function debugprofilestop() return os.clock() * 1000 end
+-- Sim.Clock: the ms clock behind debugprofilestop; a scenario may swap it (a counted clock).
+Sim.Clock = function() return os.clock() * 1000 end
+function debugprofilestop() return Sim.Clock() end
 function GetTime() return Sim.time end
 time = os.time
 date = os.date
 
 function GetBuildInfo() return "1.60.1", "70009", "Sep 1 2026", 16001 end
 
--- WoW's xpcall passes extra args to f (Lua 5.1's doesn't).
+-- WoW's xpcall passes extra args to f (Lua 5.1's doesn't). Up to 4 args go through one
+-- reused trampoline, so the shim allocates nothing (as the client's doesn't: allocation
+-- per frame is measured, docs/runtime.md); it reads its slots on entry, before f can nest.
 local xpcall51 = xpcall
+local tf, tn, t1, t2, t3, t4
+local function trampoline()
+	local f, n, a1, a2, a3, a4 = tf, tn, t1, t2, t3, t4
+	tf, t1, t2, t3, t4 = nil, nil, nil, nil, nil
+	if n == 0 then return f() elseif n == 1 then return f(a1) elseif n == 2 then return f(a1, a2)
+	elseif n == 3 then return f(a1, a2, a3) end
+	return f(a1, a2, a3, a4)
+end
 function xpcall(f, handler, ...)
-	local n, args = select("#", ...), { ... }
+	local n = select("#", ...)
+	if n <= 4 then
+		tf, tn, t1, t2, t3, t4 = f, n, ...
+		return xpcall51(trampoline, handler)
+	end
+	local args = { ... }
 	return xpcall51(function() return f(unpack(args, 1, n)) end, handler)
 end
 -- debugstack([thread,] [start]): the stack, without traceback's header.
@@ -1061,11 +1089,12 @@ WorldMapFrame.mapID = 1429 -- the map it shows (Elwynn Forest)
 function ToggleWorldMap() WorldMapFrame:SetShown(not WorldMapFrame:IsShown()) end
 function ToggleQuestLog() WorldMapFrame:SetShown(not WorldMapFrame:IsShown()) end
 
+local VIEW_INDOORS, VIEW_OUTDOORS = { [0] = 300, 240, 180, 120, 80, 50 }, { [0] = 466.67, 400, 333.33, 266.67, 200, 133.33 }
 C_Minimap = {
 	GetViewRadius = function()
 		-- Indoors (or somewhere you may mount, Sim.floorPlan) its indoor map.
 		local inside = Sim.indoors or Sim.floorPlan
-		local d = (inside and { [0] = 300, 240, 180, 120, 80, 50 } or { [0] = 466.67, 400, 333.33, 266.67, 200, 133.33 })[Minimap:GetZoom()]
+		local d = (inside and VIEW_INDOORS or VIEW_OUTDOORS)[Minimap:GetZoom()]
 		return d / 2
 	end,
 	SetMinimapInsetInfo = function(minAngle, maxAngle, scalar) Sim.rimInset = scalar end,

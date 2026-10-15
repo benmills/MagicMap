@@ -6,9 +6,10 @@
 
 local _, ns = ...
 local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
+local Data = ns.Data -- the generated datasets (Data/*.lua; atlas/Coords.lua)
 
 local function MapData(inst)
-	local maps = MagicMap_Sea and MagicMap_Sea.maps
+	local maps = Data.Sea and Data.Sea.maps
 	return maps and maps[inst]
 end
 
@@ -21,10 +22,10 @@ function Atlas.Sea(inst)
 		local m = MapData(inst)
 		s = false
 		if m then
-			local dir = Atlas.ROOT .. MagicMap_Sea.dir
-			s = { textures = {}, gain = MagicMap_Sea.gain, tint = dir .. inst .. "_tint.tga", rect = m.tint,
+			local dir = Atlas.ROOT .. Data.Sea.dir
+			s = { textures = {}, gain = Data.Sea.gain, tint = dir .. inst .. "_tint.tga", rect = m.tint,
 				far = { m.far[1] / 255, m.far[2] / 255, m.far[3] / 255 } }
-			for v = 0, MagicMap_Sea.variants - 1 do
+			for v = 0, Data.Sea.variants - 1 do
 				s.textures[v + 1] = dir .. inst .. "_ocean" .. v .. ".blp"
 			end
 		end
@@ -38,7 +39,7 @@ end
 function Atlas.SeaVariant(col, row)
 	local h = (col * 1619 + row * 31337 + 1013) % 65521
 	h = (h * h + col * 7) % 65521
-	return h % (MagicMap_Sea and MagicMap_Sea.variants or 1) + 1
+	return h % (Data.Sea and Data.Sea.variants or 1) + 1
 end
 
 -- The mask path for a coast tile's art (its sides facing the sea fade out), or
@@ -46,5 +47,5 @@ end
 function Atlas.SeaFeather(inst, key)
 	local m = MapData(inst)
 	local code = m and m.coast[key]
-	return code and Atlas.ROOT .. MagicMap_Sea.dir .. "feather_" .. code .. ".tga"
+	return code and Atlas.ROOT .. Data.Sea.dir .. "feather_" .. code .. ".tga"
 end

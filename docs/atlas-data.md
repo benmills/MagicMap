@@ -2,8 +2,38 @@
 
 Atlas bundles every static fact MagicMap needs as generated Lua data files in
 `Data/`, so nothing static is read from the game or QuestieDB at runtime. Each
-file is a global table, written by a generator in `tools/` from one game build
-(and one QuestieDB version), with a header naming its source and layout.
+file is one dataset, `ns.Data.<Name>`, written by a generator in `tools/` from one
+game build (and one QuestieDB version), with a header naming its source and layout.
+
+## The wrapper: no globals
+
+A global is shared with every addon: the rebuild's old `MagicMap_*` data globals had
+the MagicMap spike's names and broke it 2980 times in one session
+(docs/evidence/spike-bugs.md E1). So no Data file sets a global. After its header
+comments each starts
+
+```lua
+local _, ns = ...
+local D = ns.Data or {}; ns.Data = D
+D.formats = D.formats or {}; D.formats.Tiles = 1
+D.Tiles = { ... }
+```
+
+- **`ns.Data.<Name>`** is the dataset (the headings below); Atlas reads only that
+  (`local Data = ns.Data` in each atlas/ file). Nothing else reads ns.Data
+  (tools/luacheck.py NS_RULES); game/Validate.lua counts rows through `Atlas.Data`.
+- **`ns.Data.formats.<Name>`** is the file's format, a whole number bumped when the
+  dataset's shape changes. It lives beside the dataset, not in it, so `pairs` over an
+  ID-keyed dataset never meets it. The numbers are `FORMATS` in
+  tools/mmtools/luaout.py (the generators, via `data_head`) and `Atlas.FORMATS` in
+  atlas/Coords.lua; tools/tests/test_atlas.py checks they agree. At load
+  atlas/Coords.lua drops any dataset whose format isn't the one Atlas reads (Atlas then
+  answers as if the file were missing, as for the gitignored QuestieDB files) and raises
+  one error naming each such file: `MagicMapAtlas: Data/UiMaps.lua is format 0, Atlas
+  reads 1: regenerate (README, tools/gen_*.py)`. Not a cascade of nil indexes.
+- Python reads a Data file the way WoW does, called with `(addon, ns)`:
+  `tools/mmtools/luaout.py load_data(lua, path)` returns `ns`
+  (tools/atlas_lua.py loads them all, then Atlas, into one ns).
 
 ## Conventions
 
@@ -29,7 +59,7 @@ file is a global table, written by a generator in `tools/` from one game build
 Listed in Atlas's load order (`atlas/files.txt`), each with the Atlas calls
 that read it.
 
-### Data/Tiles.lua — `MagicMap_Tiles` (WDT MAID chunks, Map DB2)
+### Data/Tiles.lua — `ns.Data.Tiles` (WDT MAID chunks, Map DB2)
 `{ product, version, maps = { [inst] = { name, bg, kind, continent, tiles } } }`
 - tiles[key] = minimap FileDataID of `map<col>_<row>`, key = col * 64 + row: exactly the
   tiles this build's WDT lists. Every open-world map, dungeon and raid with minimap tiles.
@@ -41,7 +71,7 @@ that read it.
   `Atlas.TileInfo(inst, key)` → `{ fdid, tint, edge, sea }` (with TileColor);
   `Atlas.Drawn(inst, key)`.
 
-### Data/TileColor.lua — `MagicMap_TileColor` (minimap tiles)
+### Data/TileColor.lua — `ns.Data.TileColor` (minimap tiles)
 `[inst] = { tint, edge, sea }`, key = col * 64 + row
 - tint[key] = `{ mr, mg, mb, ar, ag, ab }`: drawn = texel * m + a, for tiles whose baked
   lighting is off from their neighbours' (open-world maps; only those that need it).
@@ -51,7 +81,7 @@ that read it.
   not drawn; `Atlas.Drawn` is false there. The art's own water is otherwise left as it is.
 - Read through `Atlas.TileInfo` and `Atlas.Drawn` (above).
 
-### Data/Sea.lua — `MagicMap_Sea` (minimap tiles, ADT MH2O ocean + MCVT heights) and Textures/Sea
+### Data/Sea.lua — `ns.Data.Sea` (minimap tiles, ADT MH2O ocean + MCVT heights) and Textures/Sea
 `{ product, version, dir, variants, gain, feather, maps = { [inst] = { tint, far, coast } } }`
 - The open sea beyond the tiles (no tile, or TileColor sea[]), continuing the art's own water:
   the art is drawn as it is and the sea fills the rest. Open-world maps with ≥ 4 open-sea
@@ -78,7 +108,7 @@ that read it.
 - `Atlas.Sea(inst)` → `{ textures, gain, tint, rect, far }` (far 0..1) or nil;
   `Atlas.SeaVariant(col, row)` → 1..variants; `Atlas.SeaFeather(inst, key)` → mask path or nil.
 
-### Data/UiMaps.lua — `MagicMap_UiMaps` (UiMap + UiMapAssignment DB2)
+### Data/UiMaps.lua — `ns.Data.UiMaps` (UiMap + UiMapAssignment DB2)
 `[uiMapID] = { name, mapType, parent, inst, col0, row0, col1, row1, areaID }`
 - mapType per Enum.UIMapType (1 world, 2 continent, 3 zone, 6 orphan).
 - rect from the uiMap's first assignment (OrderIndex); nil for maps without one.
@@ -86,7 +116,7 @@ that read it.
 - `Atlas.UiMap(id)`, `Atlas.MapRect(id)`, `Atlas.MapToTile(id, x, y)`, `Atlas.TileToMap(id, col, row)`,
   `Atlas.Zones(inst)` (zone uiMaps by name), `Atlas.Continent(inst)` → the continent's uiMapID.
 
-### Data/Areas.lua — `MagicMap_Areas` (AreaTable DB2)
+### Data/Areas.lua — `ns.Data.Areas` (AreaTable DB2)
 `[areaID] = { name, parent, inst, level, faction, uiMap }`
 - parent: parent areaID (nil for zones). level: ExplorationLevel.
 - faction from FactionGroupMask (2 → "A", 4 → "H").
@@ -94,7 +124,7 @@ that read it.
 - `Atlas.Area(id)` → named row + `zone` (its top ancestor); `Atlas.ZoneLevels(zone)` → min, max
   (from its subzones' levels).
 
-### Data/AreaGrid.lua — `MagicMap_AreaGrid` (ADT chunk areas)
+### Data/AreaGrid.lua — `ns.Data.AreaGrid` (ADT chunk areas)
 `[inst] = { [tileKey] = { palette, cells } }`, tileKey = col * 64 + row.
 - palette: array of areaIDs used in the tile (≤ 52).
 - cells: the 256 chunks (index iy * 16 + ix) as letters, `a`..`z` then `A`..`Z`
@@ -103,7 +133,7 @@ that read it.
 - `Atlas.AreaAt(inst, col, row)` → areaID; `Atlas.ZoneAt(inst, col, row)` →
   `{ mapID, name, x, y, zone, area }`.
 
-### Data/Borders.lua — `MagicMap_Borders` (ADT chunk areas)
+### Data/Borders.lua — `ns.Data.Borders` (ADT chunk areas)
 `[inst] = { lines, far, outlines, labels }`, positions in tile space (3 decimals).
 - lines: zone borders `{ areaA, areaB, fadeStart, fadeEnd, x1, y1, x2, y2, ... }`, one
   per stretch between junctions. Traced along chunk edges between two zones' land,
@@ -123,7 +153,7 @@ that read it.
   `Atlas.ZoneOutline(inst, zone)`; `Atlas.Labels(inst)` ranks these labels with the
   continent's name and AreaPOI towns and landmarks (Places).
 
-### Data/Walk.lua — `MagicMap_Walk` (ADT MCVT heights, MH2O liquids)
+### Data/Walk.lua — `ns.Data.Walk` (ADT MCVT heights, MH2O liquids)
 `[inst] = { [tileKey] = cells }`, open-world maps with ≥ 20 terrain tiles.
 - cells: the tile's 256 chunks (index iy * 16 + ix) as letters `'a' + value`, each
   optionally followed by a run length. value = class (0 blocked: mostly too steep,
@@ -134,7 +164,7 @@ that read it.
   east, south; `Atlas.Walk.CanMove(inst, gc, gr, dx, dy)` (8 ways);
   `Atlas.Walk.Snap(inst, gc, gr)` → the nearest standable chunk within 4.
 
-### Data/Places.lua — `MagicMap_Places` (DB2)
+### Data/Places.lua — `ns.Data.Places` (DB2)
 - `flight[nodeID] = { name, faction, inst, col, row, areaID }` (TaxiNodes)
 - `taxiPaths = { { from, to, cost }, ... }` (TaxiPath)
 - `pois[poiID] = { name, description, icon, importance, inst, col, row, areaID }` (AreaPOI)
@@ -145,11 +175,11 @@ that read it.
 - `Atlas.FlightPoints(inst)`, `Atlas.TaxiPaths()`, `Atlas.POIs(inst)` (sorted by id),
   `Atlas.Dungeon(instID)`, `Atlas.Dungeons(entranceInst)`.
 
-### Data/ItemIcons.lua — `MagicMap_ItemIcons` (Item DB2)
+### Data/ItemIcons.lua — `ns.Data.ItemIcons` (Item DB2)
 `[itemID] = iconFileDataID`
 - `Atlas.Item(id).icon`.
 
-### Data/Npcs.lua — `MagicMap_Npcs` (QuestieDB; gitignored)
+### Data/Npcs.lua — `ns.Data.Npcs` (QuestieDB; gitignored)
 `[npcID] = { name, subName, minLevel, maxLevel, rank, faction, flags, questStarts, questEnds, spawns, instances }`
 - rank: 1 elite, 2 rare elite, 3 boss, 4 rare.
 - flags: Classic npcFlags (2 quest giver, 4 vendor, 8 flight master, 16 trainer,
@@ -158,15 +188,15 @@ that read it.
 - spawns: point lists per inst. instances: instIDs of dungeons it spawns inside
   (QuestieDB's -1,-1 spawns), resolved via QuestieDB's dungeon zone table.
 
-### Data/Objects.lua — `MagicMap_Objects` (QuestieDB; gitignored)
+### Data/Objects.lua — `ns.Data.Objects` (QuestieDB; gitignored)
 `[objectID] = { name, kind, questStarts, questEnds, spawns, instances }`
 - kind: "mailbox" | "herb" | "ore" | nil (by name: the herb list, " Vein"/" Deposit" suffix, "Mailbox").
 - Nameless QuestieDB stubs are skipped.
 
-### Data/Items.lua — `MagicMap_Items` (QuestieDB; gitignored)
+### Data/Items.lua — `ns.Data.Items` (QuestieDB; gitignored)
 `[itemID] = { name, npcDrops, objectDrops, itemDrops, vendors, startQuest, class, subClass, requiredLevel }`
 
-### Data/Quests.lua — `MagicMap_Quests` (QuestieDB; gitignored)
+### Data/Quests.lua — `ns.Data.Quests` (QuestieDB; gitignored)
 `[questID] = { name, level, requiredLevel, faction, races, classes, startedBy, finishedBy, objectives, objectivesText, zone, sort, preQuestSingle, preQuestGroup, exclusiveTo, nextQuest, breadcrumbFor, triggerEnd }`
 - faction from requiredRaces (Alliance-only / Horde-only races) or nil.
 - startedBy = `{ npcs, objects, items }`, finishedBy = `{ npcs, objects }` (ID lists, nil when empty).
