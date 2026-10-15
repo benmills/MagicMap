@@ -40,9 +40,14 @@ def test_map():
     assert c.cam.zoom == 16
     live, _ = stats(e)
     assert live["font"] > 0, live
-    sim.Click(w.view, "RightButton")  # Follow me: glides back to you, then follows
+    sim.Click(w.view, "RightButton")  # the map's menu: Follow me glides back to you, then follows
+    items = [e for e in sim.MenuItems("button").values() if e.text == "Follow me"]
+    assert len(items) == 1
+    items[0].onSelect()
     sim.Run(1)
     assert c.follow
+    sim.Click(w.view, "RightButton")  # following: nothing to offer
+    assert sim.menu is None
     sim.Slash("/mma mapstats")
     sim.Slash("/mma map")
     assert not w.frame.IsShown(w.frame)

@@ -57,6 +57,15 @@ local function AddSections(sub, sections)
 	end
 end
 
+-- The map's right-click menu (Core.lua:1355-1385), its minimum for now: "Follow me" while you
+-- aren't followed (waypoints, the big map's zone info: M3.4).
+function Menus.Map(owner)
+	if UI.Camera.follow then return end
+	Menus.Show(owner, function(_, root)
+		root:CreateButton("Follow me", function() UI.Motion.SetFollow(true, true) end)
+	end)
+end
+
 function Menus.Gear(owner)
 	Menus.Show(owner, function(_, root)
 		for _, fn in ipairs(Menus.gear) do fn(root) end

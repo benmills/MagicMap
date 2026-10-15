@@ -89,21 +89,27 @@ end
 local moving
 view:SetScript("OnMouseWheel", Runtime.Wrap("map: wheel", function(_, delta) UI.Motion.Wheel(delta) end))
 view:SetScript("OnMouseDown", Runtime.Wrap("map: press", function(_, button)
-	if button == "LeftButton" and IsAltKeyDown() then
+	if button ~= "LeftButton" then return end
+	if IsAltKeyDown() then
 		frame:StartMoving()
 		moving = true
 		return
 	end
-	UI.Motion.Press(button)
+	UI.Motion.Press()
 end))
-view:SetScript("OnMouseUp", Runtime.Wrap("map: release", function()
+-- Only the left button's release ends a press; the right one's opens the map's menu (Core.lua:1387-1399).
+view:SetScript("OnMouseUp", Runtime.Wrap("map: release", function(_, button)
 	if moving then
 		frame:StopMovingOrSizing()
 		moving = nil
 		Moved()
 		return
 	end
-	UI.Motion.Release()
+	if button == "RightButton" then
+		if not (IsShiftKeyDown() or IsControlKeyDown()) then UI.Menus.Map(view) end
+	elseif button == "LeftButton" then
+		UI.Motion.Release()
+	end
 end))
 -- In the window (a tip on one of its widgets goes with it: Game hides only its own, spike-bugs G7).
 local function Within(f)
@@ -143,12 +149,11 @@ end
 
 Runtime.Step("ui", "map: draw", function(elapsed)
 	UI.BigMap.Step(elapsed)
-	local you = You()
+	local you, Motion = You(), UI.Motion
+	Motion.Chase(you) -- (a map that withholds where you are: the whole of it)
 	if not Camera.inst or (Camera.follow and you) then Camera.inst = you and you.inst or Camera.inst or 0 end -- following: your map
 	local inst = Camera.inst
 	if inst ~= drawn then SetInst(inst) end
-	local Motion = UI.Motion
-	Motion.Chase(you)
 	local cam = Camera.cam
 	local w, h = Window.Size()
 	if w <= 0 or h <= 0 then return end

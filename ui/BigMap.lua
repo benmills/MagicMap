@@ -109,7 +109,8 @@ local function Grow()
 	if BigMap.big then return end
 	BigMap.big = true
 	if not small then -- still shrinking back from the last time: the rect to return to stands
-		small = { left = frame:GetLeft(), top = frame:GetTop(), w = frame:GetWidth(), h = frame:GetHeight(), zoom = Camera.cam.zoom }
+		small = { left = frame:GetLeft(), top = frame:GetTop(), w = frame:GetWidth(), h = frame:GetHeight(),
+			zoom = (Motion.Goal()) } -- where a chase or flight was headed (MinimapMode.lua:152)
 		restoreAlpha = BigMap.homeAlpha
 	end
 	local k = UIParent:GetEffectiveScale() / frame:GetEffectiveScale() -- /: never 0 (an effective scale is > 0)

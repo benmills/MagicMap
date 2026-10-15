@@ -24,6 +24,7 @@ local ZOOM_STOP = 0.002 -- log distance the chase lands from (Core.lua:969)
 local CLICK_SLOP, CLICK_TIME = 5, 0.35 -- a click moves less than this many px, this fast (Core.lua:17)
 local IDLE_FOLLOW = 6 -- s untouched before the map follows you again (MinimapMode.lua:20)
 local FIT = 0.92 -- a rect flown to fills this much of the view (Core.lua:1038)
+local WHOLE = 1.0 -- a whole map shown fills the view (Core.lua:1146)
 local CHUNKS = Atlas.Walk.CHUNKS -- a tile's walk chunks a side: Focus's rect is out to whole ones
 
 local Motion = {}
@@ -75,10 +76,12 @@ function Motion.FlyTo(cx, cy, zoom, duration, onDone)
 		tx = cx, ty = cy, tz = Clamp(zoom, MIN_ZOOM, MAX_ZOOM), onDone = onDone }
 end
 
--- Following (the view centred on you) or free. glide: fly back to you first, at the zoom you have.
+-- Following (the view centred on you) or free. glide: fly back to you first, at the zoom you have,
+-- on your map (Core.lua:1080-1085).
 function Motion.SetFollow(on, glide)
 	local you = ns.Model.you
 	if on and glide and you.col then
+		Camera.inst = you.inst
 		Motion.FlyTo(you.col, you.row, Camera.cam.zoom, FLY_TIME, function() Motion.SetFollow(true) end)
 		return
 	end
@@ -94,6 +97,23 @@ function Motion.FlyToRect(c0, r0, c1, r1)
 	local w, h = Window.Size()
 	local cx, cy, zoom = Maths.Fit(c0, r0, c1, r1, w, h, FIT, MIN_ZOOM, MAX_ZOOM)
 	Motion.FlyTo(cx, cy, zoom)
+end
+
+-- A whole map at once, ending any chase or flight: its continent's rect, else its tiles'
+-- (Core.lua:1133-1152, FitMap).
+function Motion.FitMap(inst)
+	goal, flight = nil, nil
+	Camera.inst = inst
+	local cont = Atlas.Continent(inst)
+	local r = cont and Atlas.MapRect(cont)
+	local c0, r0, c1, r1
+	if r then c0, r0, c1, r1 = r.col0, r.row0, r.col1, r.row1 else c0, r0, c1, r1 = Atlas.TileBounds(inst) end
+	if c0 then
+		local w, h = Window.Size()
+		Set(Maths.Fit(c0, r0, c1, r1, w, h, WHOLE, MIN_ZOOM, MAX_ZOOM))
+	else
+		Set(32, 32, Camera.cam.zoom)
+	end
 end
 
 -- Straight to a zoom, about the view's centre, ending any chase or flight.
@@ -113,11 +133,15 @@ function Motion.Goal()
 	return zoom, cam.cx, cam.cy
 end
 
--- Following: the view centred on you (Model.you with an inst, or nil), but while a flight flies.
+-- Following: the view centred on you (Model.you with an inst, or nil), but while a flight flies;
+-- on a map that withholds where you are, the whole of it (Core.lua:1540-1542: K5).
 function Motion.Chase(you)
-	if Camera.follow and you and you.col and not flight then
+	if not (Camera.follow and you) or flight then return end
+	if you.col then
 		local cam = Camera.cam
 		cam.cx, cam.cy = you.col, you.row
+	elseif you.inst ~= Camera.inst then
+		Motion.FitMap(you.inst)
 	end
 end
 
@@ -158,15 +182,12 @@ end
 -- A press that has moved: the map is being dragged.
 function Motion.Dragging() return press ~= nil and press.moved == true end
 
-function Motion.Press(button)
-	if button == "LeftButton" then
-		local x, y = Window.Cursor()
-		touched = GetTime()
-		goal, flight = nil, nil
-		press = { x = x, y = y, lx = x, ly = y, t = touched, moved = false }
-	elseif button == "RightButton" and not Camera.follow then
-		Motion.SetFollow(true, true) -- the spike's "Follow me" (Core.lua:1367); its right-click menu: M3.4
-	end
+-- The left button down (Core.lua:1344-1352).
+function Motion.Press()
+	local x, y = Window.Cursor()
+	touched = GetTime()
+	goal, flight = nil, nil
+	press = { x = x, y = y, lx = x, ly = y, t = touched, moved = false }
 end
 
 -- The left button up: true for a click, the press moved under CLICK_SLOP and up within CLICK_TIME.
