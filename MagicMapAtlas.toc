@@ -57,6 +57,10 @@ game\Record.lua
 game\Validate.lua
 game\Bench.lua
 
+# Game: commands (Game.Handle)
+game\commands\slash.lua
+game\commands\load.lua
+
 # UI
 ui\Map.lua
 ui\Tiles.lua

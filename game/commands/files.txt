@@ -1,0 +1,2 @@
+game/commands/slash.lua
+game/commands/load.lua

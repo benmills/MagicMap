@@ -95,6 +95,7 @@ globals each may read (`BOUNDARIES`: sections of `tools/lua51_globals.txt` and
 | model/   | Lua 5.1 only                                  | Model, Atlas, Runtime                      |
 | ui/      | Lua 5.1 + `[lua]` `[ui]`: widgets, input     | UI, Model, Atlas, Runtime; `Game.Command` (slash and saved data too) |
 | game/    | all of it, and only it the SavedVariables     | Game, Atlas, Runtime; `UI.View`, `Model.Observe` / `Load` / `SAVED` |
+| game/parts/, game/commands/ | as game/                     | Game, Atlas, Runtime (no View, no Model: Observe and Apply have those) |
 
 Known violations waiting on a contract are `BASELINE` in `tools/luacheck.py` (each with
 its TODO); the check fails once one is gone, so the list only shrinks.

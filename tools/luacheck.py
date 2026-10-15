@@ -63,6 +63,9 @@ BOUNDARIES = {
 # listed fields of another. Game talks to UI only through View, Model only
 # through Observe (and Load / SAVED: its saved part, types/model.lua); UI talks to
 # Game only through Command (the commands channel: slash and load too).
+# A subfolder with its own rule has it (the longest match): Game's parts read
+# the game for Observe and its commands carry out UI's in Input, so neither
+# reads View (Apply's) or Model (Observe hands obs over).
 NS_RULES = {
     "Data": ({"Data"}, {}),
     "atlas": ({"Atlas", "Data"}, {}),
@@ -70,6 +73,8 @@ NS_RULES = {
     "model": ({"Model", "Atlas", "Runtime"}, {}),
     "ui": ({"UI", "Model", "Atlas", "Runtime"}, {"Game": {"Command"}}),
     "game": ({"Game", "Atlas", "Runtime"}, {"UI": {"View"}, "Model": {"Observe", "Load", "SAVED"}}),
+    "game/parts": ({"Game", "Atlas", "Runtime"}, {}),
+    "game/commands": ({"Game", "Atlas", "Runtime"}, {}),
 }
 
 # Known violations, each waiting on a contract: (file, System, field). Keep it
@@ -177,6 +182,15 @@ def folder(rel: str) -> str:
     return rel.replace("\\", "/").split("/")[0]
 
 
+def area(rel: str, rules: dict) -> str:
+    """The longest key of rules that rel's folders start with ("game/parts" over "game")."""
+    parts = rel.replace("\\", "/").split("/")[:-1]
+    for n in range(len(parts), 0, -1):
+        if "/".join(parts[:n]) in rules:
+            return "/".join(parts[:n])
+    return parts[0] if parts else ""
+
+
 def saved_variables() -> set[str]:
     with open(TOC, encoding="utf-8-sig") as f:
         for line in f:
@@ -235,7 +249,8 @@ def check_ns(paths: list[str]) -> int:
     problems, used = 0, set()
     for path in paths:
         rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
-        rule = NS_RULES.get(folder(rel))
+        where = area(rel, NS_RULES)
+        rule = NS_RULES.get(where)
         if not rule:
             continue
         own, fields = rule
@@ -250,7 +265,7 @@ def check_ns(paths: list[str]) -> int:
                 used.add((rel, system, field))
                 continue
             what = f"ns.{system}.{field}" if field else f"ns.{system}"
-            print(f"{rel}:{line}: {folder(rel)}/ may not use {what} (NS_RULES in tools/luacheck.py)")
+            print(f"{rel}:{line}: {where}/ may not use {what} (NS_RULES in tools/luacheck.py)")
             problems += 1
     for rel, system, field in sorted(BASELINE - used):
         if os.path.join(ROOT, rel) in paths:
