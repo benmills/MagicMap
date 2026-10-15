@@ -4,16 +4,19 @@ The repo root is the addon root. Folders follow architecture.md: two libraries
 (Atlas, Runtime) under three systems (Game, Model, UI).
 
 ```
-MagicMapAtlas.toc     load order (below); addon name until we merge into MagicMap
+MagicMapAtlas.toc     load order (below), generated from each folder's files.txt; addon name until we merge into MagicMap
 Data/                 generated Atlas data (some gitignored: QuestieDB-derived)
 Textures/             generated textures the addon loads (Sea, ...)
 atlas/                Atlas library: facts that hold (plain Lua 5.1, no WoW API)
 runtime/              Runtime library: when things run (frame steps, slices, timers, events, perf)
 game/                 Game system: the only code that touches the WoW API, other addons, SavedVariables
+game/parts/           the observation's parts (Game.Part), one file each
+game/commands/        the command kinds Game carries out (Game.Handle), one file each
 model/                Model system: what we know (plain Lua; sees only what it's handed)
 ui/                   UI system: what you see and do (frames, drawing, input → commands)
 types/                LuaLS annotations of the contracts between pieces (not in the TOC, not shipped)
 tools/                generators, exporters, install/package, luacheck, tests (not shipped)
+tools/tests/replays/  the spike bugs' replays, R-<id>.lua, one each (test_spike_bugs.py runs them)
 demo/                 web demo of Atlas (not shipped)
 docs/                 architecture notes and data contract (not shipped)
 docs/decisions/       decision records, one per locked contract (ADR style, numbered)
@@ -104,6 +107,24 @@ isn't listed.
 - `Runtime.boot` — `t0, mem0` at load start (runtime/Boot.lua); `loaded` = `{ t, mem }`
   once Atlas has loaded; `login` = `{ t, mem }` at PLAYER_LOGIN.
 
+## Registries: a new piece is a new file
+
+Shared files take additions by registration, so packages add files instead of editing
+the same ones (each listed in its folder's `files.txt`):
+
+| Registry | In | One file each | Called |
+|---|---|---|---|
+| `Game.Part(name, read)` | game/Observe.lua | game/parts/ (`You`, `MinimapState`; blips: game/Blips.lua) | observe step, each frame: `obs[name] = read(obs)` in registration order (blips first, then game/parts/files.txt), so a part may read those before it; per-frame parts refill one table, on-change parts hand a new one only when it changed (types/observation.lua) |
+| `Game.Handle(kind, fn)` | game/Command.lua | game/commands/ (`slash`, `load`) | input step: `fn(cmd)` for each queued command of that kind (types/view.lua Commands) |
+| `Game.Apply(name, fn)` | game/Apply.lua | game/ (`Minimap`) | apply phase, each frame: `fn(view)` as its own step `game.<name>`; view is `UI.View()`, or SAFE when Game doesn't know its `v` |
+| `Engine.Layer(name, level, build, rev)` | ui/Engine.lua | ui/ (`Tiles`, `Borders`, `Labels`, `Blips`, `Rares`) | `build(canvas, inst, zoom, c0, r0, c1, r1)` in a layout job when the view, zoom, map or `rev()` needs it; regions from `Engine.Get` |
+
+The map window is four files: ui/Camera.lua (where it looks: `cam`, `inst`, `follow`;
+`Camera.Settled()`, `Camera.Velocity()`), ui/Window.lua (the frame; routes the view's input
+to Motion; its `map: draw` step), ui/Engine.lua (layers, canvases, layout jobs, swap) and
+ui/Motion.lua (wheel, drag, follow, chase). The spike bugs' replays are one file each,
+tools/tests/replays/R-<id>.lua, collected by tools/tests/test_spike_bugs.py.
+
 ## Slash commands
 
 `ns.Game.Slash(name, help, fn)` registers `/mma <name>` (`fn(args)`, wrapped); `/mma`
@@ -112,13 +133,16 @@ UI registers its own through `Game.Command({ kind = "slash", ... })`.
 
 ## One flow end to end: Minimap blips
 
-    apply    game/Minimap.lua   View.minimap "ours" + window shown: Blizzard's Minimap an unseen
-                                sensor under View.window.place (undo list; "blizzard": released)
-    observe  game/Blips.lua     Game.Blips(): a slice of the sweep where Apply placed it, once still
-             game/Observe.lua   obs.blips, obs.minimap → Model.Observe(obs, oracles)
+    apply    game/Minimap.lua   Game.Apply("minimap"): View.minimap "ours" + window shown: Blizzard's
+                                Minimap an unseen sensor under View.window.place (undo list;
+                                "blizzard": released)
+    observe  game/Blips.lua     the blips part, Game.Blips(): a slice of the sweep where Apply placed
+                                it, once still
+             game/parts/MinimapState.lua  obs.minimap (sensing: the blips part read)
+             game/Observe.lua   the parts → Model.Observe(obs, oracles)
              game/Record.lua    /mma record on|off: the observations, for replay
     model    model/Blips.lua    merged with the remembered (saved.blips): Known("blips")
-    ui       ui/Blips.lua       the "blips" layer draws Known("blips"), redrawn on its rev
+    ui       ui/Blips.lua       the "blips" layer (Engine.Layer) draws Known("blips"), redrawn on its rev
              ui/View.lua        UI.View(): minimap, window (place, still), layers; Model.Focus
     tests    tools/tests/test_blips.py: end to end in the sim (and /reload); Model alone replaying
              tools/tests/fixtures/blips_stream.lua (tools/tests/replay.lua)

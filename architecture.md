@@ -67,3 +67,11 @@ The blip sensor reads where the last Apply placed the Minimap, and waits until t
 **Runtime** (library)
   frame steps · slices and budgets · timers · events · perf (/mm perf)
   wraps every callback for timing and isolation
+
+## Registries
+
+A shared file takes additions by registration, so a new piece is a new file:
+`Game.Part` (a part of the observation, game/parts/), `Game.Handle` (a command kind,
+game/commands/), `Game.Apply` (an apply step acting on View), `Engine.Layer` (a map
+layer, ui/). Each folder lists its files in `files.txt`; the TOC is made from them.
+docs/structure.md "Registries" has the calls.
