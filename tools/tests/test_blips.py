@@ -11,6 +11,10 @@
   Model: one entry per blip across sweeps, a remembered one a sweep missed is
   forgotten, one walked away from is kept and survives a reload of Model's saved part.
 
+  test_blips_priced (the sim on the priced clock: a probe costs 0.1 ms, nothing else
+  moves it): the sensor within 2 ms a frame standing, measuring and walking; every
+  blip exact within 2 sweeps of standing still; icons from Atlas.BlipService.
+
   .venv/bin/python tools/tests/test_blips.py   # records the scenario again into the fixture
 """
 import math
@@ -31,10 +35,16 @@ START = (31.95, 49.75)
 # name, yards east and north of the start
 BLIPS = [("Mailbox", 40, 20), ("Mailbox", -50, -70), ("Peacebloom", -60, 30)]
 MAILBOX = 136459  # the sim's Mailbox tracking texture
+# Atlas.BlipService (M1.2's accessor of Data.BlipServices), stubbed: the names these scenarios use.
+SERVICES = {"Innkeeper Belm": "innkeeper"}
 
 
 def lua_tools(L):
     return L.eval("function(path) return assert(loadfile(path))() end")(os.path.join(TESTS, "replay.lua"))
+
+
+def stub_services(L, ns):
+    ns.Atlas.BlipService = L.eval("function(t) return function(name) return t[name] end end")(L.table_from(SERVICES))
 
 
 def put_blips(L, sim, ns, blips):
@@ -81,6 +91,7 @@ def scenario(L, sim, ns, check=lambda *_: None):
 
 def test_blips_end_to_end():
     L, sim, ns = boot()
+    stub_services(L, ns)
     G, Game, UI = L.globals(), ns.Game, ns.UI
     same = L.eval("function(a, b) return a == b end")
     seen = {}
@@ -178,9 +189,78 @@ def test_blips_replay():
     assert [(b["name"], b["live"]) for b in again] == [("Mailbox", False)] and near(again[0], 40, 20)
 
 
+def sensed(ns):
+    b = ns.Game.obs.blips
+    return [dict(name=x.name, rough=x.rough, col=x.pos.col, row=x.pos.row, icon=x.icon)
+            for x in (b.list.values() if b else [])]
+
+
+def exact(got, want):
+    """Each blip of `want` known once, measured (not rough), within half a yard; nothing else."""
+    return len(got) == len(want) and all(
+        sum(1 for b in got if b["name"] == name and not b["rough"] and near(b, east, north, 0.5)) == 1
+        for name, east, north in want)
+
+
+def test_blips_priced():
+    L, sim, ns = boot()
+    stub_services(L, ns)
+    sim.Clock = L.eval("function() return 0 end")  # only what's priced moves the clock
+    sim.Price(True)
+    # Two Peacebloom whose squares overlap (D3), an innkeeper by its service, and a vein
+    # that comes into reach only on the walk east.
+    here = BLIPS + [("Peacebloom", -52, 36), ("Innkeeper Belm", 70, -30)]
+    vein = ("Copper Vein", 330, 10)
+    put_blips(L, sim, ns, here + [vein])
+    sim.Slash("/mma map")
+    sweep = lambda: ns.Game.obs.blips.sweep if ns.Game.obs.blips else 0
+
+    def until(n):
+        for _ in range(60 * 10):
+            if sweep() >= n:
+                return
+            sim.Step()
+        raise AssertionError(f"no sweep {n}: {sweep()}")
+
+    until(2)  # standing still from the start: exact within 2 sweeps
+    got = sensed(ns)
+    assert exact(got, here), got
+    icons = {b["name"]: b["icon"] for b in got}
+    assert icons == {"Mailbox": MAILBOX, "Peacebloom": None, "Innkeeper Belm": 136458}, icons
+
+    # Walking east 10 s: what's known stays (once), the vein comes in rough, nothing doubles.
+    counts = {}
+    for name, _, _ in here + [vein]:
+        counts[name] = counts.get(name, 0) + 1
+    sim.player.facing, sim.player.speed = math.pi / 2, 14
+    rough = None
+    for _ in range(600):
+        sim.Step()
+        got = sensed(ns)
+        for name, n in counts.items():
+            assert sum(1 for b in got if b["name"] == name) <= n, (name, got)
+        rough = rough or next((b for b in got if b["name"] == "Copper Vein"), None)
+    assert rough and rough["rough"], rough
+    off = math.hypot((rough["col"] - START[0]) / YD - 330, (START[1] - rough["row"]) / YD - 10)
+    assert off < 25, off  # a rough one stands where a point hit it: within a square (and the client's lag)
+    sim.player.speed = 0
+    sim.Run(0.5)  # SETTLE: the client's blips stop stepping
+    until(sweep() + 2)
+    assert exact(sensed(ns), here + [vein]), sensed(ns)
+
+    perf = ns.Runtime.Perf()[0]
+    part, observe = perf["game.part blips"], perf["game.observe"]
+    stats = L.globals().MagicMapAtlasDB.telemetry.sessions[1].stats["blips"]
+    print(f"priced sensor: game.part blips max {part.max:.2f} ms, game.observe max {observe.max:.2f} ms; "
+          f"{sweep()} sweeps, the longest {stats.frames} frames, {stats.probes} probes")
+    assert part.max <= 2 and observe.max <= 2
+    assert not errors(sim, ns), errors(sim, ns)
+
+
 def record():
     """The scenario with /mma record on, its stream written to the fixture."""
     L, sim, ns = boot()
+    stub_services(L, ns)
     scenario(L, sim, ns)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
     obs = L.globals().MagicMapAtlasDB.recording.obs

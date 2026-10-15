@@ -4,13 +4,13 @@
 --     Minimap becomes an unseen sensor, SENSOR_PX square, centred under the
 --     window's view (kept on the screen: off it the client stops updating its
 --     blips), just beneath the window's strata, at its widest zoom, north up, no
---     ground, no mouse. What hung on it waits on a stand-in at its home spot; the
---     cluster hides.
+--     ground, no mouse (each put right every apply: other client code turns them
+--     back). What hung on it waits on a stand-in at its home spot; the cluster hides.
 --   otherwise (or a View Game can't use: SAFE, game/Apply.lua): released, every change undone.
 -- Every change Engage makes is paired with its undo on a list; Release runs it
 -- backwards, so what comes back is exactly what was taken.
 -- Game.minimap tells the sensor (game/Blips.lua) where things stand: engaged,
--- sensor (the blips layer is on), still (the last Apply didn't move it).
+-- sensor (the blips layer is on), still (the last Apply didn't move it, and its zoom has applied).
 
 local _, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
@@ -122,28 +122,44 @@ local function Beneath(strata, level)
 	return strata, 0
 end
 
+-- What other client code turns back (HybridMinimap turns its ground and rotation on as it
+-- hides: spike-bugs G3), or anyone zooms or hides, put right every apply. True if it held.
+local function Hold(mm)
+	local held = mm:IsShown() and mm:GetZoom() == 0 and C_Minimap.IsRotateMinimapIgnored()
+	if not mm:IsShown() then mm:Show() end
+	if mm:GetZoom() ~= 0 then mm:SetZoom(0) end
+	if C_Minimap.GetDrawGroundTextures() then C_Minimap.SetDrawGroundTextures(false) end
+	if not C_Minimap.IsRotateMinimapIgnored() then C_Minimap.SetIgnoreRotateMinimap(true) end
+	return held
+end
+
 -- Under the window's view, all of it on the screen; still: placed as last frame (View's
--- place is the same table while it doesn't move). Where it went is kept in Game.minimap
--- (left, bottom, size in its own units; scale) for the sensor to read.
-local function Place(w)
-	if placed and placed.place == w.place and placed.strata == w.strata and placed.level == w.level then
-		m.still = w.still
+-- place is the same table while it doesn't move), where it was put, held, and its zoom
+-- applied (a new one applies a frame or two late, its view radius 0 meanwhile: D5a, E6).
+-- Where it went is kept in Game.minimap (left, bottom, size in its own units; scale) for
+-- the sensor to read; moved by anyone else (or a new UI scale), it's put back.
+local function Place(w, held)
+	local mm = Minimap
+	local r, l, b, size = C_Minimap.GetViewRadius(), mm:GetRect()
+	local ready = held and not issecretvalue(r) and r > 0
+	local there = placed and l and mm:GetEffectiveScale() == m.scale and math.abs(l - m.left) < 1
+		and math.abs(b - m.bottom) < 1 and math.abs(size - m.size) < 1
+	if there and placed.place == w.place and placed.strata == w.strata and placed.level == w.level then
+		m.still = w.still and ready
 		return
 	end
 	local s, p = UIParent:GetEffectiveScale(), w.place
 	local sw, sh, half = UIParent:GetWidth() * s, UIParent:GetHeight() * s, SENSOR_PX / 2 + MARGIN
 	local x = math.max(half, math.min(sw - half, (p.left + p.w / 2) * s))
 	local y = math.max(half, math.min(sh - half, (p.top - p.h / 2) * s))
-	local mm = Minimap
-	local moved = not placed or placed.x ~= x or placed.y ~= y
-	placed, m.still = { place = w.place, strata = w.strata, level = w.level, x = x, y = y }, not moved and w.still
+	local moved = not there or placed.x ~= x or placed.y ~= y
+	placed, m.still = { place = w.place, strata = w.strata, level = w.level, x = x, y = y }, not moved and w.still and ready
 	local strata, level = Beneath(w.strata, w.level)
 	mm:SetFrameStrata(strata)
 	mm:SetFrameLevel(level)
 	if not moved then return end
 	local ms = mm:GetEffectiveScale()
 	local d, cx, cy = SENSOR_PX / ms, x / ms, y / ms -- /: never 0 (an effective scale is > 0)
-	mm:SetZoom(0)
 	mm:SetSize(d, d)
 	mm:ClearAllPoints()
 	mm:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx, cy)
@@ -156,7 +172,7 @@ Game.Apply("minimap", function(view)
 	if view.minimap ~= "ours" or not (w.shown and w.place) or m.blocker then return Release() end
 	if not m.engaged then Engage() end
 	m.sensor = view.layers.blips == true and view.renderer ~= "blizzard"
-	Place(w)
+	Place(w, Hold(Minimap))
 end)
 
 Runtime.On("PLAYER_LOGOUT", "game.minimap logout", Release)
