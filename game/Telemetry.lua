@@ -40,9 +40,13 @@ local function Copy(v)
 	return t
 end
 
+-- View as Game's apply step last read it (types/view.lua: Game reads View only there): the
+-- motion ring's camera, shot stamps, and marks' diag (called only for a mark, ADR 0003).
+local last = { inst = 0, big = false }
+
 local function State()
-	local you, view = Game.obs.you, ns.UI.View()
-	local diag = view.diag and view.diag() or {}
+	local you = Game.obs.you
+	local diag = last.diag and last.diag() or {}
 	local map, layers = diag.map, diag.layers
 	return {
 		you = { inst = you.inst, col = you.col, row = you.row, facing = you.facing },
@@ -117,7 +121,7 @@ local function Record(name, msg, stack)
 	if seen[key] then return end
 	seen[key] = true
 	e.stack, e.version, e.session = stack and stack:sub(1, STACK), version, session.id
-	Runtime.Trace("error", key:sub(1, 120))
+	Runtime.Trace("error", key)
 	Mark("error", key)
 end
 
@@ -192,10 +196,13 @@ Runtime.On("PLAYER_LOGOUT", "telemetry.logout", function() -- also /reload
 	Perf()
 end)
 
--- Each frame: the motion ring (View.camera is OPEN: none, no row); once, ourKBLoad.
--- Unbudgeted: the full collect is graced ("gc"), not ours to count.
-Runtime.Step("apply", "telemetry: frame", function()
-	local cam, you = ns.UI.View().camera, Game.obs.you
+-- Each frame, from View (Game.Apply): what shots stamp and the motion ring (View.camera is
+-- OPEN: none, no row); once, ourKBLoad, its full collect in a grace ("gc": not an overrun).
+Game.Apply("telemetry", function(view)
+	local cam, place, you = view.camera, view.window.place, Game.obs.you
+	local c, p = cam or NONE, place or NONE
+	last.inst, last.big, last.diag, last.left, last.top = view.inst, view.window.big, view.diag, p.left, p.top
+	last.cx, last.cy, last.zoom, last.w, last.h = c.cx, c.cy, c.zoom, c.w, c.h
 	if cam then
 		at = at % MOTION + 1
 		local m = motion[at]
@@ -207,7 +214,7 @@ Runtime.Step("apply", "telemetry: frame", function()
 		Runtime.Grace("gc", 0.1)
 		kbLoad = OurKB()
 	end
-end, { budgetMs = false })
+end)
 
 -- Taint (spike-bugs K2): the client blocked a protected call and blamed us. The first per function takes a mark.
 local tainted = {}
@@ -242,10 +249,8 @@ Game.Slash("mark", "<note>: save state and the recent trace (written on /reload)
 end)
 
 Game.Slash("shot", "[id note]: a screenshot, and a mark matched to it (docs/playtest.md shot ids)", function(note)
-	local view = ns.UI.View()
-	local cam, place = view.camera or NONE, view.window.place
-	shot = { note = note, at = { inst = view.inst, cx = R(cam.cx, 1e4), cy = R(cam.cy, 1e4), zoom = R(cam.zoom, 100),
-		w = R(cam.w, 10), h = R(cam.h, 10), left = place and place.left, top = place and place.top, big = view.window.big,
+	shot = { note = note, at = { inst = last.inst, cx = R(last.cx, 1e4), cy = R(last.cy, 1e4), zoom = R(last.zoom, 100),
+		w = R(last.w, 10), h = R(last.h, 10), left = last.left, top = last.top, big = last.big,
 		uiScale = R(UIParent:GetEffectiveScale(), 1e3), screenW = R(UIParent:GetWidth(), 10),
 		screenH = R(UIParent:GetHeight(), 10) } }
 	Screenshot()

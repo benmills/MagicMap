@@ -74,7 +74,8 @@ telemetry = {
   and your position `px, py` (tiles; nil where the game hides it). Following, `cx, cy` = `px, py`.
   It's what to read for a tear: frame pacing (`ms` steps), camera steps in screen pixels, you
   against the camera, and the tile edges crossed.
-- **Shot stamp**: what the screenshot shows, read when `/mma shot` runs: the map shown (`inst`), the
+- **Shot stamp**: what the screenshot shows, as View was in the last apply step when `/mma shot` runs
+  (Game reads View only there: types/view.lua): the map shown (`inst`), the
   camera (`cx, cy, zoom`), the view's size (`w, h`) and top-left on screen (`left, top`, UI units;
   nil while hidden), small or `big`, `uiScale` (UIParent's effective scale) and the screen in UI
   units (`screenW, screenH`). `note`'s first word is the shot's id (docs/playtest.md "Shots").

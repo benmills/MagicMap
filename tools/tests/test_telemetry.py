@@ -45,18 +45,23 @@ def test_telemetry_fixture(tmp_path, capsys):
                  str(flavor / "Screenshots" / "WoWScrnShot_101426_112000.jpg"),
                  "subzone: atlas '' | game 'Sentinel Hill'", "x1 General.log: [E][Lua] Lua Error",
                  "p95 0.8 p99 5.4 max 11.2, 2 over, graces gc 88.2 login 96.4 map 31.5", "slow: map: labels x3",
+                 "alloc p95 4.1 KB/frame (max 850.2 KB/frame over 17600 frames), 274.3 KB/s",
                  "ours 71 MB (39 at load), after GC",
                  "SHARED MagicMap: ", "General.log: [E][Lua] Lua Error: Interface/AddOns/MagicMap/Layers.lua:1473",
                  # perf: alloc, gaps, ledger, by state, memory, layouts, bench
                  "game.observe                    180.2 KB/s  max 12.4 KB/call  5400 calls",
-                 "map: borders 14.2 ms (x3)", "ui/Borders.lua:88", "f9118 11.2 ms  top map: borders  [layout x2, swap x1, gap x1, spike x1]",
+                 "map: borders 14.2 ms (x3)", "ui/Borders.lua:88", "f9118 11.2 ms  top map: borders 10.4 ms  [layout x2, swap x1, gap x1, spike x1]",
+                 "f9120 8.4 ms  top map: borders 7.9 ms",
+                 "drag         610    0.3    0.9    2.4    6.1", "big          380   0.35    1.1    3.2    7.7",
+                 "blips            n 210   blips=7 sweep=211 yd=233",
                  "zoom         900    0.6    2.1    9.8   11.2", "39.2 MB at load, 70.8 MB at logout",
                  "graces (slowest frame; its slowest call): gc 88.2 ms (game.telemetry 87.9 ms), login 96.4 ms"
                  " (game.loaded 60.2 ms), map 31.5 ms (map: labels 16.3 ms)",
                  "swap tiles       n 40    lag=0 live=36 ms=0.4 parked=0 scale=1.3 x=33012 y=25510",
                  "swap borders     n 38    lag=0 live=1012 ms=6.2 parked=0", "canvas.SetScale@1000live         2000 µs",
                  # kept, marks' motion and shot stamp, shot pairing
-                 "taint {e=blocked fn=Minimap:Hide()}", "art redbutton-expand-c60",
+                 "taint {e=blocked fn=Minimap:Hide()}", "art redbutton-expand-c60", "sensor {e=blind probes=96}",
+                 "[taint]", "blocked Minimap:Hide()",
                  "motion (4 frames f14999-f15002, 0.07 s)", "crossed col 32|33 f15001",
                  "shot zoom 384 camera 33.0002,48.1 inst 0 view 320x203 at 1588,1012 small; UI scale 0.711, screen 2700x1518.8",
                  f"reference {tmp_path / 'refs' / 'ref-sentinel-384-small.jpg'}",
@@ -74,12 +79,14 @@ def test_telemetry_fixture(tmp_path, capsys):
                  " swap borders 6.2 ms 1012 live, gap map: borders); swap borders 6.2 ms max, 1012 live (stats)",
                  "PASS  first map open", "FAIL  load (Data + Atlas)", "owner: Data + Atlas at load: 37.3 MB",
                  "FAIL  our memory at logout, after GC     70.80 MB",
-                 "owner: Data + Atlas: 39.2 MB at load after GC; +31.6 MB by logout (top allocator game.observe)",
+                 "owner: Data + Atlas: 39.2 MB at load after GC; +31.6 MB by logout, retained (not attributed:"
+                 " perf.alloc is garbage made, not kept)",
                  "FAIL  Lua allocation (outside graces)    274.30 KB/s",
-                 "owner: game.observe 180.2 KB/s (66%), map: borders 60.1 KB/s (22%)",
+                 "owner: game.observe 180.2 KB/s, map: borders 60.1 KB/s (perf.alloc: the top makers, each a lower bound)",
                  "FAIL  errors per hour", "owner: ui.tiles.step x37",
                  "FAIL  perf.slow  1", "owner: map: labels x3", "FAIL  perf.gaps  1", "owner: map: borders 14.2 ms between yields (x3)",
-                 "FAIL  taint      1", "owner: {e=blocked fn=Minimap:Hide()}", "FAIL  art        1", "PASS  sensor     0"):
+                 "FAIL  taint      1", "owner: {e=blocked fn=Minimap:Hide()}", "FAIL  art        1",
+                 "FAIL  sensor     1", "owner: {e=blind probes=96}"):
         assert want in out, (want, out)
     assert "== perf" not in out and "owner: bench" not in out and "job bench" not in out  # its overruns and gaps are the bench
     # the first open's owner: its grace's slowest call; older sessions: perf.slow without the bench
@@ -89,7 +96,7 @@ def test_telemetry_fixture(tmp_path, capsys):
                                 {}, []).startswith("map: labels (slowest call, 56.2 ms")
     assert telemetry.main(base + ["--budgets", "--trace"]) == 1
     out = capsys.readouterr().out
-    for want in ("== perf", "        f9118 +402398ms swap {layer=borders live=1012 ms=6.2 parked=0 scale=1 x=-12 y=40}", "== kept", "== marks (2)",
+    for want in ("== perf", "        f9118 +402398ms swap {layer=borders live=1012 ms=6.2 parked=0 scale=1 x=-12 y=40}", "== kept", "== marks (3)",
                  "f15001 +1101200ms dt 33.3 cam 33.0002,48.1 z384 320x203 you 33.0002,48.1  step +0.23,+0.00 px  you-cam +0.00,+0.00 px |col",
                  "trace (all 6)"):
         assert want in out, (want, out)
@@ -160,6 +167,7 @@ def test_telemetry_sim(tmp_path, capsys):
     assert s.stats["layout tiles"].n >= 1 and s.stats["layout tiles"].regions > 0 and s.stats["swap tiles"].lag == 0
     swap = s.stats["swap borders"]  # each swap's own cost and what it shows (M1.3: parked)
     assert swap.ms is not None and swap.live > 0 and swap.parked == 0
+    assert s.stats["blips"].n >= 1 and s.stats["blips"].sweep >= 1  # the sensor's sweeps (game/Blips.lua)
     assert s.bench["1.60.1.70009"].ops.CreateLine.us == 21
     assert not errors(sim, ns), errors(sim, ns)
 
@@ -176,3 +184,4 @@ def test_telemetry_sim(tmp_path, capsys):
     telemetry.main(base + ["--budgets"])
     out = capsys.readouterr().out
     assert "our memory at logout, after GC" in out and "FAIL  taint      2" in out and "FAIL  art        1" in out
+    assert "----  sensor     not traced yet (M1.5 adds its producer)" in out  # nothing traces it: no PASS

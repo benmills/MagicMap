@@ -35,6 +35,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REFS = os.path.join(ROOT, "docs", "evidence", "shots")
 SECTIONS = ("perf", "kept", "errors", "marks", "shots", "validation", "logs")
 KEPT = ("taint", "art", "sensor")  # game/Telemetry.lua KEEP: each one a bug, kept past the ring
+UNTRACED = {"sensor": "M1.5"}  # kept kinds nothing traces yet: an empty list proves nothing (delete with the producer)
 BENCH = "bench: regions"  # game/Bench.lua's job: a timed call can't be split, so its overruns and gaps aren't bugs
 
 
@@ -125,16 +126,15 @@ def owner_memory(p, s, errs):
         return "Data + Atlas or growth: no perf.ourKBLoad (a build before M0.4)"
     grew = (out or load) - load
     return (f"Data + Atlas: {load / 1024:.1f} MB at load after GC; {grew / 1024:+.1f} MB by logout"
-            + (f" (top allocator {top[0].get('name')})" if top and grew > 1024 else ""))
+            + (", retained (not attributed: perf.alloc is garbage made, not kept)" if grew > 1024 else ""))
 
 
 def owner_alloc(p, s, errs):
     top = alloc(p)
     if not top:
         return "unattributed: no perf.alloc (a build before M0.3)"
-    total = p.get("kbPerSec") or sum(a.get("kbPerSec") or 0 for a in top)
-    return ", ".join(f"{a.get('name')} {num(a.get('kbPerSec'))} KB/s ({100 * (a.get('kbPerSec') or 0) / total:.0f}%)"
-                     for a in top[:2])
+    return (", ".join(f"{a.get('name')} {num(a.get('kbPerSec'))} KB/s" for a in top[:2])
+            + " (perf.alloc: the top makers, each a lower bound)")
 
 
 def owner_errors(p, s, errs):
@@ -516,8 +516,9 @@ def perf(p) -> str:
             + f"; {p.get('errors', 0)} errors ({num(p.get('errorsPerHour', 0))}/h); Lua {kb or '?'} MB,"
             f" ours {num(round((p.get('ourKB') or 0) / 1024))} MB"
             + (f" ({num(round(p['ourKBLoad'] / 1024))} at load), after GC" if p.get("ourKBLoad") else "")
-            + (f"; alloc p95 {num(p.get('kbFrameP95'))} KB/frame, {num(p.get('kbPerSec'))} KB/s"
-               if p.get("kbPerSec") is not None else "")
+            + (f"; alloc p95 {num(p.get('kbFrameP95'))} KB/frame"
+               + (f" (max {num(p['kbFrameMax'])} KB/frame over {p.get('kbFrames')} frames)" if p.get("kbFrameMax") is not None else "")
+               + f", {num(p.get('kbPerSec'))} KB/s" if p.get("kbPerSec") is not None else "")
             + "".join(f"\n      slow: {s.get('name')} x{s.get('n')} max {num(s.get('max'))} ms" for s in p.get("slow") or []))
 
 
@@ -549,7 +550,7 @@ def show_perf(s, args) -> list[str]:
     out.append(f"ledger (worst {len(worst)} frames outside graces):" if worst else "ledger: none")
     for e in worst:
         kinds = collections.Counter(ev.get("k") for ev in e.get("events") or [])
-        out.append(f"  f{e.get('frame')} {num(e.get('ms'))} ms  top {e.get('top')}"
+        out.append(f"  f{e.get('frame')} {num(e.get('ms'))} ms  top {e.get('top')} {num(e.get('topMs'))} ms"
                    + (f"  [{', '.join(f'{k} x{n}' for k, n in kinds.most_common())}]" if kinds else ""))
         if full:
             out += [f"      {event(ev)}" for ev in e.get("events") or []]
@@ -602,6 +603,9 @@ def budgets(sessions, errs) -> int:
         items = get(p, s)
         if items is None:
             print(f"  ----  {label:<10} not recorded (a build before M0)")
+            continue
+        if not items and label in UNTRACED:
+            print(f"  ----  {label:<10} not traced yet ({UNTRACED[label]} adds its producer)")
             continue
         failed += bool(items)
         print(f"  {'FAIL' if items else 'PASS'}  {label:<10} {len(items)}")

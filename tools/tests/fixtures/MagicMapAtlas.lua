@@ -69,15 +69,19 @@ MagicMapAtlasDB = {
 ["small"] = { ["frames"] = 12000, ["p50"] = 0.25, ["p95"] = 0.7, ["p99"] = 3.9, ["max"] = 9.1 },
 ["zoom"] = { ["frames"] = 900, ["p50"] = 0.6, ["p95"] = 2.1, ["p99"] = 9.8, ["max"] = 11.2 },
 ["closed"] = { ["frames"] = 4990, ["p50"] = 0.05, ["p95"] = 0.1, ["p99"] = 0.2, ["max"] = 0.4 },
+["drag"] = { ["frames"] = 610, ["p50"] = 0.3, ["p95"] = 0.9, ["p99"] = 2.4, ["max"] = 6.1 },
+["big"] = { ["frames"] = 380, ["p50"] = 0.35, ["p95"] = 1.1, ["p99"] = 3.2, ["max"] = 7.7 },
 },
 },
 ["kept"] = {
 { ["f"] = 9200, ["ms"] = 404000, ["k"] = "taint", ["d"] = { ["e"] = "blocked", ["fn"] = "Minimap:Hide()" } }, -- [1]
 { ["f"] = 610, ["ms"] = 10200, ["k"] = "art", ["d"] = "redbutton-expand-c60" }, -- [2]
+{ ["f"] = 9410, ["ms"] = 406020, ["k"] = "sensor", ["d"] = { ["e"] = "blind", ["probes"] = 96 } }, -- [3]
 },
 ["stats"] = {
 ["layout tiles"] = { ["n"] = 40, ["ms"] = 11.4, ["regions"] = 36 },
 ["layout borders"] = { ["n"] = 38, ["ms"] = 22.3, ["regions"] = 1012 },
+["blips"] = { ["n"] = 210, ["sweep"] = 211, ["blips"] = 7, ["yd"] = 233 },
 ["swap tiles"] = { ["n"] = 40, ["ms"] = 0.4, ["live"] = 36, ["parked"] = 0, ["x"] = 33012, ["y"] = 25510, ["scale"] = 1.3, ["lag"] = 0 },
 ["swap borders"] = { ["n"] = 38, ["ms"] = 6.2, ["live"] = 1012, ["parked"] = 0, ["x"] = 31990, ["y"] = 25100, ["scale"] = 1.3, ["lag"] = 0 },
 },
@@ -169,6 +173,19 @@ MagicMapAtlasDB = {
 ["shot"] = { ["inst"] = 0, ["cx"] = 33.0002, ["cy"] = 48.1, ["zoom"] = 384, ["w"] = 320, ["h"] = 203, ["left"] = 1588, ["top"] = 1012,
 ["big"] = false, ["uiScale"] = 0.711, ["screenW"] = 2700, ["screenH"] = 1518.8 },
 }, -- [2]
+{
+["kind"] = "taint",
+["note"] = "blocked Minimap:Hide()",
+["t"] = 1791994000,
+["stamp"] = "101426_110640",
+["session"] = 2,
+["version"] = "7aa8b30-dirty",
+["frame"] = 9200,
+["state"] = { ["you"] = { ["inst"] = 0, ["col"] = 32.4, ["row"] = 48.2, ["facing"] = 1.5 }, ["zone"] = "Westfall", ["subzone"] = "Sentinel Hill" },
+["trace"] = {
+{ ["f"] = 9200, ["ms"] = 404000, ["k"] = "taint", ["d"] = { ["e"] = "blocked", ["fn"] = "Minimap:Hide()" } }, -- [1]
+},
+}, -- [3]
 },
 },
 ["validation"] = {
