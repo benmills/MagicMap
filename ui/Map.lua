@@ -13,7 +13,7 @@ local Camera = Atlas.Camera
 
 local MIN_ZOOM, MAX_ZOOM = 4, 1024 -- px per tile
 local START_ZOOM = 96
-local MARGIN = 0.25 -- share of the view laid out past each side, so a pan finds it drawn
+local MARGIN = 0.5 -- share of the view laid out past each side, so a pan finds it drawn
 local JOB_MS = 4 -- a layout's budget a frame
 
 local Map = { layers = {}, cam = { cx = 32, cy = 32, zoom = START_ZOOM }, follow = true }
@@ -156,6 +156,8 @@ local function Covers(c, cam, w, h)
 	return c0 >= r[1] and r0 >= r[2] and c1 <= r[3] and r1 <= r[4]
 end
 
+local Place
+
 local function Rebuild(layer)
 	local back = layer.canvases[layer.front == layer.canvases[1] and 2 or 1]
 	local inst, zoom = Map.inst, Map.cam.zoom
@@ -172,12 +174,15 @@ local function Rebuild(layer)
 		if inst ~= Map.inst then return end -- moved to another map meanwhile
 		if layer.front then layer.front:Hide() end
 		layer.front = back
+		-- Placed before it's shown: jobs run after the frame's steps, so waiting for the
+		-- next draw would show it a frame at wherever it last was (a jump while panning).
+		Place(layer, Map.cam, Map.Size())
 		back:Show()
 	end, JOB_MS)
 end
 
 -- A canvas laid out at its zoom, shown at the camera's: scaled, and moved so tile (0, 0) is where it belongs.
-local function Place(layer, cam, w, h)
+function Place(layer, cam, w, h)
 	local c = layer.front
 	local s = cam.zoom / c.zoom
 	local x, y = (w / 2 - cam.cx * cam.zoom) / s, -(h / 2 - cam.cy * cam.zoom) / s

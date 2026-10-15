@@ -4,7 +4,8 @@
 --   2. variant 0 REPEAT over the layout, a repeat every MACRO tiles, turned a quarter, faint
 --   3. the tint map with blend MOD over its rect; its border colour (far) MOD beyond
 --   4. the tiles' art (SetTexture(fdid)), TileColor tint as vertex colour + an ADD overlay,
---      coast tiles masked with their feather (AddMaskTexture)
+--      coast tiles masked with their feather (AddMaskTexture), wrap CLAMP: CLAMPTOBLACKADDITIVE
+--      would fade every edge's last texel to clear and draw the tile grid in hairlines of sea
 -- No sea on the map: its backdrop colour under the tiles.
 
 local _, ns = ...
@@ -154,7 +155,7 @@ local function Tiles(c, inst, zoom, sea, c0, r0, c1, r1)
 				if feather then
 					local path = feather
 					if t.mask.path ~= path then
-						t.mask:SetTexture(path, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+						t.mask:SetTexture(path, "CLAMP", "CLAMP")
 						t.mask.path = path
 					end
 					if not t.masked then t:AddMaskTexture(t.mask); t.masked = true end
@@ -167,7 +168,7 @@ local function Tiles(c, inst, zoom, sea, c0, r0, c1, r1)
 					add.mask = add.mask or c:CreateMaskTexture()
 					add.mask:SetAllPoints(add)
 					if feather then
-						add.mask:SetTexture(feather, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+						add.mask:SetTexture(feather, "CLAMP", "CLAMP")
 						if not add.masked then add:AddMaskTexture(add.mask); add.masked = true end
 					elseif add.masked then
 						add:RemoveMaskTexture(add.mask)
