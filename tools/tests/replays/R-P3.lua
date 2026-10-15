@@ -4,17 +4,12 @@ local T = ...
 local sim, ns = T.Shown()
 sim.CountCalls()
 local read = T.Ours(sim)
-local function Run(n, view)
+local function Run(n, dragging)
 	collectgarbage("collect"); collectgarbage("stop")
-	if view then
-		sim.MoveCursorTo(view); sim.buttonsDown.LeftButton = true
-		sim.FireScript(view, "OnMouseDown", "LeftButton")
-	end
 	for _ = 1, n do
-		if view then sim.cursorX = sim.cursorX + 1 end
+		if dragging then sim.cursorX = sim.cursorX + 1 end
 		sim.Step()
 	end
-	if view then sim.buttonsDown.LeftButton = nil; sim.FireScript(view, "OnMouseUp", "LeftButton") end
 	collectgarbage("restart")
 end
 -- Setters on the map's widgets (re-applying unchanged state is the spike's P3); getters are cheap.
@@ -31,14 +26,23 @@ local function Walk(w)
 	for _, r in ipairs(sim.state[w].regions or {}) do Walk(r) end
 end
 Walk(ns.UI.Window.frame)
-Run(120, nil)
+Run(120)
 local n, kb, calls = read()
-local idle = { kb / n, sets.v / n }
-Run(120, ns.UI.Window.view)
+local idle = { kb / n, sets.v / n, calls / n }
+-- Dragging, once it is one: pressed and moved past a click's slop first (the drag's start, once:
+-- its trace, follow off, Focus and the saved centre made), then a frame each pixel.
+local view = ns.UI.Window.view
+sim.MoveCursorTo(view); sim.buttonsDown.LeftButton = true
+sim.FireScript(view, "OnMouseDown", "LeftButton")
+for _ = 1, 10 do sim.cursorX = sim.cursorX + 1; sim.Step() end
+assert(ns.UI.Motion.Dragging())
+n, kb, calls = read()
+Run(120, true)
+sim.buttonsDown.LeftButton = nil; sim.FireScript(view, "OnMouseUp", "LeftButton")
 local n2, kb2, calls2 = read()
 local drag = { (kb2 - kb) / (n2 - n), (calls2 - calls) / (n2 - n) }
 T.Print("P3: our frame idle %.0f B, %.1f setter calls on the map's widgets (%.1f widget calls in all, getters and "
-	.. "the Minimap sensor's included); dragging %.0f B, %.1f widget calls", idle[1] * 1024, idle[2], calls / n,
+	.. "the Minimap sensor's included); dragging %.0f B, %.1f widget calls", idle[1] * 1024, idle[2], idle[3],
 	drag[1] * 1024, drag[2])
 assert(idle[1] <= 0.1 and drag[1] <= 0.1) -- KB a frame: no table a frame (the drag step's camera was ~0.2)
 assert(idle[2] == 0) -- standing still: the arrow and the canvases are left alone

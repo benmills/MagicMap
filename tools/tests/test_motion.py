@@ -64,8 +64,10 @@ def test_click_drag_idle():
     sim.Run(0.6)
     assert c.follow and (c.cam.cx, c.cam.cy) == (cx, cy)
 
-    # Not while big.
-    ns.UI.View().window.big = True
+    # Not while big (grown as M does: ui/BigMap.lua).
+    ns.UI.BigMap.Toggle()
+    sim.Run(0.5)
+    assert ns.UI.View().window.big and c.follow
     press(sim, w.view)
     sim.cursorX = sim.cursorX + 6
     sim.Step()

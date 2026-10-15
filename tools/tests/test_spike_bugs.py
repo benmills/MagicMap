@@ -15,18 +15,19 @@ import pytest
 from lupa import lua51
 
 import luacheck
-from test_addon import TESTS
+from test_addon import TEST_UI, TESTS
 
 REPLAYS = os.path.join(TESTS, "replays")
 
 # T.Boot / T.Shown: test_addon.boot / a shown map, in the replay's own Lua; the rest, the
 # helpers the replays share. T.Print writes to the test's output (the sim's print is chat).
 HARNESS = r"""
-local tests, files, say, skip = ...
-local T = { Print = function(...) say(string.format(...)) end, Skip = skip }
+local tests, files, say, skip, TEST_UI = ...
+local T = { Print = function(...) say(string.format(...)) end, Skip = skip, TEST_UI = TEST_UI }
 
 -- A simulated client with MagicMapAtlas loaded and logged in: Sim, ns.
--- saved: Lua source for the SavedVariables (MagicMapAtlasDB = ...) found at load.
+-- saved: Lua source for the SavedVariables (MagicMapAtlasDB = ...) found at load (default
+-- T.TEST_UI: test_addon.py's window, hidden at login).
 -- T.simFrames: the client's own frames, made before ours.
 function T.Boot(saved)
 	local sim = assert(loadfile(tests .. "/wowsim.lua"))()
@@ -37,7 +38,7 @@ function T.Boot(saved)
 		if not chunk then error(err, 0) end
 		sim.Call("loading " .. path:match("[^/]+/[^/]+$"), chunk, "MagicMapAtlas", ns)
 	end
-	if saved then assert(loadstring(saved))() end
+	assert(loadstring(saved or TEST_UI))()
 	sim.FireEvent("ADDON_LOADED", "MagicMapAtlas")
 	sim.FireEvent("PLAYER_LOGIN")
 	sim.FireEvent("PLAYER_ENTERING_WORLD", true, false)
@@ -124,5 +125,5 @@ def ids():
 def test_replay(bug):
     L = lua51.LuaRuntime(encoding="latin-1", unpack_returned_tuples=True)
     files = [os.path.join(luacheck.ROOT, f) for f in luacheck.toc_files() if os.path.exists(os.path.join(luacheck.ROOT, f))]
-    T = L.execute(HARNESS, TESTS, L.table_from(files), print, pytest.skip)
+    T = L.execute(HARNESS, TESTS, L.table_from(files), print, pytest.skip, TEST_UI)
     L.eval("function(path, T) return assert(loadfile(path))(T) end")(os.path.join(REPLAYS, f"R-{bug}.lua"), T)

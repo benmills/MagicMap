@@ -62,9 +62,12 @@ def escape(sim):
 
 
 def test_hooks():
-    """M, L and Escape, out of combat and in it (no protected call: K2)."""
+    """M, L and Escape, through to UI (Model.hooked): M grows the window and shrinks it, Escape
+    shrinks it, the home corner fades while big (homeAlpha); out of combat and in it (no
+    protected call: K2)."""
     L, sim, ns = boot()
-    wm, view = L.globals().WorldMapFrame, ns.UI.View()
+    G, view, big = L.globals(), ns.UI.View(), ns.UI.BigMap
+    wm, cluster = G.WorldMapFrame, G.MinimapCluster
     shown = lambda: wm.IsShown(wm)  # noqa: E731
     sim.Run(1)
     sim.Press("M")  # the map closed: M is Blizzard's
@@ -76,50 +79,51 @@ def test_hooks():
 
     sim.Slash("/mma map")
     sim.Run(1)
-    sim.Press("M")  # shown: Blizzard's hidden again at once, "worldmap" through Model for a frame
+    sim.Press("M")  # shown: Blizzard's hidden again at once, "worldmap" through Model for a frame: UI grows
     assert not shown()
     sim.Step()
-    assert kinds(ns) == ["worldmap"]
-    sim.Step()
-    assert kinds(ns) == []
+    assert kinds(ns) == ["worldmap"] and big.big and view.window.big
+    sim.Run(0.5)
+    assert kinds(ns) == [] and cluster.GetAlpha(cluster) == 0  # the home corner faded out
     sim.Press("L")  # the quest log opens Blizzard's map; M closes it, nothing caught
     sim.Step()
     assert shown() and kinds(ns) == []
     sim.Press("M")
     sim.Step()
-    assert not shown() and kinds(ns) == []
+    assert not shown() and kinds(ns) == [] and big.big
 
+    assert escape(sim)  # Escape while big: Game's catcher closes, UI shrinks
+    sim.Step()
+    assert kinds(ns) == ["escape"] and not big.big and not view.window.big
+    sim.Run(0.5)
+    assert kinds(ns) == [] and cluster.GetAlpha(cluster) == 1
     assert not escape(sim)  # Escape: nothing of ours while small
-    view.window.big = True
-    sim.Step()
-    assert escape(sim)
-    sim.Step()
-    assert kinds(ns) == ["escape"]
-    sim.Step()  # still big (UI didn't shrink): caught again
-    assert escape(sim)
-    sim.Step()
-    assert kinds(ns) == ["escape"]
-    view.window.big = False  # shrunk: the catcher goes, no "escape"
-    sim.Run(0.1)
-    assert kinds(ns) == [] and not escape(sim)
+    sim.Press("M")  # M grows, M shrinks
+    sim.Run(0.5)
+    assert big.big and cluster.GetAlpha(cluster) == 0
+    sim.Press("M")
+    sim.Run(0.5)
+    assert not big.big and cluster.GetAlpha(cluster) == 1 and not escape(sim)
 
-    # In combat: M opens Blizzard's as usual (hiding it is blocked), Escape still shrinks, the
-    # rim, home fade and catcher change nothing protected.
+    # In combat: M opens Blizzard's as usual (hiding it is blocked) and UI hears nothing; the red
+    # button grows, Escape shrinks: the rim, the home fade and the catcher change nothing protected.
     sim.inCombat = True
     sim.Press("M")
     sim.Step()
-    assert shown() and kinds(ns) == []
+    assert shown() and kinds(ns) == [] and not big.big
     sim.Press("M")
     sim.Step()
-    view.window.big, view.window.homeAlpha = True, 0
     view.chrome = L.table(rimArrows=False, questRing=False)
-    sim.Step()
+    sim.Click(ns.UI.Controls.mode)
+    sim.Run(0.5)
+    assert big.big and cluster.GetAlpha(cluster) == 0
     assert escape(sim)
     sim.Step()
-    assert kinds(ns) == ["escape"]
-    view.window.big, view.window.homeAlpha, view.chrome = False, 1, None
+    assert kinds(ns) == ["escape"] and not big.big
+    view.chrome = None
     sim.Run(1)
     sim.inCombat = False
+    assert cluster.GetAlpha(cluster) == 1
     assert len(sim.protectedCalls) == 0, [c.call for c in sim.protectedCalls.values()]
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
@@ -139,11 +143,12 @@ def test_button_home_release():
         return p == "CENTER" and same(rel, mm) and abs(x - math.cos(a) * r) < 1e-6 and abs(y - math.sin(a) * r) < 1e-6
 
     assert button.IsVisible(button) and at(215) and button.GetFrameStrata(button) == "MEDIUM"
-    view.button = False
+    sim.Slash("/mma icon")  # UI's SavedUI.button, through View.button
     sim.Step()
-    assert not button.IsShown(button)
-    view.button = True
+    assert not button.IsShown(button) and sim.prints[len(sim.prints)].endswith("minimap button hidden (/mma icon to show)")
+    sim.Slash("/mma icon")
     sim.Step()
+    assert button.IsVisible(button) and at(215)
     sim.Click(button)  # click, and the compartment entry: "toggle" for UI
     assert kinds(ns) == ["toggle"]
     G.MagicMapAtlasOnAddonCompartmentClick()
@@ -157,7 +162,8 @@ def test_button_home_release():
     # The map shown, big, the rim's parts hidden, the home faded: the Minimap taken.
     before, home = H.Snapshot(), H.Rect(mm)
     sim.Slash("/mma map")
-    view.window.big, view.window.homeAlpha = True, 0
+    sim.Step()
+    ns.UI.BigMap.Toggle()
     view.chrome = L.table(rimArrows=False, questRing=False)
     sim.Run(1)
     m, stand, cluster = Game.obs.minimap, G.MagicMapAtlasMinimapStandIn, G.MinimapCluster
@@ -179,7 +185,6 @@ def test_button_home_release():
     sim.FireEvent("UI_SCALE_CHANGED")
 
     # Hidden (UI snaps back: not big, home at 1): released, every property as it was.
-    view.window.big, view.window.homeAlpha = False, 1
     sim.Slash("/mma map")
     sim.Run(0.5)
     assert not Game.minimap.engaged and H.Snapshot() == before, (before, H.Snapshot())

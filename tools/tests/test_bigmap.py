@@ -1,0 +1,109 @@
+"""Small and big (ui/BigMap.lua) on the simulated client: M (Model.hooked "worldmap", as Game's hook
+hands it on) or the red button grows the window to 0.7 of the screen, centred, HIGH, the minimap's
+home corner faded out (View.window.homeAlpha), on you 1.5 further out but never past your zone (fit
+0.92); M, the button or Escape (hooked "escape") shrink it back to its small rect and zoom. /mma reset
+is refused while big. Spike-bugs L3: M again mid-shrink still comes back to the small rect. L4:
+logging out or hiding while big keeps the small rect and zoom; a moved and sized window stays put
+through hiding and a reload."""
+from test_addon import boot, errors
+from test_blips import lua_tools
+from test_chrome import SEP, fresh, rect
+
+
+def keys(L, ns):
+    """press(kind): Model.hooked holds it the next frame (types/view.lua HookedInput), as Game's hooks hand it on."""
+    return L.eval("""function(Model)
+        local queued = {}
+        local observe = Model.Observe
+        Model.Observe = function(obs, oracles)
+            observe(obs, oracles)
+            if queued[1] then Model.hooked = queued; queued = {} end
+        end
+        return function(kind) queued[#queued + 1] = { kind = kind } end
+    end""")(ns.Model)
+
+
+def near(a, b, px=1):
+    return all(abs(x - y) <= px for x, y in zip(a, b))
+
+
+def test_bigmap():
+    L, sim, ns = fresh()
+    press = keys(L, ns)
+    UI, G = ns.UI, L.globals()
+    f, big, view, cam = UI.Window.frame, UI.BigMap, UI.View(), lambda: UI.Camera.cam  # noqa: E731
+    saved = G.MagicMapAtlasDB.UI
+    t = UI.Title
+    sim.Run(0.5)
+    small, zoom = rect(f), cam().zoom
+
+    # M: big, HIGH, centred at 0.7 of the screen, the home corner faded; on you, further out.
+    press("worldmap")
+    sim.Step()
+    assert big.big and view.window.big and f.GetFrameStrata(f) == "HIGH"
+    sim.Run(0.4)
+    assert near(rect(f), (288, 918, 1344, 756), 1e-6) and view.window.homeAlpha == 0
+    assert abs(cam().zoom - zoom / 1.5) < 1e-9 and UI.Camera.follow
+    x, y = ns.Atlas.TileToMap(1429, ns.Model.you.col, ns.Model.you.row)
+    sim.cursorX, sim.cursorY = 10, 10
+    sim.Run(0.1)
+    assert t.subtitle.GetText(t.subtitle) == "Goldshire" + SEP + "%.1f, %.1f" % (x * 100, y * 100)  # big: coordinates
+    sim.Slash("/mma reset")
+    assert sim.prints[len(sim.prints)].endswith("reset: shrink the map back first (M)") and big.big
+
+    # Escape: back to the small rect and zoom, the minimap's strata, the home corner back.
+    press("escape")
+    sim.Run(0.4)
+    assert not big.big and rect(f) == small and abs(cam().zoom - zoom) < 1e-9 and f.GetFrameStrata(f) == "LOW"
+    assert view.window.homeAlpha == 1 and not view.window.big
+    press("escape")  # small: nothing
+    sim.Run(0.3)
+    assert rect(f) == small
+
+    # L3: M, M mid-shrink, M, M: back on the small rect.
+    for wait in (0.5, 0.05, 1, 1):
+        press("worldmap")
+        sim.Run(wait)
+    assert near(rect(f), small) and not big.big and abs(cam().zoom - zoom) < 1e-9
+
+    # Your zone (you.uiMap: Elwynn Forest) bounds the zoom out; the red button grows and shrinks too.
+    UI.Camera.cam = L.table_from({"cx": cam().cx, "cy": cam().cy, "zoom": 150})
+    ns.Model.you.uiMap = 1429
+    sim.Click(UI.Controls.mode)
+    sim.Run(0.4)
+    r = ns.Atlas.MapRect(1429)
+    vw, vh = UI.Window.Size()
+    fit = min(vw / (r.col1 - r.col0), vh / (r.row1 - r.row0)) * 0.92
+    assert big.big and fit > 150 / 1.5 and abs(cam().zoom - fit) < 1e-9
+    sim.Click(UI.Controls.mode)
+    sim.Run(0.4)
+    assert not big.big and near(rect(f), small) and abs(cam().zoom - 150) < 1e-9
+
+    # L4: logging out while big keeps the small rect and zoom; hidden while big, it comes back small.
+    press("worldmap")
+    sim.Run(0.4)
+    sim.FireEvent("PLAYER_LOGOUT")
+    assert near(tuple(saved.window[k] for k in ("left", "top", "w", "h")), small) and abs(saved.zoom - 150) < 1e-9
+    sim.Slash("/mma toggle")
+    assert not f.IsShown(f) and not big.big and near(rect(f), small) and abs(cam().zoom - 150) < 1e-9
+    sim.Slash("/mma toggle")
+    sim.Run(0.2)
+    assert f.IsShown(f) and near(rect(f), small) and f.GetFrameStrata(f) == "LOW" and view.window.homeAlpha == 1
+
+    # Moved and sized, it stays put through hiding and showing, and a reload.
+    f.ClearAllPoints(f)
+    f.SetPoint(f, "TOPLEFT", G.UIParent, "BOTTOMLEFT", 600, 800)
+    f.SetSize(f, 240, 240)
+    UI.Window.Moved()
+    zoom = cam().zoom
+    sim.Slash("/mma toggle")
+    sim.Slash("/mma toggle")
+    sim.Run(0.2)
+    assert rect(f) == (600, 800, 240, 240)
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+    sim.FireEvent("PLAYER_LOGOUT")
+    L2, sim2, ns2 = boot("MagicMapAtlasDB = " + lua_tools(L).Dump(G.MagicMapAtlasDB))
+    sim2.Run(0.2)
+    f2 = ns2.UI.Window.frame
+    assert f2.IsShown(f2) and rect(f2) == (600, 800, 240, 240) and abs(ns2.UI.Camera.cam.zoom - zoom) < 1e-9
+    assert not errors(sim2, ns2), "\n\n".join(errors(sim2, ns2))

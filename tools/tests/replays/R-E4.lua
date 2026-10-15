@@ -4,7 +4,7 @@
 -- opens; Runtime isolates it. No error, nothing borrowed, obs.addons known and empty. (Nothing
 -- stops a cleanup dropping that line again; this replay would fail.)
 local T = ...
-local sim, ns = T.Boot("LibStub = nil")
+local sim, ns = T.Boot("LibStub = nil; " .. T.TEST_UI)
 local canvas = CreateFrame("Frame", nil, ns.UI.Window.view)
 canvas:SetPoint("TOPLEFT")
 ns.UI.View().sockets.world = { frame = canvas, inst = 0, zoom = 64 }

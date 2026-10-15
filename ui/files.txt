@@ -1,7 +1,12 @@
 ui/Camera.lua
 ui/Window.lua
+ui/Chrome.lua
 ui/Engine.lua
 ui/Motion.lua
+ui/Menus.lua
+ui/Controls.lua
+ui/Title.lua
+ui/BigMap.lua
 ui/Tiles.lua
 ui/Borders.lua
 ui/Labels.lua
