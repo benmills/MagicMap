@@ -5,8 +5,9 @@
 -- onto a hidden frame and back; a canvas's own calls (SetPoint, SetScale,
 -- SetAlpha, Hide, Show) over 100 live, 1000 live and 1000 hidden child Lines
 -- (the borders' kind: the play-test's ~20 us a region, hidden pooled Lines
--- still paying). Each call is timed alone in a Job, its frames graced ("bench");
--- every region is clear, so nothing shows.
+-- still paying). Each call is timed alone in a Job, its frames graced ("bench"),
+-- and a canvas-wide call (setup, timed, or between ops) gets a frame to itself, so
+-- the run's frames cost no more than one such call; every region is clear, so nothing shows.
 -- Bench.result = { build, t, ops = { [op] = { n, ms, us } } } (Telemetry keeps it per build).
 
 local _, ns = ...
@@ -38,11 +39,11 @@ local function Yield()
 	Runtime.Yield()
 end
 
--- op: fn(i) for i = 1..n, each call timed alone; setup(i) before it, untimed.
+-- op: fn(i) for i = 1..n, each call timed alone; setup(i) before it, untimed, in its own stretch.
 local function Time(op, n, fn, setup)
 	local ms = 0
 	for i = 1, n do
-		if setup then setup(i) end
+		if setup then setup(i); Yield() end
 		local t = now()
 		fn(i)
 		ms = ms + now() - t
@@ -95,14 +96,16 @@ local function Run()
 	for _, spec in ipairs(CANVASES) do
 		local c, at = Canvas(spec), "@" .. spec.at
 		c:Show()
+		Yield()
 		Time("canvas.SetPoint" .. at, REPS, function(i) c:SetPoint("TOPLEFT", -i, i) end)
 		Time("canvas.SetScale" .. at, REPS, function(i) c:SetScale(i % 2 == 0 and 1 or 1.25) end)
 		Time("canvas.SetAlpha" .. at, REPS, function(i) c:SetAlpha(i % 2 == 0 and 1 or 0) end)
 		Time("canvas.Hide" .. at, REPS, function() c:Hide() end, function() c:Show() end)
 		Time("canvas.Show" .. at, REPS, function() c:Show() end, function() c:Hide() end)
 		c:Hide()
+		Yield()
 	end
-	root:Hide()
+	-- root stays shown: all under it is hidden, and hiding it would walk every region (hidden ones still pay).
 end
 
 local function Report()
