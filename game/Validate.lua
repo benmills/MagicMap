@@ -1,6 +1,7 @@
 -- Validate Atlas against the live client where you stand: stale Data (K4) shows as FAILs.
 -- What holds offline is tools/tests/test_atlas.py's; load cost is /mma perf's.
---   /mma check         Atlas vs the client here: PASS / FAIL per fact
+--   /mma check         Atlas vs the client here: PASS / FAIL per fact, and (on demand only, not
+--                      logged) the map rects up from here and the continent's flight points
 --   /mma check log     toggle logging mismatches every 2 s as you travel (MagicMapAtlasDB.validation)
 --   /mma check report  the log, by kind;  /mma check clear  empties it
 
@@ -11,6 +12,8 @@ local YD = 1 / Atlas.TILE_YARDS -- one yard in tiles
 local TOL = {
 	edge = 5 * YD, -- area / zone: the client's answer within 5 yd counts (chunk edges, ~33 yd chunks)
 	pos = 3 * YD,  -- map position -> tile vs UnitPosition
+	rect = 1 * YD,  -- map rect corners (Data rounds to ~0.5 yd)
+	taxi = 20 * YD, -- flight point on the continent map vs TaxiNodes
 }
 local EVERY, MAX_LOG = 2, 1000 -- logger: seconds per sample, entries kept
 local ZONE = Enum.UIMapType.Zone
@@ -18,6 +21,12 @@ local GREEN, RED, GREY = "|cff60ff60", "|cffff6060", "|cff999999"
 
 local function Dist(c1, r1, c2, r2) return math.sqrt((c1 - c2) ^ 2 + (r1 - r2) ^ 2) end
 local function Yd(d) return string.format("%.1f yd", d / YD) end
+
+local function Count(t)
+	local n = 0
+	for _ in pairs(t or {}) do n = n + 1 end
+	return n
+end
 
 -- /mma check -------------------------------------------------------------------------------
 
@@ -105,6 +114,52 @@ local function Sample()
 	return out, inst, col, row, best
 end
 
+-- uiMap rects: Atlas.MapRect vs the client's corners, for the best map and its parents.
+local function Rects(out, best)
+	local id = best
+	while id and id > 0 do
+		local rect = Atlas.MapRect(id)
+		local i0, v0 = C_Map.GetWorldPosFromMapPos(id, CreateVector2D(0, 0))
+		local _, v1 = C_Map.GetWorldPosFromMapPos(id, CreateVector2D(1, 1))
+		if v0 then
+			local c0, r0 = Atlas.WorldToTile(v0.x, v0.y)
+			local c1, r1 = Atlas.WorldToTile(v1.x, v1.y)
+			local game = string.format("%d %.3f %.3f %.3f %.3f", i0, c0, r0, c1, r1)
+			if rect then
+				local d = math.max(Dist(rect.col0, rect.row0, c0, r0), Dist(rect.col1, rect.row1, c1, r1))
+				R(out, "MapRect " .. id, rect.inst == i0 and d < TOL.rect, string.format("%d %.3f %.3f %.3f %.3f (%s off)",
+					rect.inst, rect.col0, rect.row0, rect.col1, rect.row1, Yd(d)), game)
+			else
+				R(out, "MapRect " .. id, false, "none", game)
+			end
+		end
+		id = C_Map.GetMapInfo(id).parentMapID
+	end
+end
+
+-- Flight points: the client's nodes on the continent map vs Atlas.FlightPoints (by nodeID).
+local function Flights(out, inst)
+	local continent = Atlas.Continent(inst)
+	if not continent then return end
+	local atlas = {}
+	for _, f in ipairs(Atlas.FlightPoints(inst)) do atlas[f.id] = f end
+	local nodes, ok = C_TaxiMap.GetTaxiNodesForMap(continent) or {}, 0
+	for _, n in ipairs(nodes) do
+		local f = atlas[n.nodeID]
+		local _, c, r = Atlas.MapToTile(continent, n.position.x, n.position.y)
+		local d = f and Dist(f.col, f.row, c, r)
+		if f and f.name == n.name and d < TOL.taxi then
+			ok = ok + 1
+		else
+			R(out, "flight " .. n.nodeID, false, f and string.format("%s %.3f %.3f (%s off)", f.name, f.col, f.row, Yd(d)) or "none",
+				string.format("%s %.3f %.3f", n.name, c, r))
+		end
+		atlas[n.nodeID] = nil
+	end
+	R(out, "flight points", ok == #nodes, ok .. " of " .. #nodes .. " match", #nodes .. " on map " .. continent)
+	R(out, "flight points (Atlas only)", nil, Count(atlas), "other faction or not on this map")
+end
+
 local function Show(r)
 	local tag = r.ok == nil and GREY .. "INFO|r" or r.ok and GREEN .. "PASS|r" or RED .. "FAIL|r"
 	print(string.format("  %s %s: atlas %s | game %s", tag, r.kind, r.atlas, r.game))
@@ -183,7 +238,11 @@ Game.Slash("check", "Atlas vs the client here; check log | report | clear", func
 		Game.Print("validation log cleared")
 	else
 		local out, inst, col, row, best = Sample()
-		if col then Game.Print(string.format("check at inst %d, %.3f %.3f (best map %s)", inst, col, row, tostring(best))) end
+		if col then
+			Game.Print(string.format("check at inst %d, %.3f %.3f (best map %s)", inst, col, row, tostring(best)))
+			Rects(out, best)
+			Flights(out, inst)
+		end
 		local fails = 0
 		for _, r in ipairs(out) do
 			Show(r)
