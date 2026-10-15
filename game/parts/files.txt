@@ -1,3 +1,4 @@
 game/parts/You.lua
 game/parts/Blips.lua
 game/parts/MinimapState.lua
+game/parts/Addons.lua
