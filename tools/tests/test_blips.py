@@ -248,12 +248,13 @@ def test_blips_priced():
     until(sweep() + 2)
     assert exact(sensed(ns), here + [vein]), sensed(ns)
 
-    perf = ns.Runtime.Perf()[0]
+    perf, fs = ns.Runtime.Perf()[0], ns.Runtime.FrameStats()
     part, observe = perf["game.part blips"], perf["game.observe"]
     stats = L.globals().MagicMapAtlasDB.telemetry.sessions[1].stats["blips"]
-    print(f"priced sensor: game.part blips max {part.max:.2f} ms, game.observe max {observe.max:.2f} ms; "
-          f"{sweep()} sweeps, the longest {stats.frames} frames, {stats.probes} probes")
-    assert part.max <= 2 and observe.max <= 2
+    print(f"priced sensor: game.part blips max {part.max:.2f} ms, game.observe max {observe.max:.2f} ms, frame p95 "
+          f"{fs.p95} ms over {fs.frames}; {sweep()} sweeps, the longest {stats.frames} frames, {stats.probes} probes")
+    # A sweep spans many frames (far more than 5% of them, standing or walking): its slice and the rest under p95.
+    assert part.max <= 2 and observe.max <= 2 and fs.p95 <= 1
     assert not errors(sim, ns), errors(sim, ns)
 
 
