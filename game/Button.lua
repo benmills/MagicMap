@@ -48,8 +48,8 @@ hl:SetVertexColor(1, 0.9, 0.6, 0.18)
 hl:SetPoint("CENTER")
 hl:SetSize(SIZE - 3, SIZE - 3)
 
--- On the rim of its parent: the Minimap, or the stand-in holding its spot (MinimapButton.lua:12-23).
--- Strata and level too: SetParent (the takeover's round trip) gives it its parent's.
+-- On the rim of its parent: the Minimap, or the stand-in holding its spot, at MEDIUM 8 levels
+-- above it (MinimapButton.lua:12-23).
 local function Place()
 	local home = button:GetParent()
 	local a, r = math.rad(Game.saved.buttonAngle or ANGLE), home:GetWidth() / 2 + RIM

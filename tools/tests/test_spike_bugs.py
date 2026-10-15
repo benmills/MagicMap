@@ -42,7 +42,22 @@ function T.Boot(saved)
 	sim.FireEvent("ADDON_LOADED", "MagicMapAtlas")
 	sim.FireEvent("PLAYER_LOGIN")
 	sim.FireEvent("PLAYER_ENTERING_WORLD", true, false)
+	local step = sim.onStep
+	sim.onStep = function(elapsed)
+		step(elapsed)
+		T.Invariants(sim, ns)
+	end
 	return sim, ns
+end
+
+-- What holds after every frame of every replay (checked as the next one starts): no protected
+-- call made in combat (spike-bugs K2), and no Blizzard Minimap art showing while the takeover
+-- has the Minimap (its cluster hidden, or faded while combat keeps it shown).
+function T.Invariants(sim, ns)
+	local c = sim.protectedCalls[1]
+	assert(c == nil, c and ("a protected call in combat: " .. c.call .. c.stack))
+	assert(not (ns.Game.minimap.engaged and MinimapCluster:IsVisible() and MinimapCluster:GetEffectiveAlpha() > 0),
+		"Blizzard's minimap cluster showing while engaged")
 end
 
 -- Booted, the map open and past its first-open grace (2 s).

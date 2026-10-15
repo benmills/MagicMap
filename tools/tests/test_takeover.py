@@ -3,7 +3,9 @@ for UI (M keeps WorldMapFrame hidden and hands "worldmap" on; L opens Blizzard's
 while big), none of it a protected call in combat (spike-bugs K2); the minimap button (dragged
 round the rim, its angle across a /reload, a click or the compartment "toggle"); the home spot
 (read again on a UI scale change); and a release putting back every property the takeover, the
-rim and the home fade changed. Tooltips: replays/R-G7.lua."""
+rim and the home fade changed: the Minimap's children (strata and level too: the client re-bases a
+frame on a new parent) and the cluster's parts anchored to it. Tooltips: replays/R-G7.lua; combat:
+replays/R-K2.lua."""
 import math
 
 from test_addon import boot, errors
@@ -31,14 +33,17 @@ local function Points(f)
 	return table.concat(out, "; ")
 end
 function H.Snapshot()
-	local mm, c, b, lib = Minimap, MinimapCluster, H.Button(), Sim.minimapButton
+	local mm, c, b, lib, z = Minimap, MinimapCluster, H.Button(), Sim.minimapButton, Sim.minimapZoom
 	return table.concat({
 		"parent " .. mm:GetParent():GetName(), "points " .. Points(mm), "size " .. mm:GetWidth() .. "x" .. mm:GetHeight(),
 		"scale " .. mm:GetScale(), "strata " .. mm:GetFrameStrata() .. " " .. mm:GetFrameLevel(), "alpha " .. mm:GetAlpha(),
 		"mouse " .. tostring(mm:IsMouseEnabled()) .. " " .. tostring(mm:IsMouseWheelEnabled()), "zoom " .. mm:GetZoom(),
 		"shown " .. tostring(mm:IsShown()), "ground " .. tostring(Sim.minimapGround), "unrotated " .. tostring(Sim.minimapUnrotated),
 		"cluster " .. tostring(c:IsShown()) .. " " .. c:GetAlpha(), "rings " .. tostring(Sim.BlobRingsAt(1)),
-		"inset " .. tostring(Sim.rimInset), "lib " .. lib:GetParent():GetName() .. " " .. Points(lib),
+		"inset " .. tostring(Sim.rimInset),
+		"lib " .. lib:GetParent():GetName() .. " " .. Points(lib) .. " " .. lib:GetFrameStrata() .. " " .. lib:GetFrameLevel(),
+		"zoom button " .. z:GetParent():GetName() .. " " .. Points(z) .. " " .. z:GetFrameStrata() .. " " .. z:GetFrameLevel(),
+		"border " .. Points(MinimapBorder),
 		"button " .. tostring(b:GetParent() == mm) .. " " .. Points(b) .. " " .. b:GetFrameStrata() .. " " .. tostring(b:IsVisible()),
 		"worldmap " .. tostring(WorldMapFrame:IsShown()), "escape " .. tostring(MagicMapAtlasEscape:IsShown()),
 	}, "\n")

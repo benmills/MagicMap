@@ -327,9 +327,20 @@ function Region:IsMouseOver(top, bottom, left, right)
 	local x, y = Sim.cursorX, Sim.cursorY
 	return x >= l + (left or 0) and x <= l + w + (right or 0) and y >= b + (bottom or 0) and y <= b + h + (top or 0)
 end
+-- A frame moved to a new parent is re-based on it, as the client does: its strata the parent's
+-- unless set (SetFrameStrata), its level just above the parent's unless fixed, and what it holds
+-- moved by as many levels.
+local function rebase(f, strata, delta)
+	local st = S[f]
+	if not st.strataSet then st.strata = strata end
+	if not st.fixedLevel then st.level = math.max(0, st.level + delta) end
+	for _, c in ipairs(st.children) do rebase(c, st.strata, delta) end
+end
 function Region:SetParent(parent)
 	if type(parent) == "string" then parent = named[parent] end
-	attach(self, parent, isFrame(self) and "children" or "regions")
+	if not isFrame(self) then return attach(self, parent, "regions") end
+	attach(self, parent, "children")
+	if parent then rebase(self, S[parent].strata, S[parent].level + 1 - S[self].level) end
 end
 
 -- Textures, lines, masks, font strings -------------------------------------
@@ -491,7 +502,7 @@ end
 function Frame:UnregisterEvent(event) S[self].events[event] = nil end
 function Frame:UnregisterAllEvents() S[self].events = {} end
 function Frame:IsEventRegistered(event) return S[self].events[event] == true end
-function Frame:SetFrameStrata(s) assert(STRATA[s], "SetFrameStrata: bad strata " .. tostring(s)); S[self].strata = s end
+function Frame:SetFrameStrata(s) assert(STRATA[s], "SetFrameStrata: bad strata " .. tostring(s)); S[self].strata, S[self].strataSet = s, true end
 function Frame:GetFrameStrata() return S[self].strata end
 function Frame:SetFrameLevel(l) assert(type(l) == "number" and l >= 0, "SetFrameLevel: non-negative number expected"); S[self].level = math.floor(l) end
 function Frame:GetFrameLevel() return S[self].level end
@@ -1119,6 +1130,7 @@ MinimapCluster:SetSize(230, 230)
 MinimapCluster:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", 0, 0)
 Minimap = new("Minimap", "Minimap", nil)
 attach(Minimap, MinimapCluster, "children")
+S[Minimap].strata, S[Minimap].level = "LOW", S[MinimapCluster].level + 1 -- (the cluster's: Minimap.xml)
 allFrames[#allFrames + 1] = Minimap
 Minimap:SetSize(140, 140)
 Minimap:SetPoint("CENTER", MinimapCluster, "TOP", 9, -92)
@@ -1128,10 +1140,17 @@ for _, name in ipairs({ "MinimapBorder", "MinimapBorderTop", "MinimapZoneTextBut
 	local f = CreateFrame("Frame", name, MinimapCluster)
 	f:SetAllPoints(Minimap)
 end
--- A button another addon hung on the minimap, and a GatherMate-style pin.
+-- Blizzard's zoom button (a Minimap child), a button another addon hung on the minimap (its
+-- strata and level its own, not fixed), and a GatherMate-style pin.
+Sim.minimapZoom = CreateFrame("Button", "MinimapZoomIn", Minimap)
+Sim.minimapZoom:SetSize(20, 20)
+Sim.minimapZoom:SetPoint("BOTTOMRIGHT", Minimap, "BOTTOMRIGHT", 0, 0)
+Sim.minimapZoom:SetFrameLevel(Minimap:GetFrameLevel() + 3)
 Sim.minimapButton = CreateFrame("Button", "LibDBIcon10_SomeAddon", Minimap)
 Sim.minimapButton:SetSize(31, 31)
 Sim.minimapButton:SetPoint("CENTER", Minimap, "BOTTOMLEFT", 10, 10)
+Sim.minimapButton:SetFrameStrata("MEDIUM")
+Sim.minimapButton:SetFrameLevel(8)
 Sim.gatherPin = CreateFrame("Frame", "GatherMatePin1", Minimap)
 Sim.gatherPin:SetSize(12, 12)
 Sim.gatherPin:SetPoint("CENTER", Minimap, "CENTER", 20, 20)

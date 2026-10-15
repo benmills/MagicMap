@@ -8,7 +8,10 @@
 --     back). What hung on it waits on a stand-in at its home spot; the cluster hides.
 --   otherwise (or a View Game can't use: SAFE, game/Apply.lua): released, every change undone.
 -- Every change Engage makes is paired with its undo on a list; Release runs it
--- backwards, so what comes back is exactly what was taken.
+-- backwards, so what comes back is exactly what was taken. But the cluster: its Show and
+-- Hide are refused in combat (it's protected: spike-bugs K2), so each apply puts it right
+-- once they aren't, hidden while engaged and as it was otherwise; meanwhile, engaged, it's
+-- faded (Game.minimap.fade: game/Home.lua; alpha isn't refused).
 -- Game.minimap tells the sensor (game/Blips.lua) where things stand: engaged,
 -- sensor (the blips layer is on), still (the last Apply didn't move it, and its zoom has applied).
 
@@ -20,16 +23,17 @@ local MARGIN = 2        -- screen units it keeps inside the screen's edge
 local ICONS = 0.05      -- its own icons' scale: out of sight (alpha alone doesn't hide them)
 local STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP" }
 
-local m = { engaged = false, sensor = false, still = false } -- blocker: why it isn't taken
+local m = { engaged = false, sensor = false, still = false, fade = false } -- blocker: why it isn't taken
 Game.minimap = m
 local undo, placed = {}, nil
+local clusterShown -- the cluster's own shown state, from an engage until it's back
 
 local standIn = CreateFrame("Frame", "MagicMapAtlasMinimapStandIn", UIParent)
 standIn:Hide()
 
 local function OnRelease(fn) undo[#undo + 1] = fn end
 
--- Swap anchors relative to `from` for the same anchors relative to `to`.
+-- Swap anchors relative to `from` for the same anchors relative to `to` (true if any).
 local function Reanchor(obj, from, to)
 	local points = {}
 	for i = 1, obj:GetNumPoints() do
@@ -37,17 +41,64 @@ local function Reanchor(obj, from, to)
 		if rel == from then points[#points + 1] = { p, rp, x, y } end
 	end
 	for _, p in ipairs(points) do obj:SetPoint(p[1], to, p[2], p[3], p[4]) end
+	return #points > 0
+end
+
+-- A new parent, keeping the draw layer (regions) or strata and level (frames: the client
+-- re-bases them on the new parent) (MinimapTakeover.lua:181-195).
+local function Reparent(obj, parent)
+	local layer, sublevel, strata, level
+	if obj.GetDrawLayer then
+		layer, sublevel = obj:GetDrawLayer()
+	else
+		strata, level = obj:GetFrameStrata(), obj:GetFrameLevel()
+	end
+	obj:SetParent(parent)
+	if layer then
+		obj:SetDrawLayer(layer, sublevel)
+	else
+		obj:SetFrameStrata(strata)
+		obj:SetFrameLevel(level)
+	end
 end
 
 local function Move(obj, from, to)
 	local t = obj:GetObjectType()
 	if t == "Line" or t == "MaskTexture" or (obj.IsProtected and obj:IsProtected()) then return end
-	obj:SetParent(to)
+	Reparent(obj, to)
 	Reanchor(obj, from, to)
 	OnRelease(function()
-		obj:SetParent(from)
+		Reparent(obj, from)
 		Reanchor(obj, to, from)
 	end)
+end
+
+-- Blizzard's parts that hang off the Minimap without being its children (borders, the zone
+-- text, its buttons), a few levels down from the cluster: onto the stand-in (MinimapTakeover.lua:215-229).
+local function ReanchorAround(frame, depth)
+	local function One(obj)
+		if Reanchor(obj, Minimap, standIn) then
+			OnRelease(function() Reanchor(obj, standIn, Minimap) end)
+		end
+	end
+	for _, obj in ipairs({ frame:GetRegions() }) do One(obj) end
+	for _, child in ipairs({ frame:GetChildren() }) do
+		if child ~= Minimap and child ~= standIn and not (child.IsProtected and child:IsProtected()) then
+			One(child)
+			if depth > 1 then ReanchorAround(child, depth - 1) end
+		end
+	end
+end
+
+-- The cluster hidden while engaged, else as it was; its state forgotten once it's back.
+local function Cluster()
+	local c = MinimapCluster
+	if m.engaged and clusterShown == nil then clusterShown = c:IsShown() end
+	if clusterShown == nil then return end
+	local want = not m.engaged and clusterShown
+	if c:IsShown() ~= want and not InCombatLockdown() then c:SetShown(want) end
+	m.fade = m.engaged and c:IsShown()
+	if not m.engaged and c:IsShown() == clusterShown then clusterShown = nil end
 end
 
 local function Engage()
@@ -59,6 +110,19 @@ local function Engage()
 	local scale, strata, level, zoom, alpha = mm:GetScale(), mm:GetFrameStrata(), mm:GetFrameLevel(), mm:GetZoom(), mm:GetAlpha()
 	local ground, unrotated = C_Minimap.GetDrawGroundTextures(), C_Minimap.IsRotateMinimapIgnored()
 	local mouse, wheel, shown = mm:IsMouseEnabled(), mm:IsMouseWheelEnabled(), mm:IsShown()
+	-- The stand-in takes the Minimap's place exactly (hidden: it only holds things).
+	standIn:SetParent(parent)
+	standIn:SetScale(scale)
+	standIn:SetFrameStrata(strata)
+	standIn:SetFrameLevel(level)
+	standIn:ClearAllPoints()
+	for _, p in ipairs(points) do standIn:SetPoint(unpack(p)) end
+	standIn:SetSize(w, h)
+	for _, obj in ipairs({ mm:GetChildren() }) do Move(obj, mm, standIn) end
+	for _, obj in ipairs({ mm:GetRegions() }) do Move(obj, mm, standIn) end
+	ReanchorAround(MinimapCluster, 3)
+	-- Undone first: the Minimap back in its place before what hung on it comes back to it
+	-- (a parent moved re-bases what it holds).
 	OnRelease(function()
 		mm:SetParent(parent)
 		mm:ClearAllPoints()
@@ -76,17 +140,6 @@ local function Engage()
 		mm:SetZoom(zoom)
 		mm:SetShown(shown)
 	end)
-	-- The stand-in takes the Minimap's place (hidden with the cluster: it only holds things).
-	standIn:SetParent(parent)
-	standIn:ClearAllPoints()
-	for _, p in ipairs(points) do standIn:SetPoint(unpack(p)) end
-	standIn:SetSize(w, h)
-	for _, obj in ipairs({ mm:GetChildren() }) do Move(obj, mm, standIn) end
-	for _, obj in ipairs({ mm:GetRegions() }) do Move(obj, mm, standIn) end
-	if MinimapCluster:IsShown() then
-		MinimapCluster:Hide()
-		OnRelease(function() MinimapCluster:Show() end)
-	end
 	mm:SetParent(UIParent)
 	mm:SetScale(1)
 	mm:SetAlpha(0)
@@ -109,6 +162,7 @@ local function Release()
 		if not ok and not failure then failure = err end
 		undo[i] = nil
 	end
+	Cluster()
 	Runtime.Trace("minimap", "released")
 	if failure then error(failure, 0) end
 end
@@ -169,10 +223,14 @@ end
 Game.Apply("minimap", function(view)
 	local w = view.window
 	m.blocker = FarmHud and FarmHud.IsShown and FarmHud:IsShown() and "FarmHud has the minimap" or nil
-	if view.minimap ~= "ours" or not (w.shown and w.place) or m.blocker then return Release() end
-	if not m.engaged then Engage() end
-	m.sensor = view.layers.blips == true and view.renderer ~= "blizzard"
-	Place(w, Hold(Minimap))
+	if view.minimap ~= "ours" or not (w.shown and w.place) or m.blocker then
+		Release()
+	else
+		if not m.engaged then Engage() end
+		m.sensor = view.layers.blips == true and view.renderer ~= "blizzard"
+		Place(w, Hold(Minimap))
+	end
+	Cluster()
 end)
 
 Runtime.On("PLAYER_LOGOUT", "game.minimap logout", Release)
