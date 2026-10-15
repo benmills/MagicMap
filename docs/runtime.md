@@ -44,6 +44,21 @@ P3) measure ours alone.
 (PASS / FAIL each, exit 1 on a FAIL). The limits live there in `BUDGETS`, and
 `FRAME_MS`, `CALL_MS` in runtime/Runtime.lua: change all three with this table.
 
+## Attribution: who to blame for a FAIL
+
+`Runtime.FrameStats()` names an owner for each budget, outside graces like the frame stats.
+All of it is kept in tables made at load: a measured frame allocates nothing more.
+
+| Key | What | How |
+|---|---|---|
+| `alloc` | the 5 names making most KB/s: `{ name, kbPerSec, kbMax, calls }` (`kbMax`: most in one call; `calls`: measured) | `collectgarbage("count")` before and after each wrapped call and each job resume; a call in which the heap shrank (the collector ran) is left out, so it's a lower bound. Inclusive: a wrapped call inside another counts in both. Calls with budget `false` (Runtime's own frame and event dispatch, loaders) aren't counted. The `spike` trace names the frame's top allocator too (`alloc`, `allocKb`). |
+| `gaps` | per job name `{ job, ms, n, stack }`: its longest stretch without a `Yield` over its budget, how many, and the stack of its first | each `Yield` times the stretch since the last (or since the resume); a resume also checks the stretch from its last `Yield` to its end (`stack` = "(ran to the job's end)"). A `gap` trace `{ job, ms, n }` at a name's 1st, 10th, every 100th. One `debugstack` per name. |
+| `ledger` | the 5 worst frames `{ frame, ms, top, topMs, events }`, worst first | `events`: the 10 trace events up to the frame's end (its own, the `spike` last) and the 10 traced after it |
+| `byState` | `{ [state] = { frames, p50, p95, p99, max } }` | the frame cost again, in one histogram per map state; UI calls `Runtime.SetState(state)`: `closed` (hidden), `small`, `big`, `zoom` (the wheel's zoom not laid out yet), `drag` |
+
+`Runtime.Perf()`'s entries carry the per-name totals behind these: `kb`, `kbN`, `kbMax`,
+`gaps`, `gapMax`, `gapStack`. `tools/tests/test_addon.py::test_attribution` drives each.
+
 ## Guarantees
 
 | Failure | Guarantee | Enforced by | Observed |

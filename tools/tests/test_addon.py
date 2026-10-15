@@ -97,6 +97,67 @@ def test_boundaries(capsys):
     assert "ui/X.lua:2" in out and "ui/X.lua:3" in out and "model/X.lua:1" in out and "game/X" not in out
 
 
+def test_attribution():
+    """docs/runtime.md "Attribution": KB per name, a job's gap, the worst frames, frames by map state."""
+    L, sim, ns = boot()
+    R = ns.Runtime
+    sim.Run(6)  # past login's grace
+    got = L.eval("""function(R)
+        local got = {}
+        collectgarbage("stop") -- exact KB: nothing freed meanwhile
+        R.Job("test.alloc", function() got.s = string.rep("x", 100 * 1024) end)
+        R.Job("test.gap", function()
+            R.Yield()
+            local t = debugprofilestop(); while debugprofilestop() - t < 10 do end
+            R.Yield(); R.Yield()
+        end)
+        R.Step("ui", "test.slow", function()
+            if not got.spin then return end
+            got.spin, got.s2 = nil, string.rep("y", 4 * 1024)
+            local t = debugprofilestop(); while debugprofilestop() - t < 12 do end
+        end)
+        return got
+    end""")(R)
+    sim.Run(0.5)
+    got.spin = True
+    sim.Step()
+    spun = R.frames
+    for i in range(12):
+        R.Trace("test", i)
+        sim.Step()
+    L.eval('collectgarbage("restart")')
+    stats = R.FrameStats()
+    # a job making 100 KB tops alloc; the frame's spike names its slowest call and its top allocator
+    top = stats.alloc[1]
+    assert top.name == "test.alloc" and top.kbMax >= 100 and top.calls == 1 and len(stats.alloc) <= 5
+    spike = next(e for e in R.TraceCopy().values() if e.k == "spike" and e.f == spun)
+    assert spike.d.top == "test.slow" and spike.d.alloc == "test.slow" and spike.d.allocKb >= 4
+    # 10 ms between two Yields: one gap, traced once, with the stack where it yielded
+    assert [(g.job, g.n) for g in stats.gaps.values()] == [("test.gap", 1)]
+    gap = stats.gaps[1]
+    assert gap.ms >= 10 and "string" in gap.stack
+    assert len([e for e in R.TraceCopy().values() if e.k == "gap" and e.d.job == "test.gap"]) == 1
+    # the worst frame, with the (up to) 10 events to its end, the spike last, and the 10 after
+    worst = stats.ledger[1]
+    assert len(stats.ledger) == 5 and worst.frame == spun and worst.top == "test.slow"
+    ks = [(e.k, e.d) for e in worst.events.values()]
+    assert ks[-11][0] == "spike" and ks[-10:] == [("test", i) for i in range(10)] and len(ks) <= 20
+    # frames by map state
+    m = ns.UI.Map
+    m.Toggle()
+    sim.Run(3)
+    sim.Wheel(m.view, 4)
+    sim.Run(1)
+    sim.Drag(m.view, 200, 0)
+    m.Toggle()
+    sim.Run(0.5)
+    stats = R.FrameStats()
+    by = stats.byState
+    assert all(by[s].frames > 0 for s in ("closed", "small", "zoom", "drag")), dict(by)
+    assert sum(by[s].frames for s in ("closed", "small", "zoom", "drag")) == stats.frames
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
 def test_failures():
     """docs/runtime.md: each frame-loop failure driven in the sim, and its guarantee held."""
     L, sim, ns = boot("""MagicMapAtlasDB = { telemetry = "corrupt", old = { _v = 1, n = "x" }, new = { _v = 9, keep = 1 }, bad = { x = 1 } }""")
