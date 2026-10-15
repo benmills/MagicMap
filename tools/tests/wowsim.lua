@@ -5,11 +5,19 @@
 --
 -- It isn't the real client: it catches errors (nil calls, typos, bad
 -- arithmetic, wrong assumptions about API shape) on the code paths a
--- scenario drives, not rendering or taint problems. Unknown methods are
+-- scenario drives, not rendering problems. Unknown methods are
 -- simply absent, as in the game, so calling one is an error.
 --
+-- Where the client is known to differ from plain Lua and a naive mock, it
+-- copies it (docs/v1-plan.md M0.6): a priced clock (Sim.Price, off by
+-- default), quest blobs laid out a frame late (L1), Forever's oversized edge
+-- atlases (L2), the Minimap's view radius 0 while it zooms (E3/E6),
+-- HereBeDragons pins with renamed copies (G6), protected frames refusing
+-- insecure calls in combat (K2: Sim.protectedCalls), and x/0 raising
+-- (Sim.Strict, opt-in, E3).
+--
 -- The client it simulates is WoW Forever (a Retail-engine client).
--- Ported from the MagicMap spike (its Questie / QuestieDB mocks dropped).
+-- Ported from the MagicMap spike (its QuestieDB mocks dropped).
 
 local Sim = { time = 0, frame = 0, errors = {}, timers = {}, prints = {} }
 _G.Sim = Sim
@@ -31,6 +39,27 @@ function Sim.Call(what, fn, ...)
 	end
 	return ok
 end
+
+-- Taint, roughly (K2): the client's own code runs secure only from a key press
+-- (Sim.Press, Sim.Escape); anything it calls of an addon's (scripts, hooks) runs
+-- insecure, and so does everything else. Only insecure calls are refused.
+local secure = false
+local function Secure(fn, ...)
+	local was = secure
+	secure = true
+	local ok, a, b = xpcall(fn, traceback, ...)
+	secure = was
+	if not ok then error(a, 0) end
+	return a, b
+end
+
+-- The priced clock (Sim.Price(true)): what the client charges that plain Lua
+-- doesn't, in ms added to debugprofilestop. A probe is one Minimap mouseover read;
+-- a frame's Show, Hide and SetScale cost per region under it, hidden ones too.
+-- From the play-test (docs/v1-plan.md §2); update from /mma bench regions.
+Sim.PRICES = { probe = 0.1, Show = 0.02, Hide = 0.02, SetScale = 0.02 }
+Sim.pricing, Sim.priced = false, 0
+function Sim.Price(on) Sim.pricing = on and true or false end
 
 ---------------------------------------------------------------------------
 -- Widgets
@@ -243,10 +272,20 @@ local function visibleFrames(obj, out)
 	return out
 end
 
+local function regionsUnder(f)
+	local n = #S[f].regions
+	for _, c in ipairs(S[f].children) do n = n + regionsUnder(c) end
+	return n
+end
+local function charge(what, frame)
+	if Sim.pricing then Sim.priced = Sim.priced + Sim.PRICES[what] * (frame and regionsUnder(frame) or 1) end
+end
+
 local function setShown(self, shown)
 	local st = S[self]
 	if st.shown == shown then return end
 	if not isFrame(self) then st.shown = shown; return end -- a region: no scripts (and no garbage)
+	charge(shown and "Show" or "Hide", self)
 	local before = visibleFrames(self, {})
 	st.shown = shown
 	if shown then
@@ -274,7 +313,11 @@ function Region:IsObjectType(t) return isA(self, t) end
 function Region:GetName() return S[self].name end
 function Region:GetDebugName() return S[self].name or ("<" .. S[self].type .. ">") end
 function Region:GetScale() return S[self].scale end
-function Region:SetScale(s) assert(type(s) == "number" and s > 0, "SetScale: positive number expected"); S[self].scale = s end
+function Region:SetScale(s)
+	assert(type(s) == "number" and s > 0, "SetScale: positive number expected")
+	if s ~= S[self].scale and isFrame(self) then charge("SetScale", self) end
+	S[self].scale = s
+end
 function Region:GetEffectiveScale() return effScale(self) end
 function Region:IsProtected() return false end
 -- Offsets grow (or shrink) the tested rect: top up, bottom down when negative.
@@ -308,9 +351,12 @@ function Texture:SetColorTexture(r, g, b, a)
 	S[self].color = c
 	S[self].texture = nil
 end
+-- useSize: the atlas's size as the client reports it (Forever's edges: 200 px, L2).
 function Texture:SetAtlas(atlas, useSize)
 	assert(type(atlas) == "string", "SetAtlas: string expected")
 	S[self].atlas = atlas
+	local info = useSize and C_Texture.GetAtlasInfo(atlas)
+	if info then setSize(self, info.width, info.height) end
 end
 function Texture:GetAtlas() return S[self].atlas end
 function Texture:SetVertexColor(r, g, b, a) assert(type(r) == "number", "SetVertexColor: numbers expected"); S[self].vertex = { r, g, b, a } end
@@ -559,11 +605,14 @@ local function minimapMouseover(self)
 end
 Tooltip.SetMinimapMouseover = minimapMouseover
 
--- The Minimap: zoom levels, and a view radius that follows them.
+-- The Minimap: zoom levels, and a view radius that follows them, a frame or
+-- two late: 0 while a new zoom applies (Sim.ZOOM_FRAMES, from the frame it's set in).
 local MinimapClass = class("Minimap", "Frame")
+Sim.ZOOM_FRAMES = 2
 function MinimapClass:GetZoom() return S[self].zoom or 0 end
 function MinimapClass:SetZoom(z)
 	assert(type(z) == "number" and z >= 0 and z <= 5, "SetZoom: 0..5 expected")
+	if z ~= (S[self].zoom or 0) then S[self].zoomedAt = Sim.frame end
 	S[self].zoom = z
 end
 function MinimapClass:GetZoomLevels() return 6 end
@@ -621,14 +670,18 @@ local function blipsAt(m, px, py)
 	end
 	return names
 end
+-- A probe (priced): what answers is a fresh TooltipData, as the client's (its
+-- line's colour too), so every answer allocates; nothing there answers nil.
 C_TooltipInfo = {
 	GetMinimapMouseover = function()
+		charge("probe")
 		local st = S[Minimap]
 		local x, y = Sim.cursorX, Sim.cursorY
 		if st.soft then x, y = st.hoverX, st.hoverY end
 		local names = x and blipsAt(Minimap, x, y)
 		if not names then return nil end
-		return { type = 21, lines = { { leftText = table.concat(names, "\n") } } }
+		return { type = 21, dataInstanceID = Sim.frame,
+			lines = { { type = 0, leftText = table.concat(names, "\n"), leftColor = CreateColor(1, 1, 1, 1) } } }
 	end,
 }
 
@@ -643,18 +696,35 @@ function ScrollFrame:GetScrollChild() return S[self].scrollChild end
 function ScrollFrame:SetHorizontalScroll(v) S[self].hscroll = v end
 function ScrollFrame:SetVerticalScroll(v) S[self].vscroll = v end
 
--- QuestPOIFrame (retail): draws quest blobs for one uiMap.
+-- QuestPOIFrame (retail): draws quest blobs for one uiMap. Its layout is a
+-- frame late (L1): a new size or anchor holds for DrawBlob and hit tests only
+-- after the end of the frame (Sim.Step's layout pass), and a blob is drawn into
+-- the rect laid out when DrawBlob is called: into nothing before the first.
 local POI = class("QuestPOIFrame", "Frame")
+local pois = {}
 function POI:SetMapID(id) assert(type(id) == "number", "SetMapID: number expected"); S[self].mapID = id end
 -- Quest areas are circles: Sim.blobShapes[questID] = { x, y, r } in its map's
--- normalized coordinates; a frame knows which quests it has drawn.
+-- normalized coordinates; a frame keeps, per quest drawn, the rect it went into.
 Sim.blobShapes = {}
+local NONE = {}
 function POI:DrawBlob(questID, draw)
 	assert(type(questID) == "number", "DrawBlob: questID expected")
-	S[self].blobs = S[self].blobs or {}
-	S[self].blobs[questID] = true
+	local st = S[self]
+	st.blobs = st.blobs or {}
+	local d, laid = st.blobs[questID] or {}, st.laid or NONE
+	d[1], d[2], d[3], d[4] = laid[1], laid[2], laid[3], laid[4]
+	st.blobs[questID] = d
 end
-function POI:DrawNone() S[self].blobs = {} end
+function POI:DrawNone() if S[self].blobs then wipe(S[self].blobs) end end
+local function layOut()
+	for _, f in ipairs(pois) do
+		local st = S[f]
+		local l, b, w, h = rect(f)
+		local laid = l and (st.laid or {})
+		if laid then laid[1], laid[2], laid[3], laid[4] = l, b, w, h end
+		st.laid = laid or nil
+	end
+end
 function POI:SetFillTexture(t) end
 function POI:SetFillAlpha(a) end
 function POI:SetBorderTexture(t) end
@@ -664,13 +734,17 @@ function POI:EnableMerging(on) end
 function POI:EnableSmoothing(on) end
 function POI:SetMergeThreshold(t) end
 function POI:SetNumSplinePoints(n) end
--- The quest whose drawn area covers (x, y): Sim.questUnderCursor if set (for
--- tooltip tests), else one of its quests whose circle holds the point.
+-- The quest whose drawn area covers (x, y), normalized on the frame as laid out:
+-- Sim.questUnderCursor if set (for tooltip tests), else one of its quests whose
+-- circle, as drawn into its rect then, holds the point. Never laid out: none.
 function POI:UpdateMouseOverTooltip(x, y)
 	if Sim.questUnderCursor then return Sim.questUnderCursor end
-	for questID in pairs(S[self].blobs or {}) do
+	local laid = S[self].laid
+	if not laid then return nil end
+	local sx, sy = laid[1] + x * laid[3], laid[2] + (1 - y) * laid[4]
+	for questID, d in pairs(S[self].blobs or NONE) do
 		local c = Sim.blobShapes[questID]
-		if c and (x - c[1]) ^ 2 + (y - c[2]) ^ 2 <= c[3] ^ 2 then return questID end
+		if c and d[1] and ((sx - d[1]) / d[3] - c[1]) ^ 2 + ((d[2] + d[4] - sy) / d[4] - c[2]) ^ 2 <= c[3] ^ 2 then return questID end
 	end
 end
 function POI:GetTooltipIndex() return 0 end
@@ -694,6 +768,7 @@ function CreateFrame(typ, name, parent, template)
 		S[f].strata, S[f].level = S[parent].strata, S[parent].level + 1
 	end
 	allFrames[#allFrames + 1] = f
+	if cls == "QuestPOIFrame" then pois[#pois + 1] = f end
 	if template and template:find("UIPanelCloseButton") then
 		f:SetSize(32, 32)
 	end
@@ -732,12 +807,16 @@ end
 -- Driving the simulation
 ---------------------------------------------------------------------------
 
+-- (Scripts run insecure: an addon's.)
 function Sim.FireScript(frame, name, ...)
 	local s = S[frame].scripts[name]
 	if not s then return end
 	local what = (S[frame].name or S[frame].type) .. ":" .. name
+	local was = secure
+	secure = false
 	if s.main then Sim.Call(what, s.main, frame, ...) end
 	for _, hook in ipairs(s.hooks) do Sim.Call(what .. " hook", hook, frame, ...) end
+	secure = was
 end
 
 function Sim.FireEvent(event, ...)
@@ -746,7 +825,11 @@ function Sim.FireEvent(event, ...)
 	end
 end
 
--- One rendered frame: timers, then every visible frame's OnUpdate.
+-- What the client does at the end of each frame, after OnUpdates: QuestPOI
+-- layout (L1), HereBeDragons re-placing its minimap pins.
+local endOfFrame = { layOut }
+
+-- One rendered frame: timers, then every visible frame's OnUpdate, then the end of the frame.
 function Sim.Step(elapsed)
 	elapsed = elapsed or 1 / 60
 	Sim.time = Sim.time + elapsed
@@ -766,6 +849,7 @@ function Sim.Step(elapsed)
 	for _, f in ipairs(list) do
 		if visible(f) then Sim.FireScript(f, "OnUpdate", elapsed) end
 	end
+	for _, fn in ipairs(endOfFrame) do fn() end
 end
 
 function Sim.Run(seconds, fps)
@@ -854,12 +938,16 @@ function Sim.Named(name) return named[name] end
 ---------------------------------------------------------------------------
 
 function wipe(t) for k in pairs(t) do t[k] = nil end return t end
+-- The hook runs after the original, insecure (an addon's); the caller goes on as it was.
 function hooksecurefunc(t, name, fn)
 	if type(t) == "string" then t, name, fn = _G, t, name end -- hooksecurefunc("GlobalFunction", fn)
 	local orig = t[name]
 	t[name] = function(...)
 		local r = { orig(...) }
+		local was = secure
+		secure = false
 		fn(...)
+		secure = was
 		return unpack(r)
 	end
 end
@@ -884,8 +972,9 @@ function strsplit(sep, s, limit)
 	return unpack(out)
 end
 -- Sim.Clock: the ms clock behind debugprofilestop; a scenario may swap it (a counted clock).
+-- What Sim.Price charges is added on top.
 Sim.Clock = function() return os.clock() * 1000 end
-function debugprofilestop() return Sim.Clock() end
+function debugprofilestop() return Sim.Clock() + Sim.priced end
 function GetTime() return Sim.time end
 time = os.time
 date = os.date
@@ -967,14 +1056,22 @@ LEVEL = "Level"
 RAID_CLASS_COLORS = setmetatable({}, { __index = function() return { r = 1, g = 1, b = 1, colorStr = "ffffffff" } end })
 SlashCmdList = {}
 UISpecialFrames = {}
--- Escape, as the client's CloseSpecialWindows: hides the shown frames named there.
+-- Escape, as the client's CloseSpecialWindows: hides the shown frames named there (secure).
 function Sim.Escape()
-	local closed = false
-	for _, name in ipairs(UISpecialFrames) do
-		local f = _G[name]
-		if f and f:IsShown() then f:Hide(); closed = true end
-	end
-	return closed
+	return Secure(function()
+		local closed = false
+		for _, name in ipairs(UISpecialFrames) do
+			local f = _G[name]
+			if f and f:IsShown() then f:Hide(); closed = true end
+		end
+		return closed
+	end)
+end
+-- A key the client binds itself, pressed (secure): "M", "L", "ESCAPE".
+local BINDINGS = { M = "ToggleWorldMap", L = "ToggleQuestLog" }
+function Sim.Press(key)
+	if key == "ESCAPE" then return Sim.Escape() end
+	return Secure(_G[BINDINGS[key]])
 end
 
 Sim.unknownEvents = {}
@@ -1040,22 +1137,9 @@ Minimap:SetScript("OnLeave", function(self)
 	self:SetScript("OnUpdate", nil)
 	GameTooltip:Hide()
 end)
--- HereBeDragons-Pins (GatherMate's pin above is one of its pins): places
--- them on whatever frame it's given as the minimap.
-local hbdPins = { Minimap = Minimap, minimapPins = { [Sim.gatherPin] = {} } }
-function hbdPins:SetMinimapObject(obj)
-	self.Minimap = obj or Minimap
-	assert(self.Minimap.GetZoom, "SetMinimapObject: the minimap object needs GetZoom")
-	self.Minimap:GetZoom()
-	for pin in pairs(self.minimapPins) do
-		pin:SetParent(self.Minimap)
-		pin:ClearAllPoints()
-		pin:SetPoint("CENTER", self.Minimap, "CENTER", 20, 20)
-	end
-end
-Sim.hbdPins = hbdPins
-Sim.libs = { ["HereBeDragons-Pins-2.0"] = hbdPins }
--- LibStub: callable, and its libraries listed in .libs as in the real one.
+-- LibStub: callable, and its libraries listed in .libs as in the real one
+-- (HereBeDragons' copies: Sim.HBDPins, below the world).
+Sim.libs = {}
 LibStub = setmetatable({ libs = Sim.libs, minors = {} }, {
 	__call = function(self, name, silent)
 		local lib = Sim.libs[name]
@@ -1076,6 +1160,32 @@ end
 function methods:SetFixedFrameLevel(on) S[self].fixedLevel = not not on end
 function methods:HasFixedFrameLevel() return S[self].fixedLevel == true end
 
+-- Protected frames (K2): Sim.Protect(frame) makes one protected, and every frame
+-- holding it too (IsProtected: protected, explicitly). In combat an insecure call
+-- that would move, size, show or hide one is refused: not made, logged in
+-- Sim.protectedCalls ({ frame, call, stack }) and ADDON_ACTION_BLOCKED fired.
+-- Protected here: MinimapCluster and WorldMapFrame (hiding them is the spike's K2).
+Sim.protectedCalls = {}
+function Sim.Protect(frame, on) S[frame].protected = on ~= false end
+local function protected(f)
+	if S[f].protected then return true end
+	for _, c in ipairs(S[f].children) do
+		if protected(c) then return true end
+	end
+	return false
+end
+function methods:IsProtected() return protected(self), S[self].protected == true end
+for _, name in ipairs({ "Show", "Hide", "SetShown", "SetPoint", "SetAllPoints", "ClearAllPoints", "SetParent", "SetSize",
+	"SetWidth", "SetHeight", "SetScale", "SetFrameStrata", "SetFrameLevel", "Raise", "Lower", "EnableMouse" }) do
+	local fn = methods[name]
+	methods[name] = function(self, ...)
+		if not (Sim.inCombat and not secure and protected(self)) then return fn(self, ...) end
+		local call = (S[self].name or S[self].type) .. ":" .. name .. "()"
+		Sim.protectedCalls[#Sim.protectedCalls + 1] = { frame = Sim.frame, call = call, stack = debug.traceback("", 2) }
+		Sim.FireEvent("ADDON_ACTION_BLOCKED", Sim.addons[1][1], call)
+	end
+end
+
 WorldMapFrame = CreateFrame("Frame", "WorldMapFrame", UIParent)
 WorldMapFrame:SetSize(1000, 700)
 WorldMapFrame:SetPoint("CENTER")
@@ -1088,10 +1198,14 @@ WorldMapFrame.mapID = 1429 -- the map it shows (Elwynn Forest)
 -- on the quest log.
 function ToggleWorldMap() WorldMapFrame:SetShown(not WorldMapFrame:IsShown()) end
 function ToggleQuestLog() WorldMapFrame:SetShown(not WorldMapFrame:IsShown()) end
+Sim.Protect(MinimapCluster)
+Sim.Protect(WorldMapFrame)
 
 local VIEW_INDOORS, VIEW_OUTDOORS = { [0] = 300, 240, 180, 120, 80, 50 }, { [0] = 466.67, 400, 333.33, 266.67, 200, 133.33 }
 C_Minimap = {
 	GetViewRadius = function()
+		local at = S[Minimap].zoomedAt
+		if at and Sim.frame - at < Sim.ZOOM_FRAMES then return 0 end -- (a new zoom applying)
 		-- Indoors (or somewhere you may mount, Sim.floorPlan) its indoor map.
 		local inside = Sim.indoors or Sim.floorPlan
 		local d = (inside and VIEW_INDOORS or VIEW_OUTDOORS)[Minimap:GetZoom()]
@@ -1452,12 +1566,14 @@ for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutt
 	ATLASES[name] = true
 end
 -- The metal frame's pieces, sized as Forever reports them: the edges far
--- bigger than the metal you see (which once shrank the map).
+-- bigger than the metal you see (which once shrank the map: L2), by
+-- GetAtlasInfo and SetAtlas(name, true) alike.
 for _, name in ipairs({ "UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight" }) do ATLASES[name] = { 32, 32 } end
 ATLASES["_UI-Frame-Metal-EdgeBottom"] = { 256, 200 }
 ATLASES["UI-QuestPoi-QuestNumber"], ATLASES["deathrecap-icon-tombstone"] = { 32, 32 }, { 15, 20 }
 ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }
 ATLASES["!UI-Frame-Metal-EdgeRight"] = { 200, 256 }
+Sim.atlases = ATLASES -- [name] = true (16 px) or { w, h }: a scenario adds, resizes or removes one
 C_Texture = {
 	GetAtlasInfo = function(name)
 		if ATLASES[name] then
@@ -1532,5 +1648,268 @@ C_QuestLine = {
 
 function ButtonFrameTemplate_HidePortrait(f) end
 function ButtonFrameTemplate_HideButtonBar(f) end
+
+---------------------------------------------------------------------------
+-- HereBeDragons-Pins-2.0: Sim.HBDPins(major) is a copy in LibStub, shaped like
+-- the real one (Questie/Libs/HereBeDragons/HereBeDragons-Pins-2.0.lua): pins by
+-- world yards (x = west, y = north: UnitPosition's second and first) in
+-- minimapPins / worldmapPins, keyed by the addon's frame ("icon"), registries by
+-- ref. Its world-map provider gives each pin on Blizzard's current map
+-- (WorldMapFrame.mapID: the pin's own map; any map holding it for a continent
+-- flag or a pin by world yards) a pin frame on the map's canvas and parents the
+-- icon to it; releasing one hands the icon to UIParent, hidden. It refreshes
+-- when the map opens on another map or after a removal (forceUpdate). Minimap
+-- pins sit on pins.Minimap (SetMinimapObject) at your offset over the view
+-- radius, turned under Rotate Minimap, hidden past 0.9 of it unless
+-- floatOnEdge; re-placed at the end of a frame when you, the radius or that
+-- frame changed. The shared copy holds GatherMate's pin (Sim.gatherPin);
+-- Questie's renamed copy comes with Sim.LoadQuestie(), as if Questie loaded later.
+---------------------------------------------------------------------------
+
+HBD_PINS_WORLDMAP_SHOW_PARENT, HBD_PINS_WORLDMAP_SHOW_CONTINENT, HBD_PINS_WORLDMAP_SHOW_WORLD = 1, 2, 3
+local copies = {}
+
+local function zoneToWorld(uiMapID, x, y)
+	local m = Sim.maps[uiMapID]
+	if not (m and m[4]) then return nil end
+	local north, west = toWorld(m[5] + (m[7] - m[5]) * x, m[6] + (m[8] - m[6]) * y)
+	return west, north, m[4]
+end
+
+function Sim.HBDPins(major)
+	local pins = { Minimap = Minimap, minimapPins = {}, activeMinimapPins = {}, minimapPinRegistry = {},
+		worldmapPins = {}, worldmapPinRegistry = {}, worldmapProvider = { forceUpdate = false }, last = {} }
+	local provider, canvas, free, used = pins.worldmapProvider, WorldMapFrame.canvas, {}, {}
+
+	local function release(pin)
+		used[pin] = nil
+		if pin.icon then
+			pin.icon:Hide()
+			pin.icon:SetParent(UIParent)
+			pin.icon:ClearAllPoints()
+			pin.icon = nil
+		end
+		pin:Hide()
+		free[#free + 1] = pin
+	end
+	function provider:RemovePinByIcon(icon)
+		for pin in pairs(used) do
+			if pin.icon == icon then release(pin) end
+		end
+	end
+	function provider:HandlePin(icon, data)
+		local id = WorldMapFrame.mapID
+		local m = Sim.maps[id]
+		if not (m and m[4] == data.instanceID) then return end
+		if data.uiMapID and data.uiMapID ~= id and data.worldMapShowFlag < HBD_PINS_WORLDMAP_SHOW_CONTINENT then return end
+		local x, y = normalized(id, 32 - data.x / TILE, 32 - data.y / TILE)
+		if x < 0 or x > 1 or y < 0 or y > 1 then return end
+		local pin = table.remove(free) or CreateFrame("Frame", nil, canvas)
+		pin:SetSize(1, 1)
+		pin:ClearAllPoints()
+		pin:SetPoint("CENTER", canvas, "TOPLEFT", x * canvas:GetWidth(), -y * canvas:GetHeight())
+		pin:Show()
+		used[pin], pin.icon = true, icon
+		icon:SetParent(pin)
+		icon:ClearAllPoints()
+		icon:SetPoint("CENTER", pin, "CENTER")
+		icon:Show()
+	end
+	function provider:RefreshAllData()
+		if self.lastMap == WorldMapFrame.mapID and not self.forceUpdate then return end
+		for pin in pairs(used) do release(pin) end
+		for icon, data in pairs(pins.worldmapPins) do self:HandlePin(icon, data) end
+		self.lastMap, self.forceUpdate = WorldMapFrame.mapID, false
+	end
+	WorldMapFrame:HookScript("OnShow", function() provider:RefreshAllData() end)
+
+	function pins.place(icon, data)
+		local north, west, _, inst = UnitPosition("player")
+		local r = C_Minimap.GetViewRadius()
+		if r == 0 then return end -- (a new zoom applying: left where it was)
+		if not north or inst ~= data.instanceID then return icon:Hide() end
+		local dx, dy = (west - data.x) / r, (north - data.y) / r
+		if Sim.cvars.rotateMinimap == "1" then
+			local s, c = math.sin(GetPlayerFacing()), math.cos(GetPlayerFacing())
+			dx, dy = dx * c - dy * s, dx * s + dy * c
+		end
+		local dist = (dx * dx + dy * dy) / 0.81
+		if dist > 1 and data.floatOnEdge then
+			dist = dist ^ 0.5
+			dx, dy = dx / dist, dy / dist
+		end
+		data.onEdge = dist > 1 or nil
+		if dist > 1 and not data.floatOnEdge then return icon:Hide() end
+		local m = pins.Minimap
+		icon:Show()
+		icon:ClearAllPoints()
+		icon:SetPoint("CENTER", m, "CENTER", dx * m:GetWidth() / 2, -dy * m:GetHeight() / 2)
+	end
+
+	local function addMinimap(ref, icon, inst, x, y, uiMapID, inParent, floatOnEdge)
+		assert(ref ~= nil and type(icon) == "table" and icon.SetPoint, major .. ": a ref and an icon frame expected")
+		pins.minimapPinRegistry[ref] = pins.minimapPinRegistry[ref] or {}
+		pins.minimapPinRegistry[ref][icon] = true
+		local t = pins.minimapPins[icon] or {}
+		t.instanceID, t.x, t.y, t.uiMapID, t.showInParentZone, t.floatOnEdge = inst, x, y, uiMapID, inParent, floatOnEdge
+		pins.minimapPins[icon] = t
+		icon:SetParent(pins.Minimap)
+		pins.place(icon, t)
+	end
+	function pins:AddMinimapIconWorld(ref, icon, instanceID, x, y, floatOnEdge)
+		addMinimap(ref, icon, instanceID, x, y, nil, nil, floatOnEdge)
+	end
+	function pins:AddMinimapIconMap(ref, icon, uiMapID, x, y, showInParentZone, floatOnEdge)
+		local wx, wy, inst = zoneToWorld(uiMapID, x, y)
+		if wx then addMinimap(ref, icon, inst, wx, wy, uiMapID, showInParentZone, floatOnEdge) end
+	end
+	function pins:IsMinimapIconOnEdge(icon) return self.minimapPins[icon] and self.minimapPins[icon].onEdge end
+	function pins:RemoveMinimapIcon(ref, icon)
+		if not (ref and icon and self.minimapPinRegistry[ref]) then return end
+		self.minimapPinRegistry[ref][icon] = nil
+		self.minimapPins[icon], self.activeMinimapPins[icon] = nil, nil
+		icon:Hide()
+	end
+	function pins:RemoveAllMinimapIcons(ref)
+		for icon in pairs(self.minimapPinRegistry[ref] or NONE) do self:RemoveMinimapIcon(ref, icon) end
+	end
+	function pins:SetMinimapObject(obj)
+		self.Minimap = obj or Minimap
+		assert(self.Minimap.GetZoom, "SetMinimapObject: the minimap object needs GetZoom")
+		for icon, data in pairs(self.minimapPins) do
+			icon:SetParent(self.Minimap)
+			self.place(icon, data)
+		end
+	end
+
+	local function addWorld(ref, icon, inst, x, y, uiMapID, showFlag, frameLevel)
+		assert(ref ~= nil and type(icon) == "table" and icon.SetPoint, major .. ": a ref and an icon frame expected")
+		pins.worldmapPinRegistry[ref] = pins.worldmapPinRegistry[ref] or {}
+		pins.worldmapPinRegistry[ref][icon] = true
+		local t = pins.worldmapPins[icon] or {}
+		t.instanceID, t.x, t.y, t.uiMapID, t.worldMapShowFlag, t.frameLevelType = inst, x, y, uiMapID, showFlag or 0, frameLevel
+		pins.worldmapPins[icon] = t
+		provider:HandlePin(icon, t)
+	end
+	function pins:AddWorldMapIconWorld(ref, icon, instanceID, x, y, showFlag, frameLevel)
+		addWorld(ref, icon, instanceID, x, y, nil, showFlag, frameLevel)
+	end
+	function pins:AddWorldMapIconMap(ref, icon, uiMapID, x, y, showFlag, frameLevel)
+		local wx, wy, inst = zoneToWorld(uiMapID, x, y)
+		if wx then addWorld(ref, icon, inst, wx, wy, uiMapID, showFlag, frameLevel) end
+	end
+	function pins:RemoveWorldMapIcon(ref, icon)
+		if not (ref and icon and self.worldmapPinRegistry[ref]) then return end
+		self.worldmapPinRegistry[ref][icon] = nil
+		self.worldmapPins[icon] = nil
+		provider:RemovePinByIcon(icon)
+		provider.forceUpdate = true
+	end
+	function pins:RemoveAllWorldMapIcons(ref)
+		for icon in pairs(self.worldmapPinRegistry[ref] or NONE) do self:RemoveWorldMapIcon(ref, icon) end
+	end
+
+	copies[#copies + 1] = pins
+	Sim.libs[major] = pins
+	return pins
+end
+
+endOfFrame[#endOfFrame + 1] = function()
+	local north, west = UnitPosition("player")
+	local r, facing = C_Minimap.GetViewRadius(), GetPlayerFacing()
+	for _, pins in ipairs(copies) do
+		local L, m = pins.last, pins.Minimap
+		local _, _, w, h = rect(m)
+		if north ~= L.n or west ~= L.w or r ~= L.r or facing ~= L.f or m ~= L.m or w ~= L.mw or h ~= L.mh then
+			L.n, L.w, L.r, L.f, L.m, L.mw, L.mh = north, west, r, facing, m, w, h
+			for icon, data in pairs(pins.minimapPins) do pins.place(icon, data) end
+		end
+	end
+end
+
+Sim.hbdPins = Sim.HBDPins("HereBeDragons-Pins-2.0")
+Sim.hbdPins:AddMinimapIconMap("GatherMate2", Sim.gatherPin, 1429, 0.297, 0.546) -- a herb 40 yd north-east of you
+
+function Sim.LoadQuestie()
+	if not Sim.questiePins then
+		HBD_PINS_WORLDMAP_SHOW_CURRENT = -1 -- (Questie's: its own map only)
+		Sim.libs["HereBeDragonsQuestie-2.0"] = {}
+		Sim.questiePins = Sim.HBDPins("HereBeDragonsQuestie-Pins-2.0")
+		Questie = { name = "Questie" }
+	end
+	return Sim.questiePins
+end
+-- A Questie map icon: a button at Questie's fixed frame level, hidden until placed,
+-- with Questie's data ({ Type = "available" | "complete" | ..., Id = questID }).
+function Sim.QuestieIcon(data)
+	local icon = CreateFrame("Button", nil, UIParent)
+	icon:SetSize(16, 16)
+	icon:EnableMouse(true)
+	icon:SetFrameLevel(2016)
+	icon:SetFixedFrameLevel(true)
+	icon:Hide()
+	icon.data = data
+	return icon
+end
+
+---------------------------------------------------------------------------
+-- Strict (Sim.Strict(true), or MM_STRICT=1 before loading): WoW's Lua raises
+-- "Division by zero" where plain Lua gives inf or nan (E3). Code loaded while
+-- it's on (loadfile, loadstring; not Data/, which is generated) has each `/`
+-- made `/ __strictdiv ^`: `^` binds tighter than anything that can follow `/`,
+-- so the metamethod gets exactly the divisor, and hands it back or raises.
+---------------------------------------------------------------------------
+
+__strictdiv = setmetatable({}, { __pow = function(_, d)
+	if d == 0 then error("Division by zero", 2) end
+	return d
+end })
+
+-- Every `/` outside strings and comments.
+local function rewrite(src)
+	local out, from, i = {}, 1, 1
+	while true do
+		i = src:find("[-%[\"'/]", i)
+		if not i then break end
+		local c = src:sub(i, i)
+		local long = src:match("^%[(=*)%[", c == "-" and i + 2 or i)
+		if c == "/" then
+			out[#out + 1] = src:sub(from, i) .. " __strictdiv ^"
+			from, i = i + 1, i + 1
+		elseif c == "-" and src:sub(i + 1, i + 1) == "-" then
+			local _, e = src:find(long and "]" .. long .. "]" or "\n", i + 2, true)
+			i = (e or #src) + 1
+		elseif c == "[" and long then
+			local _, e = src:find("]" .. long .. "]", i + 1, true)
+			i = (e or #src) + 1
+		elseif c == '"' or c == "'" then
+			local j = i + 1
+			while true do
+				j = src:find("[\\" .. c .. "]", j)
+				if not j or src:sub(j, j) == c then break end
+				j = j + 2
+			end
+			i = (j or #src) + 1
+		else
+			i = i + 1
+		end
+	end
+	out[#out + 1] = src:sub(from)
+	return table.concat(out)
+end
+
+local loadfile51, loadstring51 = loadfile, loadstring
+local function strictLoadstring(src, name) return loadstring51(rewrite(src), name or src) end
+local function strictLoadfile(path)
+	local f = not path:find("/Data/[^/]*%.lua$") and io.open(path, "rb")
+	if not f then return loadfile51(path) end
+	local src = f:read("*a")
+	f:close()
+	return loadstring51(rewrite(src), "@" .. path)
+end
+function Sim.Strict(on)
+	loadfile, loadstring = on and strictLoadfile or loadfile51, on and strictLoadstring or loadstring51
+end
+Sim.Strict(os.getenv("MM_STRICT") == "1")
 
 return Sim

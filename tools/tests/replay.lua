@@ -2,7 +2,11 @@
 -- Replay.Model(root) loads model/*.lua in TOC order with Atlas's coordinates
 -- (atlas/Coords.lua) and returns ns.Model, ready for Model.Load(saved) and
 -- Model.Observe(obs, oracles) fed from a recorded stream (/mma record:
--- tools/tests/fixtures/blips_stream.lua). Replay.Dump(v) writes a value as Lua
+-- tools/tests/fixtures/blips_stream.lua) or a fixture stream per part
+-- (Replay.Stream(root, name): tools/tests/fixtures/streams/<name>.lua, what Game's
+-- part would hand over). Replay.Oracles(stream) backs the Oracles interface with the
+-- stream's `areas` ([questID] = { inst, col, row, r }: circles in tile space): Inside
+-- answers for those, nil for any other quest. Replay.Dump(v) writes a value as Lua
 -- source (keys sorted), for fixtures and SavedVariables.
 
 local Replay = {}
@@ -15,6 +19,19 @@ function Replay.Model(root)
 	end
 	for _, f in ipairs(files) do assert(loadfile(root .. "/" .. f))("MagicMapAtlas", ns) end
 	return ns.Model
+end
+
+function Replay.Stream(root, name)
+	return assert(loadfile(root .. "/tools/tests/fixtures/streams/" .. name .. ".lua"))()
+end
+
+function Replay.Oracles(stream)
+	local areas = stream.areas or {}
+	return { Inside = function(quest, col, row)
+		local a = areas[quest]
+		if not a then return nil end
+		return (col - a.col) ^ 2 + (row - a.row) ^ 2 <= a.r * a.r
+	end }
 end
 
 function Replay.Dump(v, indent)
