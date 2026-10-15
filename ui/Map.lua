@@ -40,7 +40,11 @@ frame:SetScript("OnShow", Runtime.Wrap("map: shown", function()
 	if not opened then opened = true; Runtime.Grace("map", 2) end
 	Runtime.Trace("map", "shown")
 end))
-frame:SetScript("OnHide", Runtime.Wrap("map: hidden", function() Runtime.Trace("map", "hidden") end))
+frame:SetScript("OnHide", Runtime.Wrap("map: hidden", function()
+	Runtime.Trace("map", "hidden")
+	Runtime.SetState("closed")
+end))
+Runtime.SetState("closed") -- frames by map state (docs/runtime.md); the draw step sets the shown ones
 Map.frame = frame
 
 local bg = frame:CreateTexture(nil, "BACKGROUND")
@@ -316,6 +320,7 @@ Runtime.Step("ui", "map: draw", function()
 	end
 	local w, h = Map.Size()
 	if w <= 0 or h <= 0 then return end
+	local zooming = false -- a shown layer still scaled from another zoom: the wheel's not laid out yet
 	for _, layer in ipairs(Map.layers) do
 		local c, on = layer.front, Map.LayerOn(layer.name)
 		if layer.on ~= on then layer.on = on; layer.frame:SetShown(on) end
@@ -325,8 +330,12 @@ Runtime.Step("ui", "map: draw", function()
 				or (layer.rev and c.rev ~= layer.rev())) then
 			Rebuild(layer)
 		end
-		if layer.front then Place(layer, cam, w, h) end
+		if layer.front then
+			Place(layer, cam, w, h)
+			zooming = zooming or (on and layer.front.zoom ~= cam.zoom)
+		end
 	end
+	Runtime.SetState(drag and drag.moved and "drag" or zooming and "zoom" or "small") -- "big" comes with the grow (M1.7)
 	-- The arrow: only what changed is applied (an idle frame makes no widget calls for it).
 	if you and you.col then
 		local x, y = Camera.TileToScreen(cam, w, h, you.col, you.row)
