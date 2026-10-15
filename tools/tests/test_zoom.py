@@ -72,17 +72,37 @@ def test_zoom_chase():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
-@pytest.mark.xfail(strict=True, reason="M1.3: the draw step SetScales every canvas each chase frame "
-                   "(borders ~2200 regions); borders never scaled and labels moved without it bring it down")
-def test_zoom_draw_priced():
-    """Zooming keeps the draw step within a call's budget (2 ms) on the priced clock."""
+def wheel_priced():
+    """The wheel in and out a few times on the priced clock: Runtime's perf, and how many Focus
+    Model was sent meanwhile."""
     L, sim, ns = shown()
     w, perf = ns.UI.Window, ns.Runtime.Perf()[0]
+    sends = L.eval("""function(Model)
+        local n, focus = { v = 0 }, Model.Focus
+        Model.Focus = function(f) n.v = n.v + 1; return focus(f) end
+        return n
+    end""")(ns.Model)
     sim.Price(True)
-    perf["map: draw"].max = 0
+    perf["map: draw"].max, perf["map: motion"].max = 0, 0
     for d, n in ((1, 3), (-1, 6), (1, 2)):
         for _ in range(n):
             sim.Wheel(w.view, d)
         sim.Run(0.5)
-    print(f"zooming: map: draw max {perf['map: draw'].max:.2f} ms, map: motion max {perf['map: motion'].max:.3f} ms")
-    assert perf["map: motion"].max <= 2 and perf["map: draw"].max <= 2
+    print(f"zooming: map: draw max {perf['map: draw'].max:.2f} ms, map: motion max {perf['map: motion'].max:.3f} ms, "
+          f"{sends.v} Focus sent")
+    return perf, sends.v
+
+
+def test_zoom_motion_priced():
+    """Zooming, Motion's own step stays within a call's budget (2 ms), and Model hears the focus where
+    the view rests, not each frame of the chase."""
+    perf, sends = wheel_priced()
+    assert perf["map: motion"].max <= 2 and sends <= 6
+
+
+@pytest.mark.xfail(strict=True, reason="M1.3: the draw step SetScales every canvas each chase frame "
+                   "(borders ~2200 regions); borders never scaled and labels moved without it bring it down")
+def test_zoom_draw_priced():
+    """Zooming keeps the draw step within a call's budget (2 ms) on the priced clock."""
+    perf, _ = wheel_priced()
+    assert perf["map: draw"].max <= 2

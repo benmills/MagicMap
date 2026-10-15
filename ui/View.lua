@@ -89,10 +89,11 @@ Runtime.Step("ui", "ui: view", function()
 		if not c then c = {}; saved.center = c end
 		saved.inst, c.col, c.row = Camera.inst, R3(cam.cx), R3(cam.cy)
 	end
-	-- Focus: Model only compares, but send it only on a change (the rect: a new table when it changes).
+	-- Focus: Model only compares, but send it only on a change (the rect: a new table when it changes;
+	-- the zoom, as the rect, where the view rests: held while a chase or flight moves it).
 	local rect = UI.Motion.Rect()
-	if focus.inst ~= view.inst or focus.shown ~= shown or focus.follow ~= Camera.follow or focus.zoom ~= cam.zoom
-		or focus.rect ~= rect then
+	if focus.inst ~= view.inst or focus.shown ~= shown or focus.follow ~= Camera.follow
+		or (focus.zoom ~= cam.zoom and not Camera.moving) or focus.rect ~= rect then
 		focus = { inst = view.inst, rect = rect, shown = shown, follow = Camera.follow, zoom = cam.zoom }
 		Model.Focus(focus)
 	end
