@@ -12,7 +12,8 @@
 --   * Model.you, Model.hooked, Target(), Route() and their meanings
 --   * Model.Load(saved) / Model.SAVED: Game.Load("Model", Model.Load, Model.SAVED)
 -- OPEN: new kinds (strings), new optional MM.Known fields, Target / Route shapes
--- beyond the fields below (not built yet).
+-- beyond the fields below (not built yet), new optional fields of Model.you, and
+-- more of the Observation handed on unchanged (minimap, addons).
 
 ---@alias MM.KnownKind "blips"|"rares"|"quests"|"offers"|"places"|"group"|"corpse"|"waypoint"|"vignettes"|"services"|string
 
@@ -100,6 +101,12 @@
 ---@field row? MM.Row
 ---@field facing? number
 ---@field stale boolean        the position is the last known, not this frame's
+---@field uiMap? MM.UiMapID    this frame's (obs.you.uiMap); nil: the client gives none (an instance without a map)
+---@field level? integer
+---@field faction? MM.Faction
+---@field dead? boolean        dead or a ghost
+---@field ghost? boolean       released: your corpse becomes the target
+---@field combat? boolean      InCombatLockdown()
 
 ---What to go to (not built yet: OPEN beyond these fields).
 ---@class MM.Target
@@ -119,6 +126,9 @@
 ---@class MM.ModelRead
 ---@field you MM.ModelYou
 ---@field hooked MM.HookedInput[]  this frame's hooked keys, handed on from obs.hooked unchanged (ADR 0003)
+---@field minimap? MM.ObsMinimap  this frame's obs.minimap, handed on unchanged like hooked (UI places its small window on home)
+---@field addons MM.ObsAddon[]     other addons whose pins Game can borrow, handed on from obs.addons (the "Other addons"
+---                                layers: View.layers "addon:<key>"); {} until known
 ---@field SAVED MM.SavedSpec       Model's saved part's spec (types/saved.lua MM.SavedModel)
 local Model = {}
 

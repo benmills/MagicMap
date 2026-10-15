@@ -38,6 +38,12 @@ Target and Route beyond the typed fields.
   budgeted job). Found adding the first such kind; the shape didn't change.
 - Proven: adding rares touched atlas/, model/, ui/ and the TOC only.
 - OPEN additions (v1 plan M0.1): Target `inside?`, `title?`, `quest?`; Route still `MM.Pos[]` with `straight?`, `partial?` on the array; typed kinds quests, offers, places, group, corpse, waypoint, vignettes, services (MM.Known plus optional fields).
+- OPEN additions (v1 plan M1): `Model.you` gains this frame's `uiMap`, `level`, `faction`,
+  `dead`, `ghost`, `combat` (M1.10; the title and the big map's zone fit read `uiMap`).
+  `Model.minimap` hands on this frame's `obs.minimap` unchanged, as `hooked` is (M1.7 places
+  the small window on `home` in `homeStrata`; it stands for M1.6's asked-for `Model.home` and
+  `Model.homeStrata`, and carries `indoors` for M4.4's renderer). `Model.addons` hands on
+  `obs.addons`, `{}` until known (M1.9, for the "Other addons" layers).
 
 ## Revisit if
 

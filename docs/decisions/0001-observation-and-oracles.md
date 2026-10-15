@@ -54,6 +54,10 @@ unknown ones), and new oracles.
 - Model has no clock, so `obs.epoch` (time()) is what it stamps saved things with (ADR 0004).
 - Identity-compare means Game must build a new table to signal a change. That garbage
   only appears on change, never per frame.
+- OPEN additions (v1 plan M1): `minimap.homeStrata`, the cluster's strata, beside `home`
+  (M1.6), and `home` is kept: a new table only when Game reads it again, so UI may hold it.
+  `ObsBlip.rough` says what it is now that the sensor measures only while you stand still
+  (M1.5): met while moving, up to a square plus the client's lag off, measured once you stop.
 
 ## Revisit if
 

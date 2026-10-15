@@ -68,6 +68,9 @@ command and hooked kinds, and everything inside UI (camera, layout, menus, chrom
 - Telemetry reads UI only through `diag` and `camera` (lifting luacheck's
   `game/Telemetry.lua → UI.Map` baseline entry), whose shapes stay UI's.
 - OPEN additions (v1 plan M0.1, `v` stays 1): `chrome` {rimArrows?, questRing?} for Blizzard's Minimap rim parts; `camera` {cx, cy, zoom, w, h}, sampled for telemetry's motion ring, never acted on.
+- OPEN addition (v1 plan M1.6): hooked kind `"toggle"`, Game's minimap button or the addon
+  compartment clicked; UI shows or hides the map as `/mma toggle` does. Not a key, but the same
+  path: only Game may make that button, and UI hears of it only through Model.
 
 ## Revisit if
 

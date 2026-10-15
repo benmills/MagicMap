@@ -119,6 +119,8 @@
 ---@field indoors? boolean     the Minimap draws its indoor floor plan here (its view radius tells)
 ---@field sensing boolean      the blip sensor ran this frame
 ---@field home? MM.ScreenRect  the Minimap's home spot (its cluster), for placing our window there
+---                           (kept: a new table only when Game reads it again)
+---@field homeStrata? string   the cluster's frame strata: UI's small window sits in it (spike MinimapMode.lua:46-49)
 
 ---A rect in UIParent units from its bottom-left (what SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT") takes).
 ---@class MM.ScreenRect
@@ -130,7 +132,8 @@
 ---@class MM.ObsBlip
 ---@field name string          what the Minimap's tooltip calls it
 ---@field pos MM.Pos
----@field rough boolean        measured while moving: a few yards off
+---@field rough boolean        met while moving, not measured: where a sweep point hit it, up to a square
+---                           (~12 yd at the widest zoom) plus the client's lag off; measured once you stand still
 ---@field icon? MM.FileID      the tracking icon Game matched it to, if any
 
 ---@class MM.ObsBlips

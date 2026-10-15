@@ -173,6 +173,7 @@ function Game.Command(cmd) end
 ---@alias MM.HookedKind
 ---| "worldmap"   M (ToggleWorldMap) while View.window.shown: Game has hidden Blizzard's world map
 ---| "escape"     Escape while View.window.big: Game's catcher closed
+---| "toggle"     the minimap button or the addon compartment clicked: UI shows or hides the map (as /mma toggle)
 
 ---@class MM.HookedInput
 ---@field kind MM.HookedKind
