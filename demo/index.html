@@ -19,7 +19,7 @@
     -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
   #map { position: fixed; inset: 0; display: block; cursor: grab; touch-action: none; }
   .panel { position: fixed; background: rgba(0,0,0,.72); border-radius: 10px; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
-  #ui { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); padding: 6px; display: flex; gap: 6px; }
+  #ui { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); padding: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
   /* 16px+ text stops iOS zooming the page when the picker gets focus; 44px is a finger. */
   #ui select, #ui button { font: 16px system-ui, -apple-system, sans-serif; min-height: 44px; border-radius: 8px;
     border: 1px solid #444; background: #222; color: #eee; padding: 0 12px; }
@@ -28,7 +28,6 @@
   #readout { left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom));
     padding: 8px 10px; white-space: pre; font: 12px ui-monospace, Menlo, monospace; max-width: calc(100vw - 36px); overflow: hidden; }
   @media (max-width: 480px) { #readout { font-size: 10.5px; right: max(8px, env(safe-area-inset-right)); } }
-  #ui { flex-wrap: wrap; }
   @media (min-width: 700px) { #ui { max-width: calc(100vw - 400px); } } /* clear of the card */
   #q { font: 16px system-ui, -apple-system, sans-serif; min-height: 44px; border-radius: 8px; border: 1px solid #444;
     background: #222; color: #eee; padding: 0 12px; width: 260px; box-sizing: border-box; -webkit-appearance: none; appearance: none; }
@@ -91,7 +90,6 @@
   <select id="zone"><option value="">Fly to zone…</option></select>
   <button id="walk" aria-pressed="false">Walk grid</button>
   <button id="layersBtn" aria-expanded="false">Layers</button>
-  <button id="beforeBtn" aria-pressed="false">Before</button>
   <div id="hl" hidden><span></span><button class="x" aria-label="Clear highlight">✕</button></div>
 </div>
 <div id="results" class="panel sheet" hidden></div>
@@ -106,13 +104,12 @@
 // Zoom stops at twice the tiles' own resolution (512 texels a tile): past that it's only blur.
 const INST = 0, CHUNKS = 16, MIN_ZOOM = 4, TEXELS = 512, MAX_STRETCH = 2;
 const maxZoom = () => TEXELS * MAX_STRETCH / dpr;
-const canvas = document.getElementById("map"), ctx = canvas.getContext("2d");
-const readout = document.getElementById("readout");
+const $ = (id) => document.getElementById(id);
+const canvas = $("map"), ctx = canvas.getContext("2d"), readout = $("readout");
 const get = (path) => fetch(path).then((r) => r.json());
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const rgb = (c) => `rgb(${c.map((v) => Math.round(v * 255)).join(",")})`;
 let W, H, dpr, cam, bg = "#000", tiles = [], walk = null, marker = null;
-// Before/after: each drawing file keeps its previous look behind this, for comparing.
-let before = new URLSearchParams(location.search).has("before");
 
 readout.textContent = matchMedia("(hover: hover)").matches ? "hover the map" : "tap the map";
 
@@ -127,6 +124,8 @@ function resize() {
 // Atlas.Camera.ScreenToTile / TileToScreen / ZoomAt, per frame.
 const toTile = (x, y) => [cam.cx + (x - W / 2) / cam.zoom, cam.cy + (y - H / 2) / cam.zoom];
 const toScreen = (c, r) => [(c - cam.cx) * cam.zoom + W / 2, (r - cam.cy) * cam.zoom + H / 2];
+const view = () => [...toTile(0, 0), ...toTile(W, H)]; // the tiles in view: c0, r0, c1, r1
+const snap = (v) => Math.round(v * dpr) / dpr; // to a device pixel
 // The tile under (x, y) stays there; with (x1, y1), it moves there (a pinch's midpoint).
 function zoomAt(x, y, zoom, x1 = x, y1 = y) {
   const [c, r] = toTile(x, y);
@@ -134,20 +133,18 @@ function zoomAt(x, y, zoom, x1 = x, y1 = y) {
   cam = { cx: c - (x1 - W / 2) / zoom, cy: r - (y1 - H / 2) / zoom, zoom };
 }
 
-const rgb = (c) => `rgb(${c.map((v) => Math.round(v * 255)).join(",")})`;
-
 let pending = false;
 function draw() { if (cam && !pending) { pending = true; requestAnimationFrame(frame); } }
 
 function frame() {
-  pending = false; frameNo++;
+  pending = false;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   drawTiles();
   if (walk) drawWalk();
   drawBorders();
   // Pins: where they'll be drawn first, so labels keep clear of them; quieter at continent zoom,
   // where names win; pins a name covers aren't drawn.
-  const quiet = before ? { s: 1, a: 1 } : pinQuiet(), onScreen = [];
+  const quiet = pinQuiet(), onScreen = [];
   for (const p of pins) {
     if (!shown(p.layer)) continue;
     const [x, y] = toScreen(p.col, p.row);
@@ -168,7 +165,6 @@ function frame() {
     ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
   }
 }
-
 
 // Pins: the game's own map icons, cut by tools/export_icons.py into demo/icons (one sheet + a
 // manifest). Which icon a pin gets is a UI choice, so the table is here; export_icons.py reads it
@@ -233,7 +229,7 @@ function glow(f) {
 function drawPin(g, layer, p, x, y, s = 1) {
   const size = PIN_SIZE[layer] * s, [sx, sy, sw, sh] = ICONS[iconOf(layer, p)];
   if (TINTED.has(layer) && FACTION[p.faction]) g.drawImage(glow(p.faction), x - size * 0.65, y - size * 0.65, size * 1.3, size * 1.3);
-  const k = size / Math.max(sw, sh), w = sw * k, ht = sh * k, snap = (v) => Math.round(v * dpr) / dpr;
+  const k = size / Math.max(sw, sh), w = sw * k, ht = sh * k;
   g.imageSmoothingEnabled = !Number.isInteger(k * dpr);
   g.imageSmoothingQuality = "high";
   g.drawImage(iconSheet, sx, sy, sw, sh, snap(x - w / 2), snap(y - ht / 2), w, ht);
@@ -280,7 +276,7 @@ function refreshPins() {
     const want = LAYERS.filter((l) => shown(l[0])).map((l) => l[0]).reverse(), seq = ++pinSeq; // dense layers drawn first, under
     renderLayers();
     if (!want.length) { pins = []; draw(); return; }
-    const [c0, r0] = toTile(0, 0), [c1, r1] = toTile(W, H);
+    const [c0, r0, c1, r1] = view();
     const got = await get(`/api/pins?inst=${INST}&c0=${c0}&r0=${r0}&c1=${c1}&r1=${r1}&zoom=${cam.zoom}&layers=${want.join(",")}`);
     if (seq === pinSeq) { pins = got; draw(); }
   }, 200);
@@ -305,22 +301,18 @@ function drawWalk() {
   });
 }
 
-const walkButton = document.getElementById("walk");
+const walkButton = $("walk");
 let walkOn = false, walkTimer;
 function refreshWalk() {
   clearTimeout(walkTimer);
   if (!walkOn) { walk = null; draw(); return; }
   walkTimer = setTimeout(async () => {
-    const [c0, r0] = toTile(0, 0), [c1, r1] = toTile(W, H);
-    const q = [c0, r0, c1, r1].map((v, i) => Math.floor(v * CHUNKS) + (i > 1 ? 1 : 0));
+    const q = view().map((v, i) => Math.floor(v * CHUNKS) + (i > 1 ? 1 : 0));
     if ((q[2] - q[0]) * (q[3] - q[1]) > 40000) { walk = null; draw(); return; } // zoom in for the grid
     walk = await get(`/api/walk?inst=${INST}&c0=${q[0]}&r0=${q[1]}&c1=${q[2]}&r1=${q[3]}`);
     draw();
   }, 150);
 }
-const beforeButton = document.getElementById("beforeBtn");
-beforeButton.setAttribute("aria-pressed", before);
-beforeButton.onclick = () => { before = !before; beforeButton.setAttribute("aria-pressed", before); draw(); };
 walkButton.onclick = () => {
   walkOn = !walkOn; walkButton.setAttribute("aria-pressed", walkOn);
   refreshWalk();
@@ -391,7 +383,7 @@ canvas.addEventListener("pointerdown", (e) => {
 
 canvas.addEventListener("pointermove", (e) => {
   if (!pts.has(e.pointerId)) {
-    if (e.pointerType === "mouse") {
+    if (e.pointerType === "mouse" && cam) { // no hover readout until the map is up
       inspect(e.clientX, e.clientY, false);
       canvas.style.cursor = pinAt(e.clientX, e.clientY, 12) ? "pointer" : "grab";
     }
@@ -443,14 +435,13 @@ canvas.addEventListener("dblclick", (e) => flyTo(zoomGoal(e.clientX, e.clientY, 
 // Safari's own pinch-to-zoom the page (iPad trackpads, older iOS ignoring user-scalable).
 for (const ev of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(ev, (e) => e.preventDefault());
 
-document.getElementById("zone").onchange = async (e) => {
+$("zone").onchange = async (e) => {
   if (!e.target.value) return;
   flyTo((await get(`/api/fit?uiMapID=${e.target.value}&w=${W}&h=${H}`)).cam, 450);
   e.target.blur();
 };
 
 // ---- Sheets, search, cards and highlights: all their facts come from the server. ----
-const $ = (id) => document.getElementById(id);
 const ui = $("ui"), q = $("q"), results = $("results"), layersEl = $("layers"), layersBtn = $("layersBtn"),
   card = $("card"), hl = $("hl");
 const narrow = matchMedia("(max-width: 600px)");
@@ -663,7 +654,7 @@ addEventListener("keydown", (e) => { if (e.key === "Escape" && document.activeEl
   MAP_NAME = m.name;
   bg = rgb(m.bg);
   document.body.style.background = bg;
-  const sel = document.getElementById("zone");
+  const sel = $("zone");
   for (const z of m.zones) sel.add(new Option(z.name, z.uiMapID));
   await Promise.all([loadTiles(), loadBorders(), loadLabels(), loadIcons()]);
   W = innerWidth; H = innerHeight;

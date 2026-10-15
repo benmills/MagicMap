@@ -1,11 +1,11 @@
-// Map names. Shares the page's globals (cam, ctx, toScreen, before, ...): classic scripts, one scope.
+// Map names. Shares the page's globals (cam, ctx, toScreen, ...): classic scripts, one scope.
 //
 // Atlas.Labels ranks every name (continent, zone, town, subzone, poi); this draws them as a
 // typographic hierarchy: each tier has a zoom band, a face, size, tracking, case, colour and a
-// soft halo. Placement goes in rank order: a name that would touch a pin or a name already placed
-// is dropped. Labels fade in and out; both the bands and the collision test have hysteresis (a
-// shown label keeps its place a little longer than a new one would win it), so zooming doesn't
-// flicker.
+// soft halo. Placement goes in rank order: a name that would touch a name already placed, or a pin
+// it doesn't win over (a tier's over / covers), is dropped; pins it wins over aren't drawn. Labels
+// fade in and out; both the bands and the collision test have hysteresis (a shown label keeps its
+// place a little longer than a new one would win it), so zooming doesn't flicker.
 //
 // Fonts. The addon uses the game's own: Morpheus for continent and zone titles, Friz Quadrata
 // (FRIZQT__) for the rest. Neither is on the web, so the demo uses lookalikes from Google Fonts:
@@ -89,19 +89,15 @@ function inBand(st, on) {
   return cam.zoom >= lo / k && cam.zoom < hi * k;
 }
 
+// Set the context up for a tier at a size; the text's width (measured once per font and text).
 const widths = new Map();
-function measure(text, font, track) {
-  const key = `${font}|${track}|${text}`;
-  let w = widths.get(key);
-  if (w === undefined) { w = ctx.measureText(text).width; widths.set(key, w); }
-  return w;
-}
-// Set the context up for a tier at a size; the text's width.
 function setFont(text, st, size) {
   ctx.font = `${st.weight} ${size}px ${st.font}`;
   ctx.fontVariantCaps = st.caps === "small" ? "small-caps" : "normal";
   ctx.letterSpacing = `${(st.track * size).toFixed(2)}px`;
-  return measure(text, ctx.font + ctx.fontVariantCaps, ctx.letterSpacing);
+  const key = `${ctx.font}${ctx.fontVariantCaps}|${ctx.letterSpacing}|${text}`;
+  if (!widths.has(key)) widths.set(key, ctx.measureText(text).width);
+  return widths.get(key);
 }
 
 // Where a label may sit, relative to its anchor, in order of preference: centred on it, then
@@ -121,7 +117,6 @@ const clear = (b, boxes, pad) => !boxes.some((o) => b[0] - pad < o[2] && b[2] + 
 // indices of those a name covers, for the caller not to draw.
 function drawLabels(pinBoxes) {
   const covered = new Set();
-  if (before) { drawLabelsBefore(); return covered; }
   const now = performance.now(), step = labelClock ? Math.min(100, now - labelClock) / LABEL_STYLE.fadeMs : 1;
   labelClock = now;
   const boxes = [], blockers = {}, m = LABEL_STYLE.margin; // blockers: per tier, the pins it keeps clear of
@@ -175,23 +170,3 @@ function drawLabel(text, x, y, st, a) {
   ctx.fillStyle = st.color; ctx.fillText(text, x, y);
 }
 
-// The previous look (?before): one system font with a black stroke; zones always, subzones zoomed in.
-const SUBZONE_ZOOM = 80;
-function drawLabelsBefore() {
-  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.lineJoin = "round";
-  const boxes = [];
-  for (const l of labels) {
-    if (l.tier !== "zone" && l.tier !== "subzone" && !(l.tier === "town" && l.size)) continue; // a town with its subzone's label
-    const zone = l.tier === "zone";
-    if (!zone && cam.zoom < SUBZONE_ZOOM) continue;
-    const [x, y] = toScreen(l.col, l.row);
-    if (x < -100 || x > W + 100 || y < -20 || y > H + 20) continue;
-    ctx.font = zone ? "600 13px system-ui, -apple-system, sans-serif" : "500 11px system-ui, -apple-system, sans-serif";
-    const w = measure(l.text, ctx.font, "");
-    const b = [x - w / 2 - 3, y - 13, x + w / 2 + 3, y + 4];
-    if (!clear(b, boxes, 0)) continue;
-    boxes.push(b);
-    ctx.lineWidth = 3; ctx.strokeStyle = "#000"; ctx.strokeText(l.text, x, y);
-    ctx.fillStyle = zone ? "#ffe9a0" : "rgba(255,255,255,.9)"; ctx.fillText(l.text, x, y);
-  }
-}

@@ -30,13 +30,13 @@ const BORDER_STYLE = {
     edge: [255, 244, 214], edgeAlpha: 0.95, edgeExtra: 0.6, // edge = the step's width + this
     haloAlpha: 1.25, // the step's halo alpha, times this, under the edge
   },
-  before: { color: "rgba(255,230,150,.8)", width: 1.5 }, // the old flat look
 };
 
 let borderLevels = null, farZoom = 0;
 let zoneHighlight = null; // { zone, rings } (rings: point lists), or null
 const outlines = new Map(); // zone areaID -> Promise of rings
 
+// Each line with its bounds in tiles, to skip those out of view.
 function prepLines(raw) {
   return raw.map(([a, b, fadeStart, fadeEnd, ...pts]) => {
     const cs = pts.filter((_, i) => i % 2 === 0), rs = pts.filter((_, i) => i % 2 === 1);
@@ -105,22 +105,8 @@ function polyline(p, w, c, a, fs, fe) {
 
 function drawBorders() {
   if (!borderLevels) return;
-  const [c0, r0] = toTile(0, 0), [c1, r1] = toTile(W, H);
-  const inView = (lv) => lv.filter((l) => !(l.c1 < c0 || l.c0 > c1 || l.r1 < r0 || l.r0 > r1));
-  if (before) {
-    ctx.strokeStyle = BORDER_STYLE.before.color; ctx.lineWidth = BORDER_STYLE.before.width;
-    ctx.lineCap = "butt"; ctx.lineJoin = "miter";
-    for (const l of inView(borderLevels.near)) {
-      ctx.beginPath();
-      for (let i = 0; i < l.pts.length; i += 2) {
-        const [x, y] = toScreen(l.pts[i], l.pts[i + 1]);
-        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-      }
-      ctx.stroke();
-    }
-    return;
-  }
-  const vis = inView(cam.zoom < farZoom ? borderLevels.far : borderLevels.near);
+  const [c0, r0, c1, r1] = view();
+  const vis = (cam.zoom < farZoom ? borderLevels.far : borderLevels.near).filter((l) => !(l.c1 < c0 || l.c0 > c1 || l.r1 < r0 || l.r0 > r1));
   const s = borderStep(), hs = BORDER_STYLE.highlight;
   const rings = zoneHighlight && zoneHighlight.rings && zoneHighlight.rings.map((r) => screenPts(r, true));
   if (rings) {

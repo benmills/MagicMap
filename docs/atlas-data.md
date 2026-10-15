@@ -24,6 +24,21 @@ file is a global table, written by a generator in `tools/` from one game build
 
 ## Files
 
+Listed in Atlas's load order (`atlas/files.txt`), each with the Atlas calls
+that read it.
+
+### Data/Tiles.lua — `MagicMap_Tiles` (WDT MAID chunks, Map DB2)
+`{ product, version, maps = { [inst] = { name, bg, kind, continent, tiles } } }`
+- tiles[key] = minimap FileDataID of `map<col>_<row>`, key = col * 64 + row: exactly the
+  tiles this build's WDT lists. Every open-world map, dungeon and raid with minimap tiles.
+- bg = `{ r, g, b }`: median colour of the water along the map's outer edge (the backdrop).
+- kind = "dungeon" | "raid" for instances (nil: open world); continent = the instanceID
+  of the entrance's continent.
+- `Atlas.Maps()` → `{ inst, name, kind, continent, bg }` sorted by inst;
+  `Atlas.Tiles(inst)`; `Atlas.TileBounds(inst)` → c0, r0, c1, r1;
+  `Atlas.TileInfo(inst, key)` → `{ fdid, tint, edge, sea }` (with TileColor);
+  `Atlas.Drawn(inst, key)`.
+
 ### Data/TileColor.lua — `MagicMap_TileColor` (minimap tiles)
 `[inst] = { tint, edge, sea }`, key = col * 64 + row
 - tint[key] = `{ mr, mg, mb, ar, ag, ab }`: drawn = texel * m + a, for tiles whose baked
@@ -32,6 +47,7 @@ file is a global table, written by a generator in `tools/` from one game build
   open space (no tile or a sea tile), after the tint.
 - sea[key] = true: open-sea tiles (the art's flat deep water all over, or that plus a frame):
   not drawn; `Atlas.Drawn` is false there. The art's own water is otherwise left as it is.
+- Read through `Atlas.TileInfo` and `Atlas.Drawn` (above).
 
 ### Data/Sea.lua — `MagicMap_Sea` (minimap tiles, ADT MH2O ocean + MCVT heights) and Textures/Sea
 `{ product, version, dir, variants, gain, feather, maps = { [inst] = { tint, far, coast } } }`
@@ -55,19 +71,23 @@ file is a global table, written by a generator in `tools/` from one game build
   SetBlendMode("MOD"); then the tiles, coast tiles with their feather as MaskTexture. See
   tools/gen_sea.py and demo/tiles.js.
 - `Atlas.Sea(inst)` → `{ textures, gain, tint, rect, far }` (far 0..1) or nil;
-  `Atlas.SeaFeather(inst, key)` → mask path or nil.
+  `Atlas.SeaVariant(col, row)` → 1..variants; `Atlas.SeaFeather(inst, key)` → mask path or nil.
 
 ### Data/UiMaps.lua — `MagicMap_UiMaps` (UiMap + UiMapAssignment DB2)
 `[uiMapID] = { name, mapType, parent, inst, col0, row0, col1, row1, areaID }`
 - mapType per Enum.UIMapType (1 world, 2 continent, 3 zone, 6 orphan).
 - rect from the uiMap's first assignment (OrderIndex); nil for maps without one.
   World maps (Azeroth 947) span instances: inst/rect nil.
+- `Atlas.UiMap(id)`, `Atlas.MapRect(id)`, `Atlas.MapToTile(id, x, y)`, `Atlas.TileToMap(id, col, row)`,
+  `Atlas.Zones(inst)` (zone uiMaps by name), `Atlas.Continent(inst)` → the continent's uiMapID.
 
 ### Data/Areas.lua — `MagicMap_Areas` (AreaTable DB2)
 `[areaID] = { name, parent, inst, level, faction, uiMap }`
 - parent: parent areaID (nil for zones). level: ExplorationLevel.
 - faction from FactionGroupMask (2 → "A", 4 → "H").
 - uiMap: the uiMap whose assignment names this area, else the nearest ancestor's.
+- `Atlas.Area(id)` → named row + `zone` (its top ancestor); `Atlas.ZoneLevels(zone)` → min, max
+  (from its subzones' levels).
 
 ### Data/AreaGrid.lua — `MagicMap_AreaGrid` (ADT chunk areas)
 `[inst] = { [tileKey] = { palette, cells } }`, tileKey = col * 64 + row.
@@ -75,6 +95,8 @@ file is a global table, written by a generator in `tools/` from one game build
 - cells: the 256 chunks (index iy * 16 + ix) as letters, `a`..`z` then `A`..`Z`
   = palette index 1..52, each optionally followed by a run length (as Walk.lua).
 - A chunk is 1/16 tile (~33 yd). Area 0 = none.
+- `Atlas.AreaAt(inst, col, row)` → areaID; `Atlas.ZoneAt(inst, col, row)` →
+  `{ mapID, name, x, y, zone, area }`.
 
 ### Data/Borders.lua — `MagicMap_Borders` (ADT chunk areas)
 `[inst] = { lines, far, outlines, labels }`, positions in tile space (3 decimals).
@@ -92,6 +114,20 @@ file is a global table, written by a generator in `tools/` from one game build
   under 12 chunks (islets, ponds) are dropped. For hit-testing and highlighting a zone.
 - labels: `{ areaID, col, row, weight, kind }`: the land chunk deepest inside each zone
   (kind 1) and subzone (kind 2, ≥ 6 chunks); weight = its land chunks.
+- `Atlas.Borders(inst)`, `Atlas.BorderLines(inst, zoom)` (far below `Atlas.BORDER_FAR_ZOOM`),
+  `Atlas.ZoneOutline(inst, zone)`; `Atlas.Labels(inst)` ranks these labels with the
+  continent's name and AreaPOI towns and landmarks (Places).
+
+### Data/Walk.lua — `MagicMap_Walk` (ADT MCVT heights, MH2O liquids)
+`[inst] = { [tileKey] = cells }`, open-world maps with ≥ 20 terrain tiles.
+- cells: the tile's 256 chunks (index iy * 16 + ix) as letters `'a' + value`, each
+  optionally followed by a run length. value = class (0 blocked: mostly too steep,
+  1 land, 2 water: mostly deeper than swimming depth, 3 magma/slime) + 4 (can cross
+  into the chunk east) + 8 (south). Terrain only: buildings and bridges (WMOs) read as
+  what's under them.
+- Global chunk (gc, gr) = tile (col, row) * 16. `Atlas.Walk.Cell(inst, gc, gr)` → class,
+  east, south; `Atlas.Walk.CanMove(inst, gc, gr, dx, dy)` (8 ways);
+  `Atlas.Walk.Snap(inst, gc, gr)` → the nearest standable chunk within 4.
 
 ### Data/Places.lua — `MagicMap_Places` (DB2)
 - `flight[nodeID] = { name, faction, inst, col, row, areaID }` (TaxiNodes)
@@ -101,9 +137,12 @@ file is a global table, written by a generator in `tools/` from one game build
   (Map + MapDifficulty + DungeonEncounter). kind "dungeon" | "raid" | "battleground";
   entrance from Map.Corpse / CorpseMapID; minLevel parsed from MapDifficulty's
   message; bosses = names in OrderIndex order.
+- `Atlas.FlightPoints(inst)`, `Atlas.TaxiPaths()`, `Atlas.POIs(inst)` (sorted by id),
+  `Atlas.Dungeon(instID)`, `Atlas.Dungeons(entranceInst)`.
 
 ### Data/ItemIcons.lua — `MagicMap_ItemIcons` (Item DB2)
 `[itemID] = iconFileDataID`
+- `Atlas.Item(id).icon`.
 
 ### Data/Npcs.lua — `MagicMap_Npcs` (QuestieDB; gitignored)
 `[npcID] = { name, subName, minLevel, maxLevel, rank, faction, flags, questStarts, questEnds, spawns, instances }`
@@ -132,3 +171,8 @@ file is a global table, written by a generator in `tools/` from one game build
   killcredit id = the root NPC; reputation id = factionID.
 - zone: areaID (QuestieDB zoneOrSort > 0); sort: QuestSort (zoneOrSort < 0, negated).
 - triggerEnd = `{ text, spawns }` (spawns as point lists per inst).
+
+The four QuestieDB-derived files are read through `Atlas.Npc(id)` (+ `services` from
+flags), `Atlas.Object(id)`, `Atlas.Item(id)`, `Atlas.Quest(id)`, `Atlas.NpcsByName(name)`,
+`Atlas.Find(kind, text, limit)`, `Atlas.SpawnsIn(kind, inst, c0, r0, c1, r1, filter)` and
+`Atlas.QuestSources(questID)`.

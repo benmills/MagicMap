@@ -52,7 +52,7 @@ def test_deterministic(world, generated, tmp_path):
     assert again.read_bytes() == generated["borders"].read_bytes()
 
 
-def lua_load(path, product):
+def lua_load(path):
     from lupa import lua51
     L = lua51.LuaRuntime(encoding=None)
     L.eval(b"function(p) return assert(loadfile(p))() end")(str(path).encode())
@@ -60,11 +60,11 @@ def lua_load(path, product):
 
 
 def test_files_load_in_lua(generated):
-    L = lua_load(generated["tiles"], fixtures.PRODUCT)
+    L = lua_load(generated["tiles"])
     tiles = L.globals().MagicMap_Tiles
     assert tiles[b"product"] == fixtures.PRODUCT.encode()
     maps = tiles[b"maps"]
     assert sorted(maps.keys()) == [0, 1, 36]  # not the battleground; not maps without a WDT
     assert maps[36][b"kind"] == b"dungeon" and maps[36][b"continent"] == 0
-    L = lua_load(generated["borders"], fixtures.PRODUCT)
+    L = lua_load(generated["borders"])
     assert list(L.globals().MagicMap_Borders.keys()) == [0]  # Kalimdor is under --min-tiles

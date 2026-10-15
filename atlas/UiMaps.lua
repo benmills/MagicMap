@@ -4,7 +4,7 @@
 local _, ns = ...
 local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
 
-local WORLD, CONTINENT, ZONE, MICRO = 1, 2, 3, 5 -- Enum.UIMapType
+local WORLD, CONTINENT, ZONE = 1, 2, 3 -- Enum.UIMapType
 local NONE = {}
 
 local maps = {} -- uiMapID -> named row | false
@@ -44,12 +44,12 @@ function Atlas.TileToMap(id, col, row)
 	return (col - r.col0) / (r.col1 - r.col0), (row - r.row0) / (r.row1 - r.row0)
 end
 
--- Per instance: zones (first of each name, sorted by name), the continent
--- (the one hanging off a world map; 1463/1464 are parentless duplicates) and
--- quest maps (zones + micro maps). Built once, on first use.
-local zones, continents, questMaps
+-- Per instance: zones (first of each name, sorted by name) and the continent
+-- (the one hanging off a world map; 1463/1464 are parentless duplicates).
+-- Built once, on first use.
+local zones, continents
 local function Index()
-	zones, continents, questMaps = {}, {}, {}
+	zones, continents = {}, {}
 	local ids = {}
 	for id in pairs(MagicMap_UiMaps) do ids[#ids + 1] = id end
 	table.sort(ids)
@@ -60,11 +60,9 @@ local function Index()
 		if inst and m.mapType == CONTINENT then
 			local p = m.parent and Atlas.UiMap(m.parent)
 			if p and p.mapType == WORLD then continents[inst] = id end
-		elseif inst and (m.mapType == ZONE or m.mapType == MICRO) then
-			questMaps[inst] = questMaps[inst] or {}
-			table.insert(questMaps[inst], id)
+		elseif inst and m.mapType == ZONE then
 			local key = inst .. ":" .. m.name
-			if m.mapType == ZONE and not seen[key] then
+			if not seen[key] then
 				seen[key] = true
 				zones[inst] = zones[inst] or {}
 				table.insert(zones[inst], { name = m.name, uiMapID = id,
@@ -85,9 +83,4 @@ end
 function Atlas.Continent(inst)
 	if not continents then Index() end
 	return continents[inst]
-end
-
-function Atlas.QuestMaps(inst)
-	if not questMaps then Index() end
-	return questMaps[inst] or NONE
 end

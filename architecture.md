@@ -35,7 +35,7 @@ The blip sensor reads where the last Apply placed the Minimap, and waits until t
   reads   location · quest log · places · group · corpse · waypoint · vignettes
           · offers · exploration · portraits · tracking state
   senses  Minimap blips · quest areas (Inside(quest, col, row)) · Minimap indoors
-  adapts  QuestieDB (one adapter, contract-checked) · HBD world + minimap pins
+  adapts  HBD world + minimap pins
   owns    Minimap takeover (undo list) · hooks (M, Escape, GameTooltip)
           · minimap button · SavedVariables load/save
   takes   commands: Follow, Waypoint, Way, Tracking · View
@@ -58,9 +58,11 @@ The blip sensor reads where the last Apply placed the Minimap, and waits until t
   shows   title · tooltips · inspector · menus & settings
 
 **Atlas** (library)
-  holds   tiles · tile colour · sea · borders · walk grid · uiMaps · areas + area grid
-          · flight points · POIs · dungeons · NPCs · objects · items · quests (Data/, generated)
-  gives   coordinates · map rects · zone at point · camera maths · walk cells
+  holds   tiles · tile colour · sea · zone borders, outlines + label anchors · walk grid
+          · uiMaps · areas + area grid · flight points + paths · POIs · dungeons
+          · NPCs · objects · items · quests (Data/, generated; see docs/atlas-data.md)
+  gives   coordinates · map rects · zone at point · zone levels · ranked map labels
+          · spawns in a box · name search · quest sources · camera maths · walk cells + moves
 
 **Runtime** (library)
   frame steps · slices and budgets · timers · events · perf (/mm perf)

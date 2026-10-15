@@ -6,8 +6,8 @@ them.
   .venv/bin/python demo/server.py [port]      # then open http://localhost:8000
 
   /api/maps                          Atlas.Maps, with Continent and Zones per inst
-  /api/tiles?inst=                   TileBounds, and TileInfo per tile (tint, sea)
-  /api/sea?inst=                     Sea: its tint rect and far colour, variants, gain; SeaFeather's code per coast tile
+  /api/tiles?inst=                   TileInfo per tile (tint, sea)
+  /api/sea?inst=                     Sea: tint rect, far colour, gain, variants; SeaFeather's code per coast tile
   /api/borders?inst=                 Borders lines and far (zone borders, two levels of detail)
   /api/zone-outline?inst=&zone=      ZoneOutline: a zone's land as rings
   /api/labels?inst=                  Atlas.Labels: ranked name anchors (continent, zone, town, subzone, poi)
@@ -47,7 +47,7 @@ def py(v):
     d = dict(v.items())
     if not d:
         return []
-    if d and all(isinstance(k, int) for k in d) and sorted(d) == list(range(1, len(d) + 1)):
+    if all(isinstance(k, int) for k in d) and sorted(d) == list(range(1, len(d) + 1)):
         return [py(d[i]) for i in range(1, len(d) + 1)]
     return {str(k): py(x) for k, x in d.items()}
 
@@ -66,8 +66,7 @@ def tiles(q):
     for key in Atlas.Tiles(inst).keys():
         t = Atlas.TileInfo(inst, key)
         out.append({"key": key, "tint": py(t.tint), "sea": t.sea})
-    return {"bounds": list(Atlas.TileBounds(inst)), "tiles": out}
-
+    return {"tiles": out}
 
 
 def sea(q):
@@ -82,11 +81,11 @@ def sea(q):
             coast[key] = int(path.rsplit("_", 1)[1][:-4])  # feather_<code>.tga
     return {"rect": py(m.rect), "far": py(m.far), "gain": m.gain, "variants": len(m.textures), "coast": coast}
 
+
 def borders(q):
-    inst = int(q["inst"])
-    b = Atlas.Borders(inst)
     # both levels of detail, { areaA, areaB, fadeStart, fadeEnd, x1, y1, ... } each; the page picks
     # by zoom as Atlas.BorderLines does
+    b = Atlas.Borders(int(q["inst"]))
     return {"lines": py(b.lines), "far": py(b.far), "farZoom": Atlas.BORDER_FAR_ZOOM}
 
 
@@ -95,9 +94,8 @@ def zone_outline(q):
 
 
 def labels(q):
-    inst = int(q["inst"])
     # Atlas.Labels: { text, col, row, tier, rank, areaID?, poiID?, size? }, rank order
-    return {"labels": py(Atlas.Labels(inst))}
+    return {"labels": py(Atlas.Labels(int(q["inst"])))}
 
 
 def at(q):
@@ -203,14 +201,12 @@ def pins(q):
             seen.add(key)
             pin = {"layer": layer, "kind": p["kind"], "id": p["id"], "col": p["col"], "row": p["row"],
                    "mark": p.get("mark")}
-            if p["kind"] in ("npc", "object"):
-                e = GET[p["kind"]](p["id"])
-                pin["name"] = e.name
-                if p["kind"] == "npc":
-                    pin["faction"] = e.faction
-                    if layer == "rare":
-                        pin["mark"] = e.rank
-            else:
+            if p["kind"] == "npc":  # its faction's glow, a rare's rank
+                e = Atlas.Npc(p["id"])
+                pin["faction"] = e.faction
+                if layer == "rare":
+                    pin["mark"] = e.rank
+            elif p["kind"] != "object":  # a POI's card is drawn from its pin
                 pin.update(name=p["name"], faction=p.get("faction"), description=p.get("description"), icon=p.get("icon"))
             out.append(pin)
             if len(seen) >= PIN_CAP:
@@ -311,9 +307,9 @@ def find(q):
     return out
 
 
-API = {"maps": maps, "tiles": tiles, "sea": sea, "borders": borders, "zone-outline": zone_outline, "labels": labels, "at": at, "fit": fit, "walk": walk, "pins": pins,
-       "npc": npc, "object": object, "item": item, "quest": quest, "flight": flight, "dungeon": dungeon,
-       "find": find}
+API = {"maps": maps, "tiles": tiles, "sea": sea, "borders": borders, "zone-outline": zone_outline, "labels": labels,
+       "at": at, "fit": fit, "walk": walk, "pins": pins, "npc": npc, "object": object, "item": item, "quest": quest,
+       "flight": flight, "dungeon": dungeon, "find": find}
 
 
 # Tiles load many at once (a phone asks for dozens per pan), so requests run on
@@ -322,8 +318,8 @@ atlas_lock = threading.Lock()
 
 
 class Handler(SimpleHTTPRequestHandler):
-    protocol_version = "HTTP/1.1"
-    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".webp": "image/webp"}  # older Pythons lack it  # keep-alive: one connection for a screenful of tiles
+    protocol_version = "HTTP/1.1"  # keep-alive: one connection for a screenful of tiles
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".webp": "image/webp"}  # older Pythons lack it
 
     def __init__(self, *args, **kw):
         super().__init__(*args, directory=DEMO, **kw)

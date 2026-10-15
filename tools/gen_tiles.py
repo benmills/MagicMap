@@ -8,7 +8,7 @@ Each map's WDT (MAID chunk) lists the exact minimap FileDataID for every tile
   local: reads the install's own Map.db2 and includes every open-world map,
          dungeon and raid that has minimap tiles.
   wago:  pulls files from wago.tools. By default only the four classic
-         continents (as before); --all-maps reads Map.db2 like local mode.
+         continents; --all-maps reads Map.db2 like local mode.
 
   python3 tools/gen_tiles.py local "/Applications/World of Warcraft" wow_classic_beta \\
       -o Data/Tiles.lua
