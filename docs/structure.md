@@ -65,7 +65,12 @@ no names with the MagicMap spike, so both can be enabled.
 4. `runtime/*.lua` (rest), `model/*.lua`, `game/*.lua`, `ui/*.lua` (Model first: Game hands it
    observations and its saved part; UI sends Game commands at load)
 
-The TOC lists files explicitly (no XML).
+The TOC lists files explicitly (no XML), and is generated: each folder lists its files, in
+order, in its own `files.txt` (paths from the repo root; `atlas/files.txt` holds Data/ too),
+and `tools/install.py` writes `MagicMapAtlas.toc` from them (`MANIFESTS` there gives the
+folders' order). A new file goes in its folder's `files.txt`, then `tools/install.py --toc`;
+`tools/luacheck.py` (so `tools/check.sh`) fails while the committed TOC differs, or a `.lua`
+isn't listed.
 
 ## Runtime (the contract other pieces use)
 

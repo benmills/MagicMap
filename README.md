@@ -40,8 +40,9 @@ The demo's assets, after the above:
 
     .venv/bin/python tools/install.py      # into _classic_beta_ (WoW Forever); another flavor folder as argument
 
-It copies the TOC, its files and Textures/ into `Interface/AddOns/MagicMapAtlas` (the
-gitignored QuestieDB-derived data too, when generated). It shares no globals with the
+It writes the TOC from the folders' `files.txt` (`--toc`: only that), then copies the TOC, its
+files and Textures/ into `Interface/AddOns/MagicMapAtlas` (the gitignored QuestieDB-derived
+data too, when generated). It shares no globals with the
 **MagicMap** spike (its data is `ns.Data`: docs/atlas-data.md), so both can be enabled. Log in
 (a restart for a new TOC, files or textures, else `/reload`), then:
 
@@ -72,7 +73,7 @@ Options: `--wow` (or `MAGICMAP_WOW`), `--flavor` (default `_classic_beta_`), `--
 The tests include a headless smoke test: the TOC's files loaded in order on a simulated WoW
 Forever client (`tools/tests/wowsim.lua`), logged in, ~60 frames and every `/mma` command,
 with no Lua error expected; and `tools/luacheck.py` over the TOC (globals, every file listed,
-the Atlas section = `atlas/files.txt`).
+the TOC = what the folders' `files.txt` make: `tools/install.py --toc` writes it).
 
     tools/check.sh                                     # both, as CI runs them (makes .venv if missing)
     .venv/bin/python -m pytest tools/tests -q -p no:cacheprovider

@@ -1,0 +1,10 @@
+game/Game.lua
+game/Slash.lua
+game/Command.lua
+game/Telemetry.lua
+game/Minimap.lua
+game/Blips.lua
+game/Observe.lua
+game/Record.lua
+game/Validate.lua
+game/Bench.lua

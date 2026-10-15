@@ -18,9 +18,10 @@ compiled bytecode, so scoping is exact.
     the SavedVariables, and each folder may use only the ns.<System>s that
     NS_RULES allow (a static scan; limits at check_ns). Known violations
     waiting on a contract are in BASELINE; one that's gone must be removed.
-  * Every file in MagicMapAtlas.toc must exist (a gitignored one may be
-    missing: QuestieDB-derived data), every addon .lua must be in it, and its
-    Data/ + atlas/ files must be atlas/files.txt, in that order.
+  * MagicMapAtlas.toc must be what the folders' files.txt manifests make
+    (tools/install.py generates it), every file in it must exist (a gitignored
+    one may be missing: QuestieDB-derived data), and every addon .lua must be
+    in it.
 
   python3 tools/luacheck.py              # the files in MagicMapAtlas.toc
   python3 tools/luacheck.py Core.lua     # just these
@@ -332,22 +333,31 @@ def existing_toc_files() -> list[str]:
     return [f for f in listed if f not in missing or f not in ignored]
 
 
+def addon_lua() -> list[str]:
+    """Every .lua under the addon's folders, subfolders too (game/parts/...)."""
+    out = []
+    for d in ADDON_DIRS:
+        for dirpath, _, filenames in os.walk(os.path.join(ROOT, d)):
+            out += [os.path.relpath(os.path.join(dirpath, f), ROOT).replace(os.sep, "/")
+                    for f in filenames if f.endswith(".lua")]
+    return out
+
+
 def check_toc() -> int:
+    from install import toc  # (install imports this module)
     problems = 0
+    with open(TOC, encoding="utf-8") as fh:
+        if fh.read() != toc():
+            print("MagicMapAtlas.toc: isn't what the files.txt manifests make: run tools/install.py --toc")
+            problems += 1
     listed = toc_files()
     for f in existing_toc_files():
         if not os.path.exists(os.path.join(ROOT, f)):
             print(f"MagicMapAtlas.toc: lists {f}, which doesn't exist")
             problems += 1
-    with open(os.path.join(ROOT, "atlas", "files.txt")) as fh:
-        atlas = fh.read().split()
-    if [f for f in listed if f.split("/")[0] in ("Data", "atlas")] != atlas:
-        print("MagicMapAtlas.toc: its Data/ and atlas/ files aren't atlas/files.txt in order")
-        problems += 1
-    on_disk = [f"{d}/{f}" for d in ADDON_DIRS if os.path.isdir(os.path.join(ROOT, d))
-               for f in os.listdir(os.path.join(ROOT, d)) if f.endswith(".lua")]
+    on_disk = addon_lua()
     for f in sorted(set(on_disk) - set(listed)):
-        print(f"MagicMapAtlas.toc: {f} isn't listed, so the game never loads it")
+        print(f"MagicMapAtlas.toc: {f} isn't listed (its folder's files.txt), so the game never loads it")
         problems += 1
     return problems
 
