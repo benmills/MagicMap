@@ -26,7 +26,7 @@ def client(tmp_path):
 def test_telemetry_fixture(tmp_path, capsys):
     flavor = client(tmp_path)
     (flavor / "Screenshots" / "WoWScrnShot_101426_112000.jpg").write_bytes(b"")
-    for ref in ("sentinel-384-small.jpg", "kharanos-1024-small.png"):
+    for ref in ("ref-sentinel-384-small.jpg", "ref-kharanos-1024-small.png"):
         (tmp_path / "refs" / ref).write_bytes(b"")
     now = time.strftime("%-m/%-d %H:%M:%S.000")
     (flavor / "Logs" / "General.log").write_text(
@@ -49,14 +49,14 @@ def test_telemetry_fixture(tmp_path, capsys):
                  "SHARED MagicMap: ", "General.log: [E][Lua] Lua Error: Interface/AddOns/MagicMap/Layers.lua:1473",
                  # perf: alloc, gaps, ledger, by state, memory, layouts, bench
                  "game.observe                    180.2 KB/s  max 12.4 KB/call  5400 calls",
-                 "map: borders 14.2 ms", "ui/Borders.lua:88", "f9118 11.2 ms  top map: borders  [layout x2, swap x1, spike x1]",
+                 "map: borders 14.2 ms (x3)", "ui/Borders.lua:88", "f9118 11.2 ms  top map: borders  [layout x2, swap x1, gap x1, spike x1]",
                  "zoom         900    0.6    2.1    9.8   11.2", "39.2 MB at load, 70.8 MB at logout",
                  "swap tiles       n 40    lag=0 scale=1.3 x=33012 y=25510", "canvas.SetScale@1000live         2000 µs",
                  # kept, marks' motion and shot stamp, shot pairing
                  "taint {e=blocked fn=Minimap:Hide()}", "art redbutton-expand-c60",
                  "motion (4 frames f14999-f15002, 0.07 s)", "crossed col 32|33 f15001",
                  "shot zoom 384 camera 33.0002,48.1 inst 0 view 320x203 at 1588,1012 small; UI scale 0.711, screen 2700x1518.8",
-                 f"reference {tmp_path / 'refs' / 'sentinel-384-small.jpg'}",
+                 f"reference {tmp_path / 'refs' / 'ref-sentinel-384-small.jpg'}",
                  "reference shots with no shot mark (1): kharanos-1024-small"):
         assert want in out, want
     assert "unrelated" not in out and "Blizzard_SharedXMLBase" not in out
@@ -64,19 +64,19 @@ def test_telemetry_fixture(tmp_path, capsys):
     out = capsys.readouterr().out
     for want in ("PASS  frame cost p95", "FAIL  frame cost p99                     5.40 ms (limit 5)",
                  "owner: state 'zoom' worst at p99 9.8 ms; map: borders slowest in 2 of the 3 worst frames"
-                 " (worst f9118 11.2 ms: layout borders, swap borders); job map: borders ran 14.2 ms between yields",
+                 " (worst f9118 11.2 ms: layout borders, swap borders, gap map: borders); job map: borders ran 14.2 ms between yields",
                  "FAIL  frame cost max (outside graces)    11.20 ms (limit 8)",
-                 "owner: map: borders in the worst frame f9118 (11.2 ms; with layout borders, swap borders)",
+                 "owner: map: borders in the worst frame f9118 (11.2 ms; with layout borders, swap borders, gap map: borders)",
                  "PASS  first map open", "FAIL  load (Data + Atlas)", "owner: Data + Atlas at load: 37.3 MB",
                  "FAIL  our memory at logout, after GC     70.80 MB",
                  "owner: Data + Atlas: 39.2 MB at load after GC; +31.6 MB by logout (top allocator game.observe)",
                  "FAIL  Lua allocation (outside graces)    274.30 KB/s",
                  "owner: game.observe 180.2 KB/s (66%), map: borders 60.1 KB/s (22%)",
                  "FAIL  errors per hour", "owner: ui.tiles.step x37",
-                 "FAIL  perf.slow  1", "owner: map: labels x3", "FAIL  perf.gaps  1", "owner: map: borders 14.2 ms",
+                 "FAIL  perf.slow  1", "owner: map: labels x3", "FAIL  perf.gaps  1", "owner: map: borders 14.2 ms between yields (x3)",
                  "FAIL  taint      1", "owner: {e=blocked fn=Minimap:Hide()}", "FAIL  art        1", "PASS  sensor     0"):
         assert want in out, (want, out)
-    assert "== perf" not in out
+    assert "== perf" not in out and "owner: bench" not in out and "job bench" not in out  # its overruns and gaps are the bench
     assert telemetry.main(base + ["--budgets", "--trace"]) == 1
     out = capsys.readouterr().out
     for want in ("== perf", "        f9118 +402398ms swap {layer=borders scale=1 x=-12 y=40}", "== kept", "== marks (2)",

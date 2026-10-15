@@ -40,8 +40,8 @@ telemetry = {
                kbPerSec, kbFrameP95, kbFrameMax, kbFrames, -- allocation outside graces (docs/runtime.md)
                ourKBLoad, ourKB,                      -- ours, after a full collect: 10 s after login, at logout
                alloc = { { name, kbPerSec, kbMax, calls }, ... },  -- top 5 allocators (KB/s; kbMax: one call's most)
-               gaps = { { job, ms, stack }, ... },    -- a job ran longer than its budget between Yields
-               ledger = { { frame, ms, top, events = { <events> } }, ... }, -- worst 5 frames outside graces, ±10 events
+               gaps = { { job, ms, n, stack }, ... }, -- a job ran longer than its budget between Yields: longest, how often, first stack
+               ledger = { { frame, ms, top, topMs, events = { <events> } }, ... }, -- worst 5 frames outside graces, ±10 events
                byState = { [state] = { frames, p50, p95, p99, max } }, -- by map state: closed small big zoom drag
                errors, errorsPerHour, loadMs },       -- written at logout (and /reload) and with each mark
       kept = { <events> },  -- taint, art and sensor events, the first 50 (each one a bug)
@@ -119,8 +119,8 @@ Their `d`:
 | `art` | the missing atlas name or file |
 | `mark`, `shot` | the note (nil without one) |
 | `slow` | `{ name, ms, n }`: the call's 1st, 10th, then every 100th overrun (`n` = overruns so far) |
-| `spike` | `{ ms, top, topMs, ... }`: the frame's cost and its slowest call; also its top allocator (M0.3) |
-| `gap` | the job and how long it ran between Yields (M0.3; `perf.gaps` has its stack) |
+| `spike` | `{ ms, top, topMs, alloc, allocKb }`: the frame's cost, its slowest call and its top allocator (`alloc` nil: none measured) |
+| `gap` | `{ job, ms, n }`: a job's stretch between Yields over its budget, at its 1st, 10th, then every 100th (`perf.gaps` has its stack) |
 | `throttled` | the name failing 10 calls in a row (now run once a second) |
 | `job` | `{ name, e = "cancelled" }` |
 | `enter` | `"login"`, `"reload"` or `"loading"` |
@@ -151,14 +151,16 @@ globals breaking it) named only its own files, so a filter on "MagicMapAtlas" mi
   (the call slowest in the worst frames, what that frame did), the per-state histograms and
   the gaps; allocation from `perf.alloc`; memory from `ourKBLoad` against `ourKB`; first open
   from `perf.slow`; errors from the session's errors. Then the gate's empties (docs/v1-plan.md §1):
-  `perf.slow`, `perf.gaps`, `taint`, `art`, `sensor`, each named. Exit 1 on any FAIL.
+  `perf.slow`, `perf.gaps`, `taint`, `art`, `sensor`, each named (`bench: regions` left out of
+  `perf.slow` and `perf.gaps`: `/mma bench` times calls that can't be split). Exit 1 on any FAIL.
   `--budgets --trace` also prints the perf, kept and marks sections it judged from.
 - `--compare A B`: two sessions side by side with B − A: the budgets, memory after GC,
   per-state p95/p99/max, allocators, bench ops. A session is its id in the SavedVariables
   read, or `FILE:id` for another SavedVariables file (sessions roll off after 10: keep a copy).
-- Shot pairing: a shot mark's id (its note's first word) is matched to the reference shot
-  `docs/evidence/shots/<id>.jpg|png` (`--refs` for another folder); the reader prints both
-  paths, the shot's stamp, and the reference ids with no shot this time.
+- Shot pairing: a shot mark's id (its note's first word, an id from docs/evidence/shots/README.md)
+  is matched to the spike's reference shot `docs/evidence/shots/ref-<id>.jpg|png` (`--refs` for
+  another folder; tools/refshots.py names them); the reader prints both paths, the shot's stamp,
+  and the reference ids with no shot this time.
 
 Older SavedVariables (before these fields) still read: a missing field prints "not recorded"
 and an owner says what's missing.

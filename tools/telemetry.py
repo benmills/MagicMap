@@ -11,7 +11,7 @@
 
 The install is "/Applications/World of Warcraft" (MAGICMAP_WOW, --wow), flavor _classic_beta_
 (--flavor); SavedVariables is the newest WTF/Account/*/SavedVariables/MagicMapAtlas.lua (--sv).
-Shot marks pair with reference shots docs/evidence/shots/<id>.* (--refs) by the note's first word.
+Shot marks pair with reference shots docs/evidence/shots/ref-<id>.* (--refs; tools/refshots.py) by the note's first word.
 """
 from __future__ import annotations
 
@@ -35,6 +35,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REFS = os.path.join(ROOT, "docs", "evidence", "shots")
 SECTIONS = ("perf", "kept", "errors", "marks", "shots", "validation", "logs")
 KEPT = ("taint", "art", "sensor")  # game/Telemetry.lua KEEP: each one a bug, kept past the ring
+BENCH = "bench: regions"  # game/Bench.lua's job: a timed call can't be split, so its overruns and gaps aren't bugs
 
 
 # Owners: who to look at for a FAIL, from what the session measured (old sessions lack the M0 fields).
@@ -53,7 +54,7 @@ def in_frame(e) -> str:
     for ev in e.get("events") or []:
         if ev.get("f") == e.get("frame") and ev.get("k") not in ("spike", "slow"):
             d = ev.get("d")
-            what = (d.get("layer") or d.get("name") or d.get("e")) if isinstance(d, dict) else d
+            what = (d.get("layer") or d.get("name") or d.get("job") or d.get("e")) if isinstance(d, dict) else d
             out.append(f"{ev.get('k')} {what}" if what is not None else ev.get("k"))
     return ", ".join(dict.fromkeys(out))
 
@@ -71,7 +72,7 @@ def owner_frames(which):
             w = worst[0]
             bits.append(f"{name} slowest in {n} of the {len(worst)} worst frames (worst f{w.get('frame')} {num(w.get('ms'))} ms"
                         + (f": {in_frame(w)})" if in_frame(w) else ")"))
-        gaps = p.get("gaps") or []
+        gaps = but_bench(p.get("gaps"), "job")
         if gaps:
             g = max(gaps, key=lambda g: g.get("ms") or 0)
             bits.append(f"job {g.get('job')} ran {num(g.get('ms'))} ms between yields")
@@ -140,10 +141,15 @@ def kept(s, kind):
     return None if "kept" not in s else [e for e in s.get("kept") or [] if e.get("k") == kind]
 
 
+def but_bench(xs, key):
+    return None if xs is None else [x for x in xs if x.get(key) != BENCH]
+
+
 # docs/v1-plan.md §1 gate 3/4: what must be empty; (label, list from (perf, session) or None: not recorded, line).
 GATE = (
-    ("perf.slow", lambda p, s: p.get("slow"), lambda x: f"{x.get('name')} x{x.get('n')} max {num(x.get('max'))} ms"),
-    ("perf.gaps", lambda p, s: p.get("gaps"), lambda x: f"{x.get('job')} {num(x.get('ms'))} ms between yields"),
+    ("perf.slow", lambda p, s: but_bench(p.get("slow"), "name"), lambda x: f"{x.get('name')} x{x.get('n')} max {num(x.get('max'))} ms"),
+    ("perf.gaps", lambda p, s: but_bench(p.get("gaps"), "job"), lambda x: f"{x.get('job')} {num(x.get('ms'))} ms between yields"
+                                                                         + (f" (x{x['n']})" if x.get("n") else "")),
     *((k, lambda p, s, k=k: kept(s, k), lambda e: detail(e.get("d"))) for k in KEPT),
 )
 
@@ -346,7 +352,7 @@ def shots(flavor: str, marks: list, since: float, refs: str):
         m = STAMP.search(p)
         if m and stamp_time(m.group(1)):
             files.append((stamp_time(m.group(1)), os.path.abspath(p)))
-    ref = {os.path.splitext(f)[0]: os.path.join(refs, f) for f in sorted(os.listdir(refs))
+    ref = {re.sub(r"^ref-", "", os.path.splitext(f)[0]): os.path.join(refs, f) for f in sorted(os.listdir(refs))
            if f.lower().endswith(IMAGE)} if os.path.isdir(refs) else {}
     used, out = set(), []
     for mk in (m for m in marks if m.get("kind") == "shot"):
@@ -513,7 +519,7 @@ def show_perf(s, args) -> list[str]:
     out.append(f"gaps (job yields over budget): {len(gaps)}" if gaps else
                f"gaps: {'none' if gaps is not None else 'not recorded'}")
     for g in gaps or []:
-        out.append(f"  {g.get('job')} {num(g.get('ms'))} ms")
+        out.append(f"  {g.get('job')} {num(g.get('ms'))} ms" + (f" (x{g['n']})" if g.get("n") else ""))
         out += [f"      {line}" for line in trim(g.get("stack"), args.full)][:None if full else 3]
     worst = ledger(p)
     out.append(f"ledger (worst {len(worst)} frames outside graces):" if worst else "ledger: none")
@@ -666,7 +672,7 @@ def show(out, sections, args, shot_files):
             say("  none")
     if "shots" in sections:
         refs = os.path.relpath(out["refs"], ROOT) if out["refs"].startswith(ROOT) else out["refs"]
-        say(f"== shots ({len(out['shots'])}; reference shots: {refs}/<id>.*)")
+        say(f"== shots ({len(out['shots'])}; reference shots: {refs}/ref-<id>.*)")
         for s in out["shots"]:
             say(f"  {when(s['t'])}  {s.get('note') or ''}\n    {s['file'] or 'NO FILE for stamp ' + str(s.get('stamp'))}")
             say(f"    {s.get('id') or '(no id)'}: {stamp(s.get('at'))}")
@@ -730,7 +736,7 @@ def main(argv=None):
     ap.add_argument("--wow", default=os.environ.get("MAGICMAP_WOW", "/Applications/World of Warcraft"))
     ap.add_argument("--flavor", default="_classic_beta_")
     ap.add_argument("--sv", help="SavedVariables file (default: the newest account's)")
-    ap.add_argument("--refs", default=REFS, help="reference shots, <id>.jpg|png (default docs/evidence/shots)")
+    ap.add_argument("--refs", default=REFS, help="reference shots, ref-<id>.jpg|png (default docs/evidence/shots)")
     ap.add_argument("--since", type=since_arg, help="minutes ago, or an ISO time")
     for s in SECTIONS:
         ap.add_argument("--" + s, action="store_true", help=f"show only {s} (combinable)")

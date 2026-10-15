@@ -40,26 +40,28 @@ MagicMapAtlasDB = {
 ["kbMin"] = 47100, ["kbMax"] = 61800, ["ourKBLoad"] = 40100, ["ourKB"] = 72500, ["loadMs"] = 398.1,
 ["errors"] = 37, ["errorsPerHour"] = 148, ["kbPerSec"] = 274.3, ["kbFrameP95"] = 4.1, ["kbFrameMax"] = 850.2, ["kbFrames"] = 17600,
 ["grace"] = { ["login"] = 96.4, ["map"] = 31.5, ["gc"] = 88.2 },
-["slow"] = { { ["name"] = "map: labels", ["n"] = 3, ["max"] = 11.0 } },
+["slow"] = { { ["name"] = "map: labels", ["n"] = 3, ["max"] = 11.0 }, { ["name"] = "bench: regions", ["n"] = 2, ["max"] = 9.5 } },
 ["alloc"] = {
 { ["name"] = "game.observe", ["kbPerSec"] = 180.2, ["kbMax"] = 12.4, ["calls"] = 5400 }, -- [1]
 { ["name"] = "map: borders", ["kbPerSec"] = 60.1, ["kbMax"] = 850.2, ["calls"] = 40 }, -- [2]
 { ["name"] = "ui: view", ["kbPerSec"] = 2.5, ["kbMax"] = 0.3, ["calls"] = 18342 }, -- [3]
 },
 ["gaps"] = {
-{ ["job"] = "map: borders", ["ms"] = 14.2, ["stack"] = "[string \"@Interface/AddOns/MagicMapAtlas/ui/Borders.lua\"]:88: in function <Interface/AddOns/MagicMapAtlas/ui/Borders.lua:60>" }, -- [1]
+{ ["job"] = "bench: regions", ["ms"] = 15.1, ["n"] = 1, ["stack"] = "(ran to the job's end)" }, -- bench: ignored by the gate
+{ ["job"] = "map: borders", ["ms"] = 14.2, ["n"] = 3, ["stack"] = "[string \"@Interface/AddOns/MagicMapAtlas/ui/Borders.lua\"]:88: in function <Interface/AddOns/MagicMapAtlas/ui/Borders.lua:60>" }, -- [1]
 },
 ["ledger"] = {
-{ ["frame"] = 9300, ["ms"] = 9.1, ["top"] = "game.observe", ["events"] = {
-{ ["f"] = 9300, ["ms"] = 405010, ["k"] = "spike", ["d"] = { ["ms"] = 9.1, ["top"] = "game.observe", ["topMs"] = 8.2 } }, -- [1]
+{ ["frame"] = 9300, ["ms"] = 9.1, ["top"] = "game.observe", ["topMs"] = 8.2, ["events"] = {
+{ ["f"] = 9300, ["ms"] = 405010, ["k"] = "spike", ["d"] = { ["ms"] = 9.1, ["top"] = "game.observe", ["topMs"] = 8.2, ["alloc"] = "game.observe", ["allocKb"] = 12.4 } }, -- [1]
 } }, -- [1]
-{ ["frame"] = 9118, ["ms"] = 11.2, ["top"] = "map: borders", ["events"] = {
+{ ["frame"] = 9118, ["ms"] = 11.2, ["top"] = "map: borders", ["topMs"] = 10.4, ["events"] = {
 { ["f"] = 9109, ["ms"] = 402250, ["k"] = "layout", ["d"] = { ["e"] = "start", ["layer"] = "borders", ["inst"] = 0, ["zoom"] = 384 } }, -- [1]
 { ["f"] = 9118, ["ms"] = 402398, ["k"] = "layout", ["d"] = { ["e"] = "end", ["layer"] = "borders", ["ms"] = 22.3, ["regions"] = 1012 } }, -- [2]
 { ["f"] = 9118, ["ms"] = 402398, ["k"] = "swap", ["d"] = { ["layer"] = "borders", ["x"] = -12, ["y"] = 40, ["scale"] = 1 } }, -- [3]
-{ ["f"] = 9118, ["ms"] = 402399, ["k"] = "spike", ["d"] = { ["ms"] = 11.2, ["top"] = "map: borders", ["topMs"] = 10.4 } }, -- [4]
+{ ["f"] = 9118, ["ms"] = 402399, ["k"] = "gap", ["d"] = { ["job"] = "map: borders", ["ms"] = 14.2, ["n"] = 1 } }, -- [4]
+{ ["f"] = 9118, ["ms"] = 402399, ["k"] = "spike", ["d"] = { ["ms"] = 11.2, ["top"] = "map: borders", ["topMs"] = 10.4, ["alloc"] = "map: borders", ["allocKb"] = 850.2 } }, -- [5]
 } }, -- [2]
-{ ["frame"] = 9120, ["ms"] = 8.4, ["top"] = "map: borders", ["events"] = {} }, -- [3]
+{ ["frame"] = 9120, ["ms"] = 8.4, ["top"] = "map: borders", ["topMs"] = 7.9, ["events"] = {} }, -- [3]
 },
 ["byState"] = {
 ["small"] = { ["frames"] = 12000, ["p50"] = 0.25, ["p95"] = 0.7, ["p99"] = 3.9, ["max"] = 9.1 },

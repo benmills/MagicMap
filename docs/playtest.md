@@ -28,9 +28,10 @@ During:
   moment something looks or feels wrong: a hitch, a tear, a pin in the wrong place, missing art.
   A mark keeps the last 300 events and the last 120 frames of camera and position (2 s at
   60 fps), so mark right away, not after walking on. The script's own marks are listed per step.
-- **Shots**: `/mma shot <id> [note]`, the id first (the shot list below), at the spot, zoom and
-  form the list gives. The mark stamps zoom, camera, window and UI scale; the reader pairs it with
-  `docs/evidence/shots/<id>.jpg`. Print Screen alone takes no mark.
+- **Shots**: `/mma shot <id> [note]`, the id first (the reference shot list,
+  docs/evidence/shots/README.md), at the spot, zoom and form its row gives. The mark stamps zoom,
+  camera, window and UI scale; the reader pairs it with the spike's `docs/evidence/shots/ref-<id>.jpg`.
+  Print Screen alone takes no mark.
 - Don't `/reload` unless a step says so: each `/reload` ends a session (and writes it).
 
 After:
@@ -52,7 +53,7 @@ M0 changes nothing visible; this session prices the client so M1's fixes aim at 
 | 2 | `/mma bench regions`, standing still. It hitches while it runs (expected); wait for it to print its result. Once only. | — |
 | 3 | `/mma check art`. Expect no misses; each one prints and is traced (`art`). | `/mma mark m0 art` if it named a miss |
 | 4 | `/mma map` (it opens following you; right-click follows again after a drag). Wheel in a tick at a time to the closest zoom, then out to the farthest, then back to the default. | `/mma mark m0 wheel` |
-| 5 | At the closest zoom (1024 today), walk west to east through Kharanos for **2 minutes**, crossing the col 33 tile edge (it runs through Kharanos: the play-test's tear) several times. Watch for a tear. | `/mma mark m0 walk` at ~1 min; `/mma shot kharanos-1024-small` while crossing the edge; `/mma mark m0 tear <what>` the moment you see one |
+| 5 | At the closest zoom (1024 today), walk west to east through Kharanos for **2 minutes**, crossing the col 33 tile edge (it runs through Kharanos: the play-test's tear) several times. Watch for a tear. | `/mma mark m0 walk` at ~1 min; `/mma shot small-seam` while crossing the edge; `/mma mark m0 tear <what>` the moment you see one |
 | 6 | Drag the map away (follow off), fling it a few times, let it settle; right-click to follow again. | `/mma mark m0 fling` |
 | 7 | Every session's "after". | — |
 
@@ -66,13 +67,13 @@ small on the Minimap's spot, follow on, default zoom.
 
 | # | Do | Mark / shot |
 |---|---|---|
-| a1 | Open: if the map is hidden, `/mma toggle`. First open of the session. | `/mma shot kharanos-384-small` |
+| a1 | Open: if the map is hidden, `/mma toggle`. First open of the session. At the Thunderbrew door, cursor off. | `/mma shot small-home` |
 | a2 | Wheel in a tick at a time to the closest zoom, then out to the farthest, and back: 4→1024→4 today (16→800→16 once M1.8 has the spike's range). Then the same as fast as the wheel turns. | `/mma mark a2 wheel` |
 | a3 | Fling: drag-pan fast in several directions, release, let it settle each time. | `/mma mark a3 fling` |
-| a4 | Zoom to the closest (1024), small, follow on. Walk for **2 minutes** through Kharanos, crossing the col 33 tile edge (it runs through the village) several times. | `/mma shot kharanos-1024-small` on the edge; `/mma mark a4 tear <what>` on any tear |
-| a5 | Grow and shrink ×5 (M, or the red button): let each animation end. | `/mma mark a5 grow` after the 5th; `/mma shot dunmorogh-big` once while big, at zone fit |
-| a6 | Walk or ride into Ironforge (uiMap 1455). Small at the default zoom, then big. | `/mma shot ironforge-384-small`, `/mma shot ironforge-big` |
-| a7 | Big map: zoom out to the continent (4–24 px/tile) and pan over the Eastern Kingdoms. | `/mma shot ek-12-big`; `/mma mark a7 continent` |
+| a4 | Zoom to the closest (1024), small, follow on. Walk for **2 minutes** through Kharanos, crossing the col 33 tile edge (it runs through the village) several times. | `/mma shot small-seam` on the edge; `/mma mark a4 tear <what>` on any tear |
+| a5 | Grow and shrink ×5 (M, or the red button): let each animation end. | `/mma mark a5 grow` after the 5th; `/mma shot big-home` once as M lands, cursor off |
+| a6 | Walk or ride into Ironforge (uiMap 1455), The Commons. Small at the default zoom, then big. | `/mma shot small-indoor`, `/mma shot big-indoor` |
+| a7 | Big map: zoom out to the continent (4–24 px/tile) and pan over the Eastern Kingdoms. | `/mma shot big-continent` (all the way out); `/mma mark a7 continent` |
 | a8 | Shrink. Every session's "after". | — |
 
 ## Script (b): a 25-quest hub (M2)
@@ -84,12 +85,12 @@ or Sentinel Hill (Westfall, 1436). Some quests complete (turn-in), some offers (
 | # | Do | Mark / shot |
 |---|---|---|
 | b1 | `/reload` at the hub (so the next open is the session's first), then the 10 s wait. | — |
-| b2 | Open the map small at the default zoom: the quest-heavy first open (≤50 ms). | `/mma shot hub-384-small` |
+| b2 | Open the map small at the default zoom: the quest-heavy first open (≤50 ms). | `/mma shot small-quests` |
 | b3 | Hover five quest pins: kill, collect, a complete one (turn-in), an offer, a followed one. | `/mma mark b3 tooltips` |
 | b4 | Click a pin: it's super-tracked in Blizzard's tracker; click again: off. Click a quest area (blob). | `/mma mark b4 follow` |
 | b5 | Wheel 60 → 140 → 384 and back: blobs hide while zooming and come back at settle. | `/mma mark b5 zoom` |
 | b6 | Walk into a quest area; `/mma check inside` there; walk out. | `/mma mark b6 inside` |
-| b7 | Big map, wheeled to 140: areas and estimates. | `/mma shot hub-140-big` |
+| b7 | Big map, wheeled until the quest areas fill it: areas and estimates. | `/mma shot big-quests` |
 | b8 | Every session's "after". | — |
 
 ## Script (c): route, corpse run, keys in combat (M3)
@@ -99,9 +100,9 @@ whose area is off the view (Dun Morogh or Elwynn).
 
 | # | Do | Mark / shot |
 |---|---|---|
-| c1 | Follow the quest (click its pin): the route line and, when off view, the edge arrow. | `/mma shot route-384-small` |
+| c1 | Follow the quest (click its pin): the route line and, when off view, the edge arrow. | `/mma shot small-edge-arrow` |
 | c2 | Ctrl-click the map: a waypoint, route to it. Ctrl-right-click: cleared. Shift-click: a `/way` line in the chat box (not sent). | `/mma mark c2 waypoint` |
-| c3 | Die (pull mobs well above your level), release. Corpse run along the route; resurrect. | `/mma shot corpse-140-big` while a ghost, big at 140; `/mma mark c3 corpse` |
+| c3 | Die (pull mobs well above your level), release. Corpse run along the route; resurrect. | `/mma shot small-corpse` while a ghost, small; `/mma mark c3 corpse` |
 | c4 | Get into combat (attack a mob and stay in combat). In combat, once each: M (grow), Escape (shrink), L (Blizzard's quest log opens), `/mma toggle` twice (Blizzard's minimap back, then ours). | `/mma mark c4 combat keys` |
 | c5 | Out of combat: the same four again. | `/mma mark c5 keys` |
 | c6 | Every session's "after". Taint must be 0 (`--budgets` gate). | — |
@@ -113,10 +114,10 @@ in a group of two if you can (a friend or an alt).
 
 | # | Do | Mark / shot |
 |---|---|---|
-| d1 | Walk the capital's trade district with tracking on (mailbox, trainers, flight master): services and blips. | `/mma shot stormwind-384-small` |
+| d1 | Walk the capital's trade district with tracking on (mailbox, trainers, flight master): services and blips. | `/mma shot small-town` (the reference is Kharanos: compare services and mailbox, not the town) |
 | d2 | Gear menu: toggle every layer off and on, small and big. | `/mma mark d2 gear` |
-| d3 | Enter a building or a cave: indoor art, or Blizzard's floor plan; `/mma indoor` cycles them. | `/mma shot indoor-384-small` |
-| d4 | Party: walk apart from your partner; have them die and release (dot grey). | `/mma shot party-384-small`; `/mma mark d4 party` |
+| d3 | Enter a building or a cave: indoor art, or Blizzard's floor plan; `/mma indoor` cycles them. | `/mma shot small-indoor` |
+| d4 | Party: walk apart from your partner; have them die and release (dot grey). | `/mma shot small-group`; `/mma mark d4 party` |
 | d5 | In combat: open the gear menu and toggle tracking, a layer, the minimap button. | `/mma mark d5 combat toggles` |
 | d6 | `/reload` mid-session: tracking comes back as it was (this starts a second session: read both). | `/mma mark d6 after reload` |
 | d7 | Every session's "after". | — |
@@ -128,39 +129,40 @@ enabled (the only other addons), in Elwynn Forest.
 
 | # | Do | Mark / shot |
 |---|---|---|
-| e1 | Big map, zoom out to the continent (4–24) and back into Elwynn at 140, then 384: their pins on our map, skipped past 48 px/tile and over 128 px. | `/mma shot ek-12-big-addons`, `/mma shot elwynn-140-big-addons` |
-| e2 | Shrink: their minimap pins around you on the small map; Rotate Minimap on (Interface options): hidden; off again. | `/mma mark e2 minimap pins` |
+| e1 | Big map, zoom out to the continent (4–24) and back into Elwynn at 140, then 384: their pins on our map, skipped past 48 px/tile and over 128 px. | `/mma shot big-addon-pins` at 140, big |
+| e2 | Shrink: their minimap pins around you on the small map; Rotate Minimap on (Interface options): hidden; off again. | `/mma shot small-addon-pins` before Rotate; `/mma mark e2 minimap pins` |
 | e3 | Close ours and open Blizzard's world map: their pins are back on it. | `/mma mark e3 pins returned` |
 | e4 | Every session's "after". | — |
 
 ## Shots
 
-A shot's id is `<spot>-<zoom>-<form>` (or `<spot>-big` at zone fit). Each id has a reference shot
-of the spike, `docs/evidence/shots/<id>.jpg`, taken once (M0.8); the reader pairs them
-(`telemetry.py --shots`). Take a shot standing still, the cursor off the map, at the zoom given
-(within a wheel tick): the stamp records the real zoom, camera, window and UI scale.
+A shot's id is a row of the reference list, docs/evidence/shots/README.md (M0.8): the spike shot
+once at that spot, zoom and form, saved as `docs/evidence/shots/ref-<id>.jpg` by tools/refshots.py.
+The reader pairs `/mma shot <id>` with it (`telemetry.py --shots`). Take a shot standing still,
+cursor off unless the row says otherwise, at the row's zoom: the spike's units (16..800 a tile)
+until M1.8 adopts them, so before then the closest zoom stands in for 800 (1024 today). The stamp
+records the real zoom, camera, window and UI scale.
 
-| id | Spot | uiMap | Zoom | Form | Look at | Gates |
-|---|---|---|---|---|---|---|
-| kharanos-384-small | Kharanos inn door, facing north | 1426 | 384 | small | tiles, colour match, borders, labels, title, chrome | M1, M5 |
-| kharanos-1024-small | Kharanos on the col 33 edge, walking | 1426 | 1024 | small | tear, tile seam | M0 (baseline), M1, M5 |
-| dunmorogh-big | Kharanos | 1426 | zone fit | big | zone border and labels, controls | M1, M5 |
-| ironforge-384-small | the Great Forge | 1455 | 384 | small | the city (indoor) | M1, M4, M5 |
-| ironforge-big | the Great Forge | 1455 | zone fit | big | big map in a city | M1, M5 |
-| ek-12-big | anywhere in the Eastern Kingdoms | 1415 | 12 | big | continent: tiles, zone labels | M1, M5 |
-| hub-384-small | script (b)'s hub | its zone | 384 | small | quest pins, difficulty, counts | M2, M5 |
-| hub-140-big | script (b)'s hub | its zone | 140 | big | quest areas, estimates | M2, M5 |
-| route-384-small | script (c), quest off view | its zone | 384 | small | route ink, edge arrow | M3, M5 |
-| corpse-140-big | script (c), as a ghost | its zone | 140 | big | corpse pin, route | M3, M5 |
-| stormwind-384-small | Trade District | 1453 | 384 | small | services, mailbox, blips | M4, M5 |
-| indoor-384-small | a building or cave | — | 384 | small | indoor art or floor plan | M4, M5 |
-| party-384-small | with a group member in view | — | 384 | small | party dots | M4, M5 |
-| ek-12-big-addons | Eastern Kingdoms, Questie + GatherMate | 1415 | 12 | big | borrowed pins | M4, M5 |
-| elwynn-140-big-addons | Elwynn Forest, Questie + GatherMate | 1429 | 140 | big | borrowed pins | M4, M5 |
+The scripts take these (the rest of the list is for M5's full pass):
+
+| id | Script | Look at | Gates |
+|---|---|---|---|
+| small-home | a1 | tiles, colour match, borders, labels, title, chrome | M1, M5 |
+| small-seam | M0 5, a4 | tear, tile seam on the col 32\|33 line | M0 (baseline), M1, M5 |
+| big-home | a5 | big map as M lands, controls | M1, M5 |
+| small-indoor | a6, d3 | the city / indoor art or floor plan | M1, M4, M5 |
+| big-indoor | a6 | big map in a city | M1, M5 |
+| big-continent | a7 | continent: tiles, zone labels | M1, M5 |
+| small-quests | b2 | quest pins, difficulty, counts | M2, M5 |
+| big-quests | b7 | quest areas, estimates | M2, M5 |
+| small-edge-arrow | c1 | route ink, edge arrow | M3, M5 |
+| small-corpse | c3 | corpse pin, route | M3, M5 |
+| small-town | d1 | services, mailbox, blips | M4, M5 |
+| small-group | d4 | party dots | M4, M5 |
+| big-addon-pins | e1 | borrowed world pins | M4, M5 |
+| small-addon-pins | e2 | borrowed minimap pins | M4, M5 |
 
 ## Reference session (M0.8, the spike only)
 
-AddOns: MagicMap on, MagicMapAtlas **off**. The spike has no `/mma shot`: at each id's spot,
-zoom and form, wheel to the zoom (`/mm debug` shows it in the title; turn it off again for the
-shot), then Print Screen. Note the order taken; the lead renames each `Screenshots/WoWScrnShot_<stamp>.jpg` to
-`docs/evidence/shots/<id>.jpg`.
+Once, with MagicMap on and MagicMapAtlas **off**: docs/evidence/shots/README.md has the steps and
+the list, and `tools/refshots.py` names the screenshots `ref-<id>.jpg`.
