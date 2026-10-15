@@ -69,6 +69,12 @@ local function Scan()
 end
 Runtime.On("ADDON_LOADED", "game.addon pins: loaded", Scan)
 
+-- Every copy: { lib, tag }; rescan: one loaded since too (game/Minimap.lua hosts their minimap pins).
+function Game.PinLibs(rescan)
+	if rescan then Scan() end
+	return copies
+end
+
 -- The addon behind a pin: a renamed copy is its addon's; in the shared copy, the ref it
 -- registered under (an AceAddon, a string) (AddonPins.lua:89-101).
 local function Key(copy, ref)

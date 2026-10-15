@@ -6,6 +6,9 @@
 --     blips), just beneath the window's strata, at its widest zoom, north up, no
 --     ground, no mouse (each put right every apply: other client code turns them
 --     back). What hung on it waits on a stand-in at its home spot; the cluster hides.
+--     HereBeDragons' minimap pins (every copy drawing on the Minimap, one loaded meanwhile
+--     too) go to a hidden host instead: on the unseen sensor they'd still take the mouse, over
+--     our map (M4.2 hosts them on sockets.minimap).
 --   otherwise (or a View Game can't use: SAFE, game/Apply.lua): released, every change undone.
 -- Every change Engage makes is paired with its undo on a list; Release runs it
 -- backwards, so what comes back is exactly what was taken. But the cluster: its Show and
@@ -31,7 +34,31 @@ local clusterShown -- the cluster's own shown state, from an engage until it's b
 local standIn = CreateFrame("Frame", "MagicMapAtlasMinimapStandIn", UIParent)
 standIn:Hide()
 
+-- HereBeDragons' minimap pins while engaged, out of sight; it answers what the library asks a
+-- minimap (MinimapTakeover.lua:84-93: the spike's hiddenHost).
+local pinHost = CreateFrame("Frame", nil, UIParent)
+pinHost:Hide()
+pinHost:SetSize(1, 1)
+pinHost.GetZoom = function() return Minimap:GetZoom() end
+pinHost.GetZoomLevels = function() return Minimap:GetZoomLevels() end
+pinHost.SetZoom = function(_, z) Minimap:SetZoom(z) end
+
 local function OnRelease(fn) undo[#undo + 1] = fn end
+
+-- Every copy drawing on the Minimap onto the host (game/AddonPins.lua finds them in LibStub).
+local function HostPins()
+	for _, copy in ipairs(Game.PinLibs(true)) do
+		if copy.lib.Minimap == Minimap then copy.lib:SetMinimapObject(pinHost) end
+	end
+end
+
+-- A pin travels with the Minimap: a copy's that stayed there, or GatherMate's (MinimapTakeover.lua:124-129).
+local function IsPin(obj)
+	for _, copy in ipairs(Game.PinLibs()) do
+		if copy.lib.minimapPins[obj] then return true end
+	end
+	return obj:GetDebugName():find("GatherMatePin", 1, true) ~= nil
+end
 
 -- Swap anchors relative to `from` for the same anchors relative to `to` (true if any).
 local function Reanchor(obj, from, to)
@@ -64,7 +91,7 @@ end
 
 local function Move(obj, from, to)
 	local t = obj:GetObjectType()
-	if t == "Line" or t == "MaskTexture" or (obj.IsProtected and obj:IsProtected()) then return end
+	if t == "Line" or t == "MaskTexture" or (obj.IsProtected and obj:IsProtected()) or IsPin(obj) then return end
 	Reparent(obj, to)
 	Reanchor(obj, from, to)
 	OnRelease(function()
@@ -103,6 +130,13 @@ end
 
 local function Engage()
 	m.engaged = true
+	-- Undone last: the pins back on the Minimap once it's back at its own size (MinimapTakeover.lua:338-344).
+	OnRelease(function()
+		for _, copy in ipairs(Game.PinLibs()) do
+			if copy.lib.Minimap == pinHost then copy.lib:SetMinimapObject(Minimap) end
+		end
+	end)
+	HostPins()
 	local mm = Minimap
 	local parent, w, h = mm:GetParent(), mm:GetSize()
 	local points = {}
@@ -234,3 +268,4 @@ Game.Apply("minimap", function(view)
 end)
 
 Runtime.On("PLAYER_LOGOUT", "game.minimap logout", Release)
+Runtime.On("ADDON_LOADED", "game.minimap pins", function() if m.engaged then HostPins() end end)

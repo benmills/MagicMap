@@ -515,7 +515,17 @@ end
 function Frame:UnregisterEvent(event) S[self].events[event] = nil end
 function Frame:UnregisterAllEvents() S[self].events = {} end
 function Frame:IsEventRegistered(event) return S[self].events[event] == true end
-function Frame:SetFrameStrata(s) assert(STRATA[s], "SetFrameStrata: bad strata " .. tostring(s)); S[self].strata, S[self].strataSet = s, true end
+-- Its children take it too, those that haven't set their own (as they do when parented: rebase).
+local function carry(f, s)
+	for _, c in ipairs(S[f].children) do
+		if not S[c].strataSet then S[c].strata = s; carry(c, s) end
+	end
+end
+function Frame:SetFrameStrata(s)
+	assert(STRATA[s], "SetFrameStrata: bad strata " .. tostring(s))
+	S[self].strata, S[self].strataSet = s, true
+	carry(self, s)
+end
 function Frame:GetFrameStrata() return S[self].strata end
 function Frame:SetFrameLevel(l) assert(type(l) == "number" and l >= 0, "SetFrameLevel: non-negative number expected"); S[self].level = math.floor(l) end
 function Frame:GetFrameLevel() return S[self].level end
@@ -1708,7 +1718,7 @@ function ButtonFrameTemplate_HideButtonBar(f) end
 -- pins sit on pins.Minimap (SetMinimapObject) at your offset over the view
 -- radius, turned under Rotate Minimap, hidden past 0.9 of it unless
 -- floatOnEdge; re-placed at the end of a frame when you, the radius or that
--- frame changed. The shared copy holds GatherMate's pin (Sim.gatherPin);
+-- frame changed, while that frame is visible (HereBeDragons-Pins-2.0.lua:539). The shared copy holds GatherMate's pin (Sim.gatherPin);
 -- Questie's renamed copy comes with Sim.LoadQuestie(), as if Questie loaded later.
 ---------------------------------------------------------------------------
 
@@ -1822,10 +1832,9 @@ function Sim.HBDPins(major)
 	function pins:SetMinimapObject(obj)
 		self.Minimap = obj or Minimap
 		assert(self.Minimap.GetZoom, "SetMinimapObject: the minimap object needs GetZoom")
-		for icon, data in pairs(self.minimapPins) do
-			icon:SetParent(self.Minimap)
-			self.place(icon, data)
-		end
+		for icon in pairs(self.minimapPins) do icon:SetParent(self.Minimap) end
+		if not self.Minimap:IsVisible() then return end
+		for icon, data in pairs(self.minimapPins) do self.place(icon, data) end
 	end
 
 	local function addWorld(ref, icon, inst, x, y, uiMapID, showFlag, frameLevel)
@@ -1866,7 +1875,7 @@ endOfFrame[#endOfFrame + 1] = function()
 	for _, pins in ipairs(copies) do
 		local L, m = pins.last, pins.Minimap
 		local _, _, w, h = rect(m)
-		if north ~= L.n or west ~= L.w or r ~= L.r or facing ~= L.f or m ~= L.m or w ~= L.mw or h ~= L.mh then
+		if m:IsVisible() and (north ~= L.n or west ~= L.w or r ~= L.r or facing ~= L.f or m ~= L.m or w ~= L.mw or h ~= L.mh) then
 			L.n, L.w, L.r, L.f, L.m, L.mw, L.mh = north, west, r, facing, m, w, h
 			for icon, data in pairs(pins.minimapPins) do pins.place(icon, data) end
 		end
