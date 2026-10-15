@@ -33,6 +33,7 @@ FORMATS = {
     "Areas": 1,      # Data/Areas.lua (tools/gen_world.py)
     "AreaGrid": 1,   # Data/AreaGrid.lua (tools/gen_areagrid.py)
     "Places": 1,     # Data/Places.lua (tools/gen_world.py)
+    "Labels": 1,     # Data/Labels.lua (tools/gen_labels.py)
     "ItemIcons": 1,  # Data/ItemIcons.lua (tools/gen_world.py)
     "Npcs": 1,       # Data/Npcs.lua (tools/gen_questie.py)
     "Objects": 1,    # Data/Objects.lua (tools/gen_questie.py)
