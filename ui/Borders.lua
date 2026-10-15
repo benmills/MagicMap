@@ -60,13 +60,14 @@ local function Polyline(c, kind, sub, p, w, col, a, fs, fe, box)
 		if inside and along >= fs and along + d <= total - fe then
 			Line(c, kind, sub, x1, y1, x2, y2, w, col, a)
 		elseif inside then
-			local n = math.max(1, math.ceil(d / STYLE.fadePiecePx))
+			local n = math.max(1, math.ceil(d / STYLE.fadePiecePx)) -- /: never 0 (STYLE.fadePiecePx = 4)
 			for k = 0, n - 1 do
-				local m = along + d * (k + 0.5) / n
-				local f = math.min(1, fs > 0 and m / fs or 1, fe > 0 and (total - m) / fe or 1)
+				local m = along + d * (k + 0.5) / n -- /: never 0 (n >= 1)
+				local f = math.min(1, fs > 0 and m / fs or 1, fe > 0 and (total - m) / fe or 1) -- /: never 0 (checked > 0)
 				if f >= 0.05 then
-					Line(c, kind, sub, x1 + (x2 - x1) * k / n, y1 + (y2 - y1) * k / n,
-						x1 + (x2 - x1) * (k + 1) / n, y1 + (y2 - y1) * (k + 1) / n, w * (0.6 + 0.4 * f), col, a * f)
+					Line(c, kind, sub, x1 + (x2 - x1) * k / n, y1 + (y2 - y1) * k / n, -- /: never 0 (n >= 1)
+						x1 + (x2 - x1) * (k + 1) / n, y1 + (y2 - y1) * (k + 1) / n, -- /: never 0 (n >= 1)
+						w * (0.6 + 0.4 * f), col, a * f)
 					Yield() -- a long fading segment is many Lines
 				end
 			end

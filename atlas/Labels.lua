@@ -33,7 +33,7 @@ local function VisualCentre(inst)
 	local d = {}
 	for y = 0, h - 1 do
 		for x = 0, w - 1 do
-			local col, row = c0 + (x + 0.5) / S, r0 + (y + 0.5) / S
+			local col, row = c0 + (x + 0.5) / S, r0 + (y + 0.5) / S -- /: never 0 (S is CENTRE_SAMPLES)
 			local land = tiles[math.floor(col) * 64 + math.floor(row)]
 				and Atlas.Walk.Cell(inst, math.floor(col * Atlas.Walk.CHUNKS), math.floor(row * Atlas.Walk.CHUNKS)) ~= 2
 			d[y * w + x] = land and math.huge or 0
@@ -57,7 +57,7 @@ local function VisualCentre(inst)
 			if d[y * w + x] > best then best, bx, by = d[y * w + x], x, y end
 		end
 	end
-	return c0 + (bx + 0.5) / S, r0 + (by + 0.5) / S
+	return c0 + (bx + 0.5) / S, r0 + (by + 0.5) / S -- /: never 0 (S is CENTRE_SAMPLES)
 end
 
 local labels = {} -- inst -> anchors

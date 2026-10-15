@@ -72,12 +72,14 @@ Options: `--wow` (or `MAGICMAP_WOW`), `--flavor` (default `_classic_beta_`), `--
 
 The tests include a headless smoke test: the TOC's files loaded in order on a simulated WoW
 Forever client (`tools/tests/wowsim.lua`), logged in, ~60 frames and every `/mma` command,
-with no Lua error expected; and `tools/luacheck.py` over the TOC (globals, every file listed,
-the TOC = what the folders' `files.txt` make: `tools/install.py --toc` writes it).
+with no Lua error expected; `tools/luacheck.py` over the TOC (globals, every file listed,
+the TOC = what the folders' `files.txt` make: `tools/install.py --toc` writes it); and
+`tools/lint_div.py`, no `/` that may divide by 0 (docs/structure.md "Rules").
 
-    tools/check.sh                                     # both, as CI runs them (makes .venv if missing)
+    tools/check.sh                                     # all three, as CI runs them (makes .venv if missing)
     .venv/bin/python -m pytest tools/tests -q -p no:cacheprovider
     .venv/bin/python tools/luacheck.py                 # the TOC's files: globals, TOC, boundaries
+    .venv/bin/python tools/lint_div.py                 # each / by a literal, a constant or a reason
 
 CI (`.github/workflows/check.yml`) runs `tools/check.sh` on every push and PR; without the
 gitignored QuestieDB-derived data those tests skip.

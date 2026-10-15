@@ -42,7 +42,7 @@ end
 function Atlas.TileToMap(id, col, row)
 	local r = Atlas.MapRect(id)
 	if not r then return nil end
-	return (col - r.col0) / (r.col1 - r.col0), (row - r.row0) / (r.row1 - r.row0)
+	return (col - r.col0) / (r.col1 - r.col0), (row - r.row0) / (r.row1 - r.row0) -- /: never 0 (rects have area: gen_world.py)
 end
 
 -- Per instance: zones (first of each name, sorted by name) and the continent

@@ -106,6 +106,7 @@ def write_uimaps(path: str, src: Source, t: dict) -> int:
                 c_b, r_b = tile(min_n, min_w)
                 (ux0, uy0), (ux1, uy1) = a["UiMin"], a["UiMax"]
                 sc, sr = (c_b - c_a) / (ux1 - ux0), (r_b - r_a) / (uy1 - uy0)
+                assert sc > 0 and sr > 0, f"uiMap {m['ID']}: an empty rect (Atlas.TileToMap divides by its sides)"
                 vals += [a["MapID"], c_a - ux0 * sc, r_a - uy0 * sr, c_a + (1 - ux0) * sc, r_a + (1 - uy0) * sr,
                          a["AreaID"] or None]
             w(f"  [{m['ID']}] = {row(vals)},\n")

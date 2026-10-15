@@ -28,7 +28,7 @@ local pending = {} -- errors before SavedVariables load
 local seen = {} -- error keys this session
 local kbLoad, kbOut -- our KB after a full collect: past the login grace, at logout
 
-local function R(v, n) return v and math.floor(v * n + 0.5) / n end
+local function R(v, n) return v and math.floor(v * n + 0.5) / n end -- /: never 0 (n: a literal at each call)
 local NONE = {}
 local boot = Runtime.boot
 local function Ms() return R(debugprofilestop() - (boot.login and boot.login.t or boot.t0), 10) end -- as Trace's
@@ -62,7 +62,8 @@ end
 local function Perf()
 	local p = Runtime.FrameStats()
 	local hours = math.max((GetTime() - (loginAt or 0)) / 3600, 1 / 60) -- at least a minute
-	p.errors, p.errorsPerHour, p.loadMs = errors, math.floor(errors / hours * 10 + 0.5) / 10, session.boot.loadMs
+	local perHour = errors / hours -- /: never 0 (hours: at least a minute)
+	p.errors, p.errorsPerHour, p.loadMs = errors, math.floor(perHour * 10 + 0.5) / 10, session.boot.loadMs
 	p.ourKBLoad, p.ourKB = kbLoad, kbOut
 	session.perf, session.frames = p, Runtime.frames
 	local bench = Game.Bench.result

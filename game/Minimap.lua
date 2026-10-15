@@ -142,12 +142,12 @@ local function Place(w)
 	mm:SetFrameLevel(level)
 	if not moved then return end
 	local ms = mm:GetEffectiveScale()
-	local d = SENSOR_PX / ms
+	local d, cx, cy = SENSOR_PX / ms, x / ms, y / ms -- /: never 0 (an effective scale is > 0)
 	mm:SetZoom(0)
 	mm:SetSize(d, d)
 	mm:ClearAllPoints()
-	mm:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x / ms, y / ms)
-	m.left, m.bottom, m.size, m.scale = x / ms - d / 2, y / ms - d / 2, d, ms
+	mm:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx, cy)
+	m.left, m.bottom, m.size, m.scale = cx - d / 2, cy - d / 2, d, ms
 end
 
 Game.Apply("minimap", function(view)

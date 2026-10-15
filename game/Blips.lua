@@ -125,7 +125,9 @@ end
 
 -- Minimap units <-> tile space (north up, you in the middle) ---------------------
 
-local function Local(pos) return g.w / 2 + (pos.col - g.col) / g.u, g.h / 2 - (pos.row - g.row) / g.u end
+local function Local(pos)
+	return g.w / 2 + (pos.col - g.col) / g.u, g.h / 2 - (pos.row - g.row) / g.u -- /: never 0 (g.u > 0 while sweeping)
+end
 
 -- Sweeping -------------------------------------------------------------------------
 
@@ -136,7 +138,7 @@ local function Explain(name, x, y)
 	for _, b in ipairs(blips) do
 		if b.name == name and b.pos.inst == g.inst then
 			local bx, by = Local(b.pos)
-			local slack = HALF + 0.5 + (g.moving and LAG / g.u or 0)
+			local slack = HALF + 0.5 + (g.moving and LAG / g.u or 0) -- /: never 0 (g.u > 0 while sweeping)
 			if math.abs(x - bx) <= slack and math.abs(y - by) <= slack then
 				b.seen = sweepId
 				any = any or not (b.rough and not g.moving)
@@ -204,7 +206,7 @@ local function Measure(m)
 	if col ~= g.col or row ~= g.row then g.movedAt = now end
 	if inst ~= g.inst then Restart() end
 	g.left, g.bottom, g.scale, g.w, g.h = m.left, m.bottom, m.scale, m.size, m.size
-	g.u, g.inst, g.col, g.row = r * YD / (m.size / 2), inst, col, row
+	g.u, g.inst, g.col, g.row = r * YD / (m.size / 2), inst, col, row -- /: never 0 (m.size: SENSOR_PX / a scale)
 	g.moving = now - (g.movedAt or 0) < SETTLE
 	return true
 end
@@ -225,8 +227,8 @@ function Game.Blips()
 		Restart()
 		return nil
 	end
-	if not m.still then Restart(); return out end
-	HALF = HALF_PX / g.scale
+	if not m.still or g.u == 0 then Restart(); return out end -- radius 0: a new zoom still applying (E3/E6)
+	HALF = HALF_PX / g.scale -- /: never 0 (an effective scale is > 0)
 	if g.w ~= gridW or g.h ~= gridH then
 		wipe(grid)
 		local step = GRID * 2 * HALF

@@ -81,21 +81,26 @@ function Atlas.ZoneAt(inst, col, row)
 end
 
 -- A zone's level range, from its subzones' exploration levels (zones have none).
+-- The first call indexes every area: step(), if given, is called every 128 so a
+-- caller can spread it over frames (as Atlas.Rares).
 local levels -- zone areaID -> { min, max }
-function Atlas.ZoneLevels(zone)
+function Atlas.ZoneLevels(zone, step)
 	if not levels then
-		levels = {}
+		local index, n = {}, 0
 		for id, r in pairs(Data.Areas or NONE) do
 			if r[4] and r[4] > 0 then
 				local z = Atlas.Area(id).zone
-				local l = levels[z]
+				local l = index[z]
 				if l then
 					l[1], l[2] = math.min(l[1], r[4]), math.max(l[2], r[4])
 				else
-					levels[z] = { r[4], r[4] }
+					index[z] = { r[4], r[4] }
 				end
 			end
+			n = n + 1
+			if step and n % 128 == 0 then step() end
 		end
+		levels = index
 	end
 	local l = levels[zone]
 	if l then return l[1], l[2] end

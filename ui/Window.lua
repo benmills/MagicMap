@@ -94,7 +94,7 @@ end
 function Window.Cursor()
 	local x, y = GetCursorPosition()
 	local s = view:GetEffectiveScale()
-	return x / s - view:GetLeft(), view:GetTop() - y / s
+	return x / s - view:GetLeft(), view:GetTop() - y / s -- /: never 0 (an effective scale is > 0)
 end
 
 ---------------------------------------------------------------------------

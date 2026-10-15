@@ -34,7 +34,7 @@ local function R(v) return math.floor(v * 100 + 0.5) / 100 end
 -- shown (they change only with the window's own scale and strata, which UI sets).
 local scale = 1
 Window.frame:HookScript("OnShow", Runtime.Wrap("ui: view shown", function()
-	scale = Window.view:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	scale = Window.view:GetEffectiveScale() / UIParent:GetEffectiveScale() -- /: never 0 (an effective scale is > 0)
 	window.strata, window.level = Window.frame:GetFrameStrata(), Window.frame:GetFrameLevel()
 end))
 

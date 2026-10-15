@@ -29,7 +29,7 @@ root:Hide()
 local park = CreateFrame("Frame", nil, UIParent)
 park:Hide()
 
-local function R(v, k) return math.floor(v * k + 0.5) / k end
+local function R(v, k) return math.floor(v * k + 0.5) / k end -- /: never 0 (k: a literal at each call)
 
 local result, order, job -- the run's, committed at its end
 
@@ -48,7 +48,7 @@ local function Time(op, n, fn, setup)
 		ms = ms + now() - t
 		Yield()
 	end
-	result.ops[op] = { n = n, ms = R(ms, 1000), us = R(ms * 1000 / n, 100) }
+	result.ops[op] = { n = n, ms = R(ms, 1000), us = R(ms * 1000 / n, 100) } -- /: never 0 (n: N or REPS)
 	order[#order + 1] = op
 end
 
@@ -109,7 +109,8 @@ local function Report()
 	Game.Print("bench regions (" .. result.build .. "), us a call:")
 	for _, op in ipairs(order) do
 		local o, n = result.ops[op], tonumber(op:match("@(%d+)"))
-		print(string.format("  %-28s %9.2f%s", op, o.us, n and string.format("  (%.3f a child)", o.us / n) or ""))
+		local each = n and string.format("  (%.3f a child)", o.us / n) or "" -- /: never 0 (n: 100 or 1000, CANVASES)
+		print(string.format("  %-28s %9.2f%s", op, o.us, each))
 	end
 end
 

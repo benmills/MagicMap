@@ -1,6 +1,7 @@
 #!/bin/sh
 # Everything CI runs (.github/workflows/check.yml): luacheck (globals, TOC,
-# boundaries) then the tests. Sets up .venv (gitignored) on first use.
+# boundaries), lint_div (no `/` that may be 0: spike-bugs E3), then the tests.
+# Sets up .venv (gitignored) on first use.
 #
 #   tools/check.sh            # all of it
 #   tools/check.sh -k smoke   # pytest arguments pass through
@@ -11,4 +12,5 @@ if [ ! -x .venv/bin/python ]; then
 	.venv/bin/pip install -q -r tools/requirements-dev.txt
 fi
 .venv/bin/python tools/luacheck.py
+.venv/bin/python tools/lint_div.py
 .venv/bin/python -m pytest tools/tests -q -p no:cacheprovider "$@"

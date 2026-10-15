@@ -42,7 +42,8 @@ Game.Slash("perf", "load cost, and time per step / event / timer / job (ms)", fu
 	Game.Print(string.format("%d frames; busiest:", frames))
 	for i = 1, math.min(15, #list) do
 		local name, p = list[i][1], list[i][2]
-		print(string.format("  %s  %.3f ms/frame, %d calls, max %.2f ms%s", name, p.ms / math.max(frames, 1), p.n, p.max,
+		local each = p.ms / math.max(frames, 1) -- /: never 0 (at least 1)
+		print(string.format("  %s  %.3f ms/frame, %d calls, max %.2f ms%s", name, each, p.n, p.max,
 			p.over > 0 and string.format(", %d over budget", p.over) or ""))
 	end
 end)

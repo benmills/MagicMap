@@ -60,7 +60,7 @@ Runtime.Step("input", "map: drag", function()
 	local x, y = Window.Cursor()
 	if Camera.follow and (x - drag.x) ^ 2 + (y - drag.y) ^ 2 < 9 then return end -- a click, not yet a drag
 	Camera.follow = false
-	local cam = Camera.cam
-	cam.cx, cam.cy = drag.cx - (x - drag.x) / cam.zoom, drag.cy - (y - drag.y) / cam.zoom -- in place: no table a frame
+	local cam = Camera.cam -- moved in place: no table a frame
+	cam.cx, cam.cy = drag.cx - (x - drag.x) / cam.zoom, drag.cy - (y - drag.y) / cam.zoom -- /: never 0 (zoom >= MIN_ZOOM)
 	if not drag.moved and (x ~= drag.x or y ~= drag.y) then drag.moved = true; Camera.Trace("drag start") end -- follow's off now
 end, { shownOnly = Window.frame })

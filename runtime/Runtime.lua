@@ -461,13 +461,14 @@ function Runtime.FrameStats()
 		kbMin = s.kbMin and math.floor(s.kbMin), kbMax = s.kbMax and math.floor(s.kbMax),
 		kbFrames = s.kbFrames, kbFrameMax = R2(s.kbMaxFrame),
 		kbFrameP95 = s.kbFrames > 0 and Pct(0.95, kbHist, s.kbFrames, KB_BUCKET, R2(s.kbMaxFrame)) or nil,
-		kbPerSec = s.kbSecs > 0 and R1(s.kb / s.kbSecs) or nil,
+		kbPerSec = s.kbSecs > 0 and R1(s.kb / s.kbSecs) or nil, -- /: never 0 (kbSecs > 0: checked)
 		grace = {}, slow = {}, alloc = {}, gaps = {}, ledger = {}, byState = {} }
 	for name, ms in pairs(graceMax) do out.grace[name] = R1(ms) end
 	for _, p in pairs(perf) do
 		if p.over > 0 then out.slow[#out.slow + 1] = { name = p.name, n = p.over, max = R1(p.max) } end
 		if p.kb > 0 and s.secs > 0 then
-			out.alloc[#out.alloc + 1] = { name = p.name, kbPerSec = p.kb / s.secs, kbMax = R2(p.kbMax), calls = p.kbN }
+			out.alloc[#out.alloc + 1] = { name = p.name, kbPerSec = p.kb / s.secs, -- /: never 0 (secs > 0: checked)
+				kbMax = R2(p.kbMax), calls = p.kbN }
 		end
 		if p.gaps > 0 then out.gaps[#out.gaps + 1] = { job = p.name, ms = R1(p.gapMax), n = p.gaps, stack = p.gapStack } end
 	end

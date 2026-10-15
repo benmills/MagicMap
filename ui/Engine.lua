@@ -79,7 +79,7 @@ function Engine.LayerOn(name) return Engine.toggles[name] ~= false end
 local function Region()
 	local w, h = Window.Size()
 	local cam = Camera.cam
-	local mw, mh = w * (0.5 + MARGIN) / cam.zoom, h * (0.5 + MARGIN) / cam.zoom
+	local mw, mh = w * (0.5 + MARGIN) / cam.zoom, h * (0.5 + MARGIN) / cam.zoom -- /: never 0 (zoom >= MIN_ZOOM)
 	return cam.cx - mw, cam.cy - mh, cam.cx + mw, cam.cy + mh
 end
 
@@ -139,8 +139,8 @@ end
 -- A canvas laid out at its zoom, shown at the camera's: scaled, and moved so tile (0, 0) is where it belongs.
 function Place(layer, cam, w, h)
 	local c = layer.front
-	local s = cam.zoom / c.zoom
-	local x, y = (w / 2 - cam.cx * cam.zoom) / s, -(h / 2 - cam.cy * cam.zoom) / s
+	local s = cam.zoom / c.zoom -- /: never 0 (a canvas's zoom: the camera's at layout)
+	local x, y = (w / 2 - cam.cx * cam.zoom) / s, -(h / 2 - cam.cy * cam.zoom) / s -- /: never 0 (s: two zooms > 0)
 	if c.scale ~= s then
 		c.scale = s
 		c:SetScale(s)

@@ -17,7 +17,7 @@ local SERVICES = { -- npcFlags bit -> service
 local function Services(flags)
 	local out = {}
 	for _, s in ipairs(SERVICES) do
-		if flags and math.floor(flags / s[1]) % 2 == 1 then out[#out + 1] = s[2] end
+		if flags and flags % (s[1] * 2) >= s[1] then out[#out + 1] = s[2] end -- bit s[1] set
 	end
 	return out
 end
@@ -103,12 +103,14 @@ end
 -- Spawn index: [kind][inst][tile key] = { id, col, row, id, col, row, ... }.
 local SPAWNS = { npc = 10, object = 5 } -- spawns' index in the row
 local spawnIndex = { npc = {}, object = {} }
-local function SpawnIndex(kind, inst)
+local function SpawnIndex(kind, inst, step)
 	local index = spawnIndex[kind][inst]
 	if not index then
 		index = {}
-		local at = SPAWNS[kind]
+		local at, n = SPAWNS[kind], 0
 		for id, r in pairs(Rows(kind)) do
+			n = n + 1
+			if step and n % 128 == 0 then step() end
 			local pts = r[at] and r[at][inst]
 			if pts then
 				for i = 1, #pts, 2 do
@@ -129,8 +131,10 @@ local function SpawnIndex(kind, inst)
 end
 
 -- Spawns of kind "npc" | "object" inside the tile-space box, as { id, col, row }.
-function Atlas.SpawnsIn(kind, inst, c0, r0, c1, r1, filter)
-	local index, out = SpawnIndex(kind, inst), {}
+-- The first call per kind and inst indexes every row: step(), if given, is called
+-- every 128 rows so a caller can spread it over frames (as Atlas.Rares).
+function Atlas.SpawnsIn(kind, inst, c0, r0, c1, r1, filter, step)
+	local index, out = SpawnIndex(kind, inst, step), {}
 	for c = math.floor(c0), math.floor(c1) do
 		for r = math.floor(r0), math.floor(r1) do
 			local b = index[c * 64 + r]

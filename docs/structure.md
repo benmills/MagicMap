@@ -60,6 +60,26 @@ fails any other global write anywhere, and any use of `_G`, `setglobal`, `getfen
 While this is "MagicMapAtlas": SavedVariables `MagicMapAtlasDB`, slash `/mma`. It shares
 no names with the MagicMap spike, so both can be enabled.
 
+## Rules
+
+- **Dividing (spike-bugs E3).** WoW's Lua raises "Division by zero" where plain Lua (lupa,
+  so every test) gives inf or nan. In atlas/, model/, game/, ui/ and runtime/, each `/`
+  divides by a numeric literal other than 0, a named constant (UPPER_CASE, two characters
+  or more: `TILE_YARDS`, `Atlas.Walk.CHUNKS`), or its line carries `-- /: never 0 (<why>)`,
+  the why true by construction (a clamp, a minimum, a check beside it, what the client
+  guarantees: an effective scale is > 0).
+  Fix at the source first: `Atlas.Camera.Fit` takes a minimum span, so one point fits.
+  `tools/lint_div.py` (in `tools/check.sh`) fails on any other `/`; `MM_STRICT=1` makes
+  the sim raise as the client does.
+- **Atlas first use.** A whole-table Atlas index (built by walking every row of a Data
+  table of thousands: NPCs, objects, items, quests, areas) is built offline, by its
+  generator into Data/, or takes `step` and calls it every 128 rows, so a caller in a
+  `Runtime.Job` passes `Runtime.Yield` and the first use spreads over frames
+  (`Atlas.Rares`, `SpawnsIn`, `ZoneLevels`). Tables of a few hundred rows (maps, uiMaps,
+  places) are indexed at first use, ≤0.2 ms each in lupa; per-key caches (`Atlas.Area`,
+  the walk grid's tiles) aren't indexes. Not yet: `Atlas.Labels` (offline, M1.1),
+  `Atlas.Find`'s names and `Atlas.NpcsByName` (M1.2).
+
 ## Load order (TOC)
 
 1. `runtime/Boot.lua` — marks the load start (time, Lua memory)

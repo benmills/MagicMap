@@ -122,10 +122,9 @@ def fit(q):
         r = Atlas.MapRect(int(q["uiMapID"]))
         cx, cy, zoom = Atlas.Camera.Fit(r.col0, r.row0, r.col1, r.row1, w, h, None, 16, 2048)
         return {"inst": r.inst, "rect": py(r), "cam": {"cx": cx, "cy": cy, "zoom": zoom}}
-    # a box of spawns: at least ~300 yards across, so one spawn isn't zoomed in on all the way
+    # a box of spawns: at least 0.6 tiles (~320 yards) across, so one spawn isn't zoomed in on all the way
     c0, r0, c1, r1 = (float(q[k]) for k in ("c0", "r0", "c1", "r1"))
-    pc, pr = max(0.6 - (c1 - c0), 0) / 2, max(0.6 - (r1 - r0), 0) / 2
-    cx, cy, zoom = Atlas.Camera.Fit(c0 - pc, r0 - pr, c1 + pc, r1 + pr, w, h, 0.8, 16, 1024)
+    cx, cy, zoom = Atlas.Camera.Fit(c0, r0, c1, r1, w, h, 0.8, 16, 1024, 0.6)
     return {"cam": {"cx": cx, "cy": cy, "zoom": zoom}}
 
 

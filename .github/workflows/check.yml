@@ -15,5 +15,5 @@ jobs:
           cache: pip
           cache-dependency-path: tools/requirements-dev.txt
       # QuestieDB-derived Data/ is gitignored: those tests skip.
-      - name: luacheck (globals, TOC, boundaries) and tests
+      - name: luacheck (globals, TOC, boundaries), the / lint and tests
         run: tools/check.sh
