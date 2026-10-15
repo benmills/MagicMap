@@ -34,6 +34,9 @@ Target and Route beyond the typed fields.
 - UI draws any kind with the same pin code; a kind's look is `icon` or the layer's default.
 - `live` lets UI tell sensed-now from remembered (greyed, or only past some zoom).
 - Model's internals (merge state, indexes) can change freely.
+- A kind may be scoped to Focus's instance (rares: built from Atlas on demand, in a
+  budgeted job). Found adding the first such kind; the shape didn't change.
+- Proven: adding rares touched atlas/, model/, ui/ and the TOC only.
 
 ## Revisit if
 

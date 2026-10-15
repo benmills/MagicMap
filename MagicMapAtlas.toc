@@ -42,6 +42,7 @@ runtime\Runtime.lua
 # Model (before Game, which hands it observations and its saved part)
 model\Model.lua
 model\Blips.lua
+model\Rares.lua
 
 # Game
 game\Game.lua
@@ -60,4 +61,5 @@ ui\Tiles.lua
 ui\Borders.lua
 ui\Labels.lua
 ui\Blips.lua
+ui\Rares.lua
 ui\View.lua

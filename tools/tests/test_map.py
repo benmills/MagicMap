@@ -45,3 +45,22 @@ def test_map():
     sim.Slash("/mma map")
     assert not m.frame.IsShown(m.frame)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_rares():
+    """A pin kind added afterwards: Known("rares") (Atlas's rare spawns, the shown map only) drawn by its layer."""
+    import pytest
+    L, sim, ns = boot()
+    if not ns.Data.Npcs:
+        pytest.skip("no QuestieDB-derived data (tools/gen_questie.py)")
+    m = ns.UI.Map
+    sim.Slash("/mma map")
+    sim.Run(2)
+    got = list(ns.Model.Known("rares")[0].values())
+    assert got and all(r.kind == "rares" and r.pos.inst == 0 and not r.live for r in got)
+    front = m.layers[[l.name for l in m.layers.values()].index("rares") + 1].front
+    atlases = {sim.state[front.pools.pin[i]].atlas for i in range(1, front.pools.pin.n + 1)}
+    assert atlases and atlases <= {"vignettekill", "vignettekillelite"}, atlases
+    sim.Slash("/mma layer rares")
+    assert m.LayerOn("rares") is False and m.toggles.rares is False
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

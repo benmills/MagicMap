@@ -147,6 +147,36 @@ function Atlas.SpawnsIn(kind, inst, c0, r0, c1, r1, filter)
 	return out
 end
 
+-- Rare (rank 4) and rare-elite (rank 2) NPCs' spawn points on inst, as
+-- { id, name, rank, minLevel, maxLevel, col, row }, in a stable order (npc id, then spawn).
+-- A full pass over the NPCs the first time per inst (then cached): step(), if
+-- given, is called every few rows so a caller can spread it over frames.
+local RARE = { [2] = true, [4] = true }
+local rares = {} -- [inst] = list
+function Atlas.Rares(inst, step)
+	local list = rares[inst]
+	if list then return list end
+	local ids, n = {}, 0
+	for id, r in pairs(Data.Npcs or NONE) do
+		if RARE[r[5]] and r[10] and r[10][inst] then ids[#ids + 1] = id end
+		n = n + 1
+		if step and n % 128 == 0 then step() end
+	end
+	table.sort(ids)
+	list = {}
+	for _, id in ipairs(ids) do
+		local r = Data.Npcs[id]
+		local pts = r[10][inst]
+		for i = 1, #pts, 2 do
+			list[#list + 1] = { id = id, name = r[1], rank = r[5], minLevel = r[3], maxLevel = r[4],
+				col = pts[i], row = pts[i + 1] }
+		end
+		if step then step() end
+	end
+	rares[inst] = list
+	return list
+end
+
 -- Names per kind, lowercased, ids in order: { ids, lower }.
 local names = {}
 local function Names(kind)

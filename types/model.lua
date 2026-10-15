@@ -46,7 +46,8 @@
 ---@field SAVED MM.SavedSpec       Model's saved part's spec (types/saved.lua MM.SavedModel)
 local Model = {}
 
----Everything known of `kind`, on every instance (UI filters by inst). The same
+---What Model knows of `kind`: every instance, or for a kind built from Atlas on
+---demand (e.g. rares), only Focus's instance; UI filters by inst either way. The same
 ---list table until it changes; rev goes up by one each time it does (a layer
 ---redraws when rev changes). An unknown kind: {}, 0. Never errors.
 ---@param kind MM.KnownKind
