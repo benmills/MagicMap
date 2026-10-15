@@ -50,9 +50,9 @@ game\Game.lua
 game\Slash.lua
 game\Command.lua
 game\Telemetry.lua
+game\Observe.lua
 game\Minimap.lua
 game\Blips.lua
-game\Observe.lua
 game\Record.lua
 game\Validate.lua
 game\Bench.lua
@@ -60,6 +60,10 @@ game\Bench.lua
 # Game: commands (Game.Handle)
 game\commands\slash.lua
 game\commands\load.lua
+
+# Game: observation parts (Game.Part)
+game\parts\You.lua
+game\parts\MinimapState.lua
 
 # UI
 ui\Map.lua

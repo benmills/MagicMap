@@ -1,31 +1,28 @@
 -- Observe phase: one observation a frame, handed to Model.Observe(obs, oracles)
--- (types/observation.lua). Nil fields: not known (UnitPosition gives nothing in
--- instances and on some loading frames; inst comes from GetInstanceInfo, known
--- there too); losing and regaining the position is traced ("position").
--- Events are only buffered by their handlers; this step reads, so Model sees one
+-- (types/observation.lua). Game.Part(name, read): obs[name] = read(obs) each frame,
+-- in registration order, so a part may read those before it: the sensor's (blips,
+-- game/Blips.lua) comes first, then game/parts/ in their manifest's order.
+-- Events are only buffered by their handlers; parts read here, so Model sees one
 -- consistent snapshot a frame (docs/runtime.md "Events").
 -- Model's saved part is handed to it here too: Game.Load("Model", Model.Load, Model.SAVED).
 
 local _, ns = ...
-local Atlas, Game, Runtime, Model = ns.Atlas, ns.Game, ns.Runtime, ns.Model
+local Game, Runtime, Model = ns.Game, ns.Runtime, ns.Model
 
-local you, minimap, hooked = {}, {}, {}
-local obs = { you = you, minimap = minimap, hooked = hooked }
+local obs = { hooked = {} }
 local oracles = { Inside = function() return nil end } -- (no quest areas yet: Model estimates)
+local parts = {}
 Game.obs = obs -- the last one handed over (Telemetry's state, the recorder)
+
+function Game.Part(name, read) parts[#parts + 1] = { name = name, read = read } end
 
 Game.Load("Model", Model.Load, Model.SAVED)
 
 Runtime.Step("observe", "game.observe", function()
-	local north, west = UnitPosition("player")
-	local had = you.col
-	you.inst, you.col, you.row = select(8, GetInstanceInfo()), nil, nil
-	if north then you.col, you.row = Atlas.WorldToTile(north, west) end
-	you.facing = GetPlayerFacing()
-	if (had == nil) ~= (you.col == nil) and Runtime.frames > 1 then Runtime.Trace("position", you.col and "back" or "lost") end
 	obs.frame, obs.t, obs.epoch = Runtime.frames, GetTime(), time()
-	obs.blips = Game.Blips()
-	local m = Game.minimap
-	minimap.engaged, minimap.blocker, minimap.sensing = m.engaged, m.blocker, obs.blips ~= nil and m.still
+	for i = 1, #parts do
+		local p = parts[i]
+		obs[p.name] = p.read(obs)
+	end
 	Model.Observe(obs, oracles)
 end)

@@ -50,6 +50,7 @@ MANIFESTS = [
     ("Model (before Game, which hands it observations and its saved part)", "model/files.txt"),
     ("Game", "game/files.txt"),
     ("Game: commands (Game.Handle)", "game/commands/files.txt"),
+    ("Game: observation parts (Game.Part)", "game/parts/files.txt"),
     ("UI", "ui/files.txt"),
 ]
 DEFAULT_WOW = {

@@ -10,8 +10,8 @@
 --
 -- It reads only where the last Apply placed the Minimap, and only while that
 -- placement holds still (Game.minimap.still); otherwise the sweep starts over.
--- Game.Blips() runs one slice (from the observe step) and returns obs.blips
--- (types/observation.lua MM.ObsBlips), or nil while it doesn't run.
+-- Game.Blips() runs one slice and returns obs.blips (types/observation.lua
+-- MM.ObsBlips), or nil while it doesn't run: the blips part (Game.Part), read first.
 
 local _, ns = ...
 local Atlas, Game = ns.Atlas, ns.Game
@@ -243,3 +243,5 @@ function Game.Blips()
 	if not ok then error(err, 0) end
 	return out
 end
+
+Game.Part("blips", Game.Blips)
