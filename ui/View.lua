@@ -2,19 +2,27 @@
 -- UI.View(). Refreshed in UI's ui step each frame (so `still` means "the same
 -- place as last frame" however often View() is read), which also sends Model
 -- the focus (types/focus.lua) when it changes. UI's saved part (types/saved.lua
--- MM.SavedUI: the layer toggles, the minimap mode) comes through a load Command.
+-- MM.SavedUI) comes through a load Command: the window (ui/BigMap.lua), shown,
+-- zoom, follow, the map and centre when not following, the layer toggles, the
+-- minimap mode, the minimap button and tile tint (UI.saved, read where they're used).
 
 local _, ns = ...
 local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
-local Camera, Window, Engine = UI.Camera, UI.Window, UI.Engine
+local Camera, Window, Engine, BigMap = UI.Camera, UI.Window, UI.Engine, UI.BigMap
 local Command = ns.Game.Command
 
-local saved = { layers = {}, minimap = "ours" } -- until loaded
+-- Core.lua:19-29: shown, zoom 384, following, the button shown, tiles tinted.
+local DEFAULTS = { layers = {}, minimap = "ours", shown = true, zoom = 384, follow = true, button = true, tint = true }
+
+local saved = {} -- until loaded: the defaults
+for k, v in pairs(DEFAULTS) do saved[k] = v end
+UI.saved = saved
 local window = { shown = false, big = false, still = false, strata = "LOW", level = 0, homeAlpha = 1 }
 local camera = { cx = 0, cy = 0, zoom = 0, w = 0, h = 0 } -- the map's, each frame (telemetry's motion ring, shot stamps)
 local view = { v = 1, frame = 0, minimap = "ours", renderer = "ours", inst = 0, window = window,
 	layers = {}, sockets = {}, button = true, camera = camera }
 local focus = { inst = 0, shown = false, follow = true }
+local showing -- shown when saved: on the first frame, past login (its first open is then the map's grace, docs/runtime.md)
 
 -- For telemetry marks (docs/telemetry.md "State" map, layers): Game stores it, never acts on it.
 function view.diag()
@@ -23,23 +31,31 @@ end
 
 function UI.View() return view end
 
-Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = { layers = {}, minimap = "ours" } }, fn = function(s)
+-- UI's chat line (Core.lua:45-46).
+function UI.Print(msg) print("|cffffd100MagicMapAtlas|r: " .. msg) end
+
+Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS }, fn = function(s)
 	saved = s
+	UI.saved = s
 	Engine.toggles = s.layers
+	BigMap.Load(s)
+	showing = s.shown
 end })
 
 local function R(v) return math.floor(v * 100 + 0.5) / 100 end
+local function R3(v) return math.floor(v * 1000 + 0.5) / 1000 end -- saved positions: 3 decimals (types/saved.lua)
 
--- The view's scale in UIParent's units, and the window's strata and level: read when it's
--- shown (they change only with the window's own scale and strata, which UI sets).
+-- The view's scale in UIParent's units: read when it's shown (it changes only with the
+-- window's own scale, which UI sets).
 local scale = 1
 Window.frame:HookScript("OnShow", Runtime.Wrap("ui: view shown", function()
 	scale = Window.view:GetEffectiveScale() / UIParent:GetEffectiveScale() -- /: never 0 (an effective scale is > 0)
-	window.strata, window.level = Window.frame:GetFrameStrata(), Window.frame:GetFrameLevel()
 end))
 
 Runtime.Step("ui", "ui: view", function()
-	local shown = Window.frame:IsShown()
+	local frame = Window.frame
+	if showing then showing = nil; frame:Show() end
+	local shown = frame:IsShown()
 	local place, still = window.place, false
 	local left, bottom, w, h
 	if shown then left, bottom, w, h = Window.view:GetRect() end
@@ -51,16 +67,28 @@ Runtime.Step("ui", "ui: view", function()
 	else
 		place = nil
 	end
+	local strata, level = frame:GetFrameStrata(), frame:GetFrameLevel()
 	local layersOn = Engine.LayerOn("blips")
 	if shown ~= window.shown or place ~= window.place or saved.minimap ~= view.minimap
-		or layersOn ~= (view.layers.blips == true) or (Camera.inst or 0) ~= view.inst then
+		or layersOn ~= (view.layers.blips == true) or (Camera.inst or 0) ~= view.inst or BigMap.big ~= window.big
+		or BigMap.homeAlpha ~= window.homeAlpha or strata ~= window.strata or level ~= window.level
+		or saved.button ~= view.button then
 		view.frame = Runtime.frames
 	end
 	window.shown, window.place, window.still = shown, place, still
-	view.minimap, view.inst = saved.minimap, Camera.inst or 0
+	window.big, window.homeAlpha, window.strata, window.level = BigMap.big, BigMap.homeAlpha, strata, level
+	view.minimap, view.inst, view.button = saved.minimap, Camera.inst or 0, saved.button
 	view.layers.blips = layersOn or nil
 	local cam = Camera.cam
 	camera.cx, camera.cy, camera.zoom, camera.w, camera.h = cam.cx, cam.cy, cam.zoom, Window.Size()
+	-- Saved as it goes (the client writes it at logout): the small window's zoom only.
+	saved.shown, saved.follow = shown, Camera.follow
+	if not BigMap.Small() then saved.zoom = cam.zoom end
+	if not Camera.follow and Camera.inst then
+		local c = saved.center
+		if not c then c = {}; saved.center = c end
+		saved.inst, c.col, c.row = Camera.inst, R3(cam.cx), R3(cam.cy)
+	end
 	-- Focus: Model only compares, but send it only on a change.
 	if focus.inst ~= view.inst or focus.shown ~= shown or focus.follow ~= Camera.follow or focus.zoom ~= cam.zoom then
 		focus = { inst = view.inst, shown = shown, follow = Camera.follow, zoom = cam.zoom }
@@ -73,3 +101,11 @@ Command({ kind = "slash", name = "minimap", help = "ours | blizzard: who has the
 		if args == "ours" or args == "blizzard" then saved.minimap = args end
 		print("  minimap: " .. saved.minimap)
 	end })
+
+-- The minimap button (Game's, View.button) shown or hidden (MinimapButton.lua:49-53).
+function UI.Icon()
+	saved.button = not saved.button
+	UI.Print("minimap button " .. (saved.button and "shown" or "hidden (/mma icon to show)"))
+end
+Command({ kind = "slash", name = "icon", help = "show or hide the minimap button", fn = UI.Icon })
+Command({ kind = "slash", name = "toggle", help = "our map, or Blizzard's minimap", fn = Window.Toggle })

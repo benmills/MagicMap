@@ -12,11 +12,15 @@ from lupa import lua51
 import luacheck
 
 TESTS = os.path.dirname(os.path.abspath(__file__))
+# No saved data given: the map's window as the tests have it (UI's saved part, ui/View.lua): hidden
+# at login (/mma map opens it), 720x520 in the screen's middle, 96 px a tile. A first login's shows
+# on the minimap's spot (test_chrome.py).
+TEST_UI = "MagicMapAtlasDB = { UI = { _v = 1, shown = false, zoom = 96, window = { left = 600, top = 800, w = 720, h = 520 } } }"
 
 
 def boot(saved=None):
     """A simulated client with MagicMapAtlas loaded and logged in: (Lua, Sim, ns).
-    saved: Lua source for the SavedVariables (MagicMapAtlasDB = ...) found at load."""
+    saved: Lua source for the SavedVariables (MagicMapAtlasDB = ...) found at load (default TEST_UI)."""
     L = lua51.LuaRuntime(encoding="latin-1", unpack_returned_tuples=True)
     sim = L.eval("function(path) return assert(loadfile(path))() end")(os.path.join(TESTS, "wowsim.lua"))
     ns = L.table()
@@ -28,8 +32,7 @@ def boot(saved=None):
     for f in luacheck.toc_files():  # what exists (test_luacheck flags what's missing)
         if os.path.exists(os.path.join(luacheck.ROOT, f)):
             load(os.path.join(luacheck.ROOT, f), ns)
-    if saved:
-        L.execute(saved)
+    L.execute(saved or TEST_UI)
     sim.FireEvent("ADDON_LOADED", "MagicMapAtlas")
     sim.FireEvent("PLAYER_LOGIN")
     sim.FireEvent("PLAYER_ENTERING_WORLD", True, False)
