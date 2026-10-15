@@ -52,11 +52,13 @@ wrapper"), never a global: a global is shared with every addon, and the rebuild'
 `MagicMap_*` data globals broke the MagicMap spike, which has the same names
 (docs/evidence/spike-bugs.md E1).
 
-**Nothing is global** except, in game/ only, the SavedVariables (the TOC's) and the
-`SLASH_*` names (`SlashCmdList` entries are fields of WoW's table), and two named frames:
-`MagicMapAtlasMap` (the client keeps a moved frame's place by its name) and
+**Nothing is global** except, in game/ only, what the TOC names (the SavedVariables, and
+`MagicMapAtlasOnAddonCompartmentClick`, the addon compartment's `AddonCompartmentFunc`) and the
+`SLASH_*` names (`SlashCmdList` entries are fields of WoW's table), and three named frames:
+`MagicMapAtlasMap` (the client keeps a moved frame's place by its name),
 `MagicMapAtlasMinimapStandIn` (the Minimap's children wait on it; named as the spike's was,
-for code that reads a parent's name). tools/luacheck.py fails any other global write anywhere,
+for code that reads a parent's name) and `MagicMapAtlasEscape` (game/Hooks.lua's Escape catcher:
+`UISpecialFrames` holds names). tools/luacheck.py fails any other global write anywhere,
 any other frame name (`FRAME_NAMES`), and any use of `_G`, `setglobal`, `getfenv` or
 `setfenv` (they reach globals past the bytecode check).
 

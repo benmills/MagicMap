@@ -49,5 +49,7 @@ UnitFactionGroup MagicMapLandmarks UnitGUID UnitIsGhost UnitIsPlayer UnitLevel U
 # Blizzard's frames and registries (Game owns the Minimap takeover, hooks, slash, Escape)
 ChatFrameUtil DEFAULT_CHAT_FRAME Minimap MinimapCluster SlashCmdList UISpecialFrames UiMapPoint
 WorldMapFrame
+# Our named frames, made in one game/ file and read in another (docs/structure.md "Namespace")
+MagicMapAtlasMinimapStandIn
 # Other addons (always checked for before use)
 FarmHud LibStub
