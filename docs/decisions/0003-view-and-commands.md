@@ -61,6 +61,7 @@ command and hooked kinds, and everything inside UI (camera, layout, menus, chrom
   what is wanted, never how.
 - `diag` keeps telemetry's camera and layout snapshot out of the contract (lifting
   luacheck's `game/Telemetry.lua → UI.Map` baseline entry) without Game reading UI internals.
+- OPEN additions (v1 plan M0.1, `v` stays 1): `chrome` {rimArrows?, questRing?} for Blizzard's Minimap rim parts; `camera` {cx, cy, zoom, w, h}, sampled for telemetry's motion ring, never acted on.
 
 ## Revisit if
 

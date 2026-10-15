@@ -14,7 +14,7 @@
 -- OPEN: new kinds (strings), new optional MM.Known fields, Target / Route shapes
 -- beyond the fields below (not built yet).
 
----@alias MM.KnownKind "blips"|string
+---@alias MM.KnownKind "blips"|"rares"|"quests"|"offers"|"places"|"group"|"corpse"|"waypoint"|"vignettes"|"services"|string
 
 ---One thing Model knows, of any kind.
 ---@class MM.Known
@@ -26,6 +26,73 @@
 ---@field live boolean         sensed now (false: remembered from before)
 ---@field t? MM.Epoch          last seen, for remembered ones
 ---@field text? string         a line for its tooltip
+
+-- Known kinds (OPEN): MM.Known plus optional fields of their own; each nil: the
+-- kind's default look (docs/v1-plan.md §4). `name` is the tooltip's title.
+
+---Known("quests"): your log's quests on their maps (obs.quests + Atlas).
+---@class MM.KnownQuest: MM.Known
+---@field quest? MM.QuestID
+---@field level? integer
+---@field color? number[]          difficulty { r, g, b }; nil: no level
+---@field complete? boolean        ready to turn in
+---@field followed? boolean        super-tracked
+---@field count? string            "n/m" of the first unfinished objective that counts
+---@field inner? MM.Icon           the first unfinished objective's icon (its item's, else its type's)
+---@field need? "kill"|"gather"|"other"  what it still needs: its area's colour
+---@field areaMap? MM.UiMapID      the game draws its objective area on this uiMap
+---@field estimate? MM.Pos         no area from the game (Inside nil): an estimated disc's centre, shared within 0.6 r
+---@field objectives? MM.KnownObjective[]  tooltip lines
+---@field turnIn? string           who takes it in (Atlas finishedBy)
+
+---@class MM.KnownObjective
+---@field text string
+---@field finished boolean
+---@field drops? MM.KnownMob[]     who drops its item: at most 3, lowest level first
+---@field more? integer            droppers past those
+---@field from? string             no drops: the objects it's in ("A, B")
+---@field sold? string             neither: who sells it
+
+---@class MM.KnownMob
+---@field npc MM.NpcID             its portrait once met (tooltip Command)
+---@field name string
+---@field lo? integer              levels
+---@field hi? integer
+---@field color? number[]          difficulty of `hi`
+---@field rank? string             "Elite", "Rare", ...
+
+---Known("offers"): quests to pick up (obs.offers), none in progress.
+---@class MM.KnownOffer: MM.Known
+---@field quest? MM.QuestID
+---@field line? string             its quest line's name, when not the quest's
+
+---Known("places"): Atlas's and the game's live places, deduped.
+---@class MM.KnownPlace: MM.Known
+---@field place? MM.PlaceKind
+---@field faction? MM.Faction      flight: whose
+---@field known? boolean           flight: you have it
+
+---Known("group"): members with a position (obs.group); key the member's id (tooltip Command `member`).
+---@class MM.KnownMember: MM.Known
+---@field class? string            class token, for its colour
+---@field level? integer
+---@field dead? boolean
+
+---Known("corpse"): yours, at most one.
+---@class MM.KnownCorpse: MM.Known
+
+---Known("waypoint"): the user waypoint, at most one.
+---@class MM.KnownWaypoint: MM.Known
+
+---Known("vignettes"): what the game shows near you now (obs.vignettes); key the vignette GUID.
+---@class MM.KnownVignette: MM.Known
+---@field rare? boolean            a rare or elite
+---@field npc? MM.NpcID
+
+---Known("services"): town services (Atlas BlipServices), Focus's instance, while their tracking is on.
+---@class MM.KnownService: MM.Known
+---@field service? string          its BlipServices value
+---@field npc? MM.NpcID
 
 ---@class MM.ModelYou
 ---@field inst? MM.Inst
@@ -39,6 +106,15 @@
 ---@field kind MM.KnownKind|"quest"|"corpse"|"waypoint"
 ---@field key string
 ---@field pos MM.Pos
+---@field inside? boolean      you're in its area (held 0.5 s): arrived, the line and edge arrow step aside; nil: no area
+---@field title? string        what the title band names it ("<title> N yd", "<title> here")
+---@field quest? MM.QuestID    kind "quest": which
+
+---The way to the target: still an MM.Pos[] (tile space, you first), with two optional flags.
+---@class MM.Route
+---@field [integer] MM.Pos
+---@field straight? boolean    no walk data here: you and the target only, drawn straight
+---@field partial? boolean     no way all the way: it ends where the walk grid gets nearest, then straight on
 
 ---@class MM.ModelRead
 ---@field you MM.ModelYou
@@ -59,7 +135,7 @@ function Model.Known(kind) end
 function Model.Target() end
 
 ---The way to the target: points in tile space, you first; nil while not found.
----@return MM.Pos[]|nil
+---@return MM.Route|nil
 function Model.Route() end
 
 ---Game's loader for Model's saved part (Game.Load("Model", Model.Load, Model.SAVED)),
