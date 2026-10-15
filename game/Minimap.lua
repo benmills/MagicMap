@@ -1,12 +1,12 @@
 -- The Minimap takeover (the minimum of the spike's MinimapTakeover.lua), in the
--- apply phase, from View (types/view.lua):
+-- apply phase (Game.Apply), from View (types/view.lua):
 --   View.minimap "ours" and the window shown (nothing blocking): Blizzard's
 --     Minimap becomes an unseen sensor, SENSOR_PX square, centred under the
 --     window's view (kept on the screen: off it the client stops updating its
 --     blips), just beneath the window's strata, at its widest zoom, north up, no
 --     ground, no mouse. What hung on it waits on a stand-in at its home spot; the
 --     cluster hides.
---   otherwise (or a View Game can't use: SAFE): released, every change undone.
+--   otherwise (or a View Game can't use: SAFE, game/Apply.lua): released, every change undone.
 -- Every change Engage makes is paired with its undo on a list; Release runs it
 -- backwards, so what comes back is exactly what was taken.
 -- Game.minimap tells the sensor (game/Blips.lua) where things stand: engaged,
@@ -19,7 +19,6 @@ local SENSOR_PX = 300   -- its side in screen units (a blip's square is ~16 of t
 local MARGIN = 2        -- screen units it keeps inside the screen's edge
 local ICONS = 0.05      -- its own icons' scale: out of sight (alpha alone doesn't hide them)
 local STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP" }
-local SAFE = { v = 1, minimap = "blizzard", window = { shown = false, still = false }, layers = {} } -- types/view.lua SAFE_VIEW
 
 local m = { engaged = false, sensor = false, still = false } -- blocker: why it isn't taken
 Game.minimap = m
@@ -151,9 +150,7 @@ local function Place(w)
 	m.left, m.bottom, m.size, m.scale = x / ms - d / 2, y / ms - d / 2, d, ms
 end
 
-Runtime.Step("apply", "game.minimap", function()
-	local ok, view = pcall(ns.UI.View)
-	if not ok or type(view) ~= "table" or view.v ~= 1 then view = SAFE end
+Game.Apply("minimap", function(view)
 	local w = view.window
 	m.blocker = FarmHud and FarmHud.IsShown and FarmHud:IsShown() and "FarmHud has the minimap" or nil
 	if view.minimap ~= "ours" or not (w.shown and w.place) or m.blocker then return Release() end

@@ -51,6 +51,7 @@ game\Slash.lua
 game\Command.lua
 game\Telemetry.lua
 game\Observe.lua
+game\Apply.lua
 game\Minimap.lua
 game\Blips.lua
 game\Record.lua
