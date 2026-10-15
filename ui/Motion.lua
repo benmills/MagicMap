@@ -26,6 +26,7 @@ local IDLE_FOLLOW = 6 -- s untouched before the map follows you again (MinimapMo
 local FIT = 0.92 -- a rect flown to fills this much of the view (Core.lua:1038)
 local WHOLE = 1.0 -- a whole map shown fills the view (Core.lua:1146)
 local CHUNKS = Atlas.Walk.CHUNKS -- a tile's walk chunks a side: Focus's rect is out to whole ones
+local JUMP = 0.5 -- of the view in a frame: a move further is a jump (a teleport, a hearth), not a speed
 
 local Motion = {}
 UI.Motion = Motion
@@ -37,7 +38,6 @@ local touched = 0 -- the last press or zoom step (GetTime): the idle return's cl
 
 Camera.moving, Camera.zoomedAt, Camera.vx, Camera.vy = false, 0, 0, 0
 local px, py, pinst -- the centre and map at the last draw; nil: none since the window showed
-local JUMP = 0.5 -- of the view in a frame: further is a jump (a teleport, a hearth), not a speed
 
 local function Clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
