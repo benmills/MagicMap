@@ -21,9 +21,10 @@ def test_map():
     live, _ = stats(e)
     assert live["tex"] > 10 and live["line"] > 10 and live["font"] > 0, live
 
-    # Wheel in about the cursor (following: about you), drag pans and stops following.
+    # Wheel in about the cursor (following: about you; the zoom chases its target), drag pans and stops following.
     zoom = c.cam.zoom
     sim.Wheel(w.view, 1)
+    sim.Run(0.5)
     assert c.cam.zoom > zoom and abs(c.cam.cx - 31.95) < 1e-6
     sim.Drag(w.view, 120, -80)
     assert not c.follow and c.cam.cx < 31.95 - 0.5
@@ -36,10 +37,11 @@ def test_map():
         sim.Wheel(w.view, -1)
         sim.Step()
     sim.Run(2)
-    assert c.cam.zoom == 4
+    assert c.cam.zoom == 16
     live, _ = stats(e)
     assert live["font"] > 0, live
-    sim.Click(w.view, "RightButton")
+    sim.Click(w.view, "RightButton")  # Follow me: glides back to you, then follows
+    sim.Run(1)
     assert c.follow
     sim.Slash("/mma mapstats")
     sim.Slash("/mma map")
