@@ -1,5 +1,6 @@
 -- /mma <name> [args]: Game.Slash(name, help, fn) registers fn(args);
 -- /mma alone lists them. Runtime's own: perf, errors.
+-- A name may be two words ("check art"): it wins over its first word's.
 
 local _, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
@@ -15,7 +16,10 @@ end
 SLASH_MAGICMAPATLAS1 = "/mma"
 SlashCmdList.MAGICMAPATLAS = function(msg)
 	local name, args = strtrim(msg or ""):match("^(%S*)%s*(.-)$")
-	local c = commands[name:lower()]
+	local sub, rest = args:match("^(%S+)%s*(.-)$")
+	local c = sub and commands[(name .. " " .. sub):lower()]
+	if c then return c.fn(rest) end
+	c = commands[name:lower()]
 	if c then return c.fn(args) end
 	Game.Print("commands:")
 	for _, n in ipairs(Game.commands) do print("  /mma " .. n .. " - " .. commands[n].help) end

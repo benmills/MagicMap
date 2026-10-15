@@ -54,6 +54,7 @@ game\Blips.lua
 game\Observe.lua
 game\Record.lua
 game\Validate.lua
+game\Bench.lua
 
 # UI
 ui\Map.lua
@@ -63,3 +64,4 @@ ui\Labels.lua
 ui\Blips.lua
 ui\Rares.lua
 ui\View.lua
+ui\Art.lua

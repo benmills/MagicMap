@@ -100,7 +100,8 @@ The TOC lists files explicitly (no XML).
 ## Slash commands
 
 `ns.Game.Slash(name, help, fn)` registers `/mma <name>` (`fn(args)`, wrapped); `/mma`
-alone lists them. UI registers its own through `Game.Command({ kind = "slash", ... })`.
+alone lists them. A name may be two words (`check art`): it wins over its first word's.
+UI registers its own through `Game.Command({ kind = "slash", ... })`.
 
 ## One flow end to end: Minimap blips
 

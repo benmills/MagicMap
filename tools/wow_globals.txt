@@ -21,7 +21,7 @@ CreateFrame debugstack geterrorhandler
 
 [ui]
 # Widgets, templates, fonts, colours, texture atlases
-CreateFrame UIParent CreateColor CreateVector2D C_Texture
+CreateFrame UIParent CreateColor CreateVector2D C_Texture GetFileIDFromPath
 ButtonFrameTemplate_HideButtonBar ButtonFrameTemplate_HidePortrait
 GameFontNormal GameTooltip GameTooltipText GameTooltipTextSmall STANDARD_TEXT_FONT
 MenuResponse MenuUtil LEVEL RAID_CLASS_COLORS
