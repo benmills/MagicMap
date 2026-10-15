@@ -51,7 +51,8 @@ GAME = "game"
 # Ways to read or write a global by name, past the bytecode check: banned outright.
 GLOBAL_ESCAPES = {"_G", "setglobal", "getfenv", "setfenv"}
 
-# The globals each folder may read: (allowlist, its sections; None = all).
+# The globals each folder may read: (allowlist, its sections; None = all). Not listed
+# (game/ and its subfolders): all. A subfolder with its own entry has it, as in NS_RULES.
 BOUNDARIES = {
     "atlas": [(LUA51, {"lua51"})],
     "model": [(LUA51, {"lua51"})],
@@ -204,14 +205,14 @@ def check_boundaries(accesses: dict[str, list[tuple[str, str, int]]]) -> int:
     problems, sv = 0, saved_variables()
     allowed = {d: set().union(*(load_allowlist(p, s) for p, s in lists)) for d, lists in BOUNDARIES.items()}
     for rel, acc in accesses.items():
-        d, reported = folder(rel), set()
+        d, b, reported = folder(rel), area(rel, BOUNDARIES), set()
         for op, name, line in sorted(acc, key=lambda a: a[2]):
             if name in reported:
                 continue
             if name in sv and d != "game":
                 print(f"{rel}:{line}: uses SavedVariables '{name}': only game/ loads and saves")
-            elif op == "get" and d in allowed and name not in allowed[d]:
-                print(f"{rel}:{line}: {d}/ may not read '{name}' (BOUNDARIES in tools/luacheck.py)")
+            elif op == "get" and b in allowed and name not in allowed[b]:
+                print(f"{rel}:{line}: {b}/ may not read '{name}' (BOUNDARIES in tools/luacheck.py)")
             else:
                 continue
             reported.add(name)
