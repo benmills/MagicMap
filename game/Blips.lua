@@ -11,10 +11,11 @@
 -- It reads only where the last Apply placed the Minimap, and only while that
 -- placement holds still (Game.minimap.still); otherwise the sweep starts over.
 -- Game.Blips() runs one slice and returns obs.blips (types/observation.lua
--- MM.ObsBlips), or nil while it doesn't run: the blips part (Game.Part), read first.
+-- MM.ObsBlips), or nil while it doesn't run: the blips part (game/parts/Blips.lua).
+-- Each sweep that ends traces "blips" (docs/telemetry.md: counted in session stats).
 
 local _, ns = ...
-local Atlas, Game = ns.Atlas, ns.Game
+local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
 local HALF_PX = 8.0  -- screen units a blip answers each way from its middle
 local GRID = 0.95    -- grid spacing, of a square's width: no blip fits between its points
@@ -184,10 +185,12 @@ local function EndSweep()
 		if blips[i].seen ~= sweepId then table.remove(blips, i) end
 	end
 	sweepId = sweepId + 1
-	out.sweep, out.reach = out.sweep + 1, C_Minimap.GetViewRadius() * YD
+	local r = C_Minimap.GetViewRadius()
+	out.sweep, out.reach = out.sweep + 1, r * YD
 	out.center = { inst = g.inst, col = g.col, row = g.row }
 	rest = { t = GetTime() + REST, col = g.col, row = g.row }
 	Changed()
+	Runtime.Trace("blips", { sweep = out.sweep, blips = #blips, yd = math.floor(r + 0.5) })
 end
 
 -- A sweep cut short starts over, so none mixes two places or placements.
@@ -246,4 +249,3 @@ function Game.Blips()
 	return out
 end
 
-Game.Part("blips", Game.Blips)

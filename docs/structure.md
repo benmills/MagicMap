@@ -135,7 +135,7 @@ the same ones (each listed in its folder's `files.txt`):
 
 | Registry | In | One file each | Called |
 |---|---|---|---|
-| `Game.Part(name, read)` | game/Observe.lua | game/parts/ (`You`, `MinimapState`; blips: game/Blips.lua) | observe step, each frame: `obs[name] = read(obs)` in registration order (blips first, then game/parts/files.txt), so a part may read those before it; per-frame parts refill one table, on-change parts hand a new one only when it changed (types/observation.lua) |
+| `Game.Part(name, read)` | game/Observe.lua | game/parts/ (`You`, `Blips`, `MinimapState`) | observe step, each frame: `obs[name] = read(obs)` in game/parts/files.txt's order, so a part may read those before it; each its own wrapped call (`game.part <name>`: timed, its KB counted, a failing one leaves its field nil); per-frame parts refill one table, on-change parts hand a new one only when it changed (types/observation.lua) |
 | `Game.Handle(kind, fn)` | game/Command.lua | game/commands/ (`slash`, `load`) | input step: `fn(cmd)` for each queued command of that kind (types/view.lua Commands) |
 | `Game.Apply(name, fn)` | game/Apply.lua | game/ (`Minimap`) | apply phase, each frame: `fn(view)` as its own step `game.<name>`; view is `UI.View()`, or SAFE when Game doesn't know its `v` |
 | `Engine.Layer(name, level, build, rev)` | ui/Engine.lua | ui/ (`Tiles`, `Borders`, `Labels`, `Blips`, `Rares`) | `build(canvas, inst, zoom, c0, r0, c1, r1)` in a layout job when the view, zoom, map or `rev()` needs it; regions from `Engine.Get` |
@@ -157,8 +157,9 @@ UI registers its own through `Game.Command({ kind = "slash", ... })`.
     apply    game/Minimap.lua   Game.Apply("minimap"): View.minimap "ours" + window shown: Blizzard's
                                 Minimap an unseen sensor under View.window.place (undo list;
                                 "blizzard": released)
-    observe  game/Blips.lua     the blips part, Game.Blips(): a slice of the sweep where Apply placed
-                                it, once still
+    observe  game/Blips.lua     Game.Blips(): a slice of the sweep where Apply placed it, once still;
+                                a `blips` trace each sweep
+             game/parts/Blips.lua  the blips part (after you)
              game/parts/MinimapState.lua  obs.minimap (sensing: the blips part read)
              game/Observe.lua   the parts → Model.Observe(obs, oracles)
              game/Record.lua    /mma record on|off: the observations, for replay

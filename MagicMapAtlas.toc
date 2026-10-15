@@ -64,6 +64,7 @@ game\commands\load.lua
 
 # Game: observation parts (Game.Part)
 game\parts\You.lua
+game\parts\Blips.lua
 game\parts\MinimapState.lua
 
 # UI

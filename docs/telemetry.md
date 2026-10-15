@@ -103,7 +103,9 @@ regions and where it was placed), `error`, `taint`, `mark`, `shot`; and Runtime'
 `slow` (a call over its budget), `spike` (a frame over its budget), `gap` (a job between
 Yields over its budget), `throttled`, `job` (cancelled), `enter` (PLAYER_ENTERING_WORLD),
 `position` (lost or back), `saved`; Game's `minimap` (the takeover engaged or released),
-`art` (`/mma check art`: a name ui/Art.lua lists that the client lacks).
+`blips` (a sensor sweep ended), `art` (`/mma check art`: a name ui/Art.lua lists that the
+client lacks). `sensor` (the sensor blind, or a square drifting: M1.5) has no producer yet:
+`--budgets` prints it as not traced until a session keeps one.
 
 Their `d`:
 
@@ -128,6 +130,7 @@ Their `d`:
 | `position` | `"lost"` or `"back"` |
 | `saved` | `{ owner, e = "reset", was }` or `{ owner, e = "newer", v }` |
 | `minimap` | `"engaged"` or `"released"` |
+| `blips` | `{ sweep, blips, yd }`: the sweep's number, the blips the sensor knows after it, its reach (yd) |
 
 ## Reading it
 
