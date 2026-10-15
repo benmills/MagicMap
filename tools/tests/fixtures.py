@@ -1,6 +1,8 @@
 """Synthetic game data for testing the generators without a game install:
 writers for WDC5 tables, WDT / ADT / BLP files, and a minimal local CASC
 install holding them, plus a small seeded world built from all of those.
+And the fixture observation streams' names (fixtures/streams/<name>.lua: what
+each Game part hands Model, for replays through Model alone, tools/tests/replay.lua).
 """
 from __future__ import annotations
 
@@ -10,6 +12,13 @@ import os
 import random
 import struct
 import zlib
+
+STREAMS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "streams")
+
+
+def streams() -> list[str]:
+    """The fixture observation streams, by part name (types/observation.lua)."""
+    return sorted(f[:-len(".lua")] for f in os.listdir(STREAMS) if f.endswith(".lua"))
 
 # --- WDC5 ---------------------------------------------------------------------
 # Field specs:
