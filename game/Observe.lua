@@ -13,9 +13,10 @@ local _, ns = ...
 local Game, Runtime, Model = ns.Game, ns.Runtime, ns.Model
 
 local obs = { hooked = {} }
-local oracles = { Inside = function() return nil end } -- (no quest areas yet: Model estimates)
+local oracles = { Inside = function() return nil end } -- backed by game/Oracles.lua
 local parts = {}
 Game.obs = obs -- the last one handed over (Telemetry's state, the recorder)
+Game.oracles = oracles
 
 function Game.Part(name, read) parts[#parts + 1] = { name = name, read = Runtime.Wrap("game.part " .. name, read) } end
 
