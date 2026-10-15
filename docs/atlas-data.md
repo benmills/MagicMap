@@ -49,11 +49,18 @@ D.Tiles = { ... }
 - **ID lists** are plain arrays `{ id, id, ... }`; omitted when empty.
 - **Faction** is `"A"`, `"H"`, `"AH"` (both) or nil (neither / not set).
 - **Names** are enUS for now.
-- QuestieDB-derived files (`Npcs`, `Objects`, `Items`, `Quests`) are generated
+- QuestieDB-derived files (`Npcs`, `Objects`, `Items`, `Quests`, `BlipServices`) are generated
   from the user's installed QuestieDB and **gitignored** (QuestieDB declares no
   license; don't commit or publish them until that's settled). QuestieDB's test and placeholder
   entities ("TEST WOLF (ALPHA FIRST)", "[PH] ...", "... UNUSED", "<NYI> ...") are dropped, and every
   reference to them, unless a quest's objective names them (tools/gen_questie.py PLACEHOLDER).
+- **The data diet** (docs/v1-plan.md D3: no item tooltips, no dungeon NPCs in v1): Items and
+  ItemIcons keep only the items quests reach, Npcs only the NPCs with an open-world spawn or that a
+  quest, rare rank or service needs (below). Every id a kept row names is there, and
+  `Atlas.QuestSources` is the same for every quest as without the diet
+  (tools/tests/test_generators.py test_data_diet; `gen_questie.py --full` keeps everything).
+- **Without a QuestieDB-derived file** Atlas answers as if it were empty (no error, no row, no
+  sources), so callers don't check: the public build's case until D1 is settled.
 
 ## Files
 
@@ -178,6 +185,9 @@ that read it.
 
 ### Data/ItemIcons.lua — `ns.Data.ItemIcons` (Item DB2)
 `[itemID] = iconFileDataID`
+- Only the items in Data/Items.lua (the diet): tools/gen_world.py reads it (`--items`), and leaves
+  ItemIcons alone when it isn't there. gen_questie needs gen_world's UiMaps, so on a new build:
+  gen_world, gen_questie, then gen_world again.
 - `Atlas.Item(id).icon`.
 
 ### Data/Npcs.lua — `ns.Data.Npcs` (QuestieDB; gitignored)
@@ -188,6 +198,10 @@ that read it.
   master, 16384 repair).
 - spawns: point lists per inst. instances: instIDs of dungeons it spawns inside
   (QuestieDB's -1,-1 spawns), resolved via QuestieDB's dungeon zone table.
+- Diet: an NPC is kept when it has a spawn on an open-world map (Data/Tiles.lua: no kind; not a
+  battleground), or a kept quest names it (startedBy, finishedBy, objectives, its own questStarts /
+  questEnds), or a kept item does (npcDrops, vendors), or it is rare (rank 2, 4) or has a service
+  flag (BlipServices'). About 9,600 of 13,200.
 
 ### Data/Objects.lua — `ns.Data.Objects` (QuestieDB; gitignored)
 `[objectID] = { name, kind, questStarts, questEnds, spawns, instances }`
@@ -196,6 +210,11 @@ that read it.
 
 ### Data/Items.lua — `ns.Data.Items` (QuestieDB; gitignored)
 `[itemID] = { name, npcDrops, objectDrops, itemDrops, vendors, startQuest, class, subClass, requiredLevel }`
+- Diet: only the items a kept quest reaches: its objectives' and startedBy's items, items whose
+  startQuest is a kept quest, and the items those drop from (itemDrops, followed). About 2,800 of
+  21,300, ~1.3 MB of Lua (all of them: ~10.5 MB).
+- Ids QuestieDB names but has no row for (Season of Discovery NPCs in Forever's data, nameless object
+  stubs) are left out of npcDrops, objectDrops, itemDrops and vendors.
 
 ### Data/Quests.lua — `ns.Data.Quests` (QuestieDB; gitignored)
 `[questID] = { name, level, requiredLevel, faction, races, classes, startedBy, finishedBy, objectives, objectivesText, zone, sort, preQuestSingle, preQuestGroup, exclusiveTo, nextQuest, breadcrumbFor, triggerEnd }`
@@ -208,7 +227,22 @@ that read it.
 - zone: areaID (QuestieDB zoneOrSort > 0); sort: QuestSort (zoneOrSort < 0, negated).
 - triggerEnd = `{ text, spawns }` (spawns as point lists per inst).
 
-The four QuestieDB-derived files are read through `Atlas.Npc(id)` (+ `services` from
-flags), `Atlas.Object(id)`, `Atlas.Item(id)`, `Atlas.Quest(id)`, `Atlas.NpcsByName(name)`,
-`Atlas.Find(kind, text, limit)`, `Atlas.SpawnsIn(kind, inst, c0, r0, c1, r1, filter)` and
-`Atlas.QuestSources(questID)`.
+### Data/BlipServices.lua — `ns.Data.BlipServices` (QuestieDB; gitignored)
+`[name] = service`: what a Minimap blip whose tooltip says `name` is.
+- service: `"innkeeper"`, `"banker"`, `"auctioneer"`, `"stablemaster"`, `"battlemaster"`, `"trainer"`,
+  `"repair"`, `"questgiver"`, `"flightmaster"` or `"mailbox"`.
+- As the spike's Blips.lua Kind(): the NPC of that name with the lowest id (LibQuestieDB's
+  `IdsByName(name)[1]`; every NPC, before the diet), its first service flag in the spike's order
+  (128 innkeeper, 256 banker, 4096 auctioneer, 8192 stable master, 2048 battlemaster, 16 trainer,
+  16384 repair), else `"questgiver"` if it starts a quest, else `"flightmaster"` (flag 8); and
+  `Mailbox` = `"mailbox"`. Names without one aren't listed. Not told apart (yet): class trainers
+  (the spike's own icon, by subName) and quest enders (its `?`).
+- `Atlas.BlipService(name)` → service or nil.
+
+The QuestieDB-derived files are read through `Atlas.Npc(id)` (+ `services` from flags),
+`Atlas.Object(id)`, `Atlas.Item(id)`, `Atlas.Quest(id)`, `Atlas.BlipService(name)`,
+`Atlas.Find(kind, text, limit, step)`, `Atlas.SpawnsIn(kind, inst, c0, r0, c1, r1, filter, step)`,
+`Atlas.Rares(inst, step)` and `Atlas.QuestSources(questID)` (a quest Atlas lacks: no objectives).
+Those that walk every row (Find's names and its scan, SpawnsIn's and Rares' first use per
+inst) call `step` every 128 rows, for a `Runtime.Job` (docs/structure.md "Atlas first use");
+there is no name → NPC index at runtime (BlipServices is that answer, offline).

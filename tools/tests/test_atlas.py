@@ -44,9 +44,18 @@ def test_atlas():
     # NPCs, items, quests (QuestieDB-derived, gitignored).
     if Atlas.Data.Npcs is None:
         pytest.skip("no QuestieDB-derived data (tools/gen_questie.py)")
-    hogger = ids(Atlas.NpcsByName("Hogger"))
-    assert hogger == [448] and Atlas.Npc(448).spawns[0][1] > 0
-    assert ids(Atlas.Find("npc", "hogger"))[0] == 448
+    assert ids(Atlas.Find("npc", "hogger"))[0] == 448 and Atlas.Npc(448).spawns[0][1] > 0
+    # Find's first use per kind steps every 128 names indexed, and every 128 looked at (a Job spreads it).
+    steps = L.eval("""function(A)
+        local n, rows = 0, 0
+        for _ in pairs(A.Data.Objects) do rows = rows + 1 end
+        A.Find("object", "mailbox", 1, function() n = n + 1 end)
+        return n, math.floor(rows / 128)
+    end""")
+    n, per_pass = steps(Atlas)
+    assert n == 2 * per_pass
+    assert (Atlas.BlipService("Innkeeper Farley"), Atlas.BlipService("Mailbox"), Atlas.BlipService("Hogger")) == (
+        "innkeeper", "mailbox", None)
     sources = Atlas.QuestSources(33)[1]
     assert (sources.kind, sources.id) == ("item", 750)
     drops = {s.id for s in ids(sources.sources) if s.kind == "npc"}
@@ -85,3 +94,6 @@ def test_stale_format_is_one_error_and_dropped():
     Atlas = ns.Atlas
     assert Atlas.UiMap(1429) is None and Atlas.Continent(0) is None and len(Atlas.Zones(0)) == 0
     assert Atlas.Area(12).name == "Elwynn Forest" and Atlas.Dungeon(36) is None and Atlas.Npc(448) is None
+    # No QuestieDB-derived data: empty answers, not errors.
+    assert len(Atlas.QuestSources(33)) == 0 and len(Atlas.Find("npc", "hogger")) == 0
+    assert Atlas.BlipService("Mailbox") is None and len(Atlas.Rares(0)) == 0 and len(Atlas.SpawnsIn("npc", 0, 31, 49, 33, 50)) == 0

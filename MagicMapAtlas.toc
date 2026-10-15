@@ -25,6 +25,7 @@ Data\Npcs.lua
 Data\Objects.lua
 Data\Items.lua
 Data\Quests.lua
+Data\BlipServices.lua
 atlas\Coords.lua
 atlas\Tiles.lua
 atlas\Sea.lua

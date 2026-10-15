@@ -1,6 +1,6 @@
--- NPCs, objects, items and quests (Data/Npcs, Objects, Items, Quests: from
--- QuestieDB, gitignored; Data/ItemIcons from the Item DB2), and the static
--- joins between them. No player state here.
+-- NPCs, objects, items and quests (Data/Npcs, Objects, Items, Quests, BlipServices:
+-- from QuestieDB, gitignored; Data/ItemIcons from the Item DB2), and the static
+-- joins between them. No player state here. Without a Data file: as if it were empty.
 
 local _, ns = ...
 local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
@@ -76,10 +76,10 @@ function Atlas.Item(id) return Get("item", id) end
 function Atlas.Quest(id) return Get("quest", id) end
 
 -- Where each objective can be done, in objective order: the npcs and objects
--- to kill, use or loot (an item: those that drop or sell it).
+-- to kill, use or loot (an item: those that drop or sell it). A quest Atlas lacks: none.
 function Atlas.QuestSources(questID)
-	local out = {}
-	for i, o in ipairs(Atlas.Quest(questID).objectives) do
+	local out, q = {}, Atlas.Quest(questID)
+	for i, o in ipairs(q and q.objectives or NONE) do
 		local src, e = {}, nil
 		if o.kind == "monster" or o.kind == "killcredit" then
 			e = Atlas.Npc(o.id)
@@ -181,23 +181,27 @@ function Atlas.Rares(inst, step)
 	return list
 end
 
--- Names per kind, lowercased, ids in order: { ids, lower }.
+-- Names per kind, lowercased: { ids, lower } (in the rows' order). The first call per
+-- kind walks every row: step(), if given, is called every 128 rows.
 local names = {}
-local function Names(kind)
+local function Names(kind, step)
 	local n = names[kind]
 	if not n then
 		n = { ids = {}, lower = {} }
-		for id in pairs(Rows(kind)) do n.ids[#n.ids + 1] = id end
-		table.sort(n.ids)
-		for i, id in ipairs(n.ids) do n.lower[i] = Rows(kind)[id][1]:lower() end
+		for id, r in pairs(Rows(kind)) do
+			local i = #n.ids + 1
+			n.ids[i], n.lower[i] = id, r[1]:lower()
+			if step and i % 128 == 0 then step() end
+		end
 		names[kind] = n
 	end
 	return n
 end
 
--- ids of kind whose name contains text (any case), exact matches first.
-function Atlas.Find(kind, text, limit)
-	local n, t = Names(kind), text:lower()
+-- ids of kind whose name contains text (any case), exact matches first, each by id.
+-- Every name is looked at: step(), if given, is called every 128.
+function Atlas.Find(kind, text, limit, step)
+	local n, t = Names(kind, step), text:lower()
 	local exact, partial = {}, {}
 	for i, name in ipairs(n.lower) do
 		if name == t then
@@ -205,7 +209,10 @@ function Atlas.Find(kind, text, limit)
 		elseif name:find(t, 1, true) then
 			partial[#partial + 1] = n.ids[i]
 		end
+		if step and i % 128 == 0 then step() end
 	end
+	table.sort(exact)
+	table.sort(partial)
 	for _, id in ipairs(partial) do exact[#exact + 1] = id end
 	if limit then
 		for i = #exact, limit + 1, -1 do exact[i] = nil end
@@ -213,19 +220,7 @@ function Atlas.Find(kind, text, limit)
 	return exact
 end
 
-local npcsByName -- name -> npc ids
-function Atlas.NpcsByName(name)
-	if not npcsByName then
-		npcsByName = {}
-		for id, r in pairs(Data.Npcs or NONE) do
-			local list = npcsByName[r[1]]
-			if not list then
-				list = {}
-				npcsByName[r[1]] = list
-			end
-			list[#list + 1] = id
-		end
-		for _, list in pairs(npcsByName) do table.sort(list) end
-	end
-	return npcsByName[name] or NONE
-end
+-- The service a Minimap blip's tooltip name stands for (Data/BlipServices.lua: "innkeeper",
+-- "banker", "auctioneer", "stablemaster", "battlemaster", "trainer", "repair", "questgiver",
+-- "flightmaster", "mailbox"), or nil.
+function Atlas.BlipService(name) return (Data.BlipServices or NONE)[name] end
