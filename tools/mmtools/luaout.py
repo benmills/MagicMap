@@ -22,9 +22,22 @@ def run_letters(letters: list[str]) -> str:
 
 # Each dataset's format: bump it when the shape of D.<Name> changes, together with
 # Atlas.FORMATS (atlas/Coords.lua; tools/tests/test_atlas.py checks they agree).
+# One row per Data file: a package adds or bumps only its own.
 FORMATS = {
-    "Tiles": 1, "TileColor": 1, "Sea": 1, "Borders": 1, "Walk": 1, "UiMaps": 1, "Areas": 1,
-    "AreaGrid": 1, "Places": 1, "ItemIcons": 1, "Npcs": 1, "Objects": 1, "Items": 1, "Quests": 1,
+    "Tiles": 1,      # Data/Tiles.lua (tools/gen_tiles.py)
+    "TileColor": 1,  # Data/TileColor.lua (tools/gen_tilecolor.py)
+    "Sea": 1,        # Data/Sea.lua (tools/gen_sea.py)
+    "Borders": 1,    # Data/Borders.lua (tools/gen_borders.py)
+    "Walk": 1,       # Data/Walk.lua (tools/gen_walk.py)
+    "UiMaps": 1,     # Data/UiMaps.lua (tools/gen_world.py)
+    "Areas": 1,      # Data/Areas.lua (tools/gen_world.py)
+    "AreaGrid": 1,   # Data/AreaGrid.lua (tools/gen_areagrid.py)
+    "Places": 1,     # Data/Places.lua (tools/gen_world.py)
+    "ItemIcons": 1,  # Data/ItemIcons.lua (tools/gen_world.py)
+    "Npcs": 1,       # Data/Npcs.lua (tools/gen_questie.py)
+    "Objects": 1,    # Data/Objects.lua (tools/gen_questie.py)
+    "Items": 1,      # Data/Items.lua (tools/gen_questie.py)
+    "Quests": 1,     # Data/Quests.lua (tools/gen_questie.py)
 }
 
 

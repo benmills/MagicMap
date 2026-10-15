@@ -26,7 +26,8 @@ D.Tiles = { ... }
   dataset's shape changes. It lives beside the dataset, not in it, so `pairs` over an
   ID-keyed dataset never meets it. The numbers are `FORMATS` in
   tools/mmtools/luaout.py (the generators, via `data_head`) and `Atlas.FORMATS` in
-  atlas/Coords.lua; tools/tests/test_atlas.py checks they agree. At load
+  atlas/Coords.lua, one row per Data file in both (a package adds or bumps only its
+  own); tools/tests/test_atlas.py checks they agree. At load
   atlas/Coords.lua drops any dataset whose format isn't the one Atlas reads (Atlas then
   answers as if the file were missing, as for the gitignored QuestieDB files) and raises
   one error naming each such file: `MagicMapAtlas: Data/UiMaps.lua is format 0, Atlas
