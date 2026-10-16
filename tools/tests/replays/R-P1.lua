@@ -1,12 +1,10 @@
 -- P1: borders fall behind a fast pan. MOVED: a layout job's cost per frame is bounded (its budget,
--- under a client-like clock), but a whole-layer rebuild still lags a fling: coverage is measured
--- and printed, and the layers must be fresh 1 s after stopping.
+-- on the counted clock: 3 us a widget call), but a whole-layer rebuild still lags a fling: coverage
+-- is measured and printed, and the layers must be fresh 1 s after stopping.
 local T = ...
 local JOB_MS = 4 -- ui/Engine.lua: a layout's budget a frame
 local function R2(v) return math.floor(v * 100 + 0.5) / 100 end
 local sim, ns = T.Boot()
-sim.CountCalls()
-sim.Clock = function() return os.clock() * 1000 + sim.callTotal * 0.003 end
 sim.Run(1)
 sim.Slash("/mma toggle")
 sim.Run(3)

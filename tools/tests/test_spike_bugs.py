@@ -28,9 +28,10 @@ local T = { Print = function(...) say(string.format(...)) end, Skip = skip, TEST
 -- A simulated client with MagicMapAtlas loaded and logged in: Sim, ns.
 -- saved: Lua source for the SavedVariables (MagicMapAtlasDB = ...) found at load (default
 -- T.TEST_UI: test_addon.py's window, hidden at login).
--- T.simFrames: the client's own frames, made before ours.
+-- T.simFrames: the client's own frames, made before ours. On the counted clock (Sim.Counted).
 function T.Boot(saved)
 	local sim = assert(loadfile(tests .. "/wowsim.lua"))()
+	sim.Counted()
 	T.simFrames = #sim.Frames()
 	local ns = {}
 	for _, path in ipairs(files) do -- what exists (test_luacheck flags what's missing)
@@ -120,10 +121,10 @@ function T.Ours(sim)
 		if s and f ~= Minimap then
 			local fn = s.main
 			s.main = function(...)
-				local k0, c0, t0 = collectgarbage("count"), sim.callTotal or 0, debugprofilestop()
+				local k0, c0, t0 = collectgarbage("count"), sim.callTotal, debugprofilestop()
 				fn(...)
 				m.ms, m.last = debugprofilestop() - t0, collectgarbage("count") - k0
-				m.n, m.kb, m.calls = m.n + 1, m.kb + m.last, m.calls + (sim.callTotal or 0) - c0
+				m.n, m.kb, m.calls = m.n + 1, m.kb + m.last, m.calls + sim.callTotal - c0
 			end
 		end
 	end

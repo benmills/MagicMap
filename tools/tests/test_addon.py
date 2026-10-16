@@ -19,10 +19,12 @@ TEST_UI = "MagicMapAtlasDB = { UI = { _v = 1, shown = false, zoom = 96, window =
 
 
 def boot(saved=None):
-    """A simulated client with MagicMapAtlas loaded and logged in: (Lua, Sim, ns).
+    """A simulated client with MagicMapAtlas loaded and logged in: (Lua, Sim, ns), on the counted clock
+    (Sim.Counted: what a budgeted call or job gets done is the same on every machine).
     saved: Lua source for the SavedVariables (MagicMapAtlasDB = ...) found at load (default TEST_UI)."""
     L = lua51.LuaRuntime(encoding="latin-1", unpack_returned_tuples=True)
     sim = L.eval("function(path) return assert(loadfile(path))() end")(os.path.join(TESTS, "wowsim.lua"))
+    sim.Counted()
     ns = L.table()
     load = L.eval("""function(path, ns)
         local chunk, err = loadfile(path)
@@ -68,7 +70,7 @@ def test_smoke():
         R.Every(0.1, "test.every", function() got.every = got.every + 1 end)
         got.job = R.Job("test.job", function()
             local x = 0
-            for i = 1, 5e4 do x = x + i; R.Yield() end
+            for i = 1, 5e4 do x = x + i; Sim.Spend(0.0002); R.Yield() end -- 10 ms of work
             got.sum = x
         end, 1)
         R.Step("model", "test.fails", function() error("boom") end)
@@ -162,13 +164,13 @@ def test_attribution():
         R.Job("test.alloc", function() got.s = string.rep("x", 100 * 1024) end)
         R.Job("test.gap", function()
             R.Yield()
-            local t = debugprofilestop(); while debugprofilestop() - t < 10 do end
+            Sim.Spend(10)
             R.Yield(); R.Yield()
         end)
         R.Step("ui", "test.slow", function()
             if not got.spin then return end
             got.spin, got.s2 = nil, string.rep("y", 4 * 1024)
-            local t = debugprofilestop(); while debugprofilestop() - t < 12 do end
+            Sim.Spend(12)
         end)
         return got
     end""")(R)
@@ -224,7 +226,7 @@ def test_failures():
         Game.Load("bad", function() error("loader") end, { version = 1, migrate = function() error("migrate") end })
         R.Step("model", "test.fails", function() error("boom") end)
         R.Step("ui", "test.slow", function()
-            if got.spin then got.spin = nil; local t = debugprofilestop(); while debugprofilestop() - t < 12 do end end
+            if got.spin then got.spin = nil; Sim.Spend(12) end
         end)
         R.Step("apply", "test.runs", function() got.steps = got.steps + 1 end)
         R.Step("input", "test.adder", function()
@@ -256,7 +258,7 @@ def test_failures():
     assert len([m for m in tel.marks.values() if m.note and "test.fails" in m.note]) == 1
     # stuck job cancelled and reported; a job that never yields overran
     hog = L.eval("""function(R)
-        return R.Job("test.hog", function() local t = debugprofilestop(); while debugprofilestop() - t < 6 do end end, 1)
+        return R.Job("test.hog", function() Sim.Spend(6) end, 1)
     end""")(R)
     sim.Step()
     assert got.stuck.done and "cancelled" in got.stuck.err and any(e.name == "test.stuck" for e in R.errors.values())
@@ -295,7 +297,8 @@ def test_failures():
     sim.FireEvent("PLAYER_LOGOUT")
     perf = tel.sessions[1].perf
     assert perf.frames > 0 and 0 < perf.p50 <= perf.p95 <= perf.p99 <= perf.max and perf.overruns >= 1
-    assert perf.errors >= 3 and perf.errorsPerHour > 0 and perf.loadMs > 0 and perf.ourKB > 0
+    # (loadMs: Data's load is Lua alone, which the counted clock doesn't charge: 0 here, recorded)
+    assert perf.errors >= 3 and perf.errorsPerHour > 0 and perf.loadMs == 0 and perf.ourKB > 0
     assert perf.grace.login > 0 and perf.grace.map > 0 and perf.grace.loading is not None
     expected = {"test.fails", "test.fails2", "test.stuck", "load bad", "load bad (migrate)"}
     assert {e.name for e in R.errors.values()} == expected

@@ -1005,10 +1005,26 @@ function strsplit(sep, s, limit)
 	end
 	return unpack(out)
 end
--- Sim.Clock: the ms clock behind debugprofilestop; a scenario may swap it (a counted clock).
--- What Sim.Price charges is added on top.
-Sim.Clock = function() return os.clock() * 1000 end
+-- Sim.Clock: the ms clock behind debugprofilestop; a scenario may swap it. What Sim.Price
+-- charges, and Sim.Spend, is added on top. The default, Sim.RealClock, is os.clock's, slowed by
+-- MM_CLOCK_SCALE (MM_CLOCK_SCALE=4 tools/check.sh: a slow CI runner's pace): what it measures
+-- differs by machine, so no assertion reads it. The tests boot on Sim.Counted instead.
+local scale = tonumber(os.getenv("MM_CLOCK_SCALE")) or 1
+Sim.RealClock = function() return os.clock() * 1000 * scale end
+Sim.Clock = Sim.RealClock
 function debugprofilestop() return Sim.Clock() + Sim.priced end
+
+-- The counted clock: each widget call costs ms (default 3 us, client-like), Lua nothing, the same
+-- on every machine (what the client charges is mostly its engine calls). Counts from the first use.
+function Sim.Counted(ms)
+	if not Sim.calls then Sim.CountCalls() end
+	ms = ms or 0.003
+	Sim.Clock = function() return Sim.callTotal * ms end
+end
+
+-- A planted cost: ms spent now, exactly, on any clock.
+function Sim.Spend(ms) Sim.priced = Sim.priced + ms end
+
 function GetTime() return Sim.time end
 time = os.time
 date = os.date

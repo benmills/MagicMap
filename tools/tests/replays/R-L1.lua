@@ -49,7 +49,6 @@ Model.Part(function(_, oracles)
 	end
 	log[#log + 1] = { got = table.concat(got), ms = debugprofilestop() - t0, draws = (sim.calls.DrawBlob or 0) - draws }
 end)
-sim.CountCalls()
 asking = true
 local function Frames(n)
 	local from = #log + 1

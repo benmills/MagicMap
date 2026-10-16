@@ -269,10 +269,10 @@ def test_default_ui_priced():
     L, sim, ns = boot("MagicMapAtlasDB = nil")
     stub_services(L, ns)
     put_blips(L, sim, ns, BLIPS)
+    sim.Clock = L.eval("function() return 0 end")  # only what's priced moves the clock, every frame measured
+    sim.Price(True)
     sim.Run(12)  # past login's grace and telemetry's one full collect
     assert ns.UI.Window.frame.IsShown(ns.UI.Window.frame) and ns.Game.minimap.sensor
-    sim.Clock = L.eval("function() return 0 end")  # only what's priced moves the clock
-    sim.Price(True)
     sim.Run(10)
     sim.player.facing, sim.player.speed = math.pi / 2, 7
     sim.Run(10)

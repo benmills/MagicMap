@@ -156,9 +156,9 @@ tools/tests/test_addon.py, `sim.Slash`, `sim.Step`, `sim.Run`, `sim.Wheel`, `sim
     0.5 s, doubling to 30 s while it keeps failing. The replay passes.
   - Also replayed: a step failing every frame for 3 s fails 12 times (throttled) and walks 1 stack.
 - **R-P1 (borders keep up with a fling).** This ports the spike's `borders_keep_up`.
-  - Initial: `debugprofilestop` returns `os.clock()*1000 + Sim.callTotal*0.003`, with
-    `Sim.CountCalls()` on, so widget calls cost client-like time. `/mma map` at zoom 96, then
-    `Run(1)`.
+  - Initial: `debugprofilestop` on the counted clock (`Sim.Counted`, the replays' own: 3 us a
+    widget call, Lua free), so widget calls cost client-like time, the same on every machine.
+    `/mma map` at zoom 96, then `Run(1)`.
   - Frames: 180 frames of panning at 1.5 view-widths per second. Each frame, `Drag` by
     `w * 1.5 / 60` px, or set `Map.cam` directly with follow off. Each frame, record for every
     layer whether `front.region` covers the view rect and `front.zoom == cam.zoom`.

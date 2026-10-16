@@ -6,6 +6,7 @@
 #
 #   tools/check.sh            # all of it
 #   tools/check.sh -k smoke   # pytest arguments pass through
+#   MM_CLOCK_SCALE=4 tools/check.sh   # the sim's real clock 4x slow (a CI runner): no test may notice
 set -eu
 cd "$(dirname "$0")/.."
 if [ ! -x .venv/bin/python ]; then

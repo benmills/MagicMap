@@ -82,6 +82,7 @@ the TOC = what the folders' `files.txt` make: `tools/install.py --toc` writes it
 `tools/lint_div.py`, no `/` that may divide by 0 (docs/structure.md "Rules").
 
     tools/check.sh                                     # all three, as CI runs them (makes .venv if missing)
+    MM_CLOCK_SCALE=4 tools/check.sh                    # the sim's real clock 4x slow: the tests (counted clock) don't notice
     .venv/bin/python -m pytest tools/tests -q -p no:cacheprovider
     .venv/bin/python tools/luacheck.py                 # the TOC's files: globals, TOC, boundaries
     .venv/bin/python tools/lint_div.py                 # each / by a literal, a constant or a reason

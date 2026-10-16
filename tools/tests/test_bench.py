@@ -9,9 +9,7 @@ OPS = ["CreateTexture", "CreateLine", "CreateFontString", "SetPoint", "SetStartP
 
 
 def test_bench_regions():
-    L, sim, ns = boot()
-    sim.CountCalls()  # a client-like clock: 3 us a widget call
-    sim.Clock = L.eval("function(sim) return function() return os.clock() * 1000 + sim.callTotal * 0.003 end end")(sim)
+    L, sim, ns = boot()  # the counted clock: 3 us a widget call
     sim.Slash("/mma bench regions")
     sim.Run(5)
     r = ns.Game.Bench.result
@@ -19,7 +17,7 @@ def test_bench_regions():
     assert sorted(r.ops.keys()) == sorted(OPS)
     for op in OPS:  # each a single widget call, timed alone
         o = r.ops[op]
-        assert o.n == (20 if op.startswith("canvas.") else 100) and o.us >= 3 and o.ms >= o.n * 0.003, op
+        assert o.n == (20 if op.startswith("canvas.") else 100) and o.us == 3, op
     assert ns.Runtime.Perf()[0]["bench: regions"].n > 5  # a job, resumed over many frames
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 

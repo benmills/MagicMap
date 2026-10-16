@@ -4,7 +4,6 @@
 -- exit: <= 0.5 KB a frame); and Runtime's frame stats report it.
 local T = ...
 local sim, ns = T.Shown(nil, 10) -- past telemetry's one full collect (ourKBLoad, 10 s after login)
-sim.CountCalls()
 local read = T.Ours(sim)
 -- Setters on the map's widgets (re-applying unchanged state is the spike's P3); getters are cheap.
 local sets = { v = 0 }
