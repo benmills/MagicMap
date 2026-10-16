@@ -1008,7 +1008,7 @@ end
 -- Sim.Clock: the ms clock behind debugprofilestop; a scenario may swap it. What Sim.Price
 -- charges, and Sim.Spend, is added on top. The default, Sim.RealClock, is os.clock's, slowed by
 -- MM_CLOCK_SCALE (MM_CLOCK_SCALE=4 tools/check.sh: a slow CI runner's pace): what it measures
--- differs by machine, so no assertion reads it. The tests boot on Sim.Counted instead.
+-- differs by machine, so no test reads it: the tests boot on Sim.Counted instead.
 local scale = tonumber(os.getenv("MM_CLOCK_SCALE")) or 1
 Sim.RealClock = function() return os.clock() * 1000 * scale end
 Sim.Clock = Sim.RealClock

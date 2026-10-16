@@ -7,9 +7,9 @@
 -- free: the client's cost is its engine calls), every call of ours that touches the pins stays
 -- within 2 ms through opening, closing, the world map, M, a layer toggle, a wheel zoom, sizing the
 -- window and minimap churn, and each time every pin on the map shown ends up hosted or home; standing, the frame
--- p95 stays under 1 ms with the regular passes running (the real clock's, Lua too, is printed). The wheel and
--- the window hiding also run on the priced clock (what the client charges per region: each icon has its art):
--- the wheel's frames never scale the pins' canvas; the hide's cost, per region under the window, is printed.
+-- p95 stays under 1 ms with the regular passes running. The wheel and the window hiding also run on the
+-- priced clock (what the client charges per region: each icon has its art): the wheel's frames never
+-- scale the pins' canvas; the hide's cost, per region under the window, is printed.
 local T = ...
 local sim, ns = T.Shown()
 sim.Counted(0.0005)
@@ -44,17 +44,13 @@ end
 sim.Run(3)
 Check("borrowed", here)
 -- Standing, nothing changing, the regular passes included: our frame's p95.
-local read = T.Ours(sim)
-local function P95()
-	local costs = {}
-	for i = 1, 300 do
-		sim.Step()
-		costs[i] = select(5, read())
-	end
-	table.sort(costs)
-	return costs[285]
+local read, costs = T.Ours(sim), {}
+for i = 1, 300 do
+	sim.Step()
+	costs[i] = select(5, read())
 end
-local p95 = P95()
+table.sort(costs)
+local p95 = costs[285]
 assert(p95 <= 1, string.format("standing: frame p95 %.2f ms", p95))
 local priced = sim.priced
 sim.Price(true)
@@ -117,9 +113,6 @@ local passes = P["game.addon pins: borrow"].n - n
 Check("minimap churn", here)
 T.Print("G6b: %d pins (%d here); slowest call %.2f ms, %s; minimap churn: %.2f ms/s, %d borrow resumes in 5 s",
 	N, here, worst[1], worst[2], (apply.ms - ms) / 5, passes)
--- Standing again, on the real clock (Lua too; printed only: a shared CI runner's pauses land in it).
-sim.Clock = sim.RealClock
-T.Print("G6b: standing, frame p95 %.2f ms counted, %.2f ms real; the window hiding with them hosted: %.1f ms priced",
-	p95, P95(), hide)
+T.Print("G6b: standing, frame p95 %.2f ms; the window hiding with them hosted: %.1f ms priced", p95, hide)
 local errs = T.Errors(sim, ns)
 assert(#errs == 0, table.concat(errs, "\n"))
