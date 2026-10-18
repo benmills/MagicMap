@@ -61,7 +61,9 @@ can't: showing a canvas whose regions were laid out anew while it was hidden.
   the pool's mask textures: Engine.Get hides a pooled art texture, never its `mask` (ui/Tiles.lua
   MakeArt), so every mask ever made (~one per tile of the widest view) shows and moves with the canvas.
 - **Bench gap** (M1.3, which picks the swap by bench): price a canvas of *visible* lines re-anchored
-  while hidden, its Show at alpha 1 and at alpha 0 then SetAlpha 1, and textures with masks.
+  while hidden, its Show at alpha 1 and at alpha 0 then SetAlpha 1, and textures with masks. Added by
+  M1.3: `canvas.Show.moved@1000live`, `canvas.Show.moved.alpha0@1000live`,
+  `canvas.SetAlpha.moved@1000live`, `canvas.Show.moved@100masked` (the next session reads them).
 
 ## Allocation: the sensor is the top allocator, confirmed
 
@@ -113,8 +115,8 @@ Session #5 (the gate's), with #4 where it says more.
 - **`/mma shot` took nothing**: no screenshot written since 10-11 (`Screenshots/`), no `shot` trace,
   no taint (a blocked `Screenshot()` would be ADDON_ACTION_BLOCKED), no error; the sim's round trip
   passes (test_telemetry_sim). Not shown broken; most likely not run, and nothing in chat said either
-  way. Now it says so: `shot <id>: WoWScrnShot_<stamp>, marked`, or that the client took none
-  (game/Telemetry.lua). The kit lists every shot as a checklist (docs/playtest.md).
+  way. Now it says so: `shot <id>: WoWScrnShot_<stamp>, marked`, or that the client took none,
+  answered or not in 5 s (game/Telemetry.lua; M1.11: every `/mma shot <id>` is answered by id). The kit lists every shot as a checklist (docs/playtest.md).
 - **Marks without ids**: `wheel`, `grow` (the kit's `a2 wheel`, `a5 grow`); no `m0` marks.
 - **The tear walk wasn't done**: the sessions were in Silverpine and Hillsbrad. The tear (mark
   "slight tear when moving", session 345b724) was at Kharanos on the col 33 edge; its re-check has to
@@ -133,19 +135,38 @@ probe that nothing answers makes 0.34 KB of garbage, as one that does.
 
 With them the sim predicts the client: wheel-zooming, the layouts' slowest frames are borders 93 ms,
 tiles 25, rares 13 (in game 116, 24, 13); the default window standing and walking allocates
-263 KB/s, p95 40 KB a frame (in game 233-297 KB/s, p95 34-40 KB). What fails on them, each strict
-xfail until its package flips it:
+263 KB/s, p95 40 KB a frame (in game 233-297 KB/s, p95 34-40 KB). What failed on them, each a strict
+xfail until its package flipped it (all three pass since M1 wave 1b):
 
-| Test | Fails on | Flipped by |
-|---|---|---|
-| test_zoom.py::test_zoom_layouts_priced | each layer's slowest layout frame ≤ 8 ms while zooming | M1.3 |
-| test_blips.py::test_default_ui_alloc_priced | 50 KB/s and p95 0.1 KB a frame, the default window | M1.5b |
-| test_spike_bugs.py::test_replay[P3] | 0.1 KB a frame idle, walking, dragging; 0.5 walking among 10 blips | M1.5b |
+| Test | Failed on | Flipped by | Now (priced) |
+|---|---|---|---|
+| test_zoom.py::test_zoom_layouts_priced | each layer's slowest layout frame ≤ 8 ms while zooming | M1.3 abdddfe | tiles 4.7, borders 5.0, labels 4.0, rares 3.0 ms |
+| test_blips.py::test_default_ui_alloc_priced | 50 KB/s and p95 0.1 KB a frame, the default window | M1.5b 92e5ddd | ~5 KB/s, p95 0.1 KB |
+| test_spike_bugs.py::test_replay[P3] | 0.1 KB a frame idle, walking, dragging; 0.5 walking among 10 blips | M1.5b 92e5ddd | 66 / 36 / 77 B; 45 B among 10 blips |
 
 test_zoom_draw_priced (the draw step ≤ 2 ms while zooming, xfail since M1.8 on SetScale's guessed
 20 µs a region) passes on the bench's prices: SetScale was never the cost. R-G6b's window hiding with
 2400 pins hosted is 0.1 ms, not 112 (a Hide is ~0.02 µs a child); showing them is the price that
 matters (~20 µs a visible region).
+
+## After M1 wave 1b, in the sim
+
+Every FAIL above has its sim fix merged (M1.3 abdddfe, M1.5b 92e5ddd, M1.8b 2ef936d, M1.11 40e4581),
+each to be re-checked in the next session:
+
+- **Frame p95/p99/max, `perf.gaps`** (M1.3): no layout while the zoom moves; a layer is laid out at
+  settle or outside [0.7, 1.4]; the swap shows the fresh canvas by alpha (shown at 0, then
+  SetAlpha) and yields; leftovers and their masks parked; layouts 4-5 ms a frame, swaps under
+  0.5 ms on the priced clock; grow, shrink, the follow glide and the idle return 0 frames over 8 ms
+  (R-P7). Canvas offsets under ~2800 px (the shared origin: the whole tile nearest the view's centre).
+- **Allocation** (M1.5b, M1.3): the sensor ~5 KB/s in the default window; no layout per zoom frame.
+  The flights still allocate 160-300 KB/s for the map while they run (R-P7: the layouts' own
+  tables, mostly tiles and labels; M1.4's).
+- **`art`** (M1.11): a chain counts if any of its names resolves, fonts are loaded to check them.
+- **`sensor`** (M1.5b): one blip read as four corrected; a `sensor` event takes a mark.
+- **Rares at every zoom** (M1.11): from zoom 60. At 60-75 a big window still holds ~500 of a
+  continent's 696 (the layout region is the view plus a wide margin).
+- **Wheel** (M1.8b): the wheel's ticks come from a bucket of 1 refilling 4 a second.
 
 ## The next session re-checks
 
@@ -156,8 +177,12 @@ The one consolidated play-test at the end of the run (D10), on M1.3, M1.4, M1.5b
   empty; `map: draw` and `game.part blips` out of perf.alloc's top or under 10 KB/s each.
 - **The tear walk** at Kharanos, col 33 edge, at 800, 2 minutes, with its marks and `small-seam` shot.
 - **Every shot** of the script's checklist, each answered in chat.
-- **`/mma bench regions`** again, with M1.3's visible re-anchored canvas ops: the swap it picks.
+- **`/mma bench regions`** again, with M1.3's visible re-anchored canvas ops: if
+  `canvas.SetAlpha.moved@1000live` costs what `canvas.Show.moved@1000live` does, the alpha swap is
+  wrong and the swap extends in place instead.
 - **The wheel** on the trackpad and on a wheel mouse: one flick, one tick, ticks in a row; marked
   with the device (`/mma mark a2 wheel trackpad`).
-- **The sensor's square**: if a `sensor` trace comes, its mark has the state (M1.5b).
+- **The sensor's square**: if a `sensor` trace comes, its mark has the state (M1.5b). A herb shows
+  within ~1 s of turning tracking on; blips met while riding become exact once you stop; a blip
+  that appears while you stand still may take up to ~40 s (the slow pass).
 - Allocation at ~140 probes/s or under, the blips still exact within 2 sweeps standing.

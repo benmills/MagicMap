@@ -86,7 +86,10 @@ telemetry = {
 - **Shot**: `stamp` is the local time formatted like the screenshot's file name
   (`WoWScrnShot_<stamp>.jpg`), taken when SCREENSHOT_SUCCEEDED fires; chat then says
   `shot <id>: WoWScrnShot_<stamp>, marked`. On SCREENSHOT_FAILED: no mark, a `shot` trace
-  `failed <note>`, and chat says the client took no screenshot.
+  `failed <note>`, and chat says `the client took no screenshot (no mark)`; with neither event in
+  5 s, the same trace and `the client took no screenshot (no answer, no mark)`. `/mma shot` without
+  an id takes no shot (chat asks for one), and one asked while another waits on the client is not
+  taken.
 - **Kept**: every event of a kind in Telemetry's `KEEP` (`taint`, `art`, `sensor`) as it's traced,
   the first 50 a session: the ring forgets them, and each one fails the gate. The first `sensor`
   event of each `e` a session takes a `sensor` mark (`note` = `e` and its `why` or `px`), so the

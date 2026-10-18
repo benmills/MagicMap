@@ -104,7 +104,7 @@ small on the Minimap's spot, follow on, default zoom.
 | # | Do | Mark / shot |
 |---|---|---|
 | a1 | Open: if the map is hidden, `/mma toggle`. First open of the session. At the Thunderbrew door, cursor off. | `/mma shot small-home` |
-| a2 | Wheel in a tick at a time to the closest zoom, then out to the farthest, and back: 16→800→16 (the spike's range). Then the same as fast as the wheel turns. With a trackpad or Magic Mouse too: one flick, then a slow drag. | `/mma mark a2 wheel <device>` after each device (`trackpad`, `mouse`) |
+| a2 | Wheel in a tick at a time to the closest zoom, then out to the farthest, and back: 16→800→16 (the spike's range). Then the same as fast as the wheel turns (M1.8b: a burst runs about 4 ticks a second, so 16→800 takes ~3.7 s of scrolling; judge whether that feels right). With a trackpad or Magic Mouse too: one flick (about 3 ticks), then a slow drag. | `/mma mark a2 wheel <device>` after each device (`trackpad`, `mouse`) |
 | a3 | Fling: drag-pan fast in several directions, release, let it settle each time. | `/mma mark a3 fling` |
 | a4 | The tear walk (above): Kharanos, x = 47.4, at 800, small, follow on, **2 minutes**. | `/mma mark a4 walk` at ~1 min; `/mma shot small-seam` on the line; `/mma mark a4 tear <what>` on any tear |
 | a5 | Grow and shrink ×5 (M, or the red button): let each animation end. | `/mma mark a5 grow` after the 5th; `/mma shot big-home` once as M lands, cursor off |

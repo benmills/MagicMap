@@ -1,4 +1,4 @@
--- P3: per-frame garbage and idle work. MOVED (now measured): our frame's Lua allocation and widget
+-- P3: per-frame garbage and idle work. CONTAINED (measured and budgeted): our frame's Lua allocation and widget
 -- calls, idle, walking (following you, the title and arrow with you) and dragging, inside
 -- Runtime's frame; walking again with the sensor and 10 blips about, on the priced clock (M1's
 -- exit: <= 0.5 KB a frame); and Runtime's frame stats report it.
