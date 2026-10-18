@@ -1,7 +1,7 @@
 -- G3: other client code changing the state the takeover set (HybridMinimap turns the
 -- Minimap's ground and rotation back on as it hides; Rotate Minimap; anyone zooming,
 -- hiding or moving it). CONTAINED: Apply puts each right every frame; the sensor reads
--- only a Minimap as Apply left it (a frame it isn't, it starts its sweep over, keeping
+-- only a Minimap as Apply left it (a frame it isn't, it starts its look over, keeping
 -- what it knew); only something fighting Apply for BLIND s is traced ("sensor" blind,
 -- a kept kind); and the undo list still puts back what was there before the takeover.
 local T = ...
@@ -16,6 +16,7 @@ for i, b in ipairs(want) do
 	list[i] = { b[1], north, west }
 end
 sim.minimapBlips = list
+sim.FireEvent("MINIMAP_UPDATE_TRACKING") -- (they show: tracking on, so the sensor looks again at once)
 sim.Run(3)
 local obs, m = Game.obs, Game.minimap
 local function Exact()

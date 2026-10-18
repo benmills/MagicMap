@@ -4,7 +4,8 @@
 -- Errors come from Runtime.onError (every Wrap) and the global error handler
 -- (anything else whose stack is in our folder). An error's first occurrence
 -- in a session traces "error" and takes an "error" mark; a taint's
--- (ADDON_ACTION_BLOCKED/FORBIDDEN naming us) traces "taint" and takes a "taint" mark.
+-- (ADDON_ACTION_BLOCKED/FORBIDDEN naming us) traces "taint" and takes a "taint" mark,
+-- and the sensor's first "sensor" trace of each kind (game/Blips.lua) a "sensor" mark.
 -- Each session's perf (Runtime.FrameStats, errors, load, memory after a full
 -- collect: docs/runtime.md) is written at logout and with each mark, with the
 -- bench (game/Bench.lua) if one ran. Every trace passes here too (Runtime.onTrace): the
@@ -144,10 +145,15 @@ end)
 -- session.kept (the ring forgets them), STATS kinds to session.stats["<kind> <layer>"] =
 -- { n, <field> = max |value| }, a swap's `lag` being frames since its layer's last layout end.
 local ends = {} -- [layer] = Runtime.frames at its last layout end
+local sensed = {} -- sensor events marked this session: the first of each kind (as a taint's per function)
 local Keep = Runtime.Wrap("telemetry: trace", function(kind, d)
 	if KEEP[kind] then
 		local kept = session.kept
 		if #kept < KEPT then kept[#kept + 1] = { f = Runtime.frames, ms = Ms(), k = kind, d = d } end
+		if kind == "sensor" and not sensed[d.e] then
+			sensed[d.e] = true
+			Mark("sensor", d.e .. " " .. (d.why or d.px))
+		end
 	end
 	if not (STATS[kind] and type(d) == "table") or (kind == "layout" and d.e ~= "end") then return end
 	local key = d.layer and kind .. " " .. d.layer or kind

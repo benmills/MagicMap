@@ -55,12 +55,13 @@ T.Print("P3: our frame idle %.0f B, %.1f setter calls on the map's widgets (%.1f
 	.. "the Minimap sensor's included); walking %.0f B; dragging %.0f B, %.1f widget calls", idle[1] * 1024, idle[2],
 	idle[3], walk * 1024, drag[1] * 1024, drag[3])
 -- KB a frame: no table a frame (the drag step's camera was ~0.2; the title's zone walking, ~0.13; what's
--- left is the sensor's sweep ending every REST: its trace).
+-- left is the sensor: every probe ~0.35 KB of the client's garbage, so it probes little, a look a
+-- second, and the sweep's trace).
 assert(idle[1] <= 0.1 and walk <= 0.1 and drag[1] <= 0.1)
 assert(idle[2] == 0) -- standing still: the arrow and the canvases are left alone
 
--- Walking among 10 blips (M1's exit), the sensor probing as the client charges: each answer is a new
--- table and its parse new strings, until M1.5's parse cache.
+-- Walking among 10 blips (M1's exit), the sensor probing as the client charges: each answer a new
+-- table (its parse cached per text).
 ns.UI.Motion.SetFollow(true)
 local Atlas, list = ns.Atlas, {}
 local NAMES = { "Mailbox", "Peacebloom", "Silverleaf", "Copper Vein", "Innkeeper Farley" }
@@ -70,6 +71,7 @@ for i = 1, 10 do
 	list[i] = { NAMES[(i - 1) % #NAMES + 1], north, west }
 end
 sim.minimapBlips = list
+sim.FireEvent("MINIMAP_UPDATE_TRACKING") -- (they show: tracking on, so the sensor looks again at once)
 sim.Price(true)
 sim.Run(5)
 sim.player.speed = 7

@@ -17,7 +17,7 @@
 
   test_default_ui_priced: the same budgets with the window a first login has (shown at
   login, small on the minimap's spot), standing and walking; test_default_ui_alloc_priced,
-  its allocation (every probe ~0.35 KB, as in game: M1.5b's).
+  its allocation (every probe ~0.35 KB, as in game: the sensor probes little, M1.5b).
 
   .venv/bin/python tools/tests/test_blips.py   # records the scenario again into the fixture
 """
@@ -29,7 +29,6 @@ import sys
 TESTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(TESTS))  # (run as a script: luacheck, for test_addon)
 
-import pytest  # noqa: E402
 from lupa import lua51  # noqa: E402
 
 from test_addon import boot, errors  # noqa: E402
@@ -141,7 +140,7 @@ def test_blips_end_to_end():
 
     scenario(L, sim, ns, check)
     assert seen["remembered"]
-    assert len(G.MagicMapAtlasDB.recording.obs) > 20
+    assert len(G.MagicMapAtlasDB.recording.obs) > 5  # one each change the sensor makes (a sweep: a look standing)
 
     # A UI-only toggle, saved; and Blizzard's minimap back: everything put back.
     sim.Slash("/mma layer labels")
@@ -292,12 +291,11 @@ def test_default_ui_priced():
     assert default_ui_priced().p95 <= 1
 
 
-@pytest.mark.xfail(strict=True, reason="M1.5b: every probe makes ~0.35 KB of garbage, answer or not (in game: "
-                   "game.part blips 233-297 KB/s, p95 34-40 KB a frame; here 263 KB/s, 40 KB): the sensor must probe less")
 def test_default_ui_alloc_priced():
-    """Allocation within budget: 50 KB/s, and a frame's p95 within 0.1 KB."""
+    """Allocation: 20 KB/s of the 50 KB/s budget (in game the sensor made 233-297 KB/s, every probe ~0.35 KB:
+    docs/evidence/perf-m0.md), and a frame's p95 within 0.1 KB (a look's probes in one frame a second)."""
     fs = default_ui_priced()
-    assert fs.kbPerSec <= 50 and fs.kbFrameP95 <= 0.1
+    assert fs.kbPerSec <= 20 and fs.kbFrameP95 <= 0.1
 
 
 def record():
