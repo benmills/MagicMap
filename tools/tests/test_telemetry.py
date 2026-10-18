@@ -141,7 +141,7 @@ def test_telemetry_sim(tmp_path, capsys):
     sim.FireEvent("ADDON_ACTION_BLOCKED", "MagicMapAtlas", "Minimap:Hide()")
     sim.FireEvent("ADDON_ACTION_FORBIDDEN", "MagicMapAtlas", "Minimap:Hide()")
     sim.FireEvent("ADDON_ACTION_BLOCKED", "SomeAddon", "CastSpellByName()")
-    ns.Runtime.Trace("art", "redbutton-expand-c60")  # as /mma check art reports a miss (game/Bench.lua)
+    ns.Runtime.Trace("art", "redbutton-expand-c60")  # as /mma check art reports a miss (ui/Art.lua)
     ns.Game.Bench = L.eval("{ result = { build = '1.60.1.70009', t = 1, ops = { CreateLine = { n = 1000, ms = 21, us = 21 } } } }")
     sim.Slash("/mma mark mid-walk")
     sim.Slash("/mma shot kharanos-1024-small tear")
@@ -157,7 +157,7 @@ def test_telemetry_sim(tmp_path, capsys):
     assert ring[-1].zoom == ns.UI.Camera.cam.zoom and ring[-1].w > 0 and ring[-1].h > 0
     a = shot.shot
     assert shot.note == "kharanos-1024-small tear" and a.zoom == ns.UI.Camera.cam.zoom and a.uiScale == 1
-    assert any("shot kharanos-1024-small tear: WoWScrnShot_" in p for p in sim.prints.values())  # said in chat
+    assert any(" shot kharanos-1024-small: WoWScrnShot_" in p for p in sim.prints.values())  # said in chat, by id
     assert a.w > 0 and a.left is not None and a.screenW == 1920 and a.big is False and len(shot.motion) == 120
     p = s.perf
     assert p.ourKBLoad == 2400 and p.ourKB == 2400 and p.grace.gc is not None  # the sim's GetAddOnMemoryUsage
@@ -190,3 +190,25 @@ def test_telemetry_sim(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "our memory at logout, after GC" in out and "FAIL  taint      2" in out and "FAIL  art        1" in out
     assert "PASS  sensor     0" in out  # (game/Blips.lua traces it: M1.5)
+
+
+def test_shot_answers():
+    """/mma shot always answers in chat, by its id: none without an id; one at a time; a client that
+    answers neither SCREENSHOT_SUCCEEDED nor _FAILED is said so after a few seconds, unmarked."""
+    L, sim, ns = boot()
+    said = lambda: list(sim.prints.values())[-1]  # noqa: E731
+    shots = lambda: [m for m in L.globals().MagicMapAtlasDB.telemetry.marks.values() if m.kind == "shot"]  # noqa: E731
+    taken, screenshot = [], L.globals().Screenshot
+    L.globals().Screenshot = lambda: taken.append(1)  # a client that says nothing
+    sim.Slash("/mma shot")
+    assert "the id first" in said() and not taken
+    sim.Slash("/mma shot small-home at the door")
+    sim.Slash("/mma shot small-hover")
+    assert said().endswith("shot small-hover: not taken, small-home's still waiting on the client") and len(taken) == 1
+    sim.Run(6)
+    assert said().endswith("shot small-home: the client took no screenshot (no answer, no mark)") and not shots()
+    L.globals().Screenshot = screenshot
+    sim.Slash("/mma shot small-hover")
+    sim.Step()
+    assert " shot small-hover: WoWScrnShot_" in said() and [m.note for m in shots()] == ["small-hover"]
+    assert not errors(sim, ns), errors(sim, ns)

@@ -466,8 +466,12 @@ function FontString:SetText(text)
 end
 function FontString:GetText() return S[self].text end
 function FontString:SetFormattedText(fmt, ...) S[self].text = string.format(fmt, ...) end
+-- The fonts the client loads (case and slash direction don't matter); another leaves the font string as it was.
+local FONTS = {}
+for _, path in ipairs({ "Fonts\\FRIZQT__.TTF", "Fonts\\MORPHEUS.TTF", "Fonts\\ARIALN.TTF", "Fonts\\skurri.ttf" }) do FONTS[path:lower()] = true end
 function FontString:SetFont(path, size, flags)
 	assert(type(path) == "string" and type(size) == "number", "SetFont: path and size expected")
+	if not FONTS[(path:lower():gsub("/", "\\"))] then return false end
 	S[self].font = { path, size, flags }
 	return true
 end
@@ -1112,10 +1116,11 @@ function GetCVar(name) return Sim.cvars[name] end
 C_CVar = { GetCVar = GetCVar }
 
 -- Client files by path (case and slash direction don't matter): the ones MagicMap asks for.
+-- No font: Forever answers nil for the ones it has (the M0 gate's `art` misses); SetFont loads them.
 local FILES = {}
 for i, path in ipairs({ "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up", "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight",
 	"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down", "Interface\\Minimap\\MinimapArrow", "Interface\\COMMON\\Indicator-Yellow",
-	"Fonts\\MORPHEUS.TTF", "Fonts\\FRIZQT__.TTF", "Interface\\WorldMap\\Gear_64", "Interface\\CharacterFrame\\TempPortraitAlphaMask",
+	"Interface\\WorldMap\\Gear_64", "Interface\\CharacterFrame\\TempPortraitAlphaMask",
 	"Interface\\HUD\\UIMinimap2xC60", "Interface\\Icons\\INV_Misc_Map_01" }) do
 	FILES[path:lower()] = 100000 + i
 end
@@ -1655,14 +1660,15 @@ C_VignetteInfo = {
 	GetVignettePosition = function(guid, id) return id == 1429 and CreateVector2D(0.38, 0.79) or nil end,
 }
 -- Atlases: the ones MagicMap asks for that Retail-engine clients have
--- (checked against Forever's UiTextureAtlasMember); none on classic clients.
+-- (checked against Forever's UiTextureAtlasMember); none on classic clients. By element
+-- name, which GetAtlasInfo takes: a member's `-2x` or `-c60` variant isn't one (Forever
+-- has no redbutton-expand-c60: the M0 gate's `art` misses).
 local ATLASES = { Professions_Tracking_Herb = true, Professions_Tracking_Ore = true }
 for _, base in ipairs({ "ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-out" }) do
 	ATLASES[base], ATLASES[base .. "-mouseover"], ATLASES[base .. "-down"] = true, true, true
 end
-for _, name in ipairs({ "redbutton-expand-c60", "redbutton-expand-pressed-c60", "redbutton-highlight-c60" }) do ATLASES[name] = true end
 for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutton-highlight",
-	"ui-hud-minimap-arrow-player", "ui-hud-minimap-arrow-player-2x", "ui-hud-minimap-arrow-questtracking", "minimaparrow", "Quest-In-Progress-Icon-yellow" }) do
+	"ui-hud-minimap-arrow-player", "ui-hud-minimap-arrow-questtracking", "minimaparrow", "Quest-In-Progress-Icon-yellow" }) do
 	ATLASES[name] = true
 end
 -- The metal frame's pieces, sized as Forever reports them: the edges far
