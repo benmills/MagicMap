@@ -35,7 +35,7 @@ for _, lay in ipairs(layers) do assert(T.Fresh(ns, lay), lay.name) end
 for name, ms in pairs(worst) do assert(ms <= JOB_MS * 1.5, name .. " " .. ms) end
 assert(#T.Errors(sim, ns) == 0)
 
--- A 20-step wheel-out, one step a frame: layouts started, against layers x settled zooms (1).
+-- A 20-step zoom-out, one step a frame: layouts started, against layers x settled zooms (1).
 local function Started()
 	local n = 0
 	for _, e in pairs(ns.Runtime.TraceCopy()) do
@@ -45,9 +45,9 @@ local function Started()
 end
 local start = Started()
 for _ = 1, 20 do
-	sim.Wheel(ns.UI.Window.view, -1)
+	ns.UI.Motion.ZoomStep(-1) -- the zoom-out button's tick (the wheel's are rationed by time: M1.8b)
 	sim.Step()
 end
 sim.Run(2)
-T.Print("P1: 20-step wheel-out: %d layouts started for %d layers", Started() - start, #layers)
+T.Print("P1: 20-step zoom-out: %d layouts started for %d layers", Started() - start, #layers)
 for _, lay in ipairs(layers) do assert(T.Fresh(ns, lay), lay.name) end
