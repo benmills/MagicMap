@@ -99,14 +99,14 @@ UI.Borders = Engine.Layer("borders", 2, function(c, inst, zoom, c0, r0, c1, r1)
 	for _, st in ipairs(STYLE.steps) do
 		if zoom >= st.zoom then s = st end
 	end
-	local drawn, min2 = {}, STYLE.minSegmentPx ^ 2
-	local box = { c0 * zoom, r0 * zoom, c1 * zoom, r1 * zoom }
+	local drawn, min2, ox, oy = {}, STYLE.minSegmentPx ^ 2, c.ox, c.oy -- (the canvas's origin, ui/Engine.lua)
+	local box = { (c0 - ox) * zoom, (r0 - oy) * zoom, (c1 - ox) * zoom, (r1 - oy) * zoom }
 	for _, l in ipairs(lines) do
 		local b = Bounds(l)
 		if not (b[3] < c0 or b[1] > c1 or b[4] < r0 or b[2] > r1) then
 			local p, n = {}, (#l - 4) / 2
 			for k = 1, n do
-				local x, y = l[3 + k * 2] * zoom, l[4 + k * 2] * zoom
+				local x, y = (l[3 + k * 2] - ox) * zoom, (l[4 + k * 2] - oy) * zoom
 				local m = #p
 				if m == 0 or k == n or (x - p[m - 1]) ^ 2 + (y - p[m]) ^ 2 >= min2 then
 					p[m + 1], p[m + 2] = x, y
@@ -128,4 +128,4 @@ UI.Borders = Engine.Layer("borders", 2, function(c, inst, zoom, c0, r0, c1, r1)
 		Polyline(c, "line", 2, d.p, s.width, STYLE.color, s.alpha, d.fs, d.fe, box)
 		Yield()
 	end
-end)
+end, nil, "hold")

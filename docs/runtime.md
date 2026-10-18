@@ -64,6 +64,34 @@ All of it is kept in tables made at load: a measured frame allocates nothing mor
 `Runtime.Perf()`'s entries carry the per-name totals behind these: `kb`, `kbN`, `kbMax`,
 `gaps`, `gapMax`, `gapStack`. `tools/tests/test_addon.py::test_attribution` drives each.
 
+## The map's engine: swap, zoom and pan by the client's prices
+
+ui/Engine.lua (M1.3) chooses each from docs/evidence/perf-m0.md, the M0 gate's measures:
+
+| The client charges | So the engine |
+|---|---|
+| Showing a canvas whose regions moved while it was hidden: ~20 µs a texture or font string, 35-50 µs a line, in one call that can't yield (the swaps' 116 ms for 2418 border lines, 24 for 887 tiles, 13 for 696 rares); ~7 µs a region shown unmoved | never shows or hides a canvas. Each layer's two canvases stay shown, the front at alpha 1, the back at alpha 0; a layout re-anchors the back's own regions where they stand (pooled per canvas), spread over its frames, and the swap is a SetPoint and two SetAlphas (a canvas's SetAlpha: ~4 µs for 1000 children). The swap now measures under 0.5 ms on the priced clock |
+| SetParent onto a hidden frame 0.22 µs, back 0.70 | parks what a layout didn't use, a tile's mask with its art: a canvas holds only what it shows, so hidden pooled lines and masks (the tile swap's 9-10 ms floor) no longer ride with it (R-P1 checks a canvas holds its live regions and their masks, nothing else) |
+| SetScale ~8 µs a canvas of 1000 (not the cost); every chase frame laid all 5 layers out and swapped each (zoom state p95 20 ms, `map: draw` 35 KB a zoom frame) | lays out again only when the zoom settles (unchanged 0.15 s: `Camera.ZoomSettled`) or the camera's zoom leaves [0.7, 1.4] of a layout's. Meanwhile tiles are scaled (`"scale"`); labels and pins are moved to the camera's zoom (`"move"`, `Engine.At`: a SetPoint each, 0.31 µs, only those in or entering the view), so fonts and icons keep their size; borders are never scaled (`"hold"`: thousands of Lines re-transformed a frame were the client's 1.4 ms a frame in spike-bugs P4): hidden while the zoom moves, laid out where it's headed (`Motion.Goal`, once that holds 0.1 s), faded in over 0.12 s as it lands (Layers.lua:16-24, 1697) |
+| five 4 ms layout jobs a frame: 20 ms frames | runs one layout at a time: a layer the view lacks first, at 5 ms a frame, else by level (tiles, borders, labels, pins) at 4. The plan's "8 ms" for a layer the view lacks would make every such frame an overrun (our frame max is 8 ms, and the draw step's moves and the sensor share it): at 5, the priced grow's and shrink's slowest frames are 6.9 and 7.1 ms |
+| a pan's coverage: a whole-layer layout lags a fling (P1: borders covered 81-86% of frames at 1.5 views/s) | lays out 0.5 of the view past each side at rest; moving, up to 0.75 ahead and 0.25 behind (by speed, all of it from 0.5 views/s), and again before the view 0.3 s ahead leaves the layout: R-P1 covers 177-180 of 180 frames, every layer |
+| showing the window shows every region under it in that one call (a re-open: 115 ms on the priced clock, ~26 in the client at ~7 µs a region unmoved; script (c) toggles it in combat) | empties every canvas when the window hides (a job parks their regions), so showing it again shows none at once and the layers lay out again as at the first open: 0.6 ms priced, the slowest frame after it 5.7 ms, fresh within 1 s (R-P7) |
+| canvas offsets of ~27,000-33,000 px (tile (0, 0) at a canvas's TOPLEFT: the tear's suspect) | places tile (col, row) at ((col - ox) * zoom, -(row - oy) * zoom): (ox, oy), the origin, is the whole tile nearest the view's centre, shared by every layer, and moves only when a layout would reach past 2800 px from it (every layer then lays out onto the new one). So an offset stays under ~2800 px (~3920 for a label moved at 1.4x): every replay checks each anchor under the view as it's set (under 4096 px; the world socket excepted: Game hosts other addons' pins on it at tile (0, 0)), one canvas a layer shown, and at rest every layer on the one origin, so their offsets round alike |
+
+On the sim's priced clock, wheel-zooming, each layer's slowest layout frame is now 4-5 ms (were
+borders 93, tiles 25, rares 13 with the swap; in game 116, 24, 13); grow, shrink, the follow glide and
+the idle return make no frame over 8 ms (19-31 a grow before); a 20-step wheel-out starts 15 layouts
+(33 before), borders one. The counted clock prices a widget call at 3 µs, ~10x a SetPoint's: moving
+~500 static rare spawns a zoom frame is ~1.9 ms there, ~0.15 ms in the client (M1.11 shows rares from
+zoom 60).
+
+What the bench must still confirm (`/mma bench regions`, the final session): that re-anchoring a shown
+canvas's regions at alpha 0 costs what a SetPoint costs, not the 20-50 µs a Show paid. It now times
+Show after the regions moved (at alpha 1 and at alpha 0), SetAlpha(1) after they moved while shown at
+alpha 0, and masked textures shown after moving; the session's frame times show what Lua can't (a
+cost the client defers to its draw). If the alpha swap turns out to pay as Show did, the plan's
+other pick is extending the front canvas in place.
+
 ## Guarantees
 
 | Failure | Guarantee | Enforced by | Observed |

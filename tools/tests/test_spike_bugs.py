@@ -32,6 +32,7 @@ local T = { Print = function(...) say(string.format(...)) end, Skip = skip, TEST
 function T.Boot(saved)
 	local sim = assert(loadfile(tests .. "/wowsim.lua"))()
 	sim.Counted()
+	local line = CreateFrame("Frame"):CreateLine() -- (T.Anchors: the class's methods)
 	T.simFrames = #sim.Frames()
 	local ns = {}
 	for _, path in ipairs(files) do -- what exists (test_luacheck flags what's missing)
@@ -40,6 +41,7 @@ function T.Boot(saved)
 		sim.Call("loading " .. path:match("[^/]+/[^/]+$"), chunk, "MagicMapAtlas", ns)
 	end
 	assert(loadstring(saved or TEST_UI))()
+	T.Anchors(sim, ns, line)
 	sim.FireEvent("ADDON_LOADED", "MagicMapAtlas")
 	sim.FireEvent("PLAYER_LOGIN")
 	sim.FireEvent("PLAYER_ENTERING_WORLD", true, false)
@@ -51,14 +53,58 @@ function T.Boot(saved)
 	return sim, ns
 end
 
+-- The map's anchors under its view, checked as they're set (Region:SetPoint, Line:SetStartPoint and
+-- SetEndPoint): no offset past LIMIT px (the tear's suspect, docs/v1-plan.md §2), but the world
+-- socket's (ui/Sockets.lua: Game hosts other addons' pins on it, tile (0, 0) at its TOPLEFT, up to
+-- ~51,000 px at zoom 800; a pin far from the view stays far whatever the origin: hosting fewer, near
+-- the view, is M4.2's continent filter and M4.4's). line: a Line, for its class's methods. (The
+-- checks here and in T.Invariants make no garbage and no widget calls: R-P3 measures our frames.)
+local LIMIT = 4096
+function T.Anchors(sim, ns, line)
+	local S, view, socket = sim.state, ns.UI.Window.view, ns.UI.Sockets.world.frame
+	local function Check(o, what, x, y)
+		local p = o
+		while p and p ~= view and p ~= socket do p = S[p].parent end
+		if p == view and (math.abs(x) > LIMIT or math.abs(y) > LIMIT) then
+			error(string.format("%s of %.0f, %.0f px on a %s", what, x, y, S[o].type), 2)
+		end
+	end
+	local regions, lines = getmetatable(getmetatable(view).__index).__index, getmetatable(line).__index
+	local setPoint = regions.SetPoint
+	regions.SetPoint = function(self, point, ...)
+		setPoint(self, point, ...)
+		for _, e in ipairs(S[self].points) do
+			if e.point == point then Check(self, "an offset", e.x, e.y) end
+		end
+	end
+	for _, name in ipairs({ "SetStartPoint", "SetEndPoint" }) do
+		local fn, key = lines[name], name == "SetStartPoint" and "startPoint" or "endPoint"
+		lines[name] = function(self, ...)
+			fn(self, ...)
+			local e = S[self][key]
+			Check(self, "a line's end", e[3], e[4])
+		end
+	end
+end
+
 -- What holds after every frame of every replay (checked as the next one starts): no protected
 -- call made in combat (spike-bugs K2), and no Blizzard Minimap art showing while the takeover
--- has the Minimap (its cluster hidden, or faded while combat keeps it shown).
+-- has the Minimap (its cluster hidden, or faded while combat keeps it shown). The map (M1.3, with
+-- T.Anchors): a layer shows one canvas at most (D1: drawn twice); at rest (Engine.pending false),
+-- every layer shown on the one origin.
 function T.Invariants(sim, ns)
 	local c = sim.protectedCalls[1]
 	assert(c == nil, c and ("a protected call in combat: " .. c.call .. c.stack))
 	assert(not (ns.Game.minimap.engaged and MinimapCluster:IsVisible() and MinimapCluster:GetEffectiveAlpha() > 0),
 		"Blizzard's minimap cluster showing while engaged")
+	local E, S = ns.UI.Engine, sim.state
+	local rest = not E.pending and S[ns.UI.Window.frame].shown
+	for _, l in ipairs(E.layers) do
+		if S[l.canvases[1]].alpha > 0 and S[l.canvases[2]].alpha > 0 then error(l.name .. ": two canvases shown") end
+		if rest and l.on and l.front and (l.front.ox ~= E.ox or l.front.oy ~= E.oy) then
+			error(l.name .. ": off the shared origin at rest")
+		end
+	end
 end
 
 -- Booted, the map open and past its first-open grace (2 s).

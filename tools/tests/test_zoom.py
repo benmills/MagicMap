@@ -125,10 +125,8 @@ def test_zoom_draw_priced():
     assert perf["map: draw"].max <= 2
 
 
-@pytest.mark.xfail(strict=True, reason="M1.3: every frame of the chase lays all 5 layers out again, and each swap "
-                   "shows its whole canvas at once (priced: borders ~93 ms, tiles ~25, rares ~13; in game 116, 24, 13 ms)")
 def test_zoom_layouts_priced():
     """Zooming keeps each layer's layout within a job's resume budget (2x its 4 ms) on the priced clock,
-    its swap included."""
+    its swap included (before M1.3, 93 ms borders, 25 tiles, 13 rares: each swap showed its whole canvas)."""
     perf, _ = wheel_priced()
     assert all(perf[name].max <= 8 for name in LAYERS), {name: perf[name].max for name in LAYERS}

@@ -1,8 +1,13 @@
--- P1: borders fall behind a fast pan. MOVED: a layout job's cost per frame is bounded (its budget,
--- on the counted clock: 3 us a widget call), but a whole-layer rebuild still lags a fling: coverage
--- is measured and printed, and the layers must be fresh 1 s after stopping.
+-- P1: borders fall behind a fast pan. A 1.5 views/s fling on the counted clock (3 us a widget call):
+-- one layout at a time, a layer the view lacks first (6 ms a frame, else 4), laid out with more
+-- margin ahead of the camera's speed and again before the view 0.3 s ahead leaves it (ui/Engine.lua).
+-- The M1 exit: borders cover the view on >= 97% of frames, tiles >= 99%, every layer fresh 1 s after
+-- stopping, no layout frame over 8 ms; after it, each canvas holds what it shows (the rest parked).
+-- Then a 20-step wheel-out, one step a frame (96 to 16 px a tile): layouts started per layer (the
+-- spike's ~44 for 4 layers, 33 for 5 before M1.3): a held layer (borders) once, where the zoom lands;
+-- the others once a crossing of the [0.7, 1.4] band (5 here at most) and once settled.
 local T = ...
-local JOB_MS = 4 -- ui/Engine.lua: a layout's budget a frame
+local MAX_MS = 8 -- a layout's slowest frame: 2x its budget (Runtime's overrun for a job; test_zoom.py)
 local function R2(v) return math.floor(v * 100 + 0.5) / 100 end
 local sim, ns = T.Boot()
 sim.Run(1)
@@ -31,23 +36,51 @@ for _, lay in ipairs(layers) do
 	shown[#shown + 1] = string.format("%s %d / %.2f ms", lay.name, covered[lay.name], worst[lay.name])
 end
 T.Print("P1: frames covered of 180 at 1.5 views/s / job max ms: %s", table.concat(shown, ", "))
+assert(covered.borders >= 175 and covered.tiles >= 179, "covered: borders " .. covered.borders .. ", tiles " .. covered.tiles)
 for _, lay in ipairs(layers) do assert(T.Fresh(ns, lay), lay.name) end
-for name, ms in pairs(worst) do assert(ms <= JOB_MS * 1.5, name .. " " .. ms) end
+for name, ms in pairs(worst) do assert(ms <= MAX_MS, name .. " " .. ms) end
 assert(#T.Errors(sim, ns) == 0)
 
--- A 20-step wheel-out, one step a frame: layouts started, against layers x settled zooms (1).
-local function Started()
-	local n = 0
-	for _, e in pairs(ns.Runtime.TraceCopy()) do
-		if e.k == "layout" and e.d.e == "start" then n = n + 1 end
+-- After the swaps: a front canvas holds its live regions (and their masks) and nothing else.
+for _, lay in ipairs(layers) do
+	local c, live, masks = lay.front, 0, 0
+	for _, p in pairs(c.pools) do
+		live = live + p.n
+		for i = 1, p.n do
+			if p[i].mask then masks = masks + 1 end
+		end
 	end
-	return n
+	local held = { MaskTexture = 0, other = 0 }
+	for _, r in ipairs(sim.state[c].regions) do
+		local k = sim.state[r].type == "MaskTexture" and "MaskTexture" or "other"
+		held[k] = held[k] + 1
+	end
+	assert(held.other == live and held.MaskTexture == masks,
+		string.format("%s: %d regions, %d masks on its canvas; %d live, %d masks", lay.name, held.other, held.MaskTexture, live, masks))
 end
-local start = Started()
+
+-- The wheel-out: layouts started per layer, counted as traced (the ring keeps 300).
+local zoom = m.cam.zoom
+local crossings = math.floor(math.log(zoom / 16) / math.log(1 / 0.7))
+local started, trace = {}, ns.Runtime.Trace
+ns.Runtime.Trace = function(kind, d)
+	if kind == "layout" and d.e == "start" then started[d.layer] = (started[d.layer] or 0) + 1 end
+	return trace(kind, d)
+end
 for _ = 1, 20 do
 	sim.Wheel(ns.UI.Window.view, -1)
 	sim.Step()
 end
 sim.Run(2)
-T.Print("P1: 20-step wheel-out: %d layouts started for %d layers", Started() - start, #layers)
+ns.Runtime.Trace = trace
+local total, each = 0, {}
+for _, lay in ipairs(layers) do
+	local n = started[lay.name] or 0
+	total = total + n
+	each[#each + 1] = lay.name .. " " .. n
+	assert(lay.zoom == "hold" and n == 1 or lay.zoom ~= "hold" and n <= crossings + 1, lay.name .. ": " .. n .. " layouts")
+end
+T.Print("P1: 20-step wheel-out, %.0f to %.0f px a tile: %d layouts started for %d layers (%s)", zoom, m.cam.zoom, total,
+	#layers, table.concat(each, ", "))
+assert(m.cam.zoom == 16)
 for _, lay in ipairs(layers) do assert(T.Fresh(ns, lay), lay.name) end
