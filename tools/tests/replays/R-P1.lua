@@ -3,7 +3,7 @@
 -- margin ahead of the camera's speed and again before the view 0.3 s ahead leaves it (ui/Engine.lua).
 -- The M1 exit: borders cover the view on >= 97% of frames, tiles >= 99%, every layer fresh 1 s after
 -- stopping, no layout frame over 8 ms; after it, each canvas holds what it shows (the rest parked).
--- Then a 20-step wheel-out, one step a frame (96 to 16 px a tile): layouts started per layer (the
+-- Then a 20-step zoom-out, one step a frame (96 to 16 px a tile): layouts started per layer (the
 -- spike's ~44 for 4 layers, 33 for 5 before M1.3): a held layer (borders) once, where the zoom lands;
 -- the others once a crossing of the [0.7, 1.4] band (5 here at most) and once settled.
 local T = ...
@@ -59,7 +59,7 @@ for _, lay in ipairs(layers) do
 		string.format("%s: %d regions, %d masks on its canvas; %d live, %d masks", lay.name, held.other, held.MaskTexture, live, masks))
 end
 
--- The wheel-out: layouts started per layer, counted as traced (the ring keeps 300).
+-- The zoom-out: layouts started per layer, counted as traced (the ring keeps 300).
 local zoom = m.cam.zoom
 local crossings = math.floor(math.log(zoom / 16) / math.log(1 / 0.7))
 local started, trace = {}, ns.Runtime.Trace
@@ -68,7 +68,7 @@ ns.Runtime.Trace = function(kind, d)
 	return trace(kind, d)
 end
 for _ = 1, 20 do
-	sim.Wheel(ns.UI.Window.view, -1)
+	ns.UI.Motion.ZoomStep(-1) -- the zoom-out button's tick (the wheel's are rationed by time: M1.8b)
 	sim.Step()
 end
 sim.Run(2)
@@ -80,7 +80,7 @@ for _, lay in ipairs(layers) do
 	each[#each + 1] = lay.name .. " " .. n
 	assert(lay.zoom == "hold" and n == 1 or lay.zoom ~= "hold" and n <= crossings + 1, lay.name .. ": " .. n .. " layouts")
 end
-T.Print("P1: 20-step wheel-out, %.0f to %.0f px a tile: %d layouts started for %d layers (%s)", zoom, m.cam.zoom, total,
+T.Print("P1: 20-step zoom-out, %.0f to %.0f px a tile: %d layouts started for %d layers (%s)", zoom, m.cam.zoom, total,
 	#layers, table.concat(each, ", "))
 assert(m.cam.zoom == 16)
 for _, lay in ipairs(layers) do assert(T.Fresh(ns, lay), lay.name) end

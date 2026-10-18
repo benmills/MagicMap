@@ -1,7 +1,8 @@
 """The wheel's zoom (ui/Motion.lua; the spike's Core.lua:13-17, 965-980, 1420-1438) on the
 simulated client: a tick chases its target in log space at 14/s and lands on it, quick ticks
 stack, the tile under the cursor stays put (the buttons': the view's centre), the range is
-16..800, and Camera.Settled / Camera.Velocity say when it's moving.
+16..800, and Camera.Settled / Camera.Velocity say when it's moving. The wheel's ticks are rationed
+by time (M1.8b): a trackpad's flick is a gesture, not a tick an event.
 
   .venv/bin/python -m pytest tools/tests/test_zoom.py -s   # prints the priced draw while zooming
 """
@@ -27,10 +28,11 @@ def test_zoom_chase():
     c, w, m, maths = ns.UI.Camera, ns.UI.Window, ns.UI.Motion, ns.Atlas.Camera
     assert c.Settled() and c.Velocity() == (0, 0)
 
-    # Following: about you. Two quick ticks stack; each frame closes 1 - e^(-14/60) of the log distance.
+    # Following: about you. Two quick ticks stack (a wheel's and the + button's: two wheel events at once
+    # are a burst, test_wheel_burst); each frame closes 1 - e^(-14/60) of the log distance.
     start, cx, cy = c.cam.zoom, c.cam.cx, c.cam.cy
     sim.Wheel(w.view, 1)
-    sim.Wheel(w.view, 1)
+    m.ZoomStep(1)
     goal = start * 1.3 * 1.3
     assert c.cam.zoom == start and not c.Settled()
     zooms = []
@@ -66,10 +68,10 @@ def test_zoom_chase():
     sim.Run(1)
     assert c.cam.zoom == pytest.approx(zoom * 1.3) and (c.cam.cx, c.cam.cy) == pytest.approx((cx, cy))
 
-    # The range: 16..800 px per tile.
+    # The range: 16..800 px per tile (the buttons' ticks: the wheel's are rationed).
     for d, end in ((1, 800), (-1, 16)):
         for _ in range(30):
-            sim.Wheel(w.view, d)
+            m.ZoomStep(d)
         sim.Run(1)
         assert c.cam.zoom == end
 
@@ -87,12 +89,66 @@ def test_zoom_chase():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
+def test_wheel_burst():
+    """M1.8b: a trackpad or Magic Mouse flick sends an event every frame (the M0 gate's `wheel` mark: 40 or
+    more in 0.45 s), each a tick in the spike, so one flick ran to the clamp. It counts by its time: at most
+    ~3 ticks' worth, a smooth chase that lands. A lone notch, and notches apart, stay the spike's tick."""
+    L, sim, ns = shown()
+    c, w, m = ns.UI.Camera, ns.UI.Window, ns.UI.Motion
+    tick = math.log(1.3)
+
+    def ticks(a, b):
+        return math.log(b / a) / tick
+
+    # A lone notch: x1.3, as the spike's.
+    start = c.cam.zoom
+    sim.Wheel(w.view, 1)
+    sim.Run(1)
+    assert c.cam.zoom == start * 1.3
+
+    # The flick: 40 events in 0.45 s, one a frame. ~2.8 ticks, not 40 (the clamp); each frame's move a
+    # share of the chase's, never a tick; then the chase lands where it was headed and settles.
+    start, zooms = c.cam.zoom, []
+    for _ in range(40):
+        sim.Wheel(w.view, 1)
+        sim.Step(0.45 / 40)
+        zooms.append(c.cam.zoom)
+    goal = m.Goal()[0]
+    while c.cam.zoom != goal and len(zooms) < 100:
+        sim.Step()
+        zooms.append(c.cam.zoom)
+    moves = [ticks(a, b) for a, b in zip([start] + zooms, zooms)]
+    print(f"flick: {ticks(start, goal):.2f} ticks, the most a frame {max(moves):.3f}")
+    assert 2.5 < ticks(start, goal) <= 3 and c.cam.zoom == goal
+    assert min(moves) >= 0 and max(moves) < 0.25, moves
+    sim.Run(0.3)
+    assert c.Settled() and c.Velocity() == (0, 0)
+
+    # Scrolling on (an event a frame for 1 s, from rest): 4 ticks a second after the first.
+    start = c.cam.zoom
+    for _ in range(60):
+        sim.Wheel(w.view, -1)
+        sim.Step()
+    sim.Run(1)
+    assert ticks(c.cam.zoom, start) == pytest.approx(1 + 4 * 59 / 60)
+
+    # A wheel mouse's notches 0.3 s apart: each the spike's whole tick, stacked.
+    start = c.cam.zoom
+    for _ in range(4):
+        sim.Wheel(w.view, 1)
+        sim.Run(0.3)
+    sim.Run(1)
+    assert ticks(start, c.cam.zoom) == pytest.approx(4)
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
 @functools.cache
 def wheel_priced():
-    """The wheel in and out a few times on the priced clock: Runtime's perf (each name's slowest call
-    meanwhile), and how many Focus Model was sent."""
+    """Zooming in and out a few times on the priced clock (n ticks at once: the buttons', as the M0 gate
+    priced it; the wheel's are rationed): Runtime's perf (each name's slowest call meanwhile), and how
+    many Focus Model was sent."""
     L, sim, ns = shown()
-    w, perf = ns.UI.Window, ns.Runtime.Perf()[0]
+    m, perf = ns.UI.Motion, ns.Runtime.Perf()[0]
     sends = L.eval("""function(Model)
         local n, focus = { v = 0 }, Model.Focus
         Model.Focus = function(f) n.v = n.v + 1; return focus(f) end
@@ -103,7 +159,7 @@ def wheel_priced():
         perf[name].max = 0
     for d, n in ((1, 3), (-1, 6), (1, 2)):
         for _ in range(n):
-            sim.Wheel(w.view, d)
+            m.ZoomStep(d)
         sim.Run(0.5)
     print(f"zooming: map: draw max {perf['map: draw'].max:.2f} ms, map: motion max {perf['map: motion'].max:.3f} ms, "
           f"{sends.v} Focus sent; layouts' slowest frame: "

@@ -32,9 +32,10 @@ def test_map():
     for layer in e.layers.values():
         assert layer.front.zoom == c.cam.zoom, layer.name
 
-    # Out to the whole continent, and back to you on a right click.
+    # Out to the whole continent (the zoom-out button's ticks, a frame apart: the wheel's are rationed by time),
+    # and back to you on a right click.
     for _ in range(20):
-        sim.Wheel(w.view, -1)
+        ns.UI.Motion.ZoomStep(-1)
         sim.Step()
     sim.Run(2)
     assert c.cam.zoom == 16
