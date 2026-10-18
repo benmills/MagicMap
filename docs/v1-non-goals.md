@@ -1,6 +1,6 @@
 # v1 non-goals
 
-**DRAFT: for the user to confirm.** Drafted from the spike's features (~/code/MagicMap
+**CONFIRMED (D2, 2026-10-18): for the user to confirm.** Drafted from the spike's features (~/code/MagicMap
 README, "Limits") and architecture.md. Each line says what v1 will *not* do and why. Anything
 here can become a goal later, but none of it shapes v1's contracts (docs/decisions/).
 

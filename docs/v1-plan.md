@@ -392,16 +392,16 @@ Counts: **38 work packages** (M0 8, M1 10, M2 4, M3 4, M4 6, M5 3, M6 3) + 5 gat
 
 | # | Decision | Blocks | Recommendation |
 |---|---|---|---|
-| D1 | QuestieDB licence: get permission, ship without derived data (degraded tooltips, services, blip icons), or keep 1.0 private | public upload (M6.3) | decide by M5; internal 1.0 proceeds |
-| D2 | Confirm docs/v1-non-goals.md (DRAFT) as listed in §5 | M1.2, parity.md | confirm |
+| D1 | QuestieDB licence: get permission, ship without derived data (degraded tooltips, services, blip icons), or keep 1.0 private | public upload (M6.3) | **DECIDED 2026-10-18: decide at the very end (before any public upload); internal 2.0.0 proceeds** |
+| D2 | Confirm docs/v1-non-goals.md (DRAFT) as listed in §5 | M1.2, parity.md | **DECIDED 2026-10-18: confirmed as drafted** |
 | D3 | Approve offline filter of Items, ItemIcons, NPCs (no item tooltips, no dungeon NPCs in v1) | M1.2 (memory FAIL) | **DECIDED 2026-10-15: approved** |
 | D4 | Spec source: spike 1.0 code, or bring back "blips past the edge" and path auto-fit | parity.md, scope | **DECIDED 2026-10-15: the spike's code** |
 | D5 | Border look: spike's 1 shadow + line (2 Lines/segment), or demo's 2 halos + line | M1.4 | **DECIDED 2026-10-15: spike (1 shadow + line)** |
-| D6 | Seen-blips cap per instance: 200 (contract) or 300 (spike, needs ADR 0004 amendment) | M4.3, R-S1 | 200 |
-| D7 | Version and channel: re-release as 1.0, or 1.1 / 2.0; CurseForge / Wago / GitHub; beta builds per milestone? | M6.3 | user's call |
-| D8 | Merge mechanics: tag spike `spike-1.0.0` and replace tree (history or squashed), or separate repo; confirm before any push | M6.2 | tag + replace with history |
+| D6 | Seen-blips cap per instance: 200 (contract) or 300 (spike, needs ADR 0004 amendment) | M4.3, R-S1 | **DECIDED 2026-10-18: very high: 5000 seen blips per instance (ADR 0004 amendment in M4.3)** |
+| D7 | Version and channel: re-release as 1.0, or 1.1 / 2.0; CurseForge / Wago / GitHub; beta builds per milestone? | M6.3 | **DECIDED 2026-10-18: 2.x.x: this release is 2.0.0; channel decided at the end** |
+| D8 | Merge mechanics: tag spike `spike-1.0.0` and replace tree (history or squashed), or separate repo; confirm before any push | M6.2 | **DECIDED 2026-10-18: at the end; blunt is fine (giving up the old history is acceptable)** |
 | D9 | Saved name: new SV (e.g. `MagicMapDB_v1`, spike file left orphaned) or keep `MagicMapDB` and clear non-owner root keys once; accept spike rares are lost | M6.1, ADR 0007 | **DECIDED 2026-10-15: new SV name** (spike rares lost, accepted) |
-| D10 | Commit to the play-test sessions: M0 reference shots (spike only), M0, M1, M2, M3, M4, M5 ×2, M6 final, spike disabled, shots per script | every gate | — |
+| D10 | Commit to the play-test sessions: M0 reference shots (spike only), M0, M1, M2, M3, M4, M5 ×2, M6 final, spike disabled, shots per script | every gate | **DECIDED 2026-10-18: one consolidated play-test at the end of the run (scripts a-e + reference shots), not per milestone** |
 
 ## 10. Critic gaps: where each landed
 
