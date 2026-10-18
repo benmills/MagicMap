@@ -84,7 +84,9 @@ telemetry = {
   sets the entry's `stack`, `version`, `session`, traces `error` (`d` = the key) and
   takes an `error` mark (`note` = the key).
 - **Shot**: `stamp` is the local time formatted like the screenshot's file name
-  (`WoWScrnShot_<stamp>.jpg`), taken when SCREENSHOT_SUCCEEDED fires.
+  (`WoWScrnShot_<stamp>.jpg`), taken when SCREENSHOT_SUCCEEDED fires; chat then says
+  `shot <id>: WoWScrnShot_<stamp>, marked`. On SCREENSHOT_FAILED: no mark, a `shot` trace
+  `failed <note>`, and chat says the client took no screenshot.
 - **Kept**: every event of a kind in Telemetry's `KEEP` (`taint`, `art`, `sensor`) as it's traced,
   the first 50 a session: the ring forgets them, and each one fails the gate.
 - **Stats**: every `layout` end, `swap` and `blips` sweep as it's traced, by kind and layer:

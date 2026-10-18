@@ -25,15 +25,36 @@ Before:
 
 During:
 
-- **Marks**: `/mma mark <script><step> <what you saw>` (e.g. `/mma mark a5 tear at the inn`), the
-  moment something looks or feels wrong: a hitch, a tear, a pin in the wrong place, missing art.
-  A mark keeps the last 300 events and the last 120 frames of camera and position (2 s at
-  60 fps), so mark right away, not after walking on. The script's own marks are listed per step.
+- **The client stays in front** the whole session. Alt-tabbing out (to a terminal, a browser)
+  changes what every frame costs and hides the swaps' (docs/evidence/perf-m0.md: the M0 session went
+  to the background 11 times). Notes go in marks, not in another window.
+- **Marks**: `/mma mark <script><step> <what you saw>` (e.g. `/mma mark a5 tear at the inn`): the
+  step's id first, always (the M0 session's `wheel` and `grow` had none). Also the moment something
+  looks or feels wrong: a hitch, a tear, a pin in the wrong place, missing art. A mark keeps the
+  last 300 events and the last 120 frames of camera and position (2 s at 60 fps), so mark right
+  away, not after walking on. Chat answers `marked`.
 - **Shots**: `/mma shot <id> [note]`, the id first (the reference shot list,
-  docs/evidence/shots/README.md), at the spot, zoom and form its row gives. The mark stamps zoom,
-  camera, window and UI scale; the reader pairs it with the spike's `docs/evidence/shots/ref-<id>.jpg`.
-  Print Screen alone takes no mark.
+  docs/evidence/shots/README.md), at the spot, zoom and form its row gives. Chat answers
+  `shot <id>: WoWScrnShot_<stamp>, marked`; no answer, or `the client took no screenshot`: take it
+  again, and say so to the lead. The mark stamps zoom, camera, window and UI scale; the reader pairs
+  it with the spike's `docs/evidence/shots/ref-<id>.jpg`. Print Screen alone takes no mark.
+- **The checklist** under each script lists every mark and shot of it, in order: tick each as chat
+  answers it, and give the ticked list to the lead with the session.
 - Don't `/reload` unless a step says so: each `/reload` ends a session (and writes it).
+
+### The tear walk: Kharanos, col 33
+
+Only here: the play-test's tear (mark "slight tear when moving", session 345b724) was at Kharanos,
+crossing the col 32|33 tile line, and a walk anywhere else doesn't re-check it (the M0 session's
+was in Hillsbrad). Kharanos is in Dun Morogh (uiMap 1426); the tile line runs north-south through
+the village at **x = 47.4** on the zone's map coordinates (the title shows them while the cursor is
+on the map), through the Thunderbrew Distillery.
+
+1. Small map, follow on, the closest zoom (800: wheel in until it stops).
+2. Walk back and forth across x = 47.4, between y ≈ 49 and 53, for **2 minutes**, at a walk and
+   at a run, cursor off the map between checks.
+3. While on the line: `/mma shot small-seam`. Around 1 min: `/mma mark <step> walk`. The moment the
+   ground tears, jumps or shows a seam: `/mma mark <step> tear <what>`, at once (the ring is 2 s).
 
 After:
 
@@ -44,7 +65,11 @@ After:
    names an owner (perf.alloc, the worst-frames ledger, gaps, ourKB after GC, per-state
    histograms, a mark's motion ring).
 
-## M0 gate session (~5 min, Dun Morogh)
+## M0 gate session (~5 min, Dun Morogh): done
+
+Done as sessions #4-#6 (build 1.60.1.70450), read into docs/evidence/perf-m0.md. Still owed by the
+final session (D10): the tear walk (step 5: it was walked in Hillsbrad), the marks with ids, a
+shot. Kept for its steps.
 
 M0 changes nothing visible; this session prices the client so M1's fixes aim at measured costs.
 
@@ -54,9 +79,18 @@ M0 changes nothing visible; this session prices the client so M1's fixes aim at 
 | 2 | `/mma bench regions`, standing still. It hitches while it runs (expected); wait for it to print its result. Once only. | — |
 | 3 | `/mma check art`. Expect no misses; each one prints and is traced (`art`). | `/mma mark m0 art` if it named a miss |
 | 4 | `/mma` (it opens following you; right-click, Follow me, follows again after a drag). Wheel in a tick at a time to the closest zoom, then out to the farthest, then back to the default. | `/mma mark m0 wheel` |
-| 5 | At the closest zoom (1024 today), walk west to east through Kharanos for **2 minutes**, crossing the col 33 tile edge (it runs through Kharanos: the play-test's tear) several times. Watch for a tear. | `/mma mark m0 walk` at ~1 min; `/mma shot small-seam` while crossing the edge; `/mma mark m0 tear <what>` the moment you see one |
+| 5 | The tear walk (above): Kharanos, x = 47.4, at 800, **2 minutes**. | `/mma mark m0 walk` at ~1 min; `/mma shot small-seam` on the line; `/mma mark m0 tear <what>` the moment you see one |
 | 6 | Drag the map away (follow off), fling it a few times, let it settle; right-click to follow again. | `/mma mark m0 fling` |
 | 7 | Every session's "after". | — |
+
+Checklist:
+
+- [ ] `/mma mark m0 art` (only if step 3 named a miss)
+- [ ] `/mma mark m0 wheel`
+- [ ] `/mma mark m0 walk` (Kharanos, x = 47.4, ~1 min in)
+- [ ] `/mma shot small-seam` (on the line)
+- [ ] `/mma mark m0 tear <what>` (only if one shows)
+- [ ] `/mma mark m0 fling`
 
 The lead writes `docs/evidence/perf-m0.md` from it: the ~20 µs/region price (bench), the top
 allocator (perf.alloc: `game.part blips` against `model.observe`), the swap costs (stats
@@ -70,13 +104,29 @@ small on the Minimap's spot, follow on, default zoom.
 | # | Do | Mark / shot |
 |---|---|---|
 | a1 | Open: if the map is hidden, `/mma toggle`. First open of the session. At the Thunderbrew door, cursor off. | `/mma shot small-home` |
-| a2 | Wheel in a tick at a time to the closest zoom, then out to the farthest, and back: 16→800→16 (the spike's range). Then the same as fast as the wheel turns. | `/mma mark a2 wheel` |
+| a2 | Wheel in a tick at a time to the closest zoom, then out to the farthest, and back: 16→800→16 (the spike's range). Then the same as fast as the wheel turns. With a trackpad or Magic Mouse too: one flick, then a slow drag. | `/mma mark a2 wheel <device>` after each device (`trackpad`, `mouse`) |
 | a3 | Fling: drag-pan fast in several directions, release, let it settle each time. | `/mma mark a3 fling` |
-| a4 | Zoom to the closest (800), small, follow on. Walk for **2 minutes** through Kharanos, crossing the col 33 tile edge (it runs through the village) several times. | `/mma shot small-seam` on the edge; `/mma mark a4 tear <what>` on any tear |
+| a4 | The tear walk (above): Kharanos, x = 47.4, at 800, small, follow on, **2 minutes**. | `/mma mark a4 walk` at ~1 min; `/mma shot small-seam` on the line; `/mma mark a4 tear <what>` on any tear |
 | a5 | Grow and shrink ×5 (M, or the red button): let each animation end. | `/mma mark a5 grow` after the 5th; `/mma shot big-home` once as M lands, cursor off |
 | a6 | Walk or ride into Ironforge (uiMap 1455), The Commons. Small at the default zoom, then big. | `/mma shot small-indoor`, `/mma shot big-indoor` |
 | a7 | Big map: zoom out to the continent (16–24 px/tile) and pan over the Eastern Kingdoms. | `/mma shot big-continent` (all the way out); `/mma mark a7 continent` |
 | a8 | Shrink. Every session's "after". | — |
+
+Checklist:
+
+- [ ] `/mma shot small-home` (a1)
+- [ ] `/mma mark a2 wheel mouse`
+- [ ] `/mma mark a2 wheel trackpad`
+- [ ] `/mma mark a3 fling`
+- [ ] `/mma mark a4 walk` (Kharanos, x = 47.4, ~1 min in)
+- [ ] `/mma shot small-seam` (on the line)
+- [ ] `/mma mark a4 tear <what>` (only if one shows)
+- [ ] `/mma shot big-home` (a5, as M lands)
+- [ ] `/mma mark a5 grow` (after the 5th)
+- [ ] `/mma shot small-indoor` (a6)
+- [ ] `/mma shot big-indoor` (a6)
+- [ ] `/mma shot big-continent` (a7)
+- [ ] `/mma mark a7 continent`
 
 ## Script (b): a 25-quest hub (M2)
 
@@ -95,6 +145,15 @@ or Sentinel Hill (Westfall, 1436). Some quests complete (turn-in), some offers (
 | b7 | Big map, wheeled until the quest areas fill it: areas and estimates. | `/mma shot big-quests` |
 | b8 | Every session's "after". | — |
 
+Checklist:
+
+- [ ] `/mma shot small-quests` (b2)
+- [ ] `/mma mark b3 tooltips`
+- [ ] `/mma mark b4 follow`
+- [ ] `/mma mark b5 zoom`
+- [ ] `/mma mark b6 inside`
+- [ ] `/mma shot big-quests` (b7)
+
 ## Script (c): route, corpse run, keys in combat (M3)
 
 Start: every session's "before" (spike off, `/mma check log` on) in a zone with a followed quest
@@ -108,6 +167,15 @@ whose area is off the view (Dun Morogh or Elwynn).
 | c4 | Get into combat (attack a mob and stay in combat). In combat, once each: M (grow), Escape (shrink), L (Blizzard's quest log opens), `/mma toggle` twice (Blizzard's minimap back, then ours). | `/mma mark c4 combat keys` |
 | c5 | Out of combat: the same four again. | `/mma mark c5 keys` |
 | c6 | Every session's "after". Taint must be 0 (`--budgets` gate). | — |
+
+Checklist:
+
+- [ ] `/mma shot small-edge-arrow` (c1)
+- [ ] `/mma mark c2 waypoint`
+- [ ] `/mma shot small-corpse` (c3, a ghost, small)
+- [ ] `/mma mark c3 corpse`
+- [ ] `/mma mark c4 combat keys`
+- [ ] `/mma mark c5 keys`
 
 ## Script (d): capital, indoors, party, toggles in combat (M4)
 
@@ -124,6 +192,16 @@ in a group of two if you can (a friend or an alt).
 | d6 | `/reload` mid-session: tracking comes back as it was (this starts a second session: read both). | `/mma mark d6 after reload` |
 | d7 | Every session's "after". | — |
 
+Checklist:
+
+- [ ] `/mma shot small-town` (d1)
+- [ ] `/mma mark d2 gear`
+- [ ] `/mma shot small-indoor` (d3)
+- [ ] `/mma shot small-group` (d4)
+- [ ] `/mma mark d4 party`
+- [ ] `/mma mark d5 combat toggles`
+- [ ] `/mma mark d6 after reload`
+
 ## Script (e): continent zoom with Questie and GatherMate (M4, M5)
 
 Start: every session's "before" (spike off, `/mma check log` on) with Questie and GatherMate2
@@ -135,6 +213,13 @@ enabled (the only other addons), in Elwynn Forest.
 | e2 | Shrink: their minimap pins around you on the small map; Rotate Minimap on (Interface options): hidden; off again. | `/mma shot small-addon-pins` before Rotate; `/mma mark e2 minimap pins` |
 | e3 | Close ours and open Blizzard's world map: their pins are back on it. | `/mma mark e3 pins returned` |
 | e4 | Every session's "after". | — |
+
+Checklist:
+
+- [ ] `/mma shot big-addon-pins` (e1, at 140, big)
+- [ ] `/mma shot small-addon-pins` (e2, before Rotate Minimap)
+- [ ] `/mma mark e2 minimap pins`
+- [ ] `/mma mark e3 pins returned`
 
 ## Shots
 

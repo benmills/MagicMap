@@ -157,6 +157,7 @@ def test_telemetry_sim(tmp_path, capsys):
     assert ring[-1].zoom == ns.UI.Camera.cam.zoom and ring[-1].w > 0 and ring[-1].h > 0
     a = shot.shot
     assert shot.note == "kharanos-1024-small tear" and a.zoom == ns.UI.Camera.cam.zoom and a.uiScale == 1
+    assert any("shot kharanos-1024-small tear: WoWScrnShot_" in p for p in sim.prints.values())  # said in chat
     assert a.w > 0 and a.left is not None and a.screenW == 1920 and a.big is False and len(shot.motion) == 120
     p = s.perf
     assert p.ourKBLoad == 2400 and p.ourKB == 2400 and p.grace.gc is not None  # the sim's GetAddOnMemoryUsage

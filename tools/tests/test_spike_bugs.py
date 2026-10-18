@@ -135,8 +135,14 @@ return T
 """
 
 
+# Replays a price measured in game fails (docs/evidence/perf-m0.md), each until the package named flips it.
+XFAIL = {"P3": "M1.5b: every probe makes ~0.35 KB of garbage, answer or not, in game too (here idle 3.5 KB a "
+               "frame, the client's p95 34-40 KB): the sensor must probe less"}
+
+
 def ids():
-    return sorted(os.path.basename(p)[len("R-"):-len(".lua")] for p in glob.glob(os.path.join(REPLAYS, "R-*.lua")))
+    return [pytest.param(b, marks=pytest.mark.xfail(strict=True, reason=XFAIL[b])) if b in XFAIL else b
+            for b in sorted(os.path.basename(p)[len("R-"):-len(".lua")] for p in glob.glob(os.path.join(REPLAYS, "R-*.lua")))]
 
 
 @pytest.mark.parametrize("bug", ids())

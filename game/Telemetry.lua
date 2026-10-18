@@ -230,16 +230,23 @@ Runtime.On("ADDON_ACTION_BLOCKED", "telemetry.taint", Taint)
 Runtime.On("ADDON_ACTION_FORBIDDEN", "telemetry.taint", Taint)
 
 -- Shots: stamped when asked (what the screenshot shows), marked on SCREENSHOT_SUCCEEDED;
--- stamp as in WoWScrnShot_<stamp>.jpg.
+-- stamp as in WoWScrnShot_<stamp>.jpg. Either way it says so in chat, after the picture
+-- (the M0 session took none, and nothing told it).
 local shot -- the pending /mma shot: { note, at = its stamp }
 Runtime.On("SCREENSHOT_SUCCEEDED", "telemetry.shot", function()
 	if not shot then return end -- not ours (Print Screen)
-	local note = shot.note ~= "" and shot.note or nil
+	local note, stamp = shot.note ~= "" and shot.note or nil, date("%m%d%y_%H%M%S")
 	Runtime.Trace("shot", note)
-	Mark("shot", note, date("%m%d%y_%H%M%S"), shot.at)
+	Mark("shot", note, stamp, shot.at)
+	Game.Print("shot " .. (note or "") .. ": WoWScrnShot_" .. stamp .. ", marked")
 	shot = nil
 end)
-Runtime.On("SCREENSHOT_FAILED", "telemetry.shot failed", function() shot = nil end)
+Runtime.On("SCREENSHOT_FAILED", "telemetry.shot failed", function()
+	if not shot then return end
+	Runtime.Trace("shot", "failed " .. shot.note)
+	Game.Print("shot " .. shot.note .. ": the client took no screenshot (no mark)")
+	shot = nil
+end)
 
 Game.Slash("mark", "<note>: save state and the recent trace (written on /reload)", function(note)
 	note = note ~= "" and note or nil

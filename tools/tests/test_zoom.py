@@ -5,11 +5,14 @@ stack, the tile under the cursor stays put (the buttons': the view's centre), th
 
   .venv/bin/python -m pytest tools/tests/test_zoom.py -s   # prints the priced draw while zooming
 """
+import functools
 import math
 
 import pytest
 
 from test_addon import boot, errors
+
+LAYERS = ("map: tiles", "map: borders", "map: labels", "map: blips", "map: rares")
 
 
 def shown():
@@ -84,9 +87,10 @@ def test_zoom_chase():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
+@functools.cache
 def wheel_priced():
-    """The wheel in and out a few times on the priced clock: Runtime's perf, and how many Focus
-    Model was sent meanwhile."""
+    """The wheel in and out a few times on the priced clock: Runtime's perf (each name's slowest call
+    meanwhile), and how many Focus Model was sent."""
     L, sim, ns = shown()
     w, perf = ns.UI.Window, ns.Runtime.Perf()[0]
     sends = L.eval("""function(Model)
@@ -95,13 +99,15 @@ def wheel_priced():
         return n
     end""")(ns.Model)
     sim.Price(True)
-    perf["map: draw"].max, perf["map: motion"].max = 0, 0
+    for name in ("map: draw", "map: motion", *LAYERS):
+        perf[name].max = 0
     for d, n in ((1, 3), (-1, 6), (1, 2)):
         for _ in range(n):
             sim.Wheel(w.view, d)
         sim.Run(0.5)
     print(f"zooming: map: draw max {perf['map: draw'].max:.2f} ms, map: motion max {perf['map: motion'].max:.3f} ms, "
-          f"{sends.v} Focus sent")
+          f"{sends.v} Focus sent; layouts' slowest frame: "
+          + ", ".join(f"{name[5:]} {perf[name].max:.1f} ms" for name in LAYERS))
     return perf, sends.v
 
 
@@ -112,9 +118,17 @@ def test_zoom_motion_priced():
     assert perf["map: motion"].max <= 2 and sends <= 6
 
 
-@pytest.mark.xfail(strict=True, reason="M1.3: the draw step SetScales every canvas each chase frame "
-                   "(borders ~2200 regions); borders never scaled and labels moved without it bring it down")
 def test_zoom_draw_priced():
-    """Zooming keeps the draw step within a call's budget (2 ms) on the priced clock."""
+    """Zooming keeps the draw step within a call's budget (2 ms) on the priced clock (a canvas's
+    SetScale is ~8 us however many regions it holds: /mma bench regions)."""
     perf, _ = wheel_priced()
     assert perf["map: draw"].max <= 2
+
+
+@pytest.mark.xfail(strict=True, reason="M1.3: every frame of the chase lays all 5 layers out again, and each swap "
+                   "shows its whole canvas at once (priced: borders ~93 ms, tiles ~25, rares ~13; in game 116, 24, 13 ms)")
+def test_zoom_layouts_priced():
+    """Zooming keeps each layer's layout within a job's resume budget (2x its 4 ms) on the priced clock,
+    its swap included."""
+    perf, _ = wheel_priced()
+    assert all(perf[name].max <= 8 for name in LAYERS), {name: perf[name].max for name in LAYERS}

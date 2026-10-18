@@ -53,11 +53,16 @@ local function Secure(fn, ...)
 	return a, b
 end
 
--- The priced clock (Sim.Price(true)): what the client charges that plain Lua
--- doesn't, in ms added to debugprofilestop. A probe is one Minimap mouseover read;
--- a frame's Show, Hide and SetScale cost per region under it, hidden ones too.
--- From the play-test (docs/v1-plan.md §2); update from /mma bench regions.
-Sim.PRICES = { probe = 0.1, Show = 0.02, Hide = 0.02, SetScale = 0.02 }
+-- The priced clock (Sim.Price(true)): what the client charges that plain Lua doesn't,
+-- in ms added to debugprofilestop, as measured in game (docs/evidence/perf-m0.md):
+-- probe: one Minimap mouseover read (a 400-probe sweep in 2 frames of 0.5 ms);
+-- shown, shownLine: each region (line) a frame's Show makes visible (the swaps' ms over
+-- their live regions); Show, Hide, SetScale, SetAlpha, SetPoint: a frame's own call, per
+-- region under it, hidden ones too (/mma bench regions, canvases of 1000 clear Lines).
+-- One widget call's own cost is the counted clock's (Sim.Counted: 3 us, above the bench's
+-- 0.22-1.7 us for SetPoint, SetStartPoint, Create*, SetParent).
+Sim.PRICES = { probe = 0.002, shown = 0.02, shownLine = 0.035,
+	Show = 0.000004, Hide = 0.00002, SetScale = 0.00001, SetAlpha = 0.000004, SetPoint = 0.000001 }
 Sim.pricing, Sim.priced = false, 0
 function Sim.Price(on) Sim.pricing = on and true or false end
 
@@ -177,6 +182,7 @@ end
 Sim.Rect = rect
 
 local VALID_POINTS = POINT_X
+local charge -- (Visibility, below)
 
 function Region:SetPoint(point, rel, relPoint, x, y)
 	assert(VALID_POINTS[point], "SetPoint: bad point " .. tostring(point))
@@ -201,6 +207,7 @@ function Region:SetPoint(point, rel, relPoint, x, y)
 	e = e or (S[self].spare and table.remove(S[self].spare)) or {} -- reused (no garbage per SetPoint)
 	e.point, e.rel, e.relPoint, e.x, e.y = point, rel, relPoint, x or 0, y or 0
 	points[#points + 1] = e
+	if isFrame(self) then charge("SetPoint", self) end
 end
 
 function Region:SetAllPoints(rel)
@@ -290,8 +297,20 @@ local function regionsUnder(f)
 	for _, c in ipairs(S[f].children) do n = n + regionsUnder(c) end
 	return n
 end
-local function charge(what, frame)
+function charge(what, frame)
 	if Sim.pricing then Sim.priced = Sim.priced + Sim.PRICES[what] * (frame and regionsUnder(frame) or 1) end
+end
+-- The lines and other regions a shown frame shows (each shown, as every frame between).
+local function shownUnder(f, lines, others)
+	for _, r in ipairs(S[f].regions) do
+		if S[r].shown then
+			if S[r].type == "Line" then lines = lines + 1 else others = others + 1 end
+		end
+	end
+	for _, c in ipairs(S[f].children) do
+		if S[c].shown then lines, others = shownUnder(c, lines, others) end
+	end
+	return lines, others
 end
 
 local function setShown(self, shown)
@@ -301,6 +320,10 @@ local function setShown(self, shown)
 	charge(shown and "Show" or "Hide", self)
 	local before = visibleFrames(self, {})
 	st.shown = shown
+	if shown and Sim.pricing and visible(self) then
+		local lines, others = shownUnder(self, 0, 0)
+		Sim.priced = Sim.priced + lines * Sim.PRICES.shownLine + others * Sim.PRICES.shown
+	end
 	if shown then
 		for _, f in ipairs(visibleFrames(self, {})) do Sim.FireScript(f, "OnShow") end
 	else
@@ -313,7 +336,12 @@ function Region:Hide() setShown(self, false) end
 function Region:SetShown(on) setShown(self, not not on) end
 function Region:IsShown() return S[self].shown end
 function Region:IsVisible() return visible(self) end
-function Region:SetAlpha(a) assert(type(a) == "number", "SetAlpha: number expected"); S[self].alpha = math.max(0, math.min(1, a)) end
+function Region:SetAlpha(a)
+	assert(type(a) == "number", "SetAlpha: number expected")
+	a = math.max(0, math.min(1, a))
+	if a ~= S[self].alpha and isFrame(self) then charge("SetAlpha", self) end
+	S[self].alpha = a
+end
 function Region:GetAlpha() return S[self].alpha end
 function Region:GetEffectiveAlpha()
 	local a, obj = 1, self
@@ -705,7 +733,8 @@ local function blipsAt(m, px, py)
 	return names
 end
 -- A probe (priced): what answers is a fresh TooltipData, as the client's (its
--- line's colour too), so every answer allocates; nothing there answers nil.
+-- line's colour too), so every answer allocates; nothing there answers nil, after
+-- making as much garbage (0.34 KB: in game every probe makes ~0.35-0.4 KB, docs/evidence/perf-m0.md).
 C_TooltipInfo = {
 	GetMinimapMouseover = function()
 		charge("probe")
@@ -713,7 +742,10 @@ C_TooltipInfo = {
 		local x, y = Sim.cursorX, Sim.cursorY
 		if st.soft then x, y = st.hoverX, st.hoverY end
 		local names = x and blipsAt(Minimap, x, y)
-		if not names then return nil end
+		if not names then
+			Sim.missed = { type = 21, dataInstanceID = Sim.frame, lines = {}, args = {} }
+			return nil
+		end
 		return { type = 21, dataInstanceID = Sim.frame,
 			lines = { { type = 0, leftText = table.concat(names, "\n"), leftColor = CreateColor(1, 1, 1, 1) } } }
 	end,

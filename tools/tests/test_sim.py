@@ -22,7 +22,8 @@ def test_fidelity():
     G = L.globals()
     sim.Clock = L.eval("function() return 0 end")  # only what's priced moves the clock
 
-    # Priced (off by default): 100 probes ~ 10 ms; a frame's Show, Hide, SetScale per region under it.
+    # Priced (off by default, docs/evidence/perf-m0.md): 100 probes 0.2 ms; a frame's Show per region it
+    # makes visible (a line dearer), and its own Show, Hide, SetScale, SetAlpha a little per region under it.
     probes = L.eval("""function(n)
         local t0 = debugprofilestop()
         for _ = 1, n do Minimap:UpdateMouseoverAtPoint(0, 0); C_TooltipInfo.GetMinimapMouseover() end
@@ -30,21 +31,24 @@ def test_fidelity():
     end""")
     assert probes(100) == 0
     sim.Price(True)
-    assert abs(probes(100) - 10) < 1e-6
+    assert abs(probes(100) - 0.2) < 1e-9
     regions = L.eval("""function()
         local f = CreateFrame("Frame", nil, UIParent)
         for _ = 1, 50 do f:CreateTexture() end
         local child = CreateFrame("Frame", nil, f)
-        for _ = 1, 50 do child:CreateLine():Hide() end -- hidden ones pay too
+        for _ = 1, 50 do child:CreateLine():Hide() end -- hidden ones pay a little
+        for _ = 1, 10 do child:CreateLine() end
         f:Hide()
         local function ms(fn) local t0 = debugprofilestop(); fn(); return debugprofilestop() - t0 end
         return ms(function() f:Show() end), ms(function() f:Show() end), ms(function() f:SetScale(0.5) end),
-            ms(function() f:SetScale(0.5) end), ms(function() f:Hide() end)
+            ms(function() f:SetScale(0.5) end), ms(function() f:SetAlpha(0) end), ms(function() f:Hide() end)
     end""")()
-    assert [round(ms, 6) for ms in regions] == [2, 0, 2, 0, 2], regions
+    # 50 textures and 10 lines shown: 50 x 0.02 + 10 x 0.035, and 110 under at 0.004 us.
+    assert [round(ms, 6) for ms in regions] == [1.35044, 0, 0.0011, 0, 0.00044, 0.0022], regions
     sim.Price(False)
 
-    # GetMinimapMouseover allocates: a fresh TooltipData each answer; nothing there: nil.
+    # GetMinimapMouseover allocates: a fresh TooltipData each answer; nothing there: nil, after as much
+    # garbage (~0.35 KB a probe in game, answer or not).
     hit = L.eval("""function()
         local north, west = UnitPosition("player")
         Sim.minimapBlips = { { "Mailbox", north, west } }
@@ -53,11 +57,16 @@ def test_fidelity():
         Minimap:UpdateMouseoverAtPoint(l + w / 2, b + h / 2)
         local a, b2 = C_TooltipInfo.GetMinimapMouseover(), C_TooltipInfo.GetMinimapMouseover()
         Minimap:UpdateMouseoverAtPoint(l + 2, b + 2)
+        collectgarbage("stop")
+        local kb = collectgarbage("count")
         local miss = C_TooltipInfo.GetMinimapMouseover()
+        kb = collectgarbage("count") - kb
+        collectgarbage("restart")
         Minimap:SetUsingSoftCursor(false)
-        return a ~= b2 and a.lines ~= b2.lines and a.lines[1].leftText == "Mailbox" and a.lines[1].leftColor ~= nil, miss
+        return a ~= b2 and a.lines ~= b2.lines and a.lines[1].leftText == "Mailbox" and a.lines[1].leftColor ~= nil, miss,
+            kb > 0.3
     end""")()
-    assert hit == (True, None)
+    assert hit == (True, None, True)
 
     # The view radius is 0 while a new zoom applies (E3/E6): the frame it's set in and the next.
     radius = L.eval("function() return C_Minimap.GetViewRadius() end")
