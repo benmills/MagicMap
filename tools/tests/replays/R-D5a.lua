@@ -15,6 +15,7 @@ for i, b in ipairs(want) do
 	list[i] = { b[1], north, west }
 end
 sim.minimapBlips = list
+sim.FireEvent("MINIMAP_UPDATE_TRACKING") -- (they show: tracking on, so the sensor looks again at once)
 sim.ZOOM_FRAMES = 3 -- (late: the frame it's set in and two more)
 sim.Run(3)
 local obs = Game.obs

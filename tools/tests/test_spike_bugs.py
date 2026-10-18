@@ -136,8 +136,7 @@ return T
 
 
 # Replays a price measured in game fails (docs/evidence/perf-m0.md), each until the package named flips it.
-XFAIL = {"P3": "M1.5b: every probe makes ~0.35 KB of garbage, answer or not, in game too (here idle 3.5 KB a "
-               "frame, the client's p95 34-40 KB): the sensor must probe less"}
+XFAIL = {}
 
 
 def ids():

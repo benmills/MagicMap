@@ -146,6 +146,8 @@ def test_telemetry_sim(tmp_path, capsys):
     sim.Slash("/mma mark mid-walk")
     sim.Slash("/mma shot kharanos-1024-small tear")
     sim.Step()
+    sim.player.speed = 0
+    sim.Run(2)  # standing: the sensor's looks are sweeps (game/Blips.lua)
     sim.FireEvent("PLAYER_LOGOUT")
     tel = L.globals().MagicMapAtlasDB.telemetry
     s = tel.sessions[1]
@@ -172,7 +174,7 @@ def test_telemetry_sim(tmp_path, capsys):
     assert s.stats["layout tiles"].n >= 1 and s.stats["layout tiles"].regions > 0 and s.stats["swap tiles"].lag == 0
     swap = s.stats["swap borders"]  # each swap's own cost and what it shows (M1.3: parked)
     assert swap.ms is not None and swap.live > 0 and swap.parked == 0
-    assert s.stats["blips"].n >= 1 and s.stats["blips"].sweep >= 1  # the sensor's sweeps (game/Blips.lua)
+    assert s.stats["blips"].n >= 1 and s.stats["blips"].sweep >= 1  # the sensor's sweeps (game/Blips.lua: standing)
     assert s.bench["1.60.1.70009"].ops.CreateLine.us == 21
     assert not errors(sim, ns), errors(sim, ns)
 

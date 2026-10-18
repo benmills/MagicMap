@@ -81,29 +81,64 @@ assert(Stop(), "stopped again: each once, exact")
 local errs = T.Errors(sim, ns)
 assert(#errs == 0, table.concat(errs, "\n"))
 
--- A client whose square isn't ours (a patch) says so ("sensor" square, kept: each one a bug).
--- Smaller: lone squares refine ours past DRIFT. Bigger than a lone one reads: one blip as four.
-local function Square(hit)
+-- A client whose square isn't ours (a patch) says so ("sensor" square, kept: each one a bug,
+-- and marked). Smaller: lone squares refine ours past DRIFT. Bigger than a lone one reads: one
+-- blip reads as four, so ours takes its size and the four are one. And the view radius changing
+-- while a blip is measured (indoors at a door: the client's blips move on the Minimap) reads a
+-- square of nothing: that refined ours below the client's, after which every blip read as
+-- four, for good (session #5's 12 `sensor` events, at Tarren Mill); now that measure is dropped.
+-- hit: the client's square; flip(n): whether the n-th answer turns indoors over.
+local function Square(hit, flip)
 	local sim2, ns2 = T.Shown()
 	ns2.Atlas.BlipService = function() return nil end
 	sim2.BLIP_HIT = hit
-	local p2, out = sim2.player, {}
+	local p2, out, at = sim2.player, {}, {}
 	for i = 1, 10 do -- lone ones, around you
 		local a = i * 2 * math.pi / 10
-		local north, west = A.TileToWorld(p2.col + 90 * math.sin(a) * yd, p2.row - 90 * math.cos(a) * yd)
+		at[i] = { 90 * math.sin(a), 90 * math.cos(a) }
+		local north, west = A.TileToWorld(p2.col + at[i][1] * yd, p2.row - at[i][2] * yd)
 		out[i] = { "Herb " .. i, north, west }
 	end
+	if flip then
+		local probe, n = C_TooltipInfo.GetMinimapMouseover, 0
+		C_TooltipInfo.GetMinimapMouseover = function()
+			local d = probe()
+			if d then
+				n = n + 1
+				if flip(n) then sim2.indoors = not sim2.indoors end
+			end
+			return d
+		end
+	end
 	sim2.minimapBlips = out
+	sim2.FireEvent("MINIMAP_UPDATE_TRACKING") -- (they show: tracking on)
 	sim2.Run(10)
-	local said = {}
+	local said, marks, exact = {}, 0, 0
 	for _, e in ipairs(MagicMapAtlasDB.telemetry.sessions[#MagicMapAtlasDB.telemetry.sessions].kept) do
 		if e.k == "sensor" then said[#said + 1] = e.d end
 	end
-	return said, #ns2.Game.obs.blips.list
+	for _, m in ipairs(MagicMapAtlasDB.telemetry.marks) do marks = marks + (m.kind == "sensor" and 1 or 0) end
+	local list = ns2.Game.obs.blips.list
+	for i, w in ipairs(at) do
+		for _, b in ipairs(list) do
+			if b.name == "Herb " .. i and not b.rough and math.abs((b.pos.col - p2.col) / yd - w[1]) < 0.5
+				and math.abs((p2.row - b.pos.row) / yd - w[2]) < 0.5 then exact = exact + 1 end
+		end
+	end
+	assert(#T.Errors(sim2, ns2) == 0, table.concat(T.Errors(sim2, ns2), "\n"))
+	return said, #list, exact, marks
 end
-local small, n = Square(5.6)
-T.Print("D3: a square of 5.6: %d known of 10, traced %s", n, small[1] and ("px " .. small[1].px) or "nothing")
-assert(#small == 1 and small[1].e == "square" and small[1].px < 6 and n == 10)
-local big, four = Square(10.5)
-T.Print("D3: a square of 10.5: %d known of 10, traced %d (px %s)", four, #big, big[1] and big[1].px or "-")
-assert(#big >= 1 and big[1].e == "square" and big[1].n == 4 and math.abs(big[1].px - 10.5) < 0.1)
+local small, n, exact, marks = Square(5.6)
+T.Print("D3: a square of 5.6: %d known of 10, %d exact, traced %s, %d marked", n, exact,
+	small[1] and ("px " .. small[1].px) or "nothing", marks)
+assert(#small == 1 and small[1].e == "square" and small[1].px < 6 and n == 10 and exact == 10 and marks == 1)
+local big, four
+big, four, exact, marks = Square(10.5)
+T.Print("D3: a square of 10.5: %d known of 10, %d exact, traced %d (px %s, n %s), %d marked", four, exact, #big,
+	big[1] and big[1].px or "-", big[1] and big[1].n or "-", marks)
+assert(#big == 1 and big[1].e == "square" and big[1].n == 4 and math.abs(big[1].px - 10.5) < 0.1 and four == 10
+	and exact == 10 and marks == 1)
+local door
+door, n, exact = Square(8.1, function(k) return k == 1 or k == 41 end) -- in at a door, then out
+T.Print("D3: indoors and out mid-measure: %d known of 10, %d exact, traced %d", n, exact, #door)
+assert(#door == 0 and n == 10 and exact == 10)

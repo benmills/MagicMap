@@ -55,7 +55,7 @@ telemetry = {
     [key] = { name, msg, stack, count, first = <time()>, last = <time()>, version, session },
   },
   marks = {             -- newest last, 20 kept
-    { kind = "error" | "taint" | "mark" | "shot", note, t = <time()>, stamp = "MMDDYY_HHMMSS",
+    { kind = "error" | "taint" | "sensor" | "mark" | "shot", note, t = <time()>, stamp = "MMDDYY_HHMMSS",
       session, version, frame, state = { ... }, trace = { <events> },
       motion = { { f, ms, cx, cy, zoom, px, py, w, h }, ... }, -- the last 120 frames, oldest first
       shot = { inst, cx, cy, zoom, w, h, left, top, big, uiScale, screenW, screenH } }, -- shot marks only
@@ -88,7 +88,9 @@ telemetry = {
   `shot <id>: WoWScrnShot_<stamp>, marked`. On SCREENSHOT_FAILED: no mark, a `shot` trace
   `failed <note>`, and chat says the client took no screenshot.
 - **Kept**: every event of a kind in Telemetry's `KEEP` (`taint`, `art`, `sensor`) as it's traced,
-  the first 50 a session: the ring forgets them, and each one fails the gate.
+  the first 50 a session: the ring forgets them, and each one fails the gate. The first `sensor`
+  event of each `e` a session takes a `sensor` mark (`note` = `e` and its `why` or `px`), so the
+  state and the trace it came in are kept, as a taint's first per function takes a `taint` mark.
 - **Stats**: every `layout` end, `swap` and `blips` sweep as it's traced, by kind and layer:
   `n`, and the largest absolute value of each number in its `d` (a swap's `ms` and `live`: the
   frame max's suspect; its `x`, `y` are canvas offsets: the tear's ~33,000 px suspect); a swap's `lag`
@@ -133,7 +135,7 @@ Their `d`:
 | `saved` | `{ owner, e = "reset", was }` or `{ owner, e = "newer", v }` |
 | `minimap` | `"engaged"` or `"released"` |
 | `blips` | `{ sweep, blips, yd, frames, probes }`: the sweep's number, the blips the sensor knows after it, its reach (yd), and the frames and probes it took |
-| `sensor` | `{ e = "blind", why }`: for 1 s the sensor couldn't read the Minimap where Apply placed it, `why` = `hidden`, `rotated` or `moved` (something fights Apply: G3); or `{ e = "square", px [, n = 4] }`: the refined answer square (screen units each way) strayed past 25% of the measured 8, or `n = 4`: a square too big to read as lone, one blip measured as four (D3) |
+| `sensor` | `{ e = "blind", why }`: for 1 s the sensor couldn't read the Minimap where Apply placed it, `why` = `hidden`, `rotated` or `moved` (something fights Apply: G3); or `{ e = "square", px [, n = 4] }`: the refined answer square (screen units each way) strayed past 25% of the measured 8, or `n = 4`: one blip read as four (a square too big to read as lone, D3), so the sensor took the client's size, `px` |
 
 ## Reading it
 
