@@ -7,7 +7,7 @@
 local _, ns = ...
 local UI = ns.UI
 local Atlas, Runtime, Engine = ns.Atlas, ns.Runtime, ns.UI.Engine
-local Get, Unget, Yield = Engine.Get, Engine.Unget, Runtime.Yield
+local Get, Unget, At, Yield = Engine.Get, Engine.Unget, Engine.At, Runtime.Yield
 
 local TITLE, BODY = "Fonts\\MORPHEUS.TTF", "Fonts\\FRIZQT__.TTF"
 local PAD = 3 -- px a label keeps clear of placed labels and pins
@@ -76,7 +76,7 @@ UI.Labels = Engine.Layer("labels", 3, function(c, inst, zoom, c0, r0, c1, r1)
 			local t = Get(c, "flight", "tex", MakePin)
 			t:SetAtlas(FLIGHT[f.faction] or "taxinode_neutral")
 			t:SetSize(PIN, PIN)
-			t:SetPoint("CENTER", c, "TOPLEFT", x, -y)
+			At(c, t, "CENTER", f.col, f.row)
 			pins[#pins + 1] = { x - PIN / 2, y - PIN / 2, x + PIN / 2, y + PIN / 2 }
 		end
 	end
@@ -100,7 +100,7 @@ UI.Labels = Engine.Layer("labels", 3, function(c, inst, zoom, c0, r0, c1, r1)
 				if Clear(boxes, x0, y0, x1, y1) and (zoom < (st.over or 0) or Clear(pins, x0, y0, x1, y1)) then
 					boxes[#boxes + 1] = { x0, y0, x1, y1 }
 					at = s
-					fs:SetPoint("CENTER", c, "TOPLEFT", x, -y)
+					At(c, fs, "CENTER", l.col, l.row, s[1], s[2])
 					break
 				end
 			end
@@ -108,4 +108,4 @@ UI.Labels = Engine.Layer("labels", 3, function(c, inst, zoom, c0, r0, c1, r1)
 		end
 		if i % 20 == 0 then Yield() end
 	end
-end)
+end, nil, "move")

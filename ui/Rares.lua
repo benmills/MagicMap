@@ -23,9 +23,9 @@ UI.Rares = Engine.Layer("rares", 5, function(c, inst, zoom, c0, r0, c1, r1)
 		if p.inst == inst and p.col >= c0 and p.col <= c1 and p.row >= r0 and p.row <= r1 then
 			local t = Get(c, "pin", "tex", MakePin)
 			t:SetAtlas(b.icon and b.icon.atlas or "vignettekill")
-			t:SetPoint("CENTER", c, "TOPLEFT", p.col * zoom, -p.row * zoom)
+			Engine.At(c, t, "CENTER", p.col, p.row)
 			t.rare = b.key
 		end
 		ns.Runtime.Yield()
 	end
-end, function() return select(2, Model.Known("rares")) end)
+end, function() return select(2, Model.Known("rares")) end, "move")

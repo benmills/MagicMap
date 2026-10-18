@@ -4,8 +4,10 @@ from test_addon import boot, errors
 
 CANVAS = ["canvas." + op + "@" + at for at in ("100live", "1000live", "1000hidden")
           for op in ("SetPoint", "SetScale", "SetAlpha", "Hide", "Show")]
+MOVED = ["canvas.Show.moved@1000live", "canvas.Show.moved.alpha0@1000live", "canvas.SetAlpha.moved@1000live",
+         "canvas.Show.moved@100masked"]  # the swap's question (M1.3)
 OPS = ["CreateTexture", "CreateLine", "CreateFontString", "SetPoint", "SetStartPoint",
-       "SetParent.park", "SetParent.unpark"] + CANVAS
+       "SetParent.park", "SetParent.unpark"] + CANVAS + MOVED
 
 
 def test_bench_regions():

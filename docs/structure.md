@@ -150,11 +150,12 @@ the same ones (each listed in its folder's `files.txt`):
 | `Game.Handle(kind, fn)` | game/Command.lua | game/commands/ (`slash`, `load`) | input step: `fn(cmd)` for each queued command of that kind (types/view.lua Commands) |
 | `Game.Apply(name, fn)` | game/Apply.lua | game/ (`Minimap`, `AddonPins`, `Home`, `Chrome`, `Hooks`, `Button`, `Tooltip`, in game/files.txt's order) | apply phase, each frame: `fn(view)` as its own step `game.<name>`; view is `UI.View()`, or SAFE when Game doesn't know its `v` |
 | `Model.Part(observe, load)`, `Model.Kind(kind, fn)` | model/Model.lua | model/ (`Blips`, `Rares`) | `observe(obs, oracles)` each frame after Model's own `you`, `load(saved)` with Model's saved part; `Known(kind)` answers with `fn()` → list, rev (ADR 0006) |
-| `Engine.Layer(name, level, build, rev)` | ui/Engine.lua | ui/ (`Tiles`, `Borders`, `Labels`, `Blips`, `Rares`) | `build(canvas, inst, zoom, c0, r0, c1, r1)` in a layout job when the view, zoom, map or `rev()` needs it; regions from `Engine.Get` |
+| `Engine.Layer(name, level, build, rev, zoom)` | ui/Engine.lua | ui/ (`Tiles`, `Borders`, `Labels`, `Blips`, `Rares`) | `build(canvas, inst, zoom, c0, r0, c1, r1)` in a layout job (one at a time, by level) when the view, zoom, map or `rev()` needs it; regions from `Engine.Get`, tile (col, row) at `((col - canvas.ox) * zoom, -(row - canvas.oy) * zoom)` (the shared origin); `zoom` how it shows until the zoom settles: `"scale"` (tiles), `"move"` (placed with `Engine.At`: labels, pins), `"hold"` (borders) |
 
-The map window: ui/Camera.lua (where it looks: `cam`, `inst`, `follow`; `Camera.Settled()`,
-`Camera.Velocity()`), ui/Window.lua (the frame; routes the view's input to Motion; its
-`map: draw` step), ui/Engine.lua (layers, canvases, layout jobs, swap), ui/Motion.lua (wheel
+The map window: ui/Camera.lua (where it looks: `cam`, `inst`, `follow`; `Camera.ZoomSettled()`,
+`Camera.Settled()`, `Camera.Velocity()`), ui/Window.lua (the frame; routes the view's input to Motion;
+its `map: draw` step), ui/Engine.lua (layers, canvases, layout jobs, the shared origin, park, swap by
+alpha: docs/runtime.md "The map's engine"), ui/Motion.lua (wheel
 and button zoom, drag, follow, chase, flights, idle return), ui/Chrome.lua (the metal border,
 band and grip), ui/Controls.lua (the buttons, hover reveal, tips), ui/Title.lua (the title
 band), ui/BigMap.lua (the minimap form, grow and shrink: Model.hooked, the home spot from

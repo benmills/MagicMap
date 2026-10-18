@@ -1,9 +1,17 @@
--- The map's engine: layers drawn on canvases. Engine.Layer(name, level, build, rev)
--- adds one (ui/Tiles.lua, ...). Each lays its regions out on a canvas (a 1x1 frame;
--- tile (col, row) at (col * zoom, -row * zoom) on it) at one zoom, over the view and
--- a margin, in a Runtime.Job, taking them from the canvas's pools (Engine.Get).
--- Panning moves the canvas; zooming scales it until a fresh layout, built on the
--- layer's other (hidden) canvas, swaps in. Window's draw step calls Engine.Draw.
+-- The map's engine: layers drawn on canvases. Engine.Layer(name, level, build, rev, zoom) adds one
+-- (ui/Tiles.lua, ...). A layer has two canvases (1x1 frames, both always shown): the front at alpha 1,
+-- the back at alpha 0. A layout, a Runtime.Job (one at a time: a layer missing from the view first,
+-- then by level), lays the layer out on its back canvas at one zoom, over the view and a margin (more
+-- ahead of the camera's motion), into the canvas's own regions where they stand (Engine.Get), parks
+-- what it didn't use (SetParent to a hidden frame), then swaps the two by alpha. Tile (col, row) is at
+-- ((col - ox) * zoom, -(row - oy) * zoom) on a canvas: (ox, oy), the origin, a whole tile near the
+-- view shared by every layer, so no offset grows past a few thousand px. Panning moves the canvases;
+-- until the zoom settles (or drifts out of [0.7, 1.4] of a layout's), a layer shows as its zoom says:
+-- "scale" (SetScale its canvas: tiles), "move" (what it placed with Engine.At moved to the camera's
+-- zoom, so fonts and icons keep their size: labels, pins), "hold" (never scaled: hidden, laid out where
+-- the zoom is headed, faded in as it lands: borders, Layers.lua:16-24). The window hidden, every canvas
+-- is emptied. Why, from the client's prices: docs/runtime.md "The map's engine". Window's draw step
+-- calls Engine.Draw.
 
 local _, ns = ...
 local UI = ns.UI
@@ -11,76 +19,136 @@ local Atlas, Runtime = ns.Atlas, ns.Runtime
 local Camera, Window = UI.Camera, UI.Window
 local Maths = Atlas.Camera
 
-local MARGIN = 0.5 -- share of the view laid out past each side, so a pan finds it drawn
-local JOB_MS = 4 -- a layout's budget a frame
+local MARGIN = 0.5 -- of the view laid out past each side at rest, so a pan finds it drawn
+local LEAD, TRAIL, FAST = 0.75, 0.25, 0.5 -- moving FAST views a second or more: the margin ahead, behind
+local AHEAD_S = 0.3 -- moving: laid out again before the view this far ahead leaves the layout
+local GOAL_S = 0.1 -- s a zoom's goal holds before a held layer lays out there (wheel ticks keep moving it)
+local JOB_MS, MISSING_MS = 4, 5 -- a layout's budget a frame; a layer the view lacks (the frame stays under 8 ms)
+local BAND_LO, BAND_HI = 0.7, 1.4 -- the camera's zoom over a layout's: outside, laid out again before it settles
+local FADE_S = 0.12 -- a held layer's layout fading in (Layers.lua:1697)
+-- A layout reaching further than this from the origin (px at its zoom) moves it: offsets stay under
+-- 4096 px, moved 1.4x included (the tear's suspect: docs/v1-plan.md §2).
+local ORIGIN_PX = 2800
+local PAD = 200 -- px past the view a moved label or pin may show from (its anchor: its centre)
 local RETRY_S, RETRY_MAX_S = 0.5, 30 -- a failed layout is tried again after this, doubling each failure in a row
 
 local Engine = { layers = {}, toggles = {} } -- toggles: UI's saved layers (ui/View.lua loads them)
 UI.Engine = Engine
 
+local park = CreateFrame("Frame", nil, Window.view) -- regions no layout uses: off every canvas
+park:Hide()
+
 ---------------------------------------------------------------------------
 -- Layers, canvases and pools
 ---------------------------------------------------------------------------
 
--- build(canvas, inst, zoom, c0, r0, c1, r1): lay the layer out on canvas (in
--- canvas units, tile * zoom) over that tile rect, calling Runtime.Yield() now and then.
--- rev (optional): a function whose value changing lays it out again (Model.Known's rev).
--- Each layer can be toggled (Engine.toggles[name], UI's saved layers: a missing key is on).
-function Engine.Layer(name, level, build, rev)
+-- build(canvas, inst, zoom, c0, r0, c1, r1): lay the layer out on canvas over that tile rect, tile
+-- (col, row) at ((col - canvas.ox) * zoom, -(row - canvas.oy) * zoom) from its TOPLEFT, calling
+-- Runtime.Yield() now and then. rev (optional): a function whose value changing lays it out again
+-- (Model.Known's rev). zoom: "scale" (default), "move" or "hold" (the top). Each layer can be toggled
+-- (Engine.toggles[name], UI's saved layers: a missing key is on).
+function Engine.Layer(name, level, build, rev, zoom)
 	local view = Window.view
 	local f = CreateFrame("Frame", nil, view)
 	f:SetAllPoints()
 	f:SetFrameLevel(view:GetFrameLevel() + level)
-	local layer = { name = name, frame = f, build = build, rev = rev, canvases = {} }
+	local layer = { name = name, level = level, frame = f, build = build, rev = rev, zoom = zoom or "scale",
+		canvases = {} }
 	for i = 1, 2 do
 		local c = CreateFrame("Frame", nil, f)
 		c:SetSize(1, 1)
-		c:Hide()
-		c.pools = {}
+		c:SetAlpha(0)
+		c.pools, c.alpha, c.made, c.scale = {}, 0, 0, 1
 		layer.canvases[i] = c
 	end
-	Engine.layers[#Engine.layers + 1] = layer
+	local i = #Engine.layers + 1 -- by level: the order layouts go in
+	while i > 1 and Engine.layers[i - 1].level > level do i = i - 1 end
+	table.insert(Engine.layers, i, layer)
 	return layer
 end
 
--- The next region of a kind on the canvas being laid out: make(canvas) makes one.
--- what: "tex" | "line" | "font", for the counts.
+-- A region onto a frame, with its mask (a tile's coast fade: it moves with it).
+local function Reparent(o, to)
+	o:SetParent(to)
+	if o.mask then o.mask:SetParent(to) end
+end
+
+-- The next region of a kind on the canvas being laid out: make(canvas) makes one. what: "tex" |
+-- "line" | "font", for the counts. Pooled per canvas: 1..out on it, the rest parked.
 function Engine.Get(canvas, kind, what, make)
 	local p = canvas.pools[kind]
 	if not p then
-		p = { n = 0, what = what, make = make }
+		p = { n = 0, out = 0, what = what }
 		canvas.pools[kind] = p
 	end
-	p.n = p.n + 1
-	local o = p[p.n]
+	local n = p.n + 1
+	p.n = n
+	local o = p[n]
 	if not o then
 		o = make(canvas)
-		p[p.n] = o
+		p[n] = o
+		canvas.made = canvas.made + 1
+	elseif n > p.out then
+		Reparent(o, canvas)
 	end
-	o:Show()
+	if n > p.out then p.out = n end
 	return o
 end
 
--- Give back the last Get of a kind (it didn't fit).
+-- Give back the last Get of a kind (it didn't fit): parked at the layout's end, unless used again.
 function Engine.Unget(canvas, kind)
 	local p = canvas.pools[kind]
-	p[p.n]:Hide()
 	p.n = p.n - 1
 end
 
--- Tile-space position on a canvas laid out at zoom, rounded so neighbours share edges.
+-- Place o (a "move" layer's region) at tile (col, row), dx, dy px right and down (default 0); while the
+-- zoom moves, Engine moves it there at the camera's zoom.
+function Engine.At(c, o, point, col, row, dx, dy)
+	dx, dy = dx or 0, dy or 0
+	o.apoint, o.acol, o.arow, o.adx, o.ady, o.az = point, col, row, dx, dy, c.zoom
+	o:SetPoint(point, c, "TOPLEFT", (col - c.ox) * c.zoom + dx, -((row - c.oy) * c.zoom + dy))
+end
+
+-- Tile-space position on a canvas laid out at zoom (v from its origin), rounded so neighbours share edges.
 function Engine.Px(v, zoom)
 	return math.floor(v * zoom + 0.5)
 end
 
 function Engine.LayerOn(name) return Engine.toggles[name] ~= false end
 
--- The tile rect to lay out: the view and a margin.
-local function Region()
-	local w, h = Window.Size()
-	local cam = Camera.cam
-	local mw, mh = w * (0.5 + MARGIN) / cam.zoom, h * (0.5 + MARGIN) / cam.zoom -- /: never 0 (zoom >= MIN_ZOOM)
-	return cam.cx - mw, cam.cy - mh, cam.cx + mw, cam.cy + mh
+local function Alpha(c, a)
+	if c.alpha ~= a then
+		c.alpha = a
+		c:SetAlpha(a)
+	end
+end
+
+-- The margins (before, after) on an axis moving v tiles a second, the view size px long.
+local function Margins(v, zoom, size)
+	local k = math.min(1, math.abs(v) * zoom / size / FAST) -- /: never 0 (size: Draw's w, h > 0)
+	local ahead, behind = MARGIN + (LEAD - MARGIN) * k, MARGIN - (MARGIN - TRAIL) * k
+	if v < 0 then return ahead, behind end
+	return behind, ahead
+end
+
+-- The tile rect to lay out: the view and its margins.
+local function Region(cam, w, h)
+	local z = cam.zoom
+	local l, r = Margins(Camera.vx, z, w)
+	local t, b = Margins(Camera.vy, z, h)
+	local tw, th = w / z, h / z -- /: never 0 (zoom >= MIN_ZOOM)
+	return cam.cx - tw * (0.5 + l), cam.cy - th * (0.5 + t), cam.cx + tw * (0.5 + r), cam.cy + th * (0.5 + b)
+end
+
+-- The origin every layout shares: kept while a layout's region stays within ORIGIN_PX of it, else the
+-- whole tile nearest the view's centre (the layers then lay out again onto it, one by one).
+local function Origin(cam, c0, r0, c1, r1)
+	local z, ox, oy = cam.zoom, Engine.ox, Engine.oy
+	if not ox or math.max(ox - c0, c1 - ox) * z > ORIGIN_PX or math.max(oy - r0, r1 - oy) * z > ORIGIN_PX then
+		ox, oy = math.floor(cam.cx + 0.5), math.floor(cam.cy + 0.5)
+		Engine.ox, Engine.oy = ox, oy
+	end
+	return ox, oy
 end
 
 local function Covers(c, cam, w, h)
@@ -90,9 +158,62 @@ local function Covers(c, cam, w, h)
 	return c0 >= r[1] and r0 >= r[2] and c1 <= r[3] and r1 <= r[4]
 end
 
-local Place
-
 local function R2(v) return math.floor(v * 100 + 0.5) / 100 end -- for traces
+
+local function Near(x, y, w, h) return x > -PAD and x < w + PAD and y > -PAD and y < h + PAD end
+
+-- A "move" canvas's regions to the camera's zoom: each that shows there, or did where it was (o.az, its
+-- zoom); the rest stay put out of view until they would show (c.late), or the next layout.
+local function Move(c, cam, w, h)
+	local z, ox, oy = cam.zoom, c.ox, c.oy
+	local x0, y0 = w / 2 + (ox - cam.cx) * z, h / 2 + (oy - cam.cy) * z -- the origin on the view
+	local late = false
+	for _, p in pairs(c.pools) do
+		for i = 1, p.n do
+			local o = p[i]
+			if o.az ~= z then
+				local col, row, dx, dy = o.acol - ox, o.arow - oy, o.adx, o.ady
+				if Near(x0 + col * z + dx, y0 + row * z + dy, w, h) or Near(x0 + col * o.az + dx, y0 + row * o.az + dy, w, h) then
+					o.az = z
+					o:SetPoint(o.apoint, c, "TOPLEFT", col * z + dx, -(row * z + dy))
+				else
+					late = true
+				end
+			end
+		end
+	end
+	c.moved, c.late = z, late
+end
+
+-- A layer's front canvas at the camera: its origin where the camera shows that tile, scaled ("scale"),
+-- its regions moved ("move"), or hidden ("hold") while the zoom isn't its layout's, then faded in.
+local function Place(layer, cam, w, h)
+	local c, z = layer.front, cam.zoom
+	if layer.zoom == "hold" then
+		if c.zoom ~= z then
+			layer.fadeAt = nil
+			return Alpha(c, 0)
+		end
+		if c.alpha == 0 and not layer.fadeAt then layer.fadeAt = GetTime() end
+	end
+	local s = layer.zoom == "scale" and z / c.zoom or 1 -- /: never 0 (a canvas's zoom: the camera's at layout)
+	if layer.zoom == "move" and (c.moved ~= z or c.late) then Move(c, cam, w, h) end
+	local x, y = (w / 2 + (c.ox - cam.cx) * z) / s, -(h / 2 + (c.oy - cam.cy) * z) / s -- /: never 0 (s: two zooms > 0, or 1)
+	if c.scale ~= s then
+		c.scale = s
+		c:SetScale(s)
+	end
+	if c.x ~= x or c.y ~= y then
+		c.x, c.y = x, y
+		c:SetPoint("TOPLEFT", layer.frame, "TOPLEFT", x, y)
+	end
+	local a = 1
+	if layer.fadeAt then
+		a = math.min(1, (GetTime() - layer.fadeAt) / FADE_S)
+		if a >= 1 then layer.fadeAt = nil end
+	end
+	Alpha(c, a)
+end
 
 -- A layout job that errored or was cancelled (Runtime reported it): the layer lays out
 -- again after a backoff, keeping its last good canvas meanwhile.
@@ -103,90 +224,143 @@ local function Failed(layer)
 	Runtime.Trace("layout", { e = "failed", layer = layer.name, retry = layer.backoff })
 end
 
-local function Rebuild(layer)
-	local back = layer.canvases[layer.front == layer.canvases[1] and 2 or 1]
-	local inst, zoom = Camera.inst, Camera.cam.zoom
-	local c0, r0, c1, r1 = Region()
-	back.rev = layer.rev and layer.rev()
-	layer.busy = true -- until the job ends: its last stretch clears it; a failure, the draw step (Failed)
-	Runtime.Trace("layout", { e = "start", layer = layer.name, inst = inst, zoom = R2(zoom),
-		c0 = R2(c0), r0 = R2(r0), c1 = R2(c1), r1 = R2(r1) })
-	layer.job = Runtime.Job("map: " .. layer.name, function()
-		local t0, used = debugprofilestop(), 0
-		for _, p in pairs(back.pools) do p.n = 0 end
-		layer.build(back, inst, zoom, c0, r0, c1, r1)
-		for _, p in pairs(back.pools) do -- the back canvas is hidden: this may yield
-			for i = p.n + 1, #p do
-				p[i]:Hide()
-				Runtime.Yield()
-			end
-			used = used + p.n
-		end
-		Runtime.Trace("layout", { e = "end", layer = layer.name, ms = R2(debugprofilestop() - t0), regions = used })
-		back.inst, back.zoom, back.region, back.scale, back.x, back.y = inst, zoom, { c0, r0, c1, r1 }, nil, nil, nil
-		layer.busy, layer.retryAt, layer.backoff = false, nil, nil
-		if inst ~= Camera.inst then return end -- moved to another map meanwhile
-		-- The swap: can't yield (both canvases would show), so it's timed (ms) with what it shows (live)
-		-- and parks (parked: 0 until park pools, M1.3).
-		local t = debugprofilestop()
-		if layer.front then layer.front:Hide() end
-		layer.front = back
-		-- Placed before it's shown: jobs run after the frame's steps, so waiting for the
-		-- next draw would show it a frame at wherever it last was (a jump while panning).
-		Place(layer, Camera.cam, Window.Size())
-		back:Show()
-		Runtime.Trace("swap", { layer = layer.name, ms = R2(debugprofilestop() - t), live = used, parked = 0,
-			x = R2(back.x), y = R2(back.y), scale = R2(back.scale) })
-	end, JOB_MS)
+-- The back canvas, laid out, to the front: placed, then the alphas swapped (no region is shown or
+-- hidden). Over a shown one at once (a pan's two agree where they overlap); a held layer's fades in.
+local function Swap(layer, back, live, parked)
+	local t = debugprofilestop()
+	local old = layer.front
+	layer.front, layer.fadeAt = back, nil
+	if old and old.alpha > 0 then Alpha(back, 1) end
+	Place(layer, Camera.cam, Window.Size())
+	if old then Alpha(old, 0) end
+	Runtime.Trace("swap", { layer = layer.name, ms = R2(debugprofilestop() - t), live = live, parked = parked,
+		x = back.x and R2(back.x), y = back.y and R2(back.y), scale = back.scale and R2(back.scale) })
 end
 
--- A canvas laid out at its zoom, shown at the camera's: scaled, and moved so tile (0, 0) is where it belongs.
-function Place(layer, cam, w, h)
-	local c = layer.front
-	local s = cam.zoom / c.zoom -- /: never 0 (a canvas's zoom: the camera's at layout)
-	local x, y = (w / 2 - cam.cx * cam.zoom) / s, -(h / 2 - cam.cy * cam.zoom) / s -- /: never 0 (s: two zooms > 0)
-	if c.scale ~= s then
-		c.scale = s
-		c:SetScale(s)
-	end
-	if c.x ~= x or c.y ~= y then
-		c.x, c.y = x, y
-		c:SetPoint("TOPLEFT", layer.frame, "TOPLEFT", x, y)
-	end
+-- Lay layer out for the camera at (a "hold" layer: where it's headed), on its back canvas.
+local function Rebuild(layer, inst, at, w, h, budget)
+	local back = layer.canvases[layer.front == layer.canvases[1] and 2 or 1]
+	local zoom = at.zoom
+	local c0, r0, c1, r1 = Region(at, w, h)
+	local ox, oy = Origin(at, c0, r0, c1, r1)
+	back.inst, back.zoom, back.moved, back.late, back.ox, back.oy, back.made = inst, zoom, zoom, false, ox, oy, 0
+	local r = back.region or {}
+	r[1], r[2], r[3], r[4] = c0, r0, c1, r1
+	back.region, back.rev = r, layer.rev and layer.rev()
+	layer.busy = true -- until the job ends: its last stretch clears it; a failure, the draw step (Failed)
+	Runtime.Trace("layout", { e = "start", layer = layer.name, inst = inst, zoom = R2(zoom),
+		c0 = R2(c0), r0 = R2(r0), c1 = R2(c1), r1 = R2(r1), ox = ox, oy = oy })
+	layer.job = Runtime.Job("map: " .. layer.name, function()
+		local t0 = debugprofilestop()
+		for _, p in pairs(back.pools) do p.n = 0 end
+		layer.build(back, inst, zoom, c0, r0, c1, r1)
+		local live, parked = 0, 0
+		for _, p in pairs(back.pools) do -- the back canvas is clear: this may yield
+			for i = p.n + 1, p.out do
+				Reparent(p[i], park)
+				parked = parked + 1
+				Runtime.Yield()
+			end
+			p.out = p.n
+			live = live + p.n
+		end
+		Runtime.Trace("layout", { e = "end", layer = layer.name, ms = R2(debugprofilestop() - t0), regions = live,
+			made = back.made })
+		layer.busy, layer.retryAt, layer.backoff = false, nil, nil
+		Swap(layer, back, live, parked)
+	end, budget)
 end
 
 ---------------------------------------------------------------------------
 -- Each frame (Window's draw step)
 ---------------------------------------------------------------------------
 
--- Another map shown: no layer keeps the last one's canvas.
+-- Another map shown: no layer keeps the last one's canvas, nor lays it out.
 function Engine.Clear()
 	for _, layer in ipairs(Engine.layers) do
-		if layer.front then layer.front:Hide() end
-		layer.front = nil
+		if layer.busy then
+			Runtime.Cancel(layer.job)
+			layer.busy = false
+		end
+		if layer.front then Alpha(layer.front, 0) end
+		layer.front, layer.fadeAt = nil, nil
 	end
+	Engine.ox, Engine.oy = nil, nil
 end
 
--- Each layer laid out again where it's stale, and placed at the camera. True while
--- zooming: a shown layer still scaled from another zoom (the wheel's not laid out yet).
+-- What a layer's front lacks: nil (nothing), "late" (lay it out again) or "missing" (the view lacks it:
+-- before the rest, with more budget). settled: the zoom's (Camera.ZoomSettled); goal: where it's headed
+-- (goal.held: for GOAL_S); ahead: the camera AHEAD_S on at its speed.
+local function Stale(layer, inst, cam, w, h, settled, goal, ahead)
+	local c = layer.front
+	if not c or c.inst ~= inst then return "missing" end
+	local zoomed = c.zoom ~= cam.zoom
+	if layer.zoom == "hold" and zoomed then return c.zoom ~= goal.zoom and goal.held and "missing" or nil end -- hidden till it lands
+	if not Covers(c, cam, w, h) then return "missing" end
+	if not Covers(c, ahead, w, h) then return "late" end
+	local s = cam.zoom / c.zoom -- /: never 0 (zooms >= MIN_ZOOM)
+	if zoomed and (settled or s < BAND_LO or s > BAND_HI) then return "late" end
+	if c.ox ~= Engine.ox or c.oy ~= Engine.oy or (layer.rev and c.rev ~= layer.rev()) then return "late" end
+end
+
+-- Each layer placed at the camera, and the stalest laid out again unless a layout runs. True while
+-- zooming: a shown layer from another zoom (the wheel's not laid out yet). Engine.pending: a layer
+-- stale, laying out or zooming (at rest, every layer shows the camera's zoom on the one origin).
+local goal, ahead = { since = 0 }, {} -- cameras: where it's headed (Motion.Goal), where it is AHEAD_S on
 function Engine.Draw(inst, cam, w, h)
-	local zooming = false
+	local zooming, settled, now = false, Camera.ZoomSettled(), GetTime()
+	local busy, pending, next, why = false, false, nil, nil
+	local gz, gx, gy = UI.Motion.Goal()
+	if gz ~= goal.zoom then goal.since = now end
+	goal.zoom, goal.cx, goal.cy, goal.held = gz, gx, gy, now - goal.since >= GOAL_S
+	ahead.zoom, ahead.cx, ahead.cy = cam.zoom, cam.cx + Camera.vx * AHEAD_S, cam.cy + Camera.vy * AHEAD_S
 	for _, layer in ipairs(Engine.layers) do
-		local c, on = layer.front, Engine.LayerOn(layer.name)
+		local on = Engine.LayerOn(layer.name)
 		if layer.on ~= on then layer.on = on; layer.frame:SetShown(on) end
 		if layer.busy and layer.job.done then Failed(layer) end -- done but still busy: it didn't finish
-		if on and not layer.busy and (not layer.retryAt or GetTime() >= layer.retryAt)
-			and (not c or c.inst ~= inst or c.zoom ~= cam.zoom or not Covers(c, cam, w, h)
-				or (layer.rev and c.rev ~= layer.rev())) then
-			Rebuild(layer)
+		local stale = on and Stale(layer, inst, cam, w, h, settled, goal, ahead)
+		pending = pending or stale or layer.busy
+		if layer.busy then
+			busy = true
+			layer.job.budget = stale == "missing" and MISSING_MS or JOB_MS
+		elseif stale and (not layer.retryAt or now >= layer.retryAt) and (not next or stale == "missing" and why ~= "missing") then
+			next, why = layer, stale
 		end
-		if layer.front then
+		if on and layer.front then
 			Place(layer, cam, w, h)
-			zooming = zooming or (on and layer.front.zoom ~= cam.zoom)
+			zooming = zooming or layer.front.zoom ~= cam.zoom
 		end
+	end
+	Engine.pending = pending or zooming
+	if next and not busy then
+		Rebuild(next, inst, next.zoom == "hold" and goal or cam, w, h, why == "missing" and MISSING_MS or JOB_MS)
 	end
 	return zooming
 end
+
+-- The window hidden: every layer emptied, its regions parked (a job that stops once it's shown), so
+-- showing it again shows no region at once (a Show pays ~7 µs a region unmoved, 20-50 moved:
+-- docs/evidence/perf-m0.md); the layers lay out again as at the first open.
+Window.frame:HookScript("OnHide", Runtime.Wrap("map: hidden park", function()
+	Runtime.Job("map: park", function()
+		for _, layer in ipairs(Engine.layers) do
+			if not layer.busy then -- (a layout's canvas is its own)
+				if layer.front then Alpha(layer.front, 0) end
+				layer.front, layer.fadeAt = nil, nil
+				for _, c in ipairs(layer.canvases) do
+					for _, p in pairs(c.pools) do
+						for i = p.out, 1, -1 do
+							if Window.frame:IsShown() then return end
+							Reparent(p[i], park)
+							p.out = i - 1
+							Runtime.Yield()
+						end
+					end
+				end
+			end
+		end
+	end, JOB_MS)
+end))
 
 -- For telemetry: each layer's shown layout (View.diag's layers).
 function Engine.State()
@@ -194,7 +368,8 @@ function Engine.State()
 	for i, l in ipairs(Engine.layers) do
 		local c = l.front
 		local r = c and c.region
-		layers[i] = { name = l.name, busy = l.busy, zoom = c and R2(c.zoom), region = r and { R2(r[1]), R2(r[2]), R2(r[3]), R2(r[4]) } }
+		layers[i] = { name = l.name, busy = l.busy, zoom = c and R2(c.zoom), origin = c and { c.ox, c.oy },
+			region = r and { R2(r[1]), R2(r[2]), R2(r[3]), R2(r[4]) } }
 	end
 	return layers
 end

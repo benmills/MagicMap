@@ -91,11 +91,14 @@ telemetry = {
   the first 50 a session: the ring forgets them, and each one fails the gate.
 - **Stats**: every `layout` end, `swap` and `blips` sweep as it's traced, by kind and layer:
   `n`, and the largest absolute value of each number in its `d` (a swap's `ms` and `live`: the
-  frame max's suspect; its `x`, `y` are canvas offsets: the tear's ~33,000 px suspect); a swap's `lag`
-  is frames since its layer's last layout end (the end→swap delay).
+  frame max's suspect before M1.3; its `x`, `y` are canvas offsets, the tear's ~33,000 px suspect,
+  now within a few thousand px of the shared origin); a swap's `lag` is frames since its layer's
+  last layout end (the end→swap delay).
 - **Bench**: `Game.Bench.result` (M0.5, `/mma bench regions`) copied at logout and with each mark,
   keyed by its build: `ops[op] = { n, ms, us }`, `us` a call's µs (op names like `CreateLine`,
-  `SetPoint`, `canvas.SetScale@1000live`, `canvas.Show@1000hidden`, `SetParent.park`).
+  `SetPoint`, `canvas.SetScale@1000live`, `canvas.Show@1000hidden`, `SetParent.park`; M1.3's
+  `canvas.Show.moved@1000live`, `canvas.Show.moved.alpha0@1000live`, `canvas.SetAlpha.moved@1000live`,
+  `canvas.Show.moved@100masked`: docs/runtime.md "The map's engine").
 
 ## Trace kinds (so far)
 
@@ -117,8 +120,8 @@ Their `d`:
 | `zone` | the zone's name |
 | `map` | `"shown"` or `"hidden"` |
 | `cam` | `{ e, cx, cy, zoom }`, `e` = `drag start` (follow turns off), `drag end`, `wheel`, `follow on`, `follow off` |
-| `layout` | `{ e = "start", layer, inst, zoom, c0, r0, c1, r1 }`, then `{ e = "end", layer, ms, regions }` (`ms` wall time, over several frames), or `{ e = "failed", layer, retry }` |
-| `swap` | `{ layer, ms, live, parked, x, y, scale }`: `ms` the swap's own time (old canvas hidden, new one placed and shown: it can't yield), `live` the regions it shows, `parked` the regions it parked (0 until M1.3's park pools), `x, y, scale` where it was placed |
+| `layout` | `{ e = "start", layer, inst, zoom, c0, r0, c1, r1, ox, oy }` (`ox, oy` the shared origin tile), then `{ e = "end", layer, ms, regions, made }` (`ms` wall time, over several frames; `made` the regions it had to create), or `{ e = "failed", layer, retry }` |
+| `swap` | `{ layer, ms, live, parked, x, y, scale }`: `ms` the swap's own time (new canvas placed, the two canvases' alphas swapped: it can't yield), `live` the regions it shows, `parked` the regions its layout parked (SetParent onto a hidden frame), `x, y, scale` where it was placed (`x, y` absent for a held layer still zooming) |
 | `error` | the error's key |
 | `taint` | `{ e, fn }`: `e` = `blocked` (ADDON_ACTION_BLOCKED) or `forbidden` (ADDON_ACTION_FORBIDDEN), `fn` the protected function the client named |
 | `art` | the missing atlas name or file |

@@ -48,11 +48,12 @@ local function MakeArt(c)
 	return t
 end
 
--- Place t over the tile rect (c0, r0)-(c1, r1).
+-- Place t over the tile rect (c0, r0)-(c1, r1) (from the canvas's origin, ui/Engine.lua).
 local function Rect(t, c, zoom, c0, r0, c1, r1)
-	local x0, y0 = Px(c0, zoom), Px(r0, zoom)
+	local ox, oy = c.ox, c.oy
+	local x0, y0 = Px(c0 - ox, zoom), Px(r0 - oy, zoom)
 	t:SetPoint("TOPLEFT", c, "TOPLEFT", x0, -y0)
-	t:SetSize(Px(c1, zoom) - x0, Px(r1, zoom) - y0)
+	t:SetSize(Px(c1 - ox, zoom) - x0, Px(r1 - oy, zoom) - y0)
 end
 
 local function Texture(t, path, wrap)
@@ -99,11 +100,17 @@ local function Sea(c, inst, zoom, sea, c0, r0, c1, r1)
 	local lrx, lry = MacroUV(c1, r1)
 	m:SetTexCoord(ulx, uly, llx, lly, urx, ury, lrx, lry)
 
-	-- The tint over its rect, its border colour on the four sides around it.
+	-- The tint over its rect (the part in the layout's: no offset reaches past it), its border colour
+	-- on the four sides around it.
 	local tc0, tr0, tc1, tr1 = sea.rect[1], sea.rect[2], sea.rect[3], sea.rect[4]
-	local t = Get(c, "tint", "tex", MakeTint)
-	Texture(t, sea.tint, "CLAMP")
-	Rect(t, c, zoom, tc0, tr0, tc1, tr1)
+	local a0, b0, a1, b1 = math.max(c0, tc0), math.max(r0, tr0), math.min(c1, tc1), math.min(r1, tr1)
+	if a1 > a0 and b1 > b0 then
+		local t = Get(c, "tint", "tex", MakeTint)
+		Texture(t, sea.tint, "CLAMP")
+		Rect(t, c, zoom, a0, b0, a1, b1)
+		local sw, sh = tc1 - tc0, tr1 - tr0
+		t:SetTexCoord((a0 - tc0) / sw, (a1 - tc0) / sw, (b0 - tr0) / sh, (b1 - tr0) / sh) -- /: never 0 (a sea rect has area: gen_sea.py)
+	end
 	local far = sea.far
 	local function Far(a0, b0, a1, b1)
 		if a1 <= a0 or b1 <= b0 then return end

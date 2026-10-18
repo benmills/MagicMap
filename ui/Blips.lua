@@ -33,8 +33,8 @@ UI.Blips = Engine.Layer("blips", 6, function(c, inst, zoom, c0, r0, c1, r1)
 			local size = icon and ICON or DOT
 			t:SetSize(size, size)
 			t:SetAlpha(b.live and 1 or 0.6)
-			t:SetPoint("CENTER", c, "TOPLEFT", p.col * zoom, -p.row * zoom)
+			Engine.At(c, t, "CENTER", p.col, p.row)
 			t.blip = b.key
 		end
 	end
-end, function() return select(2, Model.Known("blips")) end)
+end, function() return select(2, Model.Known("blips")) end, "move")
