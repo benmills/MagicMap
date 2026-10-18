@@ -236,22 +236,30 @@ Runtime.On("ADDON_ACTION_BLOCKED", "telemetry.taint", Taint)
 Runtime.On("ADDON_ACTION_FORBIDDEN", "telemetry.taint", Taint)
 
 -- Shots: stamped when asked (what the screenshot shows), marked on SCREENSHOT_SUCCEEDED;
--- stamp as in WoWScrnShot_<stamp>.jpg. Either way it says so in chat, after the picture
--- (the M0 session took none, and nothing told it).
-local shot -- the pending /mma shot: { note, at = its stamp }
+-- stamp as in WoWScrnShot_<stamp>.jpg. Chat answers by id, after the picture: on the client's
+-- SCREENSHOT_SUCCEEDED or _FAILED (Forever's Blizzard_ActionStatus shows both), or when neither
+-- came in ANSWER_S (none taken). The M0 sessions have no shot, `shot` trace or screenshot file,
+-- and nothing there said either way.
+local ANSWER_S = 5
+local shot -- the pending /mma shot: { id, note, at = its stamp, wait = its timer }
+
+local function Answer(said)
+	Runtime.Cancel(shot.wait)
+	Game.Print("shot " .. shot.id .. ": " .. said)
+	shot = nil
+end
+
 Runtime.On("SCREENSHOT_SUCCEEDED", "telemetry.shot", function()
 	if not shot then return end -- not ours (Print Screen)
-	local note, stamp = shot.note ~= "" and shot.note or nil, date("%m%d%y_%H%M%S")
-	Runtime.Trace("shot", note)
-	Mark("shot", note, stamp, shot.at)
-	Game.Print("shot " .. (note or "") .. ": WoWScrnShot_" .. stamp .. ", marked")
-	shot = nil
+	local stamp = date("%m%d%y_%H%M%S")
+	Runtime.Trace("shot", shot.note)
+	Mark("shot", shot.note, stamp, shot.at)
+	Answer("WoWScrnShot_" .. stamp .. ", marked")
 end)
 Runtime.On("SCREENSHOT_FAILED", "telemetry.shot failed", function()
 	if not shot then return end
 	Runtime.Trace("shot", "failed " .. shot.note)
-	Game.Print("shot " .. shot.note .. ": the client took no screenshot (no mark)")
-	shot = nil
+	Answer("the client took no screenshot (no mark)")
 end)
 
 Game.Slash("mark", "<note>: save state and the recent trace (written on /reload)", function(note)
@@ -261,12 +269,19 @@ Game.Slash("mark", "<note>: save state and the recent trace (written on /reload)
 	Game.Print("marked")
 end)
 
-Game.Slash("shot", "[id note]: a screenshot, and a mark matched to it (docs/playtest.md shot ids)", function(note)
+Game.Slash("shot", "<id> [note]: a screenshot, and a mark matched to it (docs/playtest.md shot ids)", function(note)
+	local id = note:match("^%S+")
+	if not id then return Game.Print("shot: the id first (docs/playtest.md), e.g. /mma shot small-home") end
+	if shot then return Game.Print("shot " .. id .. ": not taken, " .. shot.id .. "'s still waiting on the client") end
 	local a = applied
-	shot = { note = note, at = { inst = a.inst, cx = R(a.cx, 1e4), cy = R(a.cy, 1e4), zoom = R(a.zoom, 100),
+	shot = { id = id, note = note, at = { inst = a.inst, cx = R(a.cx, 1e4), cy = R(a.cy, 1e4), zoom = R(a.zoom, 100),
 		w = R(a.w, 10), h = R(a.h, 10), left = a.left, top = a.top, big = a.big,
 		uiScale = R(UIParent:GetEffectiveScale(), 1e3), screenW = R(UIParent:GetWidth(), 10),
 		screenH = R(UIParent:GetHeight(), 10) } }
+	shot.wait = Runtime.After(ANSWER_S, "telemetry.shot unanswered", function()
+		Runtime.Trace("shot", "failed " .. shot.note)
+		Answer("the client took no screenshot (no answer, no mark)")
+	end)
 	Screenshot()
 end)
 

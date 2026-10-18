@@ -59,6 +59,8 @@ local function ZoomArt(name)
 end
 
 -- The band's: placed by the title (ui/Title.lua: above the map, or below at the screen's top).
+-- The mode button's chains are the spike's (Core.lua:282-286); Forever draws the second of each,
+-- as the spike did there: its `-c60` names are art variants of the element, not atlas names (ui/Art.lua).
 local mode = ArtButton(Chrome.band, HEADER_ICON, HEADER_ICON, {
 	atlas = { "redbutton-expand-c60", "redbutton-expand" },
 	pushed = { "redbutton-expand-pressed-c60", "redbutton-expand-pressed" },

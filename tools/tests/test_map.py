@@ -56,19 +56,26 @@ def test_map():
 
 
 def test_rares():
-    """A pin kind added afterwards: Known("rares") (Atlas's rare spawns, the shown map only) drawn by its layer."""
+    """A pin kind added afterwards: Known("rares") (Atlas's rare spawns, the shown map only) drawn by its layer,
+    from zoom 60 in (none further out: Landmarks.lua:15)."""
     import pytest
     L, sim, ns = boot()
     if not ns.Data.Npcs:
         pytest.skip("no QuestieDB-derived data (tools/gen_questie.py)")
     e = ns.UI.Engine
+    layer = e.layers[[l.name for l in e.layers.values()].index("rares") + 1]
     sim.Slash("/mma toggle")
     sim.Run(2)
     got = list(ns.Model.Known("rares")[0].values())
     assert got and all(r.kind == "rares" and r.pos.inst == 0 and not r.live for r in got)
-    front = e.layers[[l.name for l in e.layers.values()].index("rares") + 1].front
+    front = layer.front
     atlases = {sim.state[front.pools.pin[i]].atlas for i in range(1, front.pools.pin.n + 1)}
     assert atlases and atlases <= {"vignettekill", "vignettekillelite"}, atlases
+    for zoom, drawn in ((59, False), (60, True)):
+        ns.UI.Motion.SetZoom(zoom)
+        sim.Run(1)
+        pins = layer.front.pools.pin
+        assert layer.front.zoom == zoom and bool(pins and pins.n) == drawn, zoom
     sim.Slash("/mma layer rares")
     assert e.LayerOn("rares") is False and e.toggles.rares is False
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
