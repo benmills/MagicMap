@@ -35,7 +35,7 @@ local function Build(at)
 			Runtime.Yield()
 		end
 		list, rev = out, rev + 1
-	end)
+	end, 1) -- (1 ms: docs/structure.md "Atlas first use")
 end
 
 Model.Kind("rares", function()

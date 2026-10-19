@@ -80,7 +80,8 @@ no names with the MagicMap spike, so both can be enabled.
   table of thousands: NPCs, objects, items, quests, areas) is built offline, by its
   generator into Data/, or takes `step` and calls it every 128 rows, so a caller in a
   `Runtime.Job` passes `Runtime.Yield` and the first use spreads over frames
-  (`Atlas.Rares`, `SpawnsIn`, `ZoneLevels`, `Find`'s names and its scan). Offline: the ranked
+  (`Atlas.Rares`, `SpawnsIn`, `ZoneLevels`, `Find`'s names and its scan: R-P2 runs each in a 1 ms
+  job, every resume ≤2 ms on a clock counting Lua's instructions). Offline: the ranked
   labels (`Atlas.Labels`, Data/Labels.lua) and a blip name's service (`Atlas.BlipService`,
   Data/BlipServices.lua; there's no name → NPC index at runtime). Tables of a few hundred
   rows (maps, uiMaps, places) are indexed at first use, ≤0.2 ms each in lupa; per-key caches
