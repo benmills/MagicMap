@@ -203,6 +203,9 @@ end
 -- A press that has moved: the map is being dragged.
 function Motion.Dragging() return press ~= nil and press.moved == true end
 
+-- The left button held, moved or not (the spike's state.dragging, set on the press: Core.lua:1349).
+function Motion.Pressed() return press ~= nil end
+
 -- The cursor on the screen, in the view's units, y up: a press and its pans are measured there, so the
 -- window moving under a still cursor (growing, shrinking) isn't a drag (Core.lua:1345-1351, 1523-1534).
 local function Screen()

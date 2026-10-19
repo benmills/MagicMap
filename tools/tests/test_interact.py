@@ -207,10 +207,17 @@ def test_zone_hover():
     sim.Run(1)
 
     # A click on Gold Dust's area (no pin under it): not the quest's, while zone clicks are on offer, but the zone's:
-    # flown to, fit 0.92, in 0.55 s, following off.
+    # flown to, fit 0.92, in 0.55 s, following off. Held still, nothing lit (Core.lua:1323, 1349); the press's zone flown to.
     G.Over(32.15, 49.7)
     sim.Run(0.3)
-    sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")
+    assert G.Lit()[1] == "ELWYNN FOREST"
+    sim.buttonsDown["LeftButton"] = True
+    sim.FireScript(view, "OnMouseDown", "LeftButton")
+    sim.Run(0.2)
+    assert G.Lit() == (0, "") and not UI.Motion.Dragging()
+    sim.buttonsDown["LeftButton"] = None
+    sim.FireScript(view, "OnMouseUp", "LeftButton")
+    sim.Step()
     elwynn = ns.Atlas.MapRect(1429)
     sim.Run(0.4)
     assert not UI.Camera.follow and not near(cam(ns), fit(L, ns, elwynn, 0.92))

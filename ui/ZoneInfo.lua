@@ -84,8 +84,9 @@ end
 local hover = {}
 local function Hover()
 	local inst, z = Camera.inst, nil
-	-- At the minimap's size on your map it always names where you are: no zone to click (Core.lua:1269).
-	if Window.view:IsMouseOver() and (UI.BigMap.big or Model.you.inst ~= inst) and not Motion.Dragging() then
+	-- At the minimap's size on your map it always names where you are: no zone to click (Core.lua:1269);
+	-- none while the left button is held, still or not (Core.lua:1323, 1349).
+	if Window.view:IsMouseOver() and (UI.BigMap.big or Model.you.inst ~= inst) and not Motion.Pressed() then
 		z = ZoneAt(inst, ZoneInfo.CursorTile())
 	end
 	local on = z and ZonesInView(inst) > 1
