@@ -152,6 +152,7 @@ the same ones (each listed in its folder's `files.txt`):
 | `Game.Apply(name, fn)` | game/Apply.lua | game/ (`Minimap`, `AddonPins`, `Home`, `Chrome`, `Hooks`, `Button`, `Tooltip`, in game/files.txt's order) | apply phase, each frame: `fn(view)` as its own step `game.<name>`; view is `UI.View()`, or SAFE when Game doesn't know its `v` |
 | `Model.Part(observe, load)`, `Model.Kind(kind, fn)` | model/Model.lua | model/ (`Blips`, `Rares`) | `observe(obs, oracles)` each frame after Model's own `you`, `load(saved)` with Model's saved part; `Known(kind)` answers with `fn()` → list, rev (ADR 0006) |
 | `Engine.Layer(name, level, build, rev, zoom)` | ui/Engine.lua | ui/ (`Tiles`, `Borders`, `Labels`, `Blips`, `Rares`) | `build(canvas, inst, zoom, c0, r0, c1, r1)` in a layout job (one at a time, by level) when the view, zoom, map or `rev()` needs it; regions from `Engine.Get`, tile (col, row) at `((col - canvas.ox) * zoom, -(row - canvas.oy) * zoom)` (the shared origin); `zoom` how it shows until the zoom settles: `"scale"` (tiles), `"move"` (placed with `Engine.At`: labels, pins), `"hold"` (borders) |
+| `Menus.Layer(row)` | ui/Menus.lua | the layer's own file in ui/, after Menus.lua (the four drawn in M1, `labels`, `borders`, `blips`, `rares`, are in Menus.lua itself) | each time the gear opens: `row = { key, label, group, tip, parent?, onToggle? }` is a checkbox in its group's submenu (`group`: `map`, `quests`, `places`, `people`, `you`, `addons`, the spike's order: Layers.lua:30-70; a group with no row is left out), in the order added, with its tip (white title, gold body); `key` is the Engine.Layer's name (and View.layers', for Game's); its setting is `Engine.toggles[key]` (UI.saved.layers), read with `Engine.LayerOn`: on until turned off, so only the ones off are saved (a layer off by default needs Engine to know its default); `parent`: indented 5 spaces, clickable only while that layer is on; `onToggle(on)` after a flip. Other addons' rows come from Model.addons (each with world pins; ui/Sockets.lua keeps their View.layers keys) |
 
 The map window: ui/Camera.lua (where it looks: `cam`, `inst`, `follow`; `Camera.ZoomSettled()`,
 `Camera.Settled()`, `Camera.Velocity()`), ui/Window.lua (the frame; routes the view's input to Motion;
@@ -160,7 +161,7 @@ alpha: docs/runtime.md "The map's engine"), ui/Motion.lua (wheel
 and button zoom, drag, follow, chase, flights, idle return), ui/Chrome.lua (the metal border,
 band and grip), ui/Controls.lua (the buttons, hover reveal, tips), ui/Title.lua (the title
 band), ui/BigMap.lua (the minimap form, grow and shrink: Model.hooked, the home spot from
-Model.minimap), ui/Menus.lua (the client's menus; the gear, the map's right-click),
+Model.minimap), ui/Menus.lua (the client's menus: the gear's layers, `Menus.Layer`, and Settings; the map's right-click),
 ui/Sockets.lua (View.sockets: the world socket Game hosts other addons' HereBeDragons pins on,
 game/AddonPins.lua) and ui/You.lua (your arrow, over them all). The spike bugs' replays are one
 file each, tools/tests/replays/R-<id>.lua, collected by tools/tests/test_spike_bugs.py.
