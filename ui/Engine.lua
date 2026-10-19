@@ -40,6 +40,7 @@ UI.Engine = Engine
 
 local park = CreateFrame("Frame", nil, Window.view) -- regions no layout uses: off every canvas
 park:Hide()
+local Layout -- (below: a layer's worker runs it)
 
 ---------------------------------------------------------------------------
 -- Layers, canvases and pools
@@ -58,6 +59,12 @@ function Engine.Layer(name, level, build, rev, zoom)
 	f:SetFrameLevel(view:GetFrameLevel() + level)
 	local layer = { name = name, level = level, frame = f, build = build, rev = rev, zoom = zoom or "scale",
 		canvases = {}, fading = {} } -- fading: its crossfade (layer.fade while one runs)
+	layer.job = Runtime.Worker("map: " .. name, function()
+		while true do
+			Layout(layer)
+			Runtime.Idle()
+		end
+	end)
 	for i = 1, 2 do
 		local c = CreateFrame("Frame", nil, f)
 		c:SetSize(1, 1)
@@ -265,9 +272,34 @@ local function Swap(layer, back, live, parked)
 		x = back.x and R2(back.x), y = back.y and R2(back.y), scale = back.scale and R2(back.scale) })
 end
 
+-- A layout: the layer laid out on its back canvas (layer.back, at its zoom over its region), then
+-- swapped in. Each layer's worker runs one at a time (a coroutine made once: ~10 KB a layout in the
+-- client as a job of its own, sessions #8 and #9).
+function Layout(layer)
+	local back, t0 = layer.back, debugprofilestop()
+	local r = back.region
+	for _, p in pairs(back.pools) do p.n = 0 end
+	back.none = layer.build(back, back.inst, back.zoom, r[1], r[2], r[3], r[4]) == true
+	local live, parked = 0, 0
+	for _, p in pairs(back.pools) do -- the back canvas is clear: this may yield
+		for i = p.n + 1, p.out do
+			Reparent(p[i], park)
+			parked = parked + 1
+			Runtime.Yield()
+		end
+		p.out = p.n
+		live = live + p.n
+	end
+	Runtime.Trace("layout", { e = "end", layer = layer.name, ms = R2(debugprofilestop() - t0), regions = live,
+		made = back.made })
+	layer.busy, layer.retryAt, layer.backoff = false, nil, nil
+	Swap(layer, back, live, parked)
+end
+
 -- Lay layer out for the camera at (a "hold" layer: where it's headed), on its back canvas. A crossfade
--- running ends first (its old canvas is the back: Layers.lua:1853-1855, FinishCrossfade).
-local function Rebuild(layer, inst, at, w, h, budget)
+-- running ends first (its old canvas is the back: Layers.lua:1853-1855, FinishCrossfade). Its own call,
+-- for what a start costs (perf.alloc).
+local Rebuild = Runtime.Wrap("map: layout", function(layer, inst, at, w, h, budget)
 	if layer.fade then
 		Alpha(layer.fade.from, 0)
 		layer.fade = nil
@@ -281,29 +313,10 @@ local function Rebuild(layer, inst, at, w, h, budget)
 	local r = back.region or {}
 	r[1], r[2], r[3], r[4] = c0, r0, c1, r1
 	back.region, back.rev = r, layer.rev and layer.rev()
-	layer.busy = true -- until the job ends: its last stretch clears it; a failure, the draw step (Failed)
-	Runtime.Trace("layout", { e = "start", layer = layer.name, inst = inst, zoom = R2(zoom),
-		c0 = R2(c0), r0 = R2(r0), c1 = R2(c1), r1 = R2(r1), ox = ox, oy = oy })
-	layer.job = Runtime.Job("map: " .. layer.name, function()
-		local t0 = debugprofilestop()
-		for _, p in pairs(back.pools) do p.n = 0 end
-		back.none = layer.build(back, inst, zoom, c0, r0, c1, r1) == true
-		local live, parked = 0, 0
-		for _, p in pairs(back.pools) do -- the back canvas is clear: this may yield
-			for i = p.n + 1, p.out do
-				Reparent(p[i], park)
-				parked = parked + 1
-				Runtime.Yield()
-			end
-			p.out = p.n
-			live = live + p.n
-		end
-		Runtime.Trace("layout", { e = "end", layer = layer.name, ms = R2(debugprofilestop() - t0), regions = live,
-			made = back.made })
-		layer.busy, layer.retryAt, layer.backoff = false, nil, nil
-		Swap(layer, back, live, parked)
-	end, budget)
-end
+	layer.back, layer.busy = back, true -- until the job ends: its last stretch clears it; a failure, the draw step (Failed)
+	Runtime.Trace("layout", { e = "start", layer = layer.name, zoom = R2(zoom), ox = ox, oy = oy }) -- (its region: Engine.State)
+	Runtime.Wake(layer.job, budget)
+end)
 
 ---------------------------------------------------------------------------
 -- Each frame (Window's draw step)

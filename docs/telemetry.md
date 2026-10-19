@@ -127,7 +127,7 @@ Their `d`:
 | `zone` | the zone's name |
 | `map` | `"shown"` or `"hidden"` |
 | `cam` | `{ e, cx, cy, zoom }`, `e` = `drag start` (follow turns off), `drag end`, `wheel`, `follow on`, `follow off` |
-| `layout` | `{ e = "start", layer, inst, zoom, c0, r0, c1, r1, ox, oy }` (`ox, oy` the shared origin tile), then `{ e = "end", layer, ms, regions, made }` (`ms` wall time, over several frames; `made` the regions it had to create), or `{ e = "failed", layer, retry }` |
+| `layout` | `{ e = "start", layer, zoom, ox, oy }` (`ox, oy` the shared origin tile; its region: a mark's `View.diag` layers), then `{ e = "end", layer, ms, regions, made }` (`ms` wall time, over several frames; `made` the regions it had to create), or `{ e = "failed", layer, retry }` |
 | `swap` | `{ layer, ms, live, parked, x, y, scale }`: `ms` the swap's own time (new canvas placed, the two canvases' alphas swapped: it can't yield), `live` the regions it shows, `parked` the regions its layout parked (SetParent onto a hidden frame), `x, y, scale` where it was placed (`x, y` absent for a held layer still zooming) |
 | `error` | the error's key |
 | `taint` | `{ e, fn }`: `e` = `blocked` (ADDON_ACTION_BLOCKED) or `forbidden` (ADDON_ACTION_FORBIDDEN), `fn` the protected function the client named |

@@ -315,6 +315,26 @@ local function Gap(job, ms, stack)
 	if g == 1 or g == 10 or g % 100 == 0 then Runtime.Trace("gap", { job = p.name, ms = R1(ms), n = g }) end
 end
 
+-- A job that lasts (a worker): fn runs in one coroutine for good, each of its runs ending in
+-- Runtime.Idle(); Runtime.Wake(job, budgetMs) runs it again as a job (its resumes counted anew). Its
+-- coroutine and handle are made once: a job each time is a coroutine, a closure and a handle (a map
+-- layout's: ~3 KB in the sim, ~10 KB in the client: sessions #8, #9). Cancelled or failed mid-run, the
+-- next Wake starts fn anew.
+local IDLE = {}
+function Runtime.Worker(name, fn, budgetMs, maxFrames)
+	return { name = name, fn = fn, budget = budgetMs or 2, p = Stat(name), resumes = 0,
+		maxFrames = maxFrames or JOB_RESUMES, t0 = 0, mark = 0, done = true }
+end
+
+function Runtime.Wake(job, budgetMs)
+	if not job.idle then job.co = coroutine.create(job.fn) end
+	if job.done then jobs[#jobs + 1] = job end -- (a cancelled one still queued goes on in place)
+	job.idle, job.done, job.cancelled, job.err, job.resumes = false, false, false, nil, 0
+	job.budget = budgetMs or job.budget
+end
+
+function Runtime.Idle() coroutine.yield(IDLE) end
+
 -- Gives the frame back once the running job's budget is spent; elsewhere a no-op.
 function Runtime.Yield()
 	local job = current
@@ -339,7 +359,7 @@ local function RunJobs()
 			current, job.t0, job.mark, job.resumes = job, t0, t0, job.resumes + 1
 			local kb0 = collectgarbage("count")
 			local ok, err = coroutine.resume(job.co)
-			current = nil
+			current, job.idle = nil, ok and err == IDLE
 			Done(job.p, t0, job.budget * 2, kb0) -- not yielding (often enough) shows as an overrun
 			local last = now() - job.mark -- since its last Yield: to its end, or a bare coroutine.yield
 			if last > job.budget and not graced then
@@ -348,7 +368,7 @@ local function RunJobs()
 			end
 			if not ok then job.err = tostring(err); Fail(job.name, err, StackDue(job.p) and debugstack(job.co) or nil) end
 		end
-		if job.cancelled or coroutine.status(job.co) == "dead" then
+		if job.cancelled or job.idle or coroutine.status(job.co) == "dead" then
 			job.done = true
 			table.remove(jobs, i)
 		else
