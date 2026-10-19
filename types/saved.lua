@@ -99,7 +99,7 @@
 ---@class MM.SavedValidation: MM.SavedPart
 ---@field _v 2
 ---@field on? boolean
----@field version string  the build (the TOC's ## Version) whose log it is: another build's is cleared at load (game/Validate.lua)
+---@field version string  the build (the TOC's ## X-Stamped; "unstamped": none) whose log it is: another build's is cleared at load (game/Validate.lua)
 ---@field samples integer
 ---@field counts table<string, integer>
 ---@field log table[]

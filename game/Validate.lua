@@ -4,7 +4,7 @@
 --                      logged) the map rects up from here and the continent's flight points
 --   /mma check log     toggle logging mismatches every 2 s as you travel (MagicMapAtlasDB.validation);
 --                      the log is this build's: another build's is cleared at load (a build is its
---                      ## Version, which tools/install.py stamps: unstamped, the TOC's own)
+--                      TOC's ## X-Stamped, which tools/install.py and package.sh write: none, "unstamped")
 --   /mma check report  the log, by kind;  /mma check clear  empties it
 -- Both judge alike (Sample): the client not knowing yet, or a WMO's own subzone, is info, not drift.
 
@@ -19,10 +19,9 @@ local TOL = {
 	taxi = 20 * YD, -- flight point on the continent map vs TaxiNodes
 }
 local EVERY, MAX_LOG = 2, 1000 -- logger: seconds per sample, entries kept
-local VERSION = C_AddOns.GetAddOnMetadata(ADDON, "Version") -- the build's (tools/install.py stamps it)
--- MagicMapAtlas.toc's own, as committed: a build not installed by tools/install.py (a symlink to a
--- checkout) keeps it, so its log may hold another build's lines.
-local UNSTAMPED = "0.1.0"
+-- The build's, as tools/install.py (its files' digest on its git describe) or tools/package.sh stamped its
+-- TOC; a build neither made (a symlink to a checkout) is "unstamped", one log for every such build.
+local VERSION = C_AddOns.GetAddOnMetadata(ADDON, "X-Stamped") or "unstamped"
 local ZONE = Enum.UIMapType.Zone
 local GREEN, RED, GREY = "|cff60ff60", "|cffff6060", "|cff999999"
 
@@ -264,7 +263,7 @@ end, { version = 2, defaults = { on = false, version = "", samples = 0, counts =
 
 local function Report()
 	Game.Print(string.format("validation log (build %s%s): %s, %d samples, %d logged (%d over the cap)", db.version,
-		db.version == UNSTAMPED and ", unstamped: the log may mix builds" or "", db.on and "on" or "off", db.samples,
+		db.version == "unstamped" and ": the log may mix builds" or "", db.on and "on" or "off", db.samples,
 		#db.log, db.dropped))
 	local kinds = {}
 	for kind, n in pairs(db.counts) do kinds[#kinds + 1] = { kind, n } end

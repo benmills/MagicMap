@@ -11,7 +11,7 @@ local SAVED = "MagicMapAtlasDB.validation = { _v = %d, on = true, version = %q, 
 	.. " dropped = 0 }"
 local sim, ns = T.Boot(T.TEST_UI .. "; " .. string.format(SAVED, 1, "cd0c82c"))
 local db = MagicMapAtlasDB.validation
-assert(db.version == "0.1.0" and #db.log == 0 and next(db.counts) == nil and db.samples == 0 and db.on,
+assert(db.version == "unstamped" and #db.log == 0 and next(db.counts) == nil and db.samples == 0 and db.on,
 	"another build's log is cleared at load, logging left on")
 
 -- Orgrimmar as the client has it (the sim's maps made Atlas's), you in the Valley of Strength (the log's spot).
@@ -65,5 +65,5 @@ assert(#db.log == 1 and db.log[1].kind == "zone text" and db.log[1].atlas == "Or
 assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n"))
 
 -- This build's log survives a /reload.
-sim = T.Boot(T.TEST_UI .. "; " .. string.format(SAVED, 2, "0.1.0"))
+sim = T.Boot(T.TEST_UI .. "; " .. string.format(SAVED, 2, "unstamped"))
 assert(#MagicMapAtlasDB.validation.log == 1 and MagicMapAtlasDB.validation.counts.subzone == 5)

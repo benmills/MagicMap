@@ -7,9 +7,12 @@ The scripted sessions that feed it are docs/playtest.md.
 
 ## In game
 
-- **Version stamp**: `tools/install.py` writes the checkout's version
-  (`git describe --always --dirty`, e.g. `7aa8b30-dirty`) into the installed TOC's
-  `## Version:`. Every record carries it (`GetAddOnMetadata(ADDON, "Version")`).
+- **Version stamp**: `tools/install.py` writes the build's version, the checkout's
+  `git describe --always --dirty` and a digest of the files it installs (the gitignored
+  QuestieDB-derived Data among them, which git can't see), e.g. `7aa8b30-dirty.55aad87`, into
+  the installed TOC's `## Version:` and `## X-Stamped:` (`tools/package.sh`: the ref's describe).
+  Every record carries `## Version` (`GetAddOnMetadata(ADDON, "Version")`); the validation log
+  is one `## X-Stamped` build's, a TOC without it (a symlink to a checkout) "unstamped".
 - **Errors**: everything `Runtime.Wrap` catches, and anything else the global
   error handler sees from our files, is kept with its stack.
 - **Flight recorder**: `Runtime.Trace(kind, detail)` appends to an in-memory ring

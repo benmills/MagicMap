@@ -91,11 +91,13 @@ def write_toc() -> bool:
 
 
 def stamp_version(toc: str, rev: str) -> None:
-    """The installed TOC's ## Version: becomes the checkout's (docs/telemetry.md)."""
+    """An installed or packaged TOC's ## Version: becomes the build's (docs/telemetry.md), and ## X-Stamped:
+    with it (game/Validate.lua's one build's log: a TOC without it is "unstamped")."""
     with open(toc, encoding="utf-8") as f:
         lines = f.read().splitlines(keepends=True)
     with open(toc, "w", encoding="utf-8", newline="") as f:
-        f.writelines(f"## Version: {rev}\n" if line.startswith("## Version:") else line for line in lines)
+        f.writelines(f"## Version: {rev}\n## X-Stamped: {rev}\n" if line.startswith("## Version:") else line
+                     for line in lines)
 
 
 def main() -> None:
@@ -105,7 +107,11 @@ def main() -> None:
                         help="World of Warcraft folder (default: $MAGICMAP_WOW or the standard location)")
     parser.add_argument("--no-check", action="store_true", help="skip the Lua check before installing")
     parser.add_argument("--toc", action="store_true", help="only write MagicMapAtlas.toc from the manifests")
+    parser.add_argument("--stamp", nargs=2, metavar=("TOC", "REV"), help="only stamp that TOC as build REV (tools/package.sh)")
     ns = parser.parse_args()
+    if ns.stamp:
+        stamp_version(*ns.stamp)
+        return
 
     if write_toc():
         print(f"{ADDON}.toc: written from the manifests (commit it)")
@@ -142,12 +148,13 @@ def main() -> None:
         rev = subprocess.check_output(["git", "-C", ROOT, "describe", "--always", "--dirty"], text=True).strip()
     except (OSError, subprocess.CalledProcessError):
         rev = "?"
-    if rev.endswith("-dirty") or rev == "?":  # each uncommitted build its own (game/Validate.lua keeps one build's log)
-        digest = hashlib.sha1()
-        for f in files:
-            with open(os.path.join(ROOT, f), "rb") as fh:
-                digest.update(f.encode() + b"\0" + fh.read())
-        rev += "." + digest.hexdigest()[:7]
+    # The files installed, named: uncommitted changes and the gitignored QuestieDB-derived Data (git can't see
+    # them) each make a build of their own (game/Validate.lua keeps one build's log).
+    digest = hashlib.sha1()
+    for f in files:
+        with open(os.path.join(ROOT, f), "rb") as fh:
+            digest.update(f.encode() + b"\0" + fh.read())
+    rev += "." + digest.hexdigest()[:7]
     stamp_version(os.path.join(dest, f"{ADDON}.toc"), rev)
     print(f"installed {ADDON} {rev} ({len(files)} files) into {dest}")
     if skipped:

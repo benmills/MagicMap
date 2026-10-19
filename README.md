@@ -60,7 +60,7 @@ data too, when generated). It shares no globals with the
 - `/mma perf load`: Atlas's load cost (ms, KB) and time per step / event / timer / job
 - `/mma errors`: errors caught so far (each is also printed once when it happens)
 
-`tools/package.sh [ref]` zips a committed ref as `dist/MagicMapAtlas-<ref>.zip`.
+`tools/package.sh [ref]` zips a committed ref as `dist/MagicMapAtlas-<ref>.zip`, its TOC stamped as the ref's build.
 
 ## Telemetry
 
