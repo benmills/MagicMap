@@ -1,6 +1,7 @@
 -- P2: cooperative budget overrun. MOVED: Yield checks the budget only where the job calls it, so
 -- a job yielding every 200 iterations overruns (and Perf's max shows it); one that yields every
--- iteration keeps to budget + one iteration. Then every Atlas first use, as Atlas yields it.
+-- iteration keeps to budget + one iteration. Then every Atlas first use, as Atlas yields it, and
+-- Model's route search (v1).
 local T = ...
 local sim, ns = T.Boot()
 sim.Run(1)
@@ -71,3 +72,33 @@ for _, u in ipairs(uses) do
 	assert(max <= 2, u[1] .. ": " .. max .. " ms")
 end
 T.Print("P2: Atlas first uses in a 1 ms job, slowest resume: %s", table.concat(each, ", "))
+
+-- v1, the route (model/Route.lua): A* in a Runtime.Job of SLICE_MS (1), Runtime.Yield a node, on the
+-- same clock: Goldshire (31.95, 49.75) to Lakeshire, your waypoint (a part of the replay's own, as
+-- M3.2's hands it), found within 60 frames, no resume over 1.2 ms.
+local waypoint = false
+ns.Game.Part("waypoint", function() return waypoint end, false)
+local Job, route = R.Job, nil
+R.Job = function(name, fn, ...)
+	if name ~= "model: route" then return Job(name, fn, ...) end
+	route = Job(name, function()
+		debug.sethook(Count, "", EVERY)
+		fn()
+		debug.sethook()
+	end, ...)
+	return route
+end
+local clock = sim.Clock
+sim.Clock = function() return clock() + counted * NS end
+sim.Slash("/mma toggle")
+sim.Run(1)
+waypoint = { inst = 0, col = 36.09, row = 49.28 }
+local frames = 0
+repeat
+	sim.Step()
+	frames = frames + 1
+until ns.Model.Route() or frames == 60
+local p = R.Perf()["model: route"]
+T.Print("P2: the route Goldshire to Lakeshire in %d frames, its slowest resume %.2f ms (budget 1)", frames, p.max)
+assert(ns.Model.Route() and not ns.Model.Route().straight and route.done and p.max <= 1.2)
+R.Job, sim.Clock = Job, clock
