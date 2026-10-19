@@ -12,7 +12,7 @@
 --   * Model.you, Model.hooked, Target(), Route() and their meanings
 --   * Model.Load(saved) / Model.SAVED: Game.Load("Model", Model.Load, Model.SAVED)
 -- OPEN: new kinds (strings), new optional MM.Known fields, Target / Route shapes
--- beyond the fields below (not built yet), new optional fields of Model.you, and
+-- beyond the fields below, new optional fields of Model.you, and
 -- more of the Observation handed on unchanged (minimap, addons).
 
 ---@alias MM.KnownKind "blips"|"remembered"|"rares"|"quests"|"offers"|"places"|"group"|"corpse"|"waypoint"|"vignettes"|"services"|string
@@ -119,7 +119,7 @@
 ---@field ghost? boolean       released: your corpse becomes the target
 ---@field combat? boolean      InCombatLockdown()
 
----What to go to (not built yet: OPEN beyond these fields).
+---What to go to (OPEN beyond these fields).
 ---@class MM.Target
 ---@field kind MM.KnownKind|"quest"|"corpse"|"waypoint"
 ---@field key string
@@ -128,7 +128,8 @@
 ---@field title? string        what the title band names it ("<title> N yd", "<title> here")
 ---@field quest? MM.QuestID    kind "quest": which
 
----The way to the target: still an MM.Pos[] (tile space, you first), with two optional flags.
+---The way to the target: still an MM.Pos[] (tile space, you first, the target last: as the MVP's
+---RouteTo, Route.lua:362-370), with two optional flags.
 ---@class MM.Route
 ---@field [integer] MM.Pos
 ---@field straight? boolean    no walk data here: you and the target only, drawn straight
@@ -155,7 +156,7 @@ function Model.Known(kind) end
 ---@return MM.Target|false|nil  false: none; nil: not known yet
 function Model.Target() end
 
----The way to the target: points in tile space, you first; nil while not found.
+---The way to the target: points in tile space, you first, the target last; nil while not found.
 ---@return MM.Route|nil
 function Model.Route() end
 

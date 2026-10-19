@@ -55,6 +55,10 @@ Target and Route beyond the typed fields.
   entry's: `Known("quests")` hands a new list of the same entries when `obs.quests.poi` changes
   (rev moves; a layer diffing entries sets nothing), and ui/Areas.lua draws a frame again when the
   list's poi differs from the one it drew at.
+- OPEN addition (v1 plan M3.3, at M3's wave 1 merge): `MM.Route` says its last point is the target
+  (you first, the target last, as the MVP's RouteTo, Route.lua:362-370): ui/Path.lua draws the line's
+  far end and the edge arrow from it. Target and Route are built (M3.1: model/Target.lua, Route.lua);
+  Target is nil until Model's first Focus, so UI's first look at it waits for a known one.
 
 ## Revisit if
 
