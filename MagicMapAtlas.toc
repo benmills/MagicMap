@@ -47,6 +47,8 @@ runtime\Runtime.lua
 model\Model.lua
 model\Blips.lua
 model\Rares.lua
+model\Quests.lua
+model\Offers.lua
 
 # Game
 game\Game.lua

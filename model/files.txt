@@ -1,3 +1,5 @@
 model/Model.lua
 model/Blips.lua
 model/Rares.lua
+model/Quests.lua
+model/Offers.lua
