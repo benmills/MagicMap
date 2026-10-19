@@ -5,9 +5,9 @@
 -- the hide waits; releasing gives back the rest at once and the show waits (Blizzard's minimap
 -- comes back as combat ends). /mma toggle both ways, the rim button and the compartment, the
 -- gear's "Use Blizzard's minimap", M and Escape, a /reload and a logout in combat. And a quest
--- followed in combat (a click on its pin or area: the follow Command) super-tracks and watches it
--- from insecure code, which Blizzard's objective tracker (secure item buttons) follows: recorded
--- (Sim.trackerCalls), not refused; whether the client blocks or taints is docs/playtest-final.md c7.
+-- followed (a click on its pin or area: the follow Command), out of combat and in, super-tracks and
+-- watches it from insecure code, which Blizzard's objective tracker (secure item buttons) follows:
+-- recorded (Sim.trackerCalls), not refused; whether the client blocks or taints is docs/playtest-final.md c7.
 local T = ...
 
 local function Leave(sim)
@@ -30,6 +30,8 @@ Is(ns, "hidden at login", false, true, 1)
 sim.Slash("/mma toggle")
 sim.Run(0.5)
 Is(ns, "taken", true, false, 1)
+ns.Game.Command({ kind = "follow", quest = 62 }) -- out of combat: the usual path (the sim's log)
+sim.Step()
 
 -- Off then on in combat, combat over, off: the show waited, and isn't lost to the re-engage.
 sim.inCombat = true
@@ -92,9 +94,11 @@ ns.Game.Command({ kind = "follow", quest = 60 }) -- (the sim's log)
 ns.Game.Command({ kind = "follow", quest = false })
 sim.Step()
 local calls = {}
-for _, c in ipairs(sim.trackerCalls) do calls[#calls + 1] = c.call end
-T.Print("K2: a follow and an unfollow in combat: %s (the tracker's, recorded: in game c7)", table.concat(calls, ", "))
-assert(table.concat(calls, ",") == "AddQuestWatch,SetSuperTrackedQuestID,SetSuperTrackedQuestID", table.concat(calls, ","))
+for _, c in ipairs(sim.trackerCalls) do calls[#calls + 1] = c.call .. (c.combat and " (combat)" or "") end
+T.Print("K2: a follow out of combat, a follow and an unfollow in it: %s (the tracker's, recorded: in game c7)",
+	table.concat(calls, ", "))
+assert(table.concat(calls, ",") == "AddQuestWatch,SetSuperTrackedQuestID,AddQuestWatch (combat),SetSuperTrackedQuestID (combat),"
+	.. "SetSuperTrackedQuestID (combat)", table.concat(calls, ","))
 sim.Slash("/mma toggle")
 sim.Run(0.5)
 sim.FireEvent("PLAYER_LOGOUT") -- logging out (or reloading) in combat

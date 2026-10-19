@@ -1777,15 +1777,18 @@ C_SuperTrack = {
 	SetSuperTrackedQuestID = function(id) Sim.superTracked = id end,
 	SetSuperTrackedUserWaypoint = function(on) if on then Sim.superTracked = 0 end end,
 }
--- Blizzard's objective tracker (its quest item buttons are secure) follows these: each made in combat
--- is logged in Sim.trackerCalls ({ frame, call, stack }), as protectedCalls (K2): not refused here,
--- recorded for R-K2; whether the client blocks or taints on it is the final session's (c7).
+-- Blizzard's objective tracker (its quest item buttons are secure) follows these: each is logged in
+-- Sim.trackerCalls ({ frame, call, combat, stack (in combat) }), as protectedCalls (K2): not refused
+-- here, recorded for R-K2, out of combat and in; whether the client blocks or taints on it is the final
+-- session's (c7).
 Sim.trackerCalls = {}
 for _, at in ipairs({ { C_SuperTrack, "SetSuperTrackedQuestID" }, { C_QuestLog, "AddQuestWatch" } }) do
 	local t, name = at[1], at[2]
 	local fn = t[name]
 	t[name] = function(...)
-		if Sim.inCombat then Sim.trackerCalls[#Sim.trackerCalls + 1] = { frame = Sim.frame, call = name, stack = debug.traceback("", 2) } end
+		local combat = Sim.inCombat == true
+		Sim.trackerCalls[#Sim.trackerCalls + 1] = { frame = Sim.frame, call = name, combat = combat,
+			stack = combat and debug.traceback("", 2) or nil }
 		return fn(...)
 	end
 end
