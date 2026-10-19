@@ -49,8 +49,8 @@ local PAD = 200 -- px past the view a moved label or pin may show from (its anch
 local SHOWN_PX = 4000
 local RETRY_S, RETRY_MAX_S = 0.5, 30 -- a failed layout is tried again after this, doubling each failure in a row
 
--- toggles: UI's saved layers (ui/View.lua loads them); defaults: false for a layer off until turned on
--- (its gear row's, ui/Menus.lua)
+-- toggles: UI's saved layers (ui/View.lua loads them); defaults: each gear row's key, on until turned off
+-- (false: off until turned on; ui/Menus.lua)
 local Engine = { layers = {}, toggles = {}, defaults = {}, DRIFT = DRIFT }
 UI.Engine = Engine
 
@@ -788,7 +788,7 @@ end)
 
 local Command = ns.Game.Command
 Command({ kind = "slash", name = "layer", help = "<name>: show or hide a map layer; alone, list them", fn = function(name)
-	local known = false
+	local known = Engine.defaults[name] ~= nil -- a gear row's (a place kind's: one Engine layer draws them all)
 	for _, l in ipairs(Engine.layers) do known = known or l.name == name end
 	if known then Engine.SetLayer(name, not Engine.LayerOn(name)) end -- (the gear's: ui/Menus.lua)
 	for _, l in ipairs(Engine.layers) do print(string.format("  %s %s", l.name, Engine.LayerOn(l.name) and "on" or "off")) end

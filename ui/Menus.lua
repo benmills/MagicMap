@@ -68,7 +68,7 @@ local function Before(a, b) return a.place < b.place end
 function Menus.Layer(row)
 	LAYERS[#LAYERS + 1] = row
 	row.place = ORDER[row.key] or 100 + #LAYERS
-	Engine.defaults[row.key] = row.default
+	Engine.defaults[row.key] = row.default ~= false -- (a gear row's key: /mma layer takes it too)
 	table.sort(LAYERS, Before)
 	return row
 end

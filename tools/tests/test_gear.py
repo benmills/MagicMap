@@ -331,13 +331,14 @@ def test_gear_tracking_advanced():
     # /mma layers.
     sim.Slash("/mma layer questAreas")
     sim.Slash("/mma layer rares")
+    sim.Slash("/mma layer flight")  # (a gear row's: the places layer draws its kind)
     sim.Slash("/mma layers")
     on, off = "|cff33ff33%s|r".__mod__, "|cff888888%s|r".__mod__
     assert sim.prints[len(sim.prints)] == (
         "|cffffd100MagicMapAtlas|r: layers: "
         f"|cffffd100Map:|r {on('zoneLabels')}, {on('zoneBorders')}, {off('unexplored')}; "
         f"|cffffd100Quests:|r {on('quests')}, {off('questAreas')}, {off('questAreasApprox')}, {on('offers')}; "
-        f"|cffffd100Places:|r {on('flight')}, {on('dungeons')}, {off('graveyards')}, {on('areaPOIs')}, {on('blips')}; "
+        f"|cffffd100Places:|r {off('flight')}, {on('dungeons')}, {off('graveyards')}, {on('areaPOIs')}, {on('blips')}; "
         f"|cffffd100People:|r {on('group')}, {off('rares')}, {on('vignettes')}; "
         f"|cffffd100You:|r {on('corpse')}, {on('waypoint')}. Toggle them from the gear. "
         "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it.")
