@@ -8,6 +8,8 @@
 -- followed (a click on its pin or area: the follow Command), out of combat and in, super-tracks and
 -- watches it from insecure code, which Blizzard's objective tracker (secure item buttons) follows:
 -- recorded (Sim.trackerCalls), not refused; whether the client blocks or taints is docs/playtest-final.md c7.
+-- So is a waypoint set (super-tracked: the quest no longer) and cleared, out of combat and in: Ctrl-click
+-- and Ctrl-right-click, the right-click menu's Waypoint here and Clear waypoint (the waypoint Command).
 local T = ...
 
 local function Leave(sim)
@@ -24,6 +26,32 @@ local function Is(ns, what, engaged, shown, alpha)
 		what, tostring(e), tostring(s), tostring(a)))
 end
 
+-- A waypoint set and cleared by Ctrl-click and Ctrl-right-click, then by the menu, at the view's centre.
+local function Waypoints(sim, ns)
+	local view = ns.UI.Window.view
+	sim.MoveCursorTo(view)
+	local function Click(button, ctrl)
+		sim.modifiers.ctrl = ctrl
+		sim.Click(view, button, sim.cursorX, sim.cursorY, "screen") -- (Game's input step carries it out)
+		sim.modifiers.ctrl = nil
+	end
+	local function Pick(text)
+		Click("RightButton")
+		for _, e in ipairs(sim.MenuItems("button")) do
+			if e.text == text then e.onSelect() end
+		end
+		sim.Step()
+	end
+	Click("LeftButton", true)
+	assert(sim.waypoint, "Ctrl-click: a waypoint")
+	Click("RightButton", true)
+	assert(not sim.waypoint, "Ctrl-right-click: none")
+	Pick("Waypoint here")
+	assert(sim.waypoint, "the menu's: a waypoint")
+	Pick("Clear waypoint")
+	assert(not sim.waypoint, "the menu's: none")
+end
+
 local sim, ns = T.Boot()
 sim.Run(1)
 Is(ns, "hidden at login", false, true, 1)
@@ -32,6 +60,7 @@ sim.Run(0.5)
 Is(ns, "taken", true, false, 1)
 ns.Game.Command({ kind = "follow", quest = 62 }) -- out of combat: the usual path (the sim's log)
 sim.Step()
+Waypoints(sim, ns)
 
 -- Off then on in combat, combat over, off: the show waited, and isn't lost to the re-engage.
 sim.inCombat = true
@@ -41,6 +70,7 @@ Is(ns, "released in combat: its show waits", false, false, 1)
 sim.Slash("/mma toggle")
 sim.Run(0.5)
 Is(ns, "taken again in combat", true, false, 1)
+Waypoints(sim, ns)
 Leave(sim)
 Is(ns, "combat over, still taken", true, false, 1)
 sim.Slash("/mma toggle")
@@ -95,10 +125,12 @@ ns.Game.Command({ kind = "follow", quest = false })
 sim.Step()
 local calls = {}
 for _, c in ipairs(sim.trackerCalls) do calls[#calls + 1] = c.call .. (c.combat and " (combat)" or "") end
-T.Print("K2: a follow out of combat, a follow and an unfollow in it: %s (the tracker's, recorded: in game c7)",
-	table.concat(calls, ", "))
-assert(table.concat(calls, ",") == "AddQuestWatch,SetSuperTrackedQuestID,AddQuestWatch (combat),SetSuperTrackedQuestID (combat),"
-	.. "SetSuperTrackedQuestID (combat)", table.concat(calls, ","))
+T.Print("K2: a follow and waypoints out of combat, waypoints, a follow and an unfollow in it: %s (the tracker's,"
+	.. " recorded: in game c7)", table.concat(calls, ", "))
+local WAYPOINTS = "SetUserWaypoint%s,SetSuperTrackedUserWaypoint%s,ClearUserWaypoint%s,"
+local out, combat = WAYPOINTS:format("", "", ""):rep(2), WAYPOINTS:format(" (combat)", " (combat)", " (combat)"):rep(2)
+assert(table.concat(calls, ",") == "AddQuestWatch,SetSuperTrackedQuestID," .. out .. combat
+	.. "AddQuestWatch (combat),SetSuperTrackedQuestID (combat),SetSuperTrackedQuestID (combat)", table.concat(calls, ","))
 sim.Slash("/mma toggle")
 sim.Run(0.5)
 sim.FireEvent("PLAYER_LOGOUT") -- logging out (or reloading) in combat

@@ -1790,9 +1790,10 @@ C_SuperTrack = {
 -- Blizzard's objective tracker (its quest item buttons are secure) follows these: each is logged in
 -- Sim.trackerCalls ({ frame, call, combat, stack (in combat) }), as protectedCalls (K2): not refused
 -- here, recorded for R-K2, out of combat and in; whether the client blocks or taints on it is the final
--- session's (c7).
+-- session's (c7). The user waypoint's too: super-tracking it un-super-tracks the followed quest.
 Sim.trackerCalls = {}
-for _, at in ipairs({ { C_SuperTrack, "SetSuperTrackedQuestID" }, { C_QuestLog, "AddQuestWatch" } }) do
+for _, at in ipairs({ { C_SuperTrack, "SetSuperTrackedQuestID" }, { C_QuestLog, "AddQuestWatch" },
+	{ C_SuperTrack, "SetSuperTrackedUserWaypoint" }, { C_Map, "SetUserWaypoint" }, { C_Map, "ClearUserWaypoint" } }) do
 	local t, name = at[1], at[2]
 	local fn = t[name]
 	t[name] = function(...)
