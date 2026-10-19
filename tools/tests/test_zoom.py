@@ -139,6 +139,13 @@ def test_wheel_burst():
         sim.Run(0.3)
     sim.Run(1)
     assert ticks(start, c.cam.zoom) == pytest.approx(4)
+
+    # Two notches in one frame, from rest: one tick, the bucket's (the spike stacked them to x1.69).
+    start = c.cam.zoom
+    sim.Wheel(w.view, 1)
+    sim.Wheel(w.view, 1)
+    sim.Run(1)
+    assert ticks(start, c.cam.zoom) == pytest.approx(1)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

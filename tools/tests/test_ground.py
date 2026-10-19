@@ -11,7 +11,7 @@ plain, and back. You: the arrow, on your map only.
 from test_addon import boot, errors
 
 CAP = 3000
-TARREN_MILL, KHARANOS = (33.689, 32.051), (32.904, 42.474)  # Data/Labels.lua's towns
+TARREN_MILL, KHARANOS = (33.689, 32.051), (32.904, 42.474)  # the towns' AreaPOI spots
 
 
 def shown(big=False):
