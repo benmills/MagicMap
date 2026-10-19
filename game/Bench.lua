@@ -10,10 +10,13 @@
 -- at alpha 0, SetAlpha(1) after they moved while shown at alpha 0 (the engine's swap), and Show
 -- after 100 masked textures moved (a tile's art and its coast fade). Each call is timed alone in
 -- a Job, its frames graced ("bench"), and a canvas-wide call (setup, timed, or between ops) gets
--- a frame to itself, so the run's frames cost no more than one such call; every region is clear,
--- so nothing shows. And what no call's time can show, a cost the client defers to its drawing: the
--- whole frame after the 1000 lines moved on a shown canvas at alpha 0 (the engine's back canvas),
--- against the same move on a hidden canvas and an idle frame (frame.*: µs a frame, debugprofilestop
+-- a frame to itself, so the run's frames cost no more than one such call; every region is clear
+-- until the moved and alpha ops, whose 1000 lines are coloured as a border's (a canvas at alpha 0
+-- hides them; shown, the 320x200 clipped box shows them a frame at a time). And what no call's time
+-- can show, a cost the client defers to its drawing: the whole frame after the 1000 lines moved on a
+-- shown canvas at alpha 0 (the engine's back canvas), against the same move on a hidden canvas and an
+-- idle frame; and the engine's swap, the frame after SetAlpha(1) on lines moved at alpha 0 a frame
+-- before (frame.swap: the final session's deciding number; frame.*: µs a frame, debugprofilestop
 -- across the yield).
 -- Bench.result = { build, t, ops = { [op] = { n, ms, us } } } (Telemetry keeps it per build).
 
@@ -160,9 +163,15 @@ local function Run()
 		Yield()
 	end
 	-- Shown after moving: at alpha 1, at alpha 0, and moved while shown at alpha 0 (a frame drawn between)
-	-- then SetAlpha(1); masked textures.
+	-- then SetAlpha(1); masked textures. The lines coloured as a border's (ui/Borders.lua ZONE), so the
+	-- client has something to draw.
 	local live, masked, k = CANVASES[2], { n = 100, masked = true }, 0
 	local c = live.frame
+	c:SetAlpha(0)
+	for i, l in ipairs(live.regions) do
+		l:SetColorTexture(1, 0.9, 0.72, 0.6)
+		if i % 100 == 0 then Yield() end
+	end
 	local function Moved(spec) k = 1 - k; Move(spec, k) end
 	Time("canvas.Show.moved@1000live", REPS, function() c:Show() end, function() c:Hide(); Moved(live) end)
 	Time("canvas.Show.moved.alpha0@1000live", REPS, function() c:Show() end,
@@ -172,6 +181,8 @@ local function Run()
 	c:SetAlpha(0)
 	Frame("frame.idle", function() end)
 	Frame("frame.moved.alpha0", function() Moved(live) end)
+	Frame("frame.swap", function() c:SetAlpha(0); Moved(live); coroutine.yield(); c:SetAlpha(1) end)
+	c:SetAlpha(0)
 	c:Hide()
 	Yield()
 	Frame("frame.moved.hidden", function() Moved(live) end)

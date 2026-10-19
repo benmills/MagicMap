@@ -96,12 +96,17 @@ zoom 60).
 What the bench must still confirm (`/mma bench regions`, the final session): that re-anchoring a shown
 canvas's regions at alpha 0 costs what a SetPoint costs, not the 20-50 µs a Show paid. It times Show
 after the regions moved (at alpha 1 and at alpha 0), SetAlpha(1) after they moved while shown at alpha
-0, and masked textures shown after moving; and, since a call's time can't show a cost the client defers
+0, and masked textures shown after moving, its lines coloured as a border's (clear lines would read
+cheap to a client that culls by alpha); and, since a call's time can't show a cost the client defers
 to its drawing, the whole frame after 1000 lines moved on a shown alpha-0 canvas (`frame.moved.alpha0`)
-against the same move hidden (`frame.moved.hidden`) and an idle frame (`frame.idle`). The session's
-`byState[state].client` (the client's whole frame by map state) shows the same in play: zoom and drag
-frames should be within a few ms of small ones. Each layer holds about twice its live regions (its old
-front stays populated at alpha 0 until it's laid out again: big window at zoom 60, 6211 for 2962 live).
+against the same move hidden (`frame.moved.hidden`) and an idle frame (`frame.idle`), and the frame
+after the engine's swap itself (`frame.swap`: moved at alpha 0, a frame drawn, then SetAlpha(1); the
+deciding number: about `frame.idle`, or the swap pays the M0 gate's 35-50 µs a line where it shows them).
+The session's `byState[state].client` (the client's whole frame by map state, booked to the state each
+frame ran in) shows the same in play: zoom and drag frames should be within a few ms of small ones.
+A layer holds its live regions and its old front's at alpha 0 until it's laid out again: big window at
+zoom 60, 6211 for 2962 live; after zooming out in the big window the borders held 2713 for 325 live
+(2388 lines at alpha 0, the worst seen: M1 review round 2).
 If moved alpha-0 regions turn out to cost, park the old front's leftovers after each swap (and its
 crossfade) in a job (0.22 µs a park, 0.70 an unpark), or extend the front canvas in place.
 

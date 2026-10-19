@@ -7,7 +7,7 @@ CANVAS = ["canvas." + op + "@" + at for at in ("100live", "1000live", "1000hidde
           for op in ("SetPoint", "SetScale", "SetAlpha", "Hide", "Show")]
 MOVED = ["canvas.Show.moved@1000live", "canvas.Show.moved.alpha0@1000live", "canvas.SetAlpha.moved@1000live",
          "canvas.Show.moved@100masked"]  # the swap's question (M1.3)
-FRAMES = ["frame.idle", "frame.moved.alpha0", "frame.moved.hidden"]  # the whole frame: what the client defers to drawing
+FRAMES = ["frame.idle", "frame.moved.alpha0", "frame.swap", "frame.moved.hidden"]  # the whole frame: what the client defers to drawing
 OPS = ["CreateTexture", "CreateLine", "CreateFontString", "SetPoint", "SetStartPoint",
        "SetParent.park", "SetParent.unpark"] + CANVAS + MOVED + FRAMES
 
