@@ -15,6 +15,7 @@ local Art = {
 	-- only when none of it is there, named by its first.
 	atlases = {
 		"vignettekill", "vignettekillelite",                       -- ui/Rares.lua (model/Rares.lua ICON)
+		"Professions_Tracking_Herb", "Professions_Tracking_Ore",   -- ui/Blips.lua: gathering nodes (game/Blips.lua GATHER)
 		"UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight", -- ui/Chrome.lua: the border
 		"_UI-Frame-Metal-EdgeBottom", "!UI-Frame-Metal-EdgeLeft", "!UI-Frame-Metal-EdgeRight",
 		-- ui/Controls.lua: the mode button, the spike's chains (Core.lua:282-286). Forever draws the
@@ -31,11 +32,10 @@ local Art = {
 		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",        -- ui/Chrome.lua: the grip
 		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight",
 		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down",
-		"Interface\\COMMON\\Indicator-Yellow",                   -- ui/Blips.lua: a blip without an icon
 		"Interface\\WorldMap\\Gear_64",                           -- ui/Controls.lua: the gear
-		"Interface\\CharacterFrame\\TempPortraitAlphaMask",       -- ui/Chrome.lua CIRCLE; game/Button.lua
+		"Interface\\CharacterFrame\\TempPortraitAlphaMask",       -- CIRCLE: ui/Chrome.lua, ui/Blips.lua (dots); game/Button.lua
 		"Interface\\HUD\\UIMinimap2xC60", "Interface\\Icons\\INV_Misc_Map_01", -- game/Button.lua: ring, icon
-		136458, 136453, 136452, 136466, 136454, 136463, 136465, 136459, -- ui/Blips.lua: services (game/Blips.lua SERVICE)
+		136458, 136453, 136452, 136466, 136454, 136463, 136455, 136465, 136459, -- ui/Blips.lua: services (game/Blips.lua SERVICE)
 	},
 	fonts = { "Fonts\\FRIZQT__.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS)
 }

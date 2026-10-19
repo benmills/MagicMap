@@ -262,14 +262,16 @@ tile space (3 decimals). Format 2 (M1.4: the levels and subzone borders).
 ### Data/BlipServices.lua — `ns.Data.BlipServices` (QuestieDB; gitignored)
 `[name] = service`: what a Minimap blip whose tooltip says `name` is.
 - service: `"innkeeper"`, `"banker"`, `"auctioneer"`, `"stablemaster"`, `"battlemaster"`, `"trainer"`,
-  `"repair"`, `"questgiver"`, `"flightmaster"` or `"mailbox"`.
+  `"classtrainer"`, `"repair"`, `"questgiver"`, `"flightmaster"` or `"mailbox"`.
 - As the spike's Blips.lua Kind(): the NPC of that name with the lowest id (LibQuestieDB's
   `IdsByName(name)[1]`; every NPC, before the diet), its first service flag in the spike's order
   (128 innkeeper, 256 banker, 4096 auctioneer, 8192 stable master, 2048 battlemaster, 16 trainer,
   16384 repair), else `"questgiver"` if it starts a quest, else `"flightmaster"` (flag 8); and
-  `Mailbox` = `"mailbox"`. Names without one aren't listed. Not told apart (yet): class trainers
-  (the spike's own icon, by subName) and quest enders (its `?`).
-- `Atlas.BlipService(name)` → service or nil.
+  `Mailbox` = `"mailbox"`. A trainer whose subName holds a class name is `"classtrainer"` (the spike's
+  CLASS_TRAINER icon, Blips.lua:395-403). Names without one aren't listed. Not told apart (yet): quest
+  enders (its `?`, M4.3).
+- `Atlas.BlipService(name)` → service or nil; without any data, `"herb"` and `"ore"` for gathering
+  nodes by name (the spike's HERBS list, ` Vein` / ` Deposit`: enUS, Blips.lua:364-371, 423-426).
 
 The QuestieDB-derived files are read through `Atlas.Npc(id)` (+ `services` from flags),
 `Atlas.Object(id)`, `Atlas.Item(id)`, `Atlas.Quest(id)`, `Atlas.BlipService(name)`,

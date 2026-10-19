@@ -220,7 +220,21 @@ function Atlas.Find(kind, text, limit, step)
 	return exact
 end
 
--- The service a Minimap blip's tooltip name stands for (Data/BlipServices.lua: "innkeeper",
--- "banker", "auctioneer", "stablemaster", "battlemaster", "trainer", "repair", "questgiver",
--- "flightmaster", "mailbox"), or nil.
-function Atlas.BlipService(name) return (Data.BlipServices or NONE)[name] end
+-- Gathering nodes by name, enUS (the spike's Blips.lua:364-371, 423-426; docs/v1-non-goals.md: enUS only).
+local HERBS = {}
+for _, n in ipairs({
+	"Peacebloom", "Silverleaf", "Earthroot", "Mageroyal", "Briarthorn", "Stranglekelp", "Bruiseweed",
+	"Wild Steelbloom", "Grave Moss", "Kingsblood", "Liferoot", "Fadeleaf", "Goldthorn", "Khadgar's Whisker",
+	"Wintersbite", "Firebloom", "Purple Lotus", "Arthas' Tears", "Sungrass", "Blindweed", "Ghost Mushroom",
+	"Gromsblood", "Golden Sansam", "Dreamfoil", "Mountain Silversage", "Plaguebloom", "Icecap", "Black Lotus",
+	"Swiftthistle", "Bloodthistle",
+}) do HERBS[n] = true end
+
+-- What a Minimap blip's tooltip name stands for: "herb" or "ore" (a gathering node, by name: no data
+-- needed), else its service (Data/BlipServices.lua: "innkeeper", "banker", "auctioneer", "stablemaster",
+-- "battlemaster", "trainer", "classtrainer", "repair", "questgiver", "flightmaster", "mailbox"), or nil.
+function Atlas.BlipService(name)
+	if HERBS[name] then return "herb" end
+	if name:find(" Vein$") or name:find(" Deposit$") then return "ore" end
+	return (Data.BlipServices or NONE)[name]
+end

@@ -183,8 +183,10 @@ UI registers its own through `Game.Command({ kind = "slash", ... })`.
              game/Observe.lua   the parts → Model.Observe(obs, oracles); Game.oracles (Inside:
                                 game/Oracles.lua, on hidden QuestPOI frames)
              game/Record.lua    /mma record on|off: the observations, for replay
-    model    model/Blips.lua    merged with the remembered (saved.blips): Known("blips")
-    ui       ui/Blips.lua       the "blips" layer (Engine.Layer) draws Known("blips"), redrawn on its rev
+    model    model/Blips.lua    Known("blips") (sensed now, deduped against the remembered) and
+                                Known("remembered") (saved.blips, Focus's instance, bucketed by cell)
+    ui       ui/Blips.lua       the "blips" layer (Engine.Layer) draws both (the remembered from zoom 60),
+                                redrawn on their revs
              ui/View.lua        UI.View(): minimap, window (place, still), layers; Model.Focus
     tests    tools/tests/test_blips.py: end to end in the sim (and /reload); Model alone replaying
              tools/tests/fixtures/blips_stream.lua (tools/tests/replay.lua)

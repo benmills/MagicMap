@@ -67,7 +67,7 @@
 ---@class MM.SavedModel: MM.SavedPart
 ---@field _v 1
 ---@field rares table<MM.Inst, table<string, MM.SavedRare>>  key "npc:<id>", else "at:<col*64 rounded>:<row*64 rounded>"
----@field blips table<MM.Inst, table<string, MM.SavedBlip>>  key "<name>:<col*64 rounded>:<row*64 rounded>"; at most 200 an instance, the oldest dropped
+---@field blips table<MM.Inst, table<string, MM.SavedBlip>>  key "<name>:<col*64 rounded>:<row*64 rounded>"; at most 5000 an instance (D6: ADR 0004 amendment), the oldest dropped
 
 ---@class MM.SavedRare
 ---@field name string

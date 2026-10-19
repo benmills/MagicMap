@@ -20,7 +20,9 @@ Runtime.Step("observe", "game.record", function()
 	rev = Game.blipsRev
 	local o, list = Game.obs, {}
 	local b = o.blips
-	for i, x in ipairs(b and b.list or {}) do list[i] = { name = x.name, pos = Pos(x.pos), rough = x.rough, icon = x.icon } end
+	for i, x in ipairs(b and b.list or {}) do
+		list[i] = { name = x.name, pos = Pos(x.pos), rough = x.rough, icon = x.icon, atlas = x.atlas }
+	end
 	db.obs[#db.obs + 1] = { frame = o.frame, t = R3(o.t), epoch = o.epoch,
 		you = { inst = o.you.inst, col = R3(o.you.col), row = R3(o.you.row), facing = R3(o.you.facing) },
 		blips = b and { list = list, sweep = b.sweep, center = Pos(b.center), reach = R3(b.reach) } }

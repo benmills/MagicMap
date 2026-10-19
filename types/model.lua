@@ -15,7 +15,7 @@
 -- beyond the fields below (not built yet), new optional fields of Model.you, and
 -- more of the Observation handed on unchanged (minimap, addons).
 
----@alias MM.KnownKind "blips"|"rares"|"quests"|"offers"|"places"|"group"|"corpse"|"waypoint"|"vignettes"|"services"|string
+---@alias MM.KnownKind "blips"|"remembered"|"rares"|"quests"|"offers"|"places"|"group"|"corpse"|"waypoint"|"vignettes"|"services"|string
 
 ---One thing Model knows, of any kind.
 ---@class MM.Known
@@ -89,6 +89,11 @@
 ---@class MM.KnownVignette: MM.Known
 ---@field rare? boolean            a rare or elite
 ---@field npc? MM.NpcID
+
+---Known("blips"): the Minimap's blips sensed now (obs.blips), live; icon the tracking texture or a
+---gathering atlas (nil: a dot). One a remembered blip stands for carries that one's key, so a layer
+---drawing both skips the remembered of that key.
+---Known("remembered"): blips seen before (saved.blips), Focus's instance (else yours); live false, t last seen.
 
 ---Known("services"): town services (Atlas BlipServices), Focus's instance, while their tracking is on.
 ---@class MM.KnownService: MM.Known

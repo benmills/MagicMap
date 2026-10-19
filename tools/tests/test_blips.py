@@ -13,7 +13,8 @@
 
   test_blips_priced (the sim on the priced clock: a probe costs 2 us, as in game, nothing
   else moves it): the sensor within 2 ms a frame standing, measuring and walking; every
-  blip exact within 2 sweeps of standing still; icons from Atlas.BlipService; frame p95 <= 1 ms.
+  blip exact within 2 sweeps of standing still, you and your group never; icons from
+  Atlas.BlipService (a herb's atlas); frame p95 <= 1 ms.
 
   test_default_ui_priced: the same budgets with the window a first login has (shown at
   login, small on the minimap's spot), standing and walking; test_default_ui_alloc_priced,
@@ -40,6 +41,7 @@ START = (31.95, 49.75)
 # name, yards east and north of the start
 BLIPS = [("Mailbox", 40, 20), ("Mailbox", -50, -70), ("Peacebloom", -60, 30)]
 MAILBOX = 136459  # the sim's Mailbox tracking texture
+HERB = "Professions_Tracking_Herb"  # a herb's (Atlas.BlipService: "herb")
 # Atlas.BlipService (M1.2's accessor of Data.BlipServices), stubbed: the names these scenarios use.
 SERVICES = {"Innkeeper Belm": "innkeeper"}
 
@@ -49,7 +51,8 @@ def lua_tools(L):
 
 
 def stub_services(L, ns):
-    ns.Atlas.BlipService = L.eval("function(t) return function(name) return t[name] end end")(L.table_from(SERVICES))
+    ns.Atlas.BlipService = L.eval("function(t, atlas) return function(name) return t[name] or atlas(name) end end")(
+        L.table_from(SERVICES), ns.Atlas.BlipService)
 
 
 def put_blips(L, sim, ns, blips):
@@ -66,8 +69,11 @@ def put_blips(L, sim, ns, blips):
 
 
 def blips(ns):
-    return [dict(name=b.name, live=b.live, col=b.pos.col, row=b.pos.row, icon=b.icon and b.icon.texture)
-            for b in ns.Model.Known("blips")[0].values()]
+    """Known("blips") and the Known("remembered") none of them stands for, as the layer draws them."""
+    live = list(ns.Model.Known("blips")[0].values())
+    keys = {b.key for b in live}
+    return [dict(name=b.name, live=b.live, col=b.pos.col, row=b.pos.row, icon=b.icon and (b.icon.texture or b.icon.atlas))
+            for b in live + [b for b in ns.Model.Known("remembered")[0].values() if b.key not in keys]]
 
 
 def near(b, east, north, yd=3):
@@ -121,14 +127,15 @@ def test_blips_end_to_end():
             for name, east, north in BLIPS:
                 assert any(b["name"] == name and b["live"] and near(b, east, north) for b in got), (name, got)
             assert all(b["icon"] == MAILBOX for b in mailboxes)
-            assert next(b for b in got if b["name"] == "Peacebloom")["icon"] is None
+            assert next(b for b in got if b["name"] == "Peacebloom")["icon"] == HERB  # a gathering node: its atlas
             assert len(list(G.MagicMapAtlasDB.Model.blips[0].keys())) == 2  # mailboxes remembered (they have an icon)
-            # UI: drawn, the icon or a gold dot.
+            # UI: drawn, each its icon (a texture, an atlas), at 14 px.
             sim.Run(0.2)
             front = UI.Blips.front
             pins = [front.pools.pin[i] for i in range(1, front.pools.pin.n + 1)]
-            textures = sorted(str(sim.state[t].texture) for t in pins)
-            assert textures == [str(MAILBOX), str(MAILBOX), "Interface\\COMMON\\Indicator-Yellow"], textures
+            textures = sorted(str(sim.state[t].atlas or sim.state[t].texture) for t in pins)
+            assert textures == [str(MAILBOX), str(MAILBOX), HERB], textures
+            assert all(sim.state[t].width == 14 for t in pins)
         elif stage == "gone":
             assert len(mailboxes) == 1 and near(mailboxes[0], 40, 20), got  # forgotten: a sweep missed it
             assert len(list(G.MagicMapAtlasDB.Model.blips[0].keys())) == 1
@@ -190,13 +197,14 @@ def test_blips_replay():
     assert entry.name == "Mailbox" and entry.icon == MAILBOX and entry.t > 0 and len(list(saved.blips[0].keys())) == 1
     fresh = tools.Model(ROOT)
     fresh.Load(L.execute("return " + tools.Dump(saved)))
+    fresh.Focus(L.table_from({"inst": 0, "shown": True}))  # (the remembered: the map shown's)
     again = blips(type("ns", (), {"Model": fresh}))
     assert [(b["name"], b["live"]) for b in again] == [("Mailbox", False)] and near(again[0], 40, 20)
 
 
 def sensed(ns):
     b = ns.Game.obs.blips
-    return [dict(name=x.name, rough=x.rough, col=x.pos.col, row=x.pos.row, icon=x.icon)
+    return [dict(name=x.name, rough=x.rough, col=x.pos.col, row=x.pos.row, icon=x.icon, atlas=x.atlas)
             for x in (b.list.values() if b else [])]
 
 
@@ -213,10 +221,12 @@ def test_blips_priced():
     sim.Clock = L.eval("function() return 0 end")  # only what's priced moves the clock
     sim.Price(True)
     # Two Peacebloom whose squares overlap (D3), an innkeeper by its service, and a vein
-    # that comes into reach only on the walk east.
+    # that comes into reach only on the walk east; you and a party member, never sensed.
     here = BLIPS + [("Peacebloom", -52, 36), ("Innkeeper Belm", 70, -30)]
     vein = ("Copper Vein", 330, 10)
-    put_blips(L, sim, ns, here + [vein])
+    sim.units.party1 = L.table_from({"name": "Friend", "class": "PRIEST"})
+    sim.group = L.table_from(["party1"])
+    put_blips(L, sim, ns, here + [vein, ("Tester", 0, 0), ("Friend", -30, -40)])
     sim.Slash("/mma toggle")
     sweep = lambda: ns.Game.obs.blips.sweep if ns.Game.obs.blips else 0
 
@@ -230,8 +240,8 @@ def test_blips_priced():
     until(2)  # standing still from the start: exact within 2 sweeps
     got = sensed(ns)
     assert exact(got, here), got
-    icons = {b["name"]: b["icon"] for b in got}
-    assert icons == {"Mailbox": MAILBOX, "Peacebloom": None, "Innkeeper Belm": 136458}, icons
+    icons = {b["name"]: b["icon"] or b["atlas"] for b in got}
+    assert icons == {"Mailbox": MAILBOX, "Peacebloom": HERB, "Innkeeper Belm": 136458}, icons
 
     # Walking east 10 s: what's known stays (once), the vein comes in rough, nothing doubles.
     counts = {}

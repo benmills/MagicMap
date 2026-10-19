@@ -138,6 +138,7 @@
 ---                           measured once you stand still. (How far off is the sensor's, not this contract's:
 ---                           today where a sweep point hit it, up to a square, ~12 yd at the widest zoom, plus lag.)
 ---@field icon? MM.FileID      the tracking icon Game matched it to, if any
+---@field atlas? string        else a gathering node's tracking atlas (Professions_Tracking_Herb, _Ore), if any
 
 ---@class MM.ObsBlips
 ---@field list MM.ObsBlip[]    what the sensor knows now

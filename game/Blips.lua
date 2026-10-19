@@ -35,7 +35,8 @@
 -- makes ours its size and the four one, traced { e = "square", px, n = 4 } (docs/telemetry.md).
 -- Game.Blips() runs one slice and returns obs.blips (types/observation.lua
 -- MM.ObsBlips), or nil while it doesn't run: the blips part (game/parts/Blips.lua).
--- Each sweep traces "blips" (docs/telemetry.md: counted in session stats).
+-- Each sweep traces "blips" (docs/telemetry.md: counted in session stats). You and your group
+-- aren't sensed (their own dots: the spike's Blips.lua:449-458, 653-657): not measured as they move.
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
@@ -73,20 +74,37 @@ local function R2(v) return math.floor(v * 100 + 0.5) / 100 end
 local function Remove(i) blips[i].gone = true; table.remove(blips, i); Changed() end
 
 -- What tracking icon a blip's name is: a tracking type of that name (Mailbox), or a
--- service Atlas knows the name by (Data.BlipServices). nil: none (a gold dot).
+-- service Atlas knows the name by (Data.BlipServices; a class trainer by its title: Blips.lua:375-403);
+-- a gathering node's, an atlas (Blips.lua:423-426). nil, nil: none (a gold dot).
 local SERVICE = { innkeeper = 136458, banker = 136453, auctioneer = 136452, stablemaster = 136466,
-	battlemaster = 136454, trainer = 136463, repair = 136465, mailbox = 136459 }
-local icons = {}
+	battlemaster = 136454, trainer = 136463, classtrainer = 136455, repair = 136465, mailbox = 136459 }
+local GATHER = { herb = "Professions_Tracking_Herb", ore = "Professions_Tracking_Ore" }
+local icons, atlases = {}, {}
 local function Icon(name)
 	local icon = icons[name]
-	if icon ~= nil then return icon or nil end
-	for i = 1, C_Minimap.GetNumTrackingTypes() or 0 do
-		local info = C_Minimap.GetTrackingInfo(i)
-		if info and info.name == name then icon = info.texture end
+	if icon == nil then
+		for i = 1, C_Minimap.GetNumTrackingTypes() or 0 do
+			local info = C_Minimap.GetTrackingInfo(i)
+			if info and info.name == name then icon = info.texture end
+		end
+		local service = Atlas.BlipService(name)
+		icon = icon or SERVICE[service] or false
+		icons[name], atlases[name] = icon, GATHER[service] or false
 	end
-	icon = icon or SERVICE[Atlas.BlipService(name)]
-	icons[name] = icon or false
-	return icon
+	return icon or nil, atlases[name] or nil
+end
+
+-- Names not sensed: you and your group, each look.
+local skip = {}
+local function Skip()
+	wipe(skip)
+	local me = UnitName("player")
+	if me then skip[me] = true end
+	local unit = IsInRaid() and "raid" or "party"
+	for i = 1, GetNumGroupMembers() do
+		local n = UnitName(unit .. i)
+		if n and not issecretvalue(n) then skip[n] = true end
+	end
 end
 
 -- Probing ----------------------------------------------------------------------
@@ -265,8 +283,9 @@ local function Put(name, x, y)
 	if hit then
 		hit.seen, hit.pos.col, hit.pos.row = look, col, row
 	else
+		local icon, atlas = Icon(name)
 		blips[#blips + 1] = { name = name, pos = { inst = g.inst, col = col, row = row }, rough = false,
-			icon = Icon(name), seen = look }
+			icon = icon, atlas = atlas, seen = look }
 	end
 	Changed()
 end
@@ -274,8 +293,9 @@ end
 -- Moving: the point that hit it stands for it until you stop.
 local function Rough(name, x, y)
 	local col, row = Tile(x, y)
+	local icon, atlas = Icon(name)
 	blips[#blips + 1] = { name = name, pos = { inst = g.inst, col = col, row = row }, rough = true,
-		icon = Icon(name), seen = look }
+		icon = icon, atlas = atlas, seen = look }
 	Changed()
 end
 
@@ -290,7 +310,7 @@ local function Visit(x, y)
 		for j, n in ipairs(found) do
 			if n == name then k, first = k + 1, first and j >= i end
 		end
-		if first and not Explain(name, x, y, k) then
+		if first and not skip[name] and not Explain(name, x, y, k) then
 			if g.moving then
 				Rough(name, x, y)
 			else
@@ -408,6 +428,7 @@ end
 local function Run()
 	while true do
 		busy, look = true, look + 1
+		Skip()
 		Lattice()
 		local standing, movedAt = not g.moving, g.movedAt
 		Look(standing)
@@ -420,10 +441,12 @@ local function Run()
 end
 
 -- A look cut short starts over (a measure in progress with it), so none mixes two places
--- or placements; the next looks at every point.
-local function Restart()
+-- or placements; anew (the map, the view radius, or what it could miss meanwhile changed: unable
+-- to read), the next looks at every point. Only moved (a grow, a shrink), the points mean the same.
+local function Restart(anew)
 	if busy then busy, co, frames, probes = false, nil, 0, 0 end
-	measuring, lat.cc, lat.sc = nil, nil, nil
+	measuring = nil
+	if anew then lat.cc, lat.sc = nil, nil end
 end
 
 -- Where the last Apply placed the Minimap (Game.minimap), and you.
@@ -435,7 +458,7 @@ local function Measure(m)
 	local col, row = Atlas.WorldToTile(north, west)
 	local now = GetTime()
 	if g.col and (col ~= g.col or row ~= g.row) then g.movedAt = now end
-	if inst ~= g.inst or r ~= g.r then Restart() end
+	if inst ~= g.inst or r ~= g.r then Restart(true) end
 	g.left, g.bottom, g.scale, g.w, g.h, g.r = m.left, m.bottom, m.scale, m.size, m.size, r
 	g.u, g.inst, g.col, g.row = r * YD / (m.size / 2), inst, col, row -- /: never 0 (m.size: SENSOR_PX / a scale)
 	g.half = px / m.scale -- /: never 0 (an effective scale is > 0)
@@ -468,20 +491,21 @@ end
 function Game.Blips()
 	local m = Game.minimap
 	if not (m.engaged and m.sensor) or not Measure(m) then
-		Restart(); Watch(nil)
+		Restart(true); Watch(nil)
 		return nil
 	end
 	local paused = InCombatLockdown() or not UIParent:IsVisible() -- (the UI hidden: Alt-Z)
 	local blind = not paused and Blind(m)
 	Watch(blind)
-	if paused or blind or not m.still or g.r == 0 then Restart(); return out end -- (radius 0: a new zoom applying, E3/E6)
+	if paused or blind then Restart(true); return out end
+	if not m.still or g.r == 0 then Restart(false); return out end -- (radius 0: a new zoom applying, E3/E6)
 	if not busy and GetTime() < rest then return out end
 	t0, frames = debugprofilestop(), frames + 1
 	co = co or coroutine.create(Run)
 	Minimap:SetUsingSoftCursor(true)
 	local ok, err = coroutine.resume(co)
 	Minimap:SetUsingSoftCursor(false) -- (whatever happened: never left on)
-	if not ok then Restart(); co = nil; error(err, 0) end -- (a new look next time)
+	if not ok then Restart(true); co = nil; error(err, 0) end -- (a new look next time)
 	return out
 end
 

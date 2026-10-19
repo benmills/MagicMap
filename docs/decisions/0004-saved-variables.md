@@ -27,7 +27,8 @@ few releases").
   - If `_v` is older (absent counts as 0), `migrate` runs. If it errors, the part is wiped.
   - If `_v` is newer (a downgrade), the part is left untouched on disk and the session
     runs on defaults that are never saved.
-  - Any top-level key of the wrong type gets its default.
+  - Any top-level key of the wrong type gets its default: a key the spec lists in `defaults`
+    a copy of it, one it lists in `optional` (by type name) nil.
   - The loader is wrapped, so nothing fails past it.
 - **Saved positions are tile space** (`col`, `row`, 3 decimals, by `inst`), and **saved times are `time()`**.
 - **What each owner keeps in v1**:
@@ -37,7 +38,8 @@ few releases").
     `inst`/`center` for when it isn't following), the layer toggles the user changed
     (a missing key means the layer's default), `minimap` (`"blizzard"` if the user
     chose it), `button` and `tint`.
-  - Model keeps `rares[inst][key]` and `blips[inst][key]` (at most 200 an instance; the oldest goes first).
+  - Model keeps `rares[inst][key]` and `blips[inst][key]` (at most 5000 an instance since the D6
+    amendment below; the oldest goes first).
   - telemetry is as described in docs/telemetry.md.
   - validation is the spike's log, until Validate.lua goes.
 
@@ -65,3 +67,17 @@ and v1's field names and meanings. Open: what any owner adds in a later version,
 - A part grows past ~1 MB. Blips and telemetry are capped, rares are not, so cap rares.
 - The addon merges into MagicMap under `MagicMapDB`. If any spike data is worth keeping,
   write one migration then.
+
+## Amendment 2026-10-18: seen blips, 5000 an instance (D6)
+
+The user's decision D6 (docs/v1-plan.md §9): a cap high enough that most players never reach it.
+`blips[inst]` holds at most **5000** an instance (was 200; the spike's MagicMapLandmarks held 300).
+The meaning of every field is unchanged and 200 fits under 5000, so nothing migrates and `_v` stays 1.
+
+- Size: a remembered blip is ~110 bytes on disk and ~0.25 KB in memory, so an instance at the cap is
+  ~0.55 MB saved, ~1.2 MB loaded. Past the "~1 MB a part" line below only for a player at the cap on
+  two or more instances; most stay at tens to hundreds (mailboxes and town services they've seen).
+- Cost: model/Blips.lua buckets each instance's blips by 1/16-tile cell, so dedupe and forget look at
+  a blip's neighbours only, and Known("remembered") (Focus's instance) changes only when what's
+  remembered there does, not with each sweep. Only adding one past the cap walks the instance (for
+  the oldest).

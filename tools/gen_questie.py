@@ -67,6 +67,7 @@ BLIP_SERVICES = ((128, "innkeeper"), (256, "banker"), (4096, "auctioneer"), (819
 FLIGHT_MASTER = 8
 SERVICE_FLAGS = FLIGHT_MASTER | sum(f for f, _ in BLIP_SERVICES)  # (distinct bits)
 RARE = (2, 4)  # rank: rare elite, rare
+CLASSES = ("Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "Mage", "Warlock", "Druid")  # Blips.lua:395
 
 HERBS = {"Peacebloom", "Silverleaf", "Earthroot", "Mageroyal", "Briarthorn", "Stranglekelp", "Bruiseweed",
          "Wild Steelbloom", "Grave Moss", "Kingsblood", "Liferoot", "Fadeleaf", "Goldthorn", "Khadgar's Whisker",
@@ -448,6 +449,8 @@ def blip_services(raw, drop):
         r = raw["Npc"][i]
         flags = r.get(NPC["flags"]) or 0
         service = next((s for f, s in BLIP_SERVICES if flags & f), None)
+        if service == "trainer" and any(c in (r.get(NPC["subName"]) or "") for c in CLASSES):
+            service = "classtrainer"  # (Blips.lua:395-403: CLASS_TRAINER's icon)
         if not service and ids(r.get(NPC["questStarts"]), drop["Quest"]):
             service = "questgiver"
         if not service and flags & FLIGHT_MASTER:
@@ -572,7 +575,8 @@ def main() -> None:
 
     write(out("BlipServices.lua"), "BlipServices", [
         "[blip tooltip name] = service: innkeeper | banker | auctioneer | stablemaster | battlemaster | trainer",
-        "  | repair | questgiver | flightmaster | mailbox. By the lowest NPC id of the name (every NPC, before the diet).",
+        "  | classtrainer | repair | questgiver | flightmaster | mailbox. By the lowest NPC id of the name (every NPC,",
+        "  before the diet).",
     ], sorted(services.items()), meta)
 
     log(f"spawn points: {dict(project.stats)}; mailboxes with spawns: {mailboxes}")

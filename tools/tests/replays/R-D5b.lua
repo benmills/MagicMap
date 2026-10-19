@@ -4,7 +4,8 @@
 -- Apply): the sensor stays whole on the screen, off its centre under the view if it must,
 -- and measures as well there (the Minimap is centred on you wherever it sits). The window
 -- in each corner, the Minimap's home among them (a small window at the top right), with
--- blips placed anew each time.
+-- blips placed anew each time (a window moved keeps what the lattice's points answered: the
+-- world changed too here, so every point is looked at again, as when the tracking changes).
 local T = ...
 local sim, ns = T.Shown()
 ns.Atlas.BlipService = function() return nil end -- (M1.2's accessor: none of these is a service)
@@ -41,6 +42,7 @@ for _, corner in ipairs({ { "TOPRIGHT", -10, -10, 30, -25 }, { "BOTTOMLEFT", -60
 	f:ClearAllPoints()
 	f:SetPoint(corner[1], UIParent, corner[1], corner[2], corner[3])
 	Put(corner[4], corner[5])
+	sim.FireEvent("MINIMAP_UPDATE_TRACKING")
 	sim.Run(4)
 	local l, b, w, h = Sim.Rect(Minimap)
 	local vx, vy = Window.view:GetCenter()
