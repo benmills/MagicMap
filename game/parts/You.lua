@@ -1,5 +1,5 @@
--- obs.you (types/observation.lua MM.ObsYou), per frame: the same table, refilled (kept as it was
--- by a frame this part fails: `you` is always present).
+-- obs.you (types/observation.lua MM.ObsYou), per frame: the same table, refilled (by a frame this part
+-- fails, one all unknown: `you` is always present, and Model keeps its last belief, stale).
 -- Nil fields: not known (UnitPosition gives nothing in instances and on some
 -- loading frames; inst comes from GetInstanceInfo, known there too; uiMap is nil
 -- where no map has you); losing and regaining the position is traced ("position").
@@ -14,7 +14,7 @@ local FACTION = { Alliance = "A", Horde = "H" } -- UnitFactionGroup's; "Neutral"
 local MICRO = 5 -- Enum.UIMapType.Micro
 local AGAIN = 1 -- s
 
-local you = {}
+local you, UNKNOWN = {}, {}
 Game.obs.you = you -- there from load: a mark before the first frame reads it
 
 local moved, again = true, nil -- to another map, maybe: read uiMap; a read due in AGAIN
@@ -50,4 +50,4 @@ Game.Part("you", function()
 	you.dead, you.ghost, you.combat = UnitIsDeadOrGhost("player"), UnitIsGhost("player"), InCombatLockdown()
 	if (had == nil) ~= (you.col == nil) and Runtime.frames > 1 then Runtime.Trace("position", you.col and "back" or "lost") end
 	return you
-end, you)
+end, UNKNOWN)

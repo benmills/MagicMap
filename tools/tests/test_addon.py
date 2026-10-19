@@ -296,13 +296,15 @@ def test_failures():
     sim.restricted = False
     sim.Run(0.2)
     assert not you.stale
-    # a failing part (you, 0.2 s): obs.you kept, so Model and telemetry run on, and reporting stays on
+    # a failing part (you, 0.2 s): obs.you all unknown, so Model keeps its last belief (stale) and
+    # telemetry runs on, and reporting stays on
     ghost = G.UnitIsGhost
     G.UnitIsGhost = L.eval("function() error('boom') end")
     sim.Run(0.2)
+    assert you.stale and you.col is not None and ns.Game.obs.you.col is None
     G.UnitIsGhost = ghost
-    sim.Run(0.2)
-    assert R.onError is not None and ns.Game.obs.you.col is not None
+    sim.Run(1.2)  # (failing on, a wrapped call is tried once a second)
+    assert R.onError is not None and ns.Game.obs.you.col is not None and not you.stale
     assert any(e.name == "game.part you" for e in tel.errors.values())
     # error reporting that itself fails: switched off, no recursion
     R.onError = L.eval("function() error('report') end")
