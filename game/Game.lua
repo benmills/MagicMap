@@ -3,16 +3,17 @@
 --
 -- Saved data belongs to the system that owns it: Game.Load(owner, fn, spec) calls
 -- fn(saved) once it's loaded (at once if it already is). It never hands over
--- garbage (docs/runtime.md "Saved data"): spec = { version, defaults, migrate(saved, from) };
+-- garbage (docs/runtime.md "Saved data"): spec = { version, defaults, optional, migrate(saved, from) };
 -- not a table: reset; older: migrate, else defaults filled; newer (a downgrade):
 -- left untouched on disk and this session runs on defaults; a top-level key of
--- the wrong type gets its default. The version is kept as saved._v.
+-- the wrong type gets its default (an optional one, nil). The version is kept as saved._v.
 
 local ADDON, ns = ...
 local Game = ns.Game or {}; ns.Game = Game
 local Runtime = ns.Runtime
 
 local loaders = {}
+local NONE = {}
 
 function Game.Print(msg) print("|cff66ccffMagicMap Atlas|r " .. msg) end
 
@@ -47,6 +48,12 @@ local function Open(owner, spec)
 	for k, d in pairs(defaults) do
 		if type(saved[k]) ~= type(d) then saved[k] = Copy(d) end
 	end
+	for k, t in pairs(spec.optional or NONE) do
+		if saved[k] ~= nil and type(saved[k]) ~= t then
+			Runtime.Trace("saved", { owner = owner, e = "dropped", key = k, was = type(saved[k]) })
+			saved[k] = nil
+		end
+	end
 	saved._v = version
 	return saved
 end
@@ -61,7 +68,8 @@ function Game.Load(owner, fn, spec)
 end
 
 -- Game's own part (types/saved.lua MM.SavedGame): the minimap button's angle (game/Button.lua), tracking it turned off.
-Game.Load("Game", function(saved) Game.saved = saved end, { version = 1, defaults = { trackingOff = {} } })
+Game.Load("Game", function(saved) Game.saved = saved end,
+	{ version = 1, defaults = { trackingOff = {} }, optional = { buttonAngle = "number" } })
 
 Runtime.On("ADDON_LOADED", "game.loaded", function(_, name)
 	if name ~= ADDON then return end

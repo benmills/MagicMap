@@ -34,7 +34,8 @@ function UI.View() return view end
 -- UI's chat line (Core.lua:45-46).
 function UI.Print(msg) print("|cffffd100MagicMapAtlas|r: " .. msg) end
 
-Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS }, fn = function(s)
+local OPTIONAL = { window = "table", inst = "number", center = "table" } -- types/saved.lua MM.SavedUI
+Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS, optional = OPTIONAL }, fn = function(s)
 	saved = s
 	UI.saved = s
 	Engine.toggles = s.layers

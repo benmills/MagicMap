@@ -201,9 +201,8 @@ end
 
 Game.Load("validation", function(saved)
 	db = saved
-	if not db.log then Clear() end
 	if db.on then Start() end
-end)
+end, { version = 1, defaults = { on = false, samples = 0, counts = {}, log = {}, dropped = 0 } })
 
 local function Report()
 	Game.Print(string.format("validation log: %s, %d samples, %d logged (%d over the cap)",

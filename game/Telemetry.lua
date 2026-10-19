@@ -42,12 +42,14 @@ local function Copy(v)
 end
 
 -- View as Game's apply step last read it (types/view.lua: Game reads View only there): the
--- motion ring's camera, shot stamps, and marks' diag (called only for a mark, ADR 0003).
+-- motion ring's camera, shot stamps, and marks' diag (called only for a mark, ADR 0003; wrapped:
+-- an error marking an error is reported, not the reporter switched off).
 local applied = { inst = 0, big = false }
+local Diag = Runtime.Wrap("telemetry: diag", function() return applied.diag() end, false)
 
 local function State()
 	local you = Game.obs.you
-	local diag = applied.diag and applied.diag() or {}
+	local diag = applied.diag and Diag() or {}
 	local map, layers = diag.map, diag.layers
 	return {
 		you = { inst = you.inst, col = you.col, row = you.row, facing = you.facing },

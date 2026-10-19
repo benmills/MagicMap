@@ -167,7 +167,7 @@ known it hides it. Every step treats every observed field as possibly nil.
 
 ### Saved data
 
-`Game.Load(owner, fn, spec)` with `spec = { version, defaults, migrate(saved, from) }`
+`Game.Load(owner, fn, spec)` with `spec = { version, defaults, optional, migrate(saved, from) }`
 (all optional; version 1, no defaults). `MagicMapAtlasDB` that isn't a table is
 replaced. Then per owner, before `fn` sees it:
 
@@ -177,7 +177,9 @@ replaced. Then per owner, before `fn` sees it:
   `saved newer`): a downgrade never destroys data;
 - `_v` older (absent counts as 0) with data and a `migrate`: it runs wrapped; if it
   errors the table is wiped (traced `saved reset`, the error recorded);
-- every key in `defaults` whose saved value has another type gets a copy of the default;
+- every key in `defaults` whose saved value has another type gets a copy of the default, and every
+  key in `optional` (by type name: `{ window = "table" }`) whose saved value has another type is
+  dropped (nil, traced `saved dropped`);
 - `_v` is stamped with our version.
 
 `fn` itself is wrapped: if it errors, the error is recorded and the rest of the

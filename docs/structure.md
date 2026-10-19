@@ -146,7 +146,7 @@ the same ones (each listed in its folder's `files.txt`):
 
 | Registry | In | One file each | Called |
 |---|---|---|---|
-| `Game.Part(name, read)` | game/Observe.lua | game/parts/ (`You`, `Blips`, `MinimapState`, `Addons`); `hooked` from game/Hooks.lua (registered at its load, so first) | observe step, each frame: `obs[name] = read(obs)` in game/parts/files.txt's order, so a part may read those before it; each its own wrapped call (`game.part <name>`: timed, its KB counted, a failing one leaves its field nil); per-frame parts refill one table, on-change parts hand a new one only when it changed (types/observation.lua) |
+| `Game.Part(name, read, keep)` | game/Observe.lua | game/parts/ (`You`, `Blips`, `MinimapState`, `Addons`); `hooked` from game/Hooks.lua (registered at its load, so first) | observe step, each frame: `obs[name] = read(obs) or keep` in game/parts/files.txt's order, so a part may read those before it; each its own wrapped call (`game.part <name>`: timed, its KB counted, a failing one leaves its field nil, or `keep`: the table a per-frame part refills, `you`'s); per-frame parts refill one table, on-change parts hand a new one only when it changed (types/observation.lua) |
 | `Game.Handle(kind, fn)` | game/Command.lua | game/commands/ (`slash`, `load`) | input step: `fn(cmd)` for each queued command of that kind (types/view.lua Commands) |
 | `Game.Apply(name, fn)` | game/Apply.lua | game/ (`Minimap`, `AddonPins`, `Home`, `Chrome`, `Hooks`, `Button`, `Tooltip`, in game/files.txt's order) | apply phase, each frame: `fn(view)` as its own step `game.<name>`; view is `UI.View()`, or SAFE when Game doesn't know its `v` |
 | `Model.Part(observe, load)`, `Model.Kind(kind, fn)` | model/Model.lua | model/ (`Blips`, `Rares`) | `observe(obs, oracles)` each frame after Model's own `you`, `load(saved)` with Model's saved part; `Known(kind)` answers with `fn()` → list, rev (ADR 0006) |
@@ -196,7 +196,7 @@ UI registers its own through `Game.Command({ kind = "slash", ... })`.
 - `ns.Game.Load(owner, fn, spec)` — `fn(MagicMapAtlasDB[owner])` once SavedVariables are loaded
   (at once if they are). Owner is the system: Model's is `Game.Load("Model", Model.Load,
   Model.SAVED)` (game/Observe.lua), UI's comes through a `load` Command. `spec = { version, defaults,
-  migrate(saved, from) }`: fn always gets a table of the current version (docs/runtime.md "Saved data").
+  optional, migrate(saved, from) }`: fn always gets a table of the current version (docs/runtime.md "Saved data").
 - Each frame's observe step hands `ns.Model.Observe(obs, oracles)` an observation (types/observation.lua):
   `obs.you = { inst, col, row, facing, uiMap, zone, subzone, level, faction, dead, ghost, combat }` (nil fields:
   unknown), `obs.blips`, `obs.minimap`, `obs.hooked`, `obs.addons`, and Model keeps `ns.Model.you`:

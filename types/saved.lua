@@ -27,6 +27,7 @@
 ---@class MM.SavedSpec
 ---@field version? integer            default 1
 ---@field defaults? table             top-level keys and their default values (copied)
+---@field optional? table<string, string>  top-level keys without a default, and their type ("table", "number"...): one of another type → nil
 ---@field migrate? fun(saved: table, from: integer)  bring an older part up to `version` in place
 
 ---@class MM.SavedRoot

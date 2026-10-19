@@ -1,4 +1,5 @@
--- obs.you (types/observation.lua MM.ObsYou), per frame: the same table, refilled.
+-- obs.you (types/observation.lua MM.ObsYou), per frame: the same table, refilled (kept as it was
+-- by a frame this part fails: `you` is always present).
 -- Nil fields: not known (UnitPosition gives nothing in instances and on some
 -- loading frames; inst comes from GetInstanceInfo, known there too; uiMap is nil
 -- where no map has you); losing and regaining the position is traced ("position").
@@ -49,4 +50,4 @@ Game.Part("you", function()
 	you.dead, you.ghost, you.combat = UnitIsDeadOrGhost("player"), UnitIsGhost("player"), InCombatLockdown()
 	if (had == nil) ~= (you.col == nil) and Runtime.frames > 1 then Runtime.Trace("position", you.col and "back" or "lost") end
 	return you
-end)
+end, you)

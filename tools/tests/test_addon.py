@@ -216,7 +216,9 @@ def test_attribution():
 
 def test_failures():
     """docs/runtime.md: each frame-loop failure driven in the sim, and its guarantee held."""
-    L, sim, ns = boot("""MagicMapAtlasDB = { telemetry = "corrupt", old = { _v = 1, n = "x" }, new = { _v = 9, keep = 1 }, bad = { x = 1 } }""")
+    L, sim, ns = boot("""MagicMapAtlasDB = { telemetry = "corrupt", old = { _v = 1, n = "x" }, new = { _v = 9, keep = 1 }, bad = { x = 1 },
+        UI = { _v = 1, shown = false, follow = false, inst = 0, center = 5, zoom = 96 }, Game = { _v = 1, buttonAngle = "north" },
+        validation = { _v = 1, on = "yes" } }""")
     R, G = ns.Runtime, L.globals()
     got = L.eval("""function(R, Game)
         local got = { steps = 0, every = 0, added = 0, load = {} }
@@ -249,6 +251,10 @@ def test_failures():
     assert got.load.old.n == 0 and got.load.old.list is not None and got.load.old._v == 2
     assert G.MagicMapAtlasDB.new.keep == 1 and G.MagicMapAtlasDB.new._v == 9 and got.load.new.n == 0
     assert G.MagicMapAtlasDB.telemetry.sessions[1].id == 1 and G.MagicMapAtlasDB.bad.x is None  # migrate failed: reset
+    # a key without a default, of another type: dropped (UI's center, then saved again where the view is;
+    # Game's buttonAngle); the loaders ran whole (no "load UI" error: the expected set below)
+    db, kind = G.MagicMapAtlasDB, L.eval("type")
+    assert kind(db.UI.center) == "table" and db.UI.inst == 0 and db.Game.buttonAngle is None and db.validation.on is False
     # erroring step: the rest ran every frame; recorded once (one entry, one stack, one mark), then throttled
     assert got.steps == 360 and got.added == 359
     fails = next(e for e in R.errors.values() if e.name == "test.fails")
@@ -288,6 +294,14 @@ def test_failures():
     sim.restricted = False
     sim.Run(0.2)
     assert not you.stale
+    # a failing part (you, 0.2 s): obs.you kept, so Model and telemetry run on, and reporting stays on
+    ghost = G.UnitIsGhost
+    G.UnitIsGhost = L.eval("function() error('boom') end")
+    sim.Run(0.2)
+    G.UnitIsGhost = ghost
+    sim.Run(0.2)
+    assert R.onError is not None and ns.Game.obs.you.col is not None
+    assert any(e.name == "game.part you" for e in tel.errors.values())
     # error reporting that itself fails: switched off, no recursion
     R.onError = L.eval("function() error('report') end")
     R.Step("model", "test.fails2", L.eval("function() error('again') end"))
@@ -300,6 +314,6 @@ def test_failures():
     # (loadMs: Data's load is Lua alone, which the counted clock doesn't charge: 0 here, recorded)
     assert perf.errors >= 3 and perf.errorsPerHour > 0 and perf.loadMs == 0 and perf.ourKB > 0
     assert perf.grace.login > 0 and perf.grace.map > 0 and perf.grace.loading is not None
-    expected = {"test.fails", "test.fails2", "test.stuck", "load bad", "load bad (migrate)"}
+    expected = {"test.fails", "test.fails2", "test.stuck", "load bad", "load bad (migrate)", "game.part you"}
     assert {e.name for e in R.errors.values()} == expected
     assert not list(sim.errors.values()), "\n\n".join(sim.errors.values())
