@@ -33,9 +33,10 @@ sim half done at 2112c2d (the M2 gate, 2026-10-19: 112 passed plain and strict),
 docs/playtest-final.md (b6-b20, c7, e4). M3 (target, route, interactions): wave 1 merged 2026-10-19
 (M3.1 Model's Target and Route, M3.2 Game's waypoint, way and corpse, M3.3 the path, edge arrow,
 corpse and waypoint pins and the title's target, M3.4 the picker, right-click menu and inspector, zone
-hover and fly; 138 passed plain and strict), its in-game half in docs/playtest-final.md (c1-c3); its
-review's fixes (two rounds) on main (148 passed plain and strict); the M3 gate next.
-Then M4 feature-complete, M5 hardening and parity sign-off, M6 rename, merge, release.
+hover and fly; 138 passed plain and strict), its review's fixes (two rounds) on main; M3's sim half
+done at 2d0069e (the M3 gate, 2026-10-19: 148 passed plain and strict; the sim walks the way GetPlayerFacing
+points since), its in-game half in docs/playtest-final.md (c1-c3, a5b's big-zones). Then M4
+feature-complete, M5 hardening and parity sign-off, M6 rename, merge, release.
 
 ## 2. Rules for every package (v1-plan §3)
 
