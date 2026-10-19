@@ -39,9 +39,6 @@ local GOLD, WHITE, GREY, DIM = "|cffffd100", "|cffffffff", "|cffa8a8a8", "|cff80
 local SEP = DIM .. "  ·  |r"
 local COMPASS = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" }
 local OCTANT = math.pi / 4
--- /mma zone alone: the spike's usage line (Core.lua:1752).
-local USAGE = "/mma [toggle] | follow | map <id|name> | zone <name> | icon | tiles | tint | layers | landmarks | blips"
-	.. " | indoor | perf | debug | reset"
 local NONE = {}
 
 local ZoneInfo = {}
@@ -464,10 +461,10 @@ end
 -- /mma zone; the title's click
 ---------------------------------------------------------------------------
 
--- The first zone whose name holds it, the map shown's first, then by map (Core.lua:1721-1734).
+-- The first zone whose name holds it, the map shown's first, then by map (Core.lua:1721-1734). Alone: the
+-- spike's usage line (game/Slash.lua).
 Command({ kind = "slash", name = "zone", help = "<name>: fly to a zone", fn = function(arg)
 	arg = arg:lower()
-	if arg == "" then return UI.Print(USAGE) end
 	local found, inst
 	local function Find(i)
 		for _, z in ipairs(Atlas.Zones(i)) do

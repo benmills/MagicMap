@@ -8,6 +8,7 @@
 -- Runtime.onTrace(kind, detail) if set (game/Telemetry.lua keeps some, counts others).
 -- Attribution (docs/runtime.md): each call's Lua KB, jobs' stretches between
 -- Yields, the worst frames with the events around them, frames by map state.
+-- A recording (/mma perf): a few seconds of frames and of every call in them, by name.
 -- The first file after Atlas, so it marks Atlas's load end (boot.loaded).
 
 local _, ns = ...
@@ -45,6 +46,18 @@ end
 local top, topMs = nil, 0 -- this frame's slowest call, for a spike's trace
 local alloc, allocKb = nil, 0 -- and its biggest allocator
 local graced = true -- the running frame is in a grace (loading until the first frame): its calls' KB, overruns and gaps aren't counted
+local rec -- the recording going on (Runtime.Record), or nil
+
+-- A call's time in the recording, by name { ms, n, max } (Perf.lua's buckets).
+local function Spent(name, ms)
+	local c = rec.calls[name]
+	if not c then
+		c = { ms = 0, n = 0, max = 0 }
+		rec.calls[name] = c
+	end
+	c.ms, c.n = c.ms + ms, c.n + 1
+	if ms > c.max then c.max = ms end
+end
 
 -- budget: ms one call may take (false: not checked, nor its KB: it calls wrapped calls); over it, outside
 -- a grace, is an overrun, traced at its 1st, 10th, 100th... kb0: the heap before the call; its growth is the
@@ -56,6 +69,7 @@ local function Done(p, t0, budget, kb0)
 	p.n, p.ms = p.n + 1, p.ms + dt
 	if dt > p.max then p.max = dt end
 	if not budget then return end
+	if rec then Spent(p.name, dt) end -- (not those that call others, budget false: they'd count twice)
 	if dt > topMs then top, topMs = p.name, dt end
 	local kb = collectgarbage("count") - kb0
 	if kb >= 0 and not graced then
@@ -299,7 +313,7 @@ local jobs, current = {}, nil
 -- one still running after maxFrames resumes (default JOB_RESUMES) is cancelled and reported.
 function Runtime.Job(name, fn, budgetMs, maxFrames)
 	local job = { name = name, co = coroutine.create(fn), budget = budgetMs or 2, p = Stat(name),
-		resumes = 0, maxFrames = maxFrames or JOB_RESUMES, t0 = 0, mark = 0 }
+		resumes = 0, maxFrames = maxFrames or JOB_RESUMES, t0 = 0, mark = 0, ms = 0 }
 	jobs[#jobs + 1] = job
 	return job
 end
@@ -323,13 +337,13 @@ end
 local IDLE = {}
 function Runtime.Worker(name, fn, budgetMs, maxFrames)
 	return { name = name, fn = fn, budget = budgetMs or 2, p = Stat(name), resumes = 0,
-		maxFrames = maxFrames or JOB_RESUMES, t0 = 0, mark = 0, done = true }
+		maxFrames = maxFrames or JOB_RESUMES, t0 = 0, mark = 0, ms = 0, done = true }
 end
 
 function Runtime.Wake(job, budgetMs)
 	if not (job.idle or job.co and job.resumes == 0) then job.co = coroutine.create(job.fn) end -- (not resumed since: as it was)
 	if job.done then jobs[#jobs + 1] = job end -- (a cancelled one still queued goes on in place)
-	job.idle, job.done, job.cancelled, job.err, job.resumes = false, false, false, nil, 0
+	job.idle, job.done, job.cancelled, job.err, job.resumes, job.ms = false, false, false, nil, 0, 0
 	job.budget = budgetMs or job.budget
 end
 
@@ -349,6 +363,10 @@ end
 
 -- ms of the running job's budget left in this resume (outside a job: 0).
 function Runtime.Left() return current and current.budget - (now() - current.t0) or 0 end
+
+-- ms the running job has taken since it was made or woken: its resumes' and this one's so far (outside
+-- a job: 0). A map layout's (ui/Engine.lua; the spike's build ms, Layers.lua:1946-1947).
+function Runtime.Spent() return current and current.ms + now() - current.t0 or 0 end
 
 -- Gives the frame back once the running job's budget is spent; elsewhere a no-op.
 function Runtime.Yield()
@@ -374,7 +392,7 @@ local function RunJobs()
 			current, job.t0, job.mark, job.resumes = job, t0, t0, job.resumes + 1
 			local kb0 = collectgarbage("count")
 			local ok, err = coroutine.resume(job.co)
-			current, job.idle = nil, ok and err == IDLE
+			current, job.idle, job.ms = nil, ok and err == IDLE, job.ms + now() - t0
 			Done(job.p, t0, job.budget * 2, kb0) -- not yielding (often enough) shows as an overrun
 			local last = now() - job.mark -- since its last Yield: to its end, or a bare coroutine.yield
 			if last > job.budget and not graced then
@@ -573,6 +591,40 @@ function Runtime.FrameStats()
 	return out
 end
 
+-- A recording (/mma perf: Perf.lua) and gauges ---------------------------------------
+
+local HITCH = 1 / 30 -- s: a frame slower is a visible hitch (Perf.lua:8)
+Runtime.HITCH = HITCH
+
+-- The next `seconds` of frames, graces too: the client's (t, frames, the worst, hitches past HITCH) and our
+-- cost in each (ms, peak), and every call's by name (calls: { ms, n, max }); then done(rec), wrapped as name.
+-- Runtime.recording: the one going on, nil when none; Runtime.RecordEnd() ends it now (done(rec) then).
+function Runtime.Record(seconds, name, done)
+	rec = { seconds = seconds, done = Runtime.Wrap(name, done), t = 0, frames = 0, worst = 0, hitches = 0, ms = 0,
+		peak = 0, calls = {} }
+	Runtime.recording = rec
+end
+
+function Runtime.RecordEnd()
+	local r = rec
+	rec, Runtime.recording = nil, nil
+	r.done(r)
+end
+
+local function Recorded(cost, elapsed)
+	local r = rec
+	r.t, r.frames, r.ms = r.t + elapsed, r.frames + 1, r.ms + cost
+	if elapsed > r.worst then r.worst = elapsed end
+	if elapsed > HITCH then r.hitches = r.hitches + 1 end
+	if cost > r.peak then r.peak = cost end
+	if r.t >= r.seconds then Runtime.RecordEnd() end
+end
+
+-- Numbers a system keeps for diagnostics, read by /mma perf and perf mem (the map's: ui/Engine.lua):
+-- Runtime.gauges[name]() → fn's table, its shape the registrant's.
+Runtime.gauges = {}
+function Runtime.Gauge(name, fn) Runtime.gauges[name] = Runtime.Wrap("gauge: " .. name, fn, false) end
+
 -- The frame ----------------------------------------------------------------------
 
 local function Frame(_, elapsed)
@@ -592,8 +644,10 @@ local function Frame(_, elapsed)
 	RunJobs()
 	inFrame = false
 	Flush()
-	Count(now() - t0 + eventMs, collectgarbage("count") - kb0, elapsed or 0)
+	local cost = now() - t0 + eventMs
+	Count(cost, collectgarbage("count") - kb0, elapsed or 0)
 	eventMs, top, topMs, alloc, allocKb = 0, nil, 0, nil, 0
+	if rec then Recorded(cost, elapsed or 0) end
 end
 
 events:SetScript("OnUpdate", Runtime.Wrap("runtime: frame", Frame, false))
