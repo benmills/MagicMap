@@ -118,7 +118,7 @@ def test_blips_end_to_end():
             # UI: drawn, each its icon (a texture, an atlas), at 14 px.
             sim.Run(0.2)
             front = UI.Blips.front
-            pins = [front.pools.pin[i] for i in range(1, front.pools.pin.n + 1)]
+            pins = [front.pools.pin[i].icon for i in range(1, front.pools.pin.n + 1)]  # (ui/Pins.lua's pins)
             textures = sorted(str(sim.state[t].atlas or sim.state[t].texture) for t in pins)
             assert textures == [str(MAILBOX), str(MAILBOX), HERB], textures
             assert all(sim.state[t].width == 14 for t in pins)

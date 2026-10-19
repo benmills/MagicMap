@@ -1,30 +1,30 @@
 -- The one pin store (spike-bugs D1: every pin drawn from one store, diffed by id). Each kind of pin
 -- (blips, rares; quests, offers and the rest to come) is an Engine "pin" layer made with Pins.Layer,
 -- its Model.Known entries put by key: a layout keeps the pin its canvas showed for that key
--- (Engine.Keep) and sets only what changed, its look (StylePin, Layers.lua:338-400: each setter
+-- (Engine.Keep) and sets only what changed, its look (StylePin, Layers.lua:343-400: each setter
 -- called only when its value differs) and its place (Engine.At, when its tile, the canvas's zoom or
 -- origin, or its minimum zoom differ), so a pan's layout re-places only the pins it adds and a changed
 -- rev re-sets only the pins that changed; an unchanged rev lays nothing out (Engine). A pin is a frame
--- holding the spike's regions (Layers.lua:305-336) that doesn't take the mouse: the spike's took it and
--- passed clicks on (SetPropagateMouseClicks), but a layer's other canvas stands shown at alpha 0 with
--- the pins it showed, which would catch it; so each frame Pins finds the pin under the cursor on the
--- canvases shown (the topmost layer's, the nearest centre), and every click and drag is the view's.
--- Its tooltip: GameTooltip ANCHOR_RIGHT on the pin, its title, then grey 0.85 lines in
--- GameTooltipTextSmall, restored when it hides or clears (Layers.lua:288-301, QuestInfo.lua:253-272);
--- built once a hover, hidden on the one owner-checked path: the cursor off it, a menu open, the window
--- hidden (ui/Window.lua).
+-- holding the spike's regions (Layers.lua:304-336) that doesn't take the mouse: the spike's took it and
+-- passed clicks on (SetPropagateMouseClicks, Layers.lua:323), but a layer's other canvas stands shown at
+-- alpha 0 with the pins it showed, which would catch it; so while the view has the mouse (nothing over
+-- it took it), each frame Pins finds the pin under the cursor on the canvases shown (the topmost layer's,
+-- the nearest centre), and every click and drag is the view's. Its tooltip: GameTooltip ANCHOR_RIGHT on
+-- the pin, its title, then grey 0.85 lines in GameTooltipTextSmall, restored when it hides or clears
+-- (Layers.lua:288-301, QuestInfo.lua:251-305); built once a hover, hidden on the one owner-checked path:
+-- the cursor off it or the view, the window hidden (ui/Window.lua).
 
 local _, ns = ...
 local UI, Runtime = ns.UI, ns.Runtime
-local Engine, Window, Camera, Menus = UI.Engine, UI.Window, UI.Camera, UI.Menus
+local Engine, Window, Camera = UI.Engine, UI.Window, UI.Camera
 local Get, Keep, At, Yield = Engine.Get, Engine.Keep, Engine.At, Runtime.Yield
 
-local SIZE = 14 -- px: a pin's (StylePin's default, Layers.lua:340)
+local SIZE = 14 -- px: a pin's (StylePin's default, Layers.lua:344)
 local INNER_SIZE, INNER_SHADE = 0.56, 0.55 -- (c)'s objective icon: share of its disc, its shade (Layers.lua:303)
-local SCALE = 0.62 -- (c)'s atlas over its disc (Layers.lua:376)
+local SCALE = 0.62 -- (c)'s atlas over its disc (Layers.lua:379)
 local DOT, RING_PAD = 0.6, 3 -- (d): the dot's share of size, its ring's past it (Layers.lua:396-399)
 local RING = { 0, 0, 0, 0.9 } -- Layers.lua:396
-local GLOW, GLOW_PAD = { 1, 0.82, 0.3, 0.45 }, 14 -- the followed one's halo (Layers.lua:345-347)
+local GLOW, GLOW_PAD = { 1, 0.82, 0.3, 0.45 }, 14 -- the followed one's halo (Layers.lua:349-350)
 local WHITE = { 1, 1, 1 }
 local GREY = 0.85 -- a tooltip's lines under its title (Layers.lua:298)
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- UI.lua:6
@@ -34,7 +34,7 @@ local Pins = {}
 UI.Pins = Pins
 
 ---------------------------------------------------------------------------
--- StylePin (Layers.lua:338-400)
+-- StylePin (Layers.lua:304-400)
 ---------------------------------------------------------------------------
 
 local has = {} -- atlas name -> the client has it
@@ -211,8 +211,9 @@ local function Set(c, o, e, look, minZoom)
 	o.entry = e
 	Style(o, look)
 	local p = e.pos
-	local x, y = (p.col - c.ox) * c.zoom, (p.row - c.oy) * c.zoom
-	if o.az ~= c.zoom or o.x ~= x or o.y ~= y or o.amin ~= minZoom or o.on ~= (minZoom and c.mins[minZoom] or c) then
+	local x, y, on = (p.col - c.ox) * c.zoom, (p.row - c.oy) * c.zoom, c
+	if minZoom then on = c.mins[minZoom] end -- (its frame for that zoom: Engine.At's)
+	if o.az ~= c.zoom or o.x ~= x or o.y ~= y or o.amin ~= minZoom or o.on ~= on then
 		At(c, o, "CENTER", p.col, p.row, 0, 0, minZoom)
 	end
 end
@@ -227,7 +228,8 @@ end
 -- the pin (and Shows it); hover(e): the cursor on its pin e, or (nil) off it; click(e, button): a click on
 -- it (Pins.Tap).
 function Pins.Layer(name, level, fill, rev, opts)
-	local n, es, looks, mins = 0, {}, {}, {} -- the pins the canvas didn't show: set after the rest (a Get takes the next region, whatever it showed)
+	-- The pins the canvas didn't show: set after the rest (a Get takes the next region, whatever it showed).
+	local n, es, looks, mins = 0, {}, {}, {}
 	local c, inst, zoom, c0, r0, c1, r1, any, from
 	local function want(minZoom)
 		if Engine.From(zoom, minZoom) then return true end
@@ -271,7 +273,7 @@ end
 ---------------------------------------------------------------------------
 
 -- GameTooltip's lines in small type (the facts under a pin's name), each its font back when the tooltip
--- hides or clears (QuestInfo.lua:253-272). Its lines' font strings by name, found once each.
+-- hides or clears (QuestInfo.lua:251-305). Its lines' font strings by name, found once each.
 local left, styled, nstyled = {}, {}, 0
 local function Line(i)
 	if not left[i] then
@@ -359,9 +361,18 @@ local function Hover(pin, at)
 	end
 end
 
+-- The view has the mouse: nothing over it took it (a button, another addon's pin, a menu), as the spike's
+-- topmost pin frame had it.
+local inside = false
+Window.view:HookScript("OnEnter", Runtime.Wrap("map: pins entered", function() inside = true end))
+Window.view:HookScript("OnLeave", Runtime.Wrap("map: pins left", function()
+	inside = false
+	Hover(nil)
+end))
+
 Runtime.Step("ui", "map: pins", function()
 	local pin, at
-	if Window.view:IsMouseOver() and not Menus.IsOpen() then
+	if inside then
 		local x, y = Window.Cursor()
 		local w, h = Window.Size()
 		pin, at = Under(x - w / 2, y - h / 2)

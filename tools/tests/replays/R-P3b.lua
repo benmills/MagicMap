@@ -49,6 +49,14 @@ for _, w in ipairs({ any, any:CreateTexture(), any:CreateMaskTexture(), any:Crea
 		methods = mt and mt.__index
 	end
 end
+-- A frame made (a pin: ui/Pins.lua) at the client's price too, as a region: a table holding its userdata
+-- (CreateFrame is a global, not a widget's method).
+local frames, createFrame = 0, CreateFrame
+CreateFrame = function(...)
+	depth = depth + 1
+	frames = frames + 1
+	return Out(depth == 1 and collectgarbage("count") or 0, createFrame(...))
+end
 local layouts, trace = 0, R.Trace
 MADE = {}
 R.Trace = function(kind, d)
@@ -78,15 +86,15 @@ local function Measure(run)
 	Deep(300)
 	sim.Step()
 	local _, kb0 = read()
-	local m0, s0, l0, t0, lk0 = made, simKB, layouts, sim.time, LayoutKB()
+	local m0, f0, s0, l0, t0, lk0 = made, frames, simKB, layouts, sim.time, LayoutKB()
 	run()
 	collectgarbage("restart")
 	local _, kb1 = read()
 	collectgarbage("collect")
 	kept = collectgarbage("count") - kept
 	local m, secs = made - m0, sim.time - t0
-	return { kbs = (kb1 - kb0 - (simKB - s0) + m * CLIENT_KB) / secs, garbage = (kb1 - kb0 - kept) / secs, made = m,
-		layouts = layouts - l0, layoutKB = LayoutKB() - lk0, sim = simKB - s0, secs = secs }
+	return { kbs = (kb1 - kb0 - (simKB - s0) + (m + frames - f0) * CLIENT_KB) / secs, garbage = (kb1 - kb0 - kept) / secs,
+		made = m, layouts = layouts - l0, layoutKB = LayoutKB() - lk0, sim = simKB - s0, secs = secs }
 end
 
 local function Drag(dx, dy)
