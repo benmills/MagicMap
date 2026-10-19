@@ -81,6 +81,13 @@ unknown ones), and new oracles.
   QUEST_REMOVED (Forever sends the quest id: Questie's EventHandler.lua:157-193), QUEST_POI_UPDATE,
   the instances, a quest done or a count changed; and quests to pick up only after QUEST_ACCEPTED,
   QUEST_REMOVED, a level, QUESTLINE_UPDATE or tracking (not every QUEST_LOG_UPDATE, the spike's).
+- OPEN additions (v1 plan M3, its review's round 1): `waypointSet`, beside `waypoint`: a user
+  waypoint is set, wherever it is (C_Map.GetUserWaypoint() ~= nil). `waypoint` stays `false` both
+  for none and for one on a map Atlas hasn't (no tile position to hand), so the right-click menu
+  offers Clear waypoint from `waypointSet`, as the spike's HasWaypoint (Layers.lua:2080-2081).
+  `levels`, a new part: each map's level range as the client gives it (C_Map.GetMapLevels), read once
+  for the maps Atlas has, for the inspector's level line (the spike's ZoneInfo.lua:58-69; Atlas's
+  subzone exploration levels were another source: Elwynn 5-10, Dun Morogh 4-56, against 1-10).
 - LOCKED clarification (v1 plan M1): `ObsBlip.rough` was "measured while moving: a few yards
   off". Its meaning stays what Model relies on: the position wasn't measured, so don't keep it
   or merge on it; it's measured once you stand still (M1.5 measures only then). How far off a

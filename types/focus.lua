@@ -18,6 +18,12 @@
 ---@field zoom? number         pixels per tile: Model's "is this detail worth keeping/finding now"
 ---@field shown boolean        the map is visible at all (false: Model keeps learning, skips view-only work)
 ---@field follow boolean       the view follows you (Model may prefer the route near you)
+---@field off? table<string, true> layers turned off (Menus.Layer keys; a new table when one changes; nil: none):
+---                           Model.Target skips "corpse", "quests", "waypoint" while theirs is, and goes to the
+---                           followed quest's pin (no area edge, no inside) while "questAreas" is (the spike's
+---                           pinData and drawn blobs: Layers.lua:1029, 1093-1097, 1160-1168)
+---@field moving? boolean      the view zooms, flies or is dragged, or its zoom hasn't settled (Camera.Settled):
+---                           Model leaves the frame to the map (the route's search waits: no slice a frame)
 
 -- The two entry points into Model that Game and UI call (LOCKED). What UI reads back,
 -- and Model.Load (its saved part): types/model.lua. --------------------------------

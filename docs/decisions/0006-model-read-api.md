@@ -60,6 +60,11 @@ Target and Route beyond the typed fields.
   far end and the edge arrow from it. Target and Route are built (M3.1: model/Target.lua, Route.lua);
   Target is nil until Model's first Focus, so UI's first look at it waits for a known one.
 
+- OPEN additions (v1 plan M3, its review's round 1): `Model.levels` hands on `obs.levels` (`{}`
+  until known: the inspector's level line, the client's map levels as the spike's), and
+  `Model.waypointSet` the last `obs.waypointSet` (the menu's Clear waypoint, also for a waypoint
+  Known("waypoint") can't place). Target reads Focus's `off`, Route its `moving` (ADR 0002).
+
 ## Revisit if
 
 - A kind needs data that doesn't fit a pin (an area, a path): give it its own getter

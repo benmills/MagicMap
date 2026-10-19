@@ -35,6 +35,13 @@ else about the camera stays inside UI.
 - One frame of latency on focus. That is invisible for forgetting and route priority. If
   a route slice ever needs the same-frame view, UI can call Focus from its input step.
 - Model never knows pixels or screen sizes, only tile space and a zoom figure.
+- OPEN additions (v1 plan M3, its review's round 1): `off`, the layers turned off (a new table when
+  one changes; nil: none): the spike's target comes from what its layers show (pinData is nil for a
+  layer turned off, the area edge needs a drawn area: Layers.lua:1029, 1093-1097, 1160-1168), so
+  Model.Target skips the corpse, the quests or the waypoint while its layer is off, and goes to the
+  followed quest's pin while Quest areas is. And `moving`, the view zooming, flying or dragged or its
+  zoom not yet settled: the route's 1 ms search slice gives way to the map's layouts (zooming the big
+  window during a long search had overrun 8 ms), its resumes waiting, not counted.
 
 ## Revisit if
 

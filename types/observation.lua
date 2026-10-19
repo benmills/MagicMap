@@ -31,13 +31,17 @@
 ---@field quests? MM.ObsQuests      on change: your quest log
 ---@field places? MM.ObsPlace[]      on change: live places the game marks (Atlas has the static ones)
 ---@field corpse? MM.Pos|false       on change: false = no corpse known
----@field waypoint? MM.Pos|false     on change: the user waypoint (C_Map); false = none
+---@field waypoint? MM.Pos|false     on change: the user waypoint (C_Map); false = none, or on a map Atlas hasn't
+---@field waypointSet? boolean        with waypoint: a user waypoint is set, wherever it is (C_Map.GetUserWaypoint() ~= nil)
 ---@field vignettes? MM.ObsVignette[] on change: what the game shows near you now
 ---@field offers? MM.ObsOffer[]      on change: quests to pick up on the maps Game asked about
 ---@field explored? table<MM.AreaID, boolean> on change: per area Game has checked; a missing key is unknown
 ---@field tracking? MM.ObsTracking[] on change: Blizzard's minimap tracking types
 ---@field indoorArt? MM.ObsArt|false on change: the world map's art for the map you're on; false = none
 ---@field addons? MM.ObsAddon[]      on change: other addons whose pins Game can borrow (View.layers "addon:<key>")
+---@field levels? table<MM.UiMapID, integer[]> on change: each map's level range as the client gives it,
+---                                   { lo, hi } (C_Map.GetMapLevels), for the maps Atlas has; one it gives none is
+---                                   missing. Read once.
 
 ---@class MM.ObsYou
 ---@field inst? MM.Inst        the instance you're in (GetInstanceInfo: known in instances too)
