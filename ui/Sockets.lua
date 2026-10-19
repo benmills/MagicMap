@@ -1,18 +1,28 @@
--- The sockets (types/view.lua MM.ViewSockets): frames of ours Game puts other addons' pins on.
--- For now the world socket's minimum, for M1.9's HereBeDragons borrow (M4.4 adds the minimap
--- socket): a canvas over the map's layers, under your arrow, tile (col, row) of the map shown at
--- (col * zoom, -row * zoom) from its TOPLEFT, while the window shows our renderer; and every addon
--- with world pins (Model.addons) whose layer is on (the gear's Other addons, ui/Menus.lua: on until
--- turned off, as the spike's layers started, AddonPins.lua:113), from the frame after a toggle. Its zoom is where the view rests:
--- the camera's, once it holds still a frame (not through a chase, a flight or the window being sized), so Game
--- re-places each pin once a zoom (a job: its holder see-through until done), not every frame of it. Meanwhile the pins would sit at the old
--- zoom: the canvas is see-through until then. Never scaled (a SetScale costs the client per
--- region under the frame, every frame of the motion: thousands with Questie's pins, spike-bugs
--- P4), nor shown or hidden (the same, per region).
+-- What View tells Game about the map's ground and other addons' pins, each frame from ui/View.lua's step:
+-- the renderer (ui/IndoorArt.lua's pick), the Minimap's rim parts (types/view.lua MM.ViewChrome: while ours
+-- draws, its arrows and quest rings stand down for our edge arrow and areas; under "blizzard" or hidden,
+-- left as Blizzard has them), the layers Game acts on (ours drawn: Blizzard's tracking of the same off,
+-- MinimapTakeover.lua:236; and every addon with world pins, Model.addons, whose layer is on: the gear's
+-- Other addons, ui/Menus.lua, on until turned off, as the spike's layers started, AddonPins.lua:113),
+-- and the sockets (MM.ViewSockets): frames of ours Game puts other addons' pins on, while the window shows
+-- our renderer. The world socket: a canvas over the map's layers, under our pins, tile (col, row) of the
+-- map shown at (col * zoom, -row * zoom) from its TOPLEFT. Its zoom is where the view rests: the camera's,
+-- once it holds still a frame (not through a chase, a flight or the window being sized), so Game re-places
+-- each pin once a zoom (a job: its holder see-through until done), not every frame of it. Meanwhile the
+-- pins would sit at the old zoom: the canvas is see-through until then. Never scaled (a SetScale costs the
+-- client per region under the frame, every frame of the motion: thousands with Questie's pins, spike-bugs
+-- P4), nor shown or hidden (the same, per region). The minimap socket: a canvas of its own at the camera
+-- every frame, its zoom the camera's, as the spike's host moved and sized with the view (MinimapTakeover.lua:
+-- 479-508): its pins (around you: Game sizes their host to the Minimap's view) over ours, under your arrow
+-- (MinimapTakeover.lua:325-331).
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
 local Camera, Window, Engine = UI.Camera, UI.Window, UI.Engine
+
+local CHROME = { rimArrows = false, questRing = false }
+local GAME = { flight = "flight", quests = "quests", pois = "areaPOIs" } -- View.layers' key -> our layer's
+local MINI = 17 -- the minimap socket's pins: under your arrow's overlay (18: ui/You.lua), over our pins
 
 local Sockets = {}
 UI.Sockets = Sockets
@@ -22,17 +32,33 @@ local canvas = CreateFrame("Frame", nil, view)
 canvas:SetSize(1, 1)
 canvas:SetFrameLevel(view:GetFrameLevel() + 10) -- over the names (9), under our pins (11 on), as AddonPins.lua:139
 local world = { frame = canvas, inst = 0, zoom = 0 }
-Sockets.world = world
+local around = CreateFrame("Frame", nil, view)
+around:SetSize(1, 1)
+around:SetFrameLevel(view:GetFrameLevel() + MINI - 1) -- (its pins a level over it)
+local mini = { frame = around, inst = 0, zoom = 0, level = 0 }
+Sockets.world, Sockets.minimap = world, mini
 
 local held, placed, x, y = nil, true, nil, nil -- the zoom last frame; as applied
+local ax, ay -- the minimap socket's, as applied
 local keys = {} -- an addon's key -> its layer's
--- Each frame (ui/View.lua's step): View.sockets and the layers Game borrows for. True: either changed,
--- the socket's zoom or map with it (set in place: Game re-places its pins on them).
+-- Each frame (ui/View.lua's step): View's renderer, chrome, the layers Game acts on and the sockets. True:
+-- any changed, a socket's zoom or map with it (set in place: Game re-places its pins on them).
 function Sockets.Update(v)
-	if not (Window.frame:IsShown() and v.renderer ~= "blizzard") then
-		local was = v.sockets.world
-		v.sockets.world = nil
-		return was ~= nil
+	local window = v.window
+	local renderer = UI.IndoorArt.Renderer(window)
+	local ours = window.shown and renderer ~= "blizzard"
+	local chrome = ours and CHROME or nil
+	local changed = renderer ~= v.renderer or chrome ~= v.chrome
+	v.renderer, v.chrome = renderer, chrome
+	local layers = v.layers
+	for k, layer in pairs(GAME) do
+		local on = Engine.LayerOn(layer) or nil
+		if layers[k] ~= on then layers[k], changed = on, true end
+	end
+	if not ours then
+		changed = changed or v.sockets.world ~= nil or v.sockets.minimap ~= nil
+		v.sockets.world, v.sockets.minimap = nil, nil
+		return changed
 	end
 	local cam, w, h = Camera.cam, Window.Size()
 	local zoom, inst = world.zoom, Camera.inst or 0
@@ -50,14 +76,21 @@ function Sockets.Update(v)
 		x, y = nx, ny
 		canvas:SetPoint("TOPLEFT", view, "TOPLEFT", nx, ny)
 	end
-	local changed = moved or v.sockets.world ~= world
-	v.sockets.world = world
+	if nx ~= ax or ny ~= ay then
+		ax, ay = nx, ny
+		around:SetPoint("TOPLEFT", view, "TOPLEFT", nx, ny)
+	end
+	local level = window.level + 1 + MINI -- (the view's: the window's + 1)
+	changed = changed or moved or v.sockets.world ~= world or v.sockets.minimap ~= mini or mini.level ~= level
+		or mini.zoom ~= cam.zoom or mini.inst ~= inst
+	mini.inst, mini.zoom, mini.level = inst, cam.zoom, level
+	v.sockets.world, v.sockets.minimap = world, mini
 	for _, a in ipairs(Model.addons) do
 		if a.world then
 			local key = keys[a.key]
 			if not key then key = "addon:" .. a.key; keys[a.key] = key end
 			local on = Engine.LayerOn(key) or nil
-			if v.layers[key] ~= on then v.layers[key], changed = on, true end
+			if layers[key] ~= on then layers[key], changed = on, true end
 		end
 	end
 	return changed

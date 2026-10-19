@@ -97,11 +97,15 @@ def test_gear():
     root, rows = gear(sim, ns)
     assert items(root) == [("button", "Map"), ("button", "Quests"), ("button", "Places"), ("button", "People"),
                            ("button", "You"), ("button", "Other addons"), ("divider", None), ("button", "Settings")]
-    assert items(sub(root, "Map")) == [("checkbox", "Zone labels"), ("checkbox", "Zone borders")]
+    assert items(sub(root, "Map")) == [("checkbox", "Zone labels"), ("checkbox", "Zone borders"),
+                                       ("checkbox", "Shade unexplored")]
     assert items(sub(root, "Quests")) == [("checkbox", "Quests"), ("checkbox", "Quest areas"),
                                           ("checkbox", "     Estimate missing areas"), ("checkbox", "Quests to pick up")]
-    assert items(sub(root, "Places")) == [("checkbox", "Minimap blips")]
-    assert items(sub(root, "People")) == [("checkbox", "Rares you've seen")]
+    assert items(sub(root, "Places")) == [("checkbox", "Flight points"), ("checkbox", "Dungeon entrances"),
+                                          ("checkbox", "Graveyards"), ("checkbox", "Points of interest"),
+                                          ("checkbox", "Minimap blips")]
+    assert items(sub(root, "People")) == [("checkbox", "Party & raid"), ("checkbox", "Rares you've seen"),
+                                          ("checkbox", "Live rares & treasures")]
     assert items(sub(root, "You")) == [("checkbox", "Corpse"), ("checkbox", "Waypoint")]
     assert items(sub(root, "Other addons")) == [("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
     assert items(sub(root, "Settings")) == SETTINGS
@@ -170,10 +174,8 @@ def test_gear():
     rows["Zone labels"].onSelect()
     assert not child.IsEnabled(child)
 
-    # A layer off by default (a later package's row: the spike's Shade unexplored, Layers.lua:37): in the
-    # spike's place in its group whenever it's added, off until turned on, saved only while it isn't.
-    UI.Menus.Layer(L.table_from({"key": "unexplored", "label": "Shade unexplored", "group": "map", "default": False,
-                                 "tip": "Darken the parts of each zone you haven't discovered yet."}))
+    # A layer off by default (ui/Shade.lua's: the spike's Shade unexplored, Layers.lua:37): in the spike's
+    # place in its group, before a row added after it, off until turned on, saved only while it isn't.
     root, rows = gear(sim, ns)
     assert [t for _, t in items(sub(root, "Map"))] == ["Zone labels", "Zone borders", "Shade unexplored",
                                                        "     Sub-option"]

@@ -207,7 +207,7 @@ local function Again(name, hide, show)
 	T.Print("P7: shown again (%s): %d regions on the canvases, %d of the path's %d lines shown; the Show %.2f ms"
 		.. " priced; the slowest frame after it %.2f ms", name, held, lines, before, cost, worst)
 	assert(held == 0 and lines == 0 and cost <= 1 and worst <= 8, name)
-	for _, l in ipairs(E.layers) do assert(T.Fresh(ns, l), name .. ": " .. l.name) end
+	for _, l in ipairs(E.layers) do assert(not l.on or T.Fresh(ns, l), name .. ": " .. l.name) end
 	assert((PathShown() > 0) == (before > 0), name .. ": the line laid out again") -- (Alt-Z: back small)
 end
 -- A waypoint near you, its route found: the line shown (R-P7 had no target till the M3 review: each reopen

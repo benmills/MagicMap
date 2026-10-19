@@ -36,15 +36,15 @@ end
 -- The map's anchors under its view, checked as they're set (SetPoint, a region's and a frame's: the
 -- canvases; Line:SetStartPoint and SetEndPoint): no offset past LIMIT px (the tear's suspect,
 -- docs/v1-plan.md §2), a scaled frame's (its offsets are in its own units) times its scale: what it
--- moves on the screen, and the client's error with it. Not the world socket's (ui/Sockets.lua: Game
--- hosts other addons' pins on it, tile (0, 0) at its TOPLEFT, up to ~51,000 px at zoom 800; a pin far
+-- moves on the screen, and the client's error with it. Not the sockets' (ui/Sockets.lua: Game hosts
+-- other addons' pins on them, tile (0, 0) at their TOPLEFT, up to ~51,000 px at zoom 800; a pin far
 -- from the view stays far whatever the origin: hosting fewer, near the view, is M4.2's continent
--- filter and M4.4's), nor a held canvas scaled past 1.4 (Engine's BAND_HI): a layout from further out
--- while the zoom comes in (borders, a crossfade's old canvas), its origin's offset growing with its
--- scale until it's laid out again (R-P1: 35,034 px at 45x, the wheel's 16 notches in from 16 after a
--- flick out about a corner), as the spike's PlaceCanvas (Layers.lua:142-156), the client's error still
--- a thousandth of a pixel there (the ground's, past 1.4 while a zoom in outruns its layout, is held to
--- the limit: 2,869 px at most, 2.3x, in R-P1). And no
+-- filter and M4.4's; the minimap socket's around you), nor a held canvas scaled past 1.4 (Engine's
+-- BAND_HI): a layout from further out while the zoom comes in (borders, a crossfade's old canvas), its
+-- origin's offset growing with its scale until it's laid out again (R-P1: 35,034 px at 45x, the wheel's
+-- 16 notches in from 16 after a flick out about a corner), as the spike's PlaceCanvas (Layers.lua:142-156),
+-- the client's error still a thousandth of a pixel there (the ground's, past 1.4 while a zoom in
+-- outruns its layout, is held to the limit: 2,869 px at most, 2.3x, in R-P1). And no
 -- texture, mask or line on the map snapping to the pixel grid (the map moves by fractions of a pixel;
 -- font strings excepted: docs/v1-plan.md M1 exit). line: a Line, for its class's methods. (The checks
 -- here and in T.Invariants make no garbage and no widget calls: R-P3 measures our frames.)
@@ -52,7 +52,7 @@ local LIMIT = 4096
 local UNSNAPPED = { Texture = true, MaskTexture = true, Line = true }
 local held = {} -- a held layer's canvases (Engine's "hold")
 function T.Anchors(sim, ns, line)
-	local S, view, socket = sim.state, ns.UI.Window.view, ns.UI.Sockets.world.frame
+	local S, view, socket, mini = sim.state, ns.UI.Window.view, ns.UI.Sockets.world.frame, ns.UI.Sockets.minimap.frame
 	for _, l in ipairs(ns.UI.Engine.layers) do
 		if l.zoom == "hold" then
 			for _, c in ipairs(l.canvases) do held[c] = true end
@@ -60,7 +60,7 @@ function T.Anchors(sim, ns, line)
 	end
 	local function Check(o, what, x, y)
 		local p = o
-		while p and p ~= view and p ~= socket do p = S[p].parent end
+		while p and p ~= view and p ~= socket and p ~= mini do p = S[p].parent end
 		if p == view and (math.abs(x) > LIMIT or math.abs(y) > LIMIT) then
 			error(string.format("%s of %.0f, %.0f px on a %s", what, x, y, S[o].type), 2)
 		end
