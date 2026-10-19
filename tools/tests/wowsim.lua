@@ -411,7 +411,12 @@ function Texture:SetAtlas(atlas, useSize)
 	if info then setSize(self, info.width, info.height) end
 end
 function Texture:GetAtlas() return S[self].atlas end
-function Texture:SetVertexColor(r, g, b, a) assert(type(r) == "number", "SetVertexColor: numbers expected"); S[self].vertex = { r, g, b, a } end
+function Texture:SetVertexColor(r, g, b, a)
+	assert(type(r) == "number", "SetVertexColor: numbers expected")
+	local v = S[self].vertex or {} -- reused: the client's setters make no Lua garbage
+	v[1], v[2], v[3], v[4] = r, g, b, a
+	S[self].vertex = v
+end
 function Texture:GetVertexColor() local v = S[self].vertex or { 1, 1, 1, 1 }; return v[1], v[2], v[3], v[4] or 1 end
 function Texture:SetTexCoord(...)
 	local n = select("#", ...)
@@ -424,8 +429,9 @@ function Texture:SetDesaturated(on) S[self].desaturated = not not on end
 function Texture:IsDesaturated() return S[self].desaturated end
 function Texture:SetBlendMode(mode) S[self].blend = mode end
 function Texture:SetRotation(r) assert(type(r) == "number", "SetRotation: number expected"); S[self].rotation = r end
-function Texture:SetSnapToPixelGrid(on) end
-function Texture:SetTexelSnappingBias(b) end
+-- Kept for the tests (the client snaps a texture unless told not to): test_spike_bugs.py T.Anchors.
+function Texture:SetSnapToPixelGrid(on) S[self].snap = not not on end
+function Texture:SetTexelSnappingBias(b) assert(type(b) == "number", "SetTexelSnappingBias: number expected"); S[self].bias = b end
 function Texture:SetHorizTile(on) end
 function Texture:SetVertTile(on) end
 function Texture:AddMaskTexture(mask) assert(mask and S[mask] and S[mask].type == "MaskTexture", "AddMaskTexture: mask expected") end

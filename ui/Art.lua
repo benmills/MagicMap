@@ -2,8 +2,9 @@
 -- chrome you see). Checked against the client once after login's grace and on /mma check
 -- art; each miss traces "art" (its name). Forever lacks some art other clients have, and a
 -- missing name draws nothing, silently (spike-bugs L2, L5). A name UI starts using goes here.
--- Not listed: data's art (tile FileDataIDs, Textures\Sea: generated, K4) and
--- the client's own tracking icons (whatever C_Minimap names).
+-- Not listed: data's art (tile FileDataIDs, Textures\Sea: generated, K4), our own
+-- Textures\PlayerArrow (ui/You.lua: an addon's file, not the client's; L5's restart hazard, as
+-- Sea's) and the client's own tracking icons (whatever C_Minimap names).
 
 local _, ns = ...
 local UI, Runtime = ns.UI, ns.Runtime
@@ -13,7 +14,6 @@ local Art = {
 	-- A name, or a chain as its button tries it (the first the client has): a chain is a miss
 	-- only when none of it is there, named by its first.
 	atlases = {
-		"taxinode_alliance", "taxinode_horde", "taxinode_neutral", -- ui/Labels.lua: flight points
 		"vignettekill", "vignettekillelite",                       -- ui/Rares.lua (model/Rares.lua ICON)
 		"UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight", -- ui/Chrome.lua: the border
 		"_UI-Frame-Metal-EdgeBottom", "!UI-Frame-Metal-EdgeLeft", "!UI-Frame-Metal-EdgeRight",
@@ -31,14 +31,13 @@ local Art = {
 		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",        -- ui/Chrome.lua: the grip
 		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight",
 		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down",
-		"Interface\\Minimap\\MinimapArrow",                      -- ui/Window.lua: you
 		"Interface\\COMMON\\Indicator-Yellow",                   -- ui/Blips.lua: a blip without an icon
 		"Interface\\WorldMap\\Gear_64",                           -- ui/Controls.lua: the gear
 		"Interface\\CharacterFrame\\TempPortraitAlphaMask",       -- ui/Chrome.lua CIRCLE; game/Button.lua
 		"Interface\\HUD\\UIMinimap2xC60", "Interface\\Icons\\INV_Misc_Map_01", -- game/Button.lua: ring, icon
 		136458, 136453, 136452, 136466, 136454, 136463, 136465, 136459, -- ui/Blips.lua: services (game/Blips.lua SERVICE)
 	},
-	fonts = { "Fonts\\MORPHEUS.TTF", "Fonts\\FRIZQT__.TTF" }, -- ui/Labels.lua
+	fonts = { "Fonts\\FRIZQT__.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS)
 }
 UI.Art = Art
 

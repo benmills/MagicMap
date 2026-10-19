@@ -23,8 +23,13 @@ Walk(ns.UI.Window.frame)
 -- A full collect first (what came before isn't theirs), then a frame unmeasured: the collect shrank
 -- the Lua stacks, and the first frame after it grows them back (2-6 KB, once a collect cycle, not
 -- each frame: it was a third of the walking figure, more or less by where the deepest call fell).
+-- Deep grows the main stack back first: a frame's deepest call can fall later (a timer's, by the
+-- counted clock), and its regrowth (4 KB: 250 slots) counted as that frame's garbage (M1.4: 1 run in 4,
+-- strict).
+local function Deep(n) if n > 0 then return Deep(n - 1) + 1 end return 0 end
 local function Run(n, each)
 	collectgarbage("collect"); collectgarbage("stop")
+	Deep(300)
 	if each then each() end
 	sim.Step()
 	local n0, kb0, calls0 = read()

@@ -4,13 +4,12 @@
 -- (ui/Motion.lua), a right release opens the map's menu (ui/Menus.lua); dragging the border
 -- or Alt+left-dragging the map moves the window. Its draw step, each frame while shown:
 -- grow/shrink (ui/BigMap.lua), Motion's chase, the map shown (yours while following), the
--- camera's speed, Engine's layers, the map state, your arrow.
+-- camera's speed, Engine's layers, the map state (your arrow: ui/You.lua).
 
 local _, ns = ...
 local UI = ns.UI
 local Atlas, Runtime = ns.Atlas, ns.Runtime
 local Camera = UI.Camera
-local Maths = Atlas.Camera
 
 local BACKDROP = { 0.03, 0.06, 0.065 } -- a map without its sea colour (Core.lua:487)
 
@@ -60,17 +59,6 @@ Window.view = view
 local backdrop = view:CreateTexture(nil, "BACKGROUND", nil, -8)
 backdrop:SetAllPoints()
 backdrop:SetColorTexture(0, 0, 0, 1)
-
--- Your arrow, above every layer.
-local overlay = CreateFrame("Frame", nil, view)
-overlay:SetAllPoints()
-overlay:SetFrameLevel(view:GetFrameLevel() + 10)
-local arrow = overlay:CreateTexture(nil, "OVERLAY")
-arrow:SetTexture("Interface\\Minimap\\MinimapArrow")
-arrow:SetSize(28, 28)
-arrow:SetSnapToPixelGrid(false)
-arrow:SetTexelSnappingBias(0)
-arrow:Hide()
 
 function Window.Size()
 	return view:GetWidth(), view:GetHeight()
@@ -129,7 +117,7 @@ frame:SetScript("OnHide", Runtime.Wrap("map: hidden", function()
 end))
 
 ---------------------------------------------------------------------------
--- Each frame: grow/shrink, the map shown, the camera, layouts and canvases, your arrow
+-- Each frame: grow/shrink, the map shown, the camera, layouts and canvases
 ---------------------------------------------------------------------------
 
 local function You()
@@ -168,25 +156,6 @@ Runtime.Step("ui", "map: draw", function(elapsed)
 	if w <= 0 or h <= 0 then return end
 	local zooming = UI.Engine.Draw(inst, cam, w, h)
 	Runtime.SetState(Motion.Dragging() and "drag" or zooming and "zoom" or UI.BigMap.big and "big" or "small")
-	-- The arrow: only what changed is applied (an idle frame makes no widget calls for it).
-	if you and you.col and you.inst == inst then
-		local x, y = Maths.TileToScreen(cam, w, h, you.col, you.row)
-		local facing, stale = you.facing or 0, you.stale and true or false
-		if arrow.x ~= x or arrow.y ~= y then
-			arrow.x, arrow.y = x, y
-			arrow:SetPoint("CENTER", overlay, "TOPLEFT", x, -y)
-		end
-		if arrow.facing ~= facing then arrow.facing = facing; arrow:SetRotation(facing) end
-		if arrow.stale ~= stale then
-			arrow.stale = stale
-			arrow:SetDesaturated(stale) -- last known: greyed
-			arrow:SetAlpha(stale and 0.5 or 1)
-		end
-		if not arrow.shown then arrow.shown = true; arrow:Show() end
-	elseif arrow.shown then
-		arrow.shown = false
-		arrow:Hide()
-	end
 end, { shownOnly = frame })
 
 -- Our map, or Blizzard's minimap (Core.lua:1654).

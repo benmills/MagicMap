@@ -6,7 +6,9 @@
 --   4. the tiles' art (SetTexture(fdid)), TileColor tint as vertex colour + an ADD overlay,
 --      coast tiles masked with their feather (AddMaskTexture), wrap CLAMP: CLAMPTOBLACKADDITIVE
 --      would fade every edge's last texel to clear and draw the tile grid in hairlines of sea
--- No sea on the map: its backdrop colour under the tiles.
+-- No sea on the map: its backdrop colour under the tiles. With UI.saved.tint off (/mma tint, the
+-- gear's "Colour-matched tiles": Core.lua:1648-1653, GearMenu.lua:49), the art plain: every tile,
+-- no tint, no coast fade.
 
 local _, ns = ...
 local UI = ns.UI
@@ -16,7 +18,8 @@ local Get, Px, Yield = Engine.Get, Engine.Px, Runtime.Yield
 local CELLS_MIN_PX = 48 -- px a tile: below, one fill (the variants wouldn't show)
 local MACRO, MACRO_ALPHA, MACRO_AT = 2.7, 0.35, { 0.37, 0.61 }
 
--- Tiles don't snap to the pixel grid: the canvas moves by fractions of a pixel, so they must too.
+-- Tiles don't snap to the pixel grid: the canvas moves by fractions of a pixel, so they must too
+-- (their masks too: a snapped mask on unsnapped art was a suspect of the tear, docs/v1-plan.md §2).
 local function Unsnapped(t)
 	t:SetSnapToPixelGrid(false)
 	t:SetTexelSnappingBias(0)
@@ -43,7 +46,7 @@ end
 
 local function MakeArt(c)
 	local t = ArtTex(c)
-	t.mask = c:CreateMaskTexture()
+	t.mask = Unsnapped(c:CreateMaskTexture())
 	t.mask:SetAllPoints(t)
 	return t
 end
@@ -68,7 +71,14 @@ local function MacroUV(col, row)
 	return (row - MACRO_AT[2]) / MACRO, -(col - MACRO_AT[1]) / MACRO
 end
 
-local function Sea(c, inst, zoom, sea, c0, r0, c1, r1)
+-- A tile drawn at key: with the tint, not an open-sea one (Atlas.Drawn); without, any.
+local function Drawn(inst, key, tint)
+	if tint then return Atlas.Drawn(inst, key) end
+	local tiles = Atlas.Tiles(inst)
+	return tiles ~= nil and tiles[key] ~= nil
+end
+
+local function Sea(c, inst, zoom, sea, tint, c0, r0, c1, r1)
 	if zoom < CELLS_MIN_PX then
 		local t = Get(c, "sea", "tex", SeaTex)
 		Texture(t, sea.textures[1], "REPEAT")
@@ -79,7 +89,7 @@ local function Sea(c, inst, zoom, sea, c0, r0, c1, r1)
 			for row = math.floor(r0), math.floor(r1) do
 				local key = col * 64 + row
 				local inside = col >= 0 and col < 64 and row >= 0 and row < 64
-				if not (inside and Atlas.Drawn(inst, key) and not Atlas.SeaFeather(inst, key)) then
+				if not (inside and Drawn(inst, key, tint) and not (tint and Atlas.SeaFeather(inst, key))) then
 					local t = Get(c, "sea", "tex", SeaTex)
 					Texture(t, sea.textures[Atlas.SeaVariant(col, row)], "CLAMP")
 					Rect(t, c, zoom, col, row, col + 1, row + 1)
@@ -135,11 +145,11 @@ local function Backdrop(inst)
 	return backdrops[inst] or { 0, 0, 0 }
 end
 
-local function Tiles(c, inst, zoom, sea, c0, r0, c1, r1)
+local function Tiles(c, inst, zoom, sea, tint, c0, r0, c1, r1)
 	for col = math.max(0, math.floor(c0)), math.min(63, math.floor(c1)) do
 		for row = math.max(0, math.floor(r0)), math.min(63, math.floor(r1)) do
 			local key = col * 64 + row
-			if Atlas.Drawn(inst, key) then
+			if Drawn(inst, key, tint) then
 				local info = Atlas.TileInfo(inst, key)
 				local t = Get(c, "art", "tex", MakeArt)
 				if t.fdid ~= info.fdid then
@@ -147,18 +157,17 @@ local function Tiles(c, inst, zoom, sea, c0, r0, c1, r1)
 					t.fdid = info.fdid
 				end
 				Rect(t, c, zoom, col, row, col + 1, row + 1)
-				local tint, add = info.tint, nil
-				if tint then
-					t:SetVertexColor(tint[1], tint[2], tint[3])
-					if tint[4] > 0 or tint[5] > 0 or tint[6] > 0 then
-						add = Get(c, "add", "tex", MakeAdd)
-						add:SetColorTexture(tint[4], tint[5], tint[6], 1)
-						add:SetAllPoints(t)
-					end
-				else
-					t:SetVertexColor(1, 1, 1)
+				local m, add = tint and info.tint or false, nil
+				if t.m ~= m then -- (a pooled tile mostly keeps its tint: set only when it changes)
+					if m then t:SetVertexColor(m[1], m[2], m[3]) else t:SetVertexColor(1, 1, 1) end
+					t.m = m
 				end
-				local feather = sea and Atlas.SeaFeather(inst, key)
+				if m and (m[4] > 0 or m[5] > 0 or m[6] > 0) then
+					add = Get(c, "add", "tex", MakeAdd)
+					add:SetColorTexture(m[4], m[5], m[6], 1)
+					add:SetAllPoints(t)
+				end
+				local feather = tint and sea and Atlas.SeaFeather(inst, key)
 				if feather then
 					local path = feather
 					if t.mask.path ~= path then
@@ -172,7 +181,7 @@ local function Tiles(c, inst, zoom, sea, c0, r0, c1, r1)
 				end
 				if add then
 					-- The overlay fades with the art: a mask of its own (a region's masks are its own).
-					add.mask = add.mask or c:CreateMaskTexture()
+					add.mask = add.mask or Unsnapped(c:CreateMaskTexture())
 					add.mask:SetAllPoints(add)
 					if feather then
 						add.mask:SetTexture(feather, "CLAMP", "CLAMP")
@@ -188,15 +197,27 @@ local function Tiles(c, inst, zoom, sea, c0, r0, c1, r1)
 	end
 end
 
+local function Tint() return UI.saved.tint end -- (its change lays the tiles out again: the layer's rev)
+
 UI.Tiles = Engine.Layer("tiles", 1, function(c, inst, zoom, c0, r0, c1, r1)
-	local sea = Atlas.Sea(inst)
+	local sea, tint = Atlas.Sea(inst), Tint()
 	if sea then
-		Sea(c, inst, zoom, sea, c0, r0, c1, r1)
+		Sea(c, inst, zoom, sea, tint, c0, r0, c1, r1)
 	else
 		local b = Get(c, "backdrop", "tex", SeaTex)
 		local col = Backdrop(inst)
 		b:SetColorTexture(col[1], col[2], col[3], 1)
 		Rect(b, c, zoom, c0, r0, c1, r1)
 	end
-	Tiles(c, inst, zoom, sea, c0, r0, c1, r1)
-end)
+	Tiles(c, inst, zoom, sea, tint, c0, r0, c1, r1)
+end, Tint)
+
+-- The colour data on or off, to compare it with the plain art (Core.lua:1648-1653): /mma tint, and
+-- the gear's "Colour-matched tiles" (GearMenu.lua:49 runs the command).
+function UI.Tint()
+	local saved = UI.saved
+	saved.tint = not saved.tint
+	UI.Print("tile colour correction " .. (saved.tint and "on" or "off")
+		.. ((saved.tint and not Atlas.TileColored(UI.Camera.inst)) and " (no data for this map)" or ""))
+end
+ns.Game.Command({ kind = "slash", name = "tint", help = "tile colour correction on or off", fn = function() UI.Tint() end })

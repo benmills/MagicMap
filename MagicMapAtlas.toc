@@ -94,5 +94,6 @@ ui\Labels.lua
 ui\Blips.lua
 ui\Rares.lua
 ui\Sockets.lua
+ui\You.lua
 ui\View.lua
 ui\Art.lua

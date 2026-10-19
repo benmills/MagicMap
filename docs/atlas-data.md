@@ -142,22 +142,31 @@ that read it.
   `{ mapID, name, x, y, zone, area }`.
 
 ### Data/Borders.lua — `ns.Data.Borders` (ADT chunk areas)
-`[inst] = { lines, far, outlines, labels }`, positions in tile space (3 decimals).
+`[inst] = { lines, z12, z30, far, z100, z200, sub, subz200, outlines, labels }`, positions in
+tile space (3 decimals). Format 2 (M1.4: the levels and subzone borders).
 - lines: zone borders `{ areaA, areaB, fadeStart, fadeEnd, x1, y1, x2, y2, ... }`, one
   per stretch between junctions. Traced along chunk edges between two zones' land,
   then smoothed offline (Gaussian, ~2 chunks) into curves and simplified to 0.003
-  tiles. Ends stay exact: neighbours meet, three zones at one point. No subzone borders.
+  tiles. Ends stay exact: neighbours meet, three zones at one point.
 - fadeStart / fadeEnd: tiles over which that end fades out, 0 none. A border that
   reaches the shore runs on a few chunks over water and fades there; one that stops
   on land of no zone fades over 0.1.
-- far: the same lines, simplified to 0.03 tiles (Atlas.BorderLines picks by zoom).
+- z12, z30, far, z100, z200: the same lines simplified to 0.15, 0.05, 0.03, 0.015 and 0.0075
+  tiles, each drawn below its zoom (far: 50 px per tile), where it's within about 1.5 px
+  (`Atlas.BORDER_LEVELS`; Atlas.BorderLines picks by zoom). The first two are M1.4's bands;
+  the rest halve the Lines a layout draws at zoom 50-200 (docs/v1-plan.md M1.4).
+- sub: subzone borders `{ areaA, areaB, x1, y1, ... }`: chunk edges between two subzones of
+  one zone, both on land with ≥ 4 land chunks (the spike's rule), smoothed and simplified as
+  `lines`; subz200: within 0.0075 (`Atlas.SubzoneLines(inst, zoom)`: below zoom 300). The spike
+  melts their steps with Douglas-Peucker at 0.035 tiles and Chaikin (Layers.lua:1424-1425,
+  1503-1519); the zone borders' smoothing comes out rounder in about half the points.
 - outlines: `[zone areaID] = { ring, ... }`, ring `{ x1, y1, ... }` closed (last joins
   first): the zone's land, from the same smoothed chains (shared stretches match
   `lines`; the coast within 0.01). Even-odd: a ring inside another is a hole. Rings
   under 12 chunks (islets, ponds) are dropped. For hit-testing and highlighting a zone.
 - labels: `{ areaID, col, row, weight, kind }`: the land chunk deepest inside each zone
   (kind 1) and subzone (kind 2, ≥ 6 chunks); weight = its land chunks.
-- `Atlas.Borders(inst)`, `Atlas.BorderLines(inst, zoom)` (far below `Atlas.BORDER_FAR_ZOOM`),
+- `Atlas.Borders(inst)`, `Atlas.BorderLines(inst, zoom)`, `Atlas.SubzoneLines(inst, zoom)`,
   `Atlas.ZoneOutline(inst, zone)`; Data/Labels.lua ranks these labels with the
   continent's name and AreaPOI towns and landmarks (Places).
 

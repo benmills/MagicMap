@@ -57,9 +57,12 @@ end
 -- SetEndPoint): no offset past LIMIT px (the tear's suspect, docs/v1-plan.md §2), but the world
 -- socket's (ui/Sockets.lua: Game hosts other addons' pins on it, tile (0, 0) at its TOPLEFT, up to
 -- ~51,000 px at zoom 800; a pin far from the view stays far whatever the origin: hosting fewer, near
--- the view, is M4.2's continent filter and M4.4's). line: a Line, for its class's methods. (The
--- checks here and in T.Invariants make no garbage and no widget calls: R-P3 measures our frames.)
+-- the view, is M4.2's continent filter and M4.4's). And no texture, mask or line on the map snapping
+-- to the pixel grid (the map moves by fractions of a pixel; font strings excepted: docs/v1-plan.md M1
+-- exit). line: a Line, for its class's methods. (The checks here and in T.Invariants make no garbage
+-- and no widget calls: R-P3 measures our frames.)
 local LIMIT = 4096
+local UNSNAPPED = { Texture = true, MaskTexture = true, Line = true }
 function T.Anchors(sim, ns, line)
 	local S, view, socket = sim.state, ns.UI.Window.view, ns.UI.Sockets.world.frame
 	local function Check(o, what, x, y)
@@ -67,6 +70,9 @@ function T.Anchors(sim, ns, line)
 		while p and p ~= view and p ~= socket do p = S[p].parent end
 		if p == view and (math.abs(x) > LIMIT or math.abs(y) > LIMIT) then
 			error(string.format("%s of %.0f, %.0f px on a %s", what, x, y, S[o].type), 2)
+		end
+		if p == view and UNSNAPPED[S[o].type] and not (S[o].snap == false and S[o].bias == 0) then
+			error(string.format("a %s on the map snaps to the pixel grid", S[o].type), 2)
 		end
 	end
 	local regions, lines = getmetatable(getmetatable(view).__index).__index, getmetatable(line).__index

@@ -159,9 +159,9 @@ alpha: docs/runtime.md "The map's engine"), ui/Motion.lua (wheel
 and button zoom, drag, follow, chase, flights, idle return), ui/Chrome.lua (the metal border,
 band and grip), ui/Controls.lua (the buttons, hover reveal, tips), ui/Title.lua (the title
 band), ui/BigMap.lua (the minimap form, grow and shrink: Model.hooked, the home spot from
-Model.minimap), ui/Menus.lua (the client's menus; the gear, the map's right-click) and
+Model.minimap), ui/Menus.lua (the client's menus; the gear, the map's right-click),
 ui/Sockets.lua (View.sockets: the world socket Game hosts other addons' HereBeDragons pins on,
-game/AddonPins.lua). The spike bugs' replays are one
+game/AddonPins.lua) and ui/You.lua (your arrow, over them all). The spike bugs' replays are one
 file each, tools/tests/replays/R-<id>.lua, collected by tools/tests/test_spike_bugs.py.
 
 ## Slash commands

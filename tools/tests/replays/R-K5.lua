@@ -5,12 +5,7 @@
 -- dungeons) leaves the map you came from, titled with its name (Core.lua:1119, 1302).
 local T = ...
 local sim, ns = T.Shown()
-local arrow
-for _, f in ipairs(sim.Frames()) do
-	for _, r in ipairs(sim.state[f].regions or {}) do
-		if sim.state[r].texture == "Interface\\Minimap\\MinimapArrow" then arrow = arrow or r end
-	end
-end
+local arrow = ns.UI.You.arrow
 assert(ns.Model.you.col ~= nil and arrow:IsShown())
 sim.restricted = true
 sim.player.inst = 389
