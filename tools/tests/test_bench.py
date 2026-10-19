@@ -7,9 +7,11 @@ CANVAS = ["canvas." + op + "@" + at for at in ("100live", "1000live", "1000hidde
           for op in ("SetPoint", "SetScale", "SetAlpha", "Hide", "Show")]
 MOVED = ["canvas.Show.moved@1000live", "canvas.Show.moved.alpha0@1000live", "canvas.SetAlpha.moved@1000live",
          "canvas.Show.moved@100masked"]  # the swap's question (M1.3)
-FRAMES = ["frame.idle", "frame.moved.alpha0", "frame.swap", "frame.moved.hidden"]  # the whole frame: what the client defers to drawing
+FRAMES = ["frame.idle", "frame.moved.alpha0", "frame.swap", "frame.moved.hidden",  # the whole frame: what the client defers to drawing
+          "frame.reveal.each", "frame.reveal.frame"]
+REVEAL = {"reveal.each@500": 1000, "reveal.frame@500": 501}  # a minimum zoom crossed: 500 SetPoints, a SetAlpha each or their frame's
 OPS = ["CreateTexture", "CreateLine", "CreateFontString", "SetPoint", "SetStartPoint",
-       "SetParent.park", "SetParent.unpark"] + CANVAS + MOVED + FRAMES
+       "SetParent.park", "SetParent.unpark"] + CANVAS + MOVED + FRAMES + list(REVEAL)
 
 
 def test_bench_regions():
@@ -21,7 +23,8 @@ def test_bench_regions():
     assert sorted(r.ops.keys()) == sorted(OPS)
     for op in OPS:  # each a single widget call, timed alone (a frame: the sim's frames cost what our calls do)
         o = r.ops[op]
-        assert o.n == (20 if op.startswith(("canvas.", "frame.")) else 100) and (op in FRAMES or o.us == 3), op
+        assert o.n == (20 if op.startswith(("canvas.", "frame.", "reveal.")) else 100), op
+        assert op in FRAMES or o.us == 3 * REVEAL.get(op, 1), op
     assert ns.Runtime.Perf()[0]["bench: regions"].n > 5  # a job, resumed over many frames
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 

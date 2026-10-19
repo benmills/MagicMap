@@ -17,7 +17,10 @@
 -- shown canvas at alpha 0 (the engine's back canvas), against the same move on a hidden canvas and an
 -- idle frame; and the engine's swap, the frame after SetAlpha(1) on lines moved at alpha 0 a frame
 -- before (frame.swap: the final session's deciding number; frame.*: µs a frame, debugprofilestop
--- across the yield).
+-- across the yield). And a minimum zoom crossed (ui/Engine.lua's pins): 500 pins moved and shown in one
+-- frame, each by its own SetAlpha (reveal.each, the cut before the M1b review's second round: the draw's
+-- 3.1 ms priced for the big window's ~440 rares) or by their frame's (reveal.frame, the engine's now),
+-- the calls and the frame after them.
 -- Bench.result = { build, t, ops = { [op] = { n, ms, us } } } (Telemetry keeps it per build).
 
 local _, ns = ...
@@ -41,6 +44,7 @@ local park = CreateFrame("Frame", nil, UIParent)
 park:Hide()
 
 local function R(v, k) return math.floor(v * k + 0.5) / k end -- /: never 0 (k: a literal at each call)
+local PINS = 500 -- a minimum zoom's pins (~440 rares in the big window at 60)
 local MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- a mask the client has (ui/Art.lua), as a tile's coast fade
 
 local result, order, job -- the run's, committed at its end
@@ -189,6 +193,31 @@ local function Run()
 	local m = Canvas(masked)
 	Time("canvas.Show.moved@100masked", REPS, function() m:Show() end, function() m:Hide(); Moved(masked) end)
 	m:Hide()
+	Yield()
+	-- A minimum zoom crossed: the pins at alpha 0 a frame (each, or their frame), then moved and shown.
+	local f, pins = CreateFrame("Frame", nil, root), {}
+	f:SetAllPoints()
+	for i = 1, PINS do
+		local t = f:CreateTexture(nil, "OVERLAY")
+		t:SetColorTexture(1, 0.8, 0.2, 1)
+		t:SetSize(6, 6)
+		pins[i] = t
+		if i % 50 == 0 then Yield() end
+	end
+	local function Pins(alpha)
+		k = 1 - k
+		for i, t in ipairs(pins) do
+			t:SetPoint("CENTER", root, "TOPLEFT", i % 25 * 12 + k, -math.floor(i / 25) * 10)
+			if alpha then t:SetAlpha(alpha) end
+		end
+	end
+	local function Each() for _, t in ipairs(pins) do t:SetAlpha(0) end; coroutine.yield() end
+	local function Whole() f:SetAlpha(0); coroutine.yield() end
+	Time("reveal.each@" .. PINS, REPS, function() Pins(1) end, Each)
+	Time("reveal.frame@" .. PINS, REPS, function() Pins(); f:SetAlpha(1) end, function() for _, t in ipairs(pins) do t:SetAlpha(1) end; Whole() end)
+	Frame("frame.reveal.each", function() Each(); Pins(1) end)
+	Frame("frame.reveal.frame", function() Whole(); Pins(); f:SetAlpha(1) end)
+	f:Hide()
 	Yield()
 	-- root stays shown: all under it is hidden, and hiding it would walk every region (hidden ones still pay).
 end
