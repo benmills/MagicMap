@@ -1,18 +1,23 @@
 """The gear menu on the simulated client (ui/Menus.lua), as the spike's (GearMenu.lua, Layers.lua:30-71,
-2154-2203): a submenu per group of layers with any (Map, Quests, Places, People, Other addons so far), each layer
+2154-2207): a submenu per group of layers with any (Map, Quests, Places, People, Other addons so far), each layer
 a checkbox with its tip (white title, gold body) that keeps the menu open, a sub-option indented and
-greyed while its parent is off; a divider; then Settings: Map (Colour-matched tiles), Minimap (Minimap
-button, Reset position, Use Blizzard's minimap), the same small and big. Every row works: a layer's
-toggle empties and redraws what it draws (and View.layers, for Game's: the blip sensor, Questie's
-borrowed pins) and is saved, the changed keys only, across a /reload; a layer off by default stays so until
-turned on; rows in the spike's order whenever added; each setting does what it says."""
+greyed while its parent is off; Tracking; a divider; then Settings: Map (Colour-matched tiles), Minimap
+(Minimap button, Reset position, Use Blizzard's minimap), Advanced (Diagnostics, Performance), the same small
+and big. Every row works: a layer's toggle empties and redraws what it draws (and View.layers, for Game's: the
+blip sensor, Questie's borrowed pins) and is saved, the changed keys only, across a /reload; a layer off by
+default stays so until turned on; rows in the spike's order whenever added; each setting does what it says;
+a tracking type's box and Advanced's rows send Game their Commands (test_gear_tracking_advanced); /mma layers."""
 from test_addon import boot, errors
 from test_blips import lua_tools, put_blips, stub_services
 
 LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Quests": "quests", "Quest areas": "questAreas",
           "Quests to pick up": "offers", "Minimap blips": "blips", "Rares you've seen": "rares"}
 SETTINGS = [("title", "Map"), ("checkbox", "Colour-matched tiles"), ("divider", None), ("title", "Minimap"),
-            ("checkbox", "Minimap button"), ("button", "Reset position"), ("button", "Use Blizzard's minimap")]
+            ("checkbox", "Minimap button"), ("button", "Reset position"), ("button", "Use Blizzard's minimap"),
+            ("divider", None), ("button", "Advanced")]
+ADVANCED = [("title", "Diagnostics"), ("checkbox", "Debug info in the title"), ("checkbox", "Indoor maps"),
+            ("divider", None), ("title", "Performance"), ("checkbox", "Record 10 seconds"),
+            ("button", "Compare with other addons"), ("button", "Memory breakdown")]
 WHITE, GOLD = (1, 1, 1), (1, 0.82, 0)
 ICON = "Interface\\Icons\\INV_Misc_Map_01"  # Game's minimap button (game/Button.lua)
 
@@ -94,7 +99,8 @@ def test_gear():
     # The tree: a submenu per group with layers, a divider, Settings; small and big alike.
     root, rows = gear(sim, ns)
     assert items(root) == [("button", "Map"), ("button", "Quests"), ("button", "Places"), ("button", "People"),
-                           ("button", "You"), ("button", "Other addons"), ("divider", None), ("button", "Settings")]
+                           ("button", "You"), ("button", "Other addons"), ("button", "Tracking"), ("divider", None),
+                           ("button", "Settings")]
     assert items(sub(root, "Map")) == [("checkbox", "Zone labels"), ("checkbox", "Zone borders")]
     assert items(sub(root, "Quests")) == [("checkbox", "Quests"), ("checkbox", "Quest areas"),
                                           ("checkbox", "     Estimate missing areas"), ("checkbox", "Quests to pick up")]
@@ -102,7 +108,7 @@ def test_gear():
     assert items(sub(root, "People")) == [("checkbox", "Rares you've seen")]
     assert items(sub(root, "You")) == [("checkbox", "Corpse"), ("checkbox", "Waypoint")]
     assert items(sub(root, "Other addons")) == [("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
-    assert items(sub(root, "Settings")) == SETTINGS
+    assert items(sub(root, "Settings")) == SETTINGS and items(sub(sub(root, "Settings"), "Advanced")) == ADVANCED
     sim.Press("M")
     sim.Run(1)
     big, _ = gear(sim, ns)
@@ -236,4 +242,98 @@ def test_gear():
     _, rows = gear(sim, ns)
     assert [rows[t].isSelected() for t in ("Zone labels", "Zone borders", "Questie", "Colour-matched tiles",
                                            "Minimap button")] == [False, True, False, False, False]
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+# Stubbed as typed (wave 4a's, beside this one): obs.tracking as M4.1's part hands it (types/observation.lua
+# MM.ObsTracking: a new table on change) and its tracking Command carried out on it; the run Command (/mma
+# <line>, as typed) recorded, flipping its owners' states: UI's saved debug, Game's indoor reports
+# (obs.minimap), Runtime's recording.
+STUBS = """function(ns, sent, ran)
+    local cur = {
+        { id = 8, name = "Flight Master", texture = 136456, active = true, kind = "duplicate" },
+        { id = 2383, name = "Find Herbs", texture = 136456, active = true },
+        { id = 65536, name = "Track Quest POIs", texture = 136456, active = true, kind = "duplicate" },
+        { id = 8192, name = "Points of Interest", texture = 136456, active = false, kind = "duplicate" },
+        { id = 64, name = "Mailbox", texture = 136459, active = true },
+        { id = 128, name = "Innkeeper", texture = 136458, active = true },
+    }
+    ns.Game.Part("tracking", function() return cur end)
+    ns.Game.Handle("tracking", function(c)
+        sent[#sent + 1] = c
+        local new = {}
+        for i, t in ipairs(cur) do
+            new[i] = { id = t.id, name = t.name, texture = t.texture, kind = t.kind, active = t.active }
+            if t.id == c.id then new[i].active = c.on end
+        end
+        cur = new
+    end)
+    ns.Game.Handle("run", function(c)
+        ran[#ran + 1] = c.line
+        local m = ns.Game.obs.minimap
+        if c.line == "debug" then ns.UI.saved.debug = not ns.UI.saved.debug end
+        if c.line == "indoor" then m.indoorDebug = not m.indoorDebug end
+        if c.line == "perf" then ns.Runtime.recording = not ns.Runtime.recording end
+    end)
+end"""
+
+
+def test_gear_tracking_advanced():
+    """Tracking (GearMenu.lua:9-26): Blizzard's types but those ours replace, each a box that sends Game the
+    tracking Command and shows the click till Game's next Observation says so. Settings > Advanced
+    (GearMenu.lua:33-46): each row runs its /mma command, a box showing its command's state. /mma layers
+    (Layers.lua:2196-2207): each group's layers, on green, off grey, a sub-option grey while its parent's off."""
+    L, sim, ns = boot()
+    refresh, sent, ran = L.globals().MenuResponse.Refresh, L.table(), L.table()
+    L.eval(STUBS)(ns, sent, ran)
+    sim.Slash("/mma toggle")
+    sim.Run(1)
+
+    # Tracking: the client's order, the duplicates (flight, quest POIs, POIs) left out.
+    root, rows = gear(sim, ns)
+    assert items(sub(root, "Tracking")) == [("checkbox", "Find Herbs"), ("checkbox", "Mailbox"),
+                                            ("checkbox", "Innkeeper")]
+    mail = rows["Mailbox"]
+    assert mail.isSelected() is True and mail.onSelect() == refresh
+    assert mail.isSelected() is False and len(sent) == 0  # the click shown; Game's in its next input step
+    sim.Step()
+    assert [(c.kind, c.id, c.on) for c in sent.values()] == [("tracking", 64, False)]
+    assert ns.Model.tracking[5].active is False and mail.isSelected() is False
+    mail.onSelect()
+    mail.onSelect()  # twice before Game's step: both sent, in order, the box as the last asked
+    assert mail.isSelected() is False
+    sim.Step()
+    assert [c.on for c in sent.values()] == [False, True, False] and mail.isSelected() is False
+    assert rows["Find Herbs"].isSelected() is True and rows["Innkeeper"].isSelected() is True
+
+    # Advanced: each row its /mma command; a box shows the click, then its state.
+    adv = {e.text: e for e in sub(sub(root, "Settings"), "Advanced")["items"].values() if e.text}
+    assert tip(L, adv["Debug info in the title"]) == [
+        ("Debug info in the title",) + WHITE, ("Tile, zoom and layout timings next to the zone name.",) + GOLD]
+    assert tip(L, adv["Indoor maps"])[1][0].startswith("Says in chat which map you're on indoors")
+    assert tip(L, adv["Record 10 seconds"])[1][0] == "Times every part of MagicMap while you play, then prints a summary."
+    for text in ("Debug info in the title", "Indoor maps", "Record 10 seconds"):
+        row = adv[text]
+        assert row.isSelected() is False and row.onSelect() == refresh and row.isSelected() is True, text
+        sim.Step()
+        assert row.isSelected() is True, text
+    assert ns.UI.saved.debug and ns.Model.minimap.indoorDebug and ns.Runtime.recording
+    ns.Runtime.recording = False  # its 10 seconds up
+    assert adv["Record 10 seconds"].isSelected() is False
+    assert adv["Compare with other addons"].onSelect() is None and adv["Memory breakdown"].onSelect() is None
+    sim.Step()
+    assert list(ran.values()) == ["debug", "indoor", "perf", "perf top", "perf mem"]
+
+    # /mma layers.
+    sim.Slash("/mma layer questAreas")
+    sim.Slash("/mma layer rares")
+    sim.Slash("/mma layers")
+    on, off = "|cff33ff33%s|r".__mod__, "|cff888888%s|r".__mod__
+    assert sim.prints[len(sim.prints)] == (
+        "|cffffd100MagicMapAtlas|r: layers: "
+        f"|cffffd100Map:|r {on('labels')}, {on('borders')}; "
+        f"|cffffd100Quests:|r {on('quests')}, {off('questAreas')}, {off('questAreasApprox')}, {on('offers')}; "
+        f"|cffffd100Places:|r {on('blips')}; |cffffd100People:|r {off('rares')}; "
+        f"|cffffd100You:|r {on('corpse')}, {on('waypoint')}. Toggle them from the gear. "
+        "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it.")
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

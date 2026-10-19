@@ -1,8 +1,9 @@
 -- Menus are the client's own (MenuUtil), no skin (Menu.lua). Opened through here, they count
 -- as open for the controls that opened them, so those don't fade out under them.
 -- The gear menu (GearMenu.lua): what's drawn, a submenu per group of layers (Layers.lua:2179-2203),
--- then Settings: Map (Colour-matched tiles), Minimap (Minimap button, Reset position, Use Blizzard's
--- minimap). Tracking and Settings' Advanced: M4.5 (their commands: M4.1, M4.6).
+-- Blizzard's tracking but what ours replace, then Settings: Map (Colour-matched tiles), Minimap (Minimap
+-- button, Reset position, Use Blizzard's minimap), Advanced (Diagnostics, Performance: /mma commands).
+-- /mma layers (Layers.lua:2196-2207).
 -- The map picker (the title's click: ui/ZoneInfo.lua) and /mma map; the map's right-click menu.
 
 local _, ns = ...
@@ -130,12 +131,92 @@ local function AddLayers(root)
 	end
 end
 
+-- On green, off grey (a sub-option off while its parent is), by group (Layers.lua:2196-2207).
+Command({ kind = "slash", name = "layers", help = "the map's layers by group, on or off", fn = function()
+	local parts = {}
+	for _, sec in ipairs(Sections()) do
+		local on = {}
+		for _, row in ipairs(sec.rows) do
+			local shown = Engine.LayerOn(row.key) and (not row.parent or Engine.LayerOn(row.parent))
+			on[#on + 1] = (shown and "|cff33ff33" or "|cff888888") .. row.key .. "|r"
+		end
+		parts[#parts + 1] = "|cffffd100" .. sec.title .. ":|r " .. table.concat(on, ", ")
+	end
+	UI.Print("layers: " .. table.concat(parts, "; ") .. ". Toggle them from the gear. "
+		.. "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it.")
+end })
+
+---------------------------------------------------------------------------
+-- Tracking (GearMenu.lua:9-26): Blizzard's types but those ours replace (kind "duplicate": Game keeps
+-- them off while our layer draws the same), in the client's order
+---------------------------------------------------------------------------
+
+-- A box Game sets (a Command, carried out in its next input step; the spike's took at once) shows what
+-- was asked of it while its state is still what it was then. Asked anew each time the gear opens.
+local want, was = {}, {} -- a box's key -> what was asked, its state then
+local function Shown(key, on)
+	if was[key] == on then return want[key] end
+	was[key] = nil
+	return on
+end
+local function Ask(key, on)
+	local w = not Shown(key, on)
+	if was[key] == nil then was[key] = on end
+	want[key] = w
+	return w
+end
+
+local function Active(id)
+	for _, t in ipairs(Model.tracking) do
+		if t.id == id then return t.active end
+	end
+	return false
+end
+
+local function Track(id)
+	Command({ kind = "tracking", id = id, on = Ask(id, Active(id)) })
+end
+
+local function AddTracking(root)
+	local sub = root:CreateButton("Tracking")
+	for _, t in ipairs(Model.tracking) do
+		if t.kind ~= "duplicate" then
+			local id = t.id
+			sub:CreateCheckbox(t.name, function() return Shown(id, Active(id)) end, function()
+				Run(Track, id)
+				return MenuResponse.Refresh
+			end)
+		end
+	end
+end
+
 ---------------------------------------------------------------------------
 -- Settings
 ---------------------------------------------------------------------------
 
--- In sections: { title, rows }. A row is a checkbox ({ label, on =, run =, tip = }) or a button
--- ({ label, run = }) (GearMenu.lua:30-59).
+-- /mma <line>, as typed (Game owns them): Advanced runs the same code (GearMenu.lua:28).
+local function Slash(line) return function() Command({ kind = "run", line = line }) end end
+
+-- Advanced (GearMenu.lua:33-46): a box shows its command's state where its owner keeps it: the title's
+-- debug line in UI's saved part (the spike's db.debug), Game's indoor reports on obs.minimap, a recording
+-- Runtime's.
+local ADVANCED = {
+	{ "Diagnostics", {
+		{ "Debug info in the title", on = function() return UI.saved.debug end, run = Slash("debug"),
+			tip = "Tile, zoom and layout timings next to the zone name." },
+		{ "Indoor maps", on = function() return Model.minimap.indoorDebug end, run = Slash("indoor"),
+			tip = "Says in chat which map you're on indoors, whether it has art, and what the map shows; outlines the art." },
+	} },
+	{ "Performance", {
+		{ "Record 10 seconds", on = function() return Runtime.recording end, run = Slash("perf"),
+			tip = "Times every part of MagicMap while you play, then prints a summary." },
+		{ "Compare with other addons", run = Slash("perf top") },
+		{ "Memory breakdown", run = Slash("perf mem") },
+	} },
+}
+
+-- In sections: { title, rows }. A row is a checkbox ({ label, on =, run =, tip = }), a button
+-- ({ label, run = }) or a submenu ({ label, sub = sections }) (GearMenu.lua:30-59).
 local SETTINGS = {
 	{ "Map", {
 		{ "Colour-matched tiles", on = function() return UI.saved.tint end, run = function() UI.Tint() end,
@@ -147,17 +228,27 @@ local SETTINGS = {
 		{ "Reset position", run = function() UI.BigMap.Reset() end },
 		{ "Use Blizzard's minimap", run = function() UI.Window.frame:Hide() end },
 	} },
+	{ nil, { { "Advanced", sub = ADVANCED } } },
 }
+
+local function On(row) return row.on() and true or false end
+
+local function Set(row)
+	Ask(row, On(row))
+	row.run()
+end
 
 -- A checkbox keeps the menu open; a button closes it (the client's default).
 local function AddSections(sub, sections)
 	for n, section in ipairs(sections) do
 		if n > 1 then sub:CreateDivider() end
-		sub:CreateTitle(section[1])
+		if section[1] then sub:CreateTitle(section[1]) end
 		for _, row in ipairs(section[2]) do
-			if row.on then
-				local cb = sub:CreateCheckbox(row[1], function() return row.on() and true or false end, function()
-					Run(row.run)
+			if row.sub then
+				AddSections(sub:CreateButton(row[1]), row.sub)
+			elseif row.on then
+				local cb = sub:CreateCheckbox(row[1], function() return Shown(row, On(row)) end, function()
+					Run(Set, row)
 					return MenuResponse.Refresh
 				end)
 				cb:SetTooltip(Tip(row[1], row.tip))
@@ -306,8 +397,10 @@ function Menus.Map(owner, col, row)
 end
 
 function Menus.Gear(owner)
+	want, was = {}, {}
 	Menus.Show(owner, function(_, root)
 		AddLayers(root)
+		AddTracking(root)
 		root:CreateDivider()
 		AddSections(root:CreateButton("Settings"), SETTINGS)
 	end)

@@ -9,8 +9,8 @@
 -- (or not on the map we're now on). uiMap, zone, subzone, level, faction, dead, ghost, combat:
 -- this frame's, as handed (nil: the client gave nothing).
 -- Model.hooked, Model.minimap: this frame's obs.hooked and obs.minimap, handed on unchanged
--- (UI reads them the same frame). Model.addons: obs.addons, the last handed ({} until then); Model.levels:
--- obs.levels so.
+-- (UI reads them the same frame). Model.addons: obs.addons, the last handed ({} until then); Model.levels,
+-- Model.tracking: obs.levels, obs.tracking so.
 --
 -- Each kind lives in its own file: Model.Part(observe, load) hooks it into
 -- Observe and Load, Model.Kind(kind, fn) answers Known(kind) with fn() -> list, rev.
@@ -19,7 +19,7 @@ local _, ns = ...
 local Model = ns.Model or {}; ns.Model = Model
 
 local NONE = {}
-Model.you, Model.hooked, Model.addons, Model.levels = {}, NONE, NONE, NONE
+Model.you, Model.hooked, Model.addons, Model.levels, Model.tracking = {}, NONE, NONE, NONE, NONE
 Model.SAVED = { version = 1, defaults = { rares = {}, blips = {} } } -- types/saved.lua MM.SavedModel
 
 local parts, kinds = {}, {}
@@ -45,7 +45,7 @@ function Model.Focus(focus) Model.focus = focus end
 function Model.Observe(obs, oracles)
 	local o, you = obs.you, Model.you
 	Model.hooked, Model.minimap, Model.addons = obs.hooked or NONE, obs.minimap, obs.addons or Model.addons
-	Model.levels = obs.levels or Model.levels
+	Model.levels, Model.tracking = obs.levels or Model.levels, obs.tracking or Model.tracking
 	if o.col then
 		you.inst, you.col, you.row, you.stale = o.inst, o.col, o.row, false
 	else
