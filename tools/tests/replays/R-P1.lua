@@ -1,11 +1,12 @@
 -- P1: borders fall behind a fast pan. A 1.5 views/s fling on the counted clock (3 us a widget call):
--- one layout at a time, a layer the view lacks first (5 ms a frame, else 4), laid out with more
+-- one layout at a time, a layer the view lacks first (4.5 ms a frame, else 4), laid out with more
 -- margin ahead of the camera's speed and again before the view 0.3 s ahead leaves it (ui/Engine.lua).
 -- The M1 exit: borders cover the view on >= 97% of frames, tiles >= 99%, every layer fresh 1 s after
 -- stopping, no layout frame over 8 ms; after it, each canvas holds what it shows (the rest parked).
 -- Then a 20-step zoom-out, one step a frame (96 to 16 px a tile): layouts started per layer (the
 -- spike's ~44 for 4 layers, 33 for 5 before M1.3): a held layer (borders) once, where the zoom lands;
--- the others once a crossing of the [0.7, 1.4] band (5 here at most) and once settled. Last, a long pan
+-- the others once a crossing of their band (tiles [0.7, 1.4], 5 here at most; names and pins a
+-- log(1.25) drift, 8) and once settled. Last, a long pan
 -- at 800 px a tile, ~45 views from you: the shared origin moves with the layouts, so no offset on the
 -- map passes 4096 px (T.Anchors; the arrow kept by the view), however far the view goes, nor after a
 -- zoom's jump.
@@ -65,7 +66,8 @@ end
 
 -- The zoom-out: layouts started per layer, counted as traced (the ring keeps 300).
 local zoom = m.cam.zoom
-local crossings = math.floor(math.log(zoom / 16) / math.log(1 / 0.7))
+local crossings = { scale = math.floor(math.log(zoom / 16) / math.log(1 / 0.7)),
+	move = math.floor(math.log(zoom / 16) / math.log(ns.UI.Engine.DRIFT)) }
 local started, trace = {}, ns.Runtime.Trace
 ns.Runtime.Trace = function(kind, d)
 	if kind == "layout" and d.e == "start" then started[d.layer] = (started[d.layer] or 0) + 1 end
@@ -82,7 +84,7 @@ for _, lay in ipairs(layers) do
 	local n = started[lay.name] or 0
 	total = total + n
 	each[#each + 1] = lay.name .. " " .. n
-	assert(lay.zoom == "hold" and n == 1 or lay.zoom ~= "hold" and n <= crossings + 1, lay.name .. ": " .. n .. " layouts")
+	assert(lay.zoom == "hold" and n == 1 or lay.zoom ~= "hold" and n <= crossings[lay.zoom] + 1, lay.name .. ": " .. n .. " layouts")
 end
 T.Print("P1: 20-step zoom-out, %.0f to %.0f px a tile: %d layouts started for %d layers (%s)", zoom, m.cam.zoom, total,
 	#layers, table.concat(each, ", "))

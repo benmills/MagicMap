@@ -1,11 +1,12 @@
 -- P7: while an ease moved the camera, layers were laid out again every frame (three "is it moving"
 -- flags, one disagreeing). The map reads one, Camera.ZoomSettled (the zoom unchanged 0.15 s; Settled
 -- adds "nothing moving it"), and before it lays a layer out again only past [0.7, 1.4] of its layout's
--- zoom; a held layer (borders) where the zoom is headed (ui/Engine.lua). Replayed: a wheel tick and a
--- zone fit start at most 2 layouts a layer, at most 1 once settled; the borders stay in sight meanwhile,
--- each frame scaled to the camera and dimmed as far as that scale is from 1, to 0.25 at most
--- (Layers.lua:158-170), then crossfaded over FADE_S from the alpha they had (Layers.lua:1820-1836); no
--- layout starts on a canvas still showing (a crossfade ends first: Layers.lua:1853-1855). On the priced clock
+-- zoom (names and pins a log(1.25) drift); a held layer (borders) where the zoom is headed (ui/Engine.lua).
+-- Replayed: a wheel tick and a zone fit start at most 2 layouts a layer, at most 1 once settled; the
+-- borders stay in sight meanwhile, each frame scaled to the camera and dimmed as far as that scale is
+-- from 1, to 0.25 at most (Layers.lua:158-170), then crossfaded over FADE_S from the alpha they had
+-- (Layers.lua:1820-1836); no layout starts on a canvas still showing (a crossfade ends first:
+-- Layers.lua:1853-1855). On the priced clock
 -- (docs/evidence/perf-m0.md), the flights (grow, shrink, the follow glide, the idle return): no frame of
 -- ours over 8 ms, no swap over 4 ms, the map's allocation over each (its regions made once, by a first
 -- grow); a drag's start on its own; the window shown again (after a plain hide, one mid-layout, and its
