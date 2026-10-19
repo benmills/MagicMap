@@ -73,7 +73,7 @@ def test_quests_model():
     model.Observe(stream[1], oracles)  # log1, frame 1: asked, not answered
     q, rev = known(model)
     assert sorted(q) == sorted([CANDLES, GOLD, MINE, FRONTIER, HOGGER, LOVERS, CLEANUP]) and rev == 1
-    assert list(asks.values()) == [CANDLES, GOLD, FRONTIER, HOGGER]  # kill, collect, interact: not event, not done
+    assert list(asks.values()) == [GOLD, FRONTIER, CANDLES, HOGGER]  # kill, collect, interact: not event, not done (by id, as Game hands them)
     assert not any(e.estimate for e in q.values())
 
     c = q[CANDLES]
@@ -127,10 +127,11 @@ def test_quests_model():
     q7, rev = known(model)
     assert sorted(q7) == sorted([CANDLES, GOLD, FRONTIER, HOGGER, LOVERS, CLEANUP, JASPER]) and rev == 6
     assert len(asks) == 12  # nothing asked but the changed
-    model.Observe(stream[8], oracles)  # loading: not known, the last belief stands
-    model.Observe(stream[9], oracles)
-    assert known(model)[1] == 6
-    model.Observe(stream[10], oracles)  # abandoned: known and empty
+    model.Observe(stream[8], oracles)  # the same table: nothing new
+    model.Observe(L.eval("function(obs) local o = {} for k, v in pairs(obs) do o[k] = v end o.quests = nil return o end")(
+        stream[8]), oracles)  # not known (a part that failed): the last belief stands
+    assert known(model)[1] == 6 and len(asks) == 12
+    model.Observe(stream[9], oracles)  # abandoned: known and empty
     assert known(model)[0] == {} and known(model)[1] == 7
 
 
@@ -159,7 +160,7 @@ def test_quests_model_merge():
     q = known(model)[0]
     est = {k: e.estimate for k, e in q.items() if e.estimate}
     assert sorted(est) == sorted([CANDLES, GOLD, FRONTIER, HOGGER])  # not the mine (go there), nor the done
-    assert same(est[CANDLES], q[CANDLES].pos) and same(est[GOLD], est[CANDLES])  # 0.025, 0.09 tiles apart: one disc
+    assert same(est[GOLD], q[GOLD].pos) and same(est[CANDLES], est[GOLD])  # 0.025, 0.09 tiles apart: one disc (Gold first: by id)
     assert same(est[FRONTIER], q[FRONTIER].pos) and same(est[HOGGER], q[HOGGER].pos)
 
 
@@ -195,7 +196,7 @@ def test_offers_model():
             assert (f.pos.col, f.pos.row) == (31.863, 49.806) and offers[88].line is None
         if i == 4:
             assert all(same(first[k], offers[k]) for k in offers)
-    assert seen == [([], 0), ([40, 83, 85, 88], 1), ([40, 83, 85, 88], 1), ([83, 85, 88], 2),
+    assert seen == [([], 0), ([22, 36, 40, 83, 85, 88], 1), ([22, 36, 40, 83, 85, 88], 1), ([22, 36, 83, 85, 88], 2),
                     ([22, 36, 64, 83, 85, 88], 3), ([22, 36, 64, 83, 85, 88], 3), ([], 4)]
 
     # In your log (in progress): not offered; offered twice: once.

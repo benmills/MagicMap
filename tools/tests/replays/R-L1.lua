@@ -5,13 +5,13 @@
 -- yet) and again the next frame, into its rect. From then on right whatever the map does (a zoom,
 -- a pan), where areas overlap too, drawn again only after QUEST_POI_UPDATE; 27 quests asked twice
 -- each in ≤ 2 ms a frame (CALL_MS). Model asks through the oracles Game hands it; the quests come
--- from obs.quests (areaMap, pin), as the quests part (M2.2) will hand them. Then /mma check inside.
+-- from obs.quests (areaMap, pin), as game/parts/Quests.lua hands them. Then /mma check inside.
 local T = ...
 local sim, ns = T.Shown()
 local A, Game, Model, Runtime = ns.Atlas, ns.Game, ns.Model, ns.Runtime
 local MAP, R = 1429, 0.06 -- Elwynn; each area a circle (Sim.blobShapes, normalized)
 
-local quests, probes, want = {}, {}, {}
+local quests, probes, want, early = {}, {}, {}, {}
 local function Quest(id, x, y, shape)
 	sim.blobShapes[id] = shape
 	local inst, col, row = A.MapToTile(MAP, x, y)
@@ -22,6 +22,7 @@ local function Probe(id, x, y, answer)
 	local _, col, row = A.MapToTile(MAP, x, y)
 	probes[#probes + 1] = { id, col, row }
 	want[#want + 1] = answer == nil and "-" or answer and "1" or "0"
+	early[#early + 1] = id == 1001 and want[#want] or "-"
 end
 for i = 1, 25 do
 	local x, y = 0.1 + (i - 1) % 5 * 0.2, 0.1 + math.floor((i - 1) / 5) * 0.2
@@ -35,8 +36,7 @@ Quest(2001, 0.1 + R, 0.1, { 0.1 + R, 0.1, R }) -- overlapping 1001's
 Probe(2001, 0.1 + 0.5 * R, 0.1, true)
 Probe(1001, 0.1 + 0.5 * R, 0.1, true)
 Probe(3000, 0.5, 0.5, nil) -- not in the log
-want = table.concat(want)
-local none = string.rep("-", #want)
+want, early = table.concat(want), table.concat(early)
 
 Game.Part("quests", function() return quests end) -- on change only: the same table, nothing new
 local log, asking = {}, false
@@ -56,10 +56,12 @@ local function Frames(n)
 	return log[from], log[#log]
 end
 
+-- Model asked the sim's quest 60 before this log took its place: 1001, first asked, takes the frame
+-- 60 left, laid out already, so it answers at once; every other quest nil until drawn again.
 local first, second = Frames(2)
 T.Print("L1: first frame %s (%d drawn), next %s (%d drawn)", first.got, first.draws, second.got, second.draws)
-assert(first.got == none and first.draws == 27, "nil before layout: " .. first.got)
-assert(second.got == want and second.draws == 27, "right after: " .. second.got .. " (want " .. want .. ")")
+assert(first.got == early and first.draws == 27, "nil before layout: " .. first.got .. " (want " .. early .. ")")
+assert(second.got == want and second.draws == 26, "right after: " .. second.got .. " (want " .. want .. ")")
 local _, still = Frames(5)
 assert(still.got == want and still.draws == 0, "cached per quest")
 

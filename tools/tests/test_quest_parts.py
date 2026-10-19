@@ -74,7 +74,7 @@ def client():
         if not list then return real(id) end
         local objectives = {}
         for i, item in ipairs(list) do objectives[i] = { kind = "item", id = item } end
-        return { id = id, objectives = objectives }
+        return { id = id, objectives = objectives, finishedBy = { npcs = {}, objects = {} } }
     end end""")(L.table_from({k: L.table_from(v) for k, v in ITEMS.items()}), real)
     return L, sim, ns, L.globals()
 
