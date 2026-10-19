@@ -39,8 +39,10 @@ points since), its in-game half in docs/playtest-final.md (c1-c3, a5b's big-zone
 wave 1 merged 2026-10-19 (M4.1 Game's places, group, vignettes, explored and tracking parts; M4.2 duplicate
 tracking, indoors and the whole Minimap, full HBD; M4.3 Model's places, group, seen rares, vignettes,
 services; M4.4 UI's places, group, shade, indoor art, renderer, sockets, the inspector's lines; M4.5 the
-gear's Tracking and Advanced; M4.6 the diagnostics slash), its types/ additions committed. Then the M4 gate,
-M5 hardening and parity sign-off, M6 rename, merge, release.
+gear's Tracking and Advanced; M4.6 the diagnostics slash), its types/ additions committed, its review's round 1
+on main; M4's sim half done at 9d2dc45 (the M4 gate, 2026-10-19: 178 passed plain and strict; every parity row
+built but F56, M5.2's, and S31, the user's call), its in-game half in docs/playtest-final.md (a6, d0-d8, e1c, e2,
+e6; a3c, a7s, b7, e5 from the review). Then M5 hardening and parity sign-off, M6 rename, merge, release.
 
 ## 2. Rules for every package (v1-plan §3)
 
