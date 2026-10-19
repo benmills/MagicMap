@@ -7,6 +7,8 @@ sim's quest log and its areas (Inside: game/Oracles.lua) through Game's parts an
   test_target_quest_edge: the quest you follow, with an area: its nearest edge from you (a fan of rays,
     then halvings), not its pin; walked into, inside only once that has held 0.5 s, and no route while
     inside; walked out, the edge again once that has held.
+  test_target_layers: each target only while its layer is on (Focus.off: the spike's pinData, Layers.lua:
+    1029, 1160-1168), the priority falling through; Quest areas off, the quest's pin, not its area's edge.
 
 obs.corpse and obs.waypoint come from Game's parts (M3.2's); here from TARGETS's own, as they hand them.
 """
@@ -140,4 +142,34 @@ def test_target_quest_edge():
     assert t.inside is False and abs(off(t.pos.col, t.pos.row) - 1) < 0.02
     sim.Run(1)
     assert Model.Route() is not None
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_target_layers():
+    L, sim, ns, G = targets([FRONTIER], followed=52)
+    Model, Engine, me = ns.Model, ns.UI.Engine, sim.player
+    me.col, me.row = FRONTIER["col"] - 1.0, FRONTIER["row"] + 0.2  # outside its area, a tile west
+    put(G, "waypoint", 0, 32.5, 49.0)
+    put(G, "corpse", 0, 31.0, 50.0)
+    sim.ghost = True
+    sim.Run(1)
+    assert Model.Target().kind == "corpse"
+    pin = next(e for e in Model.Known("quests")[0].values() if e.quest == 52).pos
+
+    def turned(layer, on):
+        Engine.SetLayer(layer, on)
+        sim.Run(1)  # (the area's inside, looked at as the boot's spot, held 0.5 s once it's looked at again)
+        return Model.Target()
+
+    t = turned("corpse", False)
+    assert t.kind == "quest" and t.inside is False and math.hypot(t.pos.col - pin.col, t.pos.row - pin.row) > 0.1
+    t = turned("questAreas", False)  # its pin: no area edge, no inside
+    assert t.kind == "quest" and t.inside is None and (t.pos.col, t.pos.row) == (pin.col, pin.row)
+    t = turned("quests", False)
+    assert t.kind == "waypoint" and Model.Route() is not None
+    assert turned("waypoint", False) is False
+    assert Model.Route() is None and ns.UI.Path.pieces == 0
+    for layer in ("waypoint", "quests", "questAreas"):
+        turned(layer, True)
+    assert turned("corpse", True).kind == "corpse"
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

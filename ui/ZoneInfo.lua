@@ -369,10 +369,12 @@ end
 
 local function Dist(c0, r0, c1, r1) return math.sqrt((c1 - c0) ^ 2 + (r1 - r0) ^ 2) end
 
--- "Level 1-10", coloured against yours: green in range, red below it, grey past it (ZoneInfo.lua:58-69).
+-- "Level 1-10", the client's for the zone's map (Model.levels), coloured against yours: green in range, red
+-- below it, grey past it (ZoneInfo.lua:58-69).
 local function LevelLine(zone)
-	local lo, hi = Atlas.ZoneLevels(zone.zone)
-	if not lo or hi <= 0 then return nil end
+	local l = Model.levels[zone.mapID]
+	if not l then return nil end
+	local lo, hi = l[1], l[2]
 	local mine, color = Model.you.level, WHITE
 	if mine and mine > 0 then color = mine < lo and "|cffff6040" or mine > hi and GREY or "|cff40c040" end
 	return GREY .. "Level|r " .. color .. (lo == hi and tostring(lo) or (lo .. "-" .. hi)) .. "|r"

@@ -6,3 +6,4 @@ game/parts/Quests.lua
 game/parts/Offers.lua
 game/parts/Waypoint.lua
 game/parts/Corpse.lua
+game/parts/Levels.lua

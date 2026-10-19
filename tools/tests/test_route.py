@@ -3,11 +3,18 @@ Runtime.Job, to your waypoint (test_target.TARGETS: Game's part as M3.2's hands 
 clock that counts their Lua (R-P2's), so a 1 ms slice is a slice of work:
 
   test_route_dun_morogh: Kharanos to Anvilmar, around Dun Morogh's hills: found a slice a frame, each
-    within its 1 ms but a node (the exit's "Dun Morogh route at <= 1 ms/frame"), from you to the target.
+    within its 1 ms but a node (the exit's "a 1 ms slice a frame, at most the slice and one node"), from you to
+    the target.
   test_route_replan: found again only past 3 chunks off it, or once the target moves more than 2 (an
     area's nearest edge slides as you go); meanwhile the old one (F33).
   test_route_straight_partial: no walk data where the target is: you and it, straight; a plateau no way
     climbs, 9 tiles off: given up at 60,000 nodes, the way to as near as it got, then on straight.
+  test_route_capped: that plateau's search from Goldshire, priced: ~1,050 slices, its KB; walking on (off
+    its partial way, past RETRY_MOVED) searches it again only once you've come half the way it spanned (the
+    lead's decision at the M3 review: the spike searched again each 3-chunk stray).
+  test_route_gives_way: the big window zoomed in and out during that long search, priced: the search waits
+    while the view moves (Focus.moving: a slice only in the frame a zoom starts, Model a frame behind), no
+    frame over 8 ms; at rest it goes on.
 """
 from test_addon import errors
 from test_target import put, targets
@@ -98,4 +105,52 @@ def test_route_straight_partial():
     r = ns.Model.Route()
     assert 60000 < G.Jobs[1].yields < 61000  # a node a Yield, then the straightening's
     assert r.partial and not r.straight and r[len(r)].row == 38.75
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_route_capped():
+    L, sim, ns, G = targets([], followed=0)
+    me = sim.player
+    sim.Run(1)
+    put(G, "waypoint", 0, 34.75, 38.75)  # the plateau, 11.4 tiles off: no way there
+    frames = 0
+    while not (len(G.Jobs) and G.Jobs[1].done):
+        sim.Step()
+        frames += 1
+    sim.Step()
+    p = ns.Runtime.Perf()[0]["model: route"]
+    print(f"a capped search: {frames} frames, {p.kb:.0f} KB, its slowest resume {p.max:.2f} ms, {p.kbMax:.0f} KB")
+    assert 1000 < frames < 1100 and p.kb < 5000 and ns.Model.Route().partial
+    walked = []
+    for _ in range(11):  # toward it, 0.56 tiles a step (9 chunks: off its way, past RETRY_MOVED in two)
+        me.col, me.row = me.col + 0.25, me.row - 0.5
+        sim.Run(0.3)
+        walked.append(len(G.Jobs))
+    assert walked == [1] * 10 + [2], walked  # again past 5.7 tiles, half of its 11.4
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_route_gives_way():
+    L, sim, ns, G = targets([], followed=0)
+    sim.Press("M")
+    sim.Run(6)  # past login's grace and the first open's
+    view, P = ns.UI.Window.view, ns.Runtime.Perf
+    sim.Price(True)
+    put(G, "waypoint", 0, 34.75, 38.75)  # the plateau: ~1,000 slices
+    sim.Run(0.5)
+    n0, cycles = P()[0]["model: route"].n, 4
+    for _ in range(cycles):
+        for d in (-1, 1):
+            for _ in range(4):
+                sim.Wheel(view, d)
+                sim.Step()
+            sim.Run(0.1)  # (still moving: the zoom unsettled, its layouts not caught up)
+    moving = P()[0]["model: route"].n - n0
+    sim.Run(2)
+    rest = P()[0]["model: route"].n - n0 - moving
+    sim.Price(False)
+    fs = ns.Runtime.FrameStats()
+    print(f"zooming during the plateau's search: {moving} slices in {cycles * 2} zooms, {rest} in 2 s at rest; "
+          f"zoom p95 {fs.byState.zoom.p95} max {fs.max}")
+    assert not G.Jobs[1].done and moving <= cycles * 2 and rest > 60 and fs.max <= 8
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

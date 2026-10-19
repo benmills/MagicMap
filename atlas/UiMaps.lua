@@ -48,10 +48,9 @@ end
 -- Per instance: zones (first of each name, sorted by name) and the continent
 -- (the one hanging off a world map; 1463/1464 are parentless duplicates).
 -- Built once, on first use.
-local zones, continents
+local zones, continents, ids
 local function Index()
-	zones, continents = {}, {}
-	local ids = {}
+	zones, continents, ids = {}, {}, {}
 	for id in pairs(Data.UiMaps or NONE) do ids[#ids + 1] = id end
 	table.sort(ids)
 	local seen = {}
@@ -84,4 +83,10 @@ end
 function Atlas.Continent(inst)
 	if not continents then Index() end
 	return continents[inst]
+end
+
+-- Every uiMapID Atlas has, ascending (Game asks the client of each: game/parts/Levels.lua).
+function Atlas.UiMapIDs()
+	if not ids then Index() end
+	return ids
 end

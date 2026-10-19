@@ -1,13 +1,16 @@
 -- What to go to (the spike's GetTarget, Layers.lua:1076-1180), on the map shown (Focus's instance):
 -- your corpse while you're a ghost, else the quest you follow if its pin is there, else your
--- waypoint. A quest the game draws an area for is gone to the area's nearest edge, not its pin,
+-- waypoint; each only while its layer is on (Focus.off: the spike's pinData, Layers.lua:1029). A
+-- quest the game draws an area for is gone to the area's nearest edge, not its pin (while Quest
+-- areas is on: a drawn area's, Layers.lua:1093-1097),
 -- and once you're inside it you've arrived (inside: the line and edge arrow step aside): every
 -- AREA_EVERY while the map shows and you're on it, where you stand is asked (Inside), a change held
 -- AREA_SETTLE before it counts (no flicker at the edge: spike-bugs M1), and outside, the edge along
 -- a fan of rays from you toward its pin, RAY_STEPS each, then REFINE halvings where one goes in. A
 -- look's asks go on over frames: past ASKS a frame, or while the game can't tell (nil), on the next.
 -- Model.Target(): the same table until it changes; false: none; nil: no Focus yet.
--- Known("corpse"), Known("waypoint"): obs.corpse and obs.waypoint, one entry or none.
+-- Known("corpse"), Known("waypoint"): obs.corpse and obs.waypoint, one entry or none; Model.waypointSet:
+-- obs.waypointSet, the last handed.
 
 local _, ns = ...
 local Model = ns.Model
@@ -153,19 +156,24 @@ Model.Part(function(obs, o)
 		waypoint, waypointRev = obs.waypoint, waypointRev + 1
 		waypoints = waypoint and Pin("waypoint", waypoint, WAYPOINT) or NONE
 	end
+	if obs.waypointSet ~= nil then Model.waypointSet = obs.waypointSet end
 	local f, you = Model.focus, Model.you
 	if not f then return end
-	local inst = f.inst
-	if you.ghost and corpse and corpse.inst == inst then return Set("corpse", "corpse", corpse, nil, CORPSE) end
-	local e = Followed(inst)
+	local inst, off = f.inst, f.off or NONE
+	if you.ghost and corpse and corpse.inst == inst and not off.corpse then
+		return Set("corpse", "corpse", corpse, nil, CORPSE)
+	end
+	local e = not off.quests and Followed(inst)
 	if e then
-		if e.complete or not (f.shown and you.inst == inst and you.col and not you.stale) then
+		if e.complete or off.questAreas or not (f.shown and you.inst == inst and you.col and not you.stale) then
 			return Set("quest", e.key, e.pos, nil, Title(e), e.quest)
 		end
 		Area(e, you)
 		return Set("quest", e.key, area.pos or e.pos, area.inside, Title(e), e.quest)
 	end
-	if waypoint and waypoint.inst == inst then return Set("waypoint", "waypoint", waypoint, nil, WAYPOINT) end
+	if waypoint and waypoint.inst == inst and not off.waypoint then
+		return Set("waypoint", "waypoint", waypoint, nil, WAYPOINT)
+	end
 	target = false
 end)
 

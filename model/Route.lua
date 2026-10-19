@@ -1,9 +1,13 @@
 -- The way to the target (the spike's Route.lua): the way you'd walk there, around cliffs,
 -- mountains and lava and (when it's shorter) around lakes, over Atlas.Walk's terrain chunks
--- (16 a tile side, ~33 yd). A* finds it in a Runtime.Job, SLICE_MS a frame; line of sight
+-- (16 a tile side, ~33 yd). A* finds it in a Runtime.Job, SLICE_MS a frame (none while the view moves:
+-- Focus.moving, the map's layouts have the frame); line of sight
 -- straightens it, and its corners are rounded off. Found again when the target moves more than
 -- GOAL_SLACK chunks or you stray REPLAN_OFF off it; the old one stays meanwhile while its goal
--- is within KEEP_SHOWN (spike-bugs M1: no straight frame while re-routing).
+-- is within KEEP_SHOWN (spike-bugs M1: no straight frame while re-routing). A search that gave up at
+-- MAX_NODES (a goal no way reaches, as a rule: ~18 s of slices, ~4.4 MB) is searched again for that
+-- goal only once you've come half the way it spanned (the lead's decision at the M3 review: the spike
+-- searched again each REPLAN_OFF stray or RETRY_MOVED moved, riding past the frame and allocation budgets).
 -- Model.Route(): the way from you, cut to where you are: you, then the furthest point ahead you
 -- can walk straight to, on to the target as it is now (an area's nearest edge drifts as you go).
 -- nil: none to show (no target, you're in its area, not on its map, the map hidden: a search under
@@ -41,7 +45,8 @@ local function Class(inst, gc, gr) return (Walk.Cell(inst, gc, gr)) end
 
 -- A*, from chunk (sc, sr) to (gc, gr), a node at a time between Runtime.Yields. The chunks along
 -- the way, start first, or nil. With no way there (a hilltop it can't see the way up), the way to
--- as near as it got, and true (Route.lua:109-183).
+-- as near as it got, and true (Route.lua:109-183). Third: it gave up at MAX_NODES. A node's g is
+-- negated (less one) once it's closed: no closed set (a search's garbage is its tables).
 local function Search(inst, sc, sr, gc, gr)
 	local CanMove = Walk.CanMove
 	local d = math.sqrt((gc - sc) ^ 2 + (gr - sr) ^ 2)
@@ -49,7 +54,7 @@ local function Search(inst, sc, sr, gc, gr)
 	local c0, c1 = math.min(sc, gc) - pad, math.max(sc, gc) + pad
 	local r0, r1 = math.min(sr, gr) - pad, math.max(sr, gr) + pad
 	local goal = gc * SPAN + gr
-	local g, parent, closed = { [sc * SPAN + sr] = 0 }, {}, {}
+	local g, parent = { [sc * SPAN + sr] = 0 }, {}
 	-- A binary heap of (node, its f when pushed): a node found again by a cheaper way is pushed
 	-- again, and its older entries skipped (closed).
 	local heap, key = { sc * SPAN + sr }, { d }
@@ -94,8 +99,9 @@ local function Search(inst, sc, sr, gc, gr)
 	while #heap > 0 and count < MAX_NODES do
 		local id = Pop()
 		if id == goal then return Way(id) end
-		if not closed[id] then
-			closed[id] = true
+		local gi = g[id]
+		if gi >= 0 then -- (not closed: a cheaper way's entry was popped before this one)
+			g[id] = -gi - 1
 			count = count + 1
 			local c, r = math.floor(id / SPAN), id % SPAN
 			local h = math.sqrt((gc - c) ^ 2 + (gr - r) ^ 2)
@@ -103,10 +109,11 @@ local function Search(inst, sc, sr, gc, gr)
 			for _, dir in ipairs(DIRS) do
 				local nc, nr = c + dir[1], r + dir[2]
 				local nid = nc * SPAN + nr
-				if not closed[nid] and nc >= c0 and nc <= c1 and nr >= r0 and nr <= r1 and CanMove(inst, c, r, dir[1], dir[2]) then
+				local gn = g[nid]
+				if not (gn and gn < 0) and nc >= c0 and nc <= c1 and nr >= r0 and nr <= r1 and CanMove(inst, c, r, dir[1], dir[2]) then
 					local step = (dir[1] ~= 0 and dir[2] ~= 0) and SQRT2 or 1
-					local ng = g[id] + step * COST[Class(inst, nc, nr)]
-					if not g[nid] or ng < g[nid] then
+					local ng = gi + step * COST[Class(inst, nc, nr)]
+					if not gn or ng < gn then
 						g[nid], parent[nid] = ng, id
 						Push(nid, ng + math.sqrt((gc - nc) ^ 2 + (gr - nr) ^ 2))
 					end
@@ -115,7 +122,9 @@ local function Search(inst, sc, sr, gc, gr)
 			Runtime.Yield()
 		end
 	end
-	if nearD <= math.max(GAP, d * GAP_SHARE) and nearD < d then return Way(near), true end
+	local capped = count >= MAX_NODES
+	if nearD <= math.max(GAP, d * GAP_SHARE) and nearD < d then return Way(near), true, capped end
+	return nil, nil, capped
 end
 
 -- Can you walk straight from chunk a to chunk b, through chunks no costlier than `worst`? Steps
@@ -182,10 +191,11 @@ local function Round(inst, pts)
 end
 
 -- The route from tile position (c1, r1) to (c2, r2), from their chunks to stand on (sc, sr) and
--- (gc, gr): MM.Pos[] from the one to the other, and whether it's partial; nil if there's none.
+-- (gc, gr): MM.Pos[] from the one to the other, and whether it's partial; nil if there's none. Third:
+-- the search gave up at MAX_NODES.
 local function Find(inst, c1, r1, sc, sr, gc, gr, c2, r2)
-	local ids, partial = Search(inst, sc, sr, gc, gr)
-	if not ids then return nil end
+	local ids, partial, capped = Search(inst, sc, sr, gc, gr)
+	if not ids then return nil, nil, capped end
 	ids = Straighten(inst, ids)
 	local pts = { { inst = inst, col = c1, row = r1 } }
 	for i = 2, partial and #ids or #ids - 1 do -- short of the goal: on from the last chunk straight
@@ -193,15 +203,17 @@ local function Find(inst, c1, r1, sc, sr, gc, gr, c2, r2)
 		pts[#pts + 1] = { inst = inst, col = (math.floor(id / SPAN) + 0.5) / CHUNKS, row = (id % SPAN + 0.5) / CHUNKS }
 	end
 	pts[#pts + 1] = { inst = inst, col = c2, row = r2 }
-	return Round(inst, pts), partial
+	return Round(inst, pts), partial, capped
 end
 
 ---------------------------------------------------------------------------------------------------
 -- The route to the target, kept up to date (Route.lua:271-371).
 
-local route  -- { pts, inst, goal (chunk id), partial } once found
-local job    -- { run (its Runtime.Job), inst, goal, col, row, pts?, partial? } while one's being found
-local failed -- { inst, goal, col, row }: no route from there; straight until the goal changes or you move on
+local route  -- { pts, inst, goal (chunk id), partial, col, row, half, capped } once found
+local job    -- { run (its Runtime.Job), inst, goal, col, row, half, pts?, partial?, capped? } while one's being found
+local failed -- { inst, goal, col, row, half, capped }: no route from there; straight until the goal changes or you move on
+-- (col, row: where it was searched from; half: half its span, in chunks, RETRY_MOVED at least; capped: it
+-- gave up at MAX_NODES)
 local out    -- Model.Route()'s
 local cut = {} -- what out was cut from: pts, from, dest
 
@@ -220,7 +232,16 @@ local function Nearest(pts, c, r)
 	return math.sqrt(best or 0) * CHUNKS, bi
 end
 
-local function Moved(c1, r1, c2, r2) return math.sqrt((c1 - c2) ^ 2 + (r1 - r2) ^ 2) * CHUNKS > RETRY_MOVED end
+-- Moved more than n chunks (RETRY_MOVED) from (c1, r1)?
+local function Moved(c1, r1, c2, r2, n) return math.sqrt((c1 - c2) ^ 2 + (r1 - r2) ^ 2) * CHUNKS > (n or RETRY_MOVED) end
+
+-- A search's result kept for its goal, from (pc, pr): one that gave up, till you've come half its way; a
+-- failed one, till you've moved RETRY_MOVED; a route, while you're within REPLAN_OFF of it.
+local function Kept(x, pc, pr)
+	if x.capped then return not Moved(x.col, x.row, pc, pr, x.half) end
+	if x.pts then return Nearest(x.pts, pc, pr) <= REPLAN_OFF end
+	return not Moved(x.col, x.row, pc, pr)
+end
 
 -- Are goal chunks a and b within n chunks of each other?
 local function Near(a, b, n)
@@ -239,9 +260,11 @@ local function Start(inst, goal, pc, pr, c2, r2)
 		route, failed = nil, { inst = inst, goal = goal, col = pc, row = pr }
 		return
 	end
-	local j = { inst = inst, goal = goal, col = pc, row = pr }
-	j.run = Runtime.Job("model: route", function() j.pts, j.partial = Find(inst, pc, pr, sc, sr, gc, gr, c2, r2) end,
-		SLICE_MS, FRAMES)
+	local half = math.max(RETRY_MOVED, math.sqrt((c2 - pc) ^ 2 + (r2 - pr) ^ 2) * CHUNKS / 2)
+	local j = { inst = inst, goal = goal, col = pc, row = pr, half = half }
+	j.run = Runtime.Job("model: route", function()
+		j.pts, j.partial, j.capped = Find(inst, pc, pr, sc, sr, gc, gr, c2, r2)
+	end, SLICE_MS, FRAMES)
 	job = j
 end
 
@@ -280,20 +303,22 @@ Model.Part(function()
 	end
 	if t.inside or not f.shown or t.pos.inst ~= you.inst then return Pause() end
 	if job and job.run.done then
+		local x = { inst = job.inst, goal = job.goal, col = job.col, row = job.row, half = job.half, capped = job.capped }
 		if job.pts then
-			route, failed = { pts = job.pts, inst = job.inst, goal = job.goal, partial = job.partial }, nil
+			x.pts, x.partial = job.pts, job.partial
+			route, failed = x, nil
 		else
-			route, failed = nil, { inst = job.inst, goal = job.goal, col = job.col, row = job.row }
+			route, failed = nil, x
 		end
 		job = nil
 	end
 	local inst, pc, pr, dest = you.inst, you.col, you.row, t.pos
 	local goal = math.floor(dest.col * CHUNKS) * SPAN + math.floor(dest.row * CHUNKS)
-	if not (For(route, inst, goal, GOAL_SLACK) and Nearest(route.pts, pc, pr) <= REPLAN_OFF)
-		and not For(job, inst, goal, GOAL_SLACK)
-		and not (For(failed, inst, goal, GOAL_SLACK) and not Moved(failed.col, failed.row, pc, pr)) then
+	if not (For(route, inst, goal, GOAL_SLACK) and Kept(route, pc, pr)) and not For(job, inst, goal, GOAL_SLACK)
+		and not (For(failed, inst, goal, GOAL_SLACK) and Kept(failed, pc, pr)) then
 		Start(inst, goal, pc, pr, dest.col, dest.row)
 	end
+	if job then job.run.budget = f.moving and 0 or SLICE_MS end -- (the view moving: queued, its turn waits)
 	if not For(route, inst, goal, job and KEEP_SHOWN or GOAL_SLACK) then
 		if job then return Show(nil) end
 		if not (out and out.straight and out[2] == dest) then Show({ you, dest, straight = true }) end

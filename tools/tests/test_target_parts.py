@@ -68,11 +68,11 @@ def test_waypoint_round_trip():
     # Cleared: none. On a map Atlas hasn't (a mine's own): none we can show.
     command(L, ns, "waypoint", False)
     sim.Step()
-    assert sim.waypoint is None and ns.Game.obs.waypoint is False
+    assert sim.waypoint is None and ns.Game.obs.waypoint is False and ns.Game.obs.waypointSet is False
     sim.waypoint = L.eval("UiMapPoint.CreateFromCoordinates")(1601, 0.5, 0.5)
     sim.FireEvent("USER_WAYPOINT_UPDATED")
     sim.Step()
-    assert ns.Game.obs.waypoint is False
+    assert ns.Game.obs.waypoint is False and ns.Game.obs.waypointSet is True  # set, but nowhere we can show
     assert not errors(sim, ns), errors(sim, ns)
 
 

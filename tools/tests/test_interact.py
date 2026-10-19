@@ -13,7 +13,7 @@ input), as the spike's (Core.lua:1161-1240, 1247-1416, 1698-1735; Layers.lua:178
   test_modified_clicks: Ctrl-click a waypoint there, Ctrl-right-click none, Shift-click the /way line (the waypoint
     and way Commands, carried out by Game's handlers: M3.2's); none off the zones' maps, where the press is the
     map's (F35, F36).
-  test_inspector: the right-click menu: Waypoint here, Clear waypoint, Follow me as they apply; big, it leads with the
+  test_inspector: the right-click menu: Waypoint here, Clear waypoint (one set, wherever), Follow me as they apply; big, it leads with the
     zone, its subzone and coordinates, its levels against yours, how far (5 yd steps close, 10 further, thousands
     with commas) and which way from you, at most 2 quests whose areas hold the spot (F37, F38, S62).
 """
@@ -277,7 +277,7 @@ def test_inspector():
     assert lines == [
         ("title", gold + "Elwynn Forest|r"),
         ("title", white + "Crystal Lake|r" + SEP + grey + "48.5, 63.7|r"),
-        ("title", grey + "Level|r |cff40c0405-10|r" + SEP + white + "185 yd|r " + grey + "E of you|r"),
+        ("title", grey + "Level|r |cff40c0401-10|r" + SEP + white + "185 yd|r " + grey + "E of you|r"),
         ("title", gold + "Quest|r |cffff7f3f[11] Wanted: Hogger|r " + dim + "(following)|r"),
         ("title", grey + "Quest|r |cffffd100[7] Gold Dust Exchange|r" + dim + "  (+1 more)|r"),
         ("divider", None), ("button", "Waypoint here")]
@@ -308,6 +308,15 @@ def test_inspector():
     sub(sim.menu, "Clear waypoint").onSelect()
     sim.Step()
     assert sim.waypoint is None and obs.waypoint is False and len(ns.Model.Known("waypoint")[0]) == 0
+    assert ("button", "Clear waypoint") not in menu(32.5, 49.6)
+    # One on a map Atlas hasn't (a mine's own): no pin, but Clear waypoint (Layers.lua:2080-2081).
+    sim.waypoint = L.eval("UiMapPoint.CreateFromCoordinates")(1601, 0.5, 0.5)
+    sim.FireEvent("USER_WAYPOINT_UPDATED")
+    sim.Step()
+    assert obs.waypoint is False and ("button", "Clear waypoint") in menu(32.5, 49.6)
+    sub(sim.menu, "Clear waypoint").onSelect()
+    sim.Step()
+    assert sim.waypoint is None and ("button", "Clear waypoint") not in menu(32.5, 49.6)
     menu(32.5, 49.6)
     sub(sim.menu, "Follow me").onSelect()
     sim.Run(0.7)

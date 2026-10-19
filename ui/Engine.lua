@@ -648,8 +648,9 @@ function Chain(layer)
 end
 
 -- Each layer placed at the camera, and the frame's layouts planned (Rank's turns: Chain). True while
--- zooming: a shown layer from another zoom (the wheel's not laid out yet). Engine.pending: a layer
--- stale, laying out, crossfading or zooming (at rest, every layer shows the camera's zoom on the one origin).
+-- zooming: a shown layer from another zoom (the wheel's not laid out yet; Engine.zooming the last draw's).
+-- Engine.pending: a layer stale, laying out, crossfading or zooming (at rest, every layer shows the camera's
+-- zoom on the one origin).
 headed = {} -- the goal's layout region
 function Engine.Draw(inst, cam, w, h)
 	local zooming, settled, now = false, Camera.ZoomSettled(), GetTime()
@@ -696,7 +697,7 @@ function Engine.Draw(inst, cam, w, h)
 			zooming = zooming or layer.front.zoom ~= cam.zoom
 		end
 	end
-	Engine.pending = pending or zooming
+	Engine.pending, Engine.zooming = pending or zooming, zooming
 	local budget = plan[1] and (URGENT[plan[1].why] and MISSING_MS or panning and PAN_MS or JOB_MS)
 	frame.budget = budget or 0
 	for i = 1, nplan do

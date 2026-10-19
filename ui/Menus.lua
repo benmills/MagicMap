@@ -288,7 +288,7 @@ function Menus.Map(owner, col, row)
 			Command({ kind = "waypoint", pos = { inst = inst, col = col, row = row } })
 		end }
 	end
-	if Model.Known("waypoint")[1] then
+	if Model.waypointSet then -- (wherever it is: Layers.lua:2080-2081)
 		items[#items + 1] = { "Clear waypoint", function() Command({ kind = "waypoint", pos = false }) end }
 	end
 	if not UI.Camera.follow then

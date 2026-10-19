@@ -22,6 +22,8 @@ local camera = { cx = 0, cy = 0, zoom = 0, w = 0, h = 0 } -- the map's, each fra
 local view = { v = 1, frame = 0, minimap = "ours", renderer = "ours", inst = 0, window = window,
 	layers = {}, sockets = {}, button = true, camera = camera }
 local focus = { inst = 0, shown = false, follow = true }
+-- The layers Model's target reads (Focus.off): turned off, it skips that target (or a quest's area).
+local TARGETED = { "corpse", "quests", "waypoint", "questAreas" }
 local showing -- shown when saved: on the first frame, past login (its first open is then the map's grace, docs/runtime.md)
 
 -- For telemetry marks (docs/telemetry.md "State" map, layers): Game stores it, never acts on it.
@@ -30,6 +32,25 @@ function view.diag()
 end
 
 function UI.View() return view end
+
+-- Focus.off's layers changed: any of TARGETED on or off unlike `off` says.
+local function OffChanged(off)
+	for _, k in ipairs(TARGETED) do
+		if Engine.LayerOn(k) == (off ~= nil and off[k] == true) then return true end
+	end
+	return false
+end
+
+local function Off()
+	local off
+	for _, k in ipairs(TARGETED) do
+		if not Engine.LayerOn(k) then
+			off = off or {}
+			off[k] = true
+		end
+	end
+	return off
+end
 
 -- UI's chat line (Core.lua:45-46).
 function UI.Print(msg) print("|cffffd100MagicMapAtlas|r: " .. msg) end
@@ -94,11 +115,15 @@ Runtime.Step("ui", "ui: view", function()
 		saved.inst, c.col, c.row = Camera.inst, R3(cam.cx), R3(cam.cy)
 	end
 	-- Focus: Model only compares, but send it only on a change (the rect: a new table when it changes;
-	-- the zoom, as the rect, where the view rests: held while a chase or flight moves it).
-	local rect = UI.Motion.Rect()
+	-- the zoom, as the rect, where the view rests: held while a chase or flight moves it; off: a new table
+	-- when a layer it names turns on or off; moving: till the camera settles and the map's layers show its zoom).
+	local rect, moving, off = UI.Motion.Rect(), not Camera.Settled() or Engine.zooming or nil, focus.off
+	if OffChanged(off) then off = Off() end
 	if focus.inst ~= view.inst or focus.shown ~= shown or focus.follow ~= Camera.follow
-		or (focus.zoom ~= cam.zoom and not Camera.moving) or focus.rect ~= rect then
-		focus = { inst = view.inst, rect = rect, shown = shown, follow = Camera.follow, zoom = cam.zoom }
+		or (focus.zoom ~= cam.zoom and not Camera.moving) or focus.rect ~= rect or focus.moving ~= moving
+		or focus.off ~= off then
+		focus = { inst = view.inst, rect = rect, shown = shown, follow = Camera.follow, zoom = cam.zoom, off = off,
+			moving = moving }
 		Model.Focus(focus)
 	end
 end)
