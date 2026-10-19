@@ -1,6 +1,7 @@
 ---@meta
 -- Contract 3: View (UI-owned, read by Game in Apply) and Commands (UI -> Game,
--- carried out in Input). docs/decisions/0003-view-and-commands.md
+-- carried out in Input, and in Apply those a ui step sent: their effect shows in the
+-- next frame's Observation). docs/decisions/0003-view-and-commands.md
 --
 -- View is the one place Game reads UI. It is cross-system, so it is minimal
 -- and versioned: only what Game acts on, nothing UI keeps for itself (camera,

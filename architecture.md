@@ -27,7 +27,8 @@ Three systems: Game, Model, UI. Two libraries under them: Atlas and Runtime.
     Observe  Game reads, so this frame sees the commands' effects
     Model    merge, target, route slice
     UI       camera, View, draw
-    Apply    Game acts on View: Minimap mode, tracking, addon pins
+    Apply    Game acts on View: Minimap mode, tracking, addon pins;
+             and carries out the commands a ui step sent (their effect shows in the next Observation)
 
 Each step is isolated: one failing doesn't stop the rest.
 Drawing runs while shown. Input, learning and saving always run.

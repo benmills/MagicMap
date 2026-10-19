@@ -183,7 +183,8 @@
 local Oracles = {}
 
 ---Is (col, row) inside the quest's objective area, as the game draws it?
----nil: the game gives this quest no area (or it can't tell now): Model estimates.
+---nil: no area at that point's quest, or it can't tell now (ask again); Model's estimate follows
+---HasArea, not this.
 ---Cost: a hit test on a hidden QuestPOI frame, ~tens of us; Model calls it at
 ---most a few dozen times a frame (the followed quest's edge search, hover).
 ---The instance is the quest's areaMap's.

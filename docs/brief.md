@@ -28,7 +28,8 @@ through a glide) left from it; every
 in-game check waits for one consolidated play-test at the end (D10, docs/playtest-final.md). M2 (quests
 on one pin store): wave 1 merged 2026-10-19 (M2.1 the pin store with blips and rares on it, M2.2 Game's
 quests, offers, follow and tooltip, M2.3 Model's quests and offers); M2.4 (UI quests, areas, tooltip)
-merged 2026-10-19 (d634976) on the quest-areas decision (§7), its review's fixes on main; the M2 gate next.
+merged 2026-10-19 (d634976) on the quest-areas decision (§7), its review's fixes (two rounds) on main; the
+M2 gate next.
 Then M3 target/route/interactions, M4 feature-complete, M5 hardening and parity sign-off, M6 rename,
 merge, release.
 
@@ -71,9 +72,10 @@ generated Data/), **Runtime** (when things run).
 
 Each frame, in phase order: **input** (UI turns input into commands; Game carries them out), **observe**
 (Game reads and calls `Model.Observe(obs, oracles)`), **model** (merge, target, route slice), **ui** (camera,
-View, draw), **apply** (Game acts on View: Minimap mode, tracking, addon pins). Timers run before the
-phases, jobs after; events fired during a frame are dispatched after its phases. The blip sensor reads
-where the last Apply placed the Minimap, once that placement holds still.
+View, draw), **apply** (Game acts on View: Minimap mode, tracking, addon pins; and carries out the commands
+a ui step sent: their effect shows in the next frame's Observation, a click's in the same one). Timers run
+before the phases, jobs after; events fired during a frame are dispatched after its phases. The blip sensor
+reads where the last Apply placed the Minimap, once that placement holds still.
 
 ## 4. Where things live (docs/structure.md)
 
@@ -137,12 +139,13 @@ o, point, col, row)`, laid out at the camera's zoom each log(1.25) drift and whe
 `"pin"` (placed so too, laid out a drift on toward where the zoom is headed: pins, `minZoom` shown by
 the canvas's frame for it, `Engine.From` saying whether a layout at a zoom draws them), `"hold"`
 (borders). `build` yields with `Runtime.Yield()` and returns true when it has nothing to draw at that
-zoom, or the zoom what it left out shows from. Levels (an offset to the view's frame level) now:
-tiles 1, borders 2, labels 3, rares 5, blips 6, the world socket +8 (ui/Sockets.lua), the arrow's overlay
-+10 (ui/You.lua). A pin layer's pins stand 3 above it (its canvas, the canvas's frame for a minimum zoom,
-the pin a level each): rares' at +8, blips' at +9, under the arrow. The spike's order (parity S8) is tiles → shade → areas → lines → path → labels → pins:
-no whole level is left for shade or quest areas (between tiles and borders) or the path (between borders
-and labels), so M2.4, M3.3 and M4.4 renumber the levels with the lead, not stack new layers above labels.
+zoom, or the zoom what it left out shows from. Levels (an offset to the view's frame level), renumbered
+at M2.4 (ef8b2ee) for the spike's order (parity S8: tiles → shade → areas → lines → path → labels → pins):
+tiles 1, the shade 2 (M4.4's), quest areas 3 (their frames +5..+7, ui/Areas.lua), borders 7, the path 8
+(M3.3's), labels 9, the world socket +10 (other addons' pins, under ours: ui/Sockets.lua), rares 11, blips
+12, offers 14, quests 15, the arrow's overlay +18 (ui/You.lua). A pin layer's pins stand 3 above it (its
+canvas, the canvas's frame for a minimum zoom, the pin a level each). M3.3 and M4.4 take the levels named
+for them; a new layer between two asks the lead.
 
 ## 5. Contracts (types/, docs/decisions/)
 
@@ -274,7 +277,10 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   test_demo (the web demo's server), test_spike_bugs, test_pins (the pin store: diff, StylePin, tooltips,
   click and drag), test_quest_parts (Game's quests and offers parts, the follow and tooltip Commands;
   run as a script, it records fixtures/streams/quests.lua and offers.lua again), test_model_quests
-  (Model alone on those streams).
+  (Model alone on those streams), test_quests (UI's quest pins, follow, tooltip), test_quest_areas (areas,
+  hover, estimates; 25 quests' budgets, allocation over a stretch alone: `stretch`). The sim's C_ calls make
+  their tables anew each call, as the client's (their garbage is measured); a scenario changing Sim.quests
+  fires QUEST_LOG_UPDATE, the sim QUEST_ACCEPTED and QUEST_REMOVED with it.
 
 ## 10. The docs: what each holds (grep, don't read)
 

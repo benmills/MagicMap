@@ -1,4 +1,4 @@
-# 0003 View (UI → Game, read in Apply) and Commands (UI → Game, in Input)
+# 0003 View (UI → Game, read in Apply) and Commands (UI → Game, in Input; a ui step's in Apply)
 
 Status: accepted (v1). Types: [types/view.lua](../../types/view.lua).
 
