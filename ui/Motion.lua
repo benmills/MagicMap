@@ -34,7 +34,7 @@ local JUMP = 0.5 -- of the view in a frame: a move further is a jump (a teleport
 local Motion = {}
 UI.Motion = Motion
 
-local goal, anchor -- the wheel's target zoom, and { col, row, dx, dy }: the tile kept at (dx, dy) from the view's centre
+local goal, anchor = nil, { 0, 0, 0, 0 } -- the wheel's target zoom; { col, row, dx, dy }: the tile kept at (dx, dy) from the view's centre (set in place: no table a tick)
 local flight -- { t, dur, fx, fy, fz, tx, ty, tz, onDone }
 local press -- the left button down: { x, y (the press), lx, ly (the last pan), t, moved }
 local touched = 0 -- the last press or zoom step (GetTime): the idle return's clock
@@ -74,8 +74,8 @@ function Motion.ZoomStep(ticks, atCursor)
 	elseif atCursor then
 		x, y = Window.Cursor()
 	end
-	local col, row = Maths.ScreenToTile(cam, w, h, x, y)
-	anchor = { col, row, x - w / 2, y - h / 2 }
+	anchor[1], anchor[2] = Maths.ScreenToTile(cam, w, h, x, y)
+	anchor[3], anchor[4] = x - w / 2, y - h / 2
 	if not atCursor then Camera.Trace("wheel") end -- (the wheel's: Motion's step, a frame's events in one)
 end
 
