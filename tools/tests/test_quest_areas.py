@@ -18,6 +18,8 @@ quest log (its blobs: Sim.blobShapes) through Game's parts and Inside, and Model
     drawn there (L1).
   test_quests_priced: 25 quests with areas, the big map, the wheel and drags on the priced clock: the
     budgets by map state (docs/runtime.md).
+  test_quests_first_open: script (b)'s hub, the map's first open past login's grace (b12), priced: its
+    slowest frame within the budget (50 ms).
   test_quests_storm: QUEST_LOG_UPDATE every frame for 10 s with 25 quests and 130 to pick up, nothing
     changing (a looting burst), the map shown and hidden: Lua allocation over the storm alone within its
     budget (50 KB/s), the zones and offers not read again, and nothing for quests while the map is
@@ -330,18 +332,32 @@ def stretch(L, ns):
     return done
 
 
-def hub():
-    """Script (b)'s hub: 25 quests about you, kill, collect and scout, each with an area."""
+def hub(shown=True):
+    """Script (b)'s hub: 25 quests about you, kill, collect and scout, each with an area; 130 to pick up (once
+    the map shows: Game reads them then)."""
     kinds = [["monster", "Kobold slain: 1/8", 1, 8, False], ["item", "Candle: 2/8", 2, 8, False],
              ["event", "Scout the mine", 0, 1, False]]
     quests = [{"id": 1000 + i, "title": f"Quest {i}", "level": 6 + i % 5, "col": 31.95 + (i % 5 - 2) * 0.35,
                "row": 49.75 + (i // 5 - 2) * 0.3, "objectives": [kinds[i % 3]], "area": 0.02 + i % 3 * 0.01}
               for i in range(25)]
-    L, sim, ns, G = client(quests, followed=1012)
+    L, sim, ns, G = client(quests, followed=1012, shown=shown)
     L.execute(OFFERS, sim, ns, 5)
     sim.Run(0.5)
-    assert len(known(ns, "quests")) == 25 and len(known(ns, "offers")) == 130
+    assert not shown or len(known(ns, "quests")) == 25 and len(known(ns, "offers")) == 130
     return L, sim, ns, G
+
+
+def test_quests_first_open():
+    L, sim, ns, G = hub(shown=False)
+    sim.Price(True)
+    sim.Run(10)  # past login's grace
+    sim.Slash("/mma toggle")  # small, at the default zoom
+    sim.Run(3)  # past its grace (2 s)
+    fs = ns.Runtime.FrameStats()
+    print(f"the first open, 25 quests and 130 to pick up, priced: {fs.grace.map} ms, its slowest call "
+          f"{fs.graceTop.map.top} {fs.graceTop.map.topMs} ms")
+    assert len(known(ns, "quests")) == 25 and len(known(ns, "offers")) == 130 and fs.grace.map <= 50
+    assert not errors(sim, ns), errors(sim, ns)
 
 
 def test_quests_storm():

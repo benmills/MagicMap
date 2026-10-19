@@ -79,8 +79,9 @@ CANDLES = {"id": 60, "title": "Kobold Candles", "level": 7, "col": 31.95, "row":
            "objectives": [["item", "Large Candle: 3/8", 3, 8, False]]}
 
 
-def client(quests, data=True, followed=0, saved=None, before=None):
-    """data: QuestieDB's rows for these quests, made up (Data); False: booted without QuestieDB's files at all."""
+def client(quests, data=True, followed=0, saved=None, before=None, shown=True):
+    """data: QuestieDB's rows for these quests, made up (Data); False: booted without QuestieDB's files at all.
+    shown: the map shown small at once (in login's grace), its quests read."""
     L, sim, ns = boot(saved, data=data)
     L.execute(SETUP, sim, ns)
     if before:
@@ -91,8 +92,9 @@ def client(quests, data=True, followed=0, saved=None, before=None):
     sim.superTracked = followed
     G.Quests(L.table_from([L.table_from({k: L.table_from([L.table_from(o) for o in v]) if k == "objectives" else v
                                          for k, v in q.items()}) for q in quests]))
-    sim.Slash("/mma toggle")
-    sim.Run(1.5)
+    if shown:
+        sim.Slash("/mma toggle")
+        sim.Run(1.5)
     return L, sim, ns, G
 
 
