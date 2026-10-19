@@ -324,16 +324,19 @@ end
 
 -- The lattice: points s tiles apart, fixed in the world (one looked at stays looked at as
 -- you move), within R of you; made anew when our square or the view radius changes (s in
--- tiles doesn't change with the UI scale: px and r only), every point looked at again, but
--- for a radius grown (out of a door): the circles the finer one looked over stand, only the
--- ring past them is new.
+-- tiles doesn't change with the UI scale: px and r only). Our square changed, every point is
+-- looked at again. The radius changed (a door), the circles looked over stand: a look found
+-- every blip in reach then, on its own lattice, so only the ring past them is new (out of a door);
+-- in at one, they shrink to the new reach (Beyond forgets what's past it), and nothing is (each
+-- door in a city was a whole look, ~300 probes: ~100 KB of the client's garbage).
 local function Lattice()
 	local same = lat.px and math.abs(px - lat.px) <= 0.05 * lat.px
 	if lat.r == g.r and same then return end
 	if not same and lat.cc then Runtime.Trace("restart", { why = "square", probes = probes }) end
-	if not (same and g.r > lat.r) then lat.cc, lat.sc = nil, nil end
+	if not same then lat.cc, lat.sc = nil, nil end
 	lat.s, lat.px, lat.r = GRID * 2 * g.half * g.u, px, g.r
 	lat.R = g.r * YD - CORNER * lat.s - LAG -- a point within it answers for any blip whose square holds it
+	lat.cR, lat.sR = lat.cR and math.min(lat.cR, lat.R), lat.sR and math.min(lat.sR, lat.R)
 end
 
 -- The lattice's points to look at: the new ones (outside the last look's circle) and,
@@ -446,8 +449,8 @@ local function Run()
 end
 
 -- A look cut short starts over (a measure in progress with it), so none mixes two places
--- or placements; anew (the map, the view radius shrunk, or what it could miss meanwhile changed:
--- unable to read), the next looks at every point. Only moved (a grow, a shrink), the points mean the
+-- or placements; anew (the map, or what it could miss meanwhile changed: unable to read), the next
+-- looks at every point. Only moved (a grow, a shrink) or a new radius (Lattice), the points mean the
 -- same. One that drops a look or the circles looked over is traced "restart" { why, probes (the
 -- look's so far) }: counted by why in the session's stats.
 local function Restart(anew, why)
@@ -466,7 +469,7 @@ local function Measure(m)
 	local col, row = Atlas.WorldToTile(north, west)
 	local now = GetTime()
 	if g.col and (col ~= g.col or row ~= g.row) then g.movedAt = now end
-	if inst ~= g.inst then Restart(true, "map") elseif r ~= g.r then Restart(not g.r or r < g.r, "radius") end
+	if inst ~= g.inst then Restart(true, "map") elseif r ~= g.r then Restart(not g.r, "radius") end
 	g.left, g.bottom, g.scale, g.w, g.h, g.r = m.left, m.bottom, m.scale, m.size, m.size, r
 	g.u, g.inst, g.col, g.row = r * YD / (m.size / 2), inst, col, row -- /: never 0 (m.size: SENSOR_PX / a scale)
 	g.half = px / m.scale -- /: never 0 (an effective scale is > 0)
