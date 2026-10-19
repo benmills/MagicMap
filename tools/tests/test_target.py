@@ -5,8 +5,9 @@ sim's quest log and its areas (Inside: game/Oracles.lua) through Game's parts an
     map shown, else your waypoint (F32), each named as the title band names it; another continent shown,
     what's there or none; the same table while nothing changes; Known("corpse"), Known("waypoint").
   test_target_quest_edge: the quest you follow, with an area: its nearest edge from you (a fan of rays,
-    then halvings), not its pin; walked into, inside only once that has held 0.5 s, and no route while
-    inside; walked out, the edge again once that has held; its area moved off its pin, the same.
+    then halvings), not its pin, looked at again only once you move; walked into, inside only once that has
+    held 0.5 s, and no route while inside; walked out, the edge again once that has held; its area moved off
+    its pin, the same.
   test_target_layers: each target only while its layer is on (Focus.off: the spike's pinData, Layers.lua:
     1029, 1160-1168), the priority falling through; Quest areas off, the quest's pin, not its area's edge.
 
@@ -128,6 +129,13 @@ def test_target_quest_edge():
     d = lambda p: math.hypot(p.col - me.col, p.row - me.row)
     assert d(t.pos) < d(G.Spot(0, FRONTIER["col"], FRONTIER["row"])) - 0.1  # ...nearer you than its pin
     assert Model.Route() is not None
+    L.execute("local o = ...; Asks = 0; local Inside = o.Inside; o.Inside = function(...) Asks = Asks + 1; return Inside(...) end",
+              ns.Game.oracles)
+    sim.Run(1)  # standing: nothing to look at again (no asks)
+    asks = G.Asks
+    me.col = me.col + 0.01
+    sim.Run(0.3)
+    assert asks == 0 and G.Asks > 0
 
     me.col, me.row = FRONTIER["col"], FRONTIER["row"]  # in it
     sim.Run(0.4)

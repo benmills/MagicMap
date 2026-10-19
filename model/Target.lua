@@ -29,7 +29,7 @@ local now, oracles, asks = 0, nil, 0 -- this frame's
 local titled, title -- the quest entry titled, its title
 
 -- The followed quest's area: quest, at (the next look), inside, flipAt, pos (its edge, or its pin).
-local area, want = {}, {} -- the look asked for: quest, col, row (where you are), pin
+local area, want = {}, {} -- the look asked for: quest, col, row (where you are), pin, quests (obs.quests then)
 local looker, looking -- the looks' coroutine (one for good, but for a look dropped half done); one under way
 
 -- Inside, asked till it answers: past this frame's asks, or with no answer now, on the next frame.
@@ -104,16 +104,21 @@ local function Looker()
 	end)
 end
 
--- The followed quest's area, looked at once AREA_EVERY (from where you are then), a look till it's done.
-local function Area(e, you)
+-- The followed quest's area, looked at once AREA_EVERY (from where you are then), a look till it's done; not
+-- while nothing it asks about has changed since the last (where you are, its pin, the game's areas: a
+-- QUEST_POI_UPDATE makes a new obs.quests) and no flip waits to settle: it would answer the same.
+local function Area(e, you, quests)
 	if area.quest ~= e.quest then
 		area.quest, area.at, area.inside, area.flipAt, area.pos = e.quest, now, nil, nil, nil
 		if looking then looker, looking = nil, false end -- (another quest's, half done)
 	end
 	if not looking then
 		if now < area.at then return end
-		area.at, looking, looker = now + AREA_EVERY, true, looker or Looker()
-		want.quest, want.col, want.row, want.pin = e.quest, you.col, you.row, e.pos
+		area.at = now + AREA_EVERY
+		if area.inside ~= nil and not area.flipAt and want.col == you.col and want.row == you.row and want.pin == e.pos
+			and want.quests == quests then return end
+		looking, looker = true, looker or Looker()
+		want.quest, want.col, want.row, want.pin, want.quests = e.quest, you.col, you.row, e.pos, quests
 	end
 	local ok, done = coroutine.resume(looker)
 	if not ok then
@@ -168,7 +173,7 @@ Model.Part(function(obs, o)
 		if e.complete or off.questAreas or not (f.shown and you.inst == inst and you.col and not you.stale) then
 			return Set("quest", e.key, e.pos, nil, Title(e), e.quest)
 		end
-		Area(e, you)
+		Area(e, you, obs.quests)
 		return Set("quest", e.key, area.pos or e.pos, area.inside, Title(e), e.quest)
 	end
 	if waypoint and waypoint.inst == inst and not off.waypoint then
