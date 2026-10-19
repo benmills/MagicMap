@@ -6,8 +6,11 @@
 --   Escape while big: a catcher in UISpecialFrames is shown, and Escape closing it is "escape".
 -- What's caught (game/Button.lua's "toggle" too) is handed over as obs.hooked, its own part:
 -- everything since the last observe, each a constant table.
+-- /mma check combat answers the M1 gate's question for the guard (the spike has none,
+-- MinimapMode.lua:198-201): in combat, Blizzard's map open, it hides it once as M would and says
+-- whether it hid and whether the client blocked us (a block is taint's too: game/Telemetry.lua).
 
-local _, ns = ...
+local ADDON, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
 
 local INPUT = { worldmap = { kind = "worldmap" }, escape = { kind = "escape" }, toggle = { kind = "toggle" } }
@@ -39,4 +42,25 @@ Game.Apply("hooks", function(view)
 	local w = view.window
 	shown, big = w.shown, w.big
 	if catcher:IsShown() ~= big then catcher:SetShown(big) end
+end)
+
+local probe -- a check waiting for the client's word: { hid, blocked }
+local function Blocked(_, addon, fn)
+	if probe and addon == ADDON then probe.blocked = tostring(fn) end
+end
+Runtime.On("ADDON_ACTION_BLOCKED", "game: check combat", Blocked)
+Runtime.On("ADDON_ACTION_FORBIDDEN", "game: check combat", Blocked)
+Game.Slash("check combat", "in combat, Blizzard's map open (M): is hiding it blocked? (M's guard, spike-bugs K2)", function()
+	if not (InCombatLockdown() and WorldMapFrame:IsShown()) then
+		return Game.Print("check combat: in combat, open Blizzard's map (M), then again")
+	end
+	probe = {}
+	HideUIPanel(WorldMapFrame)
+	probe.hid = not WorldMapFrame:IsShown()
+	Runtime.After(1, "game: check combat", function()
+		Runtime.Trace("check", { e = "combat", hid = probe.hid, blocked = probe.blocked or false })
+		Game.Print(string.format("check combat: HideUIPanel(WorldMapFrame) %s; the client %s", probe.hid and "hid it" or
+			"left it open", probe.blocked and ("blocked " .. probe.blocked) or "blocked nothing"))
+		probe = nil
+	end)
 end)

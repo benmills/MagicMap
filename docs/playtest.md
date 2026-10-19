@@ -171,9 +171,10 @@ whose area is off the view (Dun Morogh or Elwynn).
 | c1 | Follow the quest (click its pin): the route line and, when off view, the edge arrow. | `/mma shot small-edge-arrow` |
 | c2 | Ctrl-click the map: a waypoint, route to it. Ctrl-right-click: cleared. Shift-click: a `/way` line in the chat box (not sent). | `/mma mark c2 waypoint` |
 | c3 | Die (pull mobs well above your level), release. Corpse run along the route; resurrect. | `/mma shot small-corpse` while a ghost, small; `/mma mark c3 corpse` |
-| c4 | Get into combat (attack a mob and stay in combat). In combat, once each: M (grow), Escape (shrink), L (Blizzard's quest log opens), `/mma toggle` twice (Blizzard's minimap back, then ours). | `/mma mark c4 combat keys` |
-| c5 | Out of combat: the same four again. | `/mma mark c5 keys` |
-| c6 | Every session's "after". Taint must be 0 (`--budgets` gate). | — |
+| c4 | Get into combat (attack a mob and stay in combat). In combat, once each: M (Blizzard's map opens, ours doesn't grow: the guard, spike-bugs K2); with it open, `/mma check combat` (it hides Blizzard's map once, as M would without the guard, and prints whether it hid and whether the client blocked it); close Blizzard's map; L (Blizzard's quest log opens; close it); `/mma toggle` twice (Blizzard's minimap back, then ours). | `/mma mark c4 combat keys` (after the check's line prints) |
+| c5 | Out of combat: M (grow), Escape (shrink), L, `/mma toggle` twice. | `/mma mark c5 keys` |
+| c6 | Back into combat: open the spellbook (P) and talents (N) by keybind, close them; out of combat. Hiding Blizzard's map from our code (M, out of combat) goes through the UI panel manager: a taint there would show here as a blocked action naming us. | `/mma mark c6 panels` |
+| c7 | Every session's "after". Taint must be 0 (`--budgets` gate); `/mma check combat`'s own block (if the client blocked it) is the one expected. | — |
 
 Checklist:
 
@@ -181,8 +182,9 @@ Checklist:
 - [ ] `/mma mark c2 waypoint`
 - [ ] `/mma shot small-corpse` (c3, a ghost, small)
 - [ ] `/mma mark c3 corpse`
-- [ ] `/mma mark c4 combat keys`
+- [ ] `/mma mark c4 combat keys` (after `/mma check combat`)
 - [ ] `/mma mark c5 keys`
+- [ ] `/mma mark c6 panels`
 
 ## Script (d): capital, indoors, party, toggles in combat (M4)
 
