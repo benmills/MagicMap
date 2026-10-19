@@ -10,6 +10,7 @@
 -- recorded (Sim.trackerCalls), not refused; whether the client blocks or taints is docs/playtest-final.md c7.
 -- So is a waypoint set (super-tracked: the quest no longer) and cleared, out of combat and in: Ctrl-click
 -- and Ctrl-right-click, the right-click menu's Waypoint here and Clear waypoint (the waypoint Command).
+-- And a Shift-click's /way line: the chat box opened (OpenChat, Blizzard's Lua run from ours; c2's).
 local T = ...
 
 local function Leave(sim)
@@ -26,14 +27,15 @@ local function Is(ns, what, engaged, shown, alpha)
 		what, tostring(e), tostring(s), tostring(a)))
 end
 
--- A waypoint set and cleared by Ctrl-click and Ctrl-right-click, then by the menu, at the view's centre.
+-- A waypoint set and cleared by Ctrl-click and Ctrl-right-click, then by the menu, at the view's centre;
+-- then a Shift-click's /way line.
 local function Waypoints(sim, ns)
 	local view = ns.UI.Window.view
 	sim.MoveCursorTo(view)
-	local function Click(button, ctrl)
-		sim.modifiers.ctrl = ctrl
+	local function Click(button, ctrl, shift)
+		sim.modifiers.ctrl, sim.modifiers.shift = ctrl, shift
 		sim.Click(view, button, sim.cursorX, sim.cursorY, "screen") -- (Game's input step carries it out)
-		sim.modifiers.ctrl = nil
+		sim.modifiers.ctrl, sim.modifiers.shift = nil, nil
 	end
 	local function Pick(text)
 		Click("RightButton")
@@ -50,6 +52,9 @@ local function Waypoints(sim, ns)
 	assert(sim.waypoint, "the menu's: a waypoint")
 	Pick("Clear waypoint")
 	assert(not sim.waypoint, "the menu's: none")
+	sim.chat = nil
+	Click("LeftButton", nil, true)
+	assert(sim.chat and sim.chat:find("^/way "), "Shift-click: a /way line")
 end
 
 local sim, ns = T.Boot()
@@ -125,10 +130,10 @@ ns.Game.Command({ kind = "follow", quest = false })
 sim.Step()
 local calls = {}
 for _, c in ipairs(sim.trackerCalls) do calls[#calls + 1] = c.call .. (c.combat and " (combat)" or "") end
-T.Print("K2: a follow and waypoints out of combat, waypoints, a follow and an unfollow in it: %s (the tracker's,"
-	.. " recorded: in game c7)", table.concat(calls, ", "))
-local WAYPOINTS = "SetUserWaypoint%s,SetSuperTrackedUserWaypoint%s,ClearUserWaypoint%s,"
-local out, combat = WAYPOINTS:format("", "", ""):rep(2), WAYPOINTS:format(" (combat)", " (combat)", " (combat)"):rep(2)
+T.Print("K2: a follow, waypoints and a /way out of combat, waypoints, a /way, a follow and an unfollow in it: %s"
+	.. " (recorded: in game c7, the chat box's c2)", table.concat(calls, ", "))
+local WAYPOINTS = ("SetUserWaypoint%s,SetSuperTrackedUserWaypoint%s,ClearUserWaypoint%s,"):rep(2) .. "OpenChat%s,"
+local out, combat = WAYPOINTS:gsub("%%s", ""), WAYPOINTS:gsub("%%s", " (combat)")
 assert(table.concat(calls, ",") == "AddQuestWatch,SetSuperTrackedQuestID," .. out .. combat
 	.. "AddQuestWatch (combat),SetSuperTrackedQuestID (combat),SetSuperTrackedQuestID (combat)", table.concat(calls, ","))
 sim.Slash("/mma toggle")
