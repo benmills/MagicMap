@@ -10,7 +10,9 @@ is never short; ours scales a layout, and lays out where a zoom out is headed so
 """
 import os
 
-from test_addon import TESTS, boot, errors
+from lupa import lua51
+
+from sim import TESTS, errors, harness
 
 DRIVER = r"""
 local sim, ns, refPath = ...
@@ -116,7 +118,8 @@ return A, out, R
 """
 
 # The streams: Lua over A (the driver's input and frames). Each runs on a client of its own, the map open
-# and following you at zoom 96 (test_addon.py's window, 720x520).
+# and following you at zoom 96 (test_addon.py's window, 720x520; a "small:" one's minimap-sized, SMALL).
+SMALL = "MagicMapAtlasDB = { UI = { _v = 1, shown = false, zoom = 120, window = { left = 1000, top = 900, w = 200, h = 200 } } }"
 STREAMS = {
     "notches following": """
         for _, d in ipairs({ 1, 1, -1, 1, -1, -1, -1 }) do A.Wheel(d, 0.2, 0.3); A.Run(0.5) end""",
@@ -162,7 +165,7 @@ STREAMS = {
         A.Wheel(1, 0.7, 0.7); A.Frames(6); A.Mode(); A.Frames(5); A.Wheel(1, 0.5, 0.5); A.Run(1)
         A.Mode(); A.Run(0.1); A.Mode(); A.Run(1)""",
     "big: a trackpad flick out to the clamp and back": """
-        A.Run(0.5); A.Mode(); A.Run(1)
+        A.Mode(); A.Run(1)
         for i = 1, 40 do A.Wheel(-1, 0.6, 0.4); A.Frames(1) end
         A.Run(1)
         for i = 1, 40 do A.Wheel(1, 0.4, 0.6); A.Frames(1) end
@@ -171,6 +174,26 @@ STREAMS = {
         A.Walk(7, 1.2)
         for _, d in ipairs({ 1, 1, 1, -1, -1 }) do A.Wheel(d, 0.1, 0.9); A.Run(0.3) end
         A.Walk(7, 4); A.Button(-1); A.Run(1); A.Walk(0); A.Run(0.5)""",
+    "a long drag, then the idle return": """
+        A.Press(0.5, 0.5)
+        for i = 1, 60 do A.Move(0, -36); A.Frames(1) end
+        A.Release(); A.Away(); A.Run(7.5)""",
+    "small: a drag, then the idle return": """
+        A.Press(0.5, 0.5)
+        for i = 1, 15 do A.Move(16, 0); A.Frames(1) end
+        A.Release(); A.Away(); A.Run(7.5)""",
+    "big: a drag, then follow": """
+        A.Mode(); A.Run(1)
+        A.Press(0.5, 0.5)
+        for i = 1, 40 do A.Move(40, 0); A.Frames(1) end
+        A.Release(); A.Run(1)
+        A.Follow(); A.Run(1.5)""",
+    "a fast scroll in from the continent": """
+        A.Follow()
+        for i = 1, 10 do A.Button(-1); A.Frames(1) end
+        A.Run(1)
+        for i = 1, 8 do A.Wheel(1, 0.6, 0.4); A.Frames(2) end
+        A.Run(1)""",
 }
 
 
@@ -182,7 +205,9 @@ local sim, ns, A = ...
 local UI, S = ns.UI, sim.state
 local W, C, E = UI.Window, UI.Camera, UI.Engine
 local view, vs = W.view, W.view:GetEffectiveScale()
-local look = { frames = 0, layers = {}, arrow = 0 }
+local look = { frames = 0, layers = {}, arrow = 0, short = 0 }
+local zoomWas, groundWas -- the camera's zoom the frame before; the ground's urgent layout ran then
+local DRIFT, RARE_ZOOM = math.log(E.DRIFT), 60 -- (ui/Rares.lua's MIN_ZOOM)
 local vl, vb, vw, vh -- the view on the screen, this frame
 
 -- A map point on the screen at the camera (the sim's units, y up).
@@ -198,6 +223,8 @@ local function Anchor(o)
 	return l + (centre and w / 2 or 0) + p.x * s, b + (centre and h / 2 or h) + p.y * s
 end
 local function OnView(x, y) return x >= vl and x <= vl + vw and y >= vb and y <= vb + vh end
+-- A moved region shown on its canvas: its alpha and its frame's (a pin's minimum zoom: Engine.At).
+local function Lit(o) return S[o].alpha > 0 and S[S[o].parent].alpha > 0 end
 local function Off(x, y, ex, ey) return math.max(math.abs(x - ex), math.abs(y - ey)) end
 
 -- The share of the view a canvas's laid out region leaves out.
@@ -230,7 +257,7 @@ local function Moved(r, k)
 			local o = p[i]
 			local ex, ey = Proj(o.acol, o.arow)
 			ex, ey = ex + o.adx * vs, ey - o.ady * vs
-			if OnView(ex, ey) and S[o].alpha > 0 then -- (under its minimum zoom: hidden where it stands)
+			if OnView(ex, ey) and Lit(o) then -- (under its minimum zoom: hidden where it stands)
 				local x, y = Anchor(o)
 				r.off = math.max(r.off, Off(x, y, ex, ey))
 			end
@@ -238,13 +265,49 @@ local function Moved(r, k)
 	end
 end
 
+-- Rares in view: known (Model's, from their minimum zoom), and drawn (its front's pins at alpha > 0).
+local function Rares()
+	local cam, want, got = C.cam, 0, 0
+	if cam.zoom >= RARE_ZOOM then
+		for _, b in ipairs(ns.Model.Known("rares")) do
+			local p = b.pos
+			if p.inst == C.inst and OnView(Proj(p.col, p.row)) then want = want + 1 end
+		end
+	end
+	local c = UI.Rares.front
+	if c and c.alpha > 0 then
+		for _, p in pairs(c.pools) do
+			for i = 1, p.n do
+				local o = p[i]
+				if Lit(o) and OnView(Proj(o.acol, o.arow)) then got = got + 1 end
+			end
+		end
+	end
+	return want, got
+end
+
 function A.onFrame()
 	look.frames = look.frames + 1
 	vl, vb, vw, vh = sim.Rect(view)
+	-- Rares: every one in view drawn where their layout covers the view (its edges: uncovered, below), but
+	-- the frame the zoom crosses their minimum zoom (Layers.lua:404-416: that frame, there).
+	local z, want, got = C.cam.zoom, Rares()
+	local crossing = zoomWas and (zoomWas < RARE_ZOOM) ~= (z < RARE_ZOOM)
+	local rares = UI.Rares.front
+	if got < want and not crossing and rares and Uncovered(rares) < 1e-9 then
+		look.shortAt = look.shortAt or string.format("frame %d: %d of %d rares in view drawn", look.frames, got, want)
+		look.short = look.short + 1
+	end
+	zoomWas = z
+	-- The ground's urgent layout running (the view lacking it, or a zoom out about to run past it), or the
+	-- frame after it: names and pins wait on it (Engine's Rank), then lay out.
+	local ground, now = groundWas, false
+	for _, l in ipairs(E.layers) do now = now or l.zoom == "scale" and l.busy and (l.why == "missing" or l.why == "soon") end
+	ground, groundWas = ground or now, now
 	for _, l in ipairs(E.layers) do
 		local r = look.layers[l.name]
 		if not r then
-			r = { off = 0, tile = 0, uncovered = 0, worst = 0, back = 0 }
+			r = { off = 0, tile = 0, uncovered = 0, worst = 0, back = 0, lag = 0, run = 0, runMax = 0 }
 			look.layers[l.name] = r
 		end
 		local c, from = l.front, l.fade and l.fade.from
@@ -260,8 +323,18 @@ function A.onFrame()
 		end
 		for _, k in ipairs({ c or false, from or false }) do
 			if k and k.alpha > 0 then
-				if l.zoom == "move" then Moved(r, k) else Canvas(r, l, k) end
+				if l.moves then Moved(r, k) else Canvas(r, l, k) end
 			end
+		end
+		-- names shown: drifts from the zoom they were chosen for (the spike's: under 1); its worst, and the
+		-- most frames in a row over 1, while no ground's urgent layout holds the frames (its: groundLag)
+		local lag = l.zoom == "move" and c and c.alpha > 0 and not c.none and math.abs(math.log(C.cam.zoom / c.zoom)) / DRIFT or 0
+		if ground then
+			r.groundLag = math.max(r.groundLag or 0, lag)
+		else
+			r.lag = math.max(r.lag, lag)
+			r.run = lag > 1 + 1e-9 and r.run + 1 or 0
+			r.runMax = math.max(r.runMax, r.run)
 		end
 	end
 	local arrow, you = UI.You.arrow, ns.Model.you
@@ -278,8 +351,10 @@ return look
 
 
 def run_stream(name, look=False):
-    """A stream on a client of its own; look: LOOK each frame, on the priced clock past the graces."""
-    L, sim, ns = boot()
+    """A stream on a client of its own (the replays' harness: T.Anchors checks every anchor under the view as
+    it's set, T.Invariants each frame); look: LOOK each frame, on the priced clock past the graces."""
+    L = lua51.LuaRuntime(encoding="latin-1", unpack_returned_tuples=True)
+    sim, ns = harness(L).Boot(SMALL if name.startswith("small:") else None)
     sim.Slash("/mma toggle")
     sim.Run(3)
     A, out, R = L.execute(DRIVER, sim, ns, os.path.join(TESTS, "spike_camera.lua"))
@@ -304,26 +379,35 @@ def test_zoom_look():
     """Each stream on the priced clock, what you see each frame (LOOK): every layer and your arrow exactly where
     the camera puts them (a pin under its minimum zoom hidden); a tile's art within half a pixel of its tile at
     the zoom it was laid out at (its edges are whole pixels there, scaled with its canvas: ~2 px on the screen
-    while a zoom out to the clamp lands, laid out at 16); the tiles covering the view every frame (laid out where a zoom out is headed,
-    ui/Engine.lua: at the camera, a fast zoom out ran past each layout before it landed), names and pins all but
-    0.1 s of the fastest scroll (chosen for the zoom shown, a drift on toward where it's headed: Layers.lua:
-    2012-2030); no layer gone and back; no frame over 8 ms, no call over its budget. Borders: as the spike's, the
-    canvas from before the zoom scaled and dimmed until the one for where it's headed crossfades in (Layers.lua:
-    1906-1940), so not counted. Moving, the frame's p95 (docs/runtime.md: <= 5 ms in the client) is a layout's
-    slice (4.5 ms at most, a layer the view lacks) and the steps, the draw's widget calls priced here at 3 us
-    each (~10x the client's SetPoint: there ~0.3 ms), so at most 5 ms and the draw's own."""
+    while a zoom out to the clamp lands, laid out at 16); the tiles covering the view every frame (laid out where a
+    zoom out is headed, ui/Engine.lua: at the camera, a fast zoom out ran past each layout before it landed), names
+    and pins all but 0.1 s of the fastest scroll; names chosen for a zoom a drift (log 1.25) from the camera's on
+    one frame in a row at most, and two drifts at most (the spike's: never, laid out on the frame they drift,
+    Layers.lua:2012-2030), but while the ground's urgent layout runs (the view about to lack it: Engine's turns;
+    3.7 drifts in the big window's flick to the clamp); every rare in view drawn wherever their layout covers the
+    view, but on the frame the zoom crosses their minimum zoom (Layers.lua:404-416), a glide's whole way (laid
+    out over its path: Layers.lua:418-430 lays every pin out); no layer gone and back; no frame over 8 ms, no call
+    over its budget. Borders: as the spike's, the canvas from before the zoom scaled and dimmed until the one for
+    where it's headed crossfades in (Layers.lua:1906-1940), so not counted. Moving, the frame's p95 (docs/
+    runtime.md: <= 5 ms in the client) is the layouts' share of it (4.5 ms at most, a layer the view lacks; one
+    ending early hands on what's left, to 3.5) and the steps, the draw's widget calls priced here at 3 us each
+    (~10x the client's SetPoint: there ~0.3 ms), so at most 5 ms and the draw's own."""
     for name in STREAMS:
         L, sim, ns, out, look = run_stream(name, look=True)
         fs, perf = ns.Runtime.FrameStats(), ns.Runtime.Perf()[0]
         layers = {k: r for k, r in look.layers.items()}
-        print(f"{name}: {look.frames} frames, max {fs.max} ms, zoom p95 {fs.byState['zoom'].p95} ms, "
-              f"draw {perf['map: draw'].max:.2f} ms; "
+        names = layers["labels"]
+        print(f"{name}: {look.frames} frames, max {fs.max} ms, zoom p95 {fs.byState['zoom'].p95 if fs.byState['zoom'] else '-'}"
+              f" ms, draw {perf['map: draw'].max:.2f} ms; names {names.lag:.2f} drifts at most ({names.runMax} frames"
+              f" in a row past 1; {names.groundLag or 0:.2f} under the ground's layout); rares short {look.short}; "
               + "; ".join(f"{k} off {r.off:.0e}{f' tile {r.tile:.2f}' if k == 'tiles' else ''} px, uncovered "
                           f"{r.uncovered} ({r.worst:.2f})" for k, r in layers.items()))
         assert look.arrow < 1e-6 and all(r.off < 1e-6 for r in layers.values()), name
         assert layers["tiles"].tile <= 0.5 + 1e-6 and layers["tiles"].uncovered == 0, name
         assert all(r.uncovered <= 6 for k, r in layers.items() if k != "borders"), name
         assert all(r.back == 0 for r in layers.values()), name
+        assert names.lag <= 2 and names.runMax <= 1 and (names.groundLag or 0) <= 4, name
+        assert look.short == 0, f"{name}: {look.shortAt}"
         assert fs.max <= 8 and sum(v.over for v in perf.values()) == 0 and perf["map: draw"].max <= 2, name
-        assert fs.byState["zoom"].p95 <= 5 + perf["map: draw"].max, name
+        assert not fs.byState["zoom"] or fs.byState["zoom"].p95 <= 5 + perf["map: draw"].max, name
         assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

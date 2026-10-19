@@ -57,8 +57,8 @@ def test_map():
 
 def test_rares():
     """A pin kind added afterwards: Known("rares") (Atlas's rare spawns, the shown map only) drawn by its layer,
-    from zoom 60 in (none further out: Landmarks.lua:15); laid out from a drift below it, so a zoom crossing 60
-    shows or hides them that frame (Layers.lua:404-416)."""
+    from zoom 60 in (none further out: Landmarks.lua:15); laid out from a drift below it but zooming out, so a
+    zoom crossing 60 shows or hides them that frame (Layers.lua:404-416)."""
     import pytest
     L, sim, ns = boot()
     if not ns.Data.Npcs:
@@ -74,7 +74,8 @@ def test_rares():
     assert atlases and atlases <= {"vignettekill", "vignettekillelite"}, atlases
     def shown():
         pins = layer.front.pools.pin
-        return sum(1 for i in range(1, (pins.n if pins else 0) + 1) if sim.state[pins[i]].alpha > 0)
+        lit = lambda o: sim.state[o].alpha > 0 and sim.state[sim.state[o].parent].alpha > 0  # (its minimum zoom's frame)
+        return sum(1 for i in range(1, (pins.n if pins else 0) + 1) if lit(pins[i]))
 
     for zoom, drawn in ((59, False), (60, True), (47, False)):
         ns.UI.Motion.SetZoom(zoom)

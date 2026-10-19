@@ -335,6 +335,21 @@ end
 
 function Runtime.Idle() coroutine.yield(IDLE) end
 
+-- A queued job to the queue's end: its turn this frame after those queued now (ui/Engine.lua orders its
+-- layouts so). Not from inside a job. A job whose budget is 0 waits its turn, queued, not resumed.
+function Runtime.Requeue(job)
+	for i = 1, #jobs do
+		if jobs[i] == job then
+			table.remove(jobs, i)
+			jobs[#jobs + 1] = job
+			return
+		end
+	end
+end
+
+-- ms of the running job's budget left in this resume (outside a job: 0).
+function Runtime.Left() return current and current.budget - (now() - current.t0) or 0 end
+
 -- Gives the frame back once the running job's budget is spent; elsewhere a no-op.
 function Runtime.Yield()
 	local job = current
@@ -354,7 +369,7 @@ local function RunJobs()
 			Runtime.Trace("job", { name = job.name, e = "cancelled" })
 			Fail(job.name, job.err)
 		end
-		if not job.cancelled then
+		if not job.cancelled and job.budget > 0 then
 			local t0 = now()
 			current, job.t0, job.mark, job.resumes = job, t0, t0, job.resumes + 1
 			local kb0 = collectgarbage("count")

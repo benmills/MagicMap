@@ -257,10 +257,12 @@ function S.Update(elapsed)
 	end
 end
 
--- Start from where ours is (the map shown: state.map).
+-- Start from where ours is (the map shown: state.map), you where the world has you (its OnUpdate's
+-- UpdatePlayer, as if it had run: a press of M on the first frame flies to you).
 function S.Sync(cx, cy, zoom, follow, map)
 	state.cx, state.cy, state.zoom, state.follow, state.map = cx, cy, zoom, follow, map
 	StopAnimation()
+	UpdatePlayer()
 	state.lastInteract = GetTime()
 end
 

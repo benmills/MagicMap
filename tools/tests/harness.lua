@@ -39,17 +39,25 @@ end
 -- moves on the screen, and the client's error with it. Not the world socket's (ui/Sockets.lua: Game
 -- hosts other addons' pins on it, tile (0, 0) at its TOPLEFT, up to ~51,000 px at zoom 800; a pin far
 -- from the view stays far whatever the origin: hosting fewer, near the view, is M4.2's continent
--- filter and M4.4's), nor a canvas scaled past 1.4 (Engine's BAND_HI): a held layout from further out
+-- filter and M4.4's), nor a held canvas scaled past 1.4 (Engine's BAND_HI): a layout from further out
 -- while the zoom comes in (borders, a crossfade's old canvas), its origin's offset growing with its
--- scale until it's laid out again (~5,000 px at 7x after a drag, a flick and a grow), as the spike's
--- PlaceCanvas (Layers.lua:142-156), the client's error still a thousandth of a pixel there. And no
+-- scale until it's laid out again (R-P1: 33,979 px at 43x, the wheel's 20 notches in from 16 after a
+-- flick out about a corner), as the spike's PlaceCanvas (Layers.lua:142-156), the client's error still
+-- a thousandth of a pixel there (the ground's, past 1.4 while a zoom in outruns its layout, is held to
+-- the limit: 2,869 px at most, 2.3x, in R-P1). And no
 -- texture, mask or line on the map snapping to the pixel grid (the map moves by fractions of a pixel;
 -- font strings excepted: docs/v1-plan.md M1 exit). line: a Line, for its class's methods. (The checks
 -- here and in T.Invariants make no garbage and no widget calls: R-P3 measures our frames.)
 local LIMIT = 4096
 local UNSNAPPED = { Texture = true, MaskTexture = true, Line = true }
+local held = {} -- a held layer's canvases (Engine's "hold")
 function T.Anchors(sim, ns, line)
 	local S, view, socket = sim.state, ns.UI.Window.view, ns.UI.Sockets.world.frame
+	for _, l in ipairs(ns.UI.Engine.layers) do
+		if l.zoom == "hold" then
+			for _, c in ipairs(l.canvases) do held[c] = true end
+		end
+	end
 	local function Check(o, what, x, y)
 		local p = o
 		while p and p ~= view and p ~= socket do p = S[p].parent end
@@ -67,7 +75,7 @@ function T.Anchors(sim, ns, line)
 			setPoint(self, point, ...)
 			local k = S[self].scale -- (a region's: 1)
 			for _, e in ipairs(S[self].points) do
-				if e.point == point and k <= 1.4 then Check(self, "an offset", e.x * k, e.y * k) end
+				if e.point == point and (k <= 1.4 or not held[self]) then Check(self, "an offset", e.x * k, e.y * k) end
 			end
 		end
 	end
@@ -99,6 +107,12 @@ function T.Invariants(sim, ns)
 	local rest = not E.pending and S[ns.UI.Window.frame].shown
 	for _, l in ipairs(E.layers) do
 		if S[l.canvases[1]].alpha > 0 and S[l.canvases[2]].alpha > 0 and not l.fade then error(l.name .. ": two canvases shown") end
+		for _, c in ipairs(l.canvases) do -- (scaled since its anchor was set: T.Anchors' limit, as it ends the frame)
+			local k, e = S[c].scale, S[c].points[1]
+			if e and (k <= 1.4 or not held[c]) and math.max(math.abs(e.x), math.abs(e.y)) * k > LIMIT then
+				error(string.format("%s: a canvas's offset of %.0f, %.0f px, scaled %.2f", l.name, e.x * k, e.y * k, k))
+			end
+		end
 		if rest and l.on and l.front and (l.front.ox ~= E.ox or l.front.oy ~= E.oy) then
 			error(l.name .. ": off the shared origin at rest")
 		end
@@ -137,6 +151,13 @@ function T.Fresh(ns, lay)
 	local cam, r = m.cam, c.region
 	return r[1] <= cam.cx - w / 2 / cam.zoom and r[3] >= cam.cx + w / 2 / cam.zoom
 		and r[2] <= cam.cy - h / 2 / cam.zoom and r[4] >= cam.cy + h / 2 / cam.zoom
+end
+
+-- A table's values, as a list.
+function T.Values(t)
+	local out = {}
+	for _, v in pairs(t) do out[#out + 1] = v end
+	return out
 end
 
 -- Regions in use on the layer's shown canvas.

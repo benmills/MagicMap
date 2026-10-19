@@ -1,23 +1,24 @@
 -- The map's engine: layers drawn on canvases. Engine.Layer(name, level, build, rev, zoom) adds one
 -- (ui/Tiles.lua, ...). A layer has two canvases (1x1 frames, both always shown): the front at alpha 1,
--- the back at alpha 0. A layout, a Runtime.Job (one at a time: a layer the view lacks, or a zoom out is
--- about to, first: the ground, names and pins, then borders, stopping one after it; else the one laid
--- out longest ago; ahead of a pan in smaller slices), lays the layer out on its back canvas at one zoom
--- (tiles zooming out: where it's headed, one layout holding every view on the way), over the view and a
--- margin (more ahead of the camera's motion), into the canvas's own regions where they stand
--- (Engine.Get; Engine.Keep: what the canvas already shows, left as it is), parks what it didn't use
--- (SetParent to a hidden frame), then swaps the two by alpha. Tile (col, row) is at ((col - ox) * zoom,
--- -(row - oy) * zoom) on a canvas: (ox, oy), the origin, a whole tile near the view shared by every
--- layer, so no offset grows past a few thousand px. Panning moves the canvases; until the zoom settles,
--- a layer shows as its zoom says: "scale" (SetScale its canvas: tiles, laid out again once the zoom
--- leaves [0.7, 1.4] of a layout's), "move" (what it placed with Engine.At moved to the camera's zoom, so
--- fonts and icons keep their size, a pin shown from its minimum zoom each frame; laid out again once the
--- zoom drifts log(1.25) from the layout's, a drift on toward where it's headed: labels, pins,
--- Layers.lua:404-416, 2012-2030), "hold" (scaled and dimmed the further it is from its layout's zoom,
--- laid out where the zoom is headed once the wheel stops, crossfaded in as it lands: borders,
--- Layers.lua:16-24, 158-170, 1824-1836, 1907-1937). The window hidden or a layer turned off, its
--- canvases are emptied. Why, from the client's prices: docs/runtime.md "The map's engine". Window's
--- draw step calls Engine.Draw.
+-- the back at alpha 0. A layout, a Runtime.Job, lays the layer out on its back canvas at one zoom (tiles
+-- zooming out: where it's headed, one layout holding every view on the way), over the view and a margin
+-- (more ahead of the camera's motion), into the canvas's own regions where they stand (Engine.Get;
+-- Engine.Keep: what the canvas already shows, left as it is), parks what it didn't use (SetParent to a
+-- hidden frame), then swaps the two by alpha. The layouts share a frame's budget, one at a time, in turn
+-- (Draw's plan: the view lacking a layer, or about to, first, the ground, then names and pins, then
+-- borders; a layout going on; else the one laid out longest ago; ahead of a pan in smaller slices): one
+-- ending with budget left hands it on (Chain). Tile (col, row) is at ((col - ox) * zoom, -(row - oy) *
+-- zoom) on a canvas: (ox, oy), the origin, a whole tile near the view shared by every layer, so no offset
+-- grows past a few thousand px. Panning moves the canvases; until the zoom settles, a layer shows as its
+-- zoom says: "scale" (SetScale its canvas: tiles, laid out again once the zoom leaves [0.7, 1.4] of a
+-- layout's), "move" (what it placed with Engine.At moved to the camera's zoom, so fonts keep their size;
+-- laid out at the camera's zoom each time it drifts log(1.25) and where it lands: names, the spike's
+-- LayoutLabels, Layers.lua:1647-1653, 2012-2030), "pin" (moved too, a pin shown from its minimum zoom each
+-- frame; laid out a drift on toward where the zoom is headed each drift: pins, Layers.lua:404-416), "hold"
+-- (scaled and dimmed the further it is from its layout's zoom, laid out where the zoom is headed once the
+-- wheel stops, crossfaded in as it lands: borders, Layers.lua:16-24, 158-170, 1824-1836, 1907-1937). The
+-- window hidden or a layer turned off, its canvases are emptied. Why, from the client's prices:
+-- docs/runtime.md "The map's engine". Window's draw step calls Engine.Draw.
 
 local _, ns = ...
 local UI = ns.UI
@@ -28,10 +29,11 @@ local Maths = Atlas.Camera
 local MARGIN = 0.5 -- of the view laid out past each side at rest, so a pan finds it drawn
 local LEAD, TRAIL, FAST = 0.75, 0.25, 0.5 -- moving FAST views a second or more: the margin ahead, behind
 local AHEAD_S = 0.3 -- moving: laid out again before the view this far ahead leaves the layout
-local JOB_MS, MISSING_MS = 4, 4.5 -- a layout's budget a frame; a layer the view lacks, or soon will (with the steps, ~5)
-local PAN_MS = 2.5 -- a layout ahead of a pan, the view still covered: smaller slices (the drag's frame p95)
+local JOB_MS, MISSING_MS = 4, 4.5 -- the layouts' budget a frame; with one urgent (with the steps, ~5)
+local PAN_MS = 2.5 -- layouts ahead of a pan, the view still covered: smaller slices (the drag's frame p95)
+local CHAIN_MS, CHAIN_TO = 1.5, 3.5 -- a layout ending with this much left of the frame's budget, at most this, hands it on (Chain)
 local BAND_LO, BAND_HI = 0.7, 1.4 -- the camera's zoom over a layout's: outside, laid out again before it settles
-local DRIFT = 1.25 -- a "move" layer's: its names and pins are chosen for a zoom (Layers.lua:2012 LABEL_DRIFT)
+local DRIFT = 1.25 -- a "move" or "pin" layer's: its names and pins are chosen for a zoom (Layers.lua:2012 LABEL_DRIFT)
 local FADE_S = 0.12 -- a held layer's crossfade to a layout at another zoom (Layers.lua:1697 CROSSFADE)
 local SAME_ZOOM = 0.02 -- log: a held layer's layouts this close in zoom cut straight over (Layers.lua:1698)
 local LN2 = math.log(2)
@@ -39,6 +41,10 @@ local LN2 = math.log(2)
 -- 4096 px, moved 1.4x included (the tear's suspect: docs/v1-plan.md §2).
 local ORIGIN_PX = 2800
 local PAD = 200 -- px past the view a moved label or pin may show from (its anchor: its centre)
+-- A "move" or "pin" canvas shows while its offsets stay under this (its origin's from the view's centre;
+-- its layout's furthest from the origin at the camera's zoom, a label's spot on top): under 4096, however
+-- far the zoom runs from its layout's before it's laid out again.
+local SHOWN_PX = 4000
 local RETRY_S, RETRY_MAX_S = 0.5, 30 -- a failed layout is tried again after this, doubling each failure in a row
 
 -- toggles: UI's saved layers (ui/View.lua loads them); defaults: false for a layer off until turned on
@@ -48,7 +54,8 @@ UI.Engine = Engine
 
 local park = CreateFrame("Frame", nil, Window.view) -- regions no layout uses: off every canvas
 park:Hide()
-local Layout -- (below: a layer's worker runs it)
+local Layout, Chain -- (below: a layer's worker runs it; at its end, it hands the frame on)
+local goal, headed, step -- (below: Draw's, each frame: where the zoom is headed, its layout region, a drift on)
 
 ---------------------------------------------------------------------------
 -- Layers, canvases and pools
@@ -57,11 +64,12 @@ local Layout -- (below: a layer's worker runs it)
 -- build(canvas, inst, zoom, c0, r0, c1, r1): lay the layer out on canvas over that tile rect, tile
 -- (col, row) at ((col - canvas.ox) * zoom, -(row - canvas.oy) * zoom) from its TOPLEFT, calling
 -- Runtime.Yield() now and then. rev (optional): a function whose value changing lays it out again
--- (Model.Known's rev). zoom: "scale" (default), "move" or "hold" (the top). Each layer can be toggled
--- (Engine.toggles[name], UI's saved layers: a missing key is its default, on unless its gear row says
--- otherwise). build returns true when it has
--- nothing to draw at that zoom anywhere (none known, or not from this zoom: nor further out, then): no
--- layout again on a pan, nor zooming out until it settles.
+-- (Model.Known's rev). zoom: "scale" (default), "move", "pin" or "hold" (the top). Each layer can be
+-- toggled (Engine.toggles[name], UI's saved layers: a missing key is its default, on unless its gear row
+-- says otherwise). build returns true when it has nothing to draw at that zoom anywhere (none known, or
+-- not from this zoom: nor further out, then): no layout again on a pan, nor zooming out until it settles;
+-- or a zoom: what it left out shows from there (Engine.From said no), laid out again once a layout would
+-- draw it (nothing drawn: none, as true).
 -- canvas.epoch changes with what a region's place and look hang on (the canvas's map, zoom, origin, the
 -- layer's rev): a region kept (Engine.Keep) that was set in this epoch is as it should be.
 function Engine.Layer(name, level, build, rev, zoom)
@@ -73,7 +81,8 @@ function Engine.Layer(name, level, build, rev, zoom)
 	-- order: which goes first when the view lacks it, or soon will: the ground, then names and pins (quick),
 	-- then borders (held meanwhile, scaled and dimmed); by level within each
 	local layer = { name = name, level = level, frame = f, build = build, rev = rev, zoom = zoom,
-		order = (zoom == "scale" and 0 or zoom == "move" and 100 or 200) + level, started = 0, -- started: its last layout's frame
+		moves = zoom == "move" or zoom == "pin", -- placed with Engine.At, moved to the camera's zoom
+		order = (zoom == "scale" and 0 or zoom == "hold" and 200 or 100) + level, started = 0, -- started: its last layout's frame
 		canvases = {}, fading = {} } -- fading: its crossfade (layer.fade while one runs)
 	layer.job = Runtime.Worker("map: " .. name, function()
 		while true do
@@ -85,7 +94,7 @@ function Engine.Layer(name, level, build, rev, zoom)
 		local c = CreateFrame("Frame", nil, f)
 		c:SetSize(1, 1)
 		c:SetAlpha(0)
-		c.pools, c.alpha, c.made, c.scale, c.epoch = {}, 0, 0, 1, 0
+		c.pools, c.alpha, c.made, c.scale, c.epoch, c.mins = {}, 0, 0, 1, 0, {}
 		layer.canvases[i] = c
 	end
 	local i = #Engine.layers + 1 -- by level: the order layouts go in
@@ -94,9 +103,10 @@ function Engine.Layer(name, level, build, rev, zoom)
 	return layer
 end
 
--- A region onto a frame, with its mask (a tile's coast fade: it moves with it).
+-- A region onto a frame (o.on), with its mask (a tile's coast fade: it moves with it).
 local function Reparent(o, to)
 	o:SetParent(to)
+	o.on = to
 	if o.mask then o.mask:SetParent(to) end
 end
 
@@ -114,10 +124,10 @@ function Engine.Get(canvas, kind, what, make, key)
 	local o = p[n]
 	if not o then
 		o = make(canvas)
-		p[n] = o
+		p[n], o.on = o, canvas
 		canvas.made = canvas.made + 1
 	elseif n > p.out then
-		Reparent(o, canvas)
+		Reparent(o, o.home or canvas)
 	end
 	if n > p.out then p.out = n end
 	local k = p.keys[n]
@@ -152,7 +162,7 @@ function Engine.Keep(canvas, kind, key)
 	local n = p.n + 1
 	if j > p.out then -- parked: back on the canvas, at the end of those on it
 		local o = p.out + 1
-		Reparent(p[j], canvas)
+		Reparent(p[j], p[j].home or canvas)
 		Trade(p, j, o)
 		p.out, j = o, o
 	end
@@ -167,25 +177,40 @@ function Engine.Unget(canvas, kind)
 	p.n = p.n - 1
 end
 
--- A "move" region at zoom z: shown from its minimum zoom (Engine.At's), else at alpha 0 (Layers.lua:404-416).
-local function Cut(o, z)
-	local hid = o.amin ~= nil and z < o.amin
-	if hid ~= (o.hid == true) then
-		o.hid = hid
-		o:SetAlpha(hid and 0 or 1)
+-- The canvas's frame for regions shown from minZoom: its alpha, set as the zoom crosses it (Put), shows or
+-- hides them all at once (a SetAlpha each was the draw's 3.1 ms priced for the big window's ~440 rares at
+-- 60, a crossing's frame twice another's: docs/runtime.md).
+local function Min(c, minZoom)
+	local f = c.mins[minZoom]
+	if not f then
+		f = CreateFrame("Frame", nil, c)
+		f:SetAllPoints()
+		f.alpha = 1
+		c.mins[minZoom] = f
 	end
+	return f
 end
 
--- Place o (a "move" layer's region) at tile (col, row), dx, dy px right and down (default 0); while the
--- zoom moves, Engine moves it there at the camera's zoom. minZoom (optional): shown from this zoom only,
--- checked every frame the zoom moves (a pin's: a layer lays those out from a DRIFT below it, so a zoom
--- crossing it shows them that frame, as the spike's PositionPins).
+-- Place o (a "move" or "pin" layer's region) at tile (col, row), dx, dy px right and down (default 0);
+-- while the zoom moves, Engine moves it there at the camera's zoom. minZoom (optional): shown from this
+-- zoom only, on the canvas's frame for it (a pin's: a layer lays those out from a DRIFT below it,
+-- Engine.From, so a zoom crossing it shows them that frame, as the spike's PositionPins, Layers.lua:404-416).
 function Engine.At(c, o, point, col, row, dx, dy, minZoom)
 	dx, dy = dx or 0, dy or 0
 	o.apoint, o.acol, o.arow, o.adx, o.ady, o.az, o.amin = point, col, row, dx, dy, c.zoom, minZoom
 	o.x, o.y = (col - c.ox) * c.zoom + dx, (row - c.oy) * c.zoom + dy -- where it stands on the canvas
+	local on = minZoom and Min(c, minZoom) or c
+	if o.on ~= on then Reparent(o, on) end
+	o.home = on ~= c and on or nil -- (taken back from the park, onto it: Get)
 	o:SetPoint(point, c, "TOPLEFT", o.x, -o.y)
-	Cut(o, c.zoom)
+end
+
+-- A layout at zoom draws what shows from minZoom (Engine.At's): the camera's zoom or the layout's from it,
+-- or from a drift below it unless the zoom is headed out, so the frame it crosses shows or hides it
+-- (Layers.lua:404-416); not zooming out past it.
+function Engine.From(zoom, minZoom)
+	zoom = math.max(zoom, Camera.cam.zoom)
+	return zoom >= minZoom or zoom * DRIFT >= minZoom and goal.zoom >= zoom
 end
 
 -- Tile-space position on a canvas laid out at zoom (v from its origin), rounded so neighbours share edges.
@@ -258,10 +283,18 @@ local function Meets(r, cam, w, h)
 	return r[1] < cam.cx + pw and r[3] > cam.cx - pw and r[2] < cam.cy + ph and r[4] > cam.cy - ph
 end
 
--- A "move" canvas's regions to the camera's zoom (o.az: the zoom each stands at): each that shows
+-- A "move" or "pin" canvas c shows at cam: near the view, its offsets under SHOWN_PX at the camera's zoom
+-- (its regions stand within its layout's tile rect: c.reach tiles from the origin at most).
+local function Shown(c, cam, w, h)
+	local z = cam.zoom
+	return Meets(c.region, cam, w, h) and c.reach * z <= SHOWN_PX and math.abs(c.ox - cam.cx) * z <= SHOWN_PX
+		and math.abs(c.oy - cam.cy) * z <= SHOWN_PX
+end
+
+-- A moved canvas's regions to the camera's zoom (o.az: the zoom each stands at): each that shows
 -- there, or does where it stands (o.x, o.y); one only showing where it stands goes off the view, kept by
 -- it (a zoom's jump would put it thousands of px out). The rest stay put out of view until they would
--- show (c.late), or the next layout; one under its minimum zoom stays put, hidden.
+-- show (c.late), or the next layout; one under its minimum zoom stays put, hidden (its frame's: Put).
 local function Move(c, cam, w, h)
 	local z, ox, oy = cam.zoom, c.ox, c.oy
 	local x0, y0 = w / 2 + (ox - cam.cx) * z, h / 2 + (oy - cam.cy) * z -- the origin on the view
@@ -269,15 +302,12 @@ local function Move(c, cam, w, h)
 	for _, p in pairs(c.pools) do
 		for i = 1, p.n do
 			local o = p[i]
-			if o.az ~= z and o.amin and z < o.amin then
-				Cut(o, z)
-			elseif o.az ~= z then
+			if o.az ~= z and not (o.amin and z < o.amin) then
 				local x, y = (o.acol - ox) * z + o.adx, (o.arow - oy) * z + o.ady
 				local near = Near(x0 + x, y0 + y, w, h)
 				if near or Near(x0 + o.x, y0 + o.y, w, h) then
 					if near then
 						o.az = z
-						Cut(o, z)
 					else
 						x = math.max(-PAD, math.min(w + PAD, x0 + x)) - x0
 						y = math.max(-PAD, math.min(h + PAD, y0 + y)) - y0
@@ -295,20 +325,24 @@ local function Move(c, cam, w, h)
 end
 
 -- A canvas at the camera: its origin where the camera shows that tile, scaled ("scale", "hold") or
--- its regions moved ("move"). Its scale; nil: a "move" canvas laid out nowhere near the view, left as it
--- stands (a flight or a jump ran past it: its origin far off, it shows nothing there; Place hides it).
--- Anchored to the view's centre, in its own units: a scaled one's offset is the origin's at its
--- layout's zoom (what it moves on the screen: that times its scale).
+-- its regions moved ("move", "pin"). Its scale; nil: left as it stands, its offsets past SHOWN_PX on the
+-- screen (a flight, a jump or a flick ran past its layout: its origin far off, a moved one laid out nowhere
+-- near the view or far from the camera's zoom; Place hides it, and Stale has it laid out first), but a
+-- held one scaled past BAND_HI, its offset growing with its scale until it lands, as the spike's
+-- PlaceCanvas (Layers.lua:142-156). Anchored to the view's centre, in its own units: a scaled one's
+-- offset is the origin's at its layout's zoom (what it moves on the screen: that times its scale).
 local function Put(layer, c, cam, w, h)
 	local z = cam.zoom
 	local s, k = 1, z -- k: px a tile in the canvas's units
-	if layer.zoom == "move" then
-		if not Meets(c.region, cam, w, h) then return nil end
+	if layer.moves then
+		if not Shown(c, cam, w, h) then return nil end
 		if c.moved ~= z or c.late then Move(c, cam, w, h) end
+		for m, f in pairs(c.mins) do Alpha(f, z < m and 0 or 1) end
 	else
 		s, k = z / c.zoom, c.zoom -- /: never 0 (a canvas's zoom: the camera's at layout)
 	end
 	local x, y = (c.ox - cam.cx) * k, (cam.cy - c.oy) * k
+	if s <= BAND_HI and math.max(math.abs(x), math.abs(y)) * s > SHOWN_PX then return nil end
 	if c.scale ~= s then
 		c.scale = s
 		c:SetScale(s)
@@ -326,12 +360,12 @@ local function Place(layer, cam, w, h)
 	local c, f = layer.front, layer.fade
 	local s = Put(layer, c, cam, w, h)
 	if f then
-		Put(layer, f.from, cam, w, h)
+		local from = Put(layer, f.from, cam, w, h)
 		local p = math.min(1, (GetTime() - f.t) / FADE_S)
-		Alpha(c, p)
-		Alpha(f.from, f.a * (1 - p))
+		Alpha(c, s and p or 0)
+		Alpha(f.from, from and f.a * (1 - p) or 0)
 		if p >= 1 then layer.fade = nil end
-	elseif layer.zoom == "hold" then
+	elseif layer.zoom == "hold" and s then
 		local off = math.abs(math.log(s) / LN2)
 		Alpha(c, math.max(0.25, math.min(1, 1.6 - 0.6 * off)))
 	else
@@ -368,13 +402,13 @@ local function Swap(layer, back, live, parked)
 end
 
 -- A layout: the layer laid out on its back canvas (layer.back, at its zoom over its region), then
--- swapped in. Each layer's worker runs one at a time (a coroutine made once: ~10 KB a layout in the
--- client as a job of its own, sessions #8 and #9).
+-- swapped in, the frame's budget left handed on (Chain). Each layer's worker runs one at a time (a
+-- coroutine made once: ~10 KB a layout in the client as a job of its own, sessions #8 and #9).
 function Layout(layer)
 	local back, t0 = layer.back, debugprofilestop()
 	local r = back.region
 	for _, p in pairs(back.pools) do p.n = 0 end
-	back.none = layer.build(back, back.inst, back.zoom, r[1], r[2], r[3], r[4]) == true
+	local more = layer.build(back, back.inst, back.zoom, r[1], r[2], r[3], r[4])
 	local live, parked = 0, 0
 	for _, p in pairs(back.pools) do -- the back canvas is clear: this may yield (stopped, its pools hold)
 		while p.out > p.n do
@@ -384,17 +418,22 @@ function Layout(layer)
 		end
 		live = live + p.n
 	end
+	back.none, back.from = more == true or more ~= nil and live == 0, more ~= true and more or nil
 	Runtime.Trace("layout", { e = "end", layer = layer.name, ms = R2(debugprofilestop() - t0), regions = live,
 		made = back.made })
 	layer.busy, layer.retryAt, layer.backoff = false, nil, nil
 	Swap(layer, back, live, parked)
+	Chain(layer)
 end
 
--- Lay layer out for the camera at (a "hold" layer: where it's headed), on its back canvas. A crossfade
--- running ends first (its old canvas is the back: Layers.lua:1853-1855, FinishCrossfade). Its own call,
--- for what a start costs (perf.alloc: its trace). (4 arguments at most: the sim's xpcall passes more in
--- a table of its own, which the client's doesn't make.)
-local Rebuild = Runtime.Wrap("map: layout", function(layer, inst, at, budget)
+-- Lay layer out at at.zoom over the tile rect at[1..4] (For's), on its back canvas. A crossfade running
+-- ends first (its old canvas is the back: Layers.lua:1853-1855, FinishCrossfade). Names and pins, the goal
+-- a drift or less away in zoom (a glide, a chase landing): over the goal's view too, if that stays within
+-- ORIGIN_PX of the origin, so one layout holds every view on the way (the spike lays its pins out map-wide,
+-- Layers.lua:418-430). Draw's its own call, for what a start costs (perf.alloc: its trace; Chain's counts
+-- in the layout's job that started it). (4 arguments at most: the sim's xpcall passes more in a table of
+-- its own, which the client's doesn't make.)
+local function Start(layer, inst, at, budget)
 	local w, h = Window.Size()
 	if layer.fade then
 		Alpha(layer.fade.from, 0)
@@ -403,19 +442,26 @@ local Rebuild = Runtime.Wrap("map: layout", function(layer, inst, at, budget)
 	end
 	local back = layer.canvases[layer.front == layer.canvases[1] and 2 or 1]
 	local zoom, rev = at.zoom, layer.rev and layer.rev()
-	local c0, r0, c1, r1 = Region(at, w, h)
+	local c0, r0, c1, r1 = at[1], at[2], at[3], at[4]
 	local ox, oy = Origin(at, c0, r0, c1, r1)
+	if layer.moves and step.zoom == goal.zoom then
+		local g0, s0 = math.min(c0, headed[1]), math.min(r0, headed[2])
+		local g1, s1 = math.max(c1, headed[3]), math.max(r1, headed[4])
+		if math.max(ox - g0, g1 - ox, oy - s0, s1 - oy) * zoom <= ORIGIN_PX then c0, r0, c1, r1 = g0, s0, g1, s1 end
+	end
 	if back.inst ~= inst or back.zoom ~= zoom or back.ox ~= ox or back.oy ~= oy or back.rev ~= rev then
 		back.epoch = back.epoch + 1 -- (what a region kept from an earlier epoch shows, or where, may differ)
 	end
 	back.inst, back.zoom, back.moved, back.late, back.ox, back.oy, back.made = inst, zoom, zoom, false, ox, oy, 0
 	local r = back.region or {}
 	r[1], r[2], r[3], r[4] = c0, r0, c1, r1
-	back.region, back.rev = r, rev
+	back.region, back.rev, back.gx, back.gy = r, rev, goal.cx, goal.cy
+	back.reach = math.max(ox - c0, c1 - ox, oy - r0, r1 - oy)
 	layer.back, layer.busy, layer.started = back, true, Runtime.frames -- busy until the job ends: its last stretch clears it; a failure, the draw step (Failed)
 	Runtime.Trace("layout", { e = "start", layer = layer.name, zoom = R2(zoom), ox = ox, oy = oy }) -- (its region: Engine.State)
 	Runtime.Wake(layer.job, budget)
-end)
+end
+local Rebuild = Runtime.Wrap("map: layout", Start)
 
 ---------------------------------------------------------------------------
 -- Each frame (Window's draw step)
@@ -458,79 +504,162 @@ local function Park(layers, wanted)
 	end, JOB_MS)
 end
 
--- Cameras on the way to where the zoom is headed (Draw's, each frame): step, a DRIFT nearer it (a "move"
--- layer's layout: what's chosen for a zoom is never further than that from the one shown, and the camera
--- heads into it); near, two (a zoom out about to run past the tiles' layout).
-local goal, ahead, step, near = {}, {}, {}, {} -- goal: where it's headed (Motion.Goal); ahead: AHEAD_S on at its speed
+-- Cameras on the way to where the zoom is headed (Draw's, each frame): step, a DRIFT nearer it (the goal
+-- within a drift: step's zoom is the goal's; pins lay out there); near, two (a zoom out about to run past
+-- the tiles' layout; zooming in, the tiles' layout zoom).
+goal, step = {}, {} -- goal: where it's headed (Motion.Goal)
+local ahead, near = {}, {} -- ahead: AHEAD_S on at its speed, not past the goal
 
 -- t: the camera f times nearer the goal's zoom (at most there), centred on the way (the centre moves as
--- 1/zoom: the wheel keeps a point still; following, you).
+-- 1/zoom: the wheel keeps a point still; following, you); no zoom to speak of (a glide's: log and back,
+-- not quite its own), the camera's centre.
 local function Toward(t, cam, f)
 	local z, gz = cam.zoom, goal.zoom
 	local to, k = math.max(z / f, math.min(z * f, gz)), 0 -- /: never 0 (f: DRIFT's power)
-	if gz ~= z then k = (1 / to - 1 / z) / (1 / gz - 1 / z) end -- /: never 0 (zooms > 0, the two differ)
+	if math.abs(math.log(gz / z)) > SAME_ZOOM then k = (1 / to - 1 / z) / (1 / gz - 1 / z) end -- /: never 0 (zooms > 0, the two differ)
 	t.zoom, t.cx, t.cy = to, cam.cx + (goal.cx - cam.cx) * k, cam.cy + (goal.cy - cam.cy) * k
 end
 
--- What a layer's front lacks: nil (nothing), "late" (lay it out again), "soon" (a zoom out about to run
--- past its tiles) or "missing" (the view lacks it); both first (layer.order), with more budget. settled: the
--- zoom's (Camera.ZoomSettled); goal.held: the wheel's ticks have stopped; goal.out: zooming out, its
--- layout would hold the view now. A held layer not yet laid out for the goal is late, missing once off
--- the view (a fast zoom out): the ones it scales over (tiles, names, pins) go first.
+-- AHEAD_S on from c at v tiles a second, but not past g when headed there (a glide's start is its fastest).
+local function Ahead(c, v, g)
+	local a = c + v * AHEAD_S
+	if (g - c) * v > 0 and (a - g) * v > 0 then return g end
+	return a
+end
+
+-- What a layer's front lacks: nil (nothing), "late" (lay it out again), or urgent: "missing" (the view
+-- lacks it, or a moved one's offsets would pass SHOWN_PX), "soon" (a zoom out about to run past its
+-- tiles), "drift" (names and pins laid out for a zoom a drift from the camera's, names for another than
+-- the one it landed at: Layers.lua:2012-2030; or not for where it's headed), "blur" (tiles zoomed in
+-- past [0.7, 1.4] of their layout's). settled: the zoom's (Camera.ZoomSettled); goal.held: the wheel's
+-- ticks have stopped; goal.out: zooming out, its layout would hold the view now. A held layer not yet laid
+-- out for the goal is late, missing once off the view (a fast zoom out): the ones it scales over go first.
 local function Stale(layer, inst, cam, w, h, settled)
 	local c = layer.front
 	if not c or c.inst ~= inst then return "missing" end
-	local zoomed = c.zoom ~= cam.zoom
-	-- Far enough from the layout's zoom to lay out again before the zoom settles: a "move" layer once it
-	-- drifts DRIFT (Layers.lua:2012-2030), the rest out of [BAND_LO, BAND_HI]; but not while the camera
+	local zoomed, move = c.zoom ~= cam.zoom, layer.moves
+	-- Far enough from the layout's zoom to lay out again before the zoom settles: names and pins once they
+	-- drift DRIFT (Layers.lua:2012-2030), the rest out of [BAND_LO, BAND_HI]; but not while the camera
 	-- heads into it (laid out where the zoom is headed, or on the way).
 	local s, lo, hi = cam.zoom / c.zoom, BAND_LO, BAND_HI -- /: never 0 (zooms >= MIN_ZOOM)
-	if layer.zoom == "move" then lo, hi = 1 / DRIFT, DRIFT end
+	if move then lo, hi = 1 / DRIFT, DRIFT end
 	local drifted = (s < lo or s > hi) and (c.zoom - cam.zoom) * (goal.zoom - c.zoom) < 0
+	local landed = goal.zoom == cam.zoom and layer.zoom == "move" -- no chase or flight zooming: names for it now (Layers.lua:2023-2028)
+	-- what it left out by zoom now drawn by a layout where it would lay out (Engine.From: pins, a zoom in
+	-- laying them out before it crosses their minimum zoom)
+	local more = c.from and Engine.From(step.zoom, c.from)
 	if c.none and (not layer.rev or c.rev == layer.rev()) then -- nothing to draw at its zoom: laid out again for another zoom only
 		if c.ox ~= Engine.ox or c.oy ~= Engine.oy then c.ox, c.oy, c.epoch = Engine.ox, Engine.oy, c.epoch + 1 end
-		if zoomed and (settled or drifted and s > 1) then return "late" end -- (one further in may have some)
+		if more or zoomed and drifted and s > 1 then return move and "drift" or "late" end -- (one further in may have some)
+		if zoomed and (settled or landed) then return "late" end
 		return
 	end
 	if layer.zoom == "hold" and zoomed then -- dimmed till it lands
 		if c.zoom == goal.zoom or not goal.held then return end
 		return Covers(c, cam, w, h) and "late" or "missing"
 	end
-	if not Covers(c, cam, w, h) then return "missing" end
+	if not Covers(c, cam, w, h) or move and not Shown(c, cam, w, h) then return "missing" end
 	if goal.out and layer.zoom == "scale" and not Covers(c, near, w, h) then return "soon" end
+	if move and (more or zoomed and (drifted or landed) or step.zoom == goal.zoom and (c.gx ~= goal.cx or c.gy ~= goal.cy)
+		and not Holds(c.region, goal, w, h)) then return "drift" end
+	if layer.zoom == "scale" and drifted and s > 1 then return "blur" end
 	if not Covers(c, ahead, w, h) then return "late" end
 	if zoomed and (settled or drifted) then return "late" end
 	if c.ox ~= Engine.ox or c.oy ~= Engine.oy or (layer.rev and c.rev ~= layer.rev()) then return "late" end
 end
 
--- Each layer placed at the camera, and the first stale laid out again unless a layout runs. True while
+local function On(layer) return layer.on end
+-- Stale's urgent kinds (at MISSING_MS), each its turn after layer.order (the ground 0, names and pins 100,
+-- borders 200, + level): the view lacking a layer, or soon to, first (a zoom out's ground laid out later is
+-- laid out further out: the goal runs on), then names and pins drifted, a blurred ground after them.
+local URGENT = { missing = 0, soon = 0, drift = 0, blur = 150 }
+
+-- A layer's turn this frame, lower first: an urgent one; then a layout going on; then the one laid out
+-- longest ago (zooming in, names wait on no tile layout).
+local function Rank(layer, why)
+	if URGENT[why] then return layer.order + URGENT[why] end
+	if layer.busy then return 1000 end
+	return 2000 + layer.started
+end
+
+-- Where a layer lays out (at.zoom, over the tile rect at[1..4]): a held one where the zoom is headed;
+-- tiles the camera's, but zooming out where it's headed when that layout would hold the view now (goal.out:
+-- the wheel keeps a point in view still, following you, so every view on the way nests in the goal's,
+-- and one layout covers them all; laid out at the camera, a fast zoom out ran past each layout before it
+-- landed: blank edges; the spike lays its tiles out every frame), and zooming in two drifts on toward it
+-- (near, at most there), the camera's view with it, so one layout lasts the way in. Names: the camera's
+-- (the spike's LayoutLabels: state.zoom). Pins: a drift on toward it (step), so a zoom in lays them out
+-- before it crosses their minimum zoom. Start adds the goal's view to both.
+local at = {}
+local function For(layer, cam, w, h)
+	local src = cam
+	if layer.zoom == "hold" or layer.zoom == "scale" and goal.out then
+		src = goal
+	elseif layer.zoom == "scale" and math.log(goal.zoom / cam.zoom) > SAME_ZOOM then -- /: never 0 (zooms > 0)
+		src = near
+	elseif layer.zoom == "pin" then
+		src = step
+	end
+	at.zoom, at.cx, at.cy = src.zoom, src.cx, src.cy
+	at[1], at[2], at[3], at[4] = Region(src, w, h)
+	if src == near then -- (the wheel off the centre: near's view nests in the camera's, off to a side)
+		local hw, hh = w / 2 / cam.zoom, h / 2 / cam.zoom -- /: never 0 (zoom >= MIN_ZOOM)
+		at[1], at[2] = math.min(at[1], cam.cx - hw), math.min(at[2], cam.cy - hh)
+		at[3], at[4] = math.max(at[3], cam.cx + hw), math.max(at[4], cam.cy + hh)
+	end
+	return at
+end
+
+-- This frame's layouts, in turn (Draw's): plan[1] runs (started, or going on) with the frame's budget,
+-- the rest queued after it in turn at 0 (Runtime.Requeue: waiting, not resumed) for what it leaves (Chain).
+-- slot: a layer's place in the plan, slotAt the frame it got its turn.
+local plan, nplan, tail = {}, 0, false -- tail: Chain started one (queued last: those waiting are past)
+local frame = { inst = nil, w = 0, h = 0, budget = 0 } -- Draw's, for Chain
+
+-- At a layout's end (in its job): what's left of the frame's budget to the next in the plan, a layout
+-- going on (queued after it) first, else the first not yet laid out this frame (started: queued last).
+function Chain(layer)
+	local left, now = Runtime.Left(), Runtime.frames
+	if layer.slot == 1 then left = left - math.max(0, frame.budget - CHAIN_TO) end -- (the frame's first: its budget the whole)
+	if left < CHAIN_MS or layer.slotAt ~= now then return end
+	if not tail then
+		for i = layer.slot + 1, nplan do
+			local l = plan[i]
+			if l.busy then
+				l.job.budget, l.slot, l.slotAt = left, i, now
+				return
+			end
+		end
+	end
+	for i = 1, nplan do
+		local l = plan[i]
+		if not l.busy and l.slotAt ~= now then
+			tail, l.slot, l.slotAt = true, i, now
+			Start(l, frame.inst, For(l, Camera.cam, frame.w, frame.h), left)
+			return
+		end
+	end
+end
+
+-- Each layer placed at the camera, and the frame's layouts planned (Rank's turns: Chain). True while
 -- zooming: a shown layer from another zoom (the wheel's not laid out yet). Engine.pending: a layer
 -- stale, laying out, crossfading or zooming (at rest, every layer shows the camera's zoom on the one origin).
-local function On(layer) return layer.on end
-local URGENT = { missing = true, soon = true } -- Stale's: first (by layer.order), at MISSING_MS
-
--- The camera a layer lays out for: a held one's where the zoom is headed; tiles the camera's, but zooming
--- out where it's headed when that layout would hold the view now (goal.out): the wheel keeps a point in
--- view still (following, you), so every view on the way nests in the goal's, and one layout covers them
--- all (laid out at the camera, a fast zoom out ran past each layout before it landed: blank edges; the
--- spike lays its tiles out every frame). Names and pins: step (they're chosen for the zoom shown).
-local function For(layer, cam)
-	if layer.zoom == "hold" or goal.out and layer.zoom == "scale" then return goal end
-	return layer.zoom == "move" and step or cam
-end
-local headed = {} -- the goal's layout region
+headed = {} -- the goal's layout region
 function Engine.Draw(inst, cam, w, h)
 	local zooming, settled, now = false, Camera.ZoomSettled(), GetTime()
 	local panning = Camera.vx ~= 0 or Camera.vy ~= 0
-	local busy, pending, next, why = nil, false, nil, nil
+	local pending = false
 	local gz, gx, gy = UI.Motion.Goal()
 	goal.held = gz == goal.zoom -- no tick since the last frame: a held layer lays out there (Layers.lua:1907-1937)
 	goal.zoom, goal.cx, goal.cy = gz, gx, gy
 	headed[1], headed[2], headed[3], headed[4] = Region(goal, w, h)
 	goal.out = gz < cam.zoom and Holds(headed, cam, w, h)
-	ahead.zoom, ahead.cx, ahead.cy = cam.zoom, cam.cx + Camera.vx * AHEAD_S, cam.cy + Camera.vy * AHEAD_S
+	ahead.zoom = cam.zoom
+	ahead.cx, ahead.cy = Ahead(cam.cx, Camera.vx, gx), Ahead(cam.cy, Camera.vy, gy)
 	Toward(step, cam, DRIFT)
 	Toward(near, cam, DRIFT * DRIFT)
+	nplan, tail = 0, false
+	frame.inst, frame.w, frame.h = inst, w, h
 	for _, layer in ipairs(Engine.layers) do
 		local on = Engine.LayerOn(layer.name)
 		if layer.on ~= on then
@@ -541,14 +670,20 @@ function Engine.Draw(inst, cam, w, h)
 			end
 		end
 		if layer.busy and layer.job.done then Failed(layer) end -- done but still busy: it didn't finish
+		if layer.busy and layer.zoom == "hold" and layer.back.zoom ~= gz then -- headed elsewhere now: re-aimed (Layers.lua:1913-1928)
+			Runtime.Cancel(layer.job)
+			layer.busy = false
+		end
 		local stale = on and Stale(layer, inst, cam, w, h, settled)
 		pending = pending or stale or layer.busy or layer.fade
-		if layer.busy then
-			busy = layer
-			layer.job.budget = URGENT[stale] and MISSING_MS or panning and PAN_MS or JOB_MS
-		elseif stale and (not layer.retryAt or now >= layer.retryAt) and (not next or URGENT[stale]
-			and (not URGENT[why] or layer.order < next.order) or not URGENT[why] and layer.started < next.started) then
-			next, why = layer, stale -- (else the one laid out longest ago: zooming in, names wait on no tile layout)
+		if layer.busy or stale and (not layer.retryAt or now >= layer.retryAt) then
+			local r = Rank(layer, stale)
+			local i = nplan + 1
+			while i > 1 and plan[i - 1].rank > r do
+				plan[i] = plan[i - 1]
+				i = i - 1
+			end
+			plan[i], layer.rank, layer.why, nplan = layer, r, stale, nplan + 1
 		end
 		if on and layer.front then
 			Place(layer, cam, w, h)
@@ -556,12 +691,17 @@ function Engine.Draw(inst, cam, w, h)
 		end
 	end
 	Engine.pending = pending or zooming
-	if next and busy and URGENT[why] and next.order < busy.order then -- the view lacks it, or soon will: one after
-		Runtime.Cancel(busy.job) -- it laying out stops, to start again after
-		busy.busy, busy = false, nil
-	end
-	if next and not busy then
-		Rebuild(next, inst, For(next, cam), URGENT[why] and MISSING_MS or panning and PAN_MS or JOB_MS)
+	local budget = plan[1] and (URGENT[plan[1].why] and MISSING_MS or panning and PAN_MS or JOB_MS)
+	frame.budget = budget or 0
+	for i = 1, nplan do
+		local l = plan[i]
+		if i == 1 then l.slot, l.slotAt = 1, Runtime.frames end
+		if l.busy then
+			l.job.budget = i == 1 and budget or 0
+			Runtime.Requeue(l.job)
+		elseif i == 1 then
+			Rebuild(l, inst, For(l, cam, w, h), budget)
+		end
 	end
 	return zooming
 end

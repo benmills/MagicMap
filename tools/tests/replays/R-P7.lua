@@ -1,8 +1,10 @@
 -- P7: while an ease moved the camera, layers were laid out again every frame (three "is it moving"
 -- flags, one disagreeing). The map reads one, Camera.ZoomSettled (the zoom unchanged 0.15 s; Settled
 -- adds "nothing moving it"), and before it lays a layer out again only past [0.7, 1.4] of its layout's
--- zoom (names and pins a log(1.25) drift); a held layer (borders) where the zoom is headed (ui/Engine.lua).
--- Replayed: a wheel tick and a zone fit start at most 2 layouts a layer, at most 1 once settled; the
+-- zoom (names and pins each log(1.25) drift, and where it lands, as the spike's LayoutLabels: Layers.lua:
+-- 2012-2030); a held layer (borders) where the zoom is headed (ui/Engine.lua).
+-- Replayed: a wheel tick and a zone fit start at most 2 layouts a layer (names and pins: one a drift crossed
+-- and one landing), at most 1 once settled; the
 -- borders stay in sight meanwhile, each frame scaled to the camera and dimmed as far as that scale is
 -- from 1, to 0.25 at most (Layers.lua:158-170), then crossfaded over FADE_S from the alpha they had
 -- (Layers.lua:1820-1836); no layout starts on a canvas still showing (a crossfade ends first:
@@ -39,6 +41,7 @@ local LN2 = math.log(2)
 local function Ease(name, start, most) -- most: layouts a layer (default 2: one a band, [0.7, 1.4], crossed)
 	most = most or 2
 	for k in pairs(starts) do starts[k] = nil end
+	local z0 = Cam.cam.zoom
 	start()
 	local dim, fades, longest, run, was = 1, 0, 0, 0, {} -- was: last frame's front and alphas
 	for _ = 1, 120 do
@@ -67,10 +70,11 @@ local function Ease(name, start, most) -- most: layouts a layer (default 2: one 
 	assert(fades >= 1 and longest >= 6, name .. ": no crossfade as the borders landed")
 	assert(Cam.Settled() and not E.pending, name .. ": still moving")
 	local each = {}
+	local drifts = math.floor(math.abs(math.log(Cam.cam.zoom / z0)) / math.log(E.DRIFT))
 	for _, l in ipairs(E.layers) do
 		local a, b = starts["moving " .. l.name] or 0, starts["settled " .. l.name] or 0
 		each[#each + 1] = string.format("%s %d+%d", l.name, a, b)
-		assert(a + b <= most and b <= 1, name .. ": " .. each[#each])
+		assert(a + b <= (l.moves and math.max(most, drifts + 1) or most) and b <= 1, name .. ": " .. each[#each])
 	end
 	T.Print("P7: %s: layouts while moving + once settled: %s; the borders' faintest %.2f, %d crossfade(s), the longest %d frames",
 		name, table.concat(each, ", "), dim, fades, longest)

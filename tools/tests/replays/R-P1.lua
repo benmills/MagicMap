@@ -1,6 +1,6 @@
 -- P1: borders fall behind a fast pan. A 1.5 views/s fling on the counted clock (3 us a widget call):
--- one layout at a time, a layer the view lacks first (4.5 ms a frame, else 4), laid out with more
--- margin ahead of the camera's speed and again before the view 0.3 s ahead leaves it (ui/Engine.lua).
+-- the layouts share a frame's budget, a layer the view lacks first (4.5 ms a frame, else 4), laid out with
+-- more margin ahead of the camera's speed and again before the view 0.3 s ahead leaves it (ui/Engine.lua).
 -- The M1 exit: borders cover the view on >= 97% of frames, tiles >= 99%, every layer fresh 1 s after
 -- stopping, no layout frame over 8 ms; after it, each canvas holds what it shows (the rest parked).
 -- Then a 20-step zoom-out, one step a frame (96 to 16 px a tile): layouts started per layer (the
@@ -8,10 +8,12 @@
 -- the others once a crossing of their band (tiles [0.7, 1.4], 5 here at most; names and pins a
 -- log(1.25) drift, 8) and once settled. Last, a long pan
 -- at 800 px a tile, ~45 views from you: the shared origin moves with the layouts, so no offset on the
--- map passes 4096 px (T.Anchors, the canvases' included; the arrow kept by the view), however far the
--- view goes, nor after a zoom's jump, nor with the wheel a tick an event (M1.14): 16 to 800 and back at
--- a notch a frame, a flick out from 800 about the cursor, and a drag, a flick and a grow (a canvas of
--- names or pins laid out nowhere near the view after it is left where it stands, hidden).
+-- map passes 4096 px (T.Anchors, the canvases' included, as set and as each frame ends; the arrow kept by
+-- the view), however far the view goes, nor after a zoom's jump, nor with the wheel a tick an event
+-- (M1.14) in the small window and the big, priced, no frame over 8 ms nor call over its budget: 16 to 800
+-- and back at a notch a frame, a flick out from 800 about the cursor, a drag, a flick and a grow, and
+-- flicks in from 16 toward a corner (a canvas laid out nowhere near the view, or whose offsets the zoom
+-- would take past 4,000 px, is left where it stands, hidden, and laid out first).
 local T = ...
 local MAX_MS = 8 -- a layout's slowest frame: 2x its budget (Runtime's overrun for a job; test_zoom.py)
 local function R2(v) return math.floor(v * 100 + 0.5) / 100 end
@@ -58,9 +60,11 @@ for _, lay in ipairs(layers) do
 		end
 	end
 	local held = { MaskTexture = 0, other = 0 }
-	for _, r in ipairs(sim.state[c].regions) do
-		local k = sim.state[r].type == "MaskTexture" and "MaskTexture" or "other"
-		held[k] = held[k] + 1
+	for _, f in ipairs({ c, unpack(T.Values(c.mins)) }) do -- (and its frames for a minimum zoom's: Engine.At)
+		for _, r in ipairs(sim.state[f].regions) do
+			local k = sim.state[r].type == "MaskTexture" and "MaskTexture" or "other"
+			held[k] = held[k] + 1
+		end
 	end
 	assert(held.other == live and held.MaskTexture == masks,
 		string.format("%s: %d regions, %d masks on its canvas; %d live, %d masks", lay.name, held.other, held.MaskTexture, live, masks))
@@ -70,6 +74,7 @@ end
 local zoom = m.cam.zoom
 local crossings = { scale = math.floor(math.log(zoom / 16) / math.log(1 / 0.7)),
 	move = math.floor(math.log(zoom / 16) / math.log(ns.UI.Engine.DRIFT)) }
+crossings.pin = crossings.move
 local started, trace = {}, ns.Runtime.Trace
 ns.Runtime.Trace = function(kind, d)
 	if kind == "layout" and d.e == "start" then started[d.layer] = (started[d.layer] or 0) + 1 end
@@ -128,30 +133,58 @@ local function Wheel(d, n, fx, fy)
 	end
 	sim.Run(2)
 end
-ns.UI.Motion.SetFollow(true)
-ns.UI.Motion.SetZoom(16)
-sim.Run(2)
-Wheel(1, 16)
-Wheel(-1, 16)
-ns.UI.Motion.SetFollow(false)
-ns.UI.Motion.SetZoom(800)
-sim.Run(2)
-Wheel(-1, 25, 0.8, 0.2)
-Wheel(1, 12)
-sim.MoveCursorTo(view, 0.5, 0.5)
-sim.buttonsDown.LeftButton = true
-sim.FireScript(view, "OnMouseDown", "LeftButton")
-for i = 1, 65 do
-	sim.cursorX, sim.cursorY = sim.cursorX - 12, sim.cursorY + 4
-	if i > 40 then sim.FireScript(view, "OnMouseWheel", -1) end
-	sim.Step()
+-- The wheel a notch a frame: following, 16 to 800 and back; free, a flick out from 800 about a corner and
+-- back in, a drag, a flick and a grow under it; then flicks in from 16 toward corners (the view's centre
+-- running from the origin, names and pins a few drifts behind before M1b's second review: 4,471 px).
+local function Wheels(corners)
+	ns.UI.Motion.SetFollow(true)
+	ns.UI.Motion.SetZoom(16)
+	sim.Run(2)
+	Wheel(1, 16)
+	Wheel(-1, 16)
+	ns.UI.Motion.SetFollow(false)
+	ns.UI.Motion.SetZoom(800)
+	sim.Run(2)
+	Wheel(-1, 25, 0.8, 0.2)
+	Wheel(1, 12)
+	sim.MoveCursorTo(view, 0.5, 0.5)
+	sim.buttonsDown.LeftButton = true
+	sim.FireScript(view, "OnMouseDown", "LeftButton")
+	for i = 1, 65 do
+		sim.cursorX, sim.cursorY = sim.cursorX - 12, sim.cursorY + 4
+		if i > 40 then sim.FireScript(view, "OnMouseWheel", -1) end
+		sim.Step()
+	end
+	sim.buttonsDown.LeftButton = nil
+	sim.FireScript(view, "OnMouseUp", "LeftButton")
+	sim.Run(2)
+	Wheel(1, 20)
+	sim.Press("M")
+	Wheel(-1, 10)
+	sim.Press("M")
+	sim.Run(1)
+	ns.UI.Motion.SetFollow(false)
+	for _, at in ipairs(corners) do
+		Wheel(-1, 40)
+		Wheel(1, 16, at[1], at[2])
+	end
+	assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n"))
 end
-sim.buttonsDown.LeftButton = nil
-sim.FireScript(view, "OnMouseUp", "LeftButton")
+-- On the priced clock (the client's prices: docs/evidence/perf-m0.md), the small window and the big:
+-- calls over their budget counted (perf.slow).
+local over, frames = {}, ns.Runtime.FrameStats().overruns
+for name, p in pairs(ns.Runtime.Perf()) do over[name] = p.over end
+sim.Price(true)
+Wheels({ { 0.95, 0.95 }, { 0.9, 0.1 } })
+sim.Press("M")
 sim.Run(2)
-Wheel(1, 20)
-sim.Press("M")
-Wheel(-1, 10)
-sim.Press("M")
-sim.Run(1)
-assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n"))
+Wheels({ { 0.7, 0.3 }, { 0.95, 0.95 } })
+sim.Price(false)
+local slow = {}
+for name, p in pairs(ns.Runtime.Perf()) do
+	if p.over > (over[name] or 0) then slow[#slow + 1] = string.format("%s x%d (%.1f ms)", name, p.over - (over[name] or 0), p.max) end
+end
+frames = ns.Runtime.FrameStats().overruns - frames
+T.Print("P1: the wheel, priced, small and big: %d frames over 8 ms; calls over budget: %s", frames,
+	#slow > 0 and table.concat(slow, ", ") or "none")
+assert(frames == 0 and #slow == 0)

@@ -128,8 +128,11 @@ that showed `key` (a tile, a border piece) on that canvas (nil: none, then Get i
 so a pan's layout sets only the ground it adds (ui/Tiles.lua). Tile (col, row) sits at `((col -
 canvas.ox) * zoom, -(row - canvas.oy) * zoom)` on a shared origin; `zoom` says how a layer shows until
 the zoom settles (0.15 s, `Camera.ZoomSettled`): `"scale"` (tiles), `"move"` (placed with `Engine.At(c,
-o, point, col, row)`: labels, pins), `"hold"` (borders). `build` yields with `Runtime.Yield()` and
-returns true when it has nothing to draw at that zoom. Levels (an offset to the view's frame level) now:
+o, point, col, row)`, laid out at the camera's zoom each log(1.25) drift and where it lands: names),
+`"pin"` (placed so too, laid out a drift on toward where the zoom is headed: pins, `minZoom` shown by
+the canvas's frame for it, `Engine.From` saying whether a layout at a zoom draws them), `"hold"`
+(borders). `build` yields with `Runtime.Yield()` and returns true when it has nothing to draw at that
+zoom, or the zoom what it left out shows from. Levels (an offset to the view's frame level) now:
 tiles 1, borders 2, labels 3, rares 5, blips 6, the world socket +8 (ui/Sockets.lua), the arrow's overlay
 +10 (ui/You.lua). The spike's order (parity S8) is tiles → shade → areas → lines → path → labels → pins:
 no whole level is left for shade or quest areas (between tiles and borders) or the path (between borders
