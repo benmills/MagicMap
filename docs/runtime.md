@@ -71,7 +71,9 @@ inside it, paid for every addon's garbage: sessions #8 and #9's `game.part blips
 a sensor slice that yields at 0.5 ms) counts apart (`gc`, `perf.slowGc`, a `slow` trace with `gc`),
 not in `over` or `perf.slow`, the gate's. A press that runs the client's own UI is budgeted the frame's
 8 ms, not a call's 2, with its reason beside it: the gear's menu (`map: gear`, MenuUtil building it:
-3 ms in #8) and a grow (`map: mode`, `map: keys`: SetFrameStrata and Raise over the window's tree,
+3 ms in #8), the map picker's and the right-click menu's (`map: picker`, ~45 rows, about twice the
+gear's; `map: release`, the right button's, the inspector's lines and up to 3 actions: MenuUtil
+too, unpriced, the sim's free; since the M3 review's round 2) and a grow (`map: mode`, `map: keys`: SetFrameStrata and Raise over the window's tree,
 2.2 ms in #8).
 
 ## The map's engine: swap, zoom and pan by the client's prices

@@ -91,7 +91,8 @@ view:SetScript("OnMouseDown", Runtime.Wrap("map: press", function(_, button)
 	UI.ZoneInfo.Press()
 	UI.Motion.Press()
 end))
--- Only the left button's release ends a press; the right one's opens the map's menu (Core.lua:1387-1399).
+-- Only the left button's release ends a press; the right one's opens the map's menu (Core.lua:1387-1399):
+-- the client's own menu, MenuUtil, so the frame's budget, as the gear's.
 view:SetScript("OnMouseUp", Runtime.Wrap("map: release", function(_, button)
 	if moving then
 		frame:StopMovingOrSizing()
@@ -106,7 +107,7 @@ view:SetScript("OnMouseUp", Runtime.Wrap("map: release", function(_, button)
 		-- zone flown to (Core.lua:1400-1416).
 		if UI.Motion.Release() and not UI.Pins.Tap(button) then UI.ZoneInfo.Tap() end
 	end
-end))
+end, Runtime.FRAME_MS))
 -- In the window (a tip on one of its widgets goes with it: Game hides only its own, spike-bugs G7).
 local function Within(f)
 	while f do

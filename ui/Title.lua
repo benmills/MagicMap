@@ -59,13 +59,14 @@ hit:SetScript("OnDragStop", Runtime.Wrap("map: moved", function()
 end))
 hit:SetScript("OnEnter", Runtime.Wrap("map: title hover", function() title:SetTextColor(HOVER[1], HOVER[2], HOVER[3]) end))
 hit:SetScript("OnLeave", Runtime.Wrap("map: title left", function() title:SetTextColor(COLOR[1], COLOR[2], COLOR[3]) end))
+-- (The picker is the client's own menu, MenuUtil, about twice the gear's rows: the frame's budget, as the gear's.)
 hit:SetScript("OnClick", Runtime.Wrap("map: picker", function(self)
 	if self.dragged then
 		self.dragged = nil
 		return
 	end
 	UI.Menus.Picker(self)
-end))
+end, Runtime.FRAME_MS))
 Title.hit = hit
 
 -- Placed above the map, or below it near the screen's top, the mode button with it; each
