@@ -136,13 +136,13 @@ probe that nothing answers makes 0.34 KB of garbage, as one that does.
 With them the sim predicts the client: wheel-zooming, the layouts' slowest frames are borders 93 ms,
 tiles 25, rares 13 (in game 116, 24, 13); the default window standing and walking allocates
 263 KB/s, p95 40 KB a frame (in game 233-297 KB/s, p95 34-40 KB). What failed on them, each a strict
-xfail until its package flipped it (all three pass since M1 wave 1b):
+xfail until its package flipped it (all three pass since M1 wave 1b; Now: at the M1 gate, e50e7d5):
 
 | Test | Failed on | Flipped by | Now (priced) |
 |---|---|---|---|
-| test_zoom.py::test_zoom_layouts_priced | each layer's slowest layout frame ≤ 8 ms while zooming | M1.3 abdddfe | tiles 4.7, borders 5.0, labels 4.0, rares 3.0 ms |
-| test_blips.py::test_default_ui_alloc_priced | 50 KB/s and p95 0.1 KB a frame, the default window | M1.5b 92e5ddd | ~5 KB/s, p95 0.1 KB |
-| test_spike_bugs.py::test_replay[P3] | 0.1 KB a frame idle, walking, dragging; 0.5 walking among 10 blips | M1.5b 92e5ddd | 66 / 36 / 77 B; 45 B among 10 blips |
+| test_zoom.py::test_zoom_layouts_priced | each layer's slowest layout frame ≤ 8 ms while zooming | M1.3 abdddfe | tiles 4.6, borders 5.0, labels 2.2, rares 3.1 ms |
+| test_blips.py::test_default_ui_alloc_priced | 50 KB/s and p95 0.1 KB a frame, the default window | M1.5b 92e5ddd | 14 KB/s over standing, walking and a door (e60ff51; ~5 before it), p95 0.1 KB |
+| test_spike_bugs.py::test_replay[P3] | 0.1 KB a frame idle, walking, dragging; 0.5 walking among 10 blips | M1.5b 92e5ddd | 66 / 36 / 77 B; 64 B among 10 blips (p95 85) |
 
 test_zoom_draw_priced (the draw step ≤ 2 ms while zooming, xfail since M1.8 on SetScale's guessed
 20 µs a region) passes on the bench's prices: SetScale was never the cost. R-G6b's window hiding with
@@ -166,14 +166,17 @@ each to be re-checked in the next session:
 - **`sensor`** (M1.5b): one blip read as four corrected; a `sensor` event takes a mark.
 - **Rares at every zoom** (M1.11): from zoom 60. At 60-75 a big window still holds ~500 of a
   continent's 696 (the layout region is the view plus a wide margin).
-- **Wheel** (M1.8b): the wheel's ticks come from a bucket of 1 refilling 4 a second.
+- **Wheel** (M1.8b, then round 2 of the M1 review): a bucket of 1 tick refilling 2 a second, a
+  gesture 3 ticks at most; `/mma wheel` tries others.
 
 ## The next session re-checks
 
-The one consolidated play-test at the end of the run (D10), on M1.3, M1.4, M1.5b, M1.8b and M1.11:
+The one consolidated play-test at the end of the run (D10), on M1.3, M1.4, M1.5b, M1.8b and M1.11
+(its steps: docs/playtest-final.md):
 
-- **8/8 budgets** in script (a) at Kharanos, client in front throughout: zoom and drag states'
-  p95 under 1 ms, no swap over 4 ms (`swap <layer>` ms), `perf.slow`, `perf.gaps`, `art`, `sensor`
+- **8/8 budgets** in script (a) at Kharanos, client in front throughout: p95 ≤1 ms at rest, p99 at
+  rest and the zoom and drag states' p95 ≤5 ms (docs/runtime.md since ebdf22e; the user confirms
+  that reading), no swap over 4 ms (`swap <layer>` ms), `perf.slow`, `perf.gaps`, `art`, `sensor`
   empty; `map: draw` and `game.part blips` out of perf.alloc's top or under 10 KB/s each.
 - **The tear walk** at Kharanos, col 33 edge, at 800, 2 minutes, with its marks and `small-seam` shot.
 - **Every shot** of the script's checklist, each answered in chat.

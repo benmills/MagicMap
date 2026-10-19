@@ -3,7 +3,8 @@
 Every gate (docs/v1-plan.md §6) is judged from one scripted session in game, read with
 `tools/telemetry.py` (docs/telemetry.md). This page is the scripts: what to do, where to mark,
 which shots to take. Play time is the plan's critical path, so each script batches a gate into
-one sitting.
+one sitting. Since D10 they run once, at the end of the run: docs/playtest-final.md is that
+session's checklist, each gate's items folded into these scripts.
 
 ## Every session
 

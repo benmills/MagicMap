@@ -1,5 +1,5 @@
 -- P1: borders fall behind a fast pan. A 1.5 views/s fling on the counted clock (3 us a widget call):
--- one layout at a time, a layer the view lacks first (6 ms a frame, else 4), laid out with more
+-- one layout at a time, a layer the view lacks first (5 ms a frame, else 4), laid out with more
 -- margin ahead of the camera's speed and again before the view 0.3 s ahead leaves it (ui/Engine.lua).
 -- The M1 exit: borders cover the view on >= 97% of frames, tiles >= 99%, every layer fresh 1 s after
 -- stopping, no layout frame over 8 ms; after it, each canvas holds what it shows (the rest parked).
