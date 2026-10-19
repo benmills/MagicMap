@@ -8,23 +8,25 @@ borrowed pins) and is saved, the changed keys only, across a /reload; a layer of
 turned on; rows in the spike's order whenever added; each setting does what it says."""
 from test_addon import boot, errors
 from test_blips import lua_tools, put_blips, stub_services
+from sim import TEST_UI
 
 LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Quests": "quests", "Quest areas": "questAreas",
           "Quests to pick up": "offers", "Minimap blips": "blips", "Rares you've seen": "rares"}
 SETTINGS = [("title", "Map"), ("checkbox", "Colour-matched tiles"), ("divider", None), ("title", "Minimap"),
             ("checkbox", "Minimap button"), ("button", "Reset position"), ("button", "Use Blizzard's minimap")]
 WHITE, GOLD = (1, 1, 1), (1, 0.82, 0)
+SEEN = ("MagicMapAtlasDB.Model = MagicMapAtlasDB.Model or { _v = 1, blips = {}, rares = { [0] = { ['npc:1'] = "
+        "{ name = 'Rare', npcID = 1, col = 31.97, row = 49.74, t = 1792077412 } } } }")  # a rare you've seen
 ICON = "Interface\\Icons\\INV_Misc_Map_01"  # Game's minimap button (game/Button.lua)
 
 
 def shown(saved=None):
-    """The map shown over one of each layer's things near you: a mailbox blip, a rare (Atlas.Rares
-    stubbed: CI has no QuestieDB data), Questie's pin in Elwynn. (L, sim, ns, the pin)."""
-    L, sim, ns = boot(saved)
+    """The map shown over one of each layer's things near you: a mailbox blip, a rare you've seen (Model's
+    saved part), Questie's pin in Elwynn. (L, sim, ns, the pin)."""
+    L, sim, ns = boot((saved or TEST_UI) + "\n" + SEEN)
     G = L.globals()
     stub_services(L, ns)
     put_blips(L, sim, ns, [("Mailbox", 40, 20)])
-    ns.Atlas.Rares = L.eval("function() return { { id = 1, name = 'Rare', rank = 4, col = 31.97, row = 49.74 } } end")
     q = sim.LoadQuestie()
     sim.FireEvent("ADDON_LOADED", "Questie")
     pin = sim.QuestieIcon()
