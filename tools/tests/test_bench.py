@@ -8,23 +8,25 @@ CANVAS = ["canvas." + op + "@" + at for at in ("100live", "1000live", "1000hidde
 MOVED = ["canvas.Show.moved@1000live", "canvas.Show.moved.alpha0@1000live", "canvas.SetAlpha.moved@1000live",
          "canvas.Show.moved@100masked"]  # the swap's question (M1.3)
 FRAMES = ["frame.idle", "frame.moved.alpha0", "frame.swap", "frame.moved.hidden",  # the whole frame: what the client defers to drawing
-          "frame.reveal.each", "frame.reveal.frame"]
+          "frame.reveal.each", "frame.reveal.frame", "frame.poi"]
 REVEAL = {"reveal.each@500": 1000, "reveal.frame@500": 501}  # a minimum zoom crossed: 500 SetPoints, a SetAlpha each or their frame's
+# Quest areas: the sim's log has 2 quests on your map; a frame's draw is a DrawNone and a DrawBlob each.
+POI = {"poi.DrawBlob": 1, "poi.draw": 3, "poi.UpdateMouseOverTooltip": 1}
 OPS = ["CreateTexture", "CreateLine", "CreateFontString", "SetPoint", "SetStartPoint",
-       "SetParent.park", "SetParent.unpark"] + CANVAS + MOVED + FRAMES + list(REVEAL)
+       "SetParent.park", "SetParent.unpark"] + CANVAS + MOVED + FRAMES + list(REVEAL) + list(POI)
 
 
 def test_bench_regions():
     L, sim, ns = boot()  # the counted clock: 3 us a widget call
     sim.Slash("/mma bench regions")
-    sim.Run(5)
+    sim.Run(7)
     r = ns.Game.Bench.result
     assert r.build == "1.60.1.70009" and r.t > 0
     assert sorted(r.ops.keys()) == sorted(OPS)
     for op in OPS:  # each a single widget call, timed alone (a frame: the sim's frames cost what our calls do)
         o = r.ops[op]
-        assert o.n == (20 if op.startswith(("canvas.", "frame.", "reveal.")) else 100), op
-        assert op in FRAMES or o.us == 3 * REVEAL.get(op, 1), op
+        assert o.n == (20 if op.startswith(("canvas.", "frame.", "reveal.", "poi.")) else 100), op
+        assert op in FRAMES or o.us == 3 * REVEAL.get(op, POI.get(op, 1)), op
     assert ns.Runtime.Perf()[0]["bench: regions"].n > 5  # a job, resumed over many frames
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 

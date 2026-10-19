@@ -105,8 +105,8 @@ HOOKS = {("Runtime", "onError"), ("Runtime", "onTrace")}
 FRAME_NAMES = {"MagicMapAtlasMap", "MagicMapAtlasMinimapStandIn", "MagicMapAtlasEscape"}
 # The only files that make a QuestPOIFrame (the client draws and hit-tests its quest areas on one):
 # Game's sensor (Inside), and UI's quest areas, the one game read UI makes (architecture.md "Rules",
-# docs/brief.md §7: the spike's blob art, Layers.lua:765-1069).
-POI_FILES = {"game/Oracles.lua", "ui/Areas.lua"}
+# docs/brief.md §7: the spike's blob art, Layers.lua:765-1069); and /mma bench regions, their price.
+POI_FILES = {"game/Oracles.lua", "ui/Areas.lua", "game/Bench.lua"}
 
 # Known violations, each waiting on a contract: (file, System, field). Keep it
 # short; the check fails on any entry that no longer matches, so it only shrinks.

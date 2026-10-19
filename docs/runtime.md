@@ -94,7 +94,16 @@ return make no frame over 8 ms (19-31 a grow before); a 20-step zoom-out (a tick
 layouts (tiles 2, borders 1, labels 6, rares 2, blips 1: names at the camera's zoom each drift and where it
 lands; 10 at M1.14 and the M1b review's first round, 16 before it, 33 before M1.3). The counted
 clock prices a widget call at 3 µs, ~10x a SetPoint's: moving ~500 static rare spawns a zoom frame is
-~1.9 ms there, ~0.15 ms in the client (M1.11 shows rares from zoom 60).
+~1.9 ms there, ~0.15 ms in the client (M1.11 shows rares from zoom 60). Quests to pick up have no minimum
+zoom (the spike's, Layers.lua:636-664): at the continent's zoom the draw moves every one, and with 5 a zone
+over the Eastern Kingdoms (130: test_quest_areas test_offers_priced) `map: draw` passes CALL_MS there
+(2.1 ms; 2.3 with 10 a zone), ~0.2 ms in the client; CI holds it to 2.5 ms, so a regression in moving pins
+shows. The client's quest areas (ui/Areas.lua's QuestPOIFrames) are priced as any widget call until the
+final session's bench says otherwise (`/mma bench regions`: `poi.DrawBlob`, `poi.draw` a frame of your map's
+quests, `poi.UpdateMouseOverTooltip`, `frame.poi`): a frame is drawn as it's laid out and again the next frame,
+so a zoom draws each quest twice, but a count ticking draws none (only a quest's id, the game's areas'
+version, the frame's style or size do), and the hover's hit test runs only when the cursor, the camera or a
+drawing changes.
 
 What the bench must still confirm (`/mma bench regions`, the final session): that re-anchoring a shown
 canvas's regions at alpha 0 costs what a SetPoint costs, not the 20-50 µs a Show paid. It times Show

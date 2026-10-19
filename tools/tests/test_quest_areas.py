@@ -6,7 +6,7 @@ quest log (its blobs: Sim.blobShapes) through Game's parts and Inside, and Model
     as laid out (L1); an estimate only for a kill or collect quest the game draws no area for, one for two
     within 0.6 r (S54); out of sight while the zoom moves, back where it lands (P5); the gear's toggles.
   test_quest_area_hover: an area under the cursor lit on top (HOVER) with its quest's tooltip, built once a
-    hover (spike-bugs G7); a pin's tooltip wins, its quest lit; off both, neither.
+    hover (spike-bugs G7), up through a zoom; a pin's tooltip wins, its quest lit; off both, neither.
   test_quest_area_answers: whether the game draws an area at a pin (HasArea), frame by frame from a log
     change: a quest with an area never estimated, one without from its answer (Inside after deferred
     layout: the client draws a blob into a rect it laid out at a frame's end); a pin in another quest's
@@ -109,6 +109,16 @@ def test_quest_area_hover():
     sim.Run(0.5)
     assert S[tip].shown and S[tip.GetLeftLine(tip, 1)].text == "Gold Dust Exchange" and built[1] == 1
     assert not same(tip.GetOwner(tip), ns.UI.Quests.front.pools.pin[1]) and lit() == [47]
+    # A wheel tick with the cursor on it (east of the pin): the layer out of sight till the zoom lands, the
+    # tooltip up throughout, built once.
+    sim.Wheel(view, 1)  # (at the view's centre)
+    G.Over(32.25, 49.7)
+    up, hid = [], 0
+    for _ in range(40):
+        sim.Step()
+        up.append(S[tip].shown and S[tip.GetLeftLine(tip, 1)].text == "Gold Dust Exchange")
+        hid += ns.UI.Areas.layer.frame.GetAlpha(ns.UI.Areas.layer.frame) == 0
+    assert hid > 5 and all(up) and built[1] == 1, (hid, up)
     G.Over(31.8, 49.7)  # Frontier's pin, in Gold Dust's area: its tooltip, its quest lit
     sim.Run(0.5)
     assert S[tip.GetLeftLine(tip, 1)].text == "Protect the Frontier" and built[1] == 2 and lit() == [52]
@@ -190,16 +200,33 @@ def test_quest_area_answers():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
+# Quests to pick up on every zone of the Eastern Kingdoms, n a zone (the sim's log has 1).
+OFFERS = """local sim, ns, n = ...
+    local id = 5000
+    for _, z in ipairs(ns.Atlas.Zones(0)) do
+        local list = {}
+        for i = 1, n do
+            id = id + 1
+            list[i] = { questID = id, questName = "Offer " .. id, questLineName = "", questLineID = 1, x = 0.1 + i % 4 * 0.2,
+                y = 0.1 + math.floor(i / 4) * 0.25, isHidden = false, inProgress = false }
+        end
+        sim.offers[z.uiMapID] = list
+    end
+    sim.FireEvent("QUESTLINE_UPDATE", true)"""
+
+
 def test_quests_priced():
-    """Script (b)'s quest hub, 25 quests about you each with its area (one followed), the big map: the wheel
-    in and out and drags on the priced clock. At rest p95 <= 1 ms, moving p95 <= 5 ms, none over 8."""
+    """Script (b)'s quest hub, 25 quests about you (one followed; 10 kill or collect quests with no area: their
+    estimates), the big map: the wheel in and out and drags on the priced clock. At rest p95 <= 1 ms, moving
+    p95 <= 5 ms, none over 8, no call over its budget nor a layout's stretch past it."""
     kinds = [["monster", "Kobold slain: 1/8", 1, 8, False], ["item", "Candle: 2/8", 2, 8, False],
              ["event", "Scout the mine", 0, 1, False]]
     quests = [{"id": 1000 + i, "title": f"Quest {i}", "level": 6 + i % 5, "col": 31.95 + (i % 5 - 2) * 0.35,
-               "row": 49.75 + (i // 5 - 2) * 0.3, "objectives": [kinds[i % 3]], "area": 0.02 + i % 3 * 0.01}
-              for i in range(25)]
+               "row": 49.75 + (i // 5 - 2) * 0.3, "objectives": [kinds[i % 3]],
+               **({} if i < 15 and i % 3 != 2 else {"area": 0.02 + i % 3 * 0.01})} for i in range(25)]
     L, sim, ns, G = client(quests, followed=1012)
     assert len(ns.Model.Known("quests")[0]) == 25
+    assert sum(1 for e in ns.Model.Known("quests")[0].values() if e.estimate) == 10
     L.execute("""local sim, ns = ...
         local view, M = ns.UI.Window.view, ns.UI.Motion
         sim.Press("M")
@@ -222,6 +249,7 @@ def test_quests_priced():
     print(f"25 quests, priced: {fs.frames} frames, p95 {fs.p95} max {fs.max}; "
           + ", ".join(f"{k} {v.frames} p95 {v.p95} p99 {v.p99}" for k, v in sorted(by.items())))
     assert by["big"].p95 <= 1 and by["big"].p99 <= 5 and by["zoom"].p95 <= 5 and by["drag"].p95 <= 5 and fs.max <= 8
+    assert not list(fs.slow.values()) and not list(fs.gaps.values()), (list(fs.slow.values()), list(fs.gaps.values()))
     assert not errors(sim, ns), errors(sim, ns)
 
 
@@ -245,3 +273,36 @@ def test_quests_storm():
               f"{alloc.get('game.part quests', 0)}, offers {alloc.get('game.part offers', 0)}")
         assert fs.kbPerSec <= 50 and alloc.get("game.part quests", 0) <= (0 if hidden else 25)
         assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_offers_priced():
+    """5 quests to pick up a zone over the Eastern Kingdoms (130; offers have no minimum zoom, as the spike's
+    Layers.lua:636-664) with 25 quests, the big map: the wheel out to the continent and back, drags there, on
+    the priced clock. No layout's stretch past its budget, no frame over 8 ms; the one call over its budget is
+    the draw moving every offer at the continent's zoom, held to 2.5 ms (the counted clock's 3 us a SetPoint,
+    ~10x the client's: docs/runtime.md)."""
+    quests = [{"id": 1000 + i, "title": f"Quest {i}", "level": 7, "col": 31.95 + (i % 5 - 2) * 0.35,
+               "row": 49.75 + (i // 5 - 2) * 0.3, "objectives": [["monster", "Kobold slain: 1/8", 1, 8, False]],
+               "area": 0.02} for i in range(25)]
+    L, sim, ns, G = client(quests)
+    L.execute(OFFERS, sim, ns, 5)
+    sim.Run(0.5)
+    assert len(ns.Model.Known("offers")[0]) == 130
+    L.execute("""local sim, ns = ...
+        local view = ns.UI.Window.view
+        sim.Press("M")
+        sim.Price(true)
+        sim.Run(12) -- past the graces
+        local function Wheel(d, n, gap) for _ = 1, n do sim.Wheel(view, d); sim.Run(gap) end end
+        Wheel(-1, 10, 0.6)
+        sim.Run(1)
+        for i = 1, 3 do sim.Drag(view, i % 2 == 0 and 300 or -300, 100, 20); sim.Run(1) end
+        Wheel(1, 10, 0.6)
+        sim.Run(1)
+        sim.Price(false)""", sim, ns)
+    fs = ns.Runtime.FrameStats()
+    slow = {x.name: x.max for x in fs.slow.values()}
+    by = {k: v for k, v in fs.byState.items()}
+    print(f"130 offers, priced: max {fs.max}; slow {slow}; " + ", ".join(f"{k} p95 {v.p95}" for k, v in sorted(by.items())))
+    assert not list(fs.gaps.values()) and fs.max <= 8 and set(slow) <= {"map: draw"} and slow.get("map: draw", 0) <= 2.5
+    assert not errors(sim, ns), errors(sim, ns)

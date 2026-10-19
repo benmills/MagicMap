@@ -20,7 +20,10 @@
 -- across the yield). And a minimum zoom crossed (ui/Engine.lua's pins): 500 pins moved and shown in one
 -- frame, each by its own SetAlpha (reveal.each, the cut before the M1b review's second round: the draw's
 -- 3.1 ms priced for the big window's ~440 rares) or by their frame's (reveal.frame, the engine's now),
--- the calls and the frame after them.
+-- the calls and the frame after them. And quest areas (ui/Areas.lua, game/Oracles.lua), when your map has
+-- quests: up to 25 of them drawn on a QuestPOIFrame the big map's size, a DrawBlob each (poi.DrawBlob),
+-- a frame's all (poi.draw: DrawNone and every DrawBlob, as ui/Areas.lua draws a frame), a hit test
+-- (poi.UpdateMouseOverTooltip), and the frame after drawing them all (frame.poi).
 -- Bench.result = { build, t, ops = { [op] = { n, ms, us } } } (Telemetry keeps it per build).
 
 local _, ns = ...
@@ -45,6 +48,8 @@ park:Hide()
 
 local function R(v, k) return math.floor(v * k + 0.5) / k end -- /: never 0 (k: a literal at each call)
 local PINS = 500 -- a minimum zoom's pins (~440 rares in the big window at 60)
+local POI_QUESTS, POI_SIZE = 25, 1024 -- quests drawn (a hub's), px (a zone on the big map)
+local BLOB = "Interface\\WorldMap\\UI-QuestBlob-" -- Inside / Outside (Layers.lua:786)
 local MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- a mask the client has (ui/Art.lua), as a tile's coast fade
 
 local result, order, job -- the run's, committed at its end
@@ -219,6 +224,36 @@ local function Run()
 	Frame("frame.reveal.frame", function() Whole(); Pins(); f:SetAlpha(1) end)
 	f:Hide()
 	Yield()
+	-- Quest areas: your map's quests (the client's art and hit test), on a frame laid out a frame before.
+	local map, ids = C_Map.GetBestMapForUnit("player"), {}
+	for _, q in ipairs(map and C_QuestLog.GetQuestsOnMap(map) or {}) do
+		if #ids < POI_QUESTS and not q.isMapIndicatorQuest then ids[#ids + 1] = q.questID end
+	end
+	if ids[1] then
+		local poi, n = CreateFrame("QuestPOIFrame", nil, root), #ids
+		poi:SetSize(POI_SIZE, POI_SIZE)
+		poi:SetPoint("TOPLEFT")
+		poi:EnableMouse(false)
+		poi:SetFillTexture(BLOB .. "Inside")
+		poi:SetBorderTexture(BLOB .. "Outside")
+		poi:SetMapID(map)
+		poi:GetRect()
+		Yield()
+		Time("poi.DrawBlob", REPS, function(i) poi:DrawBlob(ids[(i - 1) % n + 1], true) end,
+			function(i) if (i - 1) % n == 0 then poi:DrawNone() end end)
+		Time("poi.draw", REPS, function()
+			poi:DrawNone()
+			for _, id in ipairs(ids) do poi:DrawBlob(id, true) end
+		end)
+		Time("poi.UpdateMouseOverTooltip", REPS, function(i) poi:UpdateMouseOverTooltip(i % 5 * 0.2 + 0.1, i % 4 * 0.25 + 0.1) end)
+		Frame("frame.poi", function()
+			poi:DrawNone()
+			for _, id in ipairs(ids) do poi:DrawBlob(id, true) end
+		end)
+		poi:DrawNone()
+		poi:Hide()
+		Yield()
+	end
 	-- root stays shown: all under it is hidden, and hiding it would walk every region (hidden ones still pay).
 end
 

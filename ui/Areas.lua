@@ -14,8 +14,10 @@
 -- Unfinished kill, collect and interact quests with no area (Model's estimate) get a faint disc with a
 -- dashed edge, one for quests within 0.6 r (Layers.lua:945-986: S54), out of sight with the rest.
 -- Hovering a quest's area or its pin (ui/Quests.lua) lights its area: drawn again on top (HOVER); an
--- area's tooltip is its quest's (ui/QuestTooltip.lua), but a tooltip shown already wins (a pin's); a
--- click on an area (no pin under it: Pins.Tap) follows its quest, again to stop (Layers.lua:990-1069).
+-- area's tooltip is its quest's (ui/QuestTooltip.lua), but a tooltip shown already wins (a pin's), and
+-- it stays up through a zoom (the frames last shown answer the hit test while the layer is out of
+-- sight, as the spike's blobFrames: Layers.lua:992-1025); a click on an area (no pin under it:
+-- Pins.Tap) follows its quest, again to stop (Layers.lua:990-1069).
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
@@ -102,13 +104,15 @@ local function Place(c, f, r, zoom)
 	return true
 end
 
+local draws = 0 -- frames drawn (a hit test's answer may change)
+
 -- Its quests drawn into its rect, laid out first (Layers.lua:802-818).
 local function Draw(f)
 	f:GetRect() -- (reading it lays it out in the client: Layers.lua:812)
 	f:SetMapID(f.map)
 	f:DrawNone()
 	for i = 1, f.n do f:DrawBlob(f.q[i].quest, true) end
-	f.drawn = f.drawn + 1
+	f.drawn, draws = f.drawn + 1, draws + 1
 end
 
 -- f for group g (a map and style, its entries g[1..n]): drawn now if draw, and it changed or isn't yet.
@@ -255,6 +259,7 @@ local layer = Engine.Layer("questAreas", LEVEL, function(c, inst, zoom, c0, r0, 
 			nmissed = nmissed + 1
 			missed[nmissed] = spots[i]
 		end
+		Yield()
 	end
 	for i = 1, nmissed do
 		SetSpot(c, Get(c, "spot", "tex", MakeSpot, missed[i]), missed[i], zoom, base)
@@ -271,6 +276,7 @@ Areas.layer = layer
 
 local alpha = 1 -- the layer's frame's
 local shown -- the canvas shown
+local held -- the canvas hovering hit-tests: the one shown, and while the layer's out of sight its last
 
 -- The canvas to show: the front at the camera's zoom (no crossfade), each frame drawn until twice; out of
 -- sight from a zoom until every one has been (nil).
@@ -323,11 +329,27 @@ local function Light(c)
 	Draw(light)
 end
 
--- The quest whose drawn area is under the cursor on c (Layers.lua:868-872, 992-1000).
+-- Every frame of c drawn as it stands (none since dirtied by a layout).
+local function Drawn(c)
+	local p = c.pools.blob
+	for i = 1, p and p.n or 0 do
+		if p[i].drawn == 0 then return false end
+	end
+	return true
+end
+
+-- The quest whose drawn area is under the cursor on c (Layers.lua:868-872, 992-1000), tested again only
+-- when the cursor, the camera, the canvas or a drawing changed.
+local asked = {} -- x, y, cx, cy, zoom, c, draws: what the last answer, q, was for
 local function Under(c)
 	local w, h = Window.Size()
 	local x, y = Window.Cursor()
-	local col, row = ScreenToTile(Camera.cam, w, h, x, y)
+	local cam, a = Camera.cam, asked
+	if a.x == x and a.y == y and a.cx == cam.cx and a.cy == cam.cy and a.zoom == cam.zoom and a.c == c and a.draws == draws then
+		return a.q
+	end
+	a.x, a.y, a.cx, a.cy, a.zoom, a.c, a.draws, a.q = x, y, cam.cx, cam.cy, cam.zoom, c, draws, nil
+	local col, row = ScreenToTile(cam, w, h, x, y)
 	local p = c.pools.blob
 	for i = 1, p and p.n or 0 do
 		local f = p[i]
@@ -335,7 +357,10 @@ local function Under(c)
 		if col >= r.col0 and col <= r.col1 and row >= r.row0 and row <= r.row1 then
 			local q = f:UpdateMouseOverTooltip((col - r.col0) / (r.col1 - r.col0), -- /: never 0 (a map's rect has a size)
 				(row - r.row0) / (r.row1 - r.row0)) -- /: never 0 (a map's rect has a size)
-			if q then return q end
+			if q then
+				a.q = q
+				return q
+			end
 		end
 	end
 end
@@ -356,7 +381,10 @@ Runtime.Step("ui", "map: quest areas", function()
 		alpha = a
 		layer.frame:SetAlpha(a)
 	end
-	local q = c and inside and Under(c) or nil
+	-- Out of sight for a zoom, its frames hold their drawings till a layout changes one (the hit test is in
+	-- the map's own coordinates, whatever the zoom).
+	if c then held = c elseif held and not (layer.on and Drawn(held)) then held = nil end
+	local q = held and inside and Under(held) or nil
 	hover.area = q
 	Light(c)
 	-- Who has GameTooltip over an area: one shown already (a pin's), else the area's (Layers.lua:1012-1025).
