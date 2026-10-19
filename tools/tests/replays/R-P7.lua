@@ -12,7 +12,8 @@
 -- (docs/evidence/perf-m0.md), the flights (grow, shrink, the follow glide, the idle return): no frame of
 -- ours over 8 ms, no swap over 4 ms, the map's allocation over each (its regions made once, by a first
 -- grow); a drag's start on its own; the window shown again (after a plain hide, one mid-layout, and its
--- parent's: Alt-Z) and a layer turned back on: no region shown at once.
+-- parent's: Alt-Z; with the line to a waypoint shown, ui/Path.lua's) and a layer turned back on: no region
+-- shown at once.
 local T = ...
 local sim, ns = T.Shown()
 local E, Cam, M = ns.UI.Engine, ns.UI.Camera, ns.UI.Motion
@@ -189,17 +190,32 @@ local function Priced(show)
 	sim.Price(false)
 	return cost, worst
 end
+local path = ns.UI.Path
+local function PathShown() -- the path's lines shown
+	local n = 0
+	for _, r in ipairs({ path.canvas:GetRegions() }) do
+		if S[r].shown then n = n + 1 end
+	end
+	return n
+end
 local function Again(name, hide, show)
+	local before = PathShown()
 	hide()
 	sim.Run(1)
-	local held = Held()
+	local held, lines = Held(), PathShown()
 	local cost, worst = Priced(show)
-	T.Print("P7: shown again (%s): %d regions on the canvases, the Show %.2f ms priced; the slowest frame after it %.2f ms",
-		name, held, cost, worst)
-	assert(held == 0 and cost <= 1 and worst <= 8, name)
+	T.Print("P7: shown again (%s): %d regions on the canvases, %d of the path's %d lines shown; the Show %.2f ms"
+		.. " priced; the slowest frame after it %.2f ms", name, held, lines, before, cost, worst)
+	assert(held == 0 and lines == 0 and cost <= 1 and worst <= 8, name)
 	for _, l in ipairs(E.layers) do assert(T.Fresh(ns, l), name .. ": " .. l.name) end
+	assert((PathShown() > 0) == (before > 0), name .. ": the line laid out again") -- (Alt-Z: back small)
 end
-sim.Run(1)
+-- A waypoint near you, its route found: the line shown (R-P7 had no target till the M3 review: each reopen
+-- showed its 84-198 lines at once, 3.6-7.6 ms priced).
+local you = ns.Model.you
+ns.Game.Command({ kind = "waypoint", pos = { inst = you.inst, col = you.col + 2.5, row = you.row - 0.3 } })
+sim.Run(2)
+assert(PathShown() >= 16 and ns.Model.Route() and not ns.Model.Route().straight, "the line to the waypoint")
 Again("hidden", function() frame:Hide() end, function() frame:Show() end)
 sim.Press("M")
 sim.Run(1.5)
@@ -218,6 +234,12 @@ Again("mid-layout", function()
 end, function() frame:Show() end)
 sim.Run(1)
 Again("Alt-Z", function() UIParent:Hide() end, function() UIParent:Show() end)
+sim.Press("M")
+M.SetFollow(true)
+sim.Run(3)
+assert(ns.UI.BigMap.big and PathShown() >= 60, "the line across the big window")
+Again("Alt-Z, the line across the big window", function() UIParent:Hide() end, function() UIParent:Show() end)
+ns.Game.Command({ kind = "waypoint", pos = false })
 sim.Run(1)
 
 -- A zoom, and a drag as the borders crossfade to it (the view leaves their layout): they lay out again

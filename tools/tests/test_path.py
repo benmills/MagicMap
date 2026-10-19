@@ -17,9 +17,12 @@ waypoint pins and the title's target), Model.Target and Model.Route stubbed as t
   test_corpse_waypoint_pins: Known("corpse") and Known("waypoint") as pins (S49), from Game's parts through Model,
     their tooltips, their gear rows.
   test_path_walk_alloc: walking with a route, the line laid out again as you go: the whole ≤ 50 KB/s (the
-    M3.3 Verify), the path's own only its lines made as dashes first come into view.
+    M3.3 Verify), the path's own next to none (its lines made at load).
   test_path_priced: a long winding route at the client's prices, zooming in and out (the line laid out each
     frame the zoom moves), walking and dragging: within the frame budgets, no call over 2 ms.
+  test_path_priced_big: the big window, a waypoint at the view's corner (as a Ctrl-click there): its first
+    layout under 2 ms (no line made then); zooming with the line across the view: no frame over 8 ms. The
+    zoom state's p95 ≤ 5 is M1.15's (6.3 at the M2 review, the line's share ~0.8 ms): printed here.
 """
 import math
 
@@ -367,9 +370,8 @@ def test_path_walk_alloc():
     sim.player.speed = 0
     kb, by = done()
     print(f"walking with a route: {kb} KB/s, {P.draws - draws} layouts of the line; map: path {by.get('map: path', 0)} KB/s")
-    # The path's own: a dash's lines made as it first comes into view (the far end's, walking toward it: at
-    # most MAX_PIECES each, the sim's region state ~4.7 KB a pair).
-    assert P.draws - draws > 60 and by.get("map: path", 0) <= 5 and kb <= 50
+    # The path's own: none to speak of (its lines made at load).
+    assert P.draws - draws > 60 and by.get("map: path", 0) <= 2 and kb <= 50
     assert not errors(sim, ns), errors(sim, ns)
 
 
@@ -397,5 +399,33 @@ def test_path_priced():
     print("long route, priced: " + ", ".join(f"{k} {v.frames} p95 {v.p95} max {v.max}" for k, v in sorted(by.items()))
           + f"; map: path max {ns.Runtime.Perf()[0]['map: path'].max:.2f} ms")
     assert by["small"].p95 <= 1 and by["zoom"].p95 <= 5 and by["drag"].p95 <= 5 and fs.max <= 8
+    assert not list(fs.slow.values()), list(fs.slow.values())
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_path_priced_big():
+    L, sim, ns, G = client()
+    sim.Run(5)  # past login's grace and the first open's
+    sim.Press("M")
+    sim.Run(3)
+    UI = ns.UI
+    w, h = UI.Window.Size()
+    col, row = ns.Atlas.Camera.ScreenToTile(UI.Camera.cam, w, h, w - 10, 10)
+    sim.Price(True)
+    G.Target("waypoint", col, row, "Waypoint")
+    sim.Run(1)
+    first = ns.Runtime.Perf()[0]["map: path"].max
+    view = UI.Window.view
+    for n in (4, -4, 6, -6):
+        for _ in range(abs(n)):
+            sim.Wheel(view, 1 if n > 0 else -1)
+            sim.Step()
+        sim.Run(1)
+    sim.Price(False)
+    fs = ns.Runtime.FrameStats()
+    by = {k: v for k, v in fs.byState.items()}
+    print(f"big, a corner waypoint, priced: the first layout {first:.2f} ms, {UI.Path.pieces} pieces; "
+          + ", ".join(f"{k} {v.frames} p95 {v.p95} max {v.max}" for k, v in sorted(by.items())))
+    assert first <= 2 and by["big"].p95 <= 1 and fs.max <= 8
     assert not list(fs.slow.values()), list(fs.slow.values())
     assert not errors(sim, ns), errors(sim, ns)

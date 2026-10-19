@@ -58,21 +58,21 @@ Path.edge = edge
 -- The line (Path.lua:81-275)
 ---------------------------------------------------------------------------
 
+-- Each piece's two lines (pieces counted from the target: MAX_PIECES), made once at load, in login's grace,
+-- hidden: a layout only colours, places and shows them (made as they first showed, a long line's first
+-- layout made up to 2 x MAX_PIECES in one call: 2-7 ms priced).
 local strokes, washes = {}, {}
 local used = 0
-
--- A piece's line, made the first time it shows (pieces counted from the target: at most MAX_PIECES each).
-local function Get(list, i, sublevel, thick)
-	local l = list[i]
-	if not l then
-		l = canvas:CreateLine(nil, "ARTWORK", nil, sublevel)
-		l:SetSnapToPixelGrid(false)
-		l:SetTexelSnappingBias(0)
-		l:SetThickness(thick)
-		list[i] = l
-	end
+local function Make(sublevel, thick)
+	local l = canvas:CreateLine(nil, "ARTWORK", nil, sublevel)
+	l:SetSnapToPixelGrid(false)
+	l:SetTexelSnappingBias(0)
+	l:SetThickness(thick)
+	l:Hide()
+	l.on = false
 	return l
 end
+for i = 1, MAX_PIECES do washes[i], strokes[i] = Make(0, WASH), Make(1, STROKE) end
 
 -- Only what changed: the far end of the line (its waves are counted from the target) stays put as you go.
 local function Segment(l, ax, ay, bx, by, c, a)
@@ -92,7 +92,7 @@ local function Segment(l, ax, ay, bx, by, c, a)
 end
 
 local function Off(l)
-	if l and l.on then
+	if l.on then
 		l.on = false
 		l:Hide()
 	end
@@ -273,8 +273,8 @@ local function Line(t, me, cam, w, h)
 				local mid = (a + b) / 2
 				local f = math.min(1, (mid - s0) / FADE, (s1 - mid) / FADE)
 				local even = 1 - UNEVEN * (0.5 + 0.5 * math.sin((len - mid) * 0.045 + 2))
-				Segment(Get(washes, n, 0, WASH), ax, ay, bx, by, WASH_RGBA, HalfPixel(WASH_RGBA[4] * f * 100) / 100)
-				Segment(Get(strokes, n, 1, STROKE), ax, ay, bx, by, STROKE_RGBA, HalfPixel(STROKE_RGBA[4] * f * even * 100) / 100)
+				Segment(washes[n], ax, ay, bx, by, WASH_RGBA, HalfPixel(WASH_RGBA[4] * f * 100) / 100)
+				Segment(strokes[n], ax, ay, bx, by, STROKE_RGBA, HalfPixel(STROKE_RGBA[4] * f * even * 100) / 100)
 			else
 				Off(washes[n])
 				Off(strokes[n])
@@ -343,6 +343,18 @@ Runtime.Step("ui", "map: path", function()
 	end
 	used, Path.pieces = n, n
 end, { shownOnly = Window.frame })
+
+-- Hidden: every line off, laid out anew when it shows (left shown under the window, they'd all show with
+-- it in that one call: R-P7), as the map's canvases are emptied (ui/Engine.lua).
+Window.frame:HookScript("OnHide", Runtime.Wrap("map: path hidden", function()
+	for i = 1, used do
+		Off(strokes[i])
+		Off(washes[i])
+	end
+	used, Path.pieces, drawn[1], shownWay = 0, 0, nil, nil
+	edge.on = false
+	edge:Hide()
+end))
 
 ---------------------------------------------------------------------------
 -- Your corpse as the target brings the view back to you (Core.lua:1095-1108)
