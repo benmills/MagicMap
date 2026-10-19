@@ -19,7 +19,8 @@
 --         keeps failing is throttled
 --   * Trace's event shape (docs/telemetry.md)
 -- OPEN: the budget numbers, throttling policy, Perf / FrameStats shapes,
--- new optional opts; Grace, SetState, FrameStats; the onTrace hook.
+-- new optional opts; Grace, SetState, FrameStats; Worker / Wake / Idle (a job
+-- that lasts: its coroutine made once); the onTrace hook.
 
 ---@alias MM.Phase "input"|"observe"|"model"|"ui"|"apply"
 
@@ -70,10 +71,11 @@
 ---@field grace table<string, number>  each grace's slowest frame (ms)
 ---@field graceTop table<string, { top: string?, topMs: number }>  that frame's slowest call
 ---@field slow { name: string, n: integer, max: number }[]
+---@field slowGc { name: string, n: integer }[]  over budget while the collector freed more than they made: its step, not theirs
 ---@field alloc { name: string, kbPerSec: number, kbMax: number, calls: integer }[]
 ---@field gaps { job: string, ms: number, n: integer, stack: string? }[]
 ---@field ledger { frame: MM.Frame, ms: number, top: string?, topMs: number, events: MM.TraceEvent[] }[]
----@field byState table<string, { frames: integer, p50: number, p95: number, p99: number, max: number }>
+---@field byState table<string, { frames: integer, p50: number, p95: number, p99: number, max: number, client: { p50: number, p95: number, p99: number, max: number } }>  client: the client's whole frame (ms between OnUpdates), booked to the state that frame ran in
 
 ---@class MM.RuntimeError
 ---@field name string            the Wrap name
@@ -134,6 +136,23 @@ function Runtime.Job(name, fn, budgetMs, maxFrames) end
 
 ---Inside a job: give the frame back once its budget is spent. Elsewhere: nothing.
 function Runtime.Yield() end
+
+---A job that lasts: fn runs in one coroutine for good, each run ending in Runtime.Idle().
+---Not running until Wake. OPEN
+---@param name string
+---@param fn fun()
+---@param budgetMs? number       per frame (default 2)
+---@param maxFrames? integer     resumes a run may take before it's cancelled
+---@return MM.Job
+function Runtime.Worker(name, fn, budgetMs, maxFrames) end
+
+---Run a worker again as a job, from its Idle (cancelled or failed mid-run: fn anew). OPEN
+---@param job MM.Job
+---@param budgetMs? number
+function Runtime.Wake(job, budgetMs) end
+
+---Inside a worker: this run is done (the job's .done is set); the next Wake goes on from here. OPEN
+function Runtime.Idle() end
 
 ---fn timed and isolated under `name`; Step / On / After / Every / Job wrap for you.
 ---@generic F: function

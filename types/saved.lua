@@ -15,7 +15,8 @@
 --       not a table, or `_v` not a number   reset to {} then defaults
 --       `_v` older (absent = 0)              spec.migrate(saved, from); if it errors: wiped, defaults
 --       `_v` newer (a downgrade)             left untouched on disk; the session runs on defaults, unsaved
---       a top-level key of the wrong type    that key's default
+--       a top-level key of the wrong type    that key's default (one listed in spec.optional: nil;
+--                                            ADR 0004's amendment 2026-10-18)
 --     never an error the rest of the addon sees (the loader is wrapped)
 --   * saved positions are tile space (col, row, 3 decimals, by inst), saved
 --     times are MM.Epoch

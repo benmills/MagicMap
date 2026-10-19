@@ -36,7 +36,7 @@ Measured at the M0 gate (docs/evidence/perf-m0.md): the ~20 µs a region is what
 
 ## 3. Rules for every package
 
-- Contracts: OPEN additions only, by the single `types/` owner (M0.1). The only LOCKED changes are the SavedVariables rename (ADR 0007, M6.1) and ADR 0004's D6 amendment (5000 seen blips an instance: done 2026-10-18).
+- Contracts: OPEN additions only, by the single `types/` owner (M0.1). The only LOCKED changes are the SavedVariables rename (ADR 0007, M6.1) and ADR 0004's amendments: D6 (5000 seen blips an instance: done 2026-10-18) and optional keys (a key without a default, of another type, nil: recorded 2026-10-18, M1 review round 2).
 - Tests: simple sim scenarios or `R-*` replays only. No unit-test sprawl.
 - No defensive code. E3 (`x/0` raises in the client) is handled by the `/` lint rule (M0.7) and fixes at the source. Absent QuestieDB data is handled once in Atlas (empty indexes), not per call site.
 - Comments: terse, spike-style.

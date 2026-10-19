@@ -16,19 +16,20 @@ few releases").
 ## Decision
 
 - **One account-wide SavedVariable**: `MagicMapAtlasDB`, which becomes `MagicMapDB` when
-  merged into MagicMap. Its root is a table of owners: `Game`, `UI`, `Model`, `telemetry`
-  and `validation`. Game leaves owners it doesn't know untouched.
+  merged into MagicMap. Its root is a table of owners: `Game`, `UI`, `Model`, `telemetry`,
+  `validation` and `recording` (game/Record.lua: `/mma record`'s stream). Game leaves owners it doesn't know untouched.
 - **Each owner declares its part**: `Game.Load(owner, fn, spec)` (Model's through
   `Game.Load("Model", Model.Load, Model.SAVED)`, ADR 0006; UI's through a `load` Command, ADR 0003), where
-  `spec = { version, defaults, migrate(saved, from) }`. Game stamps the version on the part as `_v`.
+  `spec = { version, defaults, optional, migrate(saved, from) }` (`optional`: the amendment below). Game
+  stamps the version on the part as `_v`.
 - **The migration rule** is applied by Game before the owner sees its part, so the owner
   never sees garbage:
   - If the part is not a table, or `_v` is not a number, it is reset.
   - If `_v` is older (absent counts as 0), `migrate` runs. If it errors, the part is wiped.
   - If `_v` is newer (a downgrade), the part is left untouched on disk and the session
     runs on defaults that are never saved.
-  - Any top-level key of the wrong type gets its default: a key the spec lists in `defaults`
-    a copy of it, one it lists in `optional` (by type name) nil.
+  - Any top-level key of the wrong type gets its default (a copy of it). (A key listed in
+    `optional`: the amendment below.)
   - The loader is wrapped, so nothing fails past it.
 - **Saved positions are tile space** (`col`, `row`, 3 decimals, by `inst`), and **saved times are `time()`**.
 - **What each owner keeps in v1**:
@@ -81,3 +82,12 @@ The meaning of every field is unchanged and 200 fits under 5000, so nothing migr
   a blip's neighbours only, and Known("remembered") (Focus's instance) changes only when what's
   remembered there does, not with each sweep. Only adding one past the cap walks the instance (for
   the oldest).
+
+## Amendment 2026-10-18: optional keys
+
+A part may keep top-level keys that have no default: UI's `center`, `inst` and `window` (unset until
+the user moves the map), Game's `buttonAngle`. `spec.optional` names each with its type ("table",
+"number", "string"...). A key listed there with another type becomes **nil**, traced `saved dropped`,
+so the owner never sees a key of the wrong type. It's additive: nothing on disk changes meaning,
+nothing migrates, and `_v` stays 1 for every owner. (Recorded here in round 2 of the M1 review: the
+rule had been edited in place in 7ce094a.)

@@ -75,9 +75,10 @@
 ---  "addon:" .. MM.ObsAddon.key  borrow that addon's pins onto the sockets
 ---@alias MM.GameLayer "blips"|"flight"|"quests"|"pois"|string
 
----Frames UI owns and Game places other addons' pins on. Game parents pins to
----a socket's frame and positions them on it; it never moves, sizes or hides
----the frame itself, and takes every pin back when the socket goes (nil) or changes frame.
+---Frames UI owns and Game places other addons' pins on. Game hosts the pins on a 1x1
+---frame of its own at the socket frame's TOPLEFT (the same coordinates), which it may fade
+---while it re-places them; it never moves, sizes, hides or fades the socket's frame itself,
+---and takes every pin back when the socket goes (nil) or changes frame.
 ---@class MM.ViewSockets
 ---@field world? MM.Socket       other addons' world-map pins (HereBeDragons), on the map shown
 ---@field minimap? MM.Socket     their minimap pins, around you (Game sizes them to the Minimap's view)
