@@ -5,8 +5,8 @@
 -- Minimap's view radius (not IsIndoors(): Undercity is mountable), but in the open-air Orgrimmar
 -- (game/Renderer.lua's OPEN_CITIES); obs.indoorArt, the art of the map you're on when it's the place's
 -- own (no wider than 1600 yd, or a dungeon floor: a zone's painting never; game/parts/IndoorArt.lua).
--- UI picks View.renderer from them as the spike did (MinimapTakeover.lua:550-554: UI's pick is M4.4's,
--- a step of the replay's stands in for it here, after UI's, feeding Game the View), and Game acts on it:
+-- UI picks View.renderer from them as the spike did (MinimapTakeover.lua:550-554; ui/IndoorArt.lua), and
+-- Game acts on it:
 -- "blizzard" the whole Minimap in the window over Game's black backdrop, the wheel zooming it, our
 -- arrow under them, no sensor; out of it the sensor again. Each change leaves one "indoor" trace.
 local T = ...
@@ -22,20 +22,6 @@ sim.maps[291] = { "The Deadmines", M.Dungeon, nil, 36, 30, 30, 36, 36 }
 for _, id in ipairs({ 1429, 1454, 1458, 1412, 291 }) do sim.mapArt[id] = { 1002, 668, 256 } end
 
 local view = UI.View()
-local fed = setmetatable({ renderer = "ours" }, { __index = view })
-UI.View = function() return fed end
--- UI's pick, the spike's: the art where the Minimap draws its indoor map and the map shown is yours
--- and has it; else indoors, in the small window, Blizzard's floor plan; else our terrain.
-ns.Runtime.Step("ui", "R-G1: renderer", function()
-	local art, inst, indoor = Game.obs.indoorArt, view.inst, Model.minimap.indoors
-	if indoor and Model.you.inst == inst and art and art.pieces[1].rect.inst == inst then
-		fed.renderer = "ours+art"
-	elseif indoor and not view.window.big then
-		fed.renderer = "blizzard"
-	else
-		fed.renderer = "ours"
-	end
-end)
 local traces, onTrace = {}, ns.Runtime.onTrace
 ns.Runtime.onTrace = function(k, d)
 	if k == "indoor" then traces[#traces + 1] = d end
@@ -65,9 +51,9 @@ for i, p in ipairs(PLACES) do
 	sim.Run(1)
 	local art, m = Game.obs.indoorArt, Game.minimap
 	T.Print("G1: %s: map %s, indoors %s, art %s, renderer %s; %d trace(s)", what, tostring(Model.you.uiMap),
-		tostring(Model.minimap.indoors), art and #art.pieces .. " pieces" or "none", fed.renderer, #traces - n)
+		tostring(Model.minimap.indoors), art and #art.pieces .. " pieces" or "none", view.renderer, #traces - n)
 	assert(Model.you.uiMap == p[7] and Model.minimap.indoors == p[8] and (art ~= false) == p[9], what)
-	assert(fed.renderer == p[10], what .. ": " .. fed.renderer)
+	assert(view.renderer == p[10], what .. ": " .. view.renderer)
 	local one = i > 1 -- (where we are already: traced as it engaged)
 	assert(#traces == n + (one and 1 or 0) and (not one or traces[#traces].shows == p[10] and traces[#traces].map == p[7]),
 		what .. ": one trace")
@@ -84,7 +70,7 @@ for i, p in ipairs(PLACES) do
 		assert(sim.state[mm].mouseMotion and not sim.state[mm].mouseClick and not sim.state[mm].wheel)
 		sim.Wheel(bg, 1) -- the wheel zooms it (its radius 0 a frame or two: IsIndoors() meanwhile, still indoors)
 		sim.Run(0.5)
-		assert(mm:GetZoom() == 1 and fed.renderer == "blizzard" and #traces == n + 1, "zoomed, nothing else traced")
+		assert(mm:GetZoom() == 1 and view.renderer == "blizzard" and #traces == n + 1, "zoomed, nothing else traced")
 		if i == 4 then -- what's decided, printed (IndoorArt.lua:170-175), and the art outlined
 			sim.Slash("/mma indoor")
 			sim.Step()

@@ -4,21 +4,9 @@ alone (-1) or bigger than 128 px, none of Questie's turn-ins our quests layer sh
 host of Game's on the minimap socket, centred on you at the Minimap's view, each where the library
 puts it, so on its spot on our map, out of sight under Rotate Minimap, off your map and for a renamed
 copy whose world pins we host, on the whole Minimap under "blizzard", back on the Minimap at release.
-Game is fed Views (test_tracking.FEED's way): UI publishes the minimap socket and the quests layer at
-M4.4. The world pins' round trip and Questie's scale: replays/R-G6.lua, R-G6b.lua; the hidden host
+Game reads UI's View: its sockets (ui/Sockets.lua), layers and renderer. The world pins' round trip and Questie's scale: replays/R-G6.lua, R-G6b.lua; the hidden host
 while there's no minimap socket: R-G6c.lua."""
 from test_addon import boot, errors
-
-# UI's View, its layers, renderer and minimap socket the test's (the world socket UI's).
-FEED = """function(ns, layers)
-    local view = ns.UI.View()
-    local world = view.sockets.world
-    local socket = { frame = world.frame, inst = 0, zoom = world.zoom }
-    local mine = setmetatable({ layers = layers, renderer = "ours",
-        sockets = setmetatable({ minimap = socket }, { __index = view.sockets }) }, { __index = view })
-    ns.UI.View = function() return mine end
-    return mine, socket
-end"""
 
 # Questie's world pins in Elwynn: (Type, Id, flag, size px).
 PINS = {"world": ("available", 70, 3, 16), "continent": ("available", 71, 2, 16), "parent": ("available", 72, 1, 16),
@@ -51,7 +39,7 @@ def test_world_pins():
     sim.Run(3)
     q = sim.LoadQuestie()
     sim.FireEvent("ADDON_LOADED", "Questie")
-    view, _ = L.eval(FEED)(ns, L.table_from({"blips": True, "quests": True, "addon:Questie": True}))
+    view = ns.UI.View()
     icons = world_pins(L, sim, q)
     canvas = view.sockets.world.frame
     sim.Run(0.5)
@@ -68,7 +56,7 @@ def test_world_pins():
     sim.Run(0.5)
     assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "parent", "world", "zone"]
 
-    view.layers.quests = None  # ours off: Questie's turn-in is the one shown, by the next regular pass
+    ns.UI.Engine.SetLayer("quests", False)  # ours off: Questie's turn-in is the one shown, by the next regular pass
     sim.Run(1.1)
     assert "turnIn" in hosted(L, icons, canvas)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
@@ -81,10 +69,12 @@ def test_minimap_pins():
     sim.Run(3)
     q = sim.LoadQuestie()
     sim.FireEvent("ADDON_LOADED", "Questie")
-    view, socket = L.eval(FEED)(ns, L.table_from({"blips": True, "addon:Questie": True}))
+    socket = ns.UI.View().sockets.minimap
     G, same = L.globals(), L.eval("rawequal")
     quest = sim.QuestieIcon(L.table_from({"Type": "available", "Id": 70}))
     q.AddMinimapIconMap(q, G.Questie, quest, 1429, 0.29, 0.56)
+    world = sim.QuestieIcon(L.table_from({"Type": "available", "Id": 70}))  # its world pin: we host it
+    q.AddWorldMapIconMap(q, G.Questie, world, 1429, 0.29, 0.56, 3)
     herb, frame, Atlas = sim.gatherPin, socket.frame, ns.Atlas
     sim.Run(0.5)
     host = herb.GetParent(herb)
@@ -109,7 +99,7 @@ def test_minimap_pins():
 
     # Questie's: its world pins hosted, they'd repeat them; its layer off, around you too.
     assert not same(quest.GetParent(quest), host) and not quest.IsVisible(quest)
-    view.layers["addon:Questie"] = None
+    ns.UI.Engine.SetLayer("addon:Questie", False)
     sim.Step()
     assert same(quest.GetParent(quest), host) and quest.IsVisible(quest)
 
@@ -122,20 +112,20 @@ def test_minimap_pins():
     assert same(herb.GetParent(herb), host) and herb.IsVisible(herb)
 
     # The map shown isn't yours: they're around you, not on it.
-    socket.inst = 1
-    sim.Step()
-    assert same(herb.GetParent(herb), host) and not herb.IsVisible(herb)
-    socket.inst = 0
-    sim.Step()
-    assert herb.IsVisible(herb)
+    sim.Slash("/mma map 36")
+    sim.Run(0.5)
+    assert socket.inst == 36 and same(herb.GetParent(herb), host) and not herb.IsVisible(herb)
+    sim.Slash("/mma follow")
+    sim.Run(0.5)
+    assert socket.inst == 0 and herb.IsVisible(herb)
 
-    # The whole Minimap: on it, in view; then back around you.
-    view.renderer = "blizzard"
+    # The whole Minimap (indoors, the small window): on it, in view; then back around you.
+    sim.indoors = True
     sim.Step()
     mm = G.Minimap
     assert same(herb.GetParent(herb), mm) and same(quest.GetParent(quest), mm) and herb.IsVisible(herb)
     assert same(q.Minimap, mm) and same(sim.hbdPins.Minimap, mm)
-    view.renderer = "ours"
+    sim.indoors = False
     sim.Step()
     assert same(herb.GetParent(herb), host) and herb.IsVisible(herb)
 
