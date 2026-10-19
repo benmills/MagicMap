@@ -93,7 +93,7 @@ All paths are in `~/code/MagicMap`. Font face is GameFontNormal's unless stated.
 | Resize small | zoom × newSide/oldSide (yards kept) | MinimapMode.lua:88-96 |
 | Grow (M) | 0.7 screen each way, centred, HIGH + Raise, 0.22 s EaseOutCubic `1-(1-t)^3`; home alpha → 0; zoom /1.5 but not past whole zone at fit 0.92, over 0.32 s | MinimapMode.lua:47-80 |
 | Shrink | 0.18 s to saved small rect; home alpha back; fly to saved zoom, follow | MinimapMode.lua:139-189 |
-| Zoom | 16..800 px/tile (tile 533.33 yd), default 384; tick ×1.3; log-space chase 14/s, stop within 0.002 log; ticks stack (the buttons' every tick; the wheel's notches ≥0.5 s apart, its bucket WHEEL_BURST 1 refilling WHEEL_RATE 2/s, a gesture WHEEL_GESTURE 3 ticks at most: M1.8b and the M1 review's round 2, the user's call over the spike; `/mma wheel` tries others); anchor cursor / you while following / centre for buttons | Core.lua:13-17, 1418-1438 |
+| Zoom | 16..800 px/tile (tile 533.33 yd), default 384; tick ×1.3, every wheel event one by its sign (the spike's: M1.14 removed M1.8b's rationing by time and `/mma wheel`, the user's play-test of M1); log-space chase 14/s, stop within 0.002 log; ticks stack onto the running target; anchor you while following, else the cursor (wheel) / centre (buttons) | Core.lua:13-17, 965-983, 1422-1441 |
 | Flight | `AnimateTo` 0.55 s EaseOutCubic, log-space zoom; zoom-in "comes to you"; zone fit 0.92 | Core.lua:946-1025 |
 | Click vs drag | click <5 px and <0.35 s; drag turns follow off | Core.lua:1064-1090 |
 | Idle return | 6 s untouched, small only, not hovered/dragging/animating | MinimapMode.lua |

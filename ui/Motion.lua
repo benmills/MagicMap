@@ -1,15 +1,17 @@
 -- How the camera moves, the spike's way (Core.lua:931-1025, 1335-1443, 1507-1550). The wheel
 -- and the ± buttons chase a target zoom, closing a fixed share of the (log) distance a second:
 -- quick ticks just move the target, so the motion stays continuous instead of restarting a
--- curve per tick. It pins the point under the cursor (you while following, the centre for the
--- buttons). The wheel's ticks are rationed by time (WHEEL_RATE: a trackpad's flick is one gesture,
--- not 40 ticks). Flights (FlyTo) ease out, zoom in log space and, zooming in, keep the destination
+-- curve per tick. Every wheel event is a tick, as the spike's (Core.lua:1422-1441): the MVP the
+-- user plays (D4; M1.8b rationed them by time, and a fast scroll mostly did nothing). It pins you
+-- while following, else the point under the cursor (the wheel) or the view's centre (the buttons).
+-- Flights (FlyTo) ease out, zoom in log space and, zooming in, keep the destination
 -- on a straight line toward the centre (it "comes to you"). A press moving under CLICK_SLOP px
 -- is a click; past it, a drag: it pans and stops following. Panned away and left alone, the
 -- small map glides back to following you (MinimapMode.lua:244-249).
 -- Window routes the view's input here and calls Chase each frame (ui/Window.lua); what this
 -- marks on Camera (moving, zoomedAt, vx, vy) is what Camera.Settled and Camera.Velocity read;
--- Rect is Focus's (ui/View.lua sends it).
+-- Rect is Focus's (ui/View.lua sends it). tools/tests/spike_camera.lua is the spike's camera
+-- ported; tools/tests/test_feel.py holds this one to it frame by frame.
 
 local _, ns = ...
 local UI = ns.UI
@@ -19,18 +21,6 @@ local Maths = Atlas.Camera
 
 local MIN_ZOOM, MAX_ZOOM = 16, 800 -- px per tile (Core.lua:13)
 local WHEEL_STEP = 1.3 -- a tick (Core.lua:14)
--- The wheel, rationed: a trackpad or Magic Mouse flick sends an event every frame for half a second
--- and more, its inertia a second or two after (the `wheel` marks: 40 or more in 0.45 s; sessions #8,
--- #9: 7 in 9 frames), each a tick in the spike, so one flick ran to the clamp. A burst counts by its
--- time, not its events: the wheel spends its ticks (|delta| an event) from a bucket holding
--- WHEEL_BURST that refills WHEEL_RATE a second, and a gesture (events under GESTURE_GAP s apart: a
--- flick and its inertia) takes WHEEL_GESTURE ticks at most. A lone notch, and notches 1/WHEEL_RATE s
--- apart, stay the spike's tick; a 0.45 s flick is ~1.9 ticks, a long one 3 (x2.2). The buttons aren't
--- rationed. The user's call over the spike's code (D4: "too sensitive" at 4 a second, uncapped):
--- /mma wheel tries other values in game, on a trackpad and on a wheel mouse.
-local WHEEL_BURST = 1 -- ticks the wheel may take at once
-local WHEEL_RATE = 2 -- ticks a second it gets back: a burst's speed
-local WHEEL_GESTURE, GESTURE_GAP = 3, 0.15 -- ticks a gesture takes at most; s between its events
 local FLY_TIME = 0.55 -- s (Core.lua:15)
 local ZOOM_RATE = 14 -- per second: how quickly wheel zoom closes on its target (Core.lua:16)
 local ZOOM_STOP = 0.002 -- log distance the chase lands from (Core.lua:969)
@@ -48,7 +38,9 @@ local goal, anchor -- the wheel's target zoom, and { col, row, dx, dy }: the til
 local flight -- { t, dur, fx, fy, fz, tx, ty, tz, onDone }
 local press -- the left button down: { x, y (the press), lx, ly (the last pan), t, moved }
 local touched = 0 -- the last press or zoom step (GetTime): the idle return's clock
-local wheelLeft, wheelAt, gesture = WHEEL_BURST, 0, 0 -- the wheel's bucket (ticks), when it last filled (GetTime), the gesture's ticks
+-- The wheel's events since Motion's last step (its `wheel` trace: what the device sends): how many, their
+-- deltas' sum, s from the event before them; at: the last event's GetTime.
+local wheel = { n = 0, delta = 0, dt = 0, at = 0 }
 
 Camera.moving, Camera.zoomedAt, Camera.vx, Camera.vy = false, 0, 0, 0
 local px, py, pinst -- the centre and map at the last draw; nil: none since the window showed
@@ -57,50 +49,43 @@ local function Clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
 local function Animating() return goal ~= nil or flight ~= nil end
 
--- A zoom replaces the camera's table (ui/Camera.lua).
+-- The camera moved, in place (a table a zoom frame was `map: motion`'s 3.6-5.7 KB/s zooming: M1b).
 local function Set(cx, cy, zoom)
-	if zoom ~= Camera.cam.zoom then Camera.zoomedAt = GetTime() end
-	Camera.cam = { cx = cx, cy = cy, zoom = zoom }
+	local cam = Camera.cam
+	if zoom ~= cam.zoom then Camera.zoomedAt = GetTime() end
+	cam.cx, cam.cy, cam.zoom = cx, cy, zoom
 end
 
 ---------------------------------------------------------------------------
 -- Zoom, flights, follow
 ---------------------------------------------------------------------------
 
--- A zoom of `ticks` steps, in (> 0) or out, about the cursor (the wheel) or the view's centre
--- (the buttons, a tick a click; and you while following: you're the centre). Ticks stack onto the target.
+-- A zoom of `ticks` steps, in (> 0) or out; ticks stack onto the target (Core.lua:1422-1441). It keeps
+-- you where you are while following, else the point under the cursor (the wheel) or the view's centre
+-- (the buttons, a tick a click).
 function Motion.ZoomStep(ticks, atCursor)
-	local cam, w, h = Camera.cam, Window.Size()
+	local cam, you, w, h = Camera.cam, ns.Model.you, Window.Size()
 	touched = GetTime()
 	goal = Clamp((goal or cam.zoom) * WHEEL_STEP ^ ticks, MIN_ZOOM, MAX_ZOOM)
 	flight, Camera.moving = nil, true
 	local x, y = w / 2, h / 2
-	if atCursor and not Camera.follow then x, y = Window.Cursor() end
+	if Camera.follow and you.col then
+		x, y = Maths.TileToScreen(cam, w, h, you.col, you.row)
+	elseif atCursor then
+		x, y = Window.Cursor()
+	end
 	local col, row = Maths.ScreenToTile(cam, w, h, x, y)
 	anchor = { col, row, x - w / 2, y - h / 2 }
-	Camera.Trace("wheel")
+	if not atCursor then Camera.Trace("wheel") end -- (the wheel's: Motion's step, a frame's events in one)
 end
 
--- The wheel (ui/Window.lua): as many ticks as the bucket holds, up to |delta| and what the gesture
--- has left. Events in one frame share its time (GetTime), so a frame's events share one refill.
+-- The wheel (ui/Window.lua): each event a tick, in or out by its sign (Core.lua:1424, 1439).
 function Motion.Wheel(delta)
 	local now = GetTime()
-	if now - wheelAt >= GESTURE_GAP then gesture = 0 end
-	wheelLeft = math.min(WHEEL_BURST, wheelLeft + (now - wheelAt) * WHEEL_RATE)
-	wheelAt = now
-	local n = math.max(0, math.min(math.abs(delta), wheelLeft, WHEEL_GESTURE - gesture))
-	wheelLeft, gesture = wheelLeft - n, gesture + n
-	Motion.ZoomStep(delta > 0 and n or -n, true)
+	if wheel.n == 0 then wheel.dt = now - wheel.at end
+	wheel.n, wheel.delta, wheel.at = wheel.n + 1, wheel.delta + delta, now
+	Motion.ZoomStep(delta > 0 and 1 or -1, true)
 end
-
--- /mma wheel <rate> <gesture>: try the wheel's rationing in game (this session only).
-ns.Game.Command({ kind = "slash", name = "wheel", help = "<ticks a second> <ticks a gesture>: the wheel's zoom speed, this session",
-	fn = function(args)
-		local rate, most = (args or ""):match("^(%S+)%s*(%S*)")
-		WHEEL_RATE, WHEEL_GESTURE = tonumber(rate) or WHEEL_RATE, tonumber(most) or WHEEL_GESTURE
-		print(string.format("MagicMapAtlas wheel: %.2f ticks a second, %.2f a gesture (a tick x%.1f)", WHEEL_RATE,
-			WHEEL_GESTURE, WHEEL_STEP))
-	end })
 
 -- Fly to (cx, cy) at zoom over duration s (default FLY_TIME); onDone() when there.
 function Motion.FlyTo(cx, cy, zoom, duration, onDone)
@@ -269,7 +254,13 @@ local function StepIdle()
 	Motion.SetFollow(true, true)
 end
 
+local function R3(v) return math.floor(v * 1000 + 0.5) / 1000 end -- for traces
+
 Runtime.Step("input", "map: motion", function(elapsed)
+	if wheel.n > 0 then
+		Camera.Trace("wheel", wheel.delta, wheel.n, R3(wheel.dt))
+		wheel.n, wheel.delta = 0, 0
+	end
 	if flight then StepFlight(elapsed) end
 	if goal then StepZoom(elapsed) end
 	if press then StepDrag() end

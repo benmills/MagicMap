@@ -72,7 +72,7 @@ ns.Runtime.Trace = function(kind, d)
 	return trace(kind, d)
 end
 for _ = 1, 20 do
-	ns.UI.Motion.ZoomStep(-1) -- the zoom-out button's tick (the wheel's are rationed by time: M1.8b)
+	ns.UI.Motion.ZoomStep(-1) -- the zoom-out button's tick, a frame apart (a fast wheel's too)
 	sim.Step()
 end
 sim.Run(2)

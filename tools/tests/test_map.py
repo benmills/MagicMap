@@ -32,7 +32,7 @@ def test_map():
     for layer in e.layers.values():
         assert layer.front.zoom == c.cam.zoom, layer.name
 
-    # Out to the whole continent (the zoom-out button's ticks, a frame apart: the wheel's are rationed by time),
+    # Out to the whole continent (the zoom-out button's ticks, a frame apart, as a fast wheel's),
     # and back to you on a right click.
     for _ in range(20):
         ns.UI.Motion.ZoomStep(-1)
