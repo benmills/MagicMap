@@ -125,7 +125,7 @@ local function Measure(l)
 	end
 end
 
-UI.Labels = Engine.Layer("labels", 3, function(c, inst, zoom, c0, r0, c1, r1)
+UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 	local front = UI.Labels.front -- what shows now: its names don't fade in again
 	local shown = front and front ~= c and front.names or NONE
 	c.names, c.fading = c.names or {}, c.fading or {}

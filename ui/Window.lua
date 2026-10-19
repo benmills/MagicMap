@@ -97,7 +97,7 @@ view:SetScript("OnMouseUp", Runtime.Wrap("map: release", function(_, button)
 	if button == "RightButton" then
 		if not (IsShiftKeyDown() or IsControlKeyDown()) then UI.Menus.Map(view) end
 	elseif button == "LeftButton" then
-		if UI.Motion.Release() then UI.Pins.Tap(button) end -- a click, not a drag: the pin under it first
+		if UI.Motion.Release() and not UI.Pins.Tap(button) then UI.Areas.Tap() end -- a click, not a drag: pins beat areas
 	end
 end))
 -- In the window (a tip on one of its widgets goes with it: Game hides only its own, spike-bugs G7).

@@ -55,7 +55,7 @@ local function Here()
 end
 
 local carried = {} -- keys of remembered ones a sensed one stands for
-UI.Blips = UI.Pins.Layer("blips", 6, function(put, inst, _, want)
+UI.Blips = UI.Pins.Layer("blips", 12, function(put, inst, _, want)
 	local live, seen = Model.Known("blips"), Model.Known("remembered")
 	for k in pairs(carried) do carried[k] = nil end
 	for _, b in ipairs(live) do

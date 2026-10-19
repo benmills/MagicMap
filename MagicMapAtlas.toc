@@ -100,6 +100,9 @@ ui\Labels.lua
 ui\Pins.lua
 ui\Blips.lua
 ui\Rares.lua
+ui\QuestTooltip.lua
+ui\Areas.lua
+ui\Quests.lua
 ui\Sockets.lua
 ui\You.lua
 ui\View.lua

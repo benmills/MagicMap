@@ -10,7 +10,7 @@ local UI, Model = ns.UI, ns.Model
 local MIN_ZOOM = 60 -- px a tile (Landmarks.lua:15 RARE_MIN_ZOOM)
 local LOOK = { size = 15, icon = { texture = 137008 } } -- Landmarks.lua:15, 60-63 (RARE_ICON)
 
-UI.Rares = UI.Pins.Layer("rares", 5, function(put, _, _, want)
+UI.Rares = UI.Pins.Layer("rares", 11, function(put, _, _, want)
 	local list = Model.Known("rares")
 	if not list[1] or not want(MIN_ZOOM) then return end -- Layers.lua:409
 	for _, b in ipairs(list) do put(b, LOOK, MIN_ZOOM) end
