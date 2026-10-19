@@ -42,12 +42,12 @@ Runtime.On("UPDATE_MOUSEOVER_UNIT", "game.portraits", function() Capture("mouseo
 Runtime.On("PLAYER_TARGET_CHANGED", "game.portraits", function() Capture("target") end)
 Runtime.On("NAME_PLATE_UNIT_ADDED", "game.portraits", function(_, unit) Capture(unit) end)
 
-local function Return()
+local Return = Runtime.Wrap("game: portraits back", function()
 	for i = #lent, 1, -1 do
 		lent[i]:Hide()
 		lent[i] = nil
 	end
-end
+end)
 GameTooltip:HookScript("OnHide", Return)
 GameTooltip:HookScript("OnTooltipCleared", Return)
 

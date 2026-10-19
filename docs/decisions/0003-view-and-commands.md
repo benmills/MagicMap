@@ -74,6 +74,11 @@ command and hooked kinds, and everything inside UI (camera, layout, menus, chrom
 - OPEN addition (v1 plan M2.2): CmdTooltip `line`, so one quest tooltip can have up to 3
   portraits an objective, each on its own line (the spike's `shown[line] = npcID`); Game finds
   the line by index and rewrites only its icon. An `npc` comes with its `line`.
+- Clarification (v1 plan M2, its review's round 1; the kinds and their idempotence unchanged):
+  Game carries the queue out in its apply step too, after UI's steps, so a command a ui step sends
+  is carried out that frame, not the next frame's input (the promise was "at most one frame later").
+  A quest tooltip is built in a ui step, so its portraits now show the frame it does, as the
+  spike's built them with the tooltip (QuestInfo.lua:187, 365-368); a met mob's sword showed a frame.
 
 ## Revisit if
 

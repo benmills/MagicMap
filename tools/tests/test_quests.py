@@ -10,8 +10,8 @@ clicks in ui/Areas.lua), end to end from the sim's quest log through Game's part
     quest.
   test_quest_tooltip: the tooltip's lines in QuestInfo.lua's order and type (S63): the tag and group
     size on the facts line, ≤3 droppers lowest first and how many more, Turn in to, the click hint; a
-    met dropper's portrait (the tooltip Command); without QuestieDB's data, no dropper, source or
-    turn-in lines (F28).
+    met dropper's portrait (the tooltip Command) the frame the tooltip is built; without QuestieDB's
+    data, no dropper, source or turn-in lines (F28).
 """
 from test_addon import boot, errors
 
@@ -175,27 +175,25 @@ def test_quest_tooltip():
     def lines():
         return [(S[tip.GetLeftLine(tip, i)].text, same(S[tip.GetLeftLine(tip, i)].fontObject, G.GameTooltipTextSmall))
                 for i in range(1, tip.NumLines(tip) + 1)]
+    disc = "|TInterface\\CharacterFrame\\TempPortraitAlphaMask:14:14:0:0:64:64:0:64:0:64:0:0:0|t"
     want = [
         ("Kobold Candles", False),
         ("|cff9d9d9dLevel|r |cffffd1007|r|cff9d9d9d" + SEP + "|r|cffff8040Group (3)|r", True),  # its tag (F28)
         ("Large Candle: 3/8", False),
         ("    |cff9d9d9dDropped by|r", True),
-        ("    " + MOB + " |cffffffffOld Mole|r", True),
-        ("    " + MOB + " |cffffffffTunnel Rat|r |cff3fbf3f4-5|r", True),
+        ("    " + MOB + " |cffffffffOld Mole|r", True),  # not met: its sword
+        ("    " + disc + " |cffffffffTunnel Rat|r |cff3fbf3f4-5|r", True),  # met: its portrait over a dark disc
         ("    " + ELITE + " |cffffffffWick Keeper|r |cffffd1007|r |cff9d9d9dElite|r", True),
         ("    |cff9d9d9d(+2 more)|r", True),
         (" ", True),
         ("|cff9d9d9dTurn in to|r Candle Taker", True),
         ("|cff9d9d9dClick to follow|r", True),
     ]
+    # The frame the tooltip is built: the tooltip Commands carried out in Game's apply step, after UI's.
     assert lines() == want
+    assert any(v.portrait == "Creature-0-1-0-1-9002-0000000001" and v.shown for v in S.values())
     assert list(S[tip.GetLeftLine(tip, 1)].textColor.values()) == [1, 0.82, 0]
     assert list(S[tip.GetLeftLine(tip, 10)].textColor.values()) == [0.85, 0.85, 0.85]
-    sim.Step()  # the tooltip Commands, in Game's input step: the met one's portrait over a dark disc
-    rat = S[tip.GetLeftLine(tip, 6)].text
-    assert rat.startswith("    |TInterface\\CharacterFrame\\TempPortraitAlphaMask:14:14:") and rat.endswith(
-        "|t |cffffffffTunnel Rat|r |cff3fbf3f4-5|r")
-    assert lines()[4] == want[4]  # not met: its sword
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
     # No QuestieDB data: the pin, its tooltip without droppers, sources or turn-in.

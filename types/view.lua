@@ -103,11 +103,11 @@ local SAFE_VIEW = {
 --
 -- UI calls Game.Command(cmd) from anywhere (a click script, its input step).
 -- Game queues it and carries the queue out, in order, in its input step: in the
--- same frame for a click (scripts run between frames), at most one frame later
--- from a step. Each command states the result wanted, so sending it again does
--- nothing new. No reply: the effect shows in the next Observation (the same
--- frame, since Observe follows Input). One that fails is reported (Runtime)
--- and dropped, never retried.
+-- same frame for a click (scripts run between frames); and again in its apply
+-- step, so one a ui step sends is carried out that frame too. Each command states
+-- the result wanted, so sending it again does nothing new. No reply: the effect
+-- shows in the next Observation (the same frame for one carried out in Input).
+-- One that fails is reported (Runtime) and dropped, never retried.
 
 ---@alias MM.Command MM.CmdFollow|MM.CmdWaypoint|MM.CmdWay|MM.CmdTracking|MM.CmdTooltip|MM.CmdSlash|MM.CmdLoad
 
