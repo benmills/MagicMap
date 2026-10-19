@@ -28,8 +28,9 @@ through a glide) left from it; every
 in-game check waits for one consolidated play-test at the end (D10, docs/playtest-final.md). M2 (quests
 on one pin store): wave 1 merged 2026-10-19 (M2.1 the pin store with blips and rares on it, M2.2 Game's
 quests, offers, follow and tooltip, M2.3 Model's quests and offers); M2.4 (UI quests, areas, tooltip)
-merged 2026-10-19 (d634976) on the quest-areas decision (§7), its review's fixes (two rounds) on main; the
-M2 gate next.
+merged 2026-10-19 (d634976) on the quest-areas decision (§7), its review's fixes (two rounds) on main; M2's
+sim half done at 2112c2d (the M2 gate, 2026-10-19: 112 passed plain and strict), its in-game half in
+docs/playtest-final.md (b6-b20, c7, e4).
 Then M3 target/route/interactions, M4 feature-complete, M5 hardening and parity sign-off, M6 rename,
 merge, release.
 
@@ -122,7 +123,7 @@ reads where the last Apply placed the Minimap, once that placement holds still.
 | `Game.Load(owner, fn, spec)` | game/Game.lua | `fn(saved part)` once SavedVariables load; UI's via `Game.Command({ kind = "load", ... })` |
 | `Model.Part(observe, load)`, `Model.Kind(kind, fn)` | model/Model.lua | `observe(obs, oracles)` each frame; `load(saved)`; `Known(kind)` answers `fn()` → list, rev |
 | `Engine.Layer(name, level, build, rev, zoom)` | ui/Engine.lua | `build(canvas, inst, zoom, c0, r0, c1, r1)` in a layout job when view, zoom, map or `rev()` changes |
-| `Pins.Layer(name, level, fill, rev, opts)` | ui/Pins.lua; the kind's own file in ui/ (Blips, Rares; M2.4's quests, offers) | an Engine `"pin"` layer: its layout calls `fill(put, inst, zoom, want)`; `put(e, look, minZoom?)` for each Known entry to draw (kept by `e.key`: only what changed is set; `look` is StylePin's, one table a look); `want(minZoom)`: whether that zoom's pins draw in this layout. `opts`: `lines(e)` → title, lines... (default `e.name`, `e.text`), `tooltip(GameTooltip, e)`, `hover(e or nil)`, `click(e, button)` (ui/Window.lua's left click, before areas: `Pins.Tap`). Pins never take the mouse: `Pins.Hovered()` finds the one under the cursor while the view has it. `Pins.Small(first, last)`: tooltip lines in small type, restored on hide |
+| `Pins.Layer(name, level, fill, rev, opts)` | ui/Pins.lua; the kind's own file in ui/ (Blips, Rares; Quests: quests and offers) | an Engine `"pin"` layer: its layout calls `fill(put, inst, zoom, want)`; `put(e, look, minZoom?)` for each Known entry to draw (kept by `e.key`: only what changed is set; `look` is StylePin's, one table a look); `want(minZoom)`: whether that zoom's pins draw in this layout. `opts`: `lines(e)` → title, lines... (default `e.name`, `e.text`), `tooltip(GameTooltip, e)`, `hover(e or nil)`, `click(e, button)` (ui/Window.lua's left click, before areas: `Pins.Tap`). Pins never take the mouse: `Pins.Hovered()` finds the one under the cursor while the view has it. `Pins.Small(first, last)`: tooltip lines in small type, restored on hide |
 | `Menus.Layer(row)` | ui/Menus.lua; the layer's own file in ui/ | each time the gear opens: `row = { key, label, group, tip, parent?, onToggle? }` a checkbox in its group's submenu (`map`, `quests`, `places`, `people`, `you`, `addons`), in the order added; `key` is the Engine.Layer's name (and View.layers'); on until turned off (`Engine.LayerOn`): only the layers turned off are saved; `parent`: indented, greyed while it's off |
 
 **The map's engine** (ui/Engine.lua; why: docs/runtime.md "The map's engine"): each layer has two
@@ -278,9 +279,11 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   click and drag), test_quest_parts (Game's quests and offers parts, the follow and tooltip Commands;
   run as a script, it records fixtures/streams/quests.lua and offers.lua again), test_model_quests
   (Model alone on those streams), test_quests (UI's quest pins, follow, tooltip), test_quest_areas (areas,
-  hover, estimates; 25 quests' budgets, allocation over a stretch alone: `stretch`). The sim's C_ calls make
-  their tables anew each call, as the client's (their garbage is measured); a scenario changing Sim.quests
-  fires QUEST_LOG_UPDATE, the sim QUEST_ACCEPTED and QUEST_REMOVED with it.
+  hover, estimates, a 12-tile zone at zoom 800; 25 quests' budgets, the first open, allocation over a
+  stretch alone: `stretch`). The sim's C_ calls make their tables anew each call, as the client's (their
+  garbage is measured); a scenario changing Sim.quests fires QUEST_LOG_UPDATE, the sim QUEST_ACCEPTED and
+  QUEST_REMOVED with it. A QuestPOIFrame draws into its rect as the last frame's end laid it out (L1); its
+  drawing moves with it on a pan, not on a resize or a scale.
 
 ## 10. The docs: what each holds (grep, don't read)
 
