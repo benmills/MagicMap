@@ -7,3 +7,8 @@ game/parts/Offers.lua
 game/parts/Waypoint.lua
 game/parts/Corpse.lua
 game/parts/Levels.lua
+game/parts/Places.lua
+game/parts/Group.lua
+game/parts/Vignettes.lua
+game/parts/Explored.lua
+game/parts/Tracking.lua
