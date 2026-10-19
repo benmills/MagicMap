@@ -340,8 +340,17 @@ local function Drawn(c)
 	return true
 end
 
--- The quest whose drawn area is under the cursor on c (Layers.lua:868-872, 992-1000), tested again only
--- when the cursor, the camera, the canvas or a drawing changed.
+-- The quest whose area f draws at tile (col, row), or nil (BlobAt: Layers.lua:868-872).
+local function Hit(f, col, row)
+	local r = f.rect
+	if col >= r.col0 and col <= r.col1 and row >= r.row0 and row <= r.row1 then
+		return f:UpdateMouseOverTooltip((col - r.col0) / (r.col1 - r.col0), -- /: never 0 (a map's rect has a size)
+			(row - r.row0) / (r.row1 - r.row0)) -- /: never 0 (a map's rect has a size)
+	end
+end
+
+-- The quest whose drawn area is under the cursor on c (Layers.lua:992-1000), tested again only when the
+-- cursor, the camera, the canvas or a drawing changed.
 local asked = {} -- x, y, cx, cy, zoom, c, draws: what the last answer, q, was for
 local function Under(c)
 	local w, h = Window.Size()
@@ -354,17 +363,25 @@ local function Under(c)
 	local col, row = ScreenToTile(cam, w, h, x, y)
 	local p = c.pools.blob
 	for i = 1, p and p.n or 0 do
-		local f = p[i]
-		local r = f.rect
-		if col >= r.col0 and col <= r.col1 and row >= r.row0 and row <= r.row1 then
-			local q = f:UpdateMouseOverTooltip((col - r.col0) / (r.col1 - r.col0), -- /: never 0 (a map's rect has a size)
-				(row - r.row0) / (r.row1 - r.row0)) -- /: never 0 (a map's rect has a size)
-			if q then
-				a.q = q
-				return q
-			end
+		local q = Hit(p[i], col, row)
+		if q then
+			a.q = q
+			return q
 		end
 	end
+end
+
+-- The quests whose drawn areas hold (col, row) on inst, one a frame (Layers.lua:2289-2295): the inspector's
+-- (ui/ZoneInfo.lua). A new list.
+function Areas.QuestsAt(inst, col, row)
+	local out, c = {}, layer.on and layer.front
+	local p = c and c.inst == inst and c.pools.blob
+	for i = 1, p and p.n or 0 do
+		local f = p[i]
+		local q = f.drawn > 0 and Hit(f, col, row)
+		if q then out[#out + 1] = q end
+	end
+	return out
 end
 
 local owner = CreateFrame("Frame", nil, Window.view) -- an area's tooltip's (Layers.lua:990)

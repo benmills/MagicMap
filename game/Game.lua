@@ -15,7 +15,10 @@ local Runtime = ns.Runtime
 local loaders = {}
 local NONE = {}
 
-function Game.Print(msg) print("|cff66ccffMagicMap Atlas|r " .. msg) end
+function Game.Print(msg) print("|cff66ccffMagicMap Atlas|r " .. msg) end -- diagnostics: checks, bench, shots
+
+-- The user's chat line, as UI.Print's (v1-plan §4 Chat; Core.lua:44-46): what a Command says back.
+function Game.Say(msg) print("|cffffd100MagicMapAtlas|r: " .. msg) end
 
 local function Copy(v)
 	if type(v) ~= "table" then return v end

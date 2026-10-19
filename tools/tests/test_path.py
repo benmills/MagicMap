@@ -11,8 +11,8 @@ waypoint pins and the title's target), Model.Target and Model.Route stubbed as t
     end within 4096 px of its canvas (S56; docs/v1-plan.md §2).
   test_edge_arrow: a target off the view gets the gold arrow 16 px inside the edge where the line toward it
     leaves (along the route's leg that does), pointing on; none on the view or inside (F34, S59).
-  test_corpse_forces_follow: your corpse becoming the target glides the view back to you; another target
-    doesn't, nor the one you had when the map first looked (F7, F42).
+  test_corpse_forces_follow: your corpse becoming the target (a ghost) glides the view back to you; another
+    target doesn't, nor the one you had when the map first looked, nor browsing away and back (F7, F42).
   test_title_target: the subtitle's "<title> N yd" and "<title> here", big or small and hovered (S12).
   test_corpse_waypoint_pins: Known("corpse") and Known("waypoint") as pins (S49), from Game's parts through Model,
     their tooltips, their gear rows.
@@ -263,22 +263,33 @@ def test_edge_arrow():
 
 
 def test_corpse_forces_follow():
-    # Not following, saved; your corpse already the target when the map first looks: your choice kept.
+    # Not following, saved; a ghost, your corpse already the target when the map first looks: your choice kept.
     L, sim, ns, G = client(saved=TEST_UI.replace("zoom = 96,", "zoom = 96, follow = false,"), shown=False)
-    Camera = ns.UI.Camera
+    Camera, Motion = ns.UI.Camera, ns.UI.Motion
+    sim.units.player.dead, sim.ghost = True, True
     G.Target("corpse", 31.0, 49.75, "Your corpse")
     sim.Slash("/mma toggle")
     sim.Run(1)
     assert not Camera.follow
-    G.Target("waypoint", 33.0, 49.75, "Waypoint")  # another target: still not
+    sim.units.player.dead, sim.ghost = False, False  # alive again, another target: still not
+    G.Target("waypoint", 33.0, 49.75, "Waypoint")
     sim.Run(1)
     assert not Camera.follow
-    G.Target("corpse", 31.0, 49.75, "Your corpse")  # you've died and released: back to you, gliding
+    sim.units.player.dead, sim.ghost = True, True  # you've died and released: back to you, gliding
+    G.Target("corpse", 31.0, 49.75, "Your corpse")
     sim.Run(0.25)
     you = ns.Model.you
-    assert not Camera.follow and ns.UI.Motion.Goal()[1] == you.col  # flying there
+    assert not Camera.follow and Motion.Goal()[1] == you.col  # flying there
     sim.Run(1)
     assert Camera.follow and Camera.cam.cx == you.col
+    # Browsing another continent (no target there) and back: the corpse found already, the pick kept.
+    G.Tgt = False
+    sim.Slash("/mma map 1")
+    sim.Run(1)
+    G.Target("corpse", 31.0, 49.75, "Your corpse")
+    sim.Slash("/mma map 0")
+    sim.Run(1.5)
+    assert not Camera.follow
     assert not errors(sim, ns), errors(sim, ns)
 
 

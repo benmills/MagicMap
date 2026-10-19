@@ -8,7 +8,7 @@
 -- view (and a margin) shown (a line's ends stay within a few thousand px: docs/v1-plan.md §2); and as a pan
 -- takes the view past them, the dashes it brings in shown, the rest left as they stand.
 -- Off the view, the target gets a gold arrow on its edge, where the line toward it leaves (Path.lua:24-79).
--- And your corpse becoming the target brings the view back to you (Core.lua:1095-1108).
+-- And your corpse becoming the target brings the view back to you (Core.lua:1095-1108), once a ghost.
 
 local _, ns = ...
 local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
@@ -348,19 +348,22 @@ end, { shownOnly = Window.frame })
 -- Your corpse as the target brings the view back to you (Core.lua:1095-1108)
 ---------------------------------------------------------------------------
 
--- Which target you have, looked at every CHECK s: one changing to your corpse (you've released) follows
--- you again, gliding back; what you had at the first look keeps your saved choice (the first once
--- Model knows it: nil before its first Focus).
-local looked, key, since = false, nil, CHECK
+-- Looked at every CHECK s: a ghost's corpse once the target (found on the map shown: the spike's
+-- corpseFound, Layers.lua:504-521) stays found for the rest of that ghost, whatever map is shown after (its
+-- TargetKey, Layers.lua:1182-1184); found after the first look, it follows you again, gliding back. Found at
+-- the first look (nil before Model's first Focus) keeps your saved choice.
+local looked, found, since = false, false, CHECK
 Runtime.Step("ui", "map: target", function(elapsed)
 	since = since + elapsed
 	if since < CHECK then return end
 	since = 0
 	local t = Model.Target()
 	if t == nil then return end
-	local k = t and t.key or nil
-	if looked and k == key then return end
-	local first = not looked
-	looked, key = true, k
-	if not first and t and t.kind == "corpse" and not Camera.follow then Motion.SetFollow(true, true) end
+	if not Model.you.ghost then
+		found = false
+	elseif not found and t and t.kind == "corpse" then
+		found = true
+		if looked and not Camera.follow then Motion.SetFollow(true, true) end
+	end
+	looked = true
 end, { shownOnly = Window.frame })

@@ -64,12 +64,13 @@ def test_boundaries(capsys):
     out = capsys.readouterr().out
     assert "ui/X.lua:2" in out and "ui/X.lua:3" in out and "model/X.lua:1" in out and "game/X" not in out
     # ONLY (Runtime.On: game/; UI.View: game/Apply.lua), writes to another system (but its hooks), UI's Model
-    # fields, named frames (a comment's isn't one), a QuestPOIFrame outside POI_FILES
-    poi = 'CreateFrame("QuestPOIFrame", nil, c)\n'
+    # fields, named frames (a comment's isn't one), a QuestPOIFrame made or asked outside POI_FILES
+    poi = 'CreateFrame("QuestPOIFrame", nil, c)\nlocal q = f:UpdateMouseOverTooltip(x, y)\n'
     ui = luacheck.ns_problems("ui/X.lua", 'local R = ns.Runtime\nR.On("PLAYER_LOGIN", "x", f)\nns.Runtime.Trace = f\n'
                               'ns.Model.Observe({}, {})\nns.Model.Known("blips")\n'
                               'CreateFrame("Frame", "Foo", UIParent) -- CreateFrame("Frame", "Bar")\n' + poi, set())
-    assert [p.split(": ", 1)[0] for p in ui] == ["ui/X.lua:2", "ui/X.lua:4", "ui/X.lua:3", "ui/X.lua:6", "ui/X.lua:7"], ui
+    assert [p.split(": ", 1)[0] for p in ui] == ["ui/X.lua:2", "ui/X.lua:4", "ui/X.lua:3", "ui/X.lua:6", "ui/X.lua:7",
+                                              "ui/X.lua:8"], ui
     assert luacheck.ns_problems("ui/Areas.lua", poi, set()) == [] and luacheck.ns_problems("game/Oracles.lua", poi, set()) == []
     game = luacheck.ns_problems("game/X.lua", 'local R = ns.Runtime\nfunction R.Trace() end\nR.onTrace = f\n'
                                 'R.onError = f\nns.UI.View()\nR.On("E", "x", f)\n', set())

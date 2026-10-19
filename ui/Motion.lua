@@ -110,9 +110,10 @@ function Motion.SetFollow(on, glide)
 	end
 end
 
--- Fly to fit a tile rect (a zone), following off (Core.lua:1123-1127).
-function Motion.FlyToRect(c0, r0, c1, r1)
+-- Fly to fit a tile rect (a zone), following off; the title names it (Core.lua:1123-1127).
+function Motion.FlyToRect(c0, r0, c1, r1, name)
 	Motion.SetFollow(false)
+	Camera.zone, Camera.zoneInst = name, Camera.inst
 	local w, h = Window.Size()
 	local cx, cy, zoom = Maths.Fit(c0, r0, c1, r1, w, h, FIT, MIN_ZOOM, MAX_ZOOM)
 	Motion.FlyTo(cx, cy, zoom)

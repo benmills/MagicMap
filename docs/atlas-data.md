@@ -139,7 +139,8 @@ that read it.
   = palette index 1..52, each optionally followed by a run length (as Walk.lua).
 - A chunk is 1/16 tile (~33 yd). Area 0 = none.
 - `Atlas.AreaAt(inst, col, row)` → areaID; `Atlas.ZoneAt(inst, col, row)` →
-  `{ mapID, name, x, y, zone, area }`.
+  `{ mapID, name, x, y, zone, area }`, only on a continent and a zone whose map is on it (as the
+  spike asks the continent's map: an instance's map has none); `Atlas.ZoneMapAt`: ZoneAt's, x and y in 0..1.
 
 ### Data/Borders.lua — `ns.Data.Borders` (ADT chunk areas)
 `[inst] = { lines, z12, z30, far, z100, z200, sub, subz200, outlines, labels }`, positions in

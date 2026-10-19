@@ -38,6 +38,7 @@ def test_atlas():
     lo, hi = Atlas.ZoneLevels(12)
     assert 0 < lo <= hi
     assert Atlas.ZoneAt(0, 0.5, 0.5) is None
+    assert Atlas.ZoneAt(509, 27, 46) is None  # Ruins of Ahn'Qiraj: no continent, no zone (Silithus' chunks there)
 
     # Places.
     dm = Atlas.Dungeon(36)

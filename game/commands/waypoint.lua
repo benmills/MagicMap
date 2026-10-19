@@ -10,9 +10,9 @@ Game.Handle("waypoint", function(c)
 	if not c.pos then
 		C_Map.ClearUserWaypoint()
 	elseif not z then
-		Game.Print("no zone here to put a waypoint in")
+		Game.Say("no zone here to put a waypoint in")
 	elseif not C_Map.CanSetUserWaypointOnMap(z.mapID) then
-		Game.Print("can't place a waypoint in " .. z.name)
+		Game.Say("can't place a waypoint in " .. z.name)
 	else
 		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(z.mapID, z.x, z.y))
 		C_SuperTrack.SetSuperTrackedUserWaypoint(true)

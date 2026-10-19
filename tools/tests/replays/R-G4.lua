@@ -41,6 +41,15 @@ sim.Run(1)
 assert(Camera.follow, "the view follows you")
 T.Print("G4: the corpse in the Observation %d frames after the client knew it", frames)
 
+-- Browsing another continent (no target there) and back: found already this ghost, the pick kept
+-- (TargetKey, Layers.lua:1182-1184).
+sim.Slash("/mma map 1")
+sim.Run(1)
+assert(Model.Target() == false, "none on Kalimdor")
+sim.Slash("/mma map 0")
+sim.Run(1.5)
+assert(Model.Target().kind == "corpse" and not Camera.follow, "back on your map: not following")
+
 -- Found: not asked again, the same table each frame.
 asked = 0
 sim.Run(3)

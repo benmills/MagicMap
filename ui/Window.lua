@@ -141,6 +141,7 @@ end
 local drawn -- the map the layers show
 local function SetInst(inst)
 	drawn = inst
+	if Camera.zoneInst ~= inst then Camera.zone = nil end -- (another map's: SetMap, Core.lua:1071)
 	UI.Engine.Clear()
 	local bg = BACKDROP
 	for _, m in ipairs(Atlas.Maps()) do

@@ -5,7 +5,8 @@
 --   hovering the map (big, or not on your map): the zone under the cursor and its coordinates
 --   on your map: your zone (your uiMap's name, else the client's), the client's subzone (the
 --     inn, inside it); coordinates and the target (ui/You.lua) while big or hovered
---   otherwise: the map's name; big: the hint to follow you again
+--   otherwise: the zone last flown to on this map (a zone's click, /mma zone), else the map's name; big:
+--     the hint to follow you again
 
 local _, ns = ...
 local UI = ns.UI
@@ -186,9 +187,9 @@ local function Update()
 	if onMap and (big and not hovering or hovering and not big) then tt, yd = UI.You.Target() end
 	local l = last
 	if l.inst == inst and l.big == big and l.hovering == hovering and l.a == a and l.b == b and l.uiMap == you.uiMap
-		and l.subzone == you.subzone and l.tt == tt and l.yd == yd then return end
-	l.inst, l.big, l.hovering, l.a, l.b, l.uiMap, l.subzone, l.tt, l.yd = inst, big, hovering, a, b, you.uiMap,
-		you.subzone, tt, yd
+		and l.subzone == you.subzone and l.tt == tt and l.yd == yd and l.zone == Camera.zone then return end
+	l.inst, l.big, l.hovering, l.a, l.b, l.uiMap, l.subzone, l.tt, l.yd, l.zone = inst, big, hovering, a, b, you.uiMap,
+		you.subzone, tt, yd, Camera.zone
 	if hovering and not here then
 		local z = ZoneAt(inst, a, b)
 		local x, y
@@ -205,7 +206,7 @@ local function Update()
 		if a and mapID and (big or hovering) then x, y = Atlas.TileToMap(mapID, a, b) end
 		Show(name, you.subzone ~= name and you.subzone or nil, x, y, nil, tt, yd)
 	else
-		Show(MapName(inst), nil, nil, nil, big)
+		Show(Camera.zone or MapName(inst), nil, nil, nil, big)
 	end
 end
 

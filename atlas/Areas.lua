@@ -68,15 +68,18 @@ function Atlas.AreaAt(inst, col, row)
 	return id
 end
 
--- The zone at (col, row): its uiMap (mapID, name, normalized x, y), zone and area IDs.
+-- The zone at (col, row): its uiMap (mapID, name, normalized x, y), zone and area IDs. Only on a
+-- continent, a zone whose map is on it: the spike asks the continent's map (Layers.lua:2059-2070), so
+-- an instance's map (Ruins of Ahn'Qiraj: Silithus' chunks) has none.
 function Atlas.ZoneAt(inst, col, row)
+	if not Atlas.Continent(inst) then return nil end
 	local id = Atlas.AreaAt(inst, col, row)
 	local area = id and Atlas.Area(id)
 	if not area then return nil end
 	local mapID = Atlas.Area(area.zone).uiMap
-	if not mapID then return nil end
+	local r = mapID and Atlas.MapRect(mapID)
+	if not (r and r.inst == inst) then return nil end
 	local x, y = Atlas.TileToMap(mapID, col, row)
-	if not x then return nil end
 	return { mapID = mapID, name = Atlas.UiMap(mapID).name, x = x, y = y, zone = area.zone, area = id }
 end
 

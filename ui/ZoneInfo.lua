@@ -338,7 +338,7 @@ function ZoneInfo.Tap()
 		return
 	end
 	local r = Atlas.MapRect(pressed)
-	if r and r.inst == Camera.inst then Motion.FlyToRect(r.col0, r.row0, r.col1, r.row1) end
+	if r and r.inst == Camera.inst then Motion.FlyToRect(r.col0, r.row0, r.col1, r.row1, Atlas.UiMap(pressed).name) end
 end
 
 ---------------------------------------------------------------------------
@@ -409,8 +409,8 @@ local function Title(e)
 	return Hex(e.color) .. string.format("[%d] %s", e.level, e.name) .. "|r"
 end
 
--- Your quests whose area holds (col, row) (Layers.lua:2282-2306): those the game draws (the quest areas'
--- frames shown, hit-tested as ui/Areas.lua does), then the estimated discs.
+-- Your quests whose area holds (col, row) (Layers.lua:2282-2306): those the game draws (ui/Areas.lua's
+-- hit test), then the estimated discs while they're on (their parent too: Layers.lua:82-87, 2297).
 local function QuestsAt(inst, col, row)
 	local out, seen, list = {}, {}, Model.Known("quests")
 	local function Add(q)
@@ -422,19 +422,8 @@ local function QuestsAt(inst, col, row)
 			end
 		end
 	end
-	local layer = UI.Areas.layer
-	local c = layer.on and layer.front
-	local p = c and c.inst == inst and c.pools.blob
-	for i = 1, p and p.n or 0 do
-		local f = p[i]
-		local r = f.rect
-		if f.drawn > 0 and col >= r.col0 and col <= r.col1 and row >= r.row0 and row <= r.row1 then
-			local q = f:UpdateMouseOverTooltip((col - r.col0) / (r.col1 - r.col0), -- /: never 0 (a map's rect has a size)
-				(row - r.row0) / (r.row1 - r.row0)) -- /: never 0 (a map's rect has a size)
-			if q then Add(q) end
-		end
-	end
-	if Engine.LayerOn("quests") and Engine.LayerOn("questAreasApprox") then
+	for _, q in ipairs(UI.Areas.QuestsAt(inst, col, row)) do Add(q) end
+	if Engine.LayerOn("quests") and Engine.LayerOn("questAreas") and Engine.LayerOn("questAreasApprox") then
 		for _, e in ipairs(list) do
 			local s = e.estimate
 			if s and s.inst == inst and (s.col - col) ^ 2 + (s.row - row) ^ 2 <= RADIUS ^ 2 then Add(e.quest) end
@@ -503,5 +492,5 @@ Command({ kind = "slash", name = "zone", help = "<name>: fly to a zone", fn = fu
 	if not found then return UI.Print("no zone matching '" .. arg .. "'") end
 	Window.frame:Show()
 	Camera.inst = inst
-	Motion.FlyToRect(found.col0, found.row0, found.col1, found.row1)
+	Motion.FlyToRect(found.col0, found.row0, found.col1, found.row1, found.name)
 end })

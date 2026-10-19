@@ -131,6 +131,26 @@ def test_map_and_zone():
     assert UI.Camera.inst == 0 and not near(cam(ns), fit(L, ns, westfall, 0.92))
     sim.Run(0.3)
     assert near(cam(ns), fit(L, ns, westfall, 0.92)) and not UI.Camera.follow
+    # Off your map, not hovering: the title names the zone flown to, big too, till another map's shown
+    # (Core.lua:1071, 1125, 1302).
+    title = lambda: UI.Title.title.GetText(UI.Title.title)  # noqa: E731
+    sim.cursorX, sim.cursorY = 100, 100
+    sim.Slash("/mma map 0")
+    sim.Slash("/mma map kalimdor")
+    sim.Slash("/mma zone durotar")
+    sim.Run(1)
+    view = UI.Window.view
+    assert UI.Camera.inst == 1 and not view.IsMouseOver(view) and title() == "Durotar"
+    sim.Press("M")
+    sim.Run(1)
+    assert title() == "Durotar"
+    sim.Slash("/mma map 0")
+    sim.Run(0.2)
+    sim.Slash("/mma map 1")
+    sim.Run(0.2)
+    assert title() == "Kalimdor"
+    sim.Press("M")
+    sim.Run(1)
     sim.Slash("/mma zone nowhere")
     assert said() == "|cffffd100MagicMapAtlas|r: no zone matching 'nowhere'"
     sim.Slash("/mma zone")
@@ -261,6 +281,13 @@ def test_inspector():
         ("title", gold + "Quest|r |cffff7f3f[11] Wanted: Hogger|r " + dim + "(following)|r"),
         ("title", grey + "Quest|r |cffffd100[7] Gold Dust Exchange|r" + dim + "  (+1 more)|r"),
         ("divider", None), ("button", "Waypoint here")]
+    # Quest areas off: no area drawn there, nor an estimate (its parent off: Layers.lua:82-87, 2297).
+    UI.Engine.SetLayer("questAreas", False)
+    sim.Run(0.5)
+    assert [t for _, t in menu(32.28, 49.65) if t and "Quest|r" in t] == []
+    UI.Engine.SetLayer("questAreas", True)
+    sim.Run(1)
+    assert len([t for _, t in menu(32.28, 49.65) if t and "Quest|r" in t]) == 2
     # How far: 5 yd steps close by, 10 further out, thousands apart; here: "You're here".
     assert menu(32.45, 49.75)[2][1].endswith(white + "270 yd|r " + grey + "E of you|r")
     assert menu(34.95, 49.75)[2][1].endswith(white + "1,600 yd|r " + grey + "E of you|r")
