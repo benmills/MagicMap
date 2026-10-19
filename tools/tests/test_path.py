@@ -307,7 +307,6 @@ def test_title_target():
 
 def test_corpse_waypoint_pins():
     L, sim, ns, G = client(shown=False)
-    sim.atlases["deathrecap-icon-tombstone"] = sim.atlases["Waypoint-MapPin-Tracked"] = True
     # Your corpse where the client has it (read on PLAYER_DEAD), a waypoint set: Game's parts, then Model's kinds.
     L.execute("""local ns, sim, col, row = ...
         sim.corpse = { [1415] = CreateVector2D(ns.Atlas.TileToMap(1415, col, row)) }
