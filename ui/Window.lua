@@ -1,8 +1,9 @@
 -- The map window: Blizzard's ButtonFrameTemplate (Forever's re-skin) stripped to its
 -- metal border (ui/Chrome.lua), the view inside it where the layers draw (ui/Engine.lua),
 -- and input routing: the view's wheel and left presses and releases go to Motion
--- (ui/Motion.lua), a right release opens the map's menu (ui/Menus.lua); dragging the border
--- or Alt+left-dragging the map moves the window. Its draw step, each frame while shown:
+-- (ui/Motion.lua), a click to a pin, a quest's area or the zone under it and a Shift or Ctrl
+-- click to ui/ZoneInfo.lua, a right release opens the map's menu (ui/Menus.lua); dragging the
+-- border or Alt+left-dragging the map moves the window. Its draw step, each frame while shown:
 -- grow/shrink (ui/BigMap.lua), Motion's chase, the map shown (yours while following), the
 -- camera's speed, Engine's layers, the map state (your arrow: ui/You.lua).
 
@@ -72,18 +73,22 @@ function Window.Cursor()
 end
 
 ---------------------------------------------------------------------------
--- Input: the view's mouse, to Motion; Alt+left-drag moves the window (Core.lua:1335-1393)
+-- Input: the view's mouse, to Motion and ZoneInfo (a click's, Shift and Ctrl clicks); Alt+left-drag
+-- moves the window; a right release opens the map's menu (Core.lua:1335-1416)
 ---------------------------------------------------------------------------
 
 local moving
 view:SetScript("OnMouseWheel", Runtime.Wrap("map: wheel", function(_, delta) UI.Motion.Wheel(delta) end))
 view:SetScript("OnMouseDown", Runtime.Wrap("map: press", function(_, button)
-	if button ~= "LeftButton" then return end
-	if IsAltKeyDown() then
+	if button == "LeftButton" and IsAltKeyDown() then
 		frame:StartMoving()
 		moving = true
 		return
 	end
+	-- Ctrl-click a waypoint, Ctrl-right-click none, Shift-click a /way line: taken on the press, no pan.
+	if (IsShiftKeyDown() or IsControlKeyDown()) and UI.ZoneInfo.Modified(button) then return end
+	if button ~= "LeftButton" then return end
+	UI.ZoneInfo.Press()
 	UI.Motion.Press()
 end))
 -- Only the left button's release ends a press; the right one's opens the map's menu (Core.lua:1387-1399).
@@ -95,9 +100,11 @@ view:SetScript("OnMouseUp", Runtime.Wrap("map: release", function(_, button)
 		return
 	end
 	if button == "RightButton" then
-		if not (IsShiftKeyDown() or IsControlKeyDown()) then UI.Menus.Map(view) end
+		if not (IsShiftKeyDown() or IsControlKeyDown()) then UI.Menus.Map(view, UI.ZoneInfo.CursorTile()) end
 	elseif button == "LeftButton" then
-		if UI.Motion.Release() and not UI.Pins.Tap(button) then UI.Areas.Tap() end -- a click, not a drag: pins beat areas
+		-- A click, not a drag: a pin's; else a quest's area while zone clicks aren't on offer, else the
+		-- zone flown to (Core.lua:1400-1416).
+		if UI.Motion.Release() and not UI.Pins.Tap(button) then UI.ZoneInfo.Tap() end
 	end
 end))
 -- In the window (a tip on one of its widgets goes with it: Game hides only its own, spike-bugs G7).
