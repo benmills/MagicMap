@@ -1,32 +1,320 @@
--- Fixture stream (types/observation.lua MM.ObsOffer[]): quests to pick up on the maps
--- Game asked about, for Model alone (tools/tests/replay.lua). Not asked yet (nil); then
--- Elwynn Forest's; A Fishy Peril is taken (gone from the list); browsing Westfall adds
--- its; then the client hides them (known and empty).
+-- Fixture stream (types/observation.lua MM.ObsOffer[]): quests to pick up on the map shown (Elwynn's
+-- and Westfall's: every zone of it), for Model alone (tools/tests/replay.lua). Recorded from the sim by
+-- tools/tests/test_quest_parts.py (offers_story): game/parts/Offers.lua's output. Asked, not answered
+-- yet (known empty); answered; A Fishy Peril is taken (in progress: gone); tracking hidden quests shows
+-- The Forgotten Heirloom; then the client asks for every zone again and has none (known and empty).
 -- On-change parts keep their table while nothing changes: a new table is a change.
-
-local function At(frame, col, row, offers)
-	return { frame = frame, t = frame / 60, epoch = 1792077412 + math.floor(frame / 60), hooked = {}, offers = offers,
-		you = { inst = 0, col = col, row = row, facing = 0, uiMap = 1429, level = 8, faction = "A" } }
-end
-local function Offer(questID, name, col, row, line)
-	return { questID = questID, name = name, line = line, pos = { inst = 0, col = col, row = row } }
-end
-
-local princess = Offer(88, "Princess Must Die!", 31.377, 50.553)
-local necklace = Offer(85, "Lost Necklace", 31.366, 50.543)
-local linen = Offer(83, "Red Linen Goods", 34.292, 49.872)
-local fishy = Offer(40, "A Fishy Peril", 31.863, 49.806, "The Lost Guards")
-local elwynn = { princess, necklace, linen, fishy }
-local taken = { princess, necklace, linen }
-local westfall = { princess, necklace, linen, Offer(22, "Goretusk Liver Pie", 30.046, 50.96),
-	Offer(36, "Westfall Stew", 30.27, 50.48), Offer(64, "The Forgotten Heirloom", 30.278, 50.472) }
+local P = {
+	[1] = {},
+	[2] = {
+		[1] = {
+			name = "Princess Must Die!",
+			pos = {
+				col = 31.377,
+				inst = 0,
+				row = 50.553,
+			},
+			questID = 88,
+		},
+		[2] = {
+			name = "Lost Necklace",
+			pos = {
+				col = 31.366,
+				inst = 0,
+				row = 50.543,
+			},
+			questID = 85,
+		},
+		[3] = {
+			name = "Red Linen Goods",
+			pos = {
+				col = 34.292,
+				inst = 0,
+				row = 49.872,
+			},
+			questID = 83,
+		},
+		[4] = {
+			line = "The Lost Guards",
+			name = "A Fishy Peril",
+			pos = {
+				col = 31.863,
+				inst = 0,
+				row = 49.806,
+			},
+			questID = 40,
+		},
+		[5] = {
+			name = "Goretusk Liver Pie",
+			pos = {
+				col = 30.046,
+				inst = 0,
+				row = 50.96,
+			},
+			questID = 22,
+		},
+		[6] = {
+			name = "Westfall Stew",
+			pos = {
+				col = 30.27,
+				inst = 0,
+				row = 50.48,
+			},
+			questID = 36,
+		},
+	},
+	[3] = {
+		[1] = {
+			name = "Princess Must Die!",
+			pos = {
+				col = 31.377,
+				inst = 0,
+				row = 50.553,
+			},
+			questID = 88,
+		},
+		[2] = {
+			name = "Lost Necklace",
+			pos = {
+				col = 31.366,
+				inst = 0,
+				row = 50.543,
+			},
+			questID = 85,
+		},
+		[3] = {
+			name = "Red Linen Goods",
+			pos = {
+				col = 34.292,
+				inst = 0,
+				row = 49.872,
+			},
+			questID = 83,
+		},
+		[4] = {
+			name = "Goretusk Liver Pie",
+			pos = {
+				col = 30.046,
+				inst = 0,
+				row = 50.96,
+			},
+			questID = 22,
+		},
+		[5] = {
+			name = "Westfall Stew",
+			pos = {
+				col = 30.27,
+				inst = 0,
+				row = 50.48,
+			},
+			questID = 36,
+		},
+	},
+	[4] = {
+		[1] = {
+			name = "Princess Must Die!",
+			pos = {
+				col = 31.377,
+				inst = 0,
+				row = 50.553,
+			},
+			questID = 88,
+		},
+		[2] = {
+			name = "Lost Necklace",
+			pos = {
+				col = 31.366,
+				inst = 0,
+				row = 50.543,
+			},
+			questID = 85,
+		},
+		[3] = {
+			name = "Red Linen Goods",
+			pos = {
+				col = 34.292,
+				inst = 0,
+				row = 49.872,
+			},
+			questID = 83,
+		},
+		[4] = {
+			name = "Goretusk Liver Pie",
+			pos = {
+				col = 30.046,
+				inst = 0,
+				row = 50.96,
+			},
+			questID = 22,
+		},
+		[5] = {
+			name = "Westfall Stew",
+			pos = {
+				col = 30.27,
+				inst = 0,
+				row = 50.48,
+			},
+			questID = 36,
+		},
+		[6] = {
+			name = "The Forgotten Heirloom",
+			pos = {
+				col = 30.278,
+				inst = 0,
+				row = 50.472,
+			},
+			questID = 64,
+		},
+	},
+	[5] = {},
+}
 
 return {
-	At(1, 31.95, 49.75, nil),
-	At(30, 31.95, 49.75, elwynn),
-	At(90, 31.9, 49.79, elwynn),
-	At(150, 31.87, 49.8, taken),
-	At(300, 31.87, 49.8, westfall),
-	At(360, 31.87, 49.8, westfall),
-	At(420, 31.87, 49.8, {}),
+	[1] = {
+		epoch = 1792077412,
+		frame = 1,
+		hooked = {},
+		offers = P[1],
+		t = 0.017,
+		you = {
+			col = 31.95,
+			combat = false,
+			dead = false,
+			facing = 3.4,
+			faction = "A",
+			ghost = false,
+			inst = 0,
+			level = 8,
+			row = 49.75,
+			subzone = "Goldshire",
+			uiMap = 1429,
+			zone = "Elwynn Forest",
+		},
+	},
+	[2] = {
+		epoch = 1792077412,
+		frame = 30,
+		hooked = {},
+		offers = P[2],
+		t = 0.5,
+		you = {
+			col = 31.95,
+			combat = false,
+			dead = false,
+			facing = 3.4,
+			faction = "A",
+			ghost = false,
+			inst = 0,
+			level = 8,
+			row = 49.75,
+			subzone = "Goldshire",
+			uiMap = 1429,
+			zone = "Elwynn Forest",
+		},
+	},
+	[3] = {
+		epoch = 1792077413,
+		frame = 90,
+		hooked = {},
+		offers = P[2],
+		t = 1.5,
+		you = {
+			col = 31.9,
+			combat = false,
+			dead = false,
+			facing = 3.4,
+			faction = "A",
+			ghost = false,
+			inst = 0,
+			level = 8,
+			row = 49.79,
+			subzone = "Goldshire",
+			uiMap = 1429,
+			zone = "Elwynn Forest",
+		},
+	},
+	[4] = {
+		epoch = 1792077414,
+		frame = 150,
+		hooked = {},
+		offers = P[3],
+		t = 2.5,
+		you = {
+			col = 31.87,
+			combat = false,
+			dead = false,
+			facing = 3.4,
+			faction = "A",
+			ghost = false,
+			inst = 0,
+			level = 8,
+			row = 49.8,
+			subzone = "Goldshire",
+			uiMap = 1429,
+			zone = "Elwynn Forest",
+		},
+	},
+	[5] = {
+		epoch = 1792077415,
+		frame = 240,
+		hooked = {},
+		offers = P[4],
+		t = 4,
+		you = {
+			col = 31.87,
+			combat = false,
+			dead = false,
+			facing = 3.4,
+			faction = "A",
+			ghost = false,
+			inst = 0,
+			level = 8,
+			row = 49.8,
+			subzone = "Goldshire",
+			uiMap = 1429,
+			zone = "Elwynn Forest",
+		},
+	},
+	[6] = {
+		epoch = 1792077416,
+		frame = 300,
+		hooked = {},
+		offers = P[4],
+		t = 5,
+		you = {
+			col = 31.87,
+			combat = false,
+			dead = false,
+			facing = 3.4,
+			faction = "A",
+			ghost = false,
+			inst = 0,
+			level = 8,
+			row = 49.8,
+			subzone = "Goldshire",
+			uiMap = 1429,
+			zone = "Elwynn Forest",
+		},
+	},
+	[7] = {
+		epoch = 1792077418,
+		frame = 420,
+		hooked = {},
+		offers = P[5],
+		t = 7,
+		you = {
+			col = 31.87,
+			combat = false,
+			dead = false,
+			facing = 3.4,
+			faction = "A",
+			ghost = false,
+			inst = 0,
+			level = 8,
+			row = 49.8,
+			subzone = "Goldshire",
+			uiMap = 1429,
+			zone = "Elwynn Forest",
+		},
+	},
 }

@@ -653,6 +653,7 @@ function Tooltip:ClearLines()
 	local st = S[self]
 	for _, fs in ipairs(st.lines or {}) do fs:SetText(nil) end
 	st.numLines = 0
+	Sim.FireScript(self, "OnTooltipCleared")
 end
 function Tooltip:AddLine(text, r, g, b, wrap)
 	local st = S[self]
@@ -664,6 +665,7 @@ end
 function Tooltip:AddDoubleLine(left, right) self:AddLine(left) end
 function Tooltip:SetText(text, r, g, b, a, wrap) self:ClearLines(); self:AddLine(text) end
 function Tooltip:NumLines() return S[self].numLines or 0 end
+function Tooltip:GetLeftLine(i) return S[self].lines and S[self].lines[i] end
 -- The Minimap's hover: Sim.blip names the blip under the cursor; with none
 -- the tooltip is left empty and hidden.
 local function minimapMouseover(self)
@@ -1343,7 +1345,7 @@ C_Minimap = {
 		Sim.tracking[i].active = on
 		C_Timer.After(0, function() Sim.FireEvent("MINIMAP_UPDATE_TRACKING") end)
 	end,
-	IsTrackingHiddenQuests = function() return false end,
+	IsTrackingHiddenQuests = function() return Sim.trackingHidden == true end, -- (a per-character CVar)
 }
 Sim.tracking = {
 	{ name = "Flight Master", filterID = 8, active = true },
@@ -1749,15 +1751,17 @@ function issecretvalue(v) return v == SECRET end
 function GetUnitSpeed(unit) return SECRET end
 
 -- Quests to pick up (C_QuestLine, the world map's quest offers): given once
--- a map has been asked for.
+-- the client has answered a map's ask (QUESTLINE_UPDATE, 0.1 s on).
 Sim.offers = { [1429] = { { questID = 70, questName = "Wolves Across the Border", questLineName = "", questLineID = 1,
 	x = 0.45, y = 0.62, isHidden = false, inProgress = false, startMapID = 1429 } } }
 Sim.offersAsked = {}
 C_QuestLine = {
 	RequestQuestLinesForMap = function(id)
 		assert(type(id) == "number", "RequestQuestLinesForMap: uiMapID expected")
-		Sim.offersAsked[id] = true
-		C_Timer.After(0.1, function() Sim.FireEvent("QUESTLINE_UPDATE", false) end)
+		C_Timer.After(0.1, function()
+			Sim.offersAsked[id] = true
+			Sim.FireEvent("QUESTLINE_UPDATE", false)
+		end)
 	end,
 	GetAvailableQuestLines = function(id) return Sim.offersAsked[id] and Sim.offers[id] or {} end,
 }

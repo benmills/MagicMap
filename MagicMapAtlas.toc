@@ -71,12 +71,16 @@ game\Tooltip.lua
 # Game: commands (Game.Handle)
 game\commands\slash.lua
 game\commands\load.lua
+game\commands\follow.lua
+game\commands\tooltip.lua
 
 # Game: observation parts (Game.Part)
 game\parts\You.lua
 game\parts\Blips.lua
 game\parts\MinimapState.lua
 game\parts\Addons.lua
+game\parts\Quests.lua
+game\parts\Offers.lua
 
 # UI
 ui\Camera.lua
