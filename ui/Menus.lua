@@ -47,14 +47,25 @@ local GROUPS = {
 	{ key = "addons", title = "Other addons" },
 }
 
--- The layers' rows, in the order added: { key, label, group, tip, parent?, onToggle? } (Layers.lua:30-61,
+-- The layers' rows: { key, label, group, tip, default?, parent?, onToggle? } (Layers.lua:30-61,
 -- 1194-1215). key: the layer's, Engine.Layer's name (View.layers' too, for Game's); its setting is
--- Engine.toggles[key] (UI.saved.layers), on until turned off: only the ones off are saved.
--- parent: a sub-option, indented and only clickable while that layer is on (drawn only then: its
--- layer's own check). onToggle(on): called after its setting changes. M2-M4 add theirs with their layers.
+-- Engine.LayerOn(key) (UI.saved.layers: only where it isn't its default). default: false for a layer off
+-- until turned on (missing: on). parent: a sub-option, indented and only clickable while that layer is
+-- on (drawn only then: its layer's own check). onToggle(on): called after its setting changes. M2-M4 add
+-- theirs with their layers; each group's rows in the spike's order (ORDER: its keys, Layers.lua:30-61,
+-- then Landmarks.lua:70, 110, 142 and Blips.lua:671 as its TOC loads them), a key not in it last.
+local ORDER = {}
+for i, key in ipairs({ "labels", "borders", "unexplored", "quests", "questAreas", "questAreasApprox", "offers",
+	"flight", "dungeons", "graveyards", "corpse", "group", "waypoint", "rares", "vignettes", "areaPOIs", "blips" }) do
+	ORDER[key] = i
+end
 local LAYERS = {}
+local function Before(a, b) return a.place < b.place end
 function Menus.Layer(row)
 	LAYERS[#LAYERS + 1] = row
+	row.place = ORDER[row.key] or 100 + #LAYERS
+	Engine.defaults[row.key] = row.default
+	table.sort(LAYERS, Before)
 	return row
 end
 
@@ -68,12 +79,11 @@ Menus.Layer({ key = "rares", label = "Rares you've seen", group = "people",
 	tip = "Rare creatures where you last saw them, remembered between sessions." })
 
 -- Other addons' world-map pins (AddonPins.lua:105-113): a row for each with some (Model.addons), its
--- pins borrowed while on (ui/Sockets.lua puts it in View.layers as the list changes; a toggle, at once).
+-- pins borrowed while on (ui/Sockets.lua puts it in View.layers from the next frame).
 local function AddonRow(a)
 	local key, other = "addon:" .. a.key, a.key == "Other"
 	return { key = key, label = a.name, group = "addons",
-		tip = "Map pins " .. (other and "other addons put" or a.name .. " puts") .. " on the world map, shown here too.",
-		onToggle = function(on) UI.View().layers[key] = on or nil end }
+		tip = "Map pins " .. (other and "other addons put" or a.name .. " puts") .. " on the world map, shown here too." }
 end
 
 -- The groups with layers, in order, each { title, rows } (Layers.lua:2154-2166).
@@ -97,7 +107,7 @@ end
 -- Its setting flipped (Layers.lua:2141-2150): Engine draws it or empties it from the next frame.
 local function Flip(row)
 	local on = not Engine.LayerOn(row.key)
-	if on then Engine.toggles[row.key] = nil else Engine.toggles[row.key] = false end
+	Engine.SetLayer(row.key, on)
 	if row.onToggle then row.onToggle(on) end
 end
 

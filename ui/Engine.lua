@@ -41,7 +41,9 @@ local ORIGIN_PX = 2800
 local PAD = 200 -- px past the view a moved label or pin may show from (its anchor: its centre)
 local RETRY_S, RETRY_MAX_S = 0.5, 30 -- a failed layout is tried again after this, doubling each failure in a row
 
-local Engine = { layers = {}, toggles = {}, DRIFT = DRIFT } -- toggles: UI's saved layers (ui/View.lua loads them)
+-- toggles: UI's saved layers (ui/View.lua loads them); defaults: false for a layer off until turned on
+-- (its gear row's, ui/Menus.lua)
+local Engine = { layers = {}, toggles = {}, defaults = {}, DRIFT = DRIFT }
 UI.Engine = Engine
 
 local park = CreateFrame("Frame", nil, Window.view) -- regions no layout uses: off every canvas
@@ -56,7 +58,8 @@ local Layout -- (below: a layer's worker runs it)
 -- (col, row) at ((col - canvas.ox) * zoom, -(row - canvas.oy) * zoom) from its TOPLEFT, calling
 -- Runtime.Yield() now and then. rev (optional): a function whose value changing lays it out again
 -- (Model.Known's rev). zoom: "scale" (default), "move" or "hold" (the top). Each layer can be toggled
--- (Engine.toggles[name], UI's saved layers: a missing key is on). build returns true when it has
+-- (Engine.toggles[name], UI's saved layers: a missing key is its default, on unless its gear row says
+-- otherwise). build returns true when it has
 -- nothing to draw at that zoom anywhere (none known, or not from this zoom: nor further out, then): no
 -- layout again on a pan, nor zooming out until it settles.
 -- canvas.epoch changes with what a region's place and look hang on (the canvas's map, zoom, origin, the
@@ -190,7 +193,16 @@ function Engine.Px(v, zoom)
 	return math.floor(v * zoom + 0.5)
 end
 
-function Engine.LayerOn(name) return Engine.toggles[name] ~= false end
+function Engine.LayerOn(name)
+	local on = Engine.toggles[name]
+	if on == nil then return Engine.defaults[name] ~= false end
+	return on
+end
+
+-- A layer turned on or off: saved only where that isn't its default (types/saved.lua SavedUI.layers).
+function Engine.SetLayer(name, on)
+	if on == (Engine.defaults[name] ~= false) then Engine.toggles[name] = nil else Engine.toggles[name] = on end
+end
 
 local function Alpha(c, a)
 	if c.alpha ~= a then
@@ -592,9 +604,7 @@ local Command = ns.Game.Command
 Command({ kind = "slash", name = "layer", help = "<name>: show or hide a map layer; alone, list them", fn = function(name)
 	local known = false
 	for _, l in ipairs(Engine.layers) do known = known or l.name == name end
-	if known then -- only the ones off are saved (the gear's: ui/Menus.lua)
-		if Engine.LayerOn(name) then Engine.toggles[name] = false else Engine.toggles[name] = nil end
-	end
+	if known then Engine.SetLayer(name, not Engine.LayerOn(name)) end -- (the gear's: ui/Menus.lua)
 	for _, l in ipairs(Engine.layers) do print(string.format("  %s %s", l.name, Engine.LayerOn(l.name) and "on" or "off")) end
 end })
 Command({ kind = "slash", name = "mapstats", help = "the map's live textures, lines and font strings", fn = function()
