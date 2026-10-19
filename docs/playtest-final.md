@@ -129,6 +129,7 @@ Questie and GatherMate2 the only other addons (e5: FarmHud or SexyMap instead).
 | e4 | Big, where a Questie pin overlaps one of ours (a blip, a rare): hover the overlap. Questie's tooltip shows, not ours, and never both (this leans on the client sending the view OnLeave when a frame that takes the mouse covers it). | `/mma mark e4 overlap <ok, or what>` | F51, G7 | M2 |
 | e5 | With FarmHud (or SexyMap, or a square-minimap addon) loaded: open FarmHud: Blizzard's Minimap is FarmHud's, ours lets go of it (no blips sensed, no stand-in), and takes it back when FarmHud closes (test_farmhud). With SexyMap: our map takes the Minimap and `/mma toggle` hands it back in SexyMap's shape. | `/mma mark e5 farmhud <ok, or what>`; `/mma mark e5 sexymap <ok, or what>` | K3, G3 | M4 |
 | e6 | In combat: e1c's and e2's toggles (the quests layer, Questie's, Rotate Minimap's checkbox), M and back. 0 ADDON_ACTION_BLOCKED and 0 taint naming MagicMapAtlas. | `/mma mark e6 combat <ok, or what blocked>` | K2 | M4 |
+| e7 | Last, logged out: move the installed addon's QuestieDB-derived files (Data/Npcs, Objects, Items, Quests, BlipServices .lua) away, log in. One chat line, "QuestieDB isn't loaded: quests show without their mobs and items.", once at login and once a `/reload`; the map works: quest pins drawn, a quest's tooltip without its mobs and turn-in, 0 errors. Log out, put the files back. | `/mma mark e7 nodata <ok, or what>` | F56, F28, S63 | M5 |
 
 ## The read (the lead)
 
@@ -227,3 +228,13 @@ Questie and GatherMate2 the only other addons (e5: FarmHud or SexyMap instead).
    0.1 s after the spike's (8 notches out from 400, one a frame, priced: its layout starts 6 frames
    after the last tick and lands that frame).
 9. **Slow discovery** (a3b): a blip appearing while you stand still found within ~40 s, not 0.5 s.
+10. **Pins off the pixel grid** (S42-S52, S59; shots big-quests, small-town, big-places): ours don't
+   snap, as nothing on the map does (the fix for the "slight tear when moving" mark); the spike's pin
+   textures snapped by default, so at rest its may look crisper. Keep, or snap pins alone.
+11. **Rows to compare most closely** (M5.3's audit at b0e0560: every other S row is the spike's code):
+   S8 and S41 (each pin kind at its own level, rares and places 11 up to quests 15; the arrow's overlay
+   +18, not +8: big-quests, small-near), S35 (dead ends: ≤4 dashes an end along the whole line, the
+   spike restarts them each segment: small-zone), S15 (no -c60 atlases in Forever: the spike's fallback
+   redbutton-expand: small-hover, big-hover), S36-S38 (which names win a collision: small-zone,
+   small-town, big-zones), S53 (quest blobs: big-quests, big-quest-follow), S56 and S58 (past 160
+   pieces a dash's ends on whole pixels, half the dashes a frame: big-waypoint, the path GIF).

@@ -46,7 +46,7 @@ Atlas.FORMATS = {
 	BlipServices = 2, -- Data/BlipServices.lua (tools/gen_questie.py)
 }
 local Data = ns.Data or {}; ns.Data = Data
-Atlas.Data = Data -- raw datasets, read only: for tests (which data loaded); use Atlas's functions
+Atlas.Data = Data -- raw datasets, read only: for tests and game/NoData.lua (which data loaded); use Atlas's functions
 local stale, formats = {}, Data.formats or {}
 for name, want in pairs(Atlas.FORMATS) do
 	if Data[name] ~= nil and formats[name] ~= want then

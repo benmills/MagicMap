@@ -300,7 +300,9 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   checks the invariants (anchors ≤ 4096 px but the world socket's, no map region snapped, one canvas a
   layer outside a crossfade, every layer on one origin at rest, no protected call in combat, no Blizzard
   Minimap art while the takeover has it, one pin a thing: no key twice on a pin layer, no quest both a
-  quest's pin and an offer's).
+  quest's pin and an offer's). test_replay_no_data runs each again without the QuestieDB-derived data
+  where it's here (CI has none: test_replay is that run); every boot of either ends with only its
+  replay's own errors (`ERRORS`) and the no-data notice (F56) once without the data, never with it.
 - **Model alone**: tools/tests/replay.lua (`Replay.Model`, `Replay.Stream(root, "quests")`,
   `Replay.Oracles`) feeds fixtures/streams/<part>.lua, what Game's part would hand over.
 - Files: test_addon (smoke, luacheck, boundaries, Runtime's guarantees), test_no_globals
@@ -323,7 +325,8 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   explored and tracking parts, the tracking Command), test_tracking (duplicate tracking off and back, after a
   crash too), test_addonpins (HBD's world and minimap pins), test_model_kinds (Model's places and group),
   test_services (services and remembered gated by tracking), test_world_layers (UI's places, group, shade,
-  View, indoor art, the inspector's lines), test_diagnostics (every `/mma` diagnostic, the recording, `run`). The sim's C_ calls make their tables anew each call, as the client's (their
+  View, indoor art, the inspector's lines), test_diagnostics (every `/mma` diagnostic, the recording, `run`), test_soak (M5's 10-min priced
+  soak: scripts (a)-(e), every layer on; heap flat after a collect, no job stuck, 8/8 budgets). The sim's C_ calls make their tables anew each call, as the client's (their
   garbage is measured); a scenario changing Sim.quests fires QUEST_LOG_UPDATE, the sim QUEST_ACCEPTED and
   QUEST_REMOVED with it. A QuestPOIFrame draws into its rect as the last frame's end laid it out (L1); its
   drawing moves with it on a pan, not on a resize or a scale.

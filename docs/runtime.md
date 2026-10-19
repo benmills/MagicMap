@@ -50,6 +50,13 @@ measure ours alone.
 (PASS / FAIL each, exit 1 on a FAIL). The limits live there in `BUDGETS`, and
 `FRAME_MS`, `CALL_MS` in runtime/Runtime.lua: change all three with this table.
 
+The session-level sim check is tools/tests/test_soak.py (M5.1 9fcd521): scripts (a)-(e) four rounds,
+every layer on, 648 s priced; heap after a full collect flat (round 4 vs 3 ≤ 10 KB), no job queued at
+rest, 8/8 PASS (rest p95 0.40, moving p95 4.30, max 6.2 ms, 45.5 KB/s). With our Lua charged
+(`boot(lua=True)`) zoom p95 reads 5.1 ms (map: tiles and labels slices: M1.15's note) and allocation
+about twice the plain figure even with `LUA_NS=0`: tools/sim.py's `LUA_PRICE` counting, not behaviour,
+so judge allocation on plain runs.
+
 ## Attribution: who to blame for a FAIL
 
 `Runtime.FrameStats()` names an owner for each budget, outside graces like the frame stats
