@@ -94,12 +94,13 @@ def test_gear():
     # The tree: a submenu per group with layers, a divider, Settings; small and big alike.
     root, rows = gear(sim, ns)
     assert items(root) == [("button", "Map"), ("button", "Quests"), ("button", "Places"), ("button", "People"),
-                           ("button", "Other addons"), ("divider", None), ("button", "Settings")]
+                           ("button", "You"), ("button", "Other addons"), ("divider", None), ("button", "Settings")]
     assert items(sub(root, "Map")) == [("checkbox", "Zone labels"), ("checkbox", "Zone borders")]
     assert items(sub(root, "Quests")) == [("checkbox", "Quests"), ("checkbox", "Quest areas"),
                                           ("checkbox", "     Estimate missing areas"), ("checkbox", "Quests to pick up")]
     assert items(sub(root, "Places")) == [("checkbox", "Minimap blips")]
     assert items(sub(root, "People")) == [("checkbox", "Rares you've seen")]
+    assert items(sub(root, "You")) == [("checkbox", "Corpse"), ("checkbox", "Waypoint")]
     assert items(sub(root, "Other addons")) == [("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
     assert items(sub(root, "Settings")) == SETTINGS
     sim.Press("M")
