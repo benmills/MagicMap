@@ -57,6 +57,11 @@ and v1's field names and meanings. Open: what any owner adds in a later version,
   a key costs nothing, but changing a key's meaning without changing its name or type
   needs a `version` bump and a `migrate`.
 - telemetry and validation (unversioned until now) load as version 0 → 1 with their data kept.
+- validation is version 2 since M1.12 (an OPEN addition): `version`, the build (the TOC's
+  `## Version`) whose log it is; game/Validate.lua clears another build's log at load, so one
+  build's mismatches never read as the next one's. No `migrate`: a version 1 part keeps its keys and
+  takes `version`'s default `""`, which no build is, so its log is cleared once. An older build
+  meets a version 2 part as a downgrade: left on disk, its session's log unsaved.
 - Nothing migrates from the spike's `MagicMapDB` / `MagicMapLandmarks`, so v1 starts
   fresh. See the open question about rares.
 - Everything is account-wide, as in the spike.

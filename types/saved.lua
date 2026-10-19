@@ -97,8 +97,9 @@
 -- validation (game/Validate.lua: a spike, deleted when Atlas holds) -------------------
 
 ---@class MM.SavedValidation: MM.SavedPart
----@field _v 1
+---@field _v 2
 ---@field on? boolean
+---@field version string  the build (the TOC's ## Version) whose log it is: another build's is cleared at load (game/Validate.lua)
 ---@field samples integer
 ---@field counts table<string, integer>
 ---@field log table[]
