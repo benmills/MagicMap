@@ -1,6 +1,6 @@
 -- obs.minimap (types/observation.lua MM.ObsMinimap), per frame: the takeover's state
 -- (game/Minimap.lua Game.minimap), sensing if the sensor read this frame (obs.blips), indoors
--- (game/Renderer.lua), and the Minimap's home spot with the cluster's strata (game/Home.lua: a
+-- (game/Renderer.lua) and whether /mma indoor reports (SavedGame.indoorDebug), and the Minimap's home spot with the cluster's strata (game/Home.lua: a
 -- new rect only when re-read).
 
 local _, ns = ...
@@ -11,7 +11,7 @@ local minimap = {}
 Game.Part("minimap", function(obs)
 	local m = Game.minimap
 	minimap.engaged, minimap.blocker, minimap.sensing = m.engaged, m.blocker, obs.blips ~= nil and m.still
-	minimap.indoors = Game.Indoors()
+	minimap.indoors, minimap.indoorDebug = Game.Indoors(), Game.saved.indoorDebug or false
 	minimap.home, minimap.homeStrata = Game.Home()
 	return minimap
 end)

@@ -11,7 +11,7 @@ local _, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
 
 local F = Enum.MinimapTrackingFilter
-local DUPLICATE = { [F.TaxiNode] = true, [F.QuestPOIs] = true, [F.POI] = true } -- MinimapTakeover.lua:237
+local DUPLICATES = Game.DUPLICATES -- game/Tracking.lua: filter id -> our layer (MinimapTakeover.lua:237)
 
 local list -- the last handed over
 local dirty = true
@@ -40,7 +40,7 @@ Game.Part("tracking", function()
 		local info = C_Minimap.GetTrackingInfo(i)
 		if info then
 			local f = C_Minimap.GetTrackingFilter(i)
-			local id, kind = ID(f), DUPLICATE[f.filterID] and "duplicate" or nil
+			local id, kind = ID(f), DUPLICATES[f.filterID] and "duplicate" or nil
 			local t = last[id]
 			if not (t and t.name == info.name and t.texture == info.texture and t.active == info.active and t.kind == kind) then
 				t = { id = id, name = info.name, texture = info.texture, active = info.active, kind = kind }
