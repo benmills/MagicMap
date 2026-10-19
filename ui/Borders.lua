@@ -7,6 +7,8 @@
 -- crossfaded to the layout where it lands (Engine's "hold"). A layout keeps the Lines its canvas drew
 -- (Engine.Keep, by piece): one whole at the same zoom and origin is left as it is, so a pan's layout sets
 -- only what it adds (it set every Line: most of a drag's frames over 3 ms in Orgrimmar).
+-- UI.Borders.Polyline, with UI.Borders.Scratch: a line's clipped, fading-end pieces, for the hovered zone's
+-- border too (ui/ZoneInfo.lua: a job of its own, so a scratch of its own).
 
 local _, ns = ...
 local UI = ns.UI
@@ -34,18 +36,18 @@ for kind, sub in pairs(SUBLEVEL) do
 	end
 end
 
--- The layout's region in canvas px, and its Lines so far.
-local box, made = { 0, 0, 0, 0 }, 0
+-- The layout's Lines so far.
+local made = 0
 
--- A segment clipped to the box (Liang-Barsky), or nil: none of it inside; and whether it's whole.
-local function Clip(x1, y1, x2, y2)
+-- A segment clipped to box b (Liang-Barsky), or nil: none of it inside; and whether it's whole.
+local function Clip(b, x1, y1, x2, y2)
 	local t0, t1, dx, dy = 0, 1, x2 - x1, y2 - y1
 	for side = 1, 4 do
 		local p, q
-		if side == 1 then p, q = -dx, x1 - box[1]
-		elseif side == 2 then p, q = dx, box[3] - x1
-		elseif side == 3 then p, q = -dy, y1 - box[2]
-		else p, q = dy, box[4] - y1 end
+		if side == 1 then p, q = -dx, x1 - b[1]
+		elseif side == 2 then p, q = dx, b[3] - x1
+		elseif side == 3 then p, q = -dy, y1 - b[2]
+		else p, q = dy, b[4] - y1 end
 		if p == 0 then
 			if q < 0 then return nil end
 		else
@@ -97,9 +99,13 @@ local function Line(c, kind, key, x1, y1, x2, y2, w, a, whole)
 	Yield()
 end
 
--- One polyline's points in canvas px, those kept, and the length along it to each: scratch, reused.
-local xs, ys, at = {}, {}, {}
-local function Points(l, first, zoom, ox, oy)
+-- A polyline's scratch: its points kept in canvas px (x, y), the length along it to each (at), and the
+-- box (canvas px) its pieces are clipped to: one a caller, as two jobs may each be midway through one.
+local function Scratch() return { x = {}, y = {}, at = {}, box = { 0, 0, 0, 0 } } end
+
+-- Line l's points from first, in px at zoom from (ox, oy): one nearer than MIN_SEG_PX to the last kept merges.
+local function Points(s, l, first, zoom, ox, oy)
+	local xs, ys, at = s.x, s.y, s.at
 	local n, last, min2 = 0, #l - 1, MIN_SEG_PX * MIN_SEG_PX
 	for i = first, last, 2 do
 		local x, y = (l[i] - ox) * zoom, (l[i + 1] - oy) * zoom
@@ -112,53 +118,52 @@ local function Points(l, first, zoom, ox, oy)
 	return n
 end
 
--- The point s px along the polyline.
-local function PointAt(n, s)
+-- The point d px along the polyline.
+local function PointAt(s, n, d)
+	local xs, ys, at = s.x, s.y, s.at
 	local k = n - 1
-	if s < at[n] / 2 then
+	if d < at[n] / 2 then
 		k = 1
-		while at[k + 1] < s do k = k + 1 end
+		while at[k + 1] < d do k = k + 1 end
 	else
-		while k > 1 and at[k] > s do k = k - 1 end
+		while k > 1 and at[k] > d do k = k - 1 end
 	end
-	local d = at[k + 1] - at[k]
-	local u = d > 0 and (s - at[k]) / d or 0 -- /: never 0 (checked)
+	local g = at[k + 1] - at[k]
+	local u = g > 0 and (d - at[k]) / g or 0 -- /: never 0 (checked)
 	return xs[k] + (xs[k + 1] - xs[k]) * u, ys[k] + (ys[k + 1] - ys[k]) * u
 end
 
--- A zone border's piece (its shadow, then it) or a subzone's, f of the way faded in (Layers.lua:1568-1577).
--- key: which piece of which polyline (its Lines' keys: Engine.Keep).
-local style = {} -- this layout's: thick, shadow (zone), sub (subzone thick)
-local function Piece(c, zone, key, x1, y1, x2, y2, f)
+-- A piece f of the way faded in, clipped to the box: piece(c, key, x1, y1, x2, y2, f, whole).
+local function Cut(s, c, piece, key, x1, y1, x2, y2, f)
 	local whole
-	x1, y1, x2, y2, whole = Clip(x1, y1, x2, y2)
-	if not x1 then return end
-	local w = 0.6 + 0.4 * f
-	if not zone then return Line(c, "sub", key, x1, y1, x2, y2, style.sub, SUB[4], whole) end
-	if style.shadow then Line(c, "shadow", key, x1, y1, x2, y2, (style.thick + SHADOW_PX) * w, SHADOW[4] * f, whole) end
-	Line(c, "line", key, x1, y1, x2, y2, style.thick * w, ZONE[4] * f, whole)
+	x1, y1, x2, y2, whole = Clip(s.box, x1, y1, x2, y2)
+	if x1 then piece(c, key, x1, y1, x2, y2, f, whole) end
 end
 
 -- An end's dashes, from it inward over fade px (fromEnd: the polyline's last point's). base: the
 -- polyline's key, a piece's: base + 16 * (its segment, or dash) + (0 solid, 1 a dash from its start, 2 its end).
-local function Dashes(c, n, fade, fromEnd, base)
-	local total = at[n]
+local function Dashes(s, c, piece, n, fade, fromEnd, base)
+	local total = s.at[n]
 	for j = 0, DASHES - 1 do
 		local d0 = j * (DASH_PX + GAP_PX)
 		if d0 >= fade then return end
 		local d1 = math.min(fade, d0 + DASH_PX)
 		local f = (d0 + d1) / 2 / fade -- /: never 0 (fade > d0 >= 0)
 		if f > MIN_FADE then
-			local x1, y1 = PointAt(n, fromEnd and total - d0 or d0)
-			local x2, y2 = PointAt(n, fromEnd and total - d1 or d1)
-			Piece(c, true, base + j * 16 + (fromEnd and 2 or 1), x1, y1, x2, y2, f)
+			local x1, y1 = PointAt(s, n, fromEnd and total - d0 or d0)
+			local x2, y2 = PointAt(s, n, fromEnd and total - d1 or d1)
+			Cut(s, c, piece, base + j * 16 + (fromEnd and 2 or 1), x1, y1, x2, y2, f)
 		end
 	end
 end
 
--- The polyline in xs, ys: its solid stretch, then each fading end's dashes (subzones never fade).
-local function Polyline(c, n, zone, fs, fe, base)
+-- Line l (Data/Borders.lua's: its points from first, in tiles) on canvas c at its zoom and origin: its solid
+-- stretch, then each fading end's (fs, fe) dashes of falling width and alpha (Layers.lua:1531-1577), each
+-- piece clipped to s.box and handed to piece(c, key, x1, y1, x2, y2, f, whole) (f: how far faded in).
+local function Polyline(s, c, l, first, fs, fe, base, piece)
+	local n = Points(s, l, first, c.zoom, c.ox, c.oy)
 	if n < 2 then return end
+	local xs, ys, at = s.x, s.y, s.at
 	local total = at[n]
 	local fade = math.min(FADE_PX, total / 2)
 	local s0, s1 = fs and fade or 0, total - (fe and fade or 0)
@@ -168,11 +173,22 @@ local function Polyline(c, n, zone, fs, fe, base)
 			local d, x, y = a1 - a0, xs[k], ys[k]
 			local u0, u1 = math.max(0, (s0 - a0) / d), math.min(1, (s1 - a0) / d) -- /: never 0 (a1 > a0)
 			local dx, dy = xs[k + 1] - x, ys[k + 1] - y
-			Piece(c, zone, base + k * 16, x + dx * u0, y + dy * u0, x + dx * u1, y + dy * u1, 1)
+			Cut(s, c, piece, base + k * 16, x + dx * u0, y + dy * u0, x + dx * u1, y + dy * u1, 1)
 		end
 	end
-	if fs and fade > 0 then Dashes(c, n, fade, false, base) end
-	if fe and fade > 0 then Dashes(c, n, fade, true, base) end
+	if fs and fade > 0 then Dashes(s, c, piece, n, fade, false, base) end
+	if fe and fade > 0 then Dashes(s, c, piece, n, fade, true, base) end
+end
+
+-- A zone border's piece (its shadow, then it) or a subzone's (Layers.lua:1568-1577): Lines keyed by it.
+local style = {} -- this layout's: thick, shadow (zone), sub (subzone thick)
+local function ZonePiece(c, key, x1, y1, x2, y2, f, whole)
+	local w = 0.6 + 0.4 * f
+	if style.shadow then Line(c, "shadow", key, x1, y1, x2, y2, (style.thick + SHADOW_PX) * w, SHADOW[4] * f, whole) end
+	Line(c, "line", key, x1, y1, x2, y2, style.thick * w, ZONE[4] * f, whole)
+end
+local function SubPiece(c, key, x1, y1, x2, y2, _, whole)
+	Line(c, "sub", key, x1, y1, x2, y2, style.sub, SUB[4], whole)
 end
 
 -- Each line's bounds in tiles, once per line (its points from first).
@@ -190,14 +206,15 @@ local function Bounds(l, first)
 	return b
 end
 
--- The lines whose bounds meet the region, each as a polyline (first: its first x).
+-- The lines whose bounds meet the region, each as a polyline (first: its first x); subzones never fade.
 local NONE = {}
-local function Lines(c, lines, first, zone, zoom, c0, r0, c1, r1)
-	local ox, oy = c.ox, c.oy -- (the canvas's origin, ui/Engine.lua)
+local scratch = Scratch()
+local function Lines(c, lines, first, zone, c0, r0, c1, r1)
+	local piece = zone and ZonePiece or SubPiece
 	for i, l in ipairs(lines) do
 		local b = Bounds(l, first)
 		if not (b[3] < c0 or b[1] > c1 or b[4] < r0 or b[2] > r1) then
-			Polyline(c, Points(l, first, zoom, ox, oy), zone, zone and l[3] > 0, zone and l[4] > 0, i * 1048576)
+			Polyline(scratch, c, l, first, zone and l[3] > 0, zone and l[4] > 0, i * 1048576, piece)
 		end
 		if made >= CAP then return end
 		Yield()
@@ -208,15 +225,17 @@ UI.Borders = Engine.Layer("borders", 7, function(c, inst, zoom, c0, r0, c1, r1)
 	local lines = Atlas.BorderLines(inst, zoom)
 	if not lines then return end
 	made, nl = 0, 0
+	local box = scratch.box -- (the canvas's origin, ui/Engine.lua)
 	box[1], box[2], box[3], box[4] = (c0 - c.ox) * zoom, (r0 - c.oy) * zoom, (c1 - c.ox) * zoom, (r1 - c.oy) * zoom
 	style.thick = math.max(1.1, math.min(1.8, zoom / 140)) -- Layers.lua:1589
 	style.shadow = zoom >= SHADOW_ZOOM
 	style.sub = math.max(0.8, math.min(1.1, zoom / 300)) -- Layers.lua:1590
-	Lines(c, lines, 5, true, zoom, c0, r0, c1, r1)
-	if zoom >= SUBZONE_ZOOM then Lines(c, Atlas.SubzoneLines(inst, zoom) or NONE, 3, false, zoom, c0, r0, c1, r1) end
+	Lines(c, lines, 5, true, c0, r0, c1, r1)
+	if zoom >= SUBZONE_ZOOM then Lines(c, Atlas.SubzoneLines(inst, zoom) or NONE, 3, false, c0, r0, c1, r1) end
 	for i = 1, nl do
 		local kind = lk[i]
 		Set(c, Get(c, kind, "line", makers[kind], lkey[i]), kind, lx1[i], ly1[i], lx2[i], ly2[i], lw[i], la[i], lwhole[i])
 		Yield()
 	end
 end, nil, "hold")
+UI.Borders.Polyline, UI.Borders.Scratch = Polyline, Scratch

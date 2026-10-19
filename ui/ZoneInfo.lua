@@ -7,9 +7,9 @@
 --   Ctrl-click: a waypoint there; Ctrl-right-click: none; Shift-click: its /way line in the chat box
 --     (the waypoint and way Commands: Game's). Taken on the press, so the map doesn't pan; not off the
 --     zones' maps (Atlas.ZoneMapAt: where Game's waypoint can go).
---   At(col, row): the big map's right-click menu leads with it (ui/Menus.lua): the zone, its subzones and
---     coordinates, its levels against yours, how far and which way from you, at most 2 quests whose areas
---     hold it. Explored and landmark lines: M4.4.
+--   At(col, row): the big map's right-click menu leads with it (ui/Menus.lua): the zone, the areas explored
+--     there and coordinates, its levels against yours, how far and which way from you, at most 2 quests whose
+--     areas hold it, at most 2 landmarks near it.
 --   /mma zone <name>: fly to the first zone whose name holds it, the map shown's first.
 
 local _, ns = ...
@@ -24,12 +24,17 @@ local EVERY = 0.05 -- s: the hover's look, as the title's (Core.lua:1563)
 local MIN_WEIGHT = 30 -- a zone's land chunks to count as in view (Layers.lua:2006)
 local LABEL, LABEL_HOVER = { 1, 0.9, 0.7, 0.75 }, { 1, 1, 0.9, 1 } -- Layers.lua:1420-1421
 local LIT = { 1, 0.84, 0.4, 0.95 } -- the hovered zone's border (Layers.lua:1799)
--- Its dead ends as the borders' (ui/Borders.lua; Layers.lua:1531-1577).
-local FADE_PX, DASH_PX, GAP_PX, DASHES, MIN_FADE, MIN_SEG_PX = 36, 5, 4, 4, 0.08, 2.5
 local TILE_YARDS = Atlas.TILE_YARDS
 local RADIUS = 110 / 533.33 -- tiles: a quest's estimated area (Layers.lua:78)
-local MAX_QUESTS = 2 -- ZoneInfo.lua:13
+local MAX_QUESTS, MAX_NEARBY = 2, 2 -- ZoneInfo.lua:13-14
 local HERE_YD = 15 -- closer: "You're here" (ZoneInfo.lua:115)
+local NEAR_YD = 900 -- landmarks further from the spot aren't near it (ZoneInfo.lua:11)
+-- Notable places, in order of interest: Known("places")' kind and label (ZoneInfo.lua:19-24).
+local NOTABLE = { { place = "flight", label = "Flight point" }, { place = "dungeon", label = "Dungeon" },
+	{ place = "graveyard", label = "Graveyard" } }
+-- C_Map.IsCityMap's (ZoneInfo.lua:79): no fog of war to lift (Stormwind City, Orgrimmar, Ironforge, Thunder
+-- Bluff, Darnassus, Undercity).
+local CITY = { [1453] = true, [1454] = true, [1455] = true, [1456] = true, [1457] = true, [1458] = true }
 local GOLD, WHITE, GREY, DIM = "|cffffd100", "|cffffffff", "|cffa8a8a8", "|cff808080" -- ZoneInfo.lua:16
 local SEP = DIM .. "  ·  |r"
 local COMPASS = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" }
@@ -120,14 +125,16 @@ local function Name(zone)
 end
 
 -- Its border: Lines of its own on the borders' shown canvas, over theirs (Layers.lua:235: the spike's
--- highlight pool), thick clamp(z / 100, 1.6, 2.4) at that canvas's zoom, clipped to its layout's region as
--- theirs; scaled, dimmed and crossfaded with it. Drawn by a job a few a frame, once the map's layouts are
--- done (Engine.pending: their frames are full); parked off the canvases when not drawn, as Engine's.
+-- highlight pool), thick clamp(z / 100, 1.6, 2.4) at that canvas's zoom, its lines as theirs (ui/Borders.lua's
+-- polyline: clipped to its layout's region, fading ends), scaled, dimmed and crossfaded with it. Drawn by a
+-- job a few a frame, once the map's layouts are done (Engine.pending: their frames are full); parked off the
+-- canvases when not drawn, as Engine's.
 local lit = {} -- zone, c: what it's drawn for (c nil: none)
 local BUDGET = 1 -- ms a frame
 local park = CreateFrame("Frame", nil, Window.view)
 park:Hide()
 local lines = { n = 0, out = 0 } -- 1..n this drawing's; 1..out on lit.c, the rest parked
+local scratch, thick = UI.Borders.Scratch(), 1 -- (its own: the borders' layout is another job); this drawing's width
 
 local function Park(from)
 	for i = from, lines.out do
@@ -148,38 +155,8 @@ local function MakeLine()
 	return l
 end
 
-local box, thick = { 0, 0, 0, 0 }, 1 -- the canvas's region in its px; this drawing's width
-
--- A segment clipped to the box (Liang-Barsky, as ui/Borders.lua), or nil: none of it inside.
-local function Clip(x1, y1, x2, y2)
-	local t0, t1, dx, dy = 0, 1, x2 - x1, y2 - y1
-	for side = 1, 4 do
-		local p, q
-		if side == 1 then p, q = -dx, x1 - box[1]
-		elseif side == 2 then p, q = dx, box[3] - x1
-		elseif side == 3 then p, q = -dy, y1 - box[2]
-		else p, q = dy, box[4] - y1 end
-		if p == 0 then
-			if q < 0 then return nil end
-		else
-			local r = q / p -- /: never 0 (p checked)
-			if p < 0 then
-				if r > t1 then return nil end
-				if r > t0 then t0 = r end
-			elseif r < t0 then
-				return nil
-			elseif r < t1 then
-				t1 = r
-			end
-		end
-	end
-	return x1 + dx * t0, y1 + dy * t0, x1 + dx * t1, y1 + dy * t1
-end
-
--- A piece f of the way faded in (Layers.lua:1568-1577): the next Line, on the canvas.
-local function Piece(c, x1, y1, x2, y2, f)
-	x1, y1, x2, y2 = Clip(x1, y1, x2, y2)
-	if not x1 then return end
+-- A piece f of the way faded in (Layers.lua:1568-1577), clipped: the next Line, on the canvas.
+local function Piece(c, _, x1, y1, x2, y2, f)
 	local n = lines.n + 1
 	local l = lines[n] or MakeLine()
 	lines[n], lines.n = l, n
@@ -202,75 +179,18 @@ local function Piece(c, x1, y1, x2, y2, f)
 	Yield()
 end
 
--- A polyline's points in canvas px, those kept, and the length along it to each: scratch, reused.
-local xs, ys, along = {}, {}, {}
-local function Points(c, l)
-	local n, last, min2, zoom = 0, #l - 1, MIN_SEG_PX * MIN_SEG_PX, c.zoom
-	for i = 5, last, 2 do
-		local x, y = (l[i] - c.ox) * zoom, (l[i + 1] - c.oy) * zoom
-		if n == 0 or i >= last - 1 or (x - xs[n]) ^ 2 + (y - ys[n]) ^ 2 >= min2 then
-			n = n + 1
-			xs[n], ys[n] = x, y
-			along[n] = n == 1 and 0 or along[n - 1] + math.sqrt((x - xs[n - 1]) ^ 2 + (y - ys[n - 1]) ^ 2)
-		end
-	end
-	return n
-end
-
-local function PointAt(n, s)
-	local k = 1
-	while k < n - 1 and along[k + 1] < s do k = k + 1 end
-	local d = along[k + 1] - along[k]
-	local u = d > 0 and (s - along[k]) / d or 0 -- /: never 0 (checked)
-	return xs[k] + (xs[k + 1] - xs[k]) * u, ys[k] + (ys[k + 1] - ys[k]) * u
-end
-
--- A line of Data/Borders.lua ({ areaA, areaB, fadeStart, fadeEnd, x1, y1, ... }) as ui/Borders.lua draws a
--- zone's: solid, each fading end in at most DASHES dashes of falling width and alpha.
-local function Polyline(c, l)
-	local n = Points(c, l)
-	if n < 2 then return end
-	local total = along[n]
-	local fade = math.min(FADE_PX, total / 2)
-	local fs, fe = l[3] > 0, l[4] > 0
-	local s0, s1 = fs and fade or 0, total - (fe and fade or 0)
-	for k = 1, n - 1 do
-		local a0, a1 = along[k], along[k + 1]
-		if a1 > s0 and a0 < s1 and a1 > a0 then
-			local d, x, y = a1 - a0, xs[k], ys[k]
-			local u0, u1 = math.max(0, (s0 - a0) / d), math.min(1, (s1 - a0) / d) -- /: never 0 (a1 > a0)
-			local dx, dy = xs[k + 1] - x, ys[k + 1] - y
-			Piece(c, x + dx * u0, y + dy * u0, x + dx * u1, y + dy * u1, 1)
-		end
-	end
-	for e = 1, 2 do
-		local fromEnd = e == 2
-		if fade > 0 and (fromEnd and fe or not fromEnd and fs) then
-			for j = 0, DASHES - 1 do
-				local d0 = j * (DASH_PX + GAP_PX)
-				if d0 >= fade then break end
-				local d1 = math.min(fade, d0 + DASH_PX)
-				local f = (d0 + d1) / 2 / fade -- /: never 0 (fade > d0 >= 0)
-				if f > MIN_FADE then
-					local x1, y1 = PointAt(n, fromEnd and total - d0 or d0)
-					local x2, y2 = PointAt(n, fromEnd and total - d1 or d1)
-					Piece(c, x1, y1, x2, y2, f)
-				end
-			end
-		end
-	end
-end
-
+-- Its lines of Data/Borders.lua ({ areaA, areaB, fadeStart, fadeEnd, x1, y1, ... }), each as ui/Borders.lua
+-- draws a zone's.
 local function Light()
 	local c, zone = lit.c, lit.zone
 	local list = zone and Atlas.BorderLines(c.inst, c.zoom)
 	lines.n = 0
 	if list then
-		local z, r = c.zoom, c.region
+		local z, r, box = c.zoom, c.region, scratch.box
 		box[1], box[2], box[3], box[4] = (r[1] - c.ox) * z, (r[2] - c.oy) * z, (r[3] - c.ox) * z, (r[4] - c.oy) * z
 		thick = math.max(1.6, math.min(2.4, z / 100)) -- Layers.lua:1794
 		for _, l in ipairs(list) do
-			if l[1] == zone or l[2] == zone then Polyline(c, l) end
+			if l[1] == zone or l[2] == zone then UI.Borders.Polyline(scratch, c, l, 5, l[3] > 0, l[4] > 0, 0, Piece) end
 		end
 	end
 	Park(lines.n + 1)
@@ -381,18 +301,50 @@ local function LevelLine(zone)
 	return GREY .. "Level|r " .. color .. (lo == hi and tostring(lo) or (lo .. "-" .. hi)) .. "|r"
 end
 
--- Subzones and coordinates: "Goldshire  ·  42.1, 65.8" (ZoneInfo.lua:91-111): the areas there under the
--- zone, at most 2, the zone's first.
-local function PlaceLine(zone)
-	local coords = GREY .. string.format("%.1f, %.1f", zone.x * 100, zone.y * 100) .. "|r"
-	local names, id = {}, zone.area
+-- The areas explored at the spot (ZoneInfo.lua:71-89): those of its chain (the area there, then each it's in,
+-- up to the zone) Game found explored (Model.explored), their names but the zone's, the outermost first; false:
+-- none, but Game found one unexplored (a city has no fog to lift: nil); nil: Game can't say.
+local function Explored(zone)
+	local explored = Model.explored
+	if not explored then return nil end
+	local names, seen, any, id = {}, { [zone.name] = true }, nil, zone.area
+	while id do
+		local e, a = explored[id], Atlas.Area(id)
+		if e and not seen[a.name] and a.name ~= "" then
+			seen[a.name] = true
+			table.insert(names, 1, a.name)
+		end
+		if e or any == nil then any = e end
+		id = id ~= zone.zone and a.parent or nil
+	end
+	if any then return names end
+	if CITY[zone.mapID] then return nil end
+	return any
+end
+
+-- The spot's outermost area under the zone, by name (the area chain's): where an unexplored spot is near.
+local function Near(zone)
+	local name, id = nil, zone.area
 	while id and id ~= zone.zone do
 		local a = Atlas.Area(id)
-		if a.name ~= "" and a.name ~= zone.name then table.insert(names, 1, a.name) end
+		if a.name ~= "" and a.name ~= zone.name then name = a.name end
 		id = a.parent
 	end
-	if not names[1] then return coords end
-	return WHITE .. table.concat(names, " / ", 1, math.min(#names, 2)) .. "|r" .. SEP .. coords
+	return name
+end
+
+-- The areas explored and coordinates: "Goldshire  ·  42.1, 65.8"; none explored, "Unexplored, near Goldshire  ·
+-- 42.1, 65.8"; Game can't say, or only the zone's explored, the coordinates (ZoneInfo.lua:91-109).
+local function PlaceLine(zone)
+	local coords = GREY .. string.format("%.1f, %.1f", zone.x * 100, zone.y * 100) .. "|r"
+	local names, place = Explored(zone), nil
+	if names and names[1] then
+		place = WHITE .. table.concat(names, " / ", 1, math.min(#names, 2)) .. "|r"
+	elseif names == false then
+		local near = Near(zone)
+		place = DIM .. "Unexplored|r" .. (near and (DIM .. ", near|r " .. WHITE .. near .. "|r") or "")
+	end
+	return place and (place .. SEP .. coords) or coords
 end
 
 -- How far and which way from you, when you're on this map (ZoneInfo.lua:111-117).
@@ -455,6 +407,37 @@ local function QuestLines(inst, col, row, out)
 	end
 end
 
+-- The nearest notable place of each kind within NEAR_YD of the spot (Known("places"), its layer on or off),
+-- the closest first, at most 2: "Graveyard Goldshire  ·  175 yd SE" (ZoneInfo.lua:138-157).
+local found = {}
+local function Closer(a, b) return a.d < b.d end
+local function NearbyLines(inst, col, row, out)
+	local list, n = Model.Known("places"), 0
+	for _, k in ipairs(NOTABLE) do
+		local best, bestD
+		for _, e in ipairs(list) do
+			local p = e.pos
+			if e.place == k.place and p.inst == inst then
+				local d = Dist(col, row, p.col, p.row)
+				if d * TILE_YARDS <= NEAR_YD and (not bestD or d < bestD) then best, bestD = e, d end
+			end
+		end
+		if best then
+			n = n + 1
+			found[n] = { e = best, d = bestD, label = k.label }
+		end
+	end
+	for i = #found, n + 1, -1 do found[i] = nil end
+	table.sort(found, Closer)
+	for i = 1, math.min(n, MAX_NEARBY) do
+		local f = found[i]
+		local p = f.e.pos
+		local where = f.d * TILE_YARDS < HERE_YD and "here" or (Yards(f.d) .. " " .. Direction(col, row, p.col, p.row))
+		local title = f.e.name ~= f.label and (WHITE .. f.e.name .. "|r" .. SEP) or ""
+		out[#out + 1] = GREY .. f.label .. "|r " .. title .. GREY .. where .. "|r"
+	end
+end
+
 -- Lines describing tile (col, row) on the map shown, the first the zone's name (gold); nil: nothing to
 -- say (ZoneInfo.lua:160-187).
 function ZoneInfo.At(col, row)
@@ -473,6 +456,7 @@ function ZoneInfo.At(col, row)
 		out[#out + 1] = YouLine(inst, col, row)
 	end
 	QuestLines(inst, col, row, out)
+	NearbyLines(inst, col, row, out)
 	return out[1] and out or nil
 end
 

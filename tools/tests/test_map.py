@@ -16,8 +16,8 @@ def test_map():
     assert w.frame.IsShown(w.frame)
     sim.Run(1)
     assert c.inst == 0 and abs(c.cam.cx - 31.95) < 1e-6 and abs(c.cam.cy - 49.75) < 1e-6
-    for layer in e.layers.values():
-        assert layer.front and not layer.busy, layer.name
+    for layer in e.layers.values():  # (one off by default, as the shade: none)
+        assert (layer.front and not layer.busy) if layer.on else not layer.front, layer.name
     live, _ = stats(e)
     assert live["tex"] > 10 and live["line"] > 10 and live["font"] > 0, live
 
@@ -30,7 +30,7 @@ def test_map():
     assert not c.follow and c.cam.cx < 31.95 - 0.5
     sim.Run(1)
     for layer in e.layers.values():
-        assert layer.front.zoom == c.cam.zoom, layer.name
+        assert not layer.on or layer.front.zoom == c.cam.zoom, layer.name
 
     # Out to the whole continent (the zoom-out button's ticks, a frame apart, as a fast wheel's),
     # and back to you on a right click.

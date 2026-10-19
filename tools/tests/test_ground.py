@@ -36,7 +36,7 @@ def look(sim, ns, at, zoom):
     ns.UI.Motion.SetZoom(zoom)
     sim.Run(2)
     for lay in ns.UI.Engine.layers.values():
-        assert lay.front.zoom == zoom and not lay.busy, lay.name
+        assert not lay.on or lay.front.zoom == zoom and not lay.busy, lay.name
 
 
 def lines(front):
