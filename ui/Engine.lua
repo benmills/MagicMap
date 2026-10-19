@@ -110,7 +110,8 @@ end
 function Engine.At(c, o, point, col, row, dx, dy)
 	dx, dy = dx or 0, dy or 0
 	o.apoint, o.acol, o.arow, o.adx, o.ady, o.az = point, col, row, dx, dy, c.zoom
-	o:SetPoint(point, c, "TOPLEFT", (col - c.ox) * c.zoom + dx, -((row - c.oy) * c.zoom + dy))
+	o.x, o.y = (col - c.ox) * c.zoom + dx, (row - c.oy) * c.zoom + dy -- where it stands on the canvas
+	o:SetPoint(point, c, "TOPLEFT", o.x, -o.y)
 end
 
 -- Tile-space position on a canvas laid out at zoom (v from its origin), rounded so neighbours share edges.
@@ -166,8 +167,10 @@ local function R2(v) return math.floor(v * 100 + 0.5) / 100 end -- for traces
 
 local function Near(x, y, w, h) return x > -PAD and x < w + PAD and y > -PAD and y < h + PAD end
 
--- A "move" canvas's regions to the camera's zoom: each that shows there, or did where it was (o.az, its
--- zoom); the rest stay put out of view until they would show (c.late), or the next layout.
+-- A "move" canvas's regions to the camera's zoom (o.az: the zoom each stands at): each that shows
+-- there, or does where it stands (o.x, o.y); one only showing where it stands goes off the view, kept by
+-- it (a zoom's jump would put it thousands of px out). The rest stay put out of view until they would
+-- show (c.late), or the next layout.
 local function Move(c, cam, w, h)
 	local z, ox, oy = cam.zoom, c.ox, c.oy
 	local x0, y0 = w / 2 + (ox - cam.cx) * z, h / 2 + (oy - cam.cy) * z -- the origin on the view
@@ -176,10 +179,18 @@ local function Move(c, cam, w, h)
 		for i = 1, p.n do
 			local o = p[i]
 			if o.az ~= z then
-				local col, row, dx, dy = o.acol - ox, o.arow - oy, o.adx, o.ady
-				if Near(x0 + col * z + dx, y0 + row * z + dy, w, h) or Near(x0 + col * o.az + dx, y0 + row * o.az + dy, w, h) then
-					o.az = z
-					o:SetPoint(o.apoint, c, "TOPLEFT", col * z + dx, -(row * z + dy))
+				local x, y = (o.acol - ox) * z + o.adx, (o.arow - oy) * z + o.ady
+				local near = Near(x0 + x, y0 + y, w, h)
+				if near or Near(x0 + o.x, y0 + o.y, w, h) then
+					if near then
+						o.az = z
+					else
+						x = math.max(-PAD, math.min(w + PAD, x0 + x)) - x0
+						y = math.max(-PAD, math.min(h + PAD, y0 + y)) - y0
+						late = true
+					end
+					o.x, o.y = x, y
+					o:SetPoint(o.apoint, c, "TOPLEFT", x, -y)
 				else
 					late = true
 				end
@@ -254,8 +265,14 @@ local function Swap(layer, back, live, parked)
 		x = back.x and R2(back.x), y = back.y and R2(back.y), scale = back.scale and R2(back.scale) })
 end
 
--- Lay layer out for the camera at (a "hold" layer: where it's headed), on its back canvas.
+-- Lay layer out for the camera at (a "hold" layer: where it's headed), on its back canvas. A crossfade
+-- running ends first (its old canvas is the back: Layers.lua:1853-1855, FinishCrossfade).
 local function Rebuild(layer, inst, at, w, h, budget)
+	if layer.fade then
+		Alpha(layer.fade.from, 0)
+		layer.fade = nil
+		Place(layer, Camera.cam, w, h)
+	end
 	local back = layer.canvases[layer.front == layer.canvases[1] and 2 or 1]
 	local zoom = at.zoom
 	local c0, r0, c1, r1 = Region(at, w, h)

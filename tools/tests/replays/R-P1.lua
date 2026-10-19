@@ -5,7 +5,10 @@
 -- stopping, no layout frame over 8 ms; after it, each canvas holds what it shows (the rest parked).
 -- Then a 20-step zoom-out, one step a frame (96 to 16 px a tile): layouts started per layer (the
 -- spike's ~44 for 4 layers, 33 for 5 before M1.3): a held layer (borders) once, where the zoom lands;
--- the others once a crossing of the [0.7, 1.4] band (5 here at most) and once settled.
+-- the others once a crossing of the [0.7, 1.4] band (5 here at most) and once settled. Last, a long pan
+-- at 800 px a tile, ~45 views from you: the shared origin moves with the layouts, so no offset on the
+-- map passes 4096 px (T.Anchors; the arrow kept by the view), however far the view goes, nor after a
+-- zoom's jump.
 local T = ...
 local MAX_MS = 8 -- a layout's slowest frame: 2x its budget (Runtime's overrun for a job; test_zoom.py)
 local function R2(v) return math.floor(v * 100 + 0.5) / 100 end
@@ -18,6 +21,7 @@ for _, lay in ipairs(layers) do -- the first open's layouts done: maxima from he
 	ns.Runtime.Perf()["map: " .. lay.name].max = 0
 end
 local w = ns.UI.Window.Size()
+local hx, hy = m.cam.cx, m.cam.cy -- (you)
 m.follow = false
 local covered = {}
 for _, lay in ipairs(layers) do covered[lay.name] = 0 end
@@ -84,3 +88,29 @@ T.Print("P1: 20-step zoom-out, %.0f to %.0f px a tile: %d layouts started for %d
 	#layers, table.concat(each, ", "))
 assert(m.cam.zoom == 16)
 for _, lay in ipairs(layers) do assert(T.Fresh(ns, lay), lay.name) end
+
+-- The long pan: 0.75 views a second for 10 s at the top zoom.
+for _ = 1, 15 do ns.UI.Motion.ZoomStep(1) end -- (16 to 800)
+sim.Run(2)
+local x0, origins, ox = m.cam.cx, 0, ns.UI.Engine.ox
+for _ = 1, 600 do
+	m.cam.cx = m.cam.cx + w * 0.75 / 60 / m.cam.zoom
+	sim.Step()
+	if ns.UI.Engine.ox ~= ox then origins, ox = origins + 1, ns.UI.Engine.ox end
+end
+sim.Run(1)
+T.Print("P1: a long pan at %.0f px a tile, %.1f tiles: the origin moved %d times", m.cam.zoom, m.cam.cx - x0, origins)
+assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n"))
+assert(m.cam.zoom == 800 and origins >= 2)
+for _, lay in ipairs(layers) do assert(T.Fresh(ns, lay), lay.name) end
+
+-- A zoom's jump (ui/BigMap.lua: a shrink with you unknown, the window's first placing), 96 to 800 and
+-- back: a label in view before it is moved off the view, not 8x as far out.
+ns.UI.Motion.SetZoom(96)
+m.cam.cx, m.cam.cy = hx, hy
+sim.Run(1)
+for _, z in ipairs({ 800, 96, 800 }) do
+	ns.UI.Motion.SetZoom(z)
+	sim.Run(1)
+end
+assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n"))

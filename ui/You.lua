@@ -33,6 +33,7 @@ Runtime.Step("ui", "map: you", function()
 	if you and you.col and not you.stale and you.facing and you.inst == Camera.inst then
 		local w, h = Window.Size()
 		local x, y = Maths.TileToScreen(Camera.cam, w, h, you.col, you.row)
+		x, y = math.max(-SIZE, math.min(w + SIZE, x)), math.max(-SIZE, math.min(h + SIZE, y)) -- off the view: kept by it (no offset grows)
 		if arrow.x ~= x or arrow.y ~= y then
 			arrow.x, arrow.y = x, y
 			arrow:SetPoint("CENTER", overlay, "TOPLEFT", x, -y)
