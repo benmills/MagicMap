@@ -76,7 +76,7 @@ def scenario(L, sim, ns, check=lambda *_: None):
     put_blips(L, sim, ns, BLIPS[:1] + BLIPS[2:])  # the second mailbox: gone (as if mismeasured)
     sim.Run(2)
     check("gone")
-    sim.player.facing, sim.player.speed = math.pi / 2, 14  # east (the sim's facing), mounted
+    sim.player.facing, sim.player.speed = 3 * math.pi / 2, 14  # east, mounted
     for _ in range(45):
         sim.Run(1)
         check("walking")
@@ -251,7 +251,7 @@ def test_blips_priced():
     counts = {}
     for name, _, _ in here + [vein]:
         counts[name] = counts.get(name, 0) + 1
-    sim.player.facing, sim.player.speed = math.pi / 2, 14
+    sim.player.facing, sim.player.speed = 3 * math.pi / 2, 14  # east
     rough = None
     for _ in range(600):
         sim.Step()
@@ -291,7 +291,7 @@ def default_ui_priced():
     sim.Run(12)  # past login's grace and telemetry's one full collect
     assert ns.UI.Window.frame.IsShown(ns.UI.Window.frame) and ns.Game.minimap.sensor
     sim.Run(10)
-    sim.player.facing, sim.player.speed = math.pi / 2, 7
+    sim.player.facing, sim.player.speed = 3 * math.pi / 2, 7  # east
     sim.Run(10)
     # In and out of a door every 5 s (the view radius 233 <-> 150 yd): out, only the ring past what
     # the finer lattice looked over is new.

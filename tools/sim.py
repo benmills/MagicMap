@@ -37,7 +37,7 @@ TESTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests")
 # at login (/mma toggle opens it), 720x520 in the screen's middle, 96 px a tile. A first login's shows
 # on the minimap's spot (test_chrome.py).
 TEST_UI = "MagicMapAtlasDB = { UI = { _v = 1, shown = false, zoom = 96, window = { left = 600, top = 800, w = 720, h = 520 } } }"
-FACING = {"north": 0, "east": math.pi / 2, "south": math.pi, "west": 3 * math.pi / 2}  # the sim's
+FACING = {"north": 0, "east": 3 * math.pi / 2, "south": math.pi, "west": math.pi / 2}  # the client's: counter-clockwise
 START = (31.95, 49.75)  # Sim.player's tile at login (col, row): Goldshire
 YD = 3 / 1600  # a yard in tiles
 
@@ -200,8 +200,8 @@ class Client:
         self.sim.Drag(self.frame(at), dx, dy, frames)
 
     def walk(self, seconds, facing=0.0, speed=7):
-        """Move for `seconds` at `speed` yd/s (7 running, 14 mounted), facing radians (0 north, pi/2
-        east: the sim's) or a direction's name, then stop."""
+        """Move for `seconds` at `speed` yd/s (7 running, 14 mounted), facing radians (the client's: 0 north,
+        counter-clockwise, 3pi/2 east) or a direction's name, then stop."""
         p = self.sim.player
         p.facing, p.speed = FACING.get(facing, facing), speed
         self.sim.Run(seconds)

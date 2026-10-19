@@ -5,7 +5,7 @@ input), as the spike's (Core.lua:1161-1240, 1247-1416, 1698-1735; Layers.lua:178
     kind and the continent their entrance is on, a lone group's level skipped; a pick shows the map whole, following
     off; a drag of the title picks nothing (F4, S60).
   test_map_and_zone: /mma map alone lists the maps, by id or name shows one whole; an instance's map shown whole has
-    no arrow, blips, borders or names (the exit's instance-map scenario); /mma zone flies to a zone (0.55 s, fit
+    no arrow, line to your waypoint, blips, borders or names (the exit's instance-map scenario); /mma zone flies to a zone (0.55 s, fit
     0.92, following off), with the spike's messages (F18).
   test_zone_hover: big (or off your map) with more than one zone in view, the zone under the cursor lit, its name
     and its border (S34, S36's hover); a click flies there in 0.55 s, following off; a quest's area isn't clickable
@@ -115,7 +115,13 @@ def test_map_and_zone():
     sim.Slash("/mma map kalimdor")
     sim.Run(1)
     assert UI.Window.frame.IsShown(UI.Window.frame) and UI.Camera.inst == 1 and not UI.Camera.follow
-    # An instance's map by id: its tiles whole; no arrow (you're not on it), no blips, borders or names.
+    # Back on you, a waypoint at Lakeshire: the line to it, the edge arrow where it leaves the view.
+    UI.Motion.SetFollow(True)
+    UI.Motion.SetZoom(96)
+    L.execute("(...).Game.Command({ kind = 'waypoint', pos = { inst = 0, col = 36.09, row = 49.28 } })", ns)
+    sim.Run(1)
+    assert UI.Path.pieces > 0 and sim.state[UI.Path.edge].shown
+    # An instance's map by id: its tiles whole; no arrow (you're not on it), line, blips, borders or names.
     sim.Slash("/mma map 36")
     sim.Run(2)
     c0, r0, c1, r1 = A.TileBounds(36)
@@ -124,6 +130,7 @@ def test_map_and_zone():
             for lay in UI.Engine.layers.values()}
     assert live.pop("tiles") > 0 and not any(live.values()), live
     assert not sim.state[UI.You.arrow].shown
+    assert UI.Path.pieces == 0 and not sim.state[UI.Path.edge].shown
     # A zone by part of its name, the map shown's first, then by map: flown to.
     sim.Slash("/mma zone westf")
     westfall = next(z for z in A.Zones(0).values() if z.name == "Westfall")

@@ -386,7 +386,7 @@ def test_path_walk_laid_as_new():
     def line(zoom, at=None):
         L, sim, ns, G = client()
         ns.UI.Motion.SetZoom(zoom)
-        sim.player.facing = math.pi / 2  # (the sim's east)
+        sim.player.facing = 3 * math.pi / 2  # east
         if at:
             sim.player.col, sim.player.row = at
         G.Target("waypoint", 35.5, 49.6, "Waypoint")
@@ -413,7 +413,7 @@ def test_path_walk_alloc():
     G.Target("waypoint", 34.5, 49.6, "Waypoint")
     G.Route(L.table_from([L.table_from(q) for q in [(32.4, 49.9), (33.0, 49.9), (33.6, 49.7), (34.0, 49.6), (34.5, 49.6)]]))
     sim.Run(6)  # past login's grace
-    sim.player.facing, sim.player.speed = math.pi / 2, 7  # (east, the sim's way)
+    sim.player.facing, sim.player.speed = 3 * math.pi / 2, 7  # east
     sim.Run(1)
     draws, done = P.draws, stretch(L, ns)
     sim.Run(10)
@@ -446,7 +446,7 @@ def test_path_priced(lua):
             sim.Wheel(view, 1 if n > 0 else -1)
             sim.Step()
         sim.Run(1)
-    sim.player.facing, sim.player.speed = math.pi / 2, 7
+    sim.player.facing, sim.player.speed = 3 * math.pi / 2, 7  # east
     sim.Run(5)
     sim.player.speed = 0
     sim.Drag(view, 300, 100, 20)

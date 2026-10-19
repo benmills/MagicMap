@@ -197,7 +197,7 @@ def test_script_a_priced():
         M.SetZoom(200); sim.Run(1)
         for i = 1, 6 do Drag(i % 2 == 0 and 30 or -30, 10, 20); sim.Run(1.5) end
         M.SetFollow(true); sim.Run(1)
-        sim.player.facing, sim.player.speed = math.pi / 2, 7
+        sim.player.facing, sim.player.speed = 3 * math.pi / 2, 7 -- east
         sim.Run(30)
         sim.player.speed = 0
         sim.Press("M"); sim.Run(1.5)

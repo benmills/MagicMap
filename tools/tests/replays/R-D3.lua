@@ -70,11 +70,11 @@ local function Stop()
 	Sweeps(2)
 	return Exact()
 end
-Ride(math.pi / 2, 12) -- 168 yd: met on the move
+Ride(3 * math.pi / 2, 12) -- east, 168 yd: met on the move
 assert(roughest > 0, "met rough")
 assert(Stop(), "stopped among them: each once, exact")
-Ride(math.pi / 2, 15)
-Ride(-math.pi / 2, 15)
+Ride(3 * math.pi / 2, 15)
+Ride(math.pi / 2, 15) -- west
 T.Print("D3: riding, measured ones at most %.2f yd off, rough ones %.1f yd", most, roughest)
 assert(most < 0.5 and roughest < 25)
 assert(Stop(), "stopped again: each once, exact")

@@ -44,7 +44,7 @@ local function Run(n, each)
 	return (kb1 - kb0) / (n1 - n0), (sets.v - s0) / (n1 - n0), (calls1 - calls0) / (n1 - n0), kbs
 end
 local idle = { Run(120) }
-sim.player.facing, sim.player.speed = math.pi / 2, 7 -- walking east, followed
+sim.player.facing, sim.player.speed = 3 * math.pi / 2, 7 -- walking east, followed
 local walk = Run(120)
 sim.player.speed = 0
 -- Dragging, once it is one: pressed and moved past a click's slop first (the drag's start, once:

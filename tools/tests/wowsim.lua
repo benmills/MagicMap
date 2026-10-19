@@ -1485,13 +1485,14 @@ local function mapInfo(id)
 	return { mapID = id, name = m[1], mapType = m[2], parentMapID = m[3] or 0, flags = 0 }
 end
 
--- The player: tile coordinates on an instance, moving each step.
+-- The player: tile coordinates on an instance, moving each step the way it faces (GetPlayerFacing's:
+-- radians counter-clockwise from north, so pi/2 is west and 3pi/2 east).
 Sim.player = { inst = 0, col = 31.95, row = 49.75, facing = 0, speed = 0 }
 Sim.restricted = false -- an instance that withholds your position
 Sim.onStep = function(elapsed)
 	local p = Sim.player
 	if p.speed ~= 0 then
-		p.col = p.col + math.sin(p.facing) * p.speed * elapsed / TILE
+		p.col = p.col - math.sin(p.facing) * p.speed * elapsed / TILE
 		p.row = p.row - math.cos(p.facing) * p.speed * elapsed / TILE
 	end
 end

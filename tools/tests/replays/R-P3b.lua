@@ -158,7 +158,7 @@ sim.minimapBlips = list
 sim.FireEvent("MINIMAP_UPDATE_TRACKING")
 sim.Run(5)
 local walk = Measure(function()
-	sim.player.facing, sim.player.speed = math.pi / 2, 7
+	sim.player.facing, sim.player.speed = 3 * math.pi / 2, 7 -- east
 	for i = 1, 4 do
 		sim.indoors = i % 2 == 1
 		sim.Run(5)

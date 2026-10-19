@@ -1,5 +1,5 @@
 """The sim's fidelity (tools/tests/wowsim.lua, docs/v1-plan.md M0.6) in one scenario: what
-it charges, defers, sizes, zeroes, hosts, refuses and raises like the client. And each
+it charges, defers, sizes, zeroes, hosts, refuses, raises and walks like the client. And each
 fixture observation stream (fixtures/streams/<part>.lua) replayed through Model alone:
 shaped as types/observation.lua says, taken without an error whatever Model doesn't
 merge yet.
@@ -173,6 +173,20 @@ def test_fidelity():
     assert blocked.minimap is False and blocked.cluster and blocked.shown and not blocked.after
     assert list(blocked.calls.values()) == ["MinimapCluster:Hide()", "WorldMapFrame:Hide()"], list(blocked.calls.values())
     assert blocked.event == "MagicMapAtlas WorldMapFrame:Hide()"
+
+    # GetPlayerFacing's way (radians counter-clockwise from north): you walk east facing 3pi/2, west at pi/2.
+    walked = L.eval("""function()
+        local p, got = Sim.player, {}
+        for i, f in ipairs({ 3 * math.pi / 2, math.pi / 2, 0 }) do
+            local col, row = p.col, p.row
+            p.facing, p.speed = f, 7
+            Sim.Step()
+            p.speed = 0
+            got[i] = { p.col - col > 1e-6, p.col - col < -1e-6, row - p.row > 1e-6 }
+        end
+        return got
+    end""")()
+    assert [list(w.values()) for w in walked.values()] == [[True, False, False], [False, True, False], [False, False, True]]
 
     # Strict (opt-in): x/0 raises as in WoW's Lua; strings, comments and other maths untouched.
     sim.Strict(True)
