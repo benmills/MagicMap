@@ -232,8 +232,18 @@ it (the M2.4 row, parity S53; D4: what you see is the spike's). UI draws your qu
 client's art on QuestPOIFrames of its own (ui/Areas.lua): drawn as laid out and again the next frame,
 out of sight while the zoom moves, laid out and drawn twice where it lands (Layers.lua:765-1069,
 2032-2043), and hit-tests them for hover and click. It is the one game read UI makes, through a
-widget (architecture.md "Rules"; luacheck's `POI_FILES`: ui/Areas.lua and game/Oracles.lua). Spike-bugs
+widget (architecture.md "Rules"; luacheck's `POI_FILES`: ui/Areas.lua and game/Oracles.lua, which alone
+make a QuestPOIFrame or call its DrawBlob, UpdateMouseOverTooltip). Spike-bugs
 P5 is MOVED (was PREVENTED), bounded by hiding while zooming (R-P5).
+
+**M3's review** (decided by the lead, 2026-10-19, round 1): the target follows the layers (D4: the
+spike's comes from what its layers show; parity F32's question: Focus `off`), and the inspector's level
+line is the client's map levels (D4; F38's: obs.levels). A route search that gave up at 60,000 nodes (a
+goal no way reaches, as a rule: ~18 s of 1 ms slices, 4.4 MB) is searched again for its goal only once
+you've come half the way it spanned, not each 3-chunk stray or 12 chunks moved as the spike's (riding
+toward a plateau ran one search after another: 285 KB/s, p95 1.35 ms); and none runs while the view moves
+(Focus `moving`). The exit's "Dun Morogh route at ≤1 ms/frame" reads a 1 ms slice a frame, at most the
+slice and one node (≤1.1 ms), as R-P2 holds every Job.
 
 ## 8. Commands
 
@@ -287,10 +297,11 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   (Model alone on those streams), test_quests (UI's quest pins, follow, tooltip), test_quest_areas (areas,
   hover, estimates, a 12-tile zone at zoom 800; 25 quests' budgets, the first open, allocation over a
   stretch alone: `stretch`), test_target (Model's target end to end: priority, a quest's area edge, inside
-  held), test_route (A* in its job: budget, cap, the old route kept, replans, Dun Morogh's pace),
+  held; the layers turned off), test_route (A* in its job: budget, cap, the old route kept, replans, Dun
+  Morogh's pace, a capped search priced and kept half its way, none while zooming),
   test_target_parts (Game's waypoint, way and corpse round trips), test_path (the line, its redraws and
   cap, the edge arrow, corpse forces follow, the title's target, the corpse and waypoint pins, walking and
-  priced), test_interact (the picker, /mma map and zone, zone hover and fly, Ctrl/Shift clicks through
+  priced, small and big), test_interact (the picker, /mma map and zone, zone hover and fly, Ctrl/Shift clicks through
   Game's handlers, the right-click menu and inspector). The sim's C_ calls make their tables anew each call, as the client's (their
   garbage is measured); a scenario changing Sim.quests fires QUEST_LOG_UPDATE, the sim QUEST_ACCEPTED and
   QUEST_REMOVED with it. A QuestPOIFrame draws into its rect as the last frame's end laid it out (L1); its
