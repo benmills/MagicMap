@@ -5,7 +5,7 @@
 -- the window shows our renderer; and every addon with world pins (Model.addons) on, as the
 -- spike's layers started (AddonPins.lua:113). Its zoom is where the view rests: the camera's,
 -- once it holds still a frame (not through a chase, a flight or the window being sized), so Game
--- re-places each pin once a zoom, not every frame of it. Meanwhile the pins would sit at the old
+-- re-places each pin once a zoom (a job: its holder see-through until done), not every frame of it. Meanwhile the pins would sit at the old
 -- zoom: the canvas is see-through until then. Never scaled (a SetScale costs the client per
 -- region under the frame, every frame of the motion: thousands with Questie's pins, spike-bugs
 -- P4), nor shown or hidden (the same, per region).

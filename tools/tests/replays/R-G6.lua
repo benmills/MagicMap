@@ -37,25 +37,27 @@ local function Same(a, b)
 end
 local m = sim.maps[1429] -- the sim's Elwynn: its pin's spot, (0.5, 0.5) of it
 local col, row = m[5] + (m[7] - m[5]) * 0.5, m[6] + (m[8] - m[6]) * 0.5
-local function Hosted()
+local function Hosted() -- on Game's holder at the socket's TOPLEFT, in sight
 	local p, rel, rp, x, y = pin:GetPoint(1)
-	local z = view.sockets.world.zoom
-	return pin:GetParent() == canvas and pin:IsShown() and pin:GetFrameLevel() == canvas:GetFrameLevel() + 1
-		and p == "CENTER" and rel == canvas and rp == "TOPLEFT" and math.abs(x - col * z) < 1e-6 and math.abs(y + row * z) < 1e-6
+	local z, holder = view.sockets.world.zoom, pin:GetParent()
+	return holder:GetParent() == canvas and holder:GetAlpha() == 1 and pin:IsShown()
+		and pin:GetFrameLevel() == canvas:GetFrameLevel() + 1 and p == "CENTER" and rel == holder and rp == "TOPLEFT"
+		and math.abs(x - col * z) < 1e-6 and math.abs(y + row * z) < 1e-6
 end
 local home = Where(pin)
 assert(home[1]:GetParent() == WorldMapFrame.canvas and home[2] and home[3] == 2016, "on its pin on Blizzard's map")
 
 sim.Run(0.2)
 assert(Hosted(), "borrowed, at its spot")
-assert(durotar:GetParent() ~= canvas and line:GetParent() ~= canvas and big:GetParent() ~= canvas,
+local holder = pin:GetParent()
+assert(durotar:GetParent() ~= holder and line:GetParent() ~= holder and big:GetParent() ~= holder,
 	"not another continent's, its own map's alone, nor a frame bigger than a pin")
 local addons = {}
 for _, a in ipairs(ns.Game.obs.addons) do addons[a.key] = (a.world and "w" or "") .. (a.minimap and "m" or "") end
 T.Print("G6: obs.addons Questie %s, GatherMate2 %s", tostring(addons.Questie), tostring(addons.GatherMate2))
 assert(addons.Questie == "wm" and addons.GatherMate2 == "m")
 assert(view.layers["addon:Questie"], "its layer on, as UI found it with world pins")
-ns.UI.Motion.SetZoom(128) -- the socket's zoom changes once the camera's holds a frame: re-placed at once
+ns.UI.Motion.SetZoom(128) -- the socket's zoom changes once the camera's holds a frame: re-placed then (a job)
 sim.Step()
 assert(view.sockets.world.zoom ~= 128 and canvas:GetAlpha() == 0, "the zoom moving: the pins out of sight")
 sim.Step()

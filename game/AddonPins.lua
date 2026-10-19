@@ -15,6 +15,10 @@
 -- (pins the library took back: its frames stay well under the frame p95). The library adding or removing world
 -- pins cancels a borrowing pass (it walks the library's tables) and starts another SYNC_SOON
 -- later. A pass borrows for the addon layers on when it started (View is read in apply only).
+-- The pins sit on a frame of Game's at the socket's TOPLEFT (its holder): when the socket's zoom
+-- changes (where the view comes to rest), a job re-places them, NEWS_MS a frame (2400 SetPoints
+-- are ~0.7 ms in the client, 7 on the sim's counted clock: one call was a frame over budget), the
+-- holder see-through until it's done, so no pin shows at the old zoom's place.
 -- Game.Addons(): obs.addons (game/parts/Addons.lua), a new list only when it changed.
 
 local _, ns = ...
@@ -28,9 +32,10 @@ local JOB_MS, NEWS_MS = 0.25, 1 -- ms a frame of a pass: the regular one; one wi
 local copies, hooks = {}, {} -- { lib, tag (the renamed part: "Questie") }; lib -> { [method] = the function hooked }
 local hosted, seen = {}, {} -- icon -> { home, points, shown, level, fixed, socket, inst, col, row }
 local on = {} -- the pass's addon layers on: "addon:<key>" -> true
-local socket, inst, zoom -- where they're hosted: the socket's frame, instance and zoom
+local socket, inst, zoom -- where they're hosted: the holder on the socket's frame, instance and zoom
+local holders = {} -- socket frame -> its holder
 local open, dirty, syncAt = false, true, 0
-local job -- the pass running: { kind = "borrow" | "give back" } on Runtime's job handle
+local job -- the pass running: { kind = "borrow" | "give back" | "place" } on Runtime's job handle
 local list, byKey, listDirty = {}, {}, true -- obs.addons, by key
 
 -- A world pin added or removed: borrow again soon (a pass walking the library's tables stops:
@@ -165,6 +170,35 @@ local function Place(icon, rec)
 	icon:SetPoint("CENTER", socket, "TOPLEFT", rec.col * zoom, -rec.row * zoom)
 end
 
+-- A socket frame's holder: a 1x1 frame of ours at its TOPLEFT, the pins' parent.
+local function Holder(frame)
+	local h = holders[frame]
+	if not h then
+		h = CreateFrame("Frame", nil, frame)
+		h:SetSize(1, 1)
+		h:SetPoint("TOPLEFT")
+		holders[frame] = h
+	end
+	return h
+end
+
+-- The hosted pins at the zoom: a pass (one at a time: a borrow it stops goes on after), the holder
+-- see-through meanwhile (none hosted: at once).
+local function Replace()
+	if Running("borrow") then dirty = true end
+	Stop()
+	if not next(hosted) then socket:SetAlpha(1); return end
+	socket:SetAlpha(0)
+	job = Runtime.Job("game.addon pins: place", function()
+		for icon, rec in pairs(hosted) do
+			if rec.socket == socket then Place(icon, rec) end
+			Runtime.Yield()
+		end
+		socket:SetAlpha(1)
+	end, NEWS_MS)
+	job.kind = "place"
+end
+
 -- Borrow what should be on the socket, give back what shouldn't (another socket's or map's too:
 -- not seen here).
 local function Sync(level)
@@ -241,24 +275,22 @@ Game.Apply("addon pins", function(view)
 	if not (view.window.shown and s) or WorldMapFrame:IsShown() then return Close() end
 	if not open then Scan() end -- (LibStub has no events: look again)
 	local t = GetTime()
-	if not open or s.frame ~= socket or s.inst ~= inst then
-		open, socket, inst, zoom, syncAt, dirty = true, s.frame, s.inst, s.zoom, -SYNC_EVERY, true
-		Stop()
+	if not open or Holder(s.frame) ~= socket or s.inst ~= inst then
+		open, socket, inst, zoom, syncAt, dirty = true, Holder(s.frame), s.inst, s.zoom, -SYNC_EVERY, true
+		Replace()
 	elseif s.zoom ~= zoom then -- (the socket's zoom changes where the view comes to rest)
 		zoom = s.zoom
-		for icon, rec in pairs(hosted) do
-			if rec.socket == socket then Place(icon, rec) end
-		end
+		Replace()
 	end
 	dirty = dirty or Toggled(view.layers)
-	if not Running("borrow") and ((dirty and t - syncAt >= SYNC_SOON) or t - syncAt >= SYNC_EVERY) then
+	if not Running() and ((dirty and t - syncAt >= SYNC_SOON) or t - syncAt >= SYNC_EVERY) then
 		local ms = dirty and NEWS_MS or JOB_MS
 		dirty, syncAt = false, t
 		wipe(on)
 		for k, v in pairs(view.layers) do
 			if v and k:find("^addon:") then on[k] = true end
 		end
-		local level = s.level or socket:GetFrameLevel() + 1
+		local level = s.level or s.frame:GetFrameLevel() + 1
 		if Any() then Pass("borrow", function() Sync(level) end, ms) end
 	end
 end)
