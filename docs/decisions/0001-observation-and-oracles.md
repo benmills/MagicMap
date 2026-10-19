@@ -102,6 +102,11 @@ unknown ones), and new oracles.
   or merge on it; it's measured once you stand still (M1.5 measures only then). How far off a
   rough one is belongs to the sensor (OPEN, non-binding: today up to a square, ~12 yd at the
   widest zoom, plus the client's lag), not to the contract.
+- OPEN additions (v1 plan M4, wave 1): `ObsVignette.target`, the rare you target (M4.1, Landmarks.lua:
+  154-156), at your position, its `id` the unit's GUID: Model remembers it as a seen rare and lists no
+  live pin for it (M4.3). `ObsArt.outline` while `/mma indoor` is on (M4.2: UI outlines the art), and
+  `ObsMinimap.indoorDebug`, the same flag for the gear's Indoor maps box (M4.5), since UI can't read
+  SavedGame. `ObsTracking.id` without a filter is its spell's ID (M4.1: Find Herbs).
 
 ## Revisit if
 

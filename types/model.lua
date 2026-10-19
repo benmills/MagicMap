@@ -13,7 +13,8 @@
 --   * Model.Load(saved) / Model.SAVED: Game.Load("Model", Model.Load, Model.SAVED)
 -- OPEN: new kinds (strings), new optional MM.Known fields, Target / Route shapes
 -- beyond the fields below, new optional fields of Model.you, and
--- more of the Observation handed on unchanged (minimap, addons, levels, waypointSet).
+-- more of the Observation handed on unchanged (minimap, addons, levels, waypointSet, explored, indoorArt,
+-- tracking).
 
 ---@alias MM.KnownKind "blips"|"remembered"|"rares"|"quests"|"offers"|"places"|"group"|"corpse"|"waypoint"|"vignettes"|"services"|string
 
@@ -71,7 +72,8 @@
 ---@field quest? MM.QuestID
 ---@field line? string             its quest line's name, when not the quest's
 
----Known("places"): Atlas's and the game's live places, deduped.
+---Known("places"): Atlas's and the game's live places, deduped; Atlas's of a kind where the game marks none of
+---that kind on the instance, or before it's read there.
 ---@class MM.KnownPlace: MM.Known
 ---@field place? MM.PlaceKind
 ---@field faction? MM.Faction      flight: whose
@@ -89,7 +91,8 @@
 ---Known("waypoint"): the user waypoint, at most one.
 ---@class MM.KnownWaypoint: MM.Known
 
----Known("vignettes"): what the game shows near you now (obs.vignettes); key the vignette GUID.
+---Known("vignettes"): what the game shows near you now (obs.vignettes), not the targeted rare; key the vignette
+---GUID; text "Nearby now".
 ---@class MM.KnownVignette: MM.Known
 ---@field rare? boolean            a rare or elite
 ---@field npc? MM.NpcID
@@ -97,9 +100,13 @@
 ---Known("blips"): the Minimap's blips sensed now (obs.blips), live; icon the tracking texture or a
 ---gathering atlas (nil: a dot). One a remembered blip stands for carries that one's key, so a layer
 ---drawing both skips the remembered of that key.
----Known("remembered"): blips seen before (saved.blips), Focus's instance (else yours); live false, t last seen.
+---Known("remembered"): blips seen before (saved.blips), Focus's instance (else yours); live false, t last seen;
+---listed while tracking shows its icon (obs.tracking; not yet known: all), none within 30 yd of a service of its name.
+---Known("rares"): the rares you've seen (saved.rares), Focus's instance (else yours), but one a live rare vignette
+---of its name stands for while the vignettes layer is on (Focus.off); live false, t last seen, text "Rare".
 
----Known("services"): town services (Atlas BlipServices), Focus's instance, while their tracking is on.
+---Known("services"): town services (Atlas BlipServices), Focus's instance, while their tracking is on; gathered
+---for Focus's rect once asked for at zoom 60 or more (a job); text the NPC's title.
 ---@class MM.KnownService: MM.Known
 ---@field service? string          its BlipServices value
 ---@field npc? MM.NpcID
@@ -145,6 +152,11 @@
 ---                                inspector's level line); {} until known
 ---@field waypointSet? boolean     obs.waypointSet, the last handed: a user waypoint is set, wherever (the menu's Clear
 ---                                waypoint: Known("waypoint") has none where Atlas can't place it)
+---@field explored? table<MM.AreaID, boolean>  obs.explored, the last handed (nil until known): UI's shade and the
+---                                inspector's place line
+---@field indoorArt? MM.ObsArt|false  obs.indoorArt, the last handed (nil until known; false: none): UI's indoor art
+---                                and its View.renderer pick
+---@field tracking MM.ObsTracking[]  obs.tracking, the last handed ({} until known): the gear's Tracking submenu
 ---@field SAVED MM.SavedSpec       Model's saved part's spec (types/saved.lua MM.SavedModel)
 local Model = {}
 

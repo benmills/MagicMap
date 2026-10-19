@@ -74,6 +74,9 @@ and v1's field names and meanings. Open: what any owner adds in a later version,
 - Nothing migrates from the spike's `MagicMapDB` / `MagicMapLandmarks`, so v1 starts
   fresh. See the open question about rares.
 - Everything is account-wide, as in the spike.
+- OPEN additions (v1 plan M4, `_v` stays 1): SavedGame `indoorDebug` (M4.2, `/mma indoor`'s reports;
+  optional, `true` or absent: the optional-keys amendment) and SavedUI `debug` (M4.6, `/mma debug`'s
+  title line; default false). Neither changes a v1 field's meaning, so neither migrates.
 
 ## Revisit if
 

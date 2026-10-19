@@ -108,12 +108,16 @@
 ---@field known? boolean       flight: you have it (nil: not known)
 
 ---@class MM.ObsVignette
----@field id string            the vignette GUID
+---@field id string            the vignette GUID (a targeted rare's: the unit's GUID)
 ---@field name string
 ---@field pos MM.Pos
 ---@field rare boolean         a rare or elite: Model remembers it (account-wide)
 ---@field npcID? MM.NpcID
 ---@field icon? MM.Icon
+---@field target? boolean      not a vignette: the rare you target (not a player; rare or rareelite: spike
+---                           Landmarks.lua:154-156), at your position when you targeted it (an NPC's isn't
+---                           given), while it's your target; Model remembers it as a rare you've seen
+---                           (SavedModel.rares, key npc:<id>) and lists no live pin for it
 
 ---@class MM.ObsOffer
 ---@field questID MM.QuestID
@@ -122,7 +126,8 @@
 ---@field pos MM.Pos
 
 ---@class MM.ObsTracking
----@field id integer           the tracking filter id (Enum.MinimapTrackingFilter) or, without one, Game's own stable id
+---@field id integer           the tracking filter id (Enum.MinimapTrackingFilter) or, without one (a spell's: Find
+---                           Herbs; nil or Unfiltered), its spell ID
 ---@field name string
 ---@field texture MM.FileID    its icon: also how a blip's kind is matched to "is this tracked"
 ---@field active boolean
@@ -132,6 +137,7 @@
 ---@field engaged boolean      Game has taken the Minimap (View.minimap ~= "blizzard" and nothing blocks it)
 ---@field blocker? string      why it isn't, in words ("FarmHud has the minimap")
 ---@field indoors? boolean     the Minimap draws its indoor floor plan here (its view radius tells)
+---@field indoorDebug? boolean /mma indoor is reporting (SavedGame.indoorDebug): the gear's Indoor maps box
 ---@field sensing boolean      the blip sensor ran this frame
 ---@field home? MM.ScreenRect  the Minimap's home spot (its cluster), for placing our window there
 ---                           (kept: Game reads it each frame and hands a new table only when the spot moved, so UI may hold it)
@@ -162,6 +168,8 @@
 ---@class MM.ObsArt
 ---@field uiMap MM.UiMapID
 ---@field pieces MM.ArtPiece[]
+---@field outline? boolean     /mma indoor is on: UI outlines the art in pink (IndoorArt.lua:124-131, 145, 181);
+---                           a new obs.indoorArt when it changes
 
 ---@class MM.ArtPiece
 ---@field file MM.FileID

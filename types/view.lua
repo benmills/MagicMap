@@ -110,7 +110,7 @@ local SAFE_VIEW = {
 -- shows in the next Observation (the same frame for one carried out in Input).
 -- One that fails is reported (Runtime) and dropped, never retried.
 
----@alias MM.Command MM.CmdFollow|MM.CmdWaypoint|MM.CmdWay|MM.CmdTracking|MM.CmdTooltip|MM.CmdSlash|MM.CmdLoad
+---@alias MM.Command MM.CmdFollow|MM.CmdWaypoint|MM.CmdWay|MM.CmdTracking|MM.CmdTooltip|MM.CmdSlash|MM.CmdLoad|MM.CmdRun
 
 ---Follow a quest: the game's super-tracked quest (and watched); false: follow none.
 ---@class MM.CmdFollow
@@ -160,6 +160,12 @@ local SAFE_VIEW = {
 ---@field owner "UI"
 ---@field fn fun(saved: table)
 ---@field spec? MM.SavedSpec
+
+---Run `/mma <line>` as if typed (game/Slash.lua's Game.Run): the gear's Advanced runs the slash
+---commands' own code (GearMenu.lua:28). Not idempotent: each one runs it once (open: new kinds).
+---@class MM.CmdRun
+---@field kind "run"
+---@field line string
 
 ---@class MM.GameEntry
 local Game = {}

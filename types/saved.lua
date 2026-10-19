@@ -48,6 +48,7 @@
 ---@field _v 1
 ---@field trackingOff table<integer, true>  Blizzard tracking filter ids Game turned off: turned back on after a /reload or crash
 ---@field buttonAngle? number               the minimap button's place on the rim, degrees
+---@field indoorDebug? true                 /mma indoor's reports on (IndoorArt.lua:179); optional (ADR 0004's amendment)
 
 -- UI -----------------------------------------------------------------------------------
 
@@ -63,6 +64,7 @@
 ---@field minimap MM.MinimapMode    "blizzard": the user chose Blizzard's minimap
 ---@field button boolean            the minimap button is shown
 ---@field tint boolean              tile colour correction
+---@field debug boolean             /mma debug's title line (Core.lua:1746-1748); default false
 
 -- Model --------------------------------------------------------------------------------
 

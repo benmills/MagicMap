@@ -21,7 +21,10 @@
 ---@field off? table<string, true> layers turned off (Menus.Layer keys; a new table when one changes; nil: none):
 ---                           Model.Target skips "corpse", "quests", "waypoint" while theirs is, and goes to the
 ---                           followed quest's pin (no area edge, no inside) while "questAreas" is (the spike's
----                           pinData and drawn blobs: Layers.lua:1029, 1093-1097, 1160-1168)
+---                           pinData and drawn blobs: Layers.lua:1029, 1093-1097, 1160-1168); a seen rare hides
+---                           under a live vignette of its name only while "vignettes" is on (Landmarks.lua:112-117);
+---                           no sensed blip within 8 yd of a pin of "quests", "offers", "flight", "dungeons",
+---                           "rares", "corpse", "waypoint" while that layer is on (Blips.lua:446-470)
 ---@field moving? boolean      the view zooms, flies or is dragged, or its zoom hasn't settled (Camera.Settled):
 ---                           Model leaves the frame to the map (the route's search waits: no slice a frame)
 

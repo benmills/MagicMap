@@ -55,6 +55,10 @@ keeps some kinds and counts others; the only other hook besides `onError`), and 
   ui/Engine.lua's layouts): `Requeue` puts a queued job last, a job at budget 0 waits its turn
   queued and isn't resumed, and `Left` says what's left of the running job's budget, which it may
   hand to the next. "A job runs only while its budget lasts" holds: a budget of 0 lasts no time.
+- OPEN additions (v1 plan M4.6, the diagnostics): `Record(seconds, name, done)` / `RecordEnd()` /
+  `recording`, the spike's `/mma perf` recording (Perf.lua: frames, the worst, hitches past `HITCH`,
+  our cost and each budgeted call's); `Spent()`, the running job's ms since made or woken; `Gauge(name,
+  fn)` / `gauges`, numbers a system keeps for diagnostics (ui/Engine.lua's "map"), wrapped.
 
 ## Revisit if
 

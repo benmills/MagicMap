@@ -35,8 +35,12 @@ docs/playtest-final.md (b6-b20, c7, e4). M3 (target, route, interactions): wave 
 corpse and waypoint pins and the title's target, M3.4 the picker, right-click menu and inspector, zone
 hover and fly; 138 passed plain and strict), its review's fixes (two rounds) on main; M3's sim half
 done at 2d0069e (the M3 gate, 2026-10-19: 148 passed plain and strict; the sim walks the way GetPlayerFacing
-points since), its in-game half in docs/playtest-final.md (c1-c3, a5b's big-zones). Then M4
-feature-complete, M5 hardening and parity sign-off, M6 rename, merge, release.
+points since), its in-game half in docs/playtest-final.md (c1-c3, a5b's big-zones). M4 (feature-complete):
+wave 1 merged 2026-10-19 (M4.1 Game's places, group, vignettes, explored and tracking parts; M4.2 duplicate
+tracking, indoors and the whole Minimap, full HBD; M4.3 Model's places, group, seen rares, vignettes,
+services; M4.4 UI's places, group, shade, indoor art, renderer, sockets, the inspector's lines; M4.5 the
+gear's Tracking and Advanced; M4.6 the diagnostics slash), its types/ additions committed. Then the M4 gate,
+M5 hardening and parity sign-off, M6 rename, merge, release.
 
 ## 2. Rules for every package (v1-plan §3)
 
@@ -148,9 +152,12 @@ zoom, or the zoom what it left out shows from. Levels (an offset to the view's f
 at M2.4 (ef8b2ee) for the spike's order (parity S8: tiles → shade → areas → lines → path → labels → pins):
 tiles 1, the shade 2 (M4.4's), quest areas 3 (their frames +5..+7, ui/Areas.lua), borders 7 (the hovered
 zone's border over theirs, on their canvas: ui/ZoneInfo.lua), the path 8 (its own canvas: ui/Path.lua),
-labels 9, the world socket +10 (other addons' pins, under ours: ui/Sockets.lua), rares 11, blips 12, your
-corpse and waypoint 13 (ui/You.lua), offers 14, quests 15, the arrow's and the edge arrow's overlay +18
-(ui/You.lua). A pin layer's pins stand 3 above it (its canvas, the canvas's frame for a minimum zoom, the
+labels 9, the world socket +10 (other addons' pins, under ours: ui/Sockets.lua), rares 11 and places with
+the live vignettes 11 (ui/Places.lua), blips 12, your corpse and waypoint 13 (ui/You.lua), offers 14, quests
+15, the group's dots +15 (ui/Group.lua), the minimap socket +16 and its pins +17 (ui/Sockets.lua), the arrow's
+and the edge arrow's overlay +18 (ui/You.lua); the indoor art's frame +2 (ui/IndoorArt.lua: the tiles'
+canvases' level, made after them); Game's black backdrop for the whole Minimap +20 and the Minimap +21 over
+the window (game/Renderer.lua: a new layer above +19 raises its LEVEL). A pin layer's pins stand 3 above it (its canvas, the canvas's frame for a minimum zoom, the
 pin a level each). M4.4 takes the level named for it; a new layer between two asks the lead.
 
 ## 5. Contracts (types/, docs/decisions/)
@@ -163,10 +170,10 @@ additions, committed by the lead (§2). UI, Model and Atlas internals aren't con
 | Shared shapes | core.lua | 0001 | tile space (`MM.Pos`, `MM.Rect`), nil/false/{}, time kinds (frame, `GetTime`, epoch) | — |
 | Observation + Oracles (Game → Model) | observation.lua | 0001 | one `Model.Observe(obs, oracles)` a frame; per-frame parts (`you`, `group`, `minimap`, `blips`, `hooked`) may be mutated, Model copies; every other part a new table on change (compare by identity); part names and meanings; oracles pure, same-frame, never error | how Game reads, new optional fields, new parts, new oracles (`Inside(quest, col, row)`, `HasArea(quest)` today) |
 | Focus (UI → Model) | focus.lua | 0002 | `Model.Focus { inst, rect?, zoom?, shown, follow }`, one frame behind | new optional fields |
-| View + Commands (UI → Game) | view.lua | 0003 | `UI.View()` (v = 1, Game reads it only in apply, SAFE_VIEW fallback), its fields; `Game.Command` with kinds follow, waypoint, way, tracking, tooltip (idempotent, no reply); hooked kinds | new optional fields (`chrome`, `camera`, `diag`), command kinds (`slash`, `load`), hooked kinds (`toggle`) |
+| View + Commands (UI → Game) | view.lua | 0003 | `UI.View()` (v = 1, Game reads it only in apply, SAFE_VIEW fallback), its fields; `Game.Command` with kinds follow, waypoint, way, tracking, tooltip (idempotent, no reply); hooked kinds | new optional fields (`chrome`, `camera`, `diag`), command kinds (`slash`, `load`, `run`: not idempotent), hooked kinds (`toggle`) |
 | SavedVariables | saved.lua | 0004 | one root `MagicMapAtlasDB` of owners (Game, UI, Model, telemetry...), `_v` per part, the migration rule, tile space, epoch times, v1 field names | what an owner adds in a new version (with `migrate`) |
 | Runtime | runtime.lua | 0005 | the phases; Step/On/After/Every/Cancel/Job/Yield/Wrap/Trace/onError and their promises | budget numbers, Perf/FrameStats shapes, Grace, SetState, Worker/Wake/Idle, onTrace |
-| Model's read API (UI → Model) | model.lua | 0006 | `Known(kind)` → list, rev (same table until it changes; unknown kind `{}, 0`), `Model.you`, `hooked`, `Target()`, `Route()`, `Load`/`SAVED` | kinds and their optional fields (`MM.KnownQuest`...), Target/Route beyond typed fields, more handed on (`minimap`, `addons`) |
+| Model's read API (UI → Model) | model.lua | 0006 | `Known(kind)` → list, rev (same table until it changes; unknown kind `{}, 0`), `Model.you`, `hooked`, `Target()`, `Route()`, `Load`/`SAVED` | kinds and their optional fields (`MM.KnownQuest`...), Target/Route beyond typed fields, more handed on (`minimap`, `addons`, `levels`, `explored`, `indoorArt`, `tracking`) |
 
 `MM.Known { key, kind, pos, name, icon?, live, t?, text? }`: one shape for every pin kind, so a new kind is
 a Model file that fills it and a UI layer that draws it (`icon`: `MM.Icon { atlas?, texture?, color? }`,
@@ -310,7 +317,11 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   test_target_parts (Game's waypoint, way and corpse round trips), test_path (the line, its redraws and
   cap, the edge arrow, corpse forces follow, the title's target, the corpse and waypoint pins, walking and
   priced, small and big, and with our Lua charged too: `boot(lua=True)`), test_interact (the picker, /mma map and zone, zone hover and fly, Ctrl/Shift clicks through
-  Game's handlers, the right-click menu and inspector). The sim's C_ calls make their tables anew each call, as the client's (their
+  Game's handlers, the right-click menu and inspector), test_world_parts (Game's places, group, vignettes,
+  explored and tracking parts, the tracking Command), test_tracking (duplicate tracking off and back, after a
+  crash too), test_addonpins (HBD's world and minimap pins), test_model_kinds (Model's places and group),
+  test_services (services and remembered gated by tracking), test_world_layers (UI's places, group, shade,
+  View, indoor art, the inspector's lines), test_diagnostics (every `/mma` diagnostic, the recording, `run`). The sim's C_ calls make their tables anew each call, as the client's (their
   garbage is measured); a scenario changing Sim.quests fires QUEST_LOG_UPDATE, the sim QUEST_ACCEPTED and
   QUEST_REMOVED with it. A QuestPOIFrame draws into its rect as the last frame's end laid it out (L1); its
   drawing moves with it on a pan, not on a resize or a scale.

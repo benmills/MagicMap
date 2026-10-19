@@ -42,6 +42,10 @@ else about the camera stays inside UI.
   followed quest's pin while Quest areas is. And `moving`, the view zooming, flying or dragged or its
   zoom not yet settled: the route's 1 ms search slice gives way to the map's layouts (zooming the big
   window during a long search had overrun 8 ms), its resumes waiting, not counted.
+- OPEN addition (v1 plan M4.3): Model reads more of `off`. A seen rare hides under a live vignette
+  of its name only while "vignettes" is on (Landmarks.lua:112-117), and a sensed blip within 8 yd of a
+  pin of "quests", "offers", "flight", "dungeons", "rares", "corpse" or "waypoint" is skipped only while
+  that layer is on (Blips.lua:446-470). UI puts those keys in `off` (ui/View.lua's TARGETED).
 
 ## Revisit if
 

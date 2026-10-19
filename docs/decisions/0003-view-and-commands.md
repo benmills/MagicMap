@@ -79,6 +79,9 @@ command and hooked kinds, and everything inside UI (camera, layout, menus, chrom
   is carried out that frame, not the next frame's input (the promise was "at most one frame later").
   A quest tooltip is built in a ui step, so its portraits now show the frame it does, as the
   spike's built them with the tooltip (QuestInfo.lua:187, 365-368); a met mob's sword showed a frame.
+- OPEN addition (v1 plan M4.5, M4.6): command kind `"run"` { line }, `/mma <line>` as if typed
+  (game/commands/run.lua: Game.Run), for the gear's Advanced rows (GearMenu.lua:28). The one kind that
+  isn't idempotent: each one runs the line once, as a click on the spike's row did.
 
 ## Revisit if
 

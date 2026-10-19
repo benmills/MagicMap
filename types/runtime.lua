@@ -21,7 +21,8 @@
 -- OPEN: the budget numbers, throttling policy, Perf / FrameStats shapes,
 -- new optional opts; Grace, SetState, FrameStats; Worker / Wake / Idle (a job
 -- that lasts: its coroutine made once); Requeue / Left (jobs sharing a frame's
--- budget in an order of their own: ui/Engine.lua's layouts); the onTrace hook.
+-- budget in an order of their own: ui/Engine.lua's layouts); the onTrace hook; Record / RecordEnd /
+-- recording, Spent, Gauge / gauges (diagnostics: /mma perf, perf mem, debug).
 
 ---@alias MM.Phase "input"|"observe"|"model"|"ui"|"apply"
 
@@ -202,3 +203,33 @@ function Runtime.SetState(name) end
 
 ---@return MM.FrameStats
 function Runtime.FrameStats() end
+
+---A recording (/mma perf: Perf.lua): the next `seconds` of frames, graces included, then done(rec),
+---wrapped as name. Runtime.recording is the one going on (nil: none). OPEN
+---@param seconds number
+---@param name string
+---@param done fun(rec: MM.Recording)
+function Runtime.Record(seconds, name, done) end
+
+---End the recording now (done(rec) then). OPEN
+function Runtime.RecordEnd() end
+
+---@class MM.Recording
+---@field seconds number         how long it records
+---@field t number               s recorded
+---@field frames integer
+---@field worst number           s: the slowest frame
+---@field hitches integer        frames slower than Runtime.HITCH (1/30 s)
+---@field ms number              our cost over it
+---@field peak number            ms: our cost in one frame, the most
+---@field calls table<string, { ms: number, n: integer, max: number }>  budgeted wrapped calls, by name
+
+---ms the running job has taken since it was made or woken (outside a job: 0). OPEN
+---@return number
+function Runtime.Spent() end
+
+---Numbers a system keeps for diagnostics: Runtime.gauges[name]() returns fn's table, wrapped; its shape the
+---registrant's (ui/Engine.lua's "map": builds, buildMs, pans, past, objects, tiles, spare). OPEN
+---@param name string
+---@param fn fun(): table
+function Runtime.Gauge(name, fn) end

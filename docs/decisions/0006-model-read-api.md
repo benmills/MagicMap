@@ -64,6 +64,12 @@ Target and Route beyond the typed fields.
   until known: the inspector's level line, the client's map levels as the spike's), and
   `Model.waypointSet` the last `obs.waypointSet` (the menu's Clear waypoint, also for a waypoint
   Known("waypoint") can't place). Target reads Focus's `off`, Route its `moving` (ADR 0002).
+- OPEN additions (v1 plan M4, wave 1): `Model.explored` and `Model.indoorArt` hand on the last
+  `obs.explored` and `obs.indoorArt` (nil until known; indoorArt false: none), for UI's shade, the
+  inspector's place line, the indoor art and its renderer pick (M4.4); `Model.tracking` the last
+  `obs.tracking` (`{}` until known) for the gear's Tracking submenu (M4.5). Kinds' docs (M4.3): rares
+  (the ones you've seen, hidden under a live vignette of their name), remembered (gated by tracking),
+  services (from zoom 60, gathered in a job), places (Atlas's where the game marks none), vignettes.
 
 ## Revisit if
 

@@ -143,6 +143,12 @@ isn't listed.
   `Runtime.onTrace(kind, detail)` if set (game/Telemetry.lua: the kinds it keeps or counts);
   `Runtime.TraceCopy()` copies it, oldest first (docs/telemetry.md). `onError` and `onTrace` are
   the only Runtime fields another system sets.
+- Diagnostics (M4.6): `Runtime.Record(seconds, name, done)` — the spike's `/mma perf` recording: the
+  next frames, graces included, then `done(rec)` (`MM.Recording`: frames, the worst, hitches past
+  `Runtime.HITCH`, our cost and each budgeted call's); `Runtime.recording` while it runs,
+  `Runtime.RecordEnd()` ends it now. `Runtime.Spent()` — ms the running job has taken since made or
+  woken. `Runtime.Gauge(name, fn)` — numbers a system keeps for `/mma perf` and `perf mem`
+  (`Runtime.gauges[name]()`, wrapped: ui/Engine.lua's "map").
 - `Runtime.boot` — `t0, mem0` at load start (runtime/Boot.lua); `loaded` = `{ t, mem }`
   once Atlas has loaded; `login` = `{ t, mem }` at PLAYER_LOGIN.
 
