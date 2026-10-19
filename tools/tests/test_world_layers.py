@@ -460,6 +460,12 @@ def test_inspector_lines():
         G.Parts.explored, G.Parts.cells = L.table_from(explored), None if lit is None else G.Every(lit)
         sim.Step()
         assert menu(32.28, 49.65)[1] == line, (explored, lit)
+    # Near: the nearest subzone label within 350 yd (ZoneInfo.lua:99-106), not the spot's own area: on Fargodeep
+    # Mine's ground, The Maclure Vineyards' label 53 yd off.
+    G.Parts.explored, G.Parts.cells = L.table_from({}), G.Every(False)
+    sim.Step()
+    near = menu(31.8, 50.5)[1]
+    assert near.startswith(DIM + "Unexplored|r" + DIM + ", near|r " + WHITE + "The Maclure Vineyards|r" + SEP), near
     # Landmarks within 900 yd, the nearest of each kind, the closest first, at most 2, their layer off or on
     # (ZoneInfo.lua:138-157): the graveyards' layer is off.
     G.Parts.explored, G.Parts.cells = L.table_from({lake: True}), G.Every(True)

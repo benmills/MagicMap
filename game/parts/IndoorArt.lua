@@ -15,8 +15,8 @@ local DUNGEON = 4 -- Enum.UIMapType: a dungeon floor, a micro map, an orphan's a
 local cache, facts = {}, {} -- uiMap -> pieces | false; uiMap -> { layers, size } (the note's)
 local shown, map, outline = false, nil, nil
 
--- The map's rect in tile space (Core.lua:838-857).
-local function Rect(uiMap)
+-- The map's rect in tile space, the client's (Core.lua:838-857): Atlas keeps no dungeon floors or micro maps.
+function Game.MapRect(uiMap)
 	local inst, tl = C_Map.GetWorldPosFromMapPos(uiMap, CreateVector2D(0, 0))
 	local inst2, br = C_Map.GetWorldPosFromMapPos(uiMap, CreateVector2D(1, 1))
 	if not (tl and br and inst == inst2) then return nil end
@@ -29,7 +29,7 @@ local function Art(uiMap)
 	local art = cache[uiMap]
 	if art ~= nil then return art end
 	art = false
-	local rect, info = Rect(uiMap), C_Map.GetMapInfo(uiMap)
+	local rect, info = Game.MapRect(uiMap), C_Map.GetMapInfo(uiMap)
 	if rect and info.mapType < DUNGEON and (rect.c1 - rect.c0) * Atlas.TILE_YARDS > MAX_ART_YARDS then rect = nil end
 	local layers = rect and C_Map.GetMapArtLayers(uiMap)
 	local layer = layers and layers[1]

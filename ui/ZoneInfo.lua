@@ -29,6 +29,7 @@ local RADIUS = 110 / 533.33 -- tiles: a quest's estimated area (Layers.lua:78)
 local MAX_QUESTS, MAX_NEARBY = 2, 2 -- ZoneInfo.lua:13-14
 local HERE_YD = 15 -- closer: "You're here" (ZoneInfo.lua:115)
 local NEAR_YD = 900 -- landmarks further from the spot aren't near it (ZoneInfo.lua:11)
+local NEAR_SUB_YD = 350 -- an unexplored spot is "near" a subzone label this close (ZoneInfo.lua:12)
 local CELL = 0.2 -- tiles: Game's sweep's cells (Model.exploredCells; Layers.lua:75)
 -- Notable places, in order of interest: Known("places")' kind and label (ZoneInfo.lua:19-24).
 local NOTABLE = { { place = "flight", label = "Flight point" }, { place = "dungeon", label = "Dungeon" },
@@ -324,15 +325,21 @@ local function Explored(zone, inst, col, row)
 	return names
 end
 
--- The spot's outermost area under the zone, by name (the area chain's): where an unexplored spot is near.
-local function Near(zone)
-	local name, id = nil, zone.area
-	while id and id ~= zone.zone do
-		local a = Atlas.Area(id)
-		if a.name ~= "" and a.name ~= zone.name then name = a.name end
-		id = a.parent
+-- The subzone label nearest the spot (the borders' labels: Layers.lua:1479-1494, 2318-2327), within NEAR_SUB_YD,
+-- not the zone's name and on the zone's own map (not one across a border): where an unexplored spot is near
+-- (ZoneInfo.lua:99-106).
+local function Near(zone, inst, col, row)
+	local b, best, bestD, name = Atlas.Borders(inst), nil, nil, nil
+	for _, l in ipairs(b and b.labels or NONE) do
+		local a = l[5] ~= 1 and Atlas.Area(l[1])
+		if a and a.name ~= "" then
+			local d = (l[2] - col) ^ 2 + (l[3] - row) ^ 2
+			if not bestD or d < bestD then best, bestD, name = l, d, a.name end
+		end
 	end
-	return name
+	if not best or math.sqrt(bestD) * TILE_YARDS > NEAR_SUB_YD or name == zone.name then return nil end
+	local at = Atlas.ZoneMapAt(inst, best[2], best[3])
+	return at and at.mapID == zone.mapID and name or nil
 end
 
 -- The areas explored and coordinates: "Goldshire  ·  42.1, 65.8"; none explored, "Unexplored, near Goldshire  ·
@@ -343,7 +350,7 @@ local function PlaceLine(zone, inst, col, row)
 	if names and names[1] then
 		place = WHITE .. table.concat(names, " / ", 1, math.min(#names, 2)) .. "|r"
 	elseif names == false then
-		local near = Near(zone)
+		local near = Near(zone, inst, col, row)
 		place = DIM .. "Unexplored|r" .. (near and (DIM .. ", near|r " .. WHITE .. near .. "|r") or "")
 	end
 	return place and (place .. SEP .. coords) or coords

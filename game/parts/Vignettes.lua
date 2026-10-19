@@ -1,6 +1,7 @@
 -- obs.vignettes (types/observation.lua MM.ObsVignette[]), on change: what the game shows near you now
 -- (C_VignetteInfo, on the map you're on: Landmarks.lua:74-108), those not dead with a name and a place
--- there; one whose art (its atlas) is a rare's or an elite's is a rare, which Model remembers, with its
+-- there, placed by that map's rect: Atlas's, or the client's for one Atlas keeps none of (a micro map: a
+-- cave, an inn; Core.lua:838-865); one whose art (its atlas) is a rare's or an elite's is a rare, which Model remembers, with its
 -- NPC from the creature's GUID (objectGUID) when the client has one. Read again 0.3 s after
 -- VIGNETTES_UPDATED or VIGNETTE_MINIMAP_UPDATED (Landmarks.lua:150-160; Layers.lua:1233-1242), at once on
 -- another map. And the rare you target (not a player, classed rare or rareelite: Landmarks.lua:154-156),
@@ -19,6 +20,7 @@ local found, aim = {}, true -- the vignettes as last read; the target to read ag
 local target = false -- the rare you target, as handed over
 local dirty, pending, map = true, false, nil -- map: the one last read on
 local last = {} -- GUID -> its MM.ObsVignette
+local rects = {} -- uiMap -> its rect (IndoorArt.lua's shape) | false: none
 
 local function Due() pending, dirty = false, true end
 local function Soon()
@@ -37,7 +39,17 @@ local function Npc(guid)
 	return (kind == "Creature" or kind == "Vehicle") and tonumber(id) or nil
 end
 
-local function Read(uiMap)
+local function Rect(uiMap)
+	local r = rects[uiMap]
+	if r == nil then
+		local a = Atlas.MapRect(uiMap)
+		r = a and { inst = a.inst, c0 = a.col0, r0 = a.row0, c1 = a.col1, r1 = a.row1 } or Game.MapRect(uiMap) or false
+		rects[uiMap] = r
+	end
+	return r
+end
+
+local function Read(uiMap, r)
 	wipe(found)
 	local seen = {}
 	for _, guid in ipairs(C_VignetteInfo.GetVignettes()) do
@@ -45,7 +57,7 @@ local function Read(uiMap)
 		local pos = info and not info.isDead and info.name and C_VignetteInfo.GetVignettePosition(guid, uiMap)
 		if pos then
 			local x, y = pos:GetXY()
-			local inst, col, row = Atlas.MapToTile(uiMap, x, y)
+			local inst, col, row = r.inst, r.c0 + (r.c1 - r.c0) * x, r.r0 + (r.r1 - r.r0) * y
 			local atlas = info.atlasName
 			local low = (atlas or ""):lower()
 			local rare, npc = (low:find("rare") or low:find("elite")) ~= nil, Npc(info.objectGUID)
@@ -82,7 +94,8 @@ Game.Part("vignettes", function(obs)
 	if dirty or you.uiMap ~= map then
 		dirty, map = false, you.uiMap
 		local was = #found
-		if map and Atlas.MapRect(map) then Read(map) else wipe(found) end -- (a map Atlas hasn't: none)
+		local r = map and Rect(map)
+		if r then Read(map, r) else wipe(found) end
 		for i = 1, #found do
 			if not changed and list[i] ~= found[i] then changed = true end
 		end

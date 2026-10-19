@@ -131,14 +131,16 @@ local function AddLayers(root)
 	end
 end
 
--- On green, off grey (a sub-option off while its parent is), by group (Layers.lua:2196-2207).
+-- On green, off grey (a sub-option off while its parent is), by group (Layers.lua:2196-2207); the spike's
+-- keys (Layers.lua:33-36) where ours name the layer that draws them.
+local SPIKE_KEY = { labels = "zoneLabels", borders = "zoneBorders" }
 Command({ kind = "slash", name = "layers", help = "the map's layers by group, on or off", fn = function()
 	local parts = {}
 	for _, sec in ipairs(Sections()) do
 		local on = {}
 		for _, row in ipairs(sec.rows) do
 			local shown = Engine.LayerOn(row.key) and (not row.parent or Engine.LayerOn(row.parent))
-			on[#on + 1] = (shown and "|cff33ff33" or "|cff888888") .. row.key .. "|r"
+			on[#on + 1] = (shown and "|cff33ff33" or "|cff888888") .. (SPIKE_KEY[row.key] or row.key) .. "|r"
 		end
 		parts[#parts + 1] = "|cffffd100" .. sec.title .. ":|r " .. table.concat(on, ", ")
 	end

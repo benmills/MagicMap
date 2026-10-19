@@ -204,6 +204,20 @@ def test_vignettes():
     sim.FireEvent("ZONE_CHANGED_NEW_AREA")
     sim.Step()
     assert ns.Game.obs.you.uiMap == WESTFALL and py(ns.Game.obs.vignettes) == {}
+
+    # A cave in Elwynn, a micro map Atlas keeps none of: placed by the client's rect (Core.lua:838-865).
+    L.execute("""Sim.maps[9001] = { "Jasperlode Mine", Enum.UIMapType.Micro, 1429, 0, 33.0, 49.5, 33.2, 49.7 }
+        local pos = C_VignetteInfo.GetVignettePosition
+        C_VignetteInfo.GetVignettePosition = function(guid, id)
+            if id == 9001 then return CreateVector2D(0.25, 0.5) end
+            return pos(guid, id)
+        end""")
+    sim.player.col, sim.player.row, sim.indoors = 33.1, 49.6, True
+    sim.FireEvent("ZONE_CHANGED_NEW_AREA")
+    sim.Step()
+    v = ns.Game.obs.vignettes[1]
+    assert ns.Game.obs.you.uiMap == 9001 and ns.Atlas.MapRect(9001) is None
+    assert v.pos.inst == 0 and abs(v.pos.col - 33.05) < 1e-9 and abs(v.pos.row - 49.6) < 1e-9
     assert not errors(sim, ns), errors(sim, ns)
 
 
