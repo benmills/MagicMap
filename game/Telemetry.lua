@@ -15,7 +15,7 @@
 local ADDON, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
 
-local SESSIONS, ERRORS, MARKS, ZONES, KEPT = 10, 50, 20, 30, 50
+local SESSIONS, ERRORS, MARKS, ZONES, KEPT = 10, 50, 64, 30, 50 -- (MARKS: a script's ~30 marks and shots, twice; tools/telemetry.py's)
 local MSG, STACK = 300, 2000 -- chars kept
 local MOTION = 120 -- frames of camera and you in each mark
 local LOAD_KB_AT = 10 -- s after login: past its grace (5 s, game/Game.lua) and the world streaming in

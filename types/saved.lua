@@ -92,7 +92,7 @@
 ---@field _v 1
 ---@field sessions table[]               newest last, 10 kept
 ---@field errors table<string, table>    by key, 50 kept
----@field marks table[]                  newest last, 20 kept
+---@field marks table[]                  newest last, 64 kept (a cap: ADR 0004's consequences)
 
 -- validation (game/Validate.lua: a spike, deleted when Atlas holds) -------------------
 

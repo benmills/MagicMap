@@ -34,6 +34,7 @@ DAY = 86400
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REFS = os.path.join(ROOT, "docs", "evidence", "shots")
 SECTIONS = ("perf", "kept", "errors", "marks", "shots", "validation", "logs")
+MARKS = 64  # marks kept (game/Telemetry.lua MARKS): at that, older ones were dropped
 KEPT = ("taint", "art", "sensor")  # game/Telemetry.lua KEEP: each one a bug, kept past the ring
 BENCH = "bench: regions"  # game/Bench.lua's job: a timed call can't be split, so its overruns and gaps aren't bugs
 
@@ -495,7 +496,7 @@ def collect(db, flavor, since, log_since, refs=REFS):
     return {
         "telemetry": bool(tel),
         "sessions": [s for s in sessions_of(db) if s.get("started", 0) >= since],
-        "errors": errors, "marks": marks, "shots": shot_marks, "unmarked_screenshots": unmarked,
+        "errors": errors, "marks": marks, "marks_kept": len(tel.get("marks") or []), "shots": shot_marks, "unmarked_screenshots": unmarked,
         "refs": refs, "refs_unshot": unshot,
         "validation": validation((db or {}).get("validation")), "logs": logs(flavor, log_since, loaded(tel)),
     }
@@ -659,6 +660,12 @@ def compare(a, b) -> None:
         print(f"  {label:<40} {fmt(x):>10} {fmt(y):>10} {delta:>10}")
 
 
+def full_marks(out):
+    """A line when the saved marks are at their cap: the oldest were dropped unread."""
+    if out.get("marks_kept", 0) >= MARKS:
+        return f"! marks: {out['marks_kept']} of {MARKS} kept, older ones dropped"
+
+
 def show(out, sections, args, shot_files):
     say = print
     full = args.trace == 0
@@ -695,6 +702,8 @@ def show(out, sections, args, shot_files):
             say("  none")
     if "marks" in sections:
         say(f"== marks ({len(out['marks'])})")
+        if full_marks(out):
+            say("  " + full_marks(out))
         for m in out["marks"]:
             say(f"  [{m.get('kind')}] {when(m.get('t'))}  {m.get('version')}  f{m.get('frame')}  {m.get('note') or ''}".rstrip())
             for line in state(m.get("state") or {}):
@@ -824,6 +833,8 @@ def main(argv=None):
         return 0
     if args.budgets:
         rc = budgets(out["sessions"], out["errors"])
+        if full_marks(out):
+            print(full_marks(out))
         if args.trace == 0:
             show(out, ["perf", "kept", "marks"], args, shot_files)
         return rc

@@ -59,7 +59,7 @@ telemetry = {
   errors = {            -- by key (name .. ": " .. first line), 50 kept (least recent dropped)
     [key] = { name, msg, stack, count, first = <time()>, last = <time()>, version, session },
   },
-  marks = {             -- newest last, 20 kept
+  marks = {             -- newest last, 64 kept (MARKS; tools/telemetry.py says when it's full)
     { kind = "error" | "taint" | "sensor" | "mark" | "shot", note, t = <time()>, stamp = "MMDDYY_HHMMSS",
       session, version, frame, state = { ... }, trace = { <events> },
       motion = { { f, ms, cx, cy, zoom, px, py, w, h }, ... }, -- the last 120 frames, oldest first

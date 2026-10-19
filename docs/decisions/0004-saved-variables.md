@@ -66,6 +66,11 @@ and v1's field names and meanings. Open: what any owner adds in a later version,
   log may mix builds). No `migrate`: a version 1 part keeps its keys and
   takes `version`'s default `""`, which no build is, so its log is cleared once. An older build
   meets a version 2 part as a downgrade: left on disk, its session's log unsaved.
+- telemetry keeps 64 marks since the M3 review's round 2 (was 20: one play-test script's ~30
+  marks and shots dropped its first ones unread). A cap, not a shape: the part stays version 1.
+  A mark copies the trace ring and the motion ring, ~26 KB, so ~1.7 MB at the cap in the sim: past
+  the ~1 MB line below, accepted for the play-test's telemetry (`/mma telemetry clear` empties it;
+  tools/telemetry.py says when the marks are at the cap).
 - Nothing migrates from the spike's `MagicMapDB` / `MagicMapLandmarks`, so v1 starts
   fresh. See the open question about rares.
 - Everything is account-wide, as in the spike.

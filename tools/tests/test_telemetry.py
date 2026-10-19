@@ -195,6 +195,14 @@ def test_telemetry_sim(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "our memory at logout, after GC" in out and "FAIL  taint      2" in out and "FAIL  art        1" in out
     assert "PASS  sensor     0" in out  # (game/Blips.lua traces it: M1.5)
+    # 64 marks kept (a script's ~30 marks and shots, twice); at that, the reader says older ones were dropped.
+    for i in range(70):
+        sim.Slash(f"/mma mark pad {i}")
+    assert len(tel.marks) == 64 and tel.marks[64].note == "pad 69"
+    sv.write_text(L.eval(SAVE)(L.globals().MagicMapAtlasDB), encoding="latin-1")
+    for flags in (["--marks"], ["--budgets"]):
+        telemetry.main(base + flags)
+        assert "! marks: 64 of 64 kept, older ones dropped" in capsys.readouterr().out
 
 
 def test_shot_answers():
