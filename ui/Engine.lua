@@ -1,9 +1,10 @@
 -- The map's engine: layers drawn on canvases. Engine.Layer(name, level, build, rev, zoom) adds one
 -- (ui/Tiles.lua, ...). A layer has two canvases (1x1 frames, both always shown): the front at alpha 1,
 -- the back at alpha 0. A layout, a Runtime.Job (one at a time: a layer missing from the view first,
--- then by level), lays the layer out on its back canvas at one zoom, over the view and a margin (more
--- ahead of the camera's motion), into the canvas's own regions where they stand (Engine.Get), parks
--- what it didn't use (SetParent to a hidden frame), then swaps the two by alpha. Tile (col, row) is at
+-- then by level; ahead of a pan in smaller slices), lays the layer out on its back canvas at one zoom,
+-- over the view and a margin (more ahead of the camera's motion), into the canvas's own regions where
+-- they stand (Engine.Get; Engine.Keep: what the canvas already shows, left as it is), parks what it
+-- didn't use (SetParent to a hidden frame), then swaps the two by alpha. Tile (col, row) is at
 -- ((col - ox) * zoom, -(row - oy) * zoom) on a canvas: (ox, oy), the origin, a whole tile near the
 -- view shared by every layer, so no offset grows past a few thousand px. Panning moves the canvases;
 -- until the zoom settles (or drifts out of [0.7, 1.4] of a layout's), a layer shows as its zoom says:
@@ -25,6 +26,7 @@ local LEAD, TRAIL, FAST = 0.75, 0.25, 0.5 -- moving FAST views a second or more:
 local AHEAD_S = 0.3 -- moving: laid out again before the view this far ahead leaves the layout
 local GOAL_S = 0.1 -- s a zoom's goal holds before a held layer lays out there (wheel ticks keep moving it)
 local JOB_MS, MISSING_MS = 4, 5 -- a layout's budget a frame; a layer the view lacks (the frame stays under 8 ms)
+local PAN_MS = 2.5 -- a layout ahead of a pan, the view still covered: smaller slices (the drag's frame p95)
 local BAND_LO, BAND_HI = 0.7, 1.4 -- the camera's zoom over a layout's: outside, laid out again before it settles
 local FADE_S = 0.12 -- a held layer's crossfade to a layout at another zoom (Layers.lua:1697 CROSSFADE)
 local SAME_ZOOM = 0.02 -- log: a held layer's layouts this close in zoom cut straight over (Layers.lua:1698)
@@ -52,6 +54,8 @@ local Layout -- (below: a layer's worker runs it)
 -- (Model.Known's rev). zoom: "scale" (default), "move" or "hold" (the top). Each layer can be toggled
 -- (Engine.toggles[name], UI's saved layers: a missing key is on). build returns true when it has
 -- nothing to draw at that zoom anywhere (none known, or not from this zoom): no layout again on a pan.
+-- canvas.epoch changes with what a region's place and look hang on (the canvas's map, zoom, origin, the
+-- layer's rev): a region kept (Engine.Keep) that was set in this epoch is as it should be.
 function Engine.Layer(name, level, build, rev, zoom)
 	local view = Window.view
 	local f = CreateFrame("Frame", nil, view)
@@ -69,7 +73,7 @@ function Engine.Layer(name, level, build, rev, zoom)
 		local c = CreateFrame("Frame", nil, f)
 		c:SetSize(1, 1)
 		c:SetAlpha(0)
-		c.pools, c.alpha, c.made, c.scale = {}, 0, 0, 1
+		c.pools, c.alpha, c.made, c.scale, c.epoch = {}, 0, 0, 1, 0
 		layer.canvases[i] = c
 	end
 	local i = #Engine.layers + 1 -- by level: the order layouts go in
@@ -85,11 +89,12 @@ local function Reparent(o, to)
 end
 
 -- The next region of a kind on the canvas being laid out: make(canvas) makes one. what: "tex" |
--- "line" | "font", for the counts. Pooled per canvas: 1..out on it, the rest parked.
-function Engine.Get(canvas, kind, what, make)
+-- "line" | "font", for the counts. Pooled per canvas: 1..out on it, the rest parked; 1..n this layout's.
+-- key (optional): what it shows (a tile), so the next layout on this canvas finds it (Engine.Keep).
+function Engine.Get(canvas, kind, what, make, key)
 	local p = canvas.pools[kind]
 	if not p then
-		p = { n = 0, out = 0, what = what }
+		p = { n = 0, out = 0, what = what, keys = {}, at = {} } -- keys[i]: what region i shows; at[key]: i
 		canvas.pools[kind] = p
 	end
 	local n = p.n + 1
@@ -103,7 +108,45 @@ function Engine.Get(canvas, kind, what, make)
 		Reparent(o, canvas)
 	end
 	if n > p.out then p.out = n end
+	local k = p.keys[n]
+	if k ~= key then
+		if k ~= nil then p.at[k] = nil end
+		if key ~= nil then
+			local j = p.at[key]
+			if j then p.keys[j] = nil end
+			p.at[key] = n
+		end
+		p.keys[n] = key
+	end
 	return o
+end
+
+-- Regions i and j of a pool trade places, their keys with them.
+local function Trade(p, i, j)
+	local ki, kj = p.keys[i], p.keys[j]
+	p[i], p[j], p.keys[i], p.keys[j] = p[j], p[i], kj, ki
+	if kj ~= nil then p.at[kj] = i end
+	if ki ~= nil then p.at[ki] = j end
+end
+
+-- The region that showed key on this canvas before (Get's key), the layout's next of its kind; nil: none.
+-- A layer keeps what it can first, then Gets the rest (a Get takes the next region, whatever it showed).
+-- Kept, it stands where it was put if the canvas's epoch is the one it was put in: a pan's layout
+-- re-anchors and re-textures only what the canvas didn't show (a tile layout re-set every region).
+function Engine.Keep(canvas, kind, key)
+	local p = canvas.pools[kind]
+	local j = p and p.at[key]
+	if not j or j <= p.n then return nil end
+	local n = p.n + 1
+	if j > p.out then -- parked: back on the canvas, at the end of those on it
+		local o = p.out + 1
+		Reparent(p[j], canvas)
+		Trade(p, j, o)
+		p.out, j = o, o
+	end
+	Trade(p, j, n)
+	p.n = n
+	return p[n]
 end
 
 -- Give back the last Get of a kind (it didn't fit): parked at the layout's end, unless used again.
@@ -298,21 +341,26 @@ end
 
 -- Lay layer out for the camera at (a "hold" layer: where it's headed), on its back canvas. A crossfade
 -- running ends first (its old canvas is the back: Layers.lua:1853-1855, FinishCrossfade). Its own call,
--- for what a start costs (perf.alloc).
-local Rebuild = Runtime.Wrap("map: layout", function(layer, inst, at, w, h, budget)
+-- for what a start costs (perf.alloc: its trace). (4 arguments at most: the sim's xpcall passes more in
+-- a table of its own, which the client's doesn't make.)
+local Rebuild = Runtime.Wrap("map: layout", function(layer, inst, at, budget)
+	local w, h = Window.Size()
 	if layer.fade then
 		Alpha(layer.fade.from, 0)
 		layer.fade = nil
 		Place(layer, Camera.cam, w, h)
 	end
 	local back = layer.canvases[layer.front == layer.canvases[1] and 2 or 1]
-	local zoom = at.zoom
+	local zoom, rev = at.zoom, layer.rev and layer.rev()
 	local c0, r0, c1, r1 = Region(at, w, h)
 	local ox, oy = Origin(at, c0, r0, c1, r1)
+	if back.inst ~= inst or back.zoom ~= zoom or back.ox ~= ox or back.oy ~= oy or back.rev ~= rev then
+		back.epoch = back.epoch + 1 -- (what a region kept from an earlier epoch shows, or where, may differ)
+	end
 	back.inst, back.zoom, back.moved, back.late, back.ox, back.oy, back.made = inst, zoom, zoom, false, ox, oy, 0
 	local r = back.region or {}
 	r[1], r[2], r[3], r[4] = c0, r0, c1, r1
-	back.region, back.rev = r, layer.rev and layer.rev()
+	back.region, back.rev = r, rev
 	layer.back, layer.busy = back, true -- until the job ends: its last stretch clears it; a failure, the draw step (Failed)
 	Runtime.Trace("layout", { e = "start", layer = layer.name, zoom = R2(zoom), ox = ox, oy = oy }) -- (its region: Engine.State)
 	Runtime.Wake(layer.job, budget)
@@ -366,7 +414,7 @@ local function Stale(layer, inst, cam, w, h, settled, goal, ahead)
 	local c = layer.front
 	if not c or c.inst ~= inst then return "missing" end
 	if c.none and c.zoom == cam.zoom and (not layer.rev or c.rev == layer.rev()) then -- nothing to draw: no layout on a pan
-		c.ox, c.oy = Engine.ox, Engine.oy
+		if c.ox ~= Engine.ox or c.oy ~= Engine.oy then c.ox, c.oy, c.epoch = Engine.ox, Engine.oy, c.epoch + 1 end
 		return
 	end
 	local zoomed = c.zoom ~= cam.zoom
@@ -385,6 +433,7 @@ local function On(layer) return layer.on end
 local goal, ahead = { since = 0 }, {} -- cameras: where it's headed (Motion.Goal), where it is AHEAD_S on
 function Engine.Draw(inst, cam, w, h)
 	local zooming, settled, now = false, Camera.ZoomSettled(), GetTime()
+	local panning = Camera.vx ~= 0 or Camera.vy ~= 0
 	local busy, pending, next, why = false, false, nil, nil
 	local gz, gx, gy = UI.Motion.Goal()
 	if gz ~= goal.zoom then goal.since = now end
@@ -404,7 +453,7 @@ function Engine.Draw(inst, cam, w, h)
 		pending = pending or stale or layer.busy or layer.fade
 		if layer.busy then
 			busy = true
-			layer.job.budget = stale == "missing" and MISSING_MS or JOB_MS
+			layer.job.budget = stale == "missing" and MISSING_MS or panning and PAN_MS or JOB_MS
 		elseif stale and (not layer.retryAt or now >= layer.retryAt) and (not next or stale == "missing" and why ~= "missing") then
 			next, why = layer, stale
 		end
@@ -415,7 +464,7 @@ function Engine.Draw(inst, cam, w, h)
 	end
 	Engine.pending = pending or zooming
 	if next and not busy then
-		Rebuild(next, inst, next.zoom == "hold" and goal or cam, w, h, why == "missing" and MISSING_MS or JOB_MS)
+		Rebuild(next, inst, next.zoom == "hold" and goal or cam, why == "missing" and MISSING_MS or panning and PAN_MS or JOB_MS)
 	end
 	return zooming
 end

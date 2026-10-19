@@ -4,12 +4,14 @@
 -- fadeStart, fadeEnd) breaks over its last FADE_PX into dashes of falling width and alpha, at most
 -- DASHES an end. At most CAP Lines a layout. Segments are clipped to the layout's region, so no Line
 -- reaches far past it (the offsets stay small: ui/Engine.lua). While the zoom moves, scaled and dimmed, then
--- crossfaded to the layout where it lands (Engine's "hold").
+-- crossfaded to the layout where it lands (Engine's "hold"). A layout keeps the Lines its canvas drew
+-- (Engine.Keep, by piece): one whole at the same zoom and origin is left as it is, so a pan's layout sets
+-- only what it adds (it set every Line: most of a drag's frames over 3 ms in Orgrimmar).
 
 local _, ns = ...
 local UI = ns.UI
 local Atlas, Runtime, Engine = ns.Atlas, ns.Runtime, ns.UI.Engine
-local Get, Yield = Engine.Get, Runtime.Yield
+local Get, Keep, Yield = Engine.Get, Engine.Keep, Runtime.Yield
 
 local FADE_PX, DASH_PX, GAP_PX = 36, 5, 4 -- Layers.lua:1531
 local DASHES = 4 -- an end's dashes: 4 fill FADE_PX (the rebuild's cost cap: docs/v1-plan.md §4)
@@ -18,6 +20,7 @@ local MIN_SEG_PX = 2.5 -- Layers.lua:1532
 local CAP = 3000 -- Lines a layout (Layers.lua:218-226)
 local SHADOW_ZOOM, SUBZONE_ZOOM = 60, 140 -- Layers.lua:1746, 1424
 local ZONE, SHADOW, SUB = { 1, 0.9, 0.72, 0.6 }, { 0, 0, 0, 0.25 }, { 1, 0.95, 0.85, 0.22 } -- Layers.lua:1589-1590, 1747
+local COLOR = { line = ZONE, shadow = SHADOW, sub = SUB }
 local SHADOW_PX = 1.2 -- the shadow's width over the line's (Layers.lua:1747)
 
 -- Line makers by kind: subzones under the shadows, the shadows under the zone lines (Layers.lua:230-233).
@@ -34,7 +37,7 @@ end
 -- The layout's region in canvas px, and its Lines so far.
 local box, made = { 0, 0, 0, 0 }, 0
 
--- A segment clipped to the box (Liang-Barsky), or nil: none of it inside.
+-- A segment clipped to the box (Liang-Barsky), or nil: none of it inside; and whether it's whole.
 local function Clip(x1, y1, x2, y2)
 	local t0, t1, dx, dy = 0, 1, x2 - x1, y2 - y1
 	for side = 1, 4 do
@@ -56,16 +59,16 @@ local function Clip(x1, y1, x2, y2)
 			end
 		end
 	end
-	return x1 + dx * t0, y1 + dy * t0, x1 + dx * t1, y1 + dy * t1
+	return x1 + dx * t0, y1 + dy * t0, x1 + dx * t1, y1 + dy * t1, t0 == 0 and t1 == 1
 end
 
-local function Line(c, kind, x1, y1, x2, y2, w, col, a)
-	if made >= CAP then return end
-	made = made + 1
-	local l = Get(c, kind, "line", makers[kind])
-	if l.col ~= col or l.a ~= a then
+-- A Line set: its colour is its kind's (a pool a kind), its alpha and width as given. One whole (not
+-- clipped to the box) stands as set while its canvas's epoch holds (l.e).
+local function Set(c, l, kind, x1, y1, x2, y2, w, a, whole)
+	if l.a ~= a then
+		local col = COLOR[kind]
 		l:SetColorTexture(col[1], col[2], col[3], a)
-		l.col, l.a = col, a
+		l.a = a
 	end
 	if l.w ~= w then
 		l:SetThickness(w)
@@ -73,6 +76,24 @@ local function Line(c, kind, x1, y1, x2, y2, w, col, a)
 	end
 	l:SetStartPoint("TOPLEFT", c, x1, -y1)
 	l:SetEndPoint("TOPLEFT", c, x2, -y2)
+	l.e = whole and c.epoch
+end
+
+-- The Lines no Line on the canvas drew (Engine.Keep): drawn after the rest (a Get takes the next one,
+-- whatever it drew). Scratch, reused: each one's kind, key, ends, width, alpha, whole.
+local lk, lkey, lx1, ly1, lx2, ly2, lw, la, lwhole, nl = {}, {}, {}, {}, {}, {}, {}, {}, {}, 0
+
+-- One Line of a piece: the canvas's own for key if it drew it (whole, at this epoch: left as it is).
+local function Line(c, kind, key, x1, y1, x2, y2, w, a, whole)
+	if made >= CAP then return end
+	made = made + 1
+	local l = Keep(c, kind, key)
+	if l then
+		if not (whole and l.e == c.epoch) then Set(c, l, kind, x1, y1, x2, y2, w, a, whole) end
+	else
+		nl = nl + 1
+		lk[nl], lkey[nl], lx1[nl], ly1[nl], lx2[nl], ly2[nl], lw[nl], la[nl], lwhole[nl] = kind, key, x1, y1, x2, y2, w, a, whole
+	end
 	Yield()
 end
 
@@ -106,18 +127,21 @@ local function PointAt(n, s)
 end
 
 -- A zone border's piece (its shadow, then it) or a subzone's, f of the way faded in (Layers.lua:1568-1577).
+-- key: which piece of which polyline (its Lines' keys: Engine.Keep).
 local style = {} -- this layout's: thick, shadow (zone), sub (subzone thick)
-local function Piece(c, zone, x1, y1, x2, y2, f)
-	x1, y1, x2, y2 = Clip(x1, y1, x2, y2)
+local function Piece(c, zone, key, x1, y1, x2, y2, f)
+	local whole
+	x1, y1, x2, y2, whole = Clip(x1, y1, x2, y2)
 	if not x1 then return end
 	local w = 0.6 + 0.4 * f
-	if not zone then return Line(c, "sub", x1, y1, x2, y2, style.sub, SUB, SUB[4]) end
-	if style.shadow then Line(c, "shadow", x1, y1, x2, y2, (style.thick + SHADOW_PX) * w, SHADOW, SHADOW[4] * f) end
-	Line(c, "line", x1, y1, x2, y2, style.thick * w, ZONE, ZONE[4] * f)
+	if not zone then return Line(c, "sub", key, x1, y1, x2, y2, style.sub, SUB[4], whole) end
+	if style.shadow then Line(c, "shadow", key, x1, y1, x2, y2, (style.thick + SHADOW_PX) * w, SHADOW[4] * f, whole) end
+	Line(c, "line", key, x1, y1, x2, y2, style.thick * w, ZONE[4] * f, whole)
 end
 
--- An end's dashes, from it inward over fade px (fromEnd: the polyline's last point's).
-local function Dashes(c, n, fade, fromEnd)
+-- An end's dashes, from it inward over fade px (fromEnd: the polyline's last point's). base: the
+-- polyline's key, a piece's: base + 16 * (its segment, or dash) + (0 solid, 1 a dash from its start, 2 its end).
+local function Dashes(c, n, fade, fromEnd, base)
 	local total = at[n]
 	for j = 0, DASHES - 1 do
 		local d0 = j * (DASH_PX + GAP_PX)
@@ -127,13 +151,13 @@ local function Dashes(c, n, fade, fromEnd)
 		if f > MIN_FADE then
 			local x1, y1 = PointAt(n, fromEnd and total - d0 or d0)
 			local x2, y2 = PointAt(n, fromEnd and total - d1 or d1)
-			Piece(c, true, x1, y1, x2, y2, f)
+			Piece(c, true, base + j * 16 + (fromEnd and 2 or 1), x1, y1, x2, y2, f)
 		end
 	end
 end
 
 -- The polyline in xs, ys: its solid stretch, then each fading end's dashes (subzones never fade).
-local function Polyline(c, n, zone, fs, fe)
+local function Polyline(c, n, zone, fs, fe, base)
 	if n < 2 then return end
 	local total = at[n]
 	local fade = math.min(FADE_PX, total / 2)
@@ -144,11 +168,11 @@ local function Polyline(c, n, zone, fs, fe)
 			local d, x, y = a1 - a0, xs[k], ys[k]
 			local u0, u1 = math.max(0, (s0 - a0) / d), math.min(1, (s1 - a0) / d) -- /: never 0 (a1 > a0)
 			local dx, dy = xs[k + 1] - x, ys[k + 1] - y
-			Piece(c, zone, x + dx * u0, y + dy * u0, x + dx * u1, y + dy * u1, 1)
+			Piece(c, zone, base + k * 16, x + dx * u0, y + dy * u0, x + dx * u1, y + dy * u1, 1)
 		end
 	end
-	if fs and fade > 0 then Dashes(c, n, fade, false) end
-	if fe and fade > 0 then Dashes(c, n, fade, true) end
+	if fs and fade > 0 then Dashes(c, n, fade, false, base) end
+	if fe and fade > 0 then Dashes(c, n, fade, true, base) end
 end
 
 -- Each line's bounds in tiles, once per line (its points from first).
@@ -170,10 +194,10 @@ end
 local NONE = {}
 local function Lines(c, lines, first, zone, zoom, c0, r0, c1, r1)
 	local ox, oy = c.ox, c.oy -- (the canvas's origin, ui/Engine.lua)
-	for _, l in ipairs(lines) do
+	for i, l in ipairs(lines) do
 		local b = Bounds(l, first)
 		if not (b[3] < c0 or b[1] > c1 or b[4] < r0 or b[2] > r1) then
-			Polyline(c, Points(l, first, zoom, ox, oy), zone, zone and l[3] > 0, zone and l[4] > 0)
+			Polyline(c, Points(l, first, zoom, ox, oy), zone, zone and l[3] > 0, zone and l[4] > 0, i * 1048576)
 		end
 		if made >= CAP then return end
 		Yield()
@@ -183,11 +207,16 @@ end
 UI.Borders = Engine.Layer("borders", 2, function(c, inst, zoom, c0, r0, c1, r1)
 	local lines = Atlas.BorderLines(inst, zoom)
 	if not lines then return end
-	made = 0
+	made, nl = 0, 0
 	box[1], box[2], box[3], box[4] = (c0 - c.ox) * zoom, (r0 - c.oy) * zoom, (c1 - c.ox) * zoom, (r1 - c.oy) * zoom
 	style.thick = math.max(1.1, math.min(1.8, zoom / 140)) -- Layers.lua:1589
 	style.shadow = zoom >= SHADOW_ZOOM
 	style.sub = math.max(0.8, math.min(1.1, zoom / 300)) -- Layers.lua:1590
 	Lines(c, lines, 5, true, zoom, c0, r0, c1, r1)
 	if zoom >= SUBZONE_ZOOM then Lines(c, Atlas.SubzoneLines(inst, zoom) or NONE, 3, false, zoom, c0, r0, c1, r1) end
+	for i = 1, nl do
+		local kind = lk[i]
+		Set(c, Get(c, kind, "line", makers[kind], lkey[i]), kind, lx1[i], ly1[i], lx2[i], ly2[i], lw[i], la[i], lwhole[i])
+		Yield()
+	end
 end, nil, "hold")

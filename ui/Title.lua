@@ -82,13 +82,25 @@ end
 Title.Fit = Fit
 frame:HookScript("OnSizeChanged", Runtime.Wrap("map: title fit", Fit))
 
--- "x, y" at a tenth of a percent: a new string only when that changes (a walk crosses one every
--- few yards, the update runs 20 times a second).
-local qx, qy, coords
-local function Coords(x, y)
-	local nx, ny = math.floor(x * 1000 + 0.5), math.floor(y * 1000 + 0.5)
-	if nx ~= qx or ny ~= qy then qx, qy, coords = nx, ny, string.format("%.1f, %.1f", x * 100, y * 100) end
-	return coords
+-- The subtitle's forms: a subzone, coordinates ("x, y" at a tenth of a percent), both, or the hint.
+-- Coordinates go through SetFormattedText: the client formats them without a Lua string (hovering the
+-- big map, they change every update: a string and its join each, 20 times a second).
+local COORDS, SUB_COORDS = "%.1f, %.1f", "%s" .. SEP .. "%.1f, %.1f"
+local shown = {} -- what it shows: name, sub, nx, ny (tenths of a percent: nil, none), hint
+local function Show(name, sub, x, y, hint)
+	local nx, ny = x and math.floor(x * 1000 + 0.5), y and math.floor(y * 1000 + 0.5)
+	local s = shown
+	if name == s.name and sub == s.sub and nx == s.nx and ny == s.ny and hint == s.hint then return end
+	if name ~= s.name then title:SetText(name) end
+	s.name, s.sub, s.nx, s.ny, s.hint = name, sub, nx, ny, hint
+	if nx and sub then
+		subtitle:SetFormattedText(SUB_COORDS, sub, nx / 10, ny / 10)
+	elseif nx then
+		subtitle:SetFormattedText(COORDS, nx / 10, ny / 10)
+	else
+		subtitle:SetText(hint and HINT or sub or "")
+	end
+	Fit()
 end
 
 -- The map's name: Atlas's (the tile set's) or the instance's number (Core.lua:1262).
@@ -119,7 +131,6 @@ end
 
 -- What it was last worked out from, so a still map works nothing out (and allocates nothing).
 local last = {}
-local parts, shownName, shownSub = {}, nil, nil
 
 local function Update()
 	local inst, you, big = Camera.inst, Model.you, UI.BigMap.big
@@ -137,40 +148,23 @@ local function Update()
 	if l.inst == inst and l.big == big and l.hovering == hovering and l.a == a and l.b == b and l.uiMap == you.uiMap
 		and l.subzone == you.subzone then return end
 	l.inst, l.big, l.hovering, l.a, l.b, l.uiMap, l.subzone = inst, big, hovering, a, b, you.uiMap, you.subzone
-	local name
-	wipe(parts)
 	if hovering and not here then
 		local z = ZoneAt(inst, a, b)
 		local x, y
 		if z then x, y = Atlas.TileToMap(z.mapID, a, b) end
-		if x then
-			name = z.name
-			parts[#parts + 1] = Coords(x, y)
-		else
-			name = MapName(inst)
-		end
+		if x then Show(z.name, nil, x, y) else Show(MapName(inst)) end
 	elseif onMap then
 		-- Your uiMap's name (the client's best map for you), else the client's zone, else the
 		-- zone you're in (Core.lua:1278-1291).
 		local map = you.uiMap and Atlas.UiMap(you.uiMap)
 		local zone = not map and a and ZoneAt(inst, a, b)
 		local mapID = map and map.id or zone and zone.mapID
-		name = map and map.name or you.zone or zone and zone.name or MapName(inst)
-		if you.subzone and you.subzone ~= name then parts[#parts + 1] = you.subzone end
-		if a and mapID and (big or hovering) then
-			local x, y = Atlas.TileToMap(mapID, a, b)
-			if x then parts[#parts + 1] = Coords(x, y) end
-		end
+		local name = map and map.name or you.zone or zone and zone.name or MapName(inst)
+		local x, y
+		if a and mapID and (big or hovering) then x, y = Atlas.TileToMap(mapID, a, b) end
+		Show(name, you.subzone ~= name and you.subzone or nil, x, y)
 	else
-		name = MapName(inst)
-		if big then parts[#parts + 1] = HINT end
-	end
-	local sub = table.concat(parts, SEP)
-	if name ~= shownName or sub ~= shownSub then
-		shownName, shownSub = name, sub
-		title:SetText(name)
-		subtitle:SetText(sub)
-		Fit()
+		Show(MapName(inst), nil, nil, nil, big)
 	end
 end
 
