@@ -48,6 +48,9 @@ Target and Route beyond the typed fields.
 - OPEN addition (v1 plan M2.4): `MM.KnownQuest.tag` and `group`, passed through from
   `obs.quests` (the tooltip's facts line, QuestInfo.lua:321-325); a quest whose tag or group
   changes gets a new entry.
+- OPEN addition (v1 plan M2, its review's round 1): `MM.KnownQuest.poi`, passed through from
+  `obs.quests`: a new one means the game's areas may have changed, so UI draws them again (a count
+  ticking draws nothing again). `estimate` is now set when HasArea answers false (it was Inside nil).
 
 ## Revisit if
 

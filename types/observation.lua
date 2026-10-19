@@ -84,6 +84,8 @@
 ---@field areaMap? MM.UiMapID  the uiMap whose objective area holds it (for Inside and for drawing)
 ---@field tag? string          C_QuestLog.GetQuestTagInfo(id).tagName ("Elite", "Group", "Dungeon"); nil: none or ""
 ---@field group? integer       C_QuestLog.GetSuggestedGroupSize(id); nil: 0
+---@field poi? integer         the game's quest areas' version: the QUEST_POI_UPDATEs Game has seen (nil: none);
+---                            a new one makes every quest new (UI draws its area again, Model asks HasArea again)
 
 ---@alias MM.PlaceKind "flight"|"poi"|"dungeon"|"graveyard"
 
@@ -186,3 +188,13 @@ local Oracles = {}
 ---@param row MM.Row
 ---@return boolean|nil
 function Oracles.Inside(quest, col, row) end
+
+---Does the game draw an area at the quest's pin (obs.quests' pin): its own, or another of your
+---quests' on its areaMap (the spike's hasBlob, Layers.lua:928-937)? false: none, Model estimates
+---one. nil: can't tell yet (its areas not yet drawn into rects the client has laid out, or this
+---frame's asks are spent): ask again next frame. A quest with no areaMap: false.
+---Cost: hit tests on hidden QuestPOI frames, one for each of your quests on that map at most;
+---Model asks once a quest (or the log, or the game's areas) changes, till it has an answer.
+---@param quest MM.QuestID
+---@return boolean|nil
+function Oracles.HasArea(quest) end

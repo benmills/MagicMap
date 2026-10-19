@@ -5,11 +5,12 @@
 --   count     the first unfinished objective that counts ("3/8"); inner, the first unfinished's icon
 --   need      what it still needs (kill, gather, other): its area's colour
 --   estimate  an unfinished kill, collect or interact objective (Layers.lua:544) the game draws no
---             area for at its pin (Inside nil, asked a frame after it was first: the client draws
---             a blob at the end of the frame, Layers.lua:922) gets a 110 yd disc, shared by the
---             pins within 0.6 r of an earlier one's centre, each way (Layers.lua:948-964)
--- A quest the same as before (by value) keeps its entry and its answer, so a layer diffing
--- entries relays only what changed, and Inside is asked again only for those.
+--             area for at its pin, its own or another quest's (HasArea false: Layers.lua:922-941)
+--             gets a 110 yd disc, shared by the pins within 0.6 r of an earlier one's centre, each
+--             way (Layers.lua:948-964)
+-- A quest the same as before (by value) keeps its entry, so a layer diffing entries relays only
+-- what changed. Each new log asks HasArea again for every such quest (the spike's refresh checks
+-- them all), each frame till it answers (nil: can't tell yet); the last answer stands till then.
 
 local _, ns = ...
 local Atlas, Model = ns.Atlas, ns.Model
@@ -26,10 +27,10 @@ local RANKS = { [1] = "Elite", [2] = "Rare Elite", [3] = "Boss", [4] = "Rare" } 
 local MAX_MOBS = 3 -- QuestInfo.lua:174
 local MAX_NAMES = 2 -- QuestInfo.lua:235, 240
 
-local quests = {}           -- [id] = { q (the obs quest it's built from), e (its entry), has (an area at its pin), at (first asked then: answer due) }
+local quests = {}           -- [id] = { q (the obs quest it's built from), e (its entry), has (an area at its pin), ask (an answer due) }
 local log, list, rev = nil, NONE, 0
 local level, range = nil, 5 -- yours, and how far below you a mob turns grey (obs.you.trivialRange, else 5: QuestInfo.lua:191)
-local due = 0               -- quests asked, answer due
+local due = 0               -- quests whose answer is due
 local icons = {}            -- an item's icon file -> its MM.Icon
 
 -- red at 5 or more over you, orange at 3, yellow down to -2, then green till trivial (QuestInfo.lua:22-28)
@@ -46,7 +47,7 @@ local function Same(a, b)
 	local p, x = a.pin, b.pin
 	if a.title ~= b.title or a.level ~= b.level or a.trivial ~= b.trivial or a.complete ~= b.complete
 		or a.followed ~= b.followed or a.areaMap ~= b.areaMap or p.inst ~= x.inst or p.col ~= x.col or p.row ~= x.row
-		or a.tag ~= b.tag or a.group ~= b.group or #a.objectives ~= #b.objectives then return false end
+		or a.tag ~= b.tag or a.group ~= b.group or a.poi ~= b.poi or #a.objectives ~= #b.objectives then return false end
 	for i, o in ipairs(a.objectives) do
 		local y = b.objectives[i]
 		if o.type ~= y.type or o.text ~= y.text or o.have ~= y.have or o.need ~= y.need or o.finished ~= y.finished
@@ -183,7 +184,7 @@ end
 local function Entry(q, estimate)
 	local e = { key = "quest:" .. q.id, kind = "quests", pos = q.pin, name = q.title, live = true, quest = q.id,
 		level = q.level, color = q.level and Difficulty(q.level, q.trivial), complete = q.complete, followed = q.followed,
-		areaMap = q.areaMap, estimate = estimate, turnIn = TurnIn(q.id), tag = q.tag, group = q.group }
+		areaMap = q.areaMap, estimate = estimate, turnIn = TurnIn(q.id), tag = q.tag, group = q.group, poi = q.poi }
 	if q.complete then
 		e.icon = TURN_IN
 	else
@@ -192,34 +193,33 @@ local function Entry(q, estimate)
 	return e
 end
 
--- A changed quest is asked about its pin now, answered a frame on; an unchanged one keeps its state.
-local function Sync(qs, frame, Inside)
+-- A new log: a changed quest gets a new state (its last answer kept till the next); each that may
+-- want an estimate is asked again (another quest's area may cover its pin now).
+local function Sync(qs)
 	local was = quests
 	quests, due = {}, 0
 	for _, q in ipairs(qs) do
 		if q.pin then
 			local s = was[q.id]
-			if not (s and Same(s.q, q)) then
-				s = { q = q, has = s and s.has }
-				if Area(q) then
-					s.at = frame
-					Inside(q.id, q.pin.col, q.pin.row) -- (drawn now)
-				end
-			end
-			if s.at then due = due + 1 end
+			if not (s and Same(s.q, q)) then s = { q = q, has = s and s.has } end
+			s.ask = Area(q) or nil
+			if s.ask then due = due + 1 end
 			quests[q.id] = s
 		end
 	end
 end
 
--- Answers due: whether the game has an area at each pin. True when one changed.
-local function Answer(frame, Inside)
+-- Answers due: whether the game draws an area at each pin (nil: not yet, ask next frame). True
+-- when one changed.
+local function Answer(HasArea)
 	local changed = false
 	for id, s in pairs(quests) do
-		if s.at and frame > s.at then
-			local has = Inside(id, s.q.pin.col, s.q.pin.row) ~= nil
-			s.at, due = nil, due - 1
-			if has ~= s.has then s.has, changed = has, true end
+		if s.ask then
+			local has = HasArea(id)
+			if has ~= nil then
+				s.ask, due = nil, due - 1
+				if has ~= s.has then s.has, changed = has, true end
+			end
 		end
 	end
 	return changed
@@ -268,9 +268,9 @@ Model.Part(function(obs, oracles)
 	level, range = lvl, rng
 	if qs ~= log then
 		log = qs
-		Sync(qs, obs.frame, oracles.Inside)
+		Sync(qs)
 	end
-	if due > 0 and Answer(obs.frame, oracles.Inside) then dirty = true end
+	if due > 0 and Answer(oracles.HasArea) then dirty = true end
 	if dirty then Build() end
 end)
 

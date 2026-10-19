@@ -38,7 +38,7 @@ The blip sensor reads where the last Apply placed the Minimap, and waits until t
 **Game**
   reads   location · quest log · places · group · corpse · waypoint · vignettes
           · offers · exploration · tracking state
-  senses  Minimap blips · quest areas (Inside(quest, col, row)) · Minimap indoors
+  senses  Minimap blips · quest areas (Inside(quest, col, row), HasArea(quest)) · Minimap indoors
   adapts  HBD world + minimap pins
   owns    Minimap takeover (undo list) · hooks (M, Escape, GameTooltip's hide path)
           · minimap button · SavedVariables load/save

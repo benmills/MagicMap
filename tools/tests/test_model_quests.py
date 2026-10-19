@@ -1,12 +1,13 @@
 """Model alone (plain Lua, tools/tests/replay.lua) on the fixture streams: Known("quests") and
 Known("offers") (docs/v1-plan.md M2.3).
 
-  test_quests_model: the quests stream (fixtures/streams/quests.lua), Inside from its areas: each
+  test_quests_model: the quests stream (fixtures/streams/quests.lua), HasArea from its areas: each
     pin's kind (in progress, ready to turn in, followed), inner icon, count and need; an estimate
-    only for a kill, collect or interact quest the game draws no area for, asked a frame on; what
-    Atlas knows (DATA: made-up rows, not QuestieDB's): at most 3 droppers lowest first and how
-    many more, the objects it's in, who sells it, who takes it in; an unchanged quest keeps its
-    entry and isn't asked again.
+    only for a kill, collect or interact quest the game draws no area for, asked till it answers
+    (nil first, as Game's: drawn, laid out at the frame's end); what Atlas knows (DATA: made-up
+    rows, not QuestieDB's): at most 3 droppers lowest first and how many more, the objects it's
+    in, who sells it, who takes it in; an unchanged quest keeps its entry, and each new log asks
+    every such quest again.
   test_quests_model_colours: the quest log's difficulty colours (S47), quests' and droppers'.
   test_quests_model_merge: no areas at all: an estimate each, shared within 0.6 r (F30).
   test_quests_model_no_data: no QuestieDB data: the same pins, no droppers, sources or turn-in.
@@ -51,10 +52,13 @@ def setup(data=True, areas=True):
     stream = tools.Stream(ROOT, "quests")
     model = tools.Model(ROOT, L.execute(DATA) if data else None)
     model.Load(L.eval("{ _v = 1, rares = {}, blips = {} }"))
-    # Inside from the stream's areas (or none), each ask noted.
-    oracles, asks = L.eval("""function(o) local asks = {}
-        return { Inside = function(q, c, r) asks[#asks + 1] = q return o.Inside(q, c, r) end }, asks end""")(
-        tools.Oracles(stream if areas else L.table()))
+    # HasArea from the stream's areas (or none), each ask noted; a quest's first ask can't tell yet (nil).
+    oracles, asks = L.eval("""function(o) local asks, drawn = {}, {}
+        return { Inside = o.Inside, HasArea = function(q)
+            asks[#asks + 1] = q
+            if not drawn[q] then drawn[q] = true return nil end
+            return o.HasArea(q)
+        end }, asks end""")(tools.Oracles(stream if areas else L.table()))
     return L, stream, model, oracles, asks
 
 
@@ -70,10 +74,10 @@ def rgb(e):
 def test_quests_model():
     L, stream, model, oracles, asks = setup()
     same = L.eval("function(a, b) return a == b end")
-    model.Observe(stream[1], oracles)  # log1, frame 1: asked, not answered
+    model.Observe(stream[1], oracles)  # log1, frame 1: asked, can't tell yet
     q, rev = known(model)
     assert sorted(q) == sorted([CANDLES, GOLD, MINE, FRONTIER, HOGGER, LOVERS, CLEANUP]) and rev == 1
-    assert list(asks.values()) == [GOLD, FRONTIER, CANDLES, HOGGER]  # kill, collect, interact: not event, not done (by id, as Game hands them)
+    assert sorted(asks.values()) == sorted([GOLD, FRONTIER, CANDLES, HOGGER])  # kill, collect, interact: not event, not done
     assert not any(e.estimate for e in q.values())
 
     c = q[CANDLES]
@@ -102,7 +106,8 @@ def test_quests_model():
         [("Prowler slain: 2/8", False, None), ("Young Forest Bear slain: 0/5", False, None)]
     assert (c.turnIn, q[HOGGER].turnIn, q[GOLD].turnIn) == ("Candle Taker", "Drop Box", None)  # an npc, else an object
 
-    # Answered a frame on: the game draws an area for all but Hogger's; only that entry is new.
+    # Asked again the next frame (the same log): the game draws an area for all but Hogger's; only that
+    # entry is new.
     model.Observe(stream[2], oracles)
     q2, rev = known(model)
     assert rev == 2 and len(asks) == 8 and sorted(list(asks.values())[4:]) == sorted([CANDLES, GOLD, FRONTIER, HOGGER])
@@ -110,12 +115,12 @@ def test_quests_model():
     assert same(h.estimate, h.pos) and not any(e.estimate for e in q2.values() if e.quest != HOGGER)
     assert all(same(q[k], q2[k]) for k in q if k != HOGGER) and not same(q[HOGGER], h)
 
-    model.Observe(stream[3], oracles)  # 4/8: that quest alone changes, asked again
+    model.Observe(stream[3], oracles)  # 4/8: that quest alone changes; a new log, so each asked again (answered)
     q3, rev = known(model)
-    assert rev == 3 and q3[CANDLES].count == "4/8" and list(asks.values())[8:] == [CANDLES]
+    assert rev == 3 and q3[CANDLES].count == "4/8" and len(asks) == 12
     assert all(same(q2[k], q3[k]) for k in q2 if k != CANDLES)
-    model.Observe(stream[4], oracles)  # its answer: an area still
-    assert known(model)[1] == 3 and len(asks) == 10
+    model.Observe(stream[4], oracles)  # the same log: nothing asked
+    assert known(model)[1] == 3 and len(asks) == 12
 
     model.Observe(stream[5], oracles)  # the follow moves
     q5, rev = known(model)
@@ -126,11 +131,11 @@ def test_quests_model():
     model.Observe(stream[7], oracles)  # handed in, another taken
     q7, rev = known(model)
     assert sorted(q7) == sorted([CANDLES, GOLD, FRONTIER, HOGGER, LOVERS, CLEANUP, JASPER]) and rev == 6
-    assert len(asks) == 12  # nothing asked but the changed
+    asked = len(asks)
     model.Observe(stream[8], oracles)  # the same table: nothing new
     model.Observe(L.eval("function(obs) local o = {} for k, v in pairs(obs) do o[k] = v end o.quests = nil return o end")(
         stream[8]), oracles)  # not known (a part that failed): the last belief stands
-    assert known(model)[1] == 6 and len(asks) == 12
+    assert known(model)[1] == 6 and len(asks) == asked
     model.Observe(stream[9], oracles)  # abandoned: known and empty
     assert known(model)[0] == {} and known(model)[1] == 7
 

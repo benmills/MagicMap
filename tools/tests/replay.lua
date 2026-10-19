@@ -7,7 +7,8 @@
 -- (Replay.Stream(root, name): tools/tests/fixtures/streams/<name>.lua, what Game's
 -- part would hand over). Replay.Oracles(stream) backs the Oracles interface with the
 -- stream's `areas` ([questID] = { inst, col, row, r }: circles in tile space): Inside
--- answers for those, nil for any other quest. Replay.Dump(v) writes a value as Lua
+-- answers for those, nil for any other quest; HasArea, whether the quest has one (each is
+-- about its pin), at once (Game's can say nil first: a test wraps it). Replay.Dump(v) writes a value as Lua
 -- source (keys sorted), for fixtures and SavedVariables.
 
 local Replay = {}
@@ -32,7 +33,7 @@ function Replay.Oracles(stream)
 		local a = areas[quest]
 		if not a then return nil end
 		return (col - a.col) ^ 2 + (row - a.row) ^ 2 <= a.r * a.r
-	end }
+	end, HasArea = function(quest) return areas[quest] ~= nil end }
 end
 
 function Replay.Dump(v, indent)

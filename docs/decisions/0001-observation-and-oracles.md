@@ -65,6 +65,14 @@ unknown ones), and new oracles.
   empty), and `ObsQuest.group`, GetSuggestedGroupSize (nil when 0), for the quest tooltip's facts
   line ("Elite", "Group (3)": the spike's QuestInfo.lua:321-325). Part of the quest's value: a
   change makes a new `obs.quests`.
+- OPEN additions (v1 plan M2, its review's round 1): the oracle `HasArea(quest) → boolean|nil`,
+  whether the game draws an area at the quest's pin, its own or another of your quests' on its
+  map (the spike's hasBlob, Layers.lua:928-937), and nil, apart from false, for "can't tell yet"
+  (not yet drawn into a laid-out rect, or the frame's asks spent): Model asks again next frame and
+  estimates only on false. `Inside`'s nil still means both, so a late answer had made an estimate
+  final. And `ObsQuest.poi`, the QUEST_POI_UPDATEs Game has seen (nil: none): part of the quest's
+  value, so the game's areas changing makes a new `obs.quests` with every quest new (Model asks
+  HasArea again, UI draws the areas again), as the spike's refresh re-laid them all out.
 - LOCKED clarification (v1 plan M1): `ObsBlip.rough` was "measured while moving: a few yards
   off". Its meaning stays what Model relies on: the position wasn't measured, so don't keep it
   or merge on it; it's measured once you stand still (M1.5 measures only then). How far off a

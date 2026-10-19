@@ -7,8 +7,9 @@
 -- follow a scaled canvas (P5): so the layer is out of sight while the zoom moves and laid out where it's
 -- headed once the wheel stops (Engine's "hold": after names and pins); a frame is drawn as it's laid out
 -- (on a canvas at its own scale and zoom, else the frame it's shown at the camera's zoom), again the next
--- frame, and the layer shows again once they all are (Layers.lua:2032-2043). A frame whose quests and
--- size are as they were isn't drawn again: its drawing moves with it (a pan, Layers.lua:142-156). Each
+-- frame, and the layer shows again once they all are (Layers.lua:2032-2043). A frame whose quests (by
+-- id, and the game's areas' version: poi), style and size are as they were isn't drawn again: its
+-- drawing moves with it (a pan, Layers.lua:142-156), and a count ticking changes no area. Each
 -- stands on the point of its rect nearest the canvas's origin (a zone at zoom 800 is up to 9,600 px).
 -- Unfinished kill, collect and interact quests with no area (Model's estimate) get a faint disc with a
 -- dashed edge, one for quests within 0.6 r (Layers.lua:945-986: S54), out of sight with the rest.
@@ -117,7 +118,9 @@ local function SetBlob(c, f, g, zoom, base, draw)
 	if f.map ~= g.map or f.n ~= g.n then dirty = true end
 	f.map = g.map
 	for i = 1, math.max(f.n, g.n) do
-		if f.q[i] ~= g[i] then f.q[i], dirty = g[i], true end
+		local a, b = f.q[i], g[i]
+		if not (a and b and a.quest == b.quest and a.poi == b.poi) then dirty = true end
+		f.q[i] = b
 	end
 	f.n = g.n
 	if dirty then f.drawn = 0 end

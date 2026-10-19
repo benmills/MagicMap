@@ -5,7 +5,8 @@
 -- objective's item is QuestieDB's of that kind and place (QuestInfo.lua:94-110). Read again 0.3 s
 -- after a burst of the 5 events (Layers.lua:1231-1242, 2219-2228), at once when the super-tracked
 -- quest (a follow Command, Blizzard's tracker: the same frame's obs) or the instances change;
--- sorted by id, a new table only when something did.
+-- sorted by id, a new table only when something did. poi: the QUEST_POI_UPDATEs seen, on every
+-- quest, so the game's areas changing makes every quest new (Layers.lua:2225, 1233-1240).
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
@@ -15,6 +16,7 @@ local TYPES = { monster = true, item = true, object = true, event = true, log = 
 
 local list -- the last handed over
 local dirty, pending = true, false
+local poi -- QUEST_POI_UPDATEs seen
 local shown, read, readShown, followed -- the instance shown; those last read and the super-tracked quest then
 
 local function Due() pending, dirty = false, true end
@@ -23,10 +25,13 @@ local function Soon()
 	pending = true
 	Runtime.After(DELAY, "game.quests refresh", Due)
 end
-for _, event in ipairs({ "QUEST_LOG_UPDATE", "QUEST_POI_UPDATE", "SUPER_TRACKING_CHANGED", "PLAYER_LEVEL_UP",
-	"GET_ITEM_INFO_RECEIVED" }) do
+for _, event in ipairs({ "QUEST_LOG_UPDATE", "SUPER_TRACKING_CHANGED", "PLAYER_LEVEL_UP", "GET_ITEM_INFO_RECEIVED" }) do
 	Runtime.On(event, "game.quests", Soon)
 end
+Runtime.On("QUEST_POI_UPDATE", "game.quests", function()
+	poi = (poi or 0) + 1
+	Soon()
+end)
 Game.Apply("quests shown", function(view) shown = view.inst end)
 
 local function Same(a, b)
@@ -83,7 +88,7 @@ local function Read(you)
 			level = level > 0 and level or nil, trivial = C_QuestLog.IsQuestTrivial(id), complete = complete,
 			followed = id == followed, objectives = Objectives(id), pin = { inst = inst, col = col, row = row },
 			areaMap = not complete and b.map or nil, tag = tag and tag.tagName ~= "" and tag.tagName or nil,
-			group = group > 0 and group or nil }
+			group = group > 0 and group or nil, poi = poi }
 	end
 	table.sort(out, function(a, b) return a.id < b.id end)
 	return out
