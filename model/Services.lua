@@ -24,7 +24,7 @@ local NONE = {}
 
 local on -- the icons tracking shows (nil: not known yet)
 local tracking -- obs.tracking, the last handed
-local gathered = {} -- [inst] = { tiles = { [tile] = true }, list = { entries }, names = { [name] = { entries } } }
+local gathered = {} -- [inst] = { tiles = { [tile] = true }, list = { entries }, names = { [name] = { entries } }, keys }
 local list, rev, listInst = NONE, 0, nil
 local job, looked -- the gathering under way; the rect last looked at
 local textures = {}
@@ -69,10 +69,12 @@ local function Gather(inst, tiles, faction)
 		local c, r = math.floor(tile / 64), tile % 64
 		for _, s in ipairs(Atlas.SpawnsIn("npc", inst, c, r, c + 1, r + 1, Serves, ns.Runtime.Yield)) do
 			local n = Atlas.Npc(s.id)
-			if math.floor(s.col) == c and math.floor(s.row) == r and n.faction and n.faction:find(faction, 1, true) then
+			local key = "npc:" .. s.id .. ":" .. math.floor(s.col * 64 + 0.5) .. ":" .. math.floor(s.row * 64 + 0.5)
+			if math.floor(s.col) == c and math.floor(s.row) == r and not g.keys[key] and n.faction
+				and n.faction:find(faction, 1, true) then
+				g.keys[key] = true -- (a spawn listed under two areas: once)
 				local service, icon = Service(n.flags, n.subName)
-				local e = { key = "npc:" .. s.id .. ":" .. math.floor(s.col * 64 + 0.5) .. ":" .. math.floor(s.row * 64 + 0.5),
-					kind = "services", name = n.name, live = false, pos = { inst = inst, col = s.col, row = s.row },
+				local e = { key = key, kind = "services", name = n.name, live = false, pos = { inst = inst, col = s.col, row = s.row },
 					icon = Texture(icon), text = n.subName, service = service, npc = s.id }
 				g.list[#g.list + 1] = e
 				local same = g.names[n.name]
@@ -93,7 +95,7 @@ local function Start(f)
 	looked = rect
 	local inst = f.inst
 	local g = gathered[inst]
-	if not g then g = { tiles = {}, list = {}, names = {} }; gathered[inst] = g end
+	if not g then g = { tiles = {}, list = {}, names = {}, keys = {} }; gathered[inst] = g end
 	local tiles
 	for c = math.max(0, math.floor(rect.c0)), math.min(63, math.floor(rect.c1)) do
 		for r = math.max(0, math.floor(rect.r0)), math.min(63, math.floor(rect.r1)) do

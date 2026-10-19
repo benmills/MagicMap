@@ -3,7 +3,8 @@
   test_services: Known("services"), QuestieDB's NPCs with a service (made-up rows: CI has none), friendly to you,
     each its tracking icon and title, once the map has shown at zoom 60, not at 59 (Blips.lua:479); a tracking
     type off hides its kind (Trainer both kinds of trainer: Blips.lua:561-570) and the remembered of it too; a
-    remembered one where a service of its name is isn't listed (Blips.lua:644-650).
+    remembered one where a service of its name is isn't listed (Blips.lua:644-650). Drawn on the blips layer from
+    zoom 60 with their title and "Not in sight", but within the sensor's word around you (Blips.lua:625-650).
   test_services_data: with QuestieDB's data, Goldshire's innkeeper at the Lion's Pride Inn.
 
 obs.tracking is Game's (M4.1's game/parts/Tracking.lua): until it's here, the test's own part reads it so.
@@ -46,6 +47,14 @@ def names(ns, kind):
     return sorted(e.name for e in ns.Model.Known(kind)[0].values())
 
 
+def drawn(ns):
+    """The blips layer's pins shown (their minimum zoom's frame too): name, title."""
+    lay = ns.UI.Blips
+    p = lay.front and lay.front.pools.pin
+    pins = [p[i] for i in range(1, p.n + 1)] if p else []
+    return sorted((o.entry.name, o.entry.text) for o in pins if o.on.GetAlpha(o.on) > 0)
+
+
 def test_services():
     L, sim, ns = boot(SAVED % {"yd": YD})
     G = L.globals()
@@ -56,11 +65,9 @@ def test_services():
     sim.Slash("/mma toggle")
     sim.Run(3)
     assert ns.UI.Camera.cam.zoom == 59 and names(ns, "services") == []  # not gathered below town scale
-    assert names(ns, "remembered") == ["Innkeeper Farley", "Mailbox"]
+    assert names(ns, "remembered") == ["Innkeeper Farley", "Mailbox"] and drawn(ns) == []
     ns.UI.Motion.SetZoom(60)
-    sim.Run(1)
-    assert names(ns, "services") == []  # asked (as a layer would): gathered in a job
-    sim.Run(3)
+    sim.Run(4)  # (the blips layer asks for them: gathered in a job)
     got = {e.name: e for e in ns.Model.Known("services")[0].values()}
     assert sorted(got) == ["Innkeeper Farley", "Kurran Steele", "Lyria Du Lac", "Smith Argus"]  # friendly, a service
     assert {k: (e.icon.texture, e.service, e.text, e.npc, e.live, e.kind) for k, e in got.items()} == {
@@ -69,12 +76,14 @@ def test_services():
         "Kurran Steele": (136463, "trainer", "Herbalism Trainer", 1003, False, "services"),
         "Smith Argus": (136465, "repair", "Weaponsmith", 1004, False, "services")}
     assert names(ns, "remembered") == ["Mailbox"]  # the innkeeper: Atlas's service of the name is 10 yd off
+    # Drawn on the blips layer from zoom 60, but those within the sensor's word around you (Blips.lua:628-650).
+    assert drawn(ns) == [("Innkeeper Farley", "Innkeeper"), ("Mailbox", None)]
     # Tracking off: its kind hidden, the remembered of it too; Trainer: both kinds of trainer.
     for name in ("Innkeeper", "Find Trainers", "Mailbox"):
         i = next(i for i, t in G.Sim.tracking.items() if t.name == name)
         G.C_Minimap.SetTracking(i, False)
     sim.Run(0.5)
-    assert names(ns, "services") == ["Smith Argus"] and names(ns, "remembered") == []
+    assert names(ns, "services") == ["Smith Argus"] and names(ns, "remembered") == [] and drawn(ns) == []
     i = next(i for i, t in G.Sim.tracking.items() if t.name == "Find Trainers")
     G.C_Minimap.SetTracking(i, True)
     sim.Run(0.5)

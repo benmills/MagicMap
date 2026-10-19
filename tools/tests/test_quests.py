@@ -64,7 +64,8 @@ function Data()
 		[9301] = { name = "Candle Taker" } }
 	local quests = { [60] = { objectives = { { kind = "item", id = 772 } }, finishedBy = { npcs = { 9301 }, objects = {} } } }
 	Atlas.Item = function(id) return items[id] end
-	Atlas.Npc = function(id) return npcs[id] end
+	local npc = Atlas.Npc -- (the rest Atlas's: SpawnsIn's, the town services' gathering)
+	Atlas.Npc = function(id) return npcs[id] or npc(id) end
 	Atlas.Object = function() return nil end
 	Atlas.Quest = function(id) return quests[id] end
 end

@@ -1,12 +1,14 @@
--- Minimap blips on the map: Model.Known("blips") (sensed now) and Known("remembered") (seen
--- before: from zoom 60, Blips.lua:641-650; laid out from a drift below it but zooming out, Engine.From,
--- shown from it as the zoom moves: Engine.At's minimum zoom) as the spike's pins (Blips.lua:423-437,
+-- Minimap blips on the map: Model.Known("blips") (sensed now), and Known("services") (Atlas's town
+-- services: asking starts their gathering) and Known("remembered") (seen before) from zoom 60
+-- (Blips.lua:625-650; laid out from a drift below it but zooming out, Engine.From, shown from it as the
+-- zoom moves: Engine.At's minimum zoom) as the spike's pins (Blips.lua:423-437,
 -- 641-661), on the pin store (ui/Pins.lua): an icon, the game's tracking texture or a gathering atlas,
 -- at 14 px (an atlas the client lacks: a dot of its colour, StylePin's form (d)); else a gold dot (d) at
 -- 10. A remembered one a sensed one stands for (its key) is drawn once; while the sensor runs, none
 -- within its word around you (LIVE_YARDS: only what it sees now, Blips.lua:628-650). Laid out again
 -- when either changes, or you cross a walk chunk while sensing. Tooltip: its name, then what it is (a
--- gathering node's profession, Blips.lua:427-429), and a remembered one's "Not in sight".
+-- gathering node's profession, Blips.lua:427-429; an NPC's title, :436), and a service's or remembered one's
+-- "Not in sight" (Blips.lua:642).
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
@@ -54,6 +56,12 @@ local function Here()
 	return hereRev
 end
 
+-- Not within the sensor's word around you (you: false while it doesn't run).
+local function Away(b, you)
+	local p = b.pos
+	return not (you and (p.col - you.col) ^ 2 + (p.row - you.row) ^ 2 < REACH * REACH)
+end
+
 local carried = {} -- keys of remembered ones a sensed one stands for
 UI.Blips = UI.Pins.Layer("blips", 12, function(put, inst, _, want)
 	local live, seen = Model.Known("blips"), Model.Known("remembered")
@@ -62,13 +70,15 @@ UI.Blips = UI.Pins.Layer("blips", 12, function(put, inst, _, want)
 		carried[b.key] = true
 		put(b, Look(b.icon))
 	end
-	if not seen[1] or not want(REMOTE_ZOOM) then return end
+	if not want(REMOTE_ZOOM) then return end
 	local you = here and Model.you.inst == inst and Model.you
-	for _, b in ipairs(seen) do
-		local p = b.pos
-		if not carried[b.key] and not (you and (p.col - you.col) ^ 2 + (p.row - you.row) ^ 2 < REACH * REACH) then
-			put(b, Look(b.icon), REMOTE_ZOOM)
-		end
+	for _, b in ipairs(Model.Known("services")) do
+		if Away(b, you) then put(b, Look(b.icon), REMOTE_ZOOM) end
 	end
-end, function() return select(2, Model.Known("blips")) + select(2, Model.Known("remembered")) + Here() end,
-	{ lines = Lines })
+	for _, b in ipairs(seen) do
+		if not carried[b.key] and Away(b, you) then put(b, Look(b.icon), REMOTE_ZOOM) end
+	end
+end, function()
+	return select(2, Model.Known("blips")) + select(2, Model.Known("remembered")) + select(2, Model.Known("services"))
+		+ Here()
+end, { lines = Lines })

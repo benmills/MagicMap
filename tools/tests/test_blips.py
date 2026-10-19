@@ -118,7 +118,8 @@ def test_blips_end_to_end():
             # UI: drawn, each its icon (a texture, an atlas), at 14 px.
             sim.Run(0.2)
             front = UI.Blips.front
-            pins = [front.pools.pin[i].icon for i in range(1, front.pools.pin.n + 1)]  # (ui/Pins.lua's pins)
+            pins = [front.pools.pin[i].icon for i in range(1, front.pools.pin.n + 1)  # (ui/Pins.lua's pins; not
+                    if front.pools.pin[i].entry.kind != "services"]  # Atlas's town services: test_services)
             textures = sorted(str(sim.state[t].atlas or sim.state[t].texture) for t in pins)
             assert textures == [str(MAILBOX), str(MAILBOX), HERB], textures
             assert all(sim.state[t].width == 14 for t in pins)
@@ -141,7 +142,8 @@ def test_blips_end_to_end():
     def drawn():
         sim.Run(0.5)
         front = UI.Blips.front
-        return [t for t in (front.pools.pin[i] for i in range(1, front.pools.pin.n + 1))] if front.pools.pin else []
+        return [t for t in (front.pools.pin[i] for i in range(1, front.pools.pin.n + 1))
+                if t.entry.kind != "services"] if front.pools.pin else []  # (Atlas's town services: test_services)
     assert len(drawn()) == 1  # (away: the remembered mailbox)
     put_blips(L, sim, ns, BLIPS[2:])
     sim.player.col, sim.player.row = START[0] + 240 * YD, START[1] - 20 * YD
