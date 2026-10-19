@@ -4,3 +4,4 @@ game/commands/follow.lua
 game/commands/tooltip.lua
 game/commands/waypoint.lua
 game/commands/way.lua
+game/commands/tracking.lua

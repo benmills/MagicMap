@@ -79,6 +79,7 @@ game\commands\follow.lua
 game\commands\tooltip.lua
 game\commands\waypoint.lua
 game\commands\way.lua
+game\commands\tracking.lua
 
 # Game: observation parts (Game.Part)
 game\parts\You.lua
@@ -90,6 +91,11 @@ game\parts\Offers.lua
 game\parts\Waypoint.lua
 game\parts\Corpse.lua
 game\parts\Levels.lua
+game\parts\Places.lua
+game\parts\Group.lua
+game\parts\Vignettes.lua
+game\parts\Explored.lua
+game\parts\Tracking.lua
 
 # UI
 ui\Camera.lua
