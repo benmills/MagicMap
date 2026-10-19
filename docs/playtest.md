@@ -9,9 +9,11 @@ one sitting.
 
 Before:
 
-1. Install the build: `.venv/bin/python tools/install.py`. If it says files were **added**
-   (a new texture, a new Lua file), quit and restart the client: `/reload` doesn't see new
-   files (spike-bugs L5).
+1. Install the build: `.venv/bin/python tools/install.py` (main's newest: the TOC's `## Version`
+   names the commit; sessions #8 and #9 ran cd0c82c, before M1.4 and the review's fixes, so they
+   answered none of the questions below). If it says files were **added** (a new texture, a new Lua
+   file, Data/BlipServices.lua), quit and restart the client: `/reload` doesn't see new files
+   (spike-bugs L5).
 2. AddOns list: **MagicMap (the spike) off** (both hook ToggleWorldMap and take over the
    Minimap), MagicMapAtlas on, every other addon off unless the script names it. The one
    exception is the reference session (below): the spike only.
@@ -105,7 +107,7 @@ small on the Minimap's spot, follow on, default zoom.
 |---|---|---|
 | a1 | Open: if the map is hidden, `/mma toggle`. First open of the session. At the Thunderbrew door, cursor off. | `/mma shot small-home` |
 | a1b | The ground (M1.4), still at the Thunderbrew door, cursor off: wheel out to 62–80 (Ironforge's zone border on its shadow, zone names in capitals), then in to 250–300 (subzone borders and names). Your arrow: the Minimap's own, its shadow softened, turning smoothly as you turn (a new texture: restart the client after installing, L5). | `/mma shot small-zone`; `/mma shot small-town`; `/mma mark a1b arrow <ok, or what>` |
-| a2 | Wheel in a tick at a time to the closest zoom, then out to the farthest, and back: 16→800→16 (the spike's range). Then the same as fast as the wheel turns (M1.8b: a burst runs about 4 ticks a second, so 16→800 takes ~3.7 s of scrolling; judge whether that feels right). With a trackpad or Magic Mouse too: one flick (about 3 ticks), then a slow drag. | `/mma mark a2 wheel <device>` after each device (`trackpad`, `mouse`) |
+| a2 | Wheel in a tick at a time to the closest zoom, then out to the farthest, and back: 16→800→16 (the spike's range). Then the same as fast as the wheel turns (a burst: 2 ticks a second after the first, a gesture 3 at most, since "too sensitive" at 4 a second uncapped; scrolling on, pause a moment between gestures). With a trackpad or Magic Mouse too: one flick (about 2 ticks, x1.7), then a slow drag. Too slow or still too quick: `/mma wheel <ticks a second> <ticks a gesture>` tries others this session (e.g. `/mma wheel 1.5 2`, `/mma wheel 3 4`); note the pair that feels right in the mark. | `/mma mark a2 wheel <device> <rate gesture>` after each device (`trackpad`, `mouse`) |
 | a3 | Fling: drag-pan fast in several directions, release, let it settle each time. | `/mma mark a3 fling` |
 | a4 | The tear walk (above): Kharanos, x = 47.4, at 800, small, follow on, **2 minutes**. | `/mma mark a4 walk` at ~1 min; `/mma shot small-seam` on the line; `/mma mark a4 tear <what>` on any tear |
 | a5 | Grow and shrink ×5 (M, or the red button): let each animation end. | `/mma mark a5 grow` after the 5th; `/mma shot big-home` once as M lands, cursor off |

@@ -49,6 +49,7 @@ end
 local function AreaName(id) local a = id and Atlas.Area(id); return a and a.name end
 
 -- Results: { kind, ok, atlas, game } (ok nil: info, not counted).
+local function Unless(no, ok) if no then return nil end return ok end
 local function R(out, kind, ok, atlas, game)
 	out[#out + 1] = { kind = kind, ok = ok, atlas = tostring(atlas), game = tostring(game) }
 end
@@ -66,22 +67,29 @@ local function Sample()
 	local zoneMap = ZoneMap(best)
 	local z = Atlas.ZoneAt(inst, col, row)
 	local ZoneAtMap = function(c, r) local zz = Atlas.ZoneAt(inst, c, r); return zz and zz.mapID end
-	R(out, "zone map", Near(ZoneAtMap, col, row, TOL.edge, zoneMap),
+	-- The client not knowing yet (entering a zone: its text "", its best map the continent) is no answer:
+	-- info, not a mismatch (sessions #8, #9 in Orgrimmar).
+	local mapKnown = zoneMap and C_Map.GetMapInfo(zoneMap).mapType >= ZONE
+	R(out, "zone map", Unless(not mapKnown, Near(ZoneAtMap, col, row, TOL.edge, zoneMap)),
 		z and (z.mapID .. " " .. z.name), zoneMap and (zoneMap .. " " .. C_Map.GetMapInfo(zoneMap).name))
 
 	local ZoneName = function(c, r) local id = Atlas.AreaAt(inst, c, r); return id and AreaName(Atlas.Area(id).zone) end
 	local zoneName = ZoneName(col, row)
-	R(out, "zone text", Near(ZoneName, col, row, TOL.edge, GetZoneText()), zoneName, GetZoneText())
-	R(out, "real zone text", Near(ZoneName, col, row, TOL.edge, GetRealZoneText()), zoneName, GetRealZoneText())
+	local text, real = GetZoneText(), GetRealZoneText()
+	R(out, "zone text", Unless((text or "") == "", Near(ZoneName, col, row, TOL.edge, text)), zoneName, text)
+	R(out, "real zone text", Unless((real or "") == "", Near(ZoneName, col, row, TOL.edge, real)), zoneName, real)
 
-	-- Subzone: the area under you unless it's the zone itself ("" then). Indoors the client may name a WMO area.
+	-- Subzone: the area under you unless it's the zone itself ("" then). Where the terrain's chunk is the
+	-- zone and the client names a subzone, it's a WMO's own area (a city's: Orgrimmar's Valley of
+	-- Strength; indoors, a building's), which terrain chunks don't carry: info, not drift.
 	local SubName = function(c, r)
 		local id = Atlas.AreaAt(inst, c, r)
 		local a = id and Atlas.Area(id)
 		return a and (a.zone == id and "" or a.name)
 	end
-	local sub = GetSubZoneText()
-	R(out, IsIndoors() and "subzone (indoors)" or "subzone", Near(SubName, col, row, TOL.edge, sub), SubName(col, row), sub)
+	local sub, ours = GetSubZoneText(), SubName(col, row)
+	R(out, IsIndoors() and "subzone (indoors)" or "subzone", Unless(ours == "" and sub ~= "", Near(SubName, col, row, TOL.edge, sub)),
+		ours, sub)
 
 	-- uiMap position -> tile vs UnitPosition.
 	local pos = best and C_Map.GetPlayerMapPosition(best, "player")
