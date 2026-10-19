@@ -1,0 +1,199 @@
+"""The gear menu on the simulated client (ui/Menus.lua), as the spike's (GearMenu.lua, Layers.lua:30-71,
+2154-2203): a submenu per group of layers with any (Map, Places, People, Other addons so far), each layer
+a checkbox with its tip (white title, gold body) that keeps the menu open, a sub-option indented and
+greyed while its parent is off; a divider; then Settings: Map (Colour-matched tiles), Minimap (Minimap
+button, Reset position, Use Blizzard's minimap), the same small and big. Every row works: a layer's
+toggle empties and redraws what it draws (and View.layers, for Game's: the blip sensor, Questie's
+borrowed pins) and is saved, the changed keys only, across a /reload; each setting does what it says."""
+from test_addon import boot, errors
+from test_blips import lua_tools, put_blips, stub_services
+
+LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Minimap blips": "blips", "Rares you've seen": "rares"}
+SETTINGS = [("title", "Map"), ("checkbox", "Colour-matched tiles"), ("divider", None), ("title", "Minimap"),
+            ("checkbox", "Minimap button"), ("button", "Reset position"), ("button", "Use Blizzard's minimap")]
+WHITE, GOLD = (1, 1, 1), (1, 0.82, 0)
+ICON = "Interface\\Icons\\INV_Misc_Map_01"  # Game's minimap button (game/Button.lua)
+
+
+def shown(saved=None):
+    """The map shown over one of each layer's things near you: a mailbox blip, a rare (Atlas.Rares
+    stubbed: CI has no QuestieDB data), Questie's pin in Elwynn. (L, sim, ns, the pin)."""
+    L, sim, ns = boot(saved)
+    G = L.globals()
+    stub_services(L, ns)
+    put_blips(L, sim, ns, [("Mailbox", 40, 20)])
+    ns.Atlas.Rares = L.eval("function() return { { id = 1, name = 'Rare', rank = 4, col = 31.97, row = 49.74 } } end")
+    q = sim.LoadQuestie()
+    sim.FireEvent("ADDON_LOADED", "Questie")
+    pin = sim.QuestieIcon()
+    q.AddWorldMapIconMap(q, G.Questie, pin, 1429, 0.5, 0.5, G.HBD_PINS_WORLDMAP_SHOW_WORLD)
+    sim.Slash("/mma toggle")
+    sim.Run(3)
+    return L, sim, ns, pin
+
+
+def layer(ns, name):
+    return next(lay for lay in ns.UI.Engine.layers.values() if lay.name == name)
+
+
+def drawn(lay):
+    """The regions a layer shows: its front canvas's, at alpha 1."""
+    c = lay.front
+    return sum(p.n for p in c.pools.values()) if c and c.alpha == 1 else 0
+
+
+def gear(sim, ns):
+    """Click the gear: the menu's root, and its rows by text."""
+    sim.Click(ns.UI.Controls.gear)
+    return sim.menu, {e.text: e for e in sim.MenuItems().values() if e.text}
+
+
+def items(d):
+    return [(e.kind, e.text) for e in d["items"].values()]
+
+
+def sub(root, title):
+    return next(e for e in root["items"].values() if e.text == title)
+
+
+def tip(L, row):
+    """The lines a row's tooltip writes: (text, r, g, b)."""
+    t = L.eval("""function(fn)
+        local t = { lines = {} }
+        function t:SetText(s, r, g, b) self.lines[#self.lines + 1] = { s, r, g, b } end
+        function t:AddLine(s, r, g, b) self.lines[#self.lines + 1] = { s, r, g, b } end
+        fn(t)
+        return t.lines
+    end""")(row.tooltip)
+    return [tuple(line.values()) for line in t.values()]
+
+
+def hosted(L, pin, ns):
+    """Questie's pin on Game's holder, on the world socket."""
+    return L.eval("function(pin, socket) return pin:GetParent():GetParent() == socket end")(pin, ns.UI.Sockets.world.frame)
+
+
+def rim_button(L, sim):
+    return L.eval("""function(Sim, icon)
+        for _, f in ipairs(Sim.Frames()) do
+            for _, r in ipairs({ f:GetRegions() }) do
+                if r.GetTexture and r:GetTexture() == icon then return f end
+            end
+        end
+    end""")(sim, ICON)
+
+
+def test_gear():
+    L, sim, ns, pin = shown()
+    G, UI, Game = L.globals(), ns.UI, ns.Game
+    view, saved, f = UI.View(), G.MagicMapAtlasDB.UI, UI.Window.frame
+    refresh, same = G.MenuResponse.Refresh, L.eval("function(a, b) return a == b end")
+
+    # The tree: a submenu per group with layers, a divider, Settings; small and big alike.
+    root, rows = gear(sim, ns)
+    assert items(root) == [("button", "Map"), ("button", "Places"), ("button", "People"), ("button", "Other addons"),
+                           ("divider", None), ("button", "Settings")]
+    assert items(sub(root, "Map")) == [("checkbox", "Zone labels"), ("checkbox", "Zone borders")]
+    assert items(sub(root, "Places")) == [("checkbox", "Minimap blips")]
+    assert items(sub(root, "People")) == [("checkbox", "Rares you've seen")]
+    assert items(sub(root, "Other addons")) == [("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
+    assert items(sub(root, "Settings")) == SETTINGS
+    sim.Press("M")
+    sim.Run(1)
+    big, _ = gear(sim, ns)
+    assert items(big) == items(root) and items(sub(big, "Settings")) == SETTINGS
+    sim.Press("M")
+    sim.Run(1)
+
+    # Tips: white title, gold body.
+    assert tip(L, rows["Zone labels"]) == [("Zone labels",) + WHITE, ("Names of zones and sub-zones.",) + GOLD]
+    assert tip(L, rows["Questie"]) == [("Questie",) + WHITE,
+                                       ("Map pins Questie puts on the world map, shown here too.",) + GOLD]
+    assert tip(L, rows["Colour-matched tiles"])[0] == ("Colour-matched tiles",) + WHITE
+
+    # Each layer: on, its things drawn; off, gone from the next frame (the menu stays open); on, back.
+    root, rows = gear(sim, ns)
+    assert view.layers.blips and Game.minimap.sensor and view.layers["addon:Questie"] and hosted(L, pin, ns)
+    for text, name in LAYERS.items():
+        lay, row = layer(ns, name), rows[text]
+        assert row.isSelected() is True and drawn(lay) > 0, name
+        assert row.onSelect() == refresh
+        sim.Step()
+        assert row.isSelected() is False and drawn(lay) == 0 and saved.layers[name] is False, name
+        if name == "blips":
+            assert view.layers.blips is None and not Game.minimap.sensor
+        assert row.onSelect() == refresh
+        sim.Run(1)
+        assert row.isSelected() is True and drawn(lay) > 0 and saved.layers[name] is None, name
+    assert view.layers.blips and Game.minimap.sensor
+
+    # Questie's pins: given back while its layer's off, borrowed again when on.
+    row = rows["Questie"]
+    assert row.onSelect() == refresh and view.layers["addon:Questie"] is None
+    sim.Run(1.1)
+    assert not hosted(L, pin, ns) and row.isSelected() is False
+    row.onSelect()
+    sim.Run(1.1)
+    assert hosted(L, pin, ns) and row.isSelected() is True
+
+    # A sub-option (a later package's row): indented, clickable only while its parent is on.
+    UI.Menus.Layer(L.table_from({"key": "child", "label": "Sub-option", "group": "map", "parent": "labels",
+                                 "tip": "A sub-option."}))
+    root, rows = gear(sim, ns)
+    child = rows["     Sub-option"]
+    assert items(sub(root, "Map"))[-1] == ("checkbox", "     Sub-option") and child.IsEnabled(child)
+    rows["Zone labels"].onSelect()
+    assert not child.IsEnabled(child)
+
+    # Settings. Colour-matched tiles: the tiles laid out again, plain.
+    tiles = layer(ns, "tiles")
+    front = tiles.front
+    assert rows["Colour-matched tiles"].isSelected() is True and rows["Colour-matched tiles"].onSelect() == refresh
+    sim.Run(1)
+    assert saved.tint is False and not same(tiles.front, front) and rows["Colour-matched tiles"].isSelected() is False
+    # Minimap button: Game's button hidden, and shown again.
+    button = rim_button(L, sim)
+    assert button.IsShown(button)
+    assert rows["Minimap button"].onSelect() == refresh
+    sim.Step()
+    assert saved.button is False and view.button is False and not button.IsShown(button)
+    rows["Minimap button"].onSelect()
+    sim.Step()
+    assert saved.button and button.IsShown(button)
+    # Reset position: back on the minimap's spot, following (a button: the menu closes, the client's default).
+    UI.Motion.SetFollow(False)
+    home = UI.BigMap.home
+    assert (f.GetLeft(f), f.GetTop(f)) != (home.left, home.top)
+    assert rows["Reset position"].onSelect() is None
+    sim.Step()
+    assert (f.GetLeft(f), f.GetTop(f), f.GetWidth(f), f.GetHeight(f)) == (home.left, home.top, home.w, home.h)
+    assert UI.Camera.follow
+    # Use Blizzard's minimap: ours hidden, the Minimap Blizzard's again, the button on it.
+    _, rows = gear(sim, ns)
+    assert rows["Use Blizzard's minimap"].onSelect() is None
+    sim.Step()
+    assert not f.IsShown(f) and saved.shown is False and not Game.minimap.engaged and button.IsVisible(button)
+    sim.Slash("/mma toggle")
+    sim.Run(1)
+    _, rows = gear(sim, ns)
+    rows["Minimap button"].onSelect()
+    rows["Questie"].onSelect()
+    sim.Slash("/mma toggle")
+    sim.Step()
+    perf = ns.Runtime.Perf()[0]["map: gear pick"]
+    assert perf.n == 18 and perf.over == 0, (perf.n, perf.max)
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+    # /reload: the changed keys only (borders and the rest went off and on again), each still in effect.
+    sim.FireEvent("PLAYER_LOGOUT")
+    assert dict(saved.layers.items()) == {"labels": False, "addon:Questie": False}
+    L, sim, ns, pin = shown("MagicMapAtlasDB = " + lua_tools(L).Dump(G.MagicMapAtlasDB))
+    saved, view = L.globals().MagicMapAtlasDB.UI, ns.UI.View()
+    assert dict(saved.layers.items()) == {"labels": False, "addon:Questie": False}
+    assert saved.tint is False and saved.button is False and view.button is False
+    assert drawn(layer(ns, "labels")) == 0 and drawn(layer(ns, "borders")) > 0
+    assert view.layers["addon:Questie"] is None and not hosted(L, pin, ns)
+    _, rows = gear(sim, ns)
+    assert [rows[t].isSelected() for t in ("Zone labels", "Zone borders", "Questie", "Colour-matched tiles",
+                                           "Minimap button")] == [False, True, False, False, False]
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

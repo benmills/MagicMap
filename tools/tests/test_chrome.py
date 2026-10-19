@@ -2,8 +2,8 @@
 Menus.lua): a first login shows it on the minimap's spot, square, 200 yd across, at the minimap's
 strata; Forever's oversized edge atlases (spike-bugs L2) leave the view's inset at 2..6 px and the
 zoom buttons clear of the grip; the template's own parts are hidden; the controls fade in and out
-over 0.15 s (kept while a menu is open); the tips; the title; the gear's Settings; resizing keeps
-the yards across."""
+over 0.15 s (kept while a menu is open); the tips; the title; resizing keeps the yards across (the
+gear's rows: test_gear.py)."""
 from test_addon import boot, errors
 
 SPAN_TILES = 200 / (1600 / 3)  # 200 yd across the small window (MinimapMode.lua:25)
@@ -102,27 +102,16 @@ def test_chrome():
     sim.FireScript(ctl.follow, "OnLeave", False)
     assert not tip.IsShown(tip)
 
-    # The gear: Settings > Map, Minimap. A menu open keeps the controls shown.
+    # A menu open keeps the controls shown (the gear's rows: test_gear.py).
     sim.Click(ctl.gear)
     sim.cursorX, sim.cursorY = 100, 100
     sim.Run(0.3)
-    assert alpha() == 1
-    assert [e.text for e in sim.MenuItems("title").values()] == ["Map", "Minimap"]
-    items = {e.text: e for e in sim.MenuItems().values()}
-    assert [k for k in items if k] == ["Settings", "Map", "Colour-matched tiles", "Minimap", "Minimap button",
-                                       "Reset position", "Use Blizzard's minimap"]
-    tint, button = items["Colour-matched tiles"], items["Minimap button"]
-    assert tint.isSelected() is True and button.isSelected() is True and tint.tooltip and button.tooltip
-    tint.onSelect()
-    button.onSelect()
-    sim.Step()
-    assert saved.tint is False and saved.button is False and UI.View().button is False
-    items["Use Blizzard's minimap"].onSelect()
-    sim.Step()
-    assert not f.IsShown(f) and not ns.Game.minimap.engaged and saved.shown is False
-    items["Reset position"].onSelect()
-    sim.Step()
-    assert f.IsShown(f) and rect(f) == home
+    assert alpha() == 1 and sim.menu
+    sim.menu = None
+    sim.Run(0.3)
+    assert alpha() == 0
+    sim.MoveCursorTo(view)
+    sim.Run(0.3)
 
     # Resizing the small window keeps the yards across it; away from the screen's top the title is above.
     zoom = UI.Camera.cam.zoom

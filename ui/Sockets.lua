@@ -1,10 +1,10 @@
 -- The sockets (types/view.lua MM.ViewSockets): frames of ours Game puts other addons' pins on.
 -- For now the world socket's minimum, for M1.9's HereBeDragons borrow (M4.4 adds the minimap
--- socket and the "Other addons" layers' toggles): a canvas over the map's layers, under your
--- arrow, tile (col, row) of the map shown at (col * zoom, -row * zoom) from its TOPLEFT, while
--- the window shows our renderer; and every addon with world pins (Model.addons) on, as the
--- spike's layers started (AddonPins.lua:113). Its zoom is where the view rests: the camera's,
--- once it holds still a frame (not through a chase, a flight or the window being sized), so Game
+-- socket): a canvas over the map's layers, under your arrow, tile (col, row) of the map shown at
+-- (col * zoom, -row * zoom) from its TOPLEFT, while the window shows our renderer; and every addon
+-- with world pins (Model.addons) whose layer is on (the gear's Other addons, ui/Menus.lua: on until
+-- turned off, as the spike's layers started, AddonPins.lua:113). Its zoom is where the view rests:
+-- the camera's, once it holds still a frame (not through a chase, a flight or the window being sized), so Game
 -- re-places each pin once a zoom (a job: its holder see-through until done), not every frame of it. Meanwhile the pins would sit at the old
 -- zoom: the canvas is see-through until then. Never scaled (a SetScale costs the client per
 -- region under the frame, every frame of the motion: thousands with Questie's pins, spike-bugs
@@ -12,7 +12,7 @@
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
-local Camera, Window = UI.Camera, UI.Window
+local Camera, Window, Engine = UI.Camera, UI.Window, UI.Engine
 
 local Sockets = {}
 UI.Sockets = Sockets
@@ -49,7 +49,8 @@ function Sockets.Update(v)
 	if Model.addons ~= addons then
 		addons = Model.addons
 		for _, a in ipairs(addons) do
-			if a.world then v.layers["addon:" .. a.key] = true end
+			local key = "addon:" .. a.key
+			if a.world then v.layers[key] = Engine.LayerOn(key) or nil end
 		end
 	end
 end
