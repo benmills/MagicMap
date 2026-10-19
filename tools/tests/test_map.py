@@ -70,8 +70,9 @@ def test_rares():
     got = list(ns.Model.Known("rares")[0].values())
     assert got and all(r.kind == "rares" and r.pos.inst == 0 and not r.live for r in got)
     front = layer.front
-    atlases = {sim.state[front.pools.pin[i]].atlas for i in range(1, front.pools.pin.n + 1)}
-    assert atlases and atlases <= {"vignettekill", "vignettekillelite"}, atlases
+    icons = {(sim.state[front.pools.pin[i].icon].texture, sim.state[front.pools.pin[i].icon].width)
+             for i in range(1, front.pools.pin.n + 1)}
+    assert icons == {(137008, 15)}, icons  # the spike's rare icon at 15 (Landmarks.lua:15, 60-63; ui/Pins.lua's pins)
     def shown():
         pins = layer.front.pools.pin
         lit = lambda o: sim.state[o].alpha > 0 and sim.state[sim.state[o].parent].alpha > 0  # (its minimum zoom's frame)
