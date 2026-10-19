@@ -7,13 +7,15 @@
                                           # docs/parity.md and docs/evidence/spike-bugs.md rows, the spike files
                                           # they cite, the public functions around it, other mentions (file:line)
   .venv/bin/python tools/brief.py M2      # a milestone: Goal, Exit, every row, their parity and spike-bugs rows
+  .venv/bin/python tools/brief.py M1b     # (M2 gate: its milestone's)
   .venv/bin/python tools/brief.py --list  # the ids
 
 A row "mentions" a package when it names its id (a range like M2.1–M2.4 counts); a parity row also
-when it names an Owner path; a spike-bugs row also when the package's row names its replay (R-<id>;
-R-* is every row not replayed yet). Contract blocks are picked by name: the Contracts cell's words, then
-the title's and owner files'. Outlines are a regex's (functions, tables, UPPER_CASE constants,
-registrations), not a parser's.
+when it names an Owner path; a spike-bugs row also when the package's row or its parity rows' Proof
+name it (R-<id>, or a bare E/P/L/G/K id; R-* is every row whose replay is v1 or no). Contract blocks
+are picked by name (the Contracts cell's words, then the title's and owner files'), by owner folder
+(FOLDER_TYPES), then the classes they refer to. Outlines are a regex's (functions, tables, UPPER_CASE
+constants, registrations), not a parser's.
 """
 from __future__ import annotations
 
@@ -34,6 +36,7 @@ SNIPPET = 220  # chars of a mention's line
 PKG = re.compile(r"(?<![\w.])(M\d+\.\d+b?)(?![\w])")
 RANGE = re.compile(r"(?<![\w.])M(\d+)\.(\d+)\s*[–-]\s*M?(\d+)\.(\d+)")
 REPLAY = re.compile(r"\bR-([A-Z]\d+[a-z]?)\b")
+BARE = re.compile(r"(?<![\w-])([EPLGK]\d+[a-z]?)\b")  # a spike-bugs id without R- (D, S, M ones read as decisions, parity, milestones)
 TEST = re.compile(r"\btest_\w+")
 PATH = re.compile(r"[\w.-]+(?:/[\w.-]*)*")
 LINK = re.compile(r"\[`([^`]+)`\]\([^)]*\)")  # [`test_replay[E1]`](../../tools/...) -> test_replay[E1]
@@ -52,13 +55,22 @@ ALIASES = {
     "sv": ["MM.SavedRoot", "MM.SavedSpec"],
     "savedvariable": ["MM.SavedRoot", "MM.SavedSpec"],
     "part": ["MM.Observation"],
+    "pick": ["MM.KnownOffer"],  # the "Quests to pick up" layer
 }
 # Words of a Contracts cell that name no contract.
 FILLER = {"none", "typed", "already", "read", "from", "open", "field", "shape", "locked", "change", "lua", "only",
           "of", "the", "and", "clause", "free", "form", "stated", "loss", "key", "spike", "name", "storage"}
 # And of a package's title and owner names, too common to pick a types/ block by.
 STOP = FILLER | {"ui", "game", "model", "map", "data", "with", "for", "full", "complete", "remaining", "new",
-                 "stub", "section", "line", "layer", "cleanup", "store"}
+                 "stub", "section", "line", "layer", "cleanup", "store", "kind"}
+# An owner folder's packages read these types/ blocks, and those of a family their row's words name
+# (its title, owners, Scope: MM.KnownQuest by "quests"); "*": the whole family.
+FOLDER_TYPES = {
+    "game/parts/": (["MM.Observation"], "MM.Obs"),
+    "model/": (["MM.Oracles", "MM.Focus"], "MM.Known*"),
+    "ui/": (["MM.Known"], "MM.Known"),
+}
+HUB = 4  # a block referring to more classes than this (MM.Observation, MM.View) isn't followed
 
 
 def read(rel: str) -> list[str]:
@@ -109,20 +121,18 @@ class Plan:
         ms = None
         for i in range(start, end):
             line = self.lines[i]
-            head = re.match(r"### (M\d+) (.*)", line)
+            head = re.match(r"### (M\d+b?) (.*)", line)
             if head:
-                ms = {"id": head[1], "title": head[2], "line": i + 1, "goal": None, "exit": [], "rows": [],
+                ms = {"id": head[1], "title": head[2], "line": i + 1, "goal": [], "exit": [], "rows": [],
                       "after": []}
                 self.milestones[head[1]] = ms
                 continue
             if not ms:
                 continue
-            if line.startswith("Goal:"):
-                ms["goal"] = (i + 1, line)
-            elif line.startswith("Exit:"):
+            if line.startswith(("Goal:", "Exit:")):
                 j = i
                 while j < end and self.lines[j].strip():
-                    ms["exit"].append((j + 1, self.lines[j]))
+                    ms[line[:4].lower()].append((j + 1, self.lines[j]))
                     j += 1
             elif line.startswith("| M"):
                 c = cells(line)
@@ -278,27 +288,55 @@ def decisions() -> dict[str, dict]:
     return out
 
 
+def words(text: str) -> set[str]:
+    """Normalised words of a text, camel names split too (IndoorArt: indoorart, indoor, art)."""
+    out = set()
+    for w in re.findall(r"[A-Za-z]{3,}", text):
+        out |= {norm(w)} | set(camel(w))
+    return out
+
+
 def contracts(row: dict, owners: list[str], adrs: dict[str, dict], blocks: list[dict]):
-    """The types/ blocks and decision records the row's Contracts cell names."""
-    cell = row["cells"][3]
+    """The types/ blocks the row's Contracts cell, title and owners name, its owner folders' (FOLDER_TYPES),
+    and the classes those refer to (MM.X); the decision records the cell names."""
+    cell, scope = row["cells"][3], row["cells"][2]
     named = re.findall(r"\b(\d{4})\b", cell)
-    files = sorted({t for n in named if n in adrs for t in adrs[n]["types"]})
     strong = {norm(w) for w in re.findall(r"[A-Za-z]{2,}", cell)} - FILLER
-    weak = {norm(w) for w in re.findall(r"[A-Za-z]{3,}", row["title"])}
-    weak |= {norm(os.path.splitext(os.path.basename(p))[0]) for p in owners if not p.endswith("/")}
+    weak = words(row["title"] + " " + " ".join(os.path.basename(p) for p in owners if not p.endswith("/")))
     want = {n for w in strong | weak for n in ALIASES.get(w, [])}
     weak -= STOP | set(ALIASES)
+    by_name = {n: b for b in blocks for n in b["names"]}
     picked = []
     for b in blocks:
-        if files and b["file"] not in files:
-            continue
         for name in b["names"]:
             toks, whole = block_tokens(name)
             if (name in want or whole in strong or toks[0] in strong or toks[-1] in strong
                     or toks[-1] in weak or whole in weak):
                 picked.append(b)
                 break
-    return named, picked
+    kinds = (weak | words(scope)) - STOP
+    kinds |= {n for w in kinds for n in ALIASES.get(w, [])}
+    for folder, (always, family) in FOLDER_TYPES.items():
+        if any(p.startswith(folder) for p in owners):
+            picked += [by_name[n] for n in always]
+            picked += [b for b in blocks for n in b["names"] if n.startswith(family.rstrip("*"))
+                       and (family.endswith("*") or n in kinds or block_tokens(n)[0][-1] in kinds)]
+    # The classes they refer to (not a hub's: MM.Observation's parts are picked by name), and a class's
+    # functions (`local Oracles = {}`: Oracles.Inside).
+    todo = list(picked)
+    while todo:
+        b = todo.pop()
+        text = "\n".join(b["text"])
+        refs = [by_name[n] for n in dict.fromkeys(re.findall(r"MM\.\w+", text))
+                if n in by_name and by_name[n]["file"] != "types/core.lua" and by_name[n] is not b]
+        local = re.search(r"^local (\w+) = \{\}$", text, re.M)
+        if local:
+            refs += [o for o in blocks if o["file"] == b["file"] and o["names"][0].startswith(local[1] + ".")]
+        for r in refs if len(refs) <= HUB else []:
+            if r not in picked:
+                picked.append(r)
+                todo.append(r)
+    return named, [b for b in blocks if b in picked]
 
 
 def adr_pointers(adr: dict, ids: set[str]) -> list[str]:
@@ -369,15 +407,20 @@ def short_row(rel: str, r: dict) -> str:
 
 
 def bugs_section(text: str, ids: set[str], short: bool) -> tuple[list[str], list[dict]]:
-    """Spike-bugs rows naming the ids or whose replay (R-<id>) the text names; R-* is every row not replayed yet."""
+    """Spike-bugs rows naming the ids or that the text names (R-<id>, or bare: L5); R-* is every row whose
+    replay is still to write (v1, no)."""
     replays = set(REPLAY.findall(text))
-    rows = [r for r in bug_rows() if r["id"] in replays or ids & ids_in(r["raw"])]
+    rows = [r for r in bug_rows() if r["id"] in replays | set(BARE.findall(text)) or ids & ids_in(r["raw"])]
     out = []
     for r in rows:
         out += [short_row(BUGS, r)] if short else show_row(BUGS, r)
     if "R-*" in text:
-        out += ([""] if out else []) + ["Not replayed yet (R-* in the row):"]
-        out += [short_row(BUGS, r) for r in bug_rows() if not col(r, "replay").startswith("now")]
+        rest = [r for r in bug_rows() if not col(r, "replay").startswith("now")]
+        out += ([""] if out else []) + ["Not replayed yet (R-* in the row: replay v1 or no):"]
+        out += [short_row(BUGS, r) for r in rest if col(r, "replay").startswith(("v1", "no"))]
+        out += ["", "Proven another way (no replay to write):"]
+        out += [f"{r['id']} ({BUGS}:{r['line']}) proven by {col(r, 'replay')}" for r in rest
+                if not col(r, "replay").startswith(("v1", "no"))]
     sketches = replay_sketches()
     for rid in sorted(replays):
         if rid in sketches:
@@ -442,7 +485,7 @@ def mentions(ids: set[str], paths: list[str], skip: set[tuple[str, int]]) -> lis
     out = []
     for path in files:
         rel = os.path.relpath(os.path.join(ROOT, path), ROOT)
-        if rel in (PARITY, BUGS, "docs/brief.md", "tools/brief.py") or rel in paths:
+        if rel in (PARITY, BUGS, "tools/brief.py") or rel in paths:
             continue
         for n, l in enumerate(read(rel), 1):
             if (rel, n) in skip:
@@ -482,9 +525,7 @@ def package(plan: Plan, pid: str) -> list[str]:
     out = [f"# {pid} {row['title']}  ({PLAN}:{row['line']})", ""]
     out += [f"**{k}**: {v}" for k, v in zip(FIELDS, c[1:])]
     out += ["", f"## Milestone {ms['id']} {ms['title']}  ({PLAN}:{ms['line']})", ""]
-    if ms["goal"]:
-        out.append(ms["goal"][1])
-    out += [l for _, l in ms["exit"]]
+    out += [l for _, l in ms["goal"]] + [""] + [l for _, l in ms["exit"]]
     near = [l for _, l in ms["after"] if pid in ids_in(l)]
     if near:
         out += [""] + near
@@ -526,7 +567,7 @@ def package(plan: Plan, pid: str) -> list[str]:
     if not rows:
         out.append("(none)")
 
-    lines, bugs = bugs_section(" ".join(c[2:5]), ids, short=False)
+    lines, bugs = bugs_section(" ".join(c[2:5] + [col(r, "Proof") for r in rows]), ids, short=False)
     out += ["", f"## {BUGS} rows", ""] + lines
 
     refs = spike_refs([" ".join(c[2:5])] + [col(r, "Spike ref") + " " + col(r, "Value") for r in rows]
@@ -541,7 +582,7 @@ def package(plan: Plan, pid: str) -> list[str]:
     if any(p.startswith(("model/", "ui/", "game/")) for p in owners) or "Atlas" in " ".join(c[2:5]):
         out += ["", "## Atlas's API (atlas/: any piece may read it)", ""] + api("atlas")
 
-    skip = ({(PLAN, row["line"])} | {(PLAN, n) for n, _ in ms["exit"]} | {(PLAN, n) for n, _ in ms["after"]}
+    skip = ({(PLAN, row["line"])} | {(PLAN, n) for n, _ in ms["goal"] + ms["exit"] + ms["after"]}
             | {(PLAN, n) for n in plan.checklist})
     out += ["", "## Mentioned elsewhere", ""] + (mentions(ids, owners, skip) or ["(nowhere else)"])
     return out
@@ -551,9 +592,7 @@ def milestone(plan: Plan, mid: str) -> list[str]:
     ms = plan.milestones[mid]
     files = repo_files()
     out = [f"# {mid} {ms['title']}  ({PLAN}:{ms['line']})", ""]
-    if ms["goal"]:
-        out.append(ms["goal"][1])
-    out += [l for _, l in ms["exit"]]
+    out += [l for _, l in ms["goal"]] + [""] + [l for _, l in ms["exit"]]
     ids = {r["id"] for r in ms["rows"]}
     for r in ms["rows"]:
         out += ["", f"## {r['id']} {r['title']}  ({PLAN}:{r['line']})"]
@@ -570,10 +609,12 @@ def milestone(plan: Plan, mid: str) -> list[str]:
 
     alone = re.compile(rf"(?<![\w.]){re.escape(mid)}(?![\w.])")
     out += ["", f"## {PARITY} rows", ""]
-    out += [short_row(PARITY, r) for r in table_rows(PARITY)
+    rows = [r for r in table_rows(PARITY)
             if r["id"] != mid and (ids & ids_in(r["raw"]) or alone.search(r["raw"]))]  # not the sign-off's row
+    out += [short_row(PARITY, r) for r in rows]
 
-    text = " ".join([l for _, l in ms["exit"]] + [" ".join(r["cells"][2:5]) for r in ms["rows"]])
+    text = " ".join([l for _, l in ms["exit"]] + [" ".join(r["cells"][2:5]) for r in ms["rows"]]
+                    + [col(r, "Proof") for r in rows])
     out += ["", f"## {BUGS} rows", ""] + bugs_section(text, ids, short=True)[0]
 
     adrs = decisions()
@@ -596,13 +637,13 @@ def main() -> None:
         for mid, ms in plan.milestones.items():
             print(f"{mid} {ms['title']}")
             for r in ms["rows"]:
-                print(f"  {r['id']} {r['title']}")
+                print(f"  {r['id']} {r['title']}".rstrip())
         return
-    key = re.sub(r"B$", "b", args[0].strip().upper())
-    if key in plan.rows:
+    key = {k.lower(): k for k in [*plan.rows, *plan.milestones]}.get(args[0].strip().lower())
+    if key in plan.rows and not key.endswith(" gate"):
         out = package(plan, key)
-    elif key in plan.milestones:
-        out = milestone(plan, key)
+    elif key:
+        out = milestone(plan, key.split()[0])  # a gate: its milestone's Exit and rows
     else:
         sys.exit(f"brief: no package or milestone {args[0]!r} (tools/brief.py --list)")
     print("\n".join(out))
