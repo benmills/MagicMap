@@ -40,7 +40,7 @@ default zoom.
 | a1r | Alt-Z twice (the UI hidden, then back); then `/mma toggle` twice (Blizzard's minimap, then ours). Each time the map fills in as at the first open, tiles first, briefly, with no hitch (M1.3: a re-open lays the layers out again). | `/mma mark a1r reopen <ok, or what>` | P1, F12 | M1 |
 | a1b | The ground, cursor off: wheel out to 62-80 (Ironforge's border on its shadow, zone names in capitals), in to 250-300 (subzone borders and names), in to 800 (the closest). Your arrow: the Minimap's own, its shadow softened, turning smoothly as you turn. Then back to the default zoom. | `/mma shot small-zone`; `/mma shot small-town`; `/mma shot small-near`; `/mma mark a1b arrow <ok, or what>` | F12-F16, F20, S31-S33, S35-S38, S41 | M1 |
 | a1c | A herb or a vein in view: cast Find Herbs or Find Minerals off, then on (spellbook; skip without the profession). It shows within about 1 s. | `/mma mark a1c herb <seconds>` | F19 (M1.5b) | M1 |
-| a2 | The wheel, as docs/playtest.md a2: a tick at a time 16→800→16, then a fast burst (now 2 ticks a second after the first, a gesture 3 at most); on a trackpad or Magic Mouse one flick (about 2 ticks, x1.7), then a slow drag. Still too sensitive, or too slow: `/mma wheel <ticks a second> <ticks a gesture>` (e.g. `/mma wheel 1.5 2`, `/mma wheel 3 4`) until it feels right; that pair becomes the default. Against zoomable-minimap.gif: the glide. | `/mma mark a2 wheel mouse <rate gesture>`; `/mma mark a2 wheel trackpad <rate gesture>` | F5, S26, S30 | M1 |
+| a2 | The wheel, as the MVP (docs/playtest.md a2): a tick at a time 16→800→16, then as fast as the wheel turns (every notch a tick, the glide stacking); on a trackpad or Magic Mouse a flick and a slow drag. Against zoomable-minimap.gif: the glide, and the ground covered at the edges zooming out fast (M1b: names and pins may miss the edges for a few frames of the fastest scroll). | `/mma mark a2 wheel mouse <ok, or what>`; `/mma mark a2 wheel trackpad <ok, or what>`: their `wheel` cam traces (delta, n, dt) show what each device sends | F5, S26, S30, P1 | M1, M1b |
 | a3 | Fling: drag-pan fast in several directions, release, let it settle. No blank edges (borders and tiles keep up), no hitch. | `/mma mark a3 fling` | P1, F12, F15 | M1 |
 | a3b | Mount and ride a loop past herbs, veins or Kharanos' services, then stop. Blips met riding settle on their spots once you stop, none doubled. If two of one name sit within a few yards: `/mma toggle`, hover Blizzard's minimap where they overlap (the tooltip names it twice, or once), `/mma toggle` back. A blip that appears while you stand still (a respawn) can take up to ~40 s: say if that bothers you. | `/mma mark a3b blips <ok, or what>`; `/mma mark a3b twin <twice, once>` (if it came up) | D3, F19 | M1 |
 | a4 | The tear walk (docs/playtest.md): Kharanos, x = 47.4, at 800, small, follow on, 2 minutes. | `/mma mark a4 walk` at ~1 min; `/mma shot small-seam` on the line; `/mma mark a4 tear <what>` on any tear | F12, plan §2 "tear" | M1 |
@@ -114,10 +114,12 @@ Questie the only other addon. The rest of (e) is M4's.
 
 1. **Budgets by map state** (M1 review round 2, ebdf22e, an agent's change): p95 ≤1 ms at rest
    only, ≤5 ms moving. The plan's M1 exit and §1 gate 3 read p95 ≤1 and p99 ≤5 over the whole
-   session, which script (a)'s shape fails on the priced clock (1.95 / 5.55 ms; at rest 0.2,
-   zooming 4.95). Keep it, or ask for smaller slices while moving (borders fall behind a fling:
+   session, which script (a)'s shape fails on the priced clock (p95 1.55, p99 4.6 ms since M1.14,
+   1.95 / 5.55 before; at rest 0.2, zooming 4.5). Keep it, or ask for smaller slices while moving (borders fall behind a fling:
    R-P1).
-2. **The wheel** (a2): the rate and gesture pair that feels right on each device.
+2. **The wheel** (a2): the MVP's again since M1.14 (M1b: every event a x1.3 tick), so one trackpad
+   flick can run to the clamp, the thing M1.8b's rationing answered ("too sensitive"). Keep it, or
+   change it from what the `wheel` cam traces show each device sends (delta, n, dt).
 3. **M in combat** (c4): blocked, the guard stays, a deviation from the spike to sign (F10, K2);
    not blocked, the guard goes.
 4. **The sea** (a7, S31): keep the rebuild's (Data/Sea, feather masks) or port the spike's
@@ -125,6 +127,10 @@ Questie the only other addon. The rest of (e) is M4's.
 5. **Subzone borders** (a1b, S33): Gaussian-smoothed, rounder, about half the points, against the
    spike's Douglas-Peucker 0.035 + Chaikin.
 6. **Labels re-placed** (a1b, a2, S38) when the zoom leaves [0.7, 1.4] and at settle, not after the
-   spike's log(1.25) drift.
+   spike's log(1.25) drift. Zooming out over several notches (M1.14), names are laid out for where
+   the zoom is headed, so subzone names drop as it starts, not when it crosses 120.
 7. **The world socket** (e1, F46): Questie's pins see-through while the zoom moves.
-8. **Slow discovery** (a3b): a blip appearing while you stand still found within ~40 s, not 0.5 s.
+8. **Borders zooming out fast** (a2, S30): as the spike's, the old borders are scaled and dimmed to
+   0.25 until the zoom's goal holds 0.1 s, then crossfade in; a fast burst leaves them nearly out of
+   sight for about 0.25 s (the spike restarts its layout every frame of a burst: the same gap).
+9. **Slow discovery** (a3b): a blip appearing while you stand still found within ~40 s, not 0.5 s.
