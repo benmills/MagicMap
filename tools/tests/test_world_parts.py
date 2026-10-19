@@ -1,6 +1,6 @@
 """Game's places, group, vignettes, explored and tracking parts and the tracking Command, round trips on the
-sim (docs/v1-plan.md M4.1): what the client says reaches obs.places, obs.group, obs.vignettes, obs.explored
-and obs.tracking (game/parts/), read when it may have changed, a new table only when something did; the
+sim (docs/v1-plan.md M4.1): what the client says reaches obs.places, obs.group, obs.vignettes, obs.explored,
+obs.exploredCells (per cell, as the spike's shade: M4 review r1) and obs.tracking (game/parts/), read when it may have changed, a new table only when something did; the
 tracking Command (game/commands/tracking.lua) comes back in the client and in the same frame's
 observation. And the observe step with every part on holds its 2 ms, our Lua charged. The vignette read
 that throws, or finds no position, is R-E2 (replays/R-E2.lua)."""
@@ -208,17 +208,53 @@ def test_vignettes():
 
 
 def until_explored(sim, ns, held, was, limit=400):
-    """Frames until obs.explored is a new table (not was)."""
+    """Frames until obs.exploredCells is a new table (not was)."""
     for n in range(1, limit + 1):
         sim.Step()
-        if not held(ns.Game.obs.explored, was):
+        if not held(ns.Game.obs.exploredCells, was):
             return n
     raise AssertionError("no sweep ended")
+
+
+# The client's answer: Goldshire's overlay explored, its rect on Elwynn's map (overlays' rects overlap their
+# neighbours: Layers.lua:1334-1348), nothing elsewhere.
+OVERLAY = """local fn = C_MapExplorationInfo.GetExploredAreaIDsAtPosition
+C_MapExplorationInfo.GetExploredAreaIDsAtPosition = function(id, pos)
+    if Sim.unexplored then return fn(id, pos) end
+    if id == 1429 and pos.x >= 0.38 and pos.x <= 0.46 and pos.y >= 0.6 and pos.y <= 0.7 then return { 87 } end
+end"""
+# The continent's land cells (a zone's map there), and those under the overlay: its cells' (j, i) and areas.
+CELLS = """local ns, inst = ...
+local A = ns.Atlas
+local r, land, under, areas = A.MapRect(A.Continent(inst)), 0, {}, {}
+for j = 0, math.ceil((r.row1 - r.row0) / 0.2) - 1 do
+    for i = 0, math.ceil((r.col1 - r.col0) / 0.2) - 1 do
+        local z = A.ZoneAt(inst, r.col0 + (i + 0.5) * 0.2, r.row0 + (j + 0.5) * 0.2)
+        if z then
+            land = land + 1
+            if z.mapID == 1429 and z.x >= 0.38 and z.x <= 0.46 and z.y >= 0.6 and z.y <= 0.7 then
+                under[#under + 1] = { j + 1, i + 1 }
+                areas[z.area] = true
+            end
+        end
+    end
+end
+return land, under, areas"""
+
+
+def lit(cells, inst):
+    """(j, i) of the cells lit, dark."""
+    out = {True: set(), False: set()}
+    for j, row in cells[inst].items():
+        for i, v in row.items():
+            out[v].add((j, i))
+    return out[True], out[False]
 
 
 def test_explored():
     L, sim, ns = boot()
     held = L.eval("rawequal")
+    L.execute(OVERLAY)
     sim.unexplored = True  # nothing explored: every cell on land asked
     asks = counter(L, "C_MapExplorationInfo.GetExploredAreaIDsAtPosition")
     most, last, frames = 0, 0, 0
@@ -230,41 +266,51 @@ def test_explored():
     r = ns.Atlas.MapRect(EK)
     cells = math.ceil((r.col1 - r.col0) / CELL) * math.ceil((r.row1 - r.row0) / CELL)
     assert frames == math.ceil(cells / SAMPLES) and most <= SAMPLES, (frames, most)
-    dark = ns.Game.obs.explored
+    land, under, areas = L.execute(CELLS, ns, 0)
+    dark, grid = ns.Game.obs.explored, ns.Game.obs.exploredCells
     goldshire = ns.Atlas.AreaAt(0, 31.95, 49.75)
     got = py(dark)
     assert all(isinstance(k, int) and v is False for k, v in got.items()) and goldshire in got
-    print(f"explored: Eastern Kingdoms swept in {frames} frames, {asks()} asks, {len(got)} areas")
+    assert asks() == land and lit(grid, 0) == (set(), set(lit(grid, 0)[1])) and len(lit(grid, 0)[1]) == land
+    print(f"explored: Eastern Kingdoms swept in {frames} frames, {asks()} asks, {len(got)} areas, {land} cells on land")
 
-    # Explored now (the sim's client names Goldshire everywhere): swept again, the old kept till it ends.
+    # Goldshire explored: swept again, the old kept till it ends. Lit: the cells under its overlay, whatever area
+    # each is in (Layers.lua:1347); explored: the area the client names, no other.
     sim.unexplored = False
     sim.FireEvent("MAP_EXPLORATION_UPDATED")
     n0 = asks()
     sim.Step()
-    assert held(ns.Game.obs.explored, dark) and dark[goldshire] is False
-    until_explored(sim, ns, held, dark)
-    lit = ns.Game.obs.explored
-    assert lit[87] is True and all(v is True for v in py(lit).values()) and set(py(lit)) >= set(got)
-    assert asks() - n0 <= len(got)  # an area found explored isn't asked about again
+    assert held(ns.Game.obs.exploredCells, grid) and held(ns.Game.obs.explored, dark)
+    until_explored(sim, ns, held, grid)
+    now, grid2 = ns.Game.obs.explored, ns.Game.obs.exploredCells
+    under = {(c[1], c[2]) for c in under.values()}
+    assert lit(grid2, 0)[0] == under and len(lit(grid2, 0)[1]) == land - len(under) and asks() - n0 == land
+    assert len(py(areas)) > 1  # (the overlay's rect over its neighbours too: lit there)
+    assert now[87] is True and all(v is False for k, v in py(now).items() if k != 87) and set(py(now)) >= set(got)
+    rows = grid2[0]
+    same = [j for j in rows if held(rows[j], grid[0][j])]
+    assert same and all(not any(c[0] == j for c in under) for j in same)  # a row that didn't change: the old table
 
-    # Again: nothing left to ask, nothing new.
+    # Again: the dark cells asked again (a lit one isn't), nothing new.
     n0 = asks()
     sim.FireEvent("MAP_EXPLORATION_UPDATED")
     sim.Run(3)
-    assert asks() == n0 and held(ns.Game.obs.explored, lit)
+    assert asks() - n0 == land - len(under)
+    assert held(ns.Game.obs.exploredCells, grid2) and held(ns.Game.obs.explored, now)
 
     # Kalimdor shown: swept, added; an instance's map: none.
     sim.Slash("/mma toggle")
     sim.Slash("/mma map 1")
     sim.Step()
-    until_explored(sim, ns, held, lit)
-    both = ns.Game.obs.explored
+    until_explored(sim, ns, held, grid2)
+    both, cells2 = ns.Game.obs.explored, ns.Game.obs.exploredCells
     kalimdor = ns.Atlas.AreaAt(1, 40.5, 30.5)  # Durotar's
-    assert both[kalimdor] is True and both[goldshire] is True
+    assert both[kalimdor] is False and both[goldshire] is True and held(cells2[0], grid2[0])
+    assert lit(cells2, 1)[0] == set() and len(lit(cells2, 1)[1]) == L.execute(CELLS, ns, 1)[0]
     n0 = asks()
     sim.Slash("/mma map 36")
     sim.Run(2)
-    assert asks() == n0 and held(ns.Game.obs.explored, both)
+    assert asks() == n0 and held(ns.Game.obs.exploredCells, cells2)
     assert not errors(sim, ns), errors(sim, ns)
 
 

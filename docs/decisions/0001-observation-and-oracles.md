@@ -107,6 +107,10 @@ unknown ones), and new oracles.
   live pin for it (M4.3). `ObsArt.outline` while `/mma indoor` is on (M4.2: UI outlines the art), and
   `ObsMinimap.indoorDebug`, the same flag for the gear's Indoor maps box (M4.5), since UI can't read
   SavedGame. `ObsTracking.id` without a filter is its spell's ID (M4.1: Find Herbs).
+- OPEN addition (v1 plan M4, its review's round 1): the part `exploredCells`, per continent swept, its
+  0.2-tile cells lit or dark as the client answers at each (Layers.lua:1334-1348): the spike shades per
+  spot, and an area named explored somewhere isn't explored everywhere (overlays' rects overlap; the
+  zone's own wilderness has none). `explored` stays per area, true only for the areas the client names.
 
 ## Revisit if
 

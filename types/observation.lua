@@ -36,6 +36,11 @@
 ---@field vignettes? MM.ObsVignette[] on change: what the game shows near you now
 ---@field offers? MM.ObsOffer[]      on change: quests to pick up on the maps Game asked about
 ---@field explored? table<MM.AreaID, boolean> on change: per area Game has checked; a missing key is unknown
+---@field exploredCells? table<MM.Inst, table<integer, table<integer, boolean>>> on change: per continent Game
+---                                   has swept, its map's rect (Atlas.MapRect(Atlas.Continent(inst))) in cells 0.2
+---                                   tile a side, [j][i] (1-based, rows from its top-left): true where the client
+---                                   names an explored area at the cell's centre, false where it names none (the
+---                                   shade's dark), missing where no zone is (sea). A row changed is a new table.
 ---@field tracking? MM.ObsTracking[] on change: Blizzard's minimap tracking types
 ---@field indoorArt? MM.ObsArt|false on change: the world map's art for the map you're on; false = none
 ---@field addons? MM.ObsAddon[]      on change: other addons whose pins Game can borrow (View.layers "addon:<key>")

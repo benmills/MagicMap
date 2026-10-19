@@ -29,6 +29,7 @@ local RADIUS = 110 / 533.33 -- tiles: a quest's estimated area (Layers.lua:78)
 local MAX_QUESTS, MAX_NEARBY = 2, 2 -- ZoneInfo.lua:13-14
 local HERE_YD = 15 -- closer: "You're here" (ZoneInfo.lua:115)
 local NEAR_YD = 900 -- landmarks further from the spot aren't near it (ZoneInfo.lua:11)
+local CELL = 0.2 -- tiles: Game's sweep's cells (Model.exploredCells; Layers.lua:75)
 -- Notable places, in order of interest: Known("places")' kind and label (ZoneInfo.lua:19-24).
 local NOTABLE = { { place = "flight", label = "Flight point" }, { place = "dungeon", label = "Dungeon" },
 	{ place = "graveyard", label = "Graveyard" } }
@@ -298,25 +299,29 @@ local function LevelLine(zone)
 	return GREY .. "Level|r " .. color .. (lo == hi and tostring(lo) or (lo .. "-" .. hi)) .. "|r"
 end
 
--- The areas explored at the spot (ZoneInfo.lua:71-89): those of its chain (the area there, then each it's in,
--- up to the zone) Game found explored (Model.explored), their names but the zone's, the outermost first; false:
--- none, but Game found one unexplored (a city has no fog to lift: nil); nil: Game can't say.
-local function Explored(zone)
-	local explored = Model.explored
-	if not explored then return nil end
-	local names, seen, any, id = {}, { [zone.name] = true }, nil, zone.area
+-- The areas explored at the spot (ZoneInfo.lua:71-89): false if the client names none at its cell (Game's
+-- sweep, Model.exploredCells: a city has no fog to lift, nil); else those of its chain (the area there, then
+-- each it's in, up to the zone) the client names explored (Model.explored), their names but the zone's, the
+-- outermost first; nil: Game can't say.
+local function Explored(zone, inst, col, row)
+	local all, explored = Model.exploredCells, Model.explored or NONE
+	local r = all and all[inst] and Atlas.MapRect(Atlas.Continent(inst))
+	local lit = r and (all[inst][math.floor((row - r.row0) / CELL) + 1] or NONE)[math.floor((col - r.col0) / CELL) + 1]
+	if lit == nil then return nil end
+	if not lit then
+		if CITY[zone.mapID] then return nil end
+		return false
+	end
+	local names, seen, id = {}, { [zone.name] = true }, zone.area
 	while id do
-		local e, a = explored[id], Atlas.Area(id)
-		if e and not seen[a.name] and a.name ~= "" then
+		local a = Atlas.Area(id)
+		if explored[id] and not seen[a.name] and a.name ~= "" then
 			seen[a.name] = true
 			table.insert(names, 1, a.name)
 		end
-		if e or any == nil then any = e end
 		id = id ~= zone.zone and a.parent or nil
 	end
-	if any then return names end
-	if CITY[zone.mapID] then return nil end
-	return any
+	return names
 end
 
 -- The spot's outermost area under the zone, by name (the area chain's): where an unexplored spot is near.
@@ -332,9 +337,9 @@ end
 
 -- The areas explored and coordinates: "Goldshire  ·  42.1, 65.8"; none explored, "Unexplored, near Goldshire  ·
 -- 42.1, 65.8"; Game can't say, or only the zone's explored, the coordinates (ZoneInfo.lua:91-109).
-local function PlaceLine(zone)
+local function PlaceLine(zone, inst, col, row)
 	local coords = GREY .. string.format("%.1f, %.1f", zone.x * 100, zone.y * 100) .. "|r"
-	local names, place = Explored(zone), nil
+	local names, place = Explored(zone, inst, col, row), nil
 	if names and names[1] then
 		place = WHITE .. table.concat(names, " / ", 1, math.min(#names, 2)) .. "|r"
 	elseif names == false then
@@ -442,7 +447,7 @@ function ZoneInfo.At(col, row)
 	local zone = Atlas.ZoneAt(inst, col, row)
 	if zone then
 		out[1] = GOLD .. zone.name .. "|r"
-		out[2] = PlaceLine(zone)
+		out[2] = PlaceLine(zone, inst, col, row)
 		local levels, you = LevelLine(zone), YouLine(inst, col, row)
 		out[3] = levels and you and (levels .. SEP .. you) or levels or you
 	else

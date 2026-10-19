@@ -1,10 +1,10 @@
 -- The unexplored shade (Layers.lua:1257-1269, 1334-1361, 1772-1784, 2245-2248), off until turned on (the
 -- gear's "Shade unexplored"): the parts of each zone you haven't discovered, darkened (0, 0, 0, 0.55) over
--- the tiles, under the quest areas. The map shown's continent in cells CELL tiles a side: a cell whose area
--- Game found unexplored (Model.explored: M4.1's sweep) is dark, each row's runs of dark cells one rectangle,
--- PAD px past each side so neighbours meet. Worked out in a job, a Yield each EVERY cells, when the map or
--- what's explored changes; the old shade kept until it's done (and Game hands what's explored over only
--- when a sweep ends). A layout places the rectangles meeting its region, clipped to it, keeping those the
+-- the tiles, under the quest areas. The map shown's continent in cells CELL tiles a side: a cell where the
+-- client names no explored area is dark (Model.exploredCells, Game's sweep: Layers.lua:1347), each row's runs
+-- of dark cells one rectangle, PAD px past each side so neighbours meet. Worked out in a job, a Yield each
+-- EVERY cells, when the map or its cells change; the old shade kept until it's done (and Game hands them
+-- over only when a sweep ends). A layout places the rectangles meeting its region, clipped to it, keeping those the
 -- canvas showed whole at its epoch; scaled while the zoom moves.
 
 local _, ns = ...
@@ -12,29 +12,29 @@ local UI, Model = ns.UI, ns.Model
 local Atlas, Runtime, Engine = ns.Atlas, ns.Runtime, UI.Engine
 local Camera = UI.Camera
 local Get, Keep, Yield = Engine.Get, Engine.Keep, Runtime.Yield
-local AreaAt = Atlas.AreaAt
 
 local LEVEL = 2 -- over the tiles (1), under the quest areas (3) (Core.lua:149)
 local CELL = 0.2 -- tiles (~107 yd): the spike's sampling grid (Layers.lua:75)
 local SHADE = { 0, 0, 0, 0.55 } -- Layers.lua:1779
 local PAD = 0.5 -- px (Layers.lua:1782)
-local EVERY = 128 -- cells a Yield (docs/structure.md "Atlas first use")
+local EVERY = 128 -- cells a Yield
+local NONE = {}
 
--- The rectangles, flat: col0, row0, col1 each (CELL tall), for a map and what was explored then.
+-- The rectangles, flat: col0, row0, col1 each (CELL tall), for a map and its cells then.
 local shade = { n = 0 }
-local aim, rev = {}, 0 -- what the job works out (inst, explored); the layer's rev
+local aim, rev = {}, 0 -- what the job works out (inst, cells); the layer's rev
 local job
 
-local function Build(inst, explored)
+local function Build(inst, cells)
 	return Runtime.Job("map: shade", function()
 		local r, out, n, k = Atlas.MapRect(Atlas.Continent(inst)), { inst = inst }, 0, 0
 		local nc, nr = math.ceil((r.col1 - r.col0) / CELL), math.ceil((r.row1 - r.row0) / CELL)
 		for j = 0, nr - 1 do
-			local row, start = r.row0 + (j + 0.5) * CELL, nil
+			local lit, start = cells[j + 1] or NONE, nil
 			for i = 0, nc do
 				local dark = false
 				if i < nc then
-					dark = explored[AreaAt(inst, r.col0 + (i + 0.5) * CELL, row)] == false -- (at sea: nil)
+					dark = lit[i + 1] == false -- (at sea: nil)
 					k = k + 1
 					if k % EVERY == 0 then Yield() end
 				end
@@ -50,13 +50,14 @@ local function Build(inst, explored)
 	end, 1)
 end
 
--- The layer's rev: a new shade worked out when the map shown or what's explored changes (none known: none).
+-- The layer's rev: a new shade worked out when the map shown or its cells change (none known: none).
 local function Rev()
-	local inst, explored = Camera.inst, Model.explored
-	if inst ~= aim.inst or explored ~= aim.explored then
-		aim.inst, aim.explored = inst, explored
+	local inst, all = Camera.inst, Model.exploredCells
+	local cells = all and all[inst]
+	if inst ~= aim.inst or cells ~= aim.cells then
+		aim.inst, aim.cells = inst, cells
 		if job then Runtime.Cancel(job) end
-		job = explored and Atlas.Continent(inst) and Build(inst, explored) or nil
+		job = cells and Build(inst, cells) or nil
 	end
 	return rev
 end

@@ -13,8 +13,8 @@
 --   * Model.Load(saved) / Model.SAVED: Game.Load("Model", Model.Load, Model.SAVED)
 -- OPEN: new kinds (strings), new optional MM.Known fields, Target / Route shapes
 -- beyond the fields below, new optional fields of Model.you, and
--- more of the Observation handed on unchanged (minimap, addons, levels, waypointSet, explored, indoorArt,
--- tracking).
+-- more of the Observation handed on unchanged (minimap, addons, levels, waypointSet, explored, exploredCells,
+-- indoorArt, tracking).
 
 ---@alias MM.KnownKind "blips"|"remembered"|"rares"|"quests"|"offers"|"places"|"group"|"corpse"|"waypoint"|"vignettes"|"services"|string
 
@@ -152,8 +152,10 @@
 ---                                inspector's level line); {} until known
 ---@field waypointSet? boolean     obs.waypointSet, the last handed: a user waypoint is set, wherever (the menu's Clear
 ---                                waypoint: Known("waypoint") has none where Atlas can't place it)
----@field explored? table<MM.AreaID, boolean>  obs.explored, the last handed (nil until known): UI's shade and the
----                                inspector's place line
+---@field explored? table<MM.AreaID, boolean>  obs.explored, the last handed (nil until known): the inspector's
+---                                place line's names
+---@field exploredCells? table<MM.Inst, table<integer, table<integer, boolean>>>  obs.exploredCells, the last handed
+---                                (nil until known): UI's shade (its dark cells) and the inspector's "Unexplored"
 ---@field indoorArt? MM.ObsArt|false  obs.indoorArt, the last handed (nil until known; false: none): UI's indoor art
 ---                                and its View.renderer pick
 ---@field tracking MM.ObsTracking[]  obs.tracking, the last handed ({} until known): the gear's Tracking submenu

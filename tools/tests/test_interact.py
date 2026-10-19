@@ -275,10 +275,13 @@ def test_modified_clicks():
 def test_inspector():
     L, sim, ns, G = client([GOLD, HOGGER, CANDLES_NEAR, FRONTIER], followed=176)
     UI, view, obs = ns.UI, ns.UI.Window.view, ns.Game.obs
-    # Every area explored, as Game's sweep would hand it over (obs.explored: M4.1's): line 2 names the spot's
-    # (test_world_layers: the explored and landmark lines).
+    # Every area and cell explored, as Game's sweep would hand them over (obs.explored, obs.exploredCells): line 2
+    # names the spot's (test_world_layers: the explored and landmark lines).
     L.execute("local ns, all = ..., setmetatable({}, { __index = function() return true end })\n"
-              "ns.Game.Part('explored', function() return all end)", ns)
+              "local rows = setmetatable({}, { __index = function() return all end })\n"
+              "local cells = setmetatable({}, { __index = function() return rows end })\n"
+              "ns.Game.Part('explored', function() return all end)\n"
+              "ns.Game.Part('exploredCells', function() return cells end)", ns)
 
     def menu(col, row):
         G.Over(col, row)

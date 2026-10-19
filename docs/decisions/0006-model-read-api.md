@@ -70,6 +70,9 @@ Target and Route beyond the typed fields.
   `obs.tracking` (`{}` until known) for the gear's Tracking submenu (M4.5). Kinds' docs (M4.3): rares
   (the ones you've seen, hidden under a live vignette of their name), remembered (gated by tracking),
   services (from zoom 60, gathered in a job), places (Atlas's where the game marks none), vignettes.
+- OPEN addition (v1 plan M4, its review's round 1): `Model.exploredCells` hands on the last
+  `obs.exploredCells` (nil until known): the shade's dark cells and the inspector's "Unexplored" go by
+  the spot, as the spike's (ADR 0001).
 
 ## Revisit if
 

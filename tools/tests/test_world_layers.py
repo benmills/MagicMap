@@ -6,14 +6,14 @@ M4.1 and M4.3 hand them over (types/model.lua, types/observation.lua), drawn as 
     gear row's toggle hides its kind alone (F39, F44).
   test_group: Known("group") as the Minimap's party blips (S52): PartyRaidBlipsV2's left half, 12 px, the class's
     colour, dead grey; moved as Model's list changes; the member's tooltip, Game's, on hover; the toggle (F41).
-  test_shade: off until turned on; the areas Game found unexplored shaded in 0.2-tile cells, a row's run one
+  test_shade: off until turned on; the 0.2-tile cells Game found dark (obs.exploredCells) shaded, a row's run one
     rectangle (the shade's cell count), (0, 0, 0, 0.55), +0.5 px; the old kept until the new pass is done (F45, S39).
   test_view: View small, big, indoors (Blizzard's floor plan; the art) and hidden: renderer, chrome, the layers
     Game acts on and the sockets (the minimap one beside the world one).
   test_indoor_art: the art of the map you're on over a dark backdrop (S40), at the camera's zoom, outlined under
     /mma indoor; none off its map.
-  test_inspector_lines: the right-click menu's place line from the explored areas (Unexplored, near ...; a city's
-    coordinates alone) and at most 2 landmarks within 900 yd, its layer on or off (F38, S62).
+  test_inspector_lines: the right-click menu's place line from the spot's cell and the explored areas (Unexplored,
+    near ...: by the cell; a city's coordinates alone) and at most 2 landmarks within 900 yd, its layer on or off (F38, S62).
 """
 from test_addon import boot, errors
 
@@ -32,10 +32,17 @@ function Put(kind, list)
 	end
 	k.list, k.rev = list, k.rev + 1
 end
--- Game's parts as M4.1 and M4.2 hand them over: obs.explored, obs.indoorArt; obs.minimap's indoors and
--- indoorDebug (the last registered part's value wins).
+-- Game's parts as M4.1 and M4.2 hand them over: obs.explored, obs.exploredCells, obs.indoorArt; obs.minimap's
+-- indoors and indoorDebug (the last registered part's value wins).
 Parts = { minimap = {} }
 ns.Game.Part("explored", function() return Parts.explored end)
+ns.Game.Part("exploredCells", function() return Parts.cells end)
+-- Every cell of every continent lit (true) or dark (false), as obs.exploredCells.
+function Every(v)
+	local row = setmetatable({}, { __index = function() return v end })
+	local rows = setmetatable({}, { __index = function() return row end })
+	return setmetatable({}, { __index = function() return rows end })
+end
 ns.Game.Part("indoorArt", function() return Parts.art end)
 ns.Game.Part("minimap", function(obs)
 	local m = obs.minimap
@@ -208,25 +215,30 @@ def test_group():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
-# Elwynn's areas unexplored but Goldshire's (and the areas in it, and those in `also`), as Game's sweep hands
-# them over; and the dark cells that makes on Eastern Kingdoms' grid, as the spike sampled it (Layers.lua:1334-1361).
+# Elwynn's cells dark but Goldshire's (and the areas in it, but those in `also`), as Game's sweep hands them over:
+# per area, per cell.
 EXPLORED = """local ns, also = ...
-local out = {}
-for id in pairs(ns.Data.Areas) do
-    local a = ns.Atlas.Area(id)
-    if a.zone == 12 then
-        local lit, p = false, id
-        while p do lit = lit or p == 87; p = ns.Atlas.Area(p).parent end
-        out[id] = lit and not also[id]
-    end
+local Atlas = ns.Atlas
+local areas, rows = {}, {}
+local function Lit(id)
+    local lit, p = false, id
+    while p do lit = lit or p == 87; p = Atlas.Area(p).parent end
+    return lit and not also[id]
 end
-return out"""
-DARK = """local ns, explored = ...
-local r, n = ns.Atlas.MapRect(ns.Atlas.Continent(0)), 0
+local r = Atlas.MapRect(Atlas.Continent(0))
 for j = 0, math.ceil((r.row1 - r.row0) / 0.2) - 1 do
+    local row = {}
     for i = 0, math.ceil((r.col1 - r.col0) / 0.2) - 1 do
-        local a = ns.Atlas.AreaAt(0, r.col0 + (i + 0.5) * 0.2, r.row0 + (j + 0.5) * 0.2)
-        if a and explored[a] == false then n = n + 1 end
+        local a = Atlas.AreaAt(0, r.col0 + (i + 0.5) * 0.2, r.row0 + (j + 0.5) * 0.2)
+        if a and Atlas.Area(a).zone == 12 then row[i + 1], areas[a] = Lit(a), Lit(a) end
+    end
+    rows[j + 1] = row
+end
+return areas, { [0] = rows }"""
+DARK = """local cells, n = ..., 0
+for _, row in pairs(cells[0]) do
+    for _, v in pairs(row) do
+        if v == false then n = n + 1 end
     end
 end
 return n"""
@@ -241,7 +253,7 @@ def test_shade():
     sim.Press("M")
     sim.Run(1)
     UI.Motion.SetZoom(16)  # (the continent whole: the layout's region holds it)
-    G.Parts.explored = L.execute(EXPLORED, ns, L.table())
+    G.Parts.explored, G.Parts.cells = L.execute(EXPLORED, ns, L.table())
     sim.Run(1.5)
     lay = next(lay for lay in E.layers.values() if lay.name == "unexplored")
     assert not E.LayerOn("unexplored") and lay.front is None  # off until turned on (Layers.lua:38)
@@ -260,13 +272,13 @@ def test_shade():
             break
     sim.Run(0.5)
     n, cells = drawn()
-    dark = L.execute(DARK, ns, G.Parts.explored)
+    dark = L.execute(DARK, G.Parts.cells)
     print(f"shade: {cells} cells of {dark} unexplored, {n} rectangles")
     assert cells == dark and 0 < n < dark  # (a row's run one rectangle)
     t = lay.front.pools.shade[1]
     assert list(S[t].color.values()) == [0, 0, 0, 0.55] and abs(S[t].height - (0.2 * lay.front.zoom + 0.5)) < 1e-9
     # Goldshire found unexplored too (a new sweep): the old shade kept while the new pass runs, then the new.
-    G.Parts.explored = L.execute(EXPLORED, ns, L.table_from({87: True}))
+    G.Parts.explored, G.Parts.cells = L.execute(EXPLORED, ns, L.table_from({87: True}))
     sim.Step()
     kept = 0
     while drawn() == (n, cells):
@@ -274,7 +286,7 @@ def test_shade():
         sim.Step()
     sim.Run(0.5)
     n2, cells2 = drawn()
-    assert kept > 1 and cells2 == L.execute(DARK, ns, G.Parts.explored) > cells, (kept, cells2)
+    assert kept > 1 and cells2 == L.execute(DARK, G.Parts.cells) > cells, (kept, cells2)
     print(f"shade: the old kept {kept} frames; then {cells2} cells, {n2} rectangles")
     # Off: emptied.
     E.SetLayer("unexplored", False)
@@ -435,19 +447,22 @@ def test_inspector_lines():
     zone = ns.Atlas.Area(lake).zone
     coords = GREY + "48.5, 63.7|r"
     assert ns.Atlas.Area(lake).name == "Crystal Lake" and ns.Atlas.Area(lake).parent == zone
-    # Line 2, the place (ZoneInfo.lua:71-109): the areas explored there but the zone; none, "Unexplored, near" the
-    # spot's subzone; only the zone's, or Game can't say, the coordinates alone.
-    cases = [({lake: True}, WHITE + "Crystal Lake|r" + SEP + coords),
-             ({lake: False}, DIM + "Unexplored|r" + DIM + ", near|r " + WHITE + "Crystal Lake|r" + SEP + coords),
-             ({lake: False, zone: True}, coords),
-             ({}, coords)]
-    for explored, line in cases:
-        G.Parts.explored = L.table_from(explored)
+    # Line 2, the place (ZoneInfo.lua:71-109): the spot's cell lit, the areas explored there but the zone; dark
+    # (the client names none there, whatever's named elsewhere), "Unexplored, near" the spot's subzone; only the
+    # zone's, or Game can't say, the coordinates alone.
+    unexplored = DIM + "Unexplored|r" + DIM + ", near|r " + WHITE + "Crystal Lake|r" + SEP + coords
+    cases = [({lake: True}, True, WHITE + "Crystal Lake|r" + SEP + coords),
+             ({lake: False}, False, unexplored),
+             ({lake: True}, False, unexplored),
+             ({lake: False, zone: True}, True, coords),
+             ({}, None, coords)]
+    for explored, lit, line in cases:
+        G.Parts.explored, G.Parts.cells = L.table_from(explored), None if lit is None else G.Every(lit)
         sim.Step()
-        assert menu(32.28, 49.65)[1] == line, explored
+        assert menu(32.28, 49.65)[1] == line, (explored, lit)
     # Landmarks within 900 yd, the nearest of each kind, the closest first, at most 2, their layer off or on
     # (ZoneInfo.lua:138-157): the graveyards' layer is off.
-    G.Parts.explored = L.table_from({lake: True})
+    G.Parts.explored, G.Parts.cells = L.table_from({lake: True}), G.Every(True)
     sim.Step()
     lines = menu(32.28, 49.65)
     assert not ns.UI.Engine.LayerOn("graveyards")
@@ -469,7 +484,7 @@ def test_inspector_lines():
             end
         end
     end""")(ns)
-    G.Parts.explored = L.table_from({city[3]: False})
+    G.Parts.explored, G.Parts.cells = L.table_from({city[3]: False}), G.Every(False)
     UI.Motion.SetFollow(False)
     UI.Camera.cam.cx, UI.Camera.cam.cy = city[1], city[2]
     sim.Run(0.5)
