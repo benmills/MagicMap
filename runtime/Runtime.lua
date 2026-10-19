@@ -36,7 +36,7 @@ Runtime.frames = 0
 local function Stat(name)
 	local p = perf[name]
 	if not p then
-		p = { name = name, n = 0, ms = 0, max = 0, over = 0, fails = 0, kb = 0, kbN = 0, kbMax = 0, gaps = 0, gapMax = 0 }
+		p = { name = name, n = 0, ms = 0, max = 0, over = 0, gc = 0, fails = 0, kb = 0, kbN = 0, kbMax = 0, gaps = 0, gapMax = 0 }
 		perf[name] = p
 	end
 	return p
@@ -48,7 +48,9 @@ local graced = true -- the running frame is in a grace (loading until the first 
 
 -- budget: ms one call may take (false: not checked, nor its KB: it calls wrapped calls); over it, outside
 -- a grace, is an overrun, traced at its 1st, 10th, 100th... kb0: the heap before the call; its growth is the
--- call's KB (wrapped calls inside it included). A call in which the collector freed more than it made is left out.
+-- call's KB (wrapped calls inside it included). A call in which the collector freed more than it made is left
+-- out of both: its time was the collector's step (paid for everyone's garbage), counted apart (p.gc, traced
+-- "slow" with gc).
 local function Done(p, t0, budget, kb0)
 	local dt = now() - t0
 	p.n, p.ms = p.n + 1, p.ms + dt
@@ -62,9 +64,10 @@ local function Done(p, t0, budget, kb0)
 		if kb > allocKb then alloc, allocKb = p.name, kb end
 	end
 	if dt > budget and not graced then
-		p.over = p.over + 1
-		local o = p.over
-		if o == 1 or o == 10 or o % 100 == 0 then Runtime.Trace("slow", { name = p.name, ms = R1(dt), n = o }) end
+		local gc = kb < 0
+		if gc then p.gc = p.gc + 1 else p.over = p.over + 1 end
+		local o = gc and p.gc or p.over
+		if o == 1 or o == 10 or o % 100 == 0 then Runtime.Trace("slow", { name = p.name, ms = R1(dt), n = o, gc = gc or nil }) end
 	end
 end
 
@@ -464,7 +467,8 @@ end
 -- { frames, p50, p95, p99, max, overruns, kbMin, kbMax (ms, KB) } outside graces;
 -- allocation: kbFrameP95, kbFrameMax (KB a frame), kbPerSec, kbFrames (frames measured);
 -- grace = { [name] = slowest frame }; graceTop = { [name] = { top, topMs } }: that frame's slowest call;
--- slow = the 5 calls with most overruns { name, n, max };
+-- slow = the 5 calls with most overruns { name, n, max }; slowGc = the 5 with most over budget while the
+-- collector freed more than they made (its step, not their work) { name, n };
 -- alloc = the 5 names making most KB/s { name, kbPerSec, kbMax (one call), calls (measured) };
 -- gaps = each job's { job, ms (longest), n, stack (its first) }, longest first;
 -- ledger = the 5 worst frames { frame, ms, top, topMs, events = the trace around it }, worst first;
@@ -479,20 +483,23 @@ function Runtime.FrameStats()
 		kbFrames = s.kbFrames, kbFrameMax = R2(s.kbMaxFrame),
 		kbFrameP95 = s.kbFrames > 0 and Pct(0.95, kbHist, s.kbFrames, KB_BUCKET, R2(s.kbMaxFrame)) or nil,
 		kbPerSec = s.kbSecs > 0 and R1(s.kb / s.kbSecs) or nil, -- /: never 0 (kbSecs > 0: checked)
-		grace = {}, graceTop = {}, slow = {}, alloc = {}, gaps = {}, ledger = {}, byState = {} }
+		grace = {}, graceTop = {}, slow = {}, slowGc = {}, alloc = {}, gaps = {}, ledger = {}, byState = {} }
 	for name, ms in pairs(graceMax) do
 		out.grace[name], out.graceTop[name] = R1(ms), { top = graceTop[name], topMs = R1(graceTopMs[name]) }
 	end
 	for _, p in pairs(perf) do
 		if p.over > 0 then out.slow[#out.slow + 1] = { name = p.name, n = p.over, max = R1(p.max) } end
+		if p.gc > 0 then out.slowGc[#out.slowGc + 1] = { name = p.name, n = p.gc } end
 		if p.kb > 0 and s.secs > 0 then
 			out.alloc[#out.alloc + 1] = { name = p.name, kbPerSec = p.kb / s.secs, -- /: never 0 (secs > 0: checked)
 				kbMax = R2(p.kbMax), calls = p.kbN }
 		end
 		if p.gaps > 0 then out.gaps[#out.gaps + 1] = { job = p.name, ms = R1(p.gapMax), n = p.gaps, stack = p.gapStack } end
 	end
-	table.sort(out.slow, function(a, b) return a.n > b.n end)
-	for i = #out.slow, 6, -1 do out.slow[i] = nil end
+	for _, l in ipairs({ out.slow, out.slowGc }) do
+		table.sort(l, function(a, b) return a.n > b.n end)
+		for i = #l, 6, -1 do l[i] = nil end
+	end
 	table.sort(out.alloc, function(a, b) return a.kbPerSec > b.kbPerSec end)
 	for i = #out.alloc, 6, -1 do out.alloc[i] = nil end
 	for _, a in ipairs(out.alloc) do a.kbPerSec = R2(a.kbPerSec) end

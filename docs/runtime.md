@@ -62,7 +62,15 @@ All of it is kept in tables made at load: a measured frame allocates nothing mor
 | `byState` | `{ [state] = { frames, p50, p95, p99, max, client = { p50, p95, p99, max } } }` | the frame cost again, in one histogram per map state; UI calls `Runtime.SetState(state)`: `closed` (hidden), `small`, `big`, `zoom` (the wheel's zoom not laid out yet), `drag`. `client`: the client's whole frame in that state (OnUpdate's `elapsed`, 0.5 ms buckets), so a cost the client defers to its drawing (no budget sees it: our cost is Lua's) shows as zoom or drag frames slower than small ones |
 
 `Runtime.Perf()`'s entries carry the per-name totals behind these: `kb`, `kbN`, `kbMax`,
-`gaps`, `gapMax`, `gapStack`. `tools/tests/test_addon.py::test_attribution` drives each.
+`gaps`, `gapMax`, `gapStack`, and `gc`. `tools/tests/test_addon.py::test_attribution` drives each.
+
+An overrun is a call's own: one over budget in which the heap shrank (the collector's step ran
+inside it, paid for every addon's garbage: sessions #8 and #9's `game.part blips` at 2.4 and 3.9 ms,
+a sensor slice that yields at 0.5 ms) counts apart (`gc`, `perf.slowGc`, a `slow` trace with `gc`),
+not in `over` or `perf.slow`, the gate's. A press that runs the client's own UI is budgeted the frame's
+8 ms, not a call's 2, with its reason beside it: the gear's menu (`map: gear`, MenuUtil building it:
+3 ms in #8) and a grow (`map: mode`, `map: keys`: SetFrameStrata and Raise over the window's tree,
+2.2 ms in #8).
 
 ## The map's engine: swap, zoom and pan by the client's prices
 

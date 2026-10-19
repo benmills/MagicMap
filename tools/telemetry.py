@@ -518,7 +518,8 @@ def perf(p) -> str:
             + (f"; alloc p95 {num(p.get('kbFrameP95'))} KB/frame"
                + (f" (max {num(p['kbFrameMax'])} KB/frame over {p.get('kbFrames')} frames)" if p.get("kbFrameMax") is not None else "")
                + f", {num(p.get('kbPerSec'))} KB/s" if p.get("kbPerSec") is not None else "")
-            + "".join(f"\n      slow: {s.get('name')} x{s.get('n')} max {num(s.get('max'))} ms" for s in p.get("slow") or []))
+            + "".join(f"\n      slow: {s.get('name')} x{s.get('n')} max {num(s.get('max'))} ms" for s in p.get("slow") or [])
+            + "".join(f"\n      slow, a collector step: {s.get('name')} x{s.get('n')}" for s in p.get("slowGc") or []))
 
 
 def bar(v, limit, width=20) -> str:

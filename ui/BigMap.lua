@@ -187,11 +187,13 @@ frame:HookScript("OnSizeChanged", Runtime.Wrap("map: resize keeps yards", functi
 	lastSide = side
 end))
 
-Controls.mode:SetScript("OnClick", Runtime.Wrap("map: mode", BigMap.Toggle))
+-- A grow raises the window's tree (SetFrameStrata, Raise: its thousands of regions, ~2-3 ms in the
+-- client), once a press: the press's calls get the frame's budget.
+Controls.mode:SetScript("OnClick", Runtime.Wrap("map: mode", BigMap.Toggle, Runtime.FRAME_MS))
 Controls.Tip(Controls.mode, function() return BigMap.big and "Minimap (M)" or "Big map (M)" end)
 
 -- M, Escape and the rim button, as Game caught them (Model hands them on the same frame); the
--- Minimap's home spot and strata, once Game has read them.
+-- Minimap's home spot and strata, once Game has read them. (A grow's press: the frame's budget, as above.)
 Runtime.Step("ui", "map: keys", function()
 	for _, h in ipairs(Model.hooked) do
 		if h.kind == "worldmap" then BigMap.Toggle()
@@ -206,7 +208,7 @@ Runtime.Step("ui", "map: keys", function()
 			if not small then frame:SetFrameStrata(m.homeStrata) end
 		end
 	end
-end)
+end, { budgetMs = Runtime.FRAME_MS })
 
 -- Window's draw step, first: the tween, and the first placing once the minimap's spot is known.
 function BigMap.Step(elapsed)

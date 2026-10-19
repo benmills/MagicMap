@@ -231,7 +231,10 @@ def test_failures():
         R.Step("model", "test.fails", function() error("boom") end)
         R.Step("ui", "test.slow", function()
             if got.spin then got.spin = nil; Sim.Spend(12) end
+            if got.spinGc then got.spinGc, got.junk = nil, nil; collectgarbage("collect"); Sim.Spend(12) end
         end)
+        got.junk = {}
+        for i = 1, 50000 do got.junk[i] = { i } end
         R.Step("apply", "test.runs", function() got.steps = got.steps + 1 end)
         R.Step("input", "test.adder", function()
             if got.adder then return end
@@ -277,6 +280,12 @@ def test_failures():
     assert R.Perf()[0]["test.slow"].over == 1
     spike = [e for e in R.TraceCopy().values() if e.k == "spike"][-1]
     assert spike.d.top == "test.slow" and R.FrameStats().overruns >= 1
+    # over budget while the collector freed more than the call made (its step, paid for everyone's
+    # garbage): counted apart, not an overrun of its own
+    got.spinGc = True
+    sim.Step()
+    assert R.Perf()[0]["test.slow"].over == 1 and R.Perf()[0]["test.slow"].gc == 1
+    assert R.FrameStats().slowGc[1].name == "test.slow"
     # an event fired mid-frame waits for the frame's end
     got.fire = True
     sim.Step()

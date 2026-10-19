@@ -37,6 +37,7 @@ telemetry = {
                grace = { login, loading, map, gc, bench }, -- slowest frame (ms) in each grace (a frame: the newest's)
                graceTop = { [grace] = { top, topMs } },  -- that frame's slowest call (the first open's owner)
                slow = { { name, n, max }, ... },      -- the 5 calls with most overruns
+               slowGc = { { name, n }, ... },         -- the 5 most over budget while the collector freed more than they made (its step: not gated)
                kbMin, kbMax,                          -- Lua KB: all addons' heap (sampled)
                kbPerSec, kbFrameP95, kbFrameMax, kbFrames, -- allocation outside graces (docs/runtime.md)
                ourKBLoad, ourKB,                      -- ours, after a full collect: 10 s after login, at logout
@@ -132,7 +133,7 @@ Their `d`:
 | `taint` | `{ e, fn }`: `e` = `blocked` (ADDON_ACTION_BLOCKED) or `forbidden` (ADDON_ACTION_FORBIDDEN), `fn` the protected function the client named |
 | `art` | the missing atlas name or file |
 | `mark`, `shot` | the note (nil without one) |
-| `slow` | `{ name, ms, n }`: the call's 1st, 10th, then every 100th overrun (`n` = overruns so far) |
+| `slow` | `{ name, ms, n, gc }`: the call's 1st, 10th, then every 100th overrun (`n` = overruns so far); `gc` true: over budget while the collector freed more than the call made (counted apart, `perf.slowGc`) |
 | `spike` | `{ ms, top, topMs, alloc, allocKb }`: the frame's cost, its slowest call and its top allocator (`alloc` nil: none measured) |
 | `gap` | `{ job, ms, n }`: a job's stretch between Yields over its budget, at its 1st, 10th, then every 100th (`perf.gaps` has its stack) |
 | `throttled` | the name failing 10 calls in a row (now run once a second) |

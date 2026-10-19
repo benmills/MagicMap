@@ -114,7 +114,9 @@ local function ToggleFollow() UI.Motion.SetFollow(not Camera.follow, true) end
 zoomIn:SetScript("OnClick", Runtime.Wrap("map: zoom in", function() UI.Motion.ZoomStep(1) end))
 zoomOut:SetScript("OnClick", Runtime.Wrap("map: zoom out", function() UI.Motion.ZoomStep(-1) end))
 follow:SetScript("OnClick", Runtime.Wrap("map: follow", ToggleFollow))
-gear:SetScript("OnClick", Runtime.Wrap("map: gear", function(self) Menus.Gear(self) end))
+-- (The gear's click builds the client's own menu, MenuUtil: ~3 ms in the client, once a click, the frame's
+-- budget.)
+gear:SetScript("OnClick", Runtime.Wrap("map: gear", function(self) Menus.Gear(self) end, Runtime.FRAME_MS))
 
 ---------------------------------------------------------------------------
 -- Hover reveal: the controls and grip fade in while the mouse is over the map
