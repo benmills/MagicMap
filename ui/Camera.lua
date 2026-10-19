@@ -27,15 +27,16 @@ function Camera.Velocity() return Camera.vx, Camera.vy end
 local function R2(v) return math.floor(v * 100 + 0.5) / 100 end -- for traces
 
 -- A "cam" trace: at most one of each e a frame. The wheel's (ui/Motion.lua) says what the device sent
--- since the last frame: delta, the events' deltas summed; n, how many; dt, s from the event before them.
+-- since the last frame: delta, the events' deltas summed; n, how many; dt, s from the event before them
+-- (no camera: one a frame of a flick, 4 fields; the marks' motion ring has where it was).
 local traced = {} -- e -> the frame it was last traced in
 function Camera.Trace(e, delta, n, dt)
 	if traced[e] == Runtime.frames then return end
 	traced[e] = Runtime.frames
 	local cam = Camera.cam
-	if not n then
-		Runtime.Trace("cam", { e = e, cx = R2(cam.cx), cy = R2(cam.cy), zoom = R2(cam.zoom) })
+	if n then
+		Runtime.Trace("cam", { e = e, delta = delta, n = n, dt = dt })
 	else
-		Runtime.Trace("cam", { e = e, cx = R2(cam.cx), cy = R2(cam.cy), zoom = R2(cam.zoom), delta = delta, n = n, dt = dt })
+		Runtime.Trace("cam", { e = e, cx = R2(cam.cx), cy = R2(cam.cy), zoom = R2(cam.zoom) })
 	end
 end

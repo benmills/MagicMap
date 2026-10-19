@@ -5,7 +5,8 @@
 -- the city's doors among 10 blips. The priced clock, at the client's prices (below):
 --   * the first time, our garbage <= 50 KB/s; what the canvases' first regions take besides (kept in
 --     their pools: ~6000 here, made once a session) is printed
---   * the second time and walking, all of it <= 50 KB/s; over the whole run too
+--   * the second time and walking, all of it <= 50 KB/s (over the whole run, ~64 KB/s with the first
+--     time's regions: the client's heap reading can't tell pool growth from garbage, docs/runtime.md)
 --   * a layout allocates its three traces (~1.1 KB: start, end, swap) and nothing else once its canvas
 --     holds what it needs: it re-sets only what the canvas didn't show (Engine.Keep)
 --   * the drag's frame p95 under 3 ms (4.35 in game and here when a pan's tile layout re-set every tile)

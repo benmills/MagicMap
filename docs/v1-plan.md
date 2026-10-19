@@ -259,7 +259,7 @@ Exit:
 Goal: user logs in and sees the spike: the 200 yd square on Blizzard's spot, metal hairline, gold title, hover controls, wheel glide, follow and idle return, M/Escape grow/shrink, spike ground style. 8/8 PASS, tear gone. QuestPOI Inside, HBD borrow, hooks and taint proven thin in game.
 
 Exit:
-- Sim: R-P1 at 1.5 views/s (borders ≥97% frames, tiles ≥99%, fresh ≤1 s); R-P7 (≤1 layout/layer after settle; borders scaled and dimmed while zooming, never out of sight, crossfaded as it lands); R-P3 ≤0.5 KB/frame walking with sensor + 10 blips; observe ≤2 ms on priced clock; R-P2 (every Atlas first-use in a 1 ms Job ≤2 ms); per-frame invariants on all replays: offsets ≤4096 px, map textures/masks/lines unsnapped (FontStrings excepted), shared region origin, D1 (≤1 canvas/layer α>0 outside a timed fade), no visible Blizzard Minimap art, no protected calls in combat. test_atlas Labels golden; test_generators QuestSources identical after diet. test_chrome, test_bigmap, test_zoom, test_motion, reset refused while big. Replays R-G3, R-G7, R-D3, R-D5a, R-D5b, R-E6, R-L1, HBD round trip.
+- Sim: R-P1 at 1.5 views/s (borders ≥97% frames, tiles ≥99%, fresh ≤1 s); R-P7 (≤1 layout/layer after settle; borders scaled and dimmed while zooming, never out of sight, crossfaded as it lands); R-P3 ≤0.5 KB/frame walking with sensor + 10 blips; observe ≤2 ms on priced clock; R-P2 (every Atlas first-use in a 1 ms Job ≤2 ms); per-frame invariants on all replays: offsets ≤4096 px (on the screen, the canvases' included since the M1b review; a canvas scaled past 1.4 exempt: docs/runtime.md), map textures/masks/lines unsnapped (FontStrings excepted), shared region origin, D1 (≤1 canvas/layer α>0 outside a timed fade), no visible Blizzard Minimap art, no protected calls in combat. test_atlas Labels golden; test_generators QuestSources identical after diet. test_chrome, test_bigmap, test_zoom, test_motion, reset refused while big. Replays R-G3, R-G7, R-D3, R-D5a, R-D5b, R-E6, R-L1, HBD round trip.
 - In game, script (a), spike disabled: 8/8 PASS (max ≤8, p95 ≤1, p99 ≤5, first open ≤50 target ≤20, ourKB after GC ≤64 expect ~40, alloc ≤50 KB/s, load ≤250, 0 errors); no `map: borders/labels/draw` or `game.observe` in perf.slow; perf.gaps empty; 0 taint; tear re-check at 1024 across a tile boundary clean (ring + shot); shot pairs vs reference and `docs/zoomable-minimap.gif`, `minimap-to-big-map.gif`, `big-map-zoom.gif` signed off; M, Escape, L as spike; `/mma toggle` restores Blizzard's minimap exactly; `/mma check inside` agrees with standing in a quest area; Questie pins borrowed and returned.
 
 | Pkg | Owner | Scope | Contracts | Verify | Wave / Iso |
@@ -306,17 +306,35 @@ Left from wave 1, from the hand-offs (outside their files): ui/View.lua makes ~1
 `Runtime.Trace` detail tables (~1.1 KB: copying flat details into ring and ledger slots would let Engine
 reuse one a site); a door out is still a ring look (~180 probes: keeping blips past the indoor reach until
 the door out changes what Model is handed). The gear's Tracking and Settings > Advanced stay M4.5's (their
-commands are M4.1's and M4.6's); a layer off by default (M4.4's shade, graveyards) needs Engine to know
-its default; the Rares row's tip ("remembered between sessions") is true from M4.3 (until then the layer
+commands are M4.1's and M4.6's); a layer off by default (M4.4's shade, graveyards): its row's `default`
+since the M1b review (Engine.defaults, Engine.SetLayer); the Rares row's tip ("remembered between sessions") is true from M4.3 (until then the layer
 draws Atlas.Rares).
 
 Left from wave 2 (M1.14's hand-off): zooming out fast, the held borders canvas can sit ~21,000 units from
 its anchor (800 to 16, scale ~0.02, ~440 screen px; the spike's PlaceCanvas divides by the scale the same
-way), so a replay zooming out that fast would trip T.Anchors' 4096; a tile's edge is off by up to ~1 px
-while a zoom out lands (half a pixel times the scale); the world socket's pins (ui/Sockets.lua) are still
+way): T.Anchors didn't check a frame's SetPoint until the M1b review, which checks a canvas's offset times
+its scale (anchored to the view's centre since), and exempts one scaled past 1.4 (docs/runtime.md "The
+map's engine"); a tile's edge is off by up to half a pixel at its layout's zoom while a zoom out lands
+(times the scale on the screen: ~2 px landing a flick out to 16); the world socket's pins (ui/Sockets.lua) are still
 see-through while zooming (F46). The wheel is the MVP's again, so one trackpad flick can run to the clamp:
 the user's call at the final session (docs/playtest-final.md decision 2), from what the `wheel` cam traces
 show each device sends.
+
+M1b review, round 1 (the lead, on main: 0c8206a..74da8c4). The zoom against the MVP: names and pins are
+chosen for the zoom shown (laid out a log(1.25) drift on toward where it's headed, re-placed each drift,
+Layers.lua:2012-2030), a pin shown or hidden the frame the zoom crosses its minimum (PositionPins,
+Layers.lua:404-416; one notch 70 -> 54: rares hidden at frame 3, 34 before); tiles alone lay out where a
+zoom out is headed; a layer the view lacks or soon will goes first (the ground, names and pins, borders)
+and stops one after it, at 4.5 ms (5 left no room under the moving p95's 5 ms); late ones by age; borders
+lay out at the goal the frame after the last tick (still ~0.1 s after the spike's: playtest-final decision
+8); a layer with nothing at its zoom isn't laid out again zooming out. T.Anchors checks the canvases
+(never did: the M1 exit's offsets item hadn't held), on the screen, a canvas scaled past 1.4 exempt with
+its reason; canvases anchored to the view's centre; R-P1 adds the wheel 16 -> 800 -> 16, a flick out from
+800 and a drag, a flick and a grow. test_feel adds the big window's flick to the clamp and holds the zoom
+state's p95 to 5 ms and the draw's own. The wheel's anchor set in place, its trace 4 fields. The gear's
+rows in the spike's order, a row's `default`; View's step the one writer of View.frame and its layers; an
+uncommitted install stamped with its files' digest; R-P3b's and runtime.md's allocation claims what the
+replay shows. Refuted: none (every finding reproduced).
 
 ### M2 Quests on one pin store
 

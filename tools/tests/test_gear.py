@@ -4,7 +4,8 @@ a checkbox with its tip (white title, gold body) that keeps the menu open, a sub
 greyed while its parent is off; a divider; then Settings: Map (Colour-matched tiles), Minimap (Minimap
 button, Reset position, Use Blizzard's minimap), the same small and big. Every row works: a layer's
 toggle empties and redraws what it draws (and View.layers, for Game's: the blip sensor, Questie's
-borrowed pins) and is saved, the changed keys only, across a /reload; each setting does what it says."""
+borrowed pins) and is saved, the changed keys only, across a /reload; a layer off by default stays so until
+turned on; rows in the spike's order whenever added; each setting does what it says."""
 from test_addon import boot, errors
 from test_blips import lua_tools, put_blips, stub_services
 
@@ -128,8 +129,10 @@ def test_gear():
     assert view.layers.blips and Game.minimap.sensor
 
     # Questie's pins: given back while its layer's off, borrowed again when on.
-    row = rows["Questie"]
-    assert row.onSelect() == refresh and view.layers["addon:Questie"] is None
+    row, frame = rows["Questie"], view.frame
+    assert row.onSelect() == refresh
+    sim.Step()  # View.layers from the next frame, View.frame with it (types/view.lua)
+    assert view.layers["addon:Questie"] is None and view.frame > frame
     sim.Run(1.1)
     assert not hosted(L, pin, ns) and row.isSelected() is False
     row.onSelect()
@@ -144,6 +147,20 @@ def test_gear():
     assert items(sub(root, "Map"))[-1] == ("checkbox", "     Sub-option") and child.IsEnabled(child)
     rows["Zone labels"].onSelect()
     assert not child.IsEnabled(child)
+
+    # A layer off by default (a later package's row: the spike's Shade unexplored, Layers.lua:37): in the
+    # spike's place in its group whenever it's added, off until turned on, saved only while it isn't.
+    UI.Menus.Layer(L.table_from({"key": "unexplored", "label": "Shade unexplored", "group": "map", "default": False,
+                                 "tip": "Darken the parts of each zone you haven't discovered yet."}))
+    root, rows = gear(sim, ns)
+    assert [t for _, t in items(sub(root, "Map"))] == ["Zone labels", "Zone borders", "Shade unexplored",
+                                                       "     Sub-option"]
+    shade = rows["Shade unexplored"]
+    assert shade.isSelected() is False and saved.layers["unexplored"] is None
+    shade.onSelect()
+    assert shade.isSelected() is True and saved.layers["unexplored"] is True
+    shade.onSelect()
+    assert shade.isSelected() is False and saved.layers["unexplored"] is None
 
     # Settings. Colour-matched tiles: the tiles laid out again, plain.
     tiles = layer(ns, "tiles")
@@ -181,7 +198,7 @@ def test_gear():
     sim.Slash("/mma toggle")
     sim.Step()
     perf = ns.Runtime.Perf()[0]["map: gear pick"]
-    assert perf.n == 18 and perf.over == 0, (perf.n, perf.max)
+    assert perf.n == 20 and perf.over == 0, (perf.n, perf.max)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
     # /reload: the changed keys only (borders and the rest went off and on again, from the gear or

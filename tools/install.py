@@ -20,6 +20,7 @@ The WoW folder defaults to $MAGICMAP_WOW, else the standard install location.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import shutil
 import subprocess
@@ -141,6 +142,12 @@ def main() -> None:
         rev = subprocess.check_output(["git", "-C", ROOT, "describe", "--always", "--dirty"], text=True).strip()
     except (OSError, subprocess.CalledProcessError):
         rev = "?"
+    if rev.endswith("-dirty") or rev == "?":  # each uncommitted build its own (game/Validate.lua keeps one build's log)
+        digest = hashlib.sha1()
+        for f in files:
+            with open(os.path.join(ROOT, f), "rb") as fh:
+                digest.update(f.encode() + b"\0" + fh.read())
+        rev += "." + digest.hexdigest()[:7]
     stamp_version(os.path.join(dest, f"{ADDON}.toc"), rev)
     print(f"installed {ADDON} {rev} ({len(files)} files) into {dest}")
     if skipped:

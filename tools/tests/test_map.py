@@ -57,7 +57,8 @@ def test_map():
 
 def test_rares():
     """A pin kind added afterwards: Known("rares") (Atlas's rare spawns, the shown map only) drawn by its layer,
-    from zoom 60 in (none further out: Landmarks.lua:15)."""
+    from zoom 60 in (none further out: Landmarks.lua:15); laid out from a drift below it, so a zoom crossing 60
+    shows or hides them that frame (Layers.lua:404-416)."""
     import pytest
     L, sim, ns = boot()
     if not ns.Data.Npcs:
@@ -71,11 +72,22 @@ def test_rares():
     front = layer.front
     atlases = {sim.state[front.pools.pin[i]].atlas for i in range(1, front.pools.pin.n + 1)}
     assert atlases and atlases <= {"vignettekill", "vignettekillelite"}, atlases
-    for zoom, drawn in ((59, False), (60, True)):
+    def shown():
+        pins = layer.front.pools.pin
+        return sum(1 for i in range(1, (pins.n if pins else 0) + 1) if sim.state[pins[i]].alpha > 0)
+
+    for zoom, drawn in ((59, False), (60, True), (47, False)):
         ns.UI.Motion.SetZoom(zoom)
         sim.Run(1)
-        pins = layer.front.pools.pin
-        assert layer.front.zoom == zoom and bool(pins and pins.n) == drawn, zoom
+        assert layer.front.zoom == zoom and bool(shown()) == drawn, zoom
+    assert not layer.front.pools.pin.n  # (47: none laid out)
+    ns.UI.Motion.SetZoom(59)
+    sim.Run(1)
+    ns.UI.Motion.ZoomStep(1)  # 59 to 76.7: shown the frame it passes 60, before any layout
+    while ns.UI.Camera.cam.zoom < 60:
+        assert not shown()
+        sim.Step()
+    assert shown() and layer.front.zoom == 59
     sim.Slash("/mma layer rares")
     assert e.LayerOn("rares") is False and e.toggles.rares is False
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

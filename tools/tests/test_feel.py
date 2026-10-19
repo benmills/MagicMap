@@ -161,6 +161,12 @@ STREAMS = {
         A.Wheel(-1, 0.3, 0.3); A.Frames(3); A.Wheel(-1, 0.3, 0.3); A.Run(1)
         A.Wheel(1, 0.7, 0.7); A.Frames(6); A.Mode(); A.Frames(5); A.Wheel(1, 0.5, 0.5); A.Run(1)
         A.Mode(); A.Run(0.1); A.Mode(); A.Run(1)""",
+    "big: a trackpad flick out to the clamp and back": """
+        A.Run(0.5); A.Mode(); A.Run(1)
+        for i = 1, 40 do A.Wheel(-1, 0.6, 0.4); A.Frames(1) end
+        A.Run(1)
+        for i = 1, 40 do A.Wheel(1, 0.4, 0.6); A.Frames(1) end
+        A.Run(1)""",
     "a walk, following and zooming": """
         A.Walk(7, 1.2)
         for _, d in ipairs({ 1, 1, 1, -1, -1 }) do A.Wheel(d, 0.1, 0.9); A.Run(0.3) end
@@ -184,12 +190,12 @@ local function Proj(col, row)
 	local cam, w, h = C.cam, W.Size()
 	return vl + ((col - cam.cx) * cam.zoom + w / 2) * vs, vb + vh - ((row - cam.cy) * cam.zoom + h / 2) * vs
 end
--- A region's first anchor on the screen, as the sim resolves it.
+-- A region's first anchor on the screen, as the sim resolves it (to its TOPLEFT, or a canvas's: its CENTER).
 local function Anchor(o)
 	local p = S[o].points[1]
-	local l, b, _, h = sim.Rect(p.rel or S[o].parent)
-	local s = o:GetEffectiveScale()
-	return l + p.x * s, b + h + p.y * s
+	local l, b, w, h = sim.Rect(p.rel or S[o].parent)
+	local s, centre = o:GetEffectiveScale(), p.relPoint == "CENTER"
+	return l + (centre and w / 2 or 0) + p.x * s, b + (centre and h / 2 or h) + p.y * s
 end
 local function OnView(x, y) return x >= vl and x <= vl + vw and y >= vb and y <= vb + vh end
 local function Off(x, y, ex, ey) return math.max(math.abs(x - ex), math.abs(y - ey)) end
@@ -213,7 +219,7 @@ local function Canvas(r, l, k)
 		local tx, ty = Proj(math.floor(key / 64), key % 64)
 		if OnView(tx, ty) then
 			local al, ab, _, ah = sim.Rect(art[i])
-			r.tile = math.max(r.tile, Off(al, ab + ah, tx, ty))
+			r.tile = math.max(r.tile, Off(al, ab + ah, tx, ty) / k:GetEffectiveScale()) -- (px at its layout's zoom)
 		end
 	end
 end
@@ -224,7 +230,7 @@ local function Moved(r, k)
 			local o = p[i]
 			local ex, ey = Proj(o.acol, o.arow)
 			ex, ey = ex + o.adx * vs, ey - o.ady * vs
-			if OnView(ex, ey) then
+			if OnView(ex, ey) and S[o].alpha > 0 then -- (under its minimum zoom: hidden where it stands)
 				local x, y = Anchor(o)
 				r.off = math.max(r.off, Off(x, y, ex, ey))
 			end
@@ -244,7 +250,7 @@ function A.onFrame()
 		local c, from = l.front, l.fade and l.fade.from
 		local live = 0
 		for _, p in pairs(c and c.pools or {}) do live = live + p.n end
-		local shows = l.on and c and (c.alpha > 0 and live > 0 or from and from.alpha > 0) or false
+		local shows = l.on and c and (c.none or c.alpha > 0 and live > 0 or from and from.alpha > 0) or false -- (none: nothing at that zoom)
 		if r.shows == false and shows and r.had then r.back = r.back + 1 end
 		r.had, r.shows = r.had or shows, shows
 		if l.on and c and not c.none then
@@ -296,23 +302,28 @@ def test_camera_as_spike():
 
 def test_zoom_look():
     """Each stream on the priced clock, what you see each frame (LOOK): every layer and your arrow exactly where
-    the camera puts them; a tile's art within 1.5 px of its tile (its edges are whole pixels at the zoom it was
-    laid out at, scaled with its canvas: half a pixel times the scale, ~3 at most while a zoom out lands);
-    the tiles covering the view every frame, names and pins all but 0.1 s of the fastest scroll (laid out where
-    the zoom is headed, ui/Engine.lua: at the camera, a fast zoom out ran past each layout before it landed);
-    no layer gone and back; no frame over 8 ms, no call over its budget. Borders: as the spike's, the canvas
-    from before the zoom scaled and dimmed until the one for where it's headed crossfades in (Layers.lua:
-    1906-1940), so not counted."""
+    the camera puts them (a pin under its minimum zoom hidden); a tile's art within half a pixel of its tile at
+    the zoom it was laid out at (its edges are whole pixels there, scaled with its canvas: ~2 px on the screen
+    while a zoom out to the clamp lands, laid out at 16); the tiles covering the view every frame (laid out where a zoom out is headed,
+    ui/Engine.lua: at the camera, a fast zoom out ran past each layout before it landed), names and pins all but
+    0.1 s of the fastest scroll (chosen for the zoom shown, a drift on toward where it's headed: Layers.lua:
+    2012-2030); no layer gone and back; no frame over 8 ms, no call over its budget. Borders: as the spike's, the
+    canvas from before the zoom scaled and dimmed until the one for where it's headed crossfades in (Layers.lua:
+    1906-1940), so not counted. Moving, the frame's p95 (docs/runtime.md: <= 5 ms in the client) is a layout's
+    slice (4.5 ms at most, a layer the view lacks) and the steps, the draw's widget calls priced here at 3 us
+    each (~10x the client's SetPoint: there ~0.3 ms), so at most 5 ms and the draw's own."""
     for name in STREAMS:
         L, sim, ns, out, look = run_stream(name, look=True)
         fs, perf = ns.Runtime.FrameStats(), ns.Runtime.Perf()[0]
         layers = {k: r for k, r in look.layers.items()}
-        print(f"{name}: {look.frames} frames, max {fs.max} ms, draw {perf['map: draw'].max:.2f} ms; "
+        print(f"{name}: {look.frames} frames, max {fs.max} ms, zoom p95 {fs.byState['zoom'].p95} ms, "
+              f"draw {perf['map: draw'].max:.2f} ms; "
               + "; ".join(f"{k} off {r.off:.0e}{f' tile {r.tile:.2f}' if k == 'tiles' else ''} px, uncovered "
                           f"{r.uncovered} ({r.worst:.2f})" for k, r in layers.items()))
         assert look.arrow < 1e-6 and all(r.off < 1e-6 for r in layers.values()), name
-        assert layers["tiles"].tile <= 1.5 and layers["tiles"].uncovered == 0, name
+        assert layers["tiles"].tile <= 0.5 + 1e-6 and layers["tiles"].uncovered == 0, name
         assert all(r.uncovered <= 6 for k, r in layers.items() if k != "borders"), name
         assert all(r.back == 0 for r in layers.values()), name
         assert fs.max <= 8 and sum(v.over for v in perf.values()) == 0 and perf["map: draw"].max <= 2, name
+        assert fs.byState["zoom"].p95 <= 5 + perf["map: draw"].max, name
         assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

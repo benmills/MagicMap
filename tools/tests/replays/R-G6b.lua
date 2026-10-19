@@ -109,10 +109,10 @@ Priced("M (grow)", function() sim.Press("M") end) -- Blizzard's map opened and h
 Check("M", here)
 Priced("M (shrink)", function() sim.Press("M") end)
 Check("M again", here)
-view.layers["addon:Questie"] = nil
+ns.UI.Engine.SetLayer("addon:Questie", false) -- (the gear's)
 Settle(1.5)
 Check("layer off", 0)
-view.layers["addon:Questie"] = true
+ns.UI.Engine.SetLayer("addon:Questie", true)
 Settle(1.5)
 Check("layer on", here)
 local scaled, setScale, slowest = 0, canvas.SetScale, 0

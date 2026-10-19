@@ -126,7 +126,7 @@ Their `d`:
 | `login` | the version |
 | `zone` | the zone's name |
 | `map` | `"shown"` or `"hidden"` |
-| `cam` | `{ e, cx, cy, zoom }`, `e` = `drag start` (follow turns off), `drag end`, `wheel`, `follow on`, `follow off`; at most one of each e a frame. The wheel's, once a frame with wheel events: `delta` (their deltas summed), `n` (how many), `dt` (s from the wheel event before them); the ± buttons' `wheel` has none (M1.14) |
+| `cam` | `{ e, cx, cy, zoom }`, `e` = `drag start` (follow turns off), `drag end`, `wheel`, `follow on`, `follow off`; at most one of each e a frame. The wheel's, once a frame with wheel events: `{ e, delta, n, dt }`, `delta` (their deltas summed), `n` (how many), `dt` (s from the wheel event before them), no camera (one a frame of a flick: the marks' motion ring has it; M1b review); the ± buttons' `wheel` is `{ e, cx, cy, zoom }` (M1.14) |
 | `layout` | `{ e = "start", layer, zoom, ox, oy }` (`ox, oy` the shared origin tile; its region: a mark's `View.diag` layers), then `{ e = "end", layer, ms, regions, made }` (`ms` wall time, over several frames; `made` the regions it had to create), or `{ e = "failed", layer, retry }` |
 | `swap` | `{ layer, ms, live, parked, x, y, scale }`: `ms` the swap's own time (new canvas placed, the two canvases' alphas swapped: it can't yield), `live` the regions it shows, `parked` the regions its layout parked (SetParent onto a hidden frame), `x, y, scale` where it was placed (`x, y` absent for a held layer still zooming) |
 | `error` | the error's key |

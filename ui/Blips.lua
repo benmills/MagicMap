@@ -1,5 +1,6 @@
 -- Minimap blips on the map: Model.Known("blips") (sensed now) and Known("remembered") (seen
--- before: from zoom 60, Blips.lua:641-650) as the spike's pins (Blips.lua:420-436, Layers.lua:340-400):
+-- before: from zoom 60, Blips.lua:641-650; laid out from a drift below it, shown from it as the zoom
+-- moves: Engine.At's minimum zoom) as the spike's pins (Blips.lua:420-436, Layers.lua:340-400):
 -- an icon, the game's tracking texture or a gathering atlas, at 14 px (an atlas the client lacks: a
 -- dot of its colour); else a gold dot 6 px on a dark ring 9 px (StylePin's form (d), size 10). A
 -- remembered one a sensed one stands for (its key) is drawn once; while the sensor runs, none within
@@ -36,7 +37,7 @@ local function Has(atlas)
 	return has[atlas]
 end
 
-local function Pin(c, b, inst, c0, r0, c1, r1)
+local function Pin(c, b, inst, c0, r0, c1, r1, minZoom)
 	local p, icon = b.pos, b.icon
 	if p.inst ~= inst or p.col < c0 or p.col > c1 or p.row < r0 or p.row > r1 then return end
 	if icon and (icon.texture or Has(icon.atlas)) then
@@ -48,7 +49,7 @@ local function Pin(c, b, inst, c0, r0, c1, r1)
 			t:SetAtlas(icon.atlas)
 		end
 		t:SetSize(ICON, ICON)
-		Engine.At(c, t, "CENTER", p.col, p.row)
+		Engine.At(c, t, "CENTER", p.col, p.row, 0, 0, minZoom)
 		t.blip = b.key
 		return
 	end
@@ -58,8 +59,8 @@ local function Pin(c, b, inst, c0, r0, c1, r1)
 	ring:SetSize(DOT * 0.6 + 3, DOT * 0.6 + 3)
 	dot:SetVertexColor(col[1], col[2], col[3], 1)
 	dot:SetSize(DOT * 0.6, DOT * 0.6)
-	Engine.At(c, ring, "CENTER", p.col, p.row)
-	Engine.At(c, dot, "CENTER", p.col, p.row)
+	Engine.At(c, ring, "CENTER", p.col, p.row, 0, 0, minZoom)
+	Engine.At(c, dot, "CENTER", p.col, p.row, 0, 0, minZoom)
 	dot.blip = b.key
 end
 
@@ -76,18 +77,19 @@ end
 local carried = {} -- keys of remembered ones a sensed one stands for
 UI.Blips = Engine.Layer("blips", 6, function(c, inst, zoom, c0, r0, c1, r1)
 	local live, seen = Model.Known("blips"), Model.Known("remembered")
-	if not live[1] and (not seen[1] or zoom < REMOTE_ZOOM) then return true end
+	local remote = zoom * Engine.DRIFT >= REMOTE_ZOOM
+	if not live[1] and not (seen[1] and remote) then return true end
 	for k in pairs(carried) do carried[k] = nil end
 	for _, b in ipairs(live) do
 		carried[b.key] = true
 		Pin(c, b, inst, c0, r0, c1, r1)
 	end
-	if zoom < REMOTE_ZOOM then return end
+	if not remote then return end
 	local you = here and Model.you.inst == inst and Model.you
 	for _, b in ipairs(seen) do
 		local p = b.pos
 		if not carried[b.key] and not (you and (p.col - you.col) ^ 2 + (p.row - you.row) ^ 2 < REACH * REACH) then
-			Pin(c, b, inst, c0, r0, c1, r1)
+			Pin(c, b, inst, c0, r0, c1, r1, REMOTE_ZOOM)
 		end
 	end
 end, function() return select(2, Model.Known("blips")) + select(2, Model.Known("remembered")) + Here() end, "move")

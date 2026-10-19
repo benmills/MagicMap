@@ -63,10 +63,10 @@ assert(view.sockets.world.zoom ~= 128 and canvas:GetAlpha() == 0, "the zoom movi
 sim.Step()
 assert(view.sockets.world.zoom == 128 and Hosted() and canvas:GetAlpha() == 1, "re-placed at the new zoom")
 
-view.layers["addon:Questie"] = nil -- its layer off: back on its pin (by the next pass)
+ns.UI.Engine.SetLayer("addon:Questie", false) -- its layer off (the gear's): back on its pin (by the next pass)
 sim.Run(1.1)
 assert(Same(Where(pin), home), "layer off: as it was")
-view.layers["addon:Questie"] = true
+ns.UI.Engine.SetLayer("addon:Questie", true)
 sim.Run(1.1)
 assert(Hosted(), "layer on: borrowed again")
 
