@@ -184,7 +184,10 @@ def test_gear():
     assert perf.n == 18 and perf.over == 0, (perf.n, perf.max)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
-    # /reload: the changed keys only (borders and the rest went off and on again), each still in effect.
+    # /reload: the changed keys only (borders and the rest went off and on again, from the gear or
+    # /mma layer), each still in effect.
+    sim.Slash("/mma layer borders")
+    sim.Slash("/mma layer borders")
     sim.FireEvent("PLAYER_LOGOUT")
     assert dict(saved.layers.items()) == {"labels": False, "addon:Questie": False}
     L, sim, ns, pin = shown("MagicMapAtlasDB = " + lua_tools(L).Dump(G.MagicMapAtlasDB))

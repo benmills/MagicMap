@@ -481,7 +481,7 @@ def validation(v):
         key = f"{e.get('kind')}: atlas {e.get('atlas')!r} | game {e.get('game')!r}"
         p = pairs.setdefault(key, {"pair": key, "n": 0, "example": e})
         p["n"] += 1
-    return {"on": bool(v.get("on")), "samples": v.get("samples", 0), "logged": len(v.get("log") or []),
+    return {"on": bool(v.get("on")), "version": v.get("version"), "samples": v.get("samples", 0), "logged": len(v.get("log") or []),
             "dropped": v.get("dropped", 0),
             "counts": dict(sorted((v.get("counts") or {}).items(), key=lambda kv: -kv[1])),
             "pairs": sorted(pairs.values(), key=lambda p: -p["n"])}
@@ -737,7 +737,8 @@ def show(out, sections, args, shot_files):
         if not v:
             say("  none (/mma check log in game)")
         else:
-            say(f"  logging {'on' if v['on'] else 'off'}, {v['samples']} samples, {v['logged']} logged ({v['dropped']} over the cap)")
+            build = f" (build {v['version']})" if v["version"] else ""  # one build's log (game/Validate.lua)
+            say(f"  logging {'on' if v['on'] else 'off'}{build}, {v['samples']} samples, {v['logged']} logged ({v['dropped']} over the cap)")
             for kind, n in v["counts"].items():
                 say(f"  {kind:<22} {n:5} failing samples")
             for p in v["pairs"][:10]:

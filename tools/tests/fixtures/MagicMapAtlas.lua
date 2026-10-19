@@ -192,6 +192,7 @@ MagicMapAtlasDB = {
 },
 ["validation"] = {
 ["on"] = true,
+["version"] = "7aa8b30-dirty",
 ["samples"] = 640,
 ["dropped"] = 0,
 ["counts"] = {

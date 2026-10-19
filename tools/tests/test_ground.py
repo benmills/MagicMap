@@ -189,10 +189,10 @@ def test_tint():
 
     n, _, masked = drawn()
     assert saved.tint and masked > 0
-    front = tiles.front
+    front, same = tiles.front, L.eval("function(a, b) return a == b end")  # (lupa: Python's == never matches)
     sim.Slash("/mma tint")  # off: the art plain, laid out again
     sim.Run(1)
-    assert saved.tint is False and tiles.front != front and drawn()[1:] == (0, 0)
+    assert saved.tint is False and not same(tiles.front, front) and drawn()[1:] == (0, 0)
     assert sim.prints[len(sim.prints)].endswith("tile colour correction off")
     # The gear's "Colour-matched tiles" runs the same: on again, the coasts fade.
     sim.Click(ns.UI.Controls.gear)

@@ -507,7 +507,9 @@ local Command = ns.Game.Command
 Command({ kind = "slash", name = "layer", help = "<name>: show or hide a map layer; alone, list them", fn = function(name)
 	local known = false
 	for _, l in ipairs(Engine.layers) do known = known or l.name == name end
-	if known then Engine.toggles[name] = not Engine.LayerOn(name) end
+	if known then -- only the ones off are saved (the gear's: ui/Menus.lua)
+		if Engine.LayerOn(name) then Engine.toggles[name] = false else Engine.toggles[name] = nil end
+	end
 	for _, l in ipairs(Engine.layers) do print(string.format("  %s %s", l.name, Engine.LayerOn(l.name) and "on" or "off")) end
 end })
 Command({ kind = "slash", name = "mapstats", help = "the map's live textures, lines and font strings", fn = function()
