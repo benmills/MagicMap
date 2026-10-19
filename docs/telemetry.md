@@ -154,7 +154,8 @@ allocators, gaps, the worst-frames ledger, per-state histograms, memory after GC
 layout/swap/sweep stats, the bench), its kept events, errors (with stacks), marks
 (state, the motion ring's summary, each layout's start → end → swap with the end→swap
 delay, and the trace around them), the newest screenshots matched to their shot marks
-and paired with the reference shots, the validation report (`/mma check log`), and
+and paired with the reference shots, the validation report (`/mma check log`: one build's log,
+named by its `version`; game/Validate.lua clears another build's at load), and
 client `Logs/` lines that mention the addon. It also lists
 other addons' Lua errors in `Logs/` while ours was loaded (from each session's start to the
 next's; any time when there are no sessions), `SHARED` first: an addon sharing our

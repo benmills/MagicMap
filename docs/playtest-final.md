@@ -45,6 +45,7 @@ default zoom.
 | a3b | Mount and ride a loop past herbs, veins or Kharanos' services, then stop. Blips met riding settle on their spots once you stop, none doubled. If two of one name sit within a few yards: `/mma toggle`, hover Blizzard's minimap where they overlap (the tooltip names it twice, or once), `/mma toggle` back. A blip that appears while you stand still (a respawn) can take up to ~40 s: say if that bothers you. | `/mma mark a3b blips <ok, or what>`; `/mma mark a3b twin <twice, once>` (if it came up) | D3, F19 | M1 |
 | a4 | The tear walk (docs/playtest.md): Kharanos, x = 47.4, at 800, small, follow on, 2 minutes. | `/mma mark a4 walk` at ~1 min; `/mma shot small-seam` on the line; `/mma mark a4 tear <what>` on any tear | F12, plan §2 "tear" | M1 |
 | a5 | Grow and shrink x5 (M, or the red button), each animation ended. Against minimap-to-big-map.gif. Then M once more, cursor off as it lands; then cursor on the gear until its tip shows. | `/mma mark a5 grow <ok, or what differs>` after the 5th; `/mma shot big-home`; `/mma shot big-hover` | F3, F10, F11, F50, S1, S2, S9-S11, S15, S16, S20, S24, S25 | M1 |
+| a5g | The gear (`Layers & settings`), big as a5 left it: click it. A submenu per group of layers (Map, Places, People; Other addons too when an addon with world-map pins, such as Questie, is loaded), a line, then Settings. Hover each row: its tip, a white title over gold text. Turn each layer off and on from its row: it goes at once and comes back, the menu staying open. Shrink (M) and open the gear on the small map: the same rows. Settings > Map: Colour-matched tiles off and on (the art plain, then tinted). Settings > Minimap: Minimap button off and on (the rim button goes and comes back); move the window, then Reset position (back on the Minimap's spot, following); Use Blizzard's minimap (ours hides), then `/mma toggle` (back). Grow (M) for a5b, Zone labels left on. The user's question this answers: do the settings work, and is it clear how to use them. | `/mma shot big-gear` (Gear → Map open, cursor on Zone borders); `/mma mark a5g gear <ok, or what doesn't work or isn't clear>` | F11, F48, F49, F55, S60, S61 | M1b |
 | a5b | Big, Dun Morogh centred, 80-100, cursor off. Then 140-200 and pan about (up to ~2750 border Lines). Then `/mma bench regions`, standing still, once (it hitches; a box flickers with lines): wait for its result. Shrink. | `/mma shot big-zones`; `/mma mark a5b borders` after the pan | P4, F15, S30, S32, S36 | M1 |
 | a6 | Ironforge, as docs/playtest.md a6. | `/mma shot small-indoor`; `/mma shot big-indoor` | (F24: M4) | — |
 | a7 | Big, all the way out (16-24), pan the Eastern Kingdoms. Against big-map-zoom.gif. Then `/mma tint` twice (the art plain, then tinted again). | `/mma shot big-continent`; `/mma mark a7 continent <ok, or what differs>` | F5, F13, F16, S4, S26, S31 | M1 |
@@ -66,9 +67,11 @@ The rest of (b) is M2's.
 | c5 | Out of combat: M (grow), Escape (shrink), L (Blizzard's quest log; close it), `/mma toggle`: Blizzard's minimap back exactly as it was; cursor on our rim button (lower left) for its tip; `/mma toggle` again. | `/mma shot blizzard-rim`; `/mma mark c5 keys` | F1, F10, F52, F53, S21 | M1 |
 | c6 | As docs/playtest.md c6: spellbook and talents by keybind in combat. A taint from M's HideUIPanel would name us here. | `/mma mark c6 panels` | K2 | M1 |
 
-## Script (d)
+## Script (d): a city
 
-No M1 items.
+| id | Do | Mark / shot | Signs | Gate |
+|---|---|---|---|---|
+| d1 | In a city (Orgrimmar, where sessions #13 and #14 were, or Stormwind or Ironforge), big: zoom out to about 36 and back in, dragging and wheeling at each zoom, then over the same views again. Shrink, follow on, and walk in and out of a few doors. No blank edges, no hitch on the drags. Then `/mma check report`: it names this build, and no city's or building's own subzone (Valley of Strength) is in it. | `/mma mark d1 city <ok, or what>` | P1, P3, K4 | M1b |
 
 ## Script (e): Questie
 
@@ -92,7 +95,11 @@ Questie the only other addon. The rest of (e) is M4's.
   traces empty (a `sensor` event carries its mark); 0 taint but `/mma check combat`'s own block,
   if the client blocked it; `/mma check log`: 0 K4 drift lines.
 - **perf.alloc**: `game.part blips` under 10 KB/s (27-30 in #8 and #9, before e60ff51); `map: layout`
-  per start (0.83 KB in the sim; the old job start cost 8.6-10.3 KB in the client).
+  about one trace a start (0.37 KB in the sim since M1.12, a layout ~1.1 KB with its end and swap; the
+  old job start cost 8.6-10.3 KB in the client); `validate.log` near 0 (3.4 KB/s in #13-#22). A session
+  that zooms a city's big window out reads its canvases filling as allocation (~7,000 regions, ~3.6 MB,
+  kept in their pools, made once a session: over 50 KB/s in a short session, ~6 KB/s over 10 minutes):
+  the budget can't tell pool growth from garbage, so judge it over the whole session (M1b, d1).
 - **The bench** (a5b): `canvas.SetAlpha.moved@1000live` far under `canvas.Show.moved@1000live`, and
   `frame.swap` about `frame.idle`; else the swap extends in place (M1.3's fallback). Also
   `canvas.Show.moved.alpha0@1000live` and `canvas.Show.moved@100masked`.
@@ -100,7 +107,7 @@ Questie the only other addon. The rest of (e) is M4's.
   (S30, P4). `swap <layer>` under 4 ms.
 - **Shots**: each answered `shot <id>: WoWScrnShot_<stamp>, marked`, paired with `ref-<id>.jpg`:
   small-home, small-hover, small-drag, small-near, small-seam, small-town, small-zone, big-home,
-  big-hover, big-zones, big-continent, blizzard-rim. A seam on small-seam is M1.4's seam overlap
+  big-hover, big-gear (M1b), big-zones, big-continent, blizzard-rim. A seam on small-seam is M1.4's seam overlap
   (1 px right and bottom, half-texel inset), built only if a shot shows one.
 
 ## Decisions for you at the session

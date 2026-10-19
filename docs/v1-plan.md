@@ -281,6 +281,34 @@ Exit:
 
 Parallel waves: 1a = M1.1, 1.2, 1.5, 1.6, 1.7, 1.8, 1.9, 1.10 from day 1; 1b = M1.3 once M0 numbers land, with M1.5b, M1.8b, M1.11 (the M0 gate's follow-ups); 1c = M1.4 after M1.3's layer API. Day-1 agreements: BlipServices name (M1.2↔M1.5), settled API (M1.3↔M1.8, stubbed in M0.2), hooked/homeAlpha flow (M1.6↔M1.7).
 
+
+### M1b The user's play-test of the M1 build (sessions #9-#22)
+
+Goal: what the user's own play of the M1 build found, before M2. In the user's words: "the scrolling /
+zooming is still pretty broken compared to the MVP", and "I don't really get how to use the settings (im
+not sure if they even work)". The sessions: in Orgrimmar 83.5 and 131.6 KB/s against 50 (a tile layout
+225 KB in one call, a border layout 150-476 KB, the sensor 19-30 KB/s), the drag's frame p95 4.35 ms,
+`validate.log` 3.4 KB/s all session and earlier builds' log lines read as the current one's; the gear only
+a Settings submenu.
+
+Exit: tools/check.sh green plain and strict. In game (D10, docs/playtest-final.md): a5g (the gear) and d1
+(a city's big window and doors), and the read's `perf.alloc`.
+
+| Pkg | Owner | Scope | Contracts | Verify | Wave / Iso |
+|---|---|---|---|---|---|
+| M1.12 Motion allocation and the validator | ui/Engine.lua, ui/Tiles.lua, ui/Borders.lua, ui/Title.lua, game/Blips.lua, game/Validate.lua | A layout keeps what its canvas shows (`Engine.Keep`, `canvas.epoch`: docs/runtime.md "The map's engine"), so a pan's tile and border layouts set only the ground they add; tile masks on coast tiles only; ahead of a pan, 2.5 ms slices (`PAN_MS`). Title coordinates through SetFormattedText. A door keeps the sensor's circles looked over. The validator: a sample allocates ~0, the logger judges as `/mma check` (the login moment, a WMO's own subzone: info), its log one build's | SavedValidation `_v` 2, `version` (OPEN: ADR 0004's consequences) | R-K4; R-P3b (Orgrimmar at the client's prices: 14.2 KB/s over views seen before, 20.3 walking through doors, a layout 1.18 KB, the drag's p95 2.75 ms); R-P1 180/180 frames every layer | M1b wave 1, W: done c31930f |
+| M1.13 Settings that work and read like the MVP | ui/Menus.lua (gear), tools/tests/test_gear.py | The gear as GearMenu.lua: a submenu per group of layers (Map, Quests, Places, People, You, Other addons; a group with none left out), each layer a checkbox with its tip that keeps the menu open, a sub-option indented and greyed while its parent is off, then Settings (Map, Minimap). `Menus.Layer(row)`: the registry M2-M4 add their rows through (docs/structure.md). Only the layers turned off are saved (`/mma layer` too, since the merge); an addon turned off stays off across a /reload (ui/Sockets.lua) | None | test_gear: the tree small and big, tips, every toggle empties and redraws its layer (View.layers for the sensor and Questie's pins), each setting does what it says, changed keys only across a /reload | M1b wave 1, W: done 64d2ecf |
+
+Left from wave 1, from the hand-offs (outside their files): ui/Motion.lua replaces `Camera.cam` every zoom
+frame (`map: motion` 3.6-5.7 KB/s zooming); ui/View.lua makes ~1.1 KB/s moving; `model.observe` 2.5 KB/s
+walking among blips; atlas/Areas.lua decodes an area tile with a parts table and `rep` strings (~5 KB the
+first hover of each: most of `map: title`'s 8 KB/s in #14); a layout's three `Runtime.Trace` detail tables
+(~1.1 KB: copying flat details into ring and ledger slots would let Engine reuse one a site); a door out
+is still a ring look (~180 probes: keeping blips past the indoor reach until the door out changes what
+Model is handed). The gear's Tracking and Settings > Advanced stay M4.5's (their commands are M4.1's and
+M4.6's); a layer off by default (M4.4's shade, graveyards) needs Engine to know its default; the Rares
+row's tip ("remembered between sessions") is true from M4.3 (until then the layer draws Atlas.Rares).
+
 ### M2 Quests on one pin store
 
 Goal: quest pins in Blizzard art with difficulty discs, objective icons and counts; rich tooltip; styled blobs, estimates, hover lighting; click to super-track; quests to pick up. One pin store diffed by id also carries blips and rares.
@@ -363,13 +391,14 @@ Exit: full CI green under new names incl. test_only_game_defines_globals; sim lo
 | 1a | M1.1, 1.2*, 1.5, 1.6, 1.7, 1.8, 1.9, 1.10 (*after D3) | — |
 | 1b | M1.3 (after M0 numbers), M1.5b, M1.8b, M1.11 | ui/Engine.lua, ui/Camera.lua |
 | 1c | M1.4 (after M1.3 layer API) | — |
+| M1b-1 | M1.12, M1.13 (the user's play-test of M1) | — |
 | 2a/2b | M2.1, 2.2, 2.3 → M2.4 after M2.1 stub | — |
 | 3a | M3.1–M3.4 | — |
 | 4a | M4.1–M4.6 | — |
 | 5 | M5.1–M5.3 | — |
 | 6 | M6.1 alone → M6.2 + M6.3 | M6.1: whole tree |
 
-Counts: **41 work packages** (M0 8, M1 13, M2 4, M3 4, M4 6, M5 3, M6 3) + 5 gate packages (M0–M4). Max swarm width: 8 (wave 1a).
+Counts: **43 work packages** (M0 8, M1 13, M1b 2 so far, M2 4, M3 4, M4 6, M5 3, M6 3) + 5 gate packages (M0–M4). Max swarm width: 8 (wave 1a).
 
 ## 8. Risks and mitigations
 
