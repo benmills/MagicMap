@@ -41,7 +41,7 @@ end
 -- from the view stays far whatever the origin: hosting fewer, near the view, is M4.2's continent
 -- filter and M4.4's), nor a held canvas scaled past 1.4 (Engine's BAND_HI): a layout from further out
 -- while the zoom comes in (borders, a crossfade's old canvas), its origin's offset growing with its
--- scale until it's laid out again (R-P1: 33,979 px at 43x, the wheel's 20 notches in from 16 after a
+-- scale until it's laid out again (R-P1: 35,034 px at 45x, the wheel's 16 notches in from 16 after a
 -- flick out about a corner), as the spike's PlaceCanvas (Layers.lua:142-156), the client's error still
 -- a thousandth of a pixel there (the ground's, past 1.4 while a zoom in outruns its layout, is held to
 -- the limit: 2,869 px at most, 2.3x, in R-P1). And no

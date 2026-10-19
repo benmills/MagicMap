@@ -31,7 +31,7 @@ local LEAD, TRAIL, FAST = 0.75, 0.25, 0.5 -- moving FAST views a second or more:
 local AHEAD_S = 0.3 -- moving: laid out again before the view this far ahead leaves the layout
 local JOB_MS, MISSING_MS = 4, 4.5 -- the layouts' budget a frame; with one urgent (with the steps, ~5)
 local PAN_MS = 2.5 -- layouts ahead of a pan, the view still covered: smaller slices (the drag's frame p95)
-local CHAIN_MS, CHAIN_TO = 1.5, 3.5 -- a layout ending with this much left of the frame's budget, at most this, hands it on (Chain)
+local CHAIN_MS, CHAIN_TO = 1, 3.5 -- a layout ending with this much left of the frame's budget, at most this, hands it on (Chain)
 local BAND_LO, BAND_HI = 0.7, 1.4 -- the camera's zoom over a layout's: outside, laid out again before it settles
 local DRIFT = 1.25 -- a "move" or "pin" layer's: its names and pins are chosen for a zoom (Layers.lua:2012 LABEL_DRIFT)
 local FADE_S = 0.12 -- a held layer's crossfade to a layout at another zoom (Layers.lua:1697 CROSSFADE)
@@ -529,9 +529,11 @@ end
 
 -- What a layer's front lacks: nil (nothing), "late" (lay it out again), or urgent: "missing" (the view
 -- lacks it, or a moved one's offsets would pass SHOWN_PX), "soon" (a zoom out about to run past its
--- tiles), "drift" (names and pins laid out for a zoom a drift from the camera's, names for another than
--- the one it landed at: Layers.lua:2012-2030; or not for where it's headed), "blur" (tiles zoomed in
--- past [0.7, 1.4] of their layout's). settled: the zoom's (Camera.ZoomSettled); goal.held: the wheel's
+-- tiles; a moved one reaching past ORIGIN_PX at the camera's zoom, before SHOWN_PX hides it), "drift"
+-- (names chosen for a zoom a drift from the camera's, or another than the one it landed at: Layers.lua:
+-- 2012-2030; pins left out by their minimum zoom a layout would now draw; names and pins not laid out for
+-- where it's headed), "blur" (tiles zoomed in past [0.7, 1.4] of their layout's). Pins aren't chosen for a zoom
+-- (PositionPins places them, Layers.lua:403-416): laid out again for the view, not each drift. settled: the zoom's (Camera.ZoomSettled); goal.held: the wheel's
 -- ticks have stopped; goal.out: zooming out, its layout would hold the view now. A held layer not yet laid
 -- out for the goal is late, missing once off the view (a fast zoom out): the ones it scales over go first.
 local function Stale(layer, inst, cam, w, h, settled)
@@ -559,7 +561,10 @@ local function Stale(layer, inst, cam, w, h, settled)
 		return Covers(c, cam, w, h) and "late" or "missing"
 	end
 	if not Covers(c, cam, w, h) or move and not Shown(c, cam, w, h) then return "missing" end
-	if goal.out and layer.zoom == "scale" and not Covers(c, near, w, h) then return "soon" end
+	if goal.out and layer.zoom == "scale" and not Covers(c, near, w, h) or move and c.reach * cam.zoom > ORIGIN_PX then
+		return "soon"
+	end
+	if layer.zoom == "pin" then drifted = false end
 	if move and (more or zoomed and (drifted or landed) or step.zoom == goal.zoom and (c.gx ~= goal.cx or c.gy ~= goal.cy)
 		and not Holds(c.region, goal, w, h)) then return "drift" end
 	if layer.zoom == "scale" and drifted and s > 1 then return "blur" end
@@ -571,8 +576,8 @@ end
 local function On(layer) return layer.on end
 -- Stale's urgent kinds (at MISSING_MS), each its turn after layer.order (the ground 0, names and pins 100,
 -- borders 200, + level): the view lacking a layer, or soon to, first (a zoom out's ground laid out later is
--- laid out further out: the goal runs on), then names and pins drifted, a blurred ground after them.
-local URGENT = { missing = 0, soon = 0, drift = 0, blur = 150 }
+-- laid out further out: the goal runs on), but borders after names and pins drifted, then a blurred ground.
+local URGENT = { missing = 0, soon = 0, drift = 50, blur = 170 }
 
 -- A layer's turn this frame, lower first: an urgent one; then a layout going on; then the one laid out
 -- longest ago (zooming in, names wait on no tile layout).

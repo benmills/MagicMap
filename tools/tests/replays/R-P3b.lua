@@ -4,7 +4,8 @@
 -- the wheel at each, twice over the same views; then the small window following you on a walk through
 -- the city's doors among 10 blips. The priced clock, at the client's prices (below):
 --   * the first time, our garbage <= 50 KB/s; what the canvases' first regions take besides (kept in
---     their pools: ~6000 here, made once a session) is printed
+--     their pools: ~7300 here, made once a session) is printed and held under 7500 and 165 KB/s, so a pool
+--     that grows shows (the client's heap reading counts it: d1's shape, docs/runtime.md)
 --   * the second time and walking, all of it <= 50 KB/s (over the whole run, ~64 KB/s with the first
 --     time's regions: the client's heap reading can't tell pool growth from garbage, docs/runtime.md)
 --   * a layout allocates its three traces (~1.1 KB: start, end, swap) and nothing else once its canvas
@@ -116,6 +117,24 @@ local first = Measure(Big)
 Big() -- (each canvas laid out both ways round)
 local again = Measure(Big)
 
+-- The big window's regions by layer, zoom by zoom: live (the front's) and on its canvases (the old
+-- front's at alpha 0 with them, its frame for a minimum zoom's too: what the final session's
+-- frame.moved.alpha0 would be multiplied by, docs/runtime.md).
+for _, z in ipairs({ 200, 100, 60, 50, 36 }) do
+	M.SetZoom(z)
+	Camera.cam.cx, Camera.cam.cy = cx, cy
+	sim.Run(1)
+	local live, held, each = 0, 0, {}
+	for _, l in ipairs(ns.UI.Engine.layers) do
+		local n, on = T.Live(l), 0
+		for _, c in ipairs(l.canvases) do
+			for _, f in ipairs({ c, unpack(T.Values(c.mins)) }) do on = on + #sim.state[f].regions end
+		end
+		live, held, each[#each + 1] = live + n, held + on, string.format("%s %d/%d", l.name, n, on)
+	end
+	T.Print("P3b: big at %d px a tile: %d regions live, %d on the canvases (%s)", z, live, held, table.concat(each, ", "))
+end
+
 -- The walk: small, following you east through Orgrimmar among 10 blips (R-P3's), a door every 5 s.
 sim.Press("M")
 sim.Run(1.5)
@@ -150,6 +169,7 @@ T.Print("P3b: Orgrimmar big, %.0f s: %.1f KB/s at the client's prices, %d region
 	.. " %.0f s: %.1f KB/s; the drag's frame p95 %.2f ms, p99 %.2f", first.secs, first.kbs, first.made, first.garbage,
 	again.kbs, again.layouts, each, walk.kbs, secs, all, drag.p95, drag.p99)
 assert(first.garbage <= 50 and again.kbs <= 50 and walk.kbs <= 50)
+assert(first.made <= 7500 and first.kbs <= 165, "the first pass's pools grew") -- (7311, 158.7 KB/s: M1b review)
 assert(again.made <= 50 and again.layouts >= 100 and each <= 1.25, "a layout: its traces, nothing else")
 assert(drag.p95 < 3, drag.p95)
 assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n"))
