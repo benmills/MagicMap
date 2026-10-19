@@ -38,26 +38,41 @@ local KEEP_SHOWN = 8                -- ...and still show it while the new one's 
 local SMOOTH = 2                    -- corner-rounding passes
 local LOOKAHEAD = 40                -- route points ahead of you checked for a straight way to them
 
-local DIRS = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }
 local SQRT2 = math.sqrt(2)
+local KEEP_NODES = 8192 -- a search's tables kept for the next (emptied first) while it closed no more than this
 
 local function Class(inst, gc, gr) return (Walk.Cell(inst, gc, gr)) end
 
+-- A search's tables: g (a node's cost so far, negated less one once it's closed: no closed set), parent,
+-- and a binary heap of (node, its f when pushed): a node found again by a cheaper way is pushed again,
+-- and its older entries skipped (closed). Kept from search to search, so a stray's makes no garbage.
+local gs, parents, heap, key, ways = {}, {}, {}, {}, {}
+
+local function Empty(t)
+	local n = 0
+	for k in pairs(t) do
+		t[k] = nil
+		n = n + 1
+		if n % 256 == 0 then Runtime.Yield() end
+	end
+end
+
 -- A*, from chunk (sc, sr) to (gc, gr), a node at a time between Runtime.Yields. The chunks along
 -- the way, start first, or nil. With no way there (a hilltop it can't see the way up), the way to
--- as near as it got, and true (Route.lua:109-183). Third: it gave up at MAX_NODES. A node's g is
--- negated (less one) once it's closed: no closed set (a search's garbage is its tables).
+-- as near as it got, and true (Route.lua:109-183). Third: it gave up at MAX_NODES.
 local function Search(inst, sc, sr, gc, gr)
-	local CanMove = Walk.CanMove
+	local Around, DIRS = Walk.Around, Walk.DIRS -- (the 8 ways, in the order Around hands them)
+	local g, parent = gs, parents
+	Empty(g)
+	Empty(parent)
+	Empty(heap)
+	Empty(key)
 	local d = math.sqrt((gc - sc) ^ 2 + (gr - sr) ^ 2)
 	local pad = math.max(PAD, d * PAD_SHARE)
 	local c0, c1 = math.min(sc, gc) - pad, math.max(sc, gc) + pad
 	local r0, r1 = math.min(sr, gr) - pad, math.max(sr, gr) + pad
 	local goal = gc * SPAN + gr
-	local g, parent = { [sc * SPAN + sr] = 0 }, {}
-	-- A binary heap of (node, its f when pushed): a node found again by a cheaper way is pushed
-	-- again, and its older entries skipped (closed).
-	local heap, key = { sc * SPAN + sr }, { d }
+	g[sc * SPAN + sr], heap[1], key[1] = 0, sc * SPAN + sr, d
 	local function Push(id, f)
 		local i = #heap + 1
 		heap[i], key[i] = id, f
@@ -95,10 +110,13 @@ local function Search(inst, sc, sr, gc, gr)
 		return out
 	end
 	local near, nearD = sc * SPAN + sr, d -- the nearest it's got
-	local count = 0
+	local count, found = 0, nil
 	while #heap > 0 and count < MAX_NODES do
 		local id = Pop()
-		if id == goal then return Way(id) end
+		if id == goal then
+			found = Way(id)
+			break
+		end
 		local gi = g[id]
 		if gi >= 0 then -- (not closed: a cheaper way's entry was popped before this one)
 			g[id] = -gi - 1
@@ -106,32 +124,40 @@ local function Search(inst, sc, sr, gc, gr)
 			local c, r = math.floor(id / SPAN), id % SPAN
 			local h = math.sqrt((gc - c) ^ 2 + (gr - r) ^ 2)
 			if h < nearD then near, nearD = id, h end
-			for _, dir in ipairs(DIRS) do
-				local nc, nr = c + dir[1], r + dir[2]
-				local nid = nc * SPAN + nr
-				local gn = g[nid]
-				if not (gn and gn < 0) and nc >= c0 and nc <= c1 and nr >= r0 and nr <= r1 and CanMove(inst, c, r, dir[1], dir[2]) then
-					local step = (dir[1] ~= 0 and dir[2] ~= 0) and SQRT2 or 1
-					local ng = gi + step * COST[Class(inst, nc, nr)]
-					if not gn or ng < gn then
-						g[nid], parent[nid] = ng, id
-						Push(nid, ng + math.sqrt((gc - nc) ^ 2 + (gr - nr) ^ 2))
+			Around(inst, c, r, ways)
+			for k = 1, 8 do
+				local class = ways[k]
+				if class then
+					local dir = DIRS[k]
+					local nc, nr = c + dir[1], r + dir[2]
+					local nid = nc * SPAN + nr
+					local gn = g[nid]
+					if not (gn and gn < 0) and nc >= c0 and nc <= c1 and nr >= r0 and nr <= r1 then
+						local ng = gi + (k > 4 and SQRT2 or 1) * COST[class]
+						if not gn or ng < gn then
+							g[nid], parent[nid] = ng, id
+							Push(nid, ng + math.sqrt((gc - nc) ^ 2 + (gr - nr) ^ 2))
+						end
 					end
 				end
 			end
-			Runtime.Yield()
 		end
+		Runtime.Yield() -- (a closed node's entry too: a run of them is a node's work)
 	end
 	local capped = count >= MAX_NODES
-	if nearD <= math.max(GAP, d * GAP_SHARE) and nearD < d then return Way(near), true, capped end
-	return nil, nil, capped
+	local partial
+	if not found and nearD <= math.max(GAP, d * GAP_SHARE) and nearD < d then found, partial = Way(near), true end
+	if count > KEEP_NODES then gs, parents, heap, key = {}, {}, {}, {} end -- (not kept: MBs after a capped one)
+	return found, partial, capped
 end
 
 -- Can you walk straight from chunk a to chunk b, through chunks no costlier than `worst`? Steps
 -- chunk to chunk along the line, both ways round where it passes a corner exactly (Route.lua:185-212).
 -- Which boundary comes first, (ix + 0.5) / nx or (iy + 0.5) / ny, is compared multiplied out: no
--- divide by a count that's 0 on a row or a column (spike-bugs E3).
-local function Sight(inst, ac, ar, bc, br, worst)
+-- divide by a count that's 0 on a row or a column (spike-bugs E3). yield: called each SIGHT_STEPS
+-- chunks (in the search's job: a long line of sight is many nodes' work).
+local SIGHT_STEPS = 8
+local function Sight(inst, ac, ar, bc, br, worst, yield)
 	local CanMove = Walk.CanMove
 	local dx, dy = bc - ac, br - ar
 	local sx, sy = dx > 0 and 1 or -1, dy > 0 and 1 or -1
@@ -151,6 +177,7 @@ local function Sight(inst, ac, ar, bc, br, worst)
 		end
 		local k = Class(inst, c, r)
 		if k == BLOCKED or COST[k] > worst then return false end
+		if yield and (ix + iy) % SIGHT_STEPS == 0 then yield() end
 	end
 	return true
 end
@@ -165,7 +192,8 @@ local function Straighten(inst, ids)
 		while j <= #ids do
 			worst = math.max(worst, COST[Class(inst, math.floor(ids[j] / SPAN), ids[j] % SPAN)])
 			Runtime.Yield()
-			if not Sight(inst, math.floor(ids[i] / SPAN), ids[i] % SPAN, math.floor(ids[j] / SPAN), ids[j] % SPAN, worst) then break end
+			if not Sight(inst, math.floor(ids[i] / SPAN), ids[i] % SPAN, math.floor(ids[j] / SPAN), ids[j] % SPAN, worst,
+				Runtime.Yield) then break end
 			best, j = j, j + 1
 		end
 		out[#out + 1] = ids[best]
@@ -217,8 +245,11 @@ local failed -- { inst, goal, col, row, half, capped }: no route from there; str
 local out    -- Model.Route()'s
 local cut = {} -- what out was cut from: pts, from, dest
 
--- How far (in chunks) tile position (c, r) is from the route, and the leg nearest it.
+-- How far (in chunks) tile position (c, r) is from the route, and the leg nearest it. Kept for the
+-- last route and position asked (Kept's and the cut's, a frame; standing, none).
+local near = {} -- pts, c, r, d, i
 local function Nearest(pts, c, r)
+	if near.pts == pts and near.c == c and near.r == r then return near.d, near.i end
 	local best, bi
 	for i = 1, #pts - 1 do
 		local a, b = pts[i], pts[i + 1]
@@ -229,7 +260,8 @@ local function Nearest(pts, c, r)
 		local d = (px - c) ^ 2 + (py - r) ^ 2
 		if not best or d < best then best, bi = d, i end
 	end
-	return math.sqrt(best or 0) * CHUNKS, bi
+	near.pts, near.c, near.r, near.d, near.i = pts, c, r, math.sqrt(best or 0) * CHUNKS, bi
+	return near.d, bi
 end
 
 -- Moved more than n chunks (RETRY_MOVED) from (c1, r1)?

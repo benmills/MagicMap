@@ -4,14 +4,18 @@ clock that counts their Lua (R-P2's), so a 1 ms slice is a slice of work:
 
   test_route_dun_morogh: Kharanos to Anvilmar, around Dun Morogh's hills: found a slice a frame, each
     within its 1 ms but a node (the exit's "a 1 ms slice a frame, at most the slice and one node"), from you to
-    the target.
+    the target. So are long open ones, their lines of sight long (the Barrens north to south, Goldshire to
+    Westfall, Feralas to Thousand Needles).
   test_route_replan: found again only past 3 chunks off it, or once the target moves more than 2 (an
     area's nearest edge slides as you go); meanwhile the old one (F33).
   test_route_straight_partial: no walk data where the target is: you and it, straight; a plateau no way
     climbs, 9 tiles off: given up at 60,000 nodes, the way to as near as it got, then on straight.
-  test_route_capped: that plateau's search from Goldshire, priced: ~1,050 slices (~1,130 strict), its KB;
+  test_route_capped: that plateau's search from Goldshire, priced: ~700 slices (~720 strict), its KB;
     walking on (off its partial way, past RETRY_MOVED) searches it again only once you've come half the way
     it spanned (the lead's decision at the M3 review: the spike searched again each 3-chunk stray).
+  test_route_stray: riding a minute off the line (north, the waypoint east), priced: searched again each
+    3 chunks off, as the spike's, within the at-rest budget (small p95 ≤ 1 ms) and a fifth of the allocation's
+    (the search's tables kept from one to the next, its nodes read a 3x3 at a time: Walk.Around).
   test_route_gives_way: the big window zoomed in and out during that long search, priced: the search waits
     while the view moves (Focus.moving: a slice only in the frame a zoom starts, Model a frame behind), no
     frame over 8 ms; at rest it goes on.
@@ -53,6 +57,16 @@ def test_route_dun_morogh():
     sim.Run(1)  # standing: the same way
     assert same(ns.Model.Route(), r) and len(G.Jobs) == 1
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+    for inst, a, b in ((1, (36.5, 30.0), (37.0, 38.0)), (0, GOLDSHIRE, (29.0, 53.5)), (1, (23.0, 38.0), (32.0, 43.0))):
+        L, sim, ns, G = targets([], followed=0)
+        me = sim.player
+        me.inst, (me.col, me.row) = inst, a
+        sim.Run(1)
+        put(G, "waypoint", inst, *b)
+        while not (len(G.Jobs) and G.Jobs[1].done):
+            sim.Step()
+        p = ns.Runtime.Perf()[0]["model: route"]
+        assert p.max <= 1.1, (inst, a, b, p.max)
 
 
 def test_route_replan():
@@ -100,10 +114,12 @@ def test_route_straight_partial():
     assert len(G.Jobs) == 0
 
     G.Counting = False  # (Lua free: the whole search in one resume)
+    L.execute("local Walk = ...; Nodes = 0; local Around = Walk.Around; Walk.Around = function(...) Nodes = Nodes + 1; return Around(...) end",
+              ns.Atlas.Walk)
     put(G, "waypoint", 0, 34.75, 38.75)  # a plateau in Dun Morogh's peaks, cliffs all round
     find(sim, ns)
     r = ns.Model.Route()
-    assert 60000 < G.Jobs[1].yields < 61000  # a node a Yield, then the straightening's
+    assert G.Nodes == 60000  # given up at MAX_NODES (Walk.Around: once a node closed)
     assert r.partial and not r.straight and r[len(r)].row == 38.75
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
@@ -120,13 +136,31 @@ def test_route_capped():
     sim.Step()
     p = ns.Runtime.Perf()[0]["model: route"]
     print(f"a capped search: {frames} frames, {p.kb:.0f} KB, its slowest resume {p.max:.2f} ms, {p.kbMax:.0f} KB")
-    assert 1000 < frames < 1200 and p.kb < 5000 and ns.Model.Route().partial  # (MM_STRICT=1: ~1,130, its checks counted)
+    assert 600 < frames < 850 and p.kb < 5000 and ns.Model.Route().partial  # (MM_STRICT=1: ~720, its checks counted)
     walked = []
     for _ in range(11):  # toward it, 0.56 tiles a step (9 chunks: off its way, past RETRY_MOVED in two)
         me.col, me.row = me.col + 0.25, me.row - 0.5
         sim.Run(0.3)
         walked.append(len(G.Jobs))
     assert walked == [1] * 10 + [2], walked  # again past 5.7 tiles, half of its 11.4
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_route_stray():
+    L, sim, ns, G = targets([], followed=0)
+    me = sim.player
+    sim.Run(5)  # past login's grace
+    put(G, "waypoint", 0, *LAKESHIRE)
+    sim.Run(2)
+    sim.Price(True)
+    kb0 = ns.Runtime.Perf()[0]["model: route"].kb
+    me.facing, me.speed = 0, 14  # north, riding: off its way east
+    sim.Run(60)
+    me.speed = 0
+    p, fs = ns.Runtime.Perf()[0]["model: route"], ns.Runtime.FrameStats()
+    kb = (p.kb - kb0) / 60
+    print(f"riding off the line 60 s: {len(G.Jobs)} searches, {p.n} slices, route {kb:.1f} KB/s, small p95 {fs.byState.small.p95}")
+    assert len(G.Jobs) >= 6 and fs.byState.small.p95 <= 1 and kb <= 10 and p.max <= 1.1
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

@@ -298,7 +298,8 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   hover, estimates, a 12-tile zone at zoom 800; 25 quests' budgets, the first open, allocation over a
   stretch alone: `stretch`), test_target (Model's target end to end: priority, a quest's area edge, inside
   held; the layers turned off), test_route (A* in its job: budget, cap, the old route kept, replans, Dun
-  Morogh's pace, a capped search priced and kept half its way, none while zooming),
+  Morogh's pace and long open routes', riding off the line priced, a capped search priced and kept half
+  its way, none while zooming),
   test_target_parts (Game's waypoint, way and corpse round trips), test_path (the line, its redraws and
   cap, the edge arrow, corpse forces follow, the title's target, the corpse and waypoint pins, walking and
   priced, small and big), test_interact (the picker, /mma map and zone, zone hover and fly, Ctrl/Shift clicks through
