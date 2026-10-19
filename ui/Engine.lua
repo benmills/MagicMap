@@ -16,7 +16,8 @@
 -- LayoutLabels, Layers.lua:1647-1653, 2012-2030), "pin" (moved too, a pin shown from its minimum zoom the
 -- frame it's crossed; laid out a drift on toward where the zoom is headed, for the view, not each drift:
 -- pins, PositionPins, Layers.lua:403-416), "hold" (scaled and dimmed the further it is from its layout's
--- zoom, laid out where the zoom is headed once the wheel stops, crossfaded in as it lands: borders,
+-- zoom, laid out where the zoom is headed once the wheel stops, crossfaded in as it lands; in a glide, the
+-- camera within 2% of that zoom, laid out for the view as a pan's, over the glide's way: borders,
 -- Layers.lua:16-24, 158-170, 1824-1836, 1907-1937). The window hidden or a layer turned off, its canvases
 -- are emptied. Why, from the client's prices: docs/runtime.md "The map's engine". Window's draw step
 -- calls Engine.Draw.
@@ -36,7 +37,7 @@ local CHAIN_MS, CHAIN_TO = 1, 3.5 -- a layout ending with this much left of the 
 local BAND_LO, BAND_HI = 0.7, 1.4 -- the camera's zoom over a layout's: outside, laid out again before it settles
 local DRIFT = 1.25 -- a "move" or "pin" layer's: its names and pins are chosen for a zoom (Layers.lua:2012 LABEL_DRIFT)
 local FADE_S = 0.12 -- a held layer's crossfade to a layout at another zoom (Layers.lua:1697 CROSSFADE)
-local SAME_ZOOM = 0.02 -- log: a held layer's layouts this close in zoom cut straight over (Layers.lua:1698)
+local SAME_ZOOM = 0.02 -- log: a held layer's layouts this close in zoom cut straight over; the camera this close to the goal's, a glide (Layers.lua:1698)
 local LN2 = math.log(2)
 -- A layout reaching further than this from the origin (px at its zoom) moves it: offsets stay under
 -- 4096 px, moved 1.4x included (the tear's suspect: docs/v1-plan.md §2).
@@ -429,11 +430,11 @@ end
 
 -- Lay layer out at at.zoom over the tile rect at[1..4] (For's), on its back canvas. A crossfade running
 -- ends first (its old canvas is the back: Layers.lua:1853-1855, FinishCrossfade). Names and pins, the goal
--- a drift or less away in zoom (a glide, a chase landing): over the goal's view too, if that stays within
--- ORIGIN_PX of the origin, so one layout holds every view on the way (the spike lays its pins out map-wide,
--- Layers.lua:418-430). Draw's its own call, for what a start costs (perf.alloc: its trace; Chain's counts
--- in the layout's job that started it). (4 arguments at most: the sim's xpcall passes more in a table of
--- its own, which the client's doesn't make.)
+-- a drift or less away in zoom (a glide, a chase landing): over the goal's view too; borders (laid out at
+-- the goal) in a glide: over the camera's; if that stays within ORIGIN_PX of the origin, so one layout holds
+-- every view on the way (the spike lays its pins out map-wide, Layers.lua:418-430). Draw's its own call,
+-- for what a start costs (perf.alloc: its trace; Chain's counts in the layout's job that started it). (4
+-- arguments at most: the sim's xpcall passes more in a table of its own, which the client's doesn't make.)
 local function Start(layer, inst, at, budget)
 	local w, h = Window.Size()
 	if layer.fade then
@@ -445,9 +446,12 @@ local function Start(layer, inst, at, budget)
 	local zoom, rev = at.zoom, layer.rev and layer.rev()
 	local c0, r0, c1, r1 = at[1], at[2], at[3], at[4]
 	local ox, oy = Origin(at, c0, r0, c1, r1)
-	if layer.moves and step.zoom == goal.zoom then
-		local g0, s0 = math.min(c0, headed[1]), math.min(r0, headed[2])
-		local g1, s1 = math.max(c1, headed[3]), math.max(r1, headed[4])
+	local glide = layer.zoom == "hold" and goal.glide
+	if layer.moves and step.zoom == goal.zoom or glide then
+		local p0, q0, p1, q1 = headed[1], headed[2], headed[3], headed[4]
+		if glide then p0, q0, p1, q1 = Region(Camera.cam, w, h) end
+		local g0, s0 = math.min(c0, p0), math.min(r0, q0)
+		local g1, s1 = math.max(c1, p1), math.max(r1, q1)
 		if math.max(ox - g0, g1 - ox, oy - s0, s1 - oy) * zoom <= ORIGIN_PX then c0, r0, c1, r1 = g0, s0, g1, s1 end
 	end
 	if back.inst ~= inst or back.zoom ~= zoom or back.ox ~= ox or back.oy ~= oy or back.rev ~= rev then
@@ -535,12 +539,16 @@ end
 -- 2012-2030; pins left out by their minimum zoom a layout would now draw; names and pins not laid out for
 -- where it's headed), "blur" (tiles zoomed in past [0.7, 1.4] of their layout's). Pins aren't chosen for a zoom
 -- (PositionPins places them, Layers.lua:403-416): laid out again for the view, not each drift. settled: the zoom's (Camera.ZoomSettled); goal.held: the wheel's
--- ticks have stopped; goal.out: zooming out, its layout would hold the view now. A held layer not yet laid
--- out for the goal is late, missing once off the view (a fast zoom out): the ones it scales over go first.
+-- ticks have stopped; goal.out: zooming out, its layout would hold the view now; goal.glide: the camera
+-- within SAME_ZOOM of the goal's zoom (a glide's, log and back, isn't quite its own). A held layer not yet
+-- laid out for the goal is late, missing once off the view (a fast zoom out): the ones it scales over go
+-- first; one laid out for it in a glide isn't zoomed: laid out for the view, as a pan's (the spike's Fits,
+-- Layers.lua:1698-1700, 1875-1877, 1915).
 local function Stale(layer, inst, cam, w, h, settled)
 	local c = layer.front
 	if not c or c.inst ~= inst then return "missing" end
 	local zoomed, move = c.zoom ~= cam.zoom, layer.moves
+	if layer.zoom == "hold" and c.zoom == goal.zoom and goal.glide then zoomed = false end
 	-- Far enough from the layout's zoom to lay out again before the zoom settles: names and pins once they
 	-- drift DRIFT (Layers.lua:2012-2030), the rest out of [BAND_LO, BAND_HI]; but not while the camera
 	-- heads into it (laid out where the zoom is headed, or on the way).
@@ -595,7 +603,8 @@ end
 -- landed: blank edges; the spike lays its tiles out every frame), and zooming in two drifts on toward it
 -- (near, at most there), the camera's view with it, so one layout lasts the way in. Names: the camera's
 -- (the spike's LayoutLabels: state.zoom). Pins: a drift on toward it (step), so a zoom in lays them out
--- before it crosses their minimum zoom. Start adds the goal's view to both.
+-- before it crosses their minimum zoom. Start adds the goal's view to both, and the camera's to a held one's
+-- in a glide.
 local at = {}
 local function For(layer, cam, w, h)
 	local src = cam
@@ -658,6 +667,7 @@ function Engine.Draw(inst, cam, w, h)
 	local pending = false
 	local gz, gx, gy = UI.Motion.Goal()
 	goal.held = gz == goal.zoom -- no tick since the last frame: a held layer lays out there (Layers.lua:1907-1937)
+	goal.glide = math.abs(math.log(gz / cam.zoom)) < SAME_ZOOM -- /: never 0 (zooms > 0)
 	goal.zoom, goal.cx, goal.cy = gz, gx, gy
 	headed[1], headed[2], headed[3], headed[4] = Region(goal, w, h)
 	goal.out = gz < cam.zoom and Holds(headed, cam, w, h)
