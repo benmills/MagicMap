@@ -35,19 +35,6 @@ Atlas.SpawnsIn = function(kind, inst, c0, r0, c1, r1, filter)
     end
     return out
 end"""
-# Blizzard's tracking as Game hands it (types/observation.lua MM.ObsTracking): a new list when one changes.
-TRACKING = """local Game = ...
-local last, sig
-Game.Part("tracking", function()
-    local out, s = {}, ""
-    for i = 1, C_Minimap.GetNumTrackingTypes() do
-        local t = C_Minimap.GetTrackingInfo(i)
-        out[i] = { id = i, name = t.name, texture = t.texture, active = t.active }
-        s = s .. tostring(t.active)
-    end
-    if s ~= sig then last, sig = out, s end
-    return last
-end)"""
 SAVED = """MagicMapAtlasDB = { UI = { _v = 1, shown = false, zoom = 59, window = { left = 600, top = 800, w = 720, h = 520 } },
     Model = { _v = 1, rares = {}, blips = { [0] = {
         ["Mailbox:2045:3183"] = { name = "Mailbox", icon = 136459, col = 31.95 + 300 * %(yd)r, row = 49.75, t = 1 },
@@ -63,7 +50,6 @@ def test_services():
     L, sim, ns = boot(SAVED % {"yd": YD})
     G = L.globals()
     L.execute(STUB, ns.Atlas, L.table_from({k: L.table_from(v) for k, v in NPCS.items()}), START[0], START[1], YD)
-    L.execute(TRACKING, ns.Game)
     for name, texture, f in (("Find Trainers", 136463, 16), ("Repair", 136465, 512)):
         G.Sim.tracking[len(G.Sim.tracking) + 1] = L.table_from({"name": name, "texture": texture, "active": True,
                                                                 "filterID": f})

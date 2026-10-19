@@ -4,17 +4,24 @@
 -- layer is on; the vignette gone, or that layer off, the seen one is back. Each step one Mother Fang among
 -- Known("rares") and the vignettes drawn, and on the map one pin at most (the rares layer's when it's listed;
 -- the vignettes' layer is M4.4's). Questie's turn-in "?" beside ours: M4.2's (test_addonpins).
--- obs.vignettes is M4.1's (game/parts/Vignettes.lua); until it's here, the replay's part hands the sim's
--- vignette over (Mother Fang, at Atlas.MapToTile(1429, 0.38, 0.79)), and its last say wins once it is.
+-- obs.vignettes as game/parts/Vignettes.lua reads it: the sim's vignette (Mother Fang, at Atlas.MapToTile(1429,
+-- 0.38, 0.79)), gone while Sim.noVignettes.
 local T = ...
 local COL, ROW = 31.594, 50.316
 local sim, ns = T.Boot(T.TEST_UI .. "\nMagicMapAtlasDB.Model = { _v = 1, blips = {}, rares = { [0] = { ['npc:471'] = "
 	.. "{ name = 'Mother Fang', npcID = 471, col = " .. COL .. ", row = " .. ROW .. ", t = 1792000000 } } } }")
 local Model = ns.Model
-local function Fang() return { id = "Vignette-0-1", name = "Mother Fang", rare = true, npcID = 471,
-	icon = { atlas = "VignetteKill" }, pos = { inst = 0, col = COL, row = ROW } } end
-local vignettes = { Fang() }
-ns.Game.Part("vignettes", function() return vignettes end)
+sim.vignetteAtlas = "VignetteKillElite" -- a rare's art; the creature's GUID: her NPC
+local info = C_VignetteInfo.GetVignetteInfo
+C_VignetteInfo.GetVignetteInfo = function(guid)
+	local i = info(guid)
+	i.objectGUID = "Creature-0-1-0-1-471-0000000001"
+	return i
+end
+local function Vignettes(on)
+	sim.noVignettes = not on
+	sim.FireEvent("VIGNETTES_UPDATED")
+end
 sim.Run(1)
 sim.Slash("/mma toggle")
 sim.Run(3)
@@ -51,13 +58,13 @@ local seen = Model.saved.rares[0]["npc:471"]
 assert(seen.t > 1792000000 and seen.col == COL and seen.row == ROW, "seen again where it is")
 
 -- The vignette gone: the seen one is back.
-vignettes = {}
+Vignettes(false)
 sim.Run(0.5)
 n, rares = Pins()
 assert(Count(true) == 1 and n == 1 and rares == 1, "one: the seen one")
 
 -- Live again, the vignettes layer off (UI's Focus.off: ui/View.lua names the layers Model reads): the seen one.
-vignettes = { Fang() }
+Vignettes(true)
 sim.Run(0.5)
 assert(Count(true) == 1 and select(2, Pins()) == 0, "under the live one again")
 local f = {}
