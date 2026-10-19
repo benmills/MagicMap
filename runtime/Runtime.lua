@@ -396,8 +396,9 @@ local states, state = {}, nil -- state: the one now (nil until UI sets one)
 for i = 1, STATES do
 	local h, c = {}, {}
 	for j = 1, NB do h[j], c[j] = 0, 0 end
-	states[i] = { name = false, frames = 0, max = 0, hist = h, client = c, clientMax = 0 }
+	states[i] = { name = false, frames = 0, max = 0, hist = h, client = c, clientN = 0, clientMax = 0 }
 end
+local ended -- the state the last frame ended in (nil: a grace's): its whole frame is the next OnUpdate's elapsed
 
 -- The map's state now: the frames from here on count under it too (FrameStats byState).
 function Runtime.SetState(name)
@@ -417,6 +418,7 @@ local function Count(cost, kb, elapsed)
 			if not g or graceAt[name] > graceAt[g] then g = name end
 		end
 		if cost > (graceMax[g] or 0) then graceMax[g], graceTop[g], graceTopMs[g] = cost, top, topMs end
+		ended = nil
 		return
 	end
 	local s = stats
@@ -429,12 +431,16 @@ local function Count(cost, kb, elapsed)
 	if st then
 		st.frames, st.hist[b] = st.frames + 1, st.hist[b] + 1
 		if cost > st.max then st.max = cost end
+	end
+	st = ended -- elapsed: the last frame's, its drawing included, under the state it ran in
+	if st then
 		local ms = elapsed * 1000
 		local c = math.floor(ms / CLIENT_BUCKET) + 1
 		if c > NB then c = NB end
-		st.client[c] = st.client[c] + 1
+		st.clientN, st.client[c] = st.clientN + 1, st.client[c] + 1
 		if ms > st.clientMax then st.clientMax = ms end
 	end
+	ended = state
 	if kb >= 0 then
 		s.kbFrames, s.kb, s.kbSecs = s.kbFrames + 1, s.kb + kb, s.kbSecs + elapsed
 		local k = math.floor(kb / KB_BUCKET) + 1
@@ -523,8 +529,8 @@ function Runtime.FrameStats()
 			local cm = R1(st.clientMax)
 			out.byState[st.name] = { frames = st.frames, p50 = Pct(0.5, st.hist, st.frames, BUCKET, m),
 				p95 = Pct(0.95, st.hist, st.frames, BUCKET, m), p99 = Pct(0.99, st.hist, st.frames, BUCKET, m), max = m,
-				client = { p50 = Pct(0.5, st.client, st.frames, CLIENT_BUCKET, cm), p95 = Pct(0.95, st.client, st.frames, CLIENT_BUCKET, cm),
-					p99 = Pct(0.99, st.client, st.frames, CLIENT_BUCKET, cm), max = cm } }
+				client = { p50 = Pct(0.5, st.client, st.clientN, CLIENT_BUCKET, cm), p95 = Pct(0.95, st.client, st.clientN, CLIENT_BUCKET, cm),
+					p99 = Pct(0.99, st.client, st.clientN, CLIENT_BUCKET, cm), max = cm } }
 		end
 	end
 	return out

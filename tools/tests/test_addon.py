@@ -205,6 +205,17 @@ def test_attribution():
     sim.Wheel(w.view, 4)
     sim.Run(1)
     sim.Drag(w.view, 200, 0)
+    # a drag's last frame drawn slowly (100 ms: the next OnUpdate's elapsed, once the drag ended): the drag's
+    sim.MoveCursorTo(w.view)
+    sim.buttonsDown.LeftButton = True
+    sim.FireScript(w.view, "OnMouseDown", "LeftButton")
+    for _ in range(10):
+        sim.cursorX = sim.cursorX + 20
+        sim.Step()
+    sim.buttonsDown.LeftButton = None
+    sim.FireScript(w.view, "OnMouseUp", "LeftButton")
+    sim.Step(0.1)
+    sim.Step()
     w.Toggle()
     sim.Run(0.5)
     stats = R.FrameStats()
@@ -213,6 +224,7 @@ def test_attribution():
     assert sum(by[s].frames for s in ("closed", "small", "zoom", "drag")) == stats.frames
     # and the client's whole frame in each (the sim's: 1/60 s)
     assert all(16.5 <= by[s].client.p50 <= 17 and by[s].client.max >= 16.6 for s in ("closed", "small", "zoom", "drag"))
+    assert by.drag.client.max >= 100 and by.small.client.max < 20
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
