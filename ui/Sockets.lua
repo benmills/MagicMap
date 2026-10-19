@@ -26,7 +26,8 @@ Sockets.world = world
 
 local held, placed, x, y = nil, true, nil, nil -- the zoom last frame; as applied
 local keys = {} -- an addon's key -> its layer's
--- Each frame (ui/View.lua's step): View.sockets and the layers Game borrows for. True: either changed.
+-- Each frame (ui/View.lua's step): View.sockets and the layers Game borrows for. True: either changed,
+-- the socket's zoom or map with it (set in place: Game re-places its pins on them).
 function Sockets.Update(v)
 	if not (Window.frame:IsShown() and v.renderer ~= "blizzard") then
 		local was = v.sockets.world
@@ -34,9 +35,11 @@ function Sockets.Update(v)
 		return was ~= nil
 	end
 	local cam, w, h = Camera.cam, Window.Size()
+	local zoom, inst = world.zoom, Camera.inst or 0
 	if world.zoom == 0 or cam.zoom == held then world.zoom = cam.zoom end
 	held = cam.zoom
-	world.inst = Camera.inst or 0
+	local moved = world.zoom ~= zoom or world.inst ~= inst
+	world.inst = inst
 	local at = world.zoom == cam.zoom -- the pins where they belong
 	if at ~= placed then
 		placed = at
@@ -47,7 +50,7 @@ function Sockets.Update(v)
 		x, y = nx, ny
 		canvas:SetPoint("TOPLEFT", view, "TOPLEFT", nx, ny)
 	end
-	local changed = v.sockets.world ~= world
+	local changed = moved or v.sockets.world ~= world
 	v.sockets.world = world
 	for _, a in ipairs(Model.addons) do
 		if a.world then

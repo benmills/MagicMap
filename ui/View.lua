@@ -70,7 +70,7 @@ Runtime.Step("ui", "ui: view", function()
 	end
 	local strata, level = frame:GetFrameStrata(), frame:GetFrameLevel()
 	local layersOn = Engine.LayerOn("blips")
-	if shown ~= window.shown or place ~= window.place or saved.minimap ~= view.minimap
+	if shown ~= window.shown or place ~= window.place or still ~= window.still or saved.minimap ~= view.minimap
 		or layersOn ~= (view.layers.blips == true) or (Camera.inst or 0) ~= view.inst or BigMap.big ~= window.big
 		or BigMap.homeAlpha ~= window.homeAlpha or strata ~= window.strata or level ~= window.level
 		or saved.button ~= view.button then

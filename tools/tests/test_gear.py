@@ -133,6 +133,22 @@ def test_gear():
     assert row.onSelect() == refresh
     sim.Step()  # View.layers from the next frame, View.frame with it (types/view.lua)
     assert view.layers["addon:Questie"] is None and view.frame > frame
+    # The world socket's zoom, set in place: View.frame stamped the frame it lands (Game re-places its pins
+    # then); and the window's `still` (the blip sensor's) the frame it flips.
+    world, zoom = view.sockets.world, view.sockets.world.zoom
+    ns.UI.Motion.ZoomStep(1)
+    while world.zoom == zoom:
+        frame = view.frame
+        sim.Step()
+    assert view.frame == ns.Runtime.frames and view.frame > frame
+    sim.Run(0.5)
+    UI.Window.frame.ClearAllPoints(UI.Window.frame)
+    UI.Window.frame.SetPoint(UI.Window.frame, "TOPLEFT", G.UIParent, "TOPLEFT", 50, -50)
+    sim.Step()
+    assert not view.window.still
+    frame = view.frame
+    sim.Step()
+    assert view.window.still and view.frame > frame
     sim.Run(1.1)
     assert not hosted(L, pin, ns) and row.isSelected() is False
     row.onSelect()
