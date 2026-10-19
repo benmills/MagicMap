@@ -2,3 +2,5 @@ game/commands/slash.lua
 game/commands/load.lua
 game/commands/follow.lua
 game/commands/tooltip.lua
+game/commands/waypoint.lua
+game/commands/way.lua
