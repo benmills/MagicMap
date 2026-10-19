@@ -42,7 +42,11 @@ services; M4.4 UI's places, group, shade, indoor art, renderer, sockets, the ins
 gear's Tracking and Advanced; M4.6 the diagnostics slash), its types/ additions committed, its review's round 1
 on main; M4's sim half done at 9d2dc45 (the M4 gate, 2026-10-19: 178 passed plain and strict; every parity row
 built but F56, M5.2's, and S31, the user's call), its in-game half in docs/playtest-final.md (a6, d0-d8, e1c, e2,
-e6; a3c, a7s, b7, e5 from the review). Then M5 hardening and parity sign-off, M6 rename, merge, release.
+e6; a3c, a7s, b7, e5 from the review). M5 (hardening and parity): wave 1 merged 2026-10-19 (M5.1 the 10-minute priced soak,
+test_soak; M5.2 every replay without QuestieDB's data too, F56's notice; M5.3 the S rows audited against the spike's code);
+M5's sim half done at 532cd9e (the M5 gate, 2026-10-19: 211 passed plain and strict), its in-game half in
+docs/playtest-final.md (a8, b21, c8, d9, e8: two 10+ minute sessions a script; e2, e5, e7; the sign-off). Left: M1.15
+(a zoom FAIL in game is its). Then M6 rename, merge, release.
 
 ## 2. Rules for every package (v1-plan §3)
 

@@ -395,6 +395,11 @@ each), with G6's minimap half in test_addonpins: 29 rows in tools/tests/test_spi
 invariants (one pin a thing a frame, no Blizzard Minimap art but under `blizzard`). None is left in v1, and every
 MOVED row has a replay or a listed in-game check (K1: a3b, a3c; K3: e5; D2: a1, a3c). In game:
 docs/playtest-final.md a6 and d3 (G1), d1r and e1c (D1), d7 and e1c (D4), d7 (S1), e1c and e2 (G6), d5 and e6 (K2).
+M5 (wave 1 and the M5 gate, 2026-10-19, 532cd9e: tools/check.sh green, 211 passed plain and strict, no skip or xfail)
+changed no verdict. Every replay runs again without the QuestieDB-derived data (test_replay_no_data; R-G5 so too: pins
+drawn, the reduced tooltip, one notice), the 10-minute soak beside them (test_soak). The 20 MOVED rows each have a replay
+or a sim test, but K1 (a3b, a3c) and K3 (test_farmhud; e5) in game: none unexplained. In game: docs/playtest-final.md
+a8, b21, c8, d9, e8 (two 10+ minute sessions a script), e5 (K3, G3), e7 (G5 without the data).
 
 ## MOVED: risks the v1 run must design against
 
