@@ -2,8 +2,9 @@
 -- to its pins.Minimap, so one added after the engage landed on the unseen sensor (alpha 0, under
 -- our map), where it still took the mouse: Questie's at frame level 2016+, over the view (child
 -- frames take their parent's strata, the view the window's). PREVENTED: while engaged, every copy
--- drawing on the Minimap, one loaded since too, draws on a hidden host (the spike's hiddenHost,
--- MinimapTakeover.lua:84-93); released, back on the Minimap, last.
+-- drawing on the Minimap, one loaded since too, draws on a host of Game's (game/AddonPins.lua): out of
+-- sight (the spike's hiddenHost, MinimapTakeover.lua:84-93), but around you on the minimap socket UI
+-- publishes (M4.4; test_addonpins.py); released, back on the Minimap, last.
 local T = ...
 local sim, ns = T.Boot("MagicMapAtlasDB = nil") -- the shipped default: shown, small, on the minimap's spot
 sim.Run(3)
@@ -18,12 +19,14 @@ local icon = sim.QuestieIcon({ Type = "available", Id = 70 })
 icon:EnableMouse(true)
 q:AddMinimapIconMap(Questie, icon, 1429, 0.297, 0.546)
 sim.Run(0.5)
-local host = icon:GetParent()
+local host, socket = icon:GetParent(), ns.UI.View().sockets.minimap
+local around = socket and host:GetParent() == socket.frame
 T.Print("G6c: Questie's minimap pin on %s (shown %s, visible %s); GatherMate's on the same: %s",
-	host == Minimap and "the Minimap" or "a hidden host", tostring(icon:IsShown()), tostring(icon:IsVisible()),
-	tostring(gather:GetParent() == host))
-assert(host ~= Minimap and not host:IsShown() and not icon:IsVisible(), "out of sight, the mouse not on it")
-assert(gather:GetParent() == host and not gather:IsVisible())
+	host == Minimap and "the Minimap" or around and "a host on the minimap socket" or "a hidden host",
+	tostring(icon:IsShown()), tostring(icon:IsVisible()), tostring(gather:GetParent() == host))
+assert(host ~= Minimap and q.Minimap ~= Minimap and sim.hbdPins.Minimap ~= Minimap, "not on the unseen sensor")
+assert(around or not (host:IsShown() or icon:IsVisible()), "out of sight, the mouse not on it")
+assert(gather:GetParent() == host and (around or not gather:IsVisible()))
 assert(host:GetZoom() == Minimap:GetZoom(), "the host answers the library's zoom")
 
 sim.Slash("/mma toggle") -- released: back on the Minimap, placed again

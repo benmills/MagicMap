@@ -1,14 +1,14 @@
--- The Minimap takeover (the minimum of the spike's MinimapTakeover.lua), in the
--- apply phase (Game.Apply), from View (types/view.lua):
+-- The Minimap takeover (the spike's MinimapTakeover.lua), in the apply phase (Game.Apply),
+-- from View (types/view.lua):
 --   View.minimap "ours" and the window shown (nothing blocking): Blizzard's
 --     Minimap becomes an unseen sensor, SENSOR_PX square, centred under the
 --     window's view (kept on the screen: off it the client stops updating its
 --     blips), just beneath the window's strata, at its widest zoom, north up, no
 --     ground, no mouse (each put right every apply: other client code turns them
 --     back). What hung on it waits on a stand-in at its home spot; the cluster hides.
---     HereBeDragons' minimap pins (every copy drawing on the Minimap, one loaded meanwhile
---     too) go to a hidden host instead: on the unseen sensor they'd still take the mouse, over
---     our map (M4.2 hosts them on sockets.minimap).
+--     HereBeDragons' minimap pins go to hosts of Game's (game/AddonPins.lua): on the unseen
+--     sensor they'd still take the mouse, over our map. View.renderer "blizzard": the Minimap
+--     whole in the window instead, no sensor (game/Renderer.lua's Game.Whole), and back.
 --   otherwise (or a View Game can't use: SAFE, game/Apply.lua): released, every change undone.
 -- Every change Engage makes is paired with its undo on a list; Release runs it
 -- backwards, so what comes back is exactly what was taken. But the cluster: its Show and
@@ -16,7 +16,8 @@
 -- once they aren't, hidden while engaged and as it was otherwise; meanwhile, engaged, it's
 -- faded (Game.minimap.fade: game/Home.lua; alpha isn't refused).
 -- Game.minimap tells the sensor (game/Blips.lua) where things stand: engaged,
--- sensor (the blips layer is on), still (the last Apply didn't move it, and its zoom has applied).
+-- sensor (the blips layer is on, not whole), still (the last Apply didn't move it, and its zoom has
+-- applied), whole (the Minimap whole in the window: game/Renderer.lua).
 
 local _, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
@@ -26,7 +27,7 @@ local MARGIN = 2        -- screen units it keeps inside the screen's edge
 local ICONS = 0.05      -- its own icons' scale: out of sight (alpha alone doesn't hide them)
 local STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP" }
 
-local m = { engaged = false, sensor = false, still = false, fade = false } -- blocker: why it isn't taken
+local m = { engaged = false, sensor = false, still = false, fade = false, whole = false } -- blocker: why it isn't taken
 Game.minimap = m
 local undo, placed = {}, nil
 local clusterShown -- the cluster's own shown state, from an engage until it's back
@@ -34,23 +35,7 @@ local clusterShown -- the cluster's own shown state, from an engage until it's b
 local standIn = CreateFrame("Frame", "MagicMapAtlasMinimapStandIn", UIParent)
 standIn:Hide()
 
--- HereBeDragons' minimap pins while engaged, out of sight; it answers what the library asks a
--- minimap (MinimapTakeover.lua:84-93: the spike's hiddenHost).
-local pinHost = CreateFrame("Frame", nil, UIParent)
-pinHost:Hide()
-pinHost:SetSize(1, 1)
-pinHost.GetZoom = function() return Minimap:GetZoom() end
-pinHost.GetZoomLevels = function() return Minimap:GetZoomLevels() end
-pinHost.SetZoom = function(_, z) Minimap:SetZoom(z) end
-
 local function OnRelease(fn) undo[#undo + 1] = fn end
-
--- Every copy drawing on the Minimap onto the host (game/AddonPins.lua finds them in LibStub).
-local function HostPins()
-	for _, copy in ipairs(Game.PinLibs(true)) do
-		if copy.lib.Minimap == Minimap then copy.lib:SetMinimapObject(pinHost) end
-	end
-end
 
 -- A pin travels with the Minimap: a copy's that stayed there, or GatherMate's (MinimapTakeover.lua:124-129).
 local function IsPin(obj)
@@ -128,15 +113,23 @@ local function Cluster()
 	if not m.engaged and c:IsShown() == clusterShown then clusterShown = nil end
 end
 
+-- The sensor's own settings (MinimapTakeover.lua:434-443): unseen, its icons out of sight, no mouse;
+-- Hold and Place see to the rest. Placed afresh.
+local function Sensor()
+	local mm = Minimap
+	mm:SetAlpha(0)
+	mm:SetIconScale(ICONS)
+	mm:EnableMouse(false)
+	mm:EnableMouseWheel(false)
+	C_Minimap.SetDrawGroundTextures(false)
+	placed = nil
+end
+
 local function Engage()
 	m.engaged = true
+	Game.PinLibs(true) -- any copy loaded since (its pins travel with the Minimap: IsPin)
 	-- Undone last: the pins back on the Minimap once it's back at its own size (MinimapTakeover.lua:338-344).
-	OnRelease(function()
-		for _, copy in ipairs(Game.PinLibs()) do
-			if copy.lib.Minimap == pinHost then copy.lib:SetMinimapObject(Minimap) end
-		end
-	end)
-	HostPins()
+	OnRelease(Game.MinimapPinsHome)
 	local mm = Minimap
 	local parent, w, h = mm:GetParent(), mm:GetSize()
 	local points = {}
@@ -176,19 +169,15 @@ local function Engage()
 	end)
 	mm:SetParent(UIParent)
 	mm:SetScale(1)
-	mm:SetAlpha(0)
-	mm:SetIconScale(ICONS)
-	mm:EnableMouse(false)
-	mm:EnableMouseWheel(false)
-	C_Minimap.SetDrawGroundTextures(false)
+	Sensor()
 	C_Minimap.SetIgnoreRotateMinimap(true)
 	mm:Show()
-	placed = nil
 	Runtime.Trace("minimap", "engaged")
 end
 
 local function Release()
 	if not m.engaged then return end
+	if m.whole then Game.Whole(nil) end
 	m.engaged, m.sensor, m.still, placed = false, false, false, nil
 	local failure
 	for i = #undo, 1, -1 do -- every step runs; the first failure is raised after
@@ -262,11 +251,20 @@ Game.Apply("minimap", function(view)
 		Release()
 	else
 		if not m.engaged then Engage() end
-		m.sensor = view.layers.blips == true and view.renderer ~= "blizzard"
-		Place(w, Hold(Minimap))
+		local whole = view.renderer == "blizzard"
+		m.sensor = view.layers.blips == true and not whole
+		if whole then
+			m.still = false
+			Game.Whole(w)
+		else
+			if m.whole then
+				Game.Whole(nil)
+				Sensor()
+			end
+			Place(w, Hold(Minimap))
+		end
 	end
 	Cluster()
 end)
 
 Runtime.On("PLAYER_LOGOUT", "game.minimap logout", Release)
-Runtime.On("ADDON_LOADED", "game.minimap pins", function() if m.engaged then HostPins() end end)

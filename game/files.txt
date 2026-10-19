@@ -7,6 +7,8 @@ game/Observe.lua
 game/Oracles.lua
 game/Minimap.lua
 game/AddonPins.lua
+game/Renderer.lua
+game/Tracking.lua
 game/Blips.lua
 game/Record.lua
 game/Validate.lua
