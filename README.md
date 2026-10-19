@@ -81,11 +81,25 @@ with no Lua error expected; `tools/luacheck.py` over the TOC (globals, every fil
 the TOC = what the folders' `files.txt` make: `tools/install.py --toc` writes it); and
 `tools/lint_div.py`, no `/` that may divide by 0 (docs/structure.md "Rules").
 
-    tools/check.sh                                     # all three, as CI runs them (makes .venv if missing)
+    tools/check.sh                                     # all three, as CI runs them (makes .venv if missing): before committing
+    tools/check.sh --quick -k zoom                     # lints + the plain pass alone, pytest arguments passed on: while iterating
     MM_CLOCK_SCALE=4 tools/check.sh                    # the sim's real clock 4x slow: the tests (counted clock) don't notice
     .venv/bin/python -m pytest tools/tests -q -p no:cacheprovider
     .venv/bin/python tools/luacheck.py                 # the TOC's files: globals, TOC, boundaries
     .venv/bin/python tools/lint_div.py                 # each / by a literal, a constant or a reason
+
+`check.sh` runs the tests twice side by side (plain, and `MM_STRICT=1`), each spread over half the
+CPUs by pytest-xdist, so every test boots its own Lua and writes only under its `tmp_path`.
+`--quick -n0 -s` runs in one process with the tests' prints shown.
+
+`tools/sim.py` drives the same simulated client (the tests boot through it) from Python or the
+shell: `s = sim.boot(priced=True)`, then `s.slash("/mma toggle")`, `s.run(3)`, `s.wheel(3)`,
+`s.drag(200, 0, 20)`, `s.walk(10, "east")`, `s.press("M")`, `s.lua(code)`, and read back
+`s.perf()` (FrameStats: byState, alloc, ledger; per-name calls), `s.errors()`, `s.layers()`;
+`s.T` is the replays' harness (tools/tests/harness.lua). From the shell, a script:
+
+    .venv/bin/python tools/sim.py --priced --run 'slash /mma toggle; run 3; wheel 3; run 2; perf; layers'
+    .venv/bin/python tools/sim.py --help              # the commands
 
 CI (`.github/workflows/check.yml`) runs `tools/check.sh` on every push and PR; without the
 gitignored QuestieDB-derived data those tests skip.

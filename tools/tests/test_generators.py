@@ -8,6 +8,7 @@ Regenerate after an intended change: UPDATE_GOLDEN=1 pytest tools/tests
 import os
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -122,9 +123,10 @@ def test_data_diet(tmp_path):
     if not os.path.isdir(QUESTIEDB):
         pytest.skip(f"no QuestieDB at {QUESTIEDB} (QUESTIEDB=...)")
     maps = ("--uimaps", os.path.join(ROOT, "Data", "UiMaps.lua"), "--tiles", os.path.join(ROOT, "Data", "Tiles.lua"))
-    run_tool("gen_questie.py", QUESTIEDB, "-o", str(tmp_path), *maps)
     (tmp_path / "full").mkdir()
-    run_tool("gen_questie.py", QUESTIEDB, "-o", str(tmp_path / "full"), "--full", *maps)
+    with ThreadPoolExecutor() as pool:  # the two runs side by side
+        list(pool.map(lambda args: run_tool("gen_questie.py", QUESTIEDB, *args, *maps),
+                      [("-o", str(tmp_path)), ("-o", str(tmp_path / "full"), "--full")]))
     full, _, full_kb = entities(tmp_path / "full")
     diet, missing, kb = entities(tmp_path)
     assert len(diet) > 5000 and diet == full

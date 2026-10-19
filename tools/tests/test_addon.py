@@ -3,48 +3,11 @@ and a headless smoke test on the simulated WoW Forever client
 (tools/tests/wowsim.lua): load the TOC's files in order (gitignored
 QuestieDB-derived data may be missing: what exists), log in, run ~60
 frames and every /mma command, and expect no Lua error anywhere."""
-import os
 import subprocess
 import sys
 
-from lupa import lua51
-
 import luacheck
-
-TESTS = os.path.dirname(os.path.abspath(__file__))
-# No saved data given: the map's window as the tests have it (UI's saved part, ui/View.lua): hidden
-# at login (/mma toggle opens it), 720x520 in the screen's middle, 96 px a tile. A first login's shows
-# on the minimap's spot (test_chrome.py).
-TEST_UI = "MagicMapAtlasDB = { UI = { _v = 1, shown = false, zoom = 96, window = { left = 600, top = 800, w = 720, h = 520 } } }"
-
-
-def boot(saved=None):
-    """A simulated client with MagicMapAtlas loaded and logged in: (Lua, Sim, ns), on the counted clock
-    (Sim.Counted: what a budgeted call or job gets done is the same on every machine).
-    saved: Lua source for the SavedVariables (MagicMapAtlasDB = ...) found at load (default TEST_UI)."""
-    L = lua51.LuaRuntime(encoding="latin-1", unpack_returned_tuples=True)
-    sim = L.eval("function(path) return assert(loadfile(path))() end")(os.path.join(TESTS, "wowsim.lua"))
-    sim.Counted()
-    ns = L.table()
-    load = L.eval("""function(path, ns)
-        local chunk, err = loadfile(path)
-        if not chunk then error(err, 0) end
-        return Sim.Call("loading " .. path:match("[^/]+/[^/]+$"), chunk, "MagicMapAtlas", ns)
-    end""")
-    for f in luacheck.toc_files():  # what exists (test_luacheck flags what's missing)
-        if os.path.exists(os.path.join(luacheck.ROOT, f)):
-            load(os.path.join(luacheck.ROOT, f), ns)
-    L.execute(saved or TEST_UI)
-    sim.FireEvent("ADDON_LOADED", "MagicMapAtlas")
-    sim.FireEvent("PLAYER_LOGIN")
-    sim.FireEvent("PLAYER_ENTERING_WORLD", True, False)
-    return L, sim, ns
-
-
-def errors(sim, ns):
-    out = [str(e) for e in sim.errors.values()]
-    out += [f"{e.name}: {e.err}" for e in ns.Runtime.errors.values()]
-    return out
+from sim import TEST_UI, TESTS, errors, load as boot  # noqa: F401 (the tests' boot, shared with tools/sim.py)
 
 
 def test_luacheck():
