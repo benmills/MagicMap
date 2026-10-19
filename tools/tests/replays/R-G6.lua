@@ -101,6 +101,26 @@ ns.UI.Window.frame:Hide() -- the window hides: everything back
 sim.Step()
 assert(Same(Where(pin), home), "window hidden: as it was")
 
+-- M with the library due to re-place its pins (one removed): Blizzard's map shows for a moment, the
+-- library takes its pins, our give-back starts and the next frame ours again cancels it. A pin the
+-- library holds is the library's: not re-placed onto our holder (its next show finds it on its own pin).
+ns.UI.Window.frame:Show()
+sim.Run(0.2)
+assert(Hosted())
+q:RemoveWorldMapIcon(Questie, durotar)
+sim.Run(0.2)
+sim.Press("M")
+sim.Run(1)
+sim.Press("M")
+sim.Run(1)
+ns.UI.Window.frame:Hide()
+sim.Step()
+WorldMapFrame:Show()
+sim.Step()
+local _, rel = pin:GetPoint(1)
+assert(OnBlizzards() and rel ~= holder, "M with the library refreshing: back on its pin, anchored there")
+WorldMapFrame:Hide()
+
 -- A newer minor of the shared copy loads over it (its methods redefined on the same table: our
 -- hooks gone, AddonPins.lua:55-56): hooked again, so an addon's first pin on it is heard.
 local shared = sim.hbdPins

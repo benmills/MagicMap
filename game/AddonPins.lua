@@ -183,7 +183,8 @@ local function Holder(frame)
 end
 
 -- The hosted pins at the zoom: a pass (one at a time: a borrow it stops goes on after), the holder
--- see-through meanwhile (none hosted: at once).
+-- see-through meanwhile (none hosted: at once). One the library has taken back is left be (Sync
+-- finds it and borrows it anew).
 local function Replace()
 	if Running("borrow") then dirty = true end
 	Stop()
@@ -191,7 +192,7 @@ local function Replace()
 	socket:SetAlpha(0)
 	job = Runtime.Job("game.addon pins: place", function()
 		for icon, rec in pairs(hosted) do
-			if rec.socket == socket then Place(icon, rec) end
+			if rec.socket == socket and icon:GetParent() == socket then Place(icon, rec) end
 			Runtime.Yield()
 		end
 		socket:SetAlpha(1)
