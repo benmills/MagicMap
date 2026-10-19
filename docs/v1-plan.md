@@ -259,7 +259,7 @@ Exit:
 Goal: user logs in and sees the spike: the 200 yd square on Blizzard's spot, metal hairline, gold title, hover controls, wheel glide, follow and idle return, M/Escape grow/shrink, spike ground style. 8/8 PASS, tear gone. QuestPOI Inside, HBD borrow, hooks and taint proven thin in game.
 
 Exit:
-- Sim: R-P1 at 1.5 views/s (borders ≥97% frames, tiles ≥99%, fresh ≤1 s); R-P7 (≤1 layout/layer after settle; borders scaled and dimmed while zooming, never out of sight, crossfaded as it lands); R-P3 ≤0.5 KB/frame walking with sensor + 10 blips; observe ≤2 ms on priced clock; R-P2 (every Atlas first-use in a 1 ms Job ≤2 ms); per-frame invariants on all replays: offsets ≤4096 px (on the screen, the canvases' included since the M1b review; a canvas scaled past 1.4 exempt: docs/runtime.md), map textures/masks/lines unsnapped (FontStrings excepted), shared region origin, D1 (≤1 canvas/layer α>0 outside a timed fade), no visible Blizzard Minimap art, no protected calls in combat. test_atlas Labels golden; test_generators QuestSources identical after diet. test_chrome, test_bigmap, test_zoom, test_motion, reset refused while big. Replays R-G3, R-G7, R-D3, R-D5a, R-D5b, R-E6, R-L1, HBD round trip.
+- Sim: R-P1 at 1.5 views/s (borders ≥97% frames, tiles ≥99%, fresh ≤1 s); R-P7 (≤1 layout/layer after settle; borders scaled and dimmed while zooming, never out of sight, crossfaded as it lands); R-P3 ≤0.5 KB/frame walking with sensor + 10 blips; observe ≤2 ms on priced clock; R-P2 (every Atlas first-use in a 1 ms Job ≤2 ms); per-frame invariants on all replays: offsets ≤4096 px (on the screen, the canvases' included since the M1b review, as set and as each frame ends; a held canvas scaled past 1.4 exempt: docs/runtime.md), map textures/masks/lines unsnapped (FontStrings excepted), shared region origin, D1 (≤1 canvas/layer α>0 outside a timed fade), no visible Blizzard Minimap art, no protected calls in combat. test_atlas Labels golden; test_generators QuestSources identical after diet. test_chrome, test_bigmap, test_zoom, test_motion, reset refused while big. Replays R-G3, R-G7, R-D3, R-D5a, R-D5b, R-E6, R-L1, HBD round trip.
 - In game, script (a), spike disabled: 8/8 PASS (max ≤8, p95 ≤1, p99 ≤5, first open ≤50 target ≤20, ourKB after GC ≤64 expect ~40, alloc ≤50 KB/s, load ≤250, 0 errors); no `map: borders/labels/draw` or `game.observe` in perf.slow; perf.gaps empty; 0 taint; tear re-check at 1024 across a tile boundary clean (ring + shot); shot pairs vs reference and `docs/zoomable-minimap.gif`, `minimap-to-big-map.gif`, `big-map-zoom.gif` signed off; M, Escape, L as spike; `/mma toggle` restores Blizzard's minimap exactly; `/mma check inside` agrees with standing in a quest area; Questie pins borrowed and returned.
 
 | Pkg | Owner | Scope | Contracts | Verify | Wave / Iso |
@@ -298,7 +298,7 @@ the MVP), a5g (the gear) and d1 (a city's big window and doors), and the read's 
 |---|---|---|---|---|---|
 | M1.12 Motion allocation and the validator | ui/Engine.lua, ui/Tiles.lua, ui/Borders.lua, ui/Title.lua, game/Blips.lua, game/Validate.lua | A layout keeps what its canvas shows (`Engine.Keep`, `canvas.epoch`: docs/runtime.md "The map's engine"), so a pan's tile and border layouts set only the ground they add; tile masks on coast tiles only; ahead of a pan, 2.5 ms slices (`PAN_MS`). Title coordinates through SetFormattedText. A door keeps the sensor's circles looked over. The validator: a sample allocates ~0, the logger judges as `/mma check` (the login moment, a WMO's own subzone: info), its log one build's | SavedValidation `_v` 2, `version` (OPEN: ADR 0004's consequences) | R-K4; R-P3b (Orgrimmar at the client's prices: 14.2 KB/s over views seen before, 20.3 walking through doors, a layout 1.18 KB, the drag's p95 2.75 ms); R-P1 180/180 frames every layer | M1b wave 1, W: done c31930f |
 | M1.13 Settings that work and read like the MVP | ui/Menus.lua (gear), tools/tests/test_gear.py | The gear as GearMenu.lua: a submenu per group of layers (Map, Quests, Places, People, You, Other addons; a group with none left out), each layer a checkbox with its tip that keeps the menu open, a sub-option indented and greyed while its parent is off, then Settings (Map, Minimap). `Menus.Layer(row)`: the registry M2-M4 add their rows through (docs/structure.md). Only the layers turned off are saved (`/mma layer` too, since the merge); an addon turned off stays off across a /reload (ui/Sockets.lua) | None | test_gear: the tree small and big, tips, every toggle empties and redraws its layer (View.layers for the sensor and Questie's pins), each setting does what it says, changed keys only across a /reload | M1b wave 1, W: done 64d2ecf |
-| M1.14 Zoom and pan parity with the MVP | ui/Motion.lua, ui/Camera.lua, ui/Engine.lua, tools/tests/spike_camera.lua, tools/tests/test_feel.py | Every wheel event a x1.3 tick by its sign onto the running target (Core.lua:1422-1441), M1.8b's rationing and `/mma wheel` removed; the camera moved in place (no table a zoom frame); the spike's camera ported as a reference; zooming out, tiles, names and pins laid out where the zoom is headed (docs/runtime.md "The map's engine"); the `wheel` cam trace's delta, n, dt (docs/telemetry.md) | None | test_feel: the spike's path frame by frame on 9 input streams; what you see each frame priced (aligned, tiles covered, nothing gone and back, no frame over 8 ms); test_zoom test_wheel; R-P1's 20-step zoom-out 10 layouts (16 before); script (a) zoom p95 4.5 ms priced | M1b wave 2, W: done 96068d0 |
+| M1.14 Zoom and pan parity with the MVP | ui/Motion.lua, ui/Camera.lua, ui/Engine.lua, tools/tests/spike_camera.lua, tools/tests/test_feel.py | Every wheel event a x1.3 tick by its sign onto the running target (Core.lua:1422-1441), M1.8b's rationing and `/mma wheel` removed; the camera moved in place (no table a zoom frame); the spike's camera ported as a reference; zooming out, tiles, names and pins laid out where the zoom is headed (docs/runtime.md "The map's engine"); the `wheel` cam trace's delta, n, dt (docs/telemetry.md) | None | test_feel: the spike's path frame by frame on 9 input streams; what you see each frame priced (aligned, tiles covered, nothing gone and back, no frame over 8 ms); test_zoom test_wheel; R-P1's 20-step zoom-out 10 layouts (16 before); script (a) zoom p95 ≤5 ms priced (test_script_a_priced; measured: docs/runtime.md) | M1b wave 2, W: done 96068d0 |
 
 Left from wave 1, from the hand-offs (outside their files): ui/View.lua makes ~1.1 KB/s moving;
 `model.observe` 2.5 KB/s walking among blips; atlas/Areas.lua decodes an area tile with a parts table and
@@ -335,6 +335,30 @@ state's p95 to 5 ms and the draw's own. The wheel's anchor set in place, its tra
 rows in the spike's order, a row's `default`; View's step the one writer of View.frame and its layers; an
 uncommitted install stamped with its files' digest; R-P3b's and runtime.md's allocation claims what the
 replay shows. Refuted: none (every finding reproduced).
+
+M1b review, round 2 (the lead, on main: 1cc85ef..). Names drifted 3-7 drifts behind a fast zoom (a
+drifted layer was only late, by age, behind tile and border layouts), pins left the view for 9-11 of the
+idle return's 33 frames after a pan, and a free flick in toward a corner put a names canvas 4,471 px
+off (6,827 in the big window). Now: the layouts share a frame's budget in turn (Engine.Draw's plan: the
+view lacking a layer or about to, first; names and pins drifted; a blurred ground; borders; a layout
+going on; the one laid out longest ago), one outranked waits at budget 0, its place kept
+(Runtime.Requeue), one ending early hands what's left on (to 3.5 ms in all); names are laid out at the
+camera's zoom the frame they drift and the frame the zoom lands (LayoutLabels, Layers.lua:1647-1653,
+2012-2030); pins (a "pin" layer) a drift on toward where it's headed, for the view and not each drift,
+over a glide's whole path, before their offsets near the bound, those under their minimum zoom from a
+drift below it but zooming out (Engine.From; a build says from which zoom it left some out), shown by
+their frame's one SetAlpha; tiles zooming in two drifts on; a busy held layout re-aimed. A canvas whose
+offsets would pass 4,000 px on the screen is hidden and laid out first; T.Anchors checks each canvas as
+the frame ends and exempts only held ones. test_feel boots through the harness and adds 4 streams (a
+long drag then the idle return, the minimap-sized one, a drag then follow in the big window, a fast
+scroll in from the continent): names a drift off one frame at most, every rare in view drawn. R-P1 runs
+its wheel block in both windows, priced, with corner flicks; R-P3b holds the first pass's pools and
+prints the big window's regions by layer. View.frame stamps `still` and the world socket's zoom; one
+build stamp (## X-Stamped, the installed files' digest always, package.sh's ref); the bench prices a
+minimum zoom's reveal. Refuted: none. Left: borders (held) aren't re-laid during a glide at its zoom (a
+glide's zoom, log and back, isn't quite its own, so the held layer reads it as zooming), so they miss the
+view for most of the idle return's glide after a pan, as before; the spike re-aims its build at the
+destination.
 
 ### M2 Quests on one pin store
 

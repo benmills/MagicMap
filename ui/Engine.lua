@@ -13,12 +13,13 @@
 -- zoom says: "scale" (SetScale its canvas: tiles, laid out again once the zoom leaves [0.7, 1.4] of a
 -- layout's), "move" (what it placed with Engine.At moved to the camera's zoom, so fonts keep their size;
 -- laid out at the camera's zoom each time it drifts log(1.25) and where it lands: names, the spike's
--- LayoutLabels, Layers.lua:1647-1653, 2012-2030), "pin" (moved too, a pin shown from its minimum zoom each
--- frame; laid out a drift on toward where the zoom is headed each drift: pins, Layers.lua:404-416), "hold"
--- (scaled and dimmed the further it is from its layout's zoom, laid out where the zoom is headed once the
--- wheel stops, crossfaded in as it lands: borders, Layers.lua:16-24, 158-170, 1824-1836, 1907-1937). The
--- window hidden or a layer turned off, its canvases are emptied. Why, from the client's prices:
--- docs/runtime.md "The map's engine". Window's draw step calls Engine.Draw.
+-- LayoutLabels, Layers.lua:1647-1653, 2012-2030), "pin" (moved too, a pin shown from its minimum zoom the
+-- frame it's crossed; laid out a drift on toward where the zoom is headed, for the view, not each drift:
+-- pins, PositionPins, Layers.lua:403-416), "hold" (scaled and dimmed the further it is from its layout's
+-- zoom, laid out where the zoom is headed once the wheel stops, crossfaded in as it lands: borders,
+-- Layers.lua:16-24, 158-170, 1824-1836, 1907-1937). The window hidden or a layer turned off, its canvases
+-- are emptied. Why, from the client's prices: docs/runtime.md "The map's engine". Window's draw step
+-- calls Engine.Draw.
 
 local _, ns = ...
 local UI = ns.UI

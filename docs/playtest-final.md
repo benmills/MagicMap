@@ -40,12 +40,12 @@ default zoom.
 | a1r | Alt-Z twice (the UI hidden, then back); then `/mma toggle` twice (Blizzard's minimap, then ours). Each time the map fills in as at the first open, tiles first, briefly, with no hitch (M1.3: a re-open lays the layers out again). | `/mma mark a1r reopen <ok, or what>` | P1, F12 | M1 |
 | a1b | The ground, cursor off: wheel out to 62-80 (Ironforge's border on its shadow, zone names in capitals), in to 250-300 (subzone borders and names), in to 800 (the closest). Your arrow: the Minimap's own, its shadow softened, turning smoothly as you turn. Then back to the default zoom. | `/mma shot small-zone`; `/mma shot small-town`; `/mma shot small-near`; `/mma mark a1b arrow <ok, or what>` | F12-F16, F20, S31-S33, S35-S38, S41 | M1 |
 | a1c | A herb or a vein in view: cast Find Herbs or Find Minerals off, then on (spellbook; skip without the profession). It shows within about 1 s. | `/mma mark a1c herb <seconds>` | F19 (M1.5b) | M1 |
-| a2 | The wheel, as the MVP (docs/playtest.md a2): a tick at a time 16→800→16, then as fast as the wheel turns (every notch a tick, the glide stacking); on a trackpad or Magic Mouse a flick and a slow drag. Against zoomable-minimap.gif: the glide, and the ground covered at the edges zooming out fast (M1b: names and pins may miss the edges for a few frames of the fastest scroll); rares appearing as the zoom passes 60, names changing every quarter zoom. | `/mma mark a2 wheel mouse <ok, or what>`; `/mma mark a2 wheel trackpad <ok, or what>`: their `wheel` cam traces (delta, n, dt) show what each device sends | F5, S26, S30, P1 | M1, M1b |
+| a2 | The wheel, as the MVP (docs/playtest.md a2): a tick at a time 16→800→16, then as fast as the wheel turns (every notch a tick, the glide stacking); on a trackpad or Magic Mouse a flick and a slow drag. Against zoomable-minimap.gif: the glide, and the ground covered at the edges zooming out fast (names and pins may miss the edges for a few frames of a trackpad's fastest flick; none on the mouse wheel's fast scroll, priced); rares appearing as the zoom passes 60, names changing every quarter zoom; after a drag, the idle return's glide keeps the pins on the map. | `/mma mark a2 wheel mouse <ok, or what>`; `/mma mark a2 wheel trackpad <ok, or what>`: their `wheel` cam traces (delta, n, dt) show what each device sends | F5, S26, S30, P1 | M1, M1b |
 | a3 | Fling: drag-pan fast in several directions, release, let it settle. No blank edges (borders and tiles keep up), no hitch. | `/mma mark a3 fling` | P1, F12, F15 | M1 |
 | a3b | Mount and ride a loop past herbs, veins or Kharanos' services, then stop. Blips met riding settle on their spots once you stop, none doubled. If two of one name sit within a few yards: `/mma toggle`, hover Blizzard's minimap where they overlap (the tooltip names it twice, or once), `/mma toggle` back. A blip that appears while you stand still (a respawn) can take up to ~40 s: say if that bothers you. | `/mma mark a3b blips <ok, or what>`; `/mma mark a3b twin <twice, once>` (if it came up) | D3, F19 | M1 |
 | a4 | The tear walk (docs/playtest.md): Kharanos, x = 47.4, at 800, small, follow on, 2 minutes. | `/mma mark a4 walk` at ~1 min; `/mma shot small-seam` on the line; `/mma mark a4 tear <what>` on any tear | F12, plan §2 "tear" | M1 |
 | a5 | Grow and shrink x5 (M, or the red button), each animation ended. Against minimap-to-big-map.gif. Then M once more, cursor off as it lands; then cursor on the gear until its tip shows. | `/mma mark a5 grow <ok, or what differs>` after the 5th; `/mma shot big-home`; `/mma shot big-hover` | F3, F10, F11, F50, S1, S2, S9-S11, S15, S16, S20, S24, S25 | M1 |
-| a5g | The gear (`Layers & settings`), big as a5 left it: click it. A submenu per group of layers (Map, Places, People; Other addons too when an addon with world-map pins, such as Questie, is loaded), a line, then Settings. Hover each row: its tip, a white title over gold text. Turn each layer off and on from its row: it goes at once and comes back, the menu staying open. Shrink (M) and open the gear on the small map: the same rows. Settings > Map: Colour-matched tiles off and on (the art plain, then tinted). Settings > Minimap: Minimap button off and on (the rim button goes and comes back); move the window, then Reset position (back on the Minimap's spot, following); Use Blizzard's minimap (ours hides), then `/mma toggle` (back). Grow (M) for a5b, Zone labels left on. The user's question this answers: do the settings work, and is it clear how to use them. | `/mma shot big-gear` (Gear → Map open, cursor on Zone borders); `/mma mark a5g gear <ok, or what doesn't work or isn't clear>` | F11, F48, F49, F55, S60, S61 | M1b |
+| a5g | The gear (`Layers & settings`), big as a5 left it: click it. A submenu per group of layers (Map, Places, People; Other addons too when an addon with world-map pins, such as Questie, is loaded), a line, then Settings. Hover each row: its tip, a white title over gold text. Turn each layer off and on from its row: it goes at once and comes back, the menu staying open. Shrink (M) and open the gear on the small map: the same rows. Settings > Map: Colour-matched tiles off and on (the art plain, then tinted). Settings > Minimap: Minimap button off and on (the rim button goes and comes back); move the window, then Reset position (back on the Minimap's spot, following); Use Blizzard's minimap (ours hides), then `/mma toggle` (back). Grow (M) for a5b, Zone labels left on. People > Rares you've seen: until M4.3 it draws every rare spawn the data knows (QuestieDB), not only those you've seen, whatever its tip says (the spike's): judge the toggle, not the tip. The user's question this answers: do the settings work, and is it clear how to use them. | `/mma shot big-gear` (Gear → Map open, cursor on Zone borders); `/mma mark a5g gear <ok, or what doesn't work or isn't clear>` | F11, F48, F49, F55, S60, S61 | M1b |
 | a5b | Big, Dun Morogh centred, 80-100, cursor off. Then 140-200 and pan about (up to ~2750 border Lines). Then `/mma bench regions`, standing still, once (it hitches; a box flickers with lines): wait for its result. Shrink. | `/mma shot big-zones`; `/mma mark a5b borders` after the pan | P4, F15, S30, S32, S36 | M1 |
 | a6 | Ironforge, as docs/playtest.md a6. | `/mma shot small-indoor`; `/mma shot big-indoor` | (F24: M4) | — |
 | a7 | Big, all the way out (16-24), pan the Eastern Kingdoms. Against big-map-zoom.gif. Then `/mma tint` twice (the art plain, then tinted again). | `/mma shot big-continent`; `/mma mark a7 continent <ok, or what differs>` | F5, F13, F16, S4, S26, S31 | M1 |
@@ -102,7 +102,10 @@ Questie the only other addon. The rest of (e) is M4's.
   the budget can't tell pool growth from garbage, so judge it over the whole session (M1b, d1).
 - **The bench** (a5b): `canvas.SetAlpha.moved@1000live` far under `canvas.Show.moved@1000live`, and
   `frame.swap` about `frame.idle`; else the swap extends in place (M1.3's fallback). Also
-  `canvas.Show.moved.alpha0@1000live` and `canvas.Show.moved@100masked`.
+  `canvas.Show.moved.alpha0@1000live` and `canvas.Show.moved@100masked`. A minimum zoom crossed:
+  `reveal.frame@500` and `frame.reveal.frame` (the engine's: 500 pins shown by their frame's SetAlpha)
+  against `reveal.each@500` and `frame.reveal.each` (a SetAlpha a pin); if the frame's costs like a
+  Show of its moved children, reveal the pins a slice a frame instead (M1b review, round 2).
 - **byState.zoom.client** against `small`: what scaling the borders while zooming costs the client
   (S30, P4). `swap <layer>` under 4 ms.
 - **Shots**: each answered `shot <id>: WoWScrnShot_<stamp>, marked`, paired with `ref-<id>.jpg`:
@@ -114,8 +117,9 @@ Questie the only other addon. The rest of (e) is M4's.
 
 1. **Budgets by map state** (M1 review round 2, ebdf22e, an agent's change): p95 ≤1 ms at rest
    only, ≤5 ms moving. The plan's M1 exit and §1 gate 3 read p95 ≤1 and p99 ≤5 over the whole
-   session, which script (a)'s shape fails on the priced clock (p95 1.55, p99 4.6 ms since M1.14,
-   1.95 / 5.55 before; at rest 0.2, zooming 4.5). Keep it, or ask for smaller slices while moving (borders fall behind a fling:
+   session, which script (a)'s shape fails on the priced clock (p95 1.8, p99 4.7 ms since the M1b
+   review's second round, the layouts sharing each moving frame's budget in turn; 1.55 / 4.6 at
+   M1.14, 1.95 / 5.55 before; at rest 0.2, zooming 4.5: docs/runtime.md). Keep it, or ask for smaller slices while moving (borders fall behind a fling:
    R-P1).
 2. **The wheel** (a2): the MVP's again since M1.14 (M1b: every event a x1.3 tick), so one trackpad
    flick can run to the clamp, the thing M1.8b's rationing answered ("too sensitive"). Keep it, or
@@ -126,16 +130,19 @@ Questie the only other addon. The rest of (e) is M4's.
    gradient coast fades (Core.lua:441-700).
 5. **Subzone borders** (a1b, S33): Gaussian-smoothed, rounder, about half the points, against the
    spike's Douglas-Peucker 0.035 + Chaikin.
-6. **Names and pins while zooming** (a1b, a2, S38, F21, F43): as the spike's since the M1b review:
-   names re-placed after a log(1.25) drift (chosen a drift on toward where the zoom is headed, so at
-   most a drift from the zoom shown, as the spike's), rares and remembered blips shown from zoom 60 the
-   frame it's crossed. The ground goes first, so on the fastest flicks names and pins can miss the
-   view's edges for a few frames (priced: 4 growing mid-zoom, 5 flicking the big window to the clamp).
+6. **Names and pins while zooming** (a1b, a2, S38, F21, F43): as the spike's since the M1b review's
+   second round: names laid out at the zoom shown on the frame it drifts log(1.25) from theirs and the
+   frame it lands, rares and remembered blips shown from zoom 60 the frame it's crossed, pins kept on
+   the map through a glide. The ground goes first, so on the fastest flicks names can be chosen for a
+   zoom a few drifts off while it lays out (priced: 3.7 drifts flicking the big window to the clamp,
+   one frame past a drift at most otherwise), and names and pins can miss the view's edges for a few
+   frames (4 in a trackpad's burst, 1 flicking the big window to the clamp; none on a mouse wheel's
+   fast scroll or growing mid-zoom).
 7. **The world socket** (e1, F46): Questie's pins see-through while the zoom moves.
 8. **Borders zooming out fast** (a2, S30): as the spike's, the old borders are scaled and dimmed to
    0.25 until the wheel stops, then laid out where the zoom is headed and crossfaded in. The spike
-   starts that layout the frame after the last tick at 8 ms slices beside everything else; ours waits
-   for the ground, names and pins to lay out first (one layout at a time), so it lands about 0.1 s
-   after the spike's (8 notches out from 400, one a frame, priced: its layout starts 7 frames after
-   the last tick and takes 1).
+   starts that layout the frame after the last tick at 8 ms slices beside everything else; ours lays
+   out the ground, names and pins first (the layouts share a frame's budget in turn), so it lands about
+   0.1 s after the spike's (8 notches out from 400, one a frame, priced: its layout starts 6 frames
+   after the last tick and lands that frame).
 9. **Slow discovery** (a3b): a blip appearing while you stand still found within ~40 s, not 0.5 s.
