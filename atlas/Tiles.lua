@@ -26,6 +26,12 @@ function Atlas.Tiles(inst)
 	return m and m.tiles
 end
 
+-- The tile set's product and build (Core.lua:417-422: /mma tiles, the title's debug line).
+function Atlas.TileSet()
+	local set = Data.Tiles
+	return set and set.product, set and set.version
+end
+
 -- The tile-space bounds of a map's tiles.
 local bounds = {}
 function Atlas.TileBounds(inst)

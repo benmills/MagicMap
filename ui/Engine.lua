@@ -85,7 +85,10 @@ function Engine.Layer(name, level, build, rev, zoom)
 	local layer = { name = name, level = level, frame = f, build = build, rev = rev, zoom = zoom,
 		moves = zoom == "move" or zoom == "pin", -- placed with Engine.At, moved to the camera's zoom
 		order = (zoom == "scale" and 0 or zoom == "hold" and 200 or 100) + level, started = 0, -- started: its last layout's frame
-		canvases = {}, fading = {} } -- fading: its crossfade (layer.fade while one runs)
+		canvases = {}, fading = {}, -- fading: its crossfade (layer.fade while one runs)
+		-- since load, for /mma perf and debug (the gauge below): its layouts at a new zoom (builds, their ms) and at
+		-- the zoom shown (pans: the spike's extensions), the frames the view ran past it; its last layout's ms, regions
+		builds = 0, buildMs = 0, pans = 0, past = 0, ms = 0, regions = 0 }
 	layer.job = Runtime.Worker("map: " .. name, function()
 		while true do
 			Layout(layer)
@@ -423,6 +426,13 @@ function Layout(layer)
 	back.none, back.from = more == true or more ~= nil and live == 0, more ~= true and more or nil
 	Runtime.Trace("layout", { e = "end", layer = layer.name, ms = R2(debugprofilestop() - t0), regions = live,
 		made = back.made })
+	local f, ms = layer.front, Runtime.Spent()
+	if f and f.inst == back.inst and f.zoom == back.zoom then
+		layer.pans = layer.pans + 1
+	else
+		layer.builds, layer.buildMs = layer.builds + 1, layer.buildMs + ms
+	end
+	layer.ms, layer.regions = ms, live
 	layer.busy, layer.retryAt, layer.backoff = false, nil, nil
 	Swap(layer, back, live, parked)
 	Chain(layer)
@@ -692,6 +702,7 @@ function Engine.Draw(inst, cam, w, h)
 			layer.busy = false
 		end
 		local stale = on and Stale(layer, inst, cam, w, h, settled)
+		if stale == "missing" and layer.front then layer.past = layer.past + 1 end -- (laid out once: Perf.lua:172)
 		pending = pending or stale or layer.busy or layer.fade
 		if layer.busy or stale and (not layer.retryAt or now >= layer.retryAt) then
 			local r = Rank(layer, stale)
@@ -756,6 +767,24 @@ function Engine.Stats()
 	end
 	return live, made
 end
+
+-- /mma perf and perf mem (Perf.lua:103-122, 146-159): the borders' counts (Engine.Layer's), each kind's
+-- regions made and in use (Layers.lua:2262-2273), the tiles drawn and their textures spare (Core.lua:1640-1646).
+local KINDS = { tex = "Texture", line = "Line", font = "FontString" }
+Runtime.Gauge("map", function()
+	local b, t, live, made = UI.Borders, UI.Tiles, Engine.Stats()
+	local objects, drawn, all = {}, 0, 0
+	for what, kind in pairs(KINDS) do objects[kind] = { made = made[what], used = live[what] } end
+	for _, c in ipairs(t.canvases) do
+		local p = c.pools.art -- (ui/Tiles.lua's tile textures)
+		if p then
+			all = all + #p
+			if c == t.front then drawn = p.n end
+		end
+	end
+	return { builds = b.builds, buildMs = b.buildMs, pans = b.pans, past = b.past, objects = objects, tiles = drawn,
+		spare = all - drawn }
+end)
 
 local Command = ns.Game.Command
 Command({ kind = "slash", name = "layer", help = "<name>: show or hide a map layer; alone, list them", fn = function(name)

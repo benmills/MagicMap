@@ -79,6 +79,7 @@ game\commands\follow.lua
 game\commands\tooltip.lua
 game\commands\waypoint.lua
 game\commands\way.lua
+game\commands\run.lua
 
 # Game: observation parts (Game.Part)
 game\parts\You.lua
