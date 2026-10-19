@@ -5,15 +5,8 @@
 local _, ns = ...
 local Atlas, Game = ns.Atlas, ns.Game
 
--- The zone whose map has pos: { mapID, name, x, y } (Atlas.ZoneAt's, x and y on its map); nil: none
--- (Layers.lua:2059-2070: the client's zone at a point on the continent's map).
-function Game.WaypointZone(pos)
-	local z = Atlas.ZoneAt(pos.inst, pos.col, pos.row)
-	if z and z.x >= 0 and z.x <= 1 and z.y >= 0 and z.y <= 1 then return z end
-end
-
 Game.Handle("waypoint", function(c)
-	local z = c.pos and Game.WaypointZone(c.pos)
+	local z = c.pos and Atlas.ZoneMapAt(c.pos.inst, c.pos.col, c.pos.row) -- (the zone whose map has it)
 	if not c.pos then
 		C_Map.ClearUserWaypoint()
 	elseif not z then

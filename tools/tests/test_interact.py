@@ -11,7 +11,8 @@ input), as the spike's (Core.lua:1161-1240, 1247-1416, 1698-1735; Layers.lua:178
     and its border (S34, S36's hover); a click flies there in 0.55 s, following off; a quest's area isn't clickable
     while zone clicks are on offer, a pin still is (F17).
   test_modified_clicks: Ctrl-click a waypoint there, Ctrl-right-click none, Shift-click the /way line (the waypoint
-    and way Commands); none off the zones, where the press is the map's (F35, F36).
+    and way Commands, carried out by Game's handlers: M3.2's); none off the zones' maps, where the press is the
+    map's (F35, F36).
   test_inspector: the right-click menu: Waypoint here, Clear waypoint, Follow me as they apply; big, it leads with the
     zone, its subzone and coordinates, its levels against yours, how far (5 yd steps close, 10 further, thousands
     with commas) and which way from you, at most 2 quests whose areas hold the spot (F37, F38, S62).
@@ -31,28 +32,18 @@ def sub(d, text):
     return next(e for e in d["items"].values() if e.text == text)
 
 
-def sent(L, ns):
-    """The waypoint and way Commands, as Game is handed them (its handlers: M3.2's)."""
-    out = L.table()
-    L.execute("""local ns, out = ...
-        for _, kind in ipairs({ "waypoint", "way" }) do
-            ns.Game.Handle(kind, function(c) out[#out + 1] = c end)
-        end""", ns, out)
-    return out
-
-
 def near(a, b, eps=1e-6):
     return all(abs(x - y) < eps for x, y in zip(a, b))
 
 
 def sea(L, ns):
-    """A spot in view in no zone."""
+    """A spot in view on no zone's map."""
     return L.eval("""function(ns)
         local cam, w, h = ns.UI.Camera.cam, ns.UI.Window.Size()
         for x = 10, w - 10, 10 do
             for y = 10, h - 10, 10 do
                 local col, row = ns.Atlas.Camera.ScreenToTile(cam, w, h, x, y)
-                if not ns.Atlas.ZoneAt(ns.UI.Camera.inst, col, row) then return col, row end
+                if not ns.Atlas.ZoneMapAt(ns.UI.Camera.inst, col, row) then return col, row end
             end
         end
     end""")(ns)
@@ -216,38 +207,40 @@ def test_zone_hover():
 
 def test_modified_clicks():
     L, sim, ns, G = client([])
-    UI, mods, view = ns.UI, sim.modifiers, ns.UI.Window.view
-    commands = sent(L, ns)
+    UI, mods, view, obs = ns.UI, sim.modifiers, ns.UI.Window.view, ns.Game.obs
+    said = len(sim.prints)
 
     def click(button, col, row, key):
         mods[key] = True
         G.Over(col, row)
-        sim.Click(view, button, sim.cursorX, sim.cursorY, "screen")
+        sim.Click(view, button, sim.cursorX, sim.cursorY, "screen")  # (Game's input step carries it out)
         mods[key] = None
-        return commands[len(commands)] if len(commands) else None
 
     before = cam(ns)
-    c = click("LeftButton", 32.5, 49.6, "ctrl")
-    assert c.kind == "waypoint" and c.pos.inst == 0 and near((c.pos.col, c.pos.row), (32.5, 49.6), 1e-3)
-    c = click("RightButton", 32.5, 49.6, "ctrl")
-    assert c.kind == "waypoint" and c.pos is False and sim.menu is None
-    c = click("LeftButton", 31.0, 50.2, "shift")
-    assert c.kind == "way" and near((c.pos.col, c.pos.row), (31.0, 50.2), 1e-3)
-    c = click("RightButton", 31.0, 50.2, "shift")
-    assert len(commands) == 3 and sim.menu is None and cam(ns) == before and UI.Camera.follow
-    # Off the zones (the sea, further out): nothing taken, the press the map's.
+    click("LeftButton", 32.5, 49.6, "ctrl")
+    w = obs.waypoint
+    assert sim.waypoint.uiMapID == 1429 and w.inst == 0 and near((w.col, w.row), (32.5, 49.6), 1e-3)
+    click("RightButton", 32.5, 49.6, "ctrl")
+    assert sim.waypoint is None and obs.waypoint is False and sim.menu is None
+    click("LeftButton", 31.0, 50.2, "shift")
+    x, y = ns.Atlas.TileToMap(1429, 31.0, 50.2)
+    way = sim.chat.split(" ")
+    assert way[:3] == ["/way", "Elwynn", "Forest"] and near((float(way[3]), float(way[4])), (x * 100, y * 100), 0.1)
+    sim.chat = None
+    click("RightButton", 31.0, 50.2, "shift")
+    assert sim.chat is None and sim.waypoint is None and sim.menu is None and cam(ns) == before and UI.Camera.follow
+    # Off the zones' maps (the sea, further out): nothing taken, the press the map's.
     UI.Motion.SetZoom(30)
     sim.Run(0.5)
     col, row = sea(L, ns)
     click("LeftButton", col, row, "ctrl")
-    assert len(commands) == 3
+    assert sim.waypoint is None and len(sim.prints) == said
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
 def test_inspector():
     L, sim, ns, G = client([GOLD, HOGGER, CANDLES_NEAR, FRONTIER], followed=176)
-    UI, view = ns.UI, ns.UI.Window.view
-    commands = sent(L, ns)
+    UI, view, obs = ns.UI, ns.UI.Window.view, ns.Game.obs
 
     def menu(col, row):
         G.Over(col, row)
@@ -275,22 +268,19 @@ def test_inspector():
     assert menu(31.95, 49.75)[2][1].endswith(grey + "You're here|r")
     # Westfall, its levels above yours (8): red.
     assert menu(29.0, 50.5)[2][1].startswith(grey + "Level|r |cffff60409-18|r")
-    # Waypoint here: the waypoint Command at the spot.
+    # Waypoint here: the game's waypoint at the spot (the waypoint Command, Game's handler).
     menu(32.5, 49.6)
     sub(sim.menu, "Waypoint here").onSelect()
     sim.Step()  # (carried out in Game's input step)
-    c = commands[len(commands)]
-    assert c.kind == "waypoint" and near((c.pos.col, c.pos.row), (32.5, 49.6), 1e-3)
-    # A waypoint known: Clear waypoint; not following: Follow me, which flies back to you.
-    L.execute("""local ns = ...
-        local list = { { key = "waypoint", kind = "waypoint", pos = { inst = 0, col = 32.5, row = 49.6 }, name = "Waypoint", live = true } }
-        ns.Model.Kind("waypoint", function() return list, 1 end)""", ns)
+    w = obs.waypoint
+    assert sim.waypoint.uiMapID == 1429 and near((w.col, w.row), (32.5, 49.6), 1e-3)
+    # A waypoint known (Model's): Clear waypoint; not following: Follow me, which flies back to you.
     UI.Motion.SetFollow(False)
     lines = menu(32.5, 49.6)
     assert lines[-3:] == [("button", "Waypoint here"), ("button", "Clear waypoint"), ("button", "Follow me")]
     sub(sim.menu, "Clear waypoint").onSelect()
     sim.Step()
-    assert commands[len(commands)].pos is False
+    assert sim.waypoint is None and obs.waypoint is False and len(ns.Model.Known("waypoint")[0]) == 0
     menu(32.5, 49.6)
     sub(sim.menu, "Follow me").onSelect()
     sim.Run(0.7)

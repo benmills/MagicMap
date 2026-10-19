@@ -80,6 +80,14 @@ function Atlas.ZoneAt(inst, col, row)
 	return { mapID = mapID, name = Atlas.UiMap(mapID).name, x = x, y = y, zone = area.zone, area = id }
 end
 
+-- The zone whose map has (col, row): ZoneAt's, only where it's on that zone's map (x, y in 0..1), as the
+-- client's zone at a point on the continent (C_Map.GetMapInfoAtPosition: Layers.lua:2059-2070); nil: none.
+-- Where a waypoint can go, and a /way line names: Game's waypoint and way, UI's offers of them.
+function Atlas.ZoneMapAt(inst, col, row)
+	local z = Atlas.ZoneAt(inst, col, row)
+	if z and z.x >= 0 and z.x <= 1 and z.y >= 0 and z.y <= 1 then return z end
+end
+
 -- A zone's level range, from its subzones' exploration levels (zones have none).
 -- The first call indexes every area: step(), if given, is called every 128 so a
 -- caller can spread it over frames (as Atlas.Rares).

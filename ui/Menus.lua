@@ -283,7 +283,7 @@ end })
 -- actions alone.
 function Menus.Map(owner, col, row)
 	local inst, items = UI.Camera.inst, {}
-	if Atlas.ZoneAt(inst, col, row) then
+	if Atlas.ZoneMapAt(inst, col, row) then -- (where Game's waypoint can go)
 		items[#items + 1] = { "Waypoint here", function()
 			Command({ kind = "waypoint", pos = { inst = inst, col = col, row = row } })
 		end }

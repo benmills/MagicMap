@@ -1,7 +1,7 @@
 -- The title band: the zone, then a subtitle, left-aligned on one line just above the map
 -- (below it, when the map is at the top of the screen), the gear and mode buttons at its
--- right end; no plate, like the minimap's own (Core.lua:177-226, 292-314). Dragging the
--- title moves the window. Its text (Core.lua:1240-1320), 20 times a second while shown:
+-- right end; no plate, like the minimap's own (Core.lua:177-226, 292-314). Clicking the title
+-- opens the map picker (Core.lua:200-223); dragging it moves the window. Its text (Core.lua:1240-1320), 20 times a second while shown:
 --   hovering the map (big, or not on your map): the zone under the cursor and its coordinates
 --   on your map: your zone (your uiMap's name, else the client's), the client's subzone (the
 --     inn, inside it); coordinates and the target (ui/You.lua) while big or hovered
@@ -42,18 +42,29 @@ local title = Text(14, COLOR[1], COLOR[2], COLOR[3])
 local subtitle = Text(11, 0.74, 0.68, 0.58)
 Title.title, Title.subtitle = title, subtitle
 
--- Over the title, padded: dragging it moves the window (the map picker's click: M3.4).
+-- Over the title, padded: a click opens the map picker (ui/Menus.lua); dragging it moves the window,
+-- no pick after it.
 local hit = CreateFrame("Button", nil, band)
 hit:SetPoint("TOPLEFT", title, "TOPLEFT", -4, 3)
 hit:SetPoint("BOTTOMRIGHT", title, "BOTTOMRIGHT", 4, -3)
 hit:RegisterForDrag("LeftButton")
-hit:SetScript("OnDragStart", Runtime.Wrap("map: move", function() frame:StartMoving() end))
+hit:SetScript("OnDragStart", Runtime.Wrap("map: move", function(self)
+	self.dragged = true
+	frame:StartMoving()
+end))
 hit:SetScript("OnDragStop", Runtime.Wrap("map: moved", function()
 	frame:StopMovingOrSizing()
 	Window.Moved()
 end))
 hit:SetScript("OnEnter", Runtime.Wrap("map: title hover", function() title:SetTextColor(HOVER[1], HOVER[2], HOVER[3]) end))
 hit:SetScript("OnLeave", Runtime.Wrap("map: title left", function() title:SetTextColor(COLOR[1], COLOR[2], COLOR[3]) end))
+hit:SetScript("OnClick", Runtime.Wrap("map: picker", function(self)
+	if self.dragged then
+		self.dragged = nil
+		return
+	end
+	UI.Menus.Picker(self)
+end))
 Title.hit = hit
 
 -- Placed above the map, or below it near the screen's top, the mode button with it; each

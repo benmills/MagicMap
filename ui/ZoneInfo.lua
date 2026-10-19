@@ -5,12 +5,12 @@
 --     the borders' on their shown canvas; a click there flies to it (fit 0.92), following off. A click's
 --     turn (ui/Window.lua): a pin, then a quest's area while zone clicks aren't on offer, then the zone.
 --   Ctrl-click: a waypoint there; Ctrl-right-click: none; Shift-click: its /way line in the chat box
---     (the waypoint and way Commands: Game's). Taken on the press, so the map doesn't pan.
+--     (the waypoint and way Commands: Game's). Taken on the press, so the map doesn't pan; not off the
+--     zones' maps (Atlas.ZoneMapAt: where Game's waypoint can go).
 --   At(col, row): the big map's right-click menu leads with it (ui/Menus.lua): the zone, its subzones and
 --     coordinates, its levels against yours, how far and which way from you, at most 2 quests whose areas
 --     hold it. Explored and landmark lines: M4.4.
 --   /mma zone <name>: fly to the first zone whose name holds it, the map shown's first.
---   The title's click: the map picker (ui/Menus.lua), as the spike's title button (Core.lua:200-223).
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
@@ -85,10 +85,10 @@ local hover = {}
 local function Hover()
 	local inst, z = Camera.inst, nil
 	-- At the minimap's size on your map it always names where you are: no zone to click (Core.lua:1269).
-	if Window.view:IsMouseOver() and (UI.BigMap.big or Model.you.inst ~= inst) then
+	if Window.view:IsMouseOver() and (UI.BigMap.big or Model.you.inst ~= inst) and not Motion.Dragging() then
 		z = ZoneAt(inst, ZoneInfo.CursorTile())
 	end
-	local on = z and not Motion.Dragging() and ZonesInView(inst) > 1
+	local on = z and ZonesInView(inst) > 1
 	hover.zone, hover.map = on and z.zone or nil, on and z.mapID or nil
 end
 
@@ -323,7 +323,7 @@ function ZoneInfo.Modified(button)
 	end
 	if button ~= "LeftButton" then return false end
 	local inst, col, row = Camera.inst, ZoneInfo.CursorTile()
-	if not Atlas.ZoneAt(inst, col, row) then return false end
+	if not Atlas.ZoneMapAt(inst, col, row) then return false end -- (where Game's waypoint and way go)
 	local pos = { inst = inst, col = col, row = row }
 	Command({ kind = IsControlKeyDown() and "waypoint" or "way", pos = pos })
 	return true
@@ -505,14 +505,3 @@ Command({ kind = "slash", name = "zone", help = "<name>: fly to a zone", fn = fu
 	Camera.inst = inst
 	Motion.FlyToRect(found.col0, found.row0, found.col1, found.row1)
 end })
-
--- Dragging the title moves the window: no pick after it.
-local title = UI.Title.hit
-title:HookScript("OnDragStart", Runtime.Wrap("map: title drag", function(self) self.dragged = true end))
-title:SetScript("OnClick", Runtime.Wrap("map: picker", function(self)
-	if self.dragged then
-		self.dragged = nil
-		return
-	end
-	UI.Menus.Picker(self)
-end))

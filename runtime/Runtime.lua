@@ -327,7 +327,7 @@ function Runtime.Worker(name, fn, budgetMs, maxFrames)
 end
 
 function Runtime.Wake(job, budgetMs)
-	if not job.idle then job.co = coroutine.create(job.fn) end
+	if not (job.idle or job.co and job.resumes == 0) then job.co = coroutine.create(job.fn) end -- (not resumed since: as it was)
 	if job.done then jobs[#jobs + 1] = job end -- (a cancelled one still queued goes on in place)
 	job.idle, job.done, job.cancelled, job.err, job.resumes = false, false, false, nil, 0
 	job.budget = budgetMs or job.budget
