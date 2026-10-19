@@ -76,6 +76,7 @@ game\Chrome.lua
 game\Hooks.lua
 game\Button.lua
 game\Tooltip.lua
+game\NoData.lua
 
 # Game: commands (Game.Handle)
 game\commands\slash.lua

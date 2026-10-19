@@ -133,10 +133,10 @@ asking = false
 local p = sim.player
 local px, py = A.TileToMap(MAP, p.col, p.row)
 sim.blobShapes[60] = { 0.35, 0.55, math.sqrt((px - 0.35) ^ 2 + (py - 0.55) ^ 2) + 0.02 } -- its pin and you
-sim.prints = {}
+local n = #sim.prints
 sim.Slash("/mma check inside")
 sim.Run(0.1)
-local out = table.concat(sim.prints, "\n")
+local out = table.concat(sim.prints, "\n", n + 1)
 T.Print("%s", out)
 assert(out:find("2 quests here") and out:find("inside|r  Kobold Candles (60, map 1429)", 1, true)
 	and out:find("no area at its pin|r  The Fargodeep Mine (62, map 1429)", 1, true), out)
