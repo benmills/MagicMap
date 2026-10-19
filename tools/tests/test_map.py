@@ -47,8 +47,8 @@ def test_map():
     items[0].onSelect()
     sim.Run(1)
     assert c.follow
-    sim.Click(w.view, "RightButton")  # following: nothing to offer
-    assert sim.menu is None
+    sim.Click(w.view, "RightButton")  # following: no Follow me (small: no zone info; tools/tests/test_interact.py)
+    assert [e.text for e in sim.MenuItems().values()] == ["Waypoint here"]
     sim.Slash("/mma mapstats")
     sim.Slash("/mma toggle")
     assert not w.frame.IsShown(w.frame)

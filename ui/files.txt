@@ -16,6 +16,7 @@ ui/Rares.lua
 ui/QuestTooltip.lua
 ui/Areas.lua
 ui/Quests.lua
+ui/ZoneInfo.lua
 ui/Sockets.lua
 ui/You.lua
 ui/View.lua

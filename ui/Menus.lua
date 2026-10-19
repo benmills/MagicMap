@@ -3,10 +3,12 @@
 -- The gear menu (GearMenu.lua): what's drawn, a submenu per group of layers (Layers.lua:2179-2203),
 -- then Settings: Map (Colour-matched tiles), Minimap (Minimap button, Reset position, Use Blizzard's
 -- minimap). Tracking and Settings' Advanced: M4.5 (their commands: M4.1, M4.6).
+-- The map picker (the title's click: ui/ZoneInfo.lua) and /mma map; the map's right-click menu.
 
 local _, ns = ...
-local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
+local UI, Model, Atlas, Runtime = ns.UI, ns.Model, ns.Atlas, ns.Runtime
 local Engine = UI.Engine
+local Command = ns.Game.Command
 
 local Menus = {}
 UI.Menus = Menus
@@ -24,6 +26,7 @@ end
 
 -- A pick, called by the client from its menu: wrapped, as our scripts are.
 local Run = Runtime.Wrap("map: gear pick", function(fn, arg) fn(arg) end)
+local Pick = Runtime.Wrap("map: menu pick", function(fn, arg) fn(arg) end) -- the picker's, the map menu's
 
 -- A row's tooltip: white title, gold body (GearMenu.lua:69-72, Layers.lua:2171-2176).
 local function Tip(label, tip)
@@ -165,12 +168,140 @@ local function AddSections(sub, sections)
 	end
 end
 
--- The map's right-click menu (Core.lua:1355-1385), its minimum for now: "Follow me" while you
--- aren't followed (waypoints, the big map's zone info: M3.4).
-function Menus.Map(owner)
-	if UI.Camera.follow then return end
+---------------------------------------------------------------------------
+-- The map picker (Core.lua:1161-1240) and /mma map (Core.lua:1704-1720)
+---------------------------------------------------------------------------
+
+local CONTINENT_MIN_TILES = 300 -- open-world maps this big are listed as continents (Core.lua:1062)
+local KINDS = { { "dungeon", "Dungeons" }, { "raid", "Raids" } }
+
+local counts = {} -- inst -> its tiles
+local function Count(inst)
+	local n = counts[inst]
+	if not n then
+		n = 0
+		for _ in pairs(Atlas.Tiles(inst)) do n = n + 1 end
+		counts[inst] = n
+	end
+	return n
+end
+
+local function ByName(a, b) return a.name < b.name end
+
+-- { continents = { maps }, others = { maps }, dungeon = { { name, maps }, ... }, raid = ... }: instances by
+-- the continent their entrance is on, "Other" (unplaced) last.
+local function Groups()
+	local g, byKind, names = { continents = {}, others = {} }, {}, {}
+	for _, m in ipairs(Atlas.Maps()) do names[m.inst] = m.name end
+	for _, m in ipairs(Atlas.Maps()) do
+		if m.kind then
+			local groups = byKind[m.kind] or {}
+			byKind[m.kind] = groups
+			local cont = m.continent and names[m.continent] or "Other"
+			groups[cont] = groups[cont] or {}
+			table.insert(groups[cont], m)
+		elseif Count(m.inst) >= CONTINENT_MIN_TILES then
+			table.insert(g.continents, m)
+		else
+			table.insert(g.others, m)
+		end
+	end
+	table.sort(g.continents, ByName)
+	table.sort(g.others, ByName)
+	for _, k in ipairs(KINDS) do
+		local list = {}
+		for name, maps in pairs(byKind[k[1]] or {}) do
+			table.sort(maps, ByName)
+			list[#list + 1] = { name = name, maps = maps }
+		end
+		table.sort(list, function(a, b)
+			if (a.name == "Other") ~= (b.name == "Other") then return b.name == "Other" end
+			return a.name < b.name
+		end)
+		g[k[1]] = list
+	end
+	return g
+end
+
+-- A whole map, fit to the window, following off (Core.lua:1154-1159).
+function Menus.ShowMap(inst)
+	UI.Motion.SetFollow(false)
+	UI.Motion.FitMap(inst)
+	UI.Window.frame:Show()
+end
+
+function Menus.Picker(owner)
+	local g = Groups()
 	Menus.Show(owner, function(_, root)
-		root:CreateButton("Follow me", function() UI.Motion.SetFollow(true, true) end)
+		local function Radio(parent, m)
+			parent:CreateRadio(m.name, function() return UI.Camera.inst == m.inst end, function()
+				Pick(Menus.ShowMap, m.inst)
+				return MenuResponse.Close
+			end)
+		end
+		root:CreateTitle("Continents")
+		for _, m in ipairs(g.continents) do Radio(root, m) end
+		if g.others[1] then
+			local other = root:CreateButton("Other maps")
+			for _, m in ipairs(g.others) do Radio(other, m) end
+		end
+		if g.dungeon[1] or g.raid[1] then
+			root:CreateDivider()
+			root:CreateTitle("Instances")
+			for _, k in ipairs(KINDS) do
+				local groups = g[k[1]]
+				if groups[1] then
+					local kind = root:CreateButton(k[2])
+					for _, group in ipairs(groups) do
+						-- Only one group: the continent level skipped.
+						local parent = groups[2] and kind:CreateButton(group.name) or kind
+						for _, m in ipairs(group.maps) do Radio(parent, m) end
+					end
+				end
+			end
+		end
+	end)
+end
+
+Command({ kind = "slash", name = "map", help = "<id|name>: show a map whole; alone, list them", fn = function(arg)
+	arg = arg:lower()
+	local id = tonumber(arg)
+	for _, m in ipairs(Atlas.Maps()) do
+		if m.inst == id or m.name:lower() == arg then return Menus.ShowMap(m.inst) end
+	end
+	local names = {}
+	for _, m in ipairs(Atlas.Maps()) do names[#names + 1] = m.inst .. "=" .. m.name end
+	UI.Print("usage: /mma map <id|name>  (" .. table.concat(names, ", ") .. ")")
+end })
+
+---------------------------------------------------------------------------
+-- The map's right-click menu (Core.lua:1355-1385)
+---------------------------------------------------------------------------
+
+-- Only what makes sense where you clicked: Waypoint here (in a zone), Clear waypoint (one set), Follow me
+-- (not following); the big map leads with what's there (ui/ZoneInfo.lua), at the minimap's size the
+-- actions alone.
+function Menus.Map(owner, col, row)
+	local inst, items = UI.Camera.inst, {}
+	if Atlas.ZoneAt(inst, col, row) then
+		items[#items + 1] = { "Waypoint here", function()
+			Command({ kind = "waypoint", pos = { inst = inst, col = col, row = row } })
+		end }
+	end
+	if Model.Known("waypoint")[1] then
+		items[#items + 1] = { "Clear waypoint", function() Command({ kind = "waypoint", pos = false }) end }
+	end
+	if not UI.Camera.follow then
+		items[#items + 1] = { "Follow me", function() UI.Motion.SetFollow(true, true) end }
+	end
+	local info = UI.BigMap.big and UI.ZoneInfo.At(col, row) or nil
+	if not (items[1] or info) then return end
+	Menus.Show(owner, function(_, root)
+		if info then
+			for _, line in ipairs(info) do root:CreateTitle(line) end
+			if items[1] then root:CreateDivider() end
+		end
+		for _, it in ipairs(items) do root:CreateButton(it[1], function() Pick(it[2]) end) end
 	end)
 end
 
