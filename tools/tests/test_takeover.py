@@ -4,8 +4,8 @@ while big), none of it a protected call in combat (spike-bugs K2); the minimap b
 round the rim, its angle across a /reload, a click or the compartment "toggle"); the home spot
 (read again on a UI scale change); and a release putting back every property the takeover, the
 rim and the home fade changed: the Minimap's children (strata and level too: the client re-bases a
-frame on a new parent) and the cluster's parts anchored to it. Tooltips: replays/R-G7.lua; combat:
-replays/R-K2.lua."""
+frame on a new parent) and the cluster's parts anchored to it; FarmHud shown, the takeover yields (K3).
+Tooltips: replays/R-G7.lua; combat: replays/R-K2.lua."""
 import math
 
 from test_addon import boot, errors
@@ -204,4 +204,24 @@ def test_button_home_release():
     sim.Run(0.5)
     button, mm, same = L.execute(HELPERS, sim).Button(), L.globals().Minimap, L.eval("function(a, b) return a == b end")
     assert abs(ns.Game.saved.buttonAngle - 90) < 1e-6 and at(90) and button.IsVisible(button)
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_farmhud():
+    """FarmHud shown has the Minimap: ours yields it (released, every property as it was), and takes it again
+    once FarmHud hides (MinimapTakeover.lua:517; spike-bugs K3)."""
+    L, sim, ns = boot()
+    Game, H = ns.Game, L.execute(HELPERS, sim)
+    sim.Run(1)
+    before = H.Snapshot()
+    sim.Slash("/mma toggle")
+    sim.Run(1)
+    assert Game.minimap.engaged and Game.obs.minimap.blocker is None
+    L.execute("FarmHud = { shown = true }; function FarmHud:IsShown() return self.shown end")
+    sim.Run(0.5)
+    assert not Game.minimap.engaged and Game.obs.minimap.blocker == "FarmHud has the minimap"
+    assert H.Snapshot() == before, (before, H.Snapshot())
+    L.globals().FarmHud.shown = False
+    sim.Run(0.5)
+    assert Game.minimap.engaged and Game.obs.minimap.blocker is None
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
