@@ -2,9 +2,10 @@
 -- (Layers.lua:1417-1458, 1619-1694): quiet, as on a printed map. Zones in capitals, 10 pt, up to
 -- zoom 450; subzones 9 pt, the big from zoom 120, smaller from 220, the rest from 400. Zones first,
 -- then subzones, each biggest first: a name tries its spot, just above, just below, and is skipped
--- if all three touch one placed. Laid out over the view and its margin (ui/Engine.lua), so subzones
--- are placed near the view, and again once it pans out of them; moved with the zoom ("move"). A
--- name the last layout didn't show fades in.
+-- if all three touch one placed. Every zone of the map is placed (its box: a name's spot doesn't
+-- change on a pan), those over the view and its margin drawn (ui/Engine.lua); subzones are placed
+-- near the view, around them, and again once it pans out of them (Layers.lua:1631-1673); moved with
+-- the zoom ("move"). A name the last layout didn't show fades in.
 
 local _, ns = ...
 local UI = ns.UI
@@ -63,9 +64,22 @@ local function Overlaps(x0, y0, x1, y1)
 	return false
 end
 
-local NONE = {}
--- The name at its spot, just above or just below, whichever touches no name placed (Layers.lua:1440-1461).
-local function Place(c, l, zoom, size, color, shown)
+-- The name's spot (its offset down, px), just above or just below, whichever touches no name placed,
+-- kept as placed; nil: none (Layers.lua:1440-1461). w: half its width, padded; h: its height.
+local function Spot(c, l, zoom, w, h)
+	local x, y = (l.col - c.ox) * zoom, (l.row - c.oy) * zoom
+	for i = 1, 3 do
+		local dy = i == 1 and 0 or i == 2 and -(h + GAP) or h + GAP
+		local y0, y1 = y + dy - h / 2 - PAD_Y, y + dy + h / 2 + PAD_Y
+		if not Overlaps(x - w, y0, x + w, y1) then
+			boxes[nboxes + 1], boxes[nboxes + 2], boxes[nboxes + 3], boxes[nboxes + 4] = x - w, y0, x + w, y1
+			nboxes = nboxes + 4
+			return dy
+		end
+	end
+end
+
+local function Font(c, l, size, color)
 	local fs = Get(c, "label", "font", MakeFont)
 	if fs.size ~= size then
 		fs:SetFont(FONT, size, "")
@@ -79,29 +93,36 @@ local function Place(c, l, zoom, size, color, shown)
 		fs:SetText(l.text)
 		fs.text = l.text
 	end
-	local w, h = fs:GetStringWidth() / 2 + PAD_X, fs:GetStringHeight()
-	local x, y = (l.col - c.ox) * zoom, (l.row - c.oy) * zoom
-	for i = 1, 3 do
-		local dy = i == 1 and 0 or i == 2 and -(h + GAP) or h + GAP
-		local y0, y1 = y + dy - h / 2 - PAD_Y, y + dy + h / 2 + PAD_Y
-		if not Overlaps(x - w, y0, x + w, y1) then
-			boxes[nboxes + 1], boxes[nboxes + 2], boxes[nboxes + 3], boxes[nboxes + 4] = x - w, y0, x + w, y1
-			nboxes = nboxes + 4
-			At(c, fs, "CENTER", l.col, l.row, 0, dy)
-			c.names[l.text], fs.label = true, l -- (fs.label.areaID: the zone a hover lights, M3.4)
-			local a = shown[l.text] and 1 or 0
-			if fs.alpha ~= a then
-				fs:SetAlpha(a)
-				fs.alpha = a
-			end
-			if a == 0 then
-				c.nfading = c.nfading + 1
-				c.fading[c.nfading] = fs
-			end
-			return
-		end
+	return fs
+end
+
+local NONE = {}
+-- The name drawn at its spot; fading in unless the last layout showed it.
+local function Show(c, fs, l, dy, shown)
+	At(c, fs, "CENTER", l.col, l.row, 0, dy)
+	c.names[l.text], fs.label = true, l -- (fs.label.areaID: the zone a hover lights, M3.4)
+	local a = shown[l.text] and 1 or 0
+	if fs.alpha ~= a then
+		fs:SetAlpha(a)
+		fs.alpha = a
 	end
-	Unget(c, "label")
+	if a == 0 then
+		c.nfading = c.nfading + 1
+		c.fading[c.nfading] = fs
+	end
+end
+
+-- A zone name's half width (padded) and height, measured once on a font string of ours never shown
+-- (every zone's box is placed, few drawn).
+local ruler = CreateFrame("Frame")
+ruler:Hide()
+ruler = ruler:CreateFontString()
+ruler:SetFont(FONT, ZONE_SIZE, "")
+local function Measure(l)
+	if not l.w then
+		ruler:SetText(l.text)
+		l.w, l.h = ruler:GetStringWidth() / 2 + PAD_X, ruler:GetStringHeight()
+	end
 end
 
 UI.Labels = Engine.Layer("labels", 3, function(c, inst, zoom, c0, r0, c1, r1)
@@ -113,14 +134,20 @@ UI.Labels = Engine.Layer("labels", 3, function(c, inst, zoom, c0, r0, c1, r1)
 	local list = List(inst)
 	if zoom <= MAX_ZOOM then
 		for i, l in ipairs(list.zones) do
-			if l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then Place(c, l, zoom, ZONE_SIZE, ZONE, shown) end
+			Measure(l)
+			local dy = Spot(c, l, zoom, l.w, l.h)
+			if dy and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
+				Show(c, Font(c, l, ZONE_SIZE, ZONE), l, dy, shown)
+			end
 			if i % 16 == 0 then Yield() end
 		end
 	end
 	if zoom >= SUB_ZOOM then
 		for i, l in ipairs(list.subs) do
 			if zoom >= l.zoom and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-				Place(c, l, zoom, SUB_SIZE, SUB, shown)
+				local fs = Font(c, l, SUB_SIZE, SUB)
+				local dy = Spot(c, l, zoom, fs:GetStringWidth() / 2 + PAD_X, fs:GetStringHeight())
+				if dy then Show(c, fs, l, dy, shown) else Unget(c, "label") end
 			end
 			if i % 16 == 0 then Yield() end
 		end
