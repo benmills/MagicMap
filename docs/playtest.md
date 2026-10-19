@@ -104,10 +104,12 @@ small on the Minimap's spot, follow on, default zoom.
 | # | Do | Mark / shot |
 |---|---|---|
 | a1 | Open: if the map is hidden, `/mma toggle`. First open of the session. At the Thunderbrew door, cursor off. | `/mma shot small-home` |
+| a1b | The ground (M1.4), still at the Thunderbrew door, cursor off: wheel out to 62–80 (Ironforge's zone border on its shadow, zone names in capitals), then in to 250–300 (subzone borders and names). Your arrow: the Minimap's own, its shadow softened, turning smoothly as you turn (a new texture: restart the client after installing, L5). | `/mma shot small-zone`; `/mma shot small-town`; `/mma mark a1b arrow <ok, or what>` |
 | a2 | Wheel in a tick at a time to the closest zoom, then out to the farthest, and back: 16→800→16 (the spike's range). Then the same as fast as the wheel turns (M1.8b: a burst runs about 4 ticks a second, so 16→800 takes ~3.7 s of scrolling; judge whether that feels right). With a trackpad or Magic Mouse too: one flick (about 3 ticks), then a slow drag. | `/mma mark a2 wheel <device>` after each device (`trackpad`, `mouse`) |
 | a3 | Fling: drag-pan fast in several directions, release, let it settle each time. | `/mma mark a3 fling` |
 | a4 | The tear walk (above): Kharanos, x = 47.4, at 800, small, follow on, **2 minutes**. | `/mma mark a4 walk` at ~1 min; `/mma shot small-seam` on the line; `/mma mark a4 tear <what>` on any tear |
 | a5 | Grow and shrink ×5 (M, or the red button): let each animation end. | `/mma mark a5 grow` after the 5th; `/mma shot big-home` once as M lands, cursor off |
+| a5b | Big, Dun Morogh centred, 80–100: Dun Morogh, Ironforge, Loch Modan and part of Wetlands in view, cursor off. Then wheel in to 140–200 (zone and subzone borders: up to ~2750 Lines) and pan about. Then `/mma bench regions`, standing still, once: it hitches; wait for its result (SetAlpha.moved must cost far less than Show.moved, docs/evidence/spike-bugs.md P4). Shrink. | `/mma shot big-zones`; `/mma mark a5b borders` after the pan |
 | a6 | Walk or ride into Ironforge (uiMap 1455), The Commons. Small at the default zoom, then big. | `/mma shot small-indoor`, `/mma shot big-indoor` |
 | a7 | Big map: zoom out to the continent (16–24 px/tile) and pan over the Eastern Kingdoms. | `/mma shot big-continent` (all the way out); `/mma mark a7 continent` |
 | a8 | Shrink. Every session's "after". | — |
@@ -115,6 +117,9 @@ small on the Minimap's spot, follow on, default zoom.
 Checklist:
 
 - [ ] `/mma shot small-home` (a1)
+- [ ] `/mma shot small-zone` (a1b, 62–80)
+- [ ] `/mma shot small-town` (a1b, 250–300)
+- [ ] `/mma mark a1b arrow <ok, or what>`
 - [ ] `/mma mark a2 wheel mouse`
 - [ ] `/mma mark a2 wheel trackpad`
 - [ ] `/mma mark a3 fling`
@@ -123,6 +128,8 @@ Checklist:
 - [ ] `/mma mark a4 tear <what>` (only if one shows)
 - [ ] `/mma shot big-home` (a5, as M lands)
 - [ ] `/mma mark a5 grow` (after the 5th)
+- [ ] `/mma shot big-zones` (a5b, 80–100)
+- [ ] `/mma mark a5b borders` (after the pan at 140–200; then `/mma bench regions`)
 - [ ] `/mma shot small-indoor` (a6)
 - [ ] `/mma shot big-indoor` (a6)
 - [ ] `/mma shot big-continent` (a7)
@@ -234,8 +241,10 @@ The scripts take these (the rest of the list is for M5's full pass):
 | id | Script | Look at | Gates |
 |---|---|---|---|
 | small-home | a1 | tiles, colour match, borders, labels, title, chrome | M1, M5 |
+| small-zone | a1b | zone border and shadow, dead ends, zone names | M1, M5 |
 | small-seam | M0 5, a4 | tear, tile seam on the col 32\|33 line | M0 (baseline), M1, M5 |
 | big-home | a5 | big map as M lands, controls | M1, M5 |
+| big-zones | a5b | zone borders and names, big (the hover: M3.4) | M1, M3, M5 |
 | small-indoor | a6, d3 | the city / indoor art or floor plan | M1, M4, M5 |
 | big-indoor | a6 | big map in a city | M1, M5 |
 | big-continent | a7 | continent: tiles, zone labels | M1, M5 |
@@ -243,7 +252,7 @@ The scripts take these (the rest of the list is for M5's full pass):
 | big-quests | b7 | quest areas, estimates | M2, M5 |
 | small-edge-arrow | c1 | route ink, edge arrow | M3, M5 |
 | small-corpse | c3 | corpse pin, route | M3, M5 |
-| small-town | d1 | services, mailbox, blips | M4, M5 |
+| small-town | a1b, d1 | subzone borders and names (a1b); services, mailbox, blips (d1) | M1, M4, M5 |
 | small-group | d4 | party dots | M4, M5 |
 | big-addon-pins | e1 | borrowed world pins | M4, M5 |
 | small-addon-pins | e2 | borrowed minimap pins | M4, M5 |
