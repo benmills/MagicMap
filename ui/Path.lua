@@ -14,6 +14,7 @@ local _, ns = ...
 local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
 local Camera, Window, Motion = UI.Camera, UI.Window, UI.Motion
 local Maths = ns.Atlas.Camera
+local floor, sin = math.floor, math.sin
 
 local LEVEL = 8 -- over the borders (7), under the names (9): the spike's path frame (Core.lua:149)
 local CLEAR_YOU, CLEAR_TARGET = 14, 15 -- px left clear around your arrow and the target's pin (Path.lua:11)
@@ -21,6 +22,7 @@ local FADE = 40 -- px over which the line fades in and out at its ends (Path.lua
 local STROKE, WASH = 1.6, 3.4 -- px: the light dash and the dark edge under it (Path.lua:13)
 local STROKE_RGBA = { 1, 0.93, 0.76, 0.7 } -- Path.lua:14
 local WASH_RGBA = { 0.12, 0.08, 0.03, 0.3 } -- Path.lua:15
+local STROKE_A, WASH_A = STROKE_RGBA[4] * 200, WASH_RGBA[4] * 200 -- (their alphas in half hundredths)
 local DASH, GAP = 6, 4 -- px (longer, in proportion, when there'd be more than MAX_PIECES dashes: Path.lua:16)
 local PERIOD = DASH + GAP
 local MAX_PIECES = 160 -- Path.lua:17
@@ -59,30 +61,36 @@ Path.edge = edge
 ---------------------------------------------------------------------------
 
 -- Each piece's two lines (pieces counted from the target: MAX_PIECES), made once at load, in login's grace,
--- hidden: a layout only colours, places and shows them (made as they first showed, a long line's first
--- layout made up to 2 x MAX_PIECES in one call: 2-7 ms priced).
+-- hidden, in their colour: a layout only places and shows them, and sets an alpha where it differs (made as
+-- they first showed, a long line's first layout made up to 2 x MAX_PIECES in one call: 2-7 ms priced; the
+-- wash's alpha is its colour's but by the ends).
 local strokes, washes = {}, {}
 local used = 0
-local function Make(sublevel, thick)
+local function Make(sublevel, thick, c)
 	local l = canvas:CreateLine(nil, "ARTWORK", nil, sublevel)
 	l:SetSnapToPixelGrid(false)
 	l:SetTexelSnappingBias(0)
 	l:SetThickness(thick)
+	l:SetColorTexture(c[1], c[2], c[3], c[4])
 	l:Hide()
-	l.on = false
+	l.on, l.a = false, c[4]
 	return l
 end
-for i = 1, MAX_PIECES do washes[i], strokes[i] = Make(0, WASH), Make(1, STROKE) end
+for i = 1, MAX_PIECES do washes[i], strokes[i] = Make(0, WASH, WASH_RGBA), Make(1, STROKE, STROKE_RGBA) end
 
--- Only what changed: the far end of the line (its waves are counted from the target) stays put as you go.
+-- Only what changed: the far end of the line (its waves are counted from the target) stays put as you go;
+-- of a dash that moves, only the end that does.
 local function Segment(l, ax, ay, bx, by, c, a)
 	if l.a ~= a then
 		l.a = a
 		l:SetColorTexture(c[1], c[2], c[3], a)
 	end
-	if l.ax ~= ax or l.ay ~= ay or l.bx ~= bx or l.by ~= by then
-		l.ax, l.ay, l.bx, l.by = ax, ay, bx, by
+	if l.ax ~= ax or l.ay ~= ay then
+		l.ax, l.ay = ax, ay
 		l:SetStartPoint("TOPLEFT", canvas, ax, -ay)
+	end
+	if l.bx ~= bx or l.by ~= by then
+		l.bx, l.by = bx, by
 		l:SetEndPoint("TOPLEFT", canvas, bx, -by)
 	end
 	if not l.on then
@@ -110,8 +118,9 @@ end
 
 -- The route's points between you and the target as last drawn: one found again draws again, however
 -- Model hands it (a new table, or the same one changed).
-local had = { n = 0 }
+local had = { n = 0 } -- (and route: the table; Model hands the same one while its way is the same)
 local function Same(route)
+	if route and route == had.route then return true end
 	local m = route and #route or 0
 	if had.n ~= m then return false end
 	for i = 2, m - 1 do
@@ -122,14 +131,26 @@ local function Same(route)
 end
 local function Had(route)
 	local m = route and #route or 0
-	had.n = m
+	had.n, had.route = m, route
 	for i = 2, m - 1 do had[i * 2 - 1], had[i * 2] = route[i].col, route[i].row end
 end
 
 local function HalfPixel(v) return math.floor(v * 2 + 0.5) / 2 end
 
--- The line's corners on the canvas, and how far along it each one is ([1..m] this draw).
-local xs, ys, along = {}, {}, {}
+-- The line's corners on the canvas, how far along it each one is, and how far from the target (summed from
+-- it: [1..m] this draw); each leg's length and way (a unit vector: ux, uy; 0 for none: [1..m - 1]); and how
+-- many of legs 1..k have a box (wobble and all) that meets the rect laid out over (meet[k]: [0..m - 1]).
+local xs, ys, along, back, segs, ux, uy, meet = {}, {}, {}, {}, {}, {}, {}, { [0] = 0 }
+-- The last layout: its corners from the target end (pxs, pys, pback: xs, ys, back as they were), its zoom,
+-- origin, step and length; and each dash's ends and alphas as worked out then (dash n's: kept[n] the
+-- layout, Path.draws, it was worked out for or still stood in; nil: not worked out). A dash wholly on legs
+-- by the target that didn't move, past the fade by you, stands as it was: walking, only those near you move.
+local pxs, pys, pback = {}, {}, {}
+local last = { m = 0 }
+local dax, day, dbx, dby, dwa, dsa, kept = {}, {}, {}, {}, {}, {}, {}
+-- The canvas's origin, kept while the view stays near it (a line drawn on it stays put as the map pans).
+local ox, oy
+local rect = {} -- the canvas px laid out over (the view's and a margin): x0, y0, x1, y1
 local you, dest = {}, {} -- the line's ends, tile space
 local way = {} -- its points: you, the route's between, the target
 local shownWay -- way as last drawn, when a route was found: the edge arrow's legs
@@ -186,33 +207,80 @@ local function LeadIn(pts, facing, lead)
 	return bent
 end
 
--- Point at distance s along the line, on leg i (s between along[i] and along[i + 1]), nudged sideways by
--- the wobble.
-local function At(i, s, len)
-	local seg = along[i + 1] - along[i]
-	local k = seg > 0 and (s - along[i]) / seg or 0 -- /: never 0 (seg > 0)
-	local dx, dy = xs[i + 1] - xs[i], ys[i + 1] - ys[i]
-	local x, y = xs[i] + dx * k, ys[i] + dy * k
-	if seg > 0 then
-		-- Counted from the target, so the waves stay put as you walk.
-		local u = len - s
-		local o = WOBBLE * (0.6 * math.sin(u * 0.09 + 1.3) + 0.4 * math.sin(u * 0.031 + 4.1))
-		x, y = x - dy / seg * o, y + dx / seg * o -- /: never 0 (seg > 0)
-	end
-	return x, y
-end
-
--- The canvas's origin, kept while the view stays near it (a line drawn on it stays put as the map pans).
-local ox, oy
-local rect = {} -- the canvas px laid out over (the view's and a margin): x0, y0, x1, y1
-
 local function Covered(cam, w, h)
 	local z = cam.zoom
 	local vx, vy = (cam.cx - ox) * z, (cam.cy - oy) * z
 	return vx - w / 2 >= rect[1] and vx + w / 2 <= rect[3] and vy - h / 2 >= rect[2] and vy + h / 2 <= rect[4]
 end
 
--- The line to t from you, laid out again unless nothing it shows changed: its pieces.
+-- The dashes of the line as laid out (lay: m, len, s0, s1, step, id (Path.draws), still; parity, half),
+-- laid back from the target so they stay put as you walk; each worked out only where its legs meet the
+-- rect, and left as it stands on legs that didn't move (still: how far from the target). half: 0, all of
+-- them; 1 or 2, the odd or even ones only (the rest as they stand). How many there are.
+local lay = {}
+local function Dashes(half)
+	local L = lay
+	local m, len, s0, s1, step, id, still = L.m, L.len, L.s0, L.s1, L.step, L.id, L.still
+	local dash = step * DASH / PERIOD
+	local q = step > PERIOD and 1 or 2 -- px a dash's ends are rounded to: halves, whole past MAX_PIECES (the M3 review)
+	local r1, r2, r3, r4 = rect[1], rect[2], rect[3], rect[4]
+	local n, i = 0, m - 1
+	local b = s1 + step
+	while b - step > s0 and n < MAX_PIECES do
+		b = b - step
+		local a = b - dash
+		if a < s0 then a = s0 end
+		while i > 1 and along[i] > a do i = i - 1 end
+		local j = i
+		while j < m - 1 and along[j + 1] < b do j = j + 1 end
+		n = n + 1
+		if half == 0 or n % 2 == half - 1 then
+			local near, ax, ay, bx, by = false, nil, nil, nil, nil
+			if len - a <= still and kept[n] == id - 1 then -- as it was: shown again if it's come into the rect
+				kept[n], ax, ay, bx, by = id, dax[n], day[n], dbx[n], dby[n]
+				near = (ax >= r1 or bx >= r1) and (ax <= r3 or bx <= r3) and (ay >= r2 or by >= r2) and (ay <= r4 or by <= r4)
+				if near and not (washes[n].on and strokes[n].on) then
+					Segment(washes[n], ax, ay, bx, by, WASH_RGBA, dwa[n])
+					Segment(strokes[n], ax, ay, bx, by, STROKE_RGBA, dsa[n])
+				end
+				a = nil
+			else
+				kept[n], near = nil, meet[j] > meet[i - 1]
+			end
+			if a and near then
+				-- Its ends on legs i and j, nudged sideways by the wobble (counted from the target, so the waves
+				-- stay put as you walk).
+				local u, d, vx, vy = len - a, a - along[i], ux[i], uy[i]
+				local o = WOBBLE * (0.6 * sin(u * 0.09 + 1.3) + 0.4 * sin(u * 0.031 + 4.1))
+				ax, ay = floor((xs[i] + vx * d - vy * o) * q + 0.5) / q, floor((ys[i] + vy * d + vx * o) * q + 0.5) / q -- /: never 0 (q 1 or 2)
+				u, d, vx, vy = len - b, b - along[j], ux[j], uy[j]
+				o = WOBBLE * (0.6 * sin(u * 0.09 + 1.3) + 0.4 * sin(u * 0.031 + 4.1))
+				bx, by = floor((xs[j] + vx * d - vy * o) * q + 0.5) / q, floor((ys[j] + vy * d + vx * o) * q + 0.5) / q -- /: never 0 (q 1 or 2)
+				local mid = (a + b) / 2
+				local f = (mid - s0) / FADE
+				if f > 1 then f = 1 end
+				local g = (s1 - mid) / FADE
+				if g < f then f = g end
+				local even = 1 - UNEVEN * (0.5 + 0.5 * sin((len - mid) * 0.045 + 2))
+				kept[n], dax[n], day[n], dbx[n], dby[n] = id, ax, ay, bx, by
+				dwa[n], dsa[n] = floor(WASH_A * f + 0.5) / 200, floor(STROKE_A * f * even + 0.5) / 200
+				near = (ax >= r1 or bx >= r1) and (ax <= r3 or bx <= r3) and (ay >= r2 or by >= r2) and (ay <= r4 or by <= r4)
+				if near then
+					Segment(washes[n], ax, ay, bx, by, WASH_RGBA, dwa[n])
+					Segment(strokes[n], ax, ay, bx, by, STROKE_RGBA, dsa[n])
+				end
+			end
+			if not near then
+				Off(washes[n])
+				Off(strokes[n])
+			end
+		end
+	end
+	return n
+end
+
+-- The line to t from you, laid out again unless nothing it shows changed (but half its dashes left from the
+-- last frame: Dashes): its pieces, or nil.
 local function Line(t, me, cam, w, h)
 	local z = cam.zoom
 	if not ox or math.abs(ox - cam.cx) * z > ORIGIN_PX or math.abs(oy - cam.cy) * z > ORIGIN_PX then
@@ -230,7 +298,12 @@ local function Line(t, me, cam, w, h)
 	if route and route.straight then route = nil end
 	local facing = me.facing
 	facing = facing and math.floor(facing / FACING_STEP + 0.5) * FACING_STEP
-	if Unchanged(x1, y1, x2, y2, facing, z) and Same(route) and Covered(cam, w, h) then return nil end
+	if Unchanged(x1, y1, x2, y2, facing, z) and Same(route) and Covered(cam, w, h) then
+		local half = lay.half
+		if not half then return nil end
+		lay.half = nil
+		return Dashes(half)
+	end
 	Had(route)
 	Path.draws = Path.draws + 1
 	wipe(way)
@@ -242,45 +315,60 @@ local function Line(t, me, cam, w, h)
 	if facing then pts = LeadIn(pts, facing, LEAD / z) end -- /: never 0 (zoom >= MIN_ZOOM)
 	shownWay = route and pts
 	local m = #pts
-	for i = 1, m do
-		xs[i], ys[i] = (pts[i].col - ox) * z, (pts[i].row - oy) * z
-		along[i] = i == 1 and 0 or along[i - 1] + math.sqrt((xs[i] - xs[i - 1]) ^ 2 + (ys[i] - ys[i - 1]) ^ 2)
-	end
 	-- Over the view and a margin: a dash that doesn't meet it is left off.
 	local vx, vy = (cam.cx - ox) * z, (cam.cy - oy) * z
 	local mw, mh = w / 2 + MARGIN, h / 2 + MARGIN
-	rect[1], rect[2], rect[3], rect[4] = vx - mw, vy - mh, vx + mw, vy + mh
-	local n, len = 0, along[m]
-	local s0, s1 = CLEAR_YOU, len - CLEAR_TARGET
-	if s1 > s0 then
-		-- Dashes laid back from the target, so they stay put as you walk.
-		local step = math.max(PERIOD, (s1 - s0) / MAX_PIECES)
-		local dash = step * DASH / PERIOD
-		local i = m - 1
-		local b = s1 + step
-		while b - step > s0 and n < MAX_PIECES do
-			b = b - step
-			local a = math.max(s0, b - dash)
-			while i > 1 and along[i] > a do i = i - 1 end
-			local j = i
-			while j < m - 1 and along[j + 1] < b do j = j + 1 end
-			n = n + 1
-			local ax, ay = At(i, a, len)
-			local bx, by = At(j, b, len)
-			ax, ay, bx, by = HalfPixel(ax), HalfPixel(ay), HalfPixel(bx), HalfPixel(by)
-			if math.max(ax, bx) >= rect[1] and math.min(ax, bx) <= rect[3] and math.max(ay, by) >= rect[2]
-				and math.min(ay, by) <= rect[4] then
-				local mid = (a + b) / 2
-				local f = math.min(1, (mid - s0) / FADE, (s1 - mid) / FADE)
-				local even = 1 - UNEVEN * (0.5 + 0.5 * math.sin((len - mid) * 0.045 + 2))
-				Segment(washes[n], ax, ay, bx, by, WASH_RGBA, HalfPixel(WASH_RGBA[4] * f * 100) / 100)
-				Segment(strokes[n], ax, ay, bx, by, STROKE_RGBA, HalfPixel(STROKE_RGBA[4] * f * even * 100) / 100)
-			else
-				Off(washes[n])
-				Off(strokes[n])
-			end
+	local r1, r2, r3, r4 = vx - mw, vy - mh, vx + mw, vy + mh
+	rect[1], rect[2], rect[3], rect[4] = r1, r2, r3, r4
+	local pad = WOBBLE + 1
+	xs, pxs, ys, pys, back, pback = pxs, xs, pys, ys, pback, back -- (the last layout's kept to compare)
+	for i = 1, m do
+		local x, y = (pts[i].col - ox) * z, (pts[i].row - oy) * z
+		xs[i], ys[i] = x, y
+		if i == 1 then
+			along[i] = 0
+		else
+			local px, py = xs[i - 1], ys[i - 1]
+			local seg = math.sqrt((x - px) ^ 2 + (y - py) ^ 2)
+			along[i] = along[i - 1] + seg
+			local k = i - 1
+			segs[k] = seg
+			if seg > 0 then ux[k], uy[k] = (x - px) / seg, (y - py) / seg else ux[k], uy[k] = 0, 0 end -- /: never 0 (seg > 0)
+			local meets = (x + pad >= r1 or px + pad >= r1) and (x - pad <= r3 or px - pad <= r3)
+				and (y + pad >= r2 or py + pad >= r2) and (y - pad <= r4 or py - pad <= r4)
+			meet[k] = meet[k - 1] + (meets and 1 or 0)
 		end
 	end
+	back[m] = 0
+	for i = m - 1, 1, -1 do back[i] = back[i + 1] + segs[i] end
+	-- How far from the target the line is as last laid out (-1: none of it).
+	local fixed, lm, k = -1, last.m, 0
+	if last.z == z and last.ox == ox and last.oy == oy then
+		while k < m and k < lm and xs[m - k] == pxs[lm - k] and ys[m - k] == pys[lm - k] and back[m - k] == pback[lm - k] do
+			k = k + 1
+		end
+		if k >= 2 then fixed = back[m - k + 1] end
+	end
+	local len = along[m]
+	local s0, s1 = CLEAR_YOU, len - CLEAR_TARGET
+	local n, step = 0, math.max(PERIOD, (s1 - s0) / MAX_PIECES)
+	if s1 > s0 then
+		local L = lay
+		L.m, L.len, L.s0, L.s1, L.step, L.id, L.still = m, len, s0, s1, step, Path.draws, -1
+		if fixed >= 0 and last.step == step then L.still = math.min(fixed, math.min(len, last.len) - s0 - FADE) end
+		-- At the zoom and origin of the last layout (walking, turning, a route found), or a line new: half its
+		-- dashes this frame, the rest the next, odd and even by turns (the M3 review: one frame behind, unseen;
+		-- past MAX_PIECES every dash moves as its length does). While the zoom moves, all at once.
+		if last.z == z and last.ox == ox and last.oy == oy or Path.pieces == 0 then
+			L.parity = 3 - (L.parity or 1)
+			L.half = 3 - L.parity
+			n = Dashes(L.parity)
+		else
+			L.half = nil
+			n = Dashes(0)
+		end
+	end
+	last.m, last.z, last.ox, last.oy, last.len, last.step = m, z, ox, oy, len, step
 	return n
 end
 
@@ -291,7 +379,14 @@ end
 local function In(x, y, lo, hiX, hiY) return x >= lo and x <= hiX and y >= lo and y <= hiY end
 
 -- Where the line toward t leaves the view (inset), along the route's leg that does: there, pointing on.
+-- Worked out again only once the view, you, the target or the line moved.
+local placed = {} -- cam's cx, cy, zoom, w, h, you, the target's pos, Path.draws; on: the answer
 local function Arrow(t, me, cam, w, h)
+	local p = placed
+	if p[1] == cam.cx and p[2] == cam.cy and p[3] == cam.zoom and p[4] == w and p[5] == h and p[6] == me.col
+		and p[7] == me.row and p[8] == t.pos and p[9] == Path.draws then return p.on end
+	p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9] = cam.cx, cam.cy, cam.zoom, w, h, me.col, me.row, t.pos, Path.draws
+	p.on = false
 	local lo, hiX, hiY = EDGE_INSET, w - EDGE_INSET, h - EDGE_INSET
 	local x1, y1 = Maths.TileToScreen(cam, w, h, me.col, me.row)
 	local x2, y2 = Maths.TileToScreen(cam, w, h, t.pos.col, t.pos.row)
@@ -317,6 +412,7 @@ local function Arrow(t, me, cam, w, h)
 		edge:SetPoint("CENTER", UI.You.overlay, "TOPLEFT", ax, -ay)
 		edge:SetRotation(rot)
 	end
+	p.on = true
 	return true
 end
 
@@ -330,7 +426,7 @@ Runtime.Step("ui", "map: path", function()
 		n = Line(t, me, cam, w, h)
 		arrow = Arrow(t, me, cam, w, h)
 	else
-		drawn[1], shownWay = nil, nil
+		drawn[1], shownWay, lay.half = nil, nil, nil
 	end
 	if arrow ~= edge.on then
 		edge.on = arrow
@@ -351,7 +447,7 @@ Window.frame:HookScript("OnHide", Runtime.Wrap("map: path hidden", function()
 		Off(strokes[i])
 		Off(washes[i])
 	end
-	used, Path.pieces, drawn[1], shownWay = 0, 0, nil, nil
+	used, Path.pieces, drawn[1], shownWay, last.z, lay.half = 0, 0, nil, nil, nil, nil
 	edge.on = false
 	edge:Hide()
 end))

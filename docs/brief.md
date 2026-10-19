@@ -209,7 +209,9 @@ Graces: 5 s after each PLAYER_ENTERING_WORLD (`login`, `loading`), 2 s after the
 tools/telemetry.py and `FRAME_MS`/`CALL_MS` in runtime/Runtime.lua together. Tests run on the sim's
 counted clock (`Sim.Counted`: 3 µs a widget call, Lua free, the same on every machine); `Sim.Price(true)`
 adds what the client charges (~20 µs a region shown after moving, ~2 µs a sensor probe:
-docs/evidence/perf-m0.md), so the `*_priced` tests hold these budgets in CI.
+docs/evidence/perf-m0.md), so the `*_priced` tests hold these budgets in CI. `load(lua=True)` (tools/sim.py:
+`boot(lua=True)`, `--lua`) charges our own Lua too, R-P2's 10 ns a VM instruction (M3's path tests: with it,
+M1's engine's zoom frames go past their budgets, `map: draw` to 2.3 ms in the big window: M1.15's, M5's).
 
 ## 7. Decisions (v1-plan §9, all decided)
 
@@ -243,7 +245,11 @@ goal no way reaches, as a rule: ~18 s of 1 ms slices, 4.4 MB) is searched again 
 you've come half the way it spanned, not each 3-chunk stray or 12 chunks moved as the spike's (riding
 toward a plateau ran one search after another: 285 KB/s, p95 1.35 ms); and none runs while the view moves
 (Focus `moving`). The exit's "Dun Morogh route at ≤1 ms/frame" reads a 1 ms slice a frame, at most the
-slice and one node (≤1.1 ms), as R-P2 holds every Job.
+slice and one node (≤1.1 ms), as R-P2 holds every Job. Round 2: the path lays half its dashes a frame (odd
+and even by turns) when the zoom and origin are the last layout's or the line is new (a walk, a turn, a route
+found: one frame behind, unseen; while the zoom moves, all at once), and past MAX_PIECES a dash's ends are at
+whole pixels (every dash re-spaces as the line's length changes; under 0.5 px from the spike's): the big
+window walking at zoom 400 holds p95 ≤ 1 ms with our Lua charged (D4: neither is seen).
 
 ## 8. Commands
 
@@ -302,7 +308,7 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   its way, none while zooming),
   test_target_parts (Game's waypoint, way and corpse round trips), test_path (the line, its redraws and
   cap, the edge arrow, corpse forces follow, the title's target, the corpse and waypoint pins, walking and
-  priced, small and big), test_interact (the picker, /mma map and zone, zone hover and fly, Ctrl/Shift clicks through
+  priced, small and big, and with our Lua charged too: `boot(lua=True)`), test_interact (the picker, /mma map and zone, zone hover and fly, Ctrl/Shift clicks through
   Game's handlers, the right-click menu and inspector). The sim's C_ calls make their tables anew each call, as the client's (their
   garbage is measured); a scenario changing Sim.quests fires QUEST_LOG_UPDATE, the sim QUEST_ACCEPTED and
   QUEST_REMOVED with it. A QuestPOIFrame draws into its rect as the last frame's end laid it out (L1); its

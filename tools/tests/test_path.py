@@ -16,16 +16,26 @@ waypoint pins and the title's target), Model.Target and Model.Route stubbed as t
   test_title_target: the subtitle's "<title> N yd" and "<title> here", big or small and hovered (S12).
   test_corpse_waypoint_pins: Known("corpse") and Known("waypoint") as pins (S49), from Game's parts through Model,
     their tooltips, their gear rows.
+  test_path_walk_laid_as_new: walking, the line ends as a new layout from where you stop lays it out,
+    dash for dash (those left as they stand, those laid by halves), under MAX_PIECES and past it.
   test_path_walk_alloc: walking with a route, the line laid out again as you go: the whole ≤ 50 KB/s (the
     M3.3 Verify), the path's own next to none (its lines made at load).
   test_path_priced: a long winding route at the client's prices, zooming in and out (the line laid out each
-    frame the zoom moves), walking and dragging: within the frame budgets, no call over 2 ms.
+    frame the zoom moves), walking and dragging: within the frame budgets, no call over 2 ms. With our Lua
+    charged too (R-P2's 10 ns an instruction): the line's own budgets.
   test_path_priced_big: the big window, a waypoint at the view's corner (as a Ctrl-click there): its first
     layout under 2 ms (no line made then); zooming with the line across the view: no frame over 8 ms. The
     zoom state's p95 ≤ 5 is M1.15's (6.3 at the M2 review, the line's share ~0.8 ms): printed here.
+  test_path_walk_big: walking in the big window at zoom 400 toward a waypoint across the zone, Model's own
+    route, priced and with our Lua charged too: at rest p95 ≤ 1 ms (a line past MAX_PIECES re-spaces every
+    dash as you go: half its dashes a frame, their ends at whole pixels; under it, the dashes on legs that
+    didn't move left as they stand).
 """
 import math
 
+import pytest
+
+import sim as S
 from test_addon import boot, errors
 from test_quest_areas import stretch
 from sim import TEST_UI
@@ -36,6 +46,7 @@ local UI, S = ns.UI, Sim.state
 Tgt, Way = false, nil
 ns.Model.Target = function() if ns.Model.focus then return Tgt end end -- (nil: no Focus yet, as typed)
 ns.Model.Route = function() return Way end
+ns.Atlas.Walk.Snap = function() end -- (Model's own route, unseen here, finds nowhere to stand: no search runs)
 Sim.player.facing = -math.pi / 2 -- east (the client's facing: counter-clockwise from north)
 -- A target of kind at tile (col, row) on your map.
 function Target(kind, col, row, title)
@@ -96,8 +107,9 @@ SEP = "  ·  ".encode("utf-8").decode("latin-1")  # the title's join, as the sim
 YD = 1600 / 3  # a tile
 
 
-def client(saved=None, shown=True):
-    L, sim, ns = boot(saved)
+def client(saved=None, shown=True, lua=False):
+    """lua: our own Lua charged too, as the client's (sim.LUA_PRICE: 10 ns a VM instruction)."""
+    L, sim, ns = boot(saved, lua=lua)
     L.execute(SETUP, sim, ns)
     if shown:
         sim.Slash("/mma toggle")
@@ -151,7 +163,9 @@ def test_path_line():
     assert dashes(G, 1.6) == [] and dashes(G, 3.4) == []
     G.Tgt.inside = None
     sim.Step()
-    assert len(dashes(G, 1.6)) > 15
+    n = len(dashes(G, 1.6))
+    sim.Step()
+    assert 8 < n < len(dashes(G, 1.6)) and len(dashes(G, 1.6)) > 15  # (a line new: half its dashes a frame)
     G.Tgt = False
     sim.Step()
     assert dashes(G, 1.6) == [] and P.pieces == 0
@@ -356,6 +370,42 @@ def test_corpse_waypoint_pins():
     assert not errors(sim, ns), errors(sim, ns)
 
 
+def test_path_walk_laid_as_new():
+    """Walking (the dashes on legs that didn't move left as they stand; past MAX_PIECES, half of them a frame),
+    the line ends as a new layout from where you stop lays it out, dash for dash (within a pixel: the last
+    layout was at the last half pixel you moved, its ends rounded)."""
+    def ends(L, sim, ns, G):
+        cam = ns.UI.Camera.cam
+        return [(cam.cx + d[0] / cam.zoom, cam.cy + d[1] / cam.zoom, cam.cx + d[2] / cam.zoom, cam.cy + d[3] / cam.zoom, d[4])
+                for d in dashes(G, 1.6)]
+
+    def matched(a, b, zoom):
+        px = 1.01 / zoom
+        return all(any(all(abs(x[k] - y[k]) <= px for k in range(4)) and abs(x[4] - y[4]) <= 0.02 for y in b) for x in a)
+
+    def line(zoom, at=None):
+        L, sim, ns, G = client()
+        ns.UI.Motion.SetZoom(zoom)
+        sim.player.facing = math.pi / 2  # (the sim's east)
+        if at:
+            sim.player.col, sim.player.row = at
+        G.Target("waypoint", 35.5, 49.6, "Waypoint")
+        G.Route(L.table_from([L.table_from(q) for q in [(32.4, 49.9), (33.0, 49.9), (33.6, 49.7), (34.5, 49.6), (35.5, 49.6)]]))
+        sim.Run(1)
+        return L, sim, ns, G
+
+    for zoom in (300, 400):  # (under MAX_PIECES, and past it)
+        L, sim, ns, G = walked = line(zoom)
+        sim.player.speed = 7  # toward it
+        sim.Run(2)
+        sim.player.speed = 0
+        sim.Run(0.2)
+        new = line(zoom, (sim.player.col, sim.player.row))
+        a, b = ends(*walked), ends(*new)
+        assert len(a) > 30 and abs(len(a) - len(b)) <= 1 and matched(a, b, zoom) and matched(b, a, zoom), (zoom, len(a), len(b))
+        assert not errors(sim, ns), errors(sim, ns)
+
+
 def test_path_walk_alloc():
     L, sim, ns, G = client()
     P = ns.UI.Path
@@ -375,8 +425,16 @@ def test_path_walk_alloc():
     assert not errors(sim, ns), errors(sim, ns)
 
 
-def test_path_priced():
-    L, sim, ns, G = client()
+def slow(fs):
+    return {e.name: e.max for e in fs.slow.values()}
+
+
+# lua: our own Lua charged too (sim.LUA_PRICE, R-P2's 10 ns an instruction). Then the line's own budgets hold
+# (map: path never in perf.slow, its first layout within CALL_MS, at rest p95 ≤ 1); the map's engine's zoom
+# frames are M1's (M1.15, M5: printed).
+@pytest.mark.parametrize("lua", [False, True])
+def test_path_priced(lua):
+    L, sim, ns, G = client(lua=lua)
     sim.Run(5)  # past login's grace and the first open's
     G.Target("waypoint", 40.0, 47.0, "Waypoint")
     G.Route(L.table_from([L.table_from(q) for q in [(33.0, 49.0), (35.0, 48.5), (37.0, 48.0), (38.5, 47.5), (40.0, 47.0)]]))
@@ -396,15 +454,19 @@ def test_path_priced():
     sim.Price(False)
     fs = ns.Runtime.FrameStats()
     by = {k: v for k, v in fs.byState.items()}
-    print("long route, priced: " + ", ".join(f"{k} {v.frames} p95 {v.p95} max {v.max}" for k, v in sorted(by.items()))
-          + f"; map: path max {ns.Runtime.Perf()[0]['map: path'].max:.2f} ms")
-    assert by["small"].p95 <= 1 and by["zoom"].p95 <= 5 and by["drag"].p95 <= 5 and fs.max <= 8
-    assert not list(fs.slow.values()), list(fs.slow.values())
+    path = ns.Runtime.Perf()[0]["map: path"].max
+    print(f"long route, priced{' with Lua' if lua else ''}: "
+          + ", ".join(f"{k} {v.frames} p95 {v.p95} max {v.max}" for k, v in sorted(by.items()))
+          + f"; map: path max {path:.2f} ms; slow {slow(fs)}")
+    assert by["small"].p95 <= 1 and by["drag"].p95 <= 5 and fs.max <= 8 and path <= 2 and "map: path" not in slow(fs)
+    if not lua:
+        assert by["zoom"].p95 <= 5 and not slow(fs)
     assert not errors(sim, ns), errors(sim, ns)
 
 
-def test_path_priced_big():
-    L, sim, ns, G = client()
+@pytest.mark.parametrize("lua", [False, True])
+def test_path_priced_big(lua):
+    L, sim, ns, G = client(lua=lua)
     sim.Run(5)  # past login's grace and the first open's
     sim.Press("M")
     sim.Run(3)
@@ -424,8 +486,35 @@ def test_path_priced_big():
     sim.Price(False)
     fs = ns.Runtime.FrameStats()
     by = {k: v for k, v in fs.byState.items()}
-    print(f"big, a corner waypoint, priced: the first layout {first:.2f} ms, {UI.Path.pieces} pieces; "
-          + ", ".join(f"{k} {v.frames} p95 {v.p95} max {v.max}" for k, v in sorted(by.items())))
-    assert first <= 2 and by["big"].p95 <= 1 and fs.max <= 8
-    assert not list(fs.slow.values()), list(fs.slow.values())
+    path = ns.Runtime.Perf()[0]["map: path"].max
+    print(f"big, a corner waypoint, priced{' with Lua' if lua else ''}: the first layout {first:.2f} ms, {UI.Path.pieces} pieces; "
+          + ", ".join(f"{k} {v.frames} p95 {v.p95} max {v.max}" for k, v in sorted(by.items()))
+          + f"; map: path max {path:.2f} ms; slow {slow(fs)}")
+    assert first <= 2 and by["big"].p95 <= 1 and fs.max <= 8 and path <= 2 and "map: path" not in slow(fs)
+    if not lua:
+        assert not slow(fs)
     assert not errors(sim, ns), errors(sim, ns)
+
+
+@pytest.mark.parametrize("lua", [False, True])
+def test_path_walk_big(lua):
+    """Script (c)'s c2: the big window at zoom 400, a waypoint at Lakeshire (Model's own target and route,
+    from Game's waypoint), walking east 10 s: the line past MAX_PIECES, each dash re-spaced as you go."""
+    c = S.boot(priced=True, lua=lua)
+    c.slash("/mma toggle")
+    c.run(6)
+    c.press("M")
+    c.run(3)
+    c.lua("ns.UI.Motion.SetZoom(400)")
+    c.run(3)
+    c.lua("ns.Game.Command({ kind = 'waypoint', pos = { inst = 0, col = 36.09, row = 49.28 } })")
+    c.run(3)
+    P, ns = c.ns.UI.Path, c.ns
+    draws = P.draws
+    c.walk(10, "east")
+    fs = ns.Runtime.FrameStats()
+    print(f"walking, big, zoom 400{' with Lua' if lua else ''}: {P.draws - draws} layouts, {P.pieces} pieces; big p95 "
+          f"{fs.byState.big.p95} max {fs.byState.big.max}; map: path max {ns.Runtime.Perf()[0]['map: path'].max:.2f} ms")
+    assert P.draws - draws > 50 and P.pieces == 160 and not ns.Model.Route().straight
+    assert fs.byState.big.p95 <= 1 and "map: path" not in slow(fs) and fs.max <= 8
+    assert not c.errors(), c.errors()

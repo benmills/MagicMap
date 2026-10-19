@@ -4,6 +4,7 @@ test_addon.boot; harness: the replays' T, test_spike_bugs.py).
 
     import sim                                 # (tools/ on sys.path)
     s = sim.boot(priced=True)                  # + Sim.Price: what the client charges (docs/evidence/perf-m0.md)
+    s = sim.boot(priced=True, lua=True)        # + our own Lua at 10 ns a VM instruction (R-P2's: LUA_PRICE)
     s.blips([("Mailbox", 40, 20)])             # the minimap's blips, yards east and north of where you log in
     s.slash("/mma toggle"); s.run(6)           # the map open, past login's 5 s grace: a grace's frames aren't in byState
     s.wheel(3); s.drag(200, 0, 20); s.walk(10, "east"); s.press("M")
@@ -51,14 +52,57 @@ def files(data=True):
             if os.path.exists(os.path.join(luacheck.ROOT, f)) and (data or f.replace("\\", "/") not in QUESTIE)]
 
 
-def load(saved=None, data=True):
+# lua=True: the counted clock also charges the addon's own Lua, LUA_NS a VM instruction (R-P2's 10 ns, as the
+# client's Lua), counted every LUA_EVERY instructions run in a file under the repo but tools/, on the main
+# thread and in each coroutine made after (Runtime's jobs and workers, made at load or later). The count's
+# own garbage (a debug.getinfo table each) is kept out of collectgarbage("count"), what Runtime measures
+# allocation by: no collection runs meanwhile but a full one (which takes it all).
+LUA_NS, LUA_EVERY = 0.00001, 100
+LUA_PRICE = """
+local Sim, root, NS, EVERY = ...
+local getinfo, gc, ours, n, kb = debug.getinfo, collectgarbage, {}, 0, 0
+gc("stop")
+collectgarbage = function(opt, ...)
+	if opt == "count" then return gc("count") - kb end
+	local a, b = gc(opt, ...)
+	if opt == "collect" then kb = 0; gc("stop") end
+	return a, b
+end
+local function hook()
+	local k0 = gc("count")
+	local i = getinfo(2, "S")
+	local s = i and i.source or ""
+	local o = ours[s]
+	if o == nil then
+		o = s:sub(1, #root) == root and s:sub(#root + 1, #root + 7) ~= "/tools/"
+		ours[s] = o
+	end
+	if o then n = n + EVERY end
+	kb = kb + gc("count") - k0
+end
+local clock = Sim.Clock
+Sim.Clock = function() return clock() + n * NS end
+debug.sethook(hook, "", EVERY)
+local create = coroutine.create
+coroutine.create = function(fn)
+	local co = create(fn)
+	debug.sethook(co, hook, "", EVERY)
+	return co
+end
+"""
+
+
+def load(saved=None, data=True, lua=False):
     """A simulated client with MagicMapAtlas loaded and logged in: (Lua, Sim, ns), on the counted clock
     (Sim.Counted: what a budgeted call or job gets done is the same on every machine).
     saved: Lua source for the SavedVariables (MagicMapAtlasDB = ...) found at load (default TEST_UI).
-    data=False: without QuestieDB's data (QUESTIE), as CI's checkout and a no-data build."""
+    data=False: without QuestieDB's data (QUESTIE), as CI's checkout and a no-data build.
+    lua=True: our own Lua charged too (LUA_PRICE)."""
     L = lua51.LuaRuntime(encoding="latin-1", unpack_returned_tuples=True)
     sim = L.eval("function(path) return assert(loadfile(path))() end")(os.path.join(TESTS, "wowsim.lua"))
     sim.Counted()
+    if lua:
+        L.execute(LUA_PRICE, sim, "@" + luacheck.ROOT, LUA_NS, LUA_EVERY)
     ns = L.table()
     run = L.eval("""function(path, ns)
         local chunk, err = loadfile(path)
@@ -114,8 +158,8 @@ def py(v, depth=8):
 class Client:
     """A booted client: L (the Lua), sim (wowsim's Sim), ns (the addon's), T (the replays' harness)."""
 
-    def __init__(self, saved=None, priced=False):
-        self.L, self.sim, self.ns = load(saved)
+    def __init__(self, saved=None, priced=False, lua=False):
+        self.L, self.sim, self.ns = load(saved, lua=lua)
         self.placed = []
         self.T = harness(self.L)
         self.sim.Price(priced)
@@ -189,8 +233,8 @@ class Client:
         return {lay.name: self.T.Live(lay) for lay in self.ns.UI.Engine.layers.values()}
 
 
-def boot(saved=None, priced=False):
-    return Client(saved, priced)
+def boot(saved=None, priced=False, lua=False):
+    return Client(saved, priced, lua)
 
 
 def digest(p):
@@ -252,10 +296,11 @@ def commands(script):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--priced", action="store_true", help="Sim.Price on from login")
+    ap.add_argument("--lua", action="store_true", help="our own Lua charged too, 10 ns a VM instruction (LUA_PRICE)")
     ap.add_argument("--saved", help="Lua source for the SavedVariables found at load (default: the map hidden, sim.TEST_UI)")
     ap.add_argument("--run", action="append", default=[], help="a script (above); several run in turn")
     args = ap.parse_args(argv)
-    s = boot(args.saved, args.priced)
+    s = boot(args.saved, args.priced, args.lua)
     for line in (c for script in args.run for c in commands(script)):
         out = command(s, line) if line else None
         if out:
