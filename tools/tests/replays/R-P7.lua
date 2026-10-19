@@ -47,7 +47,8 @@ sim.Run(1)
 
 -- The flights on the priced clock: our frames (T.Ours: all of Runtime's) and the map's KB a second.
 -- KB_S: the map's allocation a second over a flight (before M1.3 every frame of one laid all 5 layers
--- out: ~35 KB a frame, ~2000 KB/s); what's left is the layouts' own (M1.4's per-line tables).
+-- out: ~35 KB a frame, ~2000 KB/s); what's left is the layouts' own: a job each (~8 KB a layer a flight),
+-- the big window's first layouts making their regions (M1.4: 60-125 KB/s, no per-line tables left).
 local KB_S = 400
 local read, P = T.Ours(sim), ns.Runtime.Perf()
 local function MapKB()

@@ -54,6 +54,11 @@ function Atlas.Drawn(inst, key)
 	return tiles and tiles[key] and not (colors and colors.sea and colors.sea[key]) and true or false
 end
 
+-- Has the map colour data (Data/TileColor.lua)? (/mma tint says when it hasn't.)
+function Atlas.TileColored(inst)
+	return Data.TileColor ~= nil and Data.TileColor[inst] ~= nil
+end
+
 -- tint: drawn colour = texel * m + a, for tiles baked off from their neighbours.
 -- edge: each open side's mean colour, to spill outward. sea: open sea all over (not drawn).
 local info = {} -- [inst][key] -> info | false

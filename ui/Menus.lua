@@ -25,7 +25,7 @@ end
 -- or a button ({ label, run = }) (GearMenu.lua:30-59).
 local SETTINGS = {
 	{ "Map", {
-		{ "Colour-matched tiles", on = function() return UI.saved.tint end, run = function() UI.saved.tint = not UI.saved.tint end,
+		{ "Colour-matched tiles", on = function() return UI.saved.tint end, run = function() UI.Tint() end,
 			tip = "Evens out the minimap art's colours where tiles meet, and fades the coasts into the sea." },
 	} },
 	{ "Minimap", {

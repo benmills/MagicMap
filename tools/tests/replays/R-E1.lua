@@ -17,9 +17,12 @@ sim.Drag(view, 200, 0)
 sim.Run(1)
 assert(#T.Errors(sim, ns) == 0 and T.Fresh(ns, borders) and T.Live(borders) > 0)
 
--- Our own data with the spike's row shape (an odd coordinate count): the E1 error itself.
-local lines = ns.Data.Borders[0].lines
-lines[#lines + 1] = { 1, 12, 40, 0, 0, 31.9, 49.7, 32.0, 49.8 }
+-- Our own data with the spike's row shape (an odd coordinate count): the E1 error itself, in every
+-- level of detail (Atlas.BorderLines draws one by zoom).
+local b = ns.Data.Borders[0]
+local levels = { b.lines }
+for _, l in ipairs(ns.Atlas.BORDER_LEVELS) do levels[#levels + 1] = b[l[2]] end
+for _, lines in ipairs(levels) do lines[#lines + 1] = { 1, 12, 40, 0, 0, 31.9, 49.7, 32.0, 49.8 } end
 sim.Wheel(view, 1)
 sim.Run(1)
 local n1 = T.Errs(ns, "map: borders")

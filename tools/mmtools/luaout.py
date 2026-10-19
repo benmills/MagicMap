@@ -27,7 +27,7 @@ FORMATS = {
     "Tiles": 1,      # Data/Tiles.lua (tools/gen_tiles.py)
     "TileColor": 1,  # Data/TileColor.lua (tools/gen_tilecolor.py)
     "Sea": 1,        # Data/Sea.lua (tools/gen_sea.py)
-    "Borders": 1,    # Data/Borders.lua (tools/gen_borders.py)
+    "Borders": 2,    # Data/Borders.lua (tools/gen_borders.py)
     "Walk": 1,       # Data/Walk.lua (tools/gen_walk.py)
     "UiMaps": 1,     # Data/UiMaps.lua (tools/gen_world.py)
     "Areas": 1,      # Data/Areas.lua (tools/gen_world.py)
