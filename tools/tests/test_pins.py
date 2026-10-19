@@ -140,7 +140,8 @@ def test_pin_tooltip_click_drag():
     assert same(S[line[2]].fontObject, G.GameTooltipTextSmall)
     assert sim.calls.SetOwner - owners == 1  # built once a hover, not each frame
 
-    assert Pins.Tap("LeftButton") and list(t.clicks.values()) == ["t1 LeftButton"]
+    sim.Click(view, "LeftButton")  # a click on the view (ui/Window.lua's release): the pin under it
+    assert list(t.clicks.values()) == ["t1 LeftButton"]
 
     cx = cam.cx
     sim.Drag(view, 80, 0)  # the map moves with the cursor: the pin with it
