@@ -20,7 +20,8 @@
 --   * Trace's event shape (docs/telemetry.md)
 -- OPEN: the budget numbers, throttling policy, Perf / FrameStats shapes,
 -- new optional opts; Grace, SetState, FrameStats; Worker / Wake / Idle (a job
--- that lasts: its coroutine made once); the onTrace hook.
+-- that lasts: its coroutine made once); Requeue / Left (jobs sharing a frame's
+-- budget in an order of their own: ui/Engine.lua's layouts); the onTrace hook.
 
 ---@alias MM.Phase "input"|"observe"|"model"|"ui"|"apply"
 
@@ -153,6 +154,15 @@ function Runtime.Wake(job, budgetMs) end
 
 ---Inside a worker: this run is done (the job's .done is set); the next Wake goes on from here. OPEN
 function Runtime.Idle() end
+
+---A queued job to the queue's end: its turn this frame comes after those queued now. Not from inside
+---a job. A job whose budget is 0 waits its turn, queued, not resumed (nor counted). OPEN
+---@param job MM.Job
+function Runtime.Requeue(job) end
+
+---Inside a job: ms of its budget left in this resume (elsewhere 0). OPEN
+---@return number
+function Runtime.Left() end
 
 ---fn timed and isolated under `name`; Step / On / After / Every / Job wrap for you.
 ---@generic F: function

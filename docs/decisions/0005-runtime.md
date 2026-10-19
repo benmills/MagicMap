@@ -51,6 +51,10 @@ keeps some kinds and counts others; the only other hook besides `onError`), and 
   deferred to the end of a frame). ADR 0003 and ADR 0002 accept it.
 - Tests can drive frames deterministically (tools/tests/wowsim.lua) because all timing
   goes through one frame loop.
+- Jobs that share a frame's budget order themselves (OPEN, the M1b review's second round:
+  ui/Engine.lua's layouts): `Requeue` puts a queued job last, a job at budget 0 waits its turn
+  queued and isn't resumed, and `Left` says what's left of the running job's budget, which it may
+  hand to the next. "A job runs only while its budget lasts" holds: a budget of 0 lasts no time.
 
 ## Revisit if
 
