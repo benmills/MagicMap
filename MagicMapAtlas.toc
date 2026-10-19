@@ -45,10 +45,13 @@ runtime\Runtime.lua
 
 # Model (before Game, which hands it observations and its saved part)
 model\Model.lua
+model\Services.lua
 model\Blips.lua
 model\Rares.lua
 model\Quests.lua
 model\Offers.lua
+model\Places.lua
+model\Group.lua
 model\Target.lua
 model\Route.lua
 

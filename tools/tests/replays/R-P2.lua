@@ -31,7 +31,7 @@ assert(done and fine <= 1 + 0.1)
 -- each whole-table index built fresh in a Runtime.Job of budget 1, Runtime.Yield its step, on a clock
 -- that counts Lua's VM instructions in the job (debug.sethook: the same count every run; NS ms each,
 -- 100 M a second, about this machine's Lua and the client's): no resume over 2 ms. Without
--- QuestieDB's data (CI) only the areas' (ZoneLevels); model/Rares.lua's job runs at 1 ms too.
+-- QuestieDB's data (CI) only the areas' (ZoneLevels); model/Services.lua's job (SpawnsIn's) runs at 1 ms too.
 local NS, EVERY = 0.00001, 100
 local Atlas, counted = ns.Atlas, 0
 local function Count() counted = counted + EVERY end

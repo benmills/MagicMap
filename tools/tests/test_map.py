@@ -1,6 +1,7 @@
 """The map window (ui/Window.lua, ui/Engine.lua and the layers) on the simulated client: /mma toggle
 shows your continent around you, its layouts finish within their jobs, wheel
 and drag move the camera, and nothing errors."""
+from sim import TEST_UI
 from test_addon import boot, errors
 
 
@@ -56,19 +57,20 @@ def test_map():
 
 
 def test_rares():
-    """A pin kind added afterwards: Known("rares") (Atlas's rare spawns, the shown map only) drawn by its layer,
-    from zoom 60 in (none further out: Landmarks.lua:15); laid out from a drift below it but zooming out, so a
-    zoom crossing 60 shows or hides them that frame (Layers.lua:404-416)."""
-    import pytest
-    L, sim, ns = boot()
-    if not ns.Data.Npcs:
-        pytest.skip("no QuestieDB-derived data (tools/gen_questie.py)")
+    """A pin kind added afterwards: Known("rares") (the rares you've seen: Model's saved part, the shown map's)
+    drawn by its layer, from zoom 60 in (none further out: Landmarks.lua:15); laid out from a drift below it but
+    zooming out, so a zoom crossing 60 shows or hides them that frame (Layers.lua:404-416)."""
+    seen = ", ".join(f"['npc:{i}'] = {{ name = 'Rare {i}', npcID = {i}, col = {31.9 + i / 50}, row = 49.7, t = 1792077412 }}"
+                     for i in range(1, 4))
+    L, sim, ns = boot(TEST_UI + f"\nMagicMapAtlasDB.Model = {{ _v = 1, blips = {{}}, rares = {{ [0] = {{ {seen} }}, "
+                      "[1] = { ['at:2048:2048'] = { name = 'Far', col = 32, row = 32, t = 1792077412 } } } }")
     e = ns.UI.Engine
     layer = e.layers[[l.name for l in e.layers.values()].index("rares") + 1]
     sim.Slash("/mma toggle")
     sim.Run(2)
     got = list(ns.Model.Known("rares")[0].values())
-    assert got and all(r.kind == "rares" and r.pos.inst == 0 and not r.live for r in got)
+    assert sorted(r.name for r in got) == ["Rare 1", "Rare 2", "Rare 3"]
+    assert all(r.kind == "rares" and r.pos.inst == 0 and not r.live and r.text == "Rare" and r.t == 1792077412 for r in got)
     front = layer.front
     icons = {(sim.state[front.pools.pin[i].icon].texture, sim.state[front.pools.pin[i].icon].width)
              for i in range(1, front.pools.pin.n + 1)}

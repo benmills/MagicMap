@@ -12,7 +12,7 @@ import os
 
 from lupa import lua51
 
-from sim import TESTS, errors, harness
+from sim import TEST_UI, TESTS, errors, harness
 
 DRIVER = r"""
 local sim, ns, refPath = ...
@@ -120,6 +120,10 @@ return A, out, R
 # The streams: Lua over A (the driver's input and frames). Each runs on a client of its own, the map open
 # and following you at zoom 96 (test_addon.py's window, 720x520; a "small:" one's minimap-sized, SMALL).
 SMALL = "MagicMapAtlasDB = { UI = { _v = 1, shown = false, zoom = 120, window = { left = 1000, top = 900, w = 200, h = 200 } } }"
+# Rares you've seen (Model's saved part), a grid about you, for LOOK's rares.
+SEEN = "MagicMapAtlasDB.Model = { _v = 1, blips = {}, rares = { [0] = { " + ", ".join(
+    f"['npc:{i}'] = {{ name = 'Rare {i}', col = {29 + (i % 7) * 0.9}, row = {47 + (i // 7) * 0.8}, t = 1792077412 }}"
+    for i in range(49)) + " } } }"
 STREAMS = {
     "notches following": """
         for _, d in ipairs({ 1, 1, -1, 1, -1, -1, -1 }) do A.Wheel(d, 0.2, 0.3); A.Run(0.5) end""",
@@ -372,7 +376,7 @@ def run_stream(name, look=False):
     """A stream on a client of its own (the replays' harness: T.Anchors checks every anchor under the view as
     it's set, T.Invariants each frame); look: LOOK each frame, on the priced clock past the graces."""
     L = lua51.LuaRuntime(encoding="latin-1", unpack_returned_tuples=True)
-    sim, ns = harness(L).Boot(SMALL if name.startswith("small:") else None)
+    sim, ns = harness(L).Boot((SMALL if name.startswith("small:") else TEST_UI) + "\n" + SEEN)
     sim.Slash("/mma toggle")
     sim.Run(3)
     A, out, R = L.execute(DRIVER, sim, ns, os.path.join(TESTS, "spike_camera.lua"))
