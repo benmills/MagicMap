@@ -5,7 +5,10 @@
 -- yet) and again the next frame, into its rect. From then on right whatever the map does (a zoom,
 -- a pan), where areas overlap too, drawn again only after QUEST_POI_UPDATE; 27 quests asked twice
 -- each in ≤ 2 ms a frame (CALL_MS). Model asks through the oracles Game hands it; the quests come
--- from obs.quests (areaMap, pin), as game/parts/Quests.lua hands them. Then /mma check inside.
+-- from obs.quests (areaMap, pin), as game/parts/Quests.lua hands them. Then UI's (M2.4: ui/Areas.lua):
+-- the same areas drawn on the map, one frame a map and style, each drawn as it's laid out and again the
+-- next frame, the layer shown only then, every quest's blob in the rect its frame is laid out in; out of
+-- sight while a zoom moves, the same where it lands. Then /mma check inside.
 local T = ...
 local sim, ns = T.Shown()
 local A, Game, Model, Runtime = ns.Atlas, ns.Game, ns.Model, ns.Runtime
@@ -82,10 +85,46 @@ for _, f in ipairs(log) do slowest = math.max(slowest, f.ms) end
 T.Print("L1: %d frames, slowest %.3f ms for %d asks", #log, slowest, #probes)
 assert(slowest <= Runtime.CALL_MS)
 
--- Unseen: under a holder at alpha 0, never taking the mouse.
-for _, f in ipairs(sim.Frames()) do
-	if f:GetObjectType() == "QuestPOIFrame" then assert(f:GetEffectiveAlpha() == 0 and not f:IsMouseEnabled()) end
+-- Game's unseen: under a holder at alpha 0, never taking the mouse (UI's, on the map: never the mouse).
+local view = ns.UI.Window.view
+local function OnMap(f)
+	while f and f ~= view do f = f:GetParent() end
+	return f == view
 end
+for _, f in ipairs(sim.Frames()) do
+	if f:GetObjectType() == "QuestPOIFrame" then assert((OnMap(f) or f:GetEffectiveAlpha() == 0) and not f:IsMouseEnabled()) end
+end
+
+-- UI's: one frame for the 27 (a map, a style), each quest's blob drawn into its rect as laid out whenever
+-- the layer shows: out of sight from the wheel till the zoom lands, drawn twice there (the sim keeps a
+-- drawing where it was drawn: the pan above left it behind, as the client's pans don't).
+local S, Areas = sim.state, ns.UI.Areas.layer
+local function Right()
+	local p, n = Areas.front.pools.blob, 0
+	for i = 1, p.n do
+		local laid = S[p[i]].laid
+		for _, d in pairs(S[p[i]].blobs or {}) do
+			n = n + 1
+			if not (laid and d[1] == laid[1] and d[2] == laid[2] and d[3] == laid[3] and d[4] == laid[4]) then return false, n end
+		end
+	end
+	return true, n
+end
+local draws, hid, back = sim.calls.DrawBlob, 0, nil
+sim.Wheel(view, 1)
+for i = 1, 60 do
+	sim.Step()
+	if Areas.frame:GetAlpha() > 0 then
+		back = back or i
+		assert(Right(), "shown: drawn where it's laid out")
+	else
+		hid = hid + 1
+	end
+end
+local ok, n = Right()
+T.Print("L1 (UI): out of sight %d frames of a zoom, shown again at frame %d, %d draws", hid, back, sim.calls.DrawBlob - draws)
+assert(back and hid == back - 1 and ok and n == 27 and Areas.front.pools.blob.n == 1, "one frame, the 27, right")
+assert(sim.calls.DrawBlob - draws == 2 * 27, "drawn twice where it lands")
 
 -- /mma check inside, standing in quest 60's area (the sim's log: 60 in progress, 62 to turn in).
 asking = false

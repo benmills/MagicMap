@@ -20,7 +20,7 @@ UI.Sockets = Sockets
 local view = Window.view
 local canvas = CreateFrame("Frame", nil, view)
 canvas:SetSize(1, 1)
-canvas:SetFrameLevel(view:GetFrameLevel() + 8) -- over the layers' canvases, under the arrow's (+10)
+canvas:SetFrameLevel(view:GetFrameLevel() + 10) -- over the names (9), under our pins (11 on), as AddonPins.lua:139
 local world = { frame = canvas, inst = 0, zoom = 0 }
 Sockets.world = world
 

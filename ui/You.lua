@@ -14,10 +14,10 @@ local SIZE = 22 * 64 / 45 -- the texture, for a 22-unit arrow (Core.lua:169)
 local You = {}
 UI.You = You
 
--- Over the layers and the world socket (+8): the spike's overlay, +8 over its tiles (Core.lua:158).
+-- Over the layers (quests' pins: +17) and the world socket (+10): the spike's overlay (Core.lua:158).
 local overlay = CreateFrame("Frame", nil, Window.view)
 overlay:SetAllPoints()
-overlay:SetFrameLevel(Window.view:GetFrameLevel() + 10)
+overlay:SetFrameLevel(Window.view:GetFrameLevel() + 18)
 local arrow = overlay:CreateTexture(nil, "OVERLAY")
 arrow:SetTexture(Atlas.ROOT .. "Textures\\PlayerArrow")
 arrow:SetSize(SIZE, SIZE)

@@ -222,7 +222,7 @@ def test_arrow():
     assert arrow.IsShown(arrow) and st.texture == "Interface\\AddOns\\MagicMapAtlas\\Textures\\PlayerArrow"
     assert abs(st.width - 22 * 64 / 45) < 1e-9 and st.snap is False and st.bias == 0
     overlay = arrow.GetParent(arrow)
-    assert overlay.GetFrameLevel(overlay) - view.GetFrameLevel(view) == 10
+    assert overlay.GetFrameLevel(overlay) - view.GetFrameLevel(view) == 18
     ns.UI.Motion.FitMap(1)  # Kalimdor: not where you are
     sim.Run(0.5)
     assert not arrow.IsShown(arrow)

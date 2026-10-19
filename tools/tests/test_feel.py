@@ -314,8 +314,23 @@ function A.onFrame()
 		local live = 0
 		for _, p in pairs(c and c.pools or {}) do live = live + p.n end
 		local shows = l.on and c and (c.none or c.alpha > 0 and live > 0 or from and from.alpha > 0) or false -- (none: nothing at that zoom)
+		-- a pin layer left with none: gone only if a pin it showed in view the frame before is in view now (a
+		-- few quests' or offers' pins leave with the view)
+		if not shows and l.zoom == "pin" and r.shows then
+			shows = true
+			for _, s in ipairs(r.spots) do shows = shows and not OnView(Proj(s[1], s[2])) end
+		end
 		if r.shows == false and shows and r.had then r.back = r.back + 1 end
 		r.had, r.shows = r.had or shows, shows
+		if l.zoom == "pin" then
+			r.spots = {}
+			for _, p in pairs(c and c.alpha > 0 and c.pools or {}) do
+				for i = 1, p.n do
+					local o = p[i]
+					if Lit(o) and OnView(Proj(o.acol, o.arow)) then r.spots[#r.spots + 1] = { o.acol, o.arow } end
+				end
+			end
+		end
 		if l.on and c and not c.none then
 			local u = Uncovered(c)
 			if from then u = math.min(u, Uncovered(from)) end
@@ -386,9 +401,11 @@ def test_zoom_look():
     Layers.lua:2012-2030), but while the ground's urgent layout runs (the view about to lack it: Engine's turns;
     3.7 drifts in the big window's flick to the clamp); every rare in view drawn wherever their layout covers the
     view, but on the frame the zoom crosses their minimum zoom (Layers.lua:404-416), a glide's whole way (laid
-    out over its path: Layers.lua:418-430 lays every pin out); no layer gone and back; no frame over 8 ms, no call
+    out over its path: Layers.lua:418-430 lays every pin out); no layer gone and back (a pin layer's last pins in view
+    leaving it isn't); no frame over 8 ms, no call
     over its budget. Borders: as the spike's, the canvas from before the zoom scaled and dimmed until the one for
-    where it's headed crossfades in (Layers.lua:1906-1940), so not counted. Moving, the frame's p95 (docs/
+    where it's headed crossfades in (Layers.lua:1906-1940), so not counted; nor quest areas (a few, often none in
+    view), out of sight while the zoom moves (Layers.lua:2032-2043): R-P5 has them. Moving, the frame's p95 (docs/
     runtime.md: <= 5 ms in the client) is the layouts' share of it (4.5 ms at most, a layer the view lacks; one
     ending early hands on what's left, to 3.5) and the steps, the draw's widget calls priced here at 3 us each
     (~10x the client's SetPoint: there ~0.3 ms), so at most 5 ms and the draw's own."""
@@ -404,8 +421,8 @@ def test_zoom_look():
                           f"{r.uncovered} ({r.worst:.2f})" for k, r in layers.items()))
         assert look.arrow < 1e-6 and all(r.off < 1e-6 for r in layers.values()), name
         assert layers["tiles"].tile <= 0.5 + 1e-6 and layers["tiles"].uncovered == 0, name
-        assert all(r.uncovered <= 6 for k, r in layers.items() if k != "borders"), name
-        assert all(r.back == 0 for r in layers.values()), name
+        assert all(r.uncovered <= 6 for k, r in layers.items() if k not in ("borders", "questAreas")), name
+        assert all(r.back == 0 for k, r in layers.items() if k != "questAreas"), name
         assert names.lag <= 2 and names.runMax <= 1 and (names.groundLag or 0) <= 4, name
         assert look.short == 0, f"{name}: {look.shortAt}"
         assert fs.max <= 8 and sum(v.over for v in perf.values()) == 0 and perf["map: draw"].max <= 2, name

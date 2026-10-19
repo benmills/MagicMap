@@ -1,5 +1,5 @@
 """The gear menu on the simulated client (ui/Menus.lua), as the spike's (GearMenu.lua, Layers.lua:30-71,
-2154-2203): a submenu per group of layers with any (Map, Places, People, Other addons so far), each layer
+2154-2203): a submenu per group of layers with any (Map, Quests, Places, People, Other addons so far), each layer
 a checkbox with its tip (white title, gold body) that keeps the menu open, a sub-option indented and
 greyed while its parent is off; a divider; then Settings: Map (Colour-matched tiles), Minimap (Minimap
 button, Reset position, Use Blizzard's minimap), the same small and big. Every row works: a layer's
@@ -9,7 +9,8 @@ turned on; rows in the spike's order whenever added; each setting does what it s
 from test_addon import boot, errors
 from test_blips import lua_tools, put_blips, stub_services
 
-LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Minimap blips": "blips", "Rares you've seen": "rares"}
+LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Quests": "quests", "Quest areas": "questAreas",
+          "Quests to pick up": "offers", "Minimap blips": "blips", "Rares you've seen": "rares"}
 SETTINGS = [("title", "Map"), ("checkbox", "Colour-matched tiles"), ("divider", None), ("title", "Minimap"),
             ("checkbox", "Minimap button"), ("button", "Reset position"), ("button", "Use Blizzard's minimap")]
 WHITE, GOLD = (1, 1, 1), (1, 0.82, 0)
@@ -92,9 +93,11 @@ def test_gear():
 
     # The tree: a submenu per group with layers, a divider, Settings; small and big alike.
     root, rows = gear(sim, ns)
-    assert items(root) == [("button", "Map"), ("button", "Places"), ("button", "People"), ("button", "Other addons"),
-                           ("divider", None), ("button", "Settings")]
+    assert items(root) == [("button", "Map"), ("button", "Quests"), ("button", "Places"), ("button", "People"),
+                           ("button", "Other addons"), ("divider", None), ("button", "Settings")]
     assert items(sub(root, "Map")) == [("checkbox", "Zone labels"), ("checkbox", "Zone borders")]
+    assert items(sub(root, "Quests")) == [("checkbox", "Quests"), ("checkbox", "Quest areas"),
+                                          ("checkbox", "     Estimate missing areas"), ("checkbox", "Quests to pick up")]
     assert items(sub(root, "Places")) == [("checkbox", "Minimap blips")]
     assert items(sub(root, "People")) == [("checkbox", "Rares you've seen")]
     assert items(sub(root, "Other addons")) == [("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
@@ -214,7 +217,7 @@ def test_gear():
     sim.Slash("/mma toggle")
     sim.Step()
     perf = ns.Runtime.Perf()[0]["map: gear pick"]
-    assert perf.n == 20 and perf.over == 0, (perf.n, perf.max)
+    assert perf.n == 26 and perf.over == 0, (perf.n, perf.max)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
     # /reload: the changed keys only (borders and the rest went off and on again, from the gear or
