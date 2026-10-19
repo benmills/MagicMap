@@ -4,7 +4,7 @@
 -- title moves the window. Its text (Core.lua:1240-1320), 20 times a second while shown:
 --   hovering the map (big, or not on your map): the zone under the cursor and its coordinates
 --   on your map: your zone (your uiMap's name, else the client's), the client's subzone (the
---     inn, inside it); coordinates while big or hovered
+--     inn, inside it); coordinates and the target (ui/You.lua) while big or hovered
 --   otherwise: the map's name; big: the hint to follow you again
 
 local _, ns = ...
@@ -82,21 +82,48 @@ end
 Title.Fit = Fit
 frame:HookScript("OnSizeChanged", Runtime.Wrap("map: title fit", Fit))
 
--- The subtitle's forms: a subzone, coordinates ("x, y" at a tenth of a percent), both, or the hint.
--- Coordinates go through SetFormattedText: the client formats them without a Lua string (hovering the
--- big map, they change every update: a string and its join each, 20 times a second).
-local COORDS, SUB_COORDS = "%.1f, %.1f", "%s" .. SEP .. "%.1f, %.1f"
-local shown = {} -- what it shows: name, sub, nx, ny (tenths of a percent: nil, none), hint
-local function Show(name, sub, x, y, hint)
+-- The subtitle's forms: a subzone, coordinates ("x, y" at a tenth of a percent), the target ("<title>
+-- N yd", "<title> here": Core.lua:1294-1300), each there or not, joined; or the hint. Coordinates and
+-- yards go through SetFormattedText: the client formats them without a Lua string (hovering the big map,
+-- they change every update: a string and its join each, 20 times a second).
+local COORDS = "%.1f, %.1f"
+local TARGET, HERE = "|cffffd27f%s|r %d yd", "|cffffd27f%s|r here" -- Core.lua:1295-1299
+local forms, args = {}, {} -- a form by its parts (a subzone 1, coordinates 2, a target 4, here 8), made once
+local function Form(k)
+	local f = forms[k]
+	if not f then
+		local parts = {}
+		if k % 2 == 1 then parts[#parts + 1] = "%s" end
+		if k % 4 >= 2 then parts[#parts + 1] = COORDS end
+		if k >= 8 then parts[#parts + 1] = HERE elseif k >= 4 then parts[#parts + 1] = TARGET end
+		f = table.concat(parts, SEP)
+		forms[k] = f
+	end
+	return f
+end
+local shown = {} -- what it shows: name, sub, nx, ny (tenths of a percent: nil, none), hint, the target's tt, yd
+local function Show(name, sub, x, y, hint, tt, yd)
 	local nx, ny = x and math.floor(x * 1000 + 0.5), y and math.floor(y * 1000 + 0.5)
 	local s = shown
-	if name == s.name and sub == s.sub and nx == s.nx and ny == s.ny and hint == s.hint then return end
+	if name == s.name and sub == s.sub and nx == s.nx and ny == s.ny and hint == s.hint and tt == s.tt
+		and yd == s.yd then return end
 	if name ~= s.name then title:SetText(name) end
-	s.name, s.sub, s.nx, s.ny, s.hint = name, sub, nx, ny, hint
-	if nx and sub then
-		subtitle:SetFormattedText(SUB_COORDS, sub, nx / 10, ny / 10)
-	elseif nx then
-		subtitle:SetFormattedText(COORDS, nx / 10, ny / 10)
+	s.name, s.sub, s.nx, s.ny, s.hint, s.tt, s.yd = name, sub, nx, ny, hint, tt, yd
+	if nx or tt then
+		local k, n = 0, 0
+		if sub then
+			k, n = 1, 1
+			args[1] = sub
+		end
+		if nx then
+			args[n + 1], args[n + 2] = nx / 10, ny / 10
+			k, n = k + 2, n + 2
+		end
+		if tt then
+			args[n + 1], args[n + 2] = tt, yd
+			k, n = k + (yd and 4 or 8), n + (yd and 2 or 1)
+		end
+		subtitle:SetFormattedText(Form(k), unpack(args, 1, n))
 	else
 		subtitle:SetText(hint and HINT or sub or "")
 	end
@@ -144,10 +171,13 @@ local function Update()
 	elseif onMap then
 		a, b = you.col, you.row
 	end
+	local tt, yd -- the target: big, or small and hovered (Core.lua:1294)
+	if onMap and (big and not hovering or hovering and not big) then tt, yd = UI.You.Target() end
 	local l = last
 	if l.inst == inst and l.big == big and l.hovering == hovering and l.a == a and l.b == b and l.uiMap == you.uiMap
-		and l.subzone == you.subzone then return end
-	l.inst, l.big, l.hovering, l.a, l.b, l.uiMap, l.subzone = inst, big, hovering, a, b, you.uiMap, you.subzone
+		and l.subzone == you.subzone and l.tt == tt and l.yd == yd then return end
+	l.inst, l.big, l.hovering, l.a, l.b, l.uiMap, l.subzone, l.tt, l.yd = inst, big, hovering, a, b, you.uiMap,
+		you.subzone, tt, yd
 	if hovering and not here then
 		local z = ZoneAt(inst, a, b)
 		local x, y
@@ -162,7 +192,7 @@ local function Update()
 		local name = map and map.name or you.zone or zone and zone.name or MapName(inst)
 		local x, y
 		if a and mapID and (big or hovering) then x, y = Atlas.TileToMap(mapID, a, b) end
-		Show(name, you.subzone ~= name and you.subzone or nil, x, y)
+		Show(name, you.subzone ~= name and you.subzone or nil, x, y, nil, tt, yd)
 	else
 		Show(MapName(inst), nil, nil, nil, big)
 	end

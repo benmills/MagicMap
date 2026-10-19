@@ -105,5 +105,6 @@ ui\Areas.lua
 ui\Quests.lua
 ui\Sockets.lua
 ui\You.lua
+ui\Path.lua
 ui\View.lua
 ui\Art.lua
