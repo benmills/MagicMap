@@ -32,12 +32,11 @@ sys.path.insert(0, os.path.dirname(TESTS))  # (run as a script: luacheck, for te
 
 from lupa import lua51  # noqa: E402
 
+from sim import START, YD, put_blips  # noqa: E402
 from test_addon import boot, errors  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(TESTS))
 FIXTURE = os.path.join(TESTS, "fixtures", "blips_stream.lua")
-YD = 3 / 1600  # a yard in tiles
-START = (31.95, 49.75)
 # name, yards east and north of the start
 BLIPS = [("Mailbox", 40, 20), ("Mailbox", -50, -70), ("Peacebloom", -60, 30)]
 MAILBOX = 136459  # the sim's Mailbox tracking texture
@@ -53,19 +52,6 @@ def lua_tools(L):
 def stub_services(L, ns):
     ns.Atlas.BlipService = L.eval("function(t, atlas) return function(name) return t[name] or atlas(name) end end")(
         L.table_from(SERVICES), ns.Atlas.BlipService)
-
-
-def put_blips(L, sim, ns, blips):
-    """Sim.minimapBlips (yards) from (name, yards east, yards north) of the start."""
-    L.eval("""function(Sim, Atlas, list, c, r, yd)
-        local out = {}
-        for i = 1, #list do
-            local b = list[i]
-            local north, west = Atlas.TileToWorld(c + b[2] * yd, r - b[3] * yd)
-            out[i] = { b[1], north, west }
-        end
-        Sim.minimapBlips = out
-    end""")(sim, ns.Atlas, L.table_from([L.table_from(b) for b in blips]), START[0], START[1], YD)
 
 
 def blips(ns):
