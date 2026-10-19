@@ -54,7 +54,8 @@ default zoom.
 
 ## Script (b): a 25-quest hub
 
-The rest of (b) is M2.4's (quest pins, offers, areas and their tooltip: b8-b10 need them drawn).
+M2.4's items (quest pins, offers, areas and their tooltip) are b12-b18, added at the M2 review; b8-b10 need
+them drawn. Start as docs/playtest.md (b): a hub with your log at about 25 quests, some complete, offers near.
 
 | id | Do | Mark / shot | Signs | Gate |
 |---|---|---|---|---|
@@ -63,7 +64,14 @@ The rest of (b) is M2.4's (quest pins, offers, areas and their tooltip: b8-b10 n
 | b8 | Super-track a quest from Blizzard's objective tracker: our map shows it followed within a frame (its pin's glow, once M2.4 draws quest pins). Click one of our quest pins: Blizzard's tracker super-tracks it and watches it (C_QuestLog.AddQuestWatch); click again: none. | `/mma mark b8 follow <ok, or what>` | F31 | M2 |
 | b9 | Open the big map on a continent you haven't shown this session: quests to pick up appear about 0.4 s later (every zone of it asked at once). Turn Track Hidden Quests on (the Minimap's tracking menu): the hidden ones appear; off: gone. | `/mma mark b9 offers <ok, or what>` | F40 | M2 |
 | b10 | Mouse over, target, or see the nameplate of a mob a quest needs, then hover that quest's pin: the mob's line in its tooltip shows its portrait over a dark disc (up to 3 mobs an objective). A mob never met keeps the plain icon. | `/mma shot big-quest-tip`; `/mma mark b10 portraits <ok, or what>` | F28, S63 | M2 |
-| b11 | Loot quest items quickly (a QUEST_LOG_UPDATE storm): no hitch; `game.part quests` never in the read's perf.slow. | `/mma mark b11 storm` | F26 | M2 |
+| b11 | Loot quest items quickly (a QUEST_LOG_UPDATE storm), the map open, then again with it hidden (`/mma toggle`): no hitch; `game.part quests` never in the read's perf.slow, and in perf.alloc under ~25 KB/s open, nothing hidden (test_quests_storm: 16.8 and 0 priced, the whole 25.1 KB/s open). | `/mma mark b11 storm` (open), `/mma mark b11 storm hidden` | F26 | M2 |
+| b12 | `/reload` at the hub (the next open is the session's first), the 10 s wait, then open the map small at the default zoom: the quest-heavy first open, its slowest frame ≤50 ms in the read. | `/mma shot small-quests` | F26, F40, S46 | M2 |
+| b13 | Hover quest pins: a kill, a collect, one ready to turn in, an offer (`!`), the followed one. Each tooltip as the spike's: the title in its difficulty colour, the facts line (level, tag, ready), objectives, up to 3 droppers (lowest first, `(+N more)`), apart and dim `Turn in to` and the click hint. Hover a quest's area where no pin is: the area lights (drawn again on top), its quest's tooltip shows; onto a pin inside another quest's area: the pin's. | `/mma shot big-quest-tip` (on a collect quest's pin); `/mma mark b13 tooltips <ok, or what>` | F28, F51, S53 (hover), S63 | M2 |
+| b14 | Click a quest's area where no pin is: Blizzard's tracker super-tracks that quest; again: none. A pin inside another's area: the pin's quest, not the area's. | `/mma mark b14 area click <ok, or what>` | F31 | M2 |
+| b15 | Big, wheeled until the quest areas fill the map: each in the client's own art, the followed one filled blue, the rest a quiet edge (kill rust, collect green, other blue); a kill or collect quest the game gives no area gets a faint dashed disc (one for two close), none where an area covers its pin. Follow one by its pin. | `/mma shot big-quests` (before the follow); `/mma shot big-quest-follow` (after); `/mma mark b15 areas <ok, or what>` | F29, F30, S46, S53, S54 | M2 |
+| b16 | Areas through a zoom and a drag, an area in view: wheel 60 → 140 → 384 and back: out of sight while the zoom moves, back on their pins where it lands (not offset, not squashed); the cursor resting on an area through a wheel tick keeps its tooltip. Then drag the map about 200 px, slowly, and fling it: the areas move with the map, on their pins every frame. The sim can't show a pan (its drawing stays where it was drawn); this rests on the spike's Layers.lua:142-156. | `/mma mark b16 areas zoom <ok, or what>`; `/mma mark b16 areas drag <ok, or what>` | P5, L1, F29, S53 | M2 |
+| b17 | Accept a quest from an offer (`!`) on the map: its `!` goes and its quest pin comes, never both in a frame; abandon one: its pin goes. | `/mma mark b17 offer taken <ok, or what>` | F26, F40, D1 | M2 |
+| b18 | Standing at the hub (your quests on your map): `/mma bench regions` once (it hitches; a box flickers): its `poi.*` lines price the client's quest areas (DrawBlob a quest, a frame's draw, the hit test, the frame after); the lead sets `Sim.PRICES` from them. | `/mma mark b18 bench` after its result | S53, F29 | M2 |
 
 ## Script (c): keys in combat
 
@@ -72,6 +80,7 @@ The rest of (b) is M2.4's (quest pins, offers, areas and their tooltip: b8-b10 n
 | c4 | As docs/playtest.md c4: in combat, M (Blizzard's map opens, ours doesn't grow), then `/mma check combat` with it open: it prints whether the client blocked hiding it. `/mma toggle` twice in combat: the cluster fades, its hide or show waits for combat's end. | `/mma mark c4 combat keys` after the check's line | F10, K2 | M1 |
 | c5 | Out of combat: M (grow), Escape (shrink), L (Blizzard's quest log; close it), `/mma toggle`: Blizzard's minimap back exactly as it was; cursor on our rim button (lower left) for its tip; `/mma toggle` again. | `/mma shot blizzard-rim`; `/mma mark c5 keys` | F1, F10, F52, F53, S21 | M1 |
 | c6 | As docs/playtest.md c6: spellbook and talents by keybind in combat. A taint from M's HideUIPanel would name us here. | `/mma mark c6 panels` | K2 | M1 |
+| c7 | In combat, with a quest item in Blizzard's objective tracker: click our quest pin to follow it and again to stop, then a quest's area to follow it; then use the tracker's item button. 0 ADDON_ACTION_BLOCKED and 0 taint naming MagicMapAtlas (our follow super-tracks and watches from insecure code: R-K2 records it in the sim, not refused there). | `/mma mark c7 follow in combat <ok, or what blocked>` | F31, K2 | M2 |
 
 ## Script (d): a city
 
@@ -116,9 +125,13 @@ Questie the only other addon. The rest of (e) is M4's.
   Show of its moved children, reveal the pins a slice a frame instead (M1b review, round 2).
 - **byState.zoom.client** against `small`: what scaling the borders while zooming costs the client
   (S30, P4). `swap <layer>` under 4 ms.
+- **Script (b)** (M2): 8/8 PASS with ~25 quests; the quest-heavy first open (b12) ≤50 ms; `perf.alloc`
+  `game.part quests` under ~25 KB/s through b11's storm and nothing while hidden; the bench's `poi.*` (b18)
+  into `Sim.PRICES` (DrawBlob is priced as any widget call until then), then test_quests_priced again.
 - **Shots**: each answered `shot <id>: WoWScrnShot_<stamp>, marked`, paired with `ref-<id>.jpg`:
   small-home, small-hover, small-drag, small-near, small-seam, small-town, small-zone, big-home,
-  big-hover, big-gear (M1b), big-zones, big-continent, blizzard-rim. A seam on small-seam is M1.4's seam overlap
+  big-hover, big-gear (M1b), big-zones, big-continent, blizzard-rim; small-quests, big-quests,
+  big-quest-follow, big-quest-tip (M2). A seam on small-seam is M1.4's seam overlap
   (1 px right and bottom, half-texel inset), built only if a shot shows one.
 
 ## Decisions for you at the session
