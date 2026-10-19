@@ -1,8 +1,7 @@
 -- The map's camera: where it looks, and whether it's moving. UI's own; View.camera
 -- copies it for Game. Camera.cam = { cx, cy, zoom }: the tile at the view's centre
--- and pixels per tile (Atlas.Camera's maths); a zoom replaces the table, a pan moves
--- it in place. Camera.inst: the map shown (nil before the first draw). Camera.follow:
--- centred on you. Moved by ui/Motion.lua.
+-- and pixels per tile (Atlas.Camera's maths), moved in place. Camera.inst: the map shown
+-- (nil before the first draw). Camera.follow: centred on you. Moved by ui/Motion.lua.
 
 local _, ns = ...
 local UI = ns.UI or {}; ns.UI = UI
@@ -27,11 +26,16 @@ function Camera.Velocity() return Camera.vx, Camera.vy end
 
 local function R2(v) return math.floor(v * 100 + 0.5) / 100 end -- for traces
 
--- A "cam" trace: at most one a frame.
-local traced
-function Camera.Trace(e)
-	if traced == Runtime.frames then return end
-	traced = Runtime.frames
+-- A "cam" trace: at most one of each e a frame. The wheel's (ui/Motion.lua) says what the device sent
+-- since the last frame: delta, the events' deltas summed; n, how many; dt, s from the event before them.
+local traced = {} -- e -> the frame it was last traced in
+function Camera.Trace(e, delta, n, dt)
+	if traced[e] == Runtime.frames then return end
+	traced[e] = Runtime.frames
 	local cam = Camera.cam
-	Runtime.Trace("cam", { e = e, cx = R2(cam.cx), cy = R2(cam.cy), zoom = R2(cam.zoom) })
+	if not n then
+		Runtime.Trace("cam", { e = e, cx = R2(cam.cx), cy = R2(cam.cy), zoom = R2(cam.zoom) })
+	else
+		Runtime.Trace("cam", { e = e, cx = R2(cam.cx), cy = R2(cam.cy), zoom = R2(cam.zoom), delta = delta, n = n, dt = dt })
+	end
 end
