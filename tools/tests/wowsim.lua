@@ -991,7 +991,7 @@ function Sim.Hover(frame)
 	Sim.FireScript(frame, "OnLeave", false)
 end
 
--- A typed slash command line, e.g. Sim.Slash("/mma perf"): runs the
+-- A typed slash command line, e.g. Sim.Slash("/mma perf load"): runs the
 -- SlashCmdList entry whose SLASH_<KEY><n> matches, as the chat box does.
 function Sim.Slash(line)
 	local cmd, msg = line:match("^(/%S+)%s*(.-)$")

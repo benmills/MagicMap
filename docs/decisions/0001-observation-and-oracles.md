@@ -66,7 +66,7 @@ unknown ones), and new oracles.
 
 ## Revisit if
 
-- A part changes so often that rebuilding its snapshot shows in `/mma perf`. Then make it
+- A part changes so often that rebuilding its snapshot shows in `/mma perf load`. Then make it
   per-frame-mutable and add a `rev` counter.
 - Model needs more than a few oracle calls a frame (e.g. shading every quest area). Then
   have Game hand the result over as data instead.

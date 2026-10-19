@@ -123,7 +123,7 @@ isn't listed.
   (a call over `budgetMs`, default 2 ms, is an overrun), and isolated (an error is caught,
   reported once, and the rest keep running; one failing 10 calls in a row then runs once a second
   until it succeeds). docs/runtime.md has the guarantees.
-- `Runtime.Perf()` — per-name totals `{ n, ms, max, over }` and frames run, for `/mma perf`;
+- `Runtime.Perf()` — per-name totals `{ n, ms, max, over }` and frames run, for `/mma perf load`;
   `Runtime.errors` — `{ name, err, n }` per failing name.
 - `Runtime.FrameStats()` — our cost a frame, outside graces: `{ frames, p50, p95, p99, max, overruns,
   kbMin, kbMax, grace = { [name] = slowest ms }, graceTop = { [name] = { top, topMs } }, slow = { { name, n, max } } }`

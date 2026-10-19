@@ -1,5 +1,5 @@
 -- Validate Atlas against the live client where you stand: stale Data (K4) shows as FAILs.
--- What holds offline is tools/tests/test_atlas.py's; load cost is /mma perf's.
+-- What holds offline is tools/tests/test_atlas.py's; load cost is /mma perf load's.
 --   /mma check         Atlas vs the client here: PASS / FAIL per fact, and (on demand only, not
 --                      logged) the map rects up from here and the continent's flight points
 --   /mma check log     toggle logging mismatches every 2 s as you travel (MagicMapAtlasDB.validation)

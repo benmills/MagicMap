@@ -56,7 +56,7 @@ data too, when generated). It shares no globals with the
   herbs, services) are drawn on the map; `/mma minimap blizzard` gives it back, `/mma layer <name>`
   toggles a layer, `/mma record on|off` keeps the observations for Model replay tests
   (flow: docs/structure.md "One flow end to end")
-- `/mma perf`: Atlas's load cost (ms, KB) and time per step / event / timer / job
+- `/mma perf load`: Atlas's load cost (ms, KB) and time per step / event / timer / job
 - `/mma errors`: errors caught so far (each is also printed once when it happens)
 
 `tools/package.sh [ref]` zips a committed ref as `dist/MagicMapAtlas-<ref>.zip`.
