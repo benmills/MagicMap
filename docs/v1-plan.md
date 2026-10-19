@@ -306,8 +306,8 @@ Left from wave 1, from the hand-offs (outside their files): ui/View.lua makes ~1
 `Runtime.Trace` detail tables (~1.1 KB: copying flat details into ring and ledger slots would let Engine
 reuse one a site); a door out is still a ring look (~180 probes: keeping blips past the indoor reach until
 the door out changes what Model is handed). The gear's Tracking and Settings > Advanced stay M4.5's (their
-commands are M4.1's and M4.6's); a layer off by default (M4.4's shade, graveyards) needs Engine to know
-its default; the Rares row's tip ("remembered between sessions") is true from M4.3 (until then the layer
+commands are M4.1's and M4.6's); a layer off by default (M4.4's shade, graveyards): its row's `default`
+since the M1b review (Engine.defaults, Engine.SetLayer); the Rares row's tip ("remembered between sessions") is true from M4.3 (until then the layer
 draws Atlas.Rares).
 
 Left from wave 2 (M1.14's hand-off): zooming out fast, the held borders canvas can sit ~21,000 units from
@@ -319,6 +319,22 @@ map's engine"); a tile's edge is off by up to half a pixel at its layout's zoom 
 see-through while zooming (F46). The wheel is the MVP's again, so one trackpad flick can run to the clamp:
 the user's call at the final session (docs/playtest-final.md decision 2), from what the `wheel` cam traces
 show each device sends.
+
+M1b review, round 1 (the lead, on main: 0c8206a..74da8c4). The zoom against the MVP: names and pins are
+chosen for the zoom shown (laid out a log(1.25) drift on toward where it's headed, re-placed each drift,
+Layers.lua:2012-2030), a pin shown or hidden the frame the zoom crosses its minimum (PositionPins,
+Layers.lua:404-416; one notch 70 -> 54: rares hidden at frame 3, 34 before); tiles alone lay out where a
+zoom out is headed; a layer the view lacks or soon will goes first (the ground, names and pins, borders)
+and stops one after it, at 4.5 ms (5 left no room under the moving p95's 5 ms); late ones by age; borders
+lay out at the goal the frame after the last tick (still ~0.1 s after the spike's: playtest-final decision
+8); a layer with nothing at its zoom isn't laid out again zooming out. T.Anchors checks the canvases
+(never did: the M1 exit's offsets item hadn't held), on the screen, a canvas scaled past 1.4 exempt with
+its reason; canvases anchored to the view's centre; R-P1 adds the wheel 16 -> 800 -> 16, a flick out from
+800 and a drag, a flick and a grow. test_feel adds the big window's flick to the clamp and holds the zoom
+state's p95 to 5 ms and the draw's own. The wheel's anchor set in place, its trace 4 fields. The gear's
+rows in the spike's order, a row's `default`; View's step the one writer of View.frame and its layers; an
+uncommitted install stamped with its files' digest; R-P3b's and runtime.md's allocation claims what the
+replay shows. Refuted: none (every finding reproduced).
 
 ### M2 Quests on one pin store
 
