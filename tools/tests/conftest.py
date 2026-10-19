@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fixtures  # noqa: E402
 
 # The slowest first, so that under xdist (tools/check.sh) none starts last and holds the run up.
-FIRST = ("test_data_diet", "test_replay[G6b]", "test_script_a_priced", "test_borders", "test_luacheck",
+FIRST = ("test_soak", "test_data_diet","test_replay[G6b]", "test_script_a_priced", "test_borders", "test_luacheck",
          "test_replay[D3]", "test_replay[P7]")
 
 
