@@ -71,6 +71,9 @@ command and hooked kinds, and everything inside UI (camera, layout, menus, chrom
 - OPEN addition (v1 plan M1.6): hooked kind `"toggle"`, Game's minimap button or the addon
   compartment clicked; UI shows or hides the map as `/mma toggle` does. Not a key, but the same
   path: only Game may make that button, and UI hears of it only through Model.
+- OPEN addition (v1 plan M2.2): CmdTooltip `line`, so one quest tooltip can have up to 3
+  portraits an objective, each on its own line (the spike's `shown[line] = npcID`); Game finds
+  the line by index and rewrites only its icon. An `npc` comes with its `line`.
 
 ## Revisit if
 

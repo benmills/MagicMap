@@ -142,6 +142,7 @@ local SAFE_VIEW = {
 ---@field anchor? string         "ANCHOR_RIGHT" etc. (default ANCHOR_CURSOR)
 ---@field member? string         a group member's id (MM.ObsMember.id)
 ---@field npc? MM.NpcID          an NPC: Game adds its portrait (if it has captured one)
+---@field line? integer         with npc: the line of the owner's tooltip (GameTooltip:GetLeftLine) whose icon (its first |T..|t) the portrait takes the place of, over a dark disc (QuestInfo.lua:270-296); not met yet: the line keeps UI's icon
 
 ---Register `/mma <name>` (Game owns slash commands): fn(args) runs wrapped when typed.
 ---Sending it again replaces fn. Added with the walking skeleton (open: new kinds).

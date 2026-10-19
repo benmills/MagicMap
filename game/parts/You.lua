@@ -47,6 +47,7 @@ Game.Part("you", function()
 		if info and info.mapType == MICRO then Soon() end
 	end
 	you.level, you.faction = UnitLevel("player"), FACTION[UnitFactionGroup("player")]
+	you.trivialRange = UnitQuestTrivialLevelRange("player") -- (by level: grey mobs, QuestInfo.lua:191)
 	you.dead, you.ghost, you.combat = UnitIsDeadOrGhost("player"), UnitIsGhost("player"), InCombatLockdown()
 	if (had == nil) ~= (you.col == nil) and Runtime.frames > 1 then Runtime.Trace("position", you.col and "back" or "lost") end
 	return you

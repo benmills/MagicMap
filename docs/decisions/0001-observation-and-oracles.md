@@ -58,6 +58,9 @@ unknown ones), and new oracles.
   (M1.6), and `home` is kept: a new table only when the spot moved, so UI may hold it.
   `you.zone` and `you.subzone`, the client's names for where you are (GetZoneText,
   GetSubZoneText: the title names the inn, not the chunk's area, as the spike did).
+- OPEN addition (v1 plan M2.3): `you.trivialRange`, UnitQuestTrivialLevelRange("player"): how
+  far below you a mob's level turns grey in a quest tooltip (the spike's QuestInfo.lua:191).
+  Model has no WoW API, so Game hands it each frame; nil: 5, the spike's fallback.
 - LOCKED clarification (v1 plan M1): `ObsBlip.rough` was "measured while moving: a few yards
   off". Its meaning stays what Model relies on: the position wasn't measured, so don't keep it
   or merge on it; it's measured once you stand still (M1.5 measures only then). How far off a

@@ -48,6 +48,7 @@
 ---@field zone? string         GetZoneText(): the client's name for your zone; nil: none
 ---@field subzone? string      GetSubZoneText(): its name for where you are in it (an inn, a keep); nil: none
 ---@field level? integer
+---@field trivialRange? integer UnitQuestTrivialLevelRange("player"): a mob more than this many levels below you is grey (spike QuestInfo.lua:191); nil: 5
 ---@field faction? MM.Faction  "A" or "H"
 ---@field dead? boolean        dead or a ghost
 ---@field ghost? boolean       a ghost (released): your corpse becomes the target
