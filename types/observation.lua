@@ -31,7 +31,7 @@
 ---@field quests? MM.ObsQuests      on change: your quest log
 ---@field places? MM.ObsPlace[]      on change: live places the game marks (Atlas has the static ones)
 ---@field corpse? MM.Pos|false       on change: false = no corpse known
----@field waypoint? MM.Pos|false     on change: the user waypoint (C_Map); false = none, or on a map Atlas hasn't
+---@field waypoint? MM.Pos|false     on change: the user waypoint (C_Map); false = none Model can place: none, or on a map Atlas hasn't (ADR 0001's LOCKED clarification, M3)
 ---@field waypointSet? boolean        with waypoint: a user waypoint is set, wherever it is (C_Map.GetUserWaypoint() ~= nil)
 ---@field vignettes? MM.ObsVignette[] on change: what the game shows near you now
 ---@field offers? MM.ObsOffer[]      on change: quests to pick up on the maps Game asked about
@@ -186,9 +186,9 @@
 ---@class MM.Oracles
 local Oracles = {}
 
----Is (col, row) inside the quest's objective area, as the game draws it?
----nil: no area at that point's quest, or it can't tell now (ask again); Model's estimate follows
----HasArea, not this.
+---Is (col, row) inside the quest's objective area, as the game draws it (wherever it lies, its pin
+---in it or not; the game draws none on its areaMap: false)? nil: the quest has no areaMap, or it
+---can't tell now (ask again); Model's estimate follows HasArea, not this.
 ---Cost: a hit test on a hidden QuestPOI frame, ~tens of us; Model calls it at
 ---most a few dozen times a frame (the followed quest's edge search, hover).
 ---The instance is the quest's areaMap's.

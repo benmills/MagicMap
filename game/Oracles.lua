@@ -9,8 +9,10 @@
 -- out then (spike-bugs L1, Layers.lua:802-817): a quest is drawn when first asked (nil: can't
 -- tell yet) and again on a later frame, into its rect. Its frames never move, so a drawing
 -- holds (cached per quest) until QUEST_POI_UPDATE, then is drawn again at the next ask.
--- A quest's area map and pin: obs.quests (areaMap, pin), or /mma check inside. No area at its
--- own pin: Inside nil. A frame's asks share ASK_MS; past it, nil (ask again).
+-- A quest's area map and pin: obs.quests (areaMap, pin), or /mma check inside. Inside tests the
+-- quest's own frame wherever its area lies, as the spike's InBlob the followed one (Layers.lua:
+-- 1099-1102): none drawn, false everywhere; no areaMap, nil. A frame's asks share ASK_MS; past it,
+-- nil (ask again).
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
@@ -110,7 +112,7 @@ local function Inside(quest, col, row)
 	local a = areas[quest]
 	if not a then return nil end
 	local t0, answer = debugprofilestop(), nil
-	if Ready(quest, a) and a.has then answer = a.f:UpdateMouseOverTooltip(Atlas.TileToMap(a.map, col, row)) == quest end
+	if Ready(quest, a) then answer = a.f:UpdateMouseOverTooltip(Atlas.TileToMap(a.map, col, row)) == quest end
 	spent = spent + debugprofilestop() - t0
 	return answer
 end
@@ -172,10 +174,11 @@ local function Check()
 	Runtime.After(0, "check inside", function()
 		Game.Print(string.format("check inside: %d quests here, at %.3f, %.3f", #list, col, row))
 		for _, quest in ipairs(list) do
-			local inside = Game.oracles.Inside(quest, col, row)
+			local inside, a = Game.oracles.Inside(quest, col, row), areas[quest]
 			local client = C_Minimap.IsInsideQuestBlob and C_Minimap.IsInsideQuestBlob(quest)
 			print(string.format("  %s  %s (%d, map %d)%s",
-				inside == nil and GREY .. "no area|r" or inside and GREEN .. "inside|r" or RED .. "outside|r",
+				inside == nil and GREY .. "no answer|r" or inside and GREEN .. "inside|r"
+					or a and a.has == false and GREY .. "no area at its pin|r" or RED .. "outside|r",
 				C_QuestLog.GetTitleForQuestID(quest) or "?", quest, maps[quest],
 				client == nil and "" or "  client: " .. (client and "inside" or "outside")))
 		end

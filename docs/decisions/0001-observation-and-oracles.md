@@ -81,13 +81,22 @@ unknown ones), and new oracles.
   QUEST_REMOVED (Forever sends the quest id: Questie's EventHandler.lua:157-193), QUEST_POI_UPDATE,
   the instances, a quest done or a count changed; and quests to pick up only after QUEST_ACCEPTED,
   QUEST_REMOVED, a level, QUESTLINE_UPDATE or tracking (not every QUEST_LOG_UPDATE, the spike's).
+- LOCKED clarification (v1 plan M3, its review's round 1; recorded at round 2): `obs.waypoint`'s
+  false is "no waypoint Model can place": none, or one on a map Atlas hasn't (no tile position to
+  hand). Whether one is set at all is `waypointSet` (below), so the right-click menu offers Clear
+  waypoint from it, as the spike's HasWaypoint (Layers.lua:2080-2081). types/core.lua's nil/false
+  example points here.
 - OPEN additions (v1 plan M3, its review's round 1): `waypointSet`, beside `waypoint`: a user
-  waypoint is set, wherever it is (C_Map.GetUserWaypoint() ~= nil). `waypoint` stays `false` both
-  for none and for one on a map Atlas hasn't (no tile position to hand), so the right-click menu
-  offers Clear waypoint from `waypointSet`, as the spike's HasWaypoint (Layers.lua:2080-2081).
-  `levels`, a new part: each map's level range as the client gives it (C_Map.GetMapLevels), read once
-  for the maps Atlas has, for the inspector's level line (the spike's ZoneInfo.lua:58-69; Atlas's
-  subzone exploration levels were another source: Elwynn 5-10, Dun Morogh 4-56, against 1-10).
+  waypoint is set, wherever it is (C_Map.GetUserWaypoint() ~= nil). `levels`, a new part: each
+  map's level range as the client gives it (C_Map.GetMapLevels), read once for the maps Atlas has,
+  for the inspector's level line (the spike's ZoneInfo.lua:58-69; Atlas's subzone exploration
+  levels were another source: Elwynn 5-10, Dun Morogh 4-56, against 1-10).
+- OPEN, revised (v1 plan M3, its review's round 2): `Inside` answers from the quest's own drawn
+  area wherever it lies, not only when it covers the quest's pin: false where it isn't, and false
+  everywhere for an areaMap the game draws nothing on; nil only while it can't tell (not yet drawn
+  into a rect the client laid out, the frame's asks spent) or for a quest with no areaMap. As the
+  spike's AreaTarget tests the followed quest's own frame (Layers.lua:1099-1155), so a quest whose
+  area lies off its pin is gone to the area's edge, and you're inside it there.
 - LOCKED clarification (v1 plan M1): `ObsBlip.rough` was "measured while moving: a few yards
   off". Its meaning stays what Model relies on: the position wasn't measured, so don't keep it
   or merge on it; it's measured once you stand still (M1.5 measures only then). How far off a

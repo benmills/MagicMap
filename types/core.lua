@@ -62,7 +62,7 @@
 -- In every contract:
 --   nil    unknown: not read yet, not readable (instances hide your position),
 --          or the read failed this frame. Keep the last belief.
---   false  known to be none (no corpse, no waypoint).
+--   false  known to be none (no corpse; obs.waypoint: none Model can place, ADR 0001's M3 clarification).
 --   {}     known, and empty (no quests in the log).
 -- A field typed `X|false` uses false for "known none"; plain `X?` fields only
 -- distinguish known from unknown.

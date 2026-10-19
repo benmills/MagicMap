@@ -33,8 +33,8 @@ for i = 1, 25 do
 	Probe(1000 + i, x, y, true)
 	Probe(1000 + i, x + 1.5 * R, y, false)
 end
-Quest(2000, 0.1, 0.1, nil) -- the game draws it no area: its pin is in 1001's, on another frame
-Probe(2000, 0.1, 0.1, nil)
+Quest(2000, 0.1, 0.1, nil) -- the game draws it no area: false, though its pin is in 1001's (another frame)
+Probe(2000, 0.1, 0.1, false)
 Quest(2001, 0.1 + R, 0.1, { 0.1 + R, 0.1, R }) -- overlapping 1001's
 Probe(2001, 0.1 + 0.5 * R, 0.1, true)
 Probe(1001, 0.1 + 0.5 * R, 0.1, true)
@@ -139,6 +139,6 @@ sim.Run(0.1)
 local out = table.concat(sim.prints, "\n")
 T.Print("%s", out)
 assert(out:find("2 quests here") and out:find("inside|r  Kobold Candles (60, map 1429)", 1, true)
-	and out:find("no area|r  The Fargodeep Mine (62, map 1429)", 1, true), out)
+	and out:find("no area at its pin|r  The Fargodeep Mine (62, map 1429)", 1, true), out)
 local errs = T.Errors(sim, ns)
 assert(#errs == 0, table.concat(errs, "\n"))

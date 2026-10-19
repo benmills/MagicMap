@@ -6,7 +6,7 @@ sim's quest log and its areas (Inside: game/Oracles.lua) through Game's parts an
     what's there or none; the same table while nothing changes; Known("corpse"), Known("waypoint").
   test_target_quest_edge: the quest you follow, with an area: its nearest edge from you (a fan of rays,
     then halvings), not its pin; walked into, inside only once that has held 0.5 s, and no route while
-    inside; walked out, the edge again once that has held.
+    inside; walked out, the edge again once that has held; its area moved off its pin, the same.
   test_target_layers: each target only while its layer is on (Focus.off: the spike's pinData, Layers.lua:
     1029, 1160-1168), the priority falling through; Quest areas off, the quest's pin, not its area's edge.
 
@@ -142,6 +142,21 @@ def test_target_quest_edge():
     assert t.inside is False and abs(off(t.pos.col, t.pos.row) - 1) < 0.02
     sim.Run(1)
     assert Model.Route() is not None
+
+    # Its area moved off its pin (a QUEST_POI_UPDATE: 0.08 east, the pin outside it): still its edge from
+    # you, not the pin (the spike's InBlob tests the followed frame, Layers.lua:1099-1155); walked into,
+    # inside once held.
+    x0 += 0.08
+    sim.blobShapes[52] = L.table_from([x0, y0, r])
+    sim.FireEvent("QUEST_POI_UPDATE")
+    sim.Run(1)
+    t = Model.Target()
+    assert t.inside is False and abs(off(t.pos.col, t.pos.row) - 1) < 0.02 and t.pos.col > FRONTIER["col"]
+    _, me.col, me.row = Atlas.MapToTile(ELWYNN, x0, y0)
+    sim.Run(0.4)
+    assert Model.Target().inside is False
+    sim.Run(0.6)
+    assert Model.Target().inside is True and Model.Route() is None
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
