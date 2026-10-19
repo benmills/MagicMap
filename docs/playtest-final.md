@@ -37,6 +37,7 @@ default zoom.
 | a1 | First open of the session (`/mma toggle` if hidden), at the Thunderbrew door, cursor off. | `/mma shot small-home` | F1, F2, F19, S1-S3, S9, S11, S19, S22 | M1 |
 | a1h | Cursor resting on the map left of the arrow, not on a pin: the controls show, the title gains coordinates. | `/mma shot small-hover` | F2, F3, S6, S10, S13, S17-S19 | M1 |
 | a1d | Drag the map ~40 px east (follow turns off), cursor resting on the map. Then cursor off and wait: it glides back to you after 6 s. | `/mma shot small-drag`; `/mma mark a1d idle <back after ~6 s, or what>` | F6, F7, S18, S28, S29 | M1 |
+| a1g | Small, following: drag the map about its width east and let go, cursor off. After 6 s it glides back to you. Tiles, names and pins stay on the map the whole way. The borders should too: M1.15 is meant to fix them before this session; at the M1b gate they missed the map's edges for most of the glide (test_feel). | `/mma mark a1g glide <ok, or what>` | F7, F15, S29, P1 | M1b |
 | a1r | Alt-Z twice (the UI hidden, then back); then `/mma toggle` twice (Blizzard's minimap, then ours). Each time the map fills in as at the first open, tiles first, briefly, with no hitch (M1.3: a re-open lays the layers out again). | `/mma mark a1r reopen <ok, or what>` | P1, F12 | M1 |
 | a1b | The ground, cursor off: wheel out to 62-80 (Ironforge's border on its shadow, zone names in capitals), in to 250-300 (subzone borders and names), in to 800 (the closest). Your arrow: the Minimap's own, its shadow softened, turning smoothly as you turn. Then back to the default zoom. | `/mma shot small-zone`; `/mma shot small-town`; `/mma shot small-near`; `/mma mark a1b arrow <ok, or what>` | F12-F16, F20, S31-S33, S35-S38, S41 | M1 |
 | a1c | A herb or a vein in view: cast Find Herbs or Find Minerals off, then on (spellbook; skip without the profession). It shows within about 1 s. | `/mma mark a1c herb <seconds>` | F19 (M1.5b) | M1 |
@@ -84,7 +85,7 @@ Questie the only other addon. The rest of (e) is M4's.
 
 ## The read (the lead)
 
-`telemetry.py --budgets --trace` and `--shots --marks`. M1 passes when:
+`telemetry.py --budgets --trace` and `--shots --marks`. M1 and M1b pass when:
 
 - **8/8 PASS**: frame max ≤8 ms; p95 ≤1 ms at rest, p99 at rest and p95 moving ≤5 ms (by map
   state, docs/runtime.md: decision 1 below); first open ≤50 ms (target ≤20); ourKB after GC ≤64 MB
@@ -98,7 +99,8 @@ Questie the only other addon. The rest of (e) is M4's.
   about one trace a start (0.37 KB in the sim since M1.12, a layout ~1.1 KB with its end and swap; the
   old job start cost 8.6-10.3 KB in the client); `validate.log` near 0 (3.4 KB/s in #13-#22). A session
   that zooms a city's big window out reads its canvases filling as allocation (~7,000 regions, ~3.6 MB,
-  kept in their pools, made once a session: over 50 KB/s in a short session, ~6 KB/s over 10 minutes):
+  kept in their pools, made once a session: over 50 KB/s in a short session, ~6 KB/s over 10 minutes;
+  R-P3b at the M1b gate: 7333 regions, its first pass 158.4 KB/s with 8.9 of garbage, all 76 s 65.8):
   the budget can't tell pool growth from garbage, so judge it over the whole session (M1b, d1).
 - **The bench** (a5b): `canvas.SetAlpha.moved@1000live` far under `canvas.Show.moved@1000live`, and
   `frame.swap` about `frame.idle`; else the swap extends in place (M1.3's fallback). Also

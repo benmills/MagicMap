@@ -22,8 +22,9 @@ and `art` traces empty; `/mma check log` on throughout with 0 K4 drift lines; 0 
 
 Where it stands: M0 done; M1's sim half done at e50e7d5 (`tools/check.sh` green plain and strict); M1b
 (the user's play-test of the M1 build: M1.12 allocation while moving and the validator, M1.13 the
-MVP's gear menu, M1.14 zoom and pan as the MVP: every wheel event a x1.3 tick, chased) merged by 743a615;
-every
+MVP's gear menu, M1.14 zoom and pan as the MVP: every wheel event a x1.3 tick, chased) merged by 743a615,
+its sim half done at 2f79ffb (the M1b gate, 2026-10-19: 86 passed plain and strict), M1.15 (borders
+through a glide) left from it; every
 in-game check waits for one consolidated play-test at the end (D10, docs/playtest-final.md). Next: M2
 quests on one pin store, M3 target/route/interactions, M4 feature-complete, M5 hardening and parity
 sign-off, M6 rename, merge, release.

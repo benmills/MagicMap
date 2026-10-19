@@ -298,7 +298,9 @@ the MVP), a5g (the gear) and d1 (a city's big window and doors), and the read's 
 |---|---|---|---|---|---|
 | M1.12 Motion allocation and the validator | ui/Engine.lua, ui/Tiles.lua, ui/Borders.lua, ui/Title.lua, game/Blips.lua, game/Validate.lua | A layout keeps what its canvas shows (`Engine.Keep`, `canvas.epoch`: docs/runtime.md "The map's engine"), so a pan's tile and border layouts set only the ground they add; tile masks on coast tiles only; ahead of a pan, 2.5 ms slices (`PAN_MS`). Title coordinates through SetFormattedText. A door keeps the sensor's circles looked over. The validator: a sample allocates ~0, the logger judges as `/mma check` (the login moment, a WMO's own subzone: info), its log one build's | SavedValidation `_v` 2, `version` (OPEN: ADR 0004's consequences) | R-K4; R-P3b (Orgrimmar at the client's prices: 14.2 KB/s over views seen before, 20.3 walking through doors, a layout 1.18 KB, the drag's p95 2.75 ms); R-P1 180/180 frames every layer | M1b wave 1, W: done c31930f |
 | M1.13 Settings that work and read like the MVP | ui/Menus.lua (gear), tools/tests/test_gear.py | The gear as GearMenu.lua: a submenu per group of layers (Map, Quests, Places, People, You, Other addons; a group with none left out), each layer a checkbox with its tip that keeps the menu open, a sub-option indented and greyed while its parent is off, then Settings (Map, Minimap). `Menus.Layer(row)`: the registry M2-M4 add their rows through (docs/structure.md). Only the layers turned off are saved (`/mma layer` too, since the merge); an addon turned off stays off across a /reload (ui/Sockets.lua) | None | test_gear: the tree small and big, tips, every toggle empties and redraws its layer (View.layers for the sensor and Questie's pins), each setting does what it says, changed keys only across a /reload | M1b wave 1, W: done 64d2ecf |
-| M1.14 Zoom and pan parity with the MVP | ui/Motion.lua, ui/Camera.lua, ui/Engine.lua, tools/tests/spike_camera.lua, tools/tests/test_feel.py | Every wheel event a x1.3 tick by its sign onto the running target (Core.lua:1422-1441), M1.8b's rationing and `/mma wheel` removed; the camera moved in place (no table a zoom frame); the spike's camera ported as a reference; zooming out, tiles, names and pins laid out where the zoom is headed (docs/runtime.md "The map's engine"); the `wheel` cam trace's delta, n, dt (docs/telemetry.md) | None | test_feel: the spike's path frame by frame on 9 input streams; what you see each frame priced (aligned, tiles covered, nothing gone and back, no frame over 8 ms); test_zoom test_wheel; R-P1's 20-step zoom-out 10 layouts (16 before); script (a) zoom p95 ≤5 ms priced (test_script_a_priced; measured: docs/runtime.md) | M1b wave 2, W: done 96068d0 |
+| M1.14 Zoom and pan parity with the MVP | ui/Motion.lua, ui/Camera.lua, ui/Engine.lua, tools/tests/spike_camera.lua, tools/tests/test_feel.py | Every wheel event a x1.3 tick by its sign onto the running target (Core.lua:1422-1441), M1.8b's rationing and `/mma wheel` removed; the camera moved in place (no table a zoom frame); the spike's camera ported as a reference; zooming out, tiles, names and pins laid out where the zoom is headed (docs/runtime.md "The map's engine"); the `wheel` cam trace's delta, n, dt (docs/telemetry.md) | None | test_feel: the spike's path frame by frame on 9 input streams; what you see each frame priced (aligned, tiles covered, nothing gone and back, no frame over 8 ms); test_zoom test_wheel; R-P1's 20-step zoom-out 10 layouts (16 before; 12 since the M1b review's second round: names each drift and where the zoom lands); script (a) zoom p95 ≤5 ms priced (test_script_a_priced; measured: docs/runtime.md) | M1b wave 2, W: done 96068d0 |
+| M1.15 Borders through a glide | ui/Engine.lua (the held layer's plan), tools/tests/test_feel.py | Held borders laid out again through a glide (the idle return, follow's glide, a flight) where it's headed, as the spike's RequestGeometry aims its build at GoalZoom and GoalCenter, keeps it while it fits the goal's view and starts again once it doesn't (Layers.lua:1907-1937). Today a glide's zoom (log and back) isn't quite its own, so the held layer reads it as zooming and waits for it to land (the M1b review's round 2, Left below) | None | test_feel asserts borders cover the view on the drag-then-glide streams (uncovered at the M1b gate: small, a drag then the idle return, 30 frames; a long drag then the idle return 32; big, a drag then follow, 38); a zoom out's dim and crossfade unchanged (playtest-final decision 8); R-P1, R-P7 pass; in game docs/playtest-final.md a1g | M1b wave 3 (after the M1b gate; may run beside M2's wave 2a), W: todo |
+| M1b gate | Lead + user | The hand-offs into spike-bugs, parity and playtest-final; tools/check.sh | — | Exit list | Last. **Sim done 2026-10-19** (2f79ffb: every M1b package's Verify met and M1's sim exit items still; tools/check.sh green, 86 passed plain and strict, no skip or xfail; R-P1 180/180 frames every layer, its zoom-out 12 layouts; R-P3b 12.8 KB/s over views seen before, 20.4 walking, 158.4 the first pass with its pools (7333 regions; garbage 8.9), the drag's p95 2.75 ms; script (a) zoom p95 4.5 priced). In game: user-gate, docs/playtest-final.md a1g, a2, a5g, d1 and the read's `perf.alloc` (D10). Left: borders through a glide (M1.15) |
 
 Left from wave 1, from the hand-offs (outside their files): ui/View.lua makes ~1.1 KB/s moving;
 `model.observe` 2.5 KB/s walking among blips; atlas/Areas.lua decodes an area tile with a parts table and
@@ -358,7 +360,7 @@ build stamp (## X-Stamped, the installed files' digest always, package.sh's ref)
 minimum zoom's reveal. Refuted: none. Left: borders (held) aren't re-laid during a glide at its zoom (a
 glide's zoom, log and back, isn't quite its own, so the held layer reads it as zooming), so they miss the
 view for most of the idle return's glide after a pan, as before; the spike re-aims its build at the
-destination.
+destination: M1.15 (the M1b gate).
 
 ### M2 Quests on one pin store
 
@@ -444,13 +446,14 @@ Exit: full CI green under new names incl. test_only_game_defines_globals; sim lo
 | 1c | M1.4 (after M1.3 layer API) | — |
 | M1b-1 | M1.12, M1.13 (the user's play-test of M1) | — |
 | M1b-2 | M1.14 (the user's play-test of M1: the wheel) | — |
+| M1b-3 | M1.15 (the M1b gate: borders through a glide) | — |
 | 2a/2b | M2.1, 2.2, 2.3 → M2.4 after M2.1 stub | — |
 | 3a | M3.1–M3.4 | — |
 | 4a | M4.1–M4.6 | — |
 | 5 | M5.1–M5.3 | — |
 | 6 | M6.1 alone → M6.2 + M6.3 | M6.1: whole tree |
 
-Counts: **44 work packages** (M0 8, M1 13, M1b 3 so far, M2 4, M3 4, M4 6, M5 3, M6 3) + 5 gate packages (M0–M4). Max swarm width: 8 (wave 1a).
+Counts: **45 work packages** (M0 8, M1 13, M1b 4 so far, M2 4, M3 4, M4 6, M5 3, M6 3) + 6 gate packages (M0, M1, M1b, M2–M4). Max swarm width: 8 (wave 1a).
 
 ## 8. Risks and mitigations
 

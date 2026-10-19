@@ -137,7 +137,7 @@ class Plan:
             elif line.startswith("| M"):
                 c = cells(line)
                 pid = c[0].split(" ")[0]
-                if len(c) == 6 and re.fullmatch(r"M\d+(\.\d+b?)?", pid):
+                if len(c) == 6 and re.fullmatch(r"M\d+b?(\.\d+b?)?", pid):
                     title = c[0][len(pid):].strip()
                     if title.startswith("gate"):
                         pid, title = f"{pid} gate", ""
