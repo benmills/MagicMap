@@ -1585,10 +1585,11 @@ function C_Map.GetMapArtLayerTextures(id, layer)
 	for i = 1, math.ceil(a[1] / a[3]) * math.ceil(a[2] / a[3]) do files[i] = 900000 + i end
 	return files
 end
+-- The smallest zone, dungeon floor (or, inside, micro map) you're on.
 function C_Map.GetBestMapForUnit(unit)
 	if unit ~= "player" then return nil end
 	local p = Sim.player
-	return mapAt(p.inst, p.col, p.row, { [T.Zone] = true, [T.Micro] = Sim.indoors or nil })
+	return mapAt(p.inst, p.col, p.row, { [T.Zone] = true, [T.Dungeon] = true, [T.Micro] = Sim.indoors or nil })
 		or mapAt(p.inst, p.col, p.row, { [T.Continent] = true })
 end
 function C_Map.GetWorldPosFromMapPos(id, pos)

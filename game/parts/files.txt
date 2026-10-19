@@ -1,6 +1,7 @@
 game/parts/You.lua
 game/parts/Blips.lua
 game/parts/MinimapState.lua
+game/parts/IndoorArt.lua
 game/parts/Addons.lua
 game/parts/Quests.lua
 game/parts/Offers.lua
