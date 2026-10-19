@@ -33,7 +33,7 @@ default zoom.
 
 | id | Do | Mark / shot | Signs | Gate |
 |---|---|---|---|---|
-| a0 | After the 10 s wait: `/mma check art`. Chat: `art: all 36 there`. | `/mma mark a0 art <names>` only if it names a miss | L5, S15, S17 | M1 |
+| a0 | After the 10 s wait: `/mma check art`. Chat: `art: all 40 there` (M3 added the tombstone, the quest disc under it, the waypoint pin and the edge arrow). | `/mma mark a0 art <names>` only if it names a miss | L5, S15, S17 | M1 |
 | a1 | First open of the session (`/mma toggle` if hidden), at the Thunderbrew door, cursor off. | `/mma shot small-home` | F1, F2, F19, S1-S3, S9, S11, S19, S22 | M1 |
 | a1h | Cursor resting on the map left of the arrow, not on a pin: the controls show, the title gains coordinates. | `/mma shot small-hover` | F2, F3, S6, S10, S13, S17-S19 | M1 |
 | a1d | Drag the map ~40 px east (follow turns off), cursor resting on the map. Then cursor off and wait: it glides back to you after 6 s. | `/mma shot small-drag`; `/mma mark a1d idle <back after ~6 s, or what>` | F6, F7, S18, S28, S29 | M1 |
@@ -75,10 +75,19 @@ the M2 gate; b8-b10 need them drawn. Start as docs/playtest.md (b): a hub with y
 | b19 | After about 10 minutes questing at the hub, the map shown (kills, loot, an objective or two finished): `/mma perf load poi` and `/mma perf load quest`. The calls of `game.oracle: poi update` (one a QUEST_POI_UPDATE) against `game.quests` (the quests part's events): how often this client says the game's areas changed. Each costs a read of the zones and the areas drawn again, no entry or pin (test_quests_ticks: a count every 2 s, 17.8 KB/s without, 19.3 with one each time). | `/mma mark b19 poi <its calls>, <game.quests' calls> in <minutes>` | F29, S53 | M2 |
 | b20 | With quests in Stranglethorn (or another big zone: Stranglethorn is 12 tiles by 8), fly or ride there from another zone with the map open, then big, wheel in to the clamp (800) over their areas, and drag a little. Each area stands on its pin, its shape as at zoom 100, not squashed into a sliver nor off to one side. The M2 gate found an area frame keeping two anchors once the corner it stands on changed, which sized Stranglethorn's 9,572 px frame 515 x 114 (fixed: ee26c4f; test_quest_area_big_zone). | `/mma mark b20 big zone <ok, or what>` | F29, S53, L1 | M2 |
 
-## Script (c): keys in combat
+## Script (c): route, corpse run, keys in combat
+
+Start (docs/playtest.md script (c)): Dun Morogh or Elwynn, a quest followed whose area is off the view.
 
 | id | Do | Mark / shot | Signs | Gate |
 |---|---|---|---|---|
+| c1 | Small, following: follow a quest whose area is off the view (click its pin). A hand-inked dashed line from you to the area's nearest edge (not its pin), a light stroke over a dark edge, uneven, faded at both ends, along the way you'd walk (round cliffs and deep water); the gold edge arrow 16 px inside the window's edge where the line leaves the view, pointing on. Walk toward it: the line keeps to the route (no hop sideways onto a detour, no straight flash while it's found again); step into the area and stay 0.5 s: the line and arrow step aside, the title (hovered) says `<title> here`. Against `~/code/MagicMap/MagicMap-path-mode.gif`. `model: route` and `map: path` never in perf.slow (the first draw of a long line wholly in view priced 1.99 ms in test_path_priced at 720 x 520: a bigger window could pass 2 ms). | `/mma shot small-edge-arrow` (before walking); `/mma mark c1 route <ok, or what>` | F32, F33, F34, S55-S59, M1, P2 | M3 |
+| c1b | Big (M), cursor off the map: the title band ends `<title> N yd` (yards to the target, rounded), and small with the cursor on the map too. Stand still 10 s: the line doesn't flicker (no redraw standing); wheel in and out over it: it's laid out again at each zoom. | `/mma mark c1b title <ok, or what>` | S12, S58 | M3 |
+| c2 | Big, Kharanos at 300-400: Ctrl-click the map: the cyan waypoint pin, Blizzard's tracker super-tracks it, the line now goes to it. Ctrl-right-click: cleared. Ctrl-click far out at sea: no waypoint, the press pans the map (a sea chunk outside every zone's map: Atlas.ZoneMapAt). Shift-click: the chat box opens on `/way <zone> x y`, not sent (that it opens at all checks `ChatFrame_OpenChat` or `ChatFrameUtil.OpenChat` on the 16001 client). Right-click: Waypoint here, Clear waypoint (one set), Follow me (not following). Hover the waypoint pin: `Waypoint`, `Ctrl-right-click the map to clear`. | `/mma shot big-waypoint` (a waypoint set, the line to it); `/mma mark c2 waypoint <ok, or what>` | F35, F36, F37, S49, S55-S57 | M3 |
+| c2b | Big, right-click a spot in Elwynn (the reference session's spot): the menu leads with the inspector: the zone in gold; its subzones and coordinates; `Level a-b` in green, red or grey against yours, how far (5 yd steps close, 10 further, thousands with commas, `You're here` close by) and which way from you; up to 2 quests whose areas hold the spot (the followed one gold, `(following)`). Against the spike's ZoneInfo at the same spot: the level line here is the subzones' exploration levels (Elwynn 5-10, Dun Morogh 4-56 with the Ironforge Submarine Facility), the spike's the client's map levels (Elwynn 1-10): say which you want. The subzones are Atlas's (the spot's area chain), not the client's explored ones. | `/mma shot big-inspector`; `/mma mark c2b inspector <ok, or what differs>` | F37, F38, S62 | M3 |
+| c2c | Big, Eastern Kingdoms at 16: click the zone name: the map picker (Continents, Other maps, Instances by the continent of their entrance); pick Kalimdor: its map whole, following off; Blizzard's minimap cluster stays hidden while you browse (spike-bugs G2). `/mma map` alone lists the maps; `/mma map Deadmines`: its map whole, no arrow, line, blips or borders; `/mma zone Westfall`: it flies there (0.55 s). Drag the zone name: the window moves, no picker. Right-click, Follow me: back to you. | `/mma shot big-picker` (the picker open); `/mma mark c2c picker <ok, or what>` | F4, F11, F18, S60, G2 | M3 |
+| c2d | Big, Dun Morogh at 80-100, several zones in view: hover one: its name brightens and its border is drawn over the borders (under the route line) once the map rests; click: it flies there (fit 0.92), following off. A quest's area under the cursor isn't clickable while zone clicks are on offer; a pin is. Against `~/code/MagicMap/docs/pick-and-fly.gif`. | `/mma mark c2d zone hover <ok, or what>` | F17, S34, S36 | M3 |
+| c3 | As docs/playtest.md c3: die (pull mobs well above your level), drag the map away, release. A few seconds after release the client knows where your corpse is: the tombstone pin within about a second of that, the view glides back to you and the line runs to the corpse. Corpse run; resurrect: the pin and the line gone. | `/mma shot small-corpse` while a ghost, small; `/mma mark c3 corpse <ok, or what>` | F42, F7, S49, G4 | M3 |
 | c4 | As docs/playtest.md c4: in combat, M (Blizzard's map opens, ours doesn't grow), then `/mma check combat` with it open: it prints whether the client blocked hiding it. `/mma toggle` twice in combat: the cluster fades, its hide or show waits for combat's end. | `/mma mark c4 combat keys` after the check's line | F10, K2 | M1 |
 | c5 | Out of combat: M (grow), Escape (shrink), L (Blizzard's quest log; close it), `/mma toggle`: Blizzard's minimap back exactly as it was; cursor on our rim button (lower left) for its tip; `/mma toggle` again. | `/mma shot blizzard-rim`; `/mma mark c5 keys` | F1, F10, F52, F53, S21 | M1 |
 | c6 | As docs/playtest.md c6: spellbook and talents by keybind in combat. A taint from M's HideUIPanel would name us here. | `/mma mark c6 panels` | K2 | M1 |
@@ -135,10 +144,14 @@ Questie the only other addon. The rest of (e) is M4's.
   M1's borders (test_quests_priced's wheel and drags, that stretch alone: 443 KB/s with 25 quests, 426
   without, `map: borders` ~390, `map: quest areas` 6.8): judged with M1.15 and script (a)'s reads, not
   blamed on quests.
+- **Script (c)** (M3): 8/8 PASS; `model: route` and `map: path` never in perf.slow (route jobs: a
+  1 ms job, 1.05 ms its slowest resume in R-P2); 0 taint in combat toggles; the line against
+  MagicMap-path-mode.gif (c1), the inspector against the spike's ZoneInfo (c2b).
 - **Shots**: each answered `shot <id>: WoWScrnShot_<stamp>, marked`, paired with `ref-<id>.jpg`:
   small-home, small-hover, small-drag, small-near, small-seam, small-town, small-zone, big-home,
   big-hover, big-gear (M1b), big-zones, big-continent, blizzard-rim; small-quests, big-quests,
-  big-quest-follow, big-quest-tip (M2). A seam on small-seam is M1.4's seam overlap
+  big-quest-follow, big-quest-tip (M2); small-edge-arrow, big-waypoint, big-inspector, big-picker,
+  small-corpse (M3). A seam on small-seam is M1.4's seam overlap
   (1 px right and bottom, half-texel inset), built only if a shot shows one.
 
 ## Decisions for you at the session

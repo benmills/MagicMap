@@ -30,9 +30,12 @@ on one pin store): wave 1 merged 2026-10-19 (M2.1 the pin store with blips and r
 quests, offers, follow and tooltip, M2.3 Model's quests and offers); M2.4 (UI quests, areas, tooltip)
 merged 2026-10-19 (d634976) on the quest-areas decision (§7), its review's fixes (two rounds) on main; M2's
 sim half done at 2112c2d (the M2 gate, 2026-10-19: 112 passed plain and strict), its in-game half in
-docs/playtest-final.md (b6-b20, c7, e4).
-Then M3 target/route/interactions, M4 feature-complete, M5 hardening and parity sign-off, M6 rename,
-merge, release.
+docs/playtest-final.md (b6-b20, c7, e4). M3 (target, route, interactions): wave 1 merged 2026-10-19
+(M3.1 Model's Target and Route, M3.2 Game's waypoint, way and corpse, M3.3 the path, edge arrow,
+corpse and waypoint pins and the title's target, M3.4 the picker, right-click menu and inspector, zone
+hover and fly; 138 passed plain and strict), its in-game half in docs/playtest-final.md (c1-c3); the
+M3 gate next.
+Then M4 feature-complete, M5 hardening and parity sign-off, M6 rename, merge, release.
 
 ## 2. Rules for every package (v1-plan §3)
 
@@ -142,11 +145,12 @@ the canvas's frame for it, `Engine.From` saying whether a layout at a zoom draws
 (borders). `build` yields with `Runtime.Yield()` and returns true when it has nothing to draw at that
 zoom, or the zoom what it left out shows from. Levels (an offset to the view's frame level), renumbered
 at M2.4 (ef8b2ee) for the spike's order (parity S8: tiles → shade → areas → lines → path → labels → pins):
-tiles 1, the shade 2 (M4.4's), quest areas 3 (their frames +5..+7, ui/Areas.lua), borders 7, the path 8
-(M3.3's), labels 9, the world socket +10 (other addons' pins, under ours: ui/Sockets.lua), rares 11, blips
-12, offers 14, quests 15, the arrow's overlay +18 (ui/You.lua). A pin layer's pins stand 3 above it (its
-canvas, the canvas's frame for a minimum zoom, the pin a level each). M3.3 and M4.4 take the levels named
-for them; a new layer between two asks the lead.
+tiles 1, the shade 2 (M4.4's), quest areas 3 (their frames +5..+7, ui/Areas.lua), borders 7 (the hovered
+zone's border over theirs, on their canvas: ui/ZoneInfo.lua), the path 8 (its own canvas: ui/Path.lua),
+labels 9, the world socket +10 (other addons' pins, under ours: ui/Sockets.lua), rares 11, blips 12, your
+corpse and waypoint 13 (ui/You.lua), offers 14, quests 15, the arrow's and the edge arrow's overlay +18
+(ui/You.lua). A pin layer's pins stand 3 above it (its canvas, the canvas's frame for a minimum zoom, the
+pin a level each). M4.4 takes the level named for it; a new layer between two asks the lead.
 
 ## 5. Contracts (types/, docs/decisions/)
 
@@ -174,9 +178,11 @@ types/core.lua). ADR 0007 (the SV rename) is M6.1's to write.
 - `Runtime.On(event, name, fn)`: WoW event, `fn(event, ...)`; game/ only.
 - `Runtime.After(s, name, fn)`, `Runtime.Every(s, name, fn)` → handle; `Runtime.Cancel(handle)`.
 - `Runtime.Job(name, fn, budgetMs, maxFrames)`: a coroutine resumed each frame (default 2 ms, cancelled
-  after 600 resumes); `.done`, `.err`. `Runtime.Yield()` gives the frame back once the budget is spent.
+  after 600 resumes: a long job passes its own, as the route's 2400); `.done`, `.err`. `Runtime.Yield()`
+  gives the frame back once the budget is spent.
 - `Runtime.Worker(name, fn, budgetMs, maxFrames)`, `Runtime.Wake(job)`, `Runtime.Idle()`: a job whose
-  coroutine is made once (the engine's layouts).
+  coroutine is made once (the engine's layouts; ZoneInfo's hover border): a new one only when a run was
+  cancelled or failed after it began.
 - `Runtime.Wrap(name, fn, budgetMs)`: timed, budgeted, isolated (every callback above is wrapped: an error
   is caught, reported once, the rest runs on; 10 failures in a row → once a second).
 - `Runtime.Trace(kind, detail)`, `TraceCopy()`: a ring of 300 events (docs/telemetry.md "Trace kinds").
@@ -280,7 +286,12 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   run as a script, it records fixtures/streams/quests.lua and offers.lua again), test_model_quests
   (Model alone on those streams), test_quests (UI's quest pins, follow, tooltip), test_quest_areas (areas,
   hover, estimates, a 12-tile zone at zoom 800; 25 quests' budgets, the first open, allocation over a
-  stretch alone: `stretch`). The sim's C_ calls make their tables anew each call, as the client's (their
+  stretch alone: `stretch`), test_target (Model's target end to end: priority, a quest's area edge, inside
+  held), test_route (A* in its job: budget, cap, the old route kept, replans, Dun Morogh's pace),
+  test_target_parts (Game's waypoint, way and corpse round trips), test_path (the line, its redraws and
+  cap, the edge arrow, corpse forces follow, the title's target, the corpse and waypoint pins, walking and
+  priced), test_interact (the picker, /mma map and zone, zone hover and fly, Ctrl/Shift clicks through
+  Game's handlers, the right-click menu and inspector). The sim's C_ calls make their tables anew each call, as the client's (their
   garbage is measured); a scenario changing Sim.quests fires QUEST_LOG_UPDATE, the sim QUEST_ACCEPTED and
   QUEST_REMOVED with it. A QuestPOIFrame draws into its rect as the last frame's end laid it out (L1); its
   drawing moves with it on a pan, not on a resize or a scale.
