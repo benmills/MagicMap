@@ -41,15 +41,21 @@ START = (31.95, 49.75)  # Sim.player's tile at login (col, row): Goldshire
 YD = 3 / 1600  # a yard in tiles
 
 
-def files():
-    """The TOC's files that exist (test_luacheck flags what's missing)."""
-    return [os.path.join(luacheck.ROOT, f) for f in luacheck.toc_files() if os.path.exists(os.path.join(luacheck.ROOT, f))]
+# The QuestieDB-derived Data files (gitignored: D1): a build without them must work (Atlas's indexes empty).
+QUESTIE = {"Data/Npcs.lua", "Data/Objects.lua", "Data/Items.lua", "Data/Quests.lua", "Data/BlipServices.lua"}
 
 
-def load(saved=None):
+def files(data=True):
+    """The TOC's files that exist (test_luacheck flags what's missing); data=False: but QUESTIE's."""
+    return [os.path.join(luacheck.ROOT, f) for f in luacheck.toc_files()
+            if os.path.exists(os.path.join(luacheck.ROOT, f)) and (data or f.replace("\\", "/") not in QUESTIE)]
+
+
+def load(saved=None, data=True):
     """A simulated client with MagicMapAtlas loaded and logged in: (Lua, Sim, ns), on the counted clock
     (Sim.Counted: what a budgeted call or job gets done is the same on every machine).
-    saved: Lua source for the SavedVariables (MagicMapAtlasDB = ...) found at load (default TEST_UI)."""
+    saved: Lua source for the SavedVariables (MagicMapAtlasDB = ...) found at load (default TEST_UI).
+    data=False: without QuestieDB's data (QUESTIE), as CI's checkout and a no-data build."""
     L = lua51.LuaRuntime(encoding="latin-1", unpack_returned_tuples=True)
     sim = L.eval("function(path) return assert(loadfile(path))() end")(os.path.join(TESTS, "wowsim.lua"))
     sim.Counted()
@@ -59,7 +65,7 @@ def load(saved=None):
         if not chunk then error(err, 0) end
         return Sim.Call("loading " .. path:match("[^/]+/[^/]+$"), chunk, "MagicMapAtlas", ns)
     end""")
-    for path in files():
+    for path in files(data):
         run(path, ns)
     L.execute(saved or TEST_UI)
     sim.FireEvent("ADDON_LOADED", "MagicMapAtlas")

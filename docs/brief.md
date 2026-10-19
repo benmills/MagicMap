@@ -263,7 +263,8 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   their harness is tools/tests/harness.lua: `local T = ...; local sim, ns = T.Shown()`; every `sim.Step`
   checks the invariants (anchors ≤ 4096 px but the world socket's, no map region snapped, one canvas a
   layer outside a crossfade, every layer on one origin at rest, no protected call in combat, no Blizzard
-  Minimap art while the takeover has it).
+  Minimap art while the takeover has it, one pin a thing: no key twice on a pin layer, no quest both a
+  quest's pin and an offer's).
 - **Model alone**: tools/tests/replay.lua (`Replay.Model`, `Replay.Stream(root, "quests")`,
   `Replay.Oracles`) feeds fixtures/streams/<part>.lua, what Game's part would hand over.
 - Files: test_addon (smoke, luacheck, boundaries, Runtime's guarantees), test_no_globals

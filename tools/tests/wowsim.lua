@@ -1743,6 +1743,18 @@ C_SuperTrack = {
 	SetSuperTrackedQuestID = function(id) Sim.superTracked = id end,
 	SetSuperTrackedUserWaypoint = function(on) if on then Sim.superTracked = 0 end end,
 }
+-- Blizzard's objective tracker (its quest item buttons are secure) follows these: each made in combat
+-- is logged in Sim.trackerCalls ({ frame, call, stack }), as protectedCalls (K2): not refused here,
+-- recorded for R-K2; whether the client blocks or taints on it is the final session's (c7).
+Sim.trackerCalls = {}
+for _, at in ipairs({ { C_SuperTrack, "SetSuperTrackedQuestID" }, { C_QuestLog, "AddQuestWatch" } }) do
+	local t, name = at[1], at[2]
+	local fn = t[name]
+	t[name] = function(...)
+		if Sim.inCombat then Sim.trackerCalls[#Sim.trackerCalls + 1] = { frame = Sim.frame, call = name, stack = debug.traceback("", 2) } end
+		return fn(...)
+	end
+end
 -- 12.x secret values: readable, but any arithmetic or comparison on them
 -- from addon code is an error. GetUnitSpeed is one.
 local SECRET = setmetatable({}, {

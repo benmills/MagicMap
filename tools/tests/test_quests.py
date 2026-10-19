@@ -8,6 +8,9 @@ clicks in ui/Areas.lua), end to end from the sim's quest log through Game's part
     quest back in the next observation, its pin 26 in the halo), again stops; a click on an area with
     no pin under it follows its quest; a pin over another quest's area wins (F31). Each frame one pin a
     quest.
+  test_quest_pins_each_frame: one pin a quest every frame (the harness's invariants, T.Invariants, after
+    each step) through the wheel, drags, the big map, the follow moving, an offer taken into the log and
+    the log abandoned (F26).
   test_quest_tooltip: the tooltip's lines in QuestInfo.lua's order and type (S63): the tag and group
     size on the facts line, ≤3 droppers lowest first and how many more, Turn in to, the click hint; a
     met dropper's portrait (the tooltip Command) the frame the tooltip is built; without QuestieDB's
@@ -50,8 +53,8 @@ function PinOf(layer, key)
 	local p = layer.front.pools.pin
 	return p[p.at[key]]
 end
--- QuestieDB's rows for the quests here, as Atlas has them (made up: CI has none); nil: no data at all.
-function Data(on)
+-- QuestieDB's rows for the quests here, as Atlas has them (made up: CI has none).
+function Data()
 	local items = { [772] = { name = "Large Candle", icon = 133750, npcDrops = { 9001, 9002, 9003, 9004, 9005 },
 		objectDrops = {}, vendors = {} } }
 	local npcs = { [9001] = { name = "Candle Thief", minLevel = 6, maxLevel = 8 },
@@ -59,10 +62,10 @@ function Data(on)
 		[9004] = { name = "Old Mole", minLevel = 0, maxLevel = 0 }, [9005] = { name = "Deep Digger", minLevel = 12, maxLevel = 14, rank = 4 },
 		[9301] = { name = "Candle Taker" } }
 	local quests = { [60] = { objectives = { { kind = "item", id = 772 } }, finishedBy = { npcs = { 9301 }, objects = {} } } }
-	Atlas.Item = function(id) return on and items[id] end
-	Atlas.Npc = function(id) return on and npcs[id] end
+	Atlas.Item = function(id) return items[id] end
+	Atlas.Npc = function(id) return npcs[id] end
 	Atlas.Object = function() return nil end
-	Atlas.Quest = function(id) return on and quests[id] end
+	Atlas.Quest = function(id) return quests[id] end
 end
 """
 
@@ -76,12 +79,14 @@ CANDLES = {"id": 60, "title": "Kobold Candles", "level": 7, "col": 31.95, "row":
 
 
 def client(quests, data=True, followed=0, saved=None, before=None):
-    L, sim, ns = boot(saved)
+    """data: QuestieDB's rows for these quests, made up (Data); False: booted without QuestieDB's files at all."""
+    L, sim, ns = boot(saved, data=data)
     L.execute(SETUP, sim, ns)
     if before:
         L.execute(before, sim, ns)
     G = L.globals()
-    G.Data(data)
+    if data:
+        G.Data()
     sim.superTracked = followed
     G.Quests(L.table_from([L.table_from({k: L.table_from([L.table_from(o) for o in v]) if k == "objectives" else v
                                          for k, v in q.items()}) for q in quests]))
@@ -156,6 +161,43 @@ def test_quest_follow():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
+def test_quest_pins_each_frame():
+    import sim as tools_sim
+    L, sim, ns, G = client([FRONTIER, GOLD, LOVERS, CANDLES], followed=52)
+    T = tools_sim.harness(L)
+    L.execute("""local sim, ns, T = ...
+        local step = sim.Step
+        sim.Step = function(elapsed) step(elapsed); T.Invariants(sim, ns) end""", sim, ns, T)
+    view, Known = ns.UI.Window.view, ns.Model.Known
+    L.execute("""local sim, ns = ...
+        local view = ns.UI.Window.view
+        for _ = 1, 3 do sim.Wheel(view, 1); sim.Run(0.1) end
+        sim.Run(1)
+        for _ = 1, 3 do sim.Wheel(view, -1); sim.Run(0.1) end
+        sim.Run(1)
+        for i = 1, 3 do sim.Drag(view, i % 2 == 0 and 60 or -60, 20, 10); sim.Run(0.5) end""", sim, ns)
+    for quest in (47, 60, 0):  # the follow moves (Blizzard's tracker), then none
+        sim.superTracked = quest
+        sim.FireEvent("SUPER_TRACKING_CHANGED")
+        sim.Run(0.5)
+    # The sim's offer 70 taken into the log: a quest's pin, not an offer's; then the log abandoned.
+    assert 70 in {e.quest for e in Known("offers")[0].values()}
+    sim.quests[70] = L.table_from({"title": "Wolves Across the Border", "level": 6, "map": 1429, "x": 0.36, "y": 0.55,
+                                   "complete": False, "objectives": L.table()})
+    sim.FireEvent("QUEST_LOG_UPDATE")
+    sim.Run(1)
+    assert 70 in {e.quest for e in Known("quests")[0].values()} and 70 not in {e.quest for e in Known("offers")[0].values()}
+    sim.Press("M")
+    sim.Run(1)
+    sim.Wheel(view, -1)
+    sim.Run(1)
+    sim.quests = L.table()
+    sim.FireEvent("QUEST_LOG_UPDATE")
+    sim.Run(1)
+    assert not list(Known("quests")[0].values()) and 70 in {e.quest for e in Known("offers")[0].values()}
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
 SEP = "  \u00b7  ".encode("utf-8").decode("latin-1")  # the facts line's joins, as the sim's Lua (latin-1) reads them
 MOB = "|T135274:14:14:0:0:64:64:5:59:5:59|t"
 ELITE = "|TInterface\\TargetingFrame\\UI-TargetingFrame-Skull:14:14|t"
@@ -196,8 +238,10 @@ def test_quest_tooltip():
     assert list(S[tip.GetLeftLine(tip, 10)].textColor.values()) == [0.85, 0.85, 0.85]
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
-    # No QuestieDB data: the pin, its tooltip without droppers, sources or turn-in.
+    # Booted without QuestieDB's files (Atlas's own empty indexes, as CI's checkout): the pin, its tooltip
+    # without droppers, sources or turn-in.
     L, sim, ns, G = client([CANDLES], data=False)
+    assert ns.Data.Quests is None and ns.Data.Npcs is None
     tip, S = G.GameTooltip, sim.state
     G.Over(31.95, 49.6)
     sim.FireScript(ns.UI.Window.view, "OnEnter", False)

@@ -95,6 +95,36 @@ end
 -- away from the cluster: unseen, its ground textures off). The map (M1.3, with T.Anchors): a layer shows
 -- one canvas at most outside a timed crossfade (D1: drawn twice); at rest (Engine.pending false), every
 -- layer shown on the one origin.
+-- One pin a thing a frame: on each pin layer shown, no key twice among its shown pins; and no quest both
+-- a quest's pin and an offer's (one key each: "quest:<id>"). Tables kept, emptied each frame (no garbage).
+local pinKeys = {} -- layer -> { key -> true }
+local function OnePin(E, S)
+	for _, l in ipairs(E.layers) do
+		local seen = pinKeys[l.name]
+		if seen then
+			for k in pairs(seen) do seen[k] = nil end
+		end
+		local c = l.zoom == "pin" and l.on and l.front
+		local p = c and S[c].alpha > 0 and c.pools.pin
+		for i = 1, p and p.n or 0 do
+			if S[p[i]].shown then
+				if not seen then
+					seen = {}
+					pinKeys[l.name] = seen
+				end
+				local key = p.keys[i]
+				if seen[key] then error(l.name .. ": " .. key .. " twice in a frame") end
+				seen[key] = true
+			end
+		end
+	end
+	local quests, offers = pinKeys.quests, pinKeys.offers
+	if not (quests and offers) then return end
+	for key in pairs(quests) do
+		if offers[key] then error(key .. ": a quest's pin and an offer's in a frame") end
+	end
+end
+
 function T.Invariants(sim, ns)
 	local c = sim.protectedCalls[1]
 	assert(c == nil, c and ("a protected call in combat: " .. c.call .. c.stack))
@@ -117,6 +147,7 @@ function T.Invariants(sim, ns)
 			error(l.name .. ": off the shared origin at rest")
 		end
 	end
+	OnePin(E, S)
 end
 
 -- Booted, the map open and past its first-open grace (2 s).
