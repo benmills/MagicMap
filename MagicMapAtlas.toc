@@ -91,6 +91,7 @@ ui\BigMap.lua
 ui\Tiles.lua
 ui\Borders.lua
 ui\Labels.lua
+ui\Pins.lua
 ui\Blips.lua
 ui\Rares.lua
 ui\Sockets.lua
