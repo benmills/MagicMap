@@ -1723,6 +1723,9 @@ C_QuestLog = {
 	GetQuestDifficultyLevel = function(questID) local q = Sim.quests[questID]; return q and q.level or 0 end,
 	-- Grey more than 5 levels below you (the client's range grows with level).
 	IsQuestTrivial = function(questID) local q = Sim.quests[questID]; return q ~= nil and UnitLevel("player") - q.level > 5 end,
+	-- Its tag ("Elite", "Group", "Dungeon"), else nil; how many it suggests, else 0.
+	GetQuestTagInfo = function(questID) local q = Sim.quests[questID]; return q and q.tag and { tagID = 1, tagName = q.tag } end,
+	GetSuggestedGroupSize = function(questID) local q = Sim.quests[questID]; return q and q.group or 0 end,
 	AddQuestWatch = function(questID) Sim.watched = questID; return true end,
 }
 -- Items by ID: GetItemInfoInstant's itemID .. icon.

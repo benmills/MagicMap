@@ -45,6 +45,9 @@ Target and Route beyond the typed fields.
   `Model.homeStrata`, and carries `indoors` for M4.4's renderer). `Model.addons` hands on
   `obs.addons`, `{}` until known (M1.9, for the "Other addons" layers). `Model.you.zone` and
   `subzone`, this frame's from `obs.you` (the title, as the spike's GetZoneText/GetSubZoneText).
+- OPEN addition (v1 plan M2.4): `MM.KnownQuest.tag` and `group`, passed through from
+  `obs.quests` (the tooltip's facts line, QuestInfo.lua:321-325); a quest whose tag or group
+  changes gets a new entry.
 
 ## Revisit if
 

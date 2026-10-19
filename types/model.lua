@@ -45,6 +45,8 @@
 ---@field estimate? MM.Pos         no area from the game (Inside nil): an estimated disc's centre, shared within 0.6 r
 ---@field objectives? MM.KnownObjective[]  tooltip lines
 ---@field turnIn? string           who takes it in (Atlas finishedBy)
+---@field tag? string              obs.quests' tag: the tooltip's facts line ("Elite", "Group (3)": QuestInfo.lua:321-325)
+---@field group? integer           obs.quests' suggested group size; shown past 1
 
 ---@class MM.KnownObjective
 ---@field text string

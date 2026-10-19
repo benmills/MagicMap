@@ -46,7 +46,7 @@ local function Same(a, b)
 	local p, x = a.pin, b.pin
 	if a.title ~= b.title or a.level ~= b.level or a.trivial ~= b.trivial or a.complete ~= b.complete
 		or a.followed ~= b.followed or a.areaMap ~= b.areaMap or p.inst ~= x.inst or p.col ~= x.col or p.row ~= x.row
-		or #a.objectives ~= #b.objectives then return false end
+		or a.tag ~= b.tag or a.group ~= b.group or #a.objectives ~= #b.objectives then return false end
 	for i, o in ipairs(a.objectives) do
 		local y = b.objectives[i]
 		if o.type ~= y.type or o.text ~= y.text or o.have ~= y.have or o.need ~= y.need or o.finished ~= y.finished
@@ -183,7 +183,7 @@ end
 local function Entry(q, estimate)
 	local e = { key = "quest:" .. q.id, kind = "quests", pos = q.pin, name = q.title, live = true, quest = q.id,
 		level = q.level, color = q.level and Difficulty(q.level, q.trivial), complete = q.complete, followed = q.followed,
-		areaMap = q.areaMap, estimate = estimate, turnIn = TurnIn(q.id) }
+		areaMap = q.areaMap, estimate = estimate, turnIn = TurnIn(q.id), tag = q.tag, group = q.group }
 	if q.complete then
 		e.icon = TURN_IN
 	else

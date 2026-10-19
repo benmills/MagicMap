@@ -61,6 +61,10 @@ unknown ones), and new oracles.
 - OPEN addition (v1 plan M2.3): `you.trivialRange`, UnitQuestTrivialLevelRange("player"): how
   far below you a mob's level turns grey in a quest tooltip (the spike's QuestInfo.lua:191).
   Model has no WoW API, so Game hands it each frame; nil: 5, the spike's fallback.
+- OPEN addition (v1 plan M2.4): `ObsQuest.tag`, GetQuestTagInfo's `tagName` (nil when none or
+  empty), and `ObsQuest.group`, GetSuggestedGroupSize (nil when 0), for the quest tooltip's facts
+  line ("Elite", "Group (3)": the spike's QuestInfo.lua:321-325). Part of the quest's value: a
+  change makes a new `obs.quests`.
 - LOCKED clarification (v1 plan M1): `ObsBlip.rough` was "measured while moving: a few yards
   off". Its meaning stays what Model relies on: the position wasn't measured, so don't keep it
   or merge on it; it's measured once you stand still (M1.5 measures only then). How far off a

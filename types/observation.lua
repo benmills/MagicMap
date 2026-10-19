@@ -82,6 +82,8 @@
 ---@field objectives MM.ObsObjective[]
 ---@field pin? MM.Pos          where the game puts its map pin (the smallest map that has it); nil: none
 ---@field areaMap? MM.UiMapID  the uiMap whose objective area holds it (for Inside and for drawing)
+---@field tag? string          C_QuestLog.GetQuestTagInfo(id).tagName ("Elite", "Group", "Dungeon"); nil: none or ""
+---@field group? integer       C_QuestLog.GetSuggestedGroupSize(id); nil: 0
 
 ---@alias MM.PlaceKind "flight"|"poi"|"dungeon"|"graveyard"
 

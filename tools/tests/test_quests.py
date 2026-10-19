@@ -8,9 +8,10 @@ clicks in ui/Areas.lua), end to end from the sim's quest log through Game's part
     quest back in the next observation, its pin 26 in the halo), again stops; a click on an area with
     no pin under it follows its quest; a pin over another quest's area wins (F31). Each frame one pin a
     quest.
-  test_quest_tooltip: the tooltip's lines in QuestInfo.lua's order and type (S63): ≤3 droppers lowest
-    first and how many more, Turn in to, the click hint; a met dropper's portrait (the tooltip Command);
-    without QuestieDB's data, no dropper, source or turn-in lines (F28).
+  test_quest_tooltip: the tooltip's lines in QuestInfo.lua's order and type (S63): the tag and group
+    size on the facts line, ≤3 droppers lowest first and how many more, Turn in to, the click hint; a
+    met dropper's portrait (the tooltip Command); without QuestieDB's data, no dropper, source or
+    turn-in lines (F28).
 """
 from test_addon import boot, errors
 
@@ -21,7 +22,7 @@ Sim.atlases["UI-QuestIcon-TurnIn-Normal"], Sim.atlases.QuestNormal = true, true
 Sim.units.player.level = 8
 -- The sim's quest log: Quests{ { id, title, level, col, row (its pin on Elwynn), complete?, objectives =
 -- { { type, text, have, need, finished } }, area = r? (its objective area: a circle about the pin, r
--- map-normalized) } }.
+-- map-normalized), tag?, group? } }.
 function Quests(list)
 	Sim.quests = {}
 	for _, q in ipairs(list) do
@@ -31,7 +32,7 @@ function Quests(list)
 			objectives[i] = { type = o[1], text = o[2], numFulfilled = o[3], numRequired = o[4], finished = o[5] }
 		end
 		Sim.quests[q.id] = { title = q.title, level = q.level, map = 1429, x = x, y = y, complete = q.complete == true,
-			objectives = objectives }
+			objectives = objectives, tag = q.tag, group = q.group }
 		Sim.blobShapes[q.id] = q.area and { x, y, q.area } or nil
 	end
 	Sim.FireEvent("QUEST_LOG_UPDATE")
@@ -155,12 +156,13 @@ def test_quest_follow():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
+SEP = "  \u00b7  ".encode("utf-8").decode("latin-1")  # the facts line's joins, as the sim's Lua (latin-1) reads them
 MOB = "|T135274:14:14:0:0:64:64:5:59:5:59|t"
 ELITE = "|TInterface\\TargetingFrame\\UI-TargetingFrame-Skull:14:14|t"
 
 
 def test_quest_tooltip():
-    L, sim, ns, G = client([CANDLES])
+    L, sim, ns, G = client([dict(CANDLES, tag="Group", group=3)])
     tip, S, same = G.GameTooltip, sim.state, L.eval("rawequal")
     sim.units.mouseover = L.table_from({"name": "Tunnel Rat", "guid": "Creature-0-1-0-1-9002-0000000001"})
     sim.FireEvent("UPDATE_MOUSEOVER_UNIT")  # met: Game draws its portrait from then on
@@ -175,7 +177,7 @@ def test_quest_tooltip():
                 for i in range(1, tip.NumLines(tip) + 1)]
     want = [
         ("Kobold Candles", False),
-        ("|cff9d9d9dLevel|r |cffffd1007|r", True),
+        ("|cff9d9d9dLevel|r |cffffd1007|r|cff9d9d9d" + SEP + "|r|cffff8040Group (3)|r", True),  # its tag (F28)
         ("Large Candle: 3/8", False),
         ("    |cff9d9d9dDropped by|r", True),
         ("    " + MOB + " |cffffffffOld Mole|r", True),

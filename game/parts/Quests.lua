@@ -78,10 +78,12 @@ local function Read(you)
 	for id, b in pairs(best) do
 		local level, complete, inst, col, row = C_QuestLog.GetQuestDifficultyLevel(id), C_QuestLog.IsComplete(id),
 			Atlas.MapToTile(b.map, b.x, b.y)
+		local tag, group = C_QuestLog.GetQuestTagInfo(id), C_QuestLog.GetSuggestedGroupSize(id) -- QuestInfo.lua:321-325
 		out[#out + 1] = { id = id, title = C_QuestLog.GetTitleForQuestID(id) or ("Quest " .. id),
 			level = level > 0 and level or nil, trivial = C_QuestLog.IsQuestTrivial(id), complete = complete,
 			followed = id == followed, objectives = Objectives(id), pin = { inst = inst, col = col, row = row },
-			areaMap = not complete and b.map or nil }
+			areaMap = not complete and b.map or nil, tag = tag and tag.tagName ~= "" and tag.tagName or nil,
+			group = group > 0 and group or nil }
 	end
 	table.sort(out, function(a, b) return a.id < b.id end)
 	return out
