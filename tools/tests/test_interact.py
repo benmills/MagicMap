@@ -298,6 +298,7 @@ def test_inspector():
         ("title", grey + "Level|r |cff40c0401-10|r" + SEP + white + "185 yd|r " + grey + "E of you|r"),
         ("title", gold + "Quest|r |cffff7f3f[11] Wanted: Hogger|r " + dim + "(following)|r"),
         ("title", grey + "Quest|r |cffffd100[7] Gold Dust Exchange|r" + dim + "  (+1 more)|r"),
+        ("title", grey + "Graveyard|r " + white + "Goldshire|r" + SEP + grey + "310 yd W|r"),  # (M4.1's places)
         ("divider", None), ("button", "Waypoint here")]
     # Quest areas off: no area drawn there, nor an estimate (its parent off: Layers.lua:82-87, 2297).
     UI.Engine.SetLayer("questAreas", False)

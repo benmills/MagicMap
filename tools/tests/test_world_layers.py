@@ -21,12 +21,12 @@ SETUP = """
 local Sim, ns = ...
 local Atlas = ns.Atlas
 NS = ns -- (the test's own chunks)
--- Model's kinds as M4.3 hands them on: Put(kind, list) a new list, its rev moved.
+-- Model's kinds as M4.3 hands them on: Put(kind, list) a new list, its rev moved (past the real kind's).
 local kinds = {}
 function Put(kind, list)
 	local k = kinds[kind]
 	if not k then
-		k = { rev = 0 }
+		k = { rev = select(2, ns.Model.Known(kind)) }
 		kinds[kind] = k
 		ns.Model.Kind(kind, function() return k.list, k.rev end)
 	end

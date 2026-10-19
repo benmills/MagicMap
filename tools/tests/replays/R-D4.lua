@@ -2,8 +2,8 @@
 -- merge is Model's alone (model/Rares.lua: Landmarks.lua:50-56, 96-99, 107, 112-117), tested here as it's
 -- handed: a rare you've seen with a live rare vignette of its name is that pin's, not listed while the vignettes
 -- layer is on; the vignette gone, or that layer off, the seen one is back. Each step one Mother Fang among
--- Known("rares") and the vignettes drawn, and on the map one pin at most (the rares layer's when it's listed;
--- the vignettes' layer is M4.4's). Questie's turn-in "?" beside ours: M4.2's (test_addonpins).
+-- Known("rares") and the vignettes drawn, and on the map one pin (the rares layer's when it's listed, else
+-- the vignette's: ui/Places.lua). Questie's turn-in "?" beside ours: M4.2's (test_addonpins).
 -- obs.vignettes as game/parts/Vignettes.lua reads it: the sim's vignette (Mother Fang, at Atlas.MapToTile(1429,
 -- 0.38, 0.79)), gone while Sim.noVignettes.
 local T = ...
@@ -52,8 +52,7 @@ end
 -- Live: the vignette's, the seen one under it (and seen again now).
 assert(Count(true) == 1 and Model.Known("vignettes")[1].name == "Mother Fang", "one: the live one")
 local n, rares = Pins()
-assert(n <= 1 and rares == 0, "no seen-rare pin under the live one")
-local live = n
+assert(n == 1 and rares == 0, "the live one's pin, no seen-rare pin under it")
 local seen = Model.saved.rares[0]["npc:471"]
 assert(seen.t > 1792000000 and seen.col == COL and seen.row == ROW, "seen again where it is")
 
@@ -63,17 +62,14 @@ sim.Run(0.5)
 n, rares = Pins()
 assert(Count(true) == 1 and n == 1 and rares == 1, "one: the seen one")
 
--- Live again, the vignettes layer off (UI's Focus.off: ui/View.lua names the layers Model reads): the seen one.
+-- Live again, the vignettes layer off (UI's Focus.off: ui/View.lua's TARGETED): the seen one.
 Vignettes(true)
 sim.Run(0.5)
 assert(Count(true) == 1 and select(2, Pins()) == 0, "under the live one again")
-local f = {}
-for k, v in pairs(Model.focus) do f[k] = v end
-f.off = { vignettes = true }
-Model.Focus(f)
+ns.UI.Engine.SetLayer("vignettes", false)
 sim.Run(0.5)
 n, rares = Pins()
 assert(Count(false) == 1 and n == 1 and rares == 1, "the layer off: one, the seen one")
-T.Print("D4: one Mother Fang each step: live (%d pins: the vignettes layer is M4.4's), gone and the vignettes layer off (the seen one)", live)
+T.Print("D4: one Mother Fang each step: live (the vignette's pin), gone and the vignettes layer off (the seen one)")
 local errs = T.Errors(sim, ns)
 assert(#errs == 0, table.concat(errs, "\n"))

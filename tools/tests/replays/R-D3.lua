@@ -87,8 +87,9 @@ assert(#errs == 0, table.concat(errs, "\n"))
 -- while a blip is measured (indoors at a door: the client's blips move on the Minimap) reads a
 -- square of nothing: that refined ours below the client's, after which every blip read as
 -- four, for good (session #5's 12 `sensor` events, at Tarren Mill); now that measure is dropped.
--- hit: the client's square; flip(n): whether the n-th answer turns indoors over.
-local function Square(hit, flip)
+-- hit: the client's square; door: in at the first answer, out a second on (indoors, the small window
+-- wears Blizzard's whole Minimap: the sensor waits, M4.2).
+local function Square(hit, door)
 	local sim2, ns2 = T.Shown()
 	ns2.Atlas.BlipService = function() return nil end
 	sim2.BLIP_HIT = hit
@@ -99,20 +100,21 @@ local function Square(hit, flip)
 		local north, west = A.TileToWorld(p2.col + at[i][1] * yd, p2.row - at[i][2] * yd)
 		out[i] = { "Herb " .. i, north, west }
 	end
-	if flip then
-		local probe, n = C_TooltipInfo.GetMinimapMouseover, 0
+	local inAt
+	if door then
+		local probe = C_TooltipInfo.GetMinimapMouseover
 		C_TooltipInfo.GetMinimapMouseover = function()
 			local d = probe()
-			if d then
-				n = n + 1
-				if flip(n) then sim2.indoors = not sim2.indoors end
-			end
+			if d and not inAt then inAt, sim2.indoors = sim2.time, true end
 			return d
 		end
 	end
 	sim2.minimapBlips = out
 	sim2.FireEvent("MINIMAP_UPDATE_TRACKING") -- (they show: tracking on)
-	sim2.Run(10)
+	for _ = 1, 600 do
+		sim2.Step()
+		if sim2.indoors and sim2.time - inAt >= 1 then sim2.indoors = false end
+	end
 	local said, marks, exact = {}, 0, 0
 	for _, e in ipairs(MagicMapAtlasDB.telemetry.sessions[#MagicMapAtlasDB.telemetry.sessions].kept) do
 		if e.k == "sensor" then said[#said + 1] = e.d end
@@ -139,6 +141,6 @@ T.Print("D3: a square of 10.5: %d known of 10, %d exact, traced %d (px %s, n %s)
 assert(#big == 1 and big[1].e == "square" and big[1].n == 4 and math.abs(big[1].px - 10.5) < 0.1 and four == 10
 	and exact == 10 and marks == 1)
 local door
-door, n, exact = Square(8.1, function(k) return k == 1 or k == 41 end) -- in at a door, then out
+door, n, exact = Square(8.1, true) -- in at a door, then out
 T.Print("D3: indoors and out mid-measure: %d known of 10, %d exact, traced %d", n, exact, #door)
 assert(#door == 0 and n == 10 and exact == 10)

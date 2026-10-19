@@ -22,8 +22,9 @@ local camera = { cx = 0, cy = 0, zoom = 0, w = 0, h = 0 } -- the map's, each fra
 local view = { v = 1, frame = 0, minimap = "ours", renderer = "ours", inst = 0, window = window,
 	layers = {}, sockets = {}, button = true, camera = camera }
 local focus = { inst = 0, shown = false, follow = true }
--- The layers Model's target reads (Focus.off): turned off, it skips that target (or a quest's area).
-local TARGETED = { "corpse", "quests", "waypoint", "questAreas" }
+-- The layers Model reads (Focus.off): turned off, its target skips that one (or a quest's area), a seen rare
+-- shows under a live vignette (vignettes), a blip near one of those pins isn't skipped (model/Blips.lua).
+local TARGETED = { "corpse", "quests", "waypoint", "questAreas", "vignettes", "offers", "flight", "dungeons", "rares" }
 local showing -- shown when saved: on the first frame, past login (its first open is then the map's grace, docs/runtime.md)
 
 -- For telemetry marks (docs/telemetry.md "State" map, layers): Game stores it, never acts on it.
