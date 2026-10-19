@@ -77,7 +77,7 @@ T.Print("P2: Atlas first uses in a 1 ms job, slowest resume: %s", table.concat(e
 -- same clock: Goldshire (31.95, 49.75) to Lakeshire, your waypoint (a part of the replay's own, as
 -- M3.2's hands it), found within 60 frames, no resume over 1.2 ms.
 local waypoint = false
-ns.Game.Part("waypoint", function() return waypoint end, false)
+ns.Game.Part("waypoint", function() return waypoint end)
 local Job, route = R.Job, nil
 R.Job = function(name, fn, ...)
 	if name ~= "model: route" then return Job(name, fn, ...) end

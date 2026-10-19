@@ -116,7 +116,7 @@ reads where the last Apply placed the Minimap, once that placement holds still.
 
 | Call | In | Called |
 |---|---|---|
-| `Game.Part(name, read, keep)` | game/Observe.lua; files in game/parts/ | observe step: `obs[name] = read(obs) or keep`, in game/parts/files.txt order, each its own wrapped call |
+| `Game.Part(name, read, keep)` | game/Observe.lua; files in game/parts/ | observe step: `obs[name] = read(obs)` (nil: `keep`; false comes through), in game/parts/files.txt order, each its own wrapped call |
 | `Game.Handle(kind, fn)` | game/Command.lua; game/commands/ | input step, and again in apply (one a ui step sent: that frame): `fn(cmd)` per queued `Game.Command(cmd)` of that kind |
 | `Game.Apply(name, fn)` | game/Apply.lua | apply phase: `fn(view)` as step `game.<name>`; view is `UI.View()` or SAFE. Not in game/parts or game/commands (luacheck `NOT_IN`): they read `Game.shownInst`, the instance shown (false: hidden; nil: no apply yet) |
 | `Game.Slash(name, help, fn)` | game/Slash.lua | `/mma <name>`; UI registers through `Game.Command({ kind = "slash", ... })` |

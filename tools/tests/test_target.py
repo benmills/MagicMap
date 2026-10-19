@@ -22,8 +22,8 @@ from test_quests import client
 TARGETS = """
 local Sim, ns = ...
 Put = { corpse = false, waypoint = false }
-ns.Game.Part("corpse", function() return Put.corpse end, false)
-ns.Game.Part("waypoint", function() return Put.waypoint end, false)
+ns.Game.Part("corpse", function() return Put.corpse end)
+ns.Game.Part("waypoint", function() return Put.waypoint end)
 function Spot(inst, col, row) return { inst = inst, col = col, row = row } end
 Jobs, Counting = {}, true
 local R, NS, EVERY, counted, running = ns.Runtime, 0.00001, 100, 0, {}

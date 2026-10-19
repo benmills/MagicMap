@@ -14,7 +14,7 @@ local A, Model, R = ns.Atlas, ns.Model, ns.Runtime
 local CHUNK = 1 / 16
 
 local waypoint = false
-ns.Game.Part("waypoint", function() return waypoint end, false)
+ns.Game.Part("waypoint", function() return waypoint end)
 local jobs, counted, Job = {}, 0, R.Job
 local clock = sim.Clock
 sim.Clock = function() return clock() + counted * 0.00001 end

@@ -39,4 +39,4 @@ Game.Part("corpse", function(obs)
 		pos = Read(you.inst)
 	end
 	return pos
-end, false) -- (keep: false comes through `read(obs) or keep`)
+end)

@@ -24,4 +24,4 @@ Game.Part("waypoint", function()
 		pos = { inst = inst, col = col, row = row }
 	end
 	return pos
-end, false) -- (keep: false comes through `read(obs) or keep`)
+end)

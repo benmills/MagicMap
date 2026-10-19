@@ -32,9 +32,6 @@ function Model.Known(kind)
 	return fn()
 end
 
-function Model.Target() return nil end -- (not built yet)
-function Model.Route() return nil end
-
 function Model.Load(saved)
 	Model.saved = saved
 	for _, p in ipairs(parts) do

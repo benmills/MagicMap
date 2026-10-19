@@ -9,7 +9,7 @@ local sim, ns = T.Shown()
 local Model = ns.Model
 
 local waypoint = false
-ns.Game.Part("waypoint", function() return waypoint end, false)
+ns.Game.Part("waypoint", function() return waypoint end)
 local function Finite(v) return v == v and v ~= math.huge and v ~= -math.huge end
 
 local me, each = sim.player, {}
