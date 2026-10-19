@@ -6,7 +6,8 @@ quest log (its blobs: Sim.blobShapes) through Game's parts and Inside, and Model
     as laid out (L1); an estimate only for a kill or collect quest the game draws no area for, one for two
     within 0.6 r (S54); out of sight while the zoom moves, back where it lands (P5); the gear's toggles.
   test_quest_area_hover: an area under the cursor lit on top (HOVER) with its quest's tooltip, built once a
-    hover (spike-bugs G7), up through a zoom; a pin's tooltip wins, its quest lit; off both, neither.
+    hover (spike-bugs G7), up through a zoom and with the cursor on something standing on the view; a pin's
+    tooltip wins, its quest lit; off both, neither.
   test_quest_area_answers: whether the game draws an area at a pin (HasArea), frame by frame from a log
     change: a quest with an area never estimated, one without from its answer (Inside after deferred
     layout: the client draws a blob into a rect it laid out at a frame's end); a pin in another quest's
@@ -97,6 +98,9 @@ def test_quest_areas():
 def test_quest_area_hover():
     L, sim, ns, G = client([FRONTIER, GOLD], before=RECORD)
     tip, S, view, same = G.GameTooltip, sim.state, ns.UI.Window.view, L.eval("rawequal")
+    sim.cursorX = sim.cursorY = 0  # (off the view)
+    sim.Step()
+    assert not S[tip].shown
     built = L.eval("""function(tip) local n = { 0 }
         tip.SetOwner = function(self, ...) n[1] = n[1] + 1; return getmetatable(self).__index.SetOwner(self, ...) end
         return n end""")(tip)
@@ -130,7 +134,15 @@ def test_quest_area_hover():
     G.Over(32.15, 49.7)  # back: the area's again, once
     sim.Run(0.5)
     assert S[tip.GetLeftLine(tip, 1)].text == "Gold Dust Exchange" and built[1] == 3
+    # Onto something standing on the view there (a control, another addon's pin: the view's OnLeave): still
+    # over the view's rect, the area lit and its tooltip up (the spike's viewport:IsMouseOver()).
+    sim.FireScript(view, "OnLeave", False)
+    sim.Run(0.5)
+    assert S[tip].shown and S[tip.GetLeftLine(tip, 1)].text == "Gold Dust Exchange" and built[1] == 3 and lit() == [47]
     G.Over(33.0, 49.3)  # off both
+    sim.Step()
+    assert not S[tip].shown and lit() == []
+    sim.cursorX = sim.cursorY = 0  # off the view
     sim.Step()
     assert not S[tip].shown and lit() == []
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

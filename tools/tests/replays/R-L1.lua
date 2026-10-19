@@ -112,6 +112,7 @@ local function Right()
 end
 local draws, hid, back = sim.calls.DrawBlob, 0, nil
 sim.Wheel(view, 1)
+sim.cursorX, sim.cursorY = 0, 0 -- (off the map: no area lit, drawn again on top)
 for i = 1, 60 do
 	sim.Step()
 	if Areas.frame:GetAlpha() > 0 then

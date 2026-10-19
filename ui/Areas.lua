@@ -366,11 +366,6 @@ local function Under(c)
 	end
 end
 
--- The view has the mouse (nothing over it took it), as for pins (ui/Pins.lua).
-local inside = false
-Window.view:HookScript("OnEnter", Runtime.Wrap("map: areas entered", function() inside = true end))
-Window.view:HookScript("OnLeave", Runtime.Wrap("map: areas left", function() inside = false end))
-
 local owner = CreateFrame("Frame", nil, Window.view) -- an area's tooltip's (Layers.lua:990)
 local showing -- the entry it shows
 
@@ -385,7 +380,10 @@ Runtime.Step("ui", "map: quest areas", function()
 	-- Out of sight for a zoom, its frames hold their drawings till a layout changes one (the hit test is in
 	-- the map's own coordinates, whatever the zoom).
 	if c then held = c elseif held and not (layer.on and Drawn(held)) then held = nil end
-	local q = held and inside and Under(held) or nil
+	-- The cursor in the view's rect, over what stands on it too (a control, another addon's pin), as the
+	-- spike's viewport:IsMouseOver() (Core.lua:1264, 1325): the area stays lit, its tooltip up but for one
+	-- shown already (that pin's).
+	local q = held and Window.view:IsMouseOver() and Under(held) or nil
 	hover.area = q
 	Light(c)
 	-- Who has GameTooltip over an area: one shown already (a pin's), else the area's (Layers.lua:1012-1025).
