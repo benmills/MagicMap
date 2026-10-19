@@ -21,7 +21,9 @@ and `art` traces empty; `/mma check log` on throughout with 0 K4 drift lines; 0 
 (the no-QuestieDB-data scenario too); renamed to MagicMap/`/mm`, merged and packaged (M6).
 
 Where it stands: M0 done; M1's sim half done at e50e7d5 (`tools/check.sh` green plain and strict); M1b
-(M1.12, M1.13: the user's play-test of the M1 build) done at c31930f, 64d2ecf; every
+(the user's play-test of the M1 build: M1.12 allocation while moving and the validator, M1.13 the
+MVP's gear menu, M1.14 zoom and pan as the MVP: every wheel event a x1.3 tick, chased) merged by 743a615;
+every
 in-game check waits for one consolidated play-test at the end (D10, docs/playtest-final.md). Next: M2
 quests on one pin store, M3 target/route/interactions, M4 feature-complete, M5 hardening and parity
 sign-off, M6 rename, merge, release.
