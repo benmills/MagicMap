@@ -19,3 +19,7 @@ end
 function Game.Apply(name, fn)
 	Runtime.Step("apply", "game." .. name, function() fn(View()) end)
 end
+
+-- The instance the map shows while it's shown, false while it's hidden (nil: no apply yet), as of the
+-- last apply: what Game's parts read of View (they register no apply step: tools/luacheck.py).
+Game.Apply("view", function(view) Game.shownInst = view.window.shown and view.inst end)

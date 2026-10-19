@@ -72,7 +72,8 @@ BOUNDARIES = {
 # Game only through Command (the commands channel: slash and load too).
 # A subfolder with its own rule has it (the longest match): Game's parts read
 # the game for Observe and its commands carry out UI's in Input, so neither
-# reads View (Apply's) or Model (Observe hands obs over).
+# reads View (Apply's: the parts read Game.shownInst, game/Apply.lua's) or Model
+# (Observe hands obs over), nor registers an apply step (NOT_IN).
 NS_RULES = {
     "Data": ({"Data"}, {}),
     "atlas": ({"Atlas", "Data"}, {}),
@@ -89,6 +90,10 @@ NS_RULES = {
 ONLY = {
     ("Runtime", "On"): ("game/",),  # Game registers game events; Runtime dispatches (ADR 0005)
     ("UI", "View"): ("game/Apply.lua",),  # Game reads View only in its apply step (types/view.lua)
+}
+# Fields these places may not use, though their system is theirs: Game.Apply hands an apply step View.
+NOT_IN = {
+    ("Game", "Apply"): ("game/parts/", "game/commands/"),
 }
 # Each system's folder: only it sets the system's fields (else it replaces another's function),
 # but for the hooks a system declares for others to set (types/runtime.lua: Game sets both).
@@ -300,7 +305,7 @@ QUEST_POI = re.compile(r"""\bCreateFrame\s*\(\s*(["'])QuestPOIFrame\1""")
 
 
 def ns_problems(rel: str, src: str, used: set) -> list[str]:
-    """NS_RULES, ONLY, HOME / HOOKS, FRAME_NAMES and POI_FILES for one file (rel: from the repo root); BASELINE
+    """NS_RULES, ONLY, NOT_IN, HOME / HOOKS, FRAME_NAMES and POI_FILES for one file (rel: from the repo root); BASELINE
     entries it matched go in used."""
     where = area(rel, NS_RULES)
     rule = NS_RULES.get(where)
@@ -312,6 +317,8 @@ def ns_problems(rel: str, src: str, used: set) -> list[str]:
         only = ONLY.get((system, field))
         if only and folder(rel) != HOME.get(system) and not rel.startswith(only):
             out.append(f"{rel}:{line}: only {', '.join(only)} may use ns.{system}.{field} (ONLY in tools/luacheck.py)")
+        if rel.replace("\\", "/").startswith(NOT_IN.get((system, field), ())):
+            out.append(f"{rel}:{line}: {where}/ may not use ns.{system}.{field} (NOT_IN in tools/luacheck.py)")
         if system in own or field in fields.get(system, ()) or (system, field) in reported:
             continue
         reported.add((system, field))

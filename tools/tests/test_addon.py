@@ -75,6 +75,10 @@ def test_boundaries(capsys):
                                 'R.onError = f\nns.UI.View()\nR.On("E", "x", f)\n', set())
     assert [p.split(": ", 1)[0] for p in game] == ["game/X.lua:5", "game/X.lua:2"], game
     assert luacheck.ns_problems("game/Apply.lua", "local ok, view = pcall(ns.UI.View)", set()) == []
+    # NOT_IN: Game's parts and commands register no apply step (they read Game.shownInst)
+    part = 'local Game = ns.Game\nGame.Apply("x", f)\nlocal i = Game.shownInst\n'
+    assert [p.split(": ", 1)[0] for p in luacheck.ns_problems("game/parts/X.lua", part, set())] == ["game/parts/X.lua:2"]
+    assert luacheck.ns_problems("game/X.lua", part, set()) == []
 
 
 def test_open_fields_nil():

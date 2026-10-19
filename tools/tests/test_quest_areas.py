@@ -14,6 +14,9 @@ quest log (its blobs: Sim.blobShapes) through Game's parts and Inside, and Model
     and its frame is drawn again; asks past a frame's budget answered over the next frames.
   test_quests_priced: 25 quests with areas, the big map, the wheel and drags on the priced clock: the
     budgets by map state (docs/runtime.md).
+  test_quests_storm: QUEST_LOG_UPDATE every frame for 10 s with 25 quests, nothing changing (a looting
+    burst), the map shown and hidden: Lua allocation within its budget (50 KB/s), and none for quests
+    while the map is hidden (Game reads them once it shows).
 """
 from test_addon import errors
 from test_quests import CANDLES, FRONTIER, GOLD, LOVERS, client
@@ -220,3 +223,25 @@ def test_quests_priced():
           + ", ".join(f"{k} {v.frames} p95 {v.p95} p99 {v.p99}" for k, v in sorted(by.items())))
     assert by["big"].p95 <= 1 and by["big"].p99 <= 5 and by["zoom"].p95 <= 5 and by["drag"].p95 <= 5 and fs.max <= 8
     assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_quests_storm():
+    kinds = [["monster", "Kobold slain: 1/8", 1, 8, False], ["item", "Candle: 2/8", 2, 8, False],
+             ["event", "Scout the mine", 0, 1, False]]
+    quests = [{"id": 1000 + i, "title": f"Quest {i}", "level": 6 + i % 5, "col": 31.95 + (i % 5 - 2) * 0.35,
+               "row": 49.75 + (i // 5 - 2) * 0.3, "objectives": [kinds[i % 3]], "area": 0.02 + i % 3 * 0.01}
+              for i in range(25)]
+    for hidden in (False, True):
+        L, sim, ns, G = client(quests, followed=1012)
+        sim.Price(True)
+        sim.Run(10)  # past the graces
+        if hidden:
+            sim.Slash("/mma toggle")
+            sim.Run(1)
+        L.execute("local sim = ...; for _ = 1, 600 do sim.FireEvent('QUEST_LOG_UPDATE'); sim.Step() end", sim)
+        fs = ns.Runtime.FrameStats()
+        alloc = {a.name: a.kbPerSec for a in fs.alloc.values()}
+        print(f"storm, map {'hidden' if hidden else 'shown'}: {fs.kbPerSec} KB/s; game.part quests "
+              f"{alloc.get('game.part quests', 0)}, offers {alloc.get('game.part offers', 0)}")
+        assert fs.kbPerSec <= 50 and alloc.get("game.part quests", 0) <= (0 if hidden else 25)
+        assert not errors(sim, ns), errors(sim, ns)

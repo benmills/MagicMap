@@ -1,5 +1,5 @@
 -- obs.offers (types/observation.lua MM.ObsOffer[]), on change: quests to pick up on the zones of the
--- map shown (View.inst, a frame behind; yours until UI has shown one), as the world map's
+-- map shown (Game.shownInst, a frame behind; yours before the first; not while hidden), as the world map's
 -- QuestOfferDataProvider reads them (Layers.lua:636-664): each zone asked once (the client fills it
 -- in and fires QUESTLINE_UPDATE; with an argument, it wants every zone asked again), a quest on
 -- several zones kept on the first, those in progress skipped, and those the client hides unless you
@@ -14,7 +14,7 @@ local DELAY = 0.3 -- s (Layers.lua:1236)
 
 local list -- the last handed over
 local dirty, pending = true, false
-local shown, read -- the instance shown; the one last read
+local read -- the instance last read
 local asked = {} -- uiMapID -> true
 
 local function Due() pending, dirty = false, true end
@@ -29,7 +29,6 @@ Runtime.On("QUESTLINE_UPDATE", "game.offers", function(_, again)
 	if again then wipe(asked) end
 	Soon()
 end)
-Game.Apply("offers shown", function(view) shown = view.inst end)
 
 local function Same(a, b)
 	if #a ~= #b then return false end
@@ -64,7 +63,9 @@ local function Read(inst)
 end
 
 Game.Part("offers", function(obs)
-	local inst = shown or obs.you.inst
+	local inst = Game.shownInst
+	if inst == false then return list end -- (hidden: read once it's shown)
+	inst = inst or obs.you.inst
 	if dirty or inst ~= read then
 		dirty, read = false, inst
 		local new = Read(inst)

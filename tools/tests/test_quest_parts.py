@@ -67,6 +67,7 @@ ITEMS = {60: [772], 47: [773], 176: [1931]}
 
 def client():
     L, sim, ns = boot()
+    sim.Slash("/mma toggle")  # the map shown: Game reads quests and offers only then
     L.execute(SETUP, sim, ns.Atlas)
     real = ns.Atlas.Quest
     ns.Atlas.Quest = L.eval("""function(items, real) return function(id)
@@ -309,16 +310,26 @@ def test_quests_round_trip():
     sim.Step()
     assert by_id(ns.Game.obs.quests)[62]["followed"]
 
+    # The map hidden: not read (no garbage nor work for it); what came meanwhile read once it shows.
+    sim.Slash("/mma toggle")
+    sim.quests[63] = L.table_from({"title": "Wine Shop Advert", "level": 1, "map": ELWYNN, "x": 0.4, "y": 0.6,
+                                   "complete": False, "objectives": L.table()})
+    sim.FireEvent("QUEST_LOG_UPDATE")
+    sim.Run(1)
+    assert 63 not in by_id(ns.Game.obs.quests)
+    sim.Slash("/mma toggle")
+    sim.Run(0.1)
+    assert 63 in by_id(ns.Game.obs.quests)
+
     # Another continent shown: its zones' quests too (and yours still).
     sim.quests[840] = L.table_from({"title": "Your Place in the World", "level": 1, "map": DUROTAR, "x": 0.5, "y": 0.5,
                                     "complete": False, "objectives": L.table()})
-    sim.Slash("/mma toggle")
     sim.Run(0.2)
     assert 840 not in by_id(ns.Game.obs.quests)
     ns.UI.Motion.SetFollow(False)
     ns.UI.Motion.FitMap(1)
     sim.Run(0.1)
-    assert sorted(by_id(ns.Game.obs.quests)) == [60, 61, 62, 840]
+    assert sorted(by_id(ns.Game.obs.quests)) == [60, 61, 62, 63, 840]
     assert not errors(sim, ns), errors(sim, ns)
 
 
@@ -356,7 +367,6 @@ def test_offers_round_trip():
     assert dict(asks) == {z: 2 for z in zones}
 
     # Kalimdor shown: its zones', asked then, and none of Elwynn's.
-    sim.Slash("/mma toggle")
     sim.Run(0.2)
     ns.UI.Motion.SetFollow(False)
     ns.UI.Motion.FitMap(1)

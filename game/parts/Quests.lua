@@ -1,23 +1,29 @@
 -- obs.quests (types/observation.lua MM.ObsQuest[]), on change: your log's quests on the zones of the
--- map shown (View.inst, a frame behind) and of yours, as the world map has them (Layers.lua:581-631):
+-- map shown (Game.shownInst, a frame behind) and of yours, as the world map has them (Layers.lua:581-631):
 -- GetQuestsOnMap per zone (Atlas.Zones), map indicators skipped, a quest on several kept on the
 -- smallest (its objective area lives there: areaMap, but for one ready to turn in). An item
 -- objective's item is QuestieDB's of that kind and place (QuestInfo.lua:94-110). Read again 0.3 s
 -- after a burst of the 5 events (Layers.lua:1231-1242, 2219-2228), at once when the super-tracked
--- quest (a follow Command, Blizzard's tracker: the same frame's obs) or the instances change;
--- sorted by id, a new table only when something did. poi: the QUEST_POI_UPDATEs seen, on every
--- quest, so the game's areas changing makes every quest new (Layers.lua:2225, 1233-1240).
+-- quest (a follow Command, Blizzard's tracker: the same frame's obs) or the instances change, and
+-- only while the map is shown (once it shows, for what came while it wasn't). Each quest is
+-- compared with its last as it's read and kept if the same, so a read that finds nothing new makes
+-- nothing; a new table only when something changed, sorted by id. poi: the QUEST_POI_UPDATEs seen,
+-- on every quest, so the game's areas changing makes every quest new (Layers.lua:2225, 1233-1240).
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
 local DELAY = 0.3 -- s: QUEST_LOG_UPDATE fires a lot (Layers.lua:1236)
 local TYPES = { monster = true, item = true, object = true, event = true, log = true, progressbar = true, reputation = true }
+local NONE = {}
 
 local list -- the last handed over
 local dirty, pending = true, false
 local poi -- QUEST_POI_UPDATEs seen
-local shown, read, readShown, followed -- the instance shown; those last read and the super-tracked quest then
+local read, readShown, followed -- the instances last read and the super-tracked quest then
+local pins = {} -- quest -> { map, x, y, area, at (the read that found it) }: the smallest zone with its pin
+local last = {} -- quest -> its MM.ObsQuest in list
+local reads = 0
 
 local function Due() pending, dirty = false, true end
 local function Soon()
@@ -32,43 +38,57 @@ Runtime.On("QUEST_POI_UPDATE", "game.quests", function()
 	poi = (poi or 0) + 1
 	Soon()
 end)
-Game.Apply("quests shown", function(view) shown = view.inst end)
 
-local function Same(a, b)
-	if type(a) ~= "table" or type(b) ~= "table" then return a == b end
-	for k, v in pairs(a) do
-		if not Same(v, b[k]) then return false end
-	end
-	for k in pairs(b) do
-		if a[k] == nil then return false end
-	end
-	return true
-end
-
--- quest -> { map, x, y, area }: the smallest of inst's zones that has its pin.
-local function Scan(inst, best)
+local function Scan(inst)
 	for _, z in ipairs(Atlas.Zones(inst)) do
 		local area = (z.col1 - z.col0) * (z.row1 - z.row0)
 		for _, q in ipairs(C_QuestLog.GetQuestsOnMap(z.uiMapID)) do
-			local b = best[q.questID]
-			if not q.isMapIndicatorQuest and not (b and b.area <= area) then
-				best[q.questID] = { map = z.uiMapID, x = q.x, y = q.y, area = area }
+			if not q.isMapIndicatorQuest then
+				local b = pins[q.questID]
+				if not b then
+					b = {}
+					pins[q.questID] = b
+				end
+				if b.at ~= reads or area < b.area then b.at, b.map, b.x, b.y, b.area = reads, z.uiMapID, q.x, q.y, area end
 			end
 		end
 	end
 end
 
-local function Objectives(id)
-	local items, out, k = {}, {}, 0 -- QuestieDB's items, in order: the game's k-th item objective is its k-th
-	local q = Atlas.Quest(id)
-	for _, o in ipairs(q and q.objectives or {}) do
-		if o.kind == "item" then items[#items + 1] = o.id end
+-- QuestieDB's k-th item objective of quest q: the game's k-th item objective's item.
+local function Item(q, k)
+	for _, o in ipairs(q and q.objectives or NONE) do
+		if o.kind == "item" then
+			k = k - 1
+			if k == 0 then return o.id end
+		end
 	end
-	for i, o in ipairs(C_QuestLog.GetQuestObjectives(id)) do
+end
+
+-- The game's objectives as obs has them: was (the last) if the same.
+local function Objectives(id, was)
+	local game, q = C_QuestLog.GetQuestObjectives(id), Atlas.Quest(id)
+	local same, k = was and #was == #game, 0
+	for i, o in ipairs(same and game or NONE) do
+		local w, item = was[i], nil
+		if o.type == "item" then
+			k = k + 1
+			item = Item(q, k)
+		end
+		if w.type ~= (TYPES[o.type] and o.type or "other") or w.text ~= o.text or w.have ~= o.numFulfilled
+			or w.need ~= o.numRequired or w.finished ~= o.finished or w.itemID ~= item then
+			same = false
+			break
+		end
+	end
+	if same then return was end
+	local out = {}
+	k = 0
+	for i, o in ipairs(game) do
 		local item
 		if o.type == "item" then
 			k = k + 1
-			item = items[k]
+			item = Item(q, k)
 		end
 		out[i] = { type = TYPES[o.type] and o.type or "other", text = o.text, have = o.numFulfilled, need = o.numRequired,
 			finished = o.finished, itemID = item }
@@ -76,30 +96,57 @@ local function Objectives(id)
 	return out
 end
 
-local function Read(you)
-	local best, out = {}, {}
-	Scan(you, best)
-	if shown ~= you then Scan(shown, best) end
-	for id, b in pairs(best) do
-		local level, complete, inst, col, row = C_QuestLog.GetQuestDifficultyLevel(id), C_QuestLog.IsComplete(id),
-			Atlas.MapToTile(b.map, b.x, b.y)
-		local tag, group = C_QuestLog.GetQuestTagInfo(id), C_QuestLog.GetSuggestedGroupSize(id) -- QuestInfo.lua:321-325
-		out[#out + 1] = { id = id, title = C_QuestLog.GetTitleForQuestID(id) or ("Quest " .. id),
-			level = level > 0 and level or nil, trivial = C_QuestLog.IsQuestTrivial(id), complete = complete,
-			followed = id == followed, objectives = Objectives(id), pin = { inst = inst, col = col, row = row },
-			areaMap = not complete and b.map or nil, tag = tag and tag.tagName ~= "" and tag.tagName or nil,
-			group = group > 0 and group or nil, poi = poi }
+-- Quest id at pin b as the game has it now: was (its last) if the same.
+local function Quest(id, b, was)
+	local level, complete, trivial = C_QuestLog.GetQuestDifficultyLevel(id), C_QuestLog.IsComplete(id), C_QuestLog.IsQuestTrivial(id)
+	local title = C_QuestLog.GetTitleForQuestID(id) or ("Quest " .. id)
+	local tag, group = C_QuestLog.GetQuestTagInfo(id), C_QuestLog.GetSuggestedGroupSize(id) -- QuestInfo.lua:321-325
+	level, group, tag = level > 0 and level or nil, group > 0 and group or nil, tag and tag.tagName ~= "" and tag.tagName or nil
+	local areaMap, inst, col, row = not complete and b.map or nil, Atlas.MapToTile(b.map, b.x, b.y)
+	local objectives, p = Objectives(id, was and was.objectives), was and was.pin
+	if was and objectives == was.objectives and title == was.title and level == was.level and trivial == was.trivial
+		and complete == was.complete and (id == followed) == was.followed and areaMap == was.areaMap and tag == was.tag
+		and group == was.group and poi == was.poi and inst == p.inst and col == p.col and row == p.row then
+		return was
 	end
-	table.sort(out, function(a, b) return a.id < b.id end)
+	return { id = id, title = title, level = level, trivial = trivial, complete = complete, followed = id == followed,
+		objectives = objectives, pin = { inst = inst, col = col, row = row }, areaMap = areaMap, tag = tag, group = group,
+		poi = poi }
+end
+
+local function ById(a, b) return a.id < b.id end
+
+local function Read(you, shown)
+	reads = reads + 1
+	Scan(you)
+	if shown ~= you then Scan(shown) end
+	local changed = list == nil
+	for id, b in pairs(pins) do
+		if b.at ~= reads then
+			pins[id] = nil
+		else
+			local q = Quest(id, b, last[id])
+			if q ~= last[id] then last[id], changed = q, true end
+		end
+	end
+	for id in pairs(last) do
+		if not pins[id] then last[id], changed = nil, true end
+	end
+	if not changed then return list end
+	local out = {}
+	for _, q in pairs(last) do out[#out + 1] = q end
+	table.sort(out, ById)
 	return out
 end
 
 Game.Part("quests", function(obs)
+	local shown = Game.shownInst
+	if shown == false then return list end -- (hidden: read once it's shown)
 	local you, super = obs.you.inst, C_SuperTrack.GetSuperTrackedQuestID()
+	shown = shown or you
 	if dirty or super ~= followed or you ~= read or shown ~= readShown then
 		dirty, followed, read, readShown = false, super, you, shown
-		local new = Read(you)
-		if not Same(new, list) then list = new end
+		list = Read(you, shown)
 	end
 	return list
 end)
