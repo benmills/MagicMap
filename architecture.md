@@ -36,7 +36,7 @@ The blip sensor reads where the last Apply placed the Minimap, and waits until t
           · offers · exploration · tracking state
   senses  Minimap blips · quest areas (Inside(quest, col, row)) · Minimap indoors
   adapts  HBD world + minimap pins
-  owns    Minimap takeover (undo list) · hooks (M, Escape, GameTooltip)
+  owns    Minimap takeover (undo list) · hooks (M, Escape, GameTooltip's hide path)
           · minimap button · SavedVariables load/save
   takes   commands: Follow, Waypoint, Way, Tracking · View
 
@@ -55,7 +55,7 @@ The blip sensor reads where the last Apply placed the Minimap, and waits until t
           · small ⇄ big
   draws   tiles · borders · labels · shade · quest areas · indoor art
           · pins (one store, diffed by id) · group · addon pins · path · arrows
-  shows   title · tooltips · inspector · menus & settings
+  shows   title · tooltips (its own small fonts put back on GameTooltip's hide) · inspector · menus & settings
 
 **Atlas** (library)
   holds   tiles · tile colour · sea · zone borders, outlines + label anchors · walk grid

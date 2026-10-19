@@ -54,11 +54,16 @@ default zoom.
 
 ## Script (b): a 25-quest hub
 
-The rest of (b) is M2's.
+The rest of (b) is M2.4's (quest pins, offers, areas and their tooltip: b8-b10 need them drawn).
 
 | id | Do | Mark / shot | Signs | Gate |
 |---|---|---|---|---|
 | b6 | Your log at ~25 quests. Walk into a quest's area, `/mma check inside` there (inside), walk out, again (not). | `/mma mark b6 inside <agrees, or what>` | F29 (Inside), L1 | M1 |
+| b7 | Big, at a hub with blips about (and a seen rare if one's near): hover a blip, then a rare. Its tooltip stands to the right of the pin, its name then small grey lines, and goes as the cursor leaves it. Press on a pin and drag: the map pans, no tooltip left behind. Hover a pin under the window's buttons (zoom +/-, the gear): the button's tip only, no pin's. Zoom in and out over where pins were: no tooltip from a pin that's gone. | `/mma mark b7 tips <ok, or what>` | F51, S42, S45, S50, G7, D1 | M2 |
+| b8 | Super-track a quest from Blizzard's objective tracker: our map shows it followed within a frame (its pin's glow, once M2.4 draws quest pins). Click one of our quest pins: Blizzard's tracker super-tracks it and watches it (C_QuestLog.AddQuestWatch); click again: none. | `/mma mark b8 follow <ok, or what>` | F31 | M2 |
+| b9 | Open the big map on a continent you haven't shown this session: quests to pick up appear about 0.4 s later (every zone of it asked at once). Turn Track Hidden Quests on (the Minimap's tracking menu): the hidden ones appear; off: gone. | `/mma mark b9 offers <ok, or what>` | F40 | M2 |
+| b10 | Mouse over, target, or see the nameplate of a mob a quest needs, then hover that quest's pin: the mob's line in its tooltip shows its portrait over a dark disc (up to 3 mobs an objective). A mob never met keeps the plain icon. | `/mma shot big-quest-tip`; `/mma mark b10 portraits <ok, or what>` | F28, S63 | M2 |
+| b11 | Loot quest items quickly (a QUEST_LOG_UPDATE storm): no hitch; `game.part quests` never in the read's perf.slow. | `/mma mark b11 storm` | F26 | M2 |
 
 ## Script (c): keys in combat
 
@@ -82,6 +87,7 @@ Questie the only other addon. The rest of (e) is M4's.
 |---|---|---|---|---|
 | e1 | Big map in Elwynn at 140, then out to the continent and back: Questie's pins on our map. They're see-through while the zoom moves and come back where it rests (the spike moved each pin every zoom frame): sign it or not. M with Questie loaded can hitch on the key press itself; the spike pays it too: say if it's worse. | `/mma mark e1 pins <ok, or what>` | F46, G6 | M1 |
 | e3 | `/mma toggle` (ours off), open Blizzard's world map: their pins are back on it. | `/mma mark e3 pins returned` | F46, G6 | M1 |
+| e4 | Big, where a Questie pin overlaps one of ours (a blip, a rare): hover the overlap. Questie's tooltip shows, not ours, and never both (this leans on the client sending the view OnLeave when a frame that takes the mouse covers it). | `/mma mark e4 overlap <ok, or what>` | F51, G7 | M2 |
 
 ## The read (the lead)
 

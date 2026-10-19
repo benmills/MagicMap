@@ -25,9 +25,11 @@ Where it stands: M0 done; M1's sim half done at e50e7d5 (`tools/check.sh` green 
 MVP's gear menu, M1.14 zoom and pan as the MVP: every wheel event a x1.3 tick, chased) merged by 743a615,
 its sim half done at 2f79ffb (the M1b gate, 2026-10-19: 86 passed plain and strict), M1.15 (borders
 through a glide) left from it; every
-in-game check waits for one consolidated play-test at the end (D10, docs/playtest-final.md). Next: M2
-quests on one pin store, M3 target/route/interactions, M4 feature-complete, M5 hardening and parity
-sign-off, M6 rename, merge, release.
+in-game check waits for one consolidated play-test at the end (D10, docs/playtest-final.md). M2 (quests
+on one pin store): wave 1 merged 2026-10-19 (M2.1 the pin store with blips and rares on it, M2.2 Game's
+quests, offers, follow and tooltip, M2.3 Model's quests and offers); M2.4 (UI quests, areas, tooltip)
+next, after the quest-areas decision (§7). Then M3 target/route/interactions, M4 feature-complete, M5
+hardening and parity sign-off, M6 rename, merge, release.
 
 ## 2. Rules for every package (v1-plan §3)
 
@@ -117,6 +119,7 @@ where the last Apply placed the Minimap, once that placement holds still.
 | `Game.Load(owner, fn, spec)` | game/Game.lua | `fn(saved part)` once SavedVariables load; UI's via `Game.Command({ kind = "load", ... })` |
 | `Model.Part(observe, load)`, `Model.Kind(kind, fn)` | model/Model.lua | `observe(obs, oracles)` each frame; `load(saved)`; `Known(kind)` answers `fn()` → list, rev |
 | `Engine.Layer(name, level, build, rev, zoom)` | ui/Engine.lua | `build(canvas, inst, zoom, c0, r0, c1, r1)` in a layout job when view, zoom, map or `rev()` changes |
+| `Pins.Layer(name, level, fill, rev, opts)` | ui/Pins.lua; the kind's own file in ui/ (Blips, Rares; M2.4's quests, offers) | an Engine `"pin"` layer: its layout calls `fill(put, inst, zoom, want)`; `put(e, look, minZoom?)` for each Known entry to draw (kept by `e.key`: only what changed is set; `look` is StylePin's, one table a look); `want(minZoom)`: whether that zoom's pins draw in this layout. `opts`: `lines(e)` → title, lines... (default `e.name`, `e.text`), `tooltip(GameTooltip, e)`, `hover(e or nil)`, `click(e, button)` (ui/Window.lua's left click, before areas: `Pins.Tap`). Pins never take the mouse: `Pins.Hovered()` finds the one under the cursor while the view has it. `Pins.Small(first, last)`: tooltip lines in small type, restored on hide |
 | `Menus.Layer(row)` | ui/Menus.lua; the layer's own file in ui/ | each time the gear opens: `row = { key, label, group, tip, parent?, onToggle? }` a checkbox in its group's submenu (`map`, `quests`, `places`, `people`, `you`, `addons`), in the order added; `key` is the Engine.Layer's name (and View.layers'); on until turned off (`Engine.LayerOn`): only the layers turned off are saved; `parent`: indented, greyed while it's off |
 
 **The map's engine** (ui/Engine.lua; why: docs/runtime.md "The map's engine"): each layer has two
@@ -135,7 +138,8 @@ the canvas's frame for it, `Engine.From` saying whether a layout at a zoom draws
 (borders). `build` yields with `Runtime.Yield()` and returns true when it has nothing to draw at that
 zoom, or the zoom what it left out shows from. Levels (an offset to the view's frame level) now:
 tiles 1, borders 2, labels 3, rares 5, blips 6, the world socket +8 (ui/Sockets.lua), the arrow's overlay
-+10 (ui/You.lua). The spike's order (parity S8) is tiles → shade → areas → lines → path → labels → pins:
++10 (ui/You.lua). A pin layer's pins stand 3 above it (its canvas, the canvas's frame for a minimum zoom,
+the pin a level each): rares' at +8, blips' at +9, under the arrow. The spike's order (parity S8) is tiles → shade → areas → lines → path → labels → pins:
 no whole level is left for shade or quest areas (between tiles and borders) or the path (between borders
 and labels), so M2.4, M3.3 and M4.4 renumber the levels with the lead, not stack new layers above labels.
 
@@ -262,7 +266,10 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   (test_only_game_defines_globals), test_atlas, test_generators, test_sim (sim fidelity, streams),
   test_sim_cli (tools/sim.py's `--run`), test_blips (end to end), test_map, test_ground, test_zoom,
   test_motion, test_chrome, test_bigmap, test_takeover, test_you, test_gear, test_bench, test_telemetry,
-  test_demo (the web demo's server), test_spike_bugs.
+  test_demo (the web demo's server), test_spike_bugs, test_pins (the pin store: diff, StylePin, tooltips,
+  click and drag), test_quest_parts (Game's quests and offers parts, the follow and tooltip Commands;
+  run as a script, it records fixtures/streams/quests.lua and offers.lua again), test_model_quests
+  (Model alone on those streams).
 
 ## 10. The docs: what each holds (grep, don't read)
 

@@ -1,6 +1,6 @@
 -- Observe phase: one observation a frame, handed to Model.Observe(obs, oracles)
 -- (types/observation.lua). Game.Part(name, read, keep): obs[name] = read(obs) each frame,
--- in registration order (game/parts/files.txt: you, blips, minimap), so a part may
+-- in registration order (game/parts/files.txt: you first), so a part may
 -- read those before it. Each part and Model.Observe is its own wrapped call
 -- ("game.part <name>", "model.observe"): timed and its KB counted apart (perf.alloc
 -- tells the sensor from Model), and isolated (a failing part leaves its field nil
