@@ -9,9 +9,9 @@ clock that counts their Lua (R-P2's), so a 1 ms slice is a slice of work:
     area's nearest edge slides as you go); meanwhile the old one (F33).
   test_route_straight_partial: no walk data where the target is: you and it, straight; a plateau no way
     climbs, 9 tiles off: given up at 60,000 nodes, the way to as near as it got, then on straight.
-  test_route_capped: that plateau's search from Goldshire, priced: ~1,050 slices, its KB; walking on (off
-    its partial way, past RETRY_MOVED) searches it again only once you've come half the way it spanned (the
-    lead's decision at the M3 review: the spike searched again each 3-chunk stray).
+  test_route_capped: that plateau's search from Goldshire, priced: ~1,050 slices (~1,130 strict), its KB;
+    walking on (off its partial way, past RETRY_MOVED) searches it again only once you've come half the way
+    it spanned (the lead's decision at the M3 review: the spike searched again each 3-chunk stray).
   test_route_gives_way: the big window zoomed in and out during that long search, priced: the search waits
     while the view moves (Focus.moving: a slice only in the frame a zoom starts, Model a frame behind), no
     frame over 8 ms; at rest it goes on.
@@ -120,7 +120,7 @@ def test_route_capped():
     sim.Step()
     p = ns.Runtime.Perf()[0]["model: route"]
     print(f"a capped search: {frames} frames, {p.kb:.0f} KB, its slowest resume {p.max:.2f} ms, {p.kbMax:.0f} KB")
-    assert 1000 < frames < 1100 and p.kb < 5000 and ns.Model.Route().partial
+    assert 1000 < frames < 1200 and p.kb < 5000 and ns.Model.Route().partial  # (MM_STRICT=1: ~1,130, its checks counted)
     walked = []
     for _ in range(11):  # toward it, 0.56 tiles a step (9 chunks: off its way, past RETRY_MOVED in two)
         me.col, me.row = me.col + 0.25, me.row - 0.5
