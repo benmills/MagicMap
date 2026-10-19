@@ -53,14 +53,19 @@ function T.Boot(saved)
 	return sim, ns
 end
 
--- The map's anchors under its view, checked as they're set (Region:SetPoint, Line:SetStartPoint and
--- SetEndPoint): no offset past LIMIT px (the tear's suspect, docs/v1-plan.md §2), but the world
--- socket's (ui/Sockets.lua: Game hosts other addons' pins on it, tile (0, 0) at its TOPLEFT, up to
--- ~51,000 px at zoom 800; a pin far from the view stays far whatever the origin: hosting fewer, near
--- the view, is M4.2's continent filter and M4.4's). And no texture, mask or line on the map snapping
--- to the pixel grid (the map moves by fractions of a pixel; font strings excepted: docs/v1-plan.md M1
--- exit). line: a Line, for its class's methods. (The checks here and in T.Invariants make no garbage
--- and no widget calls: R-P3 measures our frames.)
+-- The map's anchors under its view, checked as they're set (SetPoint, a region's and a frame's: the
+-- canvases; Line:SetStartPoint and SetEndPoint): no offset past LIMIT px (the tear's suspect,
+-- docs/v1-plan.md §2), a scaled frame's (its offsets are in its own units) times its scale: what it
+-- moves on the screen, and the client's error with it. Not the world socket's (ui/Sockets.lua: Game
+-- hosts other addons' pins on it, tile (0, 0) at its TOPLEFT, up to ~51,000 px at zoom 800; a pin far
+-- from the view stays far whatever the origin: hosting fewer, near the view, is M4.2's continent
+-- filter and M4.4's), nor a canvas scaled past 1.4 (Engine's BAND_HI): a held layout from further out
+-- while the zoom comes in (borders, a crossfade's old canvas), its origin's offset growing with its
+-- scale until it's laid out again (~5,000 px at 7x after a drag, a flick and a grow), as the spike's
+-- PlaceCanvas (Layers.lua:142-156), the client's error still a thousandth of a pixel there. And no
+-- texture, mask or line on the map snapping to the pixel grid (the map moves by fractions of a pixel;
+-- font strings excepted: docs/v1-plan.md M1 exit). line: a Line, for its class's methods. (The checks
+-- here and in T.Invariants make no garbage and no widget calls: R-P3 measures our frames.)
 local LIMIT = 4096
 local UNSNAPPED = { Texture = true, MaskTexture = true, Line = true }
 function T.Anchors(sim, ns, line)
@@ -75,12 +80,15 @@ function T.Anchors(sim, ns, line)
 			error(string.format("a %s on the map snaps to the pixel grid", S[o].type), 2)
 		end
 	end
-	local regions, lines = getmetatable(getmetatable(view).__index).__index, getmetatable(line).__index
-	local setPoint = regions.SetPoint
-	regions.SetPoint = function(self, point, ...)
-		setPoint(self, point, ...)
-		for _, e in ipairs(S[self].points) do
-			if e.point == point then Check(self, "an offset", e.x, e.y) end
+	local frames, lines = getmetatable(view).__index, getmetatable(line).__index
+	for _, m in ipairs({ getmetatable(frames).__index, frames }) do -- (a frame's own: the sim's combat check)
+		local setPoint = rawget(m, "SetPoint")
+		m.SetPoint = function(self, point, ...)
+			setPoint(self, point, ...)
+			local k = S[self].scale -- (a region's: 1)
+			for _, e in ipairs(S[self].points) do
+				if e.point == point and k <= 1.4 then Check(self, "an offset", e.x * k, e.y * k) end
+			end
 		end
 	end
 	for _, name in ipairs({ "SetStartPoint", "SetEndPoint" }) do

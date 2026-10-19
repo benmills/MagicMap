@@ -1,22 +1,23 @@
 -- The map's engine: layers drawn on canvases. Engine.Layer(name, level, build, rev, zoom) adds one
 -- (ui/Tiles.lua, ...). A layer has two canvases (1x1 frames, both always shown): the front at alpha 1,
 -- the back at alpha 0. A layout, a Runtime.Job (one at a time: a layer the view lacks, or a zoom out is
--- about to, first: the ground, names and pins, then borders, stopping one after it; else by level; ahead
--- of a pan in smaller slices), lays the layer out on its back canvas at one zoom (tiles zooming out: where
--- it's headed, one layout holding every view on the way), over the view and a margin (more ahead of the
--- camera's motion), into the canvas's own regions where they stand (Engine.Get; Engine.Keep: what the
--- canvas already shows, left as it is), parks what it didn't use (SetParent to a hidden frame), then
--- swaps the two by alpha. Tile (col, row) is at ((col - ox) * zoom, -(row - oy) * zoom) on a canvas:
--- (ox, oy), the origin, a whole tile near the view shared by every layer, so no offset grows past a few
--- thousand px. Panning moves the canvases; until the zoom settles, a layer shows as its zoom says:
--- "scale" (SetScale its canvas: tiles, laid out again once the zoom leaves [0.7, 1.4] of a layout's),
--- "move" (what it placed with Engine.At moved to the camera's zoom, so fonts and icons keep their size, a
--- pin shown from its minimum zoom each frame; laid out again once the zoom drifts log(1.25) from the
--- layout's, a drift on toward where it's headed: labels, pins, Layers.lua:404-416, 2012-2030), "hold"
--- (scaled and dimmed the further it is from its layout's zoom, laid out where the zoom is headed once the
--- wheel stops, crossfaded in as it lands: borders, Layers.lua:16-24, 158-170, 1824-1836, 1907-1937). The
--- window hidden or a layer turned off, its canvases are emptied. Why, from the client's prices:
--- docs/runtime.md "The map's engine". Window's draw step calls Engine.Draw.
+-- about to, first: the ground, names and pins, then borders, stopping one after it; else the one laid
+-- out longest ago; ahead of a pan in smaller slices), lays the layer out on its back canvas at one zoom
+-- (tiles zooming out: where it's headed, one layout holding every view on the way), over the view and a
+-- margin (more ahead of the camera's motion), into the canvas's own regions where they stand
+-- (Engine.Get; Engine.Keep: what the canvas already shows, left as it is), parks what it didn't use
+-- (SetParent to a hidden frame), then swaps the two by alpha. Tile (col, row) is at ((col - ox) * zoom,
+-- -(row - oy) * zoom) on a canvas: (ox, oy), the origin, a whole tile near the view shared by every
+-- layer, so no offset grows past a few thousand px. Panning moves the canvases; until the zoom settles,
+-- a layer shows as its zoom says: "scale" (SetScale its canvas: tiles, laid out again once the zoom
+-- leaves [0.7, 1.4] of a layout's), "move" (what it placed with Engine.At moved to the camera's zoom, so
+-- fonts and icons keep their size, a pin shown from its minimum zoom each frame; laid out again once the
+-- zoom drifts log(1.25) from the layout's, a drift on toward where it's headed: labels, pins,
+-- Layers.lua:404-416, 2012-2030), "hold" (scaled and dimmed the further it is from its layout's zoom,
+-- laid out where the zoom is headed once the wheel stops, crossfaded in as it lands: borders,
+-- Layers.lua:16-24, 158-170, 1824-1836, 1907-1937). The window hidden or a layer turned off, its
+-- canvases are emptied. Why, from the client's prices: docs/runtime.md "The map's engine". Window's
+-- draw step calls Engine.Draw.
 
 local _, ns = ...
 local UI = ns.UI
@@ -69,7 +70,7 @@ function Engine.Layer(name, level, build, rev, zoom)
 	-- order: which goes first when the view lacks it, or soon will: the ground, then names and pins (quick),
 	-- then borders (held meanwhile, scaled and dimmed); by level within each
 	local layer = { name = name, level = level, frame = f, build = build, rev = rev, zoom = zoom,
-		order = (zoom == "scale" and 0 or zoom == "move" and 100 or 200) + level,
+		order = (zoom == "scale" and 0 or zoom == "move" and 100 or 200) + level, started = 0, -- started: its last layout's frame
 		canvases = {}, fading = {} } -- fading: its crossfade (layer.fade while one runs)
 	layer.job = Runtime.Worker("map: " .. name, function()
 		while true do
@@ -239,6 +240,12 @@ local function R2(v) return math.floor(v * 100 + 0.5) / 100 end -- for traces
 
 local function Near(x, y, w, h) return x > -PAD and x < w + PAD and y > -PAD and y < h + PAD end
 
+-- The tile rect r comes within PAD px of cam's view (a label or pin moved there may show in it).
+local function Meets(r, cam, w, h)
+	local pw, ph = (w / 2 + PAD) / cam.zoom, (h / 2 + PAD) / cam.zoom -- /: never 0 (zoom >= MIN_ZOOM)
+	return r[1] < cam.cx + pw and r[3] > cam.cx - pw and r[2] < cam.cy + ph and r[4] > cam.cy - ph
+end
+
 -- A "move" canvas's regions to the camera's zoom (o.az: the zoom each stands at): each that shows
 -- there, or does where it stands (o.x, o.y); one only showing where it stands goes off the view, kept by
 -- it (a zoom's jump would put it thousands of px out). The rest stay put out of view until they would
@@ -276,19 +283,27 @@ local function Move(c, cam, w, h)
 end
 
 -- A canvas at the camera: its origin where the camera shows that tile, scaled ("scale", "hold") or
--- its regions moved ("move"). Its scale.
+-- its regions moved ("move"). Its scale; nil: a "move" canvas laid out nowhere near the view, left as it
+-- stands (a flight or a jump ran past it: its origin far off, it shows nothing there; Place hides it).
+-- Anchored to the view's centre, in its own units: a scaled one's offset is the origin's at its
+-- layout's zoom (what it moves on the screen: that times its scale).
 local function Put(layer, c, cam, w, h)
 	local z = cam.zoom
-	local s = layer.zoom == "move" and 1 or z / c.zoom -- /: never 0 (a canvas's zoom: the camera's at layout)
-	if layer.zoom == "move" and (c.moved ~= z or c.late) then Move(c, cam, w, h) end
-	local x, y = (w / 2 + (c.ox - cam.cx) * z) / s, -(h / 2 + (c.oy - cam.cy) * z) / s -- /: never 0 (s: two zooms > 0, or 1)
+	local s, k = 1, z -- k: px a tile in the canvas's units
+	if layer.zoom == "move" then
+		if not Meets(c.region, cam, w, h) then return nil end
+		if c.moved ~= z or c.late then Move(c, cam, w, h) end
+	else
+		s, k = z / c.zoom, c.zoom -- /: never 0 (a canvas's zoom: the camera's at layout)
+	end
+	local x, y = (c.ox - cam.cx) * k, (cam.cy - c.oy) * k
 	if c.scale ~= s then
 		c.scale = s
 		c:SetScale(s)
 	end
 	if c.x ~= x or c.y ~= y then
 		c.x, c.y = x, y
-		c:SetPoint("TOPLEFT", layer.frame, "TOPLEFT", x, y)
+		c:SetPoint("TOPLEFT", layer.frame, "CENTER", x, y)
 	end
 	return s
 end
@@ -308,7 +323,7 @@ local function Place(layer, cam, w, h)
 		local off = math.abs(math.log(s) / LN2)
 		Alpha(c, math.max(0.25, math.min(1, 1.6 - 0.6 * off)))
 	else
-		Alpha(c, 1)
+		Alpha(c, s and 1 or 0)
 	end
 end
 
@@ -385,7 +400,7 @@ local Rebuild = Runtime.Wrap("map: layout", function(layer, inst, at, budget)
 	local r = back.region or {}
 	r[1], r[2], r[3], r[4] = c0, r0, c1, r1
 	back.region, back.rev = r, rev
-	layer.back, layer.busy = back, true -- until the job ends: its last stretch clears it; a failure, the draw step (Failed)
+	layer.back, layer.busy, layer.started = back, true, Runtime.frames -- busy until the job ends: its last stretch clears it; a failure, the draw step (Failed)
 	Runtime.Trace("layout", { e = "start", layer = layer.name, zoom = R2(zoom), ox = ox, oy = oy }) -- (its region: Engine.State)
 	Runtime.Wake(layer.job, budget)
 end)
@@ -519,9 +534,9 @@ function Engine.Draw(inst, cam, w, h)
 		if layer.busy then
 			busy = layer
 			layer.job.budget = URGENT[stale] and MISSING_MS or panning and PAN_MS or JOB_MS
-		elseif stale and (not layer.retryAt or now >= layer.retryAt)
-			and (not next or URGENT[stale] and (not URGENT[why] or layer.order < next.order)) then
-			next, why = layer, stale -- (else by level)
+		elseif stale and (not layer.retryAt or now >= layer.retryAt) and (not next or URGENT[stale]
+			and (not URGENT[why] or layer.order < next.order) or not URGENT[why] and layer.started < next.started) then
+			next, why = layer, stale -- (else the one laid out longest ago: zooming in, names wait on no tile layout)
 		end
 		if on and layer.front then
 			Place(layer, cam, w, h)

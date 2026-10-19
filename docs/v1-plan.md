@@ -259,7 +259,7 @@ Exit:
 Goal: user logs in and sees the spike: the 200 yd square on Blizzard's spot, metal hairline, gold title, hover controls, wheel glide, follow and idle return, M/Escape grow/shrink, spike ground style. 8/8 PASS, tear gone. QuestPOI Inside, HBD borrow, hooks and taint proven thin in game.
 
 Exit:
-- Sim: R-P1 at 1.5 views/s (borders ≥97% frames, tiles ≥99%, fresh ≤1 s); R-P7 (≤1 layout/layer after settle; borders scaled and dimmed while zooming, never out of sight, crossfaded as it lands); R-P3 ≤0.5 KB/frame walking with sensor + 10 blips; observe ≤2 ms on priced clock; R-P2 (every Atlas first-use in a 1 ms Job ≤2 ms); per-frame invariants on all replays: offsets ≤4096 px, map textures/masks/lines unsnapped (FontStrings excepted), shared region origin, D1 (≤1 canvas/layer α>0 outside a timed fade), no visible Blizzard Minimap art, no protected calls in combat. test_atlas Labels golden; test_generators QuestSources identical after diet. test_chrome, test_bigmap, test_zoom, test_motion, reset refused while big. Replays R-G3, R-G7, R-D3, R-D5a, R-D5b, R-E6, R-L1, HBD round trip.
+- Sim: R-P1 at 1.5 views/s (borders ≥97% frames, tiles ≥99%, fresh ≤1 s); R-P7 (≤1 layout/layer after settle; borders scaled and dimmed while zooming, never out of sight, crossfaded as it lands); R-P3 ≤0.5 KB/frame walking with sensor + 10 blips; observe ≤2 ms on priced clock; R-P2 (every Atlas first-use in a 1 ms Job ≤2 ms); per-frame invariants on all replays: offsets ≤4096 px (on the screen, the canvases' included since the M1b review; a canvas scaled past 1.4 exempt: docs/runtime.md), map textures/masks/lines unsnapped (FontStrings excepted), shared region origin, D1 (≤1 canvas/layer α>0 outside a timed fade), no visible Blizzard Minimap art, no protected calls in combat. test_atlas Labels golden; test_generators QuestSources identical after diet. test_chrome, test_bigmap, test_zoom, test_motion, reset refused while big. Replays R-G3, R-G7, R-D3, R-D5a, R-D5b, R-E6, R-L1, HBD round trip.
 - In game, script (a), spike disabled: 8/8 PASS (max ≤8, p95 ≤1, p99 ≤5, first open ≤50 target ≤20, ourKB after GC ≤64 expect ~40, alloc ≤50 KB/s, load ≤250, 0 errors); no `map: borders/labels/draw` or `game.observe` in perf.slow; perf.gaps empty; 0 taint; tear re-check at 1024 across a tile boundary clean (ring + shot); shot pairs vs reference and `docs/zoomable-minimap.gif`, `minimap-to-big-map.gif`, `big-map-zoom.gif` signed off; M, Escape, L as spike; `/mma toggle` restores Blizzard's minimap exactly; `/mma check inside` agrees with standing in a quest area; Questie pins borrowed and returned.
 
 | Pkg | Owner | Scope | Contracts | Verify | Wave / Iso |
@@ -312,8 +312,10 @@ draws Atlas.Rares).
 
 Left from wave 2 (M1.14's hand-off): zooming out fast, the held borders canvas can sit ~21,000 units from
 its anchor (800 to 16, scale ~0.02, ~440 screen px; the spike's PlaceCanvas divides by the scale the same
-way), so a replay zooming out that fast would trip T.Anchors' 4096; a tile's edge is off by up to ~1 px
-while a zoom out lands (half a pixel times the scale); the world socket's pins (ui/Sockets.lua) are still
+way): T.Anchors didn't check a frame's SetPoint until the M1b review, which checks a canvas's offset times
+its scale (anchored to the view's centre since), and exempts one scaled past 1.4 (docs/runtime.md "The
+map's engine"); a tile's edge is off by up to half a pixel at its layout's zoom while a zoom out lands
+(times the scale on the screen: ~2 px landing a flick out to 16); the world socket's pins (ui/Sockets.lua) are still
 see-through while zooming (F46). The wheel is the MVP's again, so one trackpad flick can run to the clamp:
 the user's call at the final session (docs/playtest-final.md decision 2), from what the `wheel` cam traces
 show each device sends.

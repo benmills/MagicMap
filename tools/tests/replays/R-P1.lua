@@ -8,8 +8,10 @@
 -- the others once a crossing of their band (tiles [0.7, 1.4], 5 here at most; names and pins a
 -- log(1.25) drift, 8) and once settled. Last, a long pan
 -- at 800 px a tile, ~45 views from you: the shared origin moves with the layouts, so no offset on the
--- map passes 4096 px (T.Anchors; the arrow kept by the view), however far the view goes, nor after a
--- zoom's jump.
+-- map passes 4096 px (T.Anchors, the canvases' included; the arrow kept by the view), however far the
+-- view goes, nor after a zoom's jump, nor with the wheel a tick an event (M1.14): 16 to 800 and back at
+-- a notch a frame, a flick out from 800 about the cursor, and a drag, a flick and a grow (a canvas of
+-- names or pins laid out nowhere near the view after it is left where it stands, hidden).
 local T = ...
 local MAX_MS = 8 -- a layout's slowest frame: 2x its budget (Runtime's overrun for a job; test_zoom.py)
 local function R2(v) return math.floor(v * 100 + 0.5) / 100 end
@@ -115,4 +117,41 @@ for _, z in ipairs({ 800, 96, 800 }) do
 	ns.UI.Motion.SetZoom(z)
 	sim.Run(1)
 end
+assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n"))
+
+local view = ns.UI.Window.view
+local function Wheel(d, n, fx, fy)
+	for _ = 1, n do
+		sim.MoveCursorTo(view, fx or 0.5, fy or 0.5)
+		sim.FireScript(view, "OnMouseWheel", d)
+		sim.Step()
+	end
+	sim.Run(2)
+end
+ns.UI.Motion.SetFollow(true)
+ns.UI.Motion.SetZoom(16)
+sim.Run(2)
+Wheel(1, 16)
+Wheel(-1, 16)
+ns.UI.Motion.SetFollow(false)
+ns.UI.Motion.SetZoom(800)
+sim.Run(2)
+Wheel(-1, 25, 0.8, 0.2)
+Wheel(1, 12)
+sim.MoveCursorTo(view, 0.5, 0.5)
+sim.buttonsDown.LeftButton = true
+sim.FireScript(view, "OnMouseDown", "LeftButton")
+for i = 1, 65 do
+	sim.cursorX, sim.cursorY = sim.cursorX - 12, sim.cursorY + 4
+	if i > 40 then sim.FireScript(view, "OnMouseWheel", -1) end
+	sim.Step()
+end
+sim.buttonsDown.LeftButton = nil
+sim.FireScript(view, "OnMouseUp", "LeftButton")
+sim.Run(2)
+Wheel(1, 20)
+sim.Press("M")
+Wheel(-1, 10)
+sim.Press("M")
+sim.Run(1)
 assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n"))

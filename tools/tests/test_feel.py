@@ -190,12 +190,12 @@ local function Proj(col, row)
 	local cam, w, h = C.cam, W.Size()
 	return vl + ((col - cam.cx) * cam.zoom + w / 2) * vs, vb + vh - ((row - cam.cy) * cam.zoom + h / 2) * vs
 end
--- A region's first anchor on the screen, as the sim resolves it.
+-- A region's first anchor on the screen, as the sim resolves it (to its TOPLEFT, or a canvas's: its CENTER).
 local function Anchor(o)
 	local p = S[o].points[1]
-	local l, b, _, h = sim.Rect(p.rel or S[o].parent)
-	local s = o:GetEffectiveScale()
-	return l + p.x * s, b + h + p.y * s
+	local l, b, w, h = sim.Rect(p.rel or S[o].parent)
+	local s, centre = o:GetEffectiveScale(), p.relPoint == "CENTER"
+	return l + (centre and w / 2 or 0) + p.x * s, b + (centre and h / 2 or h) + p.y * s
 end
 local function OnView(x, y) return x >= vl and x <= vl + vw and y >= vb and y <= vb + vh end
 local function Off(x, y, ex, ey) return math.max(math.abs(x - ex), math.abs(y - ey)) end
