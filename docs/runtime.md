@@ -118,7 +118,7 @@ crossfade) in a job (0.22 µs a park, 0.70 an unpark), or extend the front canva
 | a step overruns its budget | it finishes (Lua can't be preempted); counted per name outside graces; the frame is counted as an overrun if over 8 ms | `Done` (per call), `Count` (per frame) | `slow` trace (1st, 10th, every 100th), `spike` trace naming the frame's slowest call, `perf.overruns`, `perf.slow`, `perf.max`; `/mma perf load` |
 | an event arrives mid-frame | handlers never run inside a phase: an event fired during a frame is dispatched after its phases; Game's handlers only note what changed and the observe step reads, so Model sees one snapshot a frame | `inFrame` + `queued` + `Flush` in Runtime; the rule for Game | handlers' time counts in the next frame's cost |
 | a stuck job | a job still running after 600 resumes (its `maxFrames`) is cancelled and reported; one that doesn't `Yield` can't be stopped, but shows as an overrun; Map's layout jobs that fail or are cancelled leave their layer on its last good canvas and lay out again after a backoff (0.5 s, doubling to 30 s) | `RunJobs` watchdog; `Done(job, 2× budget)`; ui/Engine.lua `Failed` | `job` trace, `errors[key]` ("still running after N frames: cancelled"), `slow`/`spike` traces; handle `.done`, `.err` |
-| nil position (instances, loading) | Observation carries nil fields; Model keeps the last known with `stale = true`; the map follows it with the arrow greyed; no step assumes a position | game/parts/You.lua, model/Model.lua, ui/Window.lua (`you.stale`) | `position` trace (`lost`/`back`); marks' `state.you` |
+| nil position (instances, loading) | Observation carries nil fields (a frame the you part fails: all of them); Model keeps the last known with `stale = true`; the map follows it with the arrow hidden; no step assumes a position | game/parts/You.lua, model/Model.lua, ui/You.lua (`you.stale`) | `position` trace (`lost`/`back`); marks' `state.you` |
 | missing or stale saved data | the loader always gets a table of its version: absent or not a table → defaults; older → `migrate` (failing: reset) and defaults by type; newer (a downgrade) → left untouched on disk, the session runs on defaults | `Game.Load(owner, fn, spec)` (game/Game.lua `Open`) | `saved` trace (`reset`, `newer`), a failing migrate or loader as an error |
 | loading screen / PLAYER_ENTERING_WORLD again | handlers are idempotent; the frames after it are a grace, not overruns | game/Game.lua `game.enter` → `Runtime.Grace` | `enter` trace, `perf.grace.login`, `.loading` |
 | /reload mid-job | nothing half-done is saved: jobs build into locals or widgets and commit in their last, non-yielding stretch; SavedVariables are written from tables at PLAYER_LOGOUT, which /reload fires | the rule (Map's layouts: back canvas, then swap) | `perf` written at logout |
@@ -177,11 +177,12 @@ errors ends with `.err` and its coroutine's stack recorded.
 
 `UnitPosition` returns nothing in instances and on some loading frames, and
 `GetPlayerFacing` likewise. Observe hands Model nil fields, never a guess, and
-traces `position lost`/`back` on the change. Model keeps the last known position
-and facing with `you.stale = true` (cleared on the next real one; if a new instance
-is known but no position, the old position is dropped). The map keeps following the
-last known spot and greys the arrow (desaturated, half alpha); with nothing ever
-known it hides it. Every step treats every observed field as possibly nil.
+traces `position lost`/`back` on the change; a frame the you part fails hands an
+all-unknown `you` (the LOCKED nil rule), never last frame's values as this one's. Model
+keeps the last known position and facing with `you.stale = true` (cleared on the next
+real one; if a new instance is known but no position, the old position is dropped). The
+map keeps following the last known spot and hides the arrow while it's stale (ui/You.lua),
+as with nothing ever known. Every step treats every observed field as possibly nil.
 
 ### Saved data
 
