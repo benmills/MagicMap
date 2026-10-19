@@ -196,3 +196,48 @@ def test_zoom_layouts_priced():
     its swap included (before M1.3, 93 ms borders, 25 tiles, 13 rares: each swap showed its whole canvas)."""
     perf, _ = wheel_priced()
     assert all(perf[name].max <= 8 for name in LAYERS), {name: perf[name].max for name in LAYERS}
+
+
+def test_script_a_priced():
+    """Script (a)'s shape on the priced clock (docs/playtest.md a2-a7: the wheel 16 -> 800 -> 16 twice, flings,
+    a follow walk, the big window's pans): a third of its frames move, each running a layout slice (4-5 ms),
+    so the session's p95 would be ~2 ms. The budgets by map state (docs/runtime.md): at rest p95 <= 1 ms and
+    p99 <= 5 ms, moving p95 <= 5 ms, none over 8."""
+    L, sim, ns = shown()
+    L.execute("""local sim, ns = ...
+        local view, M = ns.UI.Window.view, ns.UI.Motion
+        sim.Price(true)
+        sim.Run(12) -- past the graces
+        local function Wheel(d, n, gap) for _ = 1, n do sim.Wheel(view, d); sim.Run(gap) end end
+        local function Drag(dx, dy, frames)
+            sim.MoveCursorTo(view)
+            sim.buttonsDown.LeftButton = true
+            sim.FireScript(view, "OnMouseDown", "LeftButton")
+            for _ = 1, frames do sim.cursorX, sim.cursorY = sim.cursorX + dx, sim.cursorY + dy; sim.Step() end
+            sim.buttonsDown.LeftButton = nil
+            sim.FireScript(view, "OnMouseUp", "LeftButton")
+        end
+        for _ = 1, 2 do M.SetZoom(16); sim.Run(1); Wheel(1, 30, 0.3); Wheel(-1, 30, 0.3) end
+        M.SetZoom(200); sim.Run(1)
+        for i = 1, 6 do Drag(i % 2 == 0 and 30 or -30, 10, 20); sim.Run(1.5) end
+        M.SetFollow(true); sim.Run(1)
+        sim.player.facing, sim.player.speed = math.pi / 2, 7
+        sim.Run(30)
+        sim.player.speed = 0
+        sim.Press("M"); sim.Run(1.5)
+        M.SetFollow(false)
+        for _, z in ipairs({ 100, 200 }) do
+            M.SetZoom(z); sim.Run(1)
+            for i = 1, 6 do Drag(i % 2 == 0 and 25 or -25, i % 3 == 0 and 15 or -10, 30); sim.Run(1) end
+            Wheel(1, 4, 0.4); Wheel(-1, 4, 0.4)
+        end
+        sim.Press("M"); sim.Run(2)
+        sim.Price(false)""", sim, ns)
+    fs = ns.Runtime.FrameStats()
+    by = {k: v for k, v in fs.byState.items()}
+    print(f"script (a), priced: {fs.frames} frames, p95 {fs.p95} p99 {fs.p99} max {fs.max}; "
+          + ", ".join(f"{k} {v.frames} p95 {v.p95} p99 {v.p99}" for k, v in sorted(by.items())))
+    rest, moving = [by[k] for k in ("small", "big") if k in by], [by[k] for k in ("zoom", "drag") if k in by]
+    assert len(rest) == 2 and len(moving) == 2
+    assert max(v.p95 for v in rest) <= 1 and max(v.p99 for v in rest) <= 5 and max(v.p95 for v in moving) <= 5
+    assert fs.max <= 8 and not errors(sim, ns), errors(sim, ns)

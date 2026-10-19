@@ -52,9 +52,9 @@ def test_telemetry_fixture(tmp_path, capsys):
                  "game.observe                    180.2 KB/s  max 12.4 KB/call  5400 calls",
                  "map: borders 14.2 ms (x3)", "ui/Borders.lua:88", "f9118 11.2 ms  top map: borders 10.4 ms  [layout x2, swap x1, gap x1, spike x1]",
                  "f9120 8.4 ms  top map: borders 7.9 ms",
-                 "drag         610    0.3    0.9    2.4    6.1", "big          380   0.35    1.1    3.2    7.7",
+                 "drag         610    0.3    0.9    2.4    6.1", "big          380   0.35    0.9    3.2    7.7",
                  "blips            n 210   blips=7 sweep=211 yd=233",
-                 "zoom         900    0.6    2.1    9.8   11.2             7.5   16.5     24     40",
+                 "zoom         900    0.6    5.4    9.8   11.2             7.5   16.5     24     40",
                  "drag         610    0.3    0.9    2.4    6.1               -      -      -      -",
                  "39.2 MB at load, 70.8 MB at logout",
                  "graces (slowest frame; its slowest call): gc 88.2 ms (game.telemetry 87.9 ms), login 96.4 ms"
@@ -72,7 +72,7 @@ def test_telemetry_fixture(tmp_path, capsys):
     assert "unrelated" not in out and "Blizzard_SharedXMLBase" not in out
     assert telemetry.main(base + ["--budgets"]) == 1
     out = capsys.readouterr().out
-    for want in ("PASS  frame cost p95", "FAIL  frame cost p99                     5.40 ms (limit 5)",
+    for want in ("PASS  frame cost p95 at rest", "FAIL  frame cost p99 at rest, p95 moving 5.40 ms (limit 5)",
                  "owner: state 'zoom' worst at p99 9.8 ms; map: borders slowest in 2 of the 3 worst frames"
                  " (worst f9118 11.2 ms: layout borders, swap borders 6.2 ms 1012 live, gap map: borders);"
                  " job map: borders ran 14.2 ms between yields; swap borders 6.2 ms max, 1012 live (stats)",
@@ -105,7 +105,7 @@ def test_telemetry_fixture(tmp_path, capsys):
     assert telemetry.main(base + ["--compare", "1", "2"]) == 0
     out = capsys.readouterr().out
     for want in ("A #1 7aa8b30 build", "B #2 7aa8b30-dirty", "frame cost max (outside graces) (ms)          27.20      11.20     -16.00",
-                 "frame cost p99 (ms)                            4.50       5.40      +0.90",
+                 "frame cost p99 at rest, p95 moving (ms)        4.50       5.40      +0.90",
                  "frames                                         5100      17890     +12790",
                  "ours at load, after GC (MB)                       -      39.16", "alloc game.observe (KB/s)                         -     180.20",
                  "bench canvas.SetScale@1000live (µs)               -       2000"):

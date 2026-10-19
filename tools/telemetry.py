@@ -142,9 +142,25 @@ def owner_errors(p, s, errs):
 
 
 # docs/runtime.md "Budgets": (label, value from a session's perf, limit, unit, owner(perf, session, errors)).
+# Frames by map state (docs/runtime.md "Budgets"): at rest the map draws next to nothing; moving (the wheel's
+# zoom, a drag) a layout slice runs back to back (4-5 ms), so a session's p95 would be how much of it moved.
+REST, MOVING = ("small", "big", "closed"), ("zoom", "drag")
+
+
+def by_state(p, which, states, session):
+    """The worst `which` among `states` in perf.byState; the session's `session` without byState (a build before M0)."""
+    st = p.get("byState")
+    if not st:
+        return p.get(session)
+    vals = [x.get(which) or 0 for k, x in st.items() if k in states]
+    return max(vals) if vals else None
+
+
 BUDGETS = (
-    ("frame cost p95", lambda p: p.get("p95"), 1.0, "ms", owner_frames("p95")),
-    ("frame cost p99", lambda p: p.get("p99"), 5.0, "ms", owner_frames("p99")),
+    ("frame cost p95 at rest", lambda p: by_state(p, "p95", REST, "p95"), 1.0, "ms", owner_frames("p95")),
+    ("frame cost p99 at rest, p95 moving", lambda p: max(v for v in (by_state(p, "p99", REST, "p99"),
+                                                                       by_state(p, "p95", MOVING, "p99"), 0) if v is not None),
+     5.0, "ms", owner_frames("p99")),
     ("frame cost max (outside graces)", lambda p: p.get("max"), 8.0, "ms", owner_max),
     ("first map open, slowest frame", lambda p: (p.get("grace") or {}).get("map"), 50.0, "ms", owner_open),
     ("load (Data + Atlas)", lambda p: p.get("loadMs"), 250.0, "ms", owner_load),

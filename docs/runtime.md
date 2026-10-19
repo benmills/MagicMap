@@ -25,8 +25,8 @@ overruns, gaps, allocation or ledger frames.
 
 | Budget | Limit | Why |
 |---|---|---|
-| frame cost p95 | ≤ 1.0 ms | 6% of a 60 fps frame; the spike's map ran ~0.3–1 ms/frame on average and felt free. |
-| frame cost p99 | ≤ 5 ms | a frame with a layout slice (Map's jobs take 4 ms) plus the steps. |
+| frame cost p95, at rest (`small`, `big`, `closed`: each state's, from `byState`) | ≤ 1.0 ms | 6% of a 60 fps frame; the spike's map ran ~0.3–1 ms/frame on average and felt free. |
+| frame cost p99 at rest, and p95 moving (`zoom`, `drag`) | ≤ 5 ms | a frame with a layout slice (the engine's jobs take 4 ms, 5 for a layer the view lacks) plus the steps. Moving, the slices run back to back, so a session's p95 says how much of it moved, not how it ran: script (a)'s shape on the priced clock is 1.95 ms over the session (a third of its frames zoom or drag), 0.2 at rest, 4.95 zooming (tools/tests/test_zoom.py test_script_a_priced; sessions #8 and #9 passed the session-wide p95 only because 82-93% of their frames were at rest). Decided in round 2 of the M1 review over smaller slices while moving, which would leave the borders behind a fling (R-P1's coverage). Sessions before `byState` (M0) are judged on the session's p95 and p99. |
 | frame cost max, outside graces | ≤ 8 ms | half a 60 fps frame: at worst one dropped frame, never a hitch you notice. Each frame over it is an *overrun*. |
 | one call (step, handler, timer) | ≤ 2 ms | `CALL_MS`: a step taking more starves the rest; work that size belongs in a Job. A job's resume: ≤ 2× its own budget. |
 | first map open, slowest frame | ≤ 50 ms | first-use Atlas indexes (Labels are offline since M1.1: the sim's first open is 9 ms, its slowest call `map: borders` at 4 ms); ~3 frames, once a session. |
