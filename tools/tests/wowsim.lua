@@ -778,6 +778,9 @@ function ScrollFrame:SetVerticalScroll(v) S[self].vscroll = v end
 -- frame late (L1): a new size or anchor holds for DrawBlob and hit tests only
 -- after the end of the frame (Sim.Step's layout pass), and a blob is drawn into
 -- the rect laid out when DrawBlob is called: into nothing before the first.
+-- A drawing moves with its frame as that pass moves it (a pan: the spike moves
+-- its areas' canvas and never draws them again, Layers.lua:142-156); a frame
+-- resized or scaled leaves it where it was drawn (L1, P5).
 local POI = class("QuestPOIFrame", "Frame")
 local pois = {}
 function POI:SetMapID(id) assert(type(id) == "number", "SetMapID: number expected"); S[self].mapID = id end
@@ -798,7 +801,13 @@ local function layOut()
 	for _, f in ipairs(pois) do
 		local st = S[f]
 		local l, b, w, h = rect(f)
-		local laid = l and (st.laid or {})
+		local was = st.laid
+		if l and was and st.blobs and w == was[3] and h == was[4] and (l ~= was[1] or b ~= was[2]) then
+			for _, d in pairs(st.blobs) do
+				if d[1] then d[1], d[2] = l + (d[1] - was[1]), b + (d[2] - was[2]) end
+			end
+		end
+		local laid = l and (was or {})
 		if laid then laid[1], laid[2], laid[3], laid[4] = l, b, w, h end
 		st.laid = laid or nil
 	end

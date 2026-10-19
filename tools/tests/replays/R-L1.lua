@@ -96,8 +96,8 @@ for _, f in ipairs(sim.Frames()) do
 end
 
 -- UI's: one frame for the 27 (a map, a style), each quest's blob drawn into its rect as laid out whenever
--- the layer shows: out of sight from the wheel till the zoom lands, drawn twice there (the sim keeps a
--- drawing where it was drawn: the pan above left it behind, as the client's pans don't).
+-- the layer shows: after the pan above (a drawing moves with its frame), and out of sight from the wheel
+-- till the zoom lands, drawn twice there.
 local S, Areas = sim.state, ns.UI.Areas.layer
 local function Right()
 	local p, n = Areas.front.pools.blob, 0
@@ -110,6 +110,7 @@ local function Right()
 	end
 	return true, n
 end
+assert(Right(), "a pan: drawn where it's laid out")
 local draws, hid, back = sim.calls.DrawBlob, 0, nil
 sim.Wheel(view, 1)
 sim.cursorX, sim.cursorY = 0, 0 -- (off the map: no area lit, drawn again on top)

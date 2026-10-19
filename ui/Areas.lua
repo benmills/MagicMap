@@ -95,6 +95,7 @@ local function Place(c, f, r, zoom)
 	local i, col = Third(r.col0, r.col1, c.ox)
 	local j, row = Third(r.row0, r.row1, c.oy)
 	local point, x, y = POINTS[j][i], (col - c.ox) * zoom, (row - c.oy) * zoom
+	if f.apoint ~= point then f:ClearAllPoints() end -- (one anchor: two would size it, Layers.lua:808)
 	if f.az ~= zoom or f.x ~= x or f.y ~= y or f.apoint ~= point or f.on ~= c then At(c, f, point, col, row) end
 	f.rect = r
 	local w, h = (r.col1 - r.col0) * zoom, (r.row1 - r.row0) * zoom

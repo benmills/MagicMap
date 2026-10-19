@@ -23,18 +23,19 @@ local Sim, ns = ...
 local Atlas = ns.Atlas
 Sim.atlases["UI-QuestIcon-TurnIn-Normal"], Sim.atlases.QuestNormal = true, true
 Sim.units.player.level = 8
--- The sim's quest log: Quests{ { id, title, level, col, row (its pin on Elwynn), complete?, objectives =
+-- The sim's quest log: Quests{ { id, title, level, col, row (its pin on Elwynn, or map), complete?, objectives =
 -- { { type, text, have, need, finished } }, area = r? (its objective area: a circle about the pin, r
--- map-normalized), tag?, group? } }.
+-- map-normalized), tag?, group?, map? } }.
 function Quests(list)
 	Sim.quests = {}
 	for _, q in ipairs(list) do
-		local x, y = Atlas.TileToMap(1429, q.col, q.row)
+		local map = q.map or 1429
+		local x, y = Atlas.TileToMap(map, q.col, q.row)
 		local objectives = {}
 		for i, o in ipairs(q.objectives or {}) do
 			objectives[i] = { type = o[1], text = o[2], numFulfilled = o[3], numRequired = o[4], finished = o[5] }
 		end
-		Sim.quests[q.id] = { title = q.title, level = q.level, map = 1429, x = x, y = y, complete = q.complete == true,
+		Sim.quests[q.id] = { title = q.title, level = q.level, map = map, x = x, y = y, complete = q.complete == true,
 			objectives = objectives, tag = q.tag, group = q.group }
 		Sim.blobShapes[q.id] = q.area and { x, y, q.area } or nil
 	end

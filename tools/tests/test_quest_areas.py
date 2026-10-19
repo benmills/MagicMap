@@ -13,6 +13,9 @@ quest log (its blobs: Sim.blobShapes) through Game's parts and Inside, and Model
     layout: the client draws a blob into a rect it laid out at a frame's end); a pin in another quest's
     area, none (Layers.lua:928-937); an area that comes with QUEST_POI_UPDATE takes the estimate's place
     and its frame is drawn again; asks past a frame's budget answered over the next frames.
+  test_quest_area_big_zone: a 12-tile zone at the clamp (Stranglethorn at zoom 800, 9,572 px wide), flown to
+    from Elwynn and wheeled in about you: its frame on one anchor, laid out in its map's rect, each quest
+    drawn there (L1).
   test_quests_priced: 25 quests with areas, the big map, the wheel and drags on the priced clock: the
     budgets by map state (docs/runtime.md).
   test_quests_storm: QUEST_LOG_UPDATE every frame for 10 s with 25 quests and 130 to pick up, nothing
@@ -214,6 +217,40 @@ def test_quest_area_answers():
     assert not estimates() & set(range(2000, 2016))
     slow = [(x.name, x.max) for x in ns.Runtime.FrameStats().slow.values() if x.name.startswith(("game.oracle", "model"))]
     assert not slow, slow
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_quest_area_big_zone():
+    """Stranglethorn's areas (12 tiles by 8: 9,572 px by 6,382 at zoom 800), the map shown at Elwynn's hub, you
+    flown to Stranglethorn's south and the wheel in to the clamp about you: its frame on one anchor as the
+    point of its rect nearest the canvas's origin moves (two would size it: 515 by 114 px, found at the M2
+    gate; the spike's PlaceBlob clears them, Layers.lua:808), laid out in its map's rect, each quest drawn
+    there; no anchor on the map past 4,096 px (the harness's T.Anchors)."""
+    import sim as tools_sim
+    c0, r0, c1, r1 = 27.836, 52.941, 39.801, 60.918  # Data/UiMaps.lua's 1434
+
+    def at(x, y):
+        return c0 + (c1 - c0) * x, r0 + (r1 - r0) * y
+    quests = [{"id": 9000 + i, "title": f"Quest {i}", "level": 7, "map": 1434, "col": at(x, y)[0], "row": at(x, y)[1],
+               "objectives": [["monster", "Raptor slain: 0/5", 0, 5, False]], "area": 0.03}
+              for i, (x, y) in enumerate(((0.1, 0.1), (0.5, 0.5), (0.9, 0.9)))]
+    L, sim, ns, G = client(quests)
+    tools_sim.harness(L).Anchors(sim, ns, L.eval("CreateFrame('Frame'):CreateLine()"))
+    S, A, view, cam = sim.state, ns.UI.Areas.layer, ns.UI.Window.view, ns.UI.Camera.cam
+    sim.player.col, sim.player.row = at(0.9, 0.9)  # (from Elwynn: a flight's end)
+    sim.Run(2)
+    for _ in range(16):
+        sim.Wheel(view, 1)
+        sim.Run(0.1)
+    sim.Run(2)
+    p = A.front.pools.blob
+    assert cam.zoom == 800 and A.frame.GetAlpha(A.frame) == 1 and p.n == 1
+    f = p[1]
+    laid, r = S[f].laid, ns.Atlas.MapRect(1434)
+    assert len(S[f].points) == 1
+    assert abs(laid[3] - (r.col1 - r.col0) * 800) < 1e-6 and abs(laid[4] - (r.row1 - r.row0) * 800) < 1e-6, list(laid.values())
+    assert sorted(S[f].blobs.keys()) == [9000, 9001, 9002]
+    assert all(list(d.values()) == list(laid.values()) for d in S[f].blobs.values())
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
