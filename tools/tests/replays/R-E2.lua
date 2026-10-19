@@ -1,8 +1,8 @@
 -- E2: vignette and area-POI pins errored on every map change, and login aborted: `local x, y = pos and
 -- pos:GetXY()` left y nil, inside handlers nothing isolated. CONTAINED: Game's vignette read is its own
 -- wrapped call (game/parts/Vignettes.lua, "game.part vignettes"), x and y read in two statements: a
--- vignette stands where the client says, one it gives no position isn't there, and a read that throws is
--- reported once while the map draws on; the next read hands them over again.
+-- vignette and its pin stand where the client says, one it gives no position isn't there, and a read that
+-- throws is reported once while the map draws on; the next read hands them over again.
 local T = ...
 local sim, ns = T.Shown()
 local A, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
@@ -15,6 +15,14 @@ local v, inst, col, row = Game.obs.vignettes[1], A.MapToTile(1429, 0.38, 0.79)
 assert(v and v.rare and v.name == "Mother Fang", "the rare")
 assert(type(v.pos.col) == "number" and type(v.pos.row) == "number", "both coordinates")
 assert(v.pos.inst == inst and math.abs(v.pos.col - col) < 0.01 and math.abs(v.pos.row - row) < 0.01, "where the client says")
+-- On the map, the live rare's pin (ui/Places.lua) stands there.
+local S, places, pin = sim.state, T.Layer(ns, "places"), nil
+local pool = places.front.pools.pin
+for i = 1, pool.n do
+	local o = pool[i]
+	if S[o].shown and o.entry.kind == "vignettes" then pin = o end
+end
+assert(pin and math.abs(pin.acol - col) < 0.01 and math.abs(pin.arow - row) < 0.01, "its pin there")
 
 -- No position given: none, no error.
 local position = C_VignetteInfo.GetVignettePosition
