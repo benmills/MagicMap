@@ -211,10 +211,11 @@ local function Beneath(strata, level)
 end
 
 -- What other client code turns back (HybridMinimap turns its ground and rotation on as it
--- hides: spike-bugs G3), or anyone zooms or hides, put right every apply. True if it held.
+-- hides: spike-bugs G3), or anyone zooms, hides or shows it, put right every apply. True if it held.
 local function Hold(mm)
 	local held = mm:IsShown() and mm:GetZoom() == 0 and C_Minimap.IsRotateMinimapIgnored()
 	if not mm:IsShown() then mm:Show() end
+	if mm:GetAlpha() ~= 0 then mm:SetAlpha(0) end
 	if mm:GetZoom() ~= 0 then mm:SetZoom(0) end
 	if C_Minimap.GetDrawGroundTextures() then C_Minimap.SetDrawGroundTextures(false) end
 	if not C_Minimap.IsRotateMinimapIgnored() then C_Minimap.SetIgnoreRotateMinimap(true) end

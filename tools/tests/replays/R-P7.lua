@@ -2,19 +2,17 @@
 -- flags, one disagreeing). The map reads one, Camera.ZoomSettled (the zoom unchanged 0.15 s; Settled
 -- adds "nothing moving it"), and before it lays a layer out again only past [0.7, 1.4] of its layout's
 -- zoom; a held layer (borders) where the zoom is headed (ui/Engine.lua). Replayed: a wheel tick and a
--- zone fit start at most 2 layouts a layer, at most 1 once settled; the borders' canvases are never
--- scaled. On the priced clock (docs/evidence/perf-m0.md), the flights (grow, shrink, the follow glide,
--- the idle return): no frame of ours over 8 ms, no swap over 4 ms, the map's allocation over each
--- (its regions made once, by a first grow); a drag's start on its own; the window shown again.
+-- zone fit start at most 2 layouts a layer, at most 1 once settled; the borders stay in sight meanwhile,
+-- scaled and dimmed to 0.25 at most (Layers.lua:158-170), then crossfaded. On the priced clock
+-- (docs/evidence/perf-m0.md), the flights (grow, shrink, the follow glide, the idle return): no frame of
+-- ours over 8 ms, no swap over 4 ms, the map's allocation over each (its regions made once, by a first
+-- grow); a drag's start on its own; the window shown again (after a plain hide, one mid-layout, and its
+-- parent's: Alt-Z) and a layer turned back on: no region shown at once.
 local T = ...
 local sim, ns = T.Shown()
 local E, Cam, M = ns.UI.Engine, ns.UI.Camera, ns.UI.Motion
-local view = ns.UI.Window.view
-local scaled = 0
-for _, c in ipairs(T.Layer(ns, "borders").canvases) do
-	local f = c.SetScale
-	c.SetScale = function(...) scaled = scaled + 1; return f(...) end
-end
+local view, S = ns.UI.Window.view, sim.state
+local borders = T.Layer(ns, "borders")
 -- Layouts started (by whether the zoom had settled) and the slowest swap, as traced.
 local starts, swapMax, trace = {}, 0, ns.Runtime.Trace
 ns.Runtime.Trace = function(kind, d)
@@ -30,7 +28,12 @@ end
 local function Ease(name, start)
 	for k in pairs(starts) do starts[k] = nil end
 	start()
-	sim.Run(2)
+	local dim = 1 -- the borders' faintest frame
+	for _ = 1, 120 do
+		sim.Step()
+		dim = math.min(dim, math.max(S[borders.canvases[1]].alpha, S[borders.canvases[2]].alpha))
+	end
+	assert(dim >= 0.25, name .. ": the borders out of sight, alpha " .. dim)
 	assert(Cam.Settled() and not E.pending, name .. ": still moving")
 	local each = {}
 	for _, l in ipairs(E.layers) do
@@ -38,7 +41,7 @@ local function Ease(name, start)
 		each[#each + 1] = string.format("%s %d+%d", l.name, a, b)
 		assert(a + b <= 2 and b <= 1, name .. ": " .. each[#each])
 	end
-	T.Print("P7: %s: layouts while moving + once settled: %s", name, table.concat(each, ", "))
+	T.Print("P7: %s: layouts while moving + once settled: %s; the borders' faintest %.2f", name, table.concat(each, ", "), dim)
 end
 Ease("a wheel tick", function() sim.Wheel(view, 1) end)
 Ease("a zone fit", function() M.FlyToRect(28, 46, 36, 52) end)
@@ -106,7 +109,6 @@ sim.Run(5.8)
 assert(not Cam.follow)
 Flight("the idle return", 1)
 assert(Cam.follow)
-assert(scaled == 0, "the borders' canvases scaled " .. scaled .. " times")
 
 -- A drag's start on its own: the frame the press passes the click's 5 px.
 sim.Run(1)
@@ -127,26 +129,66 @@ assert(M.Dragging() == false and kb <= 10)
 
 -- Hidden, every canvas is emptied (its regions parked), so showing the window again shows none of them
 -- at once; the layers lay out again as at the first open, within a frame's budget, fresh within 1 s.
+-- Hidden mid-layout too (the big window's borders at 250 at Kharanos: its subzones', a few frames), and
+-- through its parent (Alt-Z: UIParent).
 local frame = ns.UI.Window.frame
-sim.Run(1)
-frame:Hide()
-sim.Run(1)
-local held = 0
-for _, l in ipairs(E.layers) do
-	for _, c in ipairs(l.canvases) do held = held + #sim.state[c].regions end
+local function Held(layers)
+	local held = 0
+	for _, l in ipairs(layers or E.layers) do
+		for _, c in ipairs(l.canvases) do held = held + #S[c].regions end
+	end
+	return held
 end
-local p0 = sim.priced
-sim.Price(true)
-frame:Show()
-local show = sim.priced - p0
-local worst = 0
-for _ = 1, 60 do
-	sim.Step()
-	worst = math.max(worst, (select(5, read())))
+local function Priced(show)
+	local p0 = sim.priced
+	sim.Price(true)
+	show()
+	local cost, worst = sim.priced - p0, 0
+	for _ = 1, 60 do
+		sim.Step()
+		worst = math.max(worst, (select(5, read())))
+	end
+	sim.Price(false)
+	return cost, worst
 end
-sim.Price(false)
-T.Print("P7: shown again: %d regions on the canvases, the Show %.2f ms priced; the slowest frame after it %.2f ms",
-	held, show, worst)
-assert(held == 0 and worst <= 8)
-for _, l in ipairs(E.layers) do assert(T.Fresh(ns, l), l.name) end
+local function Again(name, hide, show)
+	hide()
+	sim.Run(1)
+	local held = Held()
+	local cost, worst = Priced(show)
+	T.Print("P7: shown again (%s): %d regions on the canvases, the Show %.2f ms priced; the slowest frame after it %.2f ms",
+		name, held, cost, worst)
+	assert(held == 0 and cost <= 1 and worst <= 8, name)
+	for _, l in ipairs(E.layers) do assert(T.Fresh(ns, l), name .. ": " .. l.name) end
+end
+sim.Run(1)
+Again("hidden", function() frame:Hide() end, function() frame:Show() end)
+sim.Press("M")
+sim.Run(1.5)
+M.SetFollow(false)
+Cam.cam.cx, Cam.cam.cy = 32.904, 42.474 -- Kharanos
+M.SetZoom(200)
+sim.Run(2)
+Again("mid-layout", function()
+	M.SetZoom(250)
+	for _ = 1, 60 do
+		sim.Step()
+		if borders.busy then break end
+	end
+	assert(borders.busy, "the borders laid out at 250")
+	frame:Hide()
+end, function() frame:Show() end)
+sim.Run(1)
+Again("Alt-Z", function() UIParent:Hide() end, function() UIParent:Show() end)
+sim.Run(1)
+
+-- A layer turned off is emptied too: turned back on after a pan, it lays out anew, no frame over 8 ms.
+sim.Slash("/mma layer borders")
+sim.Run(1)
+local held = Held({ borders })
+Cam.cam.cx = Cam.cam.cx + 4
+sim.Run(1)
+local _, worst = Priced(function() sim.Slash("/mma layer borders") end)
+T.Print("P7: the borders turned off: %d regions held; back on after a pan, the slowest frame %.2f ms priced", held, worst)
+assert(held == 0 and worst <= 8 and T.Fresh(ns, borders))
 assert(#T.Errors(sim, ns) == 0)

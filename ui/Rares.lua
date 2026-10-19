@@ -20,8 +20,9 @@ local function MakePin(c)
 end
 
 UI.Rares = Engine.Layer("rares", 5, function(c, inst, zoom, c0, r0, c1, r1)
-	if zoom < MIN_ZOOM then return end -- Layers.lua:409
-	for _, b in ipairs((Model.Known("rares"))) do
+	local list = Model.Known("rares")
+	if zoom < MIN_ZOOM or not list[1] then return true end -- Layers.lua:409
+	for _, b in ipairs(list) do
 		local p = b.pos
 		if p.inst == inst and p.col >= c0 and p.col <= c1 and p.row >= r0 and p.row <= r1 then
 			local t = Get(c, "pin", "tex", MakePin)

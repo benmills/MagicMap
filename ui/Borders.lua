@@ -3,7 +3,8 @@
 -- zoom 140. A point nearer than MIN_SEG_PX to the last kept merges into it; a dead end (Data/Borders.lua's
 -- fadeStart, fadeEnd) breaks over its last FADE_PX into dashes of falling width and alpha, at most
 -- DASHES an end. At most CAP Lines a layout. Segments are clipped to the layout's region, so no Line
--- reaches far past it (the offsets stay small: ui/Engine.lua). Held while the zoom moves (Engine's "hold").
+-- reaches far past it (the offsets stay small: ui/Engine.lua). While the zoom moves, scaled and dimmed, then
+-- crossfaded to the layout where it lands (Engine's "hold").
 
 local _, ns = ...
 local UI = ns.UI

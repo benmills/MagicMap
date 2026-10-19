@@ -45,8 +45,8 @@ function T.Boot(saved)
 	sim.FireEvent("ADDON_LOADED", "MagicMapAtlas")
 	sim.FireEvent("PLAYER_LOGIN")
 	sim.FireEvent("PLAYER_ENTERING_WORLD", true, false)
-	local step = sim.onStep
-	sim.onStep = function(elapsed)
+	local step = sim.Step
+	sim.Step = function(elapsed)
 		step(elapsed)
 		T.Invariants(sim, ns)
 	end
@@ -93,20 +93,24 @@ function T.Anchors(sim, ns, line)
 	end
 end
 
--- What holds after every frame of every replay (checked as the next one starts): no protected
+-- What holds after every frame of every replay (checked as it ends): no protected
 -- call made in combat (spike-bugs K2), and no Blizzard Minimap art showing while the takeover
--- has the Minimap (its cluster hidden, or faded while combat keeps it shown). The map (M1.3, with
--- T.Anchors): a layer shows one canvas at most (D1: drawn twice); at rest (Engine.pending false),
--- every layer shown on the one origin.
+-- has the Minimap (its cluster hidden, or faded while combat keeps it shown; the Minimap itself, ours
+-- away from the cluster: unseen, its ground textures off). The map (M1.3, with T.Anchors): a layer shows
+-- one canvas at most outside a timed crossfade (D1: drawn twice); at rest (Engine.pending false), every
+-- layer shown on the one origin.
 function T.Invariants(sim, ns)
 	local c = sim.protectedCalls[1]
 	assert(c == nil, c and ("a protected call in combat: " .. c.call .. c.stack))
-	assert(not (ns.Game.minimap.engaged and MinimapCluster:IsVisible() and MinimapCluster:GetEffectiveAlpha() > 0),
+	local engaged = ns.Game.minimap.engaged
+	assert(not (engaged and MinimapCluster:IsVisible() and MinimapCluster:GetEffectiveAlpha() > 0),
 		"Blizzard's minimap cluster showing while engaged")
+	assert(not (engaged and (Minimap:GetEffectiveAlpha() > 0 or C_Minimap.GetDrawGroundTextures())),
+		"Blizzard's minimap showing while engaged")
 	local E, S = ns.UI.Engine, sim.state
 	local rest = not E.pending and S[ns.UI.Window.frame].shown
 	for _, l in ipairs(E.layers) do
-		if S[l.canvases[1]].alpha > 0 and S[l.canvases[2]].alpha > 0 then error(l.name .. ": two canvases shown") end
+		if S[l.canvases[1]].alpha > 0 and S[l.canvases[2]].alpha > 0 and not l.fade then error(l.name .. ": two canvases shown") end
 		if rest and l.on and l.front and (l.front.ox ~= E.ox or l.front.oy ~= E.oy) then
 			error(l.name .. ": off the shared origin at rest")
 		end
@@ -140,6 +144,7 @@ end
 function T.Fresh(ns, lay)
 	local m, c = ns.UI.Camera, lay.front
 	if c == nil or c.zoom ~= m.cam.zoom or c.inst ~= m.inst then return false end
+	if c.none then return true end -- nothing to draw at this zoom anywhere
 	local w, h = ns.UI.Window.Size()
 	local cam, r = m.cam, c.region
 	return r[1] <= cam.cx - w / 2 / cam.zoom and r[3] >= cam.cx + w / 2 / cam.zoom
