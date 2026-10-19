@@ -11,6 +11,10 @@ Three systems: Game, Model, UI. Two libraries under them: Atlas and Runtime.
 ## Rules
 
 - Only Game reads or changes game state or other addons. Anyone may make widgets.
+  One exception, decided at M2 (docs/brief.md §7): UI draws your quests' objective areas with the
+  client's own art on QuestPOIFrames of its own and hit-tests them for hover and click (the spike's
+  blob art, Layers.lua:765-1069), the one game read UI makes, through a widget. Only ui/Areas.lua and
+  Game's sensor (game/Oracles.lua) make one (luacheck's `POI_FILES`).
 - Anyone may read Atlas and use Runtime. Neither reads a system.
 - Model is plain Lua. It sees only what it is handed: observations and oracles from Game, focus from UI.
 - UI reads Model, owns View, and sends commands to Game. UI's drawing reads only Model and View, never input.
@@ -53,7 +57,7 @@ The blip sensor reads where the last Apply placed the Minimap, and waits until t
           · sockets for other addons' pins
   input   clicks → hits (pin, area, zone) → commands · camera, follow, idle return
           · small ⇄ big
-  draws   tiles · borders · labels · shade · quest areas · indoor art
+  draws   tiles · borders · labels · shade · quest areas (the client's art: the exception above) · indoor art
           · pins (one store, diffed by id) · group · addon pins · path · arrows
   shows   title · tooltips (its own small fonts put back on GameTooltip's hide) · inspector · menus & settings
 

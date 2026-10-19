@@ -87,6 +87,12 @@ no names with the MagicMap spike, so both can be enabled.
   rows (maps, uiMaps, places) are indexed at first use, ≤0.2 ms each in lupa; per-key caches
   (`Atlas.Area`, the walk grid's tiles) aren't indexes.
 
+- **Quest areas (the one game read in UI).** A QuestPOIFrame draws the client's quest areas
+  (`DrawBlob`) and hit-tests them (`UpdateMouseOverTooltip`): game state read through a widget.
+  Only game/Oracles.lua (the `Inside` sensor, unseen) and ui/Areas.lua (the areas you see, the
+  spike's blob art, decided at M2: docs/brief.md §7) make one; `tools/luacheck.py` fails any other
+  file that does (`POI_FILES`).
+
 ## Load order (TOC)
 
 1. `runtime/Boot.lua` — marks the load start (time, Lua memory)

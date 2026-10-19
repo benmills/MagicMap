@@ -1,7 +1,8 @@
 -- P5: quest areas lagged and drifted while zooming: the client's blob art doesn't follow a scaled
--- canvas. PREVENTED as the spike's 1.0 does it (Layers.lua:2032-2043): UI's areas (ui/Areas.lua) are
--- out of sight while the zoom moves, laid out where it's headed once the wheel stops, and shown again
--- only once each is drawn twice (as laid out, and the next frame: L1) at the zoom it lands at. So each
+-- canvas. MOVED (the quest-areas decision, docs/brief.md §7: UI draws the client's art, as the spike),
+-- bounded as the spike's 1.0 bounds it (Layers.lua:2032-2043): UI's areas (ui/Areas.lua) are out of
+-- sight while the zoom moves, laid out where it's headed once the wheel stops, and shown again only
+-- once each is drawn twice (as laid out, and the next frame: L1) at the zoom it lands at. So each
 -- frame a quest's area is unseen, or drawn on its pin (within 1 px); Game's sensor frames, never seen.
 -- A quest whose area is a circle about its pin (Sim.blobShapes), 8 wheel notches in over 0.5 s, then
 -- 4 out, following you.

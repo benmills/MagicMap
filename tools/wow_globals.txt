@@ -4,7 +4,8 @@
 # who may use it (luacheck.py BOUNDARIES; README "Boundaries"):
 #   [lua]      anyone but atlas/ and model/ (they get tools/lua51_globals.txt only)
 #   [runtime]  runtime/: what a scheduler needs, nothing that reads game state
-#   [ui]       ui/: widgets, frames, textures, fonts, input; no game state
+#   [ui]       ui/: widgets, frames, textures, fonts, input; no game state (but quest areas through
+#              ui/Areas.lua's QuestPOIFrames: tools/luacheck.py POI_FILES)
 #   [game]     game/ only: game state, other addons, Blizzard's own frames
 # game/ may read every section. A name may sit in more than one section.
 

@@ -28,8 +28,9 @@ through a glide) left from it; every
 in-game check waits for one consolidated play-test at the end (D10, docs/playtest-final.md). M2 (quests
 on one pin store): wave 1 merged 2026-10-19 (M2.1 the pin store with blips and rares on it, M2.2 Game's
 quests, offers, follow and tooltip, M2.3 Model's quests and offers); M2.4 (UI quests, areas, tooltip)
-next, after the quest-areas decision (§7). Then M3 target/route/interactions, M4 feature-complete, M5
-hardening and parity sign-off, M6 rename, merge, release.
+merged 2026-10-19 (d634976) on the quest-areas decision (§7), its review's fixes on main; the M2 gate next.
+Then M3 target/route/interactions, M4 feature-complete, M5 hardening and parity sign-off, M6 rename,
+merge, release.
 
 ## 2. Rules for every package (v1-plan §3)
 
@@ -216,10 +217,13 @@ docs/evidence/perf-m0.md), so the `*_priced` tests hold these budgets in CI.
 - **D10** One consolidated play-test at the end (scripts a-e + reference shots), not one per milestone:
   a package's in-game Verify items go to the lead for docs/playtest-final.md.
 
-**Open, for the lead before M2.4 starts: quest areas.** The M2.4 row and parity S53 say the spike's
-blob art (DrawBlob: drawn twice, hidden while zooming, redrawn at settle). Spike-bugs P5's verdict
-(PREVENTED) and its R-P5 sketch say UI draws quest areas itself and no POI/blob frame is visible. The
-lead records which one M2.4 builds in its row.
+**Quest areas** (decided by the lead, 2026-10-19, at M2's review): the spike's blob art, as M2.4 built
+it (the M2.4 row, parity S53; D4: what you see is the spike's). UI draws your quests' areas with the
+client's art on QuestPOIFrames of its own (ui/Areas.lua): drawn as laid out and again the next frame,
+out of sight while the zoom moves, laid out and drawn twice where it lands (Layers.lua:765-1069,
+2032-2043), and hit-tests them for hover and click. It is the one game read UI makes, through a
+widget (architecture.md "Rules"; luacheck's `POI_FILES`: ui/Areas.lua and game/Oracles.lua). Spike-bugs
+P5 is MOVED (was PREVENTED), bounded by hiding while zooming (R-P5).
 
 ## 8. Commands
 

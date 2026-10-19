@@ -22,6 +22,8 @@ compiled bytecode, so scoping is exact.
     scan; limits at check_ns). Known violations waiting on a contract are in
     BASELINE; one that's gone must be removed.
   * Named frames are globals (CreateFrame's name): only FRAME_NAMES.
+  * A QuestPOIFrame reads the client's quest areas (DrawBlob, its hit test): only
+    POI_FILES make one (architecture.md "Rules": UI's one game read).
   * MagicMapAtlas.toc must be what the folders' files.txt manifests make
     (tools/install.py generates it), every file in it must exist (a gitignored
     one may be missing: QuestieDB-derived data), and every addon .lua must be
@@ -96,6 +98,10 @@ HOOKS = {("Runtime", "onError"), ("Runtime", "onTrace")}
 # place by its name; the Minimap's children wait on the stand-in, named as the spike's was;
 # Escape closes what UISpecialFrames names (game/Hooks.lua's catcher).
 FRAME_NAMES = {"MagicMapAtlasMap", "MagicMapAtlasMinimapStandIn", "MagicMapAtlasEscape"}
+# The only files that make a QuestPOIFrame (the client draws and hit-tests its quest areas on one):
+# Game's sensor (Inside), and UI's quest areas, the one game read UI makes (architecture.md "Rules",
+# docs/brief.md §7: the spike's blob art, Layers.lua:765-1069).
+POI_FILES = {"game/Oracles.lua", "ui/Areas.lua"}
 
 # Known violations, each waiting on a contract: (file, System, field). Keep it
 # short; the check fails on any entry that no longer matches, so it only shrinks.
@@ -290,10 +296,11 @@ def ns_writes(src: str) -> list[tuple[str, str, int]]:
 
 COMMENT = re.compile(r"--\[(=*)\[.*?\]\1\]|--[^\n]*", re.S)
 FRAME_NAME = re.compile(r"""\bCreateFrame\s*\(\s*(["'])[^"']*\1\s*,\s*(["'])([^"']+)\2""")
+QUEST_POI = re.compile(r"""\bCreateFrame\s*\(\s*(["'])QuestPOIFrame\1""")
 
 
 def ns_problems(rel: str, src: str, used: set) -> list[str]:
-    """NS_RULES, ONLY, HOME / HOOKS and FRAME_NAMES for one file (rel: from the repo root); BASELINE
+    """NS_RULES, ONLY, HOME / HOOKS, FRAME_NAMES and POI_FILES for one file (rel: from the repo root); BASELINE
     entries it matched go in used."""
     where = area(rel, NS_RULES)
     rule = NS_RULES.get(where)
@@ -322,6 +329,10 @@ def ns_problems(rel: str, src: str, used: set) -> list[str]:
         if m.group(3) not in FRAME_NAMES:
             out.append(f"{rel}:{plain.count(chr(10), 0, m.start()) + 1}: names a frame '{m.group(3)}' (a global):"
                        " pass nil, or add it to FRAME_NAMES (tools/luacheck.py) and docs/structure.md")
+    if rel.replace("\\", "/") not in POI_FILES:
+        for m in QUEST_POI.finditer(plain):
+            out.append(f"{rel}:{plain.count(chr(10), 0, m.start()) + 1}: makes a QuestPOIFrame (reads the client's"
+                       " quest areas): only POI_FILES may (tools/luacheck.py, architecture.md \"Rules\")")
     return out
 
 
