@@ -59,7 +59,8 @@ def test_map():
 def test_rares():
     """A pin kind added afterwards: Known("rares") (the rares you've seen: Model's saved part, the shown map's)
     drawn by its layer, from zoom 60 in (none further out: Landmarks.lua:15); laid out from a drift below it but
-    zooming out, so a zoom crossing 60 shows or hides them that frame (Layers.lua:404-416)."""
+    zooming out, so a zoom crossing 60 shows or hides them that frame (Layers.lua:404-416); the tooltip's "Seen here
+    <Mon DD>" (Landmarks.lua:61)."""
     seen = ", ".join(f"['npc:{i}'] = {{ name = 'Rare {i}', npcID = {i}, col = {31.9 + i / 50}, row = 49.7, t = 1792077412 }}"
                      for i in range(1, 4))
     L, sim, ns = boot(TEST_UI + f"\nMagicMapAtlasDB.Model = {{ _v = 1, blips = {{}}, rares = {{ [0] = {{ {seen} }}, "
@@ -92,6 +93,19 @@ def test_rares():
         assert not shown()
         sim.Step()
     assert shown() and layer.front.zoom == 59
+    # Hovered: its name, "Rare" and the day you saw it (Landmarks.lua:61).
+    sim.Run(1)
+    L.execute("""local sim, ns, col, row = ...
+        local view, cam = ns.UI.Window.view, ns.UI.Camera.cam
+        local w, h = ns.UI.Window.Size()
+        local x, y = ns.Atlas.Camera.TileToScreen(cam, w, h, col, row)
+        local s = view:GetEffectiveScale()
+        Sim.cursorX, Sim.cursorY = (view:GetLeft() + x) * s, (view:GetTop() - y) * s""", sim, ns, 31.92, 49.7)
+    sim.FireScript(ns.UI.Window.view, "OnEnter", False)
+    sim.Step()
+    tip = L.globals().GameTooltip
+    lines = [sim.state[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)]
+    assert lines == ["Rare 1", "Rare", "|cff808080Seen here Oct 15|r"], lines
     sim.Slash("/mma layer rares")
     assert e.LayerOn("rares") is False and e.toggles.rares is False
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
