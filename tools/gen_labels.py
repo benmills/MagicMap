@@ -14,7 +14,8 @@ Tiers, most important first:
   subzone    Data/Borders.lua labels of kind 2, by land area
   poi        AreaPOI landmarks
 A town and the subzone label of the same name at the same spot are one name: the
-town (at its POI, where its pin is). A landmark that duplicates a subzone label is
+town, at the subzone label's spot, as the spike placed it (its POI's pin is apart,
+M4.4). A landmark that duplicates a subzone label is
 skipped. POIs with a description are events or world-PvP states, not places, so
 they're left out.
 
@@ -161,9 +162,9 @@ def labels(inst, D, conts) -> list[dict]:
         if town is None and icon in POI_ICON and importance >= 2:
             town = 0
         same = subzone(name, col, row)
-        if town is not None:
+        if town is not None:  # a town named as a subzone keeps the subzone label's spot (Layers.lua:1632-1645)
             a = same or dict(text=name, col=col, row=row, areaID=area)
-            a.update(tier="town", poiID=pid, score=importance * 10 + town, col=col, row=row)
+            a.update(tier="town", poiID=pid, score=importance * 10 + town)
             if not same:
                 out.append(a)
         elif icon in POI_ICON and not same:

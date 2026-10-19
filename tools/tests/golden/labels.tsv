@@ -28,33 +28,33 @@
 0	28	town	The Undercity	31.558	28.532		153	18
 0	29	town	Ironforge	33.564	41.414		809	8
 0	30	town	Stormwind	31.317	49.163		12	16
-0	31	town	Aerie Peak	35.99	31.56	0.5625	348	792
-0	32	town	Booty Bay	31.087	58.969	0.4961	35	40
-0	33	town	Darkshire	34.195	51.809	0.6525	42	3
-0	34	town	Grom'gol Base Camp	31.652	55.21	0.4002	117	41
-0	35	town	Hammerfall	38.616	33.859	0.6495	321	25
-0	36	town	Kargath	36.1	44.518	0.4146	340	26
-0	37	town	Lakeshire	36.128	49.302	0.4098	69	10
-0	38	town	Menethil Harbor	33.553	38.886	0.5303	150	11
-0	39	town	Sentinel Hill	30.073	51.694	0.552	108	15
-0	40	town	Southshore	32.997	33.506	0.6219	271	22
-0	41	town	Stonard	38.145	51.582	0.5	75	788
-0	42	town	Tarren Mill	33.689	32.051	0.6614	272	23
-0	43	town	The Sepulcher	28.964	31.047	0.3698	228	17
-0	44	town	Thelsamar	37.55	42.03	0.4881	144	19
-0	45	town	Angor Fortress	37.921	43.986	0.4719	338	27
+0	31	town	Aerie Peak	35.66	31.41	0.5625	348	792
+0	32	town	Booty Bay	31.22	58.84	0.4961	35	40
+0	33	town	Darkshire	34.22	52.03	0.6525	42	3
+0	34	town	Grom'gol Base Camp	31.53	55.22	0.4002	117	41
+0	35	town	Hammerfall	38.66	33.53	0.6495	321	25
+0	36	town	Kargath	36.16	44.47	0.4146	340	26
+0	37	town	Lakeshire	36.09	49.28	0.4098	69	10
+0	38	town	Menethil Harbor	33.53	39.03	0.5303	150	11
+0	39	town	Sentinel Hill	29.91	51.84	0.552	108	15
+0	40	town	Southshore	32.97	33.47	0.6219	271	22
+0	41	town	Stonard	38.16	51.59	0.5	75	788
+0	42	town	Tarren Mill	33.72	32.09	0.6614	272	23
+0	43	town	The Sepulcher	28.97	31.03	0.3698	228	17
+0	44	town	Thelsamar	37.66	42.09	0.4881	144	19
+0	45	town	Angor Fortress	37.91	44.03	0.4719	338	27
 0	46	town	Anvilmar	31.28	43.502		132	1
-0	47	town	Brill	31.478	27.782	0.4593	159	2
-0	48	town	Deathknell	29.022	28.475	1.2183	154	4
-0	49	town	Dun Algaz	36.45	39.858	0.8221	836	5
-0	50	town	Dun Modr	36.407	36.894	0.4921	205	6
-0	51	town	Goldshire	31.881	49.775	0.433	87	7
-0	52	town	Moonbrook	29.168	52.657	0.6312	20	12
+0	47	town	Brill	31.34	27.66	0.4593	159	2
+0	48	town	Deathknell	29.03	28.59	1.2183	154	4
+0	49	town	Dun Algaz	36.53	39.84	0.8221	836	5
+0	50	town	Dun Modr	36.34	36.91	0.4921	205	6
+0	51	town	Goldshire	31.78	49.72	0.433	87	7
+0	52	town	Moonbrook	29.16	52.66	0.6312	20	12
 0	53	town	Northshire Abbey	32.336	48.68		9	13
-0	54	town	Raven Hill	31.418	52.161	0.4419	94	14
-0	55	town	Refuge Pointe	36.738	34.346	0.534	320	24
-0	56	town	Kharanos	32.904	42.474	0.4146	131	9
-0	57	town	Revantusk Village	40.607	33.075	0.4419	3317	1507
+0	54	town	Raven Hill	31.28	52.03	0.4419	94	14
+0	55	town	Refuge Pointe	36.66	34.34	0.534	320	24
+0	56	town	Kharanos	32.91	42.41	0.4146	131	9
+0	57	town	Revantusk Village	40.53	33.09	0.4419	3317	1507
 0	58	subzone	The Forbidding Sea	41.28	41.03	2.8236	2402	
 0	59	subzone	Zul'Gurub	35.03	54.97	2.2561	19	
 0	60	subzone	The Great Sea	29.03	41.03	2.1578	2365	
@@ -484,30 +484,30 @@
 1	24	town	Darnassus	27.773	13.34		1660	38
 1	25	town	Orgrimmar	40.196	29.409		14	33
 1	26	town	Thunder Bluff	31.945	34.26		1638	29
-1	27	town	Aldrassil	30.489	12.382	0.3125	256	36
-1	28	town	Astranaar	32.717	26.899	1.0458	415	42
-1	29	town	Auberdine	31.228	19.926	0.5039	442	798
-1	30	town	Camp Mojache	31.596	40.241	0.4921	1099	790
-1	31	town	Camp Taurajo	35.603	36.411	0.5039	378	1469
-1	32	town	Cenarion Hold	30.653	44.912	0.4463	3425	1685
-1	33	town	Dolanaar	30.219	13.648	0.3802	186	37
-1	34	town	Everlook	40.742	19.394	0.5896	2255	794
-1	35	town	Feathermoon Stronghold	25.856	40.316	0.7289	1116	796
-1	36	town	Freewind Post	36.585	42.226	0.4507	484	46
-1	37	town	Gadgetzan	39.035	45.386	0.6847	976	789
-1	38	town	Nijel's Point	29.547	31.62	0.6702	608	799
-1	39	town	Ratchet	38.9	33.784	0.6281	392	39
-1	40	town	Shadowprey Village	26.191	35.108	0.5078	2408	795
+1	27	town	Aldrassil	30.47	12.34	0.3125	256	36
+1	28	town	Astranaar	32.78	26.91	1.0458	415	42
+1	29	town	Auberdine	31.09	19.97	0.5039	442	798
+1	30	town	Camp Mojache	31.53	40.22	0.4921	1099	790
+1	31	town	Camp Taurajo	35.59	36.41	0.5039	378	1469
+1	32	town	Cenarion Hold	30.53	44.72	0.4463	3425	1685
+1	33	town	Dolanaar	30.22	13.59	0.3802	186	37
+1	34	town	Everlook	40.72	19.28	0.5896	2255	794
+1	35	town	Feathermoon Stronghold	25.84	40.28	0.7289	1116	796
+1	36	town	Freewind Post	36.53	42.16	0.4507	484	46
+1	37	town	Gadgetzan	39.16	45.34	0.6847	976	789
+1	38	town	Nijel's Point	29.66	31.66	0.6702	608	799
+1	39	town	Ratchet	38.84	33.78	0.6281	392	39
+1	40	town	Shadowprey Village	26.16	34.97	0.5078	2408	795
 1	41	town	Splintertree Post	36.809	27.713		431	1471
-1	42	town	Stonetalon Peak	29.282	27.015	1.5662	467	44
-1	43	town	Sun Rock Retreat	30.292	30.244	0.6818	460	701
+1	42	town	Stonetalon Peak	29.41	27.16	1.5662	467	44
+1	43	town	Sun Rock Retreat	30.22	30.22	0.6818	460	701
 1	44	town	Thalanaar	33.462	40.456		489	45
-1	45	town	The Crossroads	36.973	32.855	0.433	380	35
-1	46	town	Theramore Isle	40.228	38.9	0.7629	513	791
+1	45	town	The Crossroads	36.97	32.78	0.433	380	35
+1	46	town	Theramore Isle	40.34	39.03	0.7629	513	791
 1	47	town	Bloodhoof Village	32.741	36.357		222	28
-1	48	town	Camp Narache	32.476	37.45	0.25	221	30
-1	49	town	Razor Hill	40.898	31.414	0.4507	362	31
-1	50	town	Sen'jin Village	41.222	33.537	0.3903	367	34
+1	48	town	Camp Narache	32.41	37.41	0.25	221	30
+1	49	town	Razor Hill	40.78	31.41	0.4507	362	31
+1	50	town	Sen'jin Village	41.16	33.53	0.3903	367	34
 1	51	town	The Den	39.88	33.133		363	32
 1	52	subzone	Southern Barrens	34.59	39.97	2.6612	1156	
 1	53	subzone	The Veiled Sea	30.41	51.97	2.5372	2477	
