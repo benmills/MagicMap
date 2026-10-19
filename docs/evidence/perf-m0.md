@@ -167,7 +167,9 @@ each to be re-checked in the next session:
 - **Rares at every zoom** (M1.11): from zoom 60. At 60-75 a big window still holds ~500 of a
   continent's 696 (the layout region is the view plus a wide margin).
 - **Wheel** (M1.8b, then round 2 of the M1 review): a bucket of 1 tick refilling 2 a second, a
-  gesture 3 ticks at most; `/mma wheel` tries others.
+  gesture 3 ticks at most; `/mma wheel` tried others. Stale since M1.14 (M1b, the user's play-test of
+  M1: "the scrolling / zooming is still pretty broken compared to the MVP"): the wheel is the spike's
+  again, every event a x1.3 tick, and the `wheel` cam trace shows what a device sends (delta, n, dt).
 
 ## The next session re-checks
 

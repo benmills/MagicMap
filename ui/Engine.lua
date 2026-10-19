@@ -1,7 +1,8 @@
 -- The map's engine: layers drawn on canvases. Engine.Layer(name, level, build, rev, zoom) adds one
 -- (ui/Tiles.lua, ...). A layer has two canvases (1x1 frames, both always shown): the front at alpha 1,
--- the back at alpha 0. A layout, a Runtime.Job (one at a time: a layer missing from the view first,
--- then by level; ahead of a pan in smaller slices), lays the layer out on its back canvas at one zoom,
+-- the back at alpha 0. A layout, a Runtime.Job (one at a time: a layer missing from the view first, then
+-- one a zoom out will run past, then by level; ahead of a pan in smaller slices), lays the layer out on
+-- its back canvas at one zoom (zooming out, where it's headed: one layout holds every view on the way),
 -- over the view and a margin (more ahead of the camera's motion), into the canvas's own regions where
 -- they stand (Engine.Get; Engine.Keep: what the canvas already shows, left as it is), parks what it
 -- didn't use (SetParent to a hidden frame), then swaps the two by alpha. Tile (col, row) is at
@@ -206,12 +207,14 @@ local function Origin(cam, c0, r0, c1, r1)
 	return ox, oy
 end
 
-local function Covers(c, cam, w, h)
-	local r = c.region
+-- The tile rect r (c0, r0, c1, r1) holds cam's view.
+local function Holds(r, cam, w, h)
 	local c0, r0 = Maths.ScreenToTile(cam, w, h, 0, 0)
 	local c1, r1 = Maths.ScreenToTile(cam, w, h, w, h)
 	return c0 >= r[1] and r0 >= r[2] and c1 <= r[3] and r1 <= r[4]
 end
+
+local function Covers(c, cam, w, h) return Holds(c.region, cam, w, h) end
 
 local function R2(v) return math.floor(v * 100 + 0.5) / 100 end -- for traces
 
@@ -407,22 +410,32 @@ local function Park(layers, wanted)
 	end, JOB_MS)
 end
 
--- What a layer's front lacks: nil (nothing), "late" (lay it out again) or "missing" (the view lacks it:
--- before the rest, with more budget). settled: the zoom's (Camera.ZoomSettled); goal: where it's headed
--- (goal.held: for GOAL_S); ahead: the camera AHEAD_S on at its speed.
+-- What a layer's front lacks: nil (nothing), "late" (lay it out again), "soon" (a zoom out heads past
+-- it: after "missing") or "missing" (the view lacks it: before the rest); both with more budget. settled:
+-- the zoom's (Camera.ZoomSettled); goal: where it's headed (goal.held: for GOAL_S; goal.out: zooming
+-- out, its layout would hold the view now); ahead: the camera AHEAD_S on at its speed. A held layer not
+-- yet laid out for the goal is late, missing once off the view (a fast zoom out): the ones it scales
+-- over (tiles, names, pins) go first.
 local function Stale(layer, inst, cam, w, h, settled, goal, ahead)
 	local c = layer.front
 	if not c or c.inst ~= inst then return "missing" end
-	if c.none and c.zoom == cam.zoom and (not layer.rev or c.rev == layer.rev()) then -- nothing to draw: no layout on a pan
+	local zoomed = c.zoom ~= cam.zoom
+	if c.none and (not layer.rev or c.rev == layer.rev()) then -- nothing to draw at its zoom: laid out again for another zoom only
 		if c.ox ~= Engine.ox or c.oy ~= Engine.oy then c.ox, c.oy, c.epoch = Engine.ox, Engine.oy, c.epoch + 1 end
+		local s = cam.zoom / c.zoom -- /: never 0 (zooms >= MIN_ZOOM)
+		if zoomed and (settled or s < BAND_LO or s > BAND_HI) then return "late" end -- (another zoom may have some)
 		return
 	end
-	local zoomed = c.zoom ~= cam.zoom
-	if layer.zoom == "hold" and zoomed then return c.zoom ~= goal.zoom and goal.held and "missing" or nil end -- dimmed till it lands
+	if layer.zoom == "hold" and zoomed then -- dimmed till it lands
+		if c.zoom == goal.zoom or not goal.held then return end
+		return Covers(c, cam, w, h) and "late" or "missing"
+	end
 	if not Covers(c, cam, w, h) then return "missing" end
 	if not Covers(c, ahead, w, h) then return "late" end
-	local s = cam.zoom / c.zoom -- /: never 0 (zooms >= MIN_ZOOM)
-	if zoomed and (settled or s < BAND_LO or s > BAND_HI) then return "late" end
+	if goal.out and not Covers(c, goal, w, h) then return "soon" end -- zooming out past what it holds
+	-- Laid out on the way out (where it's headed, or between): the camera heads into it.
+	local s, toward = cam.zoom / c.zoom, goal.zoom <= c.zoom and c.zoom < cam.zoom -- /: never 0 (zooms >= MIN_ZOOM)
+	if zoomed and not toward and (settled or s < BAND_LO or s > BAND_HI) then return "late" end
 	if c.ox ~= Engine.ox or c.oy ~= Engine.oy or (layer.rev and c.rev ~= layer.rev()) then return "late" end
 end
 
@@ -430,7 +443,16 @@ end
 -- zooming: a shown layer from another zoom (the wheel's not laid out yet). Engine.pending: a layer
 -- stale, laying out, crossfading or zooming (at rest, every layer shows the camera's zoom on the one origin).
 local function On(layer) return layer.on end
+local RANK, URGENT = { missing = 3, soon = 2, late = 1 }, { missing = true, soon = true } -- Stale's: which first, at MISSING_MS
 local goal, ahead = { since = 0 }, {} -- cameras: where it's headed (Motion.Goal), where it is AHEAD_S on
+
+-- The camera a layer lays out for: a held one's where the zoom is headed (once that holds GOAL_S); the
+-- rest the camera's, but zooming out where it's headed when that layout would hold the view now (goal.out):
+-- the wheel keeps a point in view still (following, you), so every view on the way nests in the goal's,
+-- and one layout covers them all (laid out at the camera, a fast zoom out ran past each layout before it
+-- landed: blank edges, pins and names missing at them; the spike lays its tiles out every frame).
+local function For(layer, cam) return (layer.zoom == "hold" or goal.out) and goal or cam end
+local headed = {} -- the goal's layout region
 function Engine.Draw(inst, cam, w, h)
 	local zooming, settled, now = false, Camera.ZoomSettled(), GetTime()
 	local panning = Camera.vx ~= 0 or Camera.vy ~= 0
@@ -438,6 +460,8 @@ function Engine.Draw(inst, cam, w, h)
 	local gz, gx, gy = UI.Motion.Goal()
 	if gz ~= goal.zoom then goal.since = now end
 	goal.zoom, goal.cx, goal.cy, goal.held = gz, gx, gy, now - goal.since >= GOAL_S
+	headed[1], headed[2], headed[3], headed[4] = Region(goal, w, h)
+	goal.out = gz < cam.zoom and Holds(headed, cam, w, h)
 	ahead.zoom, ahead.cx, ahead.cy = cam.zoom, cam.cx + Camera.vx * AHEAD_S, cam.cy + Camera.vy * AHEAD_S
 	for _, layer in ipairs(Engine.layers) do
 		local on = Engine.LayerOn(layer.name)
@@ -453,9 +477,9 @@ function Engine.Draw(inst, cam, w, h)
 		pending = pending or stale or layer.busy or layer.fade
 		if layer.busy then
 			busy = true
-			layer.job.budget = stale == "missing" and MISSING_MS or panning and PAN_MS or JOB_MS
-		elseif stale and (not layer.retryAt or now >= layer.retryAt) and (not next or stale == "missing" and why ~= "missing") then
-			next, why = layer, stale
+			layer.job.budget = URGENT[stale] and MISSING_MS or panning and PAN_MS or JOB_MS
+		elseif stale and (not layer.retryAt or now >= layer.retryAt) and (not next or RANK[stale] > RANK[why]) then
+			next, why = layer, stale -- (the view lacking it first, then the one it will lack, then by level)
 		end
 		if on and layer.front then
 			Place(layer, cam, w, h)
@@ -464,7 +488,7 @@ function Engine.Draw(inst, cam, w, h)
 	end
 	Engine.pending = pending or zooming
 	if next and not busy then
-		Rebuild(next, inst, next.zoom == "hold" and goal or cam, why == "missing" and MISSING_MS or panning and PAN_MS or JOB_MS)
+		Rebuild(next, inst, For(next, cam), URGENT[why] and MISSING_MS or panning and PAN_MS or JOB_MS)
 	end
 	return zooming
 end
