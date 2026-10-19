@@ -2,7 +2,9 @@
 -- before: from zoom 60, Blips.lua:641-650) as the spike's pins (Blips.lua:420-436, Layers.lua:340-400):
 -- an icon, the game's tracking texture or a gathering atlas, at 14 px (an atlas the client lacks: a
 -- dot of its colour); else a gold dot 6 px on a dark ring 9 px (StylePin's form (d), size 10). A
--- remembered one a sensed one stands for (its key) is drawn once. Laid out again when either changes.
+-- remembered one a sensed one stands for (its key) is drawn once; while the sensor runs, none within
+-- its word around you (LIVE_YARDS: only what it sees now, Blips.lua:628-650). Laid out again when
+-- either changes, or you cross a walk chunk while sensing.
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
@@ -13,6 +15,8 @@ local ICON, DOT = 14, 10 -- px: an icon's; a dot's StylePin size (Blips.lua:434)
 local GOLD, RING = { 1, 0.82, 0 }, { 0, 0, 0, 0.9 } -- Blips.lua:373, Layers.lua:396
 local COLOR = { Professions_Tracking_Ore = { 0.8, 0.6, 0.4 }, Professions_Tracking_Herb = { 0.4, 0.9, 0.3 } } -- Blips.lua:424-426
 local REMOTE_ZOOM = 60 -- px a tile: remembered ones from here (Blips.lua REMOTE_MIN_ZOOM)
+local REACH = 220 / ns.Atlas.TILE_YARDS -- tiles: around you, the sensor's word (Blips.lua:480 LIVE_YARDS)
+local CHUNKS = ns.Atlas.Walk.CHUNKS
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- UI.lua:6
 
 local function Maker(sub, file)
@@ -59,6 +63,16 @@ local function Pin(c, b, inst, c0, r0, c1, r1)
 	dot.blip = b.key
 end
 
+-- You while the sensor runs, by walk chunk (false: not sensing), and a rev that moves with it.
+local here, hereRev = false, 0
+local function Here()
+	local m, you = Model.minimap, Model.you
+	local key = m and m.sensing and you.col and not you.stale and math.floor(you.col * CHUNKS) * 4096 + math.floor(you.row * CHUNKS)
+		or false
+	if key ~= here then here, hereRev = key, hereRev + 1 end
+	return hereRev
+end
+
 local carried = {} -- keys of remembered ones a sensed one stands for
 UI.Blips = Engine.Layer("blips", 6, function(c, inst, zoom, c0, r0, c1, r1)
 	local live, seen = Model.Known("blips"), Model.Known("remembered")
@@ -69,7 +83,11 @@ UI.Blips = Engine.Layer("blips", 6, function(c, inst, zoom, c0, r0, c1, r1)
 		Pin(c, b, inst, c0, r0, c1, r1)
 	end
 	if zoom < REMOTE_ZOOM then return end
+	local you = here and Model.you.inst == inst and Model.you
 	for _, b in ipairs(seen) do
-		if not carried[b.key] then Pin(c, b, inst, c0, r0, c1, r1) end
+		local p = b.pos
+		if not carried[b.key] and not (you and (p.col - you.col) ^ 2 + (p.row - you.row) ^ 2 < REACH * REACH) then
+			Pin(c, b, inst, c0, r0, c1, r1)
+		end
 	end
-end, function() return select(2, Model.Known("blips")) + select(2, Model.Known("remembered")) end, "move")
+end, function() return select(2, Model.Known("blips")) + select(2, Model.Known("remembered")) + Here() end, "move")

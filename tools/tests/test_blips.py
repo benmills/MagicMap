@@ -149,7 +149,25 @@ def test_blips_end_to_end():
     assert seen["remembered"]
     assert len(G.MagicMapAtlasDB.recording.obs) > 5  # one each change the sensor makes (a sweep: a look standing)
 
+    # 200 yd from the remembered mailbox, gone from the Minimap (past a sweep's forgetting, 0.8 of its
+    # reach): while sensing, around you only what the sensor sees now is drawn (Blips.lua:640); the
+    # sensor off (Blizzard's minimap back), the remembered one is.
+    def drawn():
+        sim.Run(0.5)
+        front = UI.Blips.front
+        return [t for t in (front.pools.pin[i] for i in range(1, front.pools.pin.n + 1))] if front.pools.pin else []
+    assert len(drawn()) == 1  # (away: the remembered mailbox)
+    put_blips(L, sim, ns, BLIPS[2:])
+    sim.player.col, sim.player.row = START[0] + 240 * YD, START[1] - 20 * YD
+    sim.Run(3)
+    assert Game.obs.minimap.sensing and [b["name"] for b in blips(ns)] == ["Mailbox"] and not drawn()
+    sim.Slash("/mma minimap blizzard")
+    assert len(drawn()) == 1 and not Game.obs.minimap.sensing
+    sim.Slash("/mma minimap ours")
+    sim.Run(1)
+
     # A UI-only toggle, saved; and Blizzard's minimap back: everything put back.
+    sim.player.col, sim.player.row = START[0] + 630 * YD, START[1]
     sim.Slash("/mma layer labels")
     sim.Slash("/mma minimap blizzard")
     sim.Step()
