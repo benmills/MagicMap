@@ -43,7 +43,8 @@ telemetry = {
                alloc = { { name, kbPerSec, kbMax, calls }, ... },  -- top 5 allocators (KB/s; kbMax: one call's most)
                gaps = { { job, ms, n, stack }, ... }, -- a job ran longer than its budget between Yields: longest, how often, first stack
                ledger = { { frame, ms, top, topMs, events = { <events> } }, ... }, -- worst 5 frames outside graces, ±10 events
-               byState = { [state] = { frames, p50, p95, p99, max } }, -- by map state: closed small big zoom drag
+               byState = { [state] = { frames, p50, p95, p99, max, -- by map state: closed small big zoom drag
+                                       client = { p50, p95, p99, max } } }, -- the client's whole frame (ms between OnUpdates)
                errors, errorsPerHour, loadMs },       -- written at logout (and /reload) and with each mark
       kept = { <events> },  -- taint, art and sensor events, the first 50 (each one a bug)
       stats = { ["<kind> <layer>"] = { n, <field> = max |value|, lag } }, -- layout ends, swaps, blips sweeps

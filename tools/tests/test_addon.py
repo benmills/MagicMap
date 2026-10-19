@@ -211,6 +211,8 @@ def test_attribution():
     by = stats.byState
     assert all(by[s].frames > 0 for s in ("closed", "small", "zoom", "drag")), dict(by)
     assert sum(by[s].frames for s in ("closed", "small", "zoom", "drag")) == stats.frames
+    # and the client's whole frame in each (the sim's: 1/60 s)
+    assert all(16.5 <= by[s].client.p50 <= 17 and by[s].client.max >= 16.6 for s in ("closed", "small", "zoom", "drag"))
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

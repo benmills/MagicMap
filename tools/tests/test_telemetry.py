@@ -54,7 +54,9 @@ def test_telemetry_fixture(tmp_path, capsys):
                  "f9120 8.4 ms  top map: borders 7.9 ms",
                  "drag         610    0.3    0.9    2.4    6.1", "big          380   0.35    1.1    3.2    7.7",
                  "blips            n 210   blips=7 sweep=211 yd=233",
-                 "zoom         900    0.6    2.1    9.8   11.2", "39.2 MB at load, 70.8 MB at logout",
+                 "zoom         900    0.6    2.1    9.8   11.2             7.5   16.5     24     40",
+                 "drag         610    0.3    0.9    2.4    6.1               -      -      -      -",
+                 "39.2 MB at load, 70.8 MB at logout",
                  "graces (slowest frame; its slowest call): gc 88.2 ms (game.telemetry 87.9 ms), login 96.4 ms"
                  " (game.loaded 60.2 ms), map 31.5 ms (map: labels 16.3 ms)",
                  "swap tiles       n 40    lag=0 live=36 ms=0.4 parked=0 scale=1.3 x=33012 y=25510",

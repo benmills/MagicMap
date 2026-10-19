@@ -360,10 +360,12 @@ end
 -- Allocation: the Lua heap's growth over the frame's run (collectgarbage("count") before and
 -- after), KB/frame in a histogram and KB/s; a frame in which the collector freed more than we
 -- allocated (the heap shrank) can't be measured and is left out. The same frames again in one
--- histogram per map state (Runtime.SetState), and the worst LEDGER of them kept whole. ---
+-- histogram per map state (Runtime.SetState), with a second of the client's whole frame (OnUpdate's
+-- elapsed: what it spends drawing too, which our cost can't see), and the worst LEDGER of them kept whole. ---
 
 local BUCKET, NB = 0.05, 400 -- ms per bucket; the last (20 ms+) holds the rest
 local KB_BUCKET = 0.1 -- KB per allocation bucket (NB of them: the last, 40 KB+, holds the rest)
+local CLIENT_BUCKET = 0.5 -- ms per bucket of the client's frame (the last, 200 ms+, holds the rest)
 local hist, kbHist, graces, graceMax = {}, {}, {}, {}
 local graceAt, graceN, graceTop, graceTopMs = {}, 0, {}, {} -- each grace's start (a count: newest wins); its slowest frame's top call
 for i = 1, NB do hist[i], kbHist[i] = 0, 0 end
@@ -389,9 +391,9 @@ end
 local STATES = 8
 local states, state = {}, nil -- state: the one now (nil until UI sets one)
 for i = 1, STATES do
-	local h = {}
-	for j = 1, NB do h[j] = 0 end
-	states[i] = { name = false, frames = 0, max = 0, hist = h }
+	local h, c = {}, {}
+	for j = 1, NB do h[j], c[j] = 0, 0 end
+	states[i] = { name = false, frames = 0, max = 0, hist = h, client = c, clientMax = 0 }
 end
 
 -- The map's state now: the frames from here on count under it too (FrameStats byState).
@@ -424,6 +426,11 @@ local function Count(cost, kb, elapsed)
 	if st then
 		st.frames, st.hist[b] = st.frames + 1, st.hist[b] + 1
 		if cost > st.max then st.max = cost end
+		local ms = elapsed * 1000
+		local c = math.floor(ms / CLIENT_BUCKET) + 1
+		if c > NB then c = NB end
+		st.client[c] = st.client[c] + 1
+		if ms > st.clientMax then st.clientMax = ms end
 	end
 	if kb >= 0 then
 		s.kbFrames, s.kb, s.kbSecs = s.kbFrames + 1, s.kb + kb, s.kbSecs + elapsed
@@ -461,7 +468,8 @@ end
 -- alloc = the 5 names making most KB/s { name, kbPerSec, kbMax (one call), calls (measured) };
 -- gaps = each job's { job, ms (longest), n, stack (its first) }, longest first;
 -- ledger = the 5 worst frames { frame, ms, top, topMs, events = the trace around it }, worst first;
--- byState = { [state] = { frames, p50, p95, p99, max } }.
+-- byState = { [state] = { frames, p50, p95, p99, max, client = { p50, p95, p99, max } } }: client, the
+-- client's whole frame (ms between OnUpdates).
 function Runtime.FrameStats()
 	local s = stats
 	local mx = R1(s.max)
@@ -505,8 +513,11 @@ function Runtime.FrameStats()
 		local st = states[i]
 		if st.frames > 0 then
 			local m = R1(st.max)
+			local cm = R1(st.clientMax)
 			out.byState[st.name] = { frames = st.frames, p50 = Pct(0.5, st.hist, st.frames, BUCKET, m),
-				p95 = Pct(0.95, st.hist, st.frames, BUCKET, m), p99 = Pct(0.99, st.hist, st.frames, BUCKET, m), max = m }
+				p95 = Pct(0.95, st.hist, st.frames, BUCKET, m), p99 = Pct(0.99, st.hist, st.frames, BUCKET, m), max = m,
+				client = { p50 = Pct(0.5, st.client, st.frames, CLIENT_BUCKET, cm), p95 = Pct(0.95, st.client, st.frames, CLIENT_BUCKET, cm),
+					p99 = Pct(0.99, st.client, st.frames, CLIENT_BUCKET, cm), max = cm } }
 		end
 	end
 	return out

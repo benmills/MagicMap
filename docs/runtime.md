@@ -59,7 +59,7 @@ All of it is kept in tables made at load: a measured frame allocates nothing mor
 | `alloc` | the 5 names making most KB/s: `{ name, kbPerSec, kbMax, calls }` (`kbMax`: most in one call; `calls`: measured) | `collectgarbage("count")` before and after each wrapped call and each job resume; a call in which the heap shrank (the collector ran) is left out, so it's a lower bound. Inclusive: a wrapped call inside another counts in both. Calls with budget `false` (Runtime's own frame and event dispatch, loaders) aren't counted. The `spike` trace names the frame's top allocator too (`alloc`, `allocKb`). |
 | `gaps` | per job name `{ job, ms, n, stack }`: its longest stretch without a `Yield` over its budget, how many, and the stack of its first | each `Yield` times the stretch since the last (or since the resume); a resume also checks the stretch from its last `Yield` to its end (`stack` = "(ran to the job's end)"). A `gap` trace `{ job, ms, n }` at a name's 1st, 10th, every 100th. One `debugstack` per name. |
 | `ledger` | the 5 worst frames `{ frame, ms, top, topMs, events }`, worst first | `events`: the 10 trace events up to the frame's end (its own, the `spike` last) and the 10 traced after it |
-| `byState` | `{ [state] = { frames, p50, p95, p99, max } }` | the frame cost again, in one histogram per map state; UI calls `Runtime.SetState(state)`: `closed` (hidden), `small`, `big`, `zoom` (the wheel's zoom not laid out yet), `drag` |
+| `byState` | `{ [state] = { frames, p50, p95, p99, max, client = { p50, p95, p99, max } } }` | the frame cost again, in one histogram per map state; UI calls `Runtime.SetState(state)`: `closed` (hidden), `small`, `big`, `zoom` (the wheel's zoom not laid out yet), `drag`. `client`: the client's whole frame in that state (OnUpdate's `elapsed`, 0.5 ms buckets), so a cost the client defers to its drawing (no budget sees it: our cost is Lua's) shows as zoom or drag frames slower than small ones |
 
 `Runtime.Perf()`'s entries carry the per-name totals behind these: `kb`, `kbN`, `kbMax`,
 `gaps`, `gapMax`, `gapStack`. `tools/tests/test_addon.py::test_attribution` drives each.
@@ -86,11 +86,16 @@ the idle return make no frame over 8 ms (19-31 a grow before); a 20-step wheel-o
 zoom 60).
 
 What the bench must still confirm (`/mma bench regions`, the final session): that re-anchoring a shown
-canvas's regions at alpha 0 costs what a SetPoint costs, not the 20-50 µs a Show paid. It now times
-Show after the regions moved (at alpha 1 and at alpha 0), SetAlpha(1) after they moved while shown at
-alpha 0, and masked textures shown after moving; the session's frame times show what Lua can't (a
-cost the client defers to its draw). If the alpha swap turns out to pay as Show did, the plan's
-other pick is extending the front canvas in place.
+canvas's regions at alpha 0 costs what a SetPoint costs, not the 20-50 µs a Show paid. It times Show
+after the regions moved (at alpha 1 and at alpha 0), SetAlpha(1) after they moved while shown at alpha
+0, and masked textures shown after moving; and, since a call's time can't show a cost the client defers
+to its drawing, the whole frame after 1000 lines moved on a shown alpha-0 canvas (`frame.moved.alpha0`)
+against the same move hidden (`frame.moved.hidden`) and an idle frame (`frame.idle`). The session's
+`byState[state].client` (the client's whole frame by map state) shows the same in play: zoom and drag
+frames should be within a few ms of small ones. Each layer holds about twice its live regions (its old
+front stays populated at alpha 0 until it's laid out again: big window at zoom 60, 6211 for 2962 live).
+If moved alpha-0 regions turn out to cost, park the old front's leftovers after each swap (and its
+crossfade) in a job (0.22 µs a park, 0.70 an unpark), or extend the front canvas in place.
 
 ## Guarantees
 

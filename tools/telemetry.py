@@ -555,10 +555,12 @@ def show_perf(s, args) -> list[str]:
             out += [f"      {event(ev)}" for ev in e.get("events") or []]
     states = p.get("byState") or {}
     if states:
-        out.append("by map state (frame ms; bar: p95 against its 1 ms budget '|'):")
-        out.append(f"  {'state':<8} {'frames':>7} {'p50':>6} {'p95':>6} {'p99':>6} {'max':>6}")
+        out.append("by map state (frame ms, ours; the client's whole frame beside it; bar: our p95 against its 1 ms budget '|'):")
+        out.append(f"  {'state':<8} {'frames':>7} {'p50':>6} {'p95':>6} {'p99':>6} {'max':>6}   client {'p50':>6} {'p95':>6} {'p99':>6} {'max':>6}")
         for st, x in sorted(states.items(), key=lambda kv: -(kv[1].get("frames") or 0)):
+            c = x.get("client") or {}
             out.append(f"  {st:<8} {x.get('frames', 0):>7} " + " ".join(f"{num(x.get(q)):>6}" for q in ("p50", "p95", "p99", "max"))
+                       + "          " + " ".join(f"{num(c[q]) if c.get(q) is not None else '-':>6}" for q in ("p50", "p95", "p99", "max"))
                        + f"  {bar(x.get('p95'), 1.0)}")
     else:
         out.append("by map state: none (no perf.byState)")
@@ -621,6 +623,9 @@ def compare(a, b) -> None:
     for st in sorted(set(pa.get("byState") or {}) | set(pb.get("byState") or {})):
         for q in ("p95", "p99", "max"):
             rows.append((f"state {st} {q} (ms)", *(((p.get("byState") or {}).get(st) or {}).get(q) for p in (pa, pb))))
+        for q in ("p95", "max"):
+            rows.append((f"state {st} client {q} (ms)",
+                         *((((p.get("byState") or {}).get(st) or {}).get("client") or {}).get(q) for p in (pa, pb))))
     names = list(dict.fromkeys(x.get("name") for p in (pa, pb) for x in alloc(p)))
     for n in names:
         rows.append((f"alloc {n} (KB/s)", *(next((x.get("kbPerSec") for x in alloc(p) if x.get("name") == n), None)

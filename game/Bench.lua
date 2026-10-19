@@ -11,7 +11,10 @@
 -- after 100 masked textures moved (a tile's art and its coast fade). Each call is timed alone in
 -- a Job, its frames graced ("bench"), and a canvas-wide call (setup, timed, or between ops) gets
 -- a frame to itself, so the run's frames cost no more than one such call; every region is clear,
--- so nothing shows.
+-- so nothing shows. And what no call's time can show, a cost the client defers to its drawing: the
+-- whole frame after the 1000 lines moved on a shown canvas at alpha 0 (the engine's back canvas),
+-- against the same move on a hidden canvas and an idle frame (frame.*: µs a frame, debugprofilestop
+-- across the yield).
 -- Bench.result = { build, t, ops = { [op] = { n, ms, us } } } (Telemetry keeps it per build).
 
 local _, ns = ...
@@ -55,6 +58,22 @@ local function Time(op, n, fn, setup)
 		Yield()
 	end
 	result.ops[op] = { n = n, ms = R(ms, 1000), us = R(ms * 1000 / n, 100) } -- /: never 0 (n: N or REPS)
+	order[#order + 1] = op
+end
+
+-- op: the whole frame after setup() (untimed): from just before the job gives the frame back to
+-- its next resume, the client's drawing included.
+local function Frame(op, setup)
+	local ms = 0
+	for _ = 1, REPS do
+		Runtime.Grace("bench", 0.1)
+		setup()
+		local t = now()
+		coroutine.yield()
+		ms = ms + now() - t
+		Yield()
+	end
+	result.ops[op] = { n = REPS, ms = R(ms, 1000), us = R(ms * 1000 / REPS, 100) } -- /: never 0 (REPS: a literal)
 	order[#order + 1] = op
 end
 
@@ -150,7 +169,12 @@ local function Run()
 		function() c:Hide(); c:SetAlpha(0); Moved(live) end)
 	Time("canvas.SetAlpha.moved@1000live", REPS, function() c:SetAlpha(1) end,
 		function() c:SetAlpha(0); Moved(live); coroutine.yield() end)
+	c:SetAlpha(0)
+	Frame("frame.idle", function() end)
+	Frame("frame.moved.alpha0", function() Moved(live) end)
 	c:Hide()
+	Yield()
+	Frame("frame.moved.hidden", function() Moved(live) end)
 	local m = Canvas(masked)
 	Time("canvas.Show.moved@100masked", REPS, function() m:Show() end, function() m:Hide(); Moved(masked) end)
 	m:Hide()
