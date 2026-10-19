@@ -4,24 +4,27 @@ test_addon.boot; harness: the replays' T, test_spike_bugs.py).
 
     import sim                                 # (tools/ on sys.path)
     s = sim.boot(priced=True)                  # + Sim.Price: what the client charges (docs/evidence/perf-m0.md)
-    s.slash("/mma toggle"); s.run(3)           # the map open, past its first-open grace
+    s.blips([("Mailbox", 40, 20)])             # the minimap's blips, yards east and north of where you log in
+    s.slash("/mma toggle"); s.run(6)           # the map open, past login's 5 s grace: a grace's frames aren't in byState
     s.wheel(3); s.drag(200, 0, 20); s.walk(10, "east"); s.press("M")
     s.perf(); s.errors(); s.layers()           # FrameStats (+ names: Runtime.Perf), errors, live regions per layer
-    s.lua("local sim, ns = ... return ns.UI.Camera.cam.zoom")
+    s.lua("return ns.UI.Camera.cam.zoom")      # sim and ns are locals
     s.L, s.sim, s.ns, s.T                      # the Lua, wowsim's Sim, the addon's ns, the harness (T.Fresh, T.Ours, ...)
 
-    .venv/bin/python tools/sim.py --priced --run 'slash /mma toggle; run 3; wheel 3; run 2; perf; layers'
+    .venv/bin/python tools/sim.py --priced --run 'blip Mailbox 40 20; slash /mma toggle; run 6; wheel 3; run 2; perf; layers'
 
-Script commands, ';' or newline apart (Lua needs no ';'):
+Script commands, ';' or newline apart:
     run SECONDS | step [N] | slash LINE | press KEY | wheel N [FRAME] | drag DX DY [FRAMES]
-    walk SECONDS [north|east|south|west|RADIANS] [YD/S, default 7] | lua CODE (gets sim, ns as ...)
-    perf | errors | layers
+    walk SECONDS [north|east|south|west|RADIANS] [YD/S, default 7] | blip NAME EAST NORTH (yards; adds one,
+    `blip` alone clears) | perf | errors | layers
+    lua CODE: the rest of the script, as is (lines, ';'), with sim and ns as locals: what it returns
 Exits 1 if the sim or Runtime caught an error (listed last).
 """
 import argparse
 import json
 import math
 import os
+import re
 import sys
 
 from lupa import lua51
@@ -34,6 +37,8 @@ TESTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests")
 # on the minimap's spot (test_chrome.py).
 TEST_UI = "MagicMapAtlasDB = { UI = { _v = 1, shown = false, zoom = 96, window = { left = 600, top = 800, w = 720, h = 520 } } }"
 FACING = {"north": 0, "east": math.pi / 2, "south": math.pi, "west": 3 * math.pi / 2}  # the sim's
+START = (31.95, 49.75)  # Sim.player's tile at login (col, row): Goldshire
+YD = 3 / 1600  # a yard in tiles
 
 
 def files():
@@ -75,6 +80,19 @@ def harness(L, skip=None):
         os.path.join(TESTS, "harness.lua"), TESTS, L.table_from(files()), print, skip, TEST_UI)
 
 
+def put_blips(L, sim, ns, blips):
+    """Sim.minimapBlips (yards) from (name, yards east, yards north) of START."""
+    L.eval("""function(Sim, Atlas, list, c, r, yd)
+        local out = {}
+        for i = 1, #list do
+            local b = list[i]
+            local north, west = Atlas.TileToWorld(c + b[2] * yd, r - b[3] * yd)
+            out[i] = { b[1], north, west }
+        end
+        Sim.minimapBlips = out
+    end""")(sim, ns.Atlas, L.table_from([L.table_from(b) for b in blips]), START[0], START[1], YD)
+
+
 def py(v, depth=8):
     """A Lua value as Python's: a table a list (keys 1..n) or a dict, `depth` deep."""
     if lua51.lua_type(v) != "table":
@@ -90,6 +108,7 @@ class Client:
 
     def __init__(self, saved=None, priced=False):
         self.L, self.sim, self.ns = load(saved)
+        self.placed = []
         self.T = harness(self.L)
         self.sim.Price(priced)
 
@@ -136,9 +155,15 @@ class Client:
         self.sim.Run(seconds)
         p.speed = 0
 
+    def blips(self, blips):
+        """The minimap's blips: (name, yards east, yards north) of where you log in (START). Placed
+        while you stand with the map open, the sensor's slow pass finds them in up to ~40 s."""
+        self.placed = list(blips)
+        put_blips(self.L, self.sim, self.ns, self.placed)
+
     def lua(self, code, *args):
-        """A Lua chunk run with (sim, ns, *args) as `...`: what it returns."""
-        return self.L.execute(code, self.sim, self.ns, *args)
+        """A Lua chunk with sim and ns as locals, and (sim, ns, *args) as `...`: what it returns."""
+        return self.L.execute("local sim, ns = ... " + code, self.sim, self.ns, *args)
 
     def perf(self):
         """Runtime.FrameStats() (p95, byState, alloc, ledger, ...: runtime/Runtime.lua) as a dict;
@@ -177,7 +202,7 @@ def digest(p):
 
 def command(s, line):
     """One script command: what it prints, if anything."""
-    name, _, rest = line.partition(" ")
+    name, rest = (line.split(None, 1) + [""])[:2]
     a = rest.split()
     if name == "run":
         s.run(float(a[0]))
@@ -194,6 +219,8 @@ def command(s, line):
     elif name == "walk":
         facing = a[1] if len(a) > 1 else "north"
         s.walk(float(a[0]), facing if facing in FACING else float(facing), float(a[2]) if len(a) > 2 else 7)
+    elif name == "blip":
+        s.blips(s.placed + [(" ".join(a[:-2]), float(a[-2]), float(a[-1]))] if a else [])
     elif name == "lua":
         got = s.lua(rest)
         return json.dumps(py(got) if not isinstance(got, tuple) else [py(v) for v in got], default=str)
@@ -207,6 +234,13 @@ def command(s, line):
         raise SystemExit(f"unknown command: {line}")
 
 
+def commands(script):
+    """A script's commands: ';' or newline apart, up to a `lua`, which takes the rest."""
+    m = re.search(r"(?:^|[;\n])\s*(?=lua\s)", script)
+    head, chunk = (script[:m.start()], script[m.end():].strip()) if m else (script, "")
+    return [c.strip() for c in re.split(r"[;\n]", head)] + ([chunk] if chunk else [])
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--priced", action="store_true", help="Sim.Price on from login")
@@ -214,7 +248,7 @@ def main(argv=None):
     ap.add_argument("--run", action="append", default=[], help="a script (above); several run in turn")
     args = ap.parse_args(argv)
     s = boot(args.saved, args.priced)
-    for line in (c.strip() for script in args.run for c in script.replace("\n", ";").split(";")):
+    for line in (c for script in args.run for c in commands(script)):
         out = command(s, line) if line else None
         if out:
             print(f"> {line}\n{out}")
