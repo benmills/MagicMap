@@ -91,8 +91,9 @@ def test_zoom_chase():
 
 def test_wheel_burst():
     """M1.8b: a trackpad or Magic Mouse flick sends an event every frame (the M0 gate's `wheel` mark: 40 or
-    more in 0.45 s), each a tick in the spike, so one flick ran to the clamp. It counts by its time: at most
-    ~3 ticks' worth, a smooth chase that lands. A lone notch, and notches apart, stay the spike's tick."""
+    more in 0.45 s), each a tick in the spike, so one flick ran to the clamp. It counts by its time, 2 ticks
+    a second after the first, and a gesture (a flick and its inertia) 3 at most: a smooth chase that lands.
+    A lone notch, and notches apart, stay the spike's tick (the user: 4 a second, uncapped, too sensitive)."""
     L, sim, ns = shown()
     c, w, m = ns.UI.Camera, ns.UI.Window, ns.UI.Motion
     tick = math.log(1.3)
@@ -106,7 +107,7 @@ def test_wheel_burst():
     sim.Run(1)
     assert c.cam.zoom == start * 1.3
 
-    # The flick: 40 events in 0.45 s, one a frame. ~2.8 ticks, not 40 (the clamp); each frame's move a
+    # The flick: 40 events in 0.45 s, one a frame. ~1.9 ticks, not 40 (the clamp); each frame's move a
     # share of the chase's, never a tick; then the chase lands where it was headed and settles.
     start, zooms = c.cam.zoom, []
     for _ in range(40):
@@ -119,24 +120,26 @@ def test_wheel_burst():
         zooms.append(c.cam.zoom)
     moves = [ticks(a, b) for a, b in zip([start] + zooms, zooms)]
     print(f"flick: {ticks(start, goal):.2f} ticks, the most a frame {max(moves):.3f}")
-    assert 2.5 < ticks(start, goal) <= 3 and c.cam.zoom == goal
+    assert 1.8 < ticks(start, goal) <= 2 and c.cam.zoom == goal
     assert min(moves) >= 0 and max(moves) < 0.25, moves
     sim.Run(0.3)
     assert c.Settled() and c.Velocity() == (0, 0)
 
-    # Scrolling on (an event a frame for 1 s, from rest): 4 ticks a second after the first.
-    start = c.cam.zoom
-    for _ in range(60):
-        sim.Wheel(w.view, -1)
-        sim.Step()
-    sim.Run(1)
-    assert ticks(c.cam.zoom, start) == pytest.approx(1 + 4 * 59 / 60)
+    # Scrolling on (an event a frame, from rest): 2 ticks a second after the first, to 3 in all; a pause
+    # of 0.15 s and it's a gesture anew.
+    for seconds, most in ((0.5, 1 + 2 * 29 / 60), (2, 3)):
+        start = c.cam.zoom
+        for _ in range(int(seconds * 60)):
+            sim.Wheel(w.view, -1)
+            sim.Step()
+        sim.Run(1)
+        assert ticks(c.cam.zoom, start) == pytest.approx(most)
 
-    # A wheel mouse's notches 0.3 s apart: each the spike's whole tick, stacked.
+    # A wheel mouse's notches 0.5 s apart: each the spike's whole tick, stacked.
     start = c.cam.zoom
     for _ in range(4):
         sim.Wheel(w.view, 1)
-        sim.Run(0.3)
+        sim.Run(0.5)
     sim.Run(1)
     assert ticks(start, c.cam.zoom) == pytest.approx(4)
 

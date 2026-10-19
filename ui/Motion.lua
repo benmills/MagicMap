@@ -20,14 +20,17 @@ local Maths = Atlas.Camera
 local MIN_ZOOM, MAX_ZOOM = 16, 800 -- px per tile (Core.lua:13)
 local WHEEL_STEP = 1.3 -- a tick (Core.lua:14)
 -- The wheel, rationed: a trackpad or Magic Mouse flick sends an event every frame for half a second
--- and more (the M0 gate's `wheel` mark: 40 or more in 0.45 s), each a tick in the spike, so one flick
--- ran to the clamp. A burst counts by its time, not its events: the wheel spends its ticks (|delta|
--- an event) from a bucket holding WHEEL_BURST that refills WHEEL_RATE a second. A lone notch, and
--- notches 1/WHEEL_RATE s apart, stay the spike's tick; a 0.45 s flick is ~2.8 ticks; scrolling on,
--- the zoom runs WHEEL_RATE ticks a second (16..800 is ~15). The buttons aren't rationed. The user's
--- call over the spike's code (D4): tune here, on a trackpad and on a wheel mouse.
+-- and more, its inertia a second or two after (the `wheel` marks: 40 or more in 0.45 s; sessions #8,
+-- #9: 7 in 9 frames), each a tick in the spike, so one flick ran to the clamp. A burst counts by its
+-- time, not its events: the wheel spends its ticks (|delta| an event) from a bucket holding
+-- WHEEL_BURST that refills WHEEL_RATE a second, and a gesture (events under GESTURE_GAP s apart: a
+-- flick and its inertia) takes WHEEL_GESTURE ticks at most. A lone notch, and notches 1/WHEEL_RATE s
+-- apart, stay the spike's tick; a 0.45 s flick is ~1.9 ticks, a long one 3 (x2.2). The buttons aren't
+-- rationed. The user's call over the spike's code (D4: "too sensitive" at 4 a second, uncapped):
+-- /mma wheel tries other values in game, on a trackpad and on a wheel mouse.
 local WHEEL_BURST = 1 -- ticks the wheel may take at once
-local WHEEL_RATE = 4 -- ticks a second it gets back: a burst's speed
+local WHEEL_RATE = 2 -- ticks a second it gets back: a burst's speed
+local WHEEL_GESTURE, GESTURE_GAP = 3, 0.15 -- ticks a gesture takes at most; s between its events
 local FLY_TIME = 0.55 -- s (Core.lua:15)
 local ZOOM_RATE = 14 -- per second: how quickly wheel zoom closes on its target (Core.lua:16)
 local ZOOM_STOP = 0.002 -- log distance the chase lands from (Core.lua:969)
@@ -45,7 +48,7 @@ local goal, anchor -- the wheel's target zoom, and { col, row, dx, dy }: the til
 local flight -- { t, dur, fx, fy, fz, tx, ty, tz, onDone }
 local press -- the left button down: { x, y (the press), lx, ly (the last pan), t, moved }
 local touched = 0 -- the last press or zoom step (GetTime): the idle return's clock
-local wheelLeft, wheelAt = WHEEL_BURST, 0 -- the wheel's bucket (ticks), and when it last filled (GetTime)
+local wheelLeft, wheelAt, gesture = WHEEL_BURST, 0, 0 -- the wheel's bucket (ticks), when it last filled (GetTime), the gesture's ticks
 
 Camera.moving, Camera.zoomedAt, Camera.vx, Camera.vy = false, 0, 0, 0
 local px, py, pinst -- the centre and map at the last draw; nil: none since the window showed
@@ -78,16 +81,26 @@ function Motion.ZoomStep(ticks, atCursor)
 	Camera.Trace("wheel")
 end
 
--- The wheel (ui/Window.lua): as many ticks as the bucket holds, up to |delta|. Events in one frame
--- share its time (GetTime), so a frame's events share one refill.
+-- The wheel (ui/Window.lua): as many ticks as the bucket holds, up to |delta| and what the gesture
+-- has left. Events in one frame share its time (GetTime), so a frame's events share one refill.
 function Motion.Wheel(delta)
 	local now = GetTime()
+	if now - wheelAt >= GESTURE_GAP then gesture = 0 end
 	wheelLeft = math.min(WHEEL_BURST, wheelLeft + (now - wheelAt) * WHEEL_RATE)
 	wheelAt = now
-	local n = math.min(math.abs(delta), wheelLeft)
-	wheelLeft = wheelLeft - n
+	local n = math.max(0, math.min(math.abs(delta), wheelLeft, WHEEL_GESTURE - gesture))
+	wheelLeft, gesture = wheelLeft - n, gesture + n
 	Motion.ZoomStep(delta > 0 and n or -n, true)
 end
+
+-- /mma wheel <rate> <gesture>: try the wheel's rationing in game (this session only).
+ns.Game.Command({ kind = "slash", name = "wheel", help = "<ticks a second> <ticks a gesture>: the wheel's zoom speed, this session",
+	fn = function(args)
+		local rate, most = (args or ""):match("^(%S+)%s*(%S*)")
+		WHEEL_RATE, WHEEL_GESTURE = tonumber(rate) or WHEEL_RATE, tonumber(most) or WHEEL_GESTURE
+		print(string.format("MagicMapAtlas wheel: %.2f ticks a second, %.2f a gesture (a tick x%.1f)", WHEEL_RATE,
+			WHEEL_GESTURE, WHEEL_STEP))
+	end })
 
 -- Fly to (cx, cy) at zoom over duration s (default FLY_TIME); onDone() when there.
 function Motion.FlyTo(cx, cy, zoom, duration, onDone)
