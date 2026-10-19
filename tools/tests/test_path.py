@@ -14,7 +14,8 @@ waypoint pins and the title's target), Model.Target and Model.Route stubbed as t
   test_corpse_forces_follow: your corpse becoming the target glides the view back to you; another target
     doesn't, nor the one you had when the map first looked (F7, F42).
   test_title_target: the subtitle's "<title> N yd" and "<title> here", big or small and hovered (S12).
-  test_corpse_waypoint_pins: Known("corpse") and Known("waypoint") as pins (S49), their tooltips, their gear rows.
+  test_corpse_waypoint_pins: Known("corpse") and Known("waypoint") as pins (S49), from Game's parts through Model,
+    their tooltips, their gear rows.
   test_path_walk_alloc: walking with a route, the line laid out again as you go: the whole ≤ 50 KB/s (the
     M3.3 Verify), the path's own only its lines made as dashes first come into view.
   test_path_priced: a long winding route at the client's prices, zooming in and out (the line laid out each
@@ -30,7 +31,7 @@ SETUP = """
 local Sim, ns = ...
 local UI, S = ns.UI, Sim.state
 Tgt, Way = false, nil
-ns.Model.Target = function() return Tgt end
+ns.Model.Target = function() if ns.Model.focus then return Tgt end end -- (nil: no Focus yet, as typed)
 ns.Model.Route = function() return Way end
 Sim.player.facing = -math.pi / 2 -- east (the client's facing: counter-clockwise from north)
 -- A target of kind at tile (col, row) on your map.
@@ -307,12 +308,11 @@ def test_title_target():
 def test_corpse_waypoint_pins():
     L, sim, ns, G = client(shown=False)
     sim.atlases["deathrecap-icon-tombstone"] = sim.atlases["Waypoint-MapPin-Tracked"] = True
-    L.execute("""local ns, col, row = ...
-        local t = { corpse = { { key = "corpse", kind = "corpse", name = "Corpse", live = true, pos = { inst = 0, col = col, row = row } } },
-            waypoint = { { key = "waypoint", kind = "waypoint", name = "Waypoint", live = true,
-                pos = { inst = 0, col = col + 0.3, row = row } } } }
-        ns.Model.Kind("corpse", function() return t.corpse, 1 end)
-        ns.Model.Kind("waypoint", function() return t.waypoint, 1 end)""", ns, 31.95, 49.75)
+    # Your corpse where the client has it (read on PLAYER_DEAD), a waypoint set: Game's parts, then Model's kinds.
+    L.execute("""local ns, sim, col, row = ...
+        sim.corpse = { [1415] = CreateVector2D(ns.Atlas.TileToMap(1415, col, row)) }
+        ns.Game.Command({ kind = "waypoint", pos = { inst = 0, col = col + 0.3, row = row } })""", ns, sim, 31.95, 49.75)
+    sim.FireEvent("PLAYER_DEAD")
     sim.Slash("/mma toggle")
     sim.Run(1.5)
     S, UI = sim.state, ns.UI

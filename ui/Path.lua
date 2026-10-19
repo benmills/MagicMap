@@ -349,13 +349,15 @@ end, { shownOnly = Window.frame })
 ---------------------------------------------------------------------------
 
 -- Which target you have, looked at every CHECK s: one changing to your corpse (you've released) follows
--- you again, gliding back; what you had at the first look keeps your saved choice.
+-- you again, gliding back; what you had at the first look keeps your saved choice (the first once
+-- Model knows it: nil before its first Focus).
 local looked, key, since = false, nil, CHECK
 Runtime.Step("ui", "map: target", function(elapsed)
 	since = since + elapsed
 	if since < CHECK then return end
 	since = 0
 	local t = Model.Target()
+	if t == nil then return end
 	local k = t and t.key or nil
 	if looked and k == key then return end
 	local first = not looked
