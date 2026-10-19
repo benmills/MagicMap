@@ -11,6 +11,7 @@
 -- A quest the same as before (by value) keeps its entry, so a layer diffing entries relays only
 -- what changed. Each new log asks HasArea again for every such quest (the spike's refresh checks
 -- them all), each frame till it answers (nil: can't tell yet); the last answer stands till then.
+-- The list carries the log's poi (the game's areas' version): a new one, a new list of the same entries.
 
 local _, ns = ...
 local Atlas, Model = ns.Atlas, ns.Model
@@ -47,7 +48,7 @@ local function Same(a, b)
 	local p, x = a.pin, b.pin
 	if a.title ~= b.title or a.level ~= b.level or a.trivial ~= b.trivial or a.complete ~= b.complete
 		or a.followed ~= b.followed or a.areaMap ~= b.areaMap or p.inst ~= x.inst or p.col ~= x.col or p.row ~= x.row
-		or a.tag ~= b.tag or a.group ~= b.group or a.poi ~= b.poi or #a.objectives ~= #b.objectives then return false end
+		or a.tag ~= b.tag or a.group ~= b.group or #a.objectives ~= #b.objectives then return false end
 	for i, o in ipairs(a.objectives) do
 		local y = b.objectives[i]
 		if o.type ~= y.type or o.text ~= y.text or o.have ~= y.have or o.need ~= y.need or o.finished ~= y.finished
@@ -184,7 +185,7 @@ end
 local function Entry(q, estimate)
 	local e = { key = "quest:" .. q.id, kind = "quests", pos = q.pin, name = q.title, live = true, quest = q.id,
 		level = q.level, color = q.level and Difficulty(q.level, q.trivial), complete = q.complete, followed = q.followed,
-		areaMap = q.areaMap, estimate = estimate, turnIn = TurnIn(q.id), tag = q.tag, group = q.group, poi = q.poi }
+		areaMap = q.areaMap, estimate = estimate, turnIn = TurnIn(q.id), tag = q.tag, group = q.group }
 	if q.complete then
 		e.icon = TURN_IN
 	else
@@ -226,7 +227,7 @@ local function Answer(HasArea)
 end
 
 local function Build()
-	local centers, out = {}, {}
+	local centers, out = {}, { poi = log.poi }
 	for _, x in ipairs(log) do
 		local s = quests[x.id]
 		if s then
@@ -250,7 +251,7 @@ local function Build()
 			out[#out + 1] = s.e
 		end
 	end
-	local same = #out == #list
+	local same = #out == #list and out.poi == list.poi
 	for i = 1, same and #out or 0 do
 		if out[i] ~= list[i] then
 			same = false

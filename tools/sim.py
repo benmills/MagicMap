@@ -100,13 +100,15 @@ def put_blips(L, sim, ns, blips):
 
 
 def py(v, depth=8):
-    """A Lua value as Python's: a table a list (keys 1..n) or a dict, `depth` deep."""
+    """A Lua value as Python's: a table a list (keys 1..n; a list's own fields, as obs.quests' poi, read from
+    Lua) or a dict, `depth` deep."""
     if lua51.lua_type(v) != "table":
         return v
     if depth == 0:
         return "<table>"
     d = {k: py(x, depth - 1) for k, x in v.items()}
-    return [d[i] for i in range(1, len(d) + 1)] if d and all(i in d for i in range(1, len(d) + 1)) else d
+    n = sum(1 for k in d if isinstance(k, int))
+    return [d[i] for i in range(1, n + 1)] if n and all(i in d for i in range(1, n + 1)) else d
 
 
 class Client:

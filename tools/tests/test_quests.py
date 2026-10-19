@@ -95,6 +95,12 @@ def client(quests, data=True, followed=0, saved=None, before=None):
     return L, sim, ns, G
 
 
+def known(ns, kind):
+    """Known(kind)'s entries (the list's own fields, as the quests' poi, left out)."""
+    t = ns.Model.Known(kind)[0]
+    return [t[i] for i in range(1, len(t) + 1)]
+
+
 def pin(ns, G, layer, quest):
     return G.PinOf(getattr(ns.UI, layer), f"quest:{quest}")
 
@@ -134,7 +140,7 @@ def test_quest_follow():
     sim.FireScript(view, "OnEnter", False)
 
     def followed():
-        return {e.quest for e in Model.Known("quests")[0].values() if e.followed}
+        return {e.quest for e in known(ns, "quests") if e.followed}
 
     def click(col, row):
         G.Over(col, row)
@@ -181,12 +187,12 @@ def test_quest_pins_each_frame():
         sim.FireEvent("SUPER_TRACKING_CHANGED")
         sim.Run(0.5)
     # The sim's offer 70 taken into the log: a quest's pin, not an offer's; then the log abandoned.
-    assert 70 in {e.quest for e in Known("offers")[0].values()}
+    assert 70 in {e.quest for e in known(ns, "offers")}
     sim.quests[70] = L.table_from({"title": "Wolves Across the Border", "level": 6, "map": 1429, "x": 0.36, "y": 0.55,
                                    "complete": False, "objectives": L.table()})
     sim.FireEvent("QUEST_LOG_UPDATE")
     sim.Run(1)
-    assert 70 in {e.quest for e in Known("quests")[0].values()} and 70 not in {e.quest for e in Known("offers")[0].values()}
+    assert 70 in {e.quest for e in known(ns, "quests")} and 70 not in {e.quest for e in known(ns, "offers")}
     sim.Press("M")
     sim.Run(1)
     sim.Wheel(view, -1)
@@ -194,7 +200,7 @@ def test_quest_pins_each_frame():
     sim.quests = L.table()
     sim.FireEvent("QUEST_LOG_UPDATE")
     sim.Run(1)
-    assert not list(Known("quests")[0].values()) and 70 in {e.quest for e in Known("offers")[0].values()}
+    assert not known(ns, "quests") and 70 in {e.quest for e in known(ns, "offers")}
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

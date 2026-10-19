@@ -1,6 +1,7 @@
 -- Quests to pick up (obs.offers: the maps Game asked about) as Known("offers"): one a quest,
 -- none in your log (obs.quests: in progress), as the world map's QuestOfferDataProvider
--- (Layers.lua:640-663). An offer the same as before keeps its entry.
+-- (Layers.lua:640-663). An offer the same as before keeps its entry; a log with the same quests (a count
+-- ticking) changes nothing.
 
 local _, ns = ...
 local Model = ns.Model
@@ -10,14 +11,27 @@ local ICON = { atlas = "QuestNormal", color = { 1, 0.82, 0 } } -- Layers.lua:658
 local TEXT = "Quest to pick up" -- Layers.lua:652
 
 local offers, log -- the obs parts the list is from
+local mine, n = {}, 0 -- [quest] = true for those in the log, and how many
 local entries = {} -- [quest] = its entry, while offered
 local list, rev = NONE, 0
+
+-- Whether log q holds the quests mine does.
+local function Same(q)
+	if #q ~= n then return false end
+	for _, x in ipairs(q) do
+		if not mine[x.id] then return false end
+	end
+	return true
+end
 
 Model.Part(function(obs)
 	local o, q = obs.offers or offers, obs.quests or log
 	if o == offers and q == log then return end
+	local again = o == offers and Same(q or NONE)
 	offers, log = o, q
-	local mine, was, out = {}, entries, {}
+	if again then return end
+	local was, out = entries, {}
+	mine, n = {}, #(q or NONE)
 	for _, x in ipairs(q or NONE) do mine[x.id] = true end
 	entries = {}
 	for _, x in ipairs(o or NONE) do

@@ -8,8 +8,8 @@
 -- headed once the wheel stops (Engine's "hold": after names and pins); a frame is drawn as it's laid out
 -- (on a canvas at its own scale and zoom, else the frame it's shown at the camera's zoom), again the next
 -- frame, and the layer shows again once they all are (Layers.lua:2032-2043). A frame whose quests (by
--- id, and the game's areas' version: poi), style and size are as they were isn't drawn again: its
--- drawing moves with it (a pan, Layers.lua:142-156), and a count ticking changes no area. Each
+-- id), style and size are as they were, and the game's areas too (Known("quests")' poi), isn't drawn
+-- again: its drawing moves with it (a pan, Layers.lua:142-156), and a count ticking changes no area. Each
 -- stands on the point of its rect nearest the canvas's origin (a zone at zoom 800 is up to 9,600 px).
 -- Unfinished kill, collect and interact quests with no area (Model's estimate) get a faint disc with a
 -- dashed edge, one for quests within 0.6 r (Layers.lua:945-986: S54), out of sight with the rest.
@@ -115,15 +115,16 @@ local function Draw(f)
 	f.drawn, draws = f.drawn + 1, draws + 1
 end
 
--- f for group g (a map and style, its entries g[1..n]): drawn now if draw, and it changed or isn't yet.
-local function SetBlob(c, f, g, zoom, base, draw)
+-- f for group g (a map and style, its entries g[1..n]) as the game's areas are at poi: drawn now if
+-- draw, and it changed or isn't yet.
+local function SetBlob(c, f, g, zoom, base, draw, poi)
 	local dirty = Look(f, g.st, base + g.st.level)
 	if Place(c, f, g.rect, zoom) then dirty = true end
-	if f.map ~= g.map or f.n ~= g.n then dirty = true end
-	f.map = g.map
+	if f.map ~= g.map or f.n ~= g.n or f.poi ~= poi then dirty = true end
+	f.map, f.poi = g.map, poi
 	for i = 1, math.max(f.n, g.n) do
 		local a, b = f.q[i], g[i]
-		if not (a and b and a.quest == b.quest and a.poi == b.poi) then dirty = true end
+		if not (a and b and a.quest == b.quest) then dirty = true end
 		f.q[i] = b
 	end
 	f.n = g.n
@@ -220,8 +221,8 @@ local layer = Engine.Layer("questAreas", LEVEL, function(c, inst, zoom, c0, r0, 
 	end
 	nkeys, nspots, nmissed = 0, 0, 0
 	if not On("quests") then return true end
-	local approx, any = On("questAreasApprox"), false
-	for _, e in ipairs(Model.Known("quests")) do
+	local approx, any, list = On("questAreasApprox"), false, Model.Known("quests")
+	for _, e in ipairs(list) do
 		local r = e.areaMap and Atlas.MapRect(e.areaMap)
 		if r and r.inst == inst then
 			any = true
@@ -239,7 +240,7 @@ local layer = Engine.Layer("questAreas", LEVEL, function(c, inst, zoom, c0, r0, 
 	for i = 1, nkeys do
 		local f = Keep(c, "blob", keys[i])
 		if f then
-			SetBlob(c, f, groups[keys[i]], zoom, base, draw)
+			SetBlob(c, f, groups[keys[i]], zoom, base, draw, list.poi)
 		else
 			nmissed = nmissed + 1
 			missed[nmissed] = keys[i]
@@ -247,7 +248,7 @@ local layer = Engine.Layer("questAreas", LEVEL, function(c, inst, zoom, c0, r0, 
 		Yield()
 	end
 	for i = 1, nmissed do
-		SetBlob(c, Get(c, "blob", "tex", MakeBlob, missed[i]), groups[missed[i]], zoom, base, draw)
+		SetBlob(c, Get(c, "blob", "tex", MakeBlob, missed[i]), groups[missed[i]], zoom, base, draw, list.poi)
 		Yield()
 	end
 	nmissed = 0

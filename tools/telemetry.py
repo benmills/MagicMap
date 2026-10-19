@@ -702,6 +702,10 @@ def show(out, sections, args, shot_files):
             if m.get("kind") == "shot":
                 say(f"    shot {stamp(m.get('shot'))}")
                 say(f"    file {shot_files.get(m.get('stamp')) or 'NONE (no screenshot with stamp ' + str(m.get('stamp')) + ')'}")
+            a = m.get("alloc")
+            if a:
+                top = ", ".join(f"{t.get('name')} {num(t.get('kbPerSec'))}" for t in a.get("top") or [])
+                say(f"    alloc since the last mark ({num(a.get('secs'))} s): {num(a.get('kbPerSec'))} KB/s; {top or '-'}")
             for line in motion(m.get("motion") or [], full):
                 say(f"    {line}")
             trace = m.get("trace") or []

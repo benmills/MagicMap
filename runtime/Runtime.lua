@@ -506,7 +506,8 @@ local function Pct(q, h, n, bucket, max)
 end
 
 -- { frames, p50, p95, p99, max, overruns, kbMin, kbMax (ms, KB) } outside graces;
--- allocation: kbFrameP95, kbFrameMax (KB a frame), kbPerSec, kbFrames (frames measured);
+-- allocation: kbFrameP95, kbFrameMax (KB a frame), kbPerSec, kbFrames (frames measured), kb and kbSecs (their
+-- sums: two reads' difference is a stretch's KB/s);
 -- grace = { [name] = slowest frame }; graceTop = { [name] = { top, topMs } }: that frame's slowest call;
 -- slow = the 5 calls with most overruns { name, n, max }; slowGc = the 5 with most over budget while the
 -- collector freed more than they made (its step, not their work) { name, n };
@@ -524,6 +525,7 @@ function Runtime.FrameStats()
 		kbFrames = s.kbFrames, kbFrameMax = R2(s.kbMaxFrame),
 		kbFrameP95 = s.kbFrames > 0 and Pct(0.95, kbHist, s.kbFrames, KB_BUCKET, R2(s.kbMaxFrame)) or nil,
 		kbPerSec = s.kbSecs > 0 and R1(s.kb / s.kbSecs) or nil, -- /: never 0 (kbSecs > 0: checked)
+		kb = s.kb, kbSecs = s.kbSecs, -- (two reads' difference: a stretch's KB/s)
 		grace = {}, graceTop = {}, slow = {}, slowGc = {}, alloc = {}, gaps = {}, ledger = {}, byState = {} }
 	for name, ms in pairs(graceMax) do
 		out.grace[name], out.graceTop[name] = R1(ms), { top = graceTop[name], topMs = R1(graceTopMs[name]) }

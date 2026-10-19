@@ -1708,18 +1708,29 @@ Sim.quests = {
 	[62] = { title = "The Fargodeep Mine", level = 4, map = 1429, x = 0.40, y = 0.80, complete = true,
 		objectives = { { text = "Scout through the Fargodeep Mine", type = "event", finished = true, numFulfilled = 1, numRequired = 1 } } },
 }
+-- The client builds what its C_ calls return anew each call (a table, and one an entry): so does the sim.
+local function Fresh(list)
+	local out = {}
+	for i, x in ipairs(list) do
+		local t = {}
+		for k, v in pairs(x) do t[k] = v end
+		out[i] = t
+	end
+	return out
+end
+local function ByQuest(a, b) return a.questID < b.questID end
 C_QuestLog = {
 	GetQuestsOnMap = function(id)
 		local out = {}
 		for questID, q in pairs(Sim.quests) do
 			if q.map == id then out[#out + 1] = { questID = questID, x = q.x, y = q.y, isMapIndicatorQuest = false } end
 		end
-		table.sort(out, function(a, b) return a.questID < b.questID end)
+		table.sort(out, ByQuest)
 		return out
 	end,
 	GetTitleForQuestID = function(questID) local q = Sim.quests[questID]; return q and q.title end,
 	IsComplete = function(questID) local q = Sim.quests[questID]; return q and q.complete end,
-	GetQuestObjectives = function(questID) local q = Sim.quests[questID]; return q and q.objectives or {} end,
+	GetQuestObjectives = function(questID) local q = Sim.quests[questID]; return Fresh(q and q.objectives or {}) end,
 	GetQuestDifficultyLevel = function(questID) local q = Sim.quests[questID]; return q and q.level or 0 end,
 	-- Grey more than 5 levels below you (the client's range grows with level).
 	IsQuestTrivial = function(questID) local q = Sim.quests[questID]; return q ~= nil and UnitLevel("player") - q.level > 5 end,
@@ -1728,6 +1739,29 @@ C_QuestLog = {
 	GetSuggestedGroupSize = function(questID) local q = Sim.quests[questID]; return q and q.group or 0 end,
 	AddQuestWatch = function(questID) Sim.watched = questID; return true end,
 }
+-- A quest taken or given up (handed in too) comes with QUEST_ACCEPTED or QUEST_REMOVED (questID: Forever's,
+-- Questie's EventHandler.lua:157-193) before its QUEST_LOG_UPDATE: a scenario changes Sim.quests and fires
+-- QUEST_LOG_UPDATE, the sim fires those for the quests come and gone since the last.
+local logged = {}
+for id in pairs(Sim.quests) do logged[id] = true end
+local fire = Sim.FireEvent
+function Sim.FireEvent(event, ...)
+	if event == "QUEST_LOG_UPDATE" then
+		for id in pairs(logged) do
+			if not Sim.quests[id] then
+				logged[id] = nil
+				fire("QUEST_REMOVED", id)
+			end
+		end
+		for id in pairs(Sim.quests) do
+			if not logged[id] then
+				logged[id] = true
+				fire("QUEST_ACCEPTED", id)
+			end
+		end
+	end
+	return fire(event, ...)
+end
 -- Items by ID: GetItemInfoInstant's itemID .. icon.
 Sim.items = { [772] = { 772, "Quest", "Quest", "", 134335 } }
 C_Item = {
@@ -1778,7 +1812,7 @@ C_QuestLine = {
 			Sim.FireEvent("QUESTLINE_UPDATE", false)
 		end)
 	end,
-	GetAvailableQuestLines = function(id) return Sim.offersAsked[id] and Sim.offers[id] or {} end,
+	GetAvailableQuestLines = function(id) return Fresh(Sim.offersAsked[id] and Sim.offers[id] or {}) end,
 }
 
 function ButtonFrameTemplate_HidePortrait(f) end

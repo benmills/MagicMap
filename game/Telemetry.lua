@@ -1,5 +1,6 @@
 -- Telemetry (docs/telemetry.md): sessions, errors with stacks, and marks
--- (state + Runtime's trace ring + the motion ring) in MagicMapAtlasDB.telemetry,
+-- (state + Runtime's trace ring + the motion ring + the allocation since the
+-- last mark) in MagicMapAtlasDB.telemetry,
 -- written to disk on /reload or logout for tools/telemetry.py.
 -- Errors come from Runtime.onError (every Wrap) and the global error handler
 -- (anything else whose stack is in our folder). An error's first occurrence
@@ -93,12 +94,30 @@ local function Motion() -- oldest first
 	return out
 end
 
+-- Lua allocation since this session's last mark (outside graces): KB/s in all and the 5 names making most,
+-- so two marks around a stretch (b11's storm) read it alone; session.perf's alloc is the whole session's.
+local since = { kb = 0, secs = 0, names = {} } -- FrameStats' kb, kbSecs and Perf's kb by name at the last mark
+local function Alloc(p)
+	local secs, top, names = p.kbSecs - since.secs, {}, {}
+	for name, e in pairs(Runtime.Perf()) do
+		local kb = e.kb - (since.names[name] or 0)
+		if kb > 0 and secs > 0 then top[#top + 1] = { name = name, kbPerSec = R(kb / secs, 100) } end -- /: never 0 (secs > 0: checked)
+		names[name] = e.kb
+	end
+	table.sort(top, function(a, b) return a.kbPerSec > b.kbPerSec end)
+	for i = #top, 6, -1 do top[i] = nil end
+	local out = { secs = R(secs, 10), kbPerSec = secs > 0 and R((p.kb - since.kb) / secs, 10) or nil, top = top } -- /: never 0 (secs > 0: checked)
+	since = { kb = p.kb, secs = p.kbSecs, names = names }
+	return out
+end
+
 local function Mark(kind, note, stamp, shot)
 	Perf()
 	local marks = db.marks
 	marks[#marks + 1] = {
 		kind = kind, note = note, t = time(), stamp = stamp, session = session.id, version = version,
 		frame = Runtime.frames, state = State(), trace = Runtime.TraceCopy(), motion = Motion(), shot = shot,
+		alloc = Alloc(session.perf),
 	}
 	if #marks > MARKS then table.remove(marks, 1) end
 end

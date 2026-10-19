@@ -14,12 +14,17 @@ quest log (its blobs: Sim.blobShapes) through Game's parts and Inside, and Model
     and its frame is drawn again; asks past a frame's budget answered over the next frames.
   test_quests_priced: 25 quests with areas, the big map, the wheel and drags on the priced clock: the
     budgets by map state (docs/runtime.md).
-  test_quests_storm: QUEST_LOG_UPDATE every frame for 10 s with 25 quests, nothing changing (a looting
-    burst), the map shown and hidden: Lua allocation within its budget (50 KB/s), and none for quests
-    while the map is hidden (Game reads them once it shows).
+  test_quests_storm: QUEST_LOG_UPDATE every frame for 10 s with 25 quests and 130 to pick up, nothing
+    changing (a looting burst), the map shown and hidden: Lua allocation over the storm alone within its
+    budget (50 KB/s), the zones and offers not read again, and nothing for quests while the map is
+    hidden (Game reads them once it shows).
+  test_quests_ticks: a count ticking every 2 s, with QUEST_POI_UPDATE each time and without: within the
+    budget over the stretch, the game's areas' version a new list of the same entries.
+The sim's C_ calls make their tables anew each call, as the client's do (wowsim.lua Fresh): the garbage
+measured is the client's too.
 """
 from test_addon import errors
-from test_quests import CANDLES, FRONTIER, GOLD, LOVERS, client
+from test_quests import CANDLES, FRONTIER, GOLD, LOVERS, client, known
 
 # QuestPOIFrame's setters, kept on the sim's state for the test (the sim's are no-ops).
 RECORD = """local Sim = ...
@@ -136,7 +141,7 @@ def test_quest_area_answers():
     S, A = sim.state, ns.UI.Areas.layer
 
     def estimates():
-        return {e.quest for e in ns.Model.Known("quests")[0].values() if e.estimate}
+        return {e.quest for e in known(ns, "quests") if e.estimate}
 
     def spots():
         p = A.front.pools.spot
@@ -226,7 +231,7 @@ def test_quests_priced():
                **({} if i < 15 and i % 3 != 2 else {"area": 0.02 + i % 3 * 0.01})} for i in range(25)]
     L, sim, ns, G = client(quests, followed=1012)
     assert len(ns.Model.Known("quests")[0]) == 25
-    assert sum(1 for e in ns.Model.Known("quests")[0].values() if e.estimate) == 10
+    assert sum(1 for e in known(ns, "quests") if e.estimate) == 10
     L.execute("""local sim, ns = ...
         local view, M = ns.UI.Window.view, ns.UI.Motion
         sim.Press("M")
@@ -253,26 +258,100 @@ def test_quests_priced():
     assert not errors(sim, ns), errors(sim, ns)
 
 
-def test_quests_storm():
+# A stretch's Lua allocation outside graces: FrameStats' sums and each name's KB now.
+SNAP = """function(ns)
+    local fs, kb = ns.Runtime.FrameStats(), {}
+    for name, p in pairs(ns.Runtime.Perf()) do kb[name] = p.kb end
+    return fs.kb, fs.kbSecs, kb
+end"""
+
+
+def stretch(L, ns):
+    """Call before a stretch; what it returns, after: (KB/s, {name: KB/s}) over the stretch alone
+    (FrameStats' kbPerSec and alloc average the whole run, the idle frames before it too)."""
+    snap = L.eval(SNAP)
+    kb0, s0, names0 = snap(ns)
+    names0 = dict(names0.items())
+
+    def done():
+        kb1, s1, names1 = snap(ns)
+        secs = s1 - s0
+        return (round((kb1 - kb0) / secs, 1),
+                {k: round((v - names0.get(k, 0)) / secs, 1) for k, v in names1.items() if v > names0.get(k, 0)})
+    return done
+
+
+def hub():
+    """Script (b)'s hub: 25 quests about you, kill, collect and scout, each with an area."""
     kinds = [["monster", "Kobold slain: 1/8", 1, 8, False], ["item", "Candle: 2/8", 2, 8, False],
              ["event", "Scout the mine", 0, 1, False]]
     quests = [{"id": 1000 + i, "title": f"Quest {i}", "level": 6 + i % 5, "col": 31.95 + (i % 5 - 2) * 0.35,
                "row": 49.75 + (i // 5 - 2) * 0.3, "objectives": [kinds[i % 3]], "area": 0.02 + i % 3 * 0.01}
               for i in range(25)]
+    L, sim, ns, G = client(quests, followed=1012)
+    L.execute(OFFERS, sim, ns, 5)
+    sim.Run(0.5)
+    assert len(known(ns, "quests")) == 25 and len(known(ns, "offers")) == 130
+    return L, sim, ns, G
+
+
+def test_quests_storm():
     for hidden in (False, True):
-        L, sim, ns, G = client(quests, followed=1012)
+        L, sim, ns, G = hub()
         sim.Price(True)
         sim.Run(10)  # past the graces
         if hidden:
             sim.Slash("/mma toggle")
             sim.Run(1)
+        sim.Slash("/mma mark b11 before")
+        done = stretch(L, ns)
         L.execute("local sim = ...; for _ = 1, 600 do sim.FireEvent('QUEST_LOG_UPDATE'); sim.Step() end", sim)
-        fs = ns.Runtime.FrameStats()
-        alloc = {a.name: a.kbPerSec for a in fs.alloc.values()}
-        print(f"storm, map {'hidden' if hidden else 'shown'}: {fs.kbPerSec} KB/s; game.part quests "
-              f"{alloc.get('game.part quests', 0)}, offers {alloc.get('game.part offers', 0)}")
-        assert fs.kbPerSec <= 50 and alloc.get("game.part quests", 0) <= (0 if hidden else 25)
+        kb, by = done()
+        sim.Slash("/mma mark b11 storm")
+        print(f"storm, map {'hidden' if hidden else 'shown'}: {kb} KB/s; game.part quests "
+              f"{by.get('game.part quests', 0)}, offers {by.get('game.part offers', 0)}; {by}")
+        # Shown: the objectives read again each 0.3 s (the client's tables: ~11 KB for 25), no zone nor offer.
+        assert kb <= 50 and by.get("game.part quests", 0) <= (0 if hidden else 40) and not by.get("game.part offers")
+        # b11 in game: the mark after the storm reads the storm alone (from the mark before it).
+        marks = L.globals().MagicMapAtlasDB.telemetry.marks
+        a = marks[len(marks)].alloc
+        top = {t.name: t.kbPerSec for t in a.top.values()}
+        assert a.secs == 10 and abs(a.kbPerSec - kb) <= 0.1 and abs(top.get("game.part quests", 0) - by.get("game.part quests", 0)) <= 0.1
         assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_quests_ticks():
+    L, sim, ns, G = hub()
+    sim.Price(True)
+    sim.Run(10)  # past the graces
+    tick = L.eval("""function(sim, poi)
+        local o = sim.quests[1000].objectives[1]
+        for i = 1, 1800 do -- 30 s
+            if i % 120 == 0 then
+                o.numFulfilled = (o.numFulfilled + 1) % 8
+                o.text = "Kobold slain: " .. o.numFulfilled .. "/8"
+                sim.FireEvent("QUEST_LOG_UPDATE")
+                if poi then sim.FireEvent("QUEST_POI_UPDATE") end
+            end
+            sim.Step()
+        end
+    end""")
+    same = L.eval("rawequal")
+    tick(sim, False)  # (both canvases of each layer laid out once)
+    for poi in (False, True):
+        entries, before = known(ns, "quests"), ns.Model.Known("quests")[0].poi
+        done = stretch(L, ns)
+        tick(sim, poi)
+        kb, by = done()
+        print(f"a count every 2 s, {'with' if poi else 'without'} QUEST_POI_UPDATE: {kb} KB/s; {by}")
+        assert kb <= 50 and not by.get("game.part offers")
+        sim.Run(0.5)  # (the last tick read)
+        now = known(ns, "quests")
+        assert now[0].count == f"{sim.quests[1000].objectives[1].numFulfilled}/8"
+        # The game's areas' version: on the list; the quests the count didn't touch keep their entries.
+        assert ns.Model.Known("quests")[0].poi == ((before or 0) + 15 if poi else before)
+        assert all(same(a, b) for a, b in zip(entries[1:], now[1:]))
+    assert not errors(sim, ns), errors(sim, ns)
 
 
 def test_offers_priced():

@@ -63,6 +63,8 @@ telemetry = {
     { kind = "error" | "taint" | "sensor" | "mark" | "shot", note, t = <time()>, stamp = "MMDDYY_HHMMSS",
       session, version, frame, state = { ... }, trace = { <events> },
       motion = { { f, ms, cx, cy, zoom, px, py, w, h }, ... }, -- the last 120 frames, oldest first
+      alloc = { secs, kbPerSec, top = { { name, kbPerSec }, ... } }, -- Lua allocation since this session's last
+                            -- mark, outside graces (5 names): two marks around a storm read it alone (b11)
       shot = { inst, cx, cy, zoom, w, h, left, top, big, uiScale, screenW, screenH } }, -- shot marks only
   },
 }

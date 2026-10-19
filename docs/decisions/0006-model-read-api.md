@@ -51,6 +51,10 @@ Target and Route beyond the typed fields.
 - OPEN addition (v1 plan M2, its review's round 1): `MM.KnownQuest.poi`, passed through from
   `obs.quests`: a new one means the game's areas may have changed, so UI draws them again (a count
   ticking draws nothing again). `estimate` is now set when HasArea answers false (it was Inside nil).
+- OPEN addition, revised (v1 plan M2, its review's round 2): the poi is the list's, not each
+  entry's: `Known("quests")` hands a new list of the same entries when `obs.quests.poi` changes
+  (rev moves; a layer diffing entries sets nothing), and ui/Areas.lua draws a frame again when the
+  list's poi differs from the one it drew at.
 
 ## Revisit if
 

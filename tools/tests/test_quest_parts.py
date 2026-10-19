@@ -165,7 +165,9 @@ def offers_story(L, sim, ns, G):
 
     def taken():
         offers([PRINCESS, NECKLACE, LINEN, dict(FISHY, taken=True)], [PIE, STEW, HEIRLOOM])()
-        sim.FireEvent("QUEST_LOG_UPDATE")
+        sim.quests[40] = L.table_from({"title": FISHY["name"], "level": 8, "map": ELWYNN, "x": 0.4, "y": 0.6,
+                                       "complete": False, "objectives": L.table()})
+        sim.FireEvent("QUEST_LOG_UPDATE")  # (and QUEST_ACCEPTED: the sim's)
 
     def hidden_on():
         sim.trackingHidden = True

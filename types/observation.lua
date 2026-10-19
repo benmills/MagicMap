@@ -28,7 +28,7 @@
 ---@field minimap? MM.ObsMinimap     per frame
 ---@field blips? MM.ObsBlips         per frame while the sensor runs; nil while it doesn't
 ---@field hooked MM.HookedInput[]    per frame; usually empty (see types/view.lua)
----@field quests? MM.ObsQuest[]      on change: your quest log
+---@field quests? MM.ObsQuests      on change: your quest log
 ---@field places? MM.ObsPlace[]      on change: live places the game marks (Atlas has the static ones)
 ---@field corpse? MM.Pos|false       on change: false = no corpse known
 ---@field waypoint? MM.Pos|false     on change: the user waypoint (C_Map); false = none
@@ -84,8 +84,12 @@
 ---@field areaMap? MM.UiMapID  the uiMap whose objective area holds it (for Inside and for drawing)
 ---@field tag? string          C_QuestLog.GetQuestTagInfo(id).tagName ("Elite", "Group", "Dungeon"); nil: none or ""
 ---@field group? integer       C_QuestLog.GetSuggestedGroupSize(id); nil: 0
----@field poi? integer         the game's quest areas' version: the QUEST_POI_UPDATEs Game has seen (nil: none);
----                            a new one makes every quest new (UI draws its area again, Model asks HasArea again)
+
+---obs.quests: still an MM.ObsQuest[], with the game's areas' version on the list (as MM.Route's flags).
+---@class MM.ObsQuests
+---@field [integer] MM.ObsQuest
+---@field poi? integer         the QUEST_POI_UPDATEs Game has seen (nil: none): a new one makes a new list, its
+---                            quests kept (Model asks HasArea again, UI draws the areas again)
 
 ---@alias MM.PlaceKind "flight"|"poi"|"dungeon"|"graveyard"
 

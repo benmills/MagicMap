@@ -69,6 +69,9 @@
 ---@field p99 number
 ---@field max number
 ---@field overruns integer
+---@field kbPerSec? number       Lua KB a second our frames made (kb / kbSecs)
+---@field kb number              KB measured, outside graces; with kbSecs (their seconds), two reads' difference
+---@field kbSecs number          is a stretch's KB/s (a storm's: test_quests_storm, a mark's window)
 ---@field grace table<string, number>  each grace's slowest frame (ms)
 ---@field graceTop table<string, { top: string?, topMs: number }>  that frame's slowest call
 ---@field slow { name: string, n: integer, max: number }[]

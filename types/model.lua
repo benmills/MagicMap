@@ -47,7 +47,8 @@
 ---@field turnIn? string           who takes it in (Atlas finishedBy)
 ---@field tag? string              obs.quests' tag: the tooltip's facts line ("Elite", "Group (3)": QuestInfo.lua:321-325)
 ---@field group? integer           obs.quests' suggested group size; shown past 1
----@field poi? integer             obs.quests' poi: a new one, the game's areas may have changed (UI draws them again)
+-- Known("quests")' list carries obs.quests' poi (list.poi): a new one, a new list of the same entries (the
+-- game's areas may have changed: UI draws them again; a count ticking draws nothing again).
 
 ---@class MM.KnownObjective
 ---@field text string

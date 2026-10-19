@@ -38,7 +38,9 @@ overruns, gaps, allocation or ledger frames.
 Login frames aren't budgeted (load time is); their slowest is reported as `grace.login`.
 
 Allocation is the Lua heap's growth (`collectgarbage("count")`) over each frame's run, the
-same frames as the cost: `kbFrameP95`, `kbFrameMax` (KB a frame), `kbPerSec`, `kbFrames`. A
+same frames as the cost: `kbFrameP95`, `kbFrameMax` (KB a frame), `kbPerSec`, `kbFrames`, and their
+sums `kb` and `kbSecs`: two reads' difference is a stretch's own KB/s (a storm's: test_quests_storm;
+a mark's `alloc`, since the mark before it), where `kbPerSec` averages the whole session. A
 frame in which the collector freed more than we allocated (the heap shrank) can't be measured
 and is left out, so it's a lower bound; event handlers between frames aren't in it. In the sim,
 widget calls cost no Lua memory (as in the client), so the replays (tools/tests/replays/R-P3.lua)

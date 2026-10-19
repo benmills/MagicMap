@@ -73,6 +73,14 @@ unknown ones), and new oracles.
   final. And `ObsQuest.poi`, the QUEST_POI_UPDATEs Game has seen (nil: none): part of the quest's
   value, so the game's areas changing makes a new `obs.quests` with every quest new (Model asks
   HasArea again, UI draws the areas again), as the spike's refresh re-laid them all out.
+- OPEN addition, revised (v1 plan M2, its review's round 2): `poi` moves off each quest onto the
+  list (`obs.quests.poi`, as `MM.Route`'s flags: still an `MM.ObsQuest[]`), so a QUEST_POI_UPDATE
+  makes a new list of the same quests: Model asks HasArea again and UI draws the areas again, but no
+  entry, look or pin is remade (it had been ~110 KB a POI update with 25 quests). Game reads where
+  the pins are (every zone's GetQuestsOnMap) only when they may have moved: QUEST_ACCEPTED,
+  QUEST_REMOVED (Forever sends the quest id: Questie's EventHandler.lua:157-193), QUEST_POI_UPDATE,
+  the instances, a quest done or a count changed; and quests to pick up only after QUEST_ACCEPTED,
+  QUEST_REMOVED, a level, QUESTLINE_UPDATE or tracking (not every QUEST_LOG_UPDATE, the spike's).
 - LOCKED clarification (v1 plan M1): `ObsBlip.rough` was "measured while moving: a few yards
   off". Its meaning stays what Model relies on: the position wasn't measured, so don't keep it
   or merge on it; it's measured once you stand still (M1.5 measures only then). How far off a

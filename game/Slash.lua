@@ -26,7 +26,7 @@ SlashCmdList.MAGICMAPATLAS = function(msg)
 	for _, n in ipairs(Game.commands) do print("  /mma" .. (n ~= "" and " " .. n or "") .. " - " .. commands[n].help) end
 end
 
-Game.Slash("perf load", "load cost, and time per step / event / timer / job (ms)", function()
+Game.Slash("perf load", "[text]: load cost, and time per step / event / timer / job (ms); text: every name with it", function(match)
 	local b = Runtime.boot
 	Game.Print(string.format("Atlas loaded in %.0f ms, %.0f KB; Lua memory now %.0f KB",
 		b.loaded.t - b.t0, b.loaded.mem - b.mem0, collectgarbage("count")))
@@ -34,14 +34,14 @@ Game.Slash("perf load", "load cost, and time per step / event / timer / job (ms)
 	local perf, frames = Runtime.Perf()
 	local list = {}
 	for name, p in pairs(perf) do
-		if p.n > 0 then list[#list + 1] = { name, p } end
+		if p.n > 0 and (match == "" or name:find(match, 1, true)) then list[#list + 1] = { name, p } end
 	end
 	table.sort(list, function(a, c) return a[2].ms > c[2].ms end)
 	local f = Runtime.FrameStats()
 	Game.Print(string.format("our cost a frame (outside graces, %d frames): p50 %.2f p95 %.2f p99 %.2f max %.1f ms, %d over %d ms",
 		f.frames, f.p50, f.p95, f.p99, f.max, f.overruns, Runtime.FRAME_MS))
 	Game.Print(string.format("%d frames; busiest:", frames))
-	for i = 1, math.min(15, #list) do
+	for i = 1, match == "" and math.min(15, #list) or #list do
 		local name, p = list[i][1], list[i][2]
 		local each = p.ms / math.max(frames, 1) -- /: never 0 (at least 1)
 		print(string.format("  %s  %.3f ms/frame, %d calls, max %.2f ms%s", name, each, p.n, p.max,
