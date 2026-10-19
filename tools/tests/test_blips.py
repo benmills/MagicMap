@@ -307,9 +307,20 @@ def default_ui_priced():
     sim.Run(10)
     sim.player.facing, sim.player.speed = math.pi / 2, 7
     sim.Run(10)
+    # In and out of a door every 5 s (the view radius 233 <-> 150 yd): out, only the ring past what
+    # the finer lattice looked over is new.
+    sim.player.speed = 0
+    for i in range(4):
+        sim.indoors = i % 2 == 0
+        sim.Run(5)
+    sim.indoors = False
+    sim.Run(3)
+    assert exact(sensed(ns), BLIPS), sensed(ns)  # (out: the ring's found again)
     fs = ns.Runtime.FrameStats()
-    print(f"default UI, priced: standing then walking, frame p95 {fs.p95} ms, max {fs.max} ms, {fs.kbPerSec} KB/s "
-          f"(p95 {fs.kbFrameP95} KB a frame)")
+    stats = L.globals().MagicMapAtlasDB.telemetry.sessions[1].stats
+    door = stats["restart radius"]
+    print(f"default UI, priced: standing, walking, then a door: frame p95 {fs.p95} ms, max {fs.max} ms, {fs.kbPerSec} KB/s "
+          f"(p95 {fs.kbFrameP95} KB a frame); the door's {door and door.n} restarts, the blips' most probes a sweep {stats.blips.probes}")
     assert not errors(sim, ns), errors(sim, ns)
     return fs
 

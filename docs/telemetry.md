@@ -48,7 +48,7 @@ telemetry = {
                                        client = { p50, p95, p99, max } } }, -- the client's whole frame (ms between OnUpdates)
                errors, errorsPerHour, loadMs },       -- written at logout (and /reload) and with each mark
       kept = { <events> },  -- taint, art and sensor events, the first 50 (each one a bug)
-      stats = { ["<kind> <layer>"] = { n, <field> = max |value|, lag } }, -- layout ends, swaps, blips sweeps
+      stats = { ["<kind> <layer or why>"] = { n, <field> = max |value|, lag } }, -- layout ends, swaps, blips sweeps, sensor restarts
       bench = { [build] = { build, t, ops = { [op] = { n, ms, us } } } },  -- /mma bench regions (game/Bench.lua)
     },
   },
@@ -143,6 +143,7 @@ Their `d`:
 | `saved` | `{ owner, e = "reset", was }` or `{ owner, e = "newer", v }` |
 | `minimap` | `"engaged"` or `"released"` |
 | `blips` | `{ sweep, blips, yd, frames, probes }`: the sweep's number, the blips the sensor knows after it, its reach (yd), and the frames and probes it took |
+| `restart` | `{ why, probes }`: the sensor dropped a look in progress or what it had looked over (`why`: `radius` (a door, a zoom), `map`, `combat`, `alt-z`, `moved`/`rotated`/`hidden` (blind), `zoom`, `off`, `square` (refined), `tracking`, `error`); `probes`: the dropped look's so far. Counted by `why` in the session's stats |
 | `sensor` | `{ e = "blind", why }`: for 1 s the sensor couldn't read the Minimap where Apply placed it, `why` = `hidden`, `rotated` or `moved` (something fights Apply: G3); or `{ e = "square", px [, n = 4] }`: the refined answer square (screen units each way) strayed past 25% of the measured 8, or `n = 4`: one blip read as four (a square too big to read as lone, D3), so the sensor took the client's size, `px` |
 
 ## Reading it

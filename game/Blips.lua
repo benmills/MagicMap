@@ -59,7 +59,7 @@ local blips = {}     -- { name, pos = { inst, col, row }, rough, icon, seen, gon
 local center = {}
 local out = { list = blips, sweep = 0, reach = 0 } -- obs.blips (its center refilled each sweep)
 local lat = {}       -- the lattice: s (tiles apart), R (radius looked over), made for px, r; the last look's
-                     -- circle cc, cr and the last standing one's sc, sr (nil: none since a restart)
+                     -- circle cc, cr, its radius cR, and the last standing one's sc, sr, sR (nil: none since a restart)
 local px, drifted = SQUARE, false
 local look, busy, rest, frames, probes, stale = 0, false, 0, 0, 0, 0 -- look: the last look's id (a blip's seen); busy: one in progress
 local co, t0         -- the looks (a coroutine: it yields once the frame's budget is spent); this slice's start
@@ -323,11 +323,16 @@ local function Visit(x, y)
 end
 
 -- The lattice: points s tiles apart, fixed in the world (one looked at stays looked at as
--- you move), within R of you; made anew, every point looked at again, when our square or
--- the view radius changes (s in tiles doesn't change with the UI scale: px and r only).
+-- you move), within R of you; made anew when our square or the view radius changes (s in
+-- tiles doesn't change with the UI scale: px and r only), every point looked at again, but
+-- for a radius grown (out of a door): the circles the finer one looked over stand, only the
+-- ring past them is new.
 local function Lattice()
-	if lat.r == g.r and math.abs(px - lat.px) <= 0.05 * lat.px then return end
-	lat.s, lat.px, lat.r, lat.cc, lat.sc = GRID * 2 * g.half * g.u, px, g.r, nil, nil
+	local same = lat.px and math.abs(px - lat.px) <= 0.05 * lat.px
+	if lat.r == g.r and same then return end
+	if not same and lat.cc then Runtime.Trace("restart", { why = "square", probes = probes }) end
+	if not (same and g.r > lat.r) then lat.cc, lat.sc = nil, nil end
+	lat.s, lat.px, lat.r = GRID * 2 * g.half * g.u, px, g.r
 	lat.R = g.r * YD - CORNER * lat.s - LAG -- a point within it answers for any blip whose square holds it
 end
 
@@ -336,21 +341,21 @@ end
 -- slow pass's next, STALE a look with what the rest took.
 local function Look(standing)
 	local s, R, col, row = lat.s, lat.R, g.col, g.row
-	local cc, cr, sc, sr = lat.cc, lat.cr, lat.sc, lat.sr
+	local cc, cr, cR, sc, sr, sR = lat.cc, lat.cr, lat.cR, lat.sc, lat.sr, lat.sR
 	local j0, j1 = math.ceil((row - R) / s), math.floor((row + R) / s) -- /: never 0 (s > 0: a square at a radius)
 	local i0, i1 = math.ceil((col - R) / s), math.floor((col + R) / s) -- /: never 0 (s > 0: a square at a radius)
 	local spent = 0
 	for j = j0, j1 do
 		for i = i0, i1 do
 			local pc, pr = i * s, j * s
-			if (pc - col) ^ 2 + (pr - row) ^ 2 <= R * R and (not cc or (pc - cc) ^ 2 + (pr - cr) ^ 2 > R * R
-				or standing and (not sc or (pc - sc) ^ 2 + (pr - sr) ^ 2 > R * R)) then
+			if (pc - col) ^ 2 + (pr - row) ^ 2 <= R * R and (not cc or (pc - cc) ^ 2 + (pr - cr) ^ 2 > cR * cR
+				or standing and (not sc or (pc - sc) ^ 2 + (pr - sr) ^ 2 > sR * sR)) then
 				spent = spent + 1
 				Visit(Local(pc, pr))
 			end
 		end
 	end
-	lat.cc, lat.cr = col, row
+	lat.cc, lat.cr, lat.cR = col, row, R
 	if not standing or spent >= STALE then return end
 	local n, from, to = 0, stale, stale + STALE - spent
 	for j = j0, j1 do
@@ -419,7 +424,7 @@ local function EndSweep()
 	out.sweep, out.reach = out.sweep + 1, lat.R - CORNER * lat.s - LAG
 	center.inst, center.col, center.row = g.inst, g.col, g.row
 	out.center = center
-	lat.sc, lat.sr = lat.cc, lat.cr
+	lat.sc, lat.sr, lat.sR = lat.cc, lat.cr, lat.cR
 	Changed()
 	Runtime.Trace("blips", { sweep = out.sweep, blips = #blips, yd = math.floor(g.r + 0.5), frames = frames, probes = probes })
 	frames, probes = 0, 0
@@ -441,9 +446,12 @@ local function Run()
 end
 
 -- A look cut short starts over (a measure in progress with it), so none mixes two places
--- or placements; anew (the map, the view radius, or what it could miss meanwhile changed: unable
--- to read), the next looks at every point. Only moved (a grow, a shrink), the points mean the same.
-local function Restart(anew)
+-- or placements; anew (the map, the view radius shrunk, or what it could miss meanwhile changed:
+-- unable to read), the next looks at every point. Only moved (a grow, a shrink), the points mean the
+-- same. One that drops a look or the circles looked over is traced "restart" { why, probes (the
+-- look's so far) }: counted by why in the session's stats.
+local function Restart(anew, why)
+	if busy or anew and lat.cc then Runtime.Trace("restart", { why = why, probes = probes }) end
 	if busy then busy, co, frames, probes = false, nil, 0, 0 end
 	measuring = nil
 	if anew then lat.cc, lat.sc = nil, nil end
@@ -458,7 +466,7 @@ local function Measure(m)
 	local col, row = Atlas.WorldToTile(north, west)
 	local now = GetTime()
 	if g.col and (col ~= g.col or row ~= g.row) then g.movedAt = now end
-	if inst ~= g.inst or r ~= g.r then Restart(true) end
+	if inst ~= g.inst then Restart(true, "map") elseif r ~= g.r then Restart(not g.r or r < g.r, "radius") end
 	g.left, g.bottom, g.scale, g.w, g.h, g.r = m.left, m.bottom, m.scale, m.size, m.size, r
 	g.u, g.inst, g.col, g.row = r * YD / (m.size / 2), inst, col, row -- /: never 0 (m.size: SENSOR_PX / a scale)
 	g.half = px / m.scale -- /: never 0 (an effective scale is > 0)
@@ -491,23 +499,26 @@ end
 function Game.Blips()
 	local m = Game.minimap
 	if not (m.engaged and m.sensor) or not Measure(m) then
-		Restart(true); Watch(nil)
+		Restart(true, "off"); Watch(nil)
 		return nil
 	end
 	local paused = InCombatLockdown() or not UIParent:IsVisible() -- (the UI hidden: Alt-Z)
 	local blind = not paused and Blind(m)
 	Watch(blind)
-	if paused or blind then Restart(true); return out end
-	if not m.still or g.r == 0 then Restart(false); return out end -- (radius 0: a new zoom applying, E3/E6)
+	if paused or blind then Restart(true, blind or InCombatLockdown() and "combat" or "alt-z"); return out end
+	if not m.still or g.r == 0 then Restart(false, g.r == 0 and "zoom" or "moved"); return out end -- (radius 0: a new zoom applying, E3/E6)
 	if not busy and GetTime() < rest then return out end
 	t0, frames = debugprofilestop(), frames + 1
 	co = co or coroutine.create(Run)
 	Minimap:SetUsingSoftCursor(true)
 	local ok, err = coroutine.resume(co)
 	Minimap:SetUsingSoftCursor(false) -- (whatever happened: never left on)
-	if not ok then Restart(true); co = nil; error(err, 0) end -- (a new look next time)
+	if not ok then Restart(true, "error"); co = nil; error(err, 0) end -- (a new look next time)
 	return out
 end
 
 -- What the Minimap tracks changed (herbs on, say): every point looked at again.
-Runtime.On("MINIMAP_UPDATE_TRACKING", "game.blips tracking", function() lat.cc, lat.sc = nil, nil end)
+Runtime.On("MINIMAP_UPDATE_TRACKING", "game.blips tracking", function()
+	if lat.cc then Runtime.Trace("restart", { why = "tracking", probes = probes }) end
+	lat.cc, lat.sc = nil, nil
+end)

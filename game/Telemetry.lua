@@ -19,7 +19,7 @@ local MSG, STACK = 300, 2000 -- chars kept
 local MOTION = 120 -- frames of camera and you in each mark
 local LOAD_KB_AT = 10 -- s after login: past its grace (5 s, game/Game.lua) and the world streaming in
 local KEEP = { taint = true, art = true, sensor = true } -- trace kinds kept for the session (each a bug)
-local STATS = { layout = true, swap = true, blips = true } -- counted per layer: n and each number's max
+local STATS = { layout = true, swap = true, blips = true, restart = true } -- counted per layer (or why): n and each number's max
 local OURS = "AddOns[/\\]" .. ADDON .. "[/\\]"
 
 local version = C_AddOns.GetAddOnMetadata(ADDON, "Version")
@@ -144,7 +144,7 @@ seterrorhandler(function(msg, ...)
 end)
 
 -- Every trace passes here too (Runtime.onTrace, after the ring has it): KEEP kinds go to
--- session.kept (the ring forgets them), STATS kinds to session.stats["<kind> <layer>"] =
+-- session.kept (the ring forgets them), STATS kinds to session.stats["<kind> <layer or why>"] =
 -- { n, <field> = max |value| }, a swap's `lag` being frames since its layer's last layout end.
 local ends = {} -- [layer] = Runtime.frames at its last layout end
 local sensed = {} -- sensor events marked this session: the first of each kind (as a taint's per function)
@@ -158,7 +158,8 @@ local Keep = Runtime.Wrap("telemetry: trace", function(kind, d)
 		end
 	end
 	if not (STATS[kind] and type(d) == "table") or (kind == "layout" and d.e ~= "end") then return end
-	local key = d.layer and kind .. " " .. d.layer or kind
+	local by = d.layer or d.why
+	local key = by and kind .. " " .. by or kind
 	local s = session.stats[key]
 	if not s then s = { n = 0 }; session.stats[key] = s end
 	s.n = s.n + 1
