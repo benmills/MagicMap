@@ -14,6 +14,7 @@
 --            dungeons, corpse, waypoint; while its layer is on: Focus.off) is that pin's: not listed,
 --            not kept (Blips.lua:446-468, 659-664). One with no icon a quest giver (Atlas.BlipService)
 --            shows the "!", a quest ender the "?" (Blips.lua:387-388, 433-436): those our layers don't cover.
+--            Its line: the NPC's title Atlas knows by its name (Atlas.BlipTitle; Blips.lua:436).
 -- The store is bucketed by cell, so dedupe and forget look at a blip's neighbours only, and
 -- Known("remembered") changes only when what's remembered on its map does, not with each sweep;
 -- listed while tracking shows its icon, and not where a service of its name is (Blips.lua:644-650).
@@ -230,7 +231,7 @@ local function Live()
 				end
 			end
 			list[#list + 1] = { key = key, kind = "blips", name = e.name, live = true,
-				pos = { inst = e.inst, col = e.col, row = e.row },
+				pos = { inst = e.inst, col = e.col, row = e.row }, text = ns.Atlas.BlipTitle(e.name),
 				icon = e.icon and Texture(e.icon) or e.atlas and Atlas(e.atlas) or Quest(e.name) }
 		end
 	end

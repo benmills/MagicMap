@@ -437,8 +437,9 @@ def diet(raw, drop, spawns, open_world):
 
 
 def blip_services(raw, drop):
-    """Blip tooltip name -> service (BLIP_SERVICES) of the lowest NPC id of that name, as the spike's
-    Kind() read LibQuestieDB's IdsByName(name)[1] (Blips.lua:411-413); and "Mailbox"."""
+    """Blip tooltip name -> (service, title) of the lowest NPC id of that name, as the spike's Kind() read
+    LibQuestieDB's IdsByName(name)[1] (Blips.lua:408-436): its service (BLIP_SERVICES, else a quest giver's,
+    a quest ender's, a flight master's), its subName; and "Mailbox"."""
     first = {}
     for i in sorted(raw["Npc"]):
         name = raw["Npc"][i].get(NPC["name"])
@@ -453,11 +454,14 @@ def blip_services(raw, drop):
             service = "classtrainer"  # (Blips.lua:395-403: CLASS_TRAINER's icon)
         if not service and ids(r.get(NPC["questStarts"]), drop["Quest"]):
             service = "questgiver"
+        if not service and ids(r.get(NPC["questEnds"]), drop["Quest"]):
+            service = "questender"  # (Blips.lua:435: QUEST_ENDER's "?")
         if not service and flags & FLIGHT_MASTER:
             service = "flightmaster"
-        if service:
-            out[name] = service
-    out["Mailbox"] = "mailbox"
+        title = r.get(NPC["subName"]) or None
+        if service or title:
+            out[name] = (service, title)
+    out["Mailbox"] = ("mailbox", None)
     return out
 
 
@@ -574,9 +578,9 @@ def main() -> None:
     ], rows, meta)
 
     write(out("BlipServices.lua"), "BlipServices", [
-        "[blip tooltip name] = service: innkeeper | banker | auctioneer | stablemaster | battlemaster | trainer",
-        "  | classtrainer | repair | questgiver | flightmaster | mailbox. By the lowest NPC id of the name (every NPC,",
-        "  before the diet).",
+        "[blip tooltip name] = { service, title }: service innkeeper | banker | auctioneer | stablemaster",
+        "  | battlemaster | trainer | classtrainer | repair | questgiver | questender | flightmaster | mailbox, or nil;",
+        "  title the NPC's subName, or nil. By the lowest NPC id of the name (before the diet).",
     ], sorted(services.items()), meta)
 
     log(f"spawn points: {dict(project.stats)}; mailboxes with spawns: {mailboxes}")

@@ -96,8 +96,9 @@ def test_group_model():
 
 
 def test_blips_ours_model():
-    L, tools, model = setup("""return { formats = { BlipServices = 1 },
-        BlipServices = { ["Marshal Dughan"] = "questgiver", ["Remy"] = "questender" } }""")
+    L, tools, model = setup("""return { formats = { BlipServices = 2 },
+        BlipServices = { ["Marshal Dughan"] = { "questgiver" }, ["Remy"] = { "questender", "Fishing Supplies" },
+            ["Stormwind City Guard"] = { nil, "Guard" } } }""")
     saved = L.eval(SAVED)
     model.Load(saved)
     model.Focus(L.table_from({"inst": 0, "shown": True}))
@@ -115,6 +116,8 @@ def test_blips_ours_model():
     model.Observe(obs(1, 1000, four), L.table())
     icons = {e.name: e.icon and e.icon.texture for e in known(model, "blips")[0]}
     assert icons == {"Marshal Dughan": 132049, "Remy": 132048, "Stormwind City Guard": None, "Mailbox": 136459}
+    titles = {e.name: e.text for e in known(model, "blips")[0]}  # the NPC's title (Blips.lua:436)
+    assert titles == {"Marshal Dughan": None, "Remy": "Fishing Supplies", "Stormwind City Guard": "Guard", "Mailbox": None}
     (mailbox,) = saved.blips[0].values()
     assert mailbox.t == 1000
     # An offer's pin 5 yd from Dughan: its blip is that pin's; the offers layer off, it's back.

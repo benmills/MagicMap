@@ -232,9 +232,17 @@ for _, n in ipairs({
 
 -- What a Minimap blip's tooltip name stands for: "herb" or "ore" (a gathering node, by name: no data
 -- needed), else its service (Data/BlipServices.lua: "innkeeper", "banker", "auctioneer", "stablemaster",
--- "battlemaster", "trainer", "classtrainer", "repair", "questgiver", "flightmaster", "mailbox"), or nil.
+-- "battlemaster", "trainer", "classtrainer", "repair", "questgiver", "questender", "flightmaster",
+-- "mailbox"), or nil.
 function Atlas.BlipService(name)
 	if HERBS[name] then return "herb" end
 	if name:find(" Vein$") or name:find(" Deposit$") then return "ore" end
-	return (Data.BlipServices or NONE)[name]
+	local r = (Data.BlipServices or NONE)[name]
+	return r and r[1]
+end
+
+-- The title of the NPC a blip's tooltip names (its subName: "Innkeeper"), or nil (Blips.lua:408-436).
+function Atlas.BlipTitle(name)
+	local r = (Data.BlipServices or NONE)[name]
+	return r and r[2]
 end

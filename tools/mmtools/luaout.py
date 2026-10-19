@@ -39,7 +39,7 @@ FORMATS = {
     "Objects": 1,    # Data/Objects.lua (tools/gen_questie.py)
     "Items": 1,      # Data/Items.lua (tools/gen_questie.py)
     "Quests": 1,     # Data/Quests.lua (tools/gen_questie.py)
-    "BlipServices": 1,  # Data/BlipServices.lua (tools/gen_questie.py)
+    "BlipServices": 2,  # Data/BlipServices.lua (tools/gen_questie.py)
 }
 
 
