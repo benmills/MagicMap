@@ -473,6 +473,12 @@ def logs(flavor: str, since: float, loaded=None):
     return sorted(seen.values(), key=lambda e: -e["t"])
 
 
+def toc_version():
+    """The TOC's own ## Version, as committed: a build tools/install.py didn't stamp (game/Validate.lua)."""
+    with open(os.path.join(ROOT, f"{ADDON}.toc"), encoding="utf-8") as f:
+        return next((line.split(":", 1)[1].strip() for line in f if line.startswith("## Version:")), None)
+
+
 def validation(v):
     if not v:
         return None
@@ -738,6 +744,8 @@ def show(out, sections, args, shot_files):
             say("  none (/mma check log in game)")
         else:
             build = f" (build {v['version']})" if v["version"] else ""  # one build's log (game/Validate.lua)
+            if v["version"] == toc_version():
+                build = f" (build {v['version']}: unstamped, not installed by tools/install.py: the log may mix builds)"
             say(f"  logging {'on' if v['on'] else 'off'}{build}, {v['samples']} samples, {v['logged']} logged ({v['dropped']} over the cap)")
             for kind, n in v["counts"].items():
                 say(f"  {kind:<22} {n:5} failing samples")
