@@ -81,6 +81,4 @@ UI.Waypoint = UI.Pins.Layer("waypoint", PINS, function(put)
 end, function() return select(2, Model.Known("waypoint")) end, {
 	lines = function() return "Waypoint", "Ctrl-right-click the map to clear" end, -- Layers.lua:629
 })
-UI.Menus.Layer({ key = "corpse", label = "Corpse", group = "you", tip = "Where you died. While you're a ghost it's your target." })
-UI.Menus.Layer({ key = "waypoint", label = "Waypoint", group = "you",
-	tip = "Your map pin. Ctrl-click the map to set it, ctrl-right-click to clear it." })
+-- (no gear rows: the corpse and the waypoint are always drawn while there's one)

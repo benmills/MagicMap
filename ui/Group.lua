@@ -125,4 +125,4 @@ Runtime.Step("ui", "map: group", function()
 end, { shownOnly = Window.frame })
 Window.frame:HookScript("OnHide", Runtime.Wrap("map: group hidden", function() hovered = nil end))
 
-UI.Menus.Layer({ key = "group", label = "Party & raid", group = "people", tip = "Party and raid members, in their class colours." })
+UI.Menus.Layer({ key = "group", label = "Party & raid", group = "nearby", tip = "Party and raid members, in their class colours." })

@@ -14,11 +14,9 @@ from test_blips import lua_tools, put_blips, stub_services
 from sim import TEST_UI
 
 LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Quests": "quests", "Quest areas": "questAreas",
-          "Quests to pick up": "offers", "Minimap blips": "blips", "Rares you've seen": "rares"}
-SETTINGS = [("title", "Map"), ("checkbox", "Follow you"), ("checkbox", "Group overlapping icons"),
-            ("divider", None), ("title", "Minimap"),
-            ("checkbox", "Minimap button"), ("button", "Reset position"), ("button", "Use Blizzard's minimap"),
-            ("divider", None), ("button", "Advanced")]
+          "Quests to pick up": "offers", "Rares & treasures": "rares"}
+SETTINGS = [("checkbox", "Follow you"), ("checkbox", "Group overlapping icons"), ("checkbox", "Minimap button"),
+            ("button", "Reset window position"), ("button", "Advanced")]
 ADVANCED = [("title", "Diagnostics"), ("checkbox", "Debug info in the title"), ("checkbox", "Indoor maps"),
             ("divider", None), ("title", "Performance"), ("checkbox", "Record 10 seconds"),
             ("button", "Compare with other addons"), ("button", "Memory breakdown")]
@@ -108,20 +106,18 @@ def test_gear():
 
     # The tree: a submenu per group with layers, a divider, Settings; small and big alike.
     root, rows = gear(sim, ns)
-    assert items(root) == [("button", "Map"), ("button", "Quests"), ("button", "Places"), ("button", "People"),
-                           ("button", "You"), ("button", "Other addons"), ("button", "Reset to defaults"),
-                           ("button", "Tracking"), ("divider", None),
-                           ("button", "Settings")]
-    assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"), ("checkbox", "Zone borders"),
-                                       ("checkbox", "Shade unexplored")]
-    assert items(sub(root, "Quests")) == [("checkbox", "All quests"), ("divider", None), ("checkbox", "Quests"), ("checkbox", "Quest areas"),
-                                          ("checkbox", "Quests to pick up")]
-    assert items(sub(root, "Places")) == [("checkbox", "All places"), ("divider", None), ("checkbox", "Flight points"), ("checkbox", "Dungeon entrances"),
-                                          ("checkbox", "Graveyards"), ("checkbox", "Points of interest"),
-                                          ("checkbox", "Minimap blips")]
-    assert items(sub(root, "People")) == [("checkbox", "All people"), ("divider", None), ("checkbox", "Party & raid"), ("checkbox", "Rares you've seen"),
-                                          ("checkbox", "Live rares & treasures")]
-    assert items(sub(root, "You")) == [("checkbox", "All you"), ("divider", None), ("checkbox", "Corpse"), ("checkbox", "Waypoint")]
+    assert items(root) == [("button", "Map"), ("button", "Quests"), ("button", "Places"), ("button", "Nearby"),
+                           ("button", "Other addons"), ("divider", None), ("button", "Use Blizzard's minimap"),
+                           ("button", "Reset to defaults"), ("divider", None), ("button", "Settings")]
+    assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"),
+                                       ("checkbox", "Zone borders")]
+    assert items(sub(root, "Quests")) == [("checkbox", "All quests"), ("divider", None), ("checkbox", "Quests"),
+                                          ("checkbox", "Quest areas"), ("checkbox", "Quests to pick up")]
+    assert items(sub(root, "Places")) == [("checkbox", "All places"), ("divider", None), ("checkbox", "Flight points"),
+                                          ("checkbox", "Dungeons & raids"), ("checkbox", "Graveyards"),
+                                          ("checkbox", "Points of interest")]
+    assert items(sub(root, "Nearby"))[:4] == [("checkbox", "All nearby"), ("divider", None),
+                                              ("checkbox", "Rares & treasures"), ("checkbox", "Party & raid")]
     assert items(sub(root, "Other addons")) == [("checkbox", "All other addons"), ("divider", None), ("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
     assert items(sub(root, "Settings")) == SETTINGS and items(sub(sub(root, "Settings"), "Advanced")) == ADVANCED
     sim.Press("M")
@@ -145,8 +141,8 @@ def test_gear():
         assert row.onSelect() == refresh
         sim.Step()
         assert row.isSelected() is False and drawn(lay) == 0 and saved.layers[name] is False, name
-        if name == "blips":
-            assert view.layers.blips is None and not Game.minimap.sensor
+        if name == "rares":
+            assert not ns.UI.Engine.LayerOn("vignettes")  # (one row: the live ones too)
         assert row.onSelect() == refresh
         sim.Run(1)
         assert row.isSelected() is True and drawn(lay) > 0 and saved.layers[name] is None, name
@@ -188,18 +184,6 @@ def test_gear():
     rows["Zone labels"].onSelect()
     assert not child.IsEnabled(child)
 
-    # A layer off by default (ui/Shade.lua's: the spike's Shade unexplored, Layers.lua:37): in the spike's
-    # place in its group, before a row added after it, off until turned on, saved only while it isn't.
-    root, rows = gear(sim, ns)
-    assert [t for _, t in items(sub(root, "Map"))][2:] == ["Zone labels", "Zone borders", "Shade unexplored",
-                                                       "     Sub-option"]
-    shade = rows["Shade unexplored"]
-    assert shade.isSelected() is False and saved.layers["unexplored"] is None
-    shade.onSelect()
-    assert shade.isSelected() is True and saved.layers["unexplored"] is True
-    shade.onSelect()
-    assert shade.isSelected() is False and saved.layers["unexplored"] is None
-
     # Settings. Minimap button: Game's button hidden, and shown again.
     button = rim_button(L, sim)
     assert button.IsShown(button)
@@ -209,11 +193,11 @@ def test_gear():
     rows["Minimap button"].onSelect()
     sim.Step()
     assert saved.button and button.IsShown(button)
-    # Reset position: back on the minimap's spot, following (a button: the menu closes, the client's default).
+    # Reset window position: back on the minimap's spot, following (a button: the menu closes, the client's default).
     UI.Motion.SetFollow(False)
     home = UI.BigMap.home
     assert (f.GetLeft(f), f.GetTop(f)) != (home.left, home.top)
-    assert rows["Reset position"].onSelect() is None
+    assert rows["Reset window position"].onSelect() is None
     sim.Step()
     assert (f.GetLeft(f), f.GetTop(f), f.GetWidth(f), f.GetHeight(f)) == (home.left, home.top, home.w, home.h)
     assert UI.Camera.follow
@@ -285,7 +269,7 @@ end"""
 
 
 def test_gear_tracking_advanced():
-    """Tracking (GearMenu.lua:9-26): Blizzard's types but those ours replace, each a box that sends Game the
+    """Tracking (GearMenu.lua:9-26), in Nearby: Blizzard's types but those ours replace, each a box that sends Game the
     tracking Command and shows the click till Game's next Observation says so. Settings > Advanced
     (GearMenu.lua:33-46): each row runs its /mm command, a box showing its command's state. /mm layers
     (Layers.lua:2196-2207): each group's layers, on green, off grey, a sub-option grey while its parent's off."""
@@ -295,10 +279,10 @@ def test_gear_tracking_advanced():
     sim.Slash("/mm toggle")
     sim.Run(1)
 
-    # Tracking: the client's order, the duplicates (flight, quest POIs, POIs) left out.
+    # Tracking, under Nearby's rows: the client's order, the duplicates (flight, quest POIs, POIs) left out.
     root, rows = gear(sim, ns)
-    assert items(sub(root, "Tracking")) == [("checkbox", "Find Herbs"), ("checkbox", "Mailbox"),
-                                            ("checkbox", "Innkeeper")]
+    assert items(sub(root, "Nearby"))[-4:] == [("divider", None), ("checkbox", "Find Herbs"), ("checkbox", "Mailbox"),
+                                               ("checkbox", "Innkeeper")]
     mail = rows["Mailbox"]
     assert mail.isSelected() is True and mail.onSelect() == refresh
     assert mail.isSelected() is False and len(sent) == 0  # the click shown; Game's in its next input step
@@ -338,11 +322,10 @@ def test_gear_tracking_advanced():
     on, off = "|cff33ff33%s|r".__mod__, "|cff888888%s|r".__mod__
     assert sim.prints[len(sim.prints)] == (
         "|cffffd100MagicMap|r: layers: "
-        f"|cffffd100Map:|r {on('zoneLabels')}, {on('zoneBorders')}, {off('unexplored')}; "
+        f"|cffffd100Map:|r {on('zoneLabels')}, {on('zoneBorders')}; "
         f"|cffffd100Quests:|r {on('quests')}, {off('questAreas')}, {on('offers')}; "
-        f"|cffffd100Places:|r {off('flight')}, {on('dungeons')}, {off('graveyards')}, {on('areaPOIs')}, {on('blips')}; "
-        f"|cffffd100People:|r {on('group')}, {off('rares')}, {on('vignettes')}; "
-        f"|cffffd100You:|r {on('corpse')}, {on('waypoint')}. Toggle them from the gear. "
+        f"|cffffd100Places:|r {off('flight')}, {on('dungeons')}, {off('graveyards')}, {on('areaPOIs')}; "
+        f"|cffffd100Nearby:|r {off('rares')}, {on('group')}. Toggle them from the gear. "
         "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it.")
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
@@ -352,12 +335,12 @@ def test_gear_groups_and_reset():
     L, sim, ns, pin = shown()
     E = ns.UI.Engine
     root, rows = gear(sim, ns)
-    rows["All map"].onSelect()  # (Shade unexplored is off by default: not all on, so all on)
-    assert E.LayerOn("labels") and E.LayerOn("borders") and E.LayerOn("unexplored")
-    rows["All map"].onSelect()
-    assert not E.LayerOn("labels") and not E.LayerOn("borders") and not E.LayerOn("unexplored")
+    rows["All places"].onSelect()  # (Graveyards are off by default: not all on, so all on)
+    assert E.LayerOn("flight") and E.LayerOn("graveyards")
+    rows["All places"].onSelect()
+    assert not E.LayerOn("flight") and not E.LayerOn("graveyards")
     rows["All quests"].onSelect()
     assert not E.LayerOn("quests")
     rows["Reset to defaults"].onSelect()
-    assert E.LayerOn("quests") and E.LayerOn("labels") and not E.LayerOn("unexplored")  # (off by default)
+    assert E.LayerOn("quests") and E.LayerOn("flight") and not E.LayerOn("graveyards")  # (off by default)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
