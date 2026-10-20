@@ -87,31 +87,8 @@ that read it.
   open space (no tile or a sea tile), after the tint.
 - sea[key] = true: open-sea tiles (the art's flat deep water all over, or that plus a frame):
   not drawn; `Atlas.Drawn` is false there. The art's own water is otherwise left as it is.
-- Read through `Atlas.TileInfo` and `Atlas.Drawn` (above).
-
-### Data/Sea.lua — `ns.Data.Sea` (minimap tiles, ADT MH2O ocean + MCVT heights) and Textures/Sea
-`{ product, version, dir, variants, gain, feather, maps = { [inst] = { tint, far, coast } } }`
-- The open sea beyond the tiles (no tile, or TileColor sea[]), continuing the art's own water:
-  the art is drawn as it is and the sea fills the rest. Open-world maps with ≥ 4 open-sea
-  tiles and ocean in the terrain (Eastern Kingdoms, Kalimdor).
-- dir is relative to the addon's folder (`Textures\Sea\<product>\`); Atlas prefixes
-  `Atlas.ROOT` (`Interface\AddOns\<the addon's folder name>\`), so a rename needs no regeneration.
-- `dir .. inst .. "_ocean" .. v .. ".tga"`, v = 0..variants-1: 256 px uncompressed TGAs in the
-  sea's colour, seamless, one repeat per tile: brightness synthesised from the map's own water
-  (art over ocean 6–45 yd deep: the seabed showing through), rocks and wrecks removed, around
-  colour. Every variant equals variant 0 near its edges, so any variant sits beside any other.
-  `Atlas.SeaVariant(col, row)` picks one per cell by a hash. Drawn as they are, nothing over them:
-  the sea is one texture everywhere, so it has no seam.
-- colour = `{ r, g, b }` (0..255): the sea's, the coast tiles' water where they meet it (the
-  median of their sides facing it, after TileColor's tint): Blizzard's art paints it near black.
-- coast[key] = code: tiles with a side (bits 1 l, 2 r, 4 t, 8 b) or only a corner (16 tl, 32 tr,
-  64 bl, 128 br) touching the sea; `dir .. "feather_" .. code .. ".tga"` (64 px, white) is the
-  art's mask: 0 at those sides, smoothstep to 1 over `feather` of a tile.
-- Drawn with textures only: per sea cell its variant (world-anchored); over the view variant 0
-  REPEAT at a repeat every 2.7 tiles, turned a quarter, at alpha 0.35; then the tiles, coast tiles with their feather as MaskTexture. See
-  tools/gen_sea.py and demo/tiles.js.
-- `Atlas.Sea(inst)` → `{ textures, colour }` (colour 0..1) or nil;
-  `Atlas.SeaVariant(col, row)` → 1..variants; `Atlas.SeaFeather(inst, key)` → mask path or nil.
+- Read through `Atlas.Drawn` (above). The tint and edge data aren't used at run time (tiles are
+  drawn as Blizzard drew them, on the map's backdrop colour).
 
 ### Data/UiMaps.lua — `ns.Data.UiMaps` (UiMap + UiMapAssignment DB2)
 `[uiMapID] = { name, mapType, parent, inst, col0, row0, col1, row1, areaID }`

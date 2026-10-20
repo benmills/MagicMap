@@ -178,18 +178,14 @@ def test_labels():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
-def test_sea():
-    """No land tile, the sea's water texture is drawn there: an open-sea tile (Data/TileColor.lua's sea[])
-    is no land, so no art shows over it and its cell is the sea's."""
+def test_open_sea():
+    """An open-sea tile (Data/TileColor.lua's sea[]: the backdrop's colour) isn't drawn: the backdrop shows."""
     L, sim, ns = shown()
     tiles = layer(ns, "tiles")
     key = L.eval("function(D) for k in pairs(D.TileColor[0].sea) do return k end end")(ns.Atlas.Data)
-    col, row = key // 64, key % 64
-    look(sim, ns, (col + 0.5, row + 0.5), 200)
+    look(sim, ns, (key // 64 + 0.5, key % 64 + 0.5), 200)
     p = tiles.front.pools
-    cell = p.sea[p.sea.at[col * 4096 + row]]
-    assert cell.path and "_ocean" in cell.path and cell.path.endswith(".tga"), cell.path
-    fdid = ns.Atlas.TileInfo(0, key).fdid
+    fdid = ns.Atlas.Tiles(0)[key]
     assert all(p.art[i].fdid != fdid for i in range(1, p.art.n + 1))
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 

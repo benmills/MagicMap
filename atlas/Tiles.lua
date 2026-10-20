@@ -1,5 +1,5 @@
--- The tile set (Data/Tiles.lua, from WoW Forever's own WDT files) and how
--- each tile is drawn (Data/TileColor.lua).
+-- The tile set (Data/Tiles.lua, from WoW Forever's own WDT files), less the
+-- open-sea tiles (Data/TileColor.lua's sea[]: one flat colour, the backdrop's).
 
 local _, ns = ...
 local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
@@ -58,33 +58,4 @@ function Atlas.Drawn(inst, key)
 	local tiles = Atlas.Tiles(inst)
 	local colors = Data.TileColor and Data.TileColor[inst]
 	return tiles and tiles[key] and not (colors and colors.sea and colors.sea[key]) and true or false
-end
-
--- Has the map colour data (Data/TileColor.lua)? (/mm tint says when it hasn't.)
-function Atlas.TileColored(inst)
-	return Data.TileColor ~= nil and Data.TileColor[inst] ~= nil
-end
-
--- tint: drawn colour = texel * m + a, for tiles baked off from their neighbours.
--- edge: each open side's mean colour, to spill outward. sea: open sea all over (not drawn).
-local info = {} -- [inst][key] -> info | false
-function Atlas.TileInfo(inst, key)
-	local cache = info[inst]
-	if not cache then
-		cache = {}
-		info[inst] = cache
-	end
-	local t = cache[key]
-	if t == nil then
-		local tiles = Atlas.Tiles(inst)
-		local fdid = tiles and tiles[key]
-		t = false
-		if fdid then
-			local c = Data.TileColor and Data.TileColor[inst] or {}
-			t = { fdid = fdid, tint = c.tint and c.tint[key], edge = c.edge and c.edge[key],
-				sea = c.sea and c.sea[key] and true or false }
-		end
-		cache[key] = t
-	end
-	return t or nil
 end

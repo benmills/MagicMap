@@ -2,9 +2,9 @@
 -- chrome you see). Checked against the client once after login's grace and on /mm check
 -- art; each miss traces "art" (its name). Forever lacks some art other clients have, and a
 -- missing name draws nothing, silently (spike-bugs L2, L5). A name UI starts using goes here.
--- Not listed: data's art (tile FileDataIDs, Textures\Sea: generated, K4), our own
--- Textures\PlayerArrow (ui/You.lua: an addon's file, not the client's; L5's restart hazard, as
--- Sea's) and the client's own tracking icons (whatever C_Minimap names).
+-- Not listed: data's art (tile FileDataIDs: generated, K4), our own
+-- Textures\PlayerArrow (ui/You.lua: an addon's file, not the client's; L5's restart hazard) and
+-- the client's own tracking icons (whatever C_Minimap names).
 
 local _, ns = ...
 local UI, Runtime = ns.UI, ns.Runtime

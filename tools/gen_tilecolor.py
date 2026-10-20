@@ -37,8 +37,7 @@ How it works, per map:
   5. Edge colours: per-channel median of the outer EDGE_DEPTH band (the
      runtime's inward feather) on each side facing open space (no tile or a
      sea tile), after the tint.
-The art's own water is left as it is (the sea beyond the tiles continues it:
-tools/gen_sea.py).
+The art's own water is left as it is (the map's backdrop colour around it).
 
 --preview DIR writes before/after PNGs and a seam heatmap per continent
 (needs Pillow).

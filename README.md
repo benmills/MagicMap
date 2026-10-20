@@ -112,8 +112,7 @@ items / quests, coordinates and camera maths), from data the offline tools gener
 ## Regenerate data
 
 Each generator reads a local install (see its docstring for options) and states the build
-in its output's header. Run them in this order: gen_tilecolor reads Data/Tiles.lua, gen_sea
-reads Tiles and TileColor (and writes Textures/Sea/<product>/ beside Data/), gen_questie
+in its output's header. Run them in this order: gen_tilecolor reads Data/Tiles.lua, gen_questie
 reads Data/UiMaps.lua from gen_world and gen_world's ItemIcons reads gen_questie's
 Data/Items.lua (the data diet), so gen_world runs again after it; gen_labels reads Borders,
 Places, Areas, UiMaps, Tiles and Walk, so it runs last. The rest are independent. gen_questie's
@@ -124,7 +123,6 @@ checkout, $MAIN: `for f in Npcs Objects Items Quests BlipServices; do ln -s "$MA
     W="/Applications/World of Warcraft"
     .venv/bin/python tools/gen_tiles.py     local "$W" wow_classic_beta -o Data/Tiles.lua
     .venv/bin/python tools/gen_tilecolor.py local "$W" wow_classic_beta -o Data/TileColor.lua
-    .venv/bin/python tools/gen_sea.py       local "$W" wow_classic_beta -o Data/Sea.lua
     .venv/bin/python tools/gen_borders.py   local "$W" wow_classic_beta -o Data/Borders.lua
     .venv/bin/python tools/gen_walk.py      local "$W" wow_classic_beta -o Data/Walk.lua
     .venv/bin/python tools/gen_areagrid.py  local "$W" wow_classic_beta -o Data/AreaGrid.lua
@@ -135,7 +133,7 @@ checkout, $MAIN: `for f in Npcs Objects Items Quests BlipServices; do ln -s "$MA
 
 The demo's assets, after the above:
 
-    .venv/bin/python demo/export_tiles.py   # demo/tiles/<inst>: tile WebPs + sea textures (--inst N, --all, --sea-only); after gen_tiles, gen_sea
+    .venv/bin/python demo/export_tiles.py   # demo/tiles/<inst>: tile WebPs (--inst N, --all); after gen_tiles
     .venv/bin/python tools/export_icons.py local "$W" wow_classic_beta   # demo/icons: the icons named in demo/index.html's GAME_ICON
 
 ## Install and try it in game

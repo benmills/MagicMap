@@ -6,8 +6,7 @@ them.
   .venv/bin/python demo/server.py [port]      # then open http://localhost:8000
 
   /api/maps                          Atlas.Maps, with Continent and Zones per inst
-  /api/tiles?inst=                   TileInfo per tile (tint, sea)
-  /api/sea?inst=                     Sea: its colour, variants; SeaFeather's code per coast tile
+  /api/tiles?inst=                   per tile: its key, whether it's open sea (not drawn)
   /api/borders?inst=                 Borders lines and far (zone borders, two levels of detail)
   /api/zone-outline?inst=&zone=      ZoneOutline: a zone's land as rings
   /api/labels?inst=                  Atlas.Labels: ranked name anchors (continent, zone, town, subzone, poi)
@@ -64,22 +63,8 @@ def tiles(q):
     inst = int(q["inst"])
     out = []
     for key in Atlas.Tiles(inst).keys():
-        t = Atlas.TileInfo(inst, key)
-        out.append({"key": key, "tint": py(t.tint), "sea": t.sea})
+        out.append({"key": key, "sea": not Atlas.Drawn(inst, key)})
     return {"tiles": out}
-
-
-def sea(q):
-    inst = int(q["inst"])
-    m = Atlas.Sea(inst)
-    if not m:
-        return None
-    coast = {}
-    for key in Atlas.Tiles(inst).keys():
-        path = Atlas.SeaFeather(inst, key)
-        if path:
-            coast[key] = int(path.rsplit("_", 1)[1][:-4])  # feather_<code>.tga
-    return {"colour": py(m.colour), "variants": len(m.textures), "coast": coast}
 
 
 def borders(q):
@@ -306,7 +291,7 @@ def find(q):
     return out
 
 
-API = {"maps": maps, "tiles": tiles, "sea": sea, "borders": borders, "zone-outline": zone_outline, "labels": labels,
+API = {"maps": maps, "tiles": tiles, "borders": borders, "zone-outline": zone_outline, "labels": labels,
        "at": at, "fit": fit, "walk": walk, "pins": pins, "npc": npc, "object": object, "item": item, "quest": quest,
        "flight": flight, "dungeon": dungeon, "find": find}
 

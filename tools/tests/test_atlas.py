@@ -18,7 +18,7 @@ def test_atlas():
     # Tiles, coordinates, walk, camera.
     assert Atlas.Maps()[1].name == "Eastern Kingdoms"
     key = next(iter(Atlas.Tiles(0).keys()))
-    assert Atlas.TileInfo(0, key).fdid == Atlas.Tiles(0)[key]
+    assert Atlas.Drawn(0, key) in (True, False)
     col, row = Atlas.WorldToTile(*Atlas.TileToWorld(31.25, 40.5))
     assert abs(col - 31.25) < 1e-9 and abs(row - 40.5) < 1e-9
     gc, gr = int(32.378 * 16), int(49.024 * 16)  # Northshire

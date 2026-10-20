@@ -14,7 +14,6 @@ runtime\Boot.lua
 # Atlas
 Data\Tiles.lua
 Data\TileColor.lua
-Data\Sea.lua
 Data\Borders.lua
 Data\Walk.lua
 Data\UiMaps.lua
@@ -30,7 +29,6 @@ Data\Quests.lua
 Data\BlipServices.lua
 atlas\Coords.lua
 atlas\Tiles.lua
-atlas\Sea.lua
 atlas\Borders.lua
 atlas\Walk.lua
 atlas\UiMaps.lua

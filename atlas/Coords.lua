@@ -7,7 +7,7 @@
 local ADDON, ns = ...
 local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
 
--- The addon's folder (its name), which data paths (Data/Sea.lua's dir) are relative to.
+-- The addon's folder (its name): our own textures' paths start with it.
 Atlas.ROOT = "Interface\\AddOns\\" .. ADDON .. "\\"
 
 Atlas.TILE_YARDS = 1600 / 3 -- one ADT / minimap tile = 533.33 yards
@@ -30,7 +30,6 @@ end
 Atlas.FORMATS = {
 	Tiles = 1,     -- Data/Tiles.lua (tools/gen_tiles.py)
 	TileColor = 1, -- Data/TileColor.lua (tools/gen_tilecolor.py)
-	Sea = 1,       -- Data/Sea.lua (tools/gen_sea.py)
 	Borders = 2,   -- Data/Borders.lua (tools/gen_borders.py)
 	Walk = 1,      -- Data/Walk.lua (tools/gen_walk.py)
 	UiMaps = 1,    -- Data/UiMaps.lua (tools/gen_world.py)
