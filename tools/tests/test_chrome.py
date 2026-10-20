@@ -87,19 +87,19 @@ def test_chrome():
 
     # Tips: after 0.35 s, fading in over 0.12 s, gone after 2.5 s or on leaving.
     tip = ctl.tip
-    sim.MoveCursorTo(ctl.follow)
-    sim.FireScript(ctl.follow, "OnEnter", False)
+    sim.MoveCursorTo(ctl.zoomIn)
+    sim.FireScript(ctl.zoomIn, "OnEnter", False)
     sim.Run(0.3)
     assert tip.IsShown(tip) and tip.GetAlpha(tip) == 0
     sim.Run(0.1)
-    assert ctl.tipText.GetText(ctl.tipText) == "Following" and 0 < tip.GetAlpha(tip) < 1
+    assert ctl.tipText.GetText(ctl.tipText) == "Zoom in" and 0 < tip.GetAlpha(tip) < 1
     sim.Run(0.1)
     assert tip.GetAlpha(tip) == 1
     sim.Run(2.4)
     assert not tip.IsShown(tip)
-    sim.FireScript(ctl.follow, "OnEnter", False)
+    sim.FireScript(ctl.zoomIn, "OnEnter", False)
     sim.Step()
-    sim.FireScript(ctl.follow, "OnLeave", False)
+    sim.FireScript(ctl.zoomIn, "OnLeave", False)
     assert not tip.IsShown(tip)
 
     # A menu open keeps the controls shown (the gear's rows: test_gear.py).

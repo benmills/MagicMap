@@ -60,13 +60,12 @@ end
 -- Zoom, flights, follow
 ---------------------------------------------------------------------------
 
--- A zoom of `ticks` steps, in (> 0) or out; ticks stack onto the target (Core.lua:1422-1441). It keeps
--- you where you are while following, else the point under the cursor (the wheel) or the view's centre
--- (the buttons, a tick a click).
-function Motion.ZoomStep(ticks, atCursor)
+-- Chase the zoom to `target` (clamped). It keeps you where you are while following, else the point
+-- under the cursor (atCursor: the wheel) or the view's centre (the buttons).
+local function Aim(target, atCursor)
 	local cam, you, w, h = Camera.cam, ns.Model.you, Window.Size()
 	touched = GetTime()
-	goal = Clamp((goal or cam.zoom) * WHEEL_STEP ^ ticks, MIN_ZOOM, MAX_ZOOM)
+	goal = Clamp(target, MIN_ZOOM, MAX_ZOOM)
 	flight, Camera.moving = nil, true
 	local x, y = w / 2, h / 2
 	if Camera.follow and you.col then
@@ -76,7 +75,18 @@ function Motion.ZoomStep(ticks, atCursor)
 	end
 	anchor[1], anchor[2] = Maths.ScreenToTile(cam, w, h, x, y)
 	anchor[3], anchor[4] = x - w / 2, y - h / 2
+end
+
+-- A zoom of `ticks` steps, in (> 0) or out; ticks stack onto the target (Core.lua:1422-1441). See Aim.
+function Motion.ZoomStep(ticks, atCursor)
+	Aim((goal or Camera.cam.zoom) * WHEEL_STEP ^ ticks, atCursor)
 	if not atCursor then Camera.Trace("wheel") end -- (the wheel's: Motion's step, a frame's events in one)
+end
+
+-- Glide to a zoom (the reset button, ui/Controls.lua): the buttons' chase, to `zoom` about the view's centre.
+function Motion.ZoomTo(zoom)
+	Aim(zoom)
+	Camera.Trace("wheel")
 end
 
 -- The wheel (ui/Window.lua): each event a tick, in or out by its sign (Core.lua:1424, 1439).

@@ -64,7 +64,7 @@ function A.Button(d)
 end
 function A.Follow()
 	local on = not R.state.follow
-	sim.FireScript(Controls.follow, "OnClick", "LeftButton", false)
+	sim.Slash("/mm follow") -- (the Settings row runs the same: ui/Menus.lua)
 	R.SetFollow(on, true)
 end
 function A.Mode()

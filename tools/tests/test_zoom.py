@@ -217,3 +217,17 @@ def test_script_a_priced():
     assert len(rest) == 2 and len(moving) == 2
     assert max(v.p95 for v in rest) <= 1 and max(v.p99 for v in rest) <= 5 and max(v.p95 for v in moving) <= 5
     assert fs.max <= 8 and not errors(sim, ns), errors(sim, ns)
+
+
+def test_zoom_reset():
+    """The reset button (ui/Controls.lua) shows while the zoom is off the default (UI.DefaultZoom, 384: ui/View.lua),
+    and a click glides the zoom back to it, after which it hides."""
+    L, sim, ns = shown()
+    c, ctl = ns.UI.Camera, ns.UI.Controls
+    sim.Click(ctl.zoomIn)
+    sim.Run(0.1)
+    assert ctl.zoomReset.IsShown(ctl.zoomReset)
+    sim.Click(ctl.zoomReset)
+    sim.Run(2)
+    assert c.cam.zoom == ns.UI.DefaultZoom and not ctl.zoomReset.IsShown(ctl.zoomReset)
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

@@ -147,7 +147,7 @@ local function Objectives(q)
 	local out = {}
 	for _, o in ipairs(q.objectives) do
 		if o.text ~= "" then
-			local k = { text = o.text, finished = o.finished }
+			local k = { text = o.text, finished = o.finished, have = o.have, need = o.need }
 			if not o.finished and o.type == "item" and o.itemID then Sources(k, o.itemID) end
 			out[#out + 1] = k
 		end
