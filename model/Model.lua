@@ -12,7 +12,7 @@
 -- (UI reads them the same frame). Model.addons: obs.addons, the last handed ({} until then); Model.levels,
 -- Model.tracking: obs.levels, obs.tracking so. Model.explored, Model.exploredCells, Model.indoorArt:
 -- obs.explored, obs.exploredCells, obs.indoorArt, the last handed (nil until then; indoorArt false: none):
--- UI's shade, inspector and indoor art.
+-- UI's inspector and indoor art.
 --
 -- Each kind lives in its own file: Model.Part(observe, load) hooks it into
 -- Observe and Load, Model.Kind(kind, fn) answers Known(kind) with fn() -> list, rev.

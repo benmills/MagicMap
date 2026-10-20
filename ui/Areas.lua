@@ -25,7 +25,7 @@ local Get, Keep, At, Yield = Engine.Get, Engine.Keep, Engine.At, Runtime.Yield
 local ScreenToTile = Atlas.Camera.ScreenToTile
 local Command = ns.Game.Command
 
-local LEVEL = 3 -- over the tiles (1) and the shade's 2 (M4.4), under the borders (7) (Core.lua:149)
+local LEVEL = 3 -- over the tiles (1), under the borders (7) (Core.lua:149)
 -- The client's area art (each <base>Inside / <base>Outside): quest blue, bonus-objective green,
 -- archaeology rust (Layers.lua:785-789).
 local ART = { blue = "Interface\\WorldMap\\UI-QuestBlob-", green = "Interface\\WorldMap\\UI-BonusObjectiveBlob-",

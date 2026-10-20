@@ -154,7 +154,7 @@
 ---@field explored? table<MM.AreaID, boolean>  obs.explored, the last handed (nil until known): the inspector's
 ---                                place line's names
 ---@field exploredCells? table<MM.Inst, table<integer, table<integer, boolean>>>  obs.exploredCells, the last handed
----                                (nil until known): UI's shade (its dark cells) and the inspector's "Unexplored"
+---                                (nil until known): the inspector's "Unexplored"
 ---@field indoorArt? MM.ObsArt|false  obs.indoorArt, the last handed (nil until known; false: none): UI's indoor art
 ---                                and its View.renderer pick
 ---@field tracking MM.ObsTracking[]  obs.tracking, the last handed ({} until known): the gear's Tracking submenu

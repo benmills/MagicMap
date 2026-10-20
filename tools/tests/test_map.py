@@ -17,7 +17,7 @@ def test_map():
     assert w.frame.IsShown(w.frame)
     sim.Run(1)
     assert c.inst == 0 and abs(c.cam.cx - 31.95) < 1e-6 and abs(c.cam.cy - 49.75) < 1e-6
-    for layer in e.layers.values():  # (one off by default, as the shade: none)
+    for layer in e.layers.values():  # (one off by default: none)
         assert (layer.front and not layer.busy) if layer.on else not layer.front, layer.name
     live, _ = stats(e)
     assert live["tex"] > 10 and live["line"] > 10 and live["font"] > 0, live

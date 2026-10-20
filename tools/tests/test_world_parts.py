@@ -1,6 +1,6 @@
 """Game's places, group, vignettes, explored and tracking parts and the tracking Command, round trips on the
 sim (docs/v1-plan.md M4.1): what the client says reaches obs.places, obs.group, obs.vignettes, obs.explored,
-obs.exploredCells (per cell, as the spike's shade: M4 review r1) and obs.tracking (game/parts/), read when it may have changed, a new table only when something did; the
+obs.exploredCells (per cell, the inspector's Unexplored) and obs.tracking (game/parts/), read when it may have changed, a new table only when something did; the
 tracking Command (game/commands/tracking.lua) comes back in the client and in the same frame's
 observation. And the observe step with every part on holds its 2 ms, our Lua charged. The vignette read
 that throws, or finds no position, is R-E2 (replays/R-E2.lua)."""

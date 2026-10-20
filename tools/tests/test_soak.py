@@ -98,7 +98,7 @@ local function Click(col, row)
     sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")
     sim.Run(0.5)
 end
--- Every gear layer on (those off by default too: graveyards, the shade), each toggled off and on in (d).
+-- Every gear layer on (those off by default too: graveyards), each toggled off and on in (d).
 local layers = {}
 for name in pairs(Engine.defaults) do
     Engine.SetLayer(name, true)

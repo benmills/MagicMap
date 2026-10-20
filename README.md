@@ -25,7 +25,7 @@ to fly there. `/mm map` and `/mm zone` do the same by name.
 
 **The ground.** The game's minimap tiles at any zoom, colour-matched where neighbours differ
 (`/mm tint`), the sea beyond the coast, zone and subzone borders and names traced from the
-terrain, and your arrow. Unexplored parts of each zone can be shaded (off by default).
+terrain, and your arrow.
 
 **Blizzard's blips.** Outdoors Blizzard's Minimap stays out of sight and is read as a sensor:
 herbs, ore, the mailbox and tracked NPCs within about 230 yards get a pin with Blizzard's tracking
