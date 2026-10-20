@@ -2,7 +2,7 @@
 //
 // Atlas.Labels ranks every name (continent, zone, town, subzone, poi); this draws them as a
 // typographic hierarchy: each tier has a zoom band, a face, size, tracking, case, colour and a
-// soft halo. Placement goes in rank order: a name that would touch a name already placed, or a pin
+// soft drop shadow. Placement goes in rank order: a name that would touch a name already placed, or a pin
 // it doesn't win over (a tier's over / covers), is dropped; pins it wins over aren't drawn. Labels
 // fade in and out; both the bands and the collision test have hysteresis (a shown label keeps its
 // place a little longer than a new one would win it), so zooming doesn't flicker.
@@ -18,16 +18,15 @@
 // How the addon draws the same thing, with WoW primitives only:
 //   - one FontString per placed label, from a pool; SetFont(file, size, flags) per tier and size
 //     (Morpheus / FRIZQT__); SetTextColor and SetAlpha for colour, tier opacity and the fade.
-//   - case: string.upper; small caps: two FontStrings (capitals at full size, the rest
+//   - case: string.upper for body names (titles are mixed case); small caps: two FontStrings (capitals at full size, the rest
 //     upper-cased at ~0.8 size) or a baked small-caps font file.
 //   - tracking: FontStrings have no letter-spacing (SetSpacing is line spacing). Either bake it
 //     into the font file (a tracked copy of Morpheus), or lay titles out a glyph per FontString
 //     (fine for the dozen or so titles on screen). Body labels use no tracking for this reason.
 //   - no italics: a FontString can't be slanted, so subzones are told apart by size, colour and
 //     opacity, never by italic.
-//   - the halo: SetShadowColor(0, 0, 0, .8) + SetShadowOffset(1, -1) for the crisp edge, plus a
-//     soft-edged dark texture (a feathered ellipse TGA) behind the text, sized from
-//     GetStringWidth/Height, for the glow; "OUTLINE" is the hard stroke this replaces.
+//   - the shadow: SetShadowColor(0, 0, 0, .85) + SetShadowOffset(1, 1), a soft drop shadow; names
+//     of 12 px and under also get a thin dark outline ("OUTLINE" is the hard stroke this replaces).
 //   - placement and fades are plain Lua over the same rects (GetStringWidth for widths).
 
 const TITLE_FONT = "Cinzel, 'Trajan Pro', 'Palatino Linotype', Palatino, Georgia, serif";
@@ -43,19 +42,22 @@ const LABEL_STYLE = {
   // px = k * (the area's side on screen), clamped; over: below this zoom the name wins over every
   // pin (hiding the pins under it); covers: pin layers it always wins over; any other pin it keeps
   // clear of; fit: at most this share of the view's width (a phone); track: letter-spacing in em;
-  // caps: "upper" | "small" | null; halo: soft glow (blur px) and a faint edge (px).
+  // caps: "small" | null (mixed case; "small" sets lowercase as small caps).
   tiers: {
     continent: { zoom: [0, 26], over: 26, fit: 0.8, font: TITLE_FONT, weight: 700, size: { k: 0.1, min: 15, max: 22 }, track: 0.28,
-      caps: "upper", color: "#f2dfae", alpha: 0.92, halo: { blur: 8, edge: 2.5, color: "rgba(10,6,0,.75)" } },
+      caps: null, color: "#f2dfae", alpha: 0.92 },
     zone: { zoom: [6, 320], over: 40, covers: ["rare", "quest", "mail", "herb", "ore"], font: TITLE_FONT, weight: 700, size: { k: 0.085, min: 11.5, max: 22 }, track: 0.12,
-      caps: "small", color: "#ffe2a0", alpha: 0.95, halo: { blur: 5, edge: 2.5, color: "rgba(10,6,0,.8)" } },
+      caps: null, color: "#ffe3a1", alpha: 0.95 },
     town: { zoom: [30, Infinity], covers: ["rare", "mail", "herb", "ore"], font: BODY_FONT, weight: 400, size: 12.5, track: 0,
-      caps: null, color: "#fbf6ea", alpha: 0.9, halo: { blur: 4, edge: 2, color: "rgba(0,0,0,.75)" } },
-    subzone: { zoom: [72, Infinity], covers: ["mail", "herb", "ore"], font: BODY_FONT, weight: 400, size: { k: 0.1, min: 10.5, max: 13 }, track: 0,
-      caps: null, color: "#e8dcc4", alpha: 0.78, halo: { blur: 4, edge: 2, color: "rgba(0,0,0,.7)" } },
+      caps: null, color: "#fbf6ea", alpha: 0.9 },
+    subzone: { zoom: [72, Infinity], covers: ["mail", "herb", "ore"], font: BODY_FONT, weight: 400, size: { k: 0.1, min: 10.5, max: 13 }, track: 0.04,
+      caps: null, color: "rgb(232,219,196)", alpha: 0.78 },
     poi: { zoom: [150, Infinity], covers: ["mail", "herb", "ore"], font: BODY_FONT, weight: 400, size: 10.5, track: 0,
-      caps: null, color: "#d6ccb6", alpha: 0.68, halo: { blur: 3, edge: 1.5, color: "rgba(0,0,0,.7)" } },
+      caps: null, color: "#d6ccb6", alpha: 0.68 },
   },
+  // Every name: a soft dark drop shadow, and a thin dark outline at 12 px and under.
+  shadow: { color: "rgba(0,0,0,.85)", offset: 1, blur: 2 },
+  outline: { maxSize: 12, width: 1, color: "rgba(10,6,0,.9)" },
   // Pins at continent zoom: scaled and faded so the names carry the map, easing back to full
   // size and opacity between these zooms.
   pins: { quietZoom: [14, 48], scale: 0.62, alpha: 0.6 },
@@ -129,7 +131,7 @@ function drawLabels(pinBoxes) {
     if (!s) { s = { a: 0, on: false, spot: 0 }; labelState.set(l.rank, s); }
     const [ax, ay] = toScreen(l.col, l.row);
     if (ax < -300 - m || ax > W + 300 + m || ay < -m - 60 || ay > H + m + 60) continue; // far off: keep its state
-    const text = st.caps === "upper" ? l.text.toUpperCase() : l.text;
+    const text = l.text;
     let size = labelSize(l, st), w = setFont(text, st, size);
     if (st.fit && w > W * st.fit) { size = Math.floor(size * W * st.fit / w); w = setFont(text, st, size); }
     const h = size * 1.15;
@@ -153,20 +155,21 @@ function drawLabels(pinBoxes) {
     if (s.a !== (want ? 1 : 0)) fading = true;
     if (s.a === 0) continue;
     if (!at) { const c = spots(l, w, h)[s.spot]; at = [ax + c[0], ay + c[1]]; } // fading out where it was
-    drawLabel(text, at[0], at[1] + size * 0.04, st, s.a);
+    drawLabel(text, at[0], at[1] + size * 0.04, st, size, s.a);
   }
   ctx.restore();
   if (fading) draw();
   return covered;
 }
 
-function drawLabel(text, x, y, st, a) {
-  const hl = st.halo;
+function drawLabel(text, x, y, st, size, a) {
+  const sh = LABEL_STYLE.shadow, ol = LABEL_STYLE.outline;
   ctx.globalAlpha = a * st.alpha;
-  // The halo: a blurred dark glow under the glyphs, and a faint soft edge for crispness.
-  ctx.shadowColor = hl.color; ctx.shadowBlur = hl.blur;
-  ctx.lineWidth = hl.edge; ctx.strokeStyle = hl.color; ctx.strokeText(text, x, y);
-  ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+  if (size <= ol.maxSize) { // the thin outline, under the glyphs
+    ctx.lineWidth = ol.width; ctx.strokeStyle = ol.color; ctx.strokeText(text, x, y);
+  }
+  ctx.shadowColor = sh.color; ctx.shadowOffsetX = sh.offset; ctx.shadowOffsetY = sh.offset; ctx.shadowBlur = sh.blur;
   ctx.fillStyle = st.color; ctx.fillText(text, x, y);
+  ctx.shadowColor = "transparent"; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0; ctx.shadowBlur = 0;
 }
 

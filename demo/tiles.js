@@ -23,7 +23,9 @@ const SEA_STYLE = {
   macro: 2.7,       // tiles per repeat of the second layer
   macroAlpha: 0.35,
   variants: true,   // false: variant 0 in every cell (to see the repetition the variants hide)
-  tint: true,       // false: no tint map (the texture's own grey, to see it)
+  // Colour-matched tiles (the addon's gear option, off by default): the tile's tint, the coast fade
+  // and the sea's tint map. Off: the art plain, the sea its own water texture (no colour data).
+  tint: false,
   feather: 0.15,    // tiles: the coast's fade; gen_sea.py FEATHER = 0.15
 };
 
@@ -67,11 +69,11 @@ function featherMask(code) {
 function bake(t, img) {
   const n = img.width, c = h("canvas", { width: n, height: n }), g = c.getContext("2d");
   g.drawImage(img, 0, 0);
-  if (t.tint) {
+  if (SEA_STYLE.tint && t.tint) {
     g.globalCompositeOperation = "multiply"; g.fillStyle = rgb(t.tint.slice(0, 3)); g.fillRect(0, 0, n, n);
     g.globalCompositeOperation = "lighter"; g.fillStyle = rgb(t.tint.slice(3)); g.fillRect(0, 0, n, n);
   }
-  const code = sea && sea.coast.get(t.key);
+  const code = SEA_STYLE.tint && sea && sea.coast.get(t.key);
   if (code) {
     g.globalCompositeOperation = "destination-in"; g.imageSmoothingQuality = "high";
     g.drawImage(featherMask(code), 0, 0, n, n);
@@ -157,7 +159,7 @@ function drawSea(drawn) {
     const [c0, r0, c1, r1] = view(), paths = [];
     for (let c = Math.floor(c0); c <= Math.floor(c1); c++) for (let r = Math.floor(r0); r <= Math.floor(r1); r++) {
       const key = c * 64 + r;
-      if (c >= 0 && c < 64 && r >= 0 && r < 64 && drawn.has(key) && !sea.coast.has(key)) continue; // under art
+      if (c >= 0 && c < 64 && r >= 0 && r < 64 && drawn.has(key) && !(s.tint && sea.coast.has(key))) continue; // under art
       (paths[seaVariant(c, r)] ||= new Path2D()).rect(...tileRect(c, r));
     }
     paths.forEach((path, v) => { const p = oceanPattern(v, px, 1, false); if (p) { ctx.fillStyle = p; ctx.fill(path); } });

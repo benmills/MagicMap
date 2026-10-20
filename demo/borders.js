@@ -15,10 +15,10 @@
 // Every tunable. Steps apply from their zoom (px per tile) up, until the next.
 const BORDER_STYLE = {
   steps: [ // width: the light line; halo: [[extra width, alpha], ...] dark Lines under it, widest first
-    { zoom: 0, width: 1.0, alpha: 0.6, halo: [[3.0, 0.16], [1.8, 0.3]] },
-    { zoom: 40, width: 1.3, alpha: 0.7, halo: [[4.0, 0.16], [2.4, 0.32]] },
-    { zoom: 120, width: 1.7, alpha: 0.78, halo: [[5.5, 0.15], [3.0, 0.34]] },
-    { zoom: 300, width: 2.2, alpha: 0.82, halo: [[7.0, 0.14], [3.8, 0.36]] },
+    { zoom: 0, width: 1.0, alpha: 0.7, halo: [[3.0, 0.26], [1.8, 0.42]] },
+    { zoom: 40, width: 1.3, alpha: 0.78, halo: [[4.0, 0.26], [2.4, 0.44]] },
+    { zoom: 120, width: 1.7, alpha: 0.84, halo: [[5.5, 0.25], [3.0, 0.44]] },
+    { zoom: 300, width: 2.2, alpha: 0.88, halo: [[7.0, 0.24], [3.8, 0.46]] },
   ],
   color: [255, 216, 140], // warm light
   haloColor: [12, 8, 4],
