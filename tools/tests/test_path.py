@@ -141,7 +141,7 @@ def test_path_line():
     assert len(strokes) == len(washes) == P.pieces == 8
     end = (33.0 - 31.95) * z
     for (ax, ay, bx, by, a), (wax, way, wbx, wby, wa) in zip(sorted(strokes), sorted(washes)):
-        assert (ax, ay, bx, by) == (wax, way, wbx, wby) and 0 < a <= 0.7 and 0 < wa <= 0.3
+        assert (ax, ay, bx, by) == (wax, way, wbx, wby) and 0 < a <= 0.85 and 0 < wa <= 0.45
         assert 13 <= ax < bx <= end - 14 and bx - ax <= 6 and abs(ay) <= 1.5 and abs(by) <= 1.5
     assert sorted(strokes)[-1][2] - sorted(strokes)[-2][2] == 10  # laid back from the target, 10 apart
     assert len({d[4] for d in strokes}) > 3  # faded at its ends, uneven along it

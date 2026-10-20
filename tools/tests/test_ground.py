@@ -133,15 +133,21 @@ def test_labels():
     L, sim, ns = shown()
     labels, S = layer(ns, "labels"), sim.state
     font = L.globals().GameFontNormal.GetFont(None)[0]
+    title = "Fonts\\MORPHEUS.TTF"
     counts = []
     for zoom in (100, 200, 500):
         look(sim, ns, KHARANOS, zoom)
         got = placed(sim, labels.front)
-        zones = [t for t, size, *_ in got if size == 10]
-        subs = [w for _, size, w, *_ in got if size == 9]
-        assert len(zones) + len(subs) == len(got)
         pool = labels.front.pools.label
-        assert all(t == t.upper() for t in zones) and all(S[pool[i]].font[1] == font for i in range(1, len(got) + 1))
+        faces = [S[pool[i]].font for i in range(1, len(got) + 1)]  # path, size, flags: as drawn
+        zone = [f[1] == title for f in faces]  # a font as drawn: (path, size, flags), 1-based from Python
+        zones = [t for (t, *_), z in zip(got, zone) if z]
+        subs = [w for (_, _, w, *_), z in zip(got, zone) if not z]
+        assert len(zones) + len(subs) == len(got)
+        # Zones in Morpheus, mixed case, 11.5 to 22 pt; subzones in the body face, 10.5 to 13; an outline at 12 or less.
+        assert all(t != t.upper() for t in zones) and all(11.5 <= f[2] <= 22 for f, z in zip(faces, zone) if z)
+        assert all(f[1] == font and 10.5 <= f[2] <= 13 for f, z in zip(faces, zone) if not z)
+        assert all(f[3] == ("OUTLINE" if f[2] <= 12 else "") for f in faces)
         if zoom == 100:  # zones, no subzone yet (from 120)
             assert zones and not subs
         if zoom == 200:  # zones, and the subzones of weight 40 or more

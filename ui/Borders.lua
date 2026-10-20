@@ -21,7 +21,8 @@ local MIN_FADE = 0.08 -- a dash fainter is dropped (Layers.lua:1575)
 local MIN_SEG_PX = 2.5 -- Layers.lua:1532
 local CAP = 3000 -- Lines a layout (Layers.lua:218-226)
 local SHADOW_ZOOM, SUBZONE_ZOOM = 60, 140 -- Layers.lua:1746, 1424
-local ZONE, SHADOW, SUB = { 1, 0.9, 0.72, 0.6 }, { 0, 0, 0, 0.25 }, { 1, 0.95, 0.85, 0.22 } -- Layers.lua:1589-1590, 1747
+-- Layers.lua:1589-1590, 1747; the casing darker, and more alpha on both: legible on pale ground
+local ZONE, SHADOW, SUB = { 1, 0.9, 0.72, 0.75 }, { 0, 0, 0, 0.45 }, { 1, 0.95, 0.85, 0.4 }
 local COLOR = { line = ZONE, shadow = SHADOW, sub = SUB }
 local SHADOW_PX = 1.2 -- the shadow's width over the line's (Layers.lua:1747)
 

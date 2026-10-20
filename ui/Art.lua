@@ -41,7 +41,7 @@ local Art = {
 		"Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",        -- ui/Path.lua: the edge arrow
 		"Interface\\Minimap\\PartyRaidBlipsV2",                  -- ui/Group.lua: party and raid members
 	},
-	fonts = { "Fonts\\FRIZQT__.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS)
+	fonts = { "Fonts\\FRIZQT__.TTF", "Fonts\\MORPHEUS.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS), and the zones' Morpheus
 }
 UI.Art = Art
 

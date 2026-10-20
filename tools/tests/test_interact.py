@@ -195,15 +195,15 @@ def test_zone_hover():
     G.Over(32.6, 49.9)
     sim.Run(0.3)
     n, names = G.Lit()
-    assert n > 10 and names == "ELWYNN FOREST"
+    assert n > 10 and names == "Elwynn Forest"
     line = S[G.Line]
     assert list(line.color.values()) == [1, 0.84, 0.4, 0.95] and line.thickness == max(1.6, min(2.4, z / 100))
     assert line.sublevel == 3 and line.layer == "ARTWORK" and line.snap is False
-    label = next(fs for fs in UI.Labels.front.pools.label.values() if getattr(fs, "text", None) == "ELWYNN FOREST")
+    label = next(fs for fs in UI.Labels.front.pools.label.values() if getattr(fs, "text", None) == "Elwynn Forest")
     assert list(label.color.values()) == [1, 1, 0.9, 1]  # (its colour, as ui/Labels.lua keeps it)
     G.Over(35.9, 51.3)  # Deadwind Pass: Elwynn back as it was
     sim.Run(0.3)
-    assert G.Lit()[1] == "DEADWIND PASS" and list(label.color.values()) == [1, 0.9, 0.7, 0.75]
+    assert G.Lit()[1] == "Deadwind Pass" and list(label.color.values()) == [1, 0.89, 0.63, 0.95]  # ui/Labels.lua's ZONE
     # Zoomed in on one zone's heart: nothing to click.
     G.Over(32.6, 49.9)
     sim.Run(0.3)
@@ -217,7 +217,7 @@ def test_zone_hover():
     # flown to, fit 0.92, in 0.55 s, following off. Held still, nothing lit (Core.lua:1323, 1349); the press's zone flown to.
     G.Over(32.15, 49.7)
     sim.Run(0.3)
-    assert G.Lit()[1] == "ELWYNN FOREST"
+    assert G.Lit()[1] == "Elwynn Forest"
     sim.buttonsDown["LeftButton"] = True
     sim.FireScript(view, "OnMouseDown", "LeftButton")
     sim.Run(0.2)
