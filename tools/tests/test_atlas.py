@@ -65,8 +65,8 @@ def test_atlas():
     assert (sources.kind, sources.id) == ("item", 750)
     drops = {s.id for s in ids(sources.sources) if s.kind == "npc"}
     assert drops and drops >= set(ids(Atlas.Item(750).npcDrops))
-    near = Atlas.SpawnsIn("npc", 0, 31.8, 49.6, 32.1, 49.9)
-    assert 295 in [s.id for s in ids(near)]
+    near = Atlas.ServiceSpawns(0)[31 * 64 + 49]  # the tile's { id, col, row, ... }
+    assert 295 in [near[i] for i in range(1, len(near) + 1, 3)]
     assert "innkeeper" in ids(Atlas.Npc(295).services)
 
 
@@ -101,7 +101,7 @@ def test_stale_format_is_one_error_and_dropped():
     assert Atlas.Area(12).name == "Elwynn Forest" and Atlas.Dungeon(36) is None and Atlas.Npc(448) is None
     # No QuestieDB-derived data: empty answers, not errors.
     assert len(Atlas.QuestSources(33)) == 0 and len(Atlas.Find("npc", "hogger")) == 0
-    assert Atlas.BlipService("Mailbox") is None and len(Atlas.Rares(0)) == 0 and len(Atlas.SpawnsIn("npc", 0, 31, 49, 33, 50)) == 0
+    assert Atlas.BlipService("Mailbox") is None and len(Atlas.Rares(0)) == 0 and len(Atlas.ServiceSpawns(0)) == 0
 
 
 def test_labels_golden():

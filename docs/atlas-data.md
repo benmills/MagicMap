@@ -253,7 +253,9 @@ tile space (3 decimals). Format 2 (M1.4: the levels and subzone borders).
 The QuestieDB-derived files are read through `Atlas.Npc(id)` (+ `services` from flags),
 `Atlas.Object(id)`, `Atlas.Item(id)`, `Atlas.Quest(id)`, `Atlas.BlipService(name)`, `Atlas.BlipTitle(name)`,
 `Atlas.Find(kind, text, limit, step)`, `Atlas.SpawnsIn(kind, inst, c0, r0, c1, r1, filter, step)`,
+`Atlas.ServiceSpawns(inst, step)` (the town services' spawns only, as `[tile key] = { id, col, row, ... }`:
+model/Services.lua's index, built once per inst),
 `Atlas.Rares(inst, step)` and `Atlas.QuestSources(questID)` (a quest Atlas lacks: no objectives).
-Those that walk every row (Find's names and its scan, SpawnsIn's and Rares' first use per
+Those that walk every row (Find's names and its scan, SpawnsIn's, ServiceSpawns' and Rares' first use per
 inst) call `step` every 128 rows, for a `Runtime.Job` (docs/structure.md "Atlas first use");
 there is no name → NPC index at runtime (BlipServices is that answer, offline).

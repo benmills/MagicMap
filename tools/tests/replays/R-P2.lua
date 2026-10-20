@@ -31,7 +31,7 @@ assert(done and fine <= 1 + 0.1)
 -- each whole-table index built fresh in a Runtime.Job of budget 1, Runtime.Yield its step, on a clock
 -- that counts Lua's VM instructions in the job (debug.sethook: the same count every run; NS ms each,
 -- 100 M a second, about this machine's Lua and the client's): no resume over 2 ms. Without
--- QuestieDB's data (CI) only the areas' (ZoneLevels); model/Services.lua's job (SpawnsIn's) runs at 1 ms too.
+-- QuestieDB's data (CI) only the areas' (ZoneLevels); model/Services.lua's job (ServiceSpawns' first use) runs at 1 ms too.
 local NS, EVERY = 0.00001, 100
 local Atlas, counted = ns.Atlas, 0
 local function Count() counted = counted + EVERY end
@@ -55,8 +55,7 @@ local uses = {
 if Atlas.Data.Npcs then
 	for _, u in ipairs({
 		{ "Rares", function(step) Atlas.Rares(0, step) end },
-		{ "SpawnsIn npc", function(step) Atlas.SpawnsIn("npc", 0, 31, 49, 33, 51, nil, step) end },
-		{ "SpawnsIn object", function(step) Atlas.SpawnsIn("object", 0, 31, 49, 33, 51, nil, step) end },
+		{ "ServiceSpawns", function(step) Atlas.ServiceSpawns(0, step) end },
 		{ "Find npc", function(step) Atlas.Find("npc", "kobold", 10, step) end },
 		{ "Find object", function(step) Atlas.Find("object", "chest", 10, step) end },
 		{ "Find item", function(step) Atlas.Find("item", "linen", 10, step) end },

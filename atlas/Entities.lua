@@ -151,6 +151,43 @@ function Atlas.SpawnsIn(kind, inst, c0, r0, c1, r1, filter, step)
 	return out
 end
 
+-- Town services' spawns on inst: [tile key] = { id, col, row, id, col, row, ... }, of the NPCs whose npcFlags
+-- (row field 7) have a service bit (model/Services.lua's SERVICES). Built once per inst, then cached: step(), if
+-- given, is called every 128 rows, as SpawnsIn's first use.
+local SERVICE_BITS = { 16, 128, 256, 2048, 4096, 8192, 16384 }
+local serviceIndex = {} -- [inst] = index
+local function HasService(flags)
+	for _, bit in ipairs(SERVICE_BITS) do
+		if flags % (bit * 2) >= bit then return true end
+	end
+	return false
+end
+function Atlas.ServiceSpawns(inst, step)
+	local index = serviceIndex[inst]
+	if index then return index end
+	index = {}
+	local n = 0
+	for id, r in pairs(Data.Npcs or NONE) do
+		n = n + 1
+		if step and n % 128 == 0 then step() end
+		local pts = r[10] and r[10][inst]
+		if pts and HasService(r[7] or 0) then
+			for i = 1, #pts, 2 do
+				local col, row = pts[i], pts[i + 1]
+				local key = math.floor(col) * 64 + math.floor(row)
+				local b = index[key]
+				if not b then
+					b = {}
+					index[key] = b
+				end
+				b[#b + 1], b[#b + 2], b[#b + 3] = id, col, row
+			end
+		end
+	end
+	serviceIndex[inst] = index
+	return index
+end
+
 -- Rare (rank 4) and rare-elite (rank 2) NPCs' spawn points on inst, as
 -- { id, name, rank, minLevel, maxLevel, col, row }, in a stable order (npc id, then spawn).
 -- A full pass over the NPCs the first time per inst (then cached): step(), if

@@ -27,14 +27,21 @@ for id, x in pairs(rows) do
     npcs[id] = { id = id, name = x[1], subName = x[2], faction = x[3], flags = x[4], col = c + x[5] * yd, row = r - x[6] * yd }
 end
 Atlas.Npc = function(id) return npcs[id] end
-Atlas.SpawnsIn = function(kind, inst, c0, r0, c1, r1, filter)
-    local out = {}
+Atlas.ServiceSpawns = function(inst, step)
+    local index = {}
     for id, n in pairs(npcs) do
-        if inst == 0 and n.col >= c0 and n.col <= c1 and n.row >= r0 and n.row <= r1 and filter(id) then
-            out[#out + 1] = { id = id, col = n.col, row = n.row }
+        local svc = false
+        for _, b in ipairs({ 16, 128, 256, 2048, 4096, 8192, 16384 }) do
+            if n.flags % (b * 2) >= b then svc = true end
+        end
+        if inst == 0 and svc then
+            local key = math.floor(n.col) * 64 + math.floor(n.row)
+            index[key] = index[key] or {}
+            local b = index[key]
+            b[#b + 1], b[#b + 2], b[#b + 3] = id, n.col, n.row
         end
     end
-    return out
+    return index
 end"""
 SAVED = """MagicMap2DB = { UI = { _v = 1, shown = false, zoom = 59, window = { left = 600, top = 800, w = 720, h = 520 } },
     Model = { _v = 1, rares = {}, blips = { [0] = {

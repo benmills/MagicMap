@@ -1,8 +1,8 @@
 -- Town services, Known("services"): every NPC Atlas knows with a service (its flags, the spike's in its
 -- order: Blips.lua:377-406), friendly to you, at each of its spawns, on Focus's instance where the map
 -- has shown at town scale (zoom 60 and in: Blips.lua:479) while they're asked for: each tile of Focus's
--- rect gathered once, in a Runtime job, a tile a slice (Atlas.SpawnsIn's first use on an instance
--- passes over every NPC). Listed while Blizzard's tracking has its icon on (obs.tracking; Trainer is the
+-- rect gathered once, in a Runtime job, a tile a slice (Atlas.ServiceSpawns, built once per instance from
+-- the NPCs with a service's flags). Listed while Blizzard's tracking has its icon on (obs.tracking; Trainer is the
 -- switch for class trainers too: Blips.lua:561-570); tracking not known yet: all. Its line: the NPC's title.
 -- For model/Blips.lua: Model.Tracked(icon), whether tracking shows that icon; Model.ServiceNear(inst,
 -- name, col, row), a service of that name gathered within NEAR (Blips.lua:572-579); Model.servicesRev,
@@ -44,8 +44,6 @@ local function Service(flags, sub)
 	end
 end
 
-local function Serves(id) return Service(Atlas.Npc(id).flags) ~= nil end
-
 local function Texture(t)
 	if not textures[t] then textures[t] = { texture = t } end
 	return textures[t]
@@ -65,17 +63,18 @@ end
 -- The tiles' services, a tile a slice.
 local function Gather(inst, tiles, faction)
 	local g = gathered[inst]
+	local index = Atlas.ServiceSpawns(inst, ns.Runtime.Yield)
 	for _, tile in ipairs(tiles) do
-		local c, r = math.floor(tile / 64), tile % 64
-		for _, s in ipairs(Atlas.SpawnsIn("npc", inst, c, r, c + 1, r + 1, Serves, ns.Runtime.Yield)) do
-			local n = Atlas.Npc(s.id)
-			local key = "npc:" .. s.id .. ":" .. math.floor(s.col * 64 + 0.5) .. ":" .. math.floor(s.row * 64 + 0.5)
-			if math.floor(s.col) == c and math.floor(s.row) == r and not g.keys[key] and n.faction
-				and n.faction:find(faction, 1, true) then
+		local b = index[tile] or NONE -- [tile key] = { id, col, row, ... }: the spawns in that tile
+		for i = 1, #b, 3 do
+			local id, col, row = b[i], b[i + 1], b[i + 2]
+			local n = Atlas.Npc(id)
+			local key = "npc:" .. id .. ":" .. math.floor(col * 64 + 0.5) .. ":" .. math.floor(row * 64 + 0.5)
+			if not g.keys[key] and n.faction and n.faction:find(faction, 1, true) then
 				g.keys[key] = true -- (a spawn listed under two areas: once)
 				local service, icon = Service(n.flags, n.subName)
-				local e = { key = key, kind = "services", name = n.name, live = false, pos = { inst = inst, col = s.col, row = s.row },
-					icon = Texture(icon), text = n.subName, service = service, npc = s.id }
+				local e = { key = key, kind = "services", name = n.name, live = false, pos = { inst = inst, col = col, row = row },
+					icon = Texture(icon), text = n.subName, service = service, npc = id }
 				g.list[#g.list + 1] = e
 				local same = g.names[n.name]
 				if not same then same = {}; g.names[n.name] = same end
