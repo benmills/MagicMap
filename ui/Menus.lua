@@ -241,7 +241,8 @@ local function AddTracking(root)
 	for _, t in ipairs(Model.tracking) do
 		if t.kind ~= "duplicate" then
 			local id = t.id
-			sub:CreateCheckbox(t.name, function() return Shown(id, Active(id)) end, function()
+			local mark = t.texture and "|T" .. t.texture .. ":16:16|t  " or "" -- (its icon, as Blizzard's menu has it)
+			sub:CreateCheckbox(mark .. t.name, function() return Shown(id, Active(id)) end, function()
 				Run(Track, id)
 				return MenuResponse.Refresh
 			end)
