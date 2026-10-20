@@ -23,9 +23,9 @@ const SEA_STYLE = {
   macro: 2.7,       // tiles per repeat of the second layer
   macroAlpha: 0.35,
   variants: true,   // false: variant 0 in every cell (to see the repetition the variants hide)
-  // Colour-matched tiles (dropped from the addon): the tile's tint and the coast fade. Off: the art
-  // plain. The sea's tint map (its colour: the water textures are grey) is drawn either way.
-  tint: false,
+  // Colour-matched tiles (the atlas's, always on in the addon): the tile's tint and the coast fade.
+  // Off: the art plain. The sea's tint map (its colour: the water textures are grey) is drawn either way.
+  tint: true,
   feather: 0.15,    // tiles: the coast's fade; gen_sea.py FEATHER = 0.15
 };
 

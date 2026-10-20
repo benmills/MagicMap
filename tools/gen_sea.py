@@ -29,8 +29,8 @@ deleted):
       (bilinear-filtered, it is smooth): along each coast side facing the sea,
       the art's own water there (the median of the outer FEATHER band, by
       segment, after Data/TileColor.lua's tint; water = ocean in the terrain),
-      fading within about a tile (NEAR) to the art's open-sea colour (the median
-      of the open-sea tiles), which darkens by DARKEN beyond FAR tiles from any
+      fading within about a tile (NEAR) to the open-sea colour (the median of
+      the coasts' water: the art's open-sea tiles are near black), which darkens by DARKEN beyond FAR tiles from any
       tile and varies by NOISE over NOISE_TILES (none at the border, so a
       clamped texture continues it).
   feather_<code>.tga  MASK_PX square alpha masks (white) for the coast tiles'
@@ -106,6 +106,7 @@ TINT_PX = 4          # px per tile
 MARGIN = 8           # tiles around the map's tiles
 NEAR = 0.3           # tiles: Gaussian sigma of the coast colours' spread (the shelf drops off within ~1 tile)
 NEAR_EPS = 0.01      # ... and the open-sea colour's weight against it (sets how far it reaches)
+OPEN_SEA = (20 / 255, 40 / 255, 40 / 255)  # the open sea far from any coast: a dark teal, its texture showing
 DARKEN = 0.08        # the open sea this much darker ...
 FAR = (1.0, 5.0)     # ... going from this far from any tile to this far (tiles; smoothstep)
 NOISE, NOISE_TILES = 0.05, 3.0  # low-frequency brightness variation over the open sea
@@ -581,7 +582,10 @@ def main() -> None:
         if not pool:
             log(f"[{ts.inst}] {name}: no ocean to sample, no sea")
             continue
-        deep = tuple(sorted(c[k] for c in opens)[len(opens) // 2] for k in range(3))
+        # The open sea's colour: OPEN_SEA, not the art's (Blizzard paints open-sea tiles and the water along
+        # most coasts near black: the sea's texture would not show). Near a coast the tint still fades from
+        # the art's own water there to it within about a tile (NEAR).
+        deep = OPEN_SEA
         log(f"[{ts.inst}] {name}: {len(drawn)} tiles drawn, {len(sea)} open sea; {len(pool)} water samples; "
             f"open sea {tuple(round(v * 255) for v in deep)}")
         t1 = time.time()
