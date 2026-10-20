@@ -55,7 +55,7 @@ end)
 local function ScanZones(inst)
 	for _, z in ipairs(Atlas.Zones(inst)) do
 		local area = (z.col1 - z.col0) * (z.row1 - z.row0)
-		for _, q in ipairs(C_QuestLog.GetQuestsOnMap(z.uiMapID)) do
+		for _, q in ipairs(C_QuestLog.GetQuestsOnMap(z.uiMapID) or NONE) do -- (nothing for some maps)
 			if not q.isMapIndicatorQuest then
 				local b = pins[q.questID]
 				if not b then
