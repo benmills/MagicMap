@@ -38,7 +38,7 @@ DATA = """return {
     },
 }"""
 RED, ORANGE, YELLOW, GREEN, GREY = (1, 0.1, 0.1), (1, 0.5, 0.25), (1, 0.82, 0), (0.25, 0.75, 0.25), (0.5, 0.5, 0.5)
-ACTIVE, TURN_IN = "Quest-In-Progress-Icon-yellow", "UI-QuestIcon-TurnIn-Normal"
+ACTIVE, TURN_IN = "quest-in-progress-icon-yellow-2x", "questturnin"
 CANDLES, GOLD, MINE, FRONTIER, HOGGER, LOVERS, CLEANUP, JASPER = 60, 47, 62, 52, 176, 106, 7, 76
 
 

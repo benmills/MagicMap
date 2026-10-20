@@ -1,21 +1,19 @@
 -- Your quests on the map (Layers.lua:579-621): Known("quests") as pins on the pin store (ui/Pins.lua),
--- in the world map's art (S46): in progress, "Quest-In-Progress-Icon-yellow" over the quest-number disc
--- tinted its difficulty (Model's colour), the first unfinished objective's icon inside, its count under
--- it; ready to turn in, the classic yellow "?" (GossipFrame's ActiveQuestIcon, else the atlas Model
--- names); 22 px, the one you follow 26 in a thin gold ring (Pins' glow).
+-- in the world map's art (S46), the HD atlases (Pins' (c), (b)): in progress, the "-2x" yellow progress
+-- atlas over the quest-number disc ("ui-questpoi-questnumber-2x") tinted its difficulty (Model's colour),
+-- the first unfinished objective's icon inside, its count under it; ready to turn in, the "questturnin"
+-- "?" the atlas Model names; 22 px, the one you follow 26 in a thin gold ring (Pins' glow).
 -- Hovering one lights its area (ui/Areas.lua) and shows its tooltip (ui/QuestTooltip.lua); a click
--- follows it, again to stop. And quests to pick up (Layers.lua:636-664): Known("offers"), "QuestNormal"
--- at 18, their tooltip the quest, its line's name and "Quest to pick up". Over the other pins.
+-- follows it, again to stop. And quests to pick up (Layers.lua:636-664): Known("offers"), "questnormal"
+-- (the "!") at 18, their tooltip the quest, its line's name and "Quest to pick up". Over the other pins.
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
 local Pins, Areas = UI.Pins, UI.Areas
 
 local SIZE, FOLLOWED = 22, 26 -- Layers.lua:611
-local UNDER = "UI-QuestPoi-QuestNumber" -- Layers.lua:608
-local TURN_IN = "Interface\\GossipFrame\\ActiveQuestIcon" -- the classic turn-in "?" (ui/Art.lua)
+local UNDER = "ui-questpoi-questnumber-2x" -- Layers.lua:608 (its HD disc)
 local OFFER = 18 -- Layers.lua:657
-local OFFER_ICON = "Interface\\GossipFrame\\AvailableQuestIcon" -- the classic "!" (ui/Art.lua)
 local DIM = "|cff9d9d9d" -- Layers.lua:652
 
 -- StylePin's look, one an entry (Model makes a new one when it changes): (c) in progress, (b) ready.
@@ -27,7 +25,7 @@ local function Look(e)
 	if not e.complete then
 		icon = { atlas = icon.atlas, under = UNDER, tint = e.color, inner = e.inner and e.inner.texture, color = icon.color }
 	else
-		icon = UI.Art.Icon(TURN_IN, icon.atlas)
+		icon = UI.Art.Icon(icon.atlas) -- (a missing atlas: no icon, a dot)
 		icon.color = e.icon.color
 	end
 	look = { size = e.followed and FOLLOWED or SIZE, glow = e.followed, count = e.count, icon = icon }
@@ -49,7 +47,7 @@ UI.Offers = Pins.Layer("offers", 14, function(put)
 	for _, e in ipairs(Model.Known("offers")) do
 		local look = offers[e.icon]
 		if not look then
-			local icon = UI.Art.Icon(OFFER_ICON, e.icon.atlas)
+			local icon = UI.Art.Icon(e.icon.atlas)
 			icon.color = e.icon.color
 			look = { size = OFFER, icon = icon }
 			offers[e.icon] = look

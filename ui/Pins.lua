@@ -104,18 +104,36 @@ local function Count(pin)
 end
 
 -- Setters calling the client only when the value changes: a pin kept as it was costs none.
-local function File(t, file) -- a whole file
-	if t.art ~= file then
-		t.art = file
+local WHOLE = { 0, 1, 0, 1 }
+local function File(t, file, coords) -- a whole file, or its part coords (left, right, top, bottom: a look's table)
+	coords = coords or WHOLE
+	if t.art ~= file or t.coords ~= coords then
+		t.art, t.coords = file, coords
 		t:SetTexture(file)
-		t:SetTexCoord(0, 1, 0, 1)
+		t:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
 	end
 end
 local function Atlas(t, atlas)
 	if t.art ~= atlas then
 		t.art = atlas
-		t:SetAtlas(atlas)
+		t:SetAtlas(atlas, false) -- the pin's size, not the atlas's
 	end
+end
+-- An atlas's width over height (1 if the client doesn't say): a pin keeps it, its longer side the size.
+local aspects = {}
+local function Aspect(atlas)
+	local a = aspects[atlas]
+	if a == nil then
+		local info = C_Texture.GetAtlasInfo(atlas)
+		a = info and info.width and info.height and info.width > 0 and info.height > 0 and info.width / info.height or 1 -- /: never 0 (the height is > 0 here)
+		aspects[atlas] = a
+	end
+	return a
+end
+-- The width and height of a size-sided pin of aspect a (its longer side is size).
+local function Fit(size, a)
+	if a >= 1 then return size, size / a end -- /: never 0 (a >= 1 here)
+	return size * a, size
 end
 local function Color(t, r, g, b, a)
 	if t.r ~= r or t.g ~= g or t.b ~= b or t.a ~= a then
@@ -136,12 +154,15 @@ local function Shown(r, on)
 	end
 end
 
--- look: { size? (14), icon? = { texture | atlas, under?, tint?, inner?, scale?, aspect?, color? }, glow?,
--- count? }: (a) a texture, bare; (b) an atlas; (c) an atlas over its under atlas tinted, the inner
--- texture in it; (d) else (an atlas the client lacks too) a dot of its colour on a dark ring. glow: a thin
+-- look: { size? (14), icon? = { texture | atlas, alt?, coords?, under?, tint?, inner?, scale?, aspect?, color? }, glow?,
+-- count? }: (a) a texture (coords: its part, a cell of a sheet), bare; (b) an atlas, at its own aspect
+-- (aspect: its width over height, else the client's); (c) an atlas over its under atlas tinted, the inner
+-- texture in it; (d) else (an atlas the client lacks too, and no alt: the look drawn instead when the atlas is
+-- missing) a dot of its colour on a dark ring. glow: a thin
 -- gold ring hugging the icon (the quest you follow); count: a line under it.
 local function Style(pin, look)
 	local size, icon = look.size or SIZE, look.icon or NONE
+	if icon.alt and not icon.texture and not (icon.atlas and Has(icon.atlas)) then icon = icon.alt end -- (an atlas the client lacks: its alt)
 	pin.psize = size
 	Size(pin, size, size)
 	if look.count or pin.count then
@@ -160,7 +181,7 @@ local function Style(pin, look)
 	end
 	local i, inner = pin.icon, false
 	if icon.texture then -- (a)
-		File(i, icon.texture)
+		File(i, icon.texture, icon.coords)
 		Color(i, 1, 1, 1, 1)
 		Size(i, size, size)
 		Shown(pin.ring, false)
@@ -185,7 +206,7 @@ local function Style(pin, look)
 			Size(i, s * (icon.aspect or 1), s)
 		else -- (b)
 			Atlas(i, icon.atlas)
-			Size(i, size, size)
+			Size(i, Fit(size, icon.aspect or Aspect(icon.atlas)))
 			Shown(pin.ring, false)
 		end
 		Color(i, 1, 1, 1, 1)

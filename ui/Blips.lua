@@ -2,9 +2,9 @@
 -- services: asking starts their gathering) and Known("remembered") (seen before) from zoom 60
 -- (Blips.lua:625-650; laid out from a drift below it but zooming out, Engine.From, shown from it as the
 -- zoom moves: Engine.At's minimum zoom) as the spike's pins (Blips.lua:423-437,
--- 641-661), on the pin store (ui/Pins.lua): an icon, the game's tracking texture or a gathering atlas,
--- at 14 px (a gathering node's: the classic Minimap\Tracking icon, else its atlas, else a dot of its
--- colour, StylePin's form (d)); else a gold dot (d) at 10. A remembered one a sensed one stands for (its
+-- 641-661), on the pin store (ui/Pins.lua): an icon, the game's tracking texture or an atlas (a gathering
+-- node's, Blizzard's HD one; else the classic Minimap\Tracking icon; else a dot of its colour, StylePin's
+-- form (d)), at 14 px; else a gold dot (d) at 10. A remembered one a sensed one stands for (its
 -- key) is drawn once; while the sensor runs, none within its word around you (LIVE_YARDS: only what it sees now, Blips.lua:628-650). Laid out again
 -- when either changes, or you cross a walk chunk while sensing. Tooltip: its name, then what it is (a
 -- gathering node's profession, Blips.lua:427-429; an NPC's title, :436), and a service's or remembered one's
@@ -33,7 +33,7 @@ local function Look(icon)
 	local k = icon.texture or icon.atlas
 	local look = looks[k]
 	if not look then
-		local art = icon.texture and { texture = icon.texture } or UI.Art.Icon(TRACKING[icon.atlas], icon.atlas)
+		local art = icon.texture and { texture = icon.texture } or UI.Art.Icon(icon.atlas, TRACKING[icon.atlas])
 		art.color = icon.color or COLOR[icon.atlas]
 		look = { size = ICON, icon = art }
 		looks[k] = look

@@ -1139,8 +1139,7 @@ for i, path in ipairs({ "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up", "Inter
 	"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down", "Interface\\Minimap\\MinimapArrow", "Interface\\COMMON\\Indicator-Yellow",
 	"Interface\\WorldMap\\Gear_64", "Interface\\CharacterFrame\\TempPortraitAlphaMask",
 	"Interface\\HUD\\UIMinimap2xC60", "Interface\\Icons\\INV_Misc_Map_01", "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",
-	"Interface\\Minimap\\PartyRaidBlipsV2", "Interface\\GossipFrame\\AvailableQuestIcon", "Interface\\GossipFrame\\ActiveQuestIcon",
-	"Interface\\Minimap\\Tracking\\Herbalism", "Interface\\Minimap\\Tracking\\Mining" }) do
+	"Interface\\Minimap\\PartyRaidBlipsV2", "Interface\\Minimap\\Tracking\\Herbalism", "Interface\\Minimap\\Tracking\\Mining" }) do
 	FILES[path:lower()] = 100000 + i
 end
 function GetFileIDFromPath(path) return FILES[(path:lower():gsub("/", "\\"))] end
@@ -1698,11 +1697,14 @@ end
 for _, name in ipairs({ "UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight" }) do ATLASES[name] = { 32, 32 } end
 ATLASES["_UI-Frame-Metal-EdgeBottom"] = { 256, 200 }
 ATLASES["UI-QuestPoi-QuestNumber"], ATLASES["deathrecap-icon-tombstone"] = { 32, 32 }, { 15, 20 }
+ATLASES["ui-questpoi-questnumber-2x"], ATLASES["quest-in-progress-icon-yellow-2x"] = { 64, 64 }, { 64, 64 }
+ATLASES["poi-graveyard-neutral"] = { 12, 16 }
 ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
 ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }
 ATLASES["!UI-Frame-Metal-EdgeRight"] = { 200, 256 }
 -- ui/Art.lua's (Forever's ObjectIconsAtlas, as tools/export_icons.py cuts them for the demo)
-for _, name in ipairs({ "taxinode_alliance", "taxinode_horde", "taxinode_neutral", "vignettekill", "vignettekillelite" }) do
+for _, name in ipairs({ "taxinode_alliance", "taxinode_horde", "taxinode_neutral", "vignettekill", "vignettekillelite",
+	"questnormal", "questturnin", "dungeon", "raid" }) do
 	ATLASES[name] = true
 end
 Sim.atlases = ATLASES -- [name] = true (16 px) or { w, h }: a scenario adds, resizes or removes one

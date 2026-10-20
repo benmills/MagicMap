@@ -114,8 +114,8 @@ def test_blips_ours_model():
     mail = blip("Mailbox", 40, 20, 136459)
     four = L.table_from([dughan, remy, guard, mail])
     model.Observe(obs(1, 1000, four), L.table())
-    icons = {e.name: e.icon and e.icon.texture for e in known(model, "blips")[0]}
-    assert icons == {"Marshal Dughan": 132049, "Remy": 132048, "Stormwind City Guard": None, "Mailbox": 136459}
+    icons = {e.name: e.icon and (e.icon.texture or e.icon.atlas) for e in known(model, "blips")[0]}
+    assert icons == {"Marshal Dughan": "questnormal", "Remy": "questturnin", "Stormwind City Guard": None, "Mailbox": 136459}
     titles = {e.name: e.text for e in known(model, "blips")[0]}  # the NPC's title (Blips.lua:436)
     assert titles == {"Marshal Dughan": None, "Remy": "Fishing Supplies", "Stormwind City Guard": "Guard", "Mailbox": None}
     (mailbox,) = saved.blips[0].values()
