@@ -27,6 +27,7 @@ Data\Objects.lua
 Data\Items.lua
 Data\Quests.lua
 Data\BlipServices.lua
+Data\Interiors.lua
 atlas\Coords.lua
 atlas\Tiles.lua
 atlas\Borders.lua
@@ -37,6 +38,7 @@ atlas\Places.lua
 atlas\Entities.lua
 atlas\Camera.lua
 atlas\Labels.lua
+atlas\Interiors.lua
 
 # Runtime
 runtime\Runtime.lua

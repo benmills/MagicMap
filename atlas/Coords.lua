@@ -43,6 +43,7 @@ Atlas.FORMATS = {
 	Items = 2,     -- Data/Items.lua (tools/gen_questie.py)
 	Quests = 2,    -- Data/Quests.lua (tools/gen_questie.py)
 	BlipServices = 2, -- Data/BlipServices.lua (tools/gen_questie.py)
+	Interiors = 1, -- Data/Interiors.lua (tools/gen_interiors.py)
 }
 local Data = ns.Data or {}; ns.Data = Data
 Atlas.Data = Data -- raw datasets, read only: for tests and game/NoData.lua (which data loaded); use Atlas's functions

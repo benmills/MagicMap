@@ -112,7 +112,7 @@ items / quests, coordinates and camera maths), from data the offline tools gener
 ## Regenerate data
 
 Each generator reads a local install (see its docstring for options) and states the build
-in its output's header. Run them in this order: gen_tilecolor reads Data/Tiles.lua, gen_questie
+in its output's header. Run them in this order: gen_tilecolor and gen_interiors read Data/Tiles.lua, gen_questie
 reads Data/UiMaps.lua from gen_world and gen_world's ItemIcons reads gen_questie's
 Data/Items.lua (the data diet), so gen_world runs again after it; gen_labels reads Borders,
 Places, Areas, UiMaps, Tiles and Walk, so it runs last. The rest are independent. gen_questie's
@@ -130,6 +130,7 @@ checkout, $MAIN: `for f in Npcs Objects Items Quests BlipServices; do ln -s "$MA
     .venv/bin/python tools/gen_questie.py "$W/_classic_beta_/Interface/AddOns/QuestieDB"
     .venv/bin/python tools/gen_world.py     local "$W" wow_classic_beta -o Data   # again: ItemIcons for the items kept
     .venv/bin/python tools/gen_labels.py    -o Data/Labels.lua
+    .venv/bin/python tools/gen_interiors.py local "$W" wow_classic_beta -o Data/Interiors.lua   # reads Data/Tiles.lua's maps
 
 The demo's assets, after the above:
 

@@ -268,3 +268,22 @@ model/Services.lua's index, built once per inst),
 Those that walk every row (Find's names and its scan, SpawnsIn's, ServiceSpawns' and Rares' first use per
 inst) call `step` every 128 rows, for a `Runtime.Job` (docs/structure.md "Atlas first use");
 there is no name → NPC index at runtime (BlipServices is that answer, offline).
+
+### Data/Interiors.lua — `ns.Data.Interiors` (obj0 MODF, WMO roots and rooms, WMOMinimapTexture, WMOAreaTable)
+The buildings with indoor minimap pictures on the open-world maps Data/Tiles.lua lists (ADR 0008),
+committed. `[inst] = { tiles = { [tileKey] = { key... } }, buildings = { [key] = { c0, r0, c1, r1, packed } } }`.
+- key: the placement's MODF unique ID (a building spanning tiles is listed once); tiles: the buildings whose
+  box (c0, r0)-(c1, r1), tile space, touches that tile.
+- packed: one Lua table literal (as the packed rows above), decoded on first use: `{ fid, wmoID, col, row,
+  yaw, k, rooms }`: the WMO root's file, its WMO ID, the placement's tile point and turn (radians: rot.y −
+  90°), k the mask cells a tile unit (TILE_YARDS / (4 · scale)); `rooms[group] = { zmin, zmax, area,
+  links, x0, y0, cols, rows, mask, pics }` for each room (MOGI group index) with pictures: its floor
+  (MOGI box z), its subzone name (WMOAreaTable by WMO ID and the room file's MOGP group ID; nil: none), the
+  rooms with pictures it has a portal to (MOPR), its floor mask (cols × rows 4-yd cells from cell (x0, y0) in
+  the building's own coordinates, rows upward, `a` none `b` floor, runs as the letter and a count; from the
+  pictures' alpha) and its pictures, flat `fid, ox, oy, ux, uy, vx, vy, ...` in tile units.
+- `Atlas.BuildingsAt(inst, col, row)` → the keys of the buildings whose box covers the point.
+- `Atlas.Building(inst, key)` → `{ key, inst, fid, wmo, col, row, yaw, rooms = { [room] = { zmin, zmax, area,
+  links = { room... }, pics = { { fid, ox, oy, ux, uy, vx, vy }... } } } }` (kept): a picture's pixel (u, v)
+  in 0..1 lands at o + u·U + v·V, U along its width, V down its height.
+- `Atlas.RoomsAt(building, col, row)` → the sorted rooms whose floor mask covers the point.

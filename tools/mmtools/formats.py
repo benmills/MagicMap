@@ -1,5 +1,6 @@
 """Readers for the chunked game files the generators use: WDT (which tile is
-where), ADT (terrain chunks: area IDs and heights) and BLP (minimap textures).
+where), ADT (terrain chunks: area IDs and heights; obj0: building placements),
+WMO (buildings: rooms, portals) and BLP (minimap textures).
 """
 from __future__ import annotations
 
@@ -117,6 +118,78 @@ def adt_liquids(buf: bytes) -> Iterator[AdtLiquid]:
                 ltype, _, _lo, hi, x0, y0, w, h, ex_off, _ = struct.unpack_from("<HHffBBBBII", buf, p)
                 exists = buf[off + ex_off:off + ex_off + (w * h + 7) // 8] if ex_off else None
                 yield AdtLiquid(i % 16, i // 16, ltype, hi, x0, y0, w, h, exists)
+
+
+@dataclass(frozen=True)
+class Modf:
+    """A building (WMO) placed on the map: one MODF entry of an obj0 ADT. File space: x and z
+    over TILE_YARDS are tile col and row, y is up (docs/decisions/0008-interiors.md)."""
+    fid: int                  # the WMO root's FileDataID
+    uid: int                  # unique per map: a building spanning tiles is listed in each
+    pos: tuple                # (x, y, z)
+    rot: tuple                # degrees (x, y, z)
+    mn: tuple                 # box min, file space
+    mx: tuple                 # box max
+    flags: int
+    scale: int                # 1024 = 1
+
+
+def adt_modf(buf: bytes) -> list[Modf]:
+    """The building placements (MODF, 64 bytes an entry) of an obj0 ADT."""
+    out = []
+    for magic, off, size in iter_chunks(buf):
+        if magic == b"MODF":
+            for i in range(size // 64):
+                v = struct.unpack_from("<II3f3f3f3fHHHH", buf, off + i * 64)
+                out.append(Modf(v[0], v[1], v[2:5], v[5:8], v[8:11], v[11:14], v[14], v[17]))
+    return out
+
+
+# --- WMO --------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class WmoGroupInfo:
+    flags: int                # 0x2000 indoor, 0x8 outdoor
+    mn: tuple                 # box min, the building's own (x, y, z), z up
+    mx: tuple
+
+
+@dataclass(frozen=True)
+class WmoRoot:
+    wmo_id: int               # MOHD +32: WMOAreaTable's and WMOMinimapTexture's key
+    groups: list              # MOGI: WmoGroupInfo per room (group)
+    group_fids: list          # GFID: the rooms' files, the first len(groups) of them LOD 0
+    portals: list             # MOPT: (start vertex, count, plane a, b, c, d)
+    portal_refs: list         # MOPR: (portal, group, side)
+
+
+def wmo_root(buf: bytes) -> WmoRoot:
+    ch = {m: (o, s) for m, o, s in iter_chunks(buf)}
+
+    def rows(magic, fmt, n):
+        o, s = ch.get(magic, (0, 0))
+        return [struct.unpack_from(fmt, buf, o + k * n) for k in range(s // n)]
+
+    wmo_id = struct.unpack_from("<I", buf, ch[b"MOHD"][0] + 32)[0]
+    groups = [WmoGroupInfo(g[0], g[1:4], g[4:7]) for g in rows(b"MOGI", "<I6fi", 32)]
+    fids = [f[0] for f in rows(b"GFID", "<I", 4)]
+    return WmoRoot(wmo_id, groups, fids, rows(b"MOPT", "<HH4f", 20), [r[:3] for r in rows(b"MOPR", "<HHhH", 8)])
+
+
+@dataclass(frozen=True)
+class WmoGroup:
+    group_id: int             # MOGP +56: global, WMOAreaTable keys on it
+    portal_start: int         # its portal refs: MOPR[portal_start:portal_start + portal_count]
+    portal_count: int
+
+
+def wmo_group(buf: bytes) -> WmoGroup | None:
+    """A room file's MOGP header."""
+    for magic, off, _size in iter_chunks(buf):
+        if magic == b"MOGP":
+            ps, pc = struct.unpack_from("<HH", buf, off + 36)
+            return WmoGroup(struct.unpack_from("<I", buf, off + 56)[0], ps, pc)
+    return None
 
 
 # --- BLP --------------------------------------------------------------------
