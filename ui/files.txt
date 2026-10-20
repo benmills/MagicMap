@@ -9,7 +9,6 @@ ui/Title.lua
 ui/BigMap.lua
 ui/Tiles.lua
 ui/IndoorArt.lua
-ui/Shade.lua
 ui/Borders.lua
 ui/Labels.lua
 ui/Pins.lua

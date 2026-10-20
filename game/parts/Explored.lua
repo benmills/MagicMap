@@ -3,7 +3,7 @@
 -- A sweep of the continent's map in cells CELL tiles a side, SAMPLES cells a frame (Layers.lua:75-76,
 -- 1257-1269, 1334-1361): at each cell's centre, on its zone's map, the client says which areas are explored
 -- there (C_MapExplorationInfo.GetExploredAreaIDsAtPosition). The cell is lit if it names any, dark if none
--- (Layers.lua:1347: what the shade darkens, per cell); the areas it names are explored, and the cell's own
+-- (what the inspector's "Unexplored" reads, per cell: ZoneInfo.lua); the areas it names are explored, and the cell's own
 -- (Atlas.AreaAt) checked (false until named). A lit cell isn't asked again. Handed over when a sweep ends:
 -- new tables, what the last had and this one found (the old kept until then: Layers.lua:2245-2248; a row of
 -- cells a new table only if it changed), each only if something in it changed. Swept again, the cells not

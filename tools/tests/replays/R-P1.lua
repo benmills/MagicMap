@@ -22,7 +22,7 @@ sim.Run(1)
 sim.Slash("/mm toggle")
 sim.Run(3)
 local m, layers = ns.UI.Camera, {}
-for _, lay in ipairs(ns.UI.Engine.layers) do -- (those on: one off by default, as the shade, lays nothing out)
+for _, lay in ipairs(ns.UI.Engine.layers) do -- (those on: one off by default, lays nothing out)
 	if lay.on then layers[#layers + 1] = lay end
 end
 for _, lay in ipairs(layers) do -- the first open's layouts done: maxima from here

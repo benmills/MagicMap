@@ -6,8 +6,6 @@ M4.1 and M4.3 hand them over (types/model.lua, types/observation.lua), drawn as 
     gear row's toggle hides its kind alone (F39, F44).
   test_group: Known("group") as the Minimap's party blips (S52): PartyRaidBlipsV2's left half, 12 px, the class's
     colour, dead grey; moved as Model's list changes; the member's tooltip, Game's, on hover; the toggle (F41).
-  test_shade: off until turned on; the 0.2-tile cells Game found dark (obs.exploredCells) shaded, a row's run one
-    rectangle (the shade's cell count), (0, 0, 0, 0.55), +0.5 px; the old kept until the new pass is done (F45, S39).
   test_view: View small, big, indoors (Blizzard's floor plan; the art) and hidden: renderer, chrome, the layers
     Game acts on and the sockets (the minimap one beside the world one).
   test_indoor_art: the art of the map you're on over a dark backdrop (S40), at the camera's zoom, outlined under
@@ -212,86 +210,6 @@ def test_group():
     ns.UI.Engine.SetLayer("group", True)
     sim.Step()
     assert sum(1 for d in dots.values() if S[d].shown) == 2
-    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
-
-
-# Elwynn's cells dark but Goldshire's (and the areas in it, but those in `also`), as Game's sweep hands them over:
-# per area, per cell.
-EXPLORED = """local ns, also = ...
-local Atlas = ns.Atlas
-local areas, rows = {}, {}
-local function Lit(id)
-    local lit, p = false, id
-    while p do lit = lit or p == 87; p = Atlas.Area(p).parent end
-    return lit and not also[id]
-end
-local r = Atlas.MapRect(Atlas.Continent(0))
-for j = 0, math.ceil((r.row1 - r.row0) / 0.2) - 1 do
-    local row = {}
-    for i = 0, math.ceil((r.col1 - r.col0) / 0.2) - 1 do
-        local a = Atlas.AreaAt(0, r.col0 + (i + 0.5) * 0.2, r.row0 + (j + 0.5) * 0.2)
-        if a and Atlas.Area(a).zone == 12 then row[i + 1], areas[a] = Lit(a), Lit(a) end
-    end
-    rows[j + 1] = row
-end
-return areas, { [0] = rows }"""
-DARK = """local cells, n = ..., 0
-for _, row in pairs(cells[0]) do
-    for _, v in pairs(row) do
-        if v == false then n = n + 1 end
-    end
-end
-return n"""
-
-
-def test_shade():
-    L, sim, ns = boot(lua=True)  # (our Lua charged: the shade's pass takes frames)
-    L.execute(SETUP, sim, ns)
-    G, S, UI, E = L.globals(), sim.state, ns.UI, ns.UI.Engine
-    sim.Slash("/mm toggle")
-    sim.Run(1)
-    sim.Press("M")
-    sim.Run(1)
-    UI.Motion.SetZoom(16)  # (the continent whole: the layout's region holds it)
-    G.Parts.explored, G.Parts.cells = L.execute(EXPLORED, ns, L.table())
-    sim.Run(1.5)
-    lay = next(lay for lay in E.layers.values() if lay.name == "unexplored")
-    assert not E.LayerOn("unexplored") and lay.front is None  # off until turned on (Layers.lua:38)
-
-    def drawn():
-        """The shade's rectangles shown, and the cells they cover."""
-        p = lay.front.pools.shade if lay.on and lay.front and lay.front.alpha == 1 else None
-        rects = [p[i] for i in range(1, (p.n if p else 0) + 1)]
-        z = lay.front.zoom if rects else 1
-        return len(rects), round(sum((S[t].width - 0.5) / (0.2 * z) for t in rects))
-
-    E.SetLayer("unexplored", True)
-    for _ in range(600):
-        sim.Step()
-        if drawn()[0]:
-            break
-    sim.Run(0.5)
-    n, cells = drawn()
-    dark = L.execute(DARK, G.Parts.cells)
-    print(f"shade: {cells} cells of {dark} unexplored, {n} rectangles")
-    assert cells == dark and 0 < n < dark  # (a row's run one rectangle)
-    t = lay.front.pools.shade[1]
-    assert list(S[t].color.values()) == [0, 0, 0, 0.55] and abs(S[t].height - (0.2 * lay.front.zoom + 0.5)) < 1e-9
-    # Goldshire found unexplored too (a new sweep): the old shade kept while the new pass runs, then the new.
-    G.Parts.explored, G.Parts.cells = L.execute(EXPLORED, ns, L.table_from({87: True}))
-    sim.Step()
-    kept = 0
-    while drawn() == (n, cells):
-        kept += 1
-        sim.Step()
-    sim.Run(0.5)
-    n2, cells2 = drawn()
-    assert kept > 1 and cells2 == L.execute(DARK, G.Parts.cells) > cells, (kept, cells2)
-    print(f"shade: the old kept {kept} frames; then {cells2} cells, {n2} rectangles")
-    # Off: emptied.
-    E.SetLayer("unexplored", False)
-    sim.Step()
-    assert drawn() == (0, 0)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
