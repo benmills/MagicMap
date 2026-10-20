@@ -1,6 +1,6 @@
 -- Overlapping pins grouped (ui/Cluster.lua). Where two or more pins of the clustered layers (quests, offers,
--- places, rares, blips: opts.cluster in Pins.Layer) crowd together at the zoom (each within RANGE px of
--- another, at most REACH ranges from the first: the greedy pass in Group), they draw as one pill at their
+-- places, rares, blips: opts.cluster in Pins.Layer) crowd together at the zoom (each within range px of
+-- another, at most reach ranges from the first: the greedy pass in Group), they draw as one pill at their
 -- centroid: up to three icons side by side, the third a "+N" when there are more, on a faint dark backing. Clicking the pill opens a grid of its members above it at their normal size; each
 -- grid icon is a pin of its own layer (a proxy at its cell, standing for the real entry), so its tooltip and
 -- click are its layer's. Clicking elsewhere, Escape, a zoom or a pan away closes the grid.
@@ -16,13 +16,9 @@ local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
 local Engine, Pins, Window, Camera = UI.Engine, UI.Pins, UI.Window, UI.Camera
 local Yield = Runtime.Yield
 
-local RANGE = 24 -- px: pins whose centres are closer than this crowd each other
-local REACH = 3 -- a cluster grows from its first pin by neighbours of neighbours, up to this many RANGEs from it
-local MIN = 2 -- pins that make a cluster
-local SLOTS = 3 -- a pill's slots: every icon if they fit, else the first two and "+N"
-local PILL_H, ICON, GAP, PAD, MORE_W = 16, 12, 2, 3, 18 -- px: the pill's height, its icons, the gaps, its side padding, the "+N" slot
+local PILL_H, ICON, GAP, PAD, MORE_W = 14, 12, 1, 2, 15 -- px: the pill's height, its icons, the gaps, its side padding, the "+N" slot
 local CELL, COLS, PANEL_PAD, PANEL_GAP, PANEL_R = 24, 6, 6, 4, 6 -- px: the grid's cell, its columns, its padding, its gap above the pill, its corner radius
-local BG = { 0, 0, 0, 0.5 } -- the backings: dark, faint
+local PANEL_ALPHA = 0.72 -- the grid's backing (the pill's: the "alpha" tunable)
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- Pins.lua's disc
 local PILL_LEVEL, GRID_LEVEL = 16, 17 -- above the pins (11-15), the grid above the pills
 local DRIFT = 1.25 -- the zoom bands membership is worked out for (Engine's DRIFT); the grid closes this far from where it opened
@@ -33,6 +29,30 @@ local E, LOOK, MINZ, SRC, COL, ROW, PX, SMALL = 1, 2, 3, 4, 5, 6, 7, 8 -- the en
 
 local Cluster = {}
 UI.Cluster = Cluster
+
+-- The tunables (Settings > Advanced > Grouping: ui/Menus.lua), UI.saved.clusterTune holding those changed:
+-- range, px: pins whose centres are closer crowd each other; reach: a cluster grows from its first pin by
+-- neighbours of neighbours, up to this many ranges from it; min: pins that make one; slots: a pill's (every
+-- icon if they fit, else the first slots - 1 and "+N"); alpha: the pill's dark backing.
+Cluster.DEFAULTS = { range = 24, reach = 3, min = 2, slots = 3, alpha = 0.35 }
+local tuneV, tuneSeen = 0, 0 -- moves with each change (a regroup)
+function Cluster.Get(key)
+	local t = UI.saved and UI.saved.clusterTune
+	local v = t and t[key]
+	if v == nil then v = Cluster.DEFAULTS[key] end
+	return v
+end
+function Cluster.Set(key, v)
+	local saved = UI.saved
+	local t = saved.clusterTune or {}
+	if v == Cluster.DEFAULTS[key] then t[key] = nil else t[key] = v end
+	saved.clusterTune = next(t) and t or nil
+	tuneV = tuneV + 1
+end
+function Cluster.Reset()
+	UI.saved.clusterTune = nil
+	tuneV = tuneV + 1
+end
 
 local sources = {} -- { name, fill, rev, lo (its layer on, at the last Stamp), r (its rev then) }
 local setting -- UI.saved.cluster: grouping on
@@ -52,8 +72,8 @@ local function Stamp()
 	if f == stampFrame then return stamp end
 	stampFrame = f
 	local on = UI.saved.cluster ~= false
-	local changed = on ~= setting
-	setting = on
+	local changed = on ~= setting or tuneV ~= tuneSeen
+	setting, tuneSeen = on, tuneV
 	local moved = false -- a source's own rev: grouped again REGROUP s at most after the last time
 	for _, s in ipairs(sources) do
 		local lo = Engine.LayerOn(s.name)
@@ -145,11 +165,12 @@ local function Make(c, m)
 end
 
 -- The clusters of the collection, at zoom, into c: from each member not yet taken, the untaken members within
--- RANGE px of it or of one already gathered (neighbours of neighbours, each in its 3x3 buckets), no further
--- than REACH ranges from it; MIN or more make a cluster. Buckets are RANGE px square,
+-- range px of it or of one already gathered (neighbours of neighbours, each in its 3x3 buckets), no further
+-- than reach ranges from it; min or more make a cluster (Cluster.Get's). Buckets are range px square,
 -- so O(n) a zoom, and the scratch is cleared on the way out.
 local function Group(zoom, c)
-	local cell = RANGE / zoom -- tiles; /: never 0 (a zoom is > 0)
+	local cell = Cluster.Get("range") / zoom -- tiles; /: never 0 (a zoom is > 0)
+	local REACH, MIN = Cluster.Get("reach"), Cluster.Get("min")
 	local r2 = cell * cell
 	gen = gen + 1
 	for i = 1, n do
@@ -273,33 +294,38 @@ local function Place(t, f, x, y, w, h)
 	t:SetSize(w, h)
 end
 
--- A rounded backing of w by h px (corner radius r) on frame f: four corner discs and three bands. Re-placed
--- only when its size changes.
-local function Backing(f, w, h, r)
-	if f.bkw == w and f.bkh == h then return end
-	f.bkw, f.bkh = w, h
+-- A rounded backing of w by h px (corner radius r) on frame f, dark at alpha: four quarter discs in the
+-- corners, a band down the middle and one down each side between the corners. No two pieces overlap (an
+-- overlap draws darker: a double backdrop). Re-placed only when its size changes, coloured when its alpha does.
+local QUARTERS = { tl = { 0, 0.5, 0, 0.5 }, tr = { 0.5, 1, 0, 0.5 }, bl = { 0, 0.5, 0.5, 1 }, br = { 0.5, 1, 0.5, 1 } }
+local function Backing(f, w, h, r, alpha)
 	local t = f.bk
 	if not t then
 		t = {}
-		for _, name in ipairs({ "tl", "tr", "bl", "br" }) do
+		for name, tc in pairs(QUARTERS) do
 			t[name] = Tex(f, "BACKGROUND")
 			t[name]:SetTexture(CIRCLE)
-			t[name]:SetVertexColor(BG[1], BG[2], BG[3], BG[4])
+			t[name]:SetTexCoord(tc[1], tc[2], tc[3], tc[4])
 		end
 		for _, name in ipairs({ "mid", "left", "right" }) do
 			t[name] = Tex(f, "BACKGROUND")
-			t[name]:SetColorTexture(BG[1], BG[2], BG[3], BG[4])
+			t[name]:SetColorTexture(1, 1, 1, 1)
 		end
 		f.bk = t
 	end
-	local d = 2 * r
-	Place(t.tl, f, 0, 0, d, d)
-	Place(t.tr, f, w - d, 0, d, d)
-	Place(t.bl, f, 0, h - d, d, d)
-	Place(t.br, f, w - d, h - d, d, d)
-	Place(t.mid, f, r, 0, w - d, h)
-	Place(t.left, f, 0, r, r, h - d)
-	Place(t.right, f, w - r, r, r, h - d)
+	if f.bka ~= alpha then
+		f.bka = alpha
+		for _, x in pairs(t) do x:SetVertexColor(0, 0, 0, alpha) end
+	end
+	if f.bkw == w and f.bkh == h then return end
+	f.bkw, f.bkh = w, h
+	Place(t.tl, f, 0, 0, r, r)
+	Place(t.tr, f, w - r, 0, r, r)
+	Place(t.bl, f, 0, h - r, r, r)
+	Place(t.br, f, w - r, h - r, r, r)
+	Place(t.mid, f, r, 0, w - 2 * r, h)
+	Place(t.left, f, 0, r, r, h - 2 * r)
+	Place(t.right, f, w - r, r, r, h - 2 * r)
 end
 
 local function MakeFrame(c)
@@ -323,7 +349,10 @@ local function Small(m)
 end
 
 -- A pill's width for n members.
-local function Shown(n) return n <= SLOTS and n or SLOTS - 1 end
+local function Shown(n)
+	local slots = Cluster.Get("slots")
+	return n <= slots and n or slots - 1
+end
 local function PillWidth(n)
 	local shown = Shown(n)
 	return 2 * PAD + shown * ICON + (shown - 1) * GAP + (n > shown and GAP + MORE_W or 0)
@@ -339,8 +368,8 @@ local function LayPill(p, cl)
 	if p.w ~= w then
 		p.w, p.h = w, PILL_H
 		p:SetSize(w, PILL_H)
-		Backing(p, w, PILL_H, PILL_H / 2)
 	end
+	Backing(p, w, PILL_H, PILL_H / 2, Cluster.Get("alpha"))
 	for i = 1, shown do
 		local icon = p.icons[i]
 		if not icon then
@@ -412,7 +441,7 @@ local function Build(c, inst, zoom, c0, r0, c1, r1)
 		if g.w ~= w or g.h ~= h then
 			g.w, g.h = w, h
 			g:SetSize(w, h)
-			Backing(g, w, h, PANEL_R)
+			Backing(g, w, h, PANEL_R, PANEL_ALPHA)
 		end
 		Engine.At(c, g, "CENTER", cl.col, cl.row, 0, dy)
 	end

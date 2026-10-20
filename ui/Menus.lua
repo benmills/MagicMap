@@ -4,7 +4,8 @@
 -- Other addons), each with an "All" box on top (the group on or off) and each row's icon beside its name;
 -- Nearby lists Blizzard's tracking types too (but those ours replace). Then quick actions (Use Blizzard's
 -- minimap, Reset to defaults: every layer as installed), then Settings, one list (Follow you, Group
--- overlapping icons, Minimap button, Reset window position, Advanced: Diagnostics, Performance).
+-- overlapping icons, Minimap button, Reset window position, Advanced: Diagnostics, Grouping's tunables,
+-- Performance).
 -- /mm layers (Layers.lua:2196-2207).
 -- The map picker (the title's click: ui/ZoneInfo.lua) and /mm map; the map's right-click menu.
 
@@ -287,6 +288,19 @@ local ADVANCED = {
 		{ "Indoor maps", on = function() return Model.minimap.indoorDebug end, run = Slash("indoor"),
 			tip = "Says in chat which map you're on indoors, whether it has art, and what the map shows; outlines the art." },
 	} },
+	{ "Grouping", {
+		{ "Distance", choices = { { "16 px", 16 }, { "20 px", 20 }, { "24 px", 24 }, { "28 px", 28 }, { "32 px", 32 }, { "40 px", 40 } },
+			key = "range", tip = "How close icons' centres must be to group." },
+		{ "Reach", choices = { { "1x distance", 1 }, { "2x", 2 }, { "3x", 3 }, { "4x", 4 }, { "6x", 6 } },
+			key = "reach", tip = "How far a group grows from its first icon, by neighbours of neighbours." },
+		{ "Smallest group", choices = { { "2 icons", 2 }, { "3 icons", 3 }, { "4 icons", 4 }, { "5 icons", 5 } },
+			key = "min", tip = "Fewer icons than this stay apart." },
+		{ "Icons in a pill", choices = { { "2", 2 }, { "3", 3 }, { "4", 4 } },
+			key = "slots", tip = "A pill's slots: every icon if they fit, else one fewer and \"+N\"." },
+		{ "Pill background", choices = { { "None", 0 }, { "15%", 0.15 }, { "25%", 0.25 }, { "35%", 0.35 }, { "50%", 0.5 }, { "70%", 0.7 } },
+			key = "alpha", tip = "How dark the pill behind grouped icons is." },
+		{ "Reset grouping", run = function() UI.Cluster.Reset() end },
+	} },
 	{ "Performance", {
 		{ "Record 10 seconds", on = function() return Runtime.recording end, run = Slash("perf"),
 			tip = "Times every part of MagicMap while you play, then prints a summary." },
@@ -326,6 +340,17 @@ local function AddSections(sub, sections)
 		for _, row in ipairs(section[2]) do
 			if row.sub then
 				AddSections(sub:CreateButton(row[1]), row.sub)
+			elseif row.choices then -- (grouping's tunables: one of a few values, UI.Cluster's)
+				local pick = sub:CreateButton(row[1])
+				pick:SetTooltip(Tip(row[1], row.tip))
+				for _, c in ipairs(row.choices) do
+					local value = c[2]
+					pick:CreateRadio(c[1] .. (value == UI.Cluster.DEFAULTS[row.key] and "  (default)" or ""),
+						function() return UI.Cluster.Get(row.key) == value end, function()
+							Run(function() UI.Cluster.Set(row.key, value) end)
+							return MenuResponse.Refresh
+						end)
+				end
 			elseif row.on then
 				local cb = sub:CreateCheckbox(row[1], function() return Shown(row, On(row)) end, function()
 					Run(Set, row)

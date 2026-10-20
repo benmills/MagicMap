@@ -18,7 +18,9 @@ LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Quests": "quests"
 SETTINGS = [("checkbox", "Follow you"), ("checkbox", "Group overlapping icons"), ("checkbox", "Minimap button"),
             ("button", "Reset window position"), ("button", "Advanced")]
 ADVANCED = [("title", "Diagnostics"), ("checkbox", "Debug info in the title"), ("checkbox", "Indoor maps"),
-            ("divider", None), ("title", "Performance"), ("checkbox", "Record 10 seconds"),
+            ("divider", None), ("title", "Grouping"), ("button", "Distance"), ("button", "Reach"),
+            ("button", "Smallest group"), ("button", "Icons in a pill"), ("button", "Pill background"),
+            ("button", "Reset grouping"), ("divider", None), ("title", "Performance"), ("checkbox", "Record 10 seconds"),
             ("button", "Compare with other addons"), ("button", "Memory breakdown")]
 WHITE, GOLD = (1, 1, 1), (1, 0.82, 0)
 SEEN = ("MagicMap2DB.Model = MagicMap2DB.Model or { _v = 1, blips = {}, rares = { [0] = { ['npc:1'] = "
@@ -343,4 +345,20 @@ def test_gear_groups_and_reset():
     assert not E.LayerOn("quests")
     rows["Reset to defaults"].onSelect()
     assert E.LayerOn("quests") and E.LayerOn("flight") and not E.LayerOn("graveyards")  # (off by default)
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_gear_grouping_tunables():
+    """Advanced > Grouping: a choice sets its tunable (saved only while it differs), Reset grouping clears them."""
+    L, sim, ns, pin = shown()
+    C, saved = ns.UI.Cluster, L.globals().MagicMap2DB.UI
+    root, _ = gear(sim, ns)
+    adv = sub(sub(root, "Settings"), "Advanced")
+    dist = {plain(e.text): e for e in sub(adv, "Distance")["items"].values()}
+    assert dist["24 px  (default)"].isSelected() is True
+    dist["32 px"].onSelect()
+    assert C.Get("range") == 32 and saved.clusterTune.range == 32 and dist["32 px"].isSelected() is True
+    sub(adv, "Reset grouping").onSelect()
+    sim.Step()
+    assert C.Get("range") == 24 and saved.clusterTune is None
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

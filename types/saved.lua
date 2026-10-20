@@ -65,6 +65,7 @@
 ---@field button boolean            the minimap button is shown
 ---@field tint boolean              tile colour correction
 ---@field cluster? boolean          overlapping pins grouped into pills (ui/Cluster.lua); nil: on
+---@field clusterTune? table<string, number> grouping's tunables changed from Cluster.DEFAULTS (range, reach, min, slots, alpha)
 ---@field debug boolean             /mm debug's title line (Core.lua:1746-1748); default false
 
 -- Model --------------------------------------------------------------------------------
