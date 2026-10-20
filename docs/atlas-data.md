@@ -284,8 +284,10 @@ committed (1,136 KB; 1.37 MB loaded). `[inst] = { tiles = { [tileKey] = { key...
   the building's own coordinates, rows upward, `a` none `b` floor, runs as the letter and a count; from the
   pictures' alpha), its pictures, flat `fid, ox, oy, ux, uy, vx, vy, ...` in tile units, its real floor
   (world height: the area-weighted median z of the room file's upward triangles, normal z > 0.7, MOPY
-  material 0xFF skipped, plus the placement's height; none: the box's), underground (that floor > 10 yd under
-  the terrain at its mask's centre: MCVT, bilinear) and the rooms of the building whose masks share ≥ 3 cells
+  material 0xFF skipped, plus the placement's height; a room open to the sky, MOGP flag 0x40: the lower
+  quartile of the lowest upward z over each 4-yd cell, the ground under its cliffs and roofs; none: the box's),
+  underground (that floor > 10 yd under the terrain at its mask's centre: MCVT, bilinear; or open to the sky
+  with a third of its mask under the building's floors > 10 yd higher) and the rooms of the building whose masks share ≥ 3 cells
   with its (the building's frame).
 - cities: per capital (uiMap 1453–1458; rect from Data/UiMaps.lua) its buildings, those whose box meets the
   rect and that have an underground room or ≥ 3,000 sq yd of floor (houses and shops left out), and per

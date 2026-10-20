@@ -45,10 +45,15 @@ like terrain tiles.
   box −91, floor about −5). The floor is the area-weighted median z of the room file's upward-facing
   triangles (normal z > 0.7; MOPY material 0xFF, collision-only, skipped): after MOGP's 68-byte header,
   MOVT/MOVI/MOPY. 97 of Ironforge's 103 rooms are within 22 yd of the median. In world height (the
-  placement's y + z · scale; rotation is yaw only) so buildings compare: Ironforge's sits at 506.7.
+  placement's y + z · scale; rotation is yaw only) so buildings compare: Ironforge's sits at 506.7. A room
+  open to the sky (MOGP flag 0x40; Orgrimmar's streets, Stormwind's) holds its cliffs and roofs too, so the
+  median lands on them (the Drag 76 yd, its shops 23 to 50): there the floor is the lower quartile of the
+  lowest upward z over each 4-yd cell, the ground they stand on (the Drag 26).
 - **Underground**: the floor more than 10 yd under the terrain (root ADT MCVT) at the mask's centre. Under a
-  city WMO the terrain is a placeholder under holes: Orgrimmar's lies 10 to 100 yd below its floors, so its
-  Cleft of Shadow (rooms 74, 75, 137 of the city WMO) isn't underground by this test.
+  city WMO the terrain is a placeholder under holes (Orgrimmar's lies 10 to 100 yd below its floors), so also:
+  a room open to the sky with a third of its mask under the building's floors more than 10 yd higher (only
+  those: a shop's upper storey isn't a street). Orgrimmar's Cleft of Shadow (rooms 74, 75, 137) and the
+  passages down to it (73, 76); Stormwind three unnamed rooms.
 - **Capitals**: Stormwind City and Undercity are each one WMO (288, 196 rooms); Orgrimmar one (138 rooms,
   the Cleft of Shadow among them) and an unnamed 12-room one at its east edge, 25 to 100 yd under the terrain; Ironforge's city WMO and two small
   ones in the mountain; Darnassus one (54 rooms); Thunder Bluff the Pools of Vision and a one-room cave.
@@ -83,8 +88,8 @@ like terrain tiles.
 - **Your floor** (Game): your room's real floor (world height); unsure, the highest candidate's, so it
   never fades the room you may be in.
 - **Drawing** (UI), the buildings: the one you're in; with **City maps** on (gear → Map, on by default)
-  and you in a capital (uiMap 1453–1458, on its instance), every one of the city's buildings too, indoors
-  or out. Off: only the one you're in, as before.
+  and you in a capital (inside the rect of uiMap 1453–1458, on its instance: not by your uiMap, which is
+  likely Tirisfal Glades in the Ruins of Lordaeron), every one of the city's buildings too, indoors or out. Off: only the one you're in, as before.
   - the terrain tiles dimmed (×0.35) only while you're in a building;
   - the rooms drawn over them, under quest areas and pins;
   - levels by real floors (world height, so buildings compare): a room within **22 yd** of your floor is
@@ -103,5 +108,4 @@ like terrain tiles.
 - Where a place has no pictures, the view is ours, as outdoors.
 
 Locked: none yet. Open: the 22 yd threshold beyond Ironforge; Orgrimmar and other open-air cities the
-Minimap calls indoor; the surface under a city WMO (the terrain there is a placeholder, so the Cleft of
-Shadow isn't underground by the terrain test and is drawn whole outdoors, by floor under the streets).
+Minimap calls indoor; Orgrimmar's unnamed room 131 (under the Drag, not open to the sky) drawn whole outdoors.

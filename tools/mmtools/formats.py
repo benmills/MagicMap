@@ -4,6 +4,7 @@ WMO (buildings: rooms, portals) and BLP (minimap textures).
 """
 from __future__ import annotations
 
+import math
 import struct
 from dataclasses import dataclass
 from typing import Iterator
@@ -185,8 +186,11 @@ class WmoGroup:
 
 
 def group_floor(buf: bytes) -> float | None:
-    """The area-weighted median z of a MOGP's upward-facing triangles (normal z > 0.7), collision-only
-    ones (MOPY material 0xFF) skipped. buf: the MOGP's data; its sub-chunks follow its 68-byte header."""
+    """A MOGP's real floor (its own z), from its upward-facing triangles (normal z > 0.7; collision-only ones,
+    MOPY material 0xFF, skipped): indoors their area-weighted median; open to the sky (flag 0x40: Orgrimmar's
+    streets, cliffs and roofs in the same room) the lower quartile of the lowest of them over each 4-yd cell,
+    the ground the cliffs and roofs stand on. buf: the MOGP's data; its sub-chunks follow its 68-byte header."""
+    sky = struct.unpack_from("<I", buf, 8)[0] & 0x40
     sub = buf[68:]
     ch = {m: sub[o:o + s] for m, o, s in iter_chunks(sub)}
     if b"MOVT" not in ch or b"MOVI" not in ch:
@@ -194,7 +198,7 @@ def group_floor(buf: bytes) -> float | None:
     v = list(struct.iter_unpack("<3f", ch[b"MOVT"]))
     idx = struct.unpack(f"<{len(ch[b'MOVI']) // 2}H", ch[b"MOVI"])
     mat = ch.get(b"MOPY", b"")
-    tris = []
+    tris, low = [], {}  # low: 4-yd cell -> the lowest upward z over its centre
     for t in range(len(idx) // 3):
         if mat and mat[t * 2 + 1] == 0xFF:
             continue
@@ -203,8 +207,19 @@ def group_floor(buf: bytes) -> float | None:
         vx, vy, vz = c[0] - a[0], c[1] - a[1], c[2] - a[2]
         nx, ny, nz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
         n = (nx * nx + ny * ny + nz * nz) ** 0.5
-        if n > 0 and nz / n > 0.7:
-            tris.append(((a[2] + b[2] + c[2]) / 3, n / 2))
+        if not (n > 0 and nz / n > 0.7):
+            continue
+        tris.append(((a[2] + b[2] + c[2]) / 3, n / 2))
+        if not sky:
+            continue
+        for i in range(math.floor(min(a[0], b[0], c[0]) / 4), math.floor(max(a[0], b[0], c[0]) / 4) + 1):
+            for j in range(math.floor(min(a[1], b[1], c[1]) / 4), math.floor(max(a[1], b[1], c[1]) / 4) + 1):
+                px, py = (i + 0.5) * 4 - a[0], (j + 0.5) * 4 - a[1]
+                s, r = (px * vy - vx * py) / nz, (ux * py - px * uy) / nz  # /: never 0 (nz > 0.7 n)
+                if s >= 0 and r >= 0 and s + r <= 1 and a[2] + s * uz + r * vz < low.get((i, j), math.inf):
+                    low[i, j] = a[2] + s * uz + r * vz
+    if low:
+        return sorted(low.values())[(len(low) - 1) // 4]
     if not tris:
         return None
     tris.sort()

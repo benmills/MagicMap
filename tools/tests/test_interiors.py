@@ -148,12 +148,21 @@ def test_city_maps():
     assert ns.Model.you.uiMap == 1454 and not ns.Model.interior
     veils, rooms = drawn()
     print(f"Orgrimmar: {len(rooms)} rooms drawn; its layout's slowest frame {perf.max:.2f} ms, the slowest frame {whole.max:.2f}")
-    assert veils == 0 and all((165042, r) in rooms for r in (74, 75, 137))
+    assert veils == 0 and all(rooms[165042, r] == 0.35 for r in (74, 75, 137))  # the Cleft under the streets
     org = ns.Atlas.Building(1, 165042)
     assert all(a == (0.35 if org.rooms[r].underground else 1) for (k, r), a in rooms.items() if k == 165042)
+    assert rooms[165042, 136] == 1 and org.rooms[136].floor < 40  # the Drag's street: its floor the street's
     assert perf.max <= 5 and whole.max <= 8  # a slice within the moving budget, the frame within the max
     look(sim, ns, (40.9, 29.2), ns.UI.Camera.cam.zoom)  # the rooms under the city's east edge
     assert all(a == 0.35 for (k, _), a in drawn()[1].items() if k == 250582) and any(k == 250582 for k, _ in drawn()[1])
+    # Over Undercity, the client saying Tirisfal Glades (the Ruins of Lordaeron): the city under them, faded.
+    L.execute("C_Map.GetBestMapForUnit = function() return 1420 end")
+    sim.player.inst, sim.player.col, sim.player.row = 0, 31.47, 29.0
+    sim.FireEvent("ZONE_CHANGED_NEW_AREA")
+    sim.Run(2)
+    assert ns.Model.you.uiMap == 1420
+    uc = {r: a for (k, r), a in drawn()[1].items() if k == 239598}
+    assert uc and 0.35 in uc.values()
     ns.UI.Engine.SetLayer("cities", False)
     sim.Run(1)
     assert drawn() is None

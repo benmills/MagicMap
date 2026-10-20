@@ -23,12 +23,19 @@ local BELOW, ABOVE = 0.35, 0.15 -- the alpha of rooms on levels below yours (fad
 local MINE = 7 -- the sublevel of your room's pictures, over every other room's (Test.lua's)
 local STEP = 16 -- yd of floor a sublevel
 local TEXELS = 1600 / 3 * 2 -- a picture's pixels a tile unit (2 a yard)
-local CAPITALS = { [1453] = true, [1454] = true, [1455] = true, [1456] = true, [1457] = true, [1458] = true }
+local CAPITALS = { 1453, 1454, 1455, 1456, 1457, 1458 }
 
--- The capital you're in on the map shown, City maps on (Atlas.City); else nil.
+-- The capital you're in on the map shown, City maps on (Atlas.City); else nil. In: inside its map's rect, not
+-- by uiMap (in the Ruins of Lordaeron, over Undercity, the client likely says Tirisfal Glades).
 local function City()
 	local y = Model.you
-	if CAPITALS[y.uiMap] and y.inst == Camera.inst and Engine.LayerOn("cities") then return Atlas.City(y.inst, y.uiMap) end
+	if not (y.col and y.inst == Camera.inst and Engine.LayerOn("cities")) then return end
+	for _, id in ipairs(CAPITALS) do
+		local r = Atlas.MapRect(id)
+		if r.inst == y.inst and y.col >= r.col0 and y.col <= r.col1 and y.row >= r.row0 and y.row <= r.row1 then
+			return Atlas.City(y.inst, id)
+		end
+	end
 end
 
 -- What's drawn: { i = Model.interior on the map shown, or nil; c = City() }, the same table while both are;

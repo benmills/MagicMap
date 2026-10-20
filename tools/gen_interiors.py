@@ -131,7 +131,8 @@ def main() -> None:
     w("--   floor, underground, { overlapped group... } }: mask cols x rows 4-yd cells from (x0, y0) cells in the\n")
     w("--   building's own coordinates, rows upward, 'a' none 'b' floor, runs as the letter and a count; pictures in\n")
     w("--   tile units, pixel (u, v) at o + u*U + v*V; floor its real floor in world height; underground: that more\n")
-    w("--   than 10 yd below the terrain at the mask's centre; overlapped: its rooms sharing >= 3 mask cells;\n")
+    w("--   than 10 yd below the terrain at the mask's centre, or open to the sky with a third of its mask under the\n")
+    w("--   building's floors > 10 yd higher; overlapped: its rooms sharing >= 3 mask cells;\n")
     w("--   cities = { [uiMap] = { { key... }, { [key] = { [room] = { key, room, ... } } } } }: a capital's buildings and,\n")
     w("--   per room, the other buildings' rooms it shares >= 3 4-yd cells with (tile space)\n")
     w(data_head("Interiors"))
@@ -186,10 +187,10 @@ def main() -> None:
             for gi in sorted(by_room):
                 g = root.groups[gi]
                 gf = root.group_fids[gi]
-                if ("group", gf) not in cache:
+                if ("room", gf) not in cache:
                     gb = src.read(gf)
-                    cache["group", gf] = wmo_group(gb) if gb else None
-                grp = cache["group", gf]
+                    cache["room", gf] = wmo_group(gb) if gb else None
+                grp = cache["room", gf]
                 cols = math.ceil((g.mx[0] - g.mn[0]) / CELL)
                 nrows = math.ceil((g.mx[1] - g.mn[1]) / CELL)
                 grid = bytearray(cols * nrows)
@@ -222,14 +223,20 @@ def main() -> None:
                 cx, cy = ((sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)) if pts else
                           ((g.mn[0] + g.mx[0]) / 2, (g.mn[1] + g.mx[1]) / 2))
                 top = ground(*place(m, cx, cy))
-                deep = top is not None and top - floor > DEEP
-                under[gi] = (deep, {tuple(math.floor(q / CELL) for q in place(m, x, y)) for x, y in pts})
-                rooms[gi] = "[%d]={%s,%s,%s,{%s},%s,%s,%d,%d,%s,{%s},%s,%s," % (
+                under[gi] = (top is not None and top - floor > DEEP,
+                             {tuple(math.floor(q / CELL) for q in place(m, x, y)) for x, y in pts})
+                rooms[gi] = (floor, g.flags & 0x40, "[%d]={%s,%s,%s,{%s},%s,%s,%d,%d,%s,{%s},%s," % (
                     gi, fmt(g.mn[2], 1), fmt(g.mx[2], 1), lua_str(name) if name else "nil", ",".join(map(str, links)),
-                    fmt(g.mn[0] / CELL, 3), fmt(g.mn[1] / CELL, 3), cols, nrows, lua_str(mask), ",".join(pics),
-                    fmt(floor, 1), "true" if deep else "false")
+                    fmt(g.mn[0] / CELL, 3), fmt(g.mn[1] / CELL, 3), cols, nrows, lua_str(mask), ",".join(pics), fmt(floor, 1)))
                 totals[1] += 1
                 totals[2] += len(pics)
+            # Open to the sky and a third of its floor under the building's floors > 10 yd higher: underground too
+            # (a city WMO's terrain is a placeholder under it: Orgrimmar's Cleft of Shadow under its streets).
+            for gi, (floor, sky, _) in rooms.items():
+                hid = set().union(*(own[gi] & own[gj] for gj in rooms if rooms[gj][0] > floor + DEEP))
+                if sky and own[gi] and 3 * len(hid) >= len(own[gi]):
+                    under[gi] = (True, under[gi][1])
+            rooms = {gi: "%s%s," % (r[2], "true" if under[gi][0] else "false") for gi, r in rooms.items()}
             over = {gi: [gj for gj in own if gj != gi and len(own[gi] & own[gj]) >= OVER] for gi in own}
             packed = "{%d,%d,%s,%s,%s,%s,{%s}}" % (
                 m.fid, root.wmo_id, fmt(m.pos[0] / TILE, 6), fmt(m.pos[2] / TILE, 6),
