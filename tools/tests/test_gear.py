@@ -112,7 +112,7 @@ def test_gear():
                            ("button", "Other addons"), ("divider", None), ("button", "Use Blizzard's minimap"),
                            ("button", "Reset to defaults"), ("divider", None), ("button", "Settings")]
     assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"),
-                                       ("checkbox", "Zone borders")]
+                                       ("checkbox", "Zone borders"), ("checkbox", "City maps")]
     assert items(sub(root, "Quests")) == [("checkbox", "All quests"), ("divider", None), ("checkbox", "Quests"),
                                           ("checkbox", "Quest areas"), ("checkbox", "Quests to pick up")]
     assert items(sub(root, "Places")) == [("checkbox", "All places"), ("divider", None), ("checkbox", "Flight points"),
@@ -324,7 +324,7 @@ def test_gear_tracking_advanced():
     on, off = "|cff33ff33%s|r".__mod__, "|cff888888%s|r".__mod__
     assert sim.prints[len(sim.prints)] == (
         "|cffffd100MagicMap|r: layers: "
-        f"|cffffd100Map:|r {on('zoneLabels')}, {on('zoneBorders')}; "
+        f"|cffffd100Map:|r {on('zoneLabels')}, {on('zoneBorders')}, {on('cities')}; "
         f"|cffffd100Quests:|r {on('quests')}, {off('questAreas')}, {on('offers')}; "
         f"|cffffd100Places:|r {off('flight')}, {on('dungeons')}, {off('graveyards')}, {on('areaPOIs')}; "
         f"|cffffd100Nearby:|r {off('rares')}, {on('group')}. Toggle them from the gear. "

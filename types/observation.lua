@@ -177,7 +177,7 @@
 ---@field building integer     its key (the MODF unique ID): Atlas.Building(inst, building)
 ---@field room? integer        the room you're in (its group index, 0-based); nil: unsure
 ---@field rooms integer[]      the candidates kept (sorted; { room } when sure)
----@field floor number         your room's floor (box zmin, yd); unsure, the highest candidate's
+---@field floor number         your room's real floor (world height, yd); unsure, the highest candidate's
 
 ---@class MM.ObsAddon
 ---@field key string           stable: the library copy's tag and the addon's name ("Questie")

@@ -80,20 +80,28 @@ like terrain tiles.
   5. one left: your room. Several: unsure (the candidates kept).
   - No mask covers you: stay. That way a seam between masks doesn't drop the room.
   - 2 s with no mask under you: out of the building (no room).
-- **Drawing** (UI), while you're in a building:
-  - the terrain tiles dimmed (×0.35 tested);
-  - the building's rooms drawn over them, under quest areas and pins;
-  - a room hidden when its floor is more than **22 yd** above yours (tuned in Ironforge; box zmin,
-    not the real floor). Unsure: measured from the highest candidate's floor, so it never hides
-    the room you may be in;
-  - your room, or every candidate, drawn over every other room (the Forge hall's picture covers
-    the High Seat's).
-  - Outside a building, nothing extra: the terrain tiles show its roof, as now.
+- **Your floor** (Game): your room's real floor (world height); unsure, the highest candidate's, so it
+  never fades the room you may be in.
+- **Drawing** (UI), the buildings: the one you're in; with **City maps** on (gear → Map, on by default)
+  and you in a capital (uiMap 1453–1458, on its instance), every one of the city's buildings too, indoors
+  or out. Off: only the one you're in, as before.
+  - the terrain tiles dimmed (×0.35) only while you're in a building;
+  - the rooms drawn over them, under quest areas and pins;
+  - levels by real floors (world height, so buildings compare): a room within **22 yd** of your floor is
+    on your level, drawn whole. Another is faded below (×0.35) or ghosted above (×0.15) only where it
+    overlaps a room on your level (its `over`, and the city's across buildings); one that overlaps
+    nothing on your level is drawn whole. Outdoors your level is the surface: underground rooms faded
+    ×0.35, the rest whole;
+  - drawn below, then the ghosts above, then the rest by floor; your room, or every candidate, over
+    every other room (the Forge hall's picture covers the High Seat's).
+  - Outside a building with City maps off, or outside the capitals, nothing extra: the terrain tiles
+    show its roof, as now.
 - **Gone**:
   - the world map's indoor art (game/parts/IndoorArt.lua, ui/IndoorArt.lua, obs.indoorArt);
   - Blizzard's whole Minimap in the window (`Game.Whole`, its backdrop, View.renderer `"blizzard"`);
   - the ≤1,600 yd rule and `OPEN_CITIES`, unless the user's Orgrimmar check says otherwise.
 - Where a place has no pictures, the view is ours, as outdoors.
 
-Locked: none yet. Open: the 22 yd threshold beyond Ironforge (real floor heights from the room
-geometry if it doesn't hold); Orgrimmar and other open-air cities the Minimap calls indoor.
+Locked: none yet. Open: the 22 yd threshold beyond Ironforge; Orgrimmar and other open-air cities the
+Minimap calls indoor; the surface under a city WMO (the terrain there is a placeholder, so the Cleft of
+Shadow isn't underground by the terrain test and is drawn whole outdoors, by floor under the streets).

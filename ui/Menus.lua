@@ -79,6 +79,9 @@ end
 Menus.Layer({ key = "labels", label = "Zone labels", group = "map", tip = "Names of zones and sub-zones." })
 Menus.Layer({ key = "borders", label = "Zone borders", group = "map",
 	tip = "Outlines between zones, traced from the terrain." })
+-- Not a layer of its own: the interiors layer draws a capital's every building while it's on (ui/Interiors.lua).
+Menus.Layer({ key = "cities", label = "City maps", group = "map",
+	tip = "In the capital cities, every city building's indoor map, what's under the ground faded." })
 -- Rares you've seen and the live ones (vignettes: rares, treasures, events the game shows near you): one row.
 Menus.Layer({ key = "rares", label = "Rares & treasures", group = "nearby",
 	tip = "Rares where you last saw them, and the rares, treasures and events the game shows near you now.",

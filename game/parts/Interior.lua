@@ -5,7 +5,8 @@
 -- subzone changes. Which room: the rooms under you; of those, the ones named like your subzone; the
 -- room you were in, if still one of them; else the ones it has a portal to. One left: your room;
 -- several: unsure (room nil, rooms the candidates kept). No mask under you: stay (a seam between
--- masks); AWAY s so: out (false). floor: your room's (box zmin), unsure the highest candidate's.
+-- masks); AWAY s so: out (false). floor: your room's real floor (world height), unsure the highest
+-- candidate's.
 -- Each change, and the Minimap's indoors, is traced ("indoor") and printed under /mm indoor
 -- (SavedGame.indoorDebug).
 
@@ -65,7 +66,7 @@ end
 local function Floor()
 	local f
 	for _, id in ipairs(rooms) do
-		local z = b.rooms[id].zmin
+		local z = b.rooms[id].floor
 		f = f and math.max(f, z) or z
 	end
 	return f
