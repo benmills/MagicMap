@@ -1,7 +1,7 @@
 -- The sea (Data/Sea.lua): the open sea beyond the tiles, continuing their own
--- painted water. Per map: tiling water textures (variants that fit beside any
--- other), a tint map (the sea's colour over and around the map), and per coast
--- tile the mask that fades its sides facing the sea. See tools/gen_sea.py for
+-- painted water. Per map: tiling water textures in the sea's colour (variants
+-- that fit beside any other), drawn as they are wherever the sea is, and per
+-- coast tile the mask that fades its sides facing the sea. See tools/gen_sea.py for
 -- how it is drawn.
 
 local _, ns = ...
@@ -13,8 +13,8 @@ local function MapData(inst)
 	return maps and maps[inst]
 end
 
--- { textures = { path, ... }, gain, tint = path, rect = { col0, row0, col1, row1 },
--- far = { r, g, b } (0..1: the tint beyond rect) }, or nil: no sea on this map.
+-- { textures = { path, ... }, colour = { r, g, b } (0..1: the textures' mean) }, or nil: no sea on
+-- this map.
 local seas = {}
 function Atlas.Sea(inst)
 	local s = seas[inst]
@@ -23,10 +23,9 @@ function Atlas.Sea(inst)
 		s = false
 		if m then
 			local dir = Atlas.ROOT .. Data.Sea.dir
-			s = { textures = {}, gain = Data.Sea.gain, tint = dir .. inst .. "_tint.tga", rect = m.tint,
-				far = { m.far[1] / 255, m.far[2] / 255, m.far[3] / 255 } }
+			s = { textures = {}, colour = { m.colour[1] / 255, m.colour[2] / 255, m.colour[3] / 255 } }
 			for v = 0, Data.Sea.variants - 1 do
-				s.textures[v + 1] = dir .. inst .. "_ocean" .. v .. ".blp"
+				s.textures[v + 1] = dir .. inst .. "_ocean" .. v .. ".tga"
 			end
 		end
 		seas[inst] = s

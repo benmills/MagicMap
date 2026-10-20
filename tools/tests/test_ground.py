@@ -188,7 +188,7 @@ def test_sea():
     look(sim, ns, (col + 0.5, row + 0.5), 200)
     p = tiles.front.pools
     cell = p.sea[p.sea.at[col * 4096 + row]]
-    assert cell.path and "_ocean" in cell.path and cell.path.endswith(".blp"), cell.path
+    assert cell.path and "_ocean" in cell.path and cell.path.endswith(".tga"), cell.path
     fdid = ns.Atlas.TileInfo(0, key).fdid
     assert all(p.art[i].fdid != fdid for i in range(1, p.art.n + 1))
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

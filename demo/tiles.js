@@ -5,15 +5,12 @@
 // own water included; the sea continues it where there is no art: off the tiles, and over the art's
 // open-sea tiles (TileColor sea[]: flat, not drawn). The addon draws it with plain textures, and this
 // draws the same:
-//   1. per sea cell in view: a tiling water texture (grey, mean `gain`), variant Atlas.SeaVariant(col,
+//   1. per sea cell in view: a tiling water texture (in the sea's colour), variant Atlas.SeaVariant(col,
 //      row): any variant fits beside any other (they share their edges). World-anchored, one repeat per
 //      tile (SetTexCoord the whole texture). Here: one pattern fill per variant, the cells as one path.
 //   2. over them, one texture filling the view: variant 0, SetTexture(path, "REPEAT", "REPEAT") with
 //      SetTexCoord scaled by the zoom to a repeat every `macro` tiles, turned a quarter, at alpha
 //      `macroAlpha`: the repeat stops lining up with the cells.
-//   3. the tint map (the sea's colour / gain, 4 px a tile: the art's water along each coast, spreading
-//      out to the art's open-sea colour, a little darker and gently varied far out) with
-//      SetBlendMode("MOD") over the view; past its rect, its border colour `far` (CLAMP).
 //   4. the tiles' art; on a coast tile AddMaskTexture(feather_<code>.tga): its sides facing the sea
 //      fade out over `feather` of a tile into the sea under it. The masks are baked by gen_sea.py
 //      (FEATHER); here they're made from SEA_STYLE.feather, for tuning.
@@ -24,7 +21,7 @@ const SEA_STYLE = {
   macroAlpha: 0.35,
   variants: true,   // false: variant 0 in every cell (to see the repetition the variants hide)
   // Colour-matched tiles (the atlas's, always on in the addon): the tile's tint and the coast fade.
-  // Off: the art plain. The sea's tint map (its colour: the water textures are grey) is drawn either way.
+  // Off: the art plain.
   tint: true,
   feather: 0.15,    // tiles: the coast's fade; gen_sea.py FEATHER = 0.15
 };
@@ -34,7 +31,7 @@ const SEA_STYLE = {
 const SIZES = [64, 128, 256, 512], BUDGET = 40e6, MAX_LOADING = 12;
 const baked = new Map(); // "key@size" -> canvas, oldest use first
 let bakedPx = 0, loading = 0, frameNo = 0;
-// The sea of INST, or null: { rect, far, gain, variants, coast: Map key -> code, tint: img,
+// The sea of INST, or null: { colour, variants, coast: Map key -> code,
 // ocean: [variant][lod] -> img }
 let sea = null;
 const OCEAN_SIZES = [32, 64, 128, 256], CELLS_MIN_PX = 48; // device px a tile: below, one fill
@@ -146,10 +143,10 @@ function tileRect(c, r) {
   return [sx, sy, snap(x + cam.zoom) - sx, snap(y + cam.zoom) - sy];
 }
 
-// The sea under the whole view: the cells' textures, the larger layer, the tint.
+// The sea under the whole view: the cells' textures (in its colour, drawn as they are), the larger layer.
 function drawSea(drawn) {
-  const s = SEA_STYLE, g = Math.round(sea.gain * 255);
-  ctx.fillStyle = `rgb(${g},${g},${g})`; ctx.fillRect(0, 0, W, H);
+  const s = SEA_STYLE;
+  ctx.fillStyle = rgb(sea.colour); ctx.fillRect(0, 0, W, H); // (until the textures load: their mean)
   ctx.globalAlpha = s.detail;
   const px = cam.zoom * dpr;
   if (px < CELLS_MIN_PX) { // too small for the variants to matter: one fill
@@ -167,12 +164,6 @@ function drawSea(drawn) {
   const macro = oceanPattern(0, px * s.macro, s.macro, true, [0.37, 0.61]);
   if (macro) { ctx.globalAlpha = s.detail * s.macroAlpha; ctx.fillStyle = macro; ctx.fillRect(0, 0, W, H); }
   ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = "multiply";
-  const [c0, r0, c1, r1] = sea.rect, [x0, y0] = toScreen(c0, r0), [x1, y1] = toScreen(c1, r1);
-  const outside = new Path2D(); outside.rect(0, 0, W, H); outside.rect(x0 + 1, y0 + 1, x1 - x0 - 2, y1 - y0 - 2); // (overlapping the map's edge by a pixel: no seam)
-  ctx.fillStyle = rgb(sea.far); ctx.fill(outside, "evenodd");
-  if (sea.tint.naturalWidth) { ctx.imageSmoothingEnabled = true; ctx.drawImage(sea.tint, x0, y0, x1 - x0, y1 - y0); }
-  ctx.globalCompositeOperation = "source-over";
 }
 
 // The sea (or the backdrop), then the land, centre first, so a slow connection fills in from where
@@ -198,7 +189,6 @@ async function loadTiles() {
   if (!s) return;
   const image = (src) => { const i = new Image(); i.onload = draw; i.src = src; return i; };
   sea = { ...s, coast: new Map(Object.entries(s.coast).map(([k, c]) => [+k, c])),
-    tint: image(`tiles/${INST}/ocean_tint.png`),
     ocean: Array.from({ length: s.variants }, (_, v) => Object.fromEntries(OCEAN_SIZES.map((n) =>
-      [n, image(n === 256 ? `tiles/${INST}/ocean${v}.webp` : `tiles/${INST}/${n}/ocean${v}.webp`)]))) };
+      [n, image(n === 256 ? `tiles/${INST}/ocean${v}.webp?c` : `tiles/${INST}/${n}/ocean${v}.webp?c`)]))) };
 }

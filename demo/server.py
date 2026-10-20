@@ -7,7 +7,7 @@ them.
 
   /api/maps                          Atlas.Maps, with Continent and Zones per inst
   /api/tiles?inst=                   TileInfo per tile (tint, sea)
-  /api/sea?inst=                     Sea: tint rect, far colour, gain, variants; SeaFeather's code per coast tile
+  /api/sea?inst=                     Sea: its colour, variants; SeaFeather's code per coast tile
   /api/borders?inst=                 Borders lines and far (zone borders, two levels of detail)
   /api/zone-outline?inst=&zone=      ZoneOutline: a zone's land as rings
   /api/labels?inst=                  Atlas.Labels: ranked name anchors (continent, zone, town, subzone, poi)
@@ -79,7 +79,7 @@ def sea(q):
         path = Atlas.SeaFeather(inst, key)
         if path:
             coast[key] = int(path.rsplit("_", 1)[1][:-4])  # feather_<code>.tga
-    return {"rect": py(m.rect), "far": py(m.far), "gain": m.gain, "variants": len(m.textures), "coast": coast}
+    return {"colour": py(m.colour), "variants": len(m.textures), "coast": coast}
 
 
 def borders(q):

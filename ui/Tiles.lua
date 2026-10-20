@@ -2,13 +2,12 @@
 --   1. per sea cell its water variant (Atlas.SeaVariant), one repeat a tile; below
 --      CELLS_MIN_PX a tile, one REPEAT texture over the whole layout instead
 --   2. variant 0 REPEAT over the layout, a repeat every MACRO tiles, turned a quarter, faint
---   3. the tint map with blend MOD over its rect; its border colour (far) MOD beyond
 --   4. the tiles' art (SetTexture(fdid)), TileColor tint as vertex colour + an ADD overlay,
 --      coast tiles masked with their feather (AddMaskTexture), wrap CLAMP: CLAMPTOBLACKADDITIVE
 --      would fade every edge's last texel to clear and draw the tile grid in hairlines of sea
--- The colour matching (TileColor's tint, the coast fades, the sea's tint map) is the atlas's: always
--- on, no setting. A map without a sea of its own gets Eastern Kingdoms' water in its open-sea colour
--- (far), not black. A layout keeps the cells and tiles its canvas showed (Engine.Keep, by tile):
+-- The sea's textures are in its colour (the coast tiles' water: tools/gen_sea.py), drawn as they are:
+-- nothing over them, so no seam. The colour matching (TileColor's tint, the coast fades) is the
+-- atlas's: always on, no setting. A map without a sea of its own gets Eastern Kingdoms' water. A layout keeps the cells and tiles its canvas showed (Engine.Keep, by tile):
 -- at the same zoom and origin they're left as they are, so a pan's layout re-textures and places only
 -- the ground it adds (a pan's re-set every region: the drag's frame p95 4.35 ms in game).
 
@@ -32,13 +31,7 @@ local function Maker(layer, sub)
 	return function(c) return Unsnapped(c:CreateTexture(nil, layer, nil, sub)) end
 end
 local SeaTex, MacroTex = Maker("BACKGROUND", 0), Maker("BACKGROUND", 1)
-local TintTex, ArtTex, AddTex = Maker("BORDER", 0), Maker("ARTWORK", 0), Maker("ARTWORK", 1)
-
-local function MakeTint(c)
-	local t = TintTex(c)
-	t:SetBlendMode("MOD")
-	return t
-end
+local ArtTex, AddTex = Maker("ARTWORK", 0), Maker("ARTWORK", 1)
 
 local function MakeCell(c)
 	local t = SeaTex(c)
@@ -115,17 +108,8 @@ local function Cell(c, t, sea, zoom, col, row, kept)
 	t.e = c.epoch
 end
 
--- What lies past the tint's rect: its border colour (the four sides around it).
-local function Far(c, zoom, far, a0, b0, a1, b1)
-	if a1 <= a0 or b1 <= b0 then return end
-	local f = Get(c, "tint", "tex", MakeTint)
-	f.path = nil
-	f:SetColorTexture(far[1], far[2], far[3], 1)
-	Rect(f, c, zoom, a0, b0, a1, b1)
-end
 
--- own: the map's own sea (its tint map lines up with it); else another's water, its far colour alone.
-local function Sea(c, inst, zoom, sea, own, tint, c0, r0, c1, r1)
+local function Sea(c, inst, zoom, sea, tint, c0, r0, c1, r1)
 	if zoom < CELLS_MIN_PX then
 		local t = Get(c, "fill", "tex", SeaTex)
 		Texture(t, sea.textures[1], "REPEAT")
@@ -160,24 +144,6 @@ local function Sea(c, inst, zoom, sea, own, tint, c0, r0, c1, r1)
 	local urx, ury = MacroUV(c1, r0)
 	local lrx, lry = MacroUV(c1, r1)
 	m:SetTexCoord(ulx, uly, llx, lly, urx, ury, lrx, lry)
-
-	-- The tint over its rect (the part in the layout's: no offset reaches past it), its border colour
-	-- on the four sides around it.
-	if not own then return Far(c, zoom, sea.far, c0, r0, c1, r1) end
-	local tc0, tr0, tc1, tr1 = sea.rect[1], sea.rect[2], sea.rect[3], sea.rect[4]
-	local a0, b0, a1, b1 = math.max(c0, tc0), math.max(r0, tr0), math.min(c1, tc1), math.min(r1, tr1)
-	if a1 > a0 and b1 > b0 then
-		local t = Get(c, "tint", "tex", MakeTint)
-		Texture(t, sea.tint, "CLAMP")
-		Rect(t, c, zoom, a0, b0, a1, b1)
-		local sw, sh = tc1 - tc0, tr1 - tr0
-		t:SetTexCoord((a0 - tc0) / sw, (a1 - tc0) / sw, (b0 - tr0) / sh, (b1 - tr0) / sh) -- /: never 0 (a sea rect has area: gen_sea.py)
-	end
-	local far = sea.far
-	Far(c, zoom, far, c0, r0, c1, math.min(r1, tr0))              -- above
-	Far(c, zoom, far, c0, math.max(r0, tr1), c1, r1)              -- below
-	Far(c, zoom, far, c0, math.max(r0, tr0), math.min(c1, tc0), math.min(r1, tr1)) -- left
-	Far(c, zoom, far, math.max(c0, tc1), math.max(r0, tr0), c1, math.min(r1, tr1)) -- right
 end
 
 -- The tint's overlay on a tile's art: a colour added, fading with the art, anchored to it.
@@ -258,6 +224,6 @@ end
 UI.Tiles = Engine.Layer("tiles", 1, function(c, inst, zoom, c0, r0, c1, r1)
 	local own = Atlas.Sea(inst)
 	local sea = own or Atlas.Sea(0) -- a map with no sea of its own: Eastern Kingdoms' water, not black
-	if sea then Sea(c, inst, zoom, sea, own ~= nil and own ~= false, true, c0, r0, c1, r1) end
+	if sea then Sea(c, inst, zoom, sea, true, c0, r0, c1, r1) end
 	Tiles(c, inst, zoom, own or nil, true, c0, r0, c1, r1)
 end)

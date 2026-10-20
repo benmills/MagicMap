@@ -7,10 +7,8 @@ Tiles are WebP (about a fifth of a PNG's size, so a phone gets sharp tiles
 quickly); smaller Lanczos copies go to demo/tiles/<inst>/<size>/<key>.webp
 (LODS), so a zoomed-out view doesn't download and hold 512px tiles it draws at
 20px. The sea's textures (Textures/Sea/<product>/, tools/gen_sea.py), if the map
-has them: <inst>_ocean<v>.blp to demo/tiles/<inst>/ocean<v>.webp with copies at
-OCEAN_LODS (as the BLP's mipmaps: a canvas pattern has none), and
-<inst>_tint.tga to demo/tiles/<inst>/ocean_tint.png (lossless: it is the sea's
-colour).
+has them: <inst>_ocean<v>.tga (in the sea's colour) to demo/tiles/<inst>/ocean<v>.webp,
+lossless, with copies at OCEAN_LODS (mipmaps: a canvas pattern has none).
 
   .venv/bin/python demo/export_tiles.py                 # Eastern Kingdoms (0)
   .venv/bin/python demo/export_tiles.py --inst 0 --inst 1
@@ -76,22 +74,18 @@ def main() -> None:
                     full.resize((size, size), Image.LANCZOS).save(
                         os.path.join(out, str(size), f"{key}.webp"), quality=QUALITY, method=6)
         n_sea = 0
-        while os.path.exists(blp := os.path.join(sea_dir, f"{inst}_ocean{n_sea}.blp")):
-            with open(blp, "rb") as f:
-                img = blp_dxt(f.read())
-            full = Image.frombytes("RGB", (img.width, img.height), img.rgb8())
-            full.save(os.path.join(out, f"ocean{n_sea}.webp"), quality=QUALITY, method=6)
+        while os.path.exists(tga := os.path.join(sea_dir, f"{inst}_ocean{n_sea}.tga")):
+            with open(tga, "rb") as f:
+                w, h, rows = read_tga(f.read())
+            full = Image.frombytes("RGB", (w, h), bytes(v for row in rows for p in row for v in p[:3]))
+            full.save(os.path.join(out, f"ocean{n_sea}.webp"), lossless=True)  # (lossless: its colour exact)
             for size in OCEAN_LODS:
                 os.makedirs(os.path.join(out, str(size)), exist_ok=True)
                 full.resize((size, size), Image.BOX).save(
-                    os.path.join(out, str(size), f"ocean{n_sea}.webp"), quality=QUALITY, method=6)
+                    os.path.join(out, str(size), f"ocean{n_sea}.webp"), lossless=True)
             n_sea += 1
-        tga = os.path.join(sea_dir, f"{inst}_tint.tga")
-        if os.path.exists(tga):
-            with open(tga, "rb") as f:
-                w, h, rows = read_tga(f.read())
-            Image.frombytes("RGB", (w, h), bytes(v for row in rows for p in row for v in p[:3])).save(
-                os.path.join(out, "ocean_tint.png"))
+        if os.path.exists(old := os.path.join(out, "ocean_tint.png")):
+            os.remove(old)
         print(f"[{inst}] {len(tiles)} tiles, {n_sea} sea textures -> {out}", file=sys.stderr)
 
 
