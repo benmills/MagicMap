@@ -1,7 +1,8 @@
 -- Menus are the client's own (MenuUtil), no skin (Menu.lua). Opened through here, they count
 -- as open for the controls that opened them, so those don't fade out under them.
 -- The gear menu (GearMenu.lua): what's drawn, a submenu per group of layers (Layers.lua:2179-2203),
--- Blizzard's tracking but what ours replace, then Settings: Minimap (Minimap
+-- each with an "All" box on top (the group on or off), "Reset to defaults" (every layer as installed),
+-- each row its icon beside its name; Blizzard's tracking but what ours replace, then Settings: Minimap (Minimap
 -- button, Reset position, Use Blizzard's minimap), Advanced (Diagnostics, Performance: /mm commands).
 -- /mm layers (Layers.lua:2196-2207).
 -- The map picker (the title's click: ui/ZoneInfo.lua) and /mm map; the map's right-click menu.
@@ -115,11 +116,63 @@ local function Flip(row)
 	if row.onToggle then row.onToggle(on) end
 end
 
+-- Each layer's icon beside its name (legibility): the art its pins draw (an atlas), else a client icon.
+local ICON = {
+	labels = "Interface\\Icons\\INV_Misc_Note_01", borders = "Interface\\Icons\\INV_Misc_Map_01",
+	unexplored = "Interface\\Icons\\INV_Misc_Spyglass_03", questAreas = "Interface\\Icons\\INV_Misc_Map02",
+	quests = "A:Quest-In-Progress-Icon-yellow", offers = "A:QuestNormal", flight = "A:taxinode_neutral",
+	dungeons = "A:dungeon", graveyards = "A:poi-graveyard-neutral", corpse = "A:deathrecap-icon-tombstone",
+	group = "Interface\\Icons\\Spell_Holy_PrayerOfFortitude", waypoint = "A:Waypoint-MapPin-Tracked",
+	rares = "A:vignettekill", vignettes = "A:vignettekill", areaPOIs = "Interface\\Icons\\INV_Misc_Map_01",
+	blips = "A:Professions_Tracking_Herb",
+}
+local function Label(row)
+	local icon, mark = ICON[row.key], ""
+	if icon and icon:sub(1, 2) == "A:" then
+		if C_Texture.GetAtlasInfo(icon:sub(3)) then mark = "|A:" .. icon:sub(3) .. ":16:16|a  " end
+	elseif icon then
+		mark = "|T" .. icon .. ":16:16:0:0:64:64:5:59:5:59|t  " -- (an icon's border cropped)
+	end
+	return (row.parent and "     " or "") .. mark .. row.label
+end
+
+-- Its setting set (Flip, when it differs).
+local function Set(row, on)
+	if Engine.LayerOn(row.key) ~= on then Flip(row) end
+end
+
+-- A group's rows all on.
+local function AllOn(rows)
+	for _, row in ipairs(rows) do
+		if not Engine.LayerOn(row.key) then return false end
+	end
+	return true
+end
+
+-- A group toggled whole: all on, or all off when they all were.
+local function SetGroup(rows)
+	local on = not AllOn(rows)
+	for _, row in ipairs(rows) do Set(row, on) end
+end
+
+-- Every layer back to its default (on, but those off until turned on).
+local function Reset()
+	for _, sec in ipairs(Sections()) do
+		for _, row in ipairs(sec.rows) do Set(row, row.default ~= false) end
+	end
+end
+
 local function AddLayers(root)
 	for _, sec in ipairs(Sections()) do
 		local sub = root:CreateButton(sec.title)
-		for _, row in ipairs(sec.rows) do
-			local cb = sub:CreateCheckbox((row.parent and "     " or "") .. row.label,
+		local rows = sec.rows
+		sub:CreateCheckbox("All " .. sec.title:lower(), function() return AllOn(rows) end, function()
+			Run(SetGroup, rows)
+			return MenuResponse.Refresh
+		end)
+		sub:CreateDivider()
+		for _, row in ipairs(rows) do
+			local cb = sub:CreateCheckbox(Label(row),
 				function() return Engine.LayerOn(row.key) end,
 				function()
 					Run(Flip, row)
@@ -129,6 +182,10 @@ local function AddLayers(root)
 			cb:SetTooltip(Tip(row.label, row.tip))
 		end
 	end
+	root:CreateButton("Reset to defaults", function()
+		Run(Reset)
+		return MenuResponse.Refresh
+	end):SetTooltip(Tip("Reset to defaults", "Every layer back as it was installed."))
 end
 
 -- On green, off grey (a sub-option off while its parent is), by group (Layers.lua:2196-2207); the spike's

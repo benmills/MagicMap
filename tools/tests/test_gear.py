@@ -7,6 +7,8 @@ and big. Every row works: a layer's toggle empties and redraws what it draws (an
 blip sensor, Questie's borrowed pins) and is saved, the changed keys only, across a /reload; a layer off by
 default stays so until turned on; rows in the spike's order whenever added; each setting does what it says;
 a tracking type's box and Advanced's rows send Game their Commands (test_gear_tracking_advanced); /mm layers."""
+import re
+
 from test_addon import boot, errors
 from test_blips import lua_tools, put_blips, stub_services
 from sim import TEST_UI
@@ -55,15 +57,20 @@ def drawn(lay):
 def gear(sim, ns):
     """Click the gear: the menu's root, and its rows by text."""
     sim.Click(ns.UI.Controls.gear)
-    return sim.menu, {e.text: e for e in sim.MenuItems().values() if e.text}
+    return sim.menu, {plain(e.text): e for e in sim.MenuItems().values() if e.text}
+
+
+def plain(text):
+    """A row's text without its icon (|A...|a or |T...|t markup) and the spaces after it."""
+    return text and re.sub(r"\|[AT].*?\|[at] *", "", text)
 
 
 def items(d):
-    return [(e.kind, e.text) for e in d["items"].values()]
+    return [(e.kind, plain(e.text)) for e in d["items"].values()]
 
 
 def sub(root, title):
-    return next(e for e in root["items"].values() if e.text == title)
+    return next(e for e in root["items"].values() if plain(e.text) == title)
 
 
 def tip(L, row):
@@ -102,19 +109,20 @@ def test_gear():
     # The tree: a submenu per group with layers, a divider, Settings; small and big alike.
     root, rows = gear(sim, ns)
     assert items(root) == [("button", "Map"), ("button", "Quests"), ("button", "Places"), ("button", "People"),
-                           ("button", "You"), ("button", "Other addons"), ("button", "Tracking"), ("divider", None),
+                           ("button", "You"), ("button", "Other addons"), ("button", "Reset to defaults"),
+                           ("button", "Tracking"), ("divider", None),
                            ("button", "Settings")]
-    assert items(sub(root, "Map")) == [("checkbox", "Zone labels"), ("checkbox", "Zone borders"),
+    assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"), ("checkbox", "Zone borders"),
                                        ("checkbox", "Shade unexplored")]
-    assert items(sub(root, "Quests")) == [("checkbox", "Quests"), ("checkbox", "Quest areas"),
+    assert items(sub(root, "Quests")) == [("checkbox", "All quests"), ("divider", None), ("checkbox", "Quests"), ("checkbox", "Quest areas"),
                                           ("checkbox", "Quests to pick up")]
-    assert items(sub(root, "Places")) == [("checkbox", "Flight points"), ("checkbox", "Dungeon entrances"),
+    assert items(sub(root, "Places")) == [("checkbox", "All places"), ("divider", None), ("checkbox", "Flight points"), ("checkbox", "Dungeon entrances"),
                                           ("checkbox", "Graveyards"), ("checkbox", "Points of interest"),
                                           ("checkbox", "Minimap blips")]
-    assert items(sub(root, "People")) == [("checkbox", "Party & raid"), ("checkbox", "Rares you've seen"),
+    assert items(sub(root, "People")) == [("checkbox", "All people"), ("divider", None), ("checkbox", "Party & raid"), ("checkbox", "Rares you've seen"),
                                           ("checkbox", "Live rares & treasures")]
-    assert items(sub(root, "You")) == [("checkbox", "Corpse"), ("checkbox", "Waypoint")]
-    assert items(sub(root, "Other addons")) == [("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
+    assert items(sub(root, "You")) == [("checkbox", "All you"), ("divider", None), ("checkbox", "Corpse"), ("checkbox", "Waypoint")]
+    assert items(sub(root, "Other addons")) == [("checkbox", "All other addons"), ("divider", None), ("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
     assert items(sub(root, "Settings")) == SETTINGS and items(sub(sub(root, "Settings"), "Advanced")) == ADVANCED
     sim.Press("M")
     sim.Run(1)
@@ -183,7 +191,7 @@ def test_gear():
     # A layer off by default (ui/Shade.lua's: the spike's Shade unexplored, Layers.lua:37): in the spike's
     # place in its group, before a row added after it, off until turned on, saved only while it isn't.
     root, rows = gear(sim, ns)
-    assert [t for _, t in items(sub(root, "Map"))] == ["Zone labels", "Zone borders", "Shade unexplored",
+    assert [t for _, t in items(sub(root, "Map"))][2:] == ["Zone labels", "Zone borders", "Shade unexplored",
                                                        "     Sub-option"]
     shade = rows["Shade unexplored"]
     assert shade.isSelected() is False and saved.layers["unexplored"] is None
@@ -336,4 +344,20 @@ def test_gear_tracking_advanced():
         f"|cffffd100People:|r {on('group')}, {off('rares')}, {on('vignettes')}; "
         f"|cffffd100You:|r {on('corpse')}, {on('waypoint')}. Toggle them from the gear. "
         "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it.")
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_gear_groups_and_reset():
+    """A group's "All" box turns its layers all on, or all off when they all were; Reset to defaults puts every layer back."""
+    L, sim, ns, pin = shown()
+    E = ns.UI.Engine
+    root, rows = gear(sim, ns)
+    rows["All map"].onSelect()  # (Shade unexplored is off by default: not all on, so all on)
+    assert E.LayerOn("labels") and E.LayerOn("borders") and E.LayerOn("unexplored")
+    rows["All map"].onSelect()
+    assert not E.LayerOn("labels") and not E.LayerOn("borders") and not E.LayerOn("unexplored")
+    rows["All quests"].onSelect()
+    assert not E.LayerOn("quests")
+    rows["Reset to defaults"].onSelect()
+    assert E.LayerOn("quests") and E.LayerOn("labels") and not E.LayerOn("unexplored")  # (off by default)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
