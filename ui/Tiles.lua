@@ -143,7 +143,7 @@ local function Tiles(c, inst, zoom, c0, r0, c1, r1)
 end
 
 UI.Tiles = Engine.Layer("tiles", 1, function(c, inst, zoom, c0, r0, c1, r1)
-	local sea = Atlas.Sea(inst)
+	local sea = Atlas.Sea(inst) or Atlas.Sea(0) -- a map with no sea of its own: Eastern Kingdoms' water, not black
 	if sea then Sea(c, inst, zoom, sea, c0, r0, c1, r1) end
 	Tiles(c, inst, zoom, c0, r0, c1, r1)
 end)
