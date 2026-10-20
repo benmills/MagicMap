@@ -4,7 +4,7 @@
 -- moves to The Fargodeep Mine (a follow Command), which completes (its pin moves to the turn-in, no area)
 -- and is handed in, and The Jasperlode Mine is taken; then the log is abandoned (known and empty).
 -- `areas`: the objective areas Replay.Oracles answers Inside from (circles in tile space); Hogger has
--- none (the game draws it no area: Model estimates), nor do quests ready to turn in.
+-- none, nor do quests ready to turn in.
 -- On-change parts keep their table while nothing changes: a new table is a change.
 local P = {
 	[1] = {

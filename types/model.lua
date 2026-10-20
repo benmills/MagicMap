@@ -43,7 +43,6 @@
 ---@field inner? MM.Icon           the first unfinished objective's icon (its item's, else its type's)
 ---@field need? "kill"|"gather"|"other"  what it still needs: its area's colour
 ---@field areaMap? MM.UiMapID      the game draws its objective area on this uiMap
----@field estimate? MM.Pos         no area from the game at its pin (HasArea false): an estimated disc's centre, shared within 0.6 r
 ---@field objectives? MM.KnownObjective[]  tooltip lines
 ---@field turnIn? string           who takes it in (Atlas finishedBy)
 ---@field tag? string              obs.quests' tag: the tooltip's facts line ("Elite", "Group (3)": QuestInfo.lua:321-325)

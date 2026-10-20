@@ -1,7 +1,5 @@
 -- Oracles (types/observation.lua MM.Oracles, ADR 0001): what Model may ask Game in a frame.
 -- Inside(quest, col, row): is the point in the quest's objective area, as the game draws it?
--- HasArea(quest): does the game draw an area at the quest's pin, its own or another of your
--- quests' on its map (Layers.lua:928-937)? nil: can't tell yet, ask again.
 -- The client's own blobs answer, unseen: each quest drawn on a QuestPOIFrame set to its area's
 -- uiMap (one per quest: the hit test names one quest under a point, so quests sharing a frame
 -- answer for each other where their areas overlap), all one size under a holder at alpha 0.
@@ -117,33 +115,7 @@ local function Inside(quest, col, row)
 	return answer
 end
 
--- Any of your quests' areas on its map at its pin (Layers.lua:928-937: BlobAt over the map's frames).
-local function HasArea(quest)
-	if not Ask() then return nil end
-	local a = areas[quest]
-	if not a then return false end
-	local t0, hit, unsure = debugprofilestop(), false, false
-	for id, b in pairs(areas) do
-		if b.map == a.map then
-			if spent + debugprofilestop() - t0 >= ASK_MS then -- (the rest next frame)
-				unsure = true
-				break
-			end
-			if not Ready(id, b) then
-				unsure = true
-			elseif id == quest and b.has or id ~= quest and b.f:UpdateMouseOverTooltip(a.x, a.y) == id then
-				hit = true
-				break
-			end
-		end
-	end
-	spent = spent + debugprofilestop() - t0
-	if hit then return true end
-	if not unsure then return false end
-end
-
 Game.oracles.Inside = Runtime.Wrap("game.oracle inside", Inside)
-Game.oracles.HasArea = Runtime.Wrap("game.oracle has area", HasArea)
 
 -- The client's quest areas changed: each drawn again at its next ask.
 Runtime.On("QUEST_POI_UPDATE", "game.oracle: poi update", function()

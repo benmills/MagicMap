@@ -98,7 +98,7 @@
 ---@class MM.ObsQuests
 ---@field [integer] MM.ObsQuest
 ---@field poi? integer         the QUEST_POI_UPDATEs Game has seen (nil: none): a new one makes a new list, its
----                            quests kept (Model asks HasArea again, UI draws the areas again)
+---                            quests kept (UI draws the areas again)
 
 ---@alias MM.PlaceKind "flight"|"poi"|"dungeon"|"graveyard"
 
@@ -201,7 +201,7 @@ local Oracles = {}
 
 ---Is (col, row) inside the quest's objective area, as the game draws it (wherever it lies, its pin
 ---in it or not; the game draws none on its areaMap: false)? nil: the quest has no areaMap, or it
----can't tell now (ask again); Model's estimate follows HasArea, not this.
+---can't tell now (ask again).
 ---Cost: a hit test on a hidden QuestPOI frame, ~tens of us; Model calls it at
 ---most a few dozen times a frame (the followed quest's edge search, hover).
 ---The instance is the quest's areaMap's.
@@ -211,12 +211,3 @@ local Oracles = {}
 ---@return boolean|nil
 function Oracles.Inside(quest, col, row) end
 
----Does the game draw an area at the quest's pin (obs.quests' pin): its own, or another of your
----quests' on its areaMap (the spike's hasBlob, Layers.lua:928-937)? false: none, Model estimates
----one. nil: can't tell yet (its areas not yet drawn into rects the client has laid out, or this
----frame's asks are spent): ask again next frame. A quest with no areaMap: false.
----Cost: hit tests on hidden QuestPOI frames, one for each of your quests on that map at most;
----Model asks once a quest (or the log, or the game's areas) changes, till it has an answer.
----@param quest MM.QuestID
----@return boolean|nil
-function Oracles.HasArea(quest) end

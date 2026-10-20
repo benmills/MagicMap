@@ -9,8 +9,8 @@
 -- only while the map is shown (once it shows, for what came while it wasn't). Each quest is
 -- compared with its last as it's read and kept if the same, so a read that finds nothing new makes
 -- nothing; a new table only when something changed, sorted by id. poi, on the list: the
--- QUEST_POI_UPDATEs seen, so the game's areas changing makes a new list, its quests kept (Model asks
--- HasArea again, UI draws the areas again: Layers.lua:2225, 1233-1240).
+-- QUEST_POI_UPDATEs seen, so the game's areas changing makes a new list, its quests kept (UI draws
+-- the areas again: Layers.lua:2225, 1233-1240).
 -- Where the pins are (every zone's GetQuestsOnMap: the client makes a table a quest each call) is read
 -- again only when they may have moved: a quest taken or given up, the game's areas (QUEST_POI_UPDATE),
 -- the instances, a quest done or a count changed (found by the read: its pin may go to the turn-in or

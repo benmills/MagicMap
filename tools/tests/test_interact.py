@@ -293,23 +293,22 @@ def test_inspector():
     sim.Press("M")
     sim.Run(1)
     gold, grey, white, dim = "|cffffd100", "|cffa8a8a8", "|cffffffff", "|cff808080"
-    # In Gold Dust's area and Hogger's estimate, which Candles' shares: you follow Hogger.
+    # In Gold Dust's area alone: Hogger's pin is in none (you follow Hogger; it isn't listed).
     lines = menu(32.28, 49.65)
     assert lines == [
         ("title", gold + "Elwynn Forest|r"),
         ("title", white + "Crystal Lake|r" + SEP + grey + "48.5, 63.7|r"),
         ("title", grey + "Level|r |cff40c0401-10|r" + SEP + white + "185 yd|r " + grey + "E of you|r"),
-        ("title", gold + "Quest|r |cffff7f3f[11] Wanted: Hogger|r " + dim + "(following)|r"),
-        ("title", grey + "Quest|r |cffffd100[7] Gold Dust Exchange|r" + dim + "  (+1 more)|r"),
+        ("title", grey + "Quest|r |cffffd100[7] Gold Dust Exchange|r"),
         ("title", grey + "Graveyard|r " + white + "Goldshire|r" + SEP + grey + "310 yd W|r"),  # (M4.1's places)
         ("divider", None), ("button", "Waypoint here")]
-    # Quest areas off: no area drawn there, nor an estimate (its parent off: Layers.lua:82-87, 2297).
+    # Quest areas off: no area drawn there (its parent off: Layers.lua:82-87, 2297).
     UI.Engine.SetLayer("questAreas", False)
     sim.Run(0.5)
     assert [t for _, t in menu(32.28, 49.65) if t and "Quest|r" in t] == []
     UI.Engine.SetLayer("questAreas", True)
     sim.Run(1)
-    assert len([t for _, t in menu(32.28, 49.65) if t and "Quest|r" in t]) == 2
+    assert len([t for _, t in menu(32.28, 49.65) if t and "Quest|r" in t]) == 1
     # How far: 5 yd steps close by, 10 further out, thousands apart; here: "You're here".
     assert menu(32.45, 49.75)[2][1].endswith(white + "270 yd|r " + grey + "E of you|r")
     assert menu(34.95, 49.75)[2][1].endswith(white + "1,600 yd|r " + grey + "E of you|r")

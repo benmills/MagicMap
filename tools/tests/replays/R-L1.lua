@@ -25,7 +25,7 @@ local function Probe(id, x, y, answer)
 	local _, col, row = A.MapToTile(MAP, x, y)
 	probes[#probes + 1] = { id, col, row }
 	want[#want + 1] = answer == nil and "-" or answer and "1" or "0"
-	early[#early + 1] = id == 1001 and want[#want] or "-"
+	early[#early + 1] = "-"
 end
 for i = 1, 25 do
 	local x, y = 0.1 + (i - 1) % 5 * 0.2, 0.1 + math.floor((i - 1) / 5) * 0.2
@@ -59,12 +59,12 @@ local function Frames(n)
 	return log[from], log[#log]
 end
 
--- Model asked the sim's quest 60 before this log took its place: 1001, first asked, takes the frame
--- 60 left, laid out already, so it answers at once; every other quest nil until drawn again.
+-- Nothing asked before this log: every quest nil on the first frame (each drawn now, laid out at the
+-- frame's end), and right on the next.
 local first, second = Frames(2)
 T.Print("L1: first frame %s (%d drawn), next %s (%d drawn)", first.got, first.draws, second.got, second.draws)
 assert(first.got == early and first.draws == 27, "nil before layout: " .. first.got .. " (want " .. early .. ")")
-assert(second.got == want and second.draws == 26, "right after: " .. second.got .. " (want " .. want .. ")")
+assert(second.got == want and second.draws == 27, "right after: " .. second.got .. " (want " .. want .. ")")
 local _, still = Frames(5)
 assert(still.got == want and still.draws == 0, "cached per quest")
 

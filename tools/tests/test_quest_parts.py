@@ -107,7 +107,7 @@ JASPER = quest(76, "The Jasperlode Mine", 10, 33.2, 48.98, [("event", "Scout thr
 CANDLES4 = dict(CANDLES, objectives=[("item", "Large Candle: 4/8", 4, 8, False)])
 MINE_DONE = dict(MINE, col=31.862, row=49.748, complete=True,  # its pin moves to the turn-in
                  objectives=[("event", "Scout through the Fargodeep Mine", 1, 1, True)])
-# Replay.Oracles' areas (tile-space circles): the game's objective areas; Hogger has none (Model estimates).
+# Replay.Oracles' areas (tile-space circles): the game's objective areas; Hogger has none.
 AREAS = {60: (31.775, 50.39, 0.08), 47: (31.8, 50.32, 0.1), 62: (31.74, 50.42, 0.05), 52: (33.95, 49.95, 0.25),
          76: (33.2, 48.98, 0.05)}
 
@@ -236,7 +236,7 @@ HEAD = {
 -- moves to The Fargodeep Mine (a follow Command), which completes (its pin moves to the turn-in, no area)
 -- and is handed in, and The Jasperlode Mine is taken; then the log is abandoned (known and empty).
 -- `areas`: the objective areas Replay.Oracles answers Inside from (circles in tile space); Hogger has
--- none (the game draws it no area: Model estimates), nor do quests ready to turn in.
+-- none, nor do quests ready to turn in.
 -- On-change parts keep their table while nothing changes: a new table is a change.
 """,
     "offers": """-- Fixture stream (types/observation.lua MM.ObsOffer[]): quests to pick up on the map shown (Elwynn's

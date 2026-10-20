@@ -11,8 +11,6 @@
 -- id), style and size are as they were, and the game's areas too (Known("quests")' poi), isn't drawn
 -- again: its drawing moves with it (a pan, Layers.lua:142-156), and a count ticking changes no area. Each
 -- stands on the point of its rect nearest the canvas's origin (a zone at zoom 800 is up to 9,600 px).
--- Unfinished kill, collect and interact quests with no area (Model's estimate) get a faint disc with a
--- dashed edge, one for quests within 0.6 r (Layers.lua:945-986: S54), out of sight with the rest.
 -- Hovering a quest's area or its pin (ui/Quests.lua) lights its area: drawn again on top (HOVER); an
 -- area's tooltip is its quest's (ui/QuestTooltip.lua), but a tooltip shown already wins (a pin's), and
 -- it stays up through a zoom (the frames last shown answer the hit test while the layer is out of
@@ -41,10 +39,6 @@ local STYLES = {
 }
 local HOVER = {} -- by art: lit, on top (Layers.lua:822, 853)
 for art in pairs(ART) do HOVER[art] = { art = art, fill = 40, border = 150, width = 0.8, level = 3 } end
-local RADIUS = 110 / 533.33 -- tiles: an estimate's (Layers.lua:78)
-local SEGMENTS, DASH = 36, 1.2 -- its edge: every other of 36 arcs, each 1.2 of one long (Layers.lua:966-985)
-local DISC, EDGE, THICK = { 1, 0.85, 0.4, 0.05 }, { 1, 0.85, 0.4, 0.35 }, 1.5 -- Layers.lua:974, 984
-local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- UI.lua:6
 local POINTS = { { "TOPLEFT", "TOP", "TOPRIGHT" }, { "LEFT", "CENTER", "RIGHT" }, { "BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT" } }
 
 local Areas = {}
@@ -134,55 +128,12 @@ local function SetBlob(c, f, g, zoom, base, draw, poi)
 end
 
 ---------------------------------------------------------------------------
--- Estimates (Layers.lua:945-986): a disc and 18 dashes on a frame of their own, centred on the spot
----------------------------------------------------------------------------
-
-local function Unsnap(r)
-	r:SetSnapToPixelGrid(false)
-	r:SetTexelSnappingBias(0)
-end
-
-local function MakeSpot(c)
-	local f = CreateFrame("Frame", nil, c)
-	local disc = f:CreateTexture(nil, "ARTWORK", nil, 0)
-	Unsnap(disc)
-	disc:SetTexture(CIRCLE)
-	disc:SetVertexColor(DISC[1], DISC[2], DISC[3], DISC[4])
-	disc:SetAllPoints()
-	f.disc, f.dashes = disc, {}
-	for i = 1, SEGMENTS / 2 do
-		local l = f:CreateLine(nil, "ARTWORK", nil, 1)
-		Unsnap(l)
-		l:SetColorTexture(EDGE[1], EDGE[2], EDGE[3], EDGE[4])
-		l:SetThickness(THICK)
-		f.dashes[i] = l
-	end
-	return f
-end
-
-local function SetSpot(c, f, p, zoom, base)
-	if f:GetFrameLevel() ~= base then f:SetFrameLevel(base) end -- (under the blobs)
-	local x, y = (p.col - c.ox) * zoom, (p.row - c.oy) * zoom
-	if f.az ~= zoom or f.x ~= x or f.y ~= y or f.on ~= c then At(c, f, "CENTER", p.col, p.row) end
-	local r = RADIUS * zoom
-	if f.r == r then return end
-	f.r = r
-	f:SetSize(r * 2, r * 2)
-	for i, l in ipairs(f.dashes) do
-		local a1, a2 = (i - 1) * 2 / SEGMENTS * 2 * math.pi, ((i - 1) * 2 + DASH) / SEGMENTS * 2 * math.pi
-		l:SetStartPoint("CENTER", f, math.cos(a1) * r, -math.sin(a1) * r)
-		l:SetEndPoint("CENTER", f, math.cos(a2) * r, -math.sin(a2) * r)
-	end
-end
-
----------------------------------------------------------------------------
 -- The layer
 ---------------------------------------------------------------------------
 
 -- A layout's frames: its groups by key (a map's * 8 + its style's), each { map, rect, st, n, entries };
--- its estimates' spots; the keys and spots its canvas didn't show (set after the rest).
+-- the keys its canvas didn't show (set after the rest).
 local groups, keys, nkeys = {}, {}, 0
-local spots, nspots = {}, 0
 local missed, nmissed = {}, 0
 
 local function Group(e, r)
@@ -202,16 +153,8 @@ local function Group(e, r)
 	g[g.n] = e
 end
 
-local function Spot(p)
-	for i = 1, nspots do
-		if spots[i] == p then return end
-	end
-	nspots = nspots + 1
-	spots[nspots] = p
-end
-
 local function Rev()
-	return select(2, Model.Known("quests")) * 4 + (On("quests") and 2 or 0) + (On("questAreasApprox") and 1 or 0)
+	return select(2, Model.Known("quests")) * 2 + (On("quests") and 1 or 0)
 end
 
 local layer = Engine.Layer("questAreas", LEVEL, function(c, inst, zoom, c0, r0, c1, r1)
@@ -220,19 +163,14 @@ local layer = Engine.Layer("questAreas", LEVEL, function(c, inst, zoom, c0, r0, 
 		for j = 1, g.n do g[j] = nil end
 		g.n = 0
 	end
-	nkeys, nspots, nmissed = 0, 0, 0
+	nkeys, nmissed = 0, 0
 	if not On("quests") then return true end
-	local approx, any, list = On("questAreasApprox"), false, Model.Known("quests")
+	local any, list = false, Model.Known("quests")
 	for _, e in ipairs(list) do
 		local r = e.areaMap and Atlas.MapRect(e.areaMap)
 		if r and r.inst == inst then
 			any = true
 			if r.col1 >= c0 and r.col0 <= c1 and r.row1 >= r0 and r.row0 <= r1 then Group(e, r) end
-		end
-		local p = approx and e.estimate
-		if p and p.inst == inst then
-			any = true
-			if p.col + RADIUS >= c0 and p.col - RADIUS <= c1 and p.row + RADIUS >= r0 and p.row - RADIUS <= r1 then Spot(p) end
 		end
 	end
 	-- Drawn now on a canvas at its own scale, unless the zoom moves (out of sight till it lands): else the
@@ -250,22 +188,6 @@ local layer = Engine.Layer("questAreas", LEVEL, function(c, inst, zoom, c0, r0, 
 	end
 	for i = 1, nmissed do
 		SetBlob(c, Get(c, "blob", "tex", MakeBlob, missed[i]), groups[missed[i]], zoom, base, draw, list.poi)
-		Yield()
-	end
-	nmissed = 0
-	for i = 1, nspots do
-		local f = Keep(c, "spot", spots[i])
-		if f then
-			SetSpot(c, f, spots[i], zoom, base)
-		else
-			nmissed = nmissed + 1
-			missed[nmissed] = spots[i]
-		end
-		Yield()
-	end
-	for i = 1, nmissed do
-		SetSpot(c, Get(c, "spot", "tex", MakeSpot, missed[i]), missed[i], zoom, base)
-		missed[i] = nil
 		Yield()
 	end
 	return not any or nil
@@ -438,5 +360,3 @@ end
 
 UI.Menus.Layer({ key = "questAreas", label = "Quest areas", group = "quests",
 	tip = "Where each quest's objectives are, as the game draws them." })
-UI.Menus.Layer({ key = "questAreasApprox", label = "Estimate missing areas", group = "quests", parent = "questAreas",
-	tip = "A rough dashed circle for kill and collect objectives the game gives no area for." })

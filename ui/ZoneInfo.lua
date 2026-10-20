@@ -25,7 +25,6 @@ local MIN_WEIGHT = 30 -- a zone's land chunks to count as in view (Layers.lua:20
 local LABEL, LABEL_HOVER = { 1, 0.9, 0.7, 0.75 }, { 1, 1, 0.9, 1 } -- Layers.lua:1420-1421
 local LIT = { 1, 0.84, 0.4, 0.95 } -- the hovered zone's border (Layers.lua:1799)
 local TILE_YARDS = Atlas.TILE_YARDS
-local RADIUS = 110 / 533.33 -- tiles: a quest's estimated area (Layers.lua:78)
 local MAX_QUESTS, MAX_NEARBY = 2, 2 -- ZoneInfo.lua:13-14
 local HERE_YD = 15 -- closer: "You're here" (ZoneInfo.lua:115)
 local NEAR_YD = 900 -- landmarks further from the spot aren't near it (ZoneInfo.lua:11)
@@ -374,7 +373,7 @@ local function Title(e)
 end
 
 -- Your quests whose area holds (col, row) (Layers.lua:2282-2306): those the game draws (ui/Areas.lua's
--- hit test), then the estimated discs while they're on (their parent too: Layers.lua:82-87, 2297).
+-- hit test).
 local function QuestsAt(inst, col, row)
 	local out, seen, list = {}, {}, Model.Known("quests")
 	local function Add(q)
@@ -387,12 +386,6 @@ local function QuestsAt(inst, col, row)
 		end
 	end
 	for _, q in ipairs(UI.Areas.QuestsAt(inst, col, row)) do Add(q) end
-	if Engine.LayerOn("quests") and Engine.LayerOn("questAreas") and Engine.LayerOn("questAreasApprox") then
-		for _, e in ipairs(list) do
-			local s = e.estimate
-			if s and s.inst == inst and (s.col - col) ^ 2 + (s.row - row) ^ 2 <= RADIUS ^ 2 then Add(e.quest) end
-		end
-	end
 	return out
 end
 

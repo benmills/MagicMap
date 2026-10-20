@@ -59,7 +59,7 @@ local GROUPS = {
 -- theirs with their layers; each group's rows in the spike's order (ORDER: its keys, Layers.lua:30-61,
 -- then Landmarks.lua:70, 110, 142 and Blips.lua:671 as its TOC loads them), a key not in it last.
 local ORDER = {}
-for i, key in ipairs({ "labels", "borders", "unexplored", "quests", "questAreas", "questAreasApprox", "offers",
+for i, key in ipairs({ "labels", "borders", "unexplored", "quests", "questAreas", "offers",
 	"flight", "dungeons", "graveyards", "corpse", "group", "waypoint", "rares", "vignettes", "areaPOIs", "blips" }) do
 	ORDER[key] = i
 end

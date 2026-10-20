@@ -106,7 +106,7 @@ def test_gear():
     assert items(sub(root, "Map")) == [("checkbox", "Zone labels"), ("checkbox", "Zone borders"),
                                        ("checkbox", "Shade unexplored")]
     assert items(sub(root, "Quests")) == [("checkbox", "Quests"), ("checkbox", "Quest areas"),
-                                          ("checkbox", "     Estimate missing areas"), ("checkbox", "Quests to pick up")]
+                                          ("checkbox", "Quests to pick up")]
     assert items(sub(root, "Places")) == [("checkbox", "Flight points"), ("checkbox", "Dungeon entrances"),
                                           ("checkbox", "Graveyards"), ("checkbox", "Points of interest"),
                                           ("checkbox", "Minimap blips")]
@@ -337,7 +337,7 @@ def test_gear_tracking_advanced():
     assert sim.prints[len(sim.prints)] == (
         "|cffffd100MagicMap|r: layers: "
         f"|cffffd100Map:|r {on('zoneLabels')}, {on('zoneBorders')}, {off('unexplored')}; "
-        f"|cffffd100Quests:|r {on('quests')}, {off('questAreas')}, {off('questAreasApprox')}, {on('offers')}; "
+        f"|cffffd100Quests:|r {on('quests')}, {off('questAreas')}, {on('offers')}; "
         f"|cffffd100Places:|r {off('flight')}, {on('dungeons')}, {off('graveyards')}, {on('areaPOIs')}, {on('blips')}; "
         f"|cffffd100People:|r {on('group')}, {off('rares')}, {on('vignettes')}; "
         f"|cffffd100You:|r {on('corpse')}, {on('waypoint')}. Toggle them from the gear. "
