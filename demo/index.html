@@ -244,10 +244,10 @@ function drawRing(g, x, y, s = 1) {
 function drawHighlight() {
   if (highlight.from) {
     const [x0, y0] = toScreen(...highlight.from);
-    ctx.setLineDash([6, 5]); ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,61,240,.8)";
     ctx.beginPath();
     for (const p of highlight.pts) { const [x, y] = toScreen(p.col, p.row); ctx.moveTo(x0, y0); ctx.lineTo(x, y); }
-    ctx.stroke(); ctx.setLineDash([]);
+    ctx.setLineDash([6, 5]); ctx.lineWidth = 4; ctx.strokeStyle = "rgba(12,8,4,.35)"; ctx.stroke(); // dark casing
+    ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,61,240,.85)"; ctx.stroke(); ctx.setLineDash([]);
   }
   const s = highlight.pts.length > 40 ? 0.65 : 1; // many: smaller rings, so they don't merge into a blob
   for (const p of highlight.pts) {
