@@ -234,11 +234,19 @@ for _, n in ipairs({
 -- needed), else its service (Data/BlipServices.lua: "innkeeper", "banker", "auctioneer", "stablemaster",
 -- "battlemaster", "trainer", "classtrainer", "repair", "questgiver", "questender", "flightmaster",
 -- "mailbox"), or nil.
+local CLASSES = { "Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "Mage", "Warlock", "Druid" }
 function Atlas.BlipService(name)
 	if HERBS[name] then return "herb" end
 	if name:find(" Vein$") or name:find(" Deposit$") then return "ore" end
 	local r = (Data.BlipServices or NONE)[name]
-	return r and r[1]
+	if r then return r[1] end
+	-- A blip named by its title, not a name Data knows ("First Aid Trainer"): a trainer, a class's by its class.
+	if name:find(" Trainer$") then
+		for _, c in ipairs(CLASSES) do
+			if name:find(c, 1, true) then return "classtrainer" end
+		end
+		return "trainer"
+	end
 end
 
 -- The title of the NPC a blip's tooltip names (its subName: "Innkeeper"), or nil (Blips.lua:408-436).

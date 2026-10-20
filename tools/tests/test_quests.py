@@ -117,13 +117,13 @@ def test_quest_pins():
     # In progress, followed: the disc tinted orange (level 11 at 8), the objective's icon in it, the atlas
     # over it; 26 in its halo; its count under it.
     p = pin(ns, G, "Quests", 52)
-    assert S[p].width == 26 and S[p.ring].atlas == "UI-QuestPoi-QuestNumber" and rgba(p.ring) == [1, 0.5, 0.25, 1]
-    assert S[p.inner].texture == 135274 and abs(S[p.inner].width - 26 * 0.56) < 1e-9 and vis(p.inner)
-    assert S[p.icon].atlas == "Quest-In-Progress-Icon-yellow" and abs(S[p.icon].width - 26 * 0.62) < 1e-9
-    assert vis(p.glow) and S[p.glow].width == 30 and S[p.count].text == "2/8"  # the ring: 4 px past the icon
-    # Ready to turn in: its atlas, 22, no halo, no count.
+    assert S[p].width == 28 and S[p.ring].atlas == "UI-QuestPoi-QuestNumber" and rgba(p.ring) == [1, 0.5, 0.25, 1]
+    assert S[p.inner].texture == 135274 and abs(S[p.inner].width - 28 * 0.56) < 1e-9 and vis(p.inner)
+    assert S[p.icon].atlas == "Quest-In-Progress-Icon-yellow" and abs(S[p.icon].width - 28 * 0.62) < 1e-9
+    assert vis(p.glow) and S[p.glow].width == 32 and S[p.count].text == "2/8"  # the ring: 4 px past the icon
+    # Ready to turn in: its atlas, 19, no halo, no count.
     p = pin(ns, G, "Quests", 106)
-    assert S[p].width == 22 and S[p.icon].atlas == "questturnin" and S[p.icon].width == 22
+    assert S[p].width == 19 and S[p.icon].atlas == "questturnin" and S[p.icon].width == 19
     assert not vis(p.ring) and not vis(p.glow) and p.count is None
     # To pick up (the sim's offer on Elwynn): 18; its tooltip, the quest and "Quest to pick up", small and grey.
     p, tip, view = pin(ns, G, "Offers", 70), G.GameTooltip, ns.UI.Window.view
@@ -163,9 +163,9 @@ def test_quest_follow():
     sim.Run(1)
     assert ns.UI.Controls.questLine.IsShown(ns.UI.Controls.questLine) and ns.UI.Controls.questLine.GetAlpha(ns.UI.Controls.questLine) == 1
     p = pin(ns, G, "Quests", 52)
-    assert sim.state[p].width == 26 and sim.state[p.glow].shown
+    assert sim.state[p].width == 28 and sim.state[p.glow].shown
     click(31.8, 49.7)  # again: none
-    assert sim.superTracked == 0 and followed() == set() and sim.state[pin(ns, G, "Quests", 52)].width == 22
+    assert sim.superTracked == 0 and followed() == set() and sim.state[pin(ns, G, "Quests", 52)].width == 24
     click(32.15, 49.7)  # Gold Dust's area, no pin under it
     assert sim.superTracked == 47 and followed() == {47}
     click(32.15, 49.7)

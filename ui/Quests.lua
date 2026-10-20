@@ -2,7 +2,7 @@
 -- in the world map's art (S46), Blizzard's atlases (Pins' (c), (b)): in progress, the yellow progress
 -- atlas over the quest-number disc ("UI-QuestPoi-QuestNumber") tinted its difficulty (Model's colour),
 -- the first unfinished objective's icon inside, its count under it; ready to turn in, the "questturnin"
--- "?" the atlas Model names; 22 px, the one you follow 26 in a thin gold ring (Pins' glow).
+-- "?" the atlas Model names; 24 px (the "?" 19), the one you follow 28 (23) in a thin gold ring (Pins' glow).
 -- Hovering one lights its area (ui/Areas.lua) and shows its tooltip (ui/QuestTooltip.lua); a click
 -- follows it, again to stop. And quests to pick up (Layers.lua:636-664): Known("offers"), "questnormal"
 -- (the "!") at 18, their tooltip the quest, its line's name and "Quest to pick up". Over the other pins.
@@ -11,7 +11,8 @@ local _, ns = ...
 local UI, Model = ns.UI, ns.Model
 local Pins, Areas = UI.Pins, UI.Areas
 
-local SIZE, FOLLOWED = 22, 26 -- Layers.lua:611
+local SIZE, FOLLOWED = 24, 28 -- in progress (Layers.lua:611: 22, 26, a little bigger)
+local TURN_IN, TURN_IN_FOLLOWED = 19, 23 -- ready to turn in: the "?" a little smaller
 local UNDER = "UI-QuestPoi-QuestNumber" -- Layers.lua:608
 local OFFER = 18 -- Layers.lua:657
 local DIM = "|cff9d9d9d" -- Layers.lua:652
@@ -28,7 +29,8 @@ local function Look(e)
 		icon = UI.Art.Icon(icon.atlas) -- (a missing atlas: no icon, a dot)
 		icon.color = e.icon.color
 	end
-	look = { size = e.followed and FOLLOWED or SIZE, glow = e.followed, count = e.count, icon = icon }
+	local size = e.complete and (e.followed and TURN_IN_FOLLOWED or TURN_IN) or (e.followed and FOLLOWED or SIZE)
+	look = { size = size, glow = e.followed, count = e.count, icon = icon }
 	looks[e] = look
 	return look
 end
