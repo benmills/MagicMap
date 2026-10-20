@@ -16,7 +16,7 @@ def test_ironforge():
 
 def test_ironforge_rooms():
     """Game's room tracking (game/parts/Interior.lua) on the Forge floor: the subzone picks the room of
-    the two whose masks cover you, the High Seat's name moves you to it and back; out of every mask,
+    the two whose masks cover you, the High Seat's name moves you to it and back, no subzone keeps it; out of every mask,
     the room's kept a while, then after 2 s, no building. /mm indoor prints each change."""
     from test_addon import boot, errors
     L, sim, ns = boot()
@@ -36,6 +36,8 @@ def test_ironforge_rooms():
     assert "room 65 (The Great Forge), candidates {65}" in sim.prints[len(sim.prints)]
     assert at("The High Seat") == (88, [88])
     assert at("The Great Forge") == (65, [65])
+    sim.player.col, sim.player.row = 33.9166, 40.9465  # under 65 and unnamed 103 (floor -140)
+    assert at("") == (65, [65])  # no subzone names none: the room kept (Test.lua's "")
     sim.player.col = 33.6  # out of every mask (still the Minimap's indoor view)
     sim.Run(1.5)
     assert ns.Model.interior.room == 65

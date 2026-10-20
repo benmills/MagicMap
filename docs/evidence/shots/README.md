@@ -90,7 +90,7 @@ giver with a `!` nearby.
 
 | # | id | spot | uiMap | zoom | form | what to frame / do |
 |---|---|---|---|---|---|---|
-| 27 | `small-indoor` | Ironforge, The Commons | 1455 | home | small | Walk in, cursor off. The indoor art (or Blizzard's floor plan) over its dark backdrop. |
+| 27 | `small-indoor` | Ironforge, The Commons | 1455 | home | small | Walk in, cursor off. Ironforge's indoor minimap pictures over the dimmed tiles (ADR 0008). |
 | 28 | `big-indoor` | same | 1455 | big home | big | M, cursor off. Then M back. |
 
 ### Block E: chat and release

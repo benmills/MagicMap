@@ -198,7 +198,7 @@ in a group of two if you can (a friend or an alt).
 |---|---|---|
 | d1 | Walk the capital's trade district with tracking on (mailbox, trainers, flight master): services and blips. | `/mm shot small-town` (the reference is Kharanos: compare services and mailbox, not the town) |
 | d2 | Gear menu: toggle every layer off and on, small and big. | `/mm mark d2 gear` |
-| d3 | Enter a building or a cave: indoor art, or Blizzard's floor plan; `/mm indoor` cycles them. | `/mm shot small-indoor` |
+| d3 | Enter a building: its indoor minimap pictures over the dimmed tiles; `/mm indoor` prints the room at each change. | `/mm shot small-indoor` |
 | d4 | Party: walk apart from your partner; have them die and release (dot grey). | `/mm shot small-group`; `/mm mark d4 party` |
 | d5 | In combat: open the gear menu and toggle tracking, a layer, the minimap button. | `/mm mark d5 combat toggles` |
 | d6 | `/reload` mid-session: tracking comes back as it was (this starts a second session: read both). | `/mm mark d6 after reload` |
@@ -250,7 +250,7 @@ The scripts take these (the rest of the list is for M5's full pass):
 | small-seam | M0 5, a4 | tear, tile seam on the col 32\|33 line | M0 (baseline), M1, M5 |
 | big-home | a5 | big map as M lands, controls | M1, M5 |
 | big-zones | a5b | zone borders and names, big (the hover: M3.4) | M1, M3, M5 |
-| small-indoor | a6, d3 | the city / indoor art or floor plan | M1, M4, M5 |
+| small-indoor | a6, d3 | the city / its indoor minimap pictures | M1, M4, M5 |
 | big-indoor | a6 | big map in a city | M1, M5 |
 | big-continent | a7 | continent: tiles, zone labels | M1, M5 |
 | small-quests | b2 | quest pins, difficulty, counts | M2, M5 |

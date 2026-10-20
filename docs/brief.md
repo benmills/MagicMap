@@ -38,7 +38,7 @@ done at 2d0069e (the M3 gate, 2026-10-19: 148 passed plain and strict; the sim w
 points since), its in-game half in docs/playtest-final.md (c1-c3, a5b's big-zones). M4 (feature-complete):
 wave 1 merged 2026-10-19 (M4.1 Game's places, group, vignettes, explored and tracking parts; M4.2 duplicate
 tracking, indoors and the whole Minimap, full HBD; M4.3 Model's places, group, seen rares, vignettes,
-services; M4.4 UI's places, group, shade, indoor art, renderer, sockets, the inspector's lines; M4.5 the
+services; M4.4 UI's places, group, shade, indoor art, renderer, sockets (the art and renderer since replaced by ADR 0008's interiors), the inspector's lines; M4.5 the
 gear's Tracking and Advanced; M4.6 the diagnostics slash), its types/ additions committed, its review's round 1
 on main; M4's sim half done at 9d2dc45 (the M4 gate, 2026-10-19: 178 passed plain and strict; every parity row
 built but F56, M5.2's, and S31, the user's call), its in-game half in docs/playtest-final.md (a6, d0-d8, e1c, e2,
@@ -157,14 +157,12 @@ the canvas's frame for it, `Engine.From` saying whether a layout at a zoom draws
 (borders). `build` yields with `Runtime.Yield()` and returns true when it has nothing to draw at that
 zoom, or the zoom what it left out shows from. Levels (an offset to the view's frame level), renumbered
 at M2.4 (ef8b2ee) for the spike's order (parity S8: tiles → shade → areas → lines → path → labels → pins):
-tiles 1, the shade 2 (M4.4's), quest areas 3 (their frames +5..+7, ui/Areas.lua), borders 7 (the hovered
+tiles 1, the interiors 2 (ui/Interiors.lua: the building's indoor minimap pictures and their veil, ADR 0008), quest areas 3 (their frames +5..+7, ui/Areas.lua), borders 7 (the hovered
 zone's border over theirs, on their canvas: ui/ZoneInfo.lua), the path 8 (its own canvas: ui/Path.lua),
 labels 9, the world socket +10 (other addons' pins, under ours: ui/Sockets.lua), rares 11 and places with
 the live vignettes 11 (ui/Places.lua), blips 12, your corpse and waypoint 13 (ui/You.lua), offers 14, quests
 15, the group's dots +15 (ui/Group.lua), the minimap socket +16 and its pins +17 (ui/Sockets.lua), the arrow's
-and the edge arrow's overlay +18 (ui/You.lua); the indoor art's frame +2 (ui/IndoorArt.lua: the tiles'
-canvases' level, made after them); Game's black backdrop for the whole Minimap +20 and the Minimap +21 over
-the window (game/Renderer.lua: a new layer above +19 raises its LEVEL). A pin layer's pins stand 3 above it (its canvas, the canvas's frame for a minimum zoom, the
+and the edge arrow's overlay +18 (ui/You.lua). A pin layer's pins stand 3 above it (its canvas, the canvas's frame for a minimum zoom, the
 pin a level each). M4.4 takes the level named for it; a new layer between two asks the lead.
 
 ## 5. Contracts (types/, docs/decisions/)
@@ -180,7 +178,7 @@ additions, committed by the lead (§2). UI, Model and Atlas internals aren't con
 | View + Commands (UI → Game) | view.lua | 0003 | `UI.View()` (v = 1, Game reads it only in apply, SAFE_VIEW fallback), its fields; `Game.Command` with kinds follow, waypoint, way, tracking, tooltip (idempotent, no reply); hooked kinds | new optional fields (`chrome`, `camera`, `diag`), command kinds (`slash`, `load`, `run`: not idempotent), hooked kinds (`toggle`) |
 | SavedVariables | saved.lua | 0004, 0007 | one root `MagicMap2DB` of owners (Game, UI, Model, telemetry...), `_v` per part, the migration rule, tile space, epoch times, v1 field names | what an owner adds in a new version (with `migrate`) |
 | Runtime | runtime.lua | 0005 | the phases; Step/On/After/Every/Cancel/Job/Yield/Wrap/Trace/onError and their promises | budget numbers, Perf/FrameStats shapes, Grace, SetState, Worker/Wake/Idle, onTrace |
-| Model's read API (UI → Model) | model.lua | 0006 | `Known(kind)` → list, rev (same table until it changes; unknown kind `{}, 0`), `Model.you`, `hooked`, `Target()`, `Route()`, `Load`/`SAVED` | kinds and their optional fields (`MM.KnownQuest`...), Target/Route beyond typed fields, more handed on (`minimap`, `addons`, `levels`, `explored`, `exploredCells`, `indoorArt`, `tracking`) |
+| Model's read API (UI → Model) | model.lua | 0006 | `Known(kind)` → list, rev (same table until it changes; unknown kind `{}, 0`), `Model.you`, `hooked`, `Target()`, `Route()`, `Load`/`SAVED` | kinds and their optional fields (`MM.KnownQuest`...), Target/Route beyond typed fields, more handed on (`minimap`, `addons`, `levels`, `explored`, `exploredCells`, `interior`, `tracking`) |
 
 `MM.Known { key, kind, pos, name, icon?, live, t?, text? }`: one shape for every pin kind, so a new kind is
 a Model file that fills it and a UI layer that draws it (`icon`: `MM.Icon { atlas?, texture?, color? }`,

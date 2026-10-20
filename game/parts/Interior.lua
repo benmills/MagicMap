@@ -28,7 +28,7 @@ local function Has(list, v)
 end
 local function Pass(id, links)
 	if links then return Has(links, id) end
-	return b.rooms[id].area == sub
+	return sub ~= nil and b.rooms[id].area == sub -- no subzone: none (Test.lua's "")
 end
 -- c (a list of ours) narrowed in place to the rooms named like your subzone, or with links those in
 -- it; left as it is if none are (Test.lua's Keep).

@@ -54,11 +54,11 @@ The blip sensor reads where the last Apply placed the Minimap, and waits until t
 
 **UI**
   holds   frame & chrome · layout + toggles (saved)
-  owns    View: camera · focus · shown layers · renderer (ours | ours + art | Blizzard)
+  owns    View: camera · focus · shown layers
           · sockets for other addons' pins
   input   clicks → hits (pin, area, zone) → commands · camera, follow, idle return
           · small ⇄ big
-  draws   tiles · borders · labels · quest areas (the client's art: the exception above) · indoor art
+  draws   tiles · borders · labels · quest areas (the client's art: the exception above) · interiors (the building's indoor minimap pictures, ADR 0008)
           · pins (one store, diffed by id) · group · addon pins · path · arrows
   shows   title · tooltips (its own small fonts put back on GameTooltip's hide) · inspector · menus & settings
 
