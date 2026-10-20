@@ -40,6 +40,8 @@ local Art = {
 		136458, 136453, 136452, 136466, 136454, 136463, 136455, 136465, 136459, -- ui/Blips.lua: services (game/Blips.lua SERVICE)
 		"Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",        -- ui/Path.lua: the edge arrow
 		"Interface\\Minimap\\PartyRaidBlipsV2",                  -- ui/Group.lua: party and raid members
+		"Interface\\GossipFrame\\AvailableQuestIcon", "Interface\\GossipFrame\\ActiveQuestIcon", -- ui/Quests.lua, ui/Offers: the quest icons (! and ?)
+		"Interface\\Minimap\\Tracking\\Herbalism", "Interface\\Minimap\\Tracking\\Mining", -- ui/Blips.lua: gathering nodes
 	},
 	fonts = { "Fonts\\FRIZQT__.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS)
 }
@@ -99,6 +101,22 @@ end
 local function Report(misses)
 	print(misses[1] and "  art missing: " .. table.concat(misses, ", ")
 		or string.format("  art: all %d there", #Art.atlases + #Art.files + #Art.fonts))
+end
+
+-- The first of names the client has, as a look's icon (Pins' StylePin): a file path (one with a
+-- backslash) as a texture, else an atlas. None the client has: no icon, so a dot. A fresh table each
+-- call (the caller sets its colour).
+local known = {}
+function Art.Icon(...)
+	for i = 1, select("#", ...) do
+		local name = select(i, ...)
+		if name then
+			local file = name:find("\\", 1, true) ~= nil
+			if known[name] == nil then known[name] = file and Has(name) or not file and HasAtlas(name) or false end
+			if known[name] then return file and { texture = name } or { atlas = name } end
+		end
+	end
+	return {}
 end
 
 -- Armed on the first frame (timers run there), not on a game event: only Game registers those.

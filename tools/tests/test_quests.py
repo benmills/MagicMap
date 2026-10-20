@@ -120,14 +120,14 @@ def test_quest_pins():
     assert S[p].width == 26 and S[p.ring].atlas == "UI-QuestPoi-QuestNumber" and rgba(p.ring) == [1, 0.5, 0.25, 1]
     assert S[p.inner].texture == 135274 and abs(S[p.inner].width - 26 * 0.56) < 1e-9 and vis(p.inner)
     assert S[p.icon].atlas == "Quest-In-Progress-Icon-yellow" and abs(S[p.icon].width - 26 * 0.62) < 1e-9
-    assert vis(p.glow) and S[p.glow].width == 40 and S[p.count].text == "2/8"
+    assert vis(p.glow) and S[p.glow].width == 30 and S[p.count].text == "2/8"  # the ring: 4 px past the icon
     # Ready to turn in: its atlas, 22, no halo, no count.
     p = pin(ns, G, "Quests", 106)
-    assert S[p].width == 22 and S[p.icon].atlas == "UI-QuestIcon-TurnIn-Normal" and S[p.icon].width == 22
+    assert S[p].width == 22 and S[p.icon].texture == "Interface\\GossipFrame\\ActiveQuestIcon" and S[p.icon].width == 22
     assert not vis(p.ring) and not vis(p.glow) and p.count is None
     # To pick up (the sim's offer on Elwynn): 18; its tooltip, the quest and "Quest to pick up", small and grey.
     p, tip, view = pin(ns, G, "Offers", 70), G.GameTooltip, ns.UI.Window.view
-    assert S[p].width == 18 and S[p.icon].atlas == "QuestNormal"
+    assert S[p].width == 18 and S[p.icon].texture == "Interface\\GossipFrame\\AvailableQuestIcon"
     e = ns.Model.Known("offers")[0][1]
     G.Over(e.pos.col, e.pos.row)
     sim.FireScript(view, "OnEnter", False)

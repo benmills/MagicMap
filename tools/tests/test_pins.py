@@ -94,7 +94,8 @@ def test_stylepin():
     assert S[c.inner].texture == 133730 and abs(S[c.inner].width - 22 * 0.56) < 1e-9 and vis(c.inner)
     assert list(S[c.inner].vertex.values()) == [0.55, 0.55, 0.55, 1]
     assert S[c.icon].atlas == "Quest-In-Progress-Icon-yellow" and abs(S[c.icon].width - 22 * 0.62) < 1e-9
-    assert vis(c.glow) and S[c.glow].width == 36 and list(S[c.glow].vertex.values()) == [1, 0.82, 0.3, 0.45]
+    assert vis(c.glow) and S[c.glow].width == 26 and list(S[c.glow].vertex.values()) == [1, 0.82, 0.3, 0.9]
+    assert S[c.glow].texture.endswith("Textures\\GlowRing")  # a ring, no disc (Pins' RING_FILE)
     assert S[c.count].text == "2/5" and S[c.count].points[1].point == "TOP" and S[c.count].points[1].y == 2
     # (d): a dot of its colour on a dark ring
     for p, size, col in ((d, 10, [1, 0.82, 0]), (e, 14, [0.4, 0.9, 0.3])):

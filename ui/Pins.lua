@@ -24,7 +24,8 @@ local INNER_SIZE, INNER_SHADE = 0.56, 0.55 -- (c)'s objective icon: share of its
 local SCALE = 0.62 -- (c)'s atlas over its disc (Layers.lua:379)
 local DOT, RING_PAD = 0.6, 3 -- (d): the dot's share of size, its ring's past it (Layers.lua:396-399)
 local RING = { 0, 0, 0, 0.9 } -- Layers.lua:396
-local GLOW, GLOW_PAD = { 1, 0.82, 0.3, 0.45 }, 14 -- the followed one's halo (Layers.lua:349-350)
+local GLOW, GLOW_PAD = { 1, 0.82, 0.3, 0.9 }, 4 -- the followed one's ring: gold, 2 px out past its icon (Textures/GlowRing.tga)
+local RING_FILE = ns.Atlas.ROOT .. "Textures\\GlowRing" -- a thin white ring, tinted GLOW
 local WHITE = { 1, 1, 1 }
 local GREY = 0.85 -- a tooltip's lines under its title (Layers.lua:298)
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- UI.lua:6
@@ -86,7 +87,7 @@ local function Glow(pin)
 	local t = pin.glow
 	if t then return t end
 	t = Tex(pin, "BACKGROUND")
-	t:SetTexture(CIRCLE)
+	t:SetTexture(RING_FILE)
 	t:SetVertexColor(GLOW[1], GLOW[2], GLOW[3], GLOW[4])
 	pin.glow = t
 	return t
@@ -136,8 +137,8 @@ end
 
 -- look: { size? (14), icon? = { texture | atlas, under?, tint?, inner?, scale?, aspect?, color? }, glow?,
 -- count? }: (a) a texture, bare; (b) an atlas; (c) an atlas over its under atlas tinted, the inner
--- texture in it; (d) else (an atlas the client lacks too) a dot of its colour on a dark ring. glow: the
--- halo (the quest you follow); count: a line under it.
+-- texture in it; (d) else (an atlas the client lacks too) a dot of its colour on a dark ring. glow: a thin
+-- gold ring hugging the icon (the quest you follow); count: a line under it.
 local function Style(pin, look)
 	local size, icon = look.size or SIZE, look.icon or NONE
 	pin.psize = size
