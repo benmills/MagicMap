@@ -10,7 +10,7 @@
 local ADDON, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
-local USAGE = "/mm [toggle] | follow | map <id|name> | zone <name> | icon | tiles | tint | layers | landmarks"
+local USAGE = "/mm [toggle] | follow | map <id|name> | zone <name> | icon | tiles | layers | landmarks"
 	.. " | blips | indoor | perf | debug | reset" -- Core.lua:1752
 local ARG = { zone = true } -- names that take an argument: alone, the usage line (Core.lua:1721)
 

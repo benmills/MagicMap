@@ -3,8 +3,8 @@ Tiles.lua, You.lua) on the simulated client. Borders: a zone border's segment is
 from zoom 60, then it) and a subzone's 1 (from zoom 140); a dead end at most 4 dashes; never more
 than 3000 Lines, the whole of the Eastern Kingdoms at zoom 4 included. Labels: zones in capitals,
 10 pt, up to zoom 450; subzones 9 pt, by size from 120, 220 and 400; none touching another; a name
-new to the view fades in. Tiles: /mm tint and the gear's "Colour-matched tiles" lay them out again
-plain, and back. You: the arrow, on your map only.
+new to the view fades in. Tiles: where no land tile is, the sea's water texture, never a flat colour.
+You: the arrow, on your map only.
 
   .venv/bin/python -m pytest tools/tests/test_ground.py -s   # prints the borders' Lines by zoom
 """
@@ -172,42 +172,19 @@ def test_labels():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
-def test_tint():
+def test_sea():
+    """No land tile, the sea's water texture is drawn there: an open-sea tile (Data/TileColor.lua's sea[])
+    is no land, so no art shows over it and its cell is the sea's."""
     L, sim, ns = shown()
-    tiles, saved = layer(ns, "tiles"), L.globals().MagicMap2DB.UI
-    S = sim.state
-
-    def drawn():
-        """The art laid out: tinted, coast-masked (Elwynn and Westfall's coast are in view)."""
-        p, tinted, masked = tiles.front.pools.art, 0, 0
-        for i in range(1, p.n + 1):
-            t = p[i]
-            v = S[t].vertex
-            tinted += v is not None and (v[1], v[2], v[3]) != (1, 1, 1)
-            masked += bool(t.masked)
-        return p.n, tinted, masked
-
-    n, _, masked = drawn()
-    assert saved.tint and masked > 0
-    front, same = tiles.front, L.eval("function(a, b) return a == b end")  # (lupa: Python's == never matches)
-    sim.Slash("/mm tint")  # off: the art plain, laid out again
-    sim.Run(1)
-    assert saved.tint is False and not same(tiles.front, front) and drawn()[1:] == (0, 0)
-    assert sim.prints[len(sim.prints)].endswith("tile colour correction off")
-    # The gear's "Colour-matched tiles" runs the same: on again, the coasts fade.
-    sim.Click(ns.UI.Controls.gear)
-    item = next(e for e in sim.MenuItems().values() if e.text == "Colour-matched tiles")
-    assert item.isSelected() is False
-    item.onSelect()
-    sim.Run(1)
-    assert saved.tint and drawn()[2] == masked and sim.prints[len(sim.prints)].endswith("tile colour correction on")
-
-    # A map with no colour data says so (every map with tiles has some: Data/TileColor.lua, as a newer
-    # client's map might not).
-    ns.Atlas.Data.TileColor[0] = None
-    sim.Slash("/mm tint")
-    sim.Slash("/mm tint")
-    assert sim.prints[len(sim.prints)].endswith("tile colour correction on (no data for this map)")
+    tiles = layer(ns, "tiles")
+    key = L.eval("function(D) for k in pairs(D.TileColor[0].sea) do return k end end")(ns.Atlas.Data)
+    col, row = key // 64, key % 64
+    look(sim, ns, (col + 0.5, row + 0.5), 200)
+    p = tiles.front.pools
+    cell = p.sea[p.sea.at[col * 4096 + row]]
+    assert cell.path and "_ocean" in cell.path and cell.path.endswith(".blp"), cell.path
+    fdid = ns.Atlas.TileInfo(0, key).fdid
+    assert all(p.art[i].fdid != fdid for i in range(1, p.art.n + 1))
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

@@ -1,7 +1,7 @@
 -- Menus are the client's own (MenuUtil), no skin (Menu.lua). Opened through here, they count
 -- as open for the controls that opened them, so those don't fade out under them.
 -- The gear menu (GearMenu.lua): what's drawn, a submenu per group of layers (Layers.lua:2179-2203),
--- Blizzard's tracking but what ours replace, then Settings: Map (Colour-matched tiles), Minimap (Minimap
+-- Blizzard's tracking but what ours replace, then Settings: Minimap (Minimap
 -- button, Reset position, Use Blizzard's minimap), Advanced (Diagnostics, Performance: /mm commands).
 -- /mm layers (Layers.lua:2196-2207).
 -- The map picker (the title's click: ui/ZoneInfo.lua) and /mm map; the map's right-click menu.
@@ -220,10 +220,6 @@ local ADVANCED = {
 -- In sections: { title, rows }. A row is a checkbox ({ label, on =, run =, tip = }), a button
 -- ({ label, run = }) or a submenu ({ label, sub = sections }) (GearMenu.lua:30-59).
 local SETTINGS = {
-	{ "Map", {
-		{ "Colour-matched tiles", on = function() return UI.saved.tint end, run = function() UI.Tint() end,
-			tip = "Evens out the minimap art's colours where tiles meet, and fades the coasts into the sea." },
-	} },
 	{ "Minimap", {
 		{ "Minimap button", on = function() return UI.saved.button end, run = function() UI.Icon() end,
 			tip = "The button on Blizzard's minimap, for when MagicMap is switched off." },
