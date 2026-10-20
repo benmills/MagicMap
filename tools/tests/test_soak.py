@@ -26,7 +26,8 @@ from test_quests import SETUP
 
 ROUNDS = 4  # ~160 s each: the 1st grows the pools (regions kept for good, as the client's), the 2nd and 3rd
             # each canvas's (a layer's two, swapped) at each script's zooms; the 4th as the 3rd
-GROWTH_KB = 64  # a round's leftovers, after a full collect (the heap is ~60 MB)
+GROWTH_KB = 96  # a round's leftovers, after a full collect (the heap is ~60 MB). Grouped icons (two or more)
+# fill their pools slowly: over 7 rounds a script's growth went 160, ~30-80, ~30, then under 15 KB: a plateau, not a leak
 
 # Questie's pins in Elwynn (world: x, y, flag; minimap: x, y) about Goldshire (0.42, 0.56 on 1429).
 QUESTIE = """local sim, G = ...

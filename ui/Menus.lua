@@ -303,7 +303,7 @@ local SETTINGS = {
 			tip = "Keeps the map centred on you. Drag the map to look about; it glides back to you when left alone." },
 		{ "Group overlapping icons", on = function() return UI.saved.cluster ~= false end,
 			run = function() UI.saved.cluster = UI.saved.cluster == false end,
-			tip = "Where more than three quests, places or rares overlap, one pill: click it to see them all." },
+			tip = "Where icons crowd together, one small pill: click it to see them all." },
 		{ "Minimap button", on = function() return UI.saved.button end, run = function() UI.Icon() end,
 			tip = "The button on Blizzard's minimap, for when MagicMap is switched off." },
 		{ "Reset window position", run = function() UI.BigMap.Reset() end },

@@ -64,6 +64,7 @@ def drawn(ns):
 
 def test_services():
     L, sim, ns = boot(SAVED % {"yd": YD})
+    ns.UI.saved.cluster = False  # (each pin on its own: not grouped)
     G = L.globals()
     L.execute(STUB, ns.Atlas, L.table_from({k: L.table_from(v) for k, v in NPCS.items()}), START[0], START[1], YD)
     for name, texture, f in (("Find Trainers", 136463, 16), ("Repair", 136465, 512)):
@@ -100,6 +101,7 @@ def test_services():
 
 def test_services_data():
     L, sim, ns = boot(SAVED % {"yd": YD})
+    ns.UI.saved.cluster = False  # (each pin on its own: not grouped)
     if not ns.Data.Npcs:
         pytest.skip("no QuestieDB-derived data (tools/gen_questie.py)")
     sim.Slash("/mm toggle")

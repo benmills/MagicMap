@@ -119,7 +119,7 @@ return A, out, R
 
 # The streams: Lua over A (the driver's input and frames). Each runs on a client of its own, the map open
 # and following you at zoom 96 (test_addon.py's window, 720x520; a "small:" one's minimap-sized, SMALL).
-SMALL = "MagicMap2DB = { UI = { _v = 1, shown = false, zoom = 120, window = { left = 1000, top = 900, w = 200, h = 200 } } }"
+SMALL = "MagicMap2DB = { UI = { _v = 1, shown = false, zoom = 120, window = { left = 1000, top = 900, w = 200, h = 200 }, cluster = false } }"
 # Rares you've seen (Model's saved part), a grid about you, for LOOK's rares.
 SEEN = "MagicMap2DB.Model = { _v = 1, blips = {}, rares = { [0] = { " + ", ".join(
     f"['npc:{i}'] = {{ name = 'Rare {i}', col = {29 + (i % 7) * 0.9}, row = {47 + (i // 7) * 0.8}, t = 1792077412 }}"

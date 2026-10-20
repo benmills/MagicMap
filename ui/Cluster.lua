@@ -1,7 +1,7 @@
--- Overlapping pins grouped (ui/Cluster.lua). Where more than 3 pins of the clustered layers (quests, offers,
--- places, rares: opts.cluster in Pins.Layer) overlap at the zoom (centres within RANGE px of each other, the
--- greedy pass in Group), they draw as one pill at their centroid: its first few icons side by side and a
--- "+N", on a dark backing. Clicking the pill opens a grid of its members above it at their normal size; each
+-- Overlapping pins grouped (ui/Cluster.lua). Where two or more pins of the clustered layers (quests, offers,
+-- places, rares, blips: opts.cluster in Pins.Layer) crowd together at the zoom (each within RANGE px of
+-- another, at most REACH ranges from the first: the greedy pass in Group), they draw as one pill at their
+-- centroid: up to three icons side by side, the third a "+N" when there are more, on a faint dark backing. Clicking the pill opens a grid of its members above it at their normal size; each
 -- grid icon is a pin of its own layer (a proxy at its cell, standing for the real entry), so its tooltip and
 -- click are its layer's. Clicking elsewhere, Escape, a zoom or a pan away closes the grid.
 --
@@ -16,12 +16,13 @@ local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
 local Engine, Pins, Window, Camera = UI.Engine, UI.Pins, UI.Window, UI.Camera
 local Yield = Runtime.Yield
 
-local RANGE = 18 -- px: pins whose centres are closer than this overlap (about one icon)
-local MIN = 4 -- pins in a seed's neighbourhood (the seed included): more than 3 make a cluster
-local SHOWN = 3 -- icons in a pill, then "+N"
-local PILL_H, ICON, GAP, PAD, MORE_W = 18, 12, 2, 4, 22 -- px: the pill's height, its icons, the gaps, its side padding, the "+N" slot
+local RANGE = 24 -- px: pins whose centres are closer than this crowd each other
+local REACH = 3 -- a cluster grows from its first pin by neighbours of neighbours, up to this many RANGEs from it
+local MIN = 2 -- pins that make a cluster
+local SLOTS = 3 -- a pill's slots: every icon if they fit, else the first two and "+N"
+local PILL_H, ICON, GAP, PAD, MORE_W = 16, 12, 2, 3, 18 -- px: the pill's height, its icons, the gaps, its side padding, the "+N" slot
 local CELL, COLS, PANEL_PAD, PANEL_GAP, PANEL_R = 24, 6, 6, 4, 6 -- px: the grid's cell, its columns, its padding, its gap above the pill, its corner radius
-local BG = { 0, 0, 0, 0.72 } -- the backings: dark, translucent
+local BG = { 0, 0, 0, 0.5 } -- the backings: dark, faint
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- Pins.lua's disc
 local PILL_LEVEL, GRID_LEVEL = 16, 17 -- above the pins (11-15), the grid above the pills
 local DRIFT = 1.25 -- the zoom bands membership is worked out for (Engine's DRIFT); the grid closes this far from where it opened
@@ -122,6 +123,7 @@ end
 
 -- A cluster of m members (near[1..m], scratch): its members, its centroid, its key (the least of its members'
 -- keys); c.hidden: each member's entry -> it.
+local POOL = 128 -- kept at most, each pool
 local clPool, listPool, memPool = {}, {}, {} -- retired clusters, their member lists and members, made again
 local function Make(c, m)
 	local col, row, members, key = 0, 0, table.remove(listPool) or {}, nil
@@ -143,7 +145,8 @@ local function Make(c, m)
 end
 
 -- The clusters of the collection, at zoom, into c: from each member not yet taken, the untaken members within
--- RANGE px of it (itself included), in its 3x3 buckets; MIN or more make a cluster. Buckets are RANGE px square,
+-- RANGE px of it or of one already gathered (neighbours of neighbours, each in its 3x3 buckets), no further
+-- than REACH ranges from it; MIN or more make a cluster. Buckets are RANGE px square,
 -- so O(n) a zoom, and the scratch is cleared on the way out.
 local function Group(zoom, c)
 	local cell = RANGE / zoom -- tiles; /: never 0 (a zoom is > 0)
@@ -156,23 +159,32 @@ local function Group(zoom, c)
 		nxt[i] = bucket[h] or 0
 		bucket[h] = i
 	end
+	local reach2 = r2 * REACH * REACH
 	for i = 1, n do
 		if takenGen[i] ~= gen then
-			local cx, cy = math.floor(cols[i] / cell), math.floor(rows[i] / cell) -- /: never 0 (cell > 0)
-			local m = 0
-			for dc = -1, 1 do
-				for dr = -1, 1 do
-					local x, y = cx + dc, cy + dr
-					local key = x * K + y
-					local j = bucket[(x * 31 + y) % BUCKETS + 1]
-					while j and j ~= 0 do
-						if ck[j] == key and takenGen[j] ~= gen and (cols[j] - cols[i]) ^ 2 + (rows[j] - rows[i]) ^ 2 < r2 then
-							m = m + 1
-							near[m] = j
+			takenGen[i] = gen
+			near[1] = i
+			local m, at = 1, 1
+			while at <= m do
+				local p = near[at]
+				local cx, cy = math.floor(cols[p] / cell), math.floor(rows[p] / cell) -- /: never 0 (cell > 0)
+				for dc = -1, 1 do
+					for dr = -1, 1 do
+						local x, y = cx + dc, cy + dr
+						local key = x * K + y
+						local j = bucket[(x * 31 + y) % BUCKETS + 1]
+						while j and j ~= 0 do
+							if ck[j] == key and takenGen[j] ~= gen and (cols[j] - cols[p]) ^ 2 + (rows[j] - rows[p]) ^ 2 < r2
+								and (cols[j] - cols[i]) ^ 2 + (rows[j] - rows[i]) ^ 2 < reach2 then
+								takenGen[j] = gen
+								m = m + 1
+								near[m] = j
+							end
+							j = nxt[j]
 						end
-						j = nxt[j]
 					end
 				end
+				at = at + 1
 			end
 			if m >= MIN then Make(c, m) end
 		end
@@ -191,12 +203,12 @@ local function Retire(c)
 		local cl = c.clusters[i]
 		local members = cl.members
 		for t = #members, 1, -1 do
-			memPool[#memPool + 1] = members[t]
+			if #memPool < POOL then memPool[#memPool + 1] = members[t] end
 			members[t] = nil
 		end
-		listPool[#listPool + 1] = members
+		if #listPool < POOL then listPool[#listPool + 1] = members end
 		cl.members = nil
-		clPool[#clPool + 1] = cl
+		if #clPool < POOL then clPool[#clPool + 1] = cl end
 		c.clusters[i] = nil
 	end
 	if #spare < SPARE then spare[#spare + 1] = c end
@@ -311,8 +323,9 @@ local function Small(m)
 end
 
 -- A pill's width for n members.
+local function Shown(n) return n <= SLOTS and n or SLOTS - 1 end
 local function PillWidth(n)
-	local shown = math.min(n, SHOWN)
+	local shown = Shown(n)
 	return 2 * PAD + shown * ICON + (shown - 1) * GAP + (n > shown and GAP + MORE_W or 0)
 end
 
@@ -320,7 +333,7 @@ end
 -- Pins.Style), the "+N".
 local function LayPill(p, cl)
 	local n = #cl.members
-	local shown = math.min(n, SHOWN)
+	local shown = Shown(n)
 	local w = PillWidth(n)
 	p.cluster = cl
 	if p.w ~= w then
