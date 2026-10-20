@@ -16,4 +16,4 @@ UI.Rares = UI.Pins.Layer("rares", 11, function(put, _, _, want)
 	if not list[1] or not want(MIN_ZOOM) then return end -- Layers.lua:409
 	for _, b in ipairs(list) do put(b, LOOK, MIN_ZOOM) end
 end, function() return select(2, Model.Known("rares")) end,
-	{ lines = function(e) return e.name, e.text, "|cff808080Seen here " .. date("%b %d", e.t) .. "|r" end }) -- Landmarks.lua:61
+	{ lines = function(e) return e.name, e.text, "|cff808080Seen here " .. date("%b %d", e.t) .. "|r" end, cluster = true }) -- Landmarks.lua:61

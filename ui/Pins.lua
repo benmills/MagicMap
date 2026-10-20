@@ -58,6 +58,7 @@ local function MakePin(c)
 	pin.icon = Tex(pin, "ARTWORK", 2)
 	return pin
 end
+Pins.Make = MakePin -- (ui/Cluster.lua's pills)
 
 -- The rest made the first time a look needs them: a ring (or a disc under the icon), the objective icon
 -- inside it, the halo, the count.
@@ -199,6 +200,7 @@ local function Style(pin, look)
 	end
 	if not inner then Shown(pin.inner, false) end
 end
+Pins.Style = Style -- (ui/Cluster.lua's pills)
 
 ---------------------------------------------------------------------------
 -- Layers
@@ -228,6 +230,8 @@ end
 -- the pin (and Shows it); hover(e): the cursor on its pin e, or (nil) off it; click(e, button): a click on
 -- it (Pins.Tap).
 function Pins.Layer(name, level, fill, rev, opts)
+	local clustered = opts and opts.cluster -- (ui/Cluster.lua: its members stand in pills where they overlap)
+	if clustered then rev = UI.Cluster.Add(name, fill, rev, opts) end
 	-- The pins the canvas didn't show: set after the rest (a Get takes the next region, whatever it showed).
 	local n, es, looks, mins = 0, {}, {}, {}
 	local c, inst, zoom, c0, r0, c1, r1, any, from
@@ -239,6 +243,7 @@ function Pins.Layer(name, level, fill, rev, opts)
 	local function put(e, look, minZoom)
 		local p = e.pos
 		if p.inst ~= inst or minZoom and not want(minZoom) then return end
+		if clustered and UI.Cluster.Hides(e, inst, zoom) then return end
 		any = true
 		if p.col >= c0 and p.col <= c1 and p.row >= r0 and p.row <= r1 then
 			local o = Keep(c, "pin", e.key)
@@ -388,6 +393,7 @@ end
 -- A click on the map (button: "LeftButton", ...): the pin under the cursor's, if its layer takes clicks.
 -- True when one did.
 function Pins.Tap(button)
+	if UI.Cluster.Tap(button) then return true end
 	local click = hovered and hoveredAt.opts.click
 	if not click then return false end
 	click(hovered.entry, button)

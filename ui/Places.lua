@@ -72,7 +72,7 @@ UI.Places = Pins.Layer("places", LEVEL, function(put)
 	end
 	if not on.vignettes then return end
 	for _, e in ipairs(Model.Known("vignettes")) do put(e, Look(VIGNETTE.size, e, VIGNETTE.color)) end
-end, Rev, { lines = Lines })
+end, Rev, { lines = Lines, cluster = true })
 
 -- Their gear rows (Layers.lua:38-53; Landmarks.lua:110-111, 142-143).
 Menus.Layer({ key = "flight", label = "Flight points", group = "places", tip = "Flight masters you can fly to or from." })

@@ -1,7 +1,7 @@
 """The gear menu on the simulated client (ui/Menus.lua), as the spike's (GearMenu.lua, Layers.lua:30-71,
 2154-2207): a submenu per group of layers with any (Map, Quests, Places, People, Other addons so far), each layer
 a checkbox with its tip (white title, gold body) that keeps the menu open, a sub-option indented and
-greyed while its parent is off; Tracking; a divider; then Settings: Map (Colour-matched tiles), Minimap
+greyed while its parent is off; Tracking; a divider; then Settings: Map (Colour-matched tiles, Group overlapping icons), Minimap
 (Minimap button, Reset position, Use Blizzard's minimap), Advanced (Diagnostics, Performance), the same small
 and big. Every row works: a layer's toggle empties and redraws what it draws (and View.layers, for Game's: the
 blip sensor, Questie's borrowed pins) and is saved, the changed keys only, across a /reload; a layer off by
@@ -13,7 +13,8 @@ from sim import TEST_UI
 
 LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Quests": "quests", "Quest areas": "questAreas",
           "Quests to pick up": "offers", "Minimap blips": "blips", "Rares you've seen": "rares"}
-SETTINGS = [("title", "Map"), ("checkbox", "Colour-matched tiles"), ("divider", None), ("title", "Minimap"),
+SETTINGS = [("title", "Map"), ("checkbox", "Colour-matched tiles"), ("checkbox", "Group overlapping icons"),
+            ("divider", None), ("title", "Minimap"),
             ("checkbox", "Minimap button"), ("button", "Reset position"), ("button", "Use Blizzard's minimap"),
             ("divider", None), ("button", "Advanced")]
 ADVANCED = [("title", "Diagnostics"), ("checkbox", "Debug info in the title"), ("checkbox", "Indoor maps"),

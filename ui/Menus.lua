@@ -223,6 +223,9 @@ local SETTINGS = {
 	{ "Map", {
 		{ "Colour-matched tiles", on = function() return UI.saved.tint end, run = function() UI.Tint() end,
 			tip = "Evens out the minimap art's colours where tiles meet, and fades the coasts into the sea." },
+		{ "Group overlapping icons", on = function() return UI.saved.cluster ~= false end,
+			run = function() UI.saved.cluster = UI.saved.cluster == false end,
+			tip = "Where more than three quests, places or rares overlap, one pill: click it to see them all." },
 	} },
 	{ "Minimap", {
 		{ "Minimap button", on = function() return UI.saved.button end, run = function() UI.Icon() end,

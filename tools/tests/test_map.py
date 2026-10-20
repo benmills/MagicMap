@@ -63,7 +63,9 @@ def test_rares():
     <Mon DD>" (Landmarks.lua:61)."""
     seen = ", ".join(f"['npc:{i}'] = {{ name = 'Rare {i}', npcID = {i}, col = {31.9 + i / 50}, row = 49.7, t = 1792077412 }}"
                      for i in range(1, 4))
-    L, sim, ns = boot(TEST_UI + f"\nMagicMap2DB.Model = {{ _v = 1, blips = {{}}, rares = {{ [0] = {{ {seen} }}, "
+    # Grouping off: Goldshire's places and quests stand by these rares, and the layer's own pins are the test.
+    L, sim, ns = boot(TEST_UI + "\nMagicMap2DB.UI = MagicMap2DB.UI or {}; MagicMap2DB.UI.cluster = false"
+                      + f"\nMagicMap2DB.Model = {{ _v = 1, blips = {{}}, rares = {{ [0] = {{ {seen} }}, "
                       "[1] = { ['at:2048:2048'] = { name = 'Far', col = 32, row = 32, t = 1792077412 } } } }")
     e = ns.UI.Engine
     layer = e.layers[[l.name for l in e.layers.values()].index("rares") + 1]
