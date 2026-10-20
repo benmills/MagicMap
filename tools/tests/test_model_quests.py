@@ -15,7 +15,7 @@ from test_blips import ROOT, lua_tools
 
 # Made-up rows in Data's formats (docs/atlas-data.md), for the quests in the stream.
 DATA = """return {
-    formats = { Npcs = 1, Objects = 1, Items = 1, Quests = 1, ItemIcons = 1 },
+    formats = { Npcs = 2, Objects = 2, Items = 2, Quests = 2, ItemIcons = 1 },
     ItemIcons = { [772] = 133750, [773] = 133848 },
     Items = { -- name, npcDrops, objectDrops, itemDrops, vendors
         [772] = { "Large Candle", { 9001, 9002, 9003, 9004, 9005 } },

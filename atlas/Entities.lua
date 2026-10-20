@@ -50,6 +50,13 @@ local NAMED = {
 	end,
 }
 
+-- A row as stored: a string of its table (Data/*.lua since format 2: a string costs about its length, a
+-- table of tables about four times as much), decoded when asked for; a table as it is (tests' stubs).
+local function Decode(r)
+	if type(r) == "string" then return assert(loadstring("return " .. r))() end
+	return r
+end
+
 local function Rows(kind)
 	local rows
 	if kind == "npc" then rows = Data.Npcs
@@ -64,7 +71,7 @@ local function Get(kind, id)
 	local e = cache[kind][id]
 	if e == nil then
 		local r = Rows(kind)[id]
-		e = r and NAMED[kind](id, r) or false
+		e = r and NAMED[kind](id, Decode(r)) or false
 		cache[kind][id] = e
 	end
 	return e or nil
@@ -111,6 +118,7 @@ local function SpawnIndex(kind, inst, step)
 		for id, r in pairs(Rows(kind)) do
 			n = n + 1
 			if step and n % 128 == 0 then step() end
+			r = Decode(r) -- (the demo's: every row, once a map)
 			local pts = r[at] and r[at][inst]
 			if pts then
 				for i = 1, #pts, 2 do
@@ -166,10 +174,10 @@ function Atlas.ServiceSpawns(inst, step)
 	local index = serviceIndex[inst]
 	if index then return index end
 	index = {}
-	local n = 0
-	for id, r in pairs(Data.Npcs or NONE) do
-		n = n + 1
-		if step and n % 128 == 0 then step() end
+	local lists = Data.Npcs and Data.NpcLists
+	for n, id in ipairs(lists and lists.flagged[inst] or NONE) do -- (those with npcFlags: Data/Npcs.lua's NpcLists)
+		if step and n % 32 == 0 then step() end
+		local r = Decode(Data.Npcs[id]) -- (not kept: Atlas.Npc keeps the rows it's asked for)
 		local pts = r[10] and r[10][inst]
 		if pts and HasService(r[7] or 0) then
 			for i = 1, #pts, 2 do
@@ -192,21 +200,17 @@ end
 -- { id, name, rank, minLevel, maxLevel, col, row }, in a stable order (npc id, then spawn).
 -- A full pass over the NPCs the first time per inst (then cached): step(), if
 -- given, is called every few rows so a caller can spread it over frames.
-local RARE = { [2] = true, [4] = true }
 local rares = {} -- [inst] = list
 function Atlas.Rares(inst, step)
 	local list = rares[inst]
 	if list then return list end
-	local ids, n = {}, 0
-	for id, r in pairs(Data.Npcs or NONE) do
-		if RARE[r[5]] and r[10] and r[10][inst] then ids[#ids + 1] = id end
-		n = n + 1
-		if step and n % 128 == 0 then step() end
-	end
+	local lists = Data.Npcs and Data.NpcLists
+	local ids = {}
+	for _, id in ipairs(lists and lists.rare[inst] or NONE) do ids[#ids + 1] = id end -- (Data/Npcs.lua's NpcLists)
 	table.sort(ids)
 	list = {}
 	for _, id in ipairs(ids) do
-		local r = Data.Npcs[id]
+		local r = Decode(Data.Npcs[id])
 		local pts = r[10][inst]
 		for i = 1, #pts, 2 do
 			list[#list + 1] = { id = id, name = r[1], rank = r[5], minLevel = r[3], maxLevel = r[4],
@@ -227,7 +231,9 @@ local function Names(kind, step)
 		n = { ids = {}, lower = {} }
 		for id, r in pairs(Rows(kind)) do
 			local i = #n.ids + 1
-			n.ids[i], n.lower[i] = id, r[1]:lower()
+			-- (a row's name is its first string: read off the stored string without decoding the rest)
+			local name = type(r) == "string" and Decode(r:match('^{(".-[^\\]")[,}]') or '""') or r[1]
+			n.ids[i], n.lower[i] = id, name:lower()
 			if step and i % 128 == 0 then step() end
 		end
 		names[kind] = n
@@ -271,11 +277,23 @@ for _, n in ipairs({
 -- needed), else its service (Data/BlipServices.lua: "innkeeper", "banker", "auctioneer", "stablemaster",
 -- "battlemaster", "trainer", "classtrainer", "repair", "questgiver", "questender", "flightmaster",
 -- "mailbox"), or nil.
+-- Data/BlipServices.lua's row for a name, decoded once.
+local services = {}
+local function Service(name)
+	local r = services[name]
+	if r == nil then
+		r = (Data.BlipServices or NONE)[name]
+		r = r and Decode(r) or false
+		services[name] = r
+	end
+	return r or nil
+end
+
 local CLASSES = { "Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "Mage", "Warlock", "Druid" }
 function Atlas.BlipService(name)
 	if HERBS[name] then return "herb" end
 	if name:find(" Vein$") or name:find(" Deposit$") then return "ore" end
-	local r = (Data.BlipServices or NONE)[name]
+	local r = Service(name)
 	if r then return r[1] end
 	-- A blip named by its title, not a name Data knows ("First Aid Trainer"): a trainer, a class's by its class.
 	if name:find(" Trainer$") then
@@ -288,6 +306,6 @@ end
 
 -- The title of the NPC a blip's tooltip names (its subName: "Innkeeper"), or nil (Blips.lua:408-436).
 function Atlas.BlipTitle(name)
-	local r = (Data.BlipServices or NONE)[name]
+	local r = Service(name)
 	return r and r[2]
 end

@@ -197,6 +197,15 @@ tile space (3 decimals). Format 2 (M1.4: the levels and subzone borders).
   gen_world, gen_questie, then gen_world again.
 - `Atlas.Item(id).icon`.
 
+### Packed rows (Npcs, Objects, Items, Quests: format 2)
+Each row is stored as one Lua string of its table (`[id]="{...}"`), not the table: a string costs about
+its length in memory, a table of tables about four times its text (the four files: 19.8 MB as tables,
+7.2 MB as strings, measured in Lua 5.1). Atlas decodes a row (`loadstring`) the first time it's asked
+for (`Atlas.Npc`, `Atlas.Quest`, ...) and keeps it. The scans that would decode every row use
+`D.NpcLists` (in Data/Npcs.lua): `rare[inst]` the rank 2 or 4 NPCs spawning there (`Atlas.Rares`),
+`flagged[inst]` those with npcFlags (`Atlas.ServiceSpawns`); `Atlas.Find` reads a row's name off its
+string. The layouts below are the decoded tables.
+
 ### Data/Npcs.lua — `ns.Data.Npcs` (QuestieDB; gitignored)
 `[npcID] = { name, subName, minLevel, maxLevel, rank, faction, flags, questStarts, questEnds, spawns, instances }`
 - rank: 1 elite, 2 rare elite, 3 boss, 4 rare.

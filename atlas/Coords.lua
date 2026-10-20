@@ -38,10 +38,10 @@ Atlas.FORMATS = {
 	Places = 1,    -- Data/Places.lua (tools/gen_world.py)
 	Labels = 1,    -- Data/Labels.lua (tools/gen_labels.py)
 	ItemIcons = 1, -- Data/ItemIcons.lua (tools/gen_world.py)
-	Npcs = 1,      -- Data/Npcs.lua (tools/gen_questie.py)
-	Objects = 1,   -- Data/Objects.lua (tools/gen_questie.py)
-	Items = 1,     -- Data/Items.lua (tools/gen_questie.py)
-	Quests = 1,    -- Data/Quests.lua (tools/gen_questie.py)
+	Npcs = 2,      -- Data/Npcs.lua (tools/gen_questie.py)
+	Objects = 2,   -- Data/Objects.lua (tools/gen_questie.py)
+	Items = 2,     -- Data/Items.lua (tools/gen_questie.py)
+	Quests = 2,    -- Data/Quests.lua (tools/gen_questie.py)
 	BlipServices = 2, -- Data/BlipServices.lua (tools/gen_questie.py)
 }
 local Data = ns.Data or {}; ns.Data = Data
