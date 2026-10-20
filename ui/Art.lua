@@ -43,7 +43,7 @@ local Art = {
 		"Interface\\GossipFrame\\AvailableQuestIcon", "Interface\\GossipFrame\\ActiveQuestIcon", -- ui/Quests.lua, ui/Offers: the quest icons (! and ?)
 		"Interface\\Minimap\\Tracking\\Herbalism", "Interface\\Minimap\\Tracking\\Mining", -- ui/Blips.lua: gathering nodes
 	},
-	fonts = { "Fonts\\FRIZQT__.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS)
+	fonts = { "Fonts\\FRIZQT__.TTF", "Fonts\\MORPHEUS.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS), and the zones' Morpheus
 }
 UI.Art = Art
 

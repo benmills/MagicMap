@@ -22,7 +22,7 @@ local Yield = Runtime.Yield
 
 local EVERY = 0.05 -- s: the hover's look, as the title's (Core.lua:1563)
 local MIN_WEIGHT = 30 -- a zone's land chunks to count as in view (Layers.lua:2006)
-local LABEL, LABEL_HOVER = { 1, 0.9, 0.7, 0.75 }, { 1, 1, 0.9, 1 } -- Layers.lua:1420-1421
+local LABEL, LABEL_HOVER = { 1, 0.89, 0.63, 0.95 }, { 1, 1, 0.9, 1 } -- ui/Labels.lua's ZONE (the MVP's), and its hover
 local LIT = { 1, 0.84, 0.4, 0.95 } -- the hovered zone's border (Layers.lua:1799)
 local TILE_YARDS = Atlas.TILE_YARDS
 local MAX_QUESTS, MAX_NEARBY = 2, 2 -- ZoneInfo.lua:13-14

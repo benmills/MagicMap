@@ -1,6 +1,8 @@
 -- Zone and subzone names (Atlas.Labels, ranked offline: Data/Labels.lua), the spike's look
--- (Layers.lua:1417-1458, 1619-1694): quiet, as on a printed map. Zones in capitals, 10 pt, up to
--- zoom 450; subzones 9 pt, the big from zoom 120, smaller from 220, the rest from 400. Zones first,
+-- (Layers.lua:1417-1458, 1619-1694): quiet, as on a printed map. Zones in Morpheus, mixed case, 11.5 to
+-- 22 pt by their land's size on screen, up to zoom 450; subzones in Friz Quadrata, 10.5 to 13 pt the same
+-- way, from zoom 120, 220 or 400 by their size (the MVP's look, 672d8b2^:ui/Labels.lua). Each name has a
+-- soft dark shadow, and an outline too at small sizes. Zones first,
 -- then subzones, each biggest first: a name tries its spot, just above, just below, and is skipped
 -- if all three touch one placed. Every zone of the map is placed (its box: a name's spot doesn't
 -- change on a pan), those over the view and its margin drawn (ui/Engine.lua); subzones are placed
@@ -12,12 +14,14 @@ local UI = ns.UI
 local Atlas, Runtime, Engine = ns.Atlas, ns.Runtime, ns.UI.Engine
 local Get, Unget, At, Yield = Engine.Get, Engine.Unget, Engine.At, Runtime.Yield
 
-local FONT = GameFontNormal:GetFont() -- Layers.lua:1417
-local ZONE, SUB = { 1, 0.9, 0.7, 0.75 }, { 0.95, 0.92, 0.85, 0.62 } -- Layers.lua:1420-1422
-local ZONE_SIZE, SUB_SIZE = 10, 9 -- Layers.lua:1423
+local TITLE, BODY = "Fonts\\MORPHEUS.TTF", GameFontNormal:GetFont() -- Morpheus for zones; Friz Quadrata (Layers.lua:1417)
+local ZONE, SUB = { 1, 0.89, 0.63, 0.95 }, { 0.91, 0.86, 0.77, 0.78 } -- the MVP's (672d8b2^:ui/Labels.lua)
+local ZONE_K, ZONE_MIN, ZONE_MAX = 0.085, 11.5, 22 -- a zone's size: k * its land's side * zoom, clamped
+local SUB_K, SUB_MIN, SUB_MAX = 0.1, 10.5, 13 -- likewise a subzone's
+local OUTLINE_MAX = 12 -- at or below this size an outline (the font's OUTLINE flag) with the shadow; above, the shadow alone
 local MAX_ZOOM = 450 -- zone names hidden zoomed in past this (Layers.lua:77)
 local SUB_ZOOM = 120 -- subzone names from here (weight >= 40), 220 (>= 15), else 400 (Layers.lua:1426, 1639)
-local SHADOW = 0.55 -- Layers.lua:239
+local SHADOW = 0.85 -- the soft drop shadow's alpha, offset (1, -1)
 local PAD_X, PAD_Y, GAP = 4, 2, 3 -- a name's clearance, and its spots' gap above and below (Layers.lua:1447-1448)
 local FADE_S = 0.2 -- Layers.lua:1619
 
@@ -26,6 +30,14 @@ local function MakeFont(c)
 	fs:SetShadowOffset(1, -1)
 	fs:SetShadowColor(0, 0, 0, SHADOW)
 	return fs
+end
+
+-- A name's font flags at its size: an outline where the shadow alone reads thin.
+local function Flags(size) return size <= OUTLINE_MAX and "OUTLINE" or "" end
+
+-- A name's size on screen: k * its land's side (tiles) * zoom, clamped, in half points.
+local function SizeAt(l, k, min, max, zoom)
+	return math.floor(math.max(min, math.min(max, k * (l.side or 0) * zoom)) * 2 + 0.5) / 2
 end
 
 -- Per map, its names as the spike has them: zones and subzones (a town that is one included), each
@@ -39,9 +51,8 @@ local function List(inst)
 	for _, a in ipairs(Atlas.Labels(inst)) do
 		if a.size and a.tier ~= "continent" then
 			local w = math.floor((a.size * 16) ^ 2 + 0.5)
-			local l = { text = a.text, col = a.col, row = a.row, weight = w, rank = a.rank, areaID = a.areaID }
+			local l = { text = a.text, col = a.col, row = a.row, weight = w, rank = a.rank, areaID = a.areaID, side = a.size }
 			if a.tier == "zone" then
-				l.text = a.text:upper()
 				list.zones[#list.zones + 1] = l
 			else
 				l.zoom = w >= 40 and SUB_ZOOM or w >= 15 and 220 or 400
@@ -79,11 +90,12 @@ local function Spot(c, l, zoom, w, h)
 	end
 end
 
-local function Font(c, l, size, color)
+local function Font(c, l, font, size, color)
 	local fs = Get(c, "label", "font", MakeFont)
-	if fs.size ~= size then
-		fs:SetFont(FONT, size, "")
-		fs.size = size
+	local flags = Flags(size)
+	if fs.font ~= font or fs.size ~= size or fs.flags ~= flags then
+		fs:SetFont(font, size, flags)
+		fs.font, fs.size, fs.flags = font, size, flags
 	end
 	if fs.color ~= color then
 		fs:SetTextColor(color[1], color[2], color[3], color[4])
@@ -112,17 +124,21 @@ local function Show(c, fs, l, dy, shown)
 	end
 end
 
--- A zone name's half width (padded) and height, measured once on a font string of ours never shown
--- (every zone's box is placed, few drawn).
+-- A zone name's half width (padded) and height at its size, measured once per size on a font string of
+-- ours never shown, in the face and size it's drawn in (every zone's box is placed, few drawn).
 local ruler = CreateFrame("Frame")
 ruler:Hide()
 ruler = ruler:CreateFontString()
-ruler:SetFont(FONT, ZONE_SIZE, "")
-local function Measure(l)
-	if not l.w then
+local function Measure(l, size)
+	local m = l.measured and l.measured[size]
+	if not m then
+		ruler:SetFont(TITLE, size, Flags(size))
 		ruler:SetText(l.text)
-		l.w, l.h = ruler:GetStringWidth() / 2 + PAD_X, ruler:GetStringHeight()
+		m = { ruler:GetStringWidth() / 2 + PAD_X, ruler:GetStringHeight() }
+		l.measured = l.measured or {}
+		l.measured[size] = m
 	end
+	return m[1], m[2]
 end
 
 UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
@@ -134,10 +150,11 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 	local list = List(inst)
 	if zoom <= MAX_ZOOM then
 		for i, l in ipairs(list.zones) do
-			Measure(l)
-			local dy = Spot(c, l, zoom, l.w, l.h)
+			local size = SizeAt(l, ZONE_K, ZONE_MIN, ZONE_MAX, zoom)
+			local w, h = Measure(l, size)
+			local dy = Spot(c, l, zoom, w, h)
 			if dy and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-				Show(c, Font(c, l, ZONE_SIZE, ZONE), l, dy, shown)
+				Show(c, Font(c, l, TITLE, size, ZONE), l, dy, shown)
 			end
 			if i % 16 == 0 then Yield() end
 		end
@@ -145,7 +162,7 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 	if zoom >= SUB_ZOOM then
 		for i, l in ipairs(list.subs) do
 			if zoom >= l.zoom and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-				local fs = Font(c, l, SUB_SIZE, SUB)
+				local fs = Font(c, l, BODY, SizeAt(l, SUB_K, SUB_MIN, SUB_MAX, zoom), SUB)
 				local dy = Spot(c, l, zoom, fs:GetStringWidth() / 2 + PAD_X, fs:GetStringHeight())
 				if dy then Show(c, fs, l, dy, shown) else Unget(c, "label") end
 			end
