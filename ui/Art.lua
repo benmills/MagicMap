@@ -27,8 +27,13 @@ local Art = {
 		"ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-in-down", "ui-hud-minimap-zoom-in-mouseover", -- the zoom buttons
 		"ui-hud-minimap-zoom-out", "ui-hud-minimap-zoom-out-down", "ui-hud-minimap-zoom-out-mouseover",
 		"ui-hud-minimap-arrow-player",                             -- the follow toggle
-		"deathrecap-icon-tombstone", "UI-QuestPoi-QuestNumber",    -- ui/You.lua: your corpse on the quest pins' disc
+		"deathrecap-icon-tombstone", "ui-questpoi-questnumber-2x", -- ui/You.lua: your corpse on the quest pins' disc
 		"Waypoint-MapPin-Tracked",                                 -- ui/You.lua: your waypoint
+		"questnormal", "questturnin",                              -- ui/Quests.lua, model/Blips.lua: quests to pick up ("!"), turn-ins ("?")
+		"quest-in-progress-icon-yellow-2x",                        -- ui/Quests.lua: a quest in progress, over the disc (model/Quests.lua)
+		"dungeon", "raid",                                         -- ui/Places.lua: dungeon and raid entrances
+		"taxinode_alliance", "taxinode_horde", "taxinode_neutral", -- ui/Places.lua: flight points
+		"poi-graveyard-neutral",                                   -- ui/Places.lua: graveyards
 	},
 	files = {
 		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",        -- ui/Chrome.lua: the grip
@@ -40,8 +45,8 @@ local Art = {
 		136458, 136453, 136452, 136466, 136454, 136463, 136455, 136465, 136459, -- ui/Blips.lua: services (game/Blips.lua SERVICE)
 		"Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",        -- ui/Path.lua: the edge arrow
 		"Interface\\Minimap\\PartyRaidBlipsV2",                  -- ui/Group.lua: party and raid members
-		"Interface\\GossipFrame\\AvailableQuestIcon", "Interface\\GossipFrame\\ActiveQuestIcon", -- ui/Quests.lua, ui/Offers: the quest icons (! and ?)
-		"Interface\\Minimap\\Tracking\\Herbalism", "Interface\\Minimap\\Tracking\\Mining", -- ui/Blips.lua: gathering nodes
+		"Interface\\Minimap\\Tracking\\Herbalism", "Interface\\Minimap\\Tracking\\Mining", -- ui/Blips.lua: gathering nodes (a fallback)
+		136441,                                                  -- ui/Places.lua: POIIcons, the area POIs the client gives no atlas for
 	},
 	fonts = { "Fonts\\FRIZQT__.TTF", "Fonts\\MORPHEUS.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS), and the zones' Morpheus
 }

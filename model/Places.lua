@@ -6,12 +6,14 @@
 --   live/static   a kind the game marks on an instance stands for Atlas's of that kind there (the spike
 --                 drew the game's: Layers.lua:459-540, Landmarks.lua:119-143); Atlas's where it marks
 --                 none, or before it's read there
--- place: its kind; live: the game's.
+-- place: its kind; live: the game's. icon: the art, as the client draws the kind (an atlas, or for an area
+-- POI Data's POIIcons cell: { cell }); Atlas's entries get the client's own atlas names for their kind.
 
 local _, ns = ...
 local Model, Atlas = ns.Model, ns.Atlas
 
 local NONE = {}
+local FLIGHT = { A = "taxinode_alliance", H = "taxinode_horde" } -- a flight point's (C_TaxiMap's, by faction)
 
 local places -- obs.places, the last handed
 local marked = {} -- [inst][kind] = true: the game marks that kind there
@@ -29,15 +31,21 @@ local function Static(inst)
 	for _, f in ipairs(Atlas.FlightPoints(inst)) do
 		local e = Entry("flight:" .. f.id, "flight", f.name, inst, f.col, f.row, false)
 		e.faction = f.faction
+		e.icon = { atlas = FLIGHT[f.faction] or "taxinode_neutral" }
 		out[#out + 1] = e
 	end
 	for _, p in ipairs(Atlas.POIs(inst)) do
 		local e = Entry("poi:" .. p.id, "poi", p.name, inst, p.col, p.row, false)
 		e.text = p.description
+		e.icon = { cell = p.icon }
 		out[#out + 1] = e
 	end
 	for _, d in ipairs(Atlas.Dungeons(inst)) do
-		if d.kind ~= "battleground" then out[#out + 1] = Entry("dungeon:" .. d.id, "dungeon", d.name, inst, d.col, d.row, false) end
+		if d.kind ~= "battleground" then
+			local e = Entry("dungeon:" .. d.id, "dungeon", d.name, inst, d.col, d.row, false)
+			e.icon = { atlas = d.kind == "raid" and "raid" or "dungeon" }
+			out[#out + 1] = e
+		end
 	end
 	statics[inst] = out
 	return out

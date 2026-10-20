@@ -36,8 +36,9 @@ for _, on in ipairs({ { "flight", "TAXIMAP_OPENED" }, { "graveyard", "PLAYER_DEA
 	end)
 end
 
--- The place kind:id at p on map, once a read: its last if the same.
-local function Put(out, kind, id, map, p, name, text, atlas, faction, known)
+-- The place kind:id at p on map, once a read: its last if the same. Its art: the atlas the client names,
+-- else (an area POI it names none for) its textureIndex, POIIcons' cell (icon = { atlas | cell }).
+local function Put(out, kind, id, map, p, name, text, atlas, faction, known, cell)
 	local key = kind .. ":" .. id
 	if seen[key] == reads then return end
 	seen[key] = reads
@@ -45,9 +46,9 @@ local function Put(out, kind, id, map, p, name, text, atlas, faction, known)
 	local inst, col, row = Atlas.MapToTile(map, x, y)
 	local o = last[key]
 	local q = o and o.pos
-	if not (o and o.name == name and o.text == text and o.icon.atlas == atlas and o.faction == faction
+	if not (o and o.name == name and o.text == text and o.icon.atlas == atlas and o.icon.cell == cell and o.faction == faction
 		and o.known == known and q.inst == inst and q.col == col and q.row == row) then
-		o = { key = key, kind = kind, name = name, text = text, icon = { atlas = atlas }, faction = faction, known = known,
+		o = { key = key, kind = kind, name = name, text = text, icon = { atlas = atlas, cell = cell }, faction = faction, known = known,
 			pos = { inst = inst, col = col, row = row } }
 		last[key] = o
 	end
@@ -80,7 +81,7 @@ local READ = {
 		if map == maps.continent then return end -- (the zones': Landmarks.lua:123)
 		for _, id in ipairs(C_AreaPoiInfo.GetAreaPOIForMap(map)) do
 			local info = C_AreaPoiInfo.GetAreaPOIInfo(map, id)
-			if info then Put(out, "poi", id, map, info.position, info.name, info.description, info.atlasName) end
+			if info then Put(out, "poi", id, map, info.position, info.name, info.description, info.atlasName, nil, nil, info.textureIndex) end
 		end
 	end,
 }

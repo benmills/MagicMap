@@ -346,7 +346,7 @@ def test_corpse_waypoint_pins():
     S, UI = sim.state, ns.UI
     p = UI.Corpse.front.pools.pin
     corpse = p[p.at.corpse]
-    assert S[corpse].width == 22 and S[corpse.ring].atlas == "UI-QuestPoi-QuestNumber" and S[corpse.ring].shown
+    assert S[corpse].width == 22 and S[corpse.ring].atlas == "ui-questpoi-questnumber-2x" and S[corpse.ring].shown
     assert S[corpse.icon].atlas == "deathrecap-icon-tombstone"
     assert abs(S[corpse.icon].width - 22 * 0.6 * 15 / 20) < 1e-9 and abs(S[corpse.icon].height - 22 * 0.6) < 1e-9
     p = UI.Waypoint.front.pools.pin

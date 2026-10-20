@@ -28,7 +28,7 @@ local SAME, LAG = 10 * YD, 8 * YD -- Blips.lua:38
 local FORGET, LIVE = 0.8, 220 * YD -- of the sensor's word around you (Blips.lua:480, 613)
 local HOUR = 3600 -- s: a remembered one seen again within it is left as it is (Blips.lua:592)
 local NEAR_OURS = 8 * YD -- Blips.lua:40
-local QUEST = { questgiver = 132049, questender = 132048 } -- the "!" and the "?" (Blips.lua:387-388)
+local QUEST = { questgiver = "questnormal", questender = "questturnin" } -- the HD "!" and "?" (Blips.lua:387-388)
 local MAX = 5000 -- an instance (D6; ADR 0004)
 local CELL = 4 -- a cell's side in a key's steps (1/64 tile): 1/16 tile, ~33 yd, wider than SAME
 local NONE = {}
@@ -211,7 +211,7 @@ local function Quest(name)
 	local q = quests[name]
 	if q == nil then
 		local t = QUEST[ns.Atlas.BlipService(name)]
-		q = t and Texture(t) or false
+		q = t and Atlas(t) or false
 		quests[name] = q
 	end
 	return q or nil
