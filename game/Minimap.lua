@@ -7,8 +7,7 @@
 --     ground, no mouse (each put right every apply: other client code turns them
 --     back). What hung on it waits on a stand-in at its home spot; the cluster hides.
 --     HereBeDragons' minimap pins go to hosts of Game's (game/AddonPins.lua): on the unseen
---     sensor they'd still take the mouse, over our map. View.renderer "blizzard": the Minimap
---     whole in the window instead, no sensor (game/Renderer.lua's Game.Whole), and back.
+--     sensor they'd still take the mouse, over our map.
 --   otherwise (or a View Game can't use: SAFE, game/Apply.lua): released, every change undone.
 -- Every change Engage makes is paired with its undo on a list; Release runs it
 -- backwards, so what comes back is exactly what was taken. But the cluster: its Show and
@@ -16,8 +15,7 @@
 -- once they aren't, hidden while engaged and as it was otherwise; meanwhile, engaged, it's
 -- faded (Game.minimap.fade: game/Home.lua; alpha isn't refused).
 -- Game.minimap tells the sensor (game/Blips.lua) where things stand: engaged,
--- sensor (the blips layer is on, not whole), still (the last Apply didn't move it, and its zoom has
--- applied), whole (the Minimap whole in the window: game/Renderer.lua).
+-- sensor (the blips layer is on), still (the last Apply didn't move it, and its zoom has applied).
 
 local _, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
@@ -27,7 +25,7 @@ local MARGIN = 2        -- screen units it keeps inside the screen's edge
 local ICONS = 0.05      -- its own icons' scale: out of sight (alpha alone doesn't hide them)
 local STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP" }
 
-local m = { engaged = false, sensor = false, still = false, fade = false, whole = false } -- blocker: why it isn't taken
+local m = { engaged = false, sensor = false, still = false, fade = false } -- blocker: why it isn't taken
 Game.minimap = m
 local undo, placed = {}, nil
 local clusterShown -- the cluster's own shown state, from an engage until it's back
@@ -177,7 +175,6 @@ end
 
 local function Release()
 	if not m.engaged then return end
-	if m.whole then Game.Whole(nil) end
 	m.engaged, m.sensor, m.still, placed = false, false, false, nil
 	local failure
 	for i = #undo, 1, -1 do -- every step runs; the first failure is raised after
@@ -251,18 +248,8 @@ Game.Apply("minimap", function(view)
 		Release()
 	else
 		if not m.engaged then Engage() end
-		local whole = view.renderer == "blizzard"
-		m.sensor = view.layers.blips == true and not whole
-		if whole then
-			m.still = false
-			Game.Whole(w)
-		else
-			if m.whole then
-				Game.Whole(nil)
-				Sensor()
-			end
-			Place(w, Hold(Minimap))
-		end
+		m.sensor = view.layers.blips == true
+		Place(w, Hold(Minimap))
 	end
 	Cluster()
 end)

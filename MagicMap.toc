@@ -65,7 +65,6 @@ game\Observe.lua
 game\Oracles.lua
 game\Minimap.lua
 game\AddonPins.lua
-game\Renderer.lua
 game\Tracking.lua
 game\Blips.lua
 game\Record.lua
@@ -92,7 +91,7 @@ game\commands\run.lua
 game\parts\You.lua
 game\parts\Blips.lua
 game\parts\MinimapState.lua
-game\parts\IndoorArt.lua
+game\parts\Interior.lua
 game\parts\Addons.lua
 game\parts\Quests.lua
 game\parts\Offers.lua

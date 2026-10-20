@@ -111,6 +111,8 @@ unknown ones), and new oracles.
   0.2-tile cells lit or dark as the client answers at each (Layers.lua:1334-1348): the spike shades per
   spot, and an area named explored somewhere isn't explored everywhere (overlays' rects overlap; the
   zone's own wilderness has none). `explored` stays per area, true only for the areas the client names.
+- OPEN change (ADR 0008, interiors): the part `interior` (`MM.ObsInterior`, on change: the building
+  and room you're in, false in none) replaces `indoorArt` (`MM.ObsArt`, gone).
 
 ## Revisit if
 

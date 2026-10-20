@@ -92,8 +92,7 @@ end
 -- What holds after every frame of every replay (checked as it ends): no protected
 -- call made in combat (spike-bugs K2), and no Blizzard Minimap art showing while the takeover
 -- has the Minimap (its cluster hidden, or faded while combat keeps it shown; the Minimap itself, ours
--- away from the cluster: unseen, its ground textures off) but the whole Minimap View.renderer
--- "blizzard" asks for (game/Renderer.lua). The map (M1.3, with T.Anchors): a layer shows
+-- away from the cluster: unseen, its ground textures off). The map (M1.3, with T.Anchors): a layer shows
 -- one canvas at most outside a timed crossfade (D1: drawn twice); at rest (Engine.pending false), every
 -- layer shown on the one origin.
 -- One pin a thing a frame: on each pin layer shown, no key twice among its shown pins; and no quest both
@@ -133,8 +132,8 @@ function T.Invariants(sim, ns)
 	local engaged = m.engaged
 	assert(not (engaged and MinimapCluster:IsVisible() and MinimapCluster:GetEffectiveAlpha() > 0),
 		"Blizzard's minimap cluster showing while engaged")
-	assert(not (engaged and (Minimap:GetEffectiveAlpha() > 0 or C_Minimap.GetDrawGroundTextures())
-		and not (m.whole and ns.UI.View().renderer == "blizzard")), "Blizzard's minimap showing while engaged")
+	assert(not (engaged and (Minimap:GetEffectiveAlpha() > 0 or C_Minimap.GetDrawGroundTextures())),
+		"Blizzard's minimap showing while engaged")
 	local E, S = ns.UI.Engine, sim.state
 	local rest = not E.pending and S[ns.UI.Window.frame].shown
 	for _, l in ipairs(E.layers) do

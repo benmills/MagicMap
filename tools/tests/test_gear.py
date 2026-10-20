@@ -264,7 +264,7 @@ STUBS = """function(ns, sent, ran)
         ran[#ran + 1] = c.line
         local g = ns.Game.saved
         if c.line == "debug" then ns.UI.saved.debug = not ns.UI.saved.debug end
-        if c.line == "indoor" then g.indoorDebug = not g.indoorDebug or nil end -- (game/Renderer.lua's)
+        if c.line == "indoor" then g.indoorDebug = not g.indoorDebug or nil end -- (game/parts/Interior.lua's)
         if c.line == "perf" then ns.Runtime.recording = not ns.Runtime.recording end
     end)
 end"""

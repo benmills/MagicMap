@@ -1,9 +1,9 @@
 """Blizzard's duplicate tracking on the sim (docs/v1-plan.md M4.2, game/Tracking.lua): its flight master,
 quest objective and point-of-interest tracking off while the takeover senses outdoors with our layer of
-the same on, back on otherwise (the layer off within 2 s, the whole Minimap, the window hidden, logout),
+the same on, back on otherwise (the layer off within 2 s, the window hidden, logout; indoors as outdoors),
 SavedGame.trackingOff naming those Game turned off; after a crash, a session's leftovers come back at
 the next login, or at MINIMAP_UPDATE_TRACKING once the client has sent its state. Game reads UI's View
-(ADR 0003): its layers flight, quests and pois (ui/Sockets.lua), its renderer (ui/IndoorArt.lua)."""
+(ADR 0003): its layers flight, quests and pois (ui/Sockets.lua)."""
 from sim import TEST_UI
 from test_addon import boot, errors
 
@@ -37,12 +37,10 @@ def test_duplicates_off():
     sim.Run(2.1)
     assert active(sim)[FLIGHT] and not active(sim)[QUESTS] and off(L) == [QUESTS]
 
-    sim.indoors = True  # a hut, the small window: the whole Minimap (its floor plan), the user's tracking at once
-    sim.Step()
-    assert ns.UI.View().renderer == "blizzard" and active(sim)[QUESTS] and off(L) == []
+    sim.indoors = True  # a hut, the small window: still ours (ADR 0008), Blizzard's kept off
+    sim.Run(2.1)
+    assert not active(sim)[QUESTS] and off(L) == [QUESTS]
     sim.indoors = False
-    sim.Step()
-    assert ns.UI.View().renderer == "ours" and not active(sim)[QUESTS] and off(L) == [QUESTS]
 
     sim.Slash("/mm toggle")  # the window hidden: released, back that frame
     sim.Step()

@@ -10,9 +10,9 @@
 -- this frame's, as handed (nil: the client gave nothing).
 -- Model.hooked, Model.minimap: this frame's obs.hooked and obs.minimap, handed on unchanged
 -- (UI reads them the same frame). Model.addons: obs.addons, the last handed ({} until then); Model.levels,
--- Model.tracking: obs.levels, obs.tracking so. Model.explored, Model.exploredCells, Model.indoorArt:
--- obs.explored, obs.exploredCells, obs.indoorArt, the last handed (nil until then; indoorArt false: none):
--- UI's inspector and indoor art.
+-- Model.tracking: obs.levels, obs.tracking so. Model.explored, Model.exploredCells, Model.interior:
+-- obs.explored, obs.exploredCells, obs.interior, the last handed (nil until then; interior false: in no
+-- building): UI's inspector and the building's rooms.
 --
 -- Each kind lives in its own file: Model.Part(observe, load) hooks it into
 -- Observe and Load, Model.Kind(kind, fn) answers Known(kind) with fn() -> list, rev.
@@ -49,7 +49,7 @@ function Model.Observe(obs, oracles)
 	Model.hooked, Model.minimap, Model.addons = obs.hooked or NONE, obs.minimap, obs.addons or Model.addons
 	Model.levels, Model.tracking = obs.levels or Model.levels, obs.tracking or Model.tracking
 	Model.explored, Model.exploredCells = obs.explored or Model.explored, obs.exploredCells or Model.exploredCells
-	if obs.indoorArt ~= nil then Model.indoorArt = obs.indoorArt end
+	if obs.interior ~= nil then Model.interior = obs.interior end
 	if o.col then
 		you.inst, you.col, you.row, you.stale = o.inst, o.col, o.row, false
 	else

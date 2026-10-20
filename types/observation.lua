@@ -42,7 +42,7 @@
 ---                                   names an explored area at the cell's centre, false where it names none (the
 ---                                   inspector's Unexplored), missing where no zone is (sea). A row changed is a new table.
 ---@field tracking? MM.ObsTracking[] on change: Blizzard's minimap tracking types
----@field indoorArt? MM.ObsArt|false on change: the world map's art for the map you're on; false = none
+---@field interior? MM.ObsInterior|false on change: the building you're in and its room (ADR 0008); false = in none
 ---@field addons? MM.ObsAddon[]      on change: other addons whose pins Game can borrow (View.layers "addon:<key>")
 ---@field levels? table<MM.UiMapID, integer[]> on change: each map's level range as the client gives it,
 ---                                   { lo, hi } (C_Map.GetMapLevels), for the maps Atlas has; one it gives none is
@@ -170,17 +170,14 @@
 ---@field center? MM.Pos       where the last completed sweep was centred
 ---@field reach number         its radius in tiles: a blip inside it that the sweep didn't see is gone
 
----@class MM.ObsArt
----@field uiMap MM.UiMapID
----@field pieces MM.ArtPiece[]
----@field outline? boolean     /mm indoor is on: UI outlines the art in pink (IndoorArt.lua:124-131, 145, 181);
----                           a new obs.indoorArt when it changes
-
----@class MM.ArtPiece
----@field file MM.FileID
----@field rect MM.Rect
----@field u? number            texcoord right (1 if nil)
----@field v? number            texcoord bottom (1 if nil)
+---In a building (docs/decisions/0008-interiors.md): only while the Minimap draws its indoor map and some
+---building's floor mask covers you (game/parts/Interior.lua).
+---@class MM.ObsInterior
+---@field inst MM.Inst
+---@field building integer     its key (the MODF unique ID): Atlas.Building(inst, building)
+---@field room? integer        the room you're in (its group index, 0-based); nil: unsure
+---@field rooms integer[]      the candidates kept (sorted; { room } when sure)
+---@field floor number         your room's floor (box zmin, yd); unsure, the highest candidate's
 
 ---@class MM.ObsAddon
 ---@field key string           stable: the library copy's tag and the addon's name ("Questie")

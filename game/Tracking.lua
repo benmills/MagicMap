@@ -1,8 +1,7 @@
 -- Blizzard's own markers for what our layers draw (MinimapTakeover.lua:231-269, 624-634): its flight
 -- master, quest objective and point-of-interest tracking (DUPLICATES), off while the takeover senses
--- outdoors (engaged, not the whole Minimap: View.renderer "blizzard") with our layer of the same on
--- (View.layers flight, quests, pois), back on otherwise: at release (the window hidden, /mm minimap
--- blizzard, a View Game can't use), in the whole Minimap, with our layer off. Acts on a change, and
+-- (engaged) with our layer of the same on (View.layers flight, quests, pois), back on otherwise: at
+-- release (the window hidden, /mm minimap blizzard, a View Game can't use), with our layer off. Acts on a change, and
 -- again every AGAIN while engaged (a layer toggled). SavedGame.trackingOff remembers which Game turned
 -- off, so ones a /reload or a crash left off come back: at logout, and at PLAYER_ENTERING_WORLD and
 -- MINIMAP_UPDATE_TRACKING while not sensing (their state is known only once the client has sent it).
@@ -41,7 +40,7 @@ end
 
 Game.Apply("tracking", function(view)
 	local m, t = Game.minimap, GetTime()
-	local on = m.engaged and not m.whole
+	local on = m.engaged
 	if on == sensing and not (m.engaged and t - at >= AGAIN) then return end
 	sensing, at = on, t
 	Sync(on, view.layers)

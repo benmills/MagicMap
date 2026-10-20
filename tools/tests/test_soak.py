@@ -24,8 +24,9 @@ from test_blips import put_blips, stub_services
 from test_quest_areas import FREE, OFFERS, stretch
 from test_quests import SETUP
 
-ROUNDS = 4  # ~160 s each: the 1st grows the pools (regions kept for good, as the client's), the 2nd and 3rd
-            # each canvas's (a layer's two, swapped) at each script's zooms; the 4th as the 3rd
+ROUNDS = 5  # ~160 s each: the 1st grows the pools (regions kept for good, as the client's), the 2nd to 4th
+            # each canvas's (a layer's two, swapped) at each script's zooms; the 5th as the 4th. (With the sensor
+            # kept indoors since ADR 0008, the 4th still grew ~90 KB a script; over 8 rounds: 140, then 6-27, then ~0)
 GROWTH_KB = 96  # a round's leftovers, after a full collect (the heap is ~60 MB). Grouped icons (two or more)
 # fill their pools slowly: over 7 rounds a script's growth went 160, ~30-80, ~30, then under 15 KB: a plateau, not a leak
 

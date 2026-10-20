@@ -6,10 +6,8 @@ M4.1 and M4.3 hand them over (types/model.lua, types/observation.lua), drawn as 
     gear row's toggle hides its kind alone (F39, F44).
   test_group: Known("group") as the Minimap's party blips (S52): PartyRaidBlipsV2's left half, 12 px, the class's
     colour, dead grey; moved as Model's list changes; the member's tooltip, Game's, on hover; the toggle (F41).
-  test_view: View small, big, indoors (Blizzard's floor plan; the art) and hidden: renderer, chrome, the layers
+  test_view: View small, big, indoors (Blizzard's floor plan) and hidden: renderer, chrome, the layers
     Game acts on and the sockets (the minimap one beside the world one).
-  test_indoor_art: the art of the map you're on over a dark backdrop (S40), at the camera's zoom, outlined under
-    /mm indoor; none off its map.
   test_inspector_lines: the right-click menu's place line from the spot's cell and the explored areas (Unexplored,
     near ...: by the cell; a city's coordinates alone) and at most 2 landmarks within 900 yd, its layer on or off (F38, S62).
 """
@@ -30,7 +28,7 @@ function Put(kind, list)
 	end
 	k.list, k.rev = list, k.rev + 1
 end
--- Game's parts as M4.1 and M4.2 hand them over: obs.explored, obs.exploredCells, obs.indoorArt; obs.minimap's
+-- Game's parts as M4.1 and M4.2 hand them over: obs.explored, obs.exploredCells; obs.minimap's
 -- indoors and indoorDebug (the last registered part's value wins).
 Parts = { minimap = {} }
 ns.Game.Part("explored", function() return Parts.explored end)
@@ -41,7 +39,6 @@ function Every(v)
 	local rows = setmetatable({}, { __index = function() return row end })
 	return setmetatable({}, { __index = function() return rows end })
 end
-ns.Game.Part("indoorArt", function() return Parts.art end)
 ns.Game.Part("minimap", function(obs)
 	local m = obs.minimap
 	m.indoors, m.indoorDebug = Parts.minimap.indoors, Parts.minimap.indoorDebug
@@ -256,15 +253,7 @@ def test_view():
     assert view.renderer == "ours" and sockets(view) == (True, True)
     sim.Press("M")
     sim.Run(1)
-    frame = view.frame
     assert view.renderer == "blizzard" and view.chrome is None and sockets(view) == (False, False)
-    # The art of the map you're on: ours over it; on another map's, Blizzard's floor plan.
-    L.execute("Parts.art = { uiMap = 1453, pieces = { { file = 900001, rect = { inst = 0, c0 = 31.8, r0 = 49.6, c1 = 32.1, r1 = 49.9 } } } }")
-    sim.Step()
-    assert view.renderer == "ours+art" and view.frame > frame and chrome() == (False, False) and sockets(view) == (True, True)
-    G.Parts.art.pieces[1].rect.inst = 1
-    sim.Step()
-    assert view.renderer == "blizzard"
     # Outdoors again; then hidden: ours, nothing borrowed, the rim as Blizzard has it; the layers still said.
     G.Parts.minimap.indoors = False
     sim.Step()
@@ -273,73 +262,6 @@ def test_view():
     sim.Step()
     assert not view.window.shown and view.renderer == "ours" and view.chrome is None and sockets(view) == (False, False)
     assert view.layers.flight is True and view.layers.quests is True
-    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
-
-
-ART = """Parts.minimap.indoors = true
-local pieces = {}
-for i = 0, 3 do -- 2 x 2, the last row and column half a tile of art (u, v)
-    local c, r = i % 2, math.floor(i / 2)
-    local c0, r0 = 31.8 + c * 0.2, 49.6 + r * 0.2
-    pieces[i + 1] = { file = 900001 + i, u = c == 1 and 0.5 or nil, v = r == 1 and 0.5 or nil,
-        rect = { inst = 0, c0 = c0, r0 = r0, c1 = c0 + (c == 1 and 0.1 or 0.2), r1 = r0 + (r == 1 and 0.1 or 0.2) } }
-end
-Parts.art = { uiMap = 1458, pieces = pieces }"""
-
-
-def test_indoor_art():
-    L, sim, ns, G = client(zoom=200)
-    S, UI, Maths = sim.state, ns.UI, ns.Atlas.Camera
-    art = UI.IndoorArt
-    assert not S[art.frame].shown
-    L.execute(ART)
-    sim.Step()
-    f, cam = art.frame, UI.Camera.cam
-
-    def placed():
-        """Its regions shown: (file or colour, x, y, w, h, texcoords); the frame's top left where the art's is."""
-        w, h = UI.Window.Size()
-        x, y = Maths.TileToScreen(cam, w, h, 31.8, 49.6)
-        p = S[f].points[1]
-        assert abs(p.x - x) < 1e-9 and abs(p.y + y) < 1e-9
-        out = []
-        for r in S[f].regions.values():
-            if S[r].shown:
-                q, tc = S[r].points[1], S[r].texCoord
-                r6 = lambda v: v if v is None else round(v, 6)  # noqa: E731 (an edge: one side's size, two anchors)
-                out.append((S[r].texture or tuple(S[r].color.values()), r6(q.x), r6(q.y), r6(S[r].width),
-                            r6(S[r].height), tuple(tc.values()) if tc else None))
-        return out
-
-    def pieces():
-        return {g[0]: g[1:] for g in placed() if isinstance(g[0], int)}
-
-    # The art over the tiles on a dark backdrop (IndoorArt.lua:18), each piece at the camera's zoom.
-    z = cam.zoom
-    assert S[f].shown and f.GetFrameLevel(f) == UI.Window.view.GetFrameLevel(UI.Window.view) + 2
-    back = next(g for g in placed() if g[0] == (0.06, 0.05, 0.04, 1))
-    assert back[3:5] == (round(0.3 * z, 6), round(0.3 * z, 6))
-    got = pieces()
-    assert got[900001] == (0, 0, round(0.2 * z, 6), round(0.2 * z, 6), (0, 1, 0, 1))
-    assert got[900004] == (round(0.2 * z, 6), round(-0.2 * z, 6), round(0.1 * z, 6), round(0.1 * z, 6), (0, 0.5, 0, 0.5))
-    # Zoomed: placed again at the new zoom; /mm indoor: outlined in pink.
-    UI.Motion.SetZoom(400)
-    sim.Run(1)
-    z = cam.zoom
-    assert pieces()[900004][2] == round(0.1 * z, 6)
-    G.Parts.minimap.indoorDebug = True
-    sim.Step()
-    assert sum(1 for g in placed() if g[0] == (1, 0.2, 0.8, 0.9)) == 4
-    # Outdoors, or the art on another map: none.
-    G.Parts.minimap.indoors = False
-    sim.Step()
-    assert not S[f].shown
-    G.Parts.minimap.indoors = True
-    sim.Step()
-    assert S[f].shown
-    G.Parts.art.pieces[1].rect.inst = 1
-    sim.Step()
-    assert not S[f].shown
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

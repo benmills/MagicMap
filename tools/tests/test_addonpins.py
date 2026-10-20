@@ -3,8 +3,8 @@ world pins past 48 px a tile only those flagged for continents, none drawn for t
 alone (-1) or bigger than 128 px, none of Questie's turn-ins our quests layer shows; minimap pins on a
 host of Game's on the minimap socket, centred on you at the Minimap's view, each where the library
 puts it, so on its spot on our map, out of sight under Rotate Minimap, off your map and for a renamed
-copy whose world pins we host, on the whole Minimap under "blizzard", back on the Minimap at release.
-Game reads UI's View: its sockets (ui/Sockets.lua), layers and renderer. The world pins' round trip and Questie's scale: replays/R-G6.lua, R-G6b.lua; the hidden host
+copy whose world pins we host, back on the Minimap at release.
+Game reads UI's View: its sockets (ui/Sockets.lua) and layers. The world pins' round trip and Questie's scale: replays/R-G6.lua, R-G6b.lua; the hidden host
 while there's no minimap socket: R-G6c.lua."""
 from test_addon import boot, errors
 
@@ -119,15 +119,7 @@ def test_minimap_pins():
     sim.Run(0.5)
     assert socket.inst == 0 and herb.IsVisible(herb)
 
-    # The whole Minimap (indoors, the small window): on it, in view; then back around you.
-    sim.indoors = True
-    sim.Step()
     mm = G.Minimap
-    assert same(herb.GetParent(herb), mm) and same(quest.GetParent(quest), mm) and herb.IsVisible(herb)
-    assert same(q.Minimap, mm) and same(sim.hbdPins.Minimap, mm)
-    sim.indoors = False
-    sim.Step()
-    assert same(herb.GetParent(herb), host) and herb.IsVisible(herb)
 
     sim.Slash("/mm toggle")  # released: back on the Minimap (at its home), placed there again
     sim.Step()

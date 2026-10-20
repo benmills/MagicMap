@@ -156,6 +156,9 @@ for i = 1, 10 do
 end
 sim.minimapBlips = list
 sim.FireEvent("MINIMAP_UPDATE_TRACKING")
+sim.indoors = true -- (the building you're in decoded once, before: ~670 KB kept, game/parts/Interior.lua)
+sim.Run(0.5)
+sim.indoors = false
 sim.Run(5)
 local walk = Measure(function()
 	sim.player.facing, sim.player.speed = 3 * math.pi / 2, 7 -- east

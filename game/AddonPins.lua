@@ -31,8 +31,7 @@
 -- Minimap; out of sight (a hidden host) without that socket (on the unseen sensor they'd still take
 -- the mouse, over our map: spike-bugs G6), under Rotate Minimap (the library turns them with your
 -- facing, our map stays north up), and for a renamed copy whose world pins we host (they'd only repeat
--- those). The whole Minimap (View.renderer "blizzard"): on it, in view. Released: back on the
--- Minimap, last (Game.MinimapPinsHome, game/Minimap.lua's undo).
+-- those). Released: back on the Minimap, last (Game.MinimapPinsHome, game/Minimap.lua's undo).
 -- Game.Addons(): obs.addons (game/parts/Addons.lua), a new list only when it changed.
 
 local _, ns = ...
@@ -344,7 +343,7 @@ end
 local hidden, around = Host(), Host() -- out of sight; the Minimap's view around you on the minimap socket
 hidden:SetSize(1, 1)
 local ours = { [hidden] = true, [around] = true }
-local placed = {} -- around as placed: frame, level, x, y, d; whole: the Minimap's width
+local placed = {} -- around as placed: frame, level, x, y, d
 
 -- They must still clear the map's layers (MinimapTakeover.lua:148-151).
 local function Raise(lib, host)
@@ -389,10 +388,7 @@ local function MinimapPins(view)
 	local m = Game.minimap
 	if not m.engaged then return end
 	local s, you, host, again = view.sockets.minimap, Game.obs.you, hidden, false
-	if m.whole then
-		local d = Minimap:GetWidth()
-		host, again, placed.whole = Minimap, d ~= placed.whole, d
-	elseif s and you.col and you.inst == s.inst then
+	if s and you.col and you.inst == s.inst then
 		host, again = around, Around(s, you)
 	elseif s then
 		host = around
@@ -403,7 +399,7 @@ local function MinimapPins(view)
 		local lib = copy.lib
 		if lib.Minimap == Minimap or ours[lib.Minimap] then -- (not FarmHud's)
 			local to = host
-			if host ~= Minimap and (rotated or copy.tag ~= "" and open and view.layers["addon:" .. copy.tag]) then
+			if rotated or copy.tag ~= "" and open and view.layers["addon:" .. copy.tag] then
 				to = hidden
 			end
 			if lib.Minimap ~= to or (again and to == host) then

@@ -20,7 +20,7 @@ local found, aim = {}, true -- the vignettes as last read; the target to read ag
 local target = false -- the rare you target, as handed over
 local dirty, pending, map = true, false, nil -- map: the one last read on
 local last = {} -- GUID -> its MM.ObsVignette
-local rects = {} -- uiMap -> its rect (IndoorArt.lua's shape) | false: none
+local rects = {} -- uiMap -> its rect { inst, c0, r0, c1, r1 } | false: none
 
 local function Due() pending, dirty = false, true end
 local function Soon()
@@ -39,11 +39,21 @@ local function Npc(guid)
 	return (kind == "Creature" or kind == "Vehicle") and tonumber(id) or nil
 end
 
+-- A map's rect in tile space, the client's (Core.lua:838-857): Atlas keeps no dungeon floors or micro maps.
+local function MapRect(uiMap)
+	local inst, tl = C_Map.GetWorldPosFromMapPos(uiMap, CreateVector2D(0, 0))
+	local inst2, br = C_Map.GetWorldPosFromMapPos(uiMap, CreateVector2D(1, 1))
+	if not (tl and br and inst == inst2) then return nil end
+	local c0, r0 = Atlas.WorldToTile(tl:GetXY())
+	local c1, r1 = Atlas.WorldToTile(br:GetXY())
+	if c1 > c0 and r1 > r0 then return { inst = inst, c0 = c0, r0 = r0, c1 = c1, r1 = r1 } end
+end
+
 local function Rect(uiMap)
 	local r = rects[uiMap]
 	if r == nil then
 		local a = Atlas.MapRect(uiMap)
-		r = a and { inst = a.inst, c0 = a.col0, r0 = a.row0, c1 = a.col1, r1 = a.row1 } or Game.MapRect(uiMap) or false
+		r = a and { inst = a.inst, c0 = a.col0, r0 = a.row0, c1 = a.col1, r1 = a.row1 } or MapRect(uiMap) or false
 		rects[uiMap] = r
 	end
 	return r

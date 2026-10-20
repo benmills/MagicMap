@@ -73,6 +73,9 @@ Target and Route beyond the typed fields.
 - OPEN addition (v1 plan M4, its review's round 1): `Model.exploredCells` hands on the last
   `obs.exploredCells` (nil until known): the shade's dark cells and the inspector's "Unexplored" go by
   the spot, as the spike's (ADR 0001).
+- OPEN change (ADR 0008, interiors): `Model.interior` hands on the last `obs.interior` (nil until
+  known; false: in no building), the building and room you're in; `Model.indoorArt` is gone with
+  obs.indoorArt.
 
 ## Revisit if
 
