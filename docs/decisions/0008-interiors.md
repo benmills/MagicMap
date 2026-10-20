@@ -41,6 +41,17 @@ like terrain tiles.
   The pictures have real alpha (only floors draw), aren't mirrored, and look good in the game.
 - **Room names** (`WMOAreaTable`, file 1355528): WMO ID, group ID → name ("The Great Forge",
   "The High Seat"). Indoors, `GetSubZoneText()` is the name of the room you're in.
+- **Real floors**: a room's box zmin is its lowest geometry, not its floor (Ironforge's Commons ring:
+  box −91, floor about −5). The floor is the area-weighted median z of the room file's upward-facing
+  triangles (normal z > 0.7; MOPY material 0xFF, collision-only, skipped): after MOGP's 68-byte header,
+  MOVT/MOVI/MOPY. 97 of Ironforge's 103 rooms are within 22 yd of the median. In world height (the
+  placement's y + z · scale; rotation is yaw only) so buildings compare: Ironforge's sits at 506.7.
+- **Underground**: the floor more than 10 yd under the terrain (root ADT MCVT) at the mask's centre. Under a
+  city WMO the terrain is a placeholder under holes: Orgrimmar's lies 10 to 100 yd below its floors, so its
+  Cleft of Shadow (rooms 74, 75, 137 of the city WMO) isn't underground by this test.
+- **Capitals**: Stormwind City and Undercity are each one WMO (288, 196 rooms); Orgrimmar one (138 rooms,
+  the Cleft of Shadow among them) and an unnamed 12-room one at its east edge, 25 to 100 yd under the terrain; Ironforge's city WMO and two small
+  ones in the mountain; Darnassus one (54 rooms); Thunder Bluff the Pools of Vision and a one-room cave.
 - **Scale**: Eastern Kingdoms 665 buildings with pictures (3,537 pictures), Kalimdor 381 (2,133).
   Half are single-picture houses.
 
@@ -55,10 +66,12 @@ like terrain tiles.
 ## Decision
 
 - **Atlas** ships every open-world map's buildings with pictures (generated, like the tiles):
-  per building its placement, and per room its floor (box zmin, zmax), the subzone name, the rooms
+  per building its placement, and per room its box's floor and top (zmin, zmax), its real floor, whether
+  it's underground, the rooms of the building it overlaps, the subzone name, the rooms
   it has a portal to, its floor mask (4-yd cells in the building's own coordinates, from the
   pictures' alpha) and its pictures (each as an origin and two edge vectors in tile space). Packed
-  per building and decoded on first use.
+  per building and decoded on first use. Per capital, its buildings (an underground room or ≥ 3,000
+  sq yd of floor) and the rooms of other buildings each of their rooms overlaps.
 - **Which room you're in** (Game, each change of position; proven in game):
   1. the rooms whose floor mask covers your spot;
   2. of those, the ones named like your subzone, if any;

@@ -181,14 +181,46 @@ class WmoGroup:
     group_id: int             # MOGP +56: global, WMOAreaTable keys on it
     portal_start: int         # its portal refs: MOPR[portal_start:portal_start + portal_count]
     portal_count: int
+    floor: float | None       # the room's real floor (its own z): None, no floor triangles
+
+
+def group_floor(buf: bytes) -> float | None:
+    """The area-weighted median z of a MOGP's upward-facing triangles (normal z > 0.7), collision-only
+    ones (MOPY material 0xFF) skipped. buf: the MOGP's data; its sub-chunks follow its 68-byte header."""
+    sub = buf[68:]
+    ch = {m: sub[o:o + s] for m, o, s in iter_chunks(sub)}
+    if b"MOVT" not in ch or b"MOVI" not in ch:
+        return None
+    v = list(struct.iter_unpack("<3f", ch[b"MOVT"]))
+    idx = struct.unpack(f"<{len(ch[b'MOVI']) // 2}H", ch[b"MOVI"])
+    mat = ch.get(b"MOPY", b"")
+    tris = []
+    for t in range(len(idx) // 3):
+        if mat and mat[t * 2 + 1] == 0xFF:
+            continue
+        a, b, c = v[idx[3 * t]], v[idx[3 * t + 1]], v[idx[3 * t + 2]]
+        ux, uy, uz = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+        vx, vy, vz = c[0] - a[0], c[1] - a[1], c[2] - a[2]
+        nx, ny, nz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
+        n = (nx * nx + ny * ny + nz * nz) ** 0.5
+        if n > 0 and nz / n > 0.7:
+            tris.append(((a[2] + b[2] + c[2]) / 3, n / 2))
+    if not tris:
+        return None
+    tris.sort()
+    half, acc = sum(w for _, w in tris) / 2, 0
+    for z, w in tris:
+        acc += w
+        if acc >= half:
+            return z
 
 
 def wmo_group(buf: bytes) -> WmoGroup | None:
-    """A room file's MOGP header."""
-    for magic, off, _size in iter_chunks(buf):
+    """A room file's MOGP header and real floor."""
+    for magic, off, size in iter_chunks(buf):
         if magic == b"MOGP":
             ps, pc = struct.unpack_from("<HH", buf, off + 36)
-            return WmoGroup(struct.unpack_from("<I", buf, off + 56)[0], ps, pc)
+            return WmoGroup(struct.unpack_from("<I", buf, off + 56)[0], ps, pc, group_floor(buf[off:off + size]))
     return None
 
 

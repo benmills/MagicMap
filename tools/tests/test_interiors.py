@@ -12,6 +12,20 @@ def test_ironforge():
     assert len(rooms) == 103 and sum(len(r.pics) for r in rooms.values()) == 108
     assert list(Atlas.RoomsAt(b, 33.997, 41.063).values()) == [65, 88]
     assert (rooms[65].area, rooms[88].area) == ("The Great Forge", "The High Seat")
+    # Real floors (world height: the placement's 506.7 up): the Commons ring's box reaches -91, its floor -5.
+    assert abs(rooms[8].floor - 501.7) < 2 and abs(rooms[101].floor - 506.7 + 48.5) < 2 and rooms[8].zmin == -91
+    assert 9 in rooms[8].over.values() and rooms[8].underground
+
+
+def test_cities():
+    """The capitals' buildings: Ironforge's has it; Orgrimmar's more than one (the Cleft of Shadow is rooms of
+    its own); Undercity's rooms under the ruins underground."""
+    L, Atlas = load_atlas()
+    assert 7706 in Atlas.City(0, 1455).buildings.values()
+    org = list(Atlas.City(1, 1454).buildings.values())
+    assert len(org) > 1 and any(r.area == "Cleft of Shadow" for r in Atlas.Building(1, 165042).rooms.values())
+    uc = Atlas.City(0, 1458)
+    assert any(r.underground for k in uc.buildings.values() for r in Atlas.Building(0, k).rooms.values())
 
 
 def test_ironforge_rooms():

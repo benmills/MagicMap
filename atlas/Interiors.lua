@@ -29,9 +29,11 @@ local function Mask(enc)
 	return table.concat(parts)
 end
 
--- { key, inst, fid, wmo, col, row, yaw, rooms = { [room] = { zmin, zmax, area, links, pics, ... } } }:
--- room the building's group index; links the rooms it has portals to; pics { fid, ox, oy, ux, uy, vx, vy }
--- in tile units, a picture's pixel (u, v) in 0..1 at o + u*U + v*V (U along its width, V down its height).
+-- { key, inst, fid, wmo, col, row, yaw, rooms = { [room] = { zmin, zmax, area, links, pics, floor, underground,
+-- over, ... } } }: room the building's group index; links the rooms it has portals to; pics { fid, ox, oy, ux,
+-- uy, vx, vy } in tile units, a picture's pixel (u, v) in 0..1 at o + u*U + v*V (U along its width, V down its
+-- height); floor its real floor (world height); underground: that > 10 yd under the terrain; over: the rooms
+-- whose floor masks overlap its.
 local decoded = {} -- [inst][key]
 function Atlas.Building(inst, key)
 	local cache = decoded[inst]
@@ -48,7 +50,7 @@ function Atlas.Building(inst, key)
 			local pics, list = {}, r[10]
 			for j = 1, #list, 7 do pics[#pics + 1] = { unpack(list, j, j + 6) } end
 			b.rooms[i] = { zmin = r[1], zmax = r[2], area = r[3], links = r[4], x0 = r[5], y0 = r[6],
-				cols = r[7], rows = r[8], mask = Mask(r[9]), pics = pics }
+				cols = r[7], rows = r[8], mask = Mask(r[9]), pics = pics, floor = r[11], underground = r[12], over = r[13] }
 		end
 		cache[key] = b
 	end
@@ -70,4 +72,26 @@ function Atlas.RoomsAt(b, col, row)
 	end
 	table.sort(out)
 	return out
+end
+
+-- A capital's buildings (uiMap 1453..1458; nil: not one): { buildings = { key... }, over = { [key] = { [room] =
+-- { { key, room }... } } } }, over the other buildings' rooms each room's floor overlaps (kept).
+local cities = {} -- [uiMap]
+function Atlas.City(inst, uiMap)
+	local c = cities[uiMap]
+	local raw = not c and Map(inst) and Map(inst).cities and Map(inst).cities[uiMap]
+	if raw then
+		c = { buildings = raw[1], over = {} }
+		for key, rooms in pairs(raw[2]) do
+			local o = {}
+			for room, list in pairs(rooms) do
+				local two = {}
+				for j = 1, #list, 2 do two[#two + 1] = { list[j], list[j + 1] } end
+				o[room] = two
+			end
+			c.over[key] = o
+		end
+		cities[uiMap] = c
+	end
+	return c
 end
