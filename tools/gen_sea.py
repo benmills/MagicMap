@@ -106,7 +106,6 @@ TINT_PX = 4          # px per tile
 MARGIN = 8           # tiles around the map's tiles
 NEAR = 0.3           # tiles: Gaussian sigma of the coast colours' spread (the shelf drops off within ~1 tile)
 NEAR_EPS = 0.01      # ... and the open-sea colour's weight against it (sets how far it reaches)
-OPEN_SEA = (20 / 255, 40 / 255, 40 / 255)  # the open sea far from any coast: a dark teal, its texture showing
 DARKEN = 0.08        # the open sea this much darker ...
 FAR = (1.0, 5.0)     # ... going from this far from any tile to this far (tiles; smoothstep)
 NOISE, NOISE_TILES = 0.05, 3.0  # low-frequency brightness variation over the open sea
@@ -425,10 +424,10 @@ class MapSea:
                 n = value_noise((c0 + (x + 0.5) / TINT_PX) / NOISE_TILES, (r0 + (y + 0.5) / TINT_PX) / NOISE_TILES, seed)
                 far = (1 - DARKEN * smoothstep(*FAR, d)) * (1 + NOISE * n * smoothstep(0.5, 2, d)
                                                              * smoothstep(1, MARGIN / 2, edge))
-                c = tuple((vw_b[k][i] + NEAR_EPS * self.deep[k] * far) / (wt_b[i] + NEAR_EPS) for k in range(3))
+                c = self.deep  # one colour all over: no halo along the coasts, no edge at the rect
                 out.append(tuple(min(255, round(255 * v / GAIN)) for v in c))
         self.size = (w, h)
-        self.far = tuple(min(255, round(255 * v * (1 - DARKEN) / GAIN)) for v in self.deep)
+        self.far = tuple(min(255, round(255 * v / GAIN)) for v in self.deep)
         return out
 
 
@@ -582,10 +581,10 @@ def main() -> None:
         if not pool:
             log(f"[{ts.inst}] {name}: no ocean to sample, no sea")
             continue
-        # The open sea's colour: OPEN_SEA, not the art's (Blizzard paints open-sea tiles and the water along
-        # most coasts near black: the sea's texture would not show). Near a coast the tint still fades from
-        # the art's own water there to it within about a tile (NEAR).
-        deep = OPEN_SEA
+        # The sea's colour, one all over: the art's water where the coast tiles meet the sea (the median of
+        # their sides facing it, after the tint), so the sea and every coast meet without a seam or a halo.
+        coastal = [c for sides in edges.values() for segs in sides.values() for c in segs if c] or opens
+        deep = tuple(sorted(c[k] for c in coastal)[len(coastal) // 2] for k in range(3))
         log(f"[{ts.inst}] {name}: {len(drawn)} tiles drawn, {len(sea)} open sea; {len(pool)} water samples; "
             f"open sea {tuple(round(v * 255) for v in deep)}")
         t1 = time.time()

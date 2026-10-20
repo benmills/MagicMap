@@ -169,7 +169,7 @@ function drawSea(drawn) {
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "multiply";
   const [c0, r0, c1, r1] = sea.rect, [x0, y0] = toScreen(c0, r0), [x1, y1] = toScreen(c1, r1);
-  const outside = new Path2D(); outside.rect(0, 0, W, H); outside.rect(x0, y0, x1 - x0, y1 - y0);
+  const outside = new Path2D(); outside.rect(0, 0, W, H); outside.rect(x0 + 1, y0 + 1, x1 - x0 - 2, y1 - y0 - 2); // (overlapping the map's edge by a pixel: no seam)
   ctx.fillStyle = rgb(sea.far); ctx.fill(outside, "evenodd");
   if (sea.tint.naturalWidth) { ctx.imageSmoothingEnabled = true; ctx.drawImage(sea.tint, x0, y0, x1 - x0, y1 - y0); }
   ctx.globalCompositeOperation = "source-over";
