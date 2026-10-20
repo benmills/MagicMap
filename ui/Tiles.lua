@@ -30,6 +30,15 @@ local function Maker(layer, sub)
 	return function(c) return Unsnapped(c:CreateTexture(nil, layer, nil, sub)) end
 end
 local SeaTex, MacroTex, ArtTex = Maker("BACKGROUND", 0), Maker("BACKGROUND", 1), Maker("ARTWORK", 0)
+local TintTex = Maker("BORDER", 0)
+
+-- The sea's colour: its water textures are grey (mean gain), coloured by the tint map with blend MOD
+-- (BORDER: over the sea, under the tiles' art, which stays as it is).
+local function MakeTint(c)
+	local t = TintTex(c)
+	t:SetBlendMode("MOD")
+	return t
+end
 
 local function MakeCell(c)
 	local t = SeaTex(c)
@@ -75,7 +84,17 @@ local function Cell(c, t, sea, zoom, col, row, kept)
 	t.e = c.epoch
 end
 
-local function Sea(c, inst, zoom, sea, c0, r0, c1, r1)
+-- What lies past the tint's rect: its border colour (the four sides around it).
+local function Far(c, zoom, far, a0, b0, a1, b1)
+	if a1 <= a0 or b1 <= b0 then return end
+	local f = Get(c, "tint", "tex", MakeTint)
+	f.path = nil
+	f:SetColorTexture(far[1], far[2], far[3], 1)
+	Rect(f, c, zoom, a0, b0, a1, b1)
+end
+
+-- own: the map's own sea (its tint map lines up with it); else another's water, its far colour alone.
+local function Sea(c, inst, zoom, sea, own, c0, r0, c1, r1)
 	if zoom < CELLS_MIN_PX then
 		local t = Get(c, "fill", "tex", SeaTex)
 		Texture(t, sea.textures[1], "REPEAT")
@@ -109,6 +128,24 @@ local function Sea(c, inst, zoom, sea, c0, r0, c1, r1)
 	local urx, ury = MacroUV(c1, r0)
 	local lrx, lry = MacroUV(c1, r1)
 	m:SetTexCoord(ulx, uly, llx, lly, urx, ury, lrx, lry)
+
+	-- The tint over its rect (the part in the layout's: no offset reaches past it), its border colour
+	-- on the four sides around it.
+	local far = sea.far
+	if not own then return Far(c, zoom, far, c0, r0, c1, r1) end
+	local tc0, tr0, tc1, tr1 = sea.rect[1], sea.rect[2], sea.rect[3], sea.rect[4]
+	local a0, b0, a1, b1 = math.max(c0, tc0), math.max(r0, tr0), math.min(c1, tc1), math.min(r1, tr1)
+	if a1 > a0 and b1 > b0 then
+		local t = Get(c, "tint", "tex", MakeTint)
+		Texture(t, sea.tint, "CLAMP")
+		Rect(t, c, zoom, a0, b0, a1, b1)
+		local sw, sh = tc1 - tc0, tr1 - tr0
+		t:SetTexCoord((a0 - tc0) / sw, (a1 - tc0) / sw, (b0 - tr0) / sh, (b1 - tr0) / sh) -- /: never 0 (a sea rect has area: gen_sea.py)
+	end
+	Far(c, zoom, far, c0, r0, c1, math.min(r1, tr0))              -- above
+	Far(c, zoom, far, c0, math.max(r0, tr1), c1, r1)              -- below
+	Far(c, zoom, far, c0, math.max(r0, tr0), math.min(c1, tc0), math.min(r1, tr1)) -- left
+	Far(c, zoom, far, math.max(c0, tc1), math.max(r0, tr0), c1, math.min(r1, tr1)) -- right
 end
 
 -- The tiles drawn over the layout: what the canvas showed kept (Engine.Keep), then the rest.
@@ -143,7 +180,8 @@ local function Tiles(c, inst, zoom, c0, r0, c1, r1)
 end
 
 UI.Tiles = Engine.Layer("tiles", 1, function(c, inst, zoom, c0, r0, c1, r1)
-	local sea = Atlas.Sea(inst) or Atlas.Sea(0) -- a map with no sea of its own: Eastern Kingdoms' water, not black
-	if sea then Sea(c, inst, zoom, sea, c0, r0, c1, r1) end
+	local own = Atlas.Sea(inst)
+	local sea = own or Atlas.Sea(0) -- a map with no sea of its own: Eastern Kingdoms' water, not black
+	if sea then Sea(c, inst, zoom, sea, own ~= nil and own ~= false, c0, r0, c1, r1) end
 	Tiles(c, inst, zoom, c0, r0, c1, r1)
 end)

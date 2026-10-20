@@ -23,8 +23,8 @@ const SEA_STYLE = {
   macro: 2.7,       // tiles per repeat of the second layer
   macroAlpha: 0.35,
   variants: true,   // false: variant 0 in every cell (to see the repetition the variants hide)
-  // Colour-matched tiles (the addon's gear option, off by default): the tile's tint, the coast fade
-  // and the sea's tint map. Off: the art plain, the sea its own water texture (no colour data).
+  // Colour-matched tiles (dropped from the addon): the tile's tint and the coast fade. Off: the art
+  // plain. The sea's tint map (its colour: the water textures are grey) is drawn either way.
   tint: false,
   feather: 0.15,    // tiles: the coast's fade; gen_sea.py FEATHER = 0.15
 };
@@ -167,7 +167,6 @@ function drawSea(drawn) {
   const macro = oceanPattern(0, px * s.macro, s.macro, true, [0.37, 0.61]);
   if (macro) { ctx.globalAlpha = s.detail * s.macroAlpha; ctx.fillStyle = macro; ctx.fillRect(0, 0, W, H); }
   ctx.globalAlpha = 1;
-  if (!s.tint) return;
   ctx.globalCompositeOperation = "multiply";
   const [c0, r0, c1, r1] = sea.rect, [x0, y0] = toScreen(c0, r0), [x1, y1] = toScreen(c1, r1);
   const outside = new Path2D(); outside.rect(0, 0, W, H); outside.rect(x0, y0, x1 - x0, y1 - y0);
