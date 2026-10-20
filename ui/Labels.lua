@@ -35,9 +35,9 @@ end
 -- A name's font flags at its size: an outline where the shadow alone reads thin.
 local function Flags(size) return size <= OUTLINE_MAX and "OUTLINE" or "" end
 
--- A name's size on screen: k * its land's side (tiles) * zoom, clamped, in half points.
+-- A name's size on screen: k * its land's side (tiles) * zoom, clamped, in whole points (fewer SetFonts as the zoom moves).
 local function SizeAt(l, k, min, max, zoom)
-	return math.floor(math.max(min, math.min(max, k * (l.side or 0) * zoom)) * 2 + 0.5) / 2
+	return math.floor(math.max(min, math.min(max, k * (l.side or 0) * zoom)) + 0.5)
 end
 
 -- Per map, its names as the spike has them: zones and subzones (a town that is one included), each
@@ -124,21 +124,20 @@ local function Show(c, fs, l, dy, shown)
 	end
 end
 
--- A zone name's half width (padded) and height at its size, measured once per size on a font string of
--- ours never shown, in the face and size it's drawn in (every zone's box is placed, few drawn).
+-- A zone name's half width (padded) and height at its size: measured once, at REF pt in its face on a
+-- font string of ours never shown (every zone's box is placed, few drawn), then scaled (a face's
+-- width and height go with its size).
+local REF = 20
 local ruler = CreateFrame("Frame")
 ruler:Hide()
 ruler = ruler:CreateFontString()
+ruler:SetFont(TITLE, REF, "")
 local function Measure(l, size)
-	local m = l.measured and l.measured[size]
-	if not m then
-		ruler:SetFont(TITLE, size, Flags(size))
+	if not l.w then
 		ruler:SetText(l.text)
-		m = { ruler:GetStringWidth() / 2 + PAD_X, ruler:GetStringHeight() }
-		l.measured = l.measured or {}
-		l.measured[size] = m
+		l.w, l.h = ruler:GetStringWidth() / REF, ruler:GetStringHeight() / REF
 	end
-	return m[1], m[2]
+	return l.w * size + PAD_X, l.h * size
 end
 
 UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)

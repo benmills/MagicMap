@@ -177,7 +177,8 @@ T.Print("P3b: Orgrimmar big, %.0f s: %.1f KB/s at the client's prices, %d region
 	.. " %.0f s: %.1f KB/s; the drag's frame p95 %.2f ms, p99 %.2f", first.secs, first.kbs, first.made, first.garbage,
 	again.kbs, again.layouts, each, walk.kbs, secs, all, drag.p95, drag.p99)
 assert(first.garbage <= 50 and again.kbs <= 50 and walk.kbs <= 50)
-assert(first.made <= 7800 and first.kbs <= 210, "the first pass's pools grew") -- (7311, 158.7 KB/s: M1b review; 7352, 164.7: M3 wave 1;
+assert(first.made <= 7800 and first.kbs <= 215, "the first pass's pools grew") -- (210.5: labels sized by zoom, each
+-- font string SetFont when its size changes (204.8 before); 7311, 158.7 KB/s: M1b review; 7352, 164.7: M3 wave 1;
 -- 165.0: M3 review r1, a Focus a zoom more for Focus.moving; 7637, 172.7: M4 wave 1, the places' pins, 205 on
 -- Kalimdor: 7194, 156.9 with them off; 7646, 204.8: M4 review r1, the town services gathered as the blips layer
 -- asks, Atlas.SpawnsIn's index of Kalimdor's NPCs and their entries, kept: 172.7 without)
