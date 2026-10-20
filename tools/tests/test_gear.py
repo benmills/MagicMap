@@ -13,7 +13,7 @@ from sim import TEST_UI
 
 LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Quests": "quests", "Quest areas": "questAreas",
           "Quests to pick up": "offers", "Minimap blips": "blips", "Rares you've seen": "rares"}
-SETTINGS = [("title", "Map"), ("checkbox", "Colour-matched tiles"), ("divider", None), ("title", "Minimap"),
+SETTINGS = [("title", "Map"), ("checkbox", "Colour-matched tiles"), ("checkbox", "Follow you"), ("divider", None), ("title", "Minimap"),
             ("checkbox", "Minimap button"), ("button", "Reset position"), ("button", "Use Blizzard's minimap"),
             ("divider", None), ("button", "Advanced")]
 ADVANCED = [("title", "Diagnostics"), ("checkbox", "Debug info in the title"), ("checkbox", "Indoor maps"),

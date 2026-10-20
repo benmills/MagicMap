@@ -15,6 +15,8 @@ local Command = ns.Game.Command
 local DEFAULTS = { layers = {}, minimap = "ours", shown = true, zoom = 384, follow = true, debug = false, button = true,
 	tint = true }
 
+UI.DefaultZoom = DEFAULTS.zoom -- the zoom the reset button goes back to (ui/Controls.lua)
+
 local saved = {} -- until loaded: the defaults
 for k, v in pairs(DEFAULTS) do saved[k] = v end
 UI.saved = saved

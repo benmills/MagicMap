@@ -223,6 +223,8 @@ local SETTINGS = {
 	{ "Map", {
 		{ "Colour-matched tiles", on = function() return UI.saved.tint end, run = function() UI.Tint() end,
 			tip = "Evens out the minimap art's colours where tiles meet, and fades the coasts into the sea." },
+		{ "Follow you", on = function() return UI.Camera.follow end, run = function() UI.Motion.SetFollow(not UI.Camera.follow, true) end,
+			tip = "Keeps the map centred on you. Drag the map to look about; it glides back to you when left alone." },
 	} },
 	{ "Minimap", {
 		{ "Minimap button", on = function() return UI.saved.button end, run = function() UI.Icon() end,
