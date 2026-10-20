@@ -20,6 +20,7 @@ apply step and never writes it. It holds only what Game acts on:
 
 - `minimap` is `"blizzard"` (Game releases everything) or `"ours"`.
 - `renderer` is `"ours"`, `"ours+art"` or `"blizzard"` (the whole Minimap in the window, with no sensor).
+  Removed by ADR 0008 (below).
 - `inst` is the map shown, which scopes Game's per-map reads.
 - `window` holds `shown`, `big`, `place` (screen rect), `still`, `strata`, `level` and `homeAlpha`.
   The sensor waits for `still`, and Escape is caught while `big`.
@@ -82,6 +83,8 @@ command and hooked kinds, and everything inside UI (camera, layout, menus, chrom
 - OPEN addition (v1 plan M4.5, M4.6): command kind `"run"` { line }, `/mm <line>` as if typed
   (game/commands/run.lua: Game.Run), for the gear's Advanced rows (GearMenu.lua:28). The one kind that
   isn't idempotent: each one runs the line once, as a click on the spike's row did.
+- Change (ADR 0008, interiors): `renderer` removed. UI draws the indoor pictures itself and Game had
+  already stopped reading the field, so nothing acts on it and `v` stays 1.
 
 ## Revisit if
 

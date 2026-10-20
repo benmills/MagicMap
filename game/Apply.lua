@@ -6,7 +6,7 @@
 local _, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
 
-local SAFE = { v = 1, frame = 0, minimap = "blizzard", renderer = "ours", inst = 0, -- types/view.lua SAFE_VIEW
+local SAFE = { v = 1, frame = 0, minimap = "blizzard", inst = 0, -- types/view.lua SAFE_VIEW
 	window = { shown = false, big = false, still = false, strata = "LOW", level = 0, homeAlpha = 1 },
 	layers = {}, sockets = {}, button = true }
 

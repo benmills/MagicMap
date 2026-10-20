@@ -302,7 +302,7 @@ def test_gear_tracking_advanced():
     adv = {e.text: e for e in sub(sub(root, "Settings"), "Advanced")["items"].values() if e.text}
     assert tip(L, adv["Debug info in the title"]) == [
         ("Debug info in the title",) + WHITE, ("Tile, zoom and layout timings next to the zone name.",) + GOLD]
-    assert tip(L, adv["Indoor maps"])[1][0].startswith("Says in chat which map you're on indoors")
+    assert tip(L, adv["Indoor maps"])[1][0].startswith("Says in chat which building and room you're in")
     assert tip(L, adv["Record 10 seconds"])[1][0] == "Times every part of MagicMap while you play, then prints a summary."
     for text in ("Debug info in the title", "Indoor maps", "Record 10 seconds"):
         row = adv[text]

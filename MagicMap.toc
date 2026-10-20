@@ -115,7 +115,7 @@ ui\Controls.lua
 ui\Title.lua
 ui\BigMap.lua
 ui\Tiles.lua
-ui\IndoorArt.lua
+ui\Interiors.lua
 ui\Borders.lua
 ui\Labels.lua
 ui\Pins.lua

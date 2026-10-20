@@ -1,12 +1,11 @@
 -- What View tells Game about the map's ground and other addons' pins, each frame from ui/View.lua's step:
--- the renderer (ui/IndoorArt.lua's pick), the Minimap's rim parts (types/view.lua MM.ViewChrome: while ours
--- draws, its arrows and quest rings stand down for our edge arrow and areas; under "blizzard" or hidden,
--- left as Blizzard has them), the layers Game acts on (ours drawn: Blizzard's tracking of the same off,
--- MinimapTakeover.lua:236; and every addon with world pins, Model.addons, whose layer is on: the gear's
--- Other addons, ui/Menus.lua, on until turned off, as the spike's layers started, AddonPins.lua:113),
--- and the sockets (MM.ViewSockets): frames of ours Game puts other addons' pins on, while the window shows
--- our renderer. The world socket: a canvas over the map's layers, under our pins, tile (col, row) of the
--- map shown at (col * zoom, -row * zoom) from its TOPLEFT. Its zoom is where the view rests: the camera's,
+-- the Minimap's rim parts (types/view.lua MM.ViewChrome: while the window shows, its arrows and quest rings
+-- stand down for our edge arrow and areas; hidden, left as Blizzard has them), the layers Game acts on (ours
+-- drawn: Blizzard's tracking of the same off, MinimapTakeover.lua:236; and every addon with world pins,
+-- Model.addons, whose layer is on: the gear's Other addons, ui/Menus.lua, on until turned off, as the spike's
+-- layers started, AddonPins.lua:113), and the sockets (MM.ViewSockets): frames of ours Game puts other
+-- addons' pins on, while the window shows. The world socket: a canvas over the map's layers, under our pins,
+-- tile (col, row) of the map shown at (col * zoom, -row * zoom) from its TOPLEFT. Its zoom is where the view rests: the camera's,
 -- once it holds still a frame (not through a chase, a flight or the window being sized), so Game re-places
 -- each pin once a zoom (a job: its holder see-through until done), not every frame of it. Meanwhile the
 -- pins would sit at the old zoom: the canvas is see-through until then. Never scaled (a SetScale costs the
@@ -41,15 +40,14 @@ Sockets.world, Sockets.minimap = world, mini
 local held, placed, x, y = nil, true, nil, nil -- the zoom last frame; as applied
 local ax, ay -- the minimap socket's, as applied
 local keys = {} -- an addon's key -> its layer's
--- Each frame (ui/View.lua's step): View's renderer, chrome, the layers Game acts on and the sockets. True:
+-- Each frame (ui/View.lua's step): View's chrome, the layers Game acts on and the sockets. True:
 -- any changed, a socket's zoom or map with it (set in place: Game re-places its pins on them).
 function Sockets.Update(v)
 	local window = v.window
-	local renderer = UI.IndoorArt.Renderer(window)
-	local ours = window.shown and renderer ~= "blizzard"
+	local ours = window.shown
 	local chrome = ours and CHROME or nil
-	local changed = renderer ~= v.renderer or chrome ~= v.chrome
-	v.renderer, v.chrome = renderer, chrome
+	local changed = chrome ~= v.chrome
+	v.chrome = chrome
 	local layers = v.layers
 	for k, layer in pairs(GAME) do
 		local on = Engine.LayerOn(layer) or nil

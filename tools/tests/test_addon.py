@@ -129,7 +129,7 @@ def test_open_fields_nil():
     got = L.eval("""function(ns)
         local UI, Model, got = ns.UI, ns.Model, {}
         local w = UI.View().window
-        local view = { v = 1, frame = 0, minimap = "ours", renderer = "ours", inst = 0, layers = { blips = true },
+        local view = { v = 1, frame = 0, minimap = "ours", inst = 0, layers = { blips = true },
             sockets = {}, button = true, window = { shown = true, big = false, place = w.place, still = true,
             strata = w.strata, level = w.level, homeAlpha = 1 } }
         got.View, got.Observe = UI.View, Model.Observe

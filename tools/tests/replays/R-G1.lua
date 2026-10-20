@@ -4,8 +4,9 @@
 -- obs.minimap.indoors from the Minimap's view radius (not IsIndoors(): Undercity and Ironforge are
 -- mountable; Orgrimmar too, no exception), and obs.interior, the building and room you're in where
 -- some building's floor mask covers you (game/parts/Interior.lua): no world map art, no whole Minimap.
--- Whatever renderer UI picks, Game keeps the sensor: unseen, its blips read. Each change of either
--- leaves one "indoor" trace; /mm indoor prints it.
+-- Game keeps the sensor: unseen, its blips read. Each change of either leaves one "indoor" trace; /mm
+-- indoor prints it. UI: in a building, its rooms' pictures over the tiles veiled (ui/Interiors.lua);
+-- elsewhere the layer draws nothing.
 local T = ...
 local sim, ns = T.Shown()
 local Game, Model = ns.Game, ns.Model
@@ -38,9 +39,13 @@ for i, p in ipairs(PLACES) do
 	local n = #traces
 	sim.Run(3) -- (past the 2 s a building is kept with no mask under you)
 	local o, m = Model.interior, Game.minimap
-	T.Print("G1: %s: indoors %s, building %s, room %s; renderer %s; %d trace(s)", what, tostring(Model.minimap.indoors),
-		o and tostring(o.building) or "none", o and tostring(o.room) or "-", ns.UI.View().renderer, #traces - n)
+	local layer = ns.UI.Interiors
+	local c = layer.on and layer.front
+	local pics = c and c.alpha == 1 and c.pools.pic and c.pools.pic.n or 0
+	T.Print("G1: %s: indoors %s, building %s, room %s; %d picture(s) drawn; %d trace(s)", what,
+		tostring(Model.minimap.indoors), o and tostring(o.building) or "none", o and tostring(o.room) or "-", pics, #traces - n)
 	assert(Model.minimap.indoors == p[8] and (o and o.room or false) == p[9], what)
+	assert((pics > 0) == (p[9] ~= false), what .. ": the pictures")
 	assert(m.engaged and m.sensor and Minimap:GetAlpha() == 0 and not C_Minimap.GetDrawGroundTextures(), what .. ": the sensor's")
 	local changes = (i > 1 and PLACES[i - 1][8] ~= p[8] and 1 or 0) + ((i > 1 and PLACES[i - 1][9] or false) ~= p[9] and 1 or 0)
 	assert(#traces - n == changes or i == 1, what .. ": one trace a change")

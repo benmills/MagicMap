@@ -21,7 +21,7 @@ for k, v in pairs(DEFAULTS) do saved[k] = v end
 UI.saved = saved
 local window = { shown = false, big = false, still = false, strata = "LOW", level = 0, homeAlpha = 1 }
 local camera = { cx = 0, cy = 0, zoom = 0, w = 0, h = 0 } -- the map's, each frame (telemetry's motion ring, shot stamps)
-local view = { v = 1, frame = 0, minimap = "ours", renderer = "ours", inst = 0, window = window,
+local view = { v = 1, frame = 0, minimap = "ours", inst = 0, window = window,
 	layers = {}, sockets = {}, button = true, camera = camera }
 local focus = { inst = 0, shown = false, follow = true }
 -- The layers Model reads (Focus.off): turned off, its target skips that one (or a quest's area), a seen rare

@@ -286,7 +286,7 @@ local ADVANCED = {
 		{ "Debug info in the title", on = function() return UI.saved.debug end, run = Slash("debug"),
 			tip = "Tile, zoom and layout timings next to the zone name." },
 		{ "Indoor maps", on = function() return Model.minimap.indoorDebug end, run = Slash("indoor"),
-			tip = "Says in chat which map you're on indoors, whether it has art, and what the map shows; outlines the art." },
+			tip = "Says in chat which building and room you're in, each time either changes." },
 	} },
 	{ "Grouping", {
 		{ "Distance", choices = { { "16 px", 16 }, { "20 px", 20 }, { "24 px", 24 }, { "28 px", 28 }, { "32 px", 32 }, { "40 px", 40 } },

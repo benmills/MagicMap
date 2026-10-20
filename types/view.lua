@@ -19,6 +19,7 @@
 --   * Commands: Game.Command(cmd); the kinds below, each idempotent
 --   * HookedInput: what Game's hooks catch for UI, via Observation.hooked
 -- OPEN: new optional View fields, new command kinds, new hooked kinds.
+-- Removed (ADR 0008): `renderer`, which Game had stopped reading, so `v` stays 1.
 
 ---@alias MM.ViewVersion 1
 
@@ -26,17 +27,10 @@
 ---changed); "ours": Game takes it while the window is shown and nothing blocks it.
 ---@alias MM.MinimapMode "blizzard"|"ours"
 
----What draws the ground in our window while the Minimap is ours.
----"ours": our tiles, the Minimap a hidden sensor (blips) under the window.
----"ours+art": the same, UI drawing the indoor art (Observation.indoorArt) over the tiles.
----"blizzard": the Minimap whole inside the window (its indoor floor plan); no sensor.
----@alias MM.Renderer "ours"|"ours+art"|"blizzard"
-
 ---@class MM.View
 ---@field v MM.ViewVersion
 ---@field frame MM.Frame         when UI last changed it
 ---@field minimap MM.MinimapMode
----@field renderer MM.Renderer
 ---@field inst MM.Inst           the map shown: Game scopes per-map reads (offers, places, addon pins) to it and to yours
 ---@field window MM.ViewWindow
 ---@field layers table<string, boolean> shown layers Game acts on (keys: MM.GameLayer); a missing key is off
@@ -95,7 +89,7 @@
 ---missing or failing): Blizzard's minimap, nothing borrowed, our tracking changes undone.
 ---@type MM.View
 local SAFE_VIEW = {
-	v = 1, frame = 0, minimap = "blizzard", renderer = "ours", inst = 0,
+	v = 1, frame = 0, minimap = "blizzard", inst = 0,
 	window = { shown = false, big = false, still = false, strata = "LOW", level = 0, homeAlpha = 1 },
 	layers = {}, sockets = {}, button = true,
 }

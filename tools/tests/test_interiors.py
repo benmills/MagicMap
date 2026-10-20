@@ -42,3 +42,46 @@ def test_ironforge_rooms():
     sim.Run(1.5)
     assert ns.Model.interior is False and "no building" in sim.prints[len(sim.prints)]
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_ironforge_drawn():
+    """UI's interiors layer (ui/Interiors.lua) in the Forge: Ironforge's pictures over the tiles, veiled to
+    x0.35, the Forge's on top, the lower bridge (room 90) shown, the upper (96: 60 yd above) not; under "The High
+    Seat" (its floor 2.6 yd lower) both bridges hidden and room 88 on top; out of the building, nothing drawn. Entering is within the frame budget, priced."""
+    from test_addon import boot, errors
+    from test_ground import layer
+    L, sim, ns = boot()
+    sim.Slash("/mm toggle")
+    sim.Run(3)
+    S, lay = sim.state, layer(ns, "interiors")
+    perf, whole = ns.Runtime.Perf()[0]["map: interiors"], ns.Runtime.Perf()[0]["runtime: frame"]
+    sim.player.inst, sim.player.col, sim.player.row, sim.floorPlan = 0, 33.997, 41.063, True
+
+    def at(sub, s=1):
+        sim.subzone = sub
+        sim.FireEvent("ZONE_CHANGED_INDOORS")
+        sim.Run(s)
+        c = lay.front
+        if not lay.on or not c or c.alpha == 0:
+            return None
+        b = ns.Atlas.Building(0, ns.Model.interior.building)
+        room = {}  # a picture's fid -> its room
+        for r, v in b.rooms.items():
+            for p in v.pics.values():
+                room[p[1]] = r
+        veil = S[c.pools.veil[1]]
+        pics = [S[c.pools.pic[i]] for i in range(1, c.pools.pic.n + 1)]
+        return veil.color[4], {room[p.texture] for p in pics}, {room[p.texture] for p in pics if p.sublevel == 7}
+
+    sim.Price(True)
+    perf.max = whole.max = 0
+    veil, rooms, top = at("The Great Forge")
+    sim.Price(False)
+    print(f"the Forge: {len(rooms)} rooms drawn; its layout's slowest frame {perf.max:.2f} ms, the slowest frame {whole.max:.2f}")
+    assert abs(veil - 0.65) < 1e-9 and top == {65} and {65, 88, 90} <= rooms and 96 not in rooms
+    assert perf.max <= 4.5 and whole.max <= 8
+    veil, rooms, top = at("The High Seat")
+    assert top == {88} and not rooms & {90, 96} and 65 in rooms
+    sim.player.col = 33.6
+    assert at("", 3) is None and ns.Model.interior is False
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

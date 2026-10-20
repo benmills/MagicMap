@@ -6,7 +6,7 @@ M4.1 and M4.3 hand them over (types/model.lua, types/observation.lua), drawn as 
     gear row's toggle hides its kind alone (F39, F44).
   test_group: Known("group") as the Minimap's party blips (S52): PartyRaidBlipsV2's left half, 12 px, the class's
     colour, dead grey; moved as Model's list changes; the member's tooltip, Game's, on hover; the toggle (F41).
-  test_view: View small, big, indoors (Blizzard's floor plan) and hidden: renderer, chrome, the layers
+  test_view: View small, big, indoors and hidden: chrome, the layers
     Game acts on and the sockets (the minimap one beside the world one).
   test_inspector_lines: the right-click menu's place line from the spot's cell and the explored areas (Unexplored,
     near ...: by the cell; a city's coordinates alone) and at most 2 landmarks within 900 yd, its layer on or off (F38, S62).
@@ -225,9 +225,9 @@ def test_view():
         c = view.chrome
         return c and (c.rimArrows, c.questRing)
 
-    # Small, outdoors: our renderer; Blizzard's rim stands down; the layers Game acts on; both sockets: the minimap
+    # Small, outdoors: Blizzard's rim stands down; the layers Game acts on; both sockets: the minimap
     # one at the camera's zoom every frame (tile (col, row) at (col * zoom, -row * zoom) from its TOPLEFT).
-    assert view.renderer == "ours" and chrome() == (False, False) and not view.window.big
+    assert chrome() == (False, False) and not view.window.big
     assert [view.layers[k] for k in ("blips", "flight", "quests", "pois")] == [True] * 4
     assert same(view.sockets.world, world) and same(view.sockets.minimap, mini) and not same(mini.frame, world.frame)
     assert mini.level == UI.Window.view.GetFrameLevel(UI.Window.view) + 17  # under your arrow's overlay (18)
@@ -246,21 +246,20 @@ def test_view():
     # Big: the same.
     sim.Press("M")
     sim.Run(1)
-    assert view.window.big and view.renderer == "ours" and chrome() == (False, False) and sockets(view) == (True, True)
-    # Indoors with no art: big, our terrain; small, Blizzard's whole Minimap: its rim, no sockets.
+    assert view.window.big and chrome() == (False, False) and sockets(view) == (True, True)
+    # Indoors, big and small: the same (ADR 0008: no whole Minimap in the window).
     G.Parts.minimap.indoors = True
     sim.Step()
-    assert view.renderer == "ours" and sockets(view) == (True, True)
+    assert chrome() == (False, False) and sockets(view) == (True, True)
     sim.Press("M")
     sim.Run(1)
-    assert view.renderer == "blizzard" and view.chrome is None and sockets(view) == (False, False)
-    # Outdoors again; then hidden: ours, nothing borrowed, the rim as Blizzard has it; the layers still said.
+    assert chrome() == (False, False) and sockets(view) == (True, True)
+    # Outdoors again; then hidden: nothing borrowed, the rim as Blizzard has it; the layers still said.
     G.Parts.minimap.indoors = False
     sim.Step()
-    assert view.renderer == "ours" and sockets(view) == (True, True)
     sim.Slash("/mm toggle")
     sim.Step()
-    assert not view.window.shown and view.renderer == "ours" and view.chrome is None and sockets(view) == (False, False)
+    assert not view.window.shown and view.chrome is None and sockets(view) == (False, False)
     assert view.layers.flight is True and view.layers.quests is True
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
