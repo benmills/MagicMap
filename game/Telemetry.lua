@@ -1,6 +1,6 @@
 -- Telemetry (docs/telemetry.md): sessions, errors with stacks, and marks
 -- (state + Runtime's trace ring + the motion ring + the allocation since the
--- last mark) in MagicMapAtlasDB.telemetry,
+-- last mark) in MagicMap2DB.telemetry,
 -- written to disk on /reload or logout for tools/telemetry.py.
 -- Errors come from Runtime.onError (every Wrap) and the global error handler
 -- (anything else whose stack is in our folder). An error's first occurrence
@@ -66,7 +66,7 @@ local function OurKB()
 end
 
 -- session.perf: Runtime.FrameStats() (alloc, gaps, ledger, byState with it) plus errors, errors an
--- hour, load ms, our KB at load and logout; session.bench[build]: the last /mma bench.
+-- hour, load ms, our KB at load and logout; session.bench[build]: the last /mm bench.
 local function Perf()
 	local p = Runtime.FrameStats()
 	local hours = math.max((GetTime() - (loginAt or 0)) / 3600, 1 / 60) -- at least a minute
@@ -263,7 +263,7 @@ Runtime.On("ADDON_ACTION_FORBIDDEN", "telemetry.taint", Taint)
 -- came in ANSWER_S (none taken). The M0 sessions have no shot, `shot` trace or screenshot file,
 -- and nothing there said either way.
 local ANSWER_S = 5
-local shot -- the pending /mma shot: { id, note, at = its stamp, wait = its timer }
+local shot -- the pending /mm shot: { id, note, at = its stamp, wait = its timer }
 
 local function Answer(said)
 	Runtime.Cancel(shot.wait)
@@ -293,7 +293,7 @@ end)
 
 Game.Slash("shot", "<id> [note]: a screenshot, and a mark matched to it (docs/playtest.md shot ids)", function(note)
 	local id = note:match("^%S+")
-	if not id then return Game.Print("shot: the id first (docs/playtest.md), e.g. /mma shot small-home") end
+	if not id then return Game.Print("shot: the id first (docs/playtest.md), e.g. /mm shot small-home") end
 	if shot then return Game.Print("shot " .. id .. ": not taken, " .. shot.id .. "'s still waiting on the client") end
 	local a = applied
 	shot = { id = id, note = note, at = { inst = a.inst, cx = R(a.cx, 1e4), cy = R(a.cy, 1e4), zoom = R(a.zoom, 100),

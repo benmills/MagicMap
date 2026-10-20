@@ -82,7 +82,7 @@ assert(obs.blips.sweep == s and Exact(), "kept while blind")
 sim.onStep = onStep
 Sweeps(2)
 assert(Exact(), "sensing again")
-local kept = MagicMapAtlasDB.telemetry.sessions[#MagicMapAtlasDB.telemetry.sessions].kept
+local kept = MagicMap2DB.telemetry.sessions[#MagicMap2DB.telemetry.sessions].kept
 local said = {}
 for _, e in ipairs(kept) do
 	if e.k == "sensor" then said[#said + 1] = e.d.e .. " " .. e.d.why end
@@ -92,7 +92,7 @@ assert(#said == 1 and said[1] == "blind rotated" and bad == 0)
 
 -- Released after all that: what was there before the takeover (the sim's: ground on, rotation not ignored).
 C_TooltipInfo.GetMinimapMouseover = probe
-sim.Slash("/mma minimap blizzard")
+sim.Slash("/mm minimap blizzard")
 sim.Step()
 assert(not m.engaged and C_Minimap.GetDrawGroundTextures() and not C_Minimap.IsRotateMinimapIgnored()
 	and Minimap:GetParent() == MinimapCluster and Minimap:GetWidth() == 140 and Minimap:GetZoom() == 0, "released")

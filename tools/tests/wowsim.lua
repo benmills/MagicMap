@@ -58,7 +58,7 @@ end
 -- probe: one Minimap mouseover read (a 400-probe sweep in 2 frames of 0.5 ms);
 -- shown, shownLine: each region (line) a frame's Show makes visible (the swaps' ms over
 -- their live regions); Show, Hide, SetScale, SetAlpha, SetPoint: a frame's own call, per
--- region under it, hidden ones too (/mma bench regions, canvases of 1000 clear Lines).
+-- region under it, hidden ones too (/mm bench regions, canvases of 1000 clear Lines).
 -- One widget call's own cost is the counted clock's (Sim.Counted: 3 us, above the bench's
 -- 0.22-1.7 us for SetPoint, SetStartPoint, Create*, SetParent).
 Sim.PRICES = { probe = 0.002, shown = 0.02, shownLine = 0.035,
@@ -1002,7 +1002,7 @@ function Sim.Hover(frame)
 	Sim.FireScript(frame, "OnLeave", false)
 end
 
--- A typed slash command line, e.g. Sim.Slash("/mma perf load"): runs the
+-- A typed slash command line, e.g. Sim.Slash("/mm perf load"): runs the
 -- SlashCmdList entry whose SLASH_<KEY><n> matches, as the chat box does.
 function Sim.Slash(line)
 	local cmd, msg = line:match("^(/%S+)%s*(.-)$")
@@ -1417,7 +1417,7 @@ local function toWorld(col, row) return (32 - row) * TILE, (32 - col) * TILE end
 
 Enum = { UIMapType = { Cosmic = 0, World = 1, Continent = 2, Zone = 3, Dungeon = 4, Micro = 5, Orphan = 6 } }
 -- Addon memory (every client) and the addon profiler (Retail-engine clients).
-Sim.addons = { { "MagicMapAtlas", 2400 }, { "Questie", 48000 }, { "Details", 9000 } }
+Sim.addons = { { "MagicMap", 2400 }, { "Questie", 48000 }, { "Details", 9000 } }
 function UpdateAddOnMemoryUsage() end
 function GetNumAddOns() return #Sim.addons end
 function GetAddOnInfo(i) return Sim.addons[i] and Sim.addons[i][1] end
@@ -1448,7 +1448,7 @@ C_AddOnProfiler = {
 	GetAddOnMetric = function(name, metric) assert(type(name) == "string" and metric, "GetAddOnMetric: name, metric") return 0.05 end,
 	GetOverallMetric = function(metric) return 0.4 end,
 	GetTopKAddOnsForMetric = function(metric, k)
-		return { { addOnName = "Questie", value = 0.2 }, { addOnName = "MagicMapAtlas", value = 0.05 } }
+		return { { addOnName = "Questie", value = 0.2 }, { addOnName = "MagicMap", value = 0.05 } }
 	end,
 }
 if C_Minimap then Enum.MinimapTrackingFilter = { Unfiltered = 0, TaxiNode = 8, Mailbox = 64, POI = 8192, QuestPOIs = 65536 } end

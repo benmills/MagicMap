@@ -11,7 +11,7 @@
 --     there to drag) and wheels the Minimap's zoom, both above the map's layers, our arrow under them.
 --     Game.Whole(nil): out of it (game/Minimap.lua puts the sensor's settings back).
 --   Each change of what's decided (the map you're on, indoors, its art, the renderer) is traced
---   ("indoor") while engaged, and printed with /mma indoor (saved: SavedGame.indoorDebug), which also
+--   ("indoor") while engaged, and printed with /mm indoor (saved: SavedGame.indoorDebug), which also
 --   has UI outline the art (obs.indoorArt.outline).
 
 local _, ns = ...
@@ -90,7 +90,7 @@ end
 -- What's decided, traced and noted ---------------------------------------------------------
 
 local map, indoors, art, shows -- as last traced
-local due -- /mma indoor turned on: noted at the next apply
+local due -- /mm indoor turned on: noted at the next apply
 
 -- MinimapTakeover's decision, as the spike printed it (IndoorArt.lua:163-176).
 local function Note(view)
@@ -120,6 +120,6 @@ Game.Slash("indoor", "report what's decided indoors as it changes (the art outli
 	local s = Game.saved
 	s.indoorDebug = not s.indoorDebug or nil
 	due = s.indoorDebug
-	Game.Say(s.indoorDebug and "indoor maps: reporting each change (the art outlined in pink); /mma indoor to stop"
+	Game.Say(s.indoorDebug and "indoor maps: reporting each change (the art outlined in pink); /mm indoor to stop"
 		or "indoor maps: quiet")
 end)

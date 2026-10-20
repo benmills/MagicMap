@@ -18,7 +18,7 @@ into a histogram (0.05 ms buckets up to 20 ms), so p50/p95/p99 are a bucket's to
 Frames inside a *grace* are kept apart (their slowest is reported, not counted):
 5 s after each PLAYER_ENTERING_WORLD (`login` for login and /reload, `loading` for
 a loading screen), 2 s after the first map open (`map`), the memory read's collect
-(`gc`) and `/mma bench` (`bench`). A frame inside two counts to the newest only (the map
+(`gc`) and `/mm bench` (`bench`). A frame inside two counts to the newest only (the map
 opened during login's: `map`), which keeps its slowest frame (`grace`) and that frame's
 slowest call (`graceTop`). Nothing inside a grace counts against the budgets: no
 overruns, gaps, allocation or ledger frames.
@@ -30,7 +30,7 @@ overruns, gaps, allocation or ledger frames.
 | frame cost max, outside graces | ≤ 8 ms | half a 60 fps frame: at worst one dropped frame, never a hitch you notice. Each frame over it is an *overrun*. |
 | one call (step, handler, timer) | ≤ 2 ms | `CALL_MS`: a step taking more starves the rest; work that size belongs in a Job. A job's resume: ≤ 2× its own budget. |
 | first map open, slowest frame | ≤ 50 ms | first-use Atlas indexes (Labels are offline since M1.1: the sim's first open is 9 ms, its slowest call `map: borders` at 4 ms); ~3 frames, once a session. |
-| load (Data + Atlas at login) | ≤ 250 ms | the sim measures 84–110 ms (`/mma perf load`, `boot.loadMs`); the client also reads the files from disk, so ~2.5× room. |
+| load (Data + Atlas at login) | ≤ 250 ms | the sim measures 84–110 ms (`/mm perf load`, `boot.loadMs`); the client also reads the files from disk, so ~2.5× room. |
 | our Lua memory, after a full collect (at logout) | ≤ 64 MB | ours alone (`GetAddOnMemoryUsage`) after `collectgarbage("collect")`, so garbage isn't counted (the play-test's 70.8 MB held ~24 MB of it: docs/v1-plan.md §2). Read at logout (`ourKB`) and 10 s after login (`ourKBLoad`: Data + Atlas, ~40 MB expected; ~39 MB in the sim since M1.4's border levels and subzone borders made Data/Borders.lua 927 KB, +1.7 MB of heap). Over it: a leak (`ourKB` − `ourKBLoad`, and `perf.alloc`) or data growth (`ourKBLoad`). |
 | Lua allocation, outside graces | ≤ 50 KB/s | garbage is paid for later, by the collector, in someone's frame. A standing frame should make next to none, but every sensor probe makes ~0.35 KB of the client's garbage, answer or not (docs/evidence/perf-m0.md: `game.part blips` 233-297 KB/s in game at the M0 gate), so the sensor probes little (M1.5b: the default window 14 KB/s priced over standing, walking and a door, R-P3 walking among 10 blips 64 B a frame; in game 27-30 KB/s in sessions #8 and #9, before e60ff51's door fix). Without the sensor, ~40 B a frame standing or walking; more during a sustained fling (the ground a layout adds, its end and swap traces; a layer with nothing to draw, blips or rares out of zoom, isn't laid out again on a pan), more while the first layouts on a canvas create its regions (one frame of several MB). A layout's start was a job of its own (a coroutine, a closure, a handle, a start trace of 11 fields): 2.8 KB in the sim, but 8.6-10.3 KB in the client (sessions #8 and #9: `map: draw` 6-22 KB/s, over 2 layouts a second), so the budget failed (56.7 and 108.7 KB/s, with the sensor's 30). Since round 2 of the M1 review each layer lays out on one worker (`Runtime.Worker`: its coroutine made once), the start its own call (`map: layout`, so `perf.alloc` names it) with a 5-field trace: 0.37 KB a start in the sim (its trace; the 0.83 measured before M1.12 counted the sim's xpcall shim, which makes a table for more than 4 arguments: the client's doesn't). A whole layout is its three traces (start, end, swap: ~1.1 KB) and, since M1.12, nothing else once its canvas holds what it needs (`Engine.Keep`: R-P3b, Orgrimmar at the client's prices, 12.9 KB/s over views seen before (14.2 at M1.12), 20.3 walking through its doors; 83.5 and 131.6 KB/s in the user's sessions #13 and #14). The first time a city's big window zooms out, its canvases make their regions (~7,000, ~3.6 MB, kept in their pools, made once a session), which the client's heap reading counts as allocation: a short session can read over 50 KB/s for it (R-P3b's 76 s: ~64 KB/s, the second pass over the same views 13), ~6 KB/s spread over a 10-minute one (the budget can't tell pool growth from garbage). The client's price is to be re-measured at the final play-test (`map: layout` in `perf.alloc`: about one trace a start). The budget is the session's average. `kbFrameP95` (KB a frame) is reported beside it, to find the frames. |
 | errors per hour | 0 | every error is a bug; the counts make a regression obvious. |
@@ -110,13 +110,13 @@ zoom (the spike's, Layers.lua:636-664): at the continent's zoom the draw moves e
 over the Eastern Kingdoms (130: test_quest_areas test_offers_priced) `map: draw` passes CALL_MS there
 (2.1 ms; 2.3 with 10 a zone), ~0.2 ms in the client; CI holds it to 2.5 ms, so a regression in moving pins
 shows. The client's quest areas (ui/Areas.lua's QuestPOIFrames) are priced as any widget call until the
-final session's bench says otherwise (`/mma bench regions`: `poi.DrawBlob`, `poi.draw` a frame of your map's
+final session's bench says otherwise (`/mm bench regions`: `poi.DrawBlob`, `poi.draw` a frame of your map's
 quests, `poi.UpdateMouseOverTooltip`, `frame.poi`): a frame is drawn as it's laid out and again the next frame,
 so a zoom draws each quest twice, but a count ticking draws none (only a quest's id, the game's areas'
 version, the frame's style or size do), and the hover's hit test runs only when the cursor, the camera or a
 drawing changes.
 
-What the bench must still confirm (`/mma bench regions`, the final session): that re-anchoring a shown
+What the bench must still confirm (`/mm bench regions`, the final session): that re-anchoring a shown
 canvas's regions at alpha 0 costs what a SetPoint costs, not the 20-50 µs a Show paid. It times Show
 after the regions moved (at alpha 1 and at alpha 0), SetAlpha(1) after they moved while shown at alpha
 0, and masked textures shown after moving, its lines coloured as a border's (clear lines would read
@@ -143,8 +143,8 @@ crossfade) in a job (0.22 µs a park, 0.70 an unpark), or extend the front canva
 
 | Failure | Guarantee | Enforced by | Observed |
 |---|---|---|---|
-| a step errors | the frame's other steps, timers and jobs still run; recorded once per key with its stack; after 10 failing calls in a row it runs once a second until one succeeds; a stack is walked for a name's first failure, then at most once per 10 s | `Wrap`: `xpcall` + its catch (stack, `StackDue`), `Fail`, strikes in `Finish` | `errors[key]` (count, stack on first), an `error` mark with the trace, `throttled` trace, `perf.errors`, `errorsPerHour`; `/mma errors` |
-| a step overruns its budget | it finishes (Lua can't be preempted); counted per name outside graces; the frame is counted as an overrun if over 8 ms | `Done` (per call), `Count` (per frame) | `slow` trace (1st, 10th, every 100th), `spike` trace naming the frame's slowest call, `perf.overruns`, `perf.slow`, `perf.max`; `/mma perf load` |
+| a step errors | the frame's other steps, timers and jobs still run; recorded once per key with its stack; after 10 failing calls in a row it runs once a second until one succeeds; a stack is walked for a name's first failure, then at most once per 10 s | `Wrap`: `xpcall` + its catch (stack, `StackDue`), `Fail`, strikes in `Finish` | `errors[key]` (count, stack on first), an `error` mark with the trace, `throttled` trace, `perf.errors`, `errorsPerHour`; `/mm errors` |
+| a step overruns its budget | it finishes (Lua can't be preempted); counted per name outside graces; the frame is counted as an overrun if over 8 ms | `Done` (per call), `Count` (per frame) | `slow` trace (1st, 10th, every 100th), `spike` trace naming the frame's slowest call, `perf.overruns`, `perf.slow`, `perf.max`; `/mm perf load` |
 | an event arrives mid-frame | handlers never run inside a phase: an event fired during a frame is dispatched after its phases; Game's handlers only note what changed and the observe step reads, so Model sees one snapshot a frame | `inFrame` + `queued` + `Flush` in Runtime; the rule for Game | handlers' time counts in the next frame's cost |
 | a stuck job | a job still running after 600 resumes (its `maxFrames`) is cancelled and reported; one that doesn't `Yield` can't be stopped, but shows as an overrun; Map's layout jobs that fail or are cancelled leave their layer on its last good canvas and lay out again after a backoff (0.5 s, doubling to 30 s) | `RunJobs` watchdog; `Done(job, 2× budget)`; ui/Engine.lua `Failed` | `job` trace, `errors[key]` ("still running after N frames: cancelled"), `slow`/`spike` traces; handle `.done`, `.err` |
 | nil position (instances, loading) | Observation carries nil fields (a frame the you part fails: all of them); Model keeps the last known with `stale = true`; the map follows it with the arrow hidden; no step assumes a position | game/parts/You.lua, model/Model.lua, ui/You.lua (`you.stale`) | `position` trace (`lost`/`back`); marks' `state.you` |
@@ -216,7 +216,7 @@ as with nothing ever known. Every step treats every observed field as possibly n
 ### Saved data
 
 `Game.Load(owner, fn, spec)` with `spec = { version, defaults, optional, migrate(saved, from) }`
-(all optional; version 1, no defaults). `MagicMapAtlasDB` that isn't a table is
+(all optional; version 1, no defaults). `MagicMap2DB` that isn't a table is
 replaced. Then per owner, before `fn` sees it:
 
 - not a table, or a non-number `_v`: reset to `{}` (traced `saved reset`);

@@ -3,9 +3,9 @@
 -- The mechanism (Game.Load and Open, game/Game.lua) and its failure cases:
 -- docs/runtime.md "Saved data".
 --
--- One account-wide SavedVariable, MagicMapAtlasDB (MagicMapDB once merged into
--- MagicMap): a table of owners. Each system owns its part; Game only loads it
--- (Game.Load(owner, fn, spec)) and the client saves it.
+-- One account-wide SavedVariable, MagicMap2DB (ADR 0007: the spike's MagicMapDB
+-- and MagicMapLandmarks aren't read): a table of owners. Each system owns its
+-- part; Game only loads it (Game.Load(owner, fn, spec)) and the client saves it.
 --
 -- LOCKED (one-way door: it's on players' disks):
 --   * the root is a table keyed by owner name; Game leaves owners it doesn't
@@ -48,7 +48,7 @@
 ---@field _v 1
 ---@field trackingOff table<integer, true>  Blizzard tracking filter ids Game turned off: turned back on after a /reload or crash
 ---@field buttonAngle? number               the minimap button's place on the rim, degrees
----@field indoorDebug? true                 /mma indoor's reports on (IndoorArt.lua:179); optional (ADR 0004's amendment)
+---@field indoorDebug? true                 /mm indoor's reports on (IndoorArt.lua:179); optional (ADR 0004's amendment)
 
 -- UI -----------------------------------------------------------------------------------
 
@@ -64,7 +64,7 @@
 ---@field minimap MM.MinimapMode    "blizzard": the user chose Blizzard's minimap
 ---@field button boolean            the minimap button is shown
 ---@field tint boolean              tile colour correction
----@field debug boolean             /mma debug's title line (Core.lua:1746-1748); default false
+---@field debug boolean             /mm debug's title line (Core.lua:1746-1748); default false
 
 -- Model --------------------------------------------------------------------------------
 
@@ -99,7 +99,7 @@
 -- validation (game/Validate.lua: a spike, deleted when Atlas holds) -------------------
 
 ---@class MM.SavedValidation: MM.SavedPart
----@field _v 2
+---@field _v 1
 ---@field on? boolean
 ---@field version string  the build (the TOC's ## X-Stamped; "unstamped": none) whose log it is: another build's is cleared at load (game/Validate.lua)
 ---@field samples integer
@@ -107,7 +107,7 @@
 ---@field log table[]
 ---@field dropped integer
 
--- recording (game/Record.lua: /mma record, a dev tool for replaying Model) ----------
+-- recording (game/Record.lua: /mm record, a dev tool for replaying Model) ----------
 
 ---@class MM.SavedRecording: MM.SavedPart
 ---@field _v 1

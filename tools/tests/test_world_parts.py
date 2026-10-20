@@ -32,7 +32,7 @@ def counter(L, path):
 
 def test_places_round_trip():
     L, sim, ns, held = client()
-    sim.Slash("/mma toggle")  # (hidden, held: read once it's shown)
+    sim.Slash("/mm toggle")  # (hidden, held: read once it's shown)
     sim.Step()
     places = ns.Game.obs.places
     assert [p.key for p in places.values()] == ["flight:2", "dungeon:63", "graveyard:1", "poi:501"]
@@ -76,11 +76,11 @@ def test_places_round_trip():
     assert held(ns.Game.obs.places, now)
 
     # Another instance shown: its places (none the sim's client has on Kalimdor); hidden, held.
-    sim.Slash("/mma map 1")
+    sim.Slash("/mm map 1")
     sim.Run(0.5)
     kalimdor = ns.Game.obs.places
     assert py(kalimdor) == {} and not held(kalimdor, now)
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.FireEvent("AREA_POIS_UPDATED")
     sim.FireEvent("TAXIMAP_OPENED")
     sim.Run(1)
@@ -313,8 +313,8 @@ def test_explored():
     assert held(ns.Game.obs.exploredCells, grid2) and held(ns.Game.obs.explored, now)
 
     # Kalimdor shown: swept, added; an instance's map: none.
-    sim.Slash("/mma toggle")
-    sim.Slash("/mma map 1")
+    sim.Slash("/mm toggle")
+    sim.Slash("/mm map 1")
     sim.Step()
     until_explored(sim, ns, held, grid2)
     both, cells2 = ns.Game.obs.explored, ns.Game.obs.exploredCells
@@ -322,7 +322,7 @@ def test_explored():
     assert both[kalimdor] is False and both[goldshire] is True and held(cells2[0], grid2[0])
     assert lit(cells2, 1)[0] == set() and len(lit(cells2, 1)[1]) == L.execute(CELLS, ns, 1)[0]
     n0 = asks()
-    sim.Slash("/mma map 36")
+    sim.Slash("/mm map 36")
     sim.Run(2)
     assert asks() == n0 and held(ns.Game.obs.exploredCells, cells2)
     assert not errors(sim, ns), errors(sim, ns)
@@ -375,17 +375,17 @@ def test_observe_all_on():
                                  "col": 31.95 + 0.01 * i, "row": 49.75} for i in range(1, 5)})
     sim.vignetteAtlas = "VignetteKillElite"
     sim.Run(1)
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(6)  # (past the login's and the first open's graces)
     perf = ns.Runtime.Perf()[0]
     observe, explored = perf["game.observe"], perf["game.part explored"]
     worst, sweep = 0, 0
-    sim.Slash("/mma map 1")
+    sim.Slash("/mm map 1")
     for _ in range(180):
         o, e = observe.ms, explored.ms
         sim.Step()
         worst, sweep = max(worst, observe.ms - o), max(sweep, explored.ms - e)
-    sim.Slash("/mma map 0")
+    sim.Slash("/mm map 0")
     sim.FireEvent("MAP_EXPLORATION_UPDATED")
     sim.FireEvent("VIGNETTES_UPDATED")
     sim.FireEvent("AREA_POIS_UPDATED")

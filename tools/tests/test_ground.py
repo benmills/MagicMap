@@ -3,7 +3,7 @@ Tiles.lua, You.lua) on the simulated client. Borders: a zone border's segment is
 from zoom 60, then it) and a subzone's 1 (from zoom 140); a dead end at most 4 dashes; never more
 than 3000 Lines, the whole of the Eastern Kingdoms at zoom 4 included. Labels: zones in capitals,
 10 pt, up to zoom 450; subzones 9 pt, by size from 120, 220 and 400; none touching another; a name
-new to the view fades in. Tiles: /mma tint and the gear's "Colour-matched tiles" lay them out again
+new to the view fades in. Tiles: /mm tint and the gear's "Colour-matched tiles" lay them out again
 plain, and back. You: the arrow, on your map only.
 
   .venv/bin/python -m pytest tools/tests/test_ground.py -s   # prints the borders' Lines by zoom
@@ -16,7 +16,7 @@ TARREN_MILL, KHARANOS = (33.689, 32.051), (32.904, 42.474)  # the towns' AreaPOI
 
 def shown(big=False):
     L, sim, ns = boot()
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(3)
     if big:
         sim.Press("M")
@@ -174,7 +174,7 @@ def test_labels():
 
 def test_tint():
     L, sim, ns = shown()
-    tiles, saved = layer(ns, "tiles"), L.globals().MagicMapAtlasDB.UI
+    tiles, saved = layer(ns, "tiles"), L.globals().MagicMap2DB.UI
     S = sim.state
 
     def drawn():
@@ -190,7 +190,7 @@ def test_tint():
     n, _, masked = drawn()
     assert saved.tint and masked > 0
     front, same = tiles.front, L.eval("function(a, b) return a == b end")  # (lupa: Python's == never matches)
-    sim.Slash("/mma tint")  # off: the art plain, laid out again
+    sim.Slash("/mm tint")  # off: the art plain, laid out again
     sim.Run(1)
     assert saved.tint is False and not same(tiles.front, front) and drawn()[1:] == (0, 0)
     assert sim.prints[len(sim.prints)].endswith("tile colour correction off")
@@ -205,8 +205,8 @@ def test_tint():
     # A map with no colour data says so (every map with tiles has some: Data/TileColor.lua, as a newer
     # client's map might not).
     ns.Atlas.Data.TileColor[0] = None
-    sim.Slash("/mma tint")
-    sim.Slash("/mma tint")
+    sim.Slash("/mm tint")
+    sim.Slash("/mm tint")
     assert sim.prints[len(sim.prints)].endswith("tile colour correction on (no data for this map)")
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
@@ -219,7 +219,7 @@ def test_arrow():
     arrow, view = ns.UI.You.arrow, ns.UI.Window.view
     S = sim.state
     st = S[arrow]
-    assert arrow.IsShown(arrow) and st.texture == "Interface\\AddOns\\MagicMapAtlas\\Textures\\PlayerArrow"
+    assert arrow.IsShown(arrow) and st.texture == "Interface\\AddOns\\MagicMap\\Textures\\PlayerArrow"
     assert abs(st.width - 22 * 64 / 45) < 1e-9 and st.snap is False and st.bias == 0
     overlay = arrow.GetParent(arrow)
     assert overlay.GetFrameLevel(overlay) - view.GetFrameLevel(view) == 18

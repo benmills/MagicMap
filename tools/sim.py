@@ -1,4 +1,4 @@
-"""The simulated WoW Forever client (tools/tests/wowsim.lua) with MagicMapAtlas loaded and logged
+"""The simulated WoW Forever client (tools/tests/wowsim.lua) with MagicMap loaded and logged
 in, on the counted clock, for scripts and the shell. The tests boot through it too (load:
 test_addon.boot; harness: the replays' T, test_spike_bugs.py).
 
@@ -6,13 +6,13 @@ test_addon.boot; harness: the replays' T, test_spike_bugs.py).
     s = sim.boot(priced=True)                  # + Sim.Price: what the client charges (docs/evidence/perf-m0.md)
     s = sim.boot(priced=True, lua=True)        # + our own Lua at 10 ns a VM instruction (R-P2's: LUA_PRICE)
     s.blips([("Mailbox", 40, 20)])             # the minimap's blips, yards east and north of where you log in
-    s.slash("/mma toggle"); s.run(6)           # the map open, past login's 5 s grace: a grace's frames aren't in byState
+    s.slash("/mm toggle"); s.run(6)           # the map open, past login's 5 s grace: a grace's frames aren't in byState
     s.wheel(3); s.drag(200, 0, 20); s.walk(10, "east"); s.press("M")
     s.perf(); s.errors(); s.layers()           # FrameStats (+ names: Runtime.Perf), errors, live regions per layer
     s.lua("return ns.UI.Camera.cam.zoom")      # sim and ns are locals
     s.L, s.sim, s.ns, s.T                      # the Lua, wowsim's Sim, the addon's ns, the harness (T.Fresh, T.Ours, ...)
 
-    .venv/bin/python tools/sim.py --priced --run 'blip Mailbox 40 20; slash /mma toggle; run 6; wheel 3; run 2; perf; layers'
+    .venv/bin/python tools/sim.py --priced --run 'blip Mailbox 40 20; slash /mm toggle; run 6; wheel 3; run 2; perf; layers'
 
 Script commands, ';' or newline apart:
     run SECONDS | step [N] | slash LINE | press KEY | wheel N [FRAME] | drag DX DY [FRAMES]
@@ -34,9 +34,9 @@ import luacheck
 
 TESTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests")
 # No saved data given: the map's window as the tests have it (UI's saved part, ui/View.lua): hidden
-# at login (/mma toggle opens it), 720x520 in the screen's middle, 96 px a tile. A first login's shows
+# at login (/mm toggle opens it), 720x520 in the screen's middle, 96 px a tile. A first login's shows
 # on the minimap's spot (test_chrome.py).
-TEST_UI = "MagicMapAtlasDB = { UI = { _v = 1, shown = false, zoom = 96, window = { left = 600, top = 800, w = 720, h = 520 } } }"
+TEST_UI = "MagicMap2DB = { UI = { _v = 1, shown = false, zoom = 96, window = { left = 600, top = 800, w = 720, h = 520 } } }"
 FACING = {"north": 0, "east": 3 * math.pi / 2, "south": math.pi, "west": math.pi / 2}  # the client's: counter-clockwise
 START = (31.95, 49.75)  # Sim.player's tile at login (col, row): Goldshire
 YD = 3 / 1600  # a yard in tiles
@@ -93,9 +93,9 @@ end
 
 
 def load(saved=None, data=True, lua=False):
-    """A simulated client with MagicMapAtlas loaded and logged in: (Lua, Sim, ns), on the counted clock
+    """A simulated client with MagicMap loaded and logged in: (Lua, Sim, ns), on the counted clock
     (Sim.Counted: what a budgeted call or job gets done is the same on every machine).
-    saved: Lua source for the SavedVariables (MagicMapAtlasDB = ...) found at load (default TEST_UI).
+    saved: Lua source for the SavedVariables (MagicMap2DB = ...) found at load (default TEST_UI).
     data=False: without QuestieDB's data (QUESTIE), as CI's checkout and a no-data build.
     lua=True: our own Lua charged too (LUA_PRICE)."""
     L = lua51.LuaRuntime(encoding="latin-1", unpack_returned_tuples=True)
@@ -107,12 +107,12 @@ def load(saved=None, data=True, lua=False):
     run = L.eval("""function(path, ns)
         local chunk, err = loadfile(path)
         if not chunk then error(err, 0) end
-        return Sim.Call("loading " .. path:match("[^/]+/[^/]+$"), chunk, "MagicMapAtlas", ns)
+        return Sim.Call("loading " .. path:match("[^/]+/[^/]+$"), chunk, "MagicMap", ns)
     end""")
     for path in files(data):
         run(path, ns)
     L.execute(saved or TEST_UI)
-    sim.FireEvent("ADDON_LOADED", "MagicMapAtlas")
+    sim.FireEvent("ADDON_LOADED", "MagicMap")
     sim.FireEvent("PLAYER_LOGIN")
     sim.FireEvent("PLAYER_ENTERING_WORLD", True, False)
     return L, sim, ns

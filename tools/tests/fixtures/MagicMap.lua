@@ -1,5 +1,5 @@
 
-MagicMapAtlasDB = {
+MagicMap2DB = {
 ["telemetry"] = {
 ["sessions"] = {
 {
@@ -50,7 +50,7 @@ MagicMapAtlasDB = {
 },
 ["gaps"] = {
 { ["job"] = "bench: regions", ["ms"] = 15.1, ["n"] = 1, ["stack"] = "(ran to the job's end)" }, -- bench: ignored by the gate
-{ ["job"] = "map: borders", ["ms"] = 14.2, ["n"] = 3, ["stack"] = "[string \"@Interface/AddOns/MagicMapAtlas/ui/Borders.lua\"]:88: in function <Interface/AddOns/MagicMapAtlas/ui/Borders.lua:60>" }, -- [1]
+{ ["job"] = "map: borders", ["ms"] = 14.2, ["n"] = 3, ["stack"] = "[string \"@Interface/AddOns/MagicMap/ui/Borders.lua\"]:88: in function <Interface/AddOns/MagicMap/ui/Borders.lua:60>" }, -- [1]
 },
 ["ledger"] = {
 { ["frame"] = 9300, ["ms"] = 9.1, ["top"] = "game.observe", ["topMs"] = 8.2, ["events"] = {
@@ -101,10 +101,10 @@ MagicMapAtlasDB = {
 }, -- [2]
 },
 ["errors"] = {
-["ui.tiles.step: Interface/AddOns/MagicMapAtlas/ui/Tiles.lua:88: attempt to index local 'tile' (a nil value)"] = {
+["ui.tiles.step: Interface/AddOns/MagicMap/ui/Tiles.lua:88: attempt to index local 'tile' (a nil value)"] = {
 ["name"] = "ui.tiles.step",
-["msg"] = "Interface/AddOns/MagicMapAtlas/ui/Tiles.lua:88: attempt to index local 'tile' (a nil value)",
-["stack"] = "[string \"@Interface/AddOns/MagicMapAtlas/ui/Tiles.lua\"]:88: in function <Interface/AddOns/MagicMapAtlas/ui/Tiles.lua:80>\n[C]: in function `xpcall'\n[string \"@Interface/AddOns/MagicMapAtlas/runtime/Runtime.lua\"]:41: in function <Interface/AddOns/MagicMapAtlas/runtime/Runtime.lua:38>\n[string \"@Interface/AddOns/MagicMapAtlas/runtime/Runtime.lua\"]:120: in function <Interface/AddOns/MagicMapAtlas/runtime/Runtime.lua:110>\n[string \"@Interface/AddOns/Blizzard_SharedXMLBase/Mixin.lua\"]:12: in function <...>",
+["msg"] = "Interface/AddOns/MagicMap/ui/Tiles.lua:88: attempt to index local 'tile' (a nil value)",
+["stack"] = "[string \"@Interface/AddOns/MagicMap/ui/Tiles.lua\"]:88: in function <Interface/AddOns/MagicMap/ui/Tiles.lua:80>\n[C]: in function `xpcall'\n[string \"@Interface/AddOns/MagicMap/runtime/Runtime.lua\"]:41: in function <Interface/AddOns/MagicMap/runtime/Runtime.lua:38>\n[string \"@Interface/AddOns/MagicMap/runtime/Runtime.lua\"]:120: in function <Interface/AddOns/MagicMap/runtime/Runtime.lua:110>\n[string \"@Interface/AddOns/Blizzard_SharedXMLBase/Mixin.lua\"]:12: in function <...>",
 ["count"] = 37,
 ["first"] = 1791994100,
 ["last"] = 1791995020,
@@ -115,7 +115,7 @@ MagicMapAtlasDB = {
 ["marks"] = {
 {
 ["kind"] = "error",
-["note"] = "ui.tiles.step: Interface/AddOns/MagicMapAtlas/ui/Tiles.lua:88: attempt to index local 'tile' (a nil value)",
+["note"] = "ui.tiles.step: Interface/AddOns/MagicMap/ui/Tiles.lua:88: attempt to index local 'tile' (a nil value)",
 ["t"] = 1791994100,
 ["stamp"] = "101426_110820",
 ["session"] = 2,

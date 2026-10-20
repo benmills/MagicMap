@@ -10,7 +10,7 @@ from sim import TESTS
 
 
 def test_cli():
-    script = "blip Mailbox 40 20; slash /mma toggle; run 6; wheel 3; run 1; drag 100 0 10; walk 2 east; perf; layers\n"
+    script = "blip Mailbox 40 20; slash /mm toggle; run 6; wheel 3; run 1; drag 100 0 10; walk 2 east; perf; layers\n"
     script += "lua local f = sim.frame; return f, ns.UI ~= nil"
     got = subprocess.run([sys.executable, os.path.join(os.path.dirname(TESTS), "sim.py"), "--priced", "--run", script],
                          capture_output=True, text=True)

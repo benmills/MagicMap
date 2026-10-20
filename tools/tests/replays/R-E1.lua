@@ -6,7 +6,7 @@ local T = ...
 local sim, ns = T.Shown()
 local leaked = {}
 for k in pairs(_G) do
-	if type(k) == "string" and (k:find("^MagicMap_") or k:find("^MagicMapAtlas_")) then leaked[#leaked + 1] = k end
+	if type(k) == "string" and k:find("^MagicMap_") and k ~= "MagicMap_OnAddonCompartmentClick" then leaked[#leaked + 1] = k end
 end
 assert(#leaked == 0, table.concat(leaked, ", "))
 MagicMap_Borders = { [0] = { lines = { { 1, 12, 40, 0, 0, 31.0, 49.0, 32.0, 50.0 } }, labels = {} } }
@@ -38,7 +38,7 @@ assert(err:find("bad argument", 1, true))
 for _, name in ipairs({ "tiles", "labels" }) do
 	assert(T.Fresh(ns, T.Layer(ns, name)) and T.Live(T.Layer(ns, name)) > 0, name)
 end
-local tel = MagicMapAtlasDB.telemetry
+local tel = MagicMap2DB.telemetry
 local kept, marks = {}, 0
 for _, e in pairs(tel.errors) do
 	if e.name == "map: borders" then kept[#kept + 1] = e end

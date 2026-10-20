@@ -351,7 +351,7 @@ def test_quests_first_open():
     L, sim, ns, G = hub(shown=False)
     sim.Price(True)
     sim.Run(10)  # past login's grace
-    sim.Slash("/mma toggle")  # small, at the default zoom
+    sim.Slash("/mm toggle")  # small, at the default zoom
     sim.Run(3)  # past its grace (2 s)
     fs = ns.Runtime.FrameStats()
     print(f"the first open, 25 quests and 130 to pick up, priced: {fs.grace.map} ms, its slowest call "
@@ -366,19 +366,19 @@ def test_quests_storm():
         sim.Price(True)
         sim.Run(10)  # past the graces
         if hidden:
-            sim.Slash("/mma toggle")
+            sim.Slash("/mm toggle")
             sim.Run(1)
-        sim.Slash("/mma mark b11 before")
+        sim.Slash("/mm mark b11 before")
         done = stretch(L, ns)
         L.execute("local sim = ...; for _ = 1, 600 do sim.FireEvent('QUEST_LOG_UPDATE'); sim.Step() end", sim)
         kb, by = done()
-        sim.Slash("/mma mark b11 storm")
+        sim.Slash("/mm mark b11 storm")
         print(f"storm, map {'hidden' if hidden else 'shown'}: {kb} KB/s; game.part quests "
               f"{by.get('game.part quests', 0)}, offers {by.get('game.part offers', 0)}; {by}")
         # Shown: the objectives read again each 0.3 s (the client's tables: ~11 KB for 25), no zone nor offer.
         assert kb <= 50 and by.get("game.part quests", 0) <= (0 if hidden else 40) and not by.get("game.part offers")
         # b11 in game: the mark after the storm reads the storm alone (from the mark before it).
-        marks = L.globals().MagicMapAtlasDB.telemetry.marks
+        marks = L.globals().MagicMap2DB.telemetry.marks
         a = marks[len(marks)].alloc
         top = {t.name: t.kbPerSec for t in a.top.values()}
         assert a.secs == 10 and abs(a.kbPerSec - kb) <= 0.1 and abs(top.get("game.part quests", 0) - by.get("game.part quests", 0)) <= 0.1

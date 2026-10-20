@@ -5,7 +5,7 @@ So far this is the foundation: **Atlas** (`atlas/`, load order in `atlas/files.t
 library of facts that hold — tiles, tile colour, the sea, borders, map labels, walk grid,
 uiMaps, areas, places, NPCs / objects / items / quests, coordinates and camera maths — plus
 the offline tools that generate its data (`Data/`, see [docs/atlas-data.md](docs/atlas-data.md)).
-The addon is **MagicMapAtlas** (the repo root is the addon root, `MagicMapAtlas.toc`); its
+The addon is **MagicMap** 2.0.0 (the repo root is the addon root, `MagicMap.toc`); its
 folders, load order and the Runtime contract are in [docs/structure.md](docs/structure.md).
 
 ## Setup
@@ -46,26 +46,27 @@ The demo's assets, after the above:
     .venv/bin/python tools/install.py      # into _classic_beta_ (WoW Forever); another flavor folder as argument
 
 It writes the TOC from the folders' `files.txt` (`--toc`: only that), then copies the TOC, its
-files and Textures/ into `Interface/AddOns/MagicMapAtlas` (the gitignored QuestieDB-derived
-data too, when generated). It shares no globals with the
-**MagicMap** spike (its data is `ns.Data`: docs/atlas-data.md), so both can be enabled. Log in
-(a restart for a new TOC, files or textures, else `/reload`), then:
+files and Textures/ into `Interface/AddOns/MagicMap` (the gitignored QuestieDB-derived
+data too, when generated). That is the spike's folder too: while the spike is there it stops,
+and `--replace-spike` moves the spike to `MagicMap.spike-backup` first (its saved data isn't
+read: docs/decisions/0007-v2-storage-names.md). Log in (it says when files are new to the client:
+restart it, not `/reload`), then:
 
-- `/mma` lists the commands; the map sits on the Minimap's spot from login (`/mma toggle` or
-  the minimap button hides and shows it, M grows it into the big map, `/mma reset` puts it back)
+- `/mm` lists the commands; the map sits on the Minimap's spot from login (`/mm toggle` or
+  the minimap button hides and shows it, M grows it into the big map, `/mm reset` puts it back)
 - with the map shown, Blizzard's Minimap becomes an unseen sensor and its blips (mailboxes,
-  herbs, services) are drawn on the map; `/mma minimap blizzard` gives it back, `/mma layer <name>`
-  toggles a layer, `/mma record on|off` keeps the observations for Model replay tests
+  herbs, services) are drawn on the map; `/mm minimap blizzard` gives it back, `/mm layer <name>`
+  toggles a layer, `/mm record on|off` keeps the observations for Model replay tests
   (flow: docs/structure.md "One flow end to end")
-- `/mma perf load`: Atlas's load cost (ms, KB) and time per step / event / timer / job
-- `/mma errors`: errors caught so far (each is also printed once when it happens)
+- `/mm perf load`: Atlas's load cost (ms, KB) and time per step / event / timer / job
+- `/mm errors`: errors caught so far (each is also printed once when it happens)
 
-`tools/package.sh [ref]` zips a committed ref as `dist/MagicMapAtlas-<ref>.zip`, its TOC stamped as the ref's build.
+`tools/package.sh [ref]` zips a committed ref as `dist/MagicMap-<ref>.zip`, its TOC stamped as the ref's build.
 
 ## Telemetry
 
 Play, `/reload`, then read what the addon saved (sessions, errors with stacks, marks with
-state and trace, screenshots matched to `/mma shot`, the validation log, client `Logs/` lines
+state and trace, screenshots matched to `/mm shot`, the validation log, client `Logs/` lines
 that mention the addon, and other addons' errors while ours was loaded). The contract is [docs/telemetry.md](docs/telemetry.md).
 
     .venv/bin/python tools/telemetry.py                  # everything, newest first
@@ -77,7 +78,7 @@ Options: `--wow` (or `MAGICMAP_WOW`), `--flavor` (default `_classic_beta_`), `--
 ## Test and lint
 
 The tests include a headless smoke test: the TOC's files loaded in order on a simulated WoW
-Forever client (`tools/tests/wowsim.lua`), logged in, ~60 frames and every `/mma` command,
+Forever client (`tools/tests/wowsim.lua`), logged in, ~60 frames and every `/mm` command,
 with no Lua error expected; `tools/luacheck.py` over the TOC (globals, every file listed,
 the TOC = what the folders' `files.txt` make: `tools/install.py --toc` writes it); and
 `tools/lint_div.py`, no `/` that may divide by 0 (docs/structure.md "Rules"). luacheck runs as a
@@ -99,13 +100,13 @@ tests' prints.
 
 `tools/sim.py` drives the same simulated client (the tests boot through it) from Python or the
 shell: `s = sim.boot(priced=True)`, then `s.blips([("Mailbox", 40, 20)])` (yards east and north of
-where you log in), `s.slash("/mma toggle")`, `s.run(6)` (past login's 5 s grace: a grace's frames
+where you log in), `s.slash("/mm toggle")`, `s.run(6)` (past login's 5 s grace: a grace's frames
 aren't in perf's byState), `s.wheel(3)`, `s.drag(200, 0, 20)`, `s.walk(10, "east")`, `s.press("M")`,
 `s.lua(code)` (sim and ns are locals), and read back
 `s.perf()` (FrameStats: byState, alloc, ledger; per-name calls), `s.errors()`, `s.layers()`;
 `s.T` is the replays' harness (tools/tests/harness.lua). From the shell, a script:
 
-    .venv/bin/python tools/sim.py --priced --run 'blip Mailbox 40 20; slash /mma toggle; run 6; wheel 3; run 2; perf; layers'
+    .venv/bin/python tools/sim.py --priced --run 'blip Mailbox 40 20; slash /mm toggle; run 6; wheel 3; run 2; perf; layers'
     .venv/bin/python tools/sim.py --run 'run 1; lua local cam = ns.UI.Camera.cam
     return cam.zoom, cam.cx'                          # lua: the rest of the script, lines and ';' as is
     .venv/bin/python tools/sim.py --help              # the commands

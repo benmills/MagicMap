@@ -8,7 +8,7 @@ local sim, ns = T.Boot("LibStub = nil; " .. T.TEST_UI)
 ns.UI.View().layers["addon:Questie"] = true
 sim.Run(1)
 for _ = 1, 3 do -- open, close, open (the world socket published while open)
-	sim.Slash("/mma toggle")
+	sim.Slash("/mm toggle")
 	sim.Run(1.2)
 end
 assert(ns.UI.View().sockets.world ~= nil)

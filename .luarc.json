@@ -5,7 +5,7 @@
   "workspace.ignoreDir": [".venv", "demo", "dist", "tools", "Data", "Textures"],
   "workspace.checkThirdParty": false,
   "diagnostics.globals": [
-    "MagicMapAtlasDB",
-    "SLASH_MAGICMAPATLAS1"
+    "MagicMap2DB",
+    "SLASH_MAGICMAP1"
   ]
 }

@@ -7,7 +7,7 @@
   and UI's layer toggles.
 
   test_blips_replay (Model alone, plain Lua): the recorded observation stream
-  (fixtures/blips_stream.lua, from this scenario with /mma record) replayed into
+  (fixtures/blips_stream.lua, from this scenario with /mm record) replayed into
   Model: one entry per blip across sweeps, a remembered one a sweep missed is
   forgotten, one walked away from is kept and survives a reload of Model's saved part.
 
@@ -69,8 +69,8 @@ def near(b, east, north, yd=3):
 def scenario(L, sim, ns, check=lambda *_: None):
     """Stand among the blips with the map shown; one mailbox goes; walk 600 yd east and back off."""
     put_blips(L, sim, ns, BLIPS)
-    sim.Slash("/mma record on")
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm record on")
+    sim.Slash("/mm toggle")
     sim.Run(3)
     check("still")
     put_blips(L, sim, ns, BLIPS[:1] + BLIPS[2:])  # the second mailbox: gone (as if mismeasured)
@@ -83,7 +83,7 @@ def scenario(L, sim, ns, check=lambda *_: None):
     sim.player.speed = 0
     sim.Run(1)
     check("away")
-    sim.Slash("/mma record off")
+    sim.Slash("/mm record off")
 
 
 def test_blips_end_to_end():
@@ -114,7 +114,7 @@ def test_blips_end_to_end():
                 assert any(b["name"] == name and b["live"] and near(b, east, north) for b in got), (name, got)
             assert all(b["icon"] == MAILBOX for b in mailboxes)
             assert next(b for b in got if b["name"] == "Peacebloom")["icon"] == HERB  # a gathering node: its atlas
-            assert len(list(G.MagicMapAtlasDB.Model.blips[0].keys())) == 2  # mailboxes remembered (they have an icon)
+            assert len(list(G.MagicMap2DB.Model.blips[0].keys())) == 2  # mailboxes remembered (they have an icon)
             # UI: drawn, each its icon (a texture, an atlas), at 14 px.
             sim.Run(0.2)
             front = UI.Blips.front
@@ -125,7 +125,7 @@ def test_blips_end_to_end():
             assert all(sim.state[t].width == 14 for t in pins)
         elif stage == "gone":
             assert len(mailboxes) == 1 and near(mailboxes[0], 40, 20), got  # forgotten: a sweep missed it
-            assert len(list(G.MagicMapAtlasDB.Model.blips[0].keys())) == 1
+            assert len(list(G.MagicMap2DB.Model.blips[0].keys())) == 1
         elif stage == "walking":
             assert len(mailboxes) == 1, got  # one entry across sweeps, measured on the move or not
             seen["remembered"] = seen.get("remembered") or not mailboxes[0]["live"]
@@ -134,7 +134,7 @@ def test_blips_end_to_end():
 
     scenario(L, sim, ns, check)
     assert seen["remembered"]
-    assert len(G.MagicMapAtlasDB.recording.obs) > 5  # one each change the sensor makes (a sweep: a look standing)
+    assert len(G.MagicMap2DB.recording.obs) > 5  # one each change the sensor makes (a sweep: a look standing)
 
     # 200 yd from the remembered mailbox, gone from the Minimap (past a sweep's forgetting, 0.8 of its
     # reach): while sensing, around you only what the sensor sees now is drawn (Blips.lua:640); the
@@ -149,15 +149,15 @@ def test_blips_end_to_end():
     sim.player.col, sim.player.row = START[0] + 240 * YD, START[1] - 20 * YD
     sim.Run(3)
     assert Game.obs.minimap.sensing and [b["name"] for b in blips(ns)] == ["Mailbox"] and not drawn()
-    sim.Slash("/mma minimap blizzard")
+    sim.Slash("/mm minimap blizzard")
     assert len(drawn()) == 1 and not Game.obs.minimap.sensing
-    sim.Slash("/mma minimap ours")
+    sim.Slash("/mm minimap ours")
     sim.Run(1)
 
     # A UI-only toggle, saved; and Blizzard's minimap back: everything put back.
     sim.player.col, sim.player.row = START[0] + 630 * YD, START[1]
-    sim.Slash("/mma layer labels")
-    sim.Slash("/mma minimap blizzard")
+    sim.Slash("/mm layer labels")
+    sim.Slash("/mm minimap blizzard")
     sim.Step()
     mm = G.Minimap
     assert not Game.minimap.engaged and Game.Blips() is None and UI.View().minimap == "blizzard"
@@ -167,7 +167,7 @@ def test_blips_end_to_end():
 
     # /reload: the SavedVariables written at logout, read by a fresh client.
     sim.FireEvent("PLAYER_LOGOUT")
-    saved = "MagicMapAtlasDB = " + lua_tools(L).Dump(G.MagicMapAtlasDB)
+    saved = "MagicMap2DB = " + lua_tools(L).Dump(G.MagicMap2DB)
     L2, sim2, ns2 = boot(saved)
     sim2.Run(0.5)
     got = blips(ns2)
@@ -233,7 +233,7 @@ def test_blips_priced():
     sim.units.party1 = L.table_from({"name": "Friend", "class": "PRIEST"})
     sim.group = L.table_from(["party1"])
     put_blips(L, sim, ns, here + [vein, ("Tester", 0, 0), ("Friend", -30, -40)])
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sweep = lambda: ns.Game.obs.blips.sweep if ns.Game.obs.blips else 0
 
     def until(n):
@@ -271,7 +271,7 @@ def test_blips_priced():
 
     perf, fs = ns.Runtime.Perf()[0], ns.Runtime.FrameStats()
     part, observe = perf["game.part blips"], perf["game.observe"]
-    stats = L.globals().MagicMapAtlasDB.telemetry.sessions[1].stats["blips"]
+    stats = L.globals().MagicMap2DB.telemetry.sessions[1].stats["blips"]
     print(f"priced sensor: game.part blips max {part.max:.2f} ms, game.observe max {observe.max:.2f} ms, frame p95 "
           f"{fs.p95} ms over {fs.frames}; {sweep()} sweeps, the longest {stats.frames} frames, {stats.probes} probes")
     # A sweep spans many frames (far more than 5% of them, standing or walking): its slice and the rest under p95.
@@ -285,7 +285,7 @@ def default_ui_priced():
     engaged from the start), on the priced clock, standing then walking, with the blips layer on (the
     tests' window is hidden at login and 720x520: the replays' budgets don't cover this one): its
     frame stats."""
-    L, sim, ns = boot("MagicMapAtlasDB = nil")
+    L, sim, ns = boot("MagicMap2DB = nil")
     stub_services(L, ns)
     put_blips(L, sim, ns, BLIPS)
     sim.Clock = L.eval("function() return 0 end")  # only what's priced moves the clock, every frame measured
@@ -305,7 +305,7 @@ def default_ui_priced():
     sim.Run(3)
     assert exact(sensed(ns), BLIPS), sensed(ns)  # (out: the ring's found again)
     fs = ns.Runtime.FrameStats()
-    stats = L.globals().MagicMapAtlasDB.telemetry.sessions[1].stats
+    stats = L.globals().MagicMap2DB.telemetry.sessions[1].stats
     door = stats["restart radius"]
     print(f"default UI, priced: standing, walking, then a door: frame p95 {fs.p95} ms, max {fs.max} ms, {fs.kbPerSec} KB/s "
           f"(p95 {fs.kbFrameP95} KB a frame); the door's {door and door.n} restarts, the blips' most probes a sweep {stats.blips.probes}")
@@ -326,14 +326,14 @@ def test_default_ui_alloc_priced():
 
 
 def record():
-    """The scenario with /mma record on, its stream written to the fixture."""
+    """The scenario with /mm record on, its stream written to the fixture."""
     L, sim, ns = boot()
     stub_services(L, ns)
     scenario(L, sim, ns)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
-    obs = L.globals().MagicMapAtlasDB.recording.obs
+    obs = L.globals().MagicMap2DB.recording.obs
     with open(FIXTURE, "w") as f:
-        f.write("-- Recorded by tools/tests/test_blips.py (record()): /mma record over its scenario in the sim.\n")
+        f.write("-- Recorded by tools/tests/test_blips.py (record()): /mm record over its scenario in the sim.\n")
         f.write("return " + lua_tools(L).Dump(obs) + "\n")
     print(f"{FIXTURE}: {len(obs)} observations")
 

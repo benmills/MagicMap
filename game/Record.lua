@@ -1,5 +1,5 @@
--- /mma record on|off: the observations handed to Model, kept in
--- MagicMapAtlasDB.recording.obs (written on /reload) for replaying into Model
+-- /mm record on|off: the observations handed to Model, kept in
+-- MagicMap2DB.recording.obs (written on /reload) for replaying into Model
 -- alone (tools/tests/replay.lua). One is kept each time what the blip sensor
 -- knows changes (Game.blipsRev), as handed over: you, blips, frame, t, epoch;
 -- at most MAX, then it stops.

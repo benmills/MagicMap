@@ -226,7 +226,7 @@ end"""
 def soak():
     """The soak, priced from past login's grace, then logged out: (L, sim, ns, rounds: each (heaps, seconds, KB/s,
     {name: KB/s}), the jobs left)."""
-    L, sim, ns = boot("MagicMapAtlasDB = nil")  # a first login's: shown, small on the Minimap's spot
+    L, sim, ns = boot("MagicMap2DB = nil")  # a first login's: shown, small on the Minimap's spot
     G = L.globals()
     L.execute(FREE, sim)
     L.execute(SETUP, sim, ns)
@@ -269,7 +269,7 @@ def test_soak():
               " ".join(f"{kb / 1024:.2f}" for kb in r[0]) + f" MB, {r[2]} KB/s {sorted(r[3].items(), key=lambda kv: -kv[1])[:4]}"
               for r in rounds)
           + "; " + ", ".join(f"{k} {v.frames} frames p95 {v.p95} p99 {v.p99} max {v.max}" for k, v in sorted(by.items())))
-    db = telemetry.py(L.globals().MagicMapAtlasDB)
+    db = telemetry.py(L.globals().MagicMap2DB)
     gate = telemetry.budgets(telemetry.sessions_of(db), list((db["telemetry"].get("errors") or {}).values()))
     grew = [round(b - a) for a, b in zip(rounds[-2][0], rounds[-1][0])]
     assert sum(r[1] for r in rounds) >= 600 and {"small", "big", "zoom", "drag"} <= set(by.keys())

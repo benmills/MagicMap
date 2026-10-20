@@ -1,4 +1,4 @@
--- slash (types/view.lua MM.CmdSlash): register /mma <name> (game/Slash.lua).
+-- slash (types/view.lua MM.CmdSlash): register /mm <name> (game/Slash.lua).
 
 local _, ns = ...
 local Game = ns.Game

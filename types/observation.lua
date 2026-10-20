@@ -142,7 +142,7 @@
 ---@field engaged boolean      Game has taken the Minimap (View.minimap ~= "blizzard" and nothing blocks it)
 ---@field blocker? string      why it isn't, in words ("FarmHud has the minimap")
 ---@field indoors? boolean     the Minimap draws its indoor floor plan here (its view radius tells)
----@field indoorDebug? boolean /mma indoor is reporting (SavedGame.indoorDebug): the gear's Indoor maps box
+---@field indoorDebug? boolean /mm indoor is reporting (SavedGame.indoorDebug): the gear's Indoor maps box
 ---@field sensing boolean      the blip sensor ran this frame
 ---@field home? MM.ScreenRect  the Minimap's home spot (its cluster), for placing our window there
 ---                           (kept: Game reads it each frame and hands a new table only when the spot moved, so UI may hold it)
@@ -173,7 +173,7 @@
 ---@class MM.ObsArt
 ---@field uiMap MM.UiMapID
 ---@field pieces MM.ArtPiece[]
----@field outline? boolean     /mma indoor is on: UI outlines the art in pink (IndoorArt.lua:124-131, 145, 181);
+---@field outline? boolean     /mm indoor is on: UI outlines the art in pink (IndoorArt.lua:124-131, 145, 181);
 ---                           a new obs.indoorArt when it changes
 
 ---@class MM.ArtPiece

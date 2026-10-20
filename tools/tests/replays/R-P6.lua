@@ -1,12 +1,12 @@
 -- P6: where time went was invisible. CONTAINED: every script on a frame the addon made is a
--- Runtime.Wrap closure (timed per name, isolated), after the map and every /mma command.
+-- Runtime.Wrap closure (timed per name, isolated), after the map and every /mm command.
 local T = ...
 local sim, ns = T.Shown()
 local names = {}
 for _, name in ipairs(ns.Game.commands) do names[#names + 1] = name end
 for _, name in ipairs(names) do
 	if name ~= "map" then
-		sim.Slash("/mma " .. name)
+		sim.Slash("/mm " .. name)
 		sim.Step()
 	end
 end

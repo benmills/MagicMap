@@ -8,7 +8,7 @@
 -- from obs.quests (areaMap, pin), as game/parts/Quests.lua hands them. Then UI's (M2.4: ui/Areas.lua):
 -- the same areas drawn on the map, one frame a map and style, each drawn as it's laid out and again the
 -- next frame, the layer shown only then, every quest's blob in the rect its frame is laid out in; out of
--- sight while a zoom moves, the same where it lands. Then /mma check inside.
+-- sight while a zoom moves, the same where it lands. Then /mm check inside.
 local T = ...
 local sim, ns = T.Shown()
 local A, Game, Model, Runtime = ns.Atlas, ns.Game, ns.Model, ns.Runtime
@@ -128,13 +128,13 @@ T.Print("L1 (UI): out of sight %d frames of a zoom, shown again at frame %d, %d 
 assert(back and hid == back - 1 and ok and n == 27 and Areas.front.pools.blob.n == 1, "one frame, the 27, right")
 assert(sim.calls.DrawBlob - draws == 2 * 27, "drawn twice where it lands")
 
--- /mma check inside, standing in quest 60's area (the sim's log: 60 in progress, 62 to turn in).
+-- /mm check inside, standing in quest 60's area (the sim's log: 60 in progress, 62 to turn in).
 asking = false
 local p = sim.player
 local px, py = A.TileToMap(MAP, p.col, p.row)
 sim.blobShapes[60] = { 0.35, 0.55, math.sqrt((px - 0.35) ^ 2 + (py - 0.55) ^ 2) + 0.02 } -- its pin and you
 local n = #sim.prints
-sim.Slash("/mma check inside")
+sim.Slash("/mm check inside")
 sim.Run(0.1)
 local out = table.concat(sim.prints, "\n", n + 1)
 T.Print("%s", out)

@@ -36,7 +36,7 @@ Atlas.SpawnsIn = function(kind, inst, c0, r0, c1, r1, filter)
     end
     return out
 end"""
-SAVED = """MagicMapAtlasDB = { UI = { _v = 1, shown = false, zoom = 59, window = { left = 600, top = 800, w = 720, h = 520 } },
+SAVED = """MagicMap2DB = { UI = { _v = 1, shown = false, zoom = 59, window = { left = 600, top = 800, w = 720, h = 520 } },
     Model = { _v = 1, rares = {}, blips = { [0] = {
         ["Mailbox:2045:3183"] = { name = "Mailbox", icon = 136459, col = 31.95 + 300 * %(yd)r, row = 49.75, t = 1 },
         ["Innkeeper Farley:2093:3183"] = { name = "Innkeeper Farley", icon = 136458, col = 31.95 + 410 * %(yd)r,
@@ -62,7 +62,7 @@ def test_services():
     for name, texture, f in (("Find Trainers", 136463, 16), ("Repair", 136465, 512)):
         G.Sim.tracking[len(G.Sim.tracking) + 1] = L.table_from({"name": name, "texture": texture, "active": True,
                                                                 "filterID": f})
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(3)
     assert ns.UI.Camera.cam.zoom == 59 and names(ns, "services") == []  # not gathered below town scale
     assert names(ns, "remembered") == ["Innkeeper Farley", "Mailbox"] and drawn(ns) == []
@@ -95,7 +95,7 @@ def test_services_data():
     L, sim, ns = boot(SAVED % {"yd": YD})
     if not ns.Data.Npcs:
         pytest.skip("no QuestieDB-derived data (tools/gen_questie.py)")
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     ns.UI.Motion.SetZoom(60)
     sim.Run(1)
     ns.Model.Known("services")

@@ -172,7 +172,7 @@ def test_fidelity():
     assert list(blocked.protected.values()) == [True, True] and list(blocked.implicit.values()) == [True, False]
     assert blocked.minimap is False and blocked.cluster and blocked.shown and not blocked.after
     assert list(blocked.calls.values()) == ["MinimapCluster:Hide()", "WorldMapFrame:Hide()"], list(blocked.calls.values())
-    assert blocked.event == "MagicMapAtlas WorldMapFrame:Hide()"
+    assert blocked.event == "MagicMap WorldMapFrame:Hide()"
 
     # GetPlayerFacing's way (radians counter-clockwise from north): you walk east facing 3pi/2, west at pi/2.
     walked = L.eval("""function()
@@ -203,7 +203,7 @@ def test_fidelity():
     L, sim, ns = boot()
     sim.Price(True)
     sim.Run(1)
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(3)
     observe = ns.Runtime.Perf()[0]["game.observe"]
     print(f"priced: game.observe max {observe.max:.1f} ms, {observe.ms / observe.n:.2f} ms a frame over {observe.n} frames")

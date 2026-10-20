@@ -84,7 +84,7 @@ def test_stale_format_is_one_error_and_dropped():
     from lupa import lua51
     from atlas_lua import ROOT, files
     L = lua51.LuaRuntime(unpack_returned_tuples=True)
-    run = L.eval("function(src, name, ns) local f = assert(loadstring(src, name)); local ok, err = pcall(f, 'MagicMapAtlas', ns); return ok, err or '' end")
+    run = L.eval("function(src, name, ns) local f = assert(loadstring(src, name)); local ok, err = pcall(f, 'MagicMap', ns); return ok, err or '' end")
     ns, errors = L.table(), []
     for rel in files():
         if rel.startswith("Data/") and rel not in ("Data/UiMaps.lua", "Data/Areas.lua"):
@@ -95,7 +95,7 @@ def test_stale_format_is_one_error_and_dropped():
             errors.append(err)
         if rel == "Data/UiMaps.lua":
             ns.Data.formats.UiMaps = 0
-    assert errors == ["MagicMapAtlas: Data/UiMaps.lua is format 0, Atlas reads 1: regenerate (README, tools/gen_*.py)"]
+    assert errors == ["MagicMap: Data/UiMaps.lua is format 0, Atlas reads 1: regenerate (README, tools/gen_*.py)"]
     Atlas = ns.Atlas
     assert Atlas.UiMap(1429) is None and Atlas.Continent(0) is None and len(Atlas.Zones(0)) == 0
     assert Atlas.Area(12).name == "Elwynn Forest" and Atlas.Dungeon(36) is None and Atlas.Npc(448) is None

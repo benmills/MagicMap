@@ -3,7 +3,7 @@
 -- gives back the Minimap (T.Invariants checks every frame, and that the cluster never shows while
 -- the takeover has it). In combat the cluster can't be shown or hidden, so engaging fades it and
 -- the hide waits; releasing gives back the rest at once and the show waits (Blizzard's minimap
--- comes back as combat ends). /mma toggle both ways, the rim button and the compartment, the
+-- comes back as combat ends). /mm toggle both ways, the rim button and the compartment, the
 -- gear's "Use Blizzard's minimap", M and Escape, a /reload and a logout in combat. And a quest
 -- followed (a click on its pin or area: the follow Command), out of combat and in, super-tracks and
 -- watches it from insecure code, which Blizzard's objective tracker (secure item buttons) follows:
@@ -60,7 +60,7 @@ end
 local sim, ns = T.Boot()
 sim.Run(1)
 Is(ns, "hidden at login", false, true, 1)
-sim.Slash("/mma toggle")
+sim.Slash("/mm toggle")
 sim.Run(0.5)
 Is(ns, "taken", true, false, 1)
 ns.Game.Command({ kind = "follow", quest = 62 }) -- out of combat: the usual path (the sim's log)
@@ -69,22 +69,22 @@ Waypoints(sim, ns)
 
 -- Off then on in combat, combat over, off: the show waited, and isn't lost to the re-engage.
 sim.inCombat = true
-sim.Slash("/mma toggle")
+sim.Slash("/mm toggle")
 sim.Run(0.5)
 Is(ns, "released in combat: its show waits", false, false, 1)
-sim.Slash("/mma toggle")
+sim.Slash("/mm toggle")
 sim.Run(0.5)
 Is(ns, "taken again in combat", true, false, 1)
 Waypoints(sim, ns)
 Leave(sim)
 Is(ns, "combat over, still taken", true, false, 1)
-sim.Slash("/mma toggle")
+sim.Slash("/mm toggle")
 sim.Run(0.5)
 Is(ns, "released", false, true, 1)
 
 -- Taken in combat (the compartment): faded, big and small, through M; hidden as combat ends.
 sim.inCombat = true
-MagicMapAtlasOnAddonCompartmentClick()
+MagicMap_OnAddonCompartmentClick()
 sim.Run(0.5)
 Is(ns, "taken in combat: faded", true, true, 0)
 ns.UI.BigMap.Toggle() -- big and back: the home fade leaves it faded
@@ -99,13 +99,13 @@ sim.Press("M")
 sim.Run(0.5)
 Leave(sim)
 Is(ns, "combat over: hidden", true, false, 1)
-sim.Slash("/mma toggle")
+sim.Slash("/mm toggle")
 sim.Run(0.5)
 Is(ns, "released", false, true, 1)
 
 -- Taken in combat, given back by the gear's "Use Blizzard's minimap", the rim button, the compartment.
 sim.inCombat = true
-sim.Slash("/mma toggle")
+sim.Slash("/mm toggle")
 sim.Run(0.5)
 sim.Click(ns.UI.Controls.gear)
 for _, e in ipairs(sim.MenuItems("button")) do
@@ -122,7 +122,7 @@ end
 sim.Click(button)
 sim.Run(0.5)
 Is(ns, "the rim button, in combat", true, true, 0)
-MagicMapAtlasOnAddonCompartmentClick()
+MagicMap_OnAddonCompartmentClick()
 sim.Run(0.5)
 Is(ns, "the compartment, in combat", false, true, 1)
 ns.Game.Command({ kind = "follow", quest = 60 }) -- (the sim's log)
@@ -136,12 +136,12 @@ local WAYPOINTS = ("SetUserWaypoint%s,SetSuperTrackedUserWaypoint%s,ClearUserWay
 local out, combat = WAYPOINTS:gsub("%%s", ""), WAYPOINTS:gsub("%%s", " (combat)")
 assert(table.concat(calls, ",") == "AddQuestWatch,SetSuperTrackedQuestID," .. out .. combat
 	.. "AddQuestWatch (combat),SetSuperTrackedQuestID (combat),SetSuperTrackedQuestID (combat)", table.concat(calls, ","))
-sim.Slash("/mma toggle")
+sim.Slash("/mm toggle")
 sim.Run(0.5)
 sim.FireEvent("PLAYER_LOGOUT") -- logging out (or reloading) in combat
 
 -- A /reload in combat, the map shown at login (a first login's): taken faded; hidden once it ends.
-sim, ns = T.Boot("MagicMapAtlasDB = nil")
+sim, ns = T.Boot("MagicMap2DB = nil")
 sim.inCombat = true
 sim.Run(1)
 Is(ns, "reloaded in combat", true, true, 0)

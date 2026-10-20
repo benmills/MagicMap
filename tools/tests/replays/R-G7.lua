@@ -46,7 +46,7 @@ sim.Step()
 assert(tip:IsShown() and tip:IsOwned(anchor), "another's on a hidden owner: kept")
 tip:Hide()
 
-sim.Slash("/mma toggle") -- a widget in the window (a pin, UI's) owns it; the window hides
+sim.Slash("/mm toggle") -- a widget in the window (a pin, UI's) owns it; the window hides
 sim.Run(3)
 local pin = CreateFrame("Frame", nil, ns.UI.Window.view)
 pin:SetSize(10, 10)
@@ -56,13 +56,13 @@ tip:AddLine("pin")
 tip:Show()
 sim.Step()
 assert(tip:IsShown(), "kept while its owner shows")
-sim.Slash("/mma toggle")
+sim.Slash("/mm toggle")
 sim.Step()
 assert(not tip:IsShown(), "window hidden: gone")
 
 sim.Run(0.2) -- the button's tip, then the map shown: the takeover takes the button, and its tip
 sim.FireScript(button, "OnEnter", false)
-sim.Slash("/mma toggle")
+sim.Slash("/mm toggle")
 sim.Step()
 assert(not button:IsVisible() and not tip:IsShown(), "taken away: gone")
 T.Print("G7: %d SetOwner calls over the scenario", built)

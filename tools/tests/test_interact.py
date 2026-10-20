@@ -4,8 +4,8 @@ input), as the spike's (Core.lua:1161-1240, 1247-1416, 1698-1735; Layers.lua:178
   test_picker: the title's click opens the map picker: Continents (300 tiles or more), Other maps, Instances by
     kind and the continent their entrance is on, a lone group's level skipped; a pick shows the map whole, following
     off; a drag of the title picks nothing (F4, S60).
-  test_map_and_zone: /mma map alone lists the maps, by id or name shows one whole; an instance's map shown whole has
-    no arrow, line to your waypoint, blips, borders or names (the exit's instance-map scenario); /mma zone flies to a zone (0.55 s, fit
+  test_map_and_zone: /mm map alone lists the maps, by id or name shows one whole; an instance's map shown whole has
+    no arrow, line to your waypoint, blips, borders or names (the exit's instance-map scenario); /mm zone flies to a zone (0.55 s, fit
     0.92, following off), with the spike's messages (F18).
   test_zone_hover: big (or off your map) with more than one zone in view, the zone under the cursor lit, its name
     and its border (S34, S36's hover); a click flies there in 0.55 s, following off; a quest's area isn't clickable
@@ -108,11 +108,11 @@ def test_map_and_zone():
     def said():
         return sim.prints[len(sim.prints)]
 
-    sim.Slash("/mma map")
-    assert said().startswith("|cffffd100MagicMapAtlas|r: usage: /mma map <id|name>  (0=Eastern Kingdoms, 1=Kalimdor, "
+    sim.Slash("/mm map")
+    assert said().startswith("|cffffd100MagicMap|r: usage: /mm map <id|name>  (0=Eastern Kingdoms, 1=Kalimdor, "
                              "33=Shadowfang Keep, 36=Deadmines,")
     # By name, the window hidden: shown, Kalimdor whole.
-    sim.Slash("/mma map kalimdor")
+    sim.Slash("/mm map kalimdor")
     sim.Run(1)
     assert UI.Window.frame.IsShown(UI.Window.frame) and UI.Camera.inst == 1 and not UI.Camera.follow
     # Back on you, a waypoint at Lakeshire: the line to it, the edge arrow where it leaves the view.
@@ -122,7 +122,7 @@ def test_map_and_zone():
     sim.Run(1)
     assert UI.Path.pieces > 0 and sim.state[UI.Path.edge].shown
     # An instance's map by id: its tiles whole; no arrow (you're not on it), line, blips, borders or names.
-    sim.Slash("/mma map 36")
+    sim.Slash("/mm map 36")
     sim.Run(2)
     c0, r0, c1, r1 = A.TileBounds(36)
     assert UI.Camera.inst == 36 and near(cam(ns), fit(L, ns, {"col0": c0, "row0": r0, "col1": c1, "row1": r1}, 1.0))
@@ -132,7 +132,7 @@ def test_map_and_zone():
     assert not sim.state[UI.You.arrow].shown
     assert UI.Path.pieces == 0 and not sim.state[UI.Path.edge].shown
     # A zone by part of its name, the map shown's first, then by map: flown to.
-    sim.Slash("/mma zone westf")
+    sim.Slash("/mm zone westf")
     westfall = next(z for z in A.Zones(0).values() if z.name == "Westfall")
     sim.Run(0.3)
     assert UI.Camera.inst == 0 and not near(cam(ns), fit(L, ns, westfall, 0.92))
@@ -142,26 +142,26 @@ def test_map_and_zone():
     # (Core.lua:1071, 1125, 1302).
     title = lambda: UI.Title.title.GetText(UI.Title.title)  # noqa: E731
     sim.cursorX, sim.cursorY = 100, 100
-    sim.Slash("/mma map 0")
-    sim.Slash("/mma map kalimdor")
-    sim.Slash("/mma zone durotar")
+    sim.Slash("/mm map 0")
+    sim.Slash("/mm map kalimdor")
+    sim.Slash("/mm zone durotar")
     sim.Run(1)
     view = UI.Window.view
     assert UI.Camera.inst == 1 and not view.IsMouseOver(view) and title() == "Durotar"
     sim.Press("M")
     sim.Run(1)
     assert title() == "Durotar"
-    sim.Slash("/mma map 0")
+    sim.Slash("/mm map 0")
     sim.Run(0.2)
-    sim.Slash("/mma map 1")
+    sim.Slash("/mm map 1")
     sim.Run(0.2)
     assert title() == "Kalimdor"
     sim.Press("M")
     sim.Run(1)
-    sim.Slash("/mma zone nowhere")
-    assert said() == "|cffffd100MagicMapAtlas|r: no zone matching 'nowhere'"
-    sim.Slash("/mma zone")
-    assert said().startswith("|cffffd100MagicMapAtlas|r: /mma [toggle] | follow | map <id|name> | zone <name> |")
+    sim.Slash("/mm zone nowhere")
+    assert said() == "|cffffd100MagicMap|r: no zone matching 'nowhere'"
+    sim.Slash("/mm zone")
+    assert said().startswith("|cffffd100MagicMap|r: /mm [toggle] | follow | map <id|name> | zone <name> |")
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

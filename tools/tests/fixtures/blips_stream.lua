@@ -1,4 +1,4 @@
--- Recorded by tools/tests/test_blips.py (record()): /mma record over its scenario in the sim.
+-- Recorded by tools/tests/test_blips.py (record()): /mm record over its scenario in the sim.
 return {
 	[1] = {
 		epoch = 1792366106,

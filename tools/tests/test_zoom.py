@@ -18,7 +18,7 @@ LAYERS = ("map: tiles", "map: borders", "map: labels", "map: blips", "map: rares
 
 def shown():
     L, sim, ns = boot()
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(3)
     return L, sim, ns
 
@@ -78,10 +78,10 @@ def test_zoom_chase():
     # Reopened after you moved (a flight path, a hearth): the camera catches up with you, at no speed.
     m.SetFollow(True)
     sim.Run(0.5)
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.player.col = sim.player.col + 1.5
     sim.Run(0.5)
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     for _ in range(3):
         sim.Step()
         assert c.Velocity() == (0, 0)
@@ -162,7 +162,7 @@ def test_zoom_motion_priced():
 
 def test_zoom_draw_priced():
     """Zooming keeps the draw step within a call's budget (2 ms) on the priced clock (a canvas's
-    SetScale is ~8 us however many regions it holds: /mma bench regions)."""
+    SetScale is ~8 us however many regions it holds: /mm bench regions)."""
     perf, _ = wheel_priced()
     assert perf["map: draw"].max <= 2
 

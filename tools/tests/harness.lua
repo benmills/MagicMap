@@ -5,8 +5,8 @@
 local tests, files, say, skip, TEST_UI = ...
 local T = { Print = function(...) say(string.format(...)) end, Skip = skip, TEST_UI = TEST_UI }
 
--- A simulated client with MagicMapAtlas loaded and logged in: Sim, ns.
--- saved: Lua source for the SavedVariables (MagicMapAtlasDB = ...) found at load (default
+-- A simulated client with MagicMap loaded and logged in: Sim, ns.
+-- saved: Lua source for the SavedVariables (MagicMap2DB = ...) found at load (default
 -- T.TEST_UI: tools/sim.py's window, hidden at login).
 -- T.simFrames: the client's own frames, made before ours. On the counted clock (Sim.Counted).
 function T.Boot(saved)
@@ -18,11 +18,11 @@ function T.Boot(saved)
 	for _, path in ipairs(files) do -- what exists (test_luacheck flags what's missing)
 		local chunk, err = loadfile(path)
 		if not chunk then error(err, 0) end
-		sim.Call("loading " .. path:match("[^/]+/[^/]+$"), chunk, "MagicMapAtlas", ns)
+		sim.Call("loading " .. path:match("[^/]+/[^/]+$"), chunk, "MagicMap", ns)
 	end
 	assert(loadstring(saved or TEST_UI))()
 	T.Anchors(sim, ns, line)
-	sim.FireEvent("ADDON_LOADED", "MagicMapAtlas")
+	sim.FireEvent("ADDON_LOADED", "MagicMap")
 	sim.FireEvent("PLAYER_LOGIN")
 	sim.FireEvent("PLAYER_ENTERING_WORLD", true, false)
 	local step = sim.Step
@@ -156,7 +156,7 @@ end
 function T.Shown(saved, seconds)
 	local sim, ns = T.Boot(saved)
 	sim.Run(1)
-	sim.Slash("/mma toggle")
+	sim.Slash("/mm toggle")
 	sim.Run(seconds or 3)
 	return sim, ns
 end

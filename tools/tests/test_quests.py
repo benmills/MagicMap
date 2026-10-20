@@ -94,7 +94,7 @@ def client(quests, data=True, followed=0, saved=None, before=None, shown=True):
     G.Quests(L.table_from([L.table_from({k: L.table_from([L.table_from(o) for o in v]) if k == "objectives" else v
                                          for k, v in q.items()}) for q in quests]))
     if shown:
-        sim.Slash("/mma toggle")
+        sim.Slash("/mm toggle")
         sim.Run(1.5)
     return L, sim, ns, G
 

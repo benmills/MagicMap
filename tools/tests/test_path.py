@@ -112,7 +112,7 @@ def client(saved=None, shown=True, lua=False):
     L, sim, ns = boot(saved, lua=lua)
     L.execute(SETUP, sim, ns)
     if shown:
-        sim.Slash("/mma toggle")
+        sim.Slash("/mm toggle")
         sim.Run(1.5)
     return L, sim, ns, L.globals()
 
@@ -285,7 +285,7 @@ def test_corpse_forces_follow():
     Camera, Motion = ns.UI.Camera, ns.UI.Motion
     sim.units.player.dead, sim.ghost = True, True
     G.Target("corpse", 31.0, 49.75, "Your corpse")
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(1)
     assert not Camera.follow
     sim.units.player.dead, sim.ghost = False, False  # alive again, another target: still not
@@ -301,10 +301,10 @@ def test_corpse_forces_follow():
     assert Camera.follow and Camera.cam.cx == you.col
     # Browsing another continent (no target there) and back: the corpse found already, the pick kept.
     G.Tgt = False
-    sim.Slash("/mma map 1")
+    sim.Slash("/mm map 1")
     sim.Run(1)
     G.Target("corpse", 31.0, 49.75, "Your corpse")
-    sim.Slash("/mma map 0")
+    sim.Slash("/mm map 0")
     sim.Run(1.5)
     assert not Camera.follow
     assert not errors(sim, ns), errors(sim, ns)
@@ -340,7 +340,7 @@ def test_corpse_waypoint_pins():
         sim.corpse = { [1415] = CreateVector2D(ns.Atlas.TileToMap(1415, col, row)) }
         ns.Game.Command({ kind = "waypoint", pos = { inst = 0, col = col + 0.3, row = row } })""", ns, sim, 31.95, 49.75)
     sim.FireEvent("PLAYER_DEAD")
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(1.5)
     S, UI = sim.state, ns.UI
     p = UI.Corpse.front.pools.pin
@@ -364,7 +364,7 @@ def test_corpse_waypoint_pins():
     sim.Run(0.2)
     assert tip.NumLines(tip) == 2 and S[lines[1]].text == "Waypoint" and S[lines[2]].text == "Ctrl-right-click the map to clear"
 
-    sim.Slash("/mma layer corpse")  # turned off (the gear's You: Corpse, Waypoint): gone
+    sim.Slash("/mm layer corpse")  # turned off (the gear's You: Corpse, Waypoint): gone
     sim.Run(0.5)
     assert S[UI.Corpse.canvases[1]].alpha == 0 and S[UI.Corpse.canvases[2]].alpha == 0
     assert not errors(sim, ns), errors(sim, ns)
@@ -501,7 +501,7 @@ def test_path_walk_big(lua):
     """Script (c)'s c2: the big window at zoom 400, a waypoint at Lakeshire (Model's own target and route,
     from Game's waypoint), walking east 10 s: the line past MAX_PIECES, each dash re-spaced as you go."""
     c = S.boot(priced=True, lua=lua)
-    c.slash("/mma toggle")
+    c.slash("/mm toggle")
     c.run(6)
     c.press("M")
     c.run(3)

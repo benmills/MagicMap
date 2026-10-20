@@ -6,7 +6,7 @@ greyed while its parent is off; Tracking; a divider; then Settings: Map (Colour-
 and big. Every row works: a layer's toggle empties and redraws what it draws (and View.layers, for Game's: the
 blip sensor, Questie's borrowed pins) and is saved, the changed keys only, across a /reload; a layer off by
 default stays so until turned on; rows in the spike's order whenever added; each setting does what it says;
-a tracking type's box and Advanced's rows send Game their Commands (test_gear_tracking_advanced); /mma layers."""
+a tracking type's box and Advanced's rows send Game their Commands (test_gear_tracking_advanced); /mm layers."""
 from test_addon import boot, errors
 from test_blips import lua_tools, put_blips, stub_services
 from sim import TEST_UI
@@ -20,7 +20,7 @@ ADVANCED = [("title", "Diagnostics"), ("checkbox", "Debug info in the title"), (
             ("divider", None), ("title", "Performance"), ("checkbox", "Record 10 seconds"),
             ("button", "Compare with other addons"), ("button", "Memory breakdown")]
 WHITE, GOLD = (1, 1, 1), (1, 0.82, 0)
-SEEN = ("MagicMapAtlasDB.Model = MagicMapAtlasDB.Model or { _v = 1, blips = {}, rares = { [0] = { ['npc:1'] = "
+SEEN = ("MagicMap2DB.Model = MagicMap2DB.Model or { _v = 1, blips = {}, rares = { [0] = { ['npc:1'] = "
         "{ name = 'Rare', npcID = 1, col = 31.97, row = 49.74, t = 1792077412 } } } }")  # a rare you've seen
 ICON = "Interface\\Icons\\INV_Misc_Map_01"  # Game's minimap button (game/Button.lua)
 
@@ -36,7 +36,7 @@ def shown(saved=None):
     sim.FireEvent("ADDON_LOADED", "Questie")
     pin = sim.QuestieIcon()
     q.AddWorldMapIconMap(q, G.Questie, pin, 1429, 0.5, 0.5, G.HBD_PINS_WORLDMAP_SHOW_WORLD)
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(3)
     return L, sim, ns, pin
 
@@ -95,7 +95,7 @@ def rim_button(L, sim):
 def test_gear():
     L, sim, ns, pin = shown()
     G, UI, Game = L.globals(), ns.UI, ns.Game
-    view, saved, f = UI.View(), G.MagicMapAtlasDB.UI, UI.Window.frame
+    view, saved, f = UI.View(), G.MagicMap2DB.UI, UI.Window.frame
     refresh, same = G.MenuResponse.Refresh, L.eval("function(a, b) return a == b end")
 
     # The tree: a submenu per group with layers, a divider, Settings; small and big alike.
@@ -220,25 +220,25 @@ def test_gear():
     assert rows["Use Blizzard's minimap"].onSelect() is None
     sim.Step()
     assert not f.IsShown(f) and saved.shown is False and not Game.minimap.engaged and button.IsVisible(button)
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(1)
     _, rows = gear(sim, ns)
     rows["Minimap button"].onSelect()
     rows["Questie"].onSelect()
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Step()
     perf = ns.Runtime.Perf()[0]["map: gear pick"]
     assert perf.n == 26 and perf.over == 0, (perf.n, perf.max)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
     # /reload: the changed keys only (borders and the rest went off and on again, from the gear or
-    # /mma layer), each still in effect.
-    sim.Slash("/mma layer borders")
-    sim.Slash("/mma layer borders")
+    # /mm layer), each still in effect.
+    sim.Slash("/mm layer borders")
+    sim.Slash("/mm layer borders")
     sim.FireEvent("PLAYER_LOGOUT")
     assert dict(saved.layers.items()) == {"labels": False, "addon:Questie": False}
-    L, sim, ns, pin = shown("MagicMapAtlasDB = " + lua_tools(L).Dump(G.MagicMapAtlasDB))
-    saved, view = L.globals().MagicMapAtlasDB.UI, ns.UI.View()
+    L, sim, ns, pin = shown("MagicMap2DB = " + lua_tools(L).Dump(G.MagicMap2DB))
+    saved, view = L.globals().MagicMap2DB.UI, ns.UI.View()
     assert dict(saved.layers.items()) == {"labels": False, "addon:Questie": False}
     assert saved.tint is False and saved.button is False and view.button is False
     assert drawn(layer(ns, "labels")) == 0 and drawn(layer(ns, "borders")) > 0
@@ -250,7 +250,7 @@ def test_gear():
 
 
 # Stubbed as typed (wave 4a's, beside this one): obs.tracking as M4.1's part hands it (types/observation.lua
-# MM.ObsTracking: a new table on change) and its tracking Command carried out on it; the run Command (/mma
+# MM.ObsTracking: a new table on change) and its tracking Command carried out on it; the run Command (/mm
 # <line>, as typed) recorded, flipping its owners' states: UI's saved debug, Game's indoor reports
 # (obs.minimap), Runtime's recording.
 STUBS = """function(ns, sent, ran)
@@ -285,12 +285,12 @@ end"""
 def test_gear_tracking_advanced():
     """Tracking (GearMenu.lua:9-26): Blizzard's types but those ours replace, each a box that sends Game the
     tracking Command and shows the click till Game's next Observation says so. Settings > Advanced
-    (GearMenu.lua:33-46): each row runs its /mma command, a box showing its command's state. /mma layers
+    (GearMenu.lua:33-46): each row runs its /mm command, a box showing its command's state. /mm layers
     (Layers.lua:2196-2207): each group's layers, on green, off grey, a sub-option grey while its parent's off."""
     L, sim, ns = boot()
     refresh, sent, ran = L.globals().MenuResponse.Refresh, L.table(), L.table()
     L.eval(STUBS)(ns, sent, ran)
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(1)
 
     # Tracking: the client's order, the duplicates (flight, quest POIs, POIs) left out.
@@ -310,7 +310,7 @@ def test_gear_tracking_advanced():
     assert [c.on for c in sent.values()] == [False, True, False] and mail.isSelected() is False
     assert rows["Find Herbs"].isSelected() is True and rows["Innkeeper"].isSelected() is True
 
-    # Advanced: each row its /mma command; a box shows the click, then its state.
+    # Advanced: each row its /mm command; a box shows the click, then its state.
     adv = {e.text: e for e in sub(sub(root, "Settings"), "Advanced")["items"].values() if e.text}
     assert tip(L, adv["Debug info in the title"]) == [
         ("Debug info in the title",) + WHITE, ("Tile, zoom and layout timings next to the zone name.",) + GOLD]
@@ -328,14 +328,14 @@ def test_gear_tracking_advanced():
     sim.Step()
     assert list(ran.values()) == ["debug", "indoor", "perf", "perf top", "perf mem"]
 
-    # /mma layers.
-    sim.Slash("/mma layer questAreas")
-    sim.Slash("/mma layer rares")
-    sim.Slash("/mma layer flight")  # (a gear row's: the places layer draws its kind)
-    sim.Slash("/mma layers")
+    # /mm layers.
+    sim.Slash("/mm layer questAreas")
+    sim.Slash("/mm layer rares")
+    sim.Slash("/mm layer flight")  # (a gear row's: the places layer draws its kind)
+    sim.Slash("/mm layers")
     on, off = "|cff33ff33%s|r".__mod__, "|cff888888%s|r".__mod__
     assert sim.prints[len(sim.prints)] == (
-        "|cffffd100MagicMapAtlas|r: layers: "
+        "|cffffd100MagicMap|r: layers: "
         f"|cffffd100Map:|r {on('zoneLabels')}, {on('zoneBorders')}, {off('unexplored')}; "
         f"|cffffd100Quests:|r {on('quests')}, {off('questAreas')}, {off('questAreasApprox')}, {on('offers')}; "
         f"|cffffd100Places:|r {off('flight')}, {on('dungeons')}, {off('graveyards')}, {on('areaPOIs')}, {on('blips')}; "

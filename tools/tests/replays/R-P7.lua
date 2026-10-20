@@ -271,12 +271,12 @@ Cam.cam.cx, Cam.cam.cy = 32.904, 42.474
 sim.Run(1)
 
 -- A layer turned off is emptied too: turned back on after a pan, it lays out anew, no frame over 8 ms.
-sim.Slash("/mma layer borders")
+sim.Slash("/mm layer borders")
 sim.Run(1)
 local held = Held({ borders })
 Cam.cam.cx = Cam.cam.cx + 4
 sim.Run(1)
-local _, worst = Priced(function() sim.Slash("/mma layer borders") end)
+local _, worst = Priced(function() sim.Slash("/mm layer borders") end)
 T.Print("P7: the borders turned off: %d regions held; back on after a pan, the slowest frame %.2f ms priced", held, worst)
 assert(held == 0 and worst <= 8 and T.Fresh(ns, borders))
 assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n"))

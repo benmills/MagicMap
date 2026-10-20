@@ -11,7 +11,7 @@ M4.1 and M4.3 hand them over (types/model.lua, types/observation.lua), drawn as 
   test_view: View small, big, indoors (Blizzard's floor plan; the art) and hidden: renderer, chrome, the layers
     Game acts on and the sockets (the minimap one beside the world one).
   test_indoor_art: the art of the map you're on over a dark backdrop (S40), at the camera's zoom, outlined under
-    /mma indoor; none off its map.
+    /mm indoor; none off its map.
   test_inspector_lines: the right-click menu's place line from the spot's cell and the explored areas (Unexplored,
     near ...: by the cell; a city's coordinates alone) and at most 2 landmarks within 900 yd, its layer on or off (F38, S62).
 """
@@ -74,7 +74,7 @@ CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 def client(big=False, zoom=None):
     L, sim, ns = boot()
     L.execute(SETUP, sim, ns)
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(1.5)
     if big:
         sim.Press("M")
@@ -248,7 +248,7 @@ def test_shade():
     L, sim, ns = boot(lua=True)  # (our Lua charged: the shade's pass takes frames)
     L.execute(SETUP, sim, ns)
     G, S, UI, E = L.globals(), sim.state, ns.UI, ns.UI.Engine
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(1)
     sim.Press("M")
     sim.Run(1)
@@ -351,7 +351,7 @@ def test_view():
     G.Parts.minimap.indoors = False
     sim.Step()
     assert view.renderer == "ours" and sockets(view) == (True, True)
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Step()
     assert not view.window.shown and view.renderer == "ours" and view.chrome is None and sockets(view) == (False, False)
     assert view.layers.flight is True and view.layers.quests is True
@@ -404,7 +404,7 @@ def test_indoor_art():
     got = pieces()
     assert got[900001] == (0, 0, round(0.2 * z, 6), round(0.2 * z, 6), (0, 1, 0, 1))
     assert got[900004] == (round(0.2 * z, 6), round(-0.2 * z, 6), round(0.1 * z, 6), round(0.1 * z, 6), (0, 0.5, 0, 0.5))
-    # Zoomed: placed again at the new zoom; /mma indoor: outlined in pink.
+    # Zoomed: placed again at the new zoom; /mm indoor: outlined in pink.
     UI.Motion.SetZoom(400)
     sim.Run(1)
     z = cam.zoom

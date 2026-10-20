@@ -4,7 +4,7 @@
 -- tooltip's portraits show with it: QuestInfo.lua:187, 365-368). Each is wrapped:
 -- one that fails is reported and dropped, never retried.
 -- Game.Handle(kind, fn): fn(cmd) carries out that kind; one file a kind in
--- game/commands/ (slash: register /mma <name>; load: Game.Load on UI's behalf).
+-- game/commands/ (slash: register /mm <name>; load: Game.Load on UI's behalf).
 -- Sent while the addon loads: carried out at PLAYER_LOGIN, before the first frame.
 
 local _, ns = ...
@@ -32,5 +32,5 @@ end
 Runtime.Step("input", "game.commands", Run, { budgetMs = false })
 Runtime.Step("apply", "game.commands sent in the frame", Run, { budgetMs = false })
 -- Those sent while loading are carried out at login, before the first frame
--- (so /mma toggle works as soon as you're in).
+-- (so /mm toggle works as soon as you're in).
 Runtime.On("PLAYER_LOGIN", "game.commands login", Run)

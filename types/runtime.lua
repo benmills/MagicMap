@@ -22,7 +22,7 @@
 -- new optional opts; Grace, SetState, FrameStats; Worker / Wake / Idle (a job
 -- that lasts: its coroutine made once); Requeue / Left (jobs sharing a frame's
 -- budget in an order of their own: ui/Engine.lua's layouts); the onTrace hook; Record / RecordEnd /
--- recording, Spent, Gauge / gauges (diagnostics: /mma perf, perf mem, debug).
+-- recording, Spent, Gauge / gauges (diagnostics: /mm perf, perf mem, debug).
 
 ---@alias MM.Phase "input"|"observe"|"model"|"ui"|"apply"
 
@@ -204,7 +204,7 @@ function Runtime.SetState(name) end
 ---@return MM.FrameStats
 function Runtime.FrameStats() end
 
----A recording (/mma perf: Perf.lua): the next `seconds` of frames, graces included, then done(rec),
+---A recording (/mm perf: Perf.lua): the next `seconds` of frames, graces included, then done(rec),
 ---wrapped as name. Runtime.recording is the one going on (nil: none). OPEN
 ---@param seconds number
 ---@param name string

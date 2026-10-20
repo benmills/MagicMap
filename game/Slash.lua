@@ -1,8 +1,8 @@
--- /mma <name> [args]: Game.Slash(name, help, fn) registers fn(args); /mma alone is the
+-- /mm <name> [args]: Game.Slash(name, help, fn) registers fn(args); /mm alone is the
 -- name "" (UI's: the map shown or hidden, Core.lua:1700). A name may be two words ("check art"): it
 -- wins over its first word's. An unknown name, or zone alone, answers with the spike's usage line
 -- (Core.lua:1752); the rebuild's diagnostics (check, bench, shot, layer, mapstats, minimap, errors,
--- perf load...) stand outside it: /mma help lists every name. Game.Run(line) is the same as typing it
+-- perf load...) stand outside it: /mm help lists every name. Game.Run(line) is the same as typing it
 -- (the gear's Advanced: game/commands/run.lua).
 -- Here: the spike's tiles, landmarks, perf, perf top, perf mem (Core.lua, Landmarks.lua, Perf.lua); and
 -- Runtime's own, perf load and errors.
@@ -10,7 +10,7 @@
 local ADDON, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
-local USAGE = "/mma [toggle] | follow | map <id|name> | zone <name> | icon | tiles | tint | layers | landmarks"
+local USAGE = "/mm [toggle] | follow | map <id|name> | zone <name> | icon | tiles | tint | layers | landmarks"
 	.. " | blips | indoor | perf | debug | reset" -- Core.lua:1752
 local ARG = { zone = true } -- names that take an argument: alone, the usage line (Core.lua:1721)
 
@@ -19,7 +19,7 @@ Game.commands = {} -- names, in registration order
 
 function Game.Slash(name, help, fn)
 	if not commands[name] then Game.commands[#Game.commands + 1] = name end
-	commands[name] = { help = help, fn = Runtime.Wrap("/mma " .. name, fn) }
+	commands[name] = { help = help, fn = Runtime.Wrap("/mm " .. name, fn) }
 end
 
 function Game.Run(msg)
@@ -33,15 +33,16 @@ function Game.Run(msg)
 	Game.Say(USAGE)
 end
 
-SLASH_MAGICMAPATLAS1 = "/mma"
-SlashCmdList.MAGICMAPATLAS = Game.Run
+SLASH_MAGICMAP1 = "/mm"
+SLASH_MAGICMAP2 = "/magicmap" -- Core.lua:1696-1698
+SlashCmdList.MAGICMAP = Game.Run
 
 Game.Slash("help", "every command, with what it does", function()
 	Game.Print("commands:")
-	for _, n in ipairs(Game.commands) do print("  /mma" .. (n ~= "" and " " .. n or "") .. " - " .. commands[n].help) end
+	for _, n in ipairs(Game.commands) do print("  /mm" .. (n ~= "" and " " .. n or "") .. " - " .. commands[n].help) end
 end)
 
--- /mma tiles (Core.lua:1738-1743): the tile set, and each map's tiles.
+-- /mm tiles (Core.lua:1738-1743): the tile set, and each map's tiles.
 Game.Slash("tiles", "the tile set, and each map's tiles", function()
 	local names = {}
 	for _, m in ipairs(Atlas.Maps()) do
@@ -53,7 +54,7 @@ Game.Slash("tiles", "the tile set, and each map's tiles", function()
 	Game.Say("tile set: " .. tostring(product) .. " " .. tostring(version) .. ". Maps: " .. table.concat(names, ", "))
 end)
 
--- /mma landmarks (Landmarks.lua:175-183): the rares you've seen, every map's (Model's saved part, as Game
+-- /mm landmarks (Landmarks.lua:175-183): the rares you've seen, every map's (Model's saved part, as Game
 -- loaded it).
 Game.Slash("landmarks", "how many rares are remembered", function()
 	local total = 0
@@ -64,7 +65,7 @@ Game.Slash("landmarks", "how many rares are remembered", function()
 end)
 
 ---------------------------------------------------------------------------
--- /mma perf, perf top, perf mem (Perf.lua)
+-- /mm perf, perf top, perf mem (Perf.lua)
 ---------------------------------------------------------------------------
 
 local DURATION = 10 -- s (Perf.lua:7)
@@ -174,7 +175,7 @@ Game.Slash("perf", "record 10 s of play, then how the map kept up (again: stop e
 	if Runtime.recording then return Runtime.RecordEnd() end
 	before = Runtime.gauges.map()
 	Runtime.Record(DURATION, "perf: report", Report)
-	Game.Say(string.format("perf: recording %d s; pan and zoom around (/mma perf again to stop early)", DURATION))
+	Game.Say(string.format("perf: recording %d s; pan and zoom around (/mm perf again to stop early)", DURATION))
 end)
 
 Game.Slash("perf top", "how we compare with your other addons, right now", function()

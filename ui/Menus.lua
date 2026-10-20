@@ -2,9 +2,9 @@
 -- as open for the controls that opened them, so those don't fade out under them.
 -- The gear menu (GearMenu.lua): what's drawn, a submenu per group of layers (Layers.lua:2179-2203),
 -- Blizzard's tracking but what ours replace, then Settings: Map (Colour-matched tiles), Minimap (Minimap
--- button, Reset position, Use Blizzard's minimap), Advanced (Diagnostics, Performance: /mma commands).
--- /mma layers (Layers.lua:2196-2207).
--- The map picker (the title's click: ui/ZoneInfo.lua) and /mma map; the map's right-click menu.
+-- button, Reset position, Use Blizzard's minimap), Advanced (Diagnostics, Performance: /mm commands).
+-- /mm layers (Layers.lua:2196-2207).
+-- The map picker (the title's click: ui/ZoneInfo.lua) and /mm map; the map's right-click menu.
 
 local _, ns = ...
 local UI, Model, Atlas, Runtime = ns.UI, ns.Model, ns.Atlas, ns.Runtime
@@ -68,7 +68,7 @@ local function Before(a, b) return a.place < b.place end
 function Menus.Layer(row)
 	LAYERS[#LAYERS + 1] = row
 	row.place = ORDER[row.key] or 100 + #LAYERS
-	Engine.defaults[row.key] = row.default ~= false -- (a gear row's key: /mma layer takes it too)
+	Engine.defaults[row.key] = row.default ~= false -- (a gear row's key: /mm layer takes it too)
 	table.sort(LAYERS, Before)
 	return row
 end
@@ -196,7 +196,7 @@ end
 -- Settings
 ---------------------------------------------------------------------------
 
--- /mma <line>, as typed (Game owns them): Advanced runs the same code (GearMenu.lua:28).
+-- /mm <line>, as typed (Game owns them): Advanced runs the same code (GearMenu.lua:28).
 local function Slash(line) return function() Command({ kind = "run", line = line }) end end
 
 -- Advanced (GearMenu.lua:33-46): a box shows its command's state where its owner keeps it: the title's
@@ -262,7 +262,7 @@ local function AddSections(sub, sections)
 end
 
 ---------------------------------------------------------------------------
--- The map picker (Core.lua:1161-1240) and /mma map (Core.lua:1704-1720)
+-- The map picker (Core.lua:1161-1240) and /mm map (Core.lua:1704-1720)
 ---------------------------------------------------------------------------
 
 local CONTINENT_MIN_TILES = 300 -- open-world maps this big are listed as continents (Core.lua:1062)
@@ -364,7 +364,7 @@ Command({ kind = "slash", name = "map", help = "<id|name>: show a map whole; alo
 	end
 	local names = {}
 	for _, m in ipairs(Atlas.Maps()) do names[#names + 1] = m.inst .. "=" .. m.name end
-	UI.Print("usage: /mma map <id|name>  (" .. table.concat(names, ", ") .. ")")
+	UI.Print("usage: /mm map <id|name>  (" .. table.concat(names, ", ") .. ")")
 end })
 
 ---------------------------------------------------------------------------

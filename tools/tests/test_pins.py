@@ -35,7 +35,7 @@ end"""
 
 
 def shown(L, sim, ns, looks, n=1):
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(1)
     cam = ns.UI.Camera.cam
     t = L.eval(LAYER)(ns.UI.Pins, n, cam.cx, cam.cy, L.table_from([L.table_from(x) for x in looks]))

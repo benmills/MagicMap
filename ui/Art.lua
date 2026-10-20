@@ -1,5 +1,5 @@
 -- Art: every atlas, file and font UI draws with, by name, and Game's minimap button's (all the
--- chrome you see). Checked against the client once after login's grace and on /mma check
+-- chrome you see). Checked against the client once after login's grace and on /mm check
 -- art; each miss traces "art" (its name). Forever lacks some art other clients have, and a
 -- missing name draws nothing, silently (spike-bugs L2, L5). A name UI starts using goes here.
 -- Not listed: data's art (tile FileDataIDs, Textures\Sea: generated, K4), our own

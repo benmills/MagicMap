@@ -6,7 +6,7 @@
 --   Escape while big: a catcher in UISpecialFrames is shown, and Escape closing it is "escape".
 -- What's caught (game/Button.lua's "toggle" too) is handed over as obs.hooked, its own part:
 -- everything since the last observe, each a constant table.
--- /mma check combat answers the M1 gate's question for the guard (the spike has none,
+-- /mm check combat answers the M1 gate's question for the guard (the spike has none,
 -- MinimapMode.lua:198-201): in combat, Blizzard's map open, it hides it once as M would and says
 -- whether it hid and whether the client blocked us (a block is taint's too: game/Telemetry.lua).
 
@@ -30,7 +30,7 @@ hooksecurefunc("ToggleWorldMap", Runtime.Wrap("game: M", function()
 	Game.Hooked("worldmap")
 end))
 
-local catcher = CreateFrame("Frame", "MagicMapAtlasEscape", UIParent) -- (UISpecialFrames takes names)
+local catcher = CreateFrame("Frame", "MagicMapWorldMapEscape", UIParent) -- (UISpecialFrames takes names)
 catcher:Hide()
 tinsert(UISpecialFrames, catcher:GetName())
 -- Hidden by Escape while big; Apply hides it only once big is over.

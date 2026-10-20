@@ -8,7 +8,7 @@
 -- Runtime.onTrace(kind, detail) if set (game/Telemetry.lua keeps some, counts others).
 -- Attribution (docs/runtime.md): each call's Lua KB, jobs' stretches between
 -- Yields, the worst frames with the events around them, frames by map state.
--- A recording (/mma perf): a few seconds of frames and of every call in them, by name.
+-- A recording (/mm perf): a few seconds of frames and of every call in them, by name.
 -- The first file after Atlas, so it marks Atlas's load end (boot.loaded).
 
 local _, ns = ...
@@ -94,7 +94,7 @@ local function Fail(name, err, stack)
 		e = { name = name, err = tostring(err), n = 1 }
 		failed[name] = e
 		Runtime.errors[#Runtime.errors + 1] = e
-		print("|cffff6060MagicMap Atlas|r error in " .. name .. ": " .. e.err)
+		print("|cffff6060MagicMap|r error in " .. name .. ": " .. e.err)
 	end
 	if Runtime.onError and not reporting then -- Game persists it
 		reporting = true
@@ -102,7 +102,7 @@ local function Fail(name, err, stack)
 		reporting = false
 		if not ok then
 			Runtime.onError = nil
-			print("|cffff6060MagicMap Atlas|r error reporting failed, now off: " .. tostring(why))
+			print("|cffff6060MagicMap|r error reporting failed, now off: " .. tostring(why))
 		end
 	end
 end
@@ -591,7 +591,7 @@ function Runtime.FrameStats()
 	return out
 end
 
--- A recording (/mma perf: Perf.lua) and gauges ---------------------------------------
+-- A recording (/mm perf: Perf.lua) and gauges ---------------------------------------
 
 local HITCH = 1 / 30 -- s: a frame slower is a visible hitch (Perf.lua:8)
 Runtime.HITCH = HITCH
@@ -620,7 +620,7 @@ local function Recorded(cost, elapsed)
 	if r.t >= r.seconds then Runtime.RecordEnd() end
 end
 
--- Numbers a system keeps for diagnostics, read by /mma perf and perf mem (the map's: ui/Engine.lua):
+-- Numbers a system keeps for diagnostics, read by /mm perf and perf mem (the map's: ui/Engine.lua):
 -- Runtime.gauges[name]() → fn's table, its shape the registrant's.
 Runtime.gauges = {}
 function Runtime.Gauge(name, fn) Runtime.gauges[name] = Runtime.Wrap("gauge: " .. name, fn, false) end

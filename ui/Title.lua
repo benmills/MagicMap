@@ -5,9 +5,9 @@
 --   hovering the map (big, or not on your map): the zone under the cursor and its coordinates
 --   on your map: your zone (your uiMap's name, else the client's), the client's subzone (the
 --     inn, inside it); coordinates and the target (ui/You.lua) while big or hovered
---   otherwise: the zone last flown to on this map (a zone's click, /mma zone), else the map's name; big:
+--   otherwise: the zone last flown to on this map (a zone's click, /mm zone), else the map's name; big:
 --     the hint to follow you again
--- and with /mma debug, last (Core.lua:1305-1313), grey: the tile under the cursor (else the view's centre),
+-- and with /mm debug, last (Core.lua:1305-1313), grey: the tile under the cursor (else the view's centre),
 -- its FileDataID, the zoom, the borders' last layout (its ms, its Lines) and the tile set's build.
 
 local _, ns = ...
@@ -239,7 +239,7 @@ local function Update()
 	end
 end
 
--- /mma debug (Core.lua:1746-1748): the gear's Advanced runs it (GearMenu.lua:35).
+-- /mm debug (Core.lua:1746-1748): the gear's Advanced runs it (GearMenu.lua:35).
 function Title.Debug()
 	UI.saved.debug = not UI.saved.debug
 	UI.Print("debug info " .. (UI.saved.debug and "on" or "off"))

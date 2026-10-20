@@ -1,4 +1,4 @@
-"""/mma bench regions and /mma check art in the sim: the bench's result has its shape and
+"""/mm bench regions and /mm check art in the sim: the bench's result has its shape and
 came from a job that gave frames back; a missing atlas, chain or font is one `art` trace, at login
 and on demand, and the art UI draws on Forever none."""
 from test_addon import boot, errors
@@ -19,7 +19,7 @@ OPS = ["CreateTexture", "CreateLine", "CreateFontString", "SetPoint", "SetStartP
 
 def test_bench_regions():
     L, sim, ns = boot()  # the counted clock: 3 us a widget call
-    sim.Slash("/mma bench regions")
+    sim.Slash("/mm bench regions")
     sim.Run(7)
     r = ns.Game.Bench.result
     assert r.build == "1.60.1.70009" and r.t > 0
@@ -45,14 +45,14 @@ def test_check_art():
     assert traced() == []  # inside login's grace
     sim.Run(2)
     assert traced() == ["no-such-atlas", "Fonts\\NOPE.TTF"]
-    sim.Slash("/mma check art")
+    sim.Slash("/mm check art")
     assert traced() == ["no-such-atlas", "Fonts\\NOPE.TTF"] * 2
     assert list(sim.prints.values())[-1] == "  art missing: no-such-atlas, Fonts\\NOPE.TTF"
     art.atlases[len(art.atlases)] = None
     art.fonts[len(art.fonts)] = None
-    sim.Slash("/mma check art")
+    sim.Slash("/mm check art")
     assert len(traced()) == 4 and "art: all" in list(sim.prints.values())[-1]
-    sim.Slash("/mma toggle")  # the labels draw in the fonts checked
+    sim.Slash("/mm toggle")  # the labels draw in the fonts checked
     sim.Run(1)
     labels = ns.UI.Labels.front.pools.label
     drawn = {labels[i].GetFont(labels[i])[0] for i in range(1, labels.n + 1)}

@@ -4,7 +4,7 @@
 -- that art over our tiles and under every layer, on a dark backdrop so the ground above doesn't show
 -- through: View.renderer "ours+art" (the sensor, pins and your arrow as outdoors). Indoors with no art, the
 -- small window wears Blizzard's whole Minimap ("blizzard": Game's), the big one our terrain ("ours").
--- /mma indoor (Game's, Model.minimap.indoorDebug) outlines the art in pink. Not a layer of the engine's
+-- /mm indoor (Game's, Model.minimap.indoorDebug) outlines the art in pink. Not a layer of the engine's
 -- (one more there, empty but indoors, would take frames from the ground's layouts as the zoom moves): a
 -- frame of its own at the tiles' canvases' level, laid on after them (IndoorArt.lua:3-6: the tiles' canvas),
 -- its pieces placed at the camera's zoom when it changes (IndoorArt.lua:96-112, its ViewChanged), the frame

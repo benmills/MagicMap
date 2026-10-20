@@ -67,7 +67,7 @@ ITEMS = {60: [772], 47: [773], 176: [1931]}
 
 def client():
     L, sim, ns = boot()
-    sim.Slash("/mma toggle")  # the map shown: Game reads quests and offers only then
+    sim.Slash("/mm toggle")  # the map shown: Game reads quests and offers only then
     L.execute(SETUP, sim, ns.Atlas)
     real = ns.Atlas.Quest
     ns.Atlas.Quest = L.eval("""function(items, real) return function(id)
@@ -207,7 +207,7 @@ rec.out[#rec.out + 1] = { frame = o.frame, t = R3(o.t), epoch = o.epoch, hooked 
 
 def record(story, name):
     """The story played on the sim, the part's observation kept at each recorded frame (positions,
-    times to 3 decimals, as /mma record keeps them): the stream as Lua source, each table the part
+    times to 3 decimals, as /mm record keeps them): the stream as Lua source, each table the part
     handed over written once (P[i]) and shared by the frames it was handed in, and its parts."""
     L, sim, ns, G = client()
     rec, keep = L.table_from({"parts": L.table(), "out": L.table()}), L.eval("loadstring")(RECORD)
@@ -313,13 +313,13 @@ def test_quests_round_trip():
     assert by_id(ns.Game.obs.quests)[62]["followed"]
 
     # The map hidden: not read (no garbage nor work for it); what came meanwhile read once it shows.
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.quests[63] = L.table_from({"title": "Wine Shop Advert", "level": 1, "map": ELWYNN, "x": 0.4, "y": 0.6,
                                    "complete": False, "objectives": L.table()})
     sim.FireEvent("QUEST_LOG_UPDATE")
     sim.Run(1)
     assert 63 not in by_id(ns.Game.obs.quests)
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(0.1)
     assert 63 in by_id(ns.Game.obs.quests)
 

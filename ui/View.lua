@@ -55,7 +55,7 @@ local function Off()
 end
 
 -- UI's chat line (Core.lua:45-46).
-function UI.Print(msg) print("|cffffd100MagicMapAtlas|r: " .. msg) end
+function UI.Print(msg) print("|cffffd100MagicMap|r: " .. msg) end
 
 local OPTIONAL = { window = "table", inst = "number", center = "table" } -- types/saved.lua MM.SavedUI
 Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS, optional = OPTIONAL }, fn = function(s)
@@ -139,9 +139,9 @@ Command({ kind = "slash", name = "minimap", help = "ours | blizzard: who has the
 -- The minimap button (Game's, View.button) shown or hidden (MinimapButton.lua:49-53).
 function UI.Icon()
 	saved.button = not saved.button
-	UI.Print("minimap button " .. (saved.button and "shown" or "hidden (/mma icon to show)"))
+	UI.Print("minimap button " .. (saved.button and "shown" or "hidden (/mm icon to show)"))
 end
 Command({ kind = "slash", name = "icon", help = "show or hide the minimap button", fn = UI.Icon })
--- /mma alone or /mma toggle (Core.lua:1700); /mma map <id|name> is the map picker's (M3.4).
+-- /mm alone or /mm toggle (Core.lua:1700); /mm map <id|name> is the map picker's (M3.4).
 Command({ kind = "slash", name = "", help = "our map, or Blizzard's minimap (as toggle)", fn = Window.Toggle })
 Command({ kind = "slash", name = "toggle", help = "our map, or Blizzard's minimap", fn = Window.Toggle })

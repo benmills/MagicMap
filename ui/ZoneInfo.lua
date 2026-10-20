@@ -10,7 +10,7 @@
 --   At(col, row): the big map's right-click menu leads with it (ui/Menus.lua): the zone, the areas explored
 --     there and coordinates, its levels against yours, how far and which way from you, at most 2 quests whose
 --     areas hold it, at most 2 landmarks near it.
---   /mma zone <name>: fly to the first zone whose name holds it, the map shown's first.
+--   /mm zone <name>: fly to the first zone whose name holds it, the map shown's first.
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
@@ -470,7 +470,7 @@ function ZoneInfo.At(col, row)
 end
 
 ---------------------------------------------------------------------------
--- /mma zone; the title's click
+-- /mm zone; the title's click
 ---------------------------------------------------------------------------
 
 -- The first zone whose name holds it, the map shown's first, then by map (Core.lua:1721-1734). Alone: the

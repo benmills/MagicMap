@@ -16,7 +16,7 @@ assert(m.cam.zoom ~= zoom)
 local errors = ns.Runtime.errors
 assert(#errors == 1 and errors[1].name == "map: borders" and errors[1].n == 1)
 assert(not borders.busy and T.Fresh(ns, borders) and T.Live(borders) > 0)
-local tel = MagicMapAtlasDB.telemetry
+local tel = MagicMap2DB.telemetry
 local kept
 for _, e in pairs(tel.errors) do
 	if e.name == "map: borders" then kept = kept or e end

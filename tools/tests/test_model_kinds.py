@@ -16,7 +16,7 @@ from lupa import lua51
 from test_blips import ROOT, lua_tools
 
 SAVED = "{ _v = 1, rares = {}, blips = {} }"
-PLACES = "local ns = { Data = {} }; assert(loadfile(...))('MagicMapAtlas', ns); return ns.Data"
+PLACES = "local ns = { Data = {} }; assert(loadfile(...))('MagicMap', ns); return ns.Data"
 
 
 def setup(data=None):

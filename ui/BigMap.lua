@@ -1,13 +1,13 @@
 -- The window is the minimap: it takes the minimap's place (MinimapMode.lua:1-16).
 --   * It starts on the minimap's spot, square, SPAN yards across, and keeps that as you
---     resize it. /mma reset puts it back there.
+--     resize it. /mm reset puts it back there.
 --   * M (Model.hooked "worldmap": Game hid Blizzard's world map) or the red button grows it
 --     to most of the screen, in the same chrome; M, the button or Escape (hooked "escape":
 --     Game's catcher, shown while View.window.big) shrink it back. While big, the Minimap's
 --     home corner fades out (View.window.homeAlpha).
 --   * Small, it sits at the minimap's strata (its cluster's: obs.minimap.homeStrata), so
 --     other windows go over it.
---   * The rim button or the addon compartment (hooked "toggle") shows or hides it, as /mma toggle.
+--   * The rim button or the addon compartment (hooked "toggle") shows or hides it, as /mm toggle.
 -- The camera's flights and zoom are Motion's (ui/Motion.lua: FlyTo, SetZoom, SetFollow).
 -- Only the small window's rect and zoom are saved (SavedUI.window, zoom): never the big one,
 -- so hiding or logging out while big comes back small (spike-bugs L4); growing again while
@@ -229,7 +229,7 @@ function BigMap.Load(saved)
 	loaded = true
 end
 
--- /mma reset: back onto the minimap's spot, at its size, following.
+-- /mm reset: back onto the minimap's spot, at its size, following.
 function BigMap.Reset()
 	if BigMap.big or tween then
 		UI.Print("reset: shrink the map back first (M)")

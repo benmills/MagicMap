@@ -1,11 +1,11 @@
 -- Validate Atlas against the live client where you stand: stale Data (K4) shows as FAILs.
--- What holds offline is tools/tests/test_atlas.py's; load cost is /mma perf load's.
---   /mma check         Atlas vs the client here: PASS / FAIL per fact, and (on demand only, not
+-- What holds offline is tools/tests/test_atlas.py's; load cost is /mm perf load's.
+--   /mm check         Atlas vs the client here: PASS / FAIL per fact, and (on demand only, not
 --                      logged) the map rects up from here and the continent's flight points
---   /mma check log     toggle logging mismatches every 2 s as you travel (MagicMapAtlasDB.validation);
+--   /mm check log     toggle logging mismatches every 2 s as you travel (MagicMap2DB.validation);
 --                      the log is this build's: another build's is cleared at load (a build is its
 --                      TOC's ## X-Stamped, which tools/install.py and package.sh write: none, "unstamped")
---   /mma check report  the log, by kind;  /mma check clear  empties it
+--   /mm check report  the log, by kind;  /mm check clear  empties it
 -- Both judge alike (Sample): the client not knowing yet, or a WMO's own subzone, is info, not drift.
 
 local ADDON, ns = ...
@@ -34,7 +34,7 @@ local function Count(t)
 	return n
 end
 
--- /mma check -------------------------------------------------------------------------------
+-- /mm check -------------------------------------------------------------------------------
 
 -- The client's map info, once a map (the client makes a table each call).
 local infos = {}
@@ -99,7 +99,7 @@ local function R(kind, ok, atlas, game)
 end
 
 -- Facts at the player's position: cheap enough for the logger. Returns results, inst, col, row, best.
--- verbose: what passed is written out too (/mma check's), else only what failed.
+-- verbose: what passed is written out too (/mm check's), else only what failed.
 local function Sample(verbose)
 	wipe(out)
 	local north, west, _, i = UnitPosition("player")
@@ -218,7 +218,7 @@ end
 
 -- The logger --------------------------------------------------------------------------------
 
-local db       -- MagicMapAtlasDB.validation: { on, version, samples, counts = { kind = n }, log = { entry, ... }, dropped }
+local db       -- MagicMap2DB.validation: { on, version, samples, counts = { kind = n }, log = { entry, ... }, dropped }
 local timer
 local seen = {} -- kind|atlas|game|chunk logged this session: log each once per place
 
@@ -259,7 +259,7 @@ Game.Load("validation", function(saved)
 		db.version = VERSION
 	end
 	if db.on then Start() end
-end, { version = 2, defaults = { on = false, version = "", samples = 0, counts = {}, log = {}, dropped = 0 } })
+end, { version = 1, defaults = { on = false, version = "", samples = 0, counts = {}, log = {}, dropped = 0 } })
 
 local function Report()
 	Game.Print(string.format("validation log (build %s%s): %s, %d samples, %d logged (%d over the cap)", db.version,

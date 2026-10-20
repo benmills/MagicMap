@@ -6,7 +6,7 @@
 --   4. the tiles' art (SetTexture(fdid)), TileColor tint as vertex colour + an ADD overlay,
 --      coast tiles masked with their feather (AddMaskTexture), wrap CLAMP: CLAMPTOBLACKADDITIVE
 --      would fade every edge's last texel to clear and draw the tile grid in hairlines of sea
--- No sea on the map: its backdrop colour under the tiles. With UI.saved.tint off (/mma tint, the
+-- No sea on the map: its backdrop colour under the tiles. With UI.saved.tint off (/mm tint, the
 -- gear's "Colour-matched tiles": Core.lua:1648-1653, GearMenu.lua:49), the art plain: every tile,
 -- no tint, no coast fade. A layout keeps the cells and tiles its canvas showed (Engine.Keep, by tile):
 -- at the same zoom and origin they're left as they are, so a pan's layout re-textures and places only
@@ -278,7 +278,7 @@ UI.Tiles = Engine.Layer("tiles", 1, function(c, inst, zoom, c0, r0, c1, r1)
 	Tiles(c, inst, zoom, sea, tint, c0, r0, c1, r1)
 end, Tint)
 
--- The colour data on or off, to compare it with the plain art (Core.lua:1648-1653): /mma tint, and
+-- The colour data on or off, to compare it with the plain art (Core.lua:1648-1653): /mm tint, and
 -- the gear's "Colour-matched tiles" (GearMenu.lua:49 runs the command).
 function UI.Tint()
 	local saved = UI.saved

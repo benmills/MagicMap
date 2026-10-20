@@ -35,7 +35,7 @@ def test_world_pins():
     the turn-in our quests layer shows; zoomed out past 48, the continent's alone; the quests layer off,
     Questie's turn-in again."""
     L, sim, ns = boot()
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(3)
     q = sim.LoadQuestie()
     sim.FireEvent("ADDON_LOADED", "Questie")
@@ -65,7 +65,7 @@ def test_world_pins():
 def test_minimap_pins():
     """GatherMate's herb (the shared copy) and Questie's (renamed) minimap pins through every host."""
     L, sim, ns = boot()
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(3)
     q = sim.LoadQuestie()
     sim.FireEvent("ADDON_LOADED", "Questie")
@@ -112,10 +112,10 @@ def test_minimap_pins():
     assert same(herb.GetParent(herb), host) and herb.IsVisible(herb)
 
     # The map shown isn't yours: they're around you, not on it.
-    sim.Slash("/mma map 36")
+    sim.Slash("/mm map 36")
     sim.Run(0.5)
     assert socket.inst == 36 and same(herb.GetParent(herb), host) and not herb.IsVisible(herb)
-    sim.Slash("/mma follow")
+    sim.Slash("/mm follow")
     sim.Run(0.5)
     assert socket.inst == 0 and herb.IsVisible(herb)
 
@@ -129,7 +129,7 @@ def test_minimap_pins():
     sim.Step()
     assert same(herb.GetParent(herb), host) and herb.IsVisible(herb)
 
-    sim.Slash("/mma toggle")  # released: back on the Minimap (at its home), placed there again
+    sim.Slash("/mm toggle")  # released: back on the Minimap (at its home), placed there again
     sim.Step()
     assert not ns.Game.minimap.engaged and same(q.Minimap, mm) and same(sim.hbdPins.Minimap, mm)
     assert same(herb.GetParent(herb), mm) and herb.IsVisible(herb) and not host.IsShown(host)

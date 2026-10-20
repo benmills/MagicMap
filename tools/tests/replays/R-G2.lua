@@ -2,11 +2,11 @@
 -- takeover let the Minimap go whenever you were off the map shown (it read the camera, cam.onMap).
 -- MOVED: Game acts only on View (types/view.lua), which says nothing of the map shown but its
 -- instance; whether it takes the Minimap hangs on the window shown and View.minimap alone. Browsing
--- Kalimdor from Eastern Kingdoms (the picker, /mma map) and coming back (Follow me): the takeover held
+-- Kalimdor from Eastern Kingdoms (the picker, /mm map) and coming back (Follow me): the takeover held
 -- every frame, the Minimap still the sensor, its cluster hidden (T.Invariants), HereBeDragons' minimap
 -- pins on a host of Game's, out of sight but on the minimap socket (R-G6c).
 local T = ...
-local sim, ns = T.Boot("MagicMapAtlasDB = nil") -- the shipped default: shown, small, on the minimap's spot
+local sim, ns = T.Boot("MagicMap2DB = nil") -- the shipped default: shown, small, on the minimap's spot
 sim.Run(3)
 local Game, UI = ns.Game, ns.UI
 local m, gather = Game.minimap, sim.gatherPin
@@ -39,7 +39,7 @@ assert(UI.Camera.inst == 1 and UI.View().inst == 1 and sim.player.inst == 0 and 
 -- Grown and browsing, then an instance's map by id.
 sim.Press("M")
 Held(1)
-sim.Slash("/mma map 36")
+sim.Slash("/mm map 36")
 Held(1)
 assert(UI.View().inst == 36)
 -- Back: Follow me, from the map's menu.

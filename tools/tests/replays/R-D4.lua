@@ -8,7 +8,7 @@
 -- 0.38, 0.79)), gone while Sim.noVignettes.
 local T = ...
 local COL, ROW = 31.594, 50.316
-local sim, ns = T.Boot(T.TEST_UI .. "\nMagicMapAtlasDB.Model = { _v = 1, blips = {}, rares = { [0] = { ['npc:471'] = "
+local sim, ns = T.Boot(T.TEST_UI .. "\nMagicMap2DB.Model = { _v = 1, blips = {}, rares = { [0] = { ['npc:471'] = "
 	.. "{ name = 'Mother Fang', npcID = 471, col = " .. COL .. ", row = " .. ROW .. ", t = 1792000000 } } } }")
 local Model = ns.Model
 sim.vignetteAtlas = "VignetteKillElite" -- a rare's art; the creature's GUID: her NPC
@@ -23,7 +23,7 @@ local function Vignettes(on)
 	sim.FireEvent("VIGNETTES_UPDATED")
 end
 sim.Run(1)
-sim.Slash("/mma toggle")
+sim.Slash("/mm toggle")
 sim.Run(3)
 
 -- Mother Fang among Known("rares") and Known("vignettes") (those drawn: its layer on); her pins shown on the

@@ -20,7 +20,7 @@ UI.Window = Window
 local function R2(v) return math.floor(v * 100 + 0.5) / 100 end -- for telemetry
 
 -- Core.lua:86-100: until the minimap's spot is known, 200 square at the top right (Core.lua:21, 1676).
-local frame = CreateFrame("Frame", "MagicMapAtlasMap", UIParent, "ButtonFrameTemplate")
+local frame = CreateFrame("Frame", "MagicMapFrame", UIParent, "ButtonFrameTemplate")
 frame:SetClampedToScreen(true)
 frame:SetMovable(true)
 frame:SetResizable(true)

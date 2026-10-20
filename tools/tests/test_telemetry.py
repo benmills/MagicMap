@@ -12,7 +12,7 @@ import time
 import telemetry
 from test_addon import boot, errors
 
-FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "MagicMapAtlas.lua")
+FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "MagicMap.lua")
 
 
 def client(tmp_path):
@@ -30,10 +30,10 @@ def test_telemetry_fixture(tmp_path, capsys):
         (tmp_path / "refs" / ref).write_bytes(b"")
     now = time.strftime("%-m/%-d %H:%M:%S.000")
     (flavor / "Logs" / "General.log").write_text(
-        f"{now}  [E][Lua] Lua Error: Interface/AddOns/MagicMapAtlas/ui/Tiles.lua:88: boom\n"
-        "[Interface/AddOns/MagicMapAtlas/ui/Tiles.lua]:88: in function <...>\n"
-        f"{now}  [E][Lua] Lua Error: Interface/AddOns/MagicMap/Layers.lua:1473: bad argument #2 to 'min'\n"
-        "[Interface/AddOns/MagicMap/Layers.lua]:1473: in function <...>\n"
+        f"{now}  [E][Lua] Lua Error: Interface/AddOns/MagicMap/ui/Tiles.lua:88: boom\n"
+        "[Interface/AddOns/MagicMap/ui/Tiles.lua]:88: in function <...>\n"
+        f"{now}  [E][Lua] Lua Error: Interface/AddOns/Questie/Modules/Map.lua:1473: attempt to index global 'MagicMap_Borders'\n"
+        "[Interface/AddOns/Questie/Modules/Map.lua]:1473: in function <...>\n"
         f"{now}  [N][Console] unrelated\n")
     base = ["--wow", str(tmp_path), "--sv", FIXTURE, "--refs", str(tmp_path / "refs")]
     assert telemetry.main(base + ["--trace", "3"]) == 0
@@ -48,7 +48,7 @@ def test_telemetry_fixture(tmp_path, capsys):
                  "p95 0.8 p99 5.4 max 11.2, 2 over, graces gc 88.2 login 96.4 map 31.5", "slow: map: labels x3",
                  "alloc p95 4.1 KB/frame (max 850.2 KB/frame over 17600 frames), 274.3 KB/s",
                  "ours 71 MB (39 at load), after GC",
-                 "SHARED MagicMap: ", "General.log: [E][Lua] Lua Error: Interface/AddOns/MagicMap/Layers.lua:1473",
+                 "SHARED Questie: ", "General.log: [E][Lua] Lua Error: Interface/AddOns/Questie/Modules/Map.lua:1473",
                  # perf: alloc, gaps, ledger, by state, memory, layouts, bench
                  "game.observe                    180.2 KB/s  max 12.4 KB/call  5400 calls",
                  "map: borders 14.2 ms (x3)", "ui/Borders.lua:88", "f9118 11.2 ms  top map: borders 10.4 ms  [layout x2, swap x1, gap x1, spike x1]",
@@ -132,27 +132,27 @@ SAVE = """function(v)
         else out[#out + 1] = "nil" end
     end
     put(v)
-    return "MagicMapAtlasDB = " .. table.concat(out)
+    return "MagicMap2DB = " .. table.concat(out)
 end"""
 
 
 def test_telemetry_sim(tmp_path, capsys):
     L, sim, ns = boot()
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.player.speed = 7  # yd/s, north: the map follows
     sim.Run(11)  # past the first open's grace and ourKBLoad (10 s after login)
-    sim.FireEvent("ADDON_ACTION_BLOCKED", "MagicMapAtlas", "Minimap:Hide()")
-    sim.FireEvent("ADDON_ACTION_FORBIDDEN", "MagicMapAtlas", "Minimap:Hide()")
+    sim.FireEvent("ADDON_ACTION_BLOCKED", "MagicMap", "Minimap:Hide()")
+    sim.FireEvent("ADDON_ACTION_FORBIDDEN", "MagicMap", "Minimap:Hide()")
     sim.FireEvent("ADDON_ACTION_BLOCKED", "SomeAddon", "CastSpellByName()")
-    ns.Runtime.Trace("art", "redbutton-expand-c60")  # as /mma check art reports a miss (ui/Art.lua)
+    ns.Runtime.Trace("art", "redbutton-expand-c60")  # as /mm check art reports a miss (ui/Art.lua)
     ns.Game.Bench = L.eval("{ result = { build = '1.60.1.70009', t = 1, ops = { CreateLine = { n = 1000, ms = 21, us = 21 } } } }")
-    sim.Slash("/mma mark mid-walk")
-    sim.Slash("/mma shot kharanos-1024-small tear")
+    sim.Slash("/mm mark mid-walk")
+    sim.Slash("/mm shot kharanos-1024-small tear")
     sim.Step()
     sim.player.speed = 0
     sim.Run(2)  # standing: the sensor's looks are sweeps (game/Blips.lua)
     sim.FireEvent("PLAYER_LOGOUT")
-    tel = L.globals().MagicMapAtlasDB.telemetry
+    tel = L.globals().MagicMap2DB.telemetry
     s = tel.sessions[1]
     marks = {m.kind: m for m in tel.marks.values()}
     walk, shot = marks["mark"], marks["shot"]
@@ -181,8 +181,8 @@ def test_telemetry_sim(tmp_path, capsys):
     assert s.bench["1.60.1.70009"].ops.CreateLine.us == 21
     assert not errors(sim, ns), errors(sim, ns)
 
-    sv = tmp_path / "MagicMapAtlas.lua"
-    sv.write_text(L.eval(SAVE)(L.globals().MagicMapAtlasDB), encoding="latin-1")
+    sv = tmp_path / "MagicMap.lua"
+    sv.write_text(L.eval(SAVE)(L.globals().MagicMap2DB), encoding="latin-1")
     client(tmp_path)
     base = ["--wow", str(tmp_path), "--sv", str(sv), "--refs", str(tmp_path / "refs")]
     assert telemetry.main(base + ["--trace"]) == 0
@@ -197,31 +197,31 @@ def test_telemetry_sim(tmp_path, capsys):
     assert "PASS  sensor     0" in out  # (game/Blips.lua traces it: M1.5)
     # 64 marks kept (a script's ~30 marks and shots, twice); at that, the reader says older ones were dropped.
     for i in range(70):
-        sim.Slash(f"/mma mark pad {i}")
+        sim.Slash(f"/mm mark pad {i}")
     assert len(tel.marks) == 64 and tel.marks[64].note == "pad 69"
-    sv.write_text(L.eval(SAVE)(L.globals().MagicMapAtlasDB), encoding="latin-1")
+    sv.write_text(L.eval(SAVE)(L.globals().MagicMap2DB), encoding="latin-1")
     for flags in (["--marks"], ["--budgets"]):
         telemetry.main(base + flags)
         assert "! marks: 64 of 64 kept, older ones dropped" in capsys.readouterr().out
 
 
 def test_shot_answers():
-    """/mma shot always answers in chat, by its id: none without an id; one at a time; a client that
+    """/mm shot always answers in chat, by its id: none without an id; one at a time; a client that
     answers neither SCREENSHOT_SUCCEEDED nor _FAILED is said so after a few seconds, unmarked."""
     L, sim, ns = boot()
     said = lambda: list(sim.prints.values())[-1]  # noqa: E731
-    shots = lambda: [m for m in L.globals().MagicMapAtlasDB.telemetry.marks.values() if m.kind == "shot"]  # noqa: E731
+    shots = lambda: [m for m in L.globals().MagicMap2DB.telemetry.marks.values() if m.kind == "shot"]  # noqa: E731
     taken, screenshot = [], L.globals().Screenshot
     L.globals().Screenshot = lambda: taken.append(1)  # a client that says nothing
-    sim.Slash("/mma shot")
+    sim.Slash("/mm shot")
     assert "the id first" in said() and not taken
-    sim.Slash("/mma shot small-home at the door")
-    sim.Slash("/mma shot small-hover")
+    sim.Slash("/mm shot small-home at the door")
+    sim.Slash("/mm shot small-hover")
     assert said().endswith("shot small-hover: not taken, small-home's still waiting on the client") and len(taken) == 1
     sim.Run(6)
     assert said().endswith("shot small-home: the client took no screenshot (no answer, no mark)") and not shots()
     L.globals().Screenshot = screenshot
-    sim.Slash("/mma shot small-hover")
+    sim.Slash("/mm shot small-hover")
     sim.Step()
     assert " shot small-hover: WoWScrnShot_" in said() and [m.note for m in shots()] == ["small-hover"]
     assert not errors(sim, ns), errors(sim, ns)

@@ -13,7 +13,7 @@ SEP = "  \u00b7  ".encode("utf-8").decode("latin-1")  # the title's joins, as th
 def fresh():
     """A first login (no saved data): Game reads the minimap's spot, the sim's Minimap's rect
     (obs.minimap.home, with its cluster's strata), and Model hands it on to BigMap.home."""
-    L, sim, ns = boot("MagicMapAtlasDB = {}")
+    L, sim, ns = boot("MagicMap2DB = {}")
     mm = L.globals().Minimap
     spot = (mm.GetLeft(mm), mm.GetTop(mm), mm.GetWidth(mm), mm.GetHeight(mm))
     sim.Step()
@@ -35,7 +35,7 @@ def test_chrome():
     L, sim, ns = fresh()
     UI, G = ns.UI, L.globals()
     f, view, c, ctl = UI.Window.frame, UI.Window.view, UI.Chrome, UI.Controls
-    saved = G.MagicMapAtlasDB.UI
+    saved = G.MagicMap2DB.UI
 
     # On the minimap's spot (the sim's: 140 square at the screen's top right), its strata, saved.
     spot = UI.BigMap.home

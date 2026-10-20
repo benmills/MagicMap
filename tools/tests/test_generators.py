@@ -60,7 +60,7 @@ def lua_load(path):
     L = lua51.LuaRuntime(encoding=None)
     before = set(L.globals().keys())
     ns = L.table()
-    L.eval(b"function(p, ns) return assert(loadfile(p))('MagicMapAtlas', ns) end")(str(path).encode(), ns)
+    L.eval(b"function(p, ns) return assert(loadfile(p))('MagicMap', ns) end")(str(path).encode(), ns)
     assert set(L.globals().keys()) == before, "a Data file set a global"
     return ns[b"Data"]
 
@@ -105,7 +105,7 @@ def entities(data):
     from lupa import lua51
     L = lua51.LuaRuntime(unpack_returned_tuples=True)
     ns, kb = L.table(), L.eval("function() collectgarbage('collect'); return collectgarbage('count') end")
-    run = L.eval("function(p, ns) return assert(loadfile(p))('MagicMapAtlas', ns) end")
+    run = L.eval("function(p, ns) return assert(loadfile(p))('MagicMap', ns) end")
     for name in ("Npcs", "Objects", "Quests"):
         run(os.path.join(data, f"{name}.lua"), ns)
     before = kb()

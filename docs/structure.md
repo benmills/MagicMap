@@ -4,7 +4,7 @@ The repo root is the addon root. Folders follow architecture.md: two libraries
 (Atlas, Runtime) under three systems (Game, Model, UI).
 
 ```
-MagicMapAtlas.toc     load order (below), generated from each folder's files.txt; addon name until we merge into MagicMap
+MagicMap.toc          load order (below), generated from each folder's files.txt
 Data/                 generated Atlas data (some gitignored: QuestieDB-derived)
 Textures/             generated textures the addon loads (Sea, ...)
 atlas/                Atlas library: facts that hold (plain Lua 5.1, no WoW API)
@@ -53,17 +53,18 @@ wrapper"), never a global: a global is shared with every addon, and the rebuild'
 (docs/evidence/spike-bugs.md E1).
 
 **Nothing is global** except, in game/ only, what the TOC names (the SavedVariables, and
-`MagicMapAtlasOnAddonCompartmentClick`, the addon compartment's `AddonCompartmentFunc`) and the
+`MagicMap_OnAddonCompartmentClick`, the addon compartment's `AddonCompartmentFunc`) and the
 `SLASH_*` names (`SlashCmdList` entries are fields of WoW's table), and three named frames:
-`MagicMapAtlasMap` (the client keeps a moved frame's place by its name),
-`MagicMapAtlasMinimapStandIn` (the Minimap's children wait on it; named as the spike's was,
-for code that reads a parent's name) and `MagicMapAtlasEscape` (game/Hooks.lua's Escape catcher:
+`MagicMapFrame` (the client keeps a moved frame's place by its name),
+`MagicMapMinimapStandIn` (the Minimap's children wait on it; for code that reads a parent's
+name) and `MagicMapWorldMapEscape` (game/Hooks.lua's Escape catcher:
 `UISpecialFrames` holds names). tools/luacheck.py fails any other global write anywhere,
 any other frame name (`FRAME_NAMES`), and any use of `_G`, `setglobal`, `getfenv` or
 `setfenv` (they reach globals past the bytecode check).
 
-While this is "MagicMapAtlas": SavedVariables `MagicMapAtlasDB`, slash `/mma`. It shares
-no names with the MagicMap spike, so both can be enabled.
+The addon is `MagicMap` (folder and TOC), SavedVariables `MagicMap2DB`, slash `/mm` and `/magicmap`:
+the spike's names but its SavedVariables (ADR 0007: the spike's aren't read), so the two can't
+be installed together.
 
 ## Rules
 
@@ -105,7 +106,7 @@ no names with the MagicMap spike, so both can be enabled.
 
 The TOC lists files explicitly (no XML), and is generated: each folder lists its files, in
 order, in its own `files.txt` (paths from the repo root; `atlas/files.txt` holds Data/ too),
-and `tools/install.py` writes `MagicMapAtlas.toc` from them (`MANIFESTS` there gives the
+and `tools/install.py` writes `MagicMap.toc` from them (`MANIFESTS` there gives the
 folders' order). A new file goes in its folder's `files.txt`, then `tools/install.py --toc`;
 `tools/luacheck.py` (so `tools/check.sh`) fails while the committed TOC differs, or a `.lua`
 isn't listed.
@@ -129,7 +130,7 @@ isn't listed.
   (a call over `budgetMs`, default 2 ms, is an overrun), and isolated (an error is caught,
   reported once, and the rest keep running; one failing 10 calls in a row then runs once a second
   until it succeeds). docs/runtime.md has the guarantees.
-- `Runtime.Perf()` — per-name totals `{ n, ms, max, over }` and frames run, for `/mma perf load`;
+- `Runtime.Perf()` — per-name totals `{ n, ms, max, over }` and frames run, for `/mm perf load`;
   `Runtime.errors` — `{ name, err, n }` per failing name.
 - `Runtime.FrameStats()` — our cost a frame, outside graces: `{ frames, p50, p95, p99, max, overruns,
   kbMin, kbMax, grace = { [name] = slowest ms }, graceTop = { [name] = { top, topMs } }, slow = { { name, n, max } } }`
@@ -143,11 +144,11 @@ isn't listed.
   `Runtime.onTrace(kind, detail)` if set (game/Telemetry.lua: the kinds it keeps or counts);
   `Runtime.TraceCopy()` copies it, oldest first (docs/telemetry.md). `onError` and `onTrace` are
   the only Runtime fields another system sets.
-- Diagnostics (M4.6): `Runtime.Record(seconds, name, done)` — the spike's `/mma perf` recording: the
+- Diagnostics (M4.6): `Runtime.Record(seconds, name, done)` — the spike's `/mm perf` recording: the
   next frames, graces included, then `done(rec)` (`MM.Recording`: frames, the worst, hitches past
   `Runtime.HITCH`, our cost and each budgeted call's); `Runtime.recording` while it runs,
   `Runtime.RecordEnd()` ends it now. `Runtime.Spent()` — ms the running job has taken since made or
-  woken. `Runtime.Gauge(name, fn)` — numbers a system keeps for `/mma perf` and `perf mem`
+  woken. `Runtime.Gauge(name, fn)` — numbers a system keeps for `/mm perf` and `perf mem`
   (`Runtime.gauges[name]()`, wrapped: ui/Engine.lua's "map").
 - `Runtime.boot` — `t0, mem0` at load start (runtime/Boot.lua); `loaded` = `{ t, mem }`
   once Atlas has loaded; `login` = `{ t, mem }` at PLAYER_LOGIN.
@@ -182,7 +183,7 @@ file each, tools/tests/replays/R-<id>.lua, collected by tools/tests/test_spike_b
 
 ## Slash commands
 
-`ns.Game.Slash(name, help, fn)` registers `/mma <name>` (`fn(args)`, wrapped); `/mma`
+`ns.Game.Slash(name, help, fn)` registers `/mm <name>` (`fn(args)`, wrapped); `/mm`
 alone is the name `""` (UI's: the map shown or hidden, as the spike's `/mm`), and an unknown
 name lists them. A name may be two words (`check art`): it wins over its first word's.
 UI registers its own through `Game.Command({ kind = "slash", ... })`.
@@ -198,7 +199,7 @@ UI registers its own through `Game.Command({ kind = "slash", ... })`.
              game/parts/MinimapState.lua  obs.minimap (sensing: the blips part read)
              game/Observe.lua   the parts → Model.Observe(obs, oracles); Game.oracles (Inside:
                                 game/Oracles.lua, on hidden QuestPOI frames)
-             game/Record.lua    /mma record on|off: the observations, for replay
+             game/Record.lua    /mm record on|off: the observations, for replay
     model    model/Blips.lua    Known("blips") (sensed now, deduped against the remembered) and
                                 Known("remembered") (saved.blips, Focus's instance, bucketed by cell)
     ui       ui/Blips.lua       the "blips" layer (Engine.Layer) draws both (the remembered from zoom 60),
@@ -209,7 +210,7 @@ UI registers its own through `Game.Command({ kind = "slash", ... })`.
 
 ## Saved data and what Game hands over
 
-- `ns.Game.Load(owner, fn, spec)` — `fn(MagicMapAtlasDB[owner])` once SavedVariables are loaded
+- `ns.Game.Load(owner, fn, spec)` — `fn(MagicMap2DB[owner])` once SavedVariables are loaded
   (at once if they are). Owner is the system: Model's is `Game.Load("Model", Model.Load,
   Model.SAVED)` (game/Observe.lua), UI's comes through a `load` Command. `spec = { version, defaults,
   optional, migrate(saved, from) }`: fn always gets a table of the current version (docs/runtime.md "Saved data").

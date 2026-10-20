@@ -9,7 +9,7 @@
 -- out then (spike-bugs L1, Layers.lua:802-817): a quest is drawn when first asked (nil: can't
 -- tell yet) and again on a later frame, into its rect. Its frames never move, so a drawing
 -- holds (cached per quest) until QUEST_POI_UPDATE, then is drawn again at the next ask.
--- A quest's area map and pin: obs.quests (areaMap, pin), or /mma check inside. Inside tests the
+-- A quest's area map and pin: obs.quests (areaMap, pin), or /mm check inside. Inside tests the
 -- quest's own frame wherever its area lies, as the spike's InBlob the followed one (Layers.lua:
 -- 1099-1102): none drawn, false everywhere; no areaMap, nil. A frame's asks share ASK_MS; past it,
 -- nil (ask again).
@@ -150,7 +150,7 @@ Runtime.On("QUEST_POI_UPDATE", "game.oracle: poi update", function()
 	for _, a in pairs(areas) do a.drawn, a.has = nil, nil end
 end)
 
--- /mma check inside -----------------------------------------------------------------------
+-- /mm check inside -----------------------------------------------------------------------
 
 -- Your quests here (on your map and the maps above it Atlas has, each on the smallest: its
 -- area's), asked where you stand in one frame and answered in the next; the client's own

@@ -1,4 +1,4 @@
-"""The map window (ui/Window.lua, ui/Engine.lua and the layers) on the simulated client: /mma toggle
+"""The map window (ui/Window.lua, ui/Engine.lua and the layers) on the simulated client: /mm toggle
 shows your continent around you, its layouts finish within their jobs, wheel
 and drag move the camera, and nothing errors."""
 from sim import TEST_UI
@@ -13,7 +13,7 @@ def stats(e):
 def test_map():
     L, sim, ns = boot()
     e, c, w = ns.UI.Engine, ns.UI.Camera, ns.UI.Window
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     assert w.frame.IsShown(w.frame)
     sim.Run(1)
     assert c.inst == 0 and abs(c.cam.cx - 31.95) < 1e-6 and abs(c.cam.cy - 49.75) < 1e-6
@@ -50,8 +50,8 @@ def test_map():
     assert c.follow
     sim.Click(w.view, "RightButton")  # following: no Follow me (small: no zone info; tools/tests/test_interact.py)
     assert [e.text for e in sim.MenuItems().values()] == ["Waypoint here"]
-    sim.Slash("/mma mapstats")
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm mapstats")
+    sim.Slash("/mm toggle")
     assert not w.frame.IsShown(w.frame)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
@@ -63,11 +63,11 @@ def test_rares():
     <Mon DD>" (Landmarks.lua:61)."""
     seen = ", ".join(f"['npc:{i}'] = {{ name = 'Rare {i}', npcID = {i}, col = {31.9 + i / 50}, row = 49.7, t = 1792077412 }}"
                      for i in range(1, 4))
-    L, sim, ns = boot(TEST_UI + f"\nMagicMapAtlasDB.Model = {{ _v = 1, blips = {{}}, rares = {{ [0] = {{ {seen} }}, "
+    L, sim, ns = boot(TEST_UI + f"\nMagicMap2DB.Model = {{ _v = 1, blips = {{}}, rares = {{ [0] = {{ {seen} }}, "
                       "[1] = { ['at:2048:2048'] = { name = 'Far', col = 32, row = 32, t = 1792077412 } } } }")
     e = ns.UI.Engine
     layer = e.layers[[l.name for l in e.layers.values()].index("rares") + 1]
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(2)
     got = list(ns.Model.Known("rares")[0].values())
     assert sorted(r.name for r in got) == ["Rare 1", "Rare 2", "Rare 3"]
@@ -106,6 +106,6 @@ def test_rares():
     tip = L.globals().GameTooltip
     lines = [sim.state[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)]
     assert lines == ["Rare 1", "Rare", "|cff808080Seen here Oct 15|r"], lines
-    sim.Slash("/mma layer rares")
+    sim.Slash("/mm layer rares")
     assert e.LayerOn("rares") is False and e.toggles.rares is False
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

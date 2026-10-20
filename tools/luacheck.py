@@ -24,12 +24,12 @@ compiled bytecode, so scoping is exact.
   * Named frames are globals (CreateFrame's name): only FRAME_NAMES.
   * A QuestPOIFrame reads the client's quest areas (DrawBlob, its hit test): only
     POI_FILES make one or call those (architecture.md "Rules": UI's one game read).
-  * MagicMapAtlas.toc must be what the folders' files.txt manifests make
+  * MagicMap.toc must be what the folders' files.txt manifests make
     (tools/install.py generates it), every file in it must exist (a gitignored
     one may be missing: QuestieDB-derived data), and every addon .lua must be
     in it.
 
-  python3 tools/luacheck.py              # the files in MagicMapAtlas.toc
+  python3 tools/luacheck.py              # the files in MagicMap.toc
   python3 tools/luacheck.py Core.lua     # just these
   python3 tools/luacheck.py --globals Core.lua   # list globals read / written
   python3 tools/luacheck.py --allow tools/lua51_globals.txt atlas/*.lua   # only this allowlist (no boundaries)
@@ -47,7 +47,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TOC = os.path.join(ROOT, "MagicMapAtlas.toc")
+TOC = os.path.join(ROOT, "MagicMap.toc")
 ADDON_DIRS = ["Data", "atlas", "runtime", "game", "model", "ui"]
 ALLOWLIST = os.path.join(ROOT, "tools", "wow_globals.txt")
 LUA51 = os.path.join(ROOT, "tools", "lua51_globals.txt")
@@ -103,11 +103,11 @@ HOOKS = {("Runtime", "onError"), ("Runtime", "onTrace")}
 # The only named frames (globals; docs/structure.md "Namespace"): the client keeps a moved frame's
 # place by its name; the Minimap's children wait on the stand-in, named as the spike's was;
 # Escape closes what UISpecialFrames names (game/Hooks.lua's catcher).
-FRAME_NAMES = {"MagicMapAtlasMap", "MagicMapAtlasMinimapStandIn", "MagicMapAtlasEscape"}
+FRAME_NAMES = {"MagicMapFrame", "MagicMapMinimapStandIn", "MagicMapWorldMapEscape"}
 # The only files that make a QuestPOIFrame or call its DrawBlob, UpdateMouseOverTooltip (the client draws
 # and hit-tests its quest areas on one):
 # Game's sensor (Inside), and UI's quest areas, the one game read UI makes (architecture.md "Rules",
-# docs/brief.md §7: the spike's blob art, Layers.lua:765-1069); and /mma bench regions, their price.
+# docs/brief.md §7: the spike's blob art, Layers.lua:765-1069); and /mm bench regions, their price.
 POI_FILES = {"game/Oracles.lua", "ui/Areas.lua", "game/Bench.lua"}
 
 # Known violations, each waiting on a contract: (file, System, field). Keep it
@@ -454,16 +454,16 @@ def check_toc() -> int:
     problems = 0
     with open(TOC, encoding="utf-8") as fh:
         if fh.read() != toc():
-            print("MagicMapAtlas.toc: isn't what the files.txt manifests make: run tools/install.py --toc")
+            print("MagicMap.toc: isn't what the files.txt manifests make: run tools/install.py --toc")
             problems += 1
     listed = toc_files()
     for f in existing_toc_files():
         if not os.path.exists(os.path.join(ROOT, f)):
-            print(f"MagicMapAtlas.toc: lists {f}, which doesn't exist")
+            print(f"MagicMap.toc: lists {f}, which doesn't exist")
             problems += 1
     on_disk = addon_lua()
     for f in sorted(set(on_disk) - set(listed)):
-        print(f"MagicMapAtlas.toc: {f} isn't listed (its folder's files.txt), so the game never loads it")
+        print(f"MagicMap.toc: {f} isn't listed (its folder's files.txt), so the game never loads it")
         problems += 1
     return problems
 
@@ -472,7 +472,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--globals", action="store_true", help="list each file's global reads and writes")
     parser.add_argument("--allow", default=ALLOWLIST, help="globals the files may read (default: tools/wow_globals.txt)")
-    parser.add_argument("files", nargs="*", help="default: everything in MagicMapAtlas.toc")
+    parser.add_argument("files", nargs="*", help="default: everything in MagicMap.toc")
     ns = parser.parse_args()
     if ns.files:
         paths, problems = [os.path.abspath(f) for f in ns.files], 0

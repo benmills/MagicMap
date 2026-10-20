@@ -19,7 +19,7 @@ for i, b in ipairs({ { "Mailbox", 136459, 31.30, 48.95 }, { "Mailbox", 136459, 3
 end
 local old = {}
 for i = 1, 5000 do old[i] = Blip("Mailbox", 136459, 30 + i % 100 * 0.05, 30 + math.floor(i / 100) * 0.05, 1000 + i) end
-local sim, ns = T.Shown(T.TEST_UI .. "\nMagicMapAtlasDB.Model = { rares = { [0] = {"
+local sim, ns = T.Shown(T.TEST_UI .. "\nMagicMap2DB.Model = { rares = { [0] = {"
 	.. " ['npc:471'] = { name = 'Mother Fang', npcID = 471, col = 31.594, row = 50.316, t = 1792000000 },"
 	.. " ['at:2195:3315'] = { name = 'Mor\\'Ladim', col = 34.3, row = 51.8, t = 1792000001 } } },"
 	.. " blips = { [0] = { " .. table.concat(blips, ", ") .. " }, [1] = { " .. table.concat(old, ", ") .. " } },"
@@ -55,7 +55,7 @@ local function Dump(v)
 	for k, x in pairs(v) do out[#out + 1] = "[" .. Dump(k) .. "] = " .. Dump(x) end
 	return "{ " .. table.concat(out, ", ") .. " }"
 end
-sim, ns = T.Boot("MagicMapAtlasDB = " .. Dump(MagicMapAtlasDB)) -- (shown at login: it was)
+sim, ns = T.Boot("MagicMap2DB = " .. Dump(MagicMap2DB)) -- (shown at login: it was)
 sim.Run(4)
 Model = ns.Model
 assert(Model.saved._v == 1 and Shown() == SEVEN, Shown())

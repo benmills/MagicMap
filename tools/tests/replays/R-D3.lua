@@ -116,10 +116,10 @@ local function Square(hit, door)
 		if sim2.indoors and sim2.time - inAt >= 1 then sim2.indoors = false end
 	end
 	local said, marks, exact = {}, 0, 0
-	for _, e in ipairs(MagicMapAtlasDB.telemetry.sessions[#MagicMapAtlasDB.telemetry.sessions].kept) do
+	for _, e in ipairs(MagicMap2DB.telemetry.sessions[#MagicMap2DB.telemetry.sessions].kept) do
 		if e.k == "sensor" then said[#said + 1] = e.d end
 	end
-	for _, m in ipairs(MagicMapAtlasDB.telemetry.marks) do marks = marks + (m.kind == "sensor" and 1 or 0) end
+	for _, m in ipairs(MagicMap2DB.telemetry.marks) do marks = marks + (m.kind == "sensor" and 1 or 0) end
 	local list = ns2.Game.obs.blips.list
 	for i, w in ipairs(at) do
 		for _, b in ipairs(list) do

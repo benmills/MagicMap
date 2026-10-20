@@ -51,7 +51,7 @@ def data_head(name: str) -> str:
             f"D.formats = D.formats or {{}}; D.formats.{name} = {FORMATS[name]}\n")
 
 
-def load_data(lua, path: str, ns=None, addon: str = "MagicMapAtlas"):
+def load_data(lua, path: str, ns=None, addon: str = "MagicMap"):
     """Run a generated Data/*.lua in a lupa runtime as WoW does (called with addon, ns);
     returns ns (a new one unless given): its datasets are ns.Data.<Name>."""
     if ns is None:

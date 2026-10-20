@@ -15,7 +15,7 @@ def active(sim):
 
 
 def off(L):
-    return sorted(L.globals().MagicMapAtlasDB.Game.trackingOff.keys())
+    return sorted(L.globals().MagicMap2DB.Game.trackingOff.keys())
 
 
 def test_duplicates_off():
@@ -25,7 +25,7 @@ def test_duplicates_off():
     sim.Run(1)
     assert active(sim) == was and off(L) == [], "the window hidden: left as the user has them"
 
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Step()
     assert ns.Game.minimap.engaged
     now = active(sim)
@@ -44,7 +44,7 @@ def test_duplicates_off():
     sim.Step()
     assert ns.UI.View().renderer == "ours" and not active(sim)[QUESTS] and off(L) == [QUESTS]
 
-    sim.Slash("/mma toggle")  # the window hidden: released, back that frame
+    sim.Slash("/mm toggle")  # the window hidden: released, back that frame
     sim.Step()
     assert not ns.Game.minimap.engaged and active(sim) == was and off(L) == []
     sim.Run(3)
@@ -57,14 +57,14 @@ def test_restored_after_crash():
     back on; and where the client hasn't sent its state at login, at MINIMAP_UPDATE_TRACKING once it has.
     A logout puts them back itself."""
     L, sim, ns = boot()
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(1)
     left = off(L)
     assert left == [FLIGHT, QUESTS] and not active(sim)[FLIGHT] and not active(sim)[QUESTS]
     # The crash: the saved part as it stood, the client's tracking as it was.
     crashed = "".join(f"[{i}] = true, " for i in left)
     state = "".join(f"Sim.tracking[{i}].active = {str(t.active).lower()}; " for i, t in sim.tracking.items())
-    saved = TEST_UI + f"; MagicMapAtlasDB.Game = {{ _v = 1, trackingOff = {{ {crashed}}} }}; " + state
+    saved = TEST_UI + f"; MagicMap2DB.Game = {{ _v = 1, trackingOff = {{ {crashed}}} }}; " + state
 
     L, sim, ns = boot(saved)
     assert active(sim)[FLIGHT] and active(sim)[QUESTS] and off(L) == [], "back at login"
@@ -76,7 +76,7 @@ def test_restored_after_crash():
     sim.FireEvent("MINIMAP_UPDATE_TRACKING")
     assert active(sim)[FLIGHT] and active(sim)[QUESTS] and off(L) == []
 
-    sim.Slash("/mma toggle")  # off again; a logout puts them back (the client saves both after)
+    sim.Slash("/mm toggle")  # off again; a logout puts them back (the client saves both after)
     sim.Run(1)
     assert off(L) == [FLIGHT, QUESTS]
     sim.FireEvent("PLAYER_LOGOUT")

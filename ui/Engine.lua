@@ -86,7 +86,7 @@ function Engine.Layer(name, level, build, rev, zoom)
 		moves = zoom == "move" or zoom == "pin", -- placed with Engine.At, moved to the camera's zoom
 		order = (zoom == "scale" and 0 or zoom == "hold" and 200 or 100) + level, started = 0, -- started: its last layout's frame
 		canvases = {}, fading = {}, -- fading: its crossfade (layer.fade while one runs)
-		-- since load, for /mma perf and debug (the gauge below): its layouts at a new zoom (builds, their ms) and at
+		-- since load, for /mm perf and debug (the gauge below): its layouts at a new zoom (builds, their ms) and at
 		-- the zoom shown (pans: the spike's extensions), the frames the view ran past it; its last layout's ms, regions
 		builds = 0, buildMs = 0, pans = 0, past = 0, ms = 0, regions = 0 }
 	layer.job = Runtime.Worker("map: " .. name, function()
@@ -768,7 +768,7 @@ function Engine.Stats()
 	return live, made
 end
 
--- /mma perf and perf mem (Perf.lua:103-122, 146-159): the borders' counts (Engine.Layer's), each kind's
+-- /mm perf and perf mem (Perf.lua:103-122, 146-159): the borders' counts (Engine.Layer's), each kind's
 -- regions made and in use (Layers.lua:2262-2273), the tiles drawn and their textures spare (Core.lua:1640-1646).
 local KINDS = { tex = "Texture", line = "Line", font = "FontString" }
 Runtime.Gauge("map", function()
@@ -796,7 +796,7 @@ end })
 Command({ kind = "slash", name = "mapstats", help = "the map's live textures, lines and font strings", fn = function()
 	local live, made = Engine.Stats()
 	local cam = Camera.cam
-	print(string.format("MagicMapAtlas map: inst %s, zoom %.1f px/tile; live %d textures, %d lines, %d font strings"
+	print(string.format("MagicMap map: inst %s, zoom %.1f px/tile; live %d textures, %d lines, %d font strings"
 		.. " (made %d, %d, %d)", tostring(Camera.inst), cam.zoom, live.tex, live.line, live.font, made.tex, made.line,
 		made.font))
 end })

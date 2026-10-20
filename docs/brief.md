@@ -12,12 +12,12 @@ only for the section you need, and grep it** (`grep -n 'R-P5' docs/*.md`,
 
 ## 1. The goal
 
-Ship this repo (addon `MagicMapAtlas`, slash `/mma`) as **MagicMap 2.0.0** (D7). It must look and behave
+Ship this repo (addon `MagicMap`, slash `/mm`: renamed at M6.1) as **MagicMap 2.0.0** (D7). It must look and behave
 like the spike's shipped code, `~/code/MagicMap` (read-only), minus the non-goals (docs/v1-non-goals.md).
 **The spec is the spike's code, not its release notes** (D4). Done (v1-plan §1): every feature in
 docs/parity.md built and signed by the user (or "out, by decision"); the look matches §4 verbatim; 8/8
 budgets PASS in game, two 10+ minute sessions per script (a)-(e), with `perf.slow`, `perf.gaps`, `sensor`
-and `art` traces empty; `/mma check log` on throughout with 0 K4 drift lines; 0 errors, 0 taint; CI green
+and `art` traces empty; `/mm check log` on throughout with 0 K4 drift lines; 0 errors, 0 taint; CI green
 (the no-QuestieDB-data scenario too); renamed to MagicMap/`/mm`, merged and packaged (M6).
 
 Where it stands: M0 done; M1's sim half done at e50e7d5 (`tools/check.sh` green plain and strict); M1b
@@ -52,15 +52,16 @@ docs/playtest-final.md (a8, b21, c8, d9, e8: two 10+ minute sessions a script; e
 
 - **Contracts**: OPEN additions only, and not by you: don't edit `types/`. Name the addition in your
   hand-off (file, field, why); the lead commits it with its ADR consequence line (as b5b1880, e52fbd5).
-  The only LOCKED changes are the SavedVariables rename (ADR 0007, M6.1's to write) and ADR 0004's two
+  The only LOCKED changes are the SavedVariables rename (ADR 0007, M6.1: `MagicMap2DB`) and ADR 0004's two
   amendments (D6's 5000 seen blips an instance; optional keys), both recorded 2026-10-18.
 - **Tests**: simple sim scenarios or `R-*` replays only. No unit-test sprawl.
 - **No defensive code.** `x/0` (raises in the client: spike-bugs E3) is handled by the `/` lint rule and
   fixes at the source. Absent QuestieDB data is handled once in Atlas (empty indexes), not per call site.
 - **Comments**: terse, spike-style.
 - **§4 values** are constants copied verbatim, with the spike's `file:line` in a comment. Not starting points.
-- Commands stay `/mma` until M6. The spike addon is disabled in every play-test (but the reference-shot
-  session: the spike only, MagicMapAtlas off).
+- Commands are `/mm` and `/magicmap` (M6.1). The spike isn't installed in a play-test: it and this addon share the
+  folder `MagicMap` (tools/install.py `--replace-spike` moves it to `MagicMap.spike-backup`); the reference-shot
+  session runs the spike alone.
 - Risky client behaviour (QuestPOI Inside, HBD borrow, M/Escape hooks, taint) is proven thin in game a
   milestone before features lean on it.
 - Model builds against fixture streams through stubs with the real interface, so the fixture → Game swap
@@ -106,8 +107,8 @@ reads where the last Apply placed the Minimap, once that placement holds still.
 - **Namespace**: every file starts `local ADDON, ns = ...` (or `local _, ns = ...`); each piece hangs one
   table off `ns` (`ns.Atlas`, `ns.Runtime`, `ns.Game`, `ns.Model`, `ns.UI`, data `ns.Data`). **Nothing is
   global** but, in game/ only, the SavedVariables, `SLASH_*` and the compartment func; and, anywhere, the
-  three `FRAME_NAMES` (`MagicMapAtlasMap` in ui/Window.lua, `MagicMapAtlasEscape`,
-  `MagicMapAtlasMinimapStandIn`). `luacheck.py` fails any other global write, frame name, `_G`, `setfenv`...
+  three `FRAME_NAMES` (`MagicMapFrame` in ui/Window.lua, `MagicMapWorldMapEscape`,
+  `MagicMapMinimapStandIn`). `luacheck.py` fails any other global write, frame name, `_G`, `setfenv`...
 - **TOC is generated**: a new file goes in its folder's `files.txt`, then `.venv/bin/python tools/install.py
   --toc`; luacheck fails while the TOC differs or a `.lua` isn't listed. Load order: runtime/Boot, Data,
   atlas, runtime, model, game, game/commands, game/parts, ui.
@@ -133,7 +134,7 @@ reads where the last Apply placed the Minimap, once that placement holds still.
 | `Game.Part(name, read, keep)` | game/Observe.lua; files in game/parts/ | observe step: `obs[name] = read(obs)` (nil: `keep`; false comes through), in game/parts/files.txt order, each its own wrapped call |
 | `Game.Handle(kind, fn)` | game/Command.lua; game/commands/ | input step, and again in apply (one a ui step sent: that frame): `fn(cmd)` per queued `Game.Command(cmd)` of that kind |
 | `Game.Apply(name, fn)` | game/Apply.lua | apply phase: `fn(view)` as step `game.<name>`; view is `UI.View()` or SAFE. Not in game/parts or game/commands (luacheck `NOT_IN`): they read `Game.shownInst`, the instance shown (false: hidden; nil: no apply yet) |
-| `Game.Slash(name, help, fn)` | game/Slash.lua | `/mma <name>`; UI registers through `Game.Command({ kind = "slash", ... })` |
+| `Game.Slash(name, help, fn)` | game/Slash.lua | `/mm <name>`; UI registers through `Game.Command({ kind = "slash", ... })` |
 | `Game.Load(owner, fn, spec)` | game/Game.lua | `fn(saved part)` once SavedVariables load; UI's via `Game.Command({ kind = "load", ... })` |
 | `Model.Part(observe, load)`, `Model.Kind(kind, fn)` | model/Model.lua | `observe(obs, oracles)` each frame; `load(saved)`; `Known(kind)` answers `fn()` → list, rev |
 | `Engine.Layer(name, level, build, rev, zoom)` | ui/Engine.lua | `build(canvas, inst, zoom, c0, r0, c1, r1)` in a layout job when view, zoom, map or `rev()` changes |
@@ -177,13 +178,13 @@ additions, committed by the lead (§2). UI, Model and Atlas internals aren't con
 | Observation + Oracles (Game → Model) | observation.lua | 0001 | one `Model.Observe(obs, oracles)` a frame; per-frame parts (`you`, `group`, `minimap`, `blips`, `hooked`) may be mutated, Model copies; every other part a new table on change (compare by identity); part names and meanings; oracles pure, same-frame, never error | how Game reads, new optional fields, new parts, new oracles (`Inside(quest, col, row)`, `HasArea(quest)` today) |
 | Focus (UI → Model) | focus.lua | 0002 | `Model.Focus { inst, rect?, zoom?, shown, follow }`, one frame behind | new optional fields |
 | View + Commands (UI → Game) | view.lua | 0003 | `UI.View()` (v = 1, Game reads it only in apply, SAFE_VIEW fallback), its fields; `Game.Command` with kinds follow, waypoint, way, tracking, tooltip (idempotent, no reply); hooked kinds | new optional fields (`chrome`, `camera`, `diag`), command kinds (`slash`, `load`, `run`: not idempotent), hooked kinds (`toggle`) |
-| SavedVariables | saved.lua | 0004 | one root `MagicMapAtlasDB` of owners (Game, UI, Model, telemetry...), `_v` per part, the migration rule, tile space, epoch times, v1 field names | what an owner adds in a new version (with `migrate`) |
+| SavedVariables | saved.lua | 0004, 0007 | one root `MagicMap2DB` of owners (Game, UI, Model, telemetry...), `_v` per part, the migration rule, tile space, epoch times, v1 field names | what an owner adds in a new version (with `migrate`) |
 | Runtime | runtime.lua | 0005 | the phases; Step/On/After/Every/Cancel/Job/Yield/Wrap/Trace/onError and their promises | budget numbers, Perf/FrameStats shapes, Grace, SetState, Worker/Wake/Idle, onTrace |
 | Model's read API (UI → Model) | model.lua | 0006 | `Known(kind)` → list, rev (same table until it changes; unknown kind `{}, 0`), `Model.you`, `hooked`, `Target()`, `Route()`, `Load`/`SAVED` | kinds and their optional fields (`MM.KnownQuest`...), Target/Route beyond typed fields, more handed on (`minimap`, `addons`, `levels`, `explored`, `exploredCells`, `indoorArt`, `tracking`) |
 
 `MM.Known { key, kind, pos, name, icon?, live, t?, text? }`: one shape for every pin kind, so a new kind is
 a Model file that fills it and a UI layer that draws it (`icon`: `MM.Icon { atlas?, texture?, color? }`,
-types/core.lua). ADR 0007 (the SV rename) is M6.1's to write.
+types/core.lua). ADR 0007: the SV rename to `MagicMap2DB` (M6.1).
 
 ## 6. Runtime (docs/runtime.md; types/runtime.lua)
 
@@ -219,7 +220,7 @@ types/core.lua). ADR 0007 (the SV rename) is M6.1's to write.
 | errors per hour | 0 |
 
 Graces: 5 s after each PLAYER_ENTERING_WORLD (`login`, `loading`), 2 s after the first map open
-(`map`), the memory read's collect (`gc`), `/mma bench`. Change a limit in docs/runtime.md, `BUDGETS` in
+(`map`), the memory read's collect (`gc`), `/mm bench`. Change a limit in docs/runtime.md, `BUDGETS` in
 tools/telemetry.py and `FRAME_MS`/`CALL_MS` in runtime/Runtime.lua together. Tests run on the sim's
 counted clock (`Sim.Counted`: 3 µs a widget call, Lua free, the same on every machine); `Sim.Price(true)`
 adds what the client charges (~20 µs a region shown after moving, ~2 µs a sensor probe:
@@ -280,8 +281,8 @@ BlipServices, test_atlas fails). Python is `.venv/bin/python`.
     .venv/bin/python -m pytest 'tools/tests/test_spike_bugs.py::test_replay[L1]' -q -s   # one replay, its print
     .venv/bin/python tools/luacheck.py                    # globals, TOC, boundaries
     .venv/bin/python tools/lint_div.py                    # every / safe
-    .venv/bin/python tools/install.py --toc               # regenerate MagicMapAtlas.toc after a files.txt edit
-    .venv/bin/python tools/sim.py --priced --run 'slash /mma toggle; run 3; wheel 3; run 2; perf; layers'
+    .venv/bin/python tools/install.py --toc               # regenerate MagicMap.toc after a files.txt edit
+    .venv/bin/python tools/sim.py --priced --run 'slash /mm toggle; run 3; wheel 3; run 2; perf; layers'
     .venv/bin/python tools/sim.py --help                  # its script commands and Python API
     .venv/bin/python tools/telemetry.py --budgets         # a play-test's SavedVariables against the budgets
 
@@ -294,7 +295,7 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
 
 - **Boot**: `from test_addon import boot, errors` (tools/sim.py's `load` and `errors`); `L, sim, ns =
   boot(saved=None)` loads the TOC's files on tools/tests/wowsim.lua, logged in, on the counted clock; then
-  `sim.Slash("/mma toggle")`, `sim.Step()`, `sim.Run(seconds)`, `sim.Wheel(frame, delta)`, `sim.Drag(frame,
+  `sim.Slash("/mm toggle")`, `sim.Step()`, `sim.Run(seconds)`, `sim.Wheel(frame, delta)`, `sim.Drag(frame,
   dx, dy)`, `sim.Click(frame, button)`, `sim.Hover`, `sim.Press(key)`, `sim.Escape()`, `sim.FireEvent(...)`,
   `sim.MenuItems(kind)`; `errors(sim, ns)` must be empty. `ns.UI.Engine`, `ns.Model.Known("blips")`... are
   all reachable. From a script, `s = sim.boot(priced=False)` (tools/sim.py) is a Client: `run`, `step`,
@@ -324,12 +325,12 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   its way, none while zooming),
   test_target_parts (Game's waypoint, way and corpse round trips), test_path (the line, its redraws and
   cap, the edge arrow, corpse forces follow, the title's target, the corpse and waypoint pins, walking and
-  priced, small and big, and with our Lua charged too: `boot(lua=True)`), test_interact (the picker, /mma map and zone, zone hover and fly, Ctrl/Shift clicks through
+  priced, small and big, and with our Lua charged too: `boot(lua=True)`), test_interact (the picker, /mm map and zone, zone hover and fly, Ctrl/Shift clicks through
   Game's handlers, the right-click menu and inspector), test_world_parts (Game's places, group, vignettes,
   explored and tracking parts, the tracking Command), test_tracking (duplicate tracking off and back, after a
   crash too), test_addonpins (HBD's world and minimap pins), test_model_kinds (Model's places and group),
   test_services (services and remembered gated by tracking), test_world_layers (UI's places, group, shade,
-  View, indoor art, the inspector's lines), test_diagnostics (every `/mma` diagnostic, the recording, `run`), test_soak (M5's 10-min priced
+  View, indoor art, the inspector's lines), test_diagnostics (every `/mm` diagnostic, the recording, `run`), test_soak (M5's 10-min priced
   soak: scripts (a)-(e), every layer on; heap flat after a collect, no job stuck, 8/8 budgets). The sim's C_ calls make their tables anew each call, as the client's (their
   garbage is measured); a scenario changing Sim.quests fires QUEST_LOG_UPDATE, the sim QUEST_ACCEPTED and
   QUEST_REMOVED with it. A QuestPOIFrame draws into its rect as the last frame's end laid it out (L1); its

@@ -2,7 +2,7 @@
 -- Replay.Model(root, data) loads model/*.lua in TOC order with Atlas's coordinates and
 -- entities and places (atlas/Coords.lua, Entities.lua, Places.lua) over data (ns.Data; nil: none, as
 -- without QuestieDB's) and returns ns.Model, ready for Model.Load(saved) and
--- Model.Observe(obs, oracles) fed from a recorded stream (/mma record:
+-- Model.Observe(obs, oracles) fed from a recorded stream (/mm record:
 -- tools/tests/fixtures/blips_stream.lua) or a fixture stream per part
 -- (Replay.Stream(root, name): tools/tests/fixtures/streams/<name>.lua, what Game's
 -- part would hand over). Replay.Oracles(stream) backs the Oracles interface with the
@@ -16,10 +16,10 @@ local Replay = {}
 function Replay.Model(root, data)
 	local ns = { Atlas = {}, Runtime = {}, Data = data }
 	local files = { "atlas/Coords.lua", "atlas/Entities.lua", "atlas/Places.lua" }
-	for line in io.lines(root .. "/MagicMapAtlas.toc") do
+	for line in io.lines(root .. "/MagicMap.toc") do
 		if line:match("^model\\") then files[#files + 1] = line:gsub("\\", "/") end
 	end
-	for _, f in ipairs(files) do assert(loadfile(root .. "/" .. f))("MagicMapAtlas", ns) end
+	for _, f in ipairs(files) do assert(loadfile(root .. "/" .. f))("MagicMap", ns) end
 	return ns.Model
 end
 

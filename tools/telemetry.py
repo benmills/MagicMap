@@ -1,4 +1,4 @@
-"""Read what MagicMapAtlas left on disk: play, /reload, run this (docs/telemetry.md).
+"""Read what MagicMap left on disk: play, /reload, run this (docs/telemetry.md).
 
   .venv/bin/python tools/telemetry.py                  # sessions, perf, kept, errors, marks, shots, validation, logs
   .venv/bin/python tools/telemetry.py --errors --full  # one section (--perf --kept --errors --marks --shots --validation --logs)
@@ -10,7 +10,7 @@
   .venv/bin/python tools/telemetry.py --compare 3 5    # two sessions side by side (an id, or FILE:id for another SV file)
 
 The install is "/Applications/World of Warcraft" (MAGICMAP_WOW, --wow), flavor _classic_beta_
-(--flavor); SavedVariables is the newest WTF/Account/*/SavedVariables/MagicMapAtlas.lua (--sv).
+(--flavor); SavedVariables is the newest WTF/Account/*/SavedVariables/MagicMap.lua (--sv).
 Shot marks pair with reference shots docs/evidence/shots/ref-<id>.* (--refs; tools/refshots.py) by the note's first word.
 """
 from __future__ import annotations
@@ -28,7 +28,7 @@ import time
 
 from lupa import lua51
 
-ADDON = "MagicMapAtlas"
+ADDON = "MagicMap"
 NOW = time.time()
 DAY = 86400
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -199,14 +199,14 @@ def py(v):
 
 
 def load_sv(path: str):
-    """MagicMapAtlasDB from a SavedVariables file, run in a fresh runtime with an empty environment."""
+    """MagicMap2DB from a SavedVariables file, run in a fresh runtime with an empty environment."""
     L = lua51.LuaRuntime(register_eval=False, register_builtins=False)
     run = L.eval("""function(src, name)
         local f, err = loadstring(src, name)
         if not f then error(err, 0) end
         local env = {}
         setfenv(f, env)()
-        return env.MagicMapAtlasDB
+        return env.MagicMap2DB
     end""")
     with open(path, "rb") as f:
         return py(run(f.read(), "@" + os.path.basename(path)))
@@ -361,10 +361,12 @@ def motion(rows, full: bool) -> list[str]:
 
 OURS = re.compile(r'\[string "@?(Interface[/\\]AddOns[/\\])?' + ADDON + r'[/\\]([^"]*)"\]|Interface[/\\]AddOns[/\\]' + ADDON + r'[/\\]')
 
+NAMED = re.compile(r"\b" + ADDON + r"\b")  # our name, not a MagicMap_ global's (SHARED) or a longer name's
+
 
 def trim(stack: str, full: bool) -> list[str]:
     lines = (stack or "").splitlines()
-    return lines if full else [OURS.sub(lambda m: m.group(2) or "", l) for l in lines if ADDON in l]
+    return lines if full else [OURS.sub(lambda m: m.group(2) or "", l) for l in lines if NAMED.search(l)]
 
 
 # Collecting ----------------------------------------------------------------------------------
@@ -415,7 +417,7 @@ def log_time(m) -> float:
 
 
 # Another addon's error: its file in the first line. It's flagged shared when it may be ours
-# too: the addon shares our prefix (the MagicMap spike) or it names a MagicMap_ global. E1
+# too: the addon shares our prefix (an older build under another folder) or it names a MagicMap_ global. E1
 # (docs/evidence/spike-bugs.md): our data globals broke the spike, whose errors named only its files.
 OTHER = re.compile(r"Interface[/\\]AddOns[/\\]([^/\\\]\"]+)[/\\]")
 SHARED = re.compile(r"\bMagicMap_\w+")
@@ -459,7 +461,7 @@ def logs(flavor: str, since: float, loaded=None):
         for t, text, more in entries:
             if t < since:
                 continue
-            if ADDON in text + "".join(more):
+            if NAMED.search(text + "".join(more)):
                 add(name, t, text, more)
             elif ours_loaded(t) and (other := other_addon(text, more)):
                 add(name, t, text, more, *other)
@@ -469,7 +471,7 @@ def logs(flavor: str, since: float, loaded=None):
             continue
         with open(path, encoding="utf-8", errors="replace") as f:
             for line in f:
-                if ADDON in line:
+                if NAMED.search(line):
                     add("Errors/" + os.path.basename(path), t, line.strip(), [])
     return sorted(seen.values(), key=lambda e: -e["t"])
 
@@ -748,7 +750,7 @@ def show(out, sections, args, shot_files):
         v = out["validation"]
         say("== validation")
         if not v:
-            say("  none (/mma check log in game)")
+            say("  none (/mm check log in game)")
         else:
             build = f" (build {v['version']})" if v["version"] else ""  # one build's log (game/Validate.lua)
             if v["version"] == "unstamped":  # no ## X-Stamped: not installed by tools/install.py nor package.sh
@@ -821,7 +823,7 @@ def main(argv=None):
     else:
         db = load_sv(sv)
         if not db:
-            missing.append(f"{sv} has no MagicMapAtlasDB: /reload in game")
+            missing.append(f"{sv} has no MagicMap2DB: /reload in game")
         elif not db.get("telemetry"):
             missing.append("no telemetry in SavedVariables yet: install a build with Telemetry (tools/install.py) and /reload")
     since = args.since or 0

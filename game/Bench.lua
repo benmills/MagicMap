@@ -1,4 +1,4 @@
--- /mma bench regions: what this client charges for the region calls the map
+-- /mm bench regions: what this client charges for the region calls the map
 -- makes, in us a call, so the engine's choices (park, swap, scale) and the
 -- sim's prices come from the client, not guesses. Made N at a time: textures,
 -- lines, font strings; anchored: SetPoint, SetStartPoint; parked: SetParent

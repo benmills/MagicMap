@@ -11,7 +11,7 @@ local Game = ns.Game
 local home -- the last read
 
 function Game.Home()
-	local spot = Game.minimap.engaged and MagicMapAtlasMinimapStandIn or Minimap
+	local spot = Game.minimap.engaged and MagicMapMinimapStandIn or Minimap
 	local left, top, w, h = spot:GetLeft(), spot:GetTop(), spot:GetSize()
 	if not (left and top) then return home, MinimapCluster:GetFrameStrata() end -- (not laid out yet)
 	local s = spot:GetEffectiveScale() / UIParent:GetEffectiveScale() -- /: never 0 (an effective scale is > 0)
@@ -31,6 +31,6 @@ Game.Apply("home", function(view)
 	if a == applied then return end
 	own, applied = own or MinimapCluster:GetAlpha(), a
 	MinimapCluster:SetAlpha(own * a)
-	MagicMapAtlasMinimapStandIn:SetAlpha(own * a)
+	MagicMapMinimapStandIn:SetAlpha(own * a)
 	if a == 1 then own = nil end
 end)

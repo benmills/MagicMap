@@ -45,7 +45,7 @@ function H.Snapshot()
 		"zoom button " .. z:GetParent():GetName() .. " " .. Points(z) .. " " .. z:GetFrameStrata() .. " " .. z:GetFrameLevel(),
 		"border " .. Points(MinimapBorder),
 		"button " .. tostring(b:GetParent() == mm) .. " " .. Points(b) .. " " .. b:GetFrameStrata() .. " " .. tostring(b:IsVisible()),
-		"worldmap " .. tostring(WorldMapFrame:IsShown()), "escape " .. tostring(MagicMapAtlasEscape:IsShown()),
+		"worldmap " .. tostring(WorldMapFrame:IsShown()), "escape " .. tostring(MagicMapWorldMapEscape:IsShown()),
 	}, "\n")
 end
 -- The rect a frame covers, in UIParent units (as obs.minimap.home).
@@ -82,7 +82,7 @@ def test_hooks():
     sim.Step()
     assert not shown()
 
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(1)
     sim.Press("M")  # shown: Blizzard's hidden again at once, "worldmap" through Model for a frame: UI grows
     assert not shown()
@@ -148,16 +148,16 @@ def test_button_home_release():
         return p == "CENTER" and same(rel, mm) and abs(x - math.cos(a) * r) < 1e-6 and abs(y - math.sin(a) * r) < 1e-6
 
     assert button.IsVisible(button) and at(215) and button.GetFrameStrata(button) == "MEDIUM"
-    sim.Slash("/mma icon")  # UI's SavedUI.button, through View.button
+    sim.Slash("/mm icon")  # UI's SavedUI.button, through View.button
     sim.Step()
-    assert not button.IsShown(button) and sim.prints[len(sim.prints)].endswith("minimap button hidden (/mma icon to show)")
-    sim.Slash("/mma icon")
+    assert not button.IsShown(button) and sim.prints[len(sim.prints)].endswith("minimap button hidden (/mm icon to show)")
+    sim.Slash("/mm icon")
     sim.Step()
     assert button.IsVisible(button) and at(215)
     frame = ns.UI.Window.frame
     sim.Click(button)  # click, and the compartment entry: "toggle" for UI, which shows or hides the map
     assert kinds(ns) == ["toggle"] and frame.IsShown(frame)
-    G.MagicMapAtlasOnAddonCompartmentClick()
+    G.MagicMap_OnAddonCompartmentClick()
     sim.Step()
     assert kinds(ns) == ["toggle"] and not frame.IsShown(frame)
     sim.Step()
@@ -168,12 +168,12 @@ def test_button_home_release():
 
     # The map shown, big, the rim's parts hidden, the home faded: the Minimap taken.
     before, home = H.Snapshot(), H.Rect(mm)
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Step()
     ns.UI.BigMap.Toggle()
     view.chrome = L.table(rimArrows=False, questRing=False)
     sim.Run(1)
-    m, stand, cluster = Game.obs.minimap, G.MagicMapAtlasMinimapStandIn, G.MinimapCluster
+    m, stand, cluster = Game.obs.minimap, G.MagicMapMinimapStandIn, G.MinimapCluster
     assert Game.minimap.engaged and not button.IsVisible(button) and same(button.GetParent(button), stand)
     assert sim.BlobRingsAt(0) and sim.rimInset == 1000 and cluster.GetAlpha(cluster) == 0
     # home: where the Minimap was (the stand-in holds it), with the cluster's strata
@@ -192,14 +192,14 @@ def test_button_home_release():
     sim.FireEvent("UI_SCALE_CHANGED")
 
     # Hidden (UI snaps back: not big, home at 1): released, every property as it was.
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(0.5)
     assert not Game.minimap.engaged and H.Snapshot() == before, (before, H.Snapshot())
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
     # /reload: the angle kept.
     sim.FireEvent("PLAYER_LOGOUT")
-    saved = "MagicMapAtlasDB = " + lua_tools(L).Dump(G.MagicMapAtlasDB)
+    saved = "MagicMap2DB = " + lua_tools(L).Dump(G.MagicMap2DB)
     L, sim, ns = boot(saved)
     sim.Run(0.5)
     button, mm, same = L.execute(HELPERS, sim).Button(), L.globals().Minimap, L.eval("function(a, b) return a == b end")
@@ -214,7 +214,7 @@ def test_farmhud():
     Game, H = ns.Game, L.execute(HELPERS, sim)
     sim.Run(1)
     before = H.Snapshot()
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(1)
     assert Game.minimap.engaged and Game.obs.minimap.blocker is None
     L.execute("FarmHud = { shown = true }; function FarmHud:IsShown() return self.shown end")

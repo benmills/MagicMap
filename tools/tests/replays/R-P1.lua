@@ -19,7 +19,7 @@ local MAX_MS = 8 -- a layout's slowest frame: 2x its budget (Runtime's overrun f
 local function R2(v) return math.floor(v * 100 + 0.5) / 100 end
 local sim, ns = T.Boot()
 sim.Run(1)
-sim.Slash("/mma toggle")
+sim.Slash("/mm toggle")
 sim.Run(3)
 local m, layers = ns.UI.Camera, {}
 for _, lay in ipairs(ns.UI.Engine.layers) do -- (those on: one off by default, as the shade, lays nothing out)

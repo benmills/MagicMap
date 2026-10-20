@@ -3,7 +3,7 @@
 -- none: a continent's ~700 cost a 13 ms swap): laid out from a drift below it but zooming out
 -- (Engine.From), shown from it as the zoom moves (Engine.At's minimum zoom). Laid out again when
 -- Model's list changes. Tooltip: its name, Model's line ("Rare") and when you saw it, "Seen here <Mon
--- DD>". Toggled like any layer (/mma layer rares).
+-- DD>". Toggled like any layer (/mm layer rares).
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model

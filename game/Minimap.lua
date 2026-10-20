@@ -32,7 +32,7 @@ Game.minimap = m
 local undo, placed = {}, nil
 local clusterShown -- the cluster's own shown state, from an engage until it's back
 
-local standIn = CreateFrame("Frame", "MagicMapAtlasMinimapStandIn", UIParent)
+local standIn = CreateFrame("Frame", "MagicMapMinimapStandIn", UIParent)
 standIn:Hide()
 
 local function OnRelease(fn) undo[#undo + 1] = fn end

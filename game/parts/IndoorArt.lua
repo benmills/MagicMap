@@ -3,7 +3,7 @@
 -- layers, its textures as pieces in tile space over the map's rect, the client's (Core.lua:838-857:
 -- Atlas keeps no dungeon floors or micro maps). Only the art of the place itself: a dungeon floor, a
 -- micro map, or a map no wider than MAX_ART_YARDS (a city's); in a hut the map you're on is the whole
--- zone, its art the zone's painting: false. Each map's read once. outline: /mma indoor is on
+-- zone, its art the zone's painting: false. Each map's read once. outline: /mm indoor is on
 -- (game/Renderer.lua): UI outlines the art. UI picks View.renderer with obs.minimap.indoors.
 
 local _, ns = ...

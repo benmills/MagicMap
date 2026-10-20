@@ -2,12 +2,15 @@
 and a headless smoke test on the simulated WoW Forever client
 (tools/tests/wowsim.lua): load the TOC's files in order (gitignored
 QuestieDB-derived data may be missing: what exists), log in, run ~60
-frames and every /mma command, and expect no Lua error anywhere."""
+frames and every /mm command, and expect no Lua error anywhere."""
+import os
 import subprocess
 import sys
 
 import luacheck
 from sim import TEST_UI, TESTS, errors, load as boot  # noqa: F401 (the tests' boot, shared with tools/sim.py)
+
+SPIKE_SV = os.path.join(TESTS, "fixtures", "spike_MagicMap.lua")  # the spike's MagicMapDB, MagicMapLandmarks at its caps
 
 
 def test_luacheck():
@@ -20,9 +23,9 @@ def test_smoke():
     sim.Run(1)  # 60 frames
     you = ns.Model.you
     assert you.inst == 0 and abs(you.col - 31.95) < 1e-6 and abs(you.row - 49.75) < 1e-6
-    sim.Slash("/mma")
+    sim.Slash("/mm")
     for name in list(ns.Game.commands.values()):
-        sim.Slash("/mma " + name)
+        sim.Slash("/mm " + name)
         sim.Step()
     assert ns.Runtime.Perf()[0]["game.observe"].n >= 60
 
@@ -45,7 +48,7 @@ def test_smoke():
     assert got.job.done and got.sum == 5e4 * (5e4 + 1) / 2 and ns.Runtime.Perf()[0]["test.job"].n > 1
     assert [(e.name, e.n) for e in ns.Runtime.errors.values()] == [("test.fails", 10)]
     # Telemetry: kept with its stack, and its first occurrence took an "error" mark with the trace.
-    tel = L.globals().MagicMapAtlasDB.telemetry
+    tel = L.globals().MagicMap2DB.telemetry
     err = next(e for e in tel.errors.values() if e.name == "test.fails")
     assert err.count == 10 and "boom" in err.msg and "Runtime.lua" in err.stack
     mark = next(m for m in tel.marks.values() if m.kind == "error" and "test.fails" in m.note)
@@ -54,12 +57,47 @@ def test_smoke():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
+def test_spike_saved():
+    """D9 (ADR 0007): installed over the spike, the client runs its SavedVariables file (MagicMapDB with a full blipLog,
+    MagicMapLandmarks with 300 blips and 25 rares on two maps) before ours loads. Nothing reads it: MagicMap2DB starts
+    fresh, the spike's rares aren't ours; our heap after a full collect stays under 64 MB, and /mm and /magicmap work.
+    The client writes back only MagicMap2DB, so after a /reload the spike's data is gone."""
+    from test_blips import lua_tools
+    with open(SPIKE_SV, encoding="utf-8") as f:
+        L, sim, ns = boot(f.read())
+    G = L.globals()
+    spike = L.eval("function() local n = 0; for _ in pairs(MagicMapLandmarks[0]) do n = n + 1 end; return n end")
+    assert len(G.MagicMapDB.blipLog) == 600 and spike() == 325
+    db = G.MagicMap2DB
+    assert set(db.keys()) == {"Game", "UI", "Model", "telemetry", "validation", "recording"}
+    assert all(db[k]._v == 1 for k in db.keys()) and not next(iter(db.Model.rares.keys()), None)
+    sim.Slash("/mm toggle")
+    sim.Run(6)  # past login's grace
+    assert ns.UI.Window.frame.IsShown(ns.UI.Window.frame) and db.UI.shown
+    assert all(not str(k).startswith("rare:") for k in ns.Model.Known("rares")[0].keys())
+    kb = L.eval('function() collectgarbage("collect"); return collectgarbage("count") end')()
+    print(f"D9: the spike's saved data loaded, not read; the heap after a full collect {kb / 1024:.1f} MB")
+    assert kb <= 64 * 1024
+    sim.Slash("/magicmap toggle")
+    sim.Step()
+    assert not ns.UI.Window.frame.IsShown(ns.UI.Window.frame) and not db.UI.shown
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+    sim.FireEvent("PLAYER_LOGOUT")
+    L2, sim2, ns2 = boot("MagicMap2DB = " + lua_tools(L).Dump(db))  # a /reload: what the client wrote back
+    sim2.Slash("/mm")
+    sim2.Run(0.2)
+    G2 = L2.globals()
+    assert G2.MagicMapDB is None and G2.MagicMapLandmarks is None and ns2.UI.Window.frame.IsShown(ns2.UI.Window.frame)
+    assert G2.MagicMap2DB.telemetry.sessions[2].id == 2
+    assert not errors(sim2, ns2), "\n\n".join(errors(sim2, ns2))
+
+
 def test_boundaries(capsys):
     """luacheck's boundary rules fire (the default run checks the real files)."""
     refs = luacheck.ns_refs('local G, A = ns.Game, ns.Atlas -- ns.UI.Map\nG.Load(1); A:X(); s = "ns.Model.x"\nns.UI.View.y')
     assert sorted(refs) == [("Atlas", "X", 2), ("Game", "Load", 2), ("UI", "View", 3)]
-    acc = {"ui/X.lua": [("get", "CreateFrame", 1), ("get", "C_Map", 2), ("get", "MagicMapAtlasDB", 3)],
-           "model/X.lua": [("get", "print", 1)], "game/X.lua": [("get", "MagicMapAtlasDB", 1)]}
+    acc = {"ui/X.lua": [("get", "CreateFrame", 1), ("get", "C_Map", 2), ("get", "MagicMap2DB", 3)],
+           "model/X.lua": [("get", "print", 1)], "game/X.lua": [("get", "MagicMap2DB", 1)]}
     assert luacheck.check_boundaries(acc) == 3
     out = capsys.readouterr().out
     assert "ui/X.lua:2" in out and "ui/X.lua:3" in out and "model/X.lua:1" in out and "game/X" not in out
@@ -86,7 +124,7 @@ def test_open_fields_nil():
     """A View and an Observation with only their required fields (every OPEN one nil:
     types/view.lua, observation.lua) run whole frames: Game applies, Model merges, UI draws."""
     L, sim, ns = boot()
-    sim.Slash("/mma toggle")
+    sim.Slash("/mm toggle")
     sim.Run(1)
     got = L.eval("""function(ns)
         local UI, Model, got = ns.UI, ns.Model, {}
@@ -104,9 +142,9 @@ def test_open_fields_nil():
         return got
     end""")(ns)
     sim.Run(1)
-    sim.Slash("/mma mark bare")
+    sim.Slash("/mm mark bare")
     assert ns.Game.minimap.engaged
-    marks = L.globals().MagicMapAtlasDB.telemetry.marks
+    marks = L.globals().MagicMap2DB.telemetry.marks
     assert marks[len(marks)].note == "bare" and marks[len(marks)].state.map is None  # no diag
     kinds = ["blips", "rares", "quests", "offers", "places", "group", "corpse", "waypoint", "vignettes", "services"]
     for kind in kinds:
@@ -200,7 +238,7 @@ def test_attribution():
 
 def test_failures():
     """docs/runtime.md: each frame-loop failure driven in the sim, and its guarantee held."""
-    L, sim, ns = boot("""MagicMapAtlasDB = { telemetry = "corrupt", old = { _v = 1, n = "x" }, new = { _v = 9, keep = 1 }, bad = { x = 1 },
+    L, sim, ns = boot("""MagicMap2DB = { telemetry = "corrupt", old = { _v = 1, n = "x" }, new = { _v = 9, keep = 1 }, bad = { x = 1 },
         UI = { _v = 1, shown = false, follow = false, inst = 0, center = 5, zoom = 96 }, Game = { _v = 1, buttonAngle = "north" },
         validation = { _v = 1, on = "yes" } }""")
     R, G = ns.Runtime, L.globals()
@@ -236,17 +274,17 @@ def test_failures():
     end""")(R, ns.Game)
     sim.Run(6)  # past login's grace (inside a grace nothing overruns)
     assert got.load.old.n == 0 and got.load.old.list is not None and got.load.old._v == 2
-    assert G.MagicMapAtlasDB.new.keep == 1 and G.MagicMapAtlasDB.new._v == 9 and got.load.new.n == 0
-    assert G.MagicMapAtlasDB.telemetry.sessions[1].id == 1 and G.MagicMapAtlasDB.bad.x is None  # migrate failed: reset
+    assert G.MagicMap2DB.new.keep == 1 and G.MagicMap2DB.new._v == 9 and got.load.new.n == 0
+    assert G.MagicMap2DB.telemetry.sessions[1].id == 1 and G.MagicMap2DB.bad.x is None  # migrate failed: reset
     # a key without a default, of another type: dropped (UI's center, then saved again where the view is;
     # Game's buttonAngle); the loaders ran whole (no "load UI" error: the expected set below)
-    db, kind = G.MagicMapAtlasDB, L.eval("type")
+    db, kind = G.MagicMap2DB, L.eval("type")
     assert kind(db.UI.center) == "table" and db.UI.inst == 0 and db.Game.buttonAngle is None and db.validation.on is False
     # erroring step: the rest ran every frame; recorded once (one entry, one stack, one mark), then throttled
     assert got.steps == 360 and got.added == 359
     fails = next(e for e in R.errors.values() if e.name == "test.fails")
     assert 10 <= fails.n <= 17
-    tel = G.MagicMapAtlasDB.telemetry
+    tel = G.MagicMap2DB.telemetry
     assert len([e for e in tel.errors.values() if e.name == "test.fails"]) == 1
     assert len([m for m in tel.marks.values() if m.note and "test.fails" in m.note]) == 1
     # stuck job cancelled and reported; a job that never yields overran

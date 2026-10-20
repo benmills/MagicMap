@@ -15,8 +15,8 @@ few releases").
 
 ## Decision
 
-- **One account-wide SavedVariable**: `MagicMapAtlasDB`, which becomes `MagicMapDB` when
-  merged into MagicMap. Its root is a table of owners: `Game`, `UI`, `Model`, `telemetry`,
+- **One account-wide SavedVariable**: `MagicMapAtlasDB`, which becomes `MagicMap2DB` at the
+  rename ([ADR 0007](0007-v2-storage-names.md), D9; not `MagicMapDB`, the spike's). Its root is a table of owners: `Game`, `UI`, `Model`, `telemetry`,
   `validation` and `recording` (game/Record.lua: `/mma record`'s stream). Game leaves owners it doesn't know untouched.
 - **Each owner declares its part**: `Game.Load(owner, fn, spec)` (Model's through
   `Game.Load("Model", Model.Load, Model.SAVED)`, ADR 0006; UI's through a `load` Command, ADR 0003), where

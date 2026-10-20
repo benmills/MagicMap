@@ -26,7 +26,7 @@ function Atlas.Tiles(inst)
 	return m and m.tiles
 end
 
--- The tile set's product and build (Core.lua:417-422: /mma tiles, the title's debug line).
+-- The tile set's product and build (Core.lua:417-422: /mm tiles, the title's debug line).
 function Atlas.TileSet()
 	local set = Data.Tiles
 	return set and set.product, set and set.version
@@ -60,7 +60,7 @@ function Atlas.Drawn(inst, key)
 	return tiles and tiles[key] and not (colors and colors.sea and colors.sea[key]) and true or false
 end
 
--- Has the map colour data (Data/TileColor.lua)? (/mma tint says when it hasn't.)
+-- Has the map colour data (Data/TileColor.lua)? (/mm tint says when it hasn't.)
 function Atlas.TileColored(inst)
 	return Data.TileColor ~= nil and Data.TileColor[inst] ~= nil
 end

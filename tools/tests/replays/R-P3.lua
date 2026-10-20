@@ -93,6 +93,6 @@ T.Print("P3: FrameStats: %d frames measured, p95 %s KB/frame, max %s KB/frame, %
 	stats.kbFrames, tostring(stats.kbFrameP95), tostring(stats.kbFrameMax), tostring(stats.kbPerSec))
 assert(stats.kbFrames > 0 and stats.kbFrameP95 ~= nil and stats.kbPerSec ~= nil)
 sim.FireEvent("PLAYER_LOGOUT")
-local perf = MagicMapAtlasDB.telemetry.sessions[1].perf
+local perf = MagicMap2DB.telemetry.sessions[1].perf
 assert(perf.kbPerSec == stats.kbPerSec and perf.kbFrameP95 ~= nil)
 assert(#T.Errors(sim, ns) == 0)

@@ -1,16 +1,16 @@
 -- K4: Data/ goes stale between Forever builds. CONTAINED: game/Validate.lua compares Atlas with the
--- live client as you travel (/mma check log: a sample every 2 s) and logs the mismatches. The logger
--- judges as /mma check does (one Sample): in Orgrimmar, the login moment before the client knows the
+-- live client as you travel (/mm check log: a sample every 2 s) and logs the mismatches. The logger
+-- judges as /mm check does (one Sample): in Orgrimmar, the login moment before the client knows the
 -- zone (zone text "", real zone text nil, best map the continent) and a city WMO's own subzone (Valley
 -- of Strength, outdoors and indoors: terrain chunks don't carry it) are info, not drift (9eb08fe). A real
 -- mismatch is still logged; the log is one build's (the earlier builds' Valley of Strength read as
 -- e50e7d5's in sessions #13-#22); a sample makes next to nothing (8 KB each, all session, before).
 local T = ...
-local SAVED = "MagicMapAtlasDB.validation = { _v = %d, on = true, version = %q, samples = 9, counts = { subzone = 5 },"
+local SAVED = "MagicMap2DB.validation = { _v = %d, on = true, version = %q, samples = 9, counts = { subzone = 5 },"
 	.. " log = { { t = 1, inst = 1, col = 40.09, row = 28.853, kind = 'subzone', atlas = '', game = 'Valley of Strength' } },"
 	.. " dropped = 0 }"
 local sim, ns = T.Boot(T.TEST_UI .. "; " .. string.format(SAVED, 1, "cd0c82c"))
-local db = MagicMapAtlasDB.validation
+local db = MagicMap2DB.validation
 assert(db.version == "unstamped" and #db.log == 0 and next(db.counts) == nil and db.samples == 0 and db.on,
 	"another build's log is cleared at load, logging left on")
 
@@ -51,9 +51,9 @@ T.Print("K4: %d samples in Orgrimmar, none logged; a sample makes %.0f B (%d mea
 assert(perf.kbN - n0 >= 3 and each <= 0.05)
 GetZoneText = zoneText
 
--- /mma check says the same: those facts are INFO, nothing fails.
+-- /mm check says the same: those facts are INFO, nothing fails.
 local n = #sim.prints
-sim.Slash("/mma check")
+sim.Slash("/mm check")
 local said = table.concat(sim.prints, "\n", n + 1)
 assert(said:find("INFO|r subzone %(indoors%): atlas  | game Valley of Strength") and said:find("all pass"), said)
 
@@ -66,4 +66,4 @@ assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n"))
 
 -- This build's log survives a /reload.
 sim = T.Boot(T.TEST_UI .. "; " .. string.format(SAVED, 2, "unstamped"))
-assert(#MagicMapAtlasDB.validation.log == 1 and MagicMapAtlasDB.validation.counts.subzone == 5)
+assert(#MagicMap2DB.validation.log == 1 and MagicMap2DB.validation.counts.subzone == 5)

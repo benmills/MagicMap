@@ -72,7 +72,7 @@ for i, p in ipairs(PLACES) do
 		sim.Run(0.5)
 		assert(mm:GetZoom() == 1 and view.renderer == "blizzard" and #traces == n + 1, "zoomed, nothing else traced")
 		if i == 4 then -- what's decided, printed (IndoorArt.lua:170-175), and the art outlined
-			sim.Slash("/mma indoor")
+			sim.Slash("/mm indoor")
 			sim.Step()
 			assert(sim.prints[#sim.prints]:find("indoor: map 1412 (Mulgore, type 3); Minimap indoors; art none; showing floor plan", 1, true))
 		end
@@ -87,6 +87,6 @@ for i, p in ipairs(PLACES) do
 		assert(sim.prints[#sim.prints]:find("art 1 layer(s), 1002x668, 12 pieces; showing art", 1, true))
 	end
 end
-sim.Slash("/mma indoor")
+sim.Slash("/mm indoor")
 assert(sim.prints[#sim.prints]:find("indoor maps: quiet", 1, true))
 assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n\n"))

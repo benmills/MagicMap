@@ -30,7 +30,7 @@ D.Tiles = { ... }
   own); tools/tests/test_atlas.py checks they agree. At load
   atlas/Coords.lua drops any dataset whose format isn't the one Atlas reads (Atlas then
   answers as if the file were missing, as for the gitignored QuestieDB files) and raises
-  one error naming each such file: `MagicMapAtlas: Data/UiMaps.lua is format 0, Atlas
+  one error naming each such file: `MagicMap: Data/UiMaps.lua is format 0, Atlas
   reads 1: regenerate (README, tools/gen_*.py)`. Not a cascade of nil indexes.
 - Python reads a Data file the way WoW does, called with `(addon, ns)`:
   `tools/mmtools/luaout.py load_data(lua, path)` returns `ns`

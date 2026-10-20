@@ -58,11 +58,11 @@ def test_waypoint_round_trip():
     at = ns.Game.obs.waypoint
     command(L, ns, "waypoint", SEA)
     sim.Step()
-    assert sim.prints[len(sim.prints)] == "|cffffd100MagicMapAtlas|r: no zone here to put a waypoint in"
+    assert sim.prints[len(sim.prints)] == "|cffffd100MagicMap|r: no zone here to put a waypoint in"
     L.execute("C_Map.CanSetUserWaypointOnMap = function() return false end")
     command(L, ns, "waypoint", EASTVALE)
     sim.Step()
-    assert sim.prints[len(sim.prints)] == "|cffffd100MagicMapAtlas|r: can't place a waypoint in Elwynn Forest"
+    assert sim.prints[len(sim.prints)] == "|cffffd100MagicMap|r: can't place a waypoint in Elwynn Forest"
     assert held(ns.Game.obs.waypoint, at) and sim.waypoint.uiMapID == ELWYNN
 
     # Cleared: none. On a map Atlas hasn't (a mine's own): none we can show.

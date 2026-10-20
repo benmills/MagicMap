@@ -92,4 +92,4 @@ Game.Apply("button", function(view)
 end)
 
 -- The addon compartment's entry: the TOC names this global for the client to call.
-MagicMapAtlasOnAddonCompartmentClick = Runtime.Wrap("game: compartment", function() Game.Hooked("toggle") end)
+MagicMap_OnAddonCompartmentClick = Runtime.Wrap("game: compartment", function() Game.Hooked("toggle") end)

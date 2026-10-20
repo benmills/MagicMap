@@ -145,7 +145,7 @@ local SAFE_VIEW = {
 ---@field npc? MM.NpcID          an NPC: Game adds its portrait (if it has captured one)
 ---@field line? integer         with npc: the line of the owner's tooltip (GameTooltip:GetLeftLine) whose icon (its first |T..|t) the portrait takes the place of, over a dark disc (QuestInfo.lua:270-296); not met yet: the line keeps UI's icon
 
----Register `/mma <name>` (Game owns slash commands): fn(args) runs wrapped when typed.
+---Register `/mm <name>` (Game owns slash commands): fn(args) runs wrapped when typed.
 ---Sending it again replaces fn. Added with the walking skeleton (open: new kinds).
 ---@class MM.CmdSlash
 ---@field kind "slash"
@@ -161,7 +161,7 @@ local SAFE_VIEW = {
 ---@field fn fun(saved: table)
 ---@field spec? MM.SavedSpec
 
----Run `/mma <line>` as if typed (game/Slash.lua's Game.Run): the gear's Advanced runs the slash
+---Run `/mm <line>` as if typed (game/Slash.lua's Game.Run): the gear's Advanced runs the slash
 ---commands' own code (GearMenu.lua:28). Not idempotent: each one runs it once (open: new kinds).
 ---@class MM.CmdRun
 ---@field kind "run"
@@ -182,7 +182,7 @@ function Game.Command(cmd) end
 ---@alias MM.HookedKind
 ---| "worldmap"   M (ToggleWorldMap) while View.window.shown: Game has hidden Blizzard's world map
 ---| "escape"     Escape while View.window.big: Game's catcher closed
----| "toggle"     the minimap button or the addon compartment clicked: UI shows or hides the map (as /mma toggle)
+---| "toggle"     the minimap button or the addon compartment clicked: UI shows or hides the map (as /mm toggle)
 
 ---@class MM.HookedInput
 ---@field kind MM.HookedKind

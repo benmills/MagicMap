@@ -46,7 +46,7 @@ one frame later from a step. The kinds are `follow {quest|false}`,
 `waypoint {pos|false}`, `way {pos}`, `tracking {id, on}` and
 `tooltip {owner|false, member, npc}` (Game draws an NPC's portrait into the tooltip itself:
 no WoW object crosses into Model, ADR 0001). Added since (open: new kinds): `slash {name,
-help, fn}` (Game owns `/mma`; UI's commands register through it) and `load {owner, fn, spec}`
+help, fn}` (Game owns `/mm`; UI's commands register through it) and `load {owner, fn, spec}`
 (Game.Load on UI's behalf, ADR 0004). Each names the result wanted, so a repeat does nothing
 new. There is no reply: the effect shows in the same frame's Observation. A command that
 fails is reported and dropped.
@@ -69,7 +69,7 @@ command and hooked kinds, and everything inside UI (camera, layout, menus, chrom
   `game/Telemetry.lua → UI.Map` baseline entry), whose shapes stay UI's.
 - OPEN additions (v1 plan M0.1, `v` stays 1): `chrome` {rimArrows?, questRing?} for Blizzard's Minimap rim parts; `camera` {cx, cy, zoom, w, h}, sampled for telemetry's motion ring, never acted on.
 - OPEN addition (v1 plan M1.6): hooked kind `"toggle"`, Game's minimap button or the addon
-  compartment clicked; UI shows or hides the map as `/mma toggle` does. Not a key, but the same
+  compartment clicked; UI shows or hides the map as `/mm toggle` does. Not a key, but the same
   path: only Game may make that button, and UI hears of it only through Model.
 - OPEN addition (v1 plan M2.2): CmdTooltip `line`, so one quest tooltip can have up to 3
   portraits an objective, each on its own line (the spike's `shown[line] = npcID`); Game finds
@@ -79,7 +79,7 @@ command and hooked kinds, and everything inside UI (camera, layout, menus, chrom
   is carried out that frame, not the next frame's input (the promise was "at most one frame later").
   A quest tooltip is built in a ui step, so its portraits now show the frame it does, as the
   spike's built them with the tooltip (QuestInfo.lua:187, 365-368); a met mob's sword showed a frame.
-- OPEN addition (v1 plan M4.5, M4.6): command kind `"run"` { line }, `/mma <line>` as if typed
+- OPEN addition (v1 plan M4.5, M4.6): command kind `"run"` { line }, `/mm <line>` as if typed
   (game/commands/run.lua: Game.Run), for the gear's Advanced rows (GearMenu.lua:28). The one kind that
   isn't idempotent: each one runs the line once, as a click on the spike's row did.
 

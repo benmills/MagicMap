@@ -5,8 +5,8 @@
 -- (QuestInfo.lua:71-75), quests, offers, blips and a seen rare are drawn, quest 60's tooltip has no
 -- droppers or turn-in (with the data: both), and nothing errs.
 local T = ...
-local NOTICE = "|cffffd100MagicMapAtlas|r: QuestieDB isn't loaded: quests show without their mobs and items."
-local sim, ns = T.Boot(T.TEST_UI .. "\nMagicMapAtlasDB.Model = { _v = 1, blips = {}, rares = { [0] = { ['npc:471'] = "
+local NOTICE = "|cffffd100MagicMap|r: QuestieDB isn't loaded: quests show without their mobs and items."
+local sim, ns = T.Boot(T.TEST_UI .. "\nMagicMap2DB.Model = { _v = 1, blips = {}, rares = { [0] = { ['npc:471'] = "
 	.. "{ name = 'Mother Fang', npcID = 471, col = 31.594, row = 50.316, t = 1792000000 } } } }")
 local A, S = ns.Atlas, sim.state
 assert(QuestieDB == nil and QuestieLoader == nil)
@@ -28,7 +28,7 @@ local north, west = A.TileToWorld(sim.player.col + 40 * yd, sim.player.row - 20 
 sim.minimapBlips = { { "Mailbox", north, west } }
 sim.noVignettes = true
 sim.Run(1)
-sim.Slash("/mma toggle")
+sim.Slash("/mm toggle")
 sim.FireEvent("MINIMAP_UPDATE_TRACKING")
 sim.Run(3)
 

@@ -90,7 +90,7 @@ R.Job = function(name, fn, ...)
 end
 local clock = sim.Clock
 sim.Clock = function() return clock() + counted * NS end
-sim.Slash("/mma toggle")
+sim.Slash("/mm toggle")
 sim.Run(1)
 waypoint = { inst = 0, col = 36.09, row = 49.28 }
 local frames = 0

@@ -1,5 +1,5 @@
 -- Game: the only system that touches the WoW API, other addons and
--- SavedVariables. This file: load and check MagicMapAtlasDB, login, loading screens.
+-- SavedVariables. This file: load and check MagicMap2DB, login, loading screens.
 --
 -- Saved data belongs to the system that owns it: Game.Load(owner, fn, spec) calls
 -- fn(saved) once it's loaded (at once if it already is). It never hands over
@@ -15,10 +15,10 @@ local Runtime = ns.Runtime
 local loaders = {}
 local NONE = {}
 
-function Game.Print(msg) print("|cff66ccffMagicMap Atlas|r " .. msg) end -- diagnostics: checks, bench, shots
+function Game.Print(msg) print("|cff66ccffMagicMap|r " .. msg) end -- diagnostics: checks, bench, shots
 
 -- The user's chat line, as UI.Print's (v1-plan §4 Chat; Core.lua:44-46): what a Command says back.
-function Game.Say(msg) print("|cffffd100MagicMapAtlas|r: " .. msg) end
+function Game.Say(msg) print("|cffffd100MagicMap|r: " .. msg) end
 
 local function Copy(v)
 	if type(v) ~= "table" then return v end
@@ -71,14 +71,14 @@ function Game.Load(owner, fn, spec)
 end
 
 -- Game's own part (types/saved.lua MM.SavedGame): the minimap button's angle (game/Button.lua), tracking it turned off,
--- /mma indoor's reports (game/Renderer.lua).
+-- /mm indoor's reports (game/Renderer.lua).
 Game.Load("Game", function(saved) Game.saved = saved end,
 	{ version = 1, defaults = { trackingOff = {} }, optional = { buttonAngle = "number", indoorDebug = "boolean" } })
 
 Runtime.On("ADDON_LOADED", "game.loaded", function(_, name)
 	if name ~= ADDON then return end
-	if type(MagicMapAtlasDB) ~= "table" then MagicMapAtlasDB = {} end -- absent, or not ours
-	Game.db = MagicMapAtlasDB
+	if type(MagicMap2DB) ~= "table" then MagicMap2DB = {} end -- absent, or not ours
+	Game.db = MagicMap2DB
 	for _, l in ipairs(loaders) do l[2](Open(l[1], l[3])) end
 	loaders = nil
 end)

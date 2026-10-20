@@ -104,7 +104,7 @@ unknown ones), and new oracles.
   widest zoom, plus the client's lag), not to the contract.
 - OPEN additions (v1 plan M4, wave 1): `ObsVignette.target`, the rare you target (M4.1, Landmarks.lua:
   154-156), at your position, its `id` the unit's GUID: Model remembers it as a seen rare and lists no
-  live pin for it (M4.3). `ObsArt.outline` while `/mma indoor` is on (M4.2: UI outlines the art), and
+  live pin for it (M4.3). `ObsArt.outline` while `/mm indoor` is on (M4.2: UI outlines the art), and
   `ObsMinimap.indoorDebug`, the same flag for the gear's Indoor maps box (M4.5), since UI can't read
   SavedGame. `ObsTracking.id` without a filter is its spell's ID (M4.1: Find Herbs).
 - OPEN addition (v1 plan M4, its review's round 1): the part `exploredCells`, per continent swept, its
@@ -114,7 +114,7 @@ unknown ones), and new oracles.
 
 ## Revisit if
 
-- A part changes so often that rebuilding its snapshot shows in `/mma perf load`. Then make it
+- A part changes so often that rebuilding its snapshot shows in `/mm perf load`. Then make it
   per-frame-mutable and add a `rev` counter.
 - Model needs more than a few oracle calls a frame (e.g. shading every quest area). Then
   have Game hand the result over as data instead.

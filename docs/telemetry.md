@@ -23,13 +23,13 @@ The scripted sessions that feed it are docs/playtest.md.
   120 preallocated slots (no garbage). Persisted inside a mark.
 - **Marks**: a snapshot of state plus the recorder's ring and the motion ring, taken
   on an error's first occurrence, a taint's first occurrence per function,
-  `/mma mark <note>`, and `/mma shot <id> [note]` (which also takes a screenshot).
+  `/mm mark <note>`, and `/mm shot <id> [note]` (which also takes a screenshot).
 - **Memory**: ours alone after a full `collectgarbage("collect")`, read twice: 10 s
   after login (past its 5 s grace) and at logout. The collect's frame is graced
   (`gc`), so it's never an overrun.
 - **Taint**: ADDON_ACTION_BLOCKED / ADDON_ACTION_FORBIDDEN naming our addon.
 
-## SavedVariables: `MagicMapAtlasDB.telemetry`
+## SavedVariables: `MagicMap2DB.telemetry`
 
 ```lua
 telemetry = {
@@ -52,7 +52,7 @@ telemetry = {
                errors, errorsPerHour, loadMs },       -- written at logout (and /reload) and with each mark
       kept = { <events> },  -- taint, art and sensor events, the first 50 (each one a bug)
       stats = { ["<kind> <layer or why>"] = { n, <field> = max |value|, lag } }, -- layout ends, swaps, blips sweeps, sensor restarts
-      bench = { [build] = { build, t, ops = { [op] = { n, ms, us } } } },  -- /mma bench regions (game/Bench.lua)
+      bench = { [build] = { build, t, ops = { [op] = { n, ms, us } } } },  -- /mm bench regions (game/Bench.lua)
     },
   },
   _v = 1,               -- Game.Load's version stamp (docs/runtime.md "Saved data")
@@ -81,7 +81,7 @@ telemetry = {
   and your position `px, py` (tiles; nil where the game hides it). Following, `cx, cy` = `px, py`.
   It's what to read for a tear: frame pacing (`ms` steps), camera steps in screen pixels, you
   against the camera, and the tile edges crossed.
-- **Shot stamp**: what the screenshot shows, as View was in the last apply step when `/mma shot` runs
+- **Shot stamp**: what the screenshot shows, as View was in the last apply step when `/mm shot` runs
   (Game reads View only there: types/view.lua): the map shown (`inst`), the
   camera (`cx, cy, zoom`), the view's size (`w, h`) and top-left on screen (`left, top`, UI units;
   nil while hidden), small or `big`, `uiScale` (UIParent's effective scale) and the screen in UI
@@ -94,7 +94,7 @@ telemetry = {
   (`WoWScrnShot_<stamp>.jpg`), taken when SCREENSHOT_SUCCEEDED fires; chat then says
   `shot <id>: WoWScrnShot_<stamp>, marked`. On SCREENSHOT_FAILED: no mark, a `shot` trace
   `failed <note>`, and chat says `the client took no screenshot (no mark)`; with neither event in
-  5 s, the same trace and `the client took no screenshot (no answer, no mark)`. `/mma shot` without
+  5 s, the same trace and `the client took no screenshot (no answer, no mark)`. `/mm shot` without
   an id takes no shot (chat asks for one), and one asked while another waits on the client is not
   taken.
 - **Kept**: every event of a kind in Telemetry's `KEEP` (`taint`, `art`, `sensor`) as it's traced,
@@ -106,7 +106,7 @@ telemetry = {
   frame max's suspect before M1.3; its `x`, `y` are canvas offsets, the tear's ~33,000 px suspect,
   now within a few thousand px of the shared origin); a swap's `lag` is frames since its layer's
   last layout end (the end→swap delay).
-- **Bench**: `Game.Bench.result` (M0.5, `/mma bench regions`) copied at logout and with each mark,
+- **Bench**: `Game.Bench.result` (M0.5, `/mm bench regions`) copied at logout and with each mark,
   keyed by its build: `ops[op] = { n, ms, us }`, `us` a call's µs (op names like `CreateLine`,
   `SetPoint`, `canvas.SetScale@1000live`, `canvas.Show@1000hidden`, `SetParent.park`; M1.3's
   `canvas.Show.moved@1000live`, `canvas.Show.moved.alpha0@1000live`, `canvas.SetAlpha.moved@1000live`,
@@ -121,7 +121,7 @@ regions and where it was placed), `error`, `taint`, `mark`, `shot`; and Runtime'
 `slow` (a call over its budget), `spike` (a frame over its budget), `gap` (a job between
 Yields over its budget), `throttled`, `job` (cancelled), `enter` (PLAYER_ENTERING_WORLD),
 `position` (lost or back), `saved`; Game's `minimap` (the takeover engaged or released),
-`blips` (a sensor sweep ended), `art` (`/mma check art`: a name ui/Art.lua lists that the
+`blips` (a sensor sweep ended), `art` (`/mm check art`: a name ui/Art.lua lists that the
 client lacks), `sensor` (the sensor blind, or its square off the client's: game/Blips.lua).
 
 Their `d`:
@@ -160,13 +160,13 @@ allocators, gaps, the worst-frames ledger, per-state histograms, memory after GC
 layout/swap/sweep stats, the bench), its kept events, errors (with stacks), marks
 (state, the motion ring's summary, each layout's start → end → swap with the end→swap
 delay, and the trace around them), the newest screenshots matched to their shot marks
-and paired with the reference shots, the validation report (`/mma check log`: one build's log,
+and paired with the reference shots, the validation report (`/mm check log`: one build's log,
 named by its `version`; game/Validate.lua clears another build's at load), and
 client `Logs/` lines that mention the addon. It also lists
 other addons' Lua errors in `Logs/` while ours was loaded (from each session's start to the
 next's; any time when there are no sessions), `SHARED` first: an addon sharing our
 `MagicMap` prefix, or an error naming a `MagicMap_` global. The spike's E1 (our old data
-globals breaking it) named only its own files, so a filter on "MagicMapAtlas" missed it.
+globals breaking it) named only its own files, so a filter on our own name missed it.
 
 - `--trace`: every event of each mark's ring (not the last 40), each ledger frame's events, and
   each motion ring frame by frame: `dt`, the camera's step in screen pixels, you against the
@@ -177,7 +177,7 @@ globals breaking it) named only its own files, so a filter on "MagicMapAtlas" mi
   the gaps; allocation from `perf.alloc`; memory from `ourKBLoad` against `ourKB`; first open
   from `perf.graceTop.map` (older sessions: `perf.slow`); errors from the session's errors. Then the
   gate's empties (docs/v1-plan.md §1): `perf.slow`, `perf.gaps`, `taint`, `art`, `sensor`, each named
-  (`/mma bench` runs in its own grace, so it's in neither; older sessions' `bench: regions` is left out).
+  (`/mm bench` runs in its own grace, so it's in neither; older sessions' `bench: regions` is left out).
   Exit 1 on any FAIL.
   `--budgets --trace` also prints the perf, kept and marks sections it judged from.
 - `--compare A B`: two sessions side by side with B − A: the budgets, memory after GC,

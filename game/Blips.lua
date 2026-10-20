@@ -526,7 +526,7 @@ Runtime.On("MINIMAP_UPDATE_TRACKING", "game.blips tracking", function()
 	lat.cc, lat.sc = nil, nil
 end)
 
--- /mma blips (Blips.lua:677-683): what the sensor knows, each in yards east and north of you (Blips.lua:210-212).
+-- /mm blips (Blips.lua:677-683): what the sensor knows, each in yards east and north of you (Blips.lua:210-212).
 Game.Slash("blips", "what the blip sensor knows, and where from you", function()
 	local you, y = Game.obs.you, Atlas.TILE_YARDS
 	Game.Say(("blips: %d known, answer square %.2f screen units each way"):format(#blips, px))
