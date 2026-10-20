@@ -3,16 +3,10 @@ quest log (its blobs: Sim.blobShapes) through Game's parts and Inside, and Model
 
   test_quest_areas: one QuestPOIFrame a map and style in the client's art (S53): the quest you follow
     filled blue over the rest, kill rust, gather green, other blue; each quest drawn into its frame's rect
-    as laid out (L1); an estimate only for a kill or collect quest the game draws no area for, one for two
-    within 0.6 r (S54); out of sight while the zoom moves, back where it lands (P5); the gear's toggles.
+    as laid out (L1); out of sight while the zoom moves, back where it lands (P5); the gear's toggles.
   test_quest_area_hover: an area under the cursor lit on top (HOVER) with its quest's tooltip, built once a
     hover (spike-bugs G7), up through a zoom and with the cursor on something standing on the view; a pin's
     tooltip wins, its quest lit; off both, neither.
-  test_quest_area_answers: whether the game draws an area at a pin (HasArea), frame by frame from a log
-    change: a quest with an area never estimated, one without from its answer (Inside after deferred
-    layout: the client draws a blob into a rect it laid out at a frame's end); a pin in another quest's
-    area, none (Layers.lua:928-937); an area that comes with QUEST_POI_UPDATE takes the estimate's place
-    and its frame is drawn again; asks past a frame's budget answered over the next frames.
   test_quest_area_big_zone: a 12-tile zone at the clamp (Stranglethorn at zoom 800, 9,572 px wide), flown to
     from Elwynn and wheeled in about you: its frame on one anchor, laid out in its map's rect, each quest
     drawn there (L1).
@@ -43,8 +37,8 @@ end"""
 MINE = {"id": 62, "title": "The Fargodeep Mine", "level": 7, "col": 31.7, "row": 49.95,
         "objectives": [["event", "Scout through the Fargodeep Mine", 0, 1, False]], "area": 0.03}
 HOGGER = {"id": 176, "title": "Wanted: Hogger", "level": 11, "col": 32.4, "row": 49.55,
-          "objectives": [["monster", "Hogger slain: 0/1", 0, 1, False]]}  # no area: an estimate
-CANDLES_NEAR = dict(CANDLES, col=32.45, row=49.6)  # no area either, within 0.6 r of Hogger's: the same one
+          "objectives": [["monster", "Hogger slain: 0/1", 0, 1, False]]}
+CANDLES_NEAR = dict(CANDLES, col=32.45, row=49.6)
 ART = "Interface\\WorldMap\\UI-"
 STYLES = {  # fill, border, width, its art, over the canvas
     "followed": (32, 120, 0.8, ART + "QuestBlob-Inside", 2), "kill": (0, 85, 0.6, ART + "ArchaeologyBlob-Inside", 1),
@@ -70,14 +64,6 @@ def test_quest_areas():
     want = {(52,): STYLES["followed"] + (True,), (176,): STYLES["kill"] + (True,), (47, 60): STYLES["gather"] + (True,),
             (62,): STYLES["other"] + (True,)}
     assert blobs(sim, ns) == want and A.frame.GetAlpha(A.frame) == 1
-    # One estimate for Hogger and Candles (the first's pin): a faint disc 110 yd across, 18 dashes.
-    spots = A.front.pools.spot
-    assert spots.n == 1
-    o, r = spots[1], 110 / 533.33 * ns.UI.Camera.cam.zoom
-    assert abs(o.acol - CANDLES_NEAR["col"]) < 1e-6 and abs(o.arow - CANDLES_NEAR["row"]) < 1e-6
-    assert list(S[o.disc].vertex.values()) == [1, 0.85, 0.4, 0.05] and abs(S[o].width - 2 * r) < 1e-9
-    assert len(o.dashes) == 18 and all(S[d].thickness == 1.5 and list(S[d].color.values()) == [1, 0.85, 0.4, 0.35]
-                                       for d in o.dashes.values())
 
     # A zoom: out of sight from its first frame till it lands, then each drawn where it's laid out.
     sim.Wheel(view, 1)
@@ -86,10 +72,7 @@ def test_quest_areas():
     sim.Run(1)
     assert A.frame.GetAlpha(A.frame) == 1 and blobs(sim, ns) == want
 
-    # The gear's: estimates off, then quests off (their areas with them), then areas off.
-    E.SetLayer("questAreasApprox", False)
-    sim.Run(0.5)
-    assert A.front.pools.spot.n == 0 and len(blobs(sim, ns)) == 4
+    # The gear's: quests off (their areas with them), then areas off.
     E.SetLayer("quests", False)
     sim.Run(0.5)
     assert A.front.pools.blob.n == 0
@@ -153,75 +136,6 @@ def test_quest_area_hover():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
-def test_quest_area_answers():
-    L, sim, ns, G = client([LOVERS], before=RECORD)
-    S, A = sim.state, ns.UI.Areas.layer
-
-    def estimates():
-        return {e.quest for e in known(ns, "quests") if e.estimate}
-
-    def spots():
-        p = A.front.pools.spot
-        return p.n if p else 0
-
-    def drawn(quest):
-        """UI's frames that show quest's blob, drawn where they're laid out."""
-        p = A.front.pools.blob
-        return [p[i] for i in range(1, p.n + 1) if S[p[i]].blobs and quest in S[p[i]].blobs]
-
-    # A kill quest with an area and one without, and a kill quest with none whose pin is in Gold Dust's.
-    add = L.eval("""function(Sim, Atlas, id, col, row, area, kind)
-        local x, y = Atlas.TileToMap(1429, col, row)
-        Sim.quests[id] = { title = "Quest " .. id, level = 7, map = 1429, x = x, y = y, complete = false,
-            objectives = { { type = kind or "monster", text = "x: 0/5", numFulfilled = 0, numRequired = 5, finished = false } } }
-        Sim.blobShapes[id] = area and { x, y, area } or nil
-    end""")
-    add(sim, ns.Atlas, 52, 31.8, 49.7, 0.02)
-    add(sim, ns.Atlas, 176, 32.4, 49.55)
-    add(sim, ns.Atlas, 47, 32.0, 49.7, 0.05, "item")
-    add(sim, ns.Atlas, 53, 31.95, 49.72)  # in Gold Dust's area, none of its own
-    sim.FireEvent("QUEST_LOG_UPDATE")
-    seen = []
-    for _ in range(40):
-        sim.Step()
-        seen.append(estimates())
-    assert not any(52 in e or 47 in e or 53 in e for e in seen), seen
-    first = next(i for i, e in enumerate(seen) if 176 in e)
-    assert 15 <= first <= 25 and all(176 in e for e in seen[first:])  # the 0.3 s coalesce, then its answer
-    assert spots() == 1
-
-    # Hogger's area comes later (QUEST_POI_UPDATE): the estimate goes, its area drawn in its stead.
-    x, y = ns.Atlas.TileToMap(1429, 32.4, 49.55)
-    sim.blobShapes[176] = L.table_from([x, y, 0.02])
-    assert drawn(176)  # (drawn before too: the client draws nothing for a quest without an area)
-    for c in A.canvases.values():  # both canvases' frames forget what they drew
-        p = c.pools.blob
-        for i in range(1, (p.n if p else 0) + 1):
-            S[p[i]].blobs = L.table()
-    sim.FireEvent("QUEST_POI_UPDATE")
-    sim.Run(1)
-    assert 176 not in estimates() and spots() == 0 and ns.Game.oracles.HasArea(176)
-    f = drawn(176)
-    assert f and list(S[f[0]].blobs[176].values()) == list(S[f[0]].laid.values())
-
-    # A frame's asks past its budget (a planted 0.5 ms a draw): nil, asked again till every one answers.
-    for i in range(16):
-        add(sim, ns.Atlas, 2000 + i, 30.5 + i % 4 * 0.5, 49 + i // 4 * 0.4, 0.02)
-    L.execute("""local Sim = ...
-        local POI = getmetatable(CreateFrame("QuestPOIFrame")).__index
-        local draw = POI.DrawBlob
-        POI.DrawBlob = function(self, ...) Sim.Spend(0.5); return draw(self, ...) end""", sim)
-    sim.Price(True)
-    sim.Run(8)  # past the graces
-    sim.FireEvent("QUEST_LOG_UPDATE")
-    sim.Run(3)
-    sim.Price(False)
-    assert not estimates() & set(range(2000, 2016))
-    slow = [(x.name, x.max) for x in ns.Runtime.FrameStats().slow.values() if x.name.startswith(("game.oracle", "model"))]
-    assert not slow, slow
-    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
-
-
 def test_quest_area_big_zone():
     """Stranglethorn's areas (12 tiles by 8: 9,572 px by 6,382 at zoom 800), the map shown at Elwynn's hub, you
     flown to Stranglethorn's south and the wheel in to the clamp about you: its frame on one anchor as the
@@ -272,8 +186,8 @@ OFFERS = """local sim, ns, n = ...
 
 
 def test_quests_priced():
-    """Script (b)'s quest hub, 25 quests about you (one followed; 10 kill or collect quests with no area: their
-    estimates), the big map: the wheel in and out and drags on the priced clock, twice. At rest p95 <= 1 ms, moving
+    """Script (b)'s quest hub, 25 quests about you (one followed; 10 kill or collect quests with no area),
+    the big map: the wheel in and out and drags on the priced clock, twice. At rest p95 <= 1 ms, moving
     p95 <= 5 ms, none over 8, no call over its budget nor a layout's stretch past it. And the Lua allocation over
     that stretch alone at the client's prices (FREE: the sim's widget state left out, ~335 KB/s of the 425 the sim
     read there before M1.15): the first time, its garbage <= 50 KB/s, and all of it held under 100 so a pool that
@@ -286,7 +200,6 @@ def test_quests_priced():
                **({} if i < 15 and i % 3 != 2 else {"area": 0.02 + i % 3 * 0.01})} for i in range(25)]
     L, sim, ns, G = client(quests, followed=1012, before=RAW + "\n" + FREE)
     assert len(ns.Model.Known("quests")[0]) == 25
-    assert sum(1 for e in known(ns, "quests") if e.estimate) == 10
     L.execute("""local sim, ns = ...
         local view = ns.UI.Window.view
         sim.Press("M")

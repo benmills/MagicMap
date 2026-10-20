@@ -4,34 +4,25 @@
 --   color     the quest log's difficulty colours, by its level minus yours
 --   count     the first unfinished objective that counts ("3/8"); inner, the first unfinished's icon
 --   need      what it still needs (kill, gather, other): its area's colour
---   estimate  an unfinished kill, collect or interact objective (Layers.lua:544) the game draws no
---             area for at its pin, its own or another quest's (HasArea false: Layers.lua:922-941)
---             gets a 110 yd disc, shared by the pins within 0.6 r of an earlier one's centre, each
---             way (Layers.lua:948-964)
 -- A quest the same as before (by value) keeps its entry, so a layer diffing entries relays only
--- what changed. Each new log asks HasArea again for every such quest (the spike's refresh checks
--- them all), each frame till it answers (nil: can't tell yet); the last answer stands till then.
--- The list carries the log's poi (the game's areas' version): a new one, a new list of the same entries.
+-- what changed. The list carries the log's poi (the game's areas' version): a new one, a new list of the same entries.
 
 local _, ns = ...
 local Atlas, Model = ns.Atlas, ns.Model
 
 local NONE = {}
-local MERGE = 110 / 533.33 * 0.6 -- 0.6 of an estimate's radius, tiles (Layers.lua:78, 959)
 local RED, ORANGE, YELLOW = { 1, 0.1, 0.1 }, { 1, 0.5, 0.25 }, { 1, 0.82, 0 } -- QuestInfo.lua:17-18
 local GREEN, GREY = { 0.25, 0.75, 0.25 }, { 0.5, 0.5, 0.5 }
 local TURN_IN = { atlas = "UI-QuestIcon-TurnIn-Normal", color = { 0.2, 1, 0.2 } } -- Layers.lua:606-609
 local ACTIVE = { atlas = "Quest-In-Progress-Icon-yellow", color = { 1, 0.82, 0 } }
 local KIND_ICONS = { monster = { texture = 135274 }, object = { texture = 134063 }, item = { texture = 133633 } } -- QuestInfo.lua:109-113
-local AREA = { monster = true, item = true, object = true } -- Layers.lua:544
 local RANKS = { [1] = "Elite", [2] = "Rare Elite", [3] = "Boss", [4] = "Rare" } -- QuestInfo.lua:176
 local MAX_MOBS = 3 -- QuestInfo.lua:174
 local MAX_NAMES = 2 -- QuestInfo.lua:235, 240
 
-local quests = {}           -- [id] = { q (the obs quest it's built from), e (its entry), has (an area at its pin), ask (an answer due) }
+local quests = {}           -- [id] = { q (the obs quest it's built from), e (its entry) }
 local log, list, rev = nil, NONE, 0
 local level, range = nil, 5 -- yours, and how far below you a mob turns grey (obs.you.trivialRange, else 5: QuestInfo.lua:191)
-local due = 0               -- quests whose answer is due
 local icons = {}            -- an item's icon file -> its MM.Icon
 
 -- red at 5 or more over you, orange at 3, yellow down to -2, then green till trivial (QuestInfo.lua:22-28)
@@ -55,15 +46,6 @@ local function Same(a, b)
 			or o.itemID ~= y.itemID then return false end
 	end
 	return true
-end
-
--- An unfinished kill, collect or interact objective: "somewhere around here" (Layers.lua:551-557).
-local function Area(q)
-	if q.complete then return false end
-	for _, o in ipairs(q.objectives) do
-		if not o.finished and AREA[o.type] then return true end
-	end
-	return false
 end
 
 -- Layers.lua:561-569
@@ -182,10 +164,10 @@ local function TurnIn(id)
 	return npc and npc.name or object and object.name or nil
 end
 
-local function Entry(q, estimate)
+local function Entry(q)
 	local e = { key = "quest:" .. q.id, kind = "quests", pos = q.pin, name = q.title, live = true, quest = q.id,
 		level = q.level, color = q.level and Difficulty(q.level, q.trivial), complete = q.complete, followed = q.followed,
-		areaMap = q.areaMap, estimate = estimate, turnIn = TurnIn(q.id), tag = q.tag, group = q.group }
+		areaMap = q.areaMap, turnIn = TurnIn(q.id), tag = q.tag, group = q.group }
 	if q.complete then
 		e.icon = TURN_IN
 	else
@@ -194,59 +176,27 @@ local function Entry(q, estimate)
 	return e
 end
 
--- A new log: a changed quest gets a new state (its last answer kept till the next); each that may
--- want an estimate is asked again (another quest's area may cover its pin now).
+-- A new log: a changed quest gets a new state (its last answer kept till the next).
 local function Sync(qs)
 	local was = quests
-	quests, due = {}, 0
+	quests = {}
 	for _, q in ipairs(qs) do
 		if q.pin then
 			local s = was[q.id]
-			if not (s and Same(s.q, q)) then s = { q = q, has = s and s.has } end
-			s.ask = Area(q) or nil
-			if s.ask then due = due + 1 end
+			if not (s and Same(s.q, q)) then s = { q = q } end
 			quests[q.id] = s
 		end
 	end
 end
 
--- Answers due: whether the game draws an area at each pin (nil: not yet, ask next frame). True
--- when one changed.
-local function Answer(HasArea)
-	local changed = false
-	for id, s in pairs(quests) do
-		if s.ask then
-			local has = HasArea(id)
-			if has ~= nil then
-				s.ask, due = nil, due - 1
-				if has ~= s.has then s.has, changed = has, true end
-			end
-		end
-	end
-	return changed
-end
-
 local function Build()
-	local centers, out = {}, { poi = log.poi }
+	local out = { poi = log.poi }
 	for _, x in ipairs(log) do
 		local s = quests[x.id]
 		if s then
-			local q, estimate = s.q, nil
-			if s.has == false and Area(q) then
-				local p = q.pin
-				for _, c in ipairs(centers) do
-					if c.inst == p.inst and math.abs(c.col - p.col) < MERGE and math.abs(c.row - p.row) < MERGE then
-						estimate = c
-						break
-					end
-				end
-				if not estimate then
-					estimate = p
-					centers[#centers + 1] = p
-				end
-			end
-			if not (s.e and s.level == level and s.range == range and s.e.estimate == estimate) then
-				s.e, s.level, s.range = Entry(q, estimate), level, range
+			local q = s.q
+			if not (s.e and s.level == level and s.range == range) then
+				s.e, s.level, s.range = Entry(q), level, range
 			end
 			out[#out + 1] = s.e
 		end
@@ -261,7 +211,7 @@ local function Build()
 	if not same then list, rev = out, rev + 1 end
 end
 
-Model.Part(function(obs, oracles)
+Model.Part(function(obs)
 	local qs, you = obs.quests or log, obs.you
 	if not qs then return end
 	local lvl, rng = you.level or level, you.trivialRange or range
@@ -271,7 +221,6 @@ Model.Part(function(obs, oracles)
 		log = qs
 		Sync(qs)
 	end
-	if due > 0 and Answer(oracles.HasArea) then dirty = true end
 	if dirty then Build() end
 end)
 

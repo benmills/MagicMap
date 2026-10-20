@@ -36,8 +36,7 @@ The gear's Tracking lists the rest of Blizzard's tracking.
 
 **Quests.** The quests in your log in Blizzard's art, with their objective icon and count, in their
 difficulty colour; quests to pick up; a tooltip with the quest's facts, mobs, items and who to turn
-it in to. Objective areas are drawn as the game draws them, kill and collect objectives without one
-get a dashed estimate, and hovering an area lights it. Click a quest (or its area, zoomed in) to
+it in to. Objective areas are drawn as the game draws them, and hovering an area lights it. Click a quest (or its area, zoomed in) to
 follow it: it becomes the game's tracked quest.
 
 **Where to go.** Your target is your corpse while you're a ghost, else the quest you follow, else
