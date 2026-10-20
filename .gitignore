@@ -11,4 +11,4 @@ __pycache__/
 /Data/Items.lua
 /Data/Quests.lua
 /Data/BlipServices.lua
-/dist/
+/dist/*.zip
