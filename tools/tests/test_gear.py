@@ -1,7 +1,7 @@
 """The gear menu on the simulated client (ui/Menus.lua), as the spike's (GearMenu.lua, Layers.lua:30-71,
 2154-2207): a submenu per group of layers with any (Map, Quests, Places, People, Other addons so far), each layer
 a checkbox with its tip (white title, gold body) that keeps the menu open, a sub-option indented and
-greyed while its parent is off; Tracking; a divider; then Settings: Map (Colour-matched tiles), Minimap
+greyed while its parent is off; Tracking; a divider; then Settings: Minimap
 (Minimap button, Reset position, Use Blizzard's minimap), Advanced (Diagnostics, Performance), the same small
 and big. Every row works: a layer's toggle empties and redraws what it draws (and View.layers, for Game's: the
 blip sensor, Questie's borrowed pins) and is saved, the changed keys only, across a /reload; a layer off by
@@ -13,7 +13,7 @@ from sim import TEST_UI
 
 LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Quests": "quests", "Quest areas": "questAreas",
           "Quests to pick up": "offers", "Minimap blips": "blips", "Rares you've seen": "rares"}
-SETTINGS = [("title", "Map"), ("checkbox", "Colour-matched tiles"), ("checkbox", "Follow you"), ("divider", None), ("title", "Minimap"),
+SETTINGS = [("title", "Map"), ("checkbox", "Follow you"), ("divider", None), ("title", "Minimap"),
             ("checkbox", "Minimap button"), ("button", "Reset position"), ("button", "Use Blizzard's minimap"),
             ("divider", None), ("button", "Advanced")]
 ADVANCED = [("title", "Diagnostics"), ("checkbox", "Debug info in the title"), ("checkbox", "Indoor maps"),
@@ -96,7 +96,7 @@ def test_gear():
     L, sim, ns, pin = shown()
     G, UI, Game = L.globals(), ns.UI, ns.Game
     view, saved, f = UI.View(), G.MagicMap2DB.UI, UI.Window.frame
-    refresh, same = G.MenuResponse.Refresh, L.eval("function(a, b) return a == b end")
+    refresh = G.MenuResponse.Refresh
 
     # The tree: a submenu per group with layers, a divider, Settings; small and big alike.
     root, rows = gear(sim, ns)
@@ -126,7 +126,6 @@ def test_gear():
     assert tip(L, rows["Zone labels"]) == [("Zone labels",) + WHITE, ("Names of zones and sub-zones.",) + GOLD]
     assert tip(L, rows["Questie"]) == [("Questie",) + WHITE,
                                        ("Map pins Questie puts on the world map, shown here too.",) + GOLD]
-    assert tip(L, rows["Colour-matched tiles"])[0] == ("Colour-matched tiles",) + WHITE
 
     # Each layer: on, its things drawn; off, gone from the next frame (the menu stays open); on, back.
     root, rows = gear(sim, ns)
@@ -192,13 +191,7 @@ def test_gear():
     shade.onSelect()
     assert shade.isSelected() is False and saved.layers["unexplored"] is None
 
-    # Settings. Colour-matched tiles: the tiles laid out again, plain.
-    tiles = layer(ns, "tiles")
-    front = tiles.front
-    assert rows["Colour-matched tiles"].isSelected() is True and rows["Colour-matched tiles"].onSelect() == refresh
-    sim.Run(1)
-    assert saved.tint is False and not same(tiles.front, front) and rows["Colour-matched tiles"].isSelected() is False
-    # Minimap button: Game's button hidden, and shown again.
+    # Settings. Minimap button: Game's button hidden, and shown again.
     button = rim_button(L, sim)
     assert button.IsShown(button)
     assert rows["Minimap button"].onSelect() == refresh
@@ -228,7 +221,7 @@ def test_gear():
     sim.Slash("/mm toggle")
     sim.Step()
     perf = ns.Runtime.Perf()[0]["map: gear pick"]
-    assert perf.n == 26 and perf.over == 0, (perf.n, perf.max)
+    assert perf.n == 25 and perf.over == 0, (perf.n, perf.max)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
     # /reload: the changed keys only (borders and the rest went off and on again, from the gear or
@@ -240,12 +233,12 @@ def test_gear():
     L, sim, ns, pin = shown("MagicMap2DB = " + lua_tools(L).Dump(G.MagicMap2DB))
     saved, view = L.globals().MagicMap2DB.UI, ns.UI.View()
     assert dict(saved.layers.items()) == {"labels": False, "addon:Questie": False}
-    assert saved.tint is False and saved.button is False and view.button is False
+    assert saved.button is False and view.button is False
     assert drawn(layer(ns, "labels")) == 0 and drawn(layer(ns, "borders")) > 0
     assert view.layers["addon:Questie"] is None and not hosted(L, pin, ns)
     _, rows = gear(sim, ns)
-    assert [rows[t].isSelected() for t in ("Zone labels", "Zone borders", "Questie", "Colour-matched tiles",
-                                           "Minimap button")] == [False, True, False, False, False]
+    assert [rows[t].isSelected() for t in ("Zone labels", "Zone borders", "Questie",
+                                           "Minimap button")] == [False, True, False, False]
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

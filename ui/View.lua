@@ -4,16 +4,15 @@
 -- the focus (types/focus.lua) when it changes. UI's saved part (types/saved.lua
 -- MM.SavedUI) comes through a load Command: the window (ui/BigMap.lua), shown,
 -- zoom, follow, the map and centre when not following, the layer toggles, the
--- minimap mode, the title's debug line, the minimap button and tile tint (UI.saved, read where they're used).
+-- minimap mode, the title's debug line and the minimap button (UI.saved, read where they're used).
 
 local _, ns = ...
 local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
 local Camera, Window, Engine, BigMap = UI.Camera, UI.Window, UI.Engine, UI.BigMap
 local Command = ns.Game.Command
 
--- Core.lua:19-29: shown, zoom 384, following, no debug line in the title, the button shown, tiles tinted.
-local DEFAULTS = { layers = {}, minimap = "ours", shown = true, zoom = 384, follow = true, debug = false, button = true,
-	tint = true }
+-- Core.lua:19-29: shown, zoom 384, following, no debug line in the title, the button shown.
+local DEFAULTS = { layers = {}, minimap = "ours", shown = true, zoom = 384, follow = true, debug = false, button = true }
 
 UI.DefaultZoom = DEFAULTS.zoom -- the zoom the reset button goes back to (ui/Controls.lua)
 

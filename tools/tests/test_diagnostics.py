@@ -7,7 +7,7 @@ import re
 import sim as S
 
 SAY = "|cffffd100MagicMap|r: "
-USAGE = SAY + ("/mm [toggle] | follow | map <id|name> | zone <name> | icon | tiles | tint | layers | landmarks"
+USAGE = SAY + ("/mm [toggle] | follow | map <id|name> | zone <name> | icon | tiles | layers | landmarks"
                " | blips | indoor | perf | debug | reset")
 DEBUG = re.compile(r"\|cff777777(\d+)_(\d+)  (\d+|-)  zoom (\d+)  layout [\d.]+ ms / (\d+) lines  1\.60\.1\.70450\|r$")
 
