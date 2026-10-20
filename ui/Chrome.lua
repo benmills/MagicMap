@@ -107,8 +107,15 @@ controls:SetAllPoints(view)
 controls:SetFrameLevel(base + LEVEL_CONTROLS) -- under the grip
 Chrome.controls = controls
 
+-- The quest line's frame (ui/Controls.lua): at the controls' level, but not under them, so the line
+-- can stay shown at full alpha when they fade.
+local overlay = CreateFrame("Frame", nil, frame)
+overlay:SetAllPoints(view)
+overlay:SetFrameLevel(base + LEVEL_CONTROLS)
+Chrome.overlay = overlay
+
 -- Everything of the template but its border's art goes; the map stops where that art begins.
-local KEEP = { [view] = true, [band] = true, [grip] = true, [border] = true, [controls] = true }
+local KEEP = { [view] = true, [band] = true, [grip] = true, [border] = true, [controls] = true, [overlay] = true }
 for _, r in ipairs({ frame:GetRegions() }) do r:Hide() end
 for _, c in ipairs({ frame:GetChildren() }) do
 	if not KEEP[c] then c:Hide() end

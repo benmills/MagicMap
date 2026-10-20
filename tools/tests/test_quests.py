@@ -159,6 +159,9 @@ def test_quest_follow():
 
     click(31.8, 49.7)  # Frontier's pin, in Gold Dust's area: the pin wins
     assert sim.superTracked == 52 and sim.watched == 52 and followed() == {52}
+    sim.cursorX, sim.cursorY = 5, 5  # off the window: the tracked quest's pill stays, at full alpha
+    sim.Run(1)
+    assert ns.UI.Controls.questLine.IsShown(ns.UI.Controls.questLine) and ns.UI.Controls.questLine.GetAlpha(ns.UI.Controls.questLine) == 1
     p = pin(ns, G, "Quests", 52)
     assert sim.state[p].width == 26 and sim.state[p.glow].shown
     click(31.8, 49.7)  # again: none

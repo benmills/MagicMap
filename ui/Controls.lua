@@ -2,7 +2,7 @@
 -- the gear (the world map's) and the mode button (its red expand: ui/BigMap.lua); inside
 -- the map, bottom left the quest line (the followed quest and its progress, else your quests in
 -- this zone), bottom right the zoom buttons and, while the zoom isn't the default, the reset
--- beside them. They and the grip fade in while you hover (Core.lua:394-408), and each has a
+-- above them. They and the grip fade in while you hover (Core.lua:394-408), and each has a
 -- tiny tip (Core.lua:1454-1497). Follow is a Settings row now (ui/Menus.lua).
 
 local _, ns = ...
@@ -78,14 +78,14 @@ local zoomIn = ArtButton(Chrome.controls, 20, 20, ZoomArt("ui-hud-minimap-zoom-i
 zoomIn:SetPoint("BOTTOM", zoomOut, "TOP", 0, 2)
 Controls.zoomIn, Controls.zoomOut = zoomIn, zoomOut
 
--- Reset zoom: beside the zoom in, shown only while the zoom isn't the default (UI.DefaultZoom,
+-- Reset zoom: above the zoom in (the gap the + and - keep), shown only while the zoom isn't the default (UI.DefaultZoom,
 -- ui/View.lua). An atlas if the client has one of these names; else a dark disc with a gold dot,
 -- the highlight a glow as the zoom buttons' (no client here to check the atlas names against).
 local RESET_TOL = 1 -- px per tile: a zoom this close to the default is the default
 local resetAtlas = FirstAtlas("ui-hud-minimap-zoom-reset", "ui-hud-minimap-zoom-default")
 local zoomReset = CreateFrame("Button", nil, Chrome.controls)
 zoomReset:SetSize(16, 16)
-zoomReset:SetPoint("RIGHT", zoomIn, "LEFT", -4, 0)
+zoomReset:SetPoint("BOTTOM", zoomIn, "TOP", 0, 2)
 if resetAtlas then
 	zoomReset:SetNormalAtlas(resetAtlas)
 	zoomReset:SetHighlightAtlas(resetAtlas, "ADD")
@@ -111,16 +111,32 @@ Controls.zoomReset = zoomReset
 -- The quest line (bottom left): the followed quest and its progress, else how many of your quests
 -- are in this zone; on a small dark pill that reads on any map. Worked out from Model's quest list
 -- (Known("quests") and its rev: a change to the log) and your zone's map, at most every EVERY s,
--- and only when one of those changed. Inside Chrome.controls: it fades with the other controls.
+-- and only when one of those changed. It fades with the other controls, but stays shown while a quest is tracked.
 ---------------------------------------------------------------------------
 
 local LINE_H, LINE_PAD = 18, 8
+local ICON, ICON_X, ICON_GAP = 14, 8, 5 -- the quest icon: its size, its left, the gap to the text
+local ZOOM_COL = 30 -- px at the map's right kept clear of the line: the zoom buttons' column and a gap
 local EVERY = 0.5 -- s between looks at the quest list and your zone (two a second at most)
+local ELLIPSIS = "\226\128\166" -- "…" in UTF-8
 
-local line = CreateFrame("Frame", nil, Chrome.controls)
+-- On Chrome.overlay, not under the controls: the line shows at full alpha while a quest is tracked,
+-- and fades with the controls otherwise (the step below).
+local overlay = Chrome.overlay
+local line = CreateFrame("Frame", nil, overlay)
 line:SetPoint("BOTTOMLEFT", PAD, PAD)
 line:SetHeight(LINE_H)
 line:Hide()
+local tracked = false -- the line shows the followed quest
+local hover = 1 -- the controls' fade (the step below)
+
+-- The quest's icon: the quest log tab's, filled (the client has no outline of it to pair with); not
+-- tracked, it is dimmed.
+local questAtlas = FirstAtlas("questlog-tab-icon-quest", "QuestNormal")
+local icon = line:CreateTexture(nil, "ARTWORK")
+icon:SetSize(ICON, ICON)
+icon:SetPoint("LEFT", line, "LEFT", ICON_X, 0)
+if questAtlas then icon:SetAtlas(questAtlas) else icon:Hide() end
 -- The pill: a half disc at each end (the circle mask's halves, so they don't overlap the middle).
 local function Cap(left)
 	local t = line:CreateTexture(nil, "BACKGROUND")
@@ -144,7 +160,6 @@ middle:SetPoint("BOTTOMRIGHT", line, "BOTTOMRIGHT", -LINE_H / 2, 0)
 local lineText = line:CreateFontString(nil, "OVERLAY")
 lineText:SetFont(FONT, 11, "")
 lineText:SetTextColor(0.95, 0.9, 0.8)
-lineText:SetPoint("CENTER")
 Controls.questLine = line
 
 local NONE = {}
@@ -177,7 +192,8 @@ local function PinZone(p)
 	return z
 end
 
--- What the line says, or nil for nothing: the followed quest first, else your quests in your zone.
+-- What the line says, as pre (kept), head (cut first when long) and tail (kept), and whether it is the
+-- followed quest; nil for nothing: the followed quest first, else your quests in your zone.
 local function Words(list, here)
 	local followed
 	for _, e in ipairs(list) do
@@ -187,10 +203,10 @@ local function Words(list, here)
 		end
 	end
 	if followed then
-		if followed.complete then return followed.name .. "  ready to turn in" end
+		if followed.complete then return "", followed.name, "  ready to turn in", true end
 		local have, need = Progress(followed)
-		if need > 0 then return followed.name .. "  " .. have .. "/" .. need end
-		return followed.name
+		if need > 0 then return "", followed.name, "  " .. have .. "/" .. need, true end
+		return "", followed.name, "", true
 	end
 	if not here then return nil end
 	local n = 0
@@ -198,19 +214,49 @@ local function Words(list, here)
 		if PinZone(e.pos) == here.mapID then n = n + 1 end
 	end
 	if n == 0 then return nil end
-	return string.format("%d %s in %s", n, n == 1 and "quest" or "quests", here.name)
+	return string.format("%d %s in ", n, n == 1 and "quest" or "quests"), here.name, "", false
 end
 
-local shownWords
-local function Show(words)
-	if words == shownWords then return end
-	shownWords = words
-	if not words then
+-- The byte count of the first i bytes of s, backed off to a UTF-8 character's start.
+local function Cut(s, i)
+	local b = s:byte(i + 1)
+	while i > 0 and b and b >= 0x80 and b < 0xC0 do
+		i = i - 1
+		b = s:byte(i + 1)
+	end
+	return i
+end
+
+-- pre .. head .. tail in the line's text, the head cut with an ellipsis until it is at most avail px.
+local function Fit(pre, head, tail, avail)
+	lineText:SetText(pre .. head .. tail)
+	if lineText:GetStringWidth() <= avail then return pre .. head .. tail end
+	local lo, hi = 0, #head
+	while lo < hi do
+		local mid = math.floor((lo + hi + 1) / 2)
+		lineText:SetText(pre .. head:sub(1, Cut(head, mid)) .. ELLIPSIS .. tail)
+		if lineText:GetStringWidth() <= avail then lo = mid else hi = mid - 1 end
+	end
+	return pre .. head:sub(1, Cut(head, lo)) .. ELLIPSIS .. tail
+end
+
+local function Show(pre, head, tail, followed)
+	if not pre then
+		tracked = false
 		line:Hide()
 		return
 	end
-	lineText:SetText(words)
-	line:SetWidth(lineText:GetStringWidth() + 2 * LINE_PAD)
+	tracked = followed
+	-- Capped so the line never reaches the zoom buttons (the map's width less the zoom column).
+	local textX = questAtlas and ICON_X + ICON + ICON_GAP or LINE_PAD
+	local w = overlay:GetWidth()
+	local avail = w > 0 and w - 2 * PAD - ZOOM_COL - textX - LINE_PAD or math.huge
+	lineText:SetPoint("LEFT", line, "LEFT", textX, 0)
+	lineText:SetText(Fit(pre, head, tail, avail))
+	line:SetWidth(textX + lineText:GetStringWidth() + LINE_PAD)
+	icon:SetDesaturated(not followed)
+	icon:SetAlpha(followed and 1 or 0.6)
+	line:SetAlpha(followed and 1 or hover)
 	line:Show()
 end
 
@@ -227,13 +273,14 @@ local function YourZone()
 	return here
 end
 
-local lastRev, lastZone -- what the line was last worked out from
+local lastRev, lastZone, lastW -- what the line was last worked out from (the map's width too: its cap)
 local function Look()
 	local list, rev = Model.Known("quests")
 	local zone = YourZone()
 	local key = zone and zone.mapID or false
-	if rev == lastRev and key == lastZone then return end
-	lastRev, lastZone = rev, key
+	local w = overlay:GetWidth()
+	if rev == lastRev and key == lastZone and w == lastW then return end
+	lastRev, lastZone, lastW = rev, key, w
 	Show(Words(list, zone))
 end
 
@@ -268,9 +315,10 @@ local function ToggleFollow() UI.Motion.SetFollow(not Camera.follow, true) end
 -- Hover reveal: the controls and grip fade in while the mouse is over the map
 ---------------------------------------------------------------------------
 
--- One step for the map's controls: the fade, the zoom reset's look (each frame: a cheap compare), and
--- the quest line's (EVERY s: a step's probes cost each frame, so these share one).
-local hover, since = 1, EVERY
+-- One step for the map's controls: the fade (the quest line's too, unless it shows a tracked quest), the
+-- zoom reset's look (each frame: a cheap compare), and the quest line's (EVERY s: a step's probes cost
+-- each frame, so these share one).
+local since = EVERY
 Runtime.Step("ui", "map: controls", function(elapsed)
 	local want = (Window.frame:IsMouseOver(REACH, -REACH, 0, 0) or Menus.IsOpen()) and 1 or 0
 	if hover ~= want then
@@ -280,6 +328,7 @@ Runtime.Step("ui", "map: controls", function(elapsed)
 		gear:SetAlpha(hover)
 		mode:SetAlpha(hover)
 		Chrome.grip:SetAlpha(GRIP_ALPHA * hover)
+		line:SetAlpha(tracked and 1 or hover)
 	end
 	ResetLook()
 	if UI.Cluster then UI.Cluster.Watch() end
