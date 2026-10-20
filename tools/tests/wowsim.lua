@@ -1697,7 +1697,6 @@ end
 for _, name in ipairs({ "UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight" }) do ATLASES[name] = { 32, 32 } end
 ATLASES["_UI-Frame-Metal-EdgeBottom"] = { 256, 200 }
 ATLASES["UI-QuestPoi-QuestNumber"], ATLASES["deathrecap-icon-tombstone"] = { 32, 32 }, { 15, 20 }
-ATLASES["ui-questpoi-questnumber-2x"], ATLASES["quest-in-progress-icon-yellow-2x"] = { 64, 64 }, { 64, 64 }
 ATLASES["poi-graveyard-neutral"] = { 12, 16 }
 ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
 ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }

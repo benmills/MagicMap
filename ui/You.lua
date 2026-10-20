@@ -13,7 +13,7 @@ local Maths = Atlas.Camera
 local SIZE = 22 * 64 / 45 -- the texture, for a 22-unit arrow (Core.lua:169)
 local PINS = 13 -- the corpse's and the waypoint's level: over the blips (12), under the offers (14)
 -- On the quest pins' disc, no halo (that's only the followed quest's): Layers.lua:512-516.
-local CORPSE = { size = 22, icon = { atlas = "deathrecap-icon-tombstone", under = "ui-questpoi-questnumber-2x", scale = 0.6,
+local CORPSE = { size = 22, icon = { atlas = "deathrecap-icon-tombstone", under = "UI-QuestPoi-QuestNumber", scale = 0.6,
 	aspect = 15 / 20, color = { 0.85, 0.85, 0.85 } } }
 local WAYPOINT = { size = 22, icon = { atlas = "Waypoint-MapPin-Tracked", color = { 0.2, 0.9, 1 } } } -- Layers.lua:629-630
 local TARGET = "Target" -- an untitled target's (Core.lua:1297)

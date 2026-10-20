@@ -27,10 +27,10 @@ local Art = {
 		"ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-in-down", "ui-hud-minimap-zoom-in-mouseover", -- the zoom buttons
 		"ui-hud-minimap-zoom-out", "ui-hud-minimap-zoom-out-down", "ui-hud-minimap-zoom-out-mouseover",
 		"ui-hud-minimap-arrow-player",                             -- the follow toggle
-		"deathrecap-icon-tombstone", "ui-questpoi-questnumber-2x", -- ui/You.lua: your corpse on the quest pins' disc
+		"deathrecap-icon-tombstone", "UI-QuestPoi-QuestNumber",       -- ui/You.lua: your corpse on the quest pins' disc
 		"Waypoint-MapPin-Tracked",                                 -- ui/You.lua: your waypoint
 		"questnormal", "questturnin",                              -- ui/Quests.lua, model/Blips.lua: quests to pick up ("!"), turn-ins ("?")
-		"quest-in-progress-icon-yellow-2x",                        -- ui/Quests.lua: a quest in progress, over the disc (model/Quests.lua)
+		"Quest-In-Progress-Icon-yellow",                        -- ui/Quests.lua: a quest in progress, over the disc (model/Quests.lua)
 		"dungeon", "raid",                                         -- ui/Places.lua: dungeon and raid entrances
 		"taxinode_alliance", "taxinode_horde", "taxinode_neutral", -- ui/Places.lua: flight points
 		"poi-graveyard-neutral",                                   -- ui/Places.lua: graveyards

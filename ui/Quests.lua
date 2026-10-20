@@ -1,6 +1,6 @@
 -- Your quests on the map (Layers.lua:579-621): Known("quests") as pins on the pin store (ui/Pins.lua),
--- in the world map's art (S46), the HD atlases (Pins' (c), (b)): in progress, the "-2x" yellow progress
--- atlas over the quest-number disc ("ui-questpoi-questnumber-2x") tinted its difficulty (Model's colour),
+-- in the world map's art (S46), Blizzard's atlases (Pins' (c), (b)): in progress, the yellow progress
+-- atlas over the quest-number disc ("UI-QuestPoi-QuestNumber") tinted its difficulty (Model's colour),
 -- the first unfinished objective's icon inside, its count under it; ready to turn in, the "questturnin"
 -- "?" the atlas Model names; 22 px, the one you follow 26 in a thin gold ring (Pins' glow).
 -- Hovering one lights its area (ui/Areas.lua) and shows its tooltip (ui/QuestTooltip.lua); a click
@@ -12,7 +12,7 @@ local UI, Model = ns.UI, ns.Model
 local Pins, Areas = UI.Pins, UI.Areas
 
 local SIZE, FOLLOWED = 22, 26 -- Layers.lua:611
-local UNDER = "ui-questpoi-questnumber-2x" -- Layers.lua:608 (its HD disc)
+local UNDER = "UI-QuestPoi-QuestNumber" -- Layers.lua:608
 local OFFER = 18 -- Layers.lua:657
 local DIM = "|cff9d9d9d" -- Layers.lua:652
 

@@ -14,7 +14,7 @@ local NONE = {}
 local RED, ORANGE, YELLOW = { 1, 0.1, 0.1 }, { 1, 0.5, 0.25 }, { 1, 0.82, 0 } -- QuestInfo.lua:17-18
 local GREEN, GREY = { 0.25, 0.75, 0.25 }, { 0.5, 0.5, 0.5 }
 local TURN_IN = { atlas = "questturnin", color = { 0.2, 1, 0.2 } } -- Layers.lua:606-609 (the HD "?"; its dot's green)
-local ACTIVE = { atlas = "quest-in-progress-icon-yellow-2x", color = { 1, 0.82, 0 } } -- (the HD progress icon)
+local ACTIVE = { atlas = "Quest-In-Progress-Icon-yellow", color = { 1, 0.82, 0 } }
 local KIND_ICONS = { monster = { texture = 135274 }, object = { texture = 134063 }, item = { texture = 133633 } } -- QuestInfo.lua:109-113
 local RANKS = { [1] = "Elite", [2] = "Rare Elite", [3] = "Boss", [4] = "Rare" } -- QuestInfo.lua:176
 local MAX_MOBS = 3 -- QuestInfo.lua:174
