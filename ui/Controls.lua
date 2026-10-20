@@ -164,6 +164,19 @@ local function Progress(e)
 	return done, #(e.objectives or NONE)
 end
 
+-- A quest pin's zone map (false: none), kept per pin table: the list is rebuilt often, its pins rarely.
+local pinZones = setmetatable({}, { __mode = "k" })
+local function PinZone(p)
+	if not p then return false end
+	local z = pinZones[p]
+	if z == nil then
+		local zone = Atlas.ZoneAt(p.inst, p.col, p.row)
+		z = zone and zone.mapID or false
+		pinZones[p] = z
+	end
+	return z
+end
+
 -- What the line says, or nil for nothing: the followed quest first, else your quests in your zone.
 local function Words(list, here)
 	local followed
@@ -182,15 +195,16 @@ local function Words(list, here)
 	if not here then return nil end
 	local n = 0
 	for _, e in ipairs(list) do
-		local p = e.pos
-		local z = p and Atlas.ZoneAt(p.inst, p.col, p.row)
-		if z and z.mapID == here.mapID then n = n + 1 end
+		if PinZone(e.pos) == here.mapID then n = n + 1 end
 	end
 	if n == 0 then return nil end
 	return string.format("%d %s in %s", n, n == 1 and "quest" or "quests", here.name)
 end
 
+local shownWords
 local function Show(words)
+	if words == shownWords then return end
+	shownWords = words
 	if not words then
 		line:Hide()
 		return
@@ -268,6 +282,7 @@ Runtime.Step("ui", "map: controls", function(elapsed)
 		Chrome.grip:SetAlpha(GRIP_ALPHA * hover)
 	end
 	ResetLook()
+	if UI.Cluster then UI.Cluster.Watch() end
 	since = since + elapsed
 	if since >= EVERY then
 		since = 0

@@ -704,7 +704,7 @@ function Engine.Draw(inst, cam, w, h)
 	nplan, tail = 0, false
 	frame.inst, frame.w, frame.h = inst, w, h
 	for _, layer in ipairs(Engine.layers) do
-		local on = Engine.LayerOn(layer.name)
+		local on = Engine.LayerOn(layer.name) and not (layer.idle and layer.idle()) -- idle: nothing to draw now
 		if layer.on ~= on then
 			layer.on = on
 			if not on then -- emptied while off (its frame stays shown: showing it would show every region at once)

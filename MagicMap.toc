@@ -121,6 +121,7 @@ ui\Shade.lua
 ui\Borders.lua
 ui\Labels.lua
 ui\Pins.lua
+ui\Cluster.lua
 ui\Blips.lua
 ui\Rares.lua
 ui\Places.lua

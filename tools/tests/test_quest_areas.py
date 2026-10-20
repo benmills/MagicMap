@@ -84,7 +84,8 @@ def test_quest_areas():
 
 
 def test_quest_area_hover():
-    L, sim, ns, G = client([FRONTIER, GOLD], before=RECORD)
+    # Grouping off (ui/Cluster.lua): the quest's own pin is what's hovered here, not a pill of it.
+    L, sim, ns, G = client([FRONTIER, GOLD], before=RECORD + "\nlocal _, ns = ...\nns.UI.saved.cluster = false")
     tip, S, view, same = G.GameTooltip, sim.state, ns.UI.Window.view, L.eval("rawequal")
     sim.cursorX = sim.cursorY = 0  # (off the view)
     sim.Step()

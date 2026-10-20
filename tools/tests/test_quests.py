@@ -139,7 +139,8 @@ def test_quest_pins():
 
 
 def test_quest_follow():
-    L, sim, ns, G = client([FRONTIER, GOLD])
+    # Grouping off (ui/Cluster.lua): the quests' own pins are what these clicks are on, not a pill of them.
+    L, sim, ns, G = client([FRONTIER, GOLD], before="local _, ns = ...\nns.UI.saved.cluster = false")
     view, Model = ns.UI.Window.view, ns.Model
     sim.FireScript(view, "OnEnter", False)
 

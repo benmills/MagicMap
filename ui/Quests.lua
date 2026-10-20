@@ -41,6 +41,7 @@ end, function() return select(2, Model.Known("quests")) end, {
 	tooltip = function(_, e) UI.QuestTooltip.Show(e) end,
 	hover = Areas.Hover,
 	click = Areas.Follow,
+	cluster = true,
 })
 
 local offers = {} -- an offer's icon -> its look
@@ -57,6 +58,7 @@ UI.Offers = Pins.Layer("offers", 14, function(put)
 	end
 end, function() return select(2, Model.Known("offers")) end, {
 	lines = function(e) return e.name, e.line, DIM .. e.text .. "|r" end, -- Layers.lua:652-655
+	cluster = true,
 })
 
 UI.Menus.Layer({ key = "quests", label = "Quests", group = "quests", tip = "Quests in your log. Click one to follow it." })

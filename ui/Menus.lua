@@ -223,6 +223,9 @@ local SETTINGS = {
 	{ "Map", {
 		{ "Follow you", on = function() return UI.Camera.follow end, run = function() UI.Motion.SetFollow(not UI.Camera.follow, true) end,
 			tip = "Keeps the map centred on you. Drag the map to look about; it glides back to you when left alone." },
+		{ "Group overlapping icons", on = function() return UI.saved.cluster ~= false end,
+			run = function() UI.saved.cluster = UI.saved.cluster == false end,
+			tip = "Where more than three quests, places or rares overlap, one pill: click it to see them all." },
 	} },
 	{ "Minimap", {
 		{ "Minimap button", on = function() return UI.saved.button end, run = function() UI.Icon() end,
