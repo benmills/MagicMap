@@ -21,64 +21,12 @@ Minimap's spot, 384 px a tile), every layer on (those off by default too), scrip
 import telemetry
 from test_addon import boot, errors
 from test_blips import put_blips, stub_services
-from test_quest_areas import OFFERS, stretch
+from test_quest_areas import FREE, OFFERS, stretch
 from test_quests import SETUP
 
 ROUNDS = 4  # ~160 s each: the 1st grows the pools (regions kept for good, as the client's), the 2nd and 3rd
             # each canvas's (a layer's two, swapped) at each script's zooms; the 4th as the 3rd
 GROWTH_KB = 64  # a round's leftovers, after a full collect (the heap is ~60 MB)
-
-# What the client's widget calls allocate in its Lua heap: nothing (C functions; a region's own table aside). The
-# sim's keep their state in Lua tables (wowsim.lua S[region]: ~750 bytes a region made, more as it's set), which
-# made the pools' first growth the soak's biggest maker (borders, tiles: ~100 KB/s over the first round). Taken
-# out of collectgarbage("count") as LUA_PRICE takes its hook's (tools/sim.py), so Runtime's KB is ours and the
-# C_ API's tables' (the client's, as in game); a script a call fires (OnShow, OnSizeChanged) counts as ours.
-FREE = """local sim = ...
-local gc = collectgarbage
-local kb, depth, inner = 0, 0, 0
-collectgarbage = function(opt, ...)
-    if opt == "count" then return gc("count") - kb end
-    local a, b = gc(opt, ...)
-    if opt == "collect" then kb = 0 end
-    return a, b
-end
-local function Free(fn)
-    return function(...)
-        if depth > 0 then return fn(...) end
-        depth = 1
-        local k0, i0 = gc("count"), inner
-        local a, b, c, d, e, f, g, h = fn(...)
-        kb, depth = kb + gc("count") - k0 - (inner - i0), 0
-        return a, b, c, d, e, f, g, h
-    end
-end
-local fire = sim.FireScript
-sim.FireScript = function(...)
-    if depth == 0 then return fire(...) end
-    local k0 = gc("count")
-    depth = 0
-    fire(...)
-    depth, inner = 1, inner + gc("count") - k0
-end
-local done = {}
-local function Methods(obj)
-    local m = getmetatable(obj).__index
-    while m and not done[m] do
-        done[m] = true
-        for name, fn in pairs(m) do
-            if type(fn) == "function" then m[name] = Free(fn) end
-        end
-        m = getmetatable(m) and getmetatable(m).__index
-    end
-end
-local f = CreateFrame("Frame")
-for _, t in ipairs({ "Button", "CheckButton", "Cooldown", "EditBox", "GameTooltip", "QuestPOIFrame", "ScrollFrame", "Slider", "StatusBar" }) do
-    local ok, o = pcall(CreateFrame, t)
-    if ok then Methods(o) end
-end
-Methods(f); Methods(f:CreateTexture()); Methods(f:CreateLine()); Methods(f:CreateFontString())
-for _, o in ipairs(sim.Frames()) do Methods(o) end
-CreateFrame = Free(CreateFrame)"""
 
 # Questie's pins in Elwynn (world: x, y, flag; minimap: x, y) about Goldshire (0.42, 0.56 on 1429).
 QUESTIE = """local sim, G = ...

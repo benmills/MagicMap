@@ -24,8 +24,9 @@ waypoint pins and the title's target), Model.Target and Model.Route stubbed as t
     frame the zoom moves), walking and dragging: within the frame budgets, no call over 2 ms. With our Lua
     charged too (R-P2's 10 ns an instruction): the line's own budgets.
   test_path_priced_big: the big window, a waypoint at the view's corner (as a Ctrl-click there): its first
-    layout under 2 ms (no line made then); zooming with the line across the view: no frame over 8 ms. The
-    zoom state's p95 ≤ 5 is M1.15's (6.3 at the M2 review, the line's share ~0.8 ms): printed here.
+    layout under 2 ms (no line made then); zooming with the line across the view, M shrinking and growing it:
+    no frame over 8 ms, the zoom state's p95 ≤ 5 (M1.15: the borders' slices fit the frame the line's dashes
+    share, ~1 ms of it; 6.3 at the M2 review). With our Lua charged too: printed.
   test_path_walk_big: walking in the big window at zoom 400 toward a waypoint across the zone, Model's own
     route, priced and with our Lua charged too: at rest p95 ≤ 1 ms (a line past MAX_PIECES re-spaces every
     dash as you go: half its dashes a frame, their ends at whole pixels; under it, the dashes on legs that
@@ -430,8 +431,8 @@ def slow(fs):
 
 
 # lua: our own Lua charged too (sim.LUA_PRICE, R-P2's 10 ns an instruction). Then the line's own budgets hold
-# (map: path never in perf.slow, its first layout within CALL_MS, at rest p95 ≤ 1); the map's engine's zoom
-# frames are M1's (M1.15, M5: printed).
+# (map: path never in perf.slow, its first layout within CALL_MS, at rest p95 ≤ 1); the zoom state's p95 is
+# held on the priced clock alone (with our Lua: printed).
 @pytest.mark.parametrize("lua", [False, True])
 def test_path_priced(lua):
     L, sim, ns, G = client(lua=lua)
@@ -483,6 +484,9 @@ def test_path_priced_big(lua):
             sim.Wheel(view, 1 if n > 0 else -1)
             sim.Step()
         sim.Run(1)
+    for _ in range(2):  # M: shrink and grow again, the line across the way
+        sim.Press("M")
+        sim.Run(2)
     sim.Price(False)
     fs = ns.Runtime.FrameStats()
     by = {k: v for k, v in fs.byState.items()}
@@ -492,7 +496,7 @@ def test_path_priced_big(lua):
           + f"; map: path max {path:.2f} ms; slow {slow(fs)}")
     assert first <= 2 and by["big"].p95 <= 1 and fs.max <= 8 and path <= 2 and "map: path" not in slow(fs)
     if not lua:
-        assert not slow(fs)
+        assert by["zoom"].p95 <= 5 and not slow(fs)
     assert not errors(sim, ns), errors(sim, ns)
 
 

@@ -7,7 +7,8 @@
 -- hidden frame), then swaps the two by alpha. The layouts share a frame's budget, one at a time, in turn
 -- (Draw's plan: the view lacking a layer, or about to, first, the ground, then names and pins, then
 -- borders; a layout going on; else the one laid out longest ago; ahead of a pan in smaller slices): one
--- ending with budget left hands it on (Chain). Tile (col, row) is at ((col - ox) * zoom, -(row - oy) *
+-- ending with budget left hands it on (Chain); all of it within what the rest of the frame leaves (Rest), but
+-- the ground, names and pins the view lacks. Tile (col, row) is at ((col - ox) * zoom, -(row - oy) *
 -- zoom) on a canvas: (ox, oy), the origin, a whole tile near the view shared by every layer, so no offset
 -- grows past a few thousand px. Panning moves the canvases; until the zoom settles, a layer shows as its
 -- zoom says: "scale" (SetScale its canvas: tiles, laid out again once the zoom leaves [0.7, 1.4] of a
@@ -33,6 +34,7 @@ local LEAD, TRAIL, FAST = 0.75, 0.25, 0.5 -- moving FAST views a second or more:
 local AHEAD_S = 0.3 -- moving: laid out again before the view this far ahead leaves the layout
 local JOB_MS, MISSING_MS = 4, 4.5 -- the layouts' budget a frame; with one urgent (with the steps, ~5)
 local PAN_MS = 2.5 -- layouts ahead of a pan, the view still covered: smaller slices (the drag's frame p95)
+local FRAME_TO, MIN_MS = 4.75, 1 -- with the rest of the frame, the layouts fill it to this (the moving budget's p95, 5), MIN_MS at least
 local CHAIN_MS, CHAIN_TO = 1, 3.5 -- a layout ending with this much left of the frame's budget, at most this, hands it on (Chain)
 local BAND_LO, BAND_HI = 0.7, 1.4 -- the camera's zoom over a layout's: outside, laid out again before it settles
 local DRIFT = 1.25 -- a "move" or "pin" layer's: its names and pins are chosen for a zoom (Layers.lua:2012 LABEL_DRIFT)
@@ -54,6 +56,7 @@ local RETRY_S, RETRY_MAX_S = 0.5, 30 -- a failed layout is tried again after thi
 local Engine = { layers = {}, toggles = {}, defaults = {}, DRIFT = DRIFT }
 UI.Engine = Engine
 
+local perf = Runtime.Perf() -- (the frame's and each layout worker's time: Rest)
 local park = CreateFrame("Frame", nil, Window.view) -- regions no layout uses: off every canvas
 park:Hide()
 local Layout, Chain -- (below: a layer's worker runs it; at its end, it hands the frame on)
@@ -95,6 +98,7 @@ function Engine.Layer(name, level, build, rev, zoom)
 			Runtime.Idle()
 		end
 	end)
+	layer.perf = perf["map: " .. name]
 	for i = 1, 2 do
 		local c = CreateFrame("Frame", nil, f)
 		c:SetSize(1, 1)
@@ -639,13 +643,13 @@ end
 -- the rest queued after it in turn at 0 (Runtime.Requeue: waiting, not resumed) for what it leaves (Chain).
 -- slot: a layer's place in the plan, slotAt the frame it got its turn.
 local plan, nplan, tail = {}, 0, false -- tail: Chain started one (queued last: those waiting are past)
-local frame = { inst = nil, w = 0, h = 0, budget = 0 } -- Draw's, for Chain
+local frame = { inst = nil, w = 0, h = 0, budget = 0, to = CHAIN_TO } -- Draw's, for Chain (to: the frame's layouts' at most)
 
 -- At a layout's end (in its job): what's left of the frame's budget to the next in the plan, a layout
 -- going on (queued after it) first, else the first not yet laid out this frame (started: queued last).
 function Chain(layer)
 	local left, now = Runtime.Left(), Runtime.frames
-	if layer.slot == 1 then left = left - math.max(0, frame.budget - CHAIN_TO) end -- (the frame's first: its budget the whole)
+	if layer.slot == 1 then left = left - math.max(0, frame.budget - frame.to) end -- (the frame's first: its budget the whole)
 	if left < CHAIN_MS or layer.slotAt ~= now then return end
 	if not tail then
 		for i = layer.slot + 1, nplan do
@@ -664,6 +668,18 @@ function Chain(layer)
 			return
 		end
 	end
+end
+
+-- The last frame's cost but its layouts' (Runtime.Perf: the frame's, each layer's worker's), when Draw ran
+-- in it; else 0. This frame's layouts leave it room: what else a frame does while the view moves (the
+-- path's dashes laid out each zoom frame in the big window: ~1 ms priced) stays within the moving budget.
+local last = { frame = -1, ms = 0, jobs = 0 }
+local function Rest()
+	local f, ms, jobs = Runtime.frames, perf["runtime: frame"].ms, 0
+	for _, layer in ipairs(Engine.layers) do jobs = jobs + layer.perf.ms end
+	local rest = last.frame == f - 1 and ms - last.ms - (jobs - last.jobs) or 0
+	last.frame, last.ms, last.jobs = f, ms, jobs
+	return rest
 end
 
 -- Each layer placed at the camera, and the frame's layouts planned (Rank's turns: Chain). True while
@@ -720,7 +736,9 @@ function Engine.Draw(inst, cam, w, h)
 	end
 	Engine.pending, Engine.zooming = pending or zooming, zooming
 	local budget = plan[1] and (URGENT[plan[1].why] and MISSING_MS or panning and PAN_MS or JOB_MS)
-	frame.budget = budget or 0
+	local room = math.max(MIN_MS, FRAME_TO - Rest())
+	if budget and budget > room and plan[1].rank >= 200 then budget = room end -- (the ground, names and pins urgent: whole slices)
+	frame.budget, frame.to = budget or 0, math.min(CHAIN_TO, room)
 	for i = 1, nplan do
 		local l = plan[i]
 		if i == 1 then l.slot, l.slotAt = 1, Runtime.frames end

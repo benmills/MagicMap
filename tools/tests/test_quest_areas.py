@@ -273,18 +273,22 @@ OFFERS = """local sim, ns, n = ...
 
 def test_quests_priced():
     """Script (b)'s quest hub, 25 quests about you (one followed; 10 kill or collect quests with no area: their
-    estimates), the big map: the wheel in and out and drags on the priced clock. At rest p95 <= 1 ms, moving
-    p95 <= 5 ms, none over 8, no call over its budget nor a layout's stretch past it."""
+    estimates), the big map: the wheel in and out and drags on the priced clock, twice. At rest p95 <= 1 ms, moving
+    p95 <= 5 ms, none over 8, no call over its budget nor a layout's stretch past it. And the Lua allocation over
+    that stretch alone at the client's prices (FREE: the sim's widget state left out, ~335 KB/s of the 425 the sim
+    read there before M1.15): the first time, its garbage <= 50 KB/s, and all of it held under 100 so a pool that
+    grows shows (the borders' Lines at the zooms new to the session, the town services gathered as the view comes
+    to them: kept, made once a session, docs/runtime.md); once more, all of it <= 50 KB/s."""
     kinds = [["monster", "Kobold slain: 1/8", 1, 8, False], ["item", "Candle: 2/8", 2, 8, False],
              ["event", "Scout the mine", 0, 1, False]]
     quests = [{"id": 1000 + i, "title": f"Quest {i}", "level": 6 + i % 5, "col": 31.95 + (i % 5 - 2) * 0.35,
                "row": 49.75 + (i // 5 - 2) * 0.3, "objectives": [kinds[i % 3]],
                **({} if i < 15 and i % 3 != 2 else {"area": 0.02 + i % 3 * 0.01})} for i in range(25)]
-    L, sim, ns, G = client(quests, followed=1012)
+    L, sim, ns, G = client(quests, followed=1012, before=RAW + "\n" + FREE)
     assert len(ns.Model.Known("quests")[0]) == 25
     assert sum(1 for e in known(ns, "quests") if e.estimate) == 10
     L.execute("""local sim, ns = ...
-        local view, M = ns.UI.Window.view, ns.UI.Motion
+        local view = ns.UI.Window.view
         sim.Press("M")
         sim.Price(true)
         sim.Run(12) -- past the graces
@@ -297,16 +301,94 @@ def test_quests_priced():
             sim.buttonsDown.LeftButton = nil
             sim.FireScript(view, "OnMouseUp", "LeftButton")
         end
-        for _ = 1, 2 do Wheel(1, 4, 0.4); sim.Run(1); Wheel(-1, 4, 0.4); sim.Run(1) end
-        for i = 1, 4 do Drag(i % 2 == 0 and 30 or -30, 10, 20); sim.Run(1.5) end
-        sim.Price(false)""", sim, ns)
+        function WheelAndDrags()
+            for _ = 1, 2 do Wheel(1, 4, 0.4); sim.Run(1); Wheel(-1, 4, 0.4); sim.Run(1) end
+            for i = 1, 4 do Drag(i % 2 == 0 and 30 or -30, 10, 20); sim.Run(1.5) end
+        end""", sim, ns)
+    first = kept_stretch(L, sim, ns, G.WheelAndDrags)
+    again = kept_stretch(L, sim, ns, G.WheelAndDrags)
+    sim.Price(False)
     fs = ns.Runtime.FrameStats()
     by = {k: v for k, v in fs.byState.items()}
+    top = lambda by: ", ".join(f"{k} {v}" for k, v in sorted(by.items(), key=lambda kv: -kv[1])[:4])
     print(f"25 quests, priced: {fs.frames} frames, p95 {fs.p95} max {fs.max}; "
-          + ", ".join(f"{k} {v.frames} p95 {v.p95} p99 {v.p99}" for k, v in sorted(by.items())))
+          + ", ".join(f"{k} {v.frames} p95 {v.p95} p99 {v.p99}" for k, v in sorted(by.items()))
+          + f"; the wheel and drags at the client's prices: {first[0]} KB/s, {first[2]} of it kept, garbage"
+          f" {first[0] - first[2]:.1f} ({top(first[1])}); once more {again[0]} ({top(again[1])})")
     assert by["big"].p95 <= 1 and by["big"].p99 <= 5 and by["zoom"].p95 <= 5 and by["drag"].p95 <= 5 and fs.max <= 8
     assert not list(fs.slow.values()) and not list(fs.gaps.values()), (list(fs.slow.values()), list(fs.gaps.values()))
+    assert first[0] - first[2] <= 50 and first[0] <= 100 and again[0] <= 50, (first, again)
     assert not errors(sim, ns), errors(sim, ns)
+
+
+# What the client's widget calls allocate in its Lua heap: nothing (C functions; a region's own table aside). The
+# sim's keep their state in Lua tables (wowsim.lua S[region]: ~750 bytes a region made, more as it's set), which
+# made the pools' first growth the biggest maker (borders, tiles: ~100 KB/s over the soak's first round; ~335 of
+# test_quests_priced's wheel and drags' 425 before M1.15). Taken
+# out of collectgarbage("count") as LUA_PRICE takes its hook's (tools/sim.py), so Runtime's KB is ours and the
+# C_ API's tables' (the client's, as in game); a script a call fires (OnShow, OnSizeChanged) counts as ours.
+FREE = """local sim = ...
+local gc = collectgarbage
+local kb, depth, inner = 0, 0, 0
+collectgarbage = function(opt, ...)
+    if opt == "count" then return gc("count") - kb end
+    local a, b = gc(opt, ...)
+    if opt == "collect" then kb = 0 end
+    return a, b
+end
+local function Free(fn)
+    return function(...)
+        if depth > 0 then return fn(...) end
+        depth = 1
+        local k0, i0 = gc("count"), inner
+        local a, b, c, d, e, f, g, h = fn(...)
+        kb, depth = kb + gc("count") - k0 - (inner - i0), 0
+        return a, b, c, d, e, f, g, h
+    end
+end
+local fire = sim.FireScript
+sim.FireScript = function(...)
+    if depth == 0 then return fire(...) end
+    local k0 = gc("count")
+    depth = 0
+    fire(...)
+    depth, inner = 1, inner + gc("count") - k0
+end
+local done = {}
+local function Methods(obj)
+    local m = getmetatable(obj).__index
+    while m and not done[m] do
+        done[m] = true
+        for name, fn in pairs(m) do
+            if type(fn) == "function" then m[name] = Free(fn) end
+        end
+        m = getmetatable(m) and getmetatable(m).__index
+    end
+end
+local f = CreateFrame("Frame")
+for _, t in ipairs({ "Button", "CheckButton", "Cooldown", "EditBox", "GameTooltip", "QuestPOIFrame", "ScrollFrame", "Slider", "StatusBar" }) do
+    local ok, o = pcall(CreateFrame, t)
+    if ok then Methods(o) end
+end
+Methods(f); Methods(f:CreateTexture()); Methods(f:CreateLine()); Methods(f:CreateFontString())
+for _, o in ipairs(sim.Frames()) do Methods(o) end
+CreateFrame = Free(CreateFrame)"""
+
+# The heap's own count (FREE's leaves the sim's widget state out): what a full collect keeps.
+RAW = "local sim = ...; sim.gc = collectgarbage"
+
+
+def kept_stretch(L, sim, ns, run):
+    """run() at the client's prices (RAW, then FREE, loaded): (KB/s over it, {name: KB/s}, the KB/s of it a full
+    collect keeps after: the pools grown, what Model gathered; made once a session, garbage the rest)."""
+    L.execute('collectgarbage("collect"); collectgarbage("stop")')
+    raw0, t0 = sim.gc("count"), sim.time
+    done = stretch(L, ns)
+    run()
+    kb, by = done()
+    simkb = sim.gc("count") - L.eval('collectgarbage("count")')
+    L.execute('collectgarbage("restart"); collectgarbage("collect")')
+    return kb, by, round((sim.gc("count") - raw0 - simkb) / (sim.time - t0), 1)
 
 
 # A stretch's Lua allocation outside graces: FrameStats' sums and each name's KB now.

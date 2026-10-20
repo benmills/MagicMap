@@ -17,8 +17,8 @@ clock that counts their Lua (R-P2's), so a 1 ms slice is a slice of work:
     3 chunks off, as the spike's, within the at-rest budget (small p95 ≤ 1 ms) and a fifth of the allocation's
     (the search's tables kept from one to the next, its nodes read a 3x3 at a time: Walk.Around).
   test_route_gives_way: the big window zoomed in and out during that long search, priced: the search waits
-    while the view moves (Focus.moving: a slice only in the frame a zoom starts, Model a frame behind), no
-    frame over 8 ms; at rest it goes on.
+    while the view moves (Focus.moving: a slice only in the frame a zoom starts, Model a frame behind), the
+    zoom state's p95 ≤ 5 ms with the line across the view (M1.15), no frame over 8; at rest it goes on.
 """
 from test_addon import errors
 from test_target import put, targets
@@ -186,5 +186,5 @@ def test_route_gives_way():
     fs = ns.Runtime.FrameStats()
     print(f"zooming during the plateau's search: {moving} slices in {cycles * 2} zooms, {rest} in 2 s at rest; "
           f"zoom p95 {fs.byState.zoom.p95} max {fs.max}")
-    assert not G.Jobs[1].done and moving <= cycles * 2 and rest > 60 and fs.max <= 8
+    assert not G.Jobs[1].done and moving <= cycles * 2 and rest > 60 and fs.byState.zoom.p95 <= 5 and fs.max <= 8
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
