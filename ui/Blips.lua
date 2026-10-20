@@ -3,9 +3,9 @@
 -- (Blips.lua:625-650; laid out from a drift below it but zooming out, Engine.From, shown from it as the
 -- zoom moves: Engine.At's minimum zoom) as the spike's pins (Blips.lua:423-437,
 -- 641-661), on the pin store (ui/Pins.lua): an icon, the game's tracking texture or a gathering atlas,
--- at 14 px (an atlas the client lacks: a dot of its colour, StylePin's form (d)); else a gold dot (d) at
--- 10. A remembered one a sensed one stands for (its key) is drawn once; while the sensor runs, none
--- within its word around you (LIVE_YARDS: only what it sees now, Blips.lua:628-650). Laid out again
+-- at 14 px (a gathering node's: the classic Minimap\Tracking icon, else its atlas, else a dot of its
+-- colour, StylePin's form (d)); else a gold dot (d) at 10. A remembered one a sensed one stands for (its
+-- key) is drawn once; while the sensor runs, none within its word around you (LIVE_YARDS: only what it sees now, Blips.lua:628-650). Laid out again
 -- when either changes, or you cross a walk chunk while sensing. Tooltip: its name, then what it is (a
 -- gathering node's profession, Blips.lua:427-429; an NPC's title, :436), and a service's or remembered one's
 -- "Not in sight" (Blips.lua:642).
@@ -15,9 +15,11 @@ local UI, Model = ns.UI, ns.Model
 
 local ICON, DOT = 14, 10 -- px: an icon's; the gold dot's (Blips.lua:436)
 local GOLD = { 1, 0.82, 0 } -- Blips.lua:373
--- A gathering node's colour (its dot, an atlas the client lacks) and its line (Blips.lua:427-429).
+-- A gathering node's colour (its dot, when the client has neither icon) and its line (Blips.lua:427-429).
 local COLOR = { Professions_Tracking_Ore = { 0.8, 0.6, 0.4 }, Professions_Tracking_Herb = { 0.4, 0.9, 0.3 } }
 local LINE = { Professions_Tracking_Ore = "Mining", Professions_Tracking_Herb = "Herbalism" }
+local TRACKING = { Professions_Tracking_Ore = "Interface\\Minimap\\Tracking\\Mining",
+	Professions_Tracking_Herb = "Interface\\Minimap\\Tracking\\Herbalism" } -- the classic icons (ui/Art.lua)
 local AWAY = "|cff808080Not in sight|r" -- Blips.lua:642
 local REMOTE_ZOOM = 60 -- px a tile: remembered ones from here (Blips.lua REMOTE_MIN_ZOOM)
 local REACH = 220 / ns.Atlas.TILE_YARDS -- tiles: around you, the sensor's word (Blips.lua:480 LIVE_YARDS)
@@ -31,8 +33,9 @@ local function Look(icon)
 	local k = icon.texture or icon.atlas
 	local look = looks[k]
 	if not look then
-		look = { size = ICON,
-			icon = { texture = icon.texture, atlas = icon.atlas, color = icon.color or COLOR[icon.atlas] } }
+		local art = icon.texture and { texture = icon.texture } or UI.Art.Icon(TRACKING[icon.atlas], icon.atlas)
+		art.color = icon.color or COLOR[icon.atlas]
+		look = { size = ICON, icon = art }
 		looks[k] = look
 	end
 	return look

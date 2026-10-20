@@ -41,6 +41,7 @@ FIXTURE = os.path.join(TESTS, "fixtures", "blips_stream.lua")
 BLIPS = [("Mailbox", 40, 20), ("Mailbox", -50, -70), ("Peacebloom", -60, 30)]
 MAILBOX = 136459  # the sim's Mailbox tracking texture
 HERB = "Professions_Tracking_Herb"  # a herb's (Atlas.BlipService: "herb")
+HERB_FILE = "Interface\\Minimap\\Tracking\\Herbalism"  # what a herb is drawn with (ui/Blips.lua TRACKING)
 # Atlas.BlipService (M1.2's accessor of Data.BlipServices), stubbed: the names these scenarios use.
 SERVICES = {"Innkeeper Belm": "innkeeper"}
 
@@ -121,7 +122,7 @@ def test_blips_end_to_end():
             pins = [front.pools.pin[i].icon for i in range(1, front.pools.pin.n + 1)  # (ui/Pins.lua's pins; not
                     if front.pools.pin[i].entry.kind != "services"]  # Atlas's town services: test_services)
             textures = sorted(str(sim.state[t].atlas or sim.state[t].texture) for t in pins)
-            assert textures == [str(MAILBOX), str(MAILBOX), HERB], textures
+            assert textures == [str(MAILBOX), str(MAILBOX), HERB_FILE], textures  # drawn: the classic tracking icon
             assert all(sim.state[t].width == 14 for t in pins)
         elif stage == "gone":
             assert len(mailboxes) == 1 and near(mailboxes[0], 40, 20), got  # forgotten: a sweep missed it
