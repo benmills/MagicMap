@@ -1,8 +1,8 @@
 -- Zone and subzone names (Atlas.Labels, ranked offline: Data/Labels.lua), the spike's look
 -- (Layers.lua:1417-1458, 1619-1694): quiet, as on a printed map. Zones in Morpheus, mixed case, 11.5 to
--- 22 pt by their land's size on screen, up to zoom 450; subzones in Friz Quadrata, 10.5 to 13 pt the same
--- way, from zoom 120, 220 or 400 by their size (the MVP's look, 672d8b2^:ui/Labels.lua). Each name has a
--- soft dark shadow, and an outline too at small sizes. Zones first,
+-- 22 pt by their land's size on screen, up to zoom 450, with a soft dark shadow and an outline at small
+-- sizes (the MVP's look, 672d8b2^:ui/Labels.lua); subzones quieter, one look at every zoom: Friz Quadrata
+-- 9 pt, dimmer, the shadow alone, from zoom 120, 220 or 400 by their size. Zones first,
 -- then subzones, each biggest first: a name tries its spot, just above, just below, and is skipped
 -- if all three touch one placed. Every zone of the map is placed (its box: a name's spot doesn't
 -- change on a pan), those over the view and its margin drawn (ui/Engine.lua); subzones are placed
@@ -15,10 +15,10 @@ local Atlas, Runtime, Engine = ns.Atlas, ns.Runtime, ns.UI.Engine
 local Get, Unget, At, Yield = Engine.Get, Engine.Unget, Engine.At, Runtime.Yield
 
 local TITLE, BODY = "Fonts\\MORPHEUS.TTF", GameFontNormal:GetFont() -- Morpheus for zones; Friz Quadrata (Layers.lua:1417)
-local ZONE, SUB = { 1, 0.89, 0.63, 0.95 }, { 0.91, 0.86, 0.77, 0.78 } -- the MVP's (672d8b2^:ui/Labels.lua)
+local ZONE, SUB = { 1, 0.89, 0.63, 0.95 }, { 0.91, 0.86, 0.77, 0.6 } -- the MVP's (672d8b2^:ui/Labels.lua); subzones quieter
 local ZONE_K, ZONE_MIN, ZONE_MAX = 0.085, 11.5, 22 -- a zone's size: k * its land's side * zoom, clamped
-local SUB_K, SUB_MIN, SUB_MAX = 0.1, 10.5, 13 -- likewise a subzone's
-local OUTLINE_MAX = 12 -- at or below this size an outline (the font's OUTLINE flag) with the shadow; above, the shadow alone
+local SUB_SIZE = 9 -- a subzone's, one size and look at every zoom: shadow only, no outline (quiet over legible)
+local OUTLINE_MAX = 12 -- a zone name at or below this size gets an outline (the font's OUTLINE flag) with the shadow
 local MAX_ZOOM = 450 -- zone names hidden zoomed in past this (Layers.lua:77)
 local SUB_ZOOM = 120 -- subzone names from here (weight >= 40), 220 (>= 15), else 400 (Layers.lua:1426, 1639)
 local SHADOW = 0.85 -- the soft drop shadow's alpha, offset (1, -1)
@@ -90,9 +90,8 @@ local function Spot(c, l, zoom, w, h)
 	end
 end
 
-local function Font(c, l, font, size, color)
+local function Font(c, l, font, size, color, flags)
 	local fs = Get(c, "label", "font", MakeFont)
-	local flags = Flags(size)
 	if fs.font ~= font or fs.size ~= size or fs.flags ~= flags then
 		fs:SetFont(font, size, flags)
 		fs.font, fs.size, fs.flags = font, size, flags
@@ -153,7 +152,7 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 			local w, h = Measure(l, size)
 			local dy = Spot(c, l, zoom, w, h)
 			if dy and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-				Show(c, Font(c, l, TITLE, size, ZONE), l, dy, shown)
+				Show(c, Font(c, l, TITLE, size, ZONE, Flags(size)), l, dy, shown)
 			end
 			if i % 16 == 0 then Yield() end
 		end
@@ -161,7 +160,7 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 	if zoom >= SUB_ZOOM then
 		for i, l in ipairs(list.subs) do
 			if zoom >= l.zoom and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-				local fs = Font(c, l, BODY, SizeAt(l, SUB_K, SUB_MIN, SUB_MAX, zoom), SUB)
+				local fs = Font(c, l, BODY, SUB_SIZE, SUB, "")
 				local dy = Spot(c, l, zoom, fs:GetStringWidth() / 2 + PAD_X, fs:GetStringHeight())
 				if dy then Show(c, fs, l, dy, shown) else Unget(c, "label") end
 			end

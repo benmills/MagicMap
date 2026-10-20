@@ -144,10 +144,10 @@ def test_labels():
         zones = [t for (t, *_), z in zip(got, zone) if z]
         subs = [w for (_, _, w, *_), z in zip(got, zone) if not z]
         assert len(zones) + len(subs) == len(got)
-        # Zones in Morpheus, mixed case, 11.5 to 22 pt; subzones in the body face, 10.5 to 13; an outline at 12 or less.
+        # Zones in Morpheus, mixed case, 11.5 to 22 pt, an outline at 12 or less; subzones in the body face, 9 pt, no outline.
         assert all(t != t.upper() for t in zones) and all(11.5 <= f[2] <= 22 for f, z in zip(faces, zone) if z)
-        assert all(f[1] == font and 10.5 <= f[2] <= 13 for f, z in zip(faces, zone) if not z)
-        assert all(f[3] == ("OUTLINE" if f[2] <= 12 else "") for f in faces)
+        assert all(f[1] == font and f[2] == 9 and f[3] == "" for f, z in zip(faces, zone) if not z)
+        assert all(f[3] == ("OUTLINE" if f[2] <= 12 else "") for f, z in zip(faces, zone) if z)
         if zoom == 100:  # zones, no subzone yet (from 120)
             assert zones and not subs
         if zoom == 200:  # zones, and the subzones of weight 40 or more
