@@ -23,8 +23,8 @@ and `art` traces empty; `/mm check log` on throughout with 0 K4 drift lines; 0 e
 Where it stands: M0 done; M1's sim half done at e50e7d5 (`tools/check.sh` green plain and strict); M1b
 (the user's play-test of the M1 build: M1.12 allocation while moving and the validator, M1.13 the
 MVP's gear menu, M1.14 zoom and pan as the MVP: every wheel event a x1.3 tick, chased) merged by 743a615,
-its sim half done at 2f79ffb (the M1b gate, 2026-10-19: 86 passed plain and strict), M1.15 (borders
-through a glide) left from it; every
+its sim half done at 2f79ffb (the M1b gate, 2026-10-19: 86 passed plain and strict), M1.15 (the layouts fit the frame)
+done at cfdc6d2 (held borders still short of the edge ~9 frames of a glide: play-test a1g); every
 in-game check waits for one consolidated play-test at the end (D10, docs/playtest-final.md). M2 (quests
 on one pin store): wave 1 merged 2026-10-19 (M2.1 the pin store with blips and rares on it, M2.2 Game's
 quests, offers, follow and tooltip, M2.3 Model's quests and offers); M2.4 (UI quests, areas, tooltip)
@@ -45,8 +45,8 @@ built but F56, M5.2's, and S31, the user's call), its in-game half in docs/playt
 e6; a3c, a7s, b7, e5 from the review). M5 (hardening and parity): wave 1 merged 2026-10-19 (M5.1 the 10-minute priced soak,
 test_soak; M5.2 every replay without QuestieDB's data too, F56's notice; M5.3 the S rows audited against the spike's code);
 M5's sim half done at 532cd9e (the M5 gate, 2026-10-19: 211 passed plain and strict), its in-game half in
-docs/playtest-final.md (a8, b21, c8, d9, e8: two 10+ minute sessions a script; e2, e5, e7; the sign-off). Left: M1.15
-(a zoom FAIL in game is its). Then M6 rename, merge, release.
+docs/playtest-final.md (a8, b21, c8, d9, e8: two 10+ minute sessions a script; e2, e5, e7; the sign-off). M1.15 done at cfdc6d2.
+M6 (rename, package) done: 2.0.0 at 17c6870, tagged locally.
 
 ## 2. Rules for every package (v1-plan §3)
 
