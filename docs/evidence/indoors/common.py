@@ -1,5 +1,5 @@
 import sys, struct, pickle, os
-sys.path.insert(0, '/Users/benmills/code/magic-map/tools')
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../tools'))
 from mmtools.sources import open_source
 from mmtools.formats import iter_chunks, wdt_maid
 _src = None

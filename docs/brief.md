@@ -273,7 +273,7 @@ window walking at zoom 400 holds p95 ≤ 1 ms with our Lua charged (D4: neither 
 
 ## 8. Commands
 
-Worktree setup (once, from its root): `ln -s /Users/benmills/code/magic-map/.venv .venv`. Python is
+Worktree setup (once, from its root): `ln -s <the main checkout>/.venv .venv`. Python is
 `.venv/bin/python`.
 
     tools/check.sh                                        # CI: luacheck, lint_div, then pytest plain and MM_STRICT=1 side by side (xdist)
