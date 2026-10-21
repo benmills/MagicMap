@@ -1,5 +1,5 @@
 -- NPCs, objects, items and quests (Data/Npcs, Objects, Items, Quests, BlipServices:
--- from QuestieDB, gitignored; Data/ItemIcons from the Item DB2), and the static
+-- from QuestieDB: NOTICE.md; Data/ItemIcons from the Item DB2), and the static
 -- joins between them. No player state here. Without a Data file: as if it were empty.
 
 local _, ns = ...

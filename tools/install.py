@@ -2,8 +2,7 @@
 """Install this checkout into a WoW client for testing: replaces
 <wow>/<flavor>/Interface/AddOns/MagicMap with what the game loads
 (MagicMap.toc, the files it lists and the Textures/ tree), straight from
-the working tree, so uncommitted changes and the gitignored QuestieDB-derived
-data (when generated) are included. /reload in game to pick up Lua changes;
+the working tree, so uncommitted changes are included. /reload in game to pick up Lua changes;
 a file the client hasn't seen (a new file, texture or the folder itself) needs a
 client restart: it says so (spike-bugs L5).
 
@@ -44,6 +43,7 @@ HEADER = f"""## Interface: 16001
 ## Title: MagicMap
 ## Notes: For WoW Forever. Your minimap, zooming out to the whole world on the game's own minimap terrain, with Blizzard's blips on it; M grows it into a big map.
 ## Version: 2.0.0-rc.1
+## X-License: GPL-3.0-only
 ## Category: Map & Minimap
 ## IconTexture: Interface\\Icons\\INV_Misc_Map_01
 ## AddonCompartmentFunc: MagicMap_OnAddonCompartmentClick
@@ -184,8 +184,8 @@ def main() -> None:
         rev = subprocess.check_output(["git", "-C", ROOT, "describe", "--always", "--dirty"], text=True).strip()
     except (OSError, subprocess.CalledProcessError):
         rev = "?"
-    # The files installed, named: uncommitted changes and the gitignored QuestieDB-derived Data (git can't see
-    # them) each make a build of their own (game/Validate.lua keeps one build's log).
+    # The files installed, named: uncommitted changes (git can't see them) make a build of their own
+    # (game/Validate.lua keeps one build's log).
     digest = hashlib.sha1()
     for f in files:
         with open(os.path.join(ROOT, f), "rb") as fh:
@@ -194,7 +194,7 @@ def main() -> None:
     stamp_version(os.path.join(dest, f"{ADDON}.toc"), rev)
     print(f"installed {ADDON} {rev} ({len(files)} files) into {dest}")
     if skipped:
-        print(f"not generated (gitignored), so left out: {', '.join(skipped)} (tools/gen_questie.py)")
+        print(f"missing, so left out: {', '.join(skipped)} (tools/gen_questie.py)")
     added = [f for f in files if f not in before]
     if added:
         print(f"restart the client (not /reload): {len(added)} files are new to it ({', '.join(added[:3])}"

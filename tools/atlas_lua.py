@@ -7,7 +7,7 @@ all there is.
   L, Atlas = load_atlas(extra=["demo/something.lua"])   # more files after, same ns
 
 Data files that aren't there are skipped: the QuestieDB-derived ones
-(Npcs, Objects, Items, Quests) are gitignored and may be missing.
+(Npcs, Objects, Items, Quests) may be missing in a test's build.
 """
 from __future__ import annotations
 

@@ -1,11 +1,8 @@
 #!/bin/sh
-# Release zips of a committed ref, each one MagicMap/ folder to drop into Interface/AddOns:
-#   dist/MagicMap-<ref>-no-questie-data.zip    what's committed: no QuestieDB-derived Data (the game skips TOC
-#                                              files it can't find; game/NoData.lua says so in one chat line)
-#   dist/MagicMap-<ref>-with-questie-data.zip  + this checkout's gitignored Data/Npcs, Objects, Items, Quests and
-#                                              BlipServices (tools/gen_questie.py), when they're here
-# Which one ships is D1's (QuestieDB declares no licence): the user's call before any upload.
-# The TOC is stamped (## X-Stamped: game/Validate.lua's one build's log; the data makes a build of its own).
+# The release zip of a committed ref, one MagicMap/ folder to drop into Interface/AddOns, with LICENSE and
+# NOTICE.md: dist/MagicMap-<ref>.zip. Everything committed ships, the quest data from QuestieDB and Questie
+# too (GPLv3: D1, NOTICE.md).
+# The TOC is stamped (## X-Stamped: game/Validate.lua's one build's log).
 # A tag v<x> must be the TOC's ## Version, which it keeps; another ref's ## Version becomes the ref's build.
 # Each zip is then unzipped into a scratch AddOns folder and loaded in the sim from there, a first login
 # (every TOC file there, the notice once without the data, never with it; grow, zoom, drag, shrink): 0
@@ -24,32 +21,30 @@ case $ref in
 v*) [ "v$version" = "$ref" ] || { echo "tag $ref doesn't match the TOC's ## Version $version" >&2; exit 1; } ;;
 *) version=$rev ;;
 esac
-questie="Data/Npcs.lua Data/Objects.lua Data/Items.lua Data/Quests.lua Data/BlipServices.lua"
 mkdir -p dist
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-build() {  # $1 the variant, $2 its build's stamp, $3 the Data files added
-	dir="$tmp/$1"
+build() {  # $1 its build's stamp
+	dir="$tmp/zip"
 	mkdir -p "$dir"
-	git archive --prefix=MagicMap/ "$ref" MagicMap.toc Data Textures atlas runtime game model ui | tar -x -C "$dir"
-	for f in $3; do cp "$f" "$dir/MagicMap/$f"; done
+	git archive --prefix=MagicMap/ "$ref" MagicMap.toc LICENSE NOTICE.md Data Textures atlas runtime game model ui | tar -x -C "$dir"
 	toc="$dir/MagicMap/MagicMap.toc"
-	"$py" tools/install.py --stamp "$toc" "$2"
+	"$py" tools/install.py --stamp "$toc" "$1"
 	sed "s/^## Version: .*/## Version: $version/" "$toc" > "$toc.new" && mv "$toc.new" "$toc"
-	out="dist/MagicMap-$ref-$1.zip"
+	out="dist/MagicMap-$ref.zip"
 	rm -f "$out"
 	(cd "$dir" && "$py" -m zipfile -c "$root/$out" MagicMap)
-	mkdir "$tmp/AddOns-$1"
-	"$py" -m zipfile -e "$out" "$tmp/AddOns-$1"
-	"$py" - "$tmp/AddOns-$1/MagicMap" "$3" <<'EOF' || { rm -f "$out"; exit 1; }
+	mkdir "$tmp/AddOns"
+	"$py" -m zipfile -e "$out" "$tmp/AddOns"
+	"$py" - "$tmp/AddOns/MagicMap" 1 <<'EOF' || { rm -f "$out"; exit 1; }
 import os, sys
 sys.path.insert(0, "tools")
 import luacheck
 root, data = sys.argv[1], bool(sys.argv[2])
 luacheck.ROOT, luacheck.TOC = root, os.path.join(root, "MagicMap.toc")
 import sim
-want = [f for f in luacheck.toc_files() if data or f not in sim.QUESTIE] + ["Textures/PlayerArrow.tga", "Textures/GlowRing.tga"]
+want = [f for f in luacheck.toc_files() if data or f not in sim.QUESTIE] + ["Textures/PlayerArrow.tga", "Textures/GlowRing.tga", "LICENSE", "NOTICE.md"]
 missing = [f for f in want if not os.path.isfile(os.path.join(root, f))]
 extra = [f for f in sim.QUESTIE if not data and os.path.exists(os.path.join(root, f))]
 s = sim.boot(saved="MagicMap2DB = nil")
@@ -69,9 +64,4 @@ EOF
 	echo "$out ($(grep '^## X-Stamped' "$toc"))"
 }
 
-build no-questie-data "$rev" ""
-if ls $questie >/dev/null 2>&1; then
-	build with-questie-data "$rev+questie-data" "$questie"
-else
-	echo "no QuestieDB-derived Data here (tools/gen_questie.py): the no-data zip alone"
-fi
+build "$rev"

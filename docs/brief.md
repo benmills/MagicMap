@@ -234,8 +234,9 @@ M1's engine's zoom frames go past their budgets, `map: draw` to 2.3 ms in the bi
 
 ## 7. Decisions (v1-plan §9, all decided)
 
-- **D1** QuestieDB licence: decided at the very end, before any public upload; 2.0.0 proceeds internally
-  (QuestieDB-derived Data/ files are gitignored; a no-data build must still work).
+- **D1** QuestieDB licence: decided 2026-10-21. MagicMap is GPLv3, the terms Questie's and QuestieDB's
+  LICENSE.md extend to copies; the QuestieDB-derived Data/ files are committed and shipped, credited in
+  NOTICE.md (a no-data build must still work).
 - **D2** docs/v1-non-goals.md confirmed as drafted.
 - **D3** Offline data diet approved: Items/ItemIcons only what quests reach, NPCs only open-world or needed
   (no item tooltips, no dungeon NPCs).
@@ -272,10 +273,8 @@ window walking at zoom 400 holds p95 ≤ 1 ms with our Lua charged (D4: neither 
 
 ## 8. Commands
 
-Worktree setup (once, from its root): `ln -s /Users/benmills/code/magic-map/.venv .venv`, and for each of
-`Npcs Objects Items Quests BlipServices`: `ln -sf /Users/benmills/code/magic-map/Data/$f.lua Data/$f.lua`
-(gitignored, read-only QuestieDB-derived data: with none, those tests skip; with the four but not
-BlipServices, test_atlas fails). Python is `.venv/bin/python`.
+Worktree setup (once, from its root): `ln -s /Users/benmills/code/magic-map/.venv .venv`. Python is
+`.venv/bin/python`.
 
     tools/check.sh                                        # CI: luacheck, lint_div, then pytest plain and MM_STRICT=1 side by side (xdist)
     tools/check.sh --quick                                # luacheck, lint_div and the plain pass alone: while iterating

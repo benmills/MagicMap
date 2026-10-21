@@ -5,7 +5,7 @@ The repo root is the addon root. Folders follow architecture.md: two libraries
 
 ```
 MagicMap.toc          load order (below), generated from each folder's files.txt
-Data/                 generated Atlas data (some gitignored: QuestieDB-derived)
+Data/                 generated Atlas data (the QuestieDB-derived five: NOTICE.md)
 Textures/             generated textures the addon loads (PlayerArrow, GlowRing)
 atlas/                Atlas library: facts that hold (plain Lua 5.1, no WoW API)
 runtime/              Runtime library: when things run (frame steps, slices, timers, events, perf)

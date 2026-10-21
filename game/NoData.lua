@@ -1,4 +1,4 @@
--- Without QuestieDB's data (Data/Npcs, Objects, Items, Quests, BlipServices: gitignored, D1) Atlas's
+-- Without QuestieDB's data (Data/Npcs, Objects, Items, Quests, BlipServices: NOTICE.md) Atlas's
 -- indexes are empty and the map runs on: one chat line says so, at load (QuestInfo.lua:71-75).
 
 local _, ns = ...

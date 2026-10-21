@@ -1,6 +1,6 @@
 -- G5: wrong or missing data from runtime sources. PREVENTED: with no QuestieDB loaded, Atlas has
 -- the NPC services, item icons and quest objectives offline.
--- Without the QuestieDB-derived data (D1: gitignored, CI's checkout; parity F56) Atlas's indexes are
+-- Without the QuestieDB-derived data (a build missing them; parity F56) Atlas's indexes are
 -- empty and the map runs on (test_spike_bugs.py runs every replay so): one chat line says so
 -- (QuestInfo.lua:71-75), quests, offers, blips and a seen rare are drawn, quest 60's tooltip has no
 -- droppers or turn-in (with the data: both), and nothing errs.

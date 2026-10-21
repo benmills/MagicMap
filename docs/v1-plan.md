@@ -482,7 +482,7 @@ Counts: **45 work packages** (M0 8, M1 13, M1b 4 so far, M2 4, M3 4, M4 6, M5 3,
 
 | # | Decision | Blocks | Recommendation |
 |---|---|---|---|
-| D1 | QuestieDB licence: get permission, ship without derived data (degraded tooltips, services, blip icons), or keep 1.0 private | public upload (M6.3) | **DECIDED 2026-10-18: decide at the very end (before any public upload); internal 2.0.0 proceeds** |
+| D1 | QuestieDB licence: get permission, ship without derived data (degraded tooltips, services, blip icons), or keep 1.0 private | public upload (M6.3) | **DECIDED 2026-10-18: decide at the very end (before any public upload); internal 2.0.0 proceeds. DECIDED 2026-10-21: GPLv3, as Questie's and QuestieDB's LICENSE.md allow; the data committed and shipped, credited in NOTICE.md** |
 | D2 | Confirm docs/v1-non-goals.md (DRAFT) as listed in §5 | M1.2, parity.md | **DECIDED 2026-10-18: confirmed as drafted** |
 | D3 | Approve offline filter of Items, ItemIcons, NPCs (no item tooltips, no dungeon NPCs in v1) | M1.2 (memory FAIL) | **DECIDED 2026-10-15: approved** |
 | D4 | Spec source: spike 1.0 code, or bring back "blips past the edge" and path auto-fit | parity.md, scope | **DECIDED 2026-10-15: the spike's code** |

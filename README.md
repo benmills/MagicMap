@@ -145,9 +145,8 @@ in its output's header. Run them in this order: gen_tilecolor and gen_interiors 
 reads Data/UiMaps.lua from gen_world and gen_world's ItemIcons reads gen_questie's
 Data/Items.lua (the data diet), so gen_world runs again after it; gen_labels reads Borders,
 Places, Areas, UiMaps, Tiles and Walk, so it runs last. The rest are independent. gen_questie's
-five files (Npcs, Objects, Items, Quests, BlipServices) are gitignored: QuestieDB declares no
-license (see docs/atlas-data.md). A git worktree links all five (and .venv) from the main
-checkout, $MAIN: `for f in Npcs Objects Items Quests BlipServices; do ln -s "$MAIN/Data/$f.lua" Data/; done`.
+five files (Npcs, Objects, Items, Quests, BlipServices) come from QuestieDB and Questie, used under
+their GPLv3 terms (NOTICE.md); they're committed like the rest.
 
     W="/Applications/World of Warcraft"
     .venv/bin/python tools/gen_tiles.py     local "$W" wow_classic_beta -o Data/Tiles.lua
@@ -171,8 +170,7 @@ The demo's assets, after the above:
     .venv/bin/python tools/install.py      # into _classic_beta_ (WoW Forever); another flavor folder as argument
 
 It writes the TOC from the folders' `files.txt` (`--toc`: only that), then copies the TOC, its
-files and Textures/ into `Interface/AddOns/MagicMap` (the gitignored QuestieDB-derived
-data too, when generated). That is 1.0's folder too: while 1.0 is there it stops,
+files and Textures/ into `Interface/AddOns/MagicMap`. That is 1.0's folder too: while 1.0 is there it stops,
 and `--replace-spike` moves 1.0 to `MagicMap.spike-backup` first (its saved data isn't
 read: docs/decisions/0007-v2-storage-names.md). Log in (it says when files are new to the client:
 restart it, not `/reload`), then:
@@ -191,12 +189,11 @@ restart it, not `/reload`), then:
 Set `## Version:` in `MagicMap.toc` (D7: 2.x.x), run every generator on the installed client (above;
 the QuestieDB-derived five too) and `tools/check.sh`, commit, tag `v<version>`, then
 
-    tools/package.sh v2.0.0-rc.1   # dist/MagicMap-v2.0.0-rc.1-no-questie-data.zip and -with-questie-data.zip
+    tools/package.sh v2.0.0-rc.1   # dist/MagicMap-v2.0.0-rc.1.zip
 
-Two zips, as the QuestieDB-derived data may not ship (D1: QuestieDB declares no licence): the
-committed tree, and the same with this checkout's five gitignored Data files. Each is unzipped into
-a scratch AddOns folder and loaded in the sim from there (every TOC file present; 0 errors) or isn't
-written. The one D1 allows goes on the GitHub release, with its notes: for the release candidate
+One zip of the committed tree, with LICENSE and NOTICE.md; it's unzipped into a scratch AddOns folder
+and loaded in the sim from there (every TOC file present; 0 errors) or isn't written. It goes on the
+GitHub release, with its notes: for the release candidate
 [dist/RELEASE_NOTES-v2.0.0-rc.1.md](dist/RELEASE_NOTES-v2.0.0-rc.1.md) (2.0.0's own, for later:
 [dist/RELEASE_NOTES-v2.0.0.md](dist/RELEASE_NOTES-v2.0.0.md), the listing in
 [dist/listing-v2.0.0.md](dist/listing-v2.0.0.md)). Bringing this repo into `~/code/MagicMap`:
@@ -250,8 +247,7 @@ aren't in perf's byState), `s.wheel(3)`, `s.drag(200, 0, 20)`, `s.walk(10, "east
     return cam.zoom, cam.cx'                          # lua: the rest of the script, lines and ';' as is
     .venv/bin/python tools/sim.py --help              # the commands
 
-CI (`.github/workflows/check.yml`) runs `tools/check.sh` on every push and PR; without the
-gitignored QuestieDB-derived data those tests skip.
+CI (`.github/workflows/check.yml`) runs `tools/check.sh` on every push and PR.
 
 ## Boundaries
 
@@ -281,3 +277,10 @@ serves its answers as JSON; `demo/index.html` only draws them (Eastern Kingdoms:
 walk-grid overlay).
 
     .venv/bin/python demo/server.py        # http://localhost:8000 (optional port argument)
+
+## License
+
+MagicMap is free software under the GNU General Public License, version 3 ([LICENSE](LICENSE)), the
+licence Questie and QuestieDB extend to copies of their work. Its quest, NPC, object and item data is
+derived from [QuestieDB](https://github.com/Questie/QuestieDB) and [Questie](https://github.com/Questie/Questie):
+credits and terms in [NOTICE.md](NOTICE.md). MagicMap isn't affiliated with Questie or Blizzard.

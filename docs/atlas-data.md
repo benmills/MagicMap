@@ -50,8 +50,8 @@ D.Tiles = { ... }
 - **Faction** is `"A"`, `"H"`, `"AH"` (both) or nil (neither / not set).
 - **Names** are enUS for now.
 - QuestieDB-derived files (`Npcs`, `Objects`, `Items`, `Quests`, `BlipServices`) are generated
-  from the user's installed QuestieDB and **gitignored** (QuestieDB declares no
-  license; don't commit or publish them until that's settled). QuestieDB's test and placeholder
+  from the user's installed QuestieDB and committed: QuestieDB's data comes from Questie, and both
+  allow copying under GPLv3, MagicMap's licence (NOTICE.md; D1). QuestieDB's test and placeholder
   entities ("TEST WOLF (ALPHA FIRST)", "[PH] ...", "... UNUSED", "<NYI> ...") are dropped, and every
   reference to them, unless a quest's objective names them (tools/gen_questie.py PLACEHOLDER).
 - **The data diet** (docs/v1-plan.md D3: no item tooltips, no dungeon NPCs in v1): Items and
@@ -205,7 +205,7 @@ for (`Atlas.Npc`, `Atlas.Quest`, ...) and keeps it. The scans that would decode 
 `flagged[inst]` those with npcFlags (`Atlas.ServiceSpawns`); `Atlas.Find` reads a row's name off its
 string. The layouts below are the decoded tables.
 
-### Data/Npcs.lua — `ns.Data.Npcs` (QuestieDB; gitignored)
+### Data/Npcs.lua — `ns.Data.Npcs` (QuestieDB, GPLv3: NOTICE.md)
 `[npcID] = { name, subName, minLevel, maxLevel, rank, faction, flags, questStarts, questEnds, spawns, instances }`
 - rank: 1 elite, 2 rare elite, 3 boss, 4 rare.
 - flags: Classic npcFlags (2 quest giver, 4 vendor, 8 flight master, 16 trainer,
@@ -218,12 +218,12 @@ string. The layouts below are the decoded tables.
   questEnds), or a kept item does (npcDrops, vendors), or it is rare (rank 2, 4) or has a service
   flag (BlipServices'). About 9,600 of 13,200.
 
-### Data/Objects.lua — `ns.Data.Objects` (QuestieDB; gitignored)
+### Data/Objects.lua — `ns.Data.Objects` (QuestieDB, GPLv3: NOTICE.md)
 `[objectID] = { name, kind, questStarts, questEnds, spawns, instances }`
 - kind: "mailbox" | "herb" | "ore" | nil (by name: the herb list, " Vein"/" Deposit" suffix, "Mailbox").
 - Nameless QuestieDB stubs are skipped.
 
-### Data/Items.lua — `ns.Data.Items` (QuestieDB; gitignored)
+### Data/Items.lua — `ns.Data.Items` (QuestieDB, GPLv3: NOTICE.md)
 `[itemID] = { name, npcDrops, objectDrops, itemDrops, vendors, startQuest, class, subClass, requiredLevel }`
 - Diet: only the items a kept quest reaches: its objectives' and startedBy's items, items whose
   startQuest is a kept quest, and the items those drop from (itemDrops, followed). About 2,800 of
@@ -231,7 +231,7 @@ string. The layouts below are the decoded tables.
 - Ids QuestieDB names but has no row for (Season of Discovery NPCs in Forever's data, nameless object
   stubs) are left out of npcDrops, objectDrops, itemDrops and vendors.
 
-### Data/Quests.lua — `ns.Data.Quests` (QuestieDB; gitignored)
+### Data/Quests.lua — `ns.Data.Quests` (QuestieDB, GPLv3: NOTICE.md)
 `[questID] = { name, level, requiredLevel, faction, races, classes, startedBy, finishedBy, objectives, objectivesText, zone, sort, preQuestSingle, preQuestGroup, exclusiveTo, nextQuest, breadcrumbFor, triggerEnd }`
 - faction from requiredRaces (Alliance-only / Horde-only races) or nil.
 - startedBy = `{ npcs, objects, items }`, finishedBy = `{ npcs, objects }` (ID lists, nil when empty).
@@ -242,7 +242,7 @@ string. The layouts below are the decoded tables.
 - zone: areaID (QuestieDB zoneOrSort > 0); sort: QuestSort (zoneOrSort < 0, negated).
 - triggerEnd = `{ text, spawns }` (spawns as point lists per inst).
 
-### Data/BlipServices.lua — `ns.Data.BlipServices` (QuestieDB; gitignored)
+### Data/BlipServices.lua — `ns.Data.BlipServices` (QuestieDB, GPLv3: NOTICE.md)
 `[name] = { service, title }`: what a Minimap blip whose tooltip says `name` is (format 2).
 - service: `"innkeeper"`, `"banker"`, `"auctioneer"`, `"stablemaster"`, `"battlemaster"`, `"trainer"`,
   `"classtrainer"`, `"repair"`, `"questgiver"`, `"questender"`, `"flightmaster"` or `"mailbox"`; nil: none.

@@ -67,6 +67,5 @@ group, rares, corpse, waypoint, the walking route, other addons' pins, and indoo
 
 ## Not a non-goal, but a release blocker
 
-- QuestieDB declares no license, so the QuestieDB-derived data (docs/atlas-data.md) can't
-  be published until that is settled, or until v1 reads QuestieDB at runtime as the spike
-  did. This needs the user's decision before a public v1.
+- Settled (D1, 2026-10-21): QuestieDB and Questie allow copying under GPLv3, so MagicMap is GPLv3
+  and ships the QuestieDB-derived data (docs/atlas-data.md), credited in NOTICE.md.
