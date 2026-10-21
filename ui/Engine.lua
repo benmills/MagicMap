@@ -112,11 +112,10 @@ function Engine.Layer(name, level, build, rev, zoom)
 	return layer
 end
 
--- A region onto a frame (o.on), with its mask (a tile's coast fade: it moves with it).
+-- A region onto a frame (o.on).
 local function Reparent(o, to)
 	o:SetParent(to)
 	o.on = to
-	if o.mask then o.mask:SetParent(to) end
 end
 
 -- The next region of a kind on the canvas being laid out: make(canvas) makes one. what: "tex" |

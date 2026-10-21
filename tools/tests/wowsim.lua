@@ -1136,10 +1136,9 @@ C_CVar = { GetCVar = GetCVar }
 -- No font: Forever answers nil for the ones it has (the M0 gate's `art` misses); SetFont loads them.
 local FILES = {}
 for i, path in ipairs({ "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up", "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight",
-	"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down", "Interface\\Minimap\\MinimapArrow", "Interface\\COMMON\\Indicator-Yellow",
-	"Interface\\WorldMap\\Gear_64", "Interface\\CharacterFrame\\TempPortraitAlphaMask",
+	"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down", "Interface\\WorldMap\\Gear_64", "Interface\\CharacterFrame\\TempPortraitAlphaMask",
 	"Interface\\HUD\\UIMinimap2xC60", "Interface\\Icons\\INV_Misc_Map_01", "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",
-	"Interface\\Minimap\\PartyRaidBlipsV2", "Interface\\Minimap\\Tracking\\Herbalism", "Interface\\Minimap\\Tracking\\Mining" }) do
+	"Interface\\Minimap\\PartyRaidBlipsV2" }) do
 	FILES[path:lower()] = 100000 + i
 end
 function GetFileIDFromPath(path) return FILES[(path:lower():gsub("/", "\\"))] end
@@ -1572,21 +1571,6 @@ function C_Map.GetMapRectOnMap(id, top)
 	local function y(r) return (r - t[6]) / (t[8] - t[6]) end
 	return x(m[5]), x(m[7]), y(m[6]), y(m[8])
 end
--- Map art (the world map's, and HybridMinimap's): Sim.mapArt[uiMapID] =
--- { w, h, tile } in pixels; its textures are made-up FileDataIDs.
-Sim.mapArt = {}
-function C_Map.GetMapArtLayers(id)
-	local a = Sim.mapArt[id]
-	if not a then return nil end
-	return { { layerWidth = a[1], layerHeight = a[2], tileWidth = a[3], tileHeight = a[3], minScale = 1, maxScale = 1, additionalZoomSteps = 0 } }
-end
-function C_Map.GetMapArtLayerTextures(id, layer)
-	local a = Sim.mapArt[id]
-	if not a or layer ~= 1 then return nil end
-	local files = {}
-	for i = 1, math.ceil(a[1] / a[3]) * math.ceil(a[2] / a[3]) do files[i] = 900000 + i end
-	return files
-end
 -- The smallest zone, dungeon floor (or, inside, micro map) you're on.
 function C_Map.GetBestMapForUnit(unit)
 	if unit ~= "player" then return nil end
@@ -1688,8 +1672,7 @@ local ATLASES = { Professions_Tracking_Herb = true, Professions_Tracking_Ore = t
 for _, base in ipairs({ "ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-out" }) do
 	ATLASES[base], ATLASES[base .. "-mouseover"], ATLASES[base .. "-down"] = true, true, true
 end
-for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutton-highlight",
-	"ui-hud-minimap-arrow-player", "ui-hud-minimap-arrow-questtracking", "minimaparrow", "Quest-In-Progress-Icon-yellow" }) do
+for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutton-highlight", "Quest-In-Progress-Icon-yellow" }) do
 	ATLASES[name] = true
 end
 -- The metal frame's pieces, sized as Forever reports them: the edges far
@@ -1703,7 +1686,7 @@ ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
 ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }
 ATLASES["!UI-Frame-Metal-EdgeRight"] = { 200, 256 }
 -- ui/Art.lua's (Forever's ObjectIconsAtlas, as tools/export_icons.py cuts them for the demo)
-for _, name in ipairs({ "taxinode_alliance", "taxinode_horde", "taxinode_neutral", "vignettekill", "vignettekillelite",
+for _, name in ipairs({ "taxinode_alliance", "taxinode_horde", "taxinode_neutral", "vignettekill",
 	"questnormal", "questturnin", "dungeon", "raid" }) do
 	ATLASES[name] = true
 end
