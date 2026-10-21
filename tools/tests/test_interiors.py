@@ -66,7 +66,9 @@ def test_ironforge_drawn():
     (room 90) on its level, the upper (96: 42 yd above) ghosted, the deep room under the city (103) faded; under
     "The High Seat" room 88 on top, the Forge and the lower bridge on its level; in the Commons ring (room 8: its
     box reaches 91 yd down, its floor the street's) every room on its level whole, the rest faded or ghosted only
-    for overlapping one on it; out of the building, nothing drawn. Entering is within the frame budget, priced."""
+    for overlapping one on it; out of the building, still in the city, its rooms whole (none under one above
+    ground). City maps are the big map's: small, only the building you're in. Entering is within the frame
+    budget, priced."""
     from test_addon import boot, errors
     from test_ground import layer
     L, sim, ns = boot()
@@ -93,6 +95,9 @@ def test_ironforge_drawn():
         veil = c.pools.veil and c.pools.veil.n > 0 and S[c.pools.veil[1]].color[4]
         return veil, {r: a for (k, r), a in alpha.items() if k == IF}, {r for k, r in top if k == IF}, alpha
 
+    assert {k for k, _ in at("The Great Forge")[3]} == {IF}  # small: only the building you're in
+    sim.Press("M")
+    sim.Run(1)
     sim.Price(True)
     perf.max = whole.max = 0
     veil, rooms, top, every = at("The Great Forge")
@@ -112,17 +117,18 @@ def test_ironforge_drawn():
     assert all(rooms[r] == 1 for r in on)
     for r, a in rooms.items():
         assert a == 1 or r not in on and set(b.rooms[r].over.values()) & on, (r, a)
-    sim.player.col = 33.6  # out of the building, still in the city: undimmed, its rooms (all underground) faded
+    sim.player.col = 33.6  # out of the building, still in the city: undimmed; its rooms, all underground, whole
     veil, rooms, top, _ = at("", 3)
-    assert ns.Model.interior is False and not veil and not top and set(rooms.values()) == {0.35}
+    assert ns.Model.interior is False and not veil and not top and set(rooms.values()) == {1}
     ns.UI.Engine.SetLayer("cities", False)
     assert at("") is None
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
 def test_city_maps():
-    """Orgrimmar outdoors (no building: the Minimap's outdoor view): with City maps on, the city's buildings
-    drawn over undimmed tiles, the Cleft of Shadow's rooms among them, the rooms under the ground faded; off,
+    """Orgrimmar outdoors (no building: the Minimap's outdoor view), the map big: with City maps on, the city's
+    buildings drawn over undimmed tiles, the Cleft of Shadow's rooms among them, a room under the ground faded
+    where it's under one above it, the rest whole; looked at from away, every room whole; small or off,
     nothing drawn. Entering is within the frame budget, priced."""
     from test_addon import boot, errors
     from test_ground import layer, look
@@ -133,6 +139,7 @@ def test_city_maps():
     perf, whole = ns.Runtime.Perf()[0]["map: interiors"], ns.Runtime.Perf()[0]["runtime: frame"]
     sim.player.inst, sim.player.col, sim.player.row = 1, 40.15, 28.65  # beside the Cleft of Shadow
     sim.FireEvent("ZONE_CHANGED_NEW_AREA")
+    sim.Run(1)
 
     def drawn():
         c = lay.front
@@ -141,8 +148,10 @@ def test_city_maps():
         pool = c.pools.pic
         return (c.pools.veil and c.pools.veil.n or 0), {(pool["keys"][i].key, pool["keys"][i].room): S[pool[i]].alpha for i in range(1, pool.n + 1)}
 
+    assert drawn() is None  # small: no city map
     sim.Price(True)
     perf.max = whole.max = 0
+    sim.Press("M")
     sim.Run(2)
     sim.Price(False)
     assert ns.Model.you.uiMap == 1454 and not ns.Model.interior
@@ -150,13 +159,21 @@ def test_city_maps():
     print(f"Orgrimmar: {len(rooms)} rooms drawn; its layout's slowest frame {perf.max:.2f} ms, the slowest frame {whole.max:.2f}")
     assert veils == 0 and all(rooms[165042, r] == 0.35 for r in (74, 75, 137))  # the Cleft under the streets
     org = ns.Atlas.Building(1, 165042)
-    assert all(a == (0.35 if org.rooms[r].underground else 1) for (k, r), a in rooms.items() if k == 165042)
+    def under(b, r):  # underground, under a room above ground
+        return b.rooms[r].underground and any(not b.rooms[o].underground for o in b.rooms[r].over.values())
+    assert all(a == (0.35 if under(org, r) else 1) for (k, r), a in rooms.items() if k == 165042)
     assert rooms[165042, 136] == 1 and org.rooms[136].floor < 40  # the Drag's street: its floor the street's
     assert perf.max <= 5 and whole.max <= 8  # a slice within the moving budget, the frame within the max
     look(sim, ns, (40.9, 29.2), ns.UI.Camera.cam.zoom)  # the rooms under the city's east edge
-    assert all(a == 0.35 for (k, _), a in drawn()[1].items() if k == 250582) and any(k == 250582 for k, _ in drawn()[1])
+    assert all(a == 1 for (k, _), a in drawn()[1].items() if k == 250582) and any(k == 250582 for k, _ in drawn()[1])
+    sim.player.col, sim.player.row = 42.0, 31.0  # out in Durotar, the map on Orgrimmar: looked at from away
+    sim.Run(1)
+    ns.UI.Camera.follow = False  # (as a drag leaves it)
+    look(sim, ns, (40.15, 28.65), ns.UI.Camera.cam.zoom)
+    assert set(a for (k, _), a in drawn()[1].items() if k == 165042) == {1}
     # Over Undercity, the client saying Tirisfal Glades (the Ruins of Lordaeron): the city under them, faded.
     L.execute("C_Map.GetBestMapForUnit = function() return 1420 end")
+    ns.UI.Camera.follow = True
     sim.player.inst, sim.player.col, sim.player.row = 0, 31.47, 29.0
     sim.FireEvent("ZONE_CHANGED_NEW_AREA")
     sim.Run(2)

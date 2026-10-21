@@ -108,6 +108,7 @@ end
 local function Grow()
 	if BigMap.big then return end
 	BigMap.big = true
+	UI.Borders.frame:SetAlpha(1) -- zone borders: the big map's only
 	if not small then -- still shrinking back from the last time: the rect to return to stands
 		small = { left = frame:GetLeft(), top = frame:GetTop(), w = frame:GetWidth(), h = frame:GetHeight(),
 			zoom = (Motion.Goal()) } -- where a chase or flight was headed (MinimapMode.lua:152)
@@ -136,6 +137,7 @@ end
 local function Shrink()
 	if not BigMap.big then return end
 	BigMap.big = false
+	UI.Borders.frame:SetAlpha(0)
 	local target = small
 	TweenTo(target, COLLAPSE_TIME, function()
 		small = nil
@@ -164,6 +166,7 @@ frame:HookScript("OnHide", Runtime.Wrap("map: hidden small", function()
 	local s = small
 	tween, small = nil, nil
 	BigMap.big = false
+	UI.Borders.frame:SetAlpha(0)
 	BigMap.homeAlpha = restoreAlpha
 	SetRect(s.left, s.top, s.w, s.h)
 	BigMap.SaveLayout()

@@ -1,13 +1,14 @@
 -- Interiors (docs/decisions/0008-interiors.md): buildings' indoor minimap pictures over the terrain tiles,
 -- under quest areas and pins: an Engine layer at level 2 (over the tiles' 1, under the areas' 3), "scale" like
 -- the tiles, so a zoom or pan moves its canvas. Which buildings: the one you're in on the map shown
--- (Model.interior, Game's); with City maps on (gear -> Map) and you in a capital, every one of its buildings
--- (Atlas.City) too, indoors or out. The terrain dimmed x0.35 only while you're in a building. The prototype's
+-- (Model.interior, Game's); with City maps on (gear -> Map) and the map big, every building of the capital
+-- you're in, or else of the one at the view's centre (Atlas.City), indoors or out. The terrain dimmed x0.35 only while you're in a building. The prototype's
 -- drawing (docs/evidence/indoors/addon/Test.lua): each picture a parallelogram drawn as the axis-aligned box
 -- around it, the box's corner texture coordinates solved for, CLAMPTOBLACKADDITIVE so outside the picture is
 -- clear. By level from your floor (real floors, world height, so buildings compare): rooms on yours (within
 -- 22 yd) whole; another faded below (x0.35) or ghosted above (x0.15) only where it overlaps a room on your
--- level, else whole. Outdoors your level is the surface: underground rooms faded, the rest whole. Drawn
+-- level, else whole. Outdoors your level is the surface: underground rooms faded where they're under it,
+-- the rest whole; a city looked at from away, whole. Drawn
 -- below, then above, then the rest by floor, your room (or every candidate) over every other room. The
 -- boxes are worked out once a building; a new Model.interior or city (the layer's rev) lays it out again.
 -- Nothing to draw: the layer idle, the tiles as they are.
@@ -25,29 +26,36 @@ local STEP = 16 -- yd of floor a sublevel
 local TEXELS = 1600 / 3 * 2 -- a picture's pixels a tile unit (2 a yard)
 local CAPITALS = { 1453, 1454, 1455, 1456, 1457, 1458 }
 
--- The capital you're in on the map shown, City maps on (Atlas.City); else nil. In: inside its map's rect, not
--- by uiMap (in the Ruins of Lordaeron, over Undercity, the client likely says Tirisfal Glades).
+-- Inside a capital's map rect (not by uiMap: in the Ruins of Lordaeron, over Undercity, the client likely
+-- says Tirisfal Glades).
+local function In(id, inst, col, row)
+	local r = Atlas.MapRect(id)
+	return r.inst == inst and col >= r.col0 and col <= r.col1 and row >= r.row0 and row <= r.row1
+end
+
+-- With City maps on and the map big (Atlas.City): the capital you're in on the map shown, here true; else
+-- the one at the view's centre, here false (looked at from away). Else nil.
 local function City()
-	local y = Model.you
-	if not (y.col and y.inst == Camera.inst and Engine.LayerOn("cities")) then return end
+	if not (UI.BigMap.big and Engine.LayerOn("cities")) then return end
+	local y, inst, cam = Model.you, Camera.inst, Camera.cam
 	for _, id in ipairs(CAPITALS) do
-		local r = Atlas.MapRect(id)
-		if r.inst == y.inst and y.col >= r.col0 and y.col <= r.col1 and y.row >= r.row0 and y.row <= r.row1 then
-			return Atlas.City(y.inst, id)
-		end
+		if y.col and y.inst == inst and In(id, inst, y.col, y.row) then return Atlas.City(inst, id), true end
+	end
+	for _, id in ipairs(CAPITALS) do
+		if In(id, inst, cam.cx, cam.cy) then return Atlas.City(inst, id), false end
 	end
 end
 
--- What's drawn: { i = Model.interior on the map shown, or nil; c = City() }, the same table while both are;
--- false: nothing.
+-- What's drawn: { i = Model.interior on the map shown, or nil; c, here = City() }, the same table while
+-- they are; false: nothing.
 local scene = false
 local function Scene()
-	local i, c = Model.interior, City()
+	local i, c, here = Model.interior, City()
 	if not (i and i.inst == Camera.inst) then i = nil end
 	if not (i or c) then
 		scene = false
-	elseif not scene or scene.i ~= i or scene.c ~= c then
-		scene = { i = i, c = c }
+	elseif not scene or scene.i ~= i or scene.c ~= c or scene.here ~= here then
+		scene = { i = i, c = c, here = here }
 	end
 	return scene
 end
@@ -101,7 +109,8 @@ end
 
 -- Each room's look, [key][room] = { alpha, sublevel }. In a building (s.i): on your level whole, by floor;
 -- another overlapping (its over, the city's over) one on your level faded below, ghosted above; the rest
--- whole; yours on top. Outdoors: underground faded, the rest whole.
+-- whole; yours on top. Outdoors in the city: an underground room faded where it's under one above ground
+-- (its over), the rest whole. A city looked at from away (not s.here): every room whole, by floor.
 local NONE = {}
 local function Looks(s, list)
 	local i, c, looks = s.i, s.c, {}
@@ -120,15 +129,19 @@ local function Looks(s, list)
 	for _, b in ipairs(list) do byKey[b.key] = b end
 	for _, b in ipairs(list) do
 		local l, cross = {}, c and c.over[b.key]
+		local away = c and not s.here and Has(c.buildings, b.key)
 		for room, r in pairs(b.rooms) do
-			local f, near = r.floor, false
-			if i and not On(b, room) then
+			local f, near, under = r.floor, false, false
+			if away then -- (whole)
+			elseif i and not On(b, room) then
 				for _, o in ipairs(r.over) do near = near or On(b, o) end
 				for _, o in ipairs(cross and cross[room] or NONE) do near = near or byKey[o[1]] ~= nil and On(byKey[o[1]], o[2]) end
+			elseif not i and r.underground then
+				for _, o in ipairs(r.over) do under = under or not b.rooms[o].underground end
 			end
 			if i and b.key == i.building and Has(i.rooms, room) then
 				l[room] = { 1, MINE }
-			elseif near and f < yours or not i and r.underground then
+			elseif near and f < yours or under then
 				l[room] = { BELOW, By(f, yours - LEVEL - 4 * STEP, -8, 5) }
 			elseif near then
 				l[room] = { ABOVE, By(f, yours + LEVEL, -3, 3) }

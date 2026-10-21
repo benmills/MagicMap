@@ -88,15 +88,19 @@ like terrain tiles.
 - **Your floor** (Game): your room's real floor (world height); unsure, the highest candidate's, so it
   never fades the room you may be in.
 - **Drawing** (UI), the buildings: the one you're in; with **City maps** on (gear → Map, on by default)
-  and you in a capital (inside the rect of uiMap 1453–1458, on its instance: not by your uiMap, which is
-  likely Tirisfal Glades in the Ruins of Lordaeron), every one of the city's buildings too, indoors or out. Off: only the one you're in, as before.
+  and the map **big**, every building of the capital you're in (inside the rect of uiMap 1453–1458, on its
+  instance: not by your uiMap, which is likely Tirisfal Glades in the Ruins of Lordaeron), or else of the
+  capital at the view's centre (looked at from away), indoors or out. Small (minimap mode) or off: only the
+  one you're in. Zone borders are likewise the big map's only (laid out small too, hidden, so M needn't
+  build them).
   - the terrain tiles dimmed (×0.35) only while you're in a building;
   - the rooms drawn over them, under quest areas and pins;
   - levels by real floors (world height, so buildings compare): a room within **22 yd** of your floor is
     on your level, drawn whole. Another is faded below (×0.35) or ghosted above (×0.15) only where it
     overlaps a room on your level (its `over`, and the city's across buildings); one that overlaps
-    nothing on your level is drawn whole. Outdoors your level is the surface: underground rooms faded
-    ×0.35, the rest whole;
+    nothing on your level is drawn whole. Outdoors your level is the surface: an underground room faded
+    ×0.35 where it's under a room above ground (its `over`), the rest whole (Ironforge, all under the
+    mountain, whole). A capital looked at from away: every room whole;
   - drawn below, then the ghosts above, then the rest by floor; your room, or every candidate, over
     every other room (the Forge hall's picture covers the High Seat's).
   - Outside a building with City maps off, or outside the capitals, nothing extra: the terrain tiles

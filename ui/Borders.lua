@@ -240,3 +240,4 @@ UI.Borders = Engine.Layer("borders", 7, function(c, inst, zoom, c0, r0, c1, r1)
 	end
 end, nil, "hold")
 UI.Borders.Polyline, UI.Borders.Scratch = Polyline, Scratch
+UI.Borders.frame:SetAlpha(0) -- shown on the big map only (ui/BigMap.lua's Grow); laid out small too, so M needn't build them
