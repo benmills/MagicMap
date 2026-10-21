@@ -5,8 +5,8 @@ terrain at any zoom, from Blizzard's closest zoom out to a whole continent. Bliz
 (herbs, ore, tracked NPCs) stay on it, and inside buildings it shows Blizzard's indoor maps. Press
 M and it grows into a big map in the same frame.
 
-For **WoW Forever** only. Version **2.0.0-rc.1**, the first release candidate of 2.0: a rebuild
-of 1.0 (release notes: [dist/RELEASE_NOTES-v2.0.0-rc.1.md](dist/RELEASE_NOTES-v2.0.0-rc.1.md)).
+For **WoW Forever** only. Version **2.0.0**: a rebuild
+of 1.0 (release notes: [dist/RELEASE_NOTES-v2.0.0.md](dist/RELEASE_NOTES-v2.0.0.md)).
 
 ![The minimap at Red Cloud Mesa, and M grows it into the big map over Mulgore and the Barrens](docs/images/hero-minimap-and-big-map.jpg)
 
@@ -109,7 +109,7 @@ position, Advanced (diagnostics, grouping, performance). Settings are account-wi
 
 ## Install
 
-1. Download the MagicMap zip from the GitHub release (`MagicMap-v2.0.0-rc.1…zip`).
+1. Download the MagicMap zip from the GitHub release (`MagicMap-v2.0.0.zip`).
 2. Unzip it into `World of Warcraft/_classic_beta_/Interface/AddOns/` (WoW Forever's folder), so
    you have `Interface/AddOns/MagicMap/MagicMap.toc`, not `MagicMap/MagicMap/`. When updating,
    delete the old `MagicMap` folder first. (1.0 saved its settings and seen rares as `MagicMapDB`;
@@ -220,14 +220,13 @@ restart it, not `/reload`), then:
 Set `## Version:` in `MagicMap.toc` (D7: 2.x.x), run every generator on the installed client (above;
 the QuestieDB-derived five too) and `tools/check.sh`, commit, tag `v<version>`, then
 
-    tools/package.sh v2.0.0-rc.1   # dist/MagicMap-v2.0.0-rc.1.zip
+    tools/package.sh v2.0.0   # dist/MagicMap-v2.0.0.zip
 
 One zip of the committed tree, with LICENSE and NOTICE.md; it's unzipped into a scratch AddOns folder
 and loaded in the sim from there (every TOC file present; 0 errors) or isn't written. It goes on the
-GitHub release, with its notes: for the release candidate
-[dist/RELEASE_NOTES-v2.0.0-rc.1.md](dist/RELEASE_NOTES-v2.0.0-rc.1.md) (2.0.0's own, for later:
-[dist/RELEASE_NOTES-v2.0.0.md](dist/RELEASE_NOTES-v2.0.0.md), the listing in
-[dist/listing-v2.0.0.md](dist/listing-v2.0.0.md)). Bringing this repo into `~/code/MagicMap`:
+GitHub release, with its notes: [dist/RELEASE_NOTES-v2.0.0.md](dist/RELEASE_NOTES-v2.0.0.md) (the release
+candidate's: [dist/RELEASE_NOTES-v2.0.0-rc.1.md](dist/RELEASE_NOTES-v2.0.0-rc.1.md); a listing draft for
+other channels: [dist/listing-v2.0.0.md](dist/listing-v2.0.0.md)). Bringing this repo into `~/code/MagicMap`:
 [docs/release/merge-plan.md](docs/release/merge-plan.md).
 
 ## Telemetry

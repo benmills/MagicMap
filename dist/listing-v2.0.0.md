@@ -17,7 +17,7 @@ changelog for either site is dist/RELEASE_NOTES-v2.0.0.md without its checklist 
 | Dependencies | None required. Optional, picked up when loaded: Questie, HandyNotes, GatherMate2 (HereBeDragons pins); FarmHud is yielded to |
 | Licence | **To choose**: neither repo has a LICENSE. With the QuestieDB-derived data in the zip, its licence (none declared) must be settled first (D1) |
 | Source | the GitHub repo, once merged (docs/release/merge-plan.md) |
-| Screenshots / media | docs/zoomable-minimap.gif, docs/minimap-to-big-map.gif (1.0's; the user records new ones) |
+| Screenshots / media | docs/images/ (2.0's in-game shots, as the README shows them) |
 
 Later, for automatic packaging: `## X-Curse-Project-ID:` and `## X-Wago-ID:` in MagicMap.toc once the
 projects exist; a `.pkgmeta` would need the gitignored Data files, so upload tools/package.sh's zip by hand.
