@@ -1,3 +1,5 @@
+![MagicMap: small map? Big mistake. Zoom, there it is. Free, for WoW Forever.](docs/images/banner.webp)
+
 # MagicMap
 
 **One map for all of Azeroth, right where your minimap is.** Zoom out from the street you're on to the
