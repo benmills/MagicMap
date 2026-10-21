@@ -2,42 +2,52 @@
 
 A minimap you can zoom out. MagicMap takes your minimap's spot and draws the game's own minimap
 terrain at any zoom, from Blizzard's closest zoom out to a whole continent. Blizzard's live blips
-(herbs, ore, tracked NPCs) stay on it. Press M and it grows into a big map in the same frame.
+(herbs, ore, tracked NPCs) stay on it, and inside buildings it shows Blizzard's indoor maps. Press
+M and it grows into a big map in the same frame.
 
-For **WoW Forever** only. Version **2.0.0**: a rebuild of 1.0 that looks and behaves as 1.0 did
-(release notes: [dist/RELEASE_NOTES-v2.0.0.md](dist/RELEASE_NOTES-v2.0.0.md)).
+For **WoW Forever** only. Version **2.0.0-rc.1**, the first release candidate of 2.0: a rebuild
+of 1.0 (release notes: [dist/RELEASE_NOTES-v2.0.0-rc.1.md](dist/RELEASE_NOTES-v2.0.0-rc.1.md)).
 
 ![The minimap: zooming from a herb tooltip out past the whole coast](docs/zoomable-minimap.gif)
 
 ## Features
 
 **The minimap.** It sits square on your minimap's spot, about 200 yards across, in a metal frame
-whose buttons show while you hover. The wheel or + / − zoom it, every notch a step; drag to pan,
-and left alone for 6 seconds after a pan it glides back to you. Move it by the zone name or the
-border (or Alt-drag the map), resize it by the corner (it keeps the yards across), and
-`/mm reset` puts it back. `/mm`, the rim button or the addon compartment swaps it for Blizzard's
-minimap, and back.
+whose buttons show while you hover. The wheel or + / − zoom it, every notch a step, and the reset
+button above + (shown while you're off the default zoom) glides back to it; drag to pan, and left
+alone for 6 seconds after a pan it glides back to you (Follow you, in Settings). Move it by the
+zone name or the border (or Alt-drag the map), resize it by the corner (it keeps the yards across),
+and `/mm reset` puts it back. `/mm`, the rim button or the addon compartment swaps it for
+Blizzard's minimap, and back.
 
 **The big map (M).** M or the red button grows it into a big map, centred on you; M, the button
 or Escape shrinks it. The quest log (L) still opens Blizzard's map. Click the zone name to pick a
 continent, another map or an instance; with several zones in view, hover one to light it and click
 to fly there. `/mm map` and `/mm zone` do the same by name.
 
-**The ground.** The game's minimap tiles at any zoom, colour-matched where neighbours differ
-(`/mm tint`), the sea beyond the coast, zone and subzone borders and names traced from the
-terrain, and your arrow.
+**The ground.** The game's minimap tiles at any zoom, as Blizzard drew them, on each map's own dark
+water; zone and subzone names, and on the big map the zone borders traced from the terrain; your
+arrow.
+
+**Indoors.** In a building, Blizzard's own indoor minimap pictures, placed on our map over the
+dimmed terrain: the rooms on your floor whole, the floors below faded and those above ghosted where
+they overlap yours, the room you're in on top. Your pins, zoom and pan work as outdoors. **City
+maps** (gear → Map, on): on the big map in a capital (Ironforge, Orgrimmar, Undercity...), every
+building of the city at once, indoors or out, what's underground faded, with the city's own area
+names (The Great Forge, the Cleft of Shadow...) among the subzone names.
 
 **Blizzard's blips.** Outdoors Blizzard's Minimap stays out of sight and is read as a sensor:
 herbs, ore, the mailbox and tracked NPCs within about 230 yards get a pin with Blizzard's tracking
 icon and tooltip, at any zoom. Zoomed in to town scale, the town services you track show too, and
 blips seen before (up to 5000 a continent). Blizzard's own flight, quest and POI tracking is
 switched off while MagicMap draws those itself, and put back when it stops, even after a crash.
-The gear's Tracking lists the rest of Blizzard's tracking.
 
-**Quests.** The quests in your log in Blizzard's art, with their objective icon and count, in their
-difficulty colour; quests to pick up; a tooltip with the quest's facts, mobs, items and who to turn
-it in to. Objective areas are drawn as the game draws them, and hovering an area lights it. Click a quest (or its area, zoomed in) to
-follow it: it becomes the game's tracked quest.
+**Quests.** The quests in your log in Blizzard's icons, with their objective icon and count, in
+their difficulty colour; quests to pick up; a tooltip with the quest's facts, mobs, items and who
+to turn it in to. Objective areas are drawn as the game draws them, and hovering an area lights it.
+Click a quest (or its area, zoomed in) to follow it: it becomes the game's tracked quest. The quest
+line at the bottom left shows the quest you follow and its progress, else how many of your quests
+are in this zone.
 
 **Where to go.** Your target is your corpse while you're a ghost, else the quest you follow, else
 your waypoint. A hand-inked line walks you to it around cliffs, lava and water, to a quest area's
@@ -50,28 +60,46 @@ range against yours, distance, quests, explored or not, and the landmarks nearby
 raid members in class colours; rares you've seen, remembered for every character on your account;
 the rares and treasures the game shows now; your corpse and waypoint.
 
-**Other addons.** World-map pins added through HereBeDragons (Questie, HandyNotes...) show on the
-map with their own icons, tooltips and clicks, each addon a row in the gear's layers; their minimap
-pins (GatherMate...) show around you. Nothing is drawn twice.
+**Crowded icons.** Where icons overlap they group into a small pill of up to three icons (`+N` for
+the rest); click it for a grid of them all, each with its own tooltip and click (Settings: Group
+overlapping icons; its tunables under Advanced).
 
-**The gear menu** (by the zone name): every layer by group (Map, Quests, Places, People, You, Other
-addons), Blizzard's Tracking, and Settings (colour-matched tiles; the minimap button, reset
-position, Blizzard's minimap; Advanced: diagnostics and performance). Settings are account-wide.
+**Other addons.** World-map pins added through HereBeDragons (Questie, HandyNotes...) show on the
+map with their own icons, tooltips and clicks, each addon a row in the gear's Other addons; their
+minimap pins (GatherMate...) show around you. Nothing is drawn twice.
+
+**The gear menu** (by the zone name): the layers by group, each row with its icon and an "All" box
+on top: Map (zone labels, zone borders, City maps), Quests, Places, Nearby (rares and treasures,
+party and raid, then Blizzard's tracking types), Other addons. Then Use Blizzard's minimap and Reset
+to defaults, then Settings: Follow you, Group overlapping icons, Minimap button, Reset window
+position, Advanced (diagnostics, grouping, performance). Settings are account-wide.
 
 ![Pressing M grows the minimap into a big map and back](docs/minimap-to-big-map.gif)
 
 ## Install
 
-1. Download `MagicMap-v2.0.0.zip`.
-2. Unzip it into `World of Warcraft/_classic_beta_/Interface/AddOns/`, so you have
-   `Interface/AddOns/MagicMap/MagicMap.toc`. When updating, delete the old `MagicMap` folder
-   first. (1.0 saved its settings and seen rares as `MagicMapDB`; 2.0 starts fresh, and doesn't
-   need the QuestieDB addon.)
+1. Download the MagicMap zip from the GitHub release (`MagicMap-v2.0.0-rc.1…zip`).
+2. Unzip it into `World of Warcraft/_classic_beta_/Interface/AddOns/` (WoW Forever's folder), so
+   you have `Interface/AddOns/MagicMap/MagicMap.toc`, not `MagicMap/MagicMap/`. When updating,
+   delete the old `MagicMap` folder first. (1.0 saved its settings and seen rares as `MagicMapDB`;
+   2.0 starts fresh, and doesn't need the QuestieDB addon.)
 3. Restart the game. A `/reload` isn't enough the first time: new files load only at startup.
+4. At the character select, AddOns: MagicMap ticked. In game, `/mm help` lists the commands.
 
 MagicMap takes your minimap's spot at once. Without its quest data (a build without
 `Data/Quests.lua`), one chat line says so and the map runs on: quests show without their mobs
 and items, and town services are plain gold dots, only within the sensor's reach.
+
+### Play-testing: what to send back
+
+A short guide for a play session is [docs/playtest-external.md](docs/playtest-external.md).
+Anything odd: type `/mm mark <what you saw>` at once (it saves what the map was doing then), and a
+screenshot (Print Screen) helps. At the end, `/reload` (or log out) so the game writes its file,
+then send
+
+    World of Warcraft/_classic_beta_/WTF/Account/<your account>/SavedVariables/MagicMap.lua
+
+and any screenshots (`_classic_beta_/Screenshots/`). Nothing leaves your computer otherwise.
 
 | Command (`/mm` or `/magicmap`) | Does |
 | --- | --- |
@@ -80,15 +108,16 @@ and items, and town services are plain gold dots, only within the sensor's reach
 | `/mm map <name or id>`, `/mm zone <name>` | Show a map (alone: list them); fly to a zone |
 | `/mm reset` | Back onto the minimap's spot, at its size |
 | `/mm layers`, `/mm layer <name>` | What's drawn; show or hide one layer |
-| `/mm icon`, `/mm tint` | The minimap button; tile colour correction |
-| `/mm landmarks`, `/mm indoor`, `/mm blips` | Rares remembered; what indoors shows and why; what the sensor knows |
+| `/mm icon` | The minimap button |
+| `/mm mark <note>` | Note something for the bug report (saved at `/reload` or logout) |
+| `/mm landmarks`, `/mm indoor`, `/mm blips` | Rares remembered; the building and room you're in; what the sensor knows |
 | `/mm help` | Every command, the diagnostics too (`perf`, `errors`, `check`...) |
 
 ## Limits
 
 - **WoW Forever only**, the client build `Data/` was generated from (a patch means regenerating).
 - **Blizzard's blips** are sensed only within about 230 yards of you.
-- **Indoors** the map shows the art of the map you're on; where there's none, Blizzard's floor plan.
+- **Indoors** only buildings with Blizzard's indoor minimap pictures get them; elsewhere the terrain.
 - **Instances** that hide your position are shown whole, without the arrow, line or blips.
 - **Rotate Minimap**: MagicMap stays north up, and other addons' minimap pins hide while it's on.
 - **Other minimap addons** (SexyMap, square-minimap addons) may conflict. While FarmHud has the
@@ -101,8 +130,8 @@ and items, and town services are plain gold dots, only within the sensor's reach
 The rebuild's design is in [architecture.md](architecture.md); the addon (the repo root is the
 addon root, `MagicMap.toc`), its folders, load order and the Runtime contract are in
 [docs/structure.md](docs/structure.md). **Atlas** (`atlas/`) is the library of facts that hold
-(tiles, tile colour, the sea, borders, labels, walk grid, uiMaps, areas, places, NPCs / objects /
-items / quests, coordinates and camera maths), from data the offline tools generate (`Data/`, see
+(tiles, borders, labels, walk grid, uiMaps, areas, places, interiors and the capitals' buildings,
+NPCs / objects / items / quests, coordinates and camera maths), from data the offline tools generate (`Data/`, see
 [docs/atlas-data.md](docs/atlas-data.md)).
 
 ## Setup
@@ -162,14 +191,15 @@ restart it, not `/reload`), then:
 Set `## Version:` in `MagicMap.toc` (D7: 2.x.x), run every generator on the installed client (above;
 the QuestieDB-derived five too) and `tools/check.sh`, commit, tag `v<version>`, then
 
-    tools/package.sh v2.0.0     # dist/MagicMap-v2.0.0-no-questie-data.zip and -with-questie-data.zip
+    tools/package.sh v2.0.0-rc.1   # dist/MagicMap-v2.0.0-rc.1-no-questie-data.zip and -with-questie-data.zip
 
 Two zips, as the QuestieDB-derived data may not ship (D1: QuestieDB declares no licence): the
 committed tree, and the same with this checkout's five gitignored Data files. Each is unzipped into
 a scratch AddOns folder and loaded in the sim from there (every TOC file present; 0 errors) or isn't
-written. The one D1 allows is uploaded as `MagicMap-v2.0.0.zip`, with
-[dist/RELEASE_NOTES-v2.0.0.md](dist/RELEASE_NOTES-v2.0.0.md) and the listing in
-[dist/listing-v2.0.0.md](dist/listing-v2.0.0.md). Bringing this repo into `~/code/MagicMap`:
+written. The one D1 allows goes on the GitHub release, with its notes: for the release candidate
+[dist/RELEASE_NOTES-v2.0.0-rc.1.md](dist/RELEASE_NOTES-v2.0.0-rc.1.md) (2.0.0's own, for later:
+[dist/RELEASE_NOTES-v2.0.0.md](dist/RELEASE_NOTES-v2.0.0.md), the listing in
+[dist/listing-v2.0.0.md](dist/listing-v2.0.0.md)). Bringing this repo into `~/code/MagicMap`:
 [docs/release/merge-plan.md](docs/release/merge-plan.md).
 
 ## Telemetry

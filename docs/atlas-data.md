@@ -76,8 +76,7 @@ that read it.
   of the entrance's continent.
 - `Atlas.Maps()` → `{ inst, name, kind, continent, bg }` sorted by inst;
   `Atlas.Tiles(inst)`; `Atlas.TileBounds(inst)` → c0, r0, c1, r1;
-  `Atlas.TileInfo(inst, key)` → `{ fdid, tint, edge, sea }` (with TileColor);
-  `Atlas.Drawn(inst, key)`.
+  `Atlas.TileSet()`; `Atlas.Drawn(inst, key)` (false on an open-sea tile: TileColor's sea).
 
 ### Data/TileColor.lua — `ns.Data.TileColor` (minimap tiles)
 `[inst] = { tint, edge, sea }`, key = col * 64 + row

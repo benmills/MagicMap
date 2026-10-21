@@ -15,13 +15,15 @@ Download `MagicMap-v2.0.0.zip` below and unzip it into `World of Warcraft/_class
 ### What it does
 - **The minimap:** square on your minimap's spot, wheel and +/− zoom, drag to pan, glides back to you 6 seconds after a pan, move and resize it, `/mm reset`. `/mm`, the rim button or the addon compartment swaps it with Blizzard's.
 - **The big map:** M or the red button grows it, M, the button or Escape shrinks it; L still opens Blizzard's map. Click the zone name to pick any continent, map or instance; click a zone to fly there.
-- **The ground:** the game's minimap terrain at any zoom, colour-matched tiles (`/mm tint`), the sea, zone and subzone borders and names, and an optional shade over what you haven't explored.
+- **The ground:** the game's minimap terrain at any zoom, as Blizzard drew it, zone and subzone names, and zone borders on the big map.
+- **Indoors:** Blizzard's indoor minimap pictures inside buildings, by floor; on the big map in a capital, the whole city's buildings with its area names (City maps).
 - **Blizzard's blips:** herbs, ore, the mailbox and tracked NPCs around you with their icons and tooltips; town services and blips seen before when zoomed in; Blizzard's duplicate tracking switched off while MagicMap draws it, and always put back.
-- **Quests:** your quests in Blizzard's art and difficulty colours, quests to pick up, rich tooltips, objective areas as the game draws them (and estimated circles where it gives none). Click one to follow it.
+- **Quests:** your quests in Blizzard's art and difficulty colours, quests to pick up, rich tooltips, objective areas as the game draws them. Click one to follow it; the quest line at the bottom left shows its progress.
 - **Where to go:** a hand-inked walking line to your corpse, the quest you follow or your waypoint, around cliffs, lava and water, and an arrow on the edge when it's off the map. Ctrl-click for a waypoint, Shift-click for a `/way` line, right-click for the menu and, on the big map, what's there.
 - **Places and people:** flight points, dungeon entrances, graveyards, points of interest, party and raid members, rares you've seen (account-wide), live rares and treasures, your corpse.
 - **Other addons:** HereBeDragons world-map pins (Questie, HandyNotes...) on the map and minimap pins (GatherMate...) around you, nothing drawn twice.
-- **The gear menu:** every layer by group, Blizzard's tracking, and settings.
+- **Crowded icons:** overlapping icons grouped into a small pill; click it for them all.
+- **The gear menu:** the layers by group (Map, Quests, Places, Nearby with Blizzard's tracking, Other addons), Use Blizzard's minimap, Reset to defaults, and Settings.
 
 ### Known limits
 - For **WoW Forever** only, on the client build it was made for (1.60.1).
@@ -46,7 +48,7 @@ Release checklist (the user's, before any upload; delete this block from the pub
   The packaged zip installed alone (1.0 moved away): 0 errors, `/mm`, the rim button and the compartment.
 - Its in-game items left open: a8, b21, c8, d9, e8 (the two sessions a script), e2 (Rotate Minimap),
   e5 (FarmHud), e7 (no data), the reference shots and the parity sign-off (docs/parity.md: every row
-  signed or out by decision), and its "Decisions for you" 1-11 (S31, the sea, among them).
+  signed or out by decision), and its "Decisions for you".
 - New GIFs: docs/zoomable-minimap.gif and docs/minimap-to-big-map.gif are 1.0's (the look is the same).
 - LICENSE: neither repo has one.
 -->
