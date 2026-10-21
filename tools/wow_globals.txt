@@ -1,37 +1,56 @@
 # Globals the addon may read, for tools/luacheck.py: anything else it reads
 # must be set by the addon itself, or it's flagged as a likely typo.
-# Add a name here when you start using new WoW API.
+# Add a name here when you start using new WoW API, in the section that says
+# who may use it (luacheck.py BOUNDARIES; README "Boundaries"):
+#   [lua]      anyone but atlas/ and model/ (they get tools/lua51_globals.txt only)
+#   [runtime]  runtime/: what a scheduler needs, nothing that reads game state
+#   [ui]       ui/: widgets, frames, textures, fonts, input; no game state (but quest areas through
+#              ui/Areas.lua's QuestPOIFrames: tools/luacheck.py POI_FILES)
+#   [game]     game/ only: game state, other addons, Blizzard's own frames
+# game/ may read every section. A name may sit in more than one section.
 
-# Lua 5.1 + WoW's Lua extensions
-_G assert collectgarbage coroutine date debugprofilestop error getmetatable ipairs math next
+[lua]
+# Lua 5.1 + WoW's Lua extensions, clocks, chat print
+_G assert collectgarbage coroutine date error getmetatable ipairs math next
 pairs pcall rawget rawset select setmetatable string strsplit strtrim table
-time tinsert tremove tonumber tostring type unpack wipe xpcall hooksecurefunc geterrorhandler
+time tinsert tremove tonumber tostring type unpack wipe xpcall print loadstring
+debugprofilestop GetTime GetFramerate
 
+[runtime]
+# Its driver/event frame, error stacks
+CreateFrame debugstack geterrorhandler
+
+[ui]
+# Widgets, templates, fonts, colours, texture atlases
+CreateFrame UIParent CreateColor CreateVector2D C_Texture GetFileIDFromPath
+ButtonFrameTemplate_HideButtonBar ButtonFrameTemplate_HidePortrait
+GameFontNormal GameTooltip GameTooltipText GameTooltipTextSmall STANDARD_TEXT_FONT
+MenuResponse MenuUtil LEVEL RAID_CLASS_COLORS
+# Input state
+GetCursorPosition IsAltKeyDown IsControlKeyDown IsMouseButtonDown IsShiftKeyDown
+
+[game]
+# Errors and hooks
+seterrorhandler hooksecurefunc issecretvalue
 # Namespaces
 C_AddOnProfiler C_AddOns C_AreaPoiInfo C_CVar C_DeathInfo C_EncounterJournal C_Item C_Map C_MapExplorationInfo
-C_Minimap C_QuestLine C_TooltipInfo C_QuestLog C_SuperTrack C_TaxiMap C_Texture C_Timer
-LibQuestieDB UnitQuestTrivialLevelRange SetPortraitTexture GameTooltipText GameTooltipTextSmall
+C_Minimap C_QuestLine C_TooltipInfo C_QuestLog C_SuperTrack C_TaxiMap C_Timer
+LibQuestieDB UnitQuestTrivialLevelRange SetPortraitTexture
 C_VignetteInfo Enum
-
 # Functions
-AddQuestWatch ButtonFrameTemplate_HideButtonBar ButtonFrameTemplate_HidePortrait
-ChatFrame_OpenChat CreateColor CreateFrame CreateVector2D
-GetCVar GetCursorPosition GetInstanceInfo
-GetPlayerFacing GetSubZoneText GetTime GetZoneText
-HideUIPanel ToggleWorldMap IsAltKeyDown IsControlKeyDown IsIndoors IsMouseButtonDown
-IsShiftKeyDown InCombatLockdown UnitClass UnitClassification UnitExists
+AddQuestWatch ChatFrame_OpenChat
+GetBuildInfo GetCVar GetInstanceInfo Screenshot
+GetPlayerFacing GetRealZoneText GetSubZoneText GetZoneText
+IsFalling IsFlying IsSwimming UnitOnTaxi
+HideUIPanel ToggleWorldMap IsIndoors
+InCombatLockdown UnitClass UnitClassification UnitExists
 GetNumGroupMembers IsInRaid Minimap_OnUpdate UnitIsDeadOrGhost UnitIsUnit
 GetAddOnInfo GetAddOnMemoryUsage GetNumAddOns UpdateAddOnMemoryUsage
-UnitFactionGroup loadstring MagicMapLandmarks UnitGUID UnitIsGhost UnitIsPlayer UnitLevel UnitName UnitPosition issecretvalue
-
-# Frames, objects and mixins
-ChatFrameUtil DEFAULT_CHAT_FRAME GameFontNormal GameTooltip MenuResponse MenuUtil
-Minimap MinimapCluster SlashCmdList UIParent UISpecialFrames UiMapPoint
+UnitFactionGroup MagicMapLandmarks UnitGUID UnitIsGhost UnitIsPlayer UnitLevel UnitName UnitPosition
+# Blizzard's frames and registries (Game owns the Minimap takeover, hooks, slash, Escape)
+ChatFrameUtil DEFAULT_CHAT_FRAME Minimap MinimapCluster SlashCmdList UISpecialFrames UiMapPoint
 WorldMapFrame
-
-# Constants
-LEVEL RAID_CLASS_COLORS
-STANDARD_TEXT_FONT
-
+# Our named frames, made in one game/ file and read in another (docs/structure.md "Namespace")
+MagicMapMinimapStandIn
 # Other addons (always checked for before use)
 FarmHud LibStub

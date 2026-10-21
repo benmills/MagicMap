@@ -5,12 +5,15 @@
 
 Values are ints; array fields are tuples of ints; fields listed in
 string_fields are str when their value resolves to a string (else the raw
-int). Floats come back as their raw uint32 bits.
+int). Floats come back as their raw uint32 bits. The ID comes from the id
+list, else the inline id field. Copy-table rows are included. With
+relation=True each row ends with its relationship-map value (a non-inline
+foreign key, e.g. MapDifficulty's MapID), or 0.
 
 Storage types: none(0), bitpacked(1), common(2), bitpacked-indexed(3),
 bitpacked-indexed-array(4), bitpacked-signed(5). Encrypted sections are
-skipped; sparse tables (offset map) aren't supported. The copy table and
-relationship data are ignored.
+skipped; sparse tables (offset map) aren't supported. mmtools.dbd names and
+types the columns from WoWDBDefs.
 """
 from __future__ import annotations
 
@@ -25,22 +28,32 @@ def _bits(rec: bytes, bit_off: int, nbits: int) -> int:
     return v & ((1 << nbits) - 1)
 
 
-def read_wdc5(b: bytes, string_fields=()) -> list[list]:
+HEADER = 4 + 4 + 128  # magic, schema version, schema build string
+
+
+def layout_hash(b: bytes) -> str:
+    """The header's layout hash, as WoWDBDefs writes it (e.g. "0B8D2AAD")."""
+    return f"{struct.unpack_from('<I', b, HEADER + 20)[0]:08X}"
+
+
+def read_wdc5(b: bytes, string_fields=(), relation: bool = False) -> list[list]:
     if b[:4] != b"WDC5":
         raise ValueError(f"not WDC5 ({b[:4]!r})")
     string_fields = set(string_fields)
-    p = 4 + 4 + 128  # magic, schema version, schema build string
-    (rec_count, field_count, rec_size, _str_size, _table_hash, _layout_hash, min_id, _max_id, _locale,
+    p = HEADER
+    (rec_count, field_count, rec_size, _str_size, _table_hash, _layout_hash, _min_id, _max_id, _locale,
      flags, id_index, _total_fields, _bitpacked_offset, _lookup_cols, _fsi_size, common_size, pallet_size,
      section_count) = struct.unpack_from("<9IHH7I", b, p)
     p += 4 * 9 + 4 + 4 * 7
+    if not rec_count:
+        return []
 
     sections = []
     for _ in range(section_count):
-        key_lo, key_hi, off, rc, ss, _rec_end, id_list_size, _rel_size, _off_map_count, _copy_count = \
+        key_lo, key_hi, off, rc, ss, _rec_end, id_list_size, rel_size, _off_map_count, copy_count = \
             struct.unpack_from("<10I", b, p)
         sections.append({"encrypted": bool(key_lo or key_hi), "off": off, "rc": rc, "ss": ss,
-                         "id_list_size": id_list_size})
+                         "id_list_size": id_list_size, "rel_size": rel_size, "copy_count": copy_count})
         p += 40
     p += 4 * field_count  # field structure (size, position): implied by the storage info
     fsi = []
@@ -87,13 +100,21 @@ def read_wdc5(b: bytes, string_fields=()) -> list[list]:
         return None
 
     rows = []
-    records_seen = 0
     for s in sections:
         if not s["rc"] or s["encrypted"] or s["off"] >= len(b):
             continue
         rec_start = s["off"]
-        id_list_start = rec_start + s["rc"] * rec_size + s["ss"]
-        ids = struct.unpack_from(f"<{s['id_list_size'] // 4}I", b, id_list_start)
+        q = rec_start + s["rc"] * rec_size + s["ss"]
+        ids = struct.unpack_from(f"<{s['id_list_size'] // 4}I", b, q)
+        q += s["id_list_size"]
+        copies = struct.unpack_from(f"<{2 * s['copy_count']}I", b, q)
+        q += 8 * s["copy_count"]
+        rel = {}
+        if s["rel_size"]:
+            n = struct.unpack_from("<I", b, q)[0]
+            pairs = struct.unpack_from(f"<{2 * n}I", b, q + 12)  # (foreign id, record index)
+            rel = dict(zip(pairs[1::2], pairs[0::2]))
+        by_id = {}
         for r in range(s["rc"]):
             rec = b[rec_start + r * rec_size:rec_start + (r + 1) * rec_size]
             vals: list = []
@@ -126,17 +147,15 @@ def read_wdc5(b: bytes, string_fields=()) -> list[list]:
                 else:
                     raise ValueError(f"unsupported storage type {t} (field {fi})")
                 vals.append(val)
-            if ids:
-                rid = ids[r]
-            elif flags & 4:
-                rid = vals[id_index]
-            else:
-                rid = min_id + records_seen
+            rid = ids[r] if ids else vals[id_index]
             for fi, f in enumerate(fsi):
                 if f["type"] == 2:
                     vals[fi] = f["common"].get(rid, f["v1"])
-            rows.append([rid] + vals)
-            records_seen += 1
+            row = [rid] + vals + ([rel.get(r, 0)] if relation else [])
+            rows.append(row)
+            by_id[rid] = row
+        for new, old in zip(copies[0::2], copies[1::2]):
+            rows.append([new] + by_id[old][1:])
     return rows
 
 

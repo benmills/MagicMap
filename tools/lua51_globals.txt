@@ -1,0 +1,11 @@
+# Plain Lua 5.1 as WoW has it (no io, os, debug, require), for tools/luacheck.py:
+# all atlas/ and model/ may read. No WoW API, so any use of it in a library or in
+# Model fails the check (luacheck.py BOUNDARIES). Atlas's generated data is not
+# global: ns.Data (docs/atlas-data.md); _G, getfenv, setfenv are banned anyway
+# (luacheck.py GLOBAL_ESCAPES).
+
+[lua51]
+_G _VERSION assert collectgarbage coroutine error getfenv getmetatable ipairs
+loadstring math next pairs pcall rawequal rawget rawset select setfenv
+setmetatable string table tonumber tostring type unpack xpcall
+

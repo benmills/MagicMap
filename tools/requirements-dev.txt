@@ -1,2 +1,4 @@
 lupa==2.8
 pytest==8.4.2
+pytest-xdist==3.8.0
+pillow==11.3.0

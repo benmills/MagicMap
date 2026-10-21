@@ -7,10 +7,11 @@ The shadow is the dark, translucent part reachable from the image's edge
 without crossing the arrow's lit outline; only its alpha is scaled (by
 --shadow), so the arrow and its dark centre ring are untouched. The
 texture is padded to 64x64 (the arrow centred), a size every client loads.
+The spike's tools/gen_arrow.py, on this repo's sources (docs/v1-plan.md §4).
 
-  python3 tools/gen_arrow.py "/Applications/World of Warcraft" wow_classic_beta
+  python3 tools/gen_arrow.py local "/Applications/World of Warcraft" wow_classic_beta
 
-A new texture file needs a full client restart, not just /reload.
+A new texture file needs a full client restart, not just /reload (spike-bugs L5).
 """
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ import os
 import struct
 from collections import deque
 
-from mmtools.casc import CascStore
+from mmtools.sources import add_source_args, source_from_args
 from mmtools.tga import write_tga
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -60,26 +61,34 @@ def soften(px: list[list[list[int]]], k: float) -> None:
         px[y][x][3] = int(px[y][x][3] * k)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("install")
-    parser.add_argument("product")
-    parser.add_argument("--shadow", type=float, default=0.4, help="the shadow's alpha, of the original")
-    parser.add_argument("-o", default=os.path.join(ROOT, "Textures", "PlayerArrow.tga"))
-    ns = parser.parse_args()
-    store = CascStore(ns.install, ns.product)
-    store.resolve([ATLAS_FILE])
-    w, _, rgba = decode_blp(store.read(ATLAS_FILE))
+def arrow(blp: bytes, shadow: float) -> bytes:
+    """The TGA's bytes from the atlas file's."""
+    w, _, rgba = decode_blp(blp)
     l, t, r, b = ARROW
     px = [[list(rgba[(y * w + x) * 4:(y * w + x) * 4 + 4]) for x in range(l, r)] for y in range(t, b)]
-    soften(px, ns.shadow)
+    soften(px, shadow)
     pad_x, pad_y = (SIZE - (r - l)) // 2, (SIZE - (b - t)) // 2
     rows = [[(0, 0, 0, 0)] * SIZE for _ in range(SIZE)]
     for y, row in enumerate(px):
         rows[pad_y + y] = rows[pad_y + y][:pad_x] + [tuple(p) for p in row] + rows[pad_y + y][pad_x + len(row):]
-    with open(ns.o, "wb") as f:
-        f.write(write_tga(SIZE, SIZE, rows))
-    print(f"wrote {ns.o} ({r - l}x{b - t} arrow in {SIZE}x{SIZE}, shadow at {ns.shadow:.0%})")
+    return write_tga(SIZE, SIZE, rows)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    add_source_args(parser)
+    parser.add_argument("--shadow", type=float, default=0.4, help="the shadow's alpha, of the original")
+    parser.add_argument("-o", "--output", default=os.path.join(ROOT, "Textures", "PlayerArrow.tga"))
+    ns = parser.parse_args()
+    src = source_from_args(parser, ns)
+    src.prefetch([ATLAS_FILE])
+    blp = src.read(ATLAS_FILE)
+    if blp is None:
+        raise SystemExit(f"file {ATLAS_FILE} (the 2x minimap atlas) not available")
+    with open(ns.output, "wb") as f:
+        f.write(arrow(blp, ns.shadow))
+    l, t, r, b = ARROW
+    print(f"wrote {ns.output} ({r - l}x{b - t} arrow in {SIZE}x{SIZE}, shadow at {ns.shadow:.0%})")
 
 
 if __name__ == "__main__":

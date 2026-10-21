@@ -1,21 +1,8 @@
 .DS_Store
-*.bak
-*.swp
-
-# Promo media (kept locally, attached to releases instead)
-*.mp4
-*.gif
-!docs/*.gif
-
-# Release builds
-/dist/
-
-# Python
 __pycache__/
 .pytest_cache/
-
-# Local test environment (tools/check.sh)
 /.venv/
-
-# Agent worktrees (Claude Code)
+/demo/tiles/
 /.claude/worktrees/
+/.claude/
+/dist/*.zip

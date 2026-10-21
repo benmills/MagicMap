@@ -1,0 +1,7 @@
+## Interface: 16001
+## Title: MagicMap Indoor Test
+## Notes: Throwaway test: Ironforge indoor minimap pictures on our map. /mmit
+
+Data.lua
+Rooms.lua
+Test.lua

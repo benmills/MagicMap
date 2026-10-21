@@ -1,8 +1,10 @@
 """Readers for the chunked game files the generators use: WDT (which tile is
-where), ADT (terrain chunks: area IDs and heights) and BLP (minimap textures).
+where), ADT (terrain chunks: area IDs and heights; obj0: building placements),
+WMO (buildings: rooms, portals) and BLP (minimap textures).
 """
 from __future__ import annotations
 
+import math
 import struct
 from dataclasses import dataclass
 from typing import Iterator
@@ -117,6 +119,124 @@ def adt_liquids(buf: bytes) -> Iterator[AdtLiquid]:
                 ltype, _, _lo, hi, x0, y0, w, h, ex_off, _ = struct.unpack_from("<HHffBBBBII", buf, p)
                 exists = buf[off + ex_off:off + ex_off + (w * h + 7) // 8] if ex_off else None
                 yield AdtLiquid(i % 16, i // 16, ltype, hi, x0, y0, w, h, exists)
+
+
+@dataclass(frozen=True)
+class Modf:
+    """A building (WMO) placed on the map: one MODF entry of an obj0 ADT. File space: x and z
+    over TILE_YARDS are tile col and row, y is up (docs/decisions/0008-interiors.md)."""
+    fid: int                  # the WMO root's FileDataID
+    uid: int                  # unique per map: a building spanning tiles is listed in each
+    pos: tuple                # (x, y, z)
+    rot: tuple                # degrees (x, y, z)
+    mn: tuple                 # box min, file space
+    mx: tuple                 # box max
+    flags: int
+    scale: int                # 1024 = 1
+
+
+def adt_modf(buf: bytes) -> list[Modf]:
+    """The building placements (MODF, 64 bytes an entry) of an obj0 ADT."""
+    out = []
+    for magic, off, size in iter_chunks(buf):
+        if magic == b"MODF":
+            for i in range(size // 64):
+                v = struct.unpack_from("<II3f3f3f3fHHHH", buf, off + i * 64)
+                out.append(Modf(v[0], v[1], v[2:5], v[5:8], v[8:11], v[11:14], v[14], v[17]))
+    return out
+
+
+# --- WMO --------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class WmoGroupInfo:
+    flags: int                # 0x2000 indoor, 0x8 outdoor
+    mn: tuple                 # box min, the building's own (x, y, z), z up
+    mx: tuple
+
+
+@dataclass(frozen=True)
+class WmoRoot:
+    wmo_id: int               # MOHD +32: WMOAreaTable's and WMOMinimapTexture's key
+    groups: list              # MOGI: WmoGroupInfo per room (group)
+    group_fids: list          # GFID: the rooms' files, the first len(groups) of them LOD 0
+    portals: list             # MOPT: (start vertex, count, plane a, b, c, d)
+    portal_refs: list         # MOPR: (portal, group, side)
+
+
+def wmo_root(buf: bytes) -> WmoRoot:
+    ch = {m: (o, s) for m, o, s in iter_chunks(buf)}
+
+    def rows(magic, fmt, n):
+        o, s = ch.get(magic, (0, 0))
+        return [struct.unpack_from(fmt, buf, o + k * n) for k in range(s // n)]
+
+    wmo_id = struct.unpack_from("<I", buf, ch[b"MOHD"][0] + 32)[0]
+    groups = [WmoGroupInfo(g[0], g[1:4], g[4:7]) for g in rows(b"MOGI", "<I6fi", 32)]
+    fids = [f[0] for f in rows(b"GFID", "<I", 4)]
+    return WmoRoot(wmo_id, groups, fids, rows(b"MOPT", "<HH4f", 20), [r[:3] for r in rows(b"MOPR", "<HHhH", 8)])
+
+
+@dataclass(frozen=True)
+class WmoGroup:
+    group_id: int             # MOGP +56: global, WMOAreaTable keys on it
+    portal_start: int         # its portal refs: MOPR[portal_start:portal_start + portal_count]
+    portal_count: int
+    floor: float | None       # the room's real floor (its own z): None, no floor triangles
+
+
+def group_floor(buf: bytes) -> float | None:
+    """A MOGP's real floor (its own z), from its upward-facing triangles (normal z > 0.7; collision-only ones,
+    MOPY material 0xFF, skipped): indoors their area-weighted median; open to the sky (flag 0x40: Orgrimmar's
+    streets, cliffs and roofs in the same room) the lower quartile of the lowest of them over each 4-yd cell,
+    the ground the cliffs and roofs stand on. buf: the MOGP's data; its sub-chunks follow its 68-byte header."""
+    sky = struct.unpack_from("<I", buf, 8)[0] & 0x40
+    sub = buf[68:]
+    ch = {m: sub[o:o + s] for m, o, s in iter_chunks(sub)}
+    if b"MOVT" not in ch or b"MOVI" not in ch:
+        return None
+    v = list(struct.iter_unpack("<3f", ch[b"MOVT"]))
+    idx = struct.unpack(f"<{len(ch[b'MOVI']) // 2}H", ch[b"MOVI"])
+    mat = ch.get(b"MOPY", b"")
+    tris, low = [], {}  # low: 4-yd cell -> the lowest upward z over its centre
+    for t in range(len(idx) // 3):
+        if mat and mat[t * 2 + 1] == 0xFF:
+            continue
+        a, b, c = v[idx[3 * t]], v[idx[3 * t + 1]], v[idx[3 * t + 2]]
+        ux, uy, uz = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+        vx, vy, vz = c[0] - a[0], c[1] - a[1], c[2] - a[2]
+        nx, ny, nz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
+        n = (nx * nx + ny * ny + nz * nz) ** 0.5
+        if not (n > 0 and nz / n > 0.7):
+            continue
+        tris.append(((a[2] + b[2] + c[2]) / 3, n / 2))
+        if not sky:
+            continue
+        for i in range(math.floor(min(a[0], b[0], c[0]) / 4), math.floor(max(a[0], b[0], c[0]) / 4) + 1):
+            for j in range(math.floor(min(a[1], b[1], c[1]) / 4), math.floor(max(a[1], b[1], c[1]) / 4) + 1):
+                px, py = (i + 0.5) * 4 - a[0], (j + 0.5) * 4 - a[1]
+                s, r = (px * vy - vx * py) / nz, (ux * py - px * uy) / nz  # /: never 0 (nz > 0.7 n)
+                if s >= 0 and r >= 0 and s + r <= 1 and a[2] + s * uz + r * vz < low.get((i, j), math.inf):
+                    low[i, j] = a[2] + s * uz + r * vz
+    if low:
+        return sorted(low.values())[(len(low) - 1) // 4]
+    if not tris:
+        return None
+    tris.sort()
+    half, acc = sum(w for _, w in tris) / 2, 0
+    for z, w in tris:
+        acc += w
+        if acc >= half:
+            return z
+
+
+def wmo_group(buf: bytes) -> WmoGroup | None:
+    """A room file's MOGP header and real floor."""
+    for magic, off, size in iter_chunks(buf):
+        if magic == b"MOGP":
+            ps, pc = struct.unpack_from("<HH", buf, off + 36)
+            return WmoGroup(struct.unpack_from("<I", buf, off + 56)[0], ps, pc, group_floor(buf[off:off + size]))
+    return None
 
 
 # --- BLP --------------------------------------------------------------------
@@ -252,6 +372,21 @@ class DxtImage:
                     if y < self.height and x < self.width:
                         rows[y][x] = c
         return rows
+
+    def rgb8(self) -> bytes:
+        """The whole image as 8-bit RGB, rows top first (for exporting)."""
+        out = bytearray(self.width * self.height * 3)
+        for by in range(self.blocks_high):
+            for bx in range(self.blocks_wide):
+                c0, c1, idx = self._color_block(bx, by)
+                pal = [bytes(round(v * 255) for v in c)
+                       for c in dxt_palette(c0, c1, self.block_bytes == 16 or c0 > c1)]
+                for k in range(16):
+                    y, x = by * 4 + k // 4, bx * 4 + k % 4
+                    if y < self.height and x < self.width:
+                        p = (y * self.width + x) * 3
+                        out[p:p + 3] = pal[(idx >> (2 * k)) & 3]
+        return bytes(out)
 
     def block_means(self) -> list[list[RGB]]:
         """The image at 1/4 size: rows of block means."""

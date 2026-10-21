@@ -8,10 +8,12 @@ Regenerate after an intended change: UPDATE_GOLDEN=1 pytest tools/tests
 import os
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
 import fixtures
+from mmtools.luaout import FORMATS
 
 TOOLS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GOLDEN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "golden")
@@ -52,19 +54,102 @@ def test_deterministic(world, generated, tmp_path):
     assert again.read_bytes() == generated["borders"].read_bytes()
 
 
-def lua_load(path, product):
+def lua_load(path):
+    """A generated file run as WoW does (addon, ns): its dataset, and the globals it left (none)."""
     from lupa import lua51
     L = lua51.LuaRuntime(encoding=None)
-    L.eval(b"function(p) return assert(loadfile(p))() end")(str(path).encode())
-    return L
+    before = set(L.globals().keys())
+    ns = L.table()
+    L.eval(b"function(p, ns) return assert(loadfile(p))('MagicMap', ns) end")(str(path).encode(), ns)
+    assert set(L.globals().keys()) == before, "a Data file set a global"
+    return ns[b"Data"]
+
+
+QUESTIEDB = os.environ.get("QUESTIEDB", "/Applications/World of Warcraft/_classic_beta_/Interface/AddOns/QuestieDB")
+ROOT = os.path.dirname(TOOLS)
+
+# Over one Atlas: each quest's Atlas.QuestSources as a string; and each npc, object or item id a
+# quest or item names that Atlas can't resolve.
+QUEST_SOURCES = """function(Atlas)
+    local out, missing = {}, {}
+    local get = { npc = Atlas.Npc, object = Atlas.Object, item = Atlas.Item }
+    local KIND = { monster = "npc", killcredit = "npc", object = "object", item = "item" }
+    local function need(kind, list)
+        for _, id in ipairs(list) do
+            if not get[kind](id) then missing[#missing + 1] = kind .. id end
+        end
+    end
+    for id in pairs(Atlas.Data.Quests) do
+        local q, parts = Atlas.Quest(id), {}
+        for _, o in ipairs(Atlas.QuestSources(id)) do
+            local s = {}
+            for _, x in ipairs(o.sources) do s[#s + 1] = x.kind .. x.id end
+            parts[#parts + 1] = table.concat({ o.kind, o.id, tostring(o.text), tostring(o.name), table.concat(s, ",") }, "|")
+            if KIND[o.kind] then need(KIND[o.kind], { o.id }) end
+        end
+        out[id] = table.concat(parts, ";")
+        need("npc", q.startedBy.npcs); need("object", q.startedBy.objects); need("item", q.startedBy.items)
+        need("npc", q.finishedBy.npcs); need("object", q.finishedBy.objects)
+    end
+    for id in pairs(Atlas.Data.Items) do
+        local i = Atlas.Item(id)
+        need("npc", i.npcDrops); need("object", i.objectDrops); need("item", i.itemDrops); need("npc", i.vendors)
+    end
+    return out, missing
+end"""
+
+
+def entities(data):
+    """Atlas's entities over the QuestieDB-derived files in data: QuestSources per quest, the ids
+    a quest or item names that don't resolve, and the KB of Lua heap Items.lua takes."""
+    from lupa import lua51
+    L = lua51.LuaRuntime(unpack_returned_tuples=True)
+    ns, kb = L.table(), L.eval("function() collectgarbage('collect'); return collectgarbage('count') end")
+    run = L.eval("function(p, ns) return assert(loadfile(p))('MagicMap', ns) end")
+    for name in ("Npcs", "Objects", "Quests"):
+        run(os.path.join(data, f"{name}.lua"), ns)
+    before = kb()
+    run(os.path.join(data, "Items.lua"), ns)
+    items_kb = kb() - before
+    for rel in ("atlas/Coords.lua", "atlas/Entities.lua"):
+        run(os.path.join(ROOT, rel), ns)
+    out, missing = L.eval(QUEST_SOURCES)(ns.Atlas)
+    return dict(out.items()), list(missing.values()), items_kb
+
+
+def test_data_diet(tmp_path):
+    """D3's diet (tools/gen_questie.py): every quest's sources the same as with every item and NPC
+    (--full), every id a kept quest or item names there, Items under 2 MB of Lua."""
+    if not os.path.isdir(QUESTIEDB):
+        pytest.skip(f"no QuestieDB at {QUESTIEDB} (QUESTIEDB=...)")
+    maps = ("--uimaps", os.path.join(ROOT, "Data", "UiMaps.lua"), "--tiles", os.path.join(ROOT, "Data", "Tiles.lua"))
+    (tmp_path / "full").mkdir()
+    with ThreadPoolExecutor() as pool:  # the two runs side by side
+        list(pool.map(lambda args: run_tool("gen_questie.py", QUESTIEDB, *args, *maps),
+                      [("-o", str(tmp_path)), ("-o", str(tmp_path / "full"), "--full")]))
+    full, _, full_kb = entities(tmp_path / "full")
+    diet, missing, kb = entities(tmp_path)
+    assert len(diet) > 5000 and diet == full
+    assert missing == []
+    assert kb < 2 * 1024 < full_kb, (kb, full_kb)
 
 
 def test_files_load_in_lua(generated):
-    L = lua_load(generated["tiles"], fixtures.PRODUCT)
-    tiles = L.globals().MagicMap_Tiles
+    D = lua_load(generated["tiles"])
+    tiles = D[b"Tiles"]
+    assert D[b"formats"][b"Tiles"] == FORMATS["Tiles"]
     assert tiles[b"product"] == fixtures.PRODUCT.encode()
     maps = tiles[b"maps"]
     assert sorted(maps.keys()) == [0, 1, 36]  # not the battleground; not maps without a WDT
     assert maps[36][b"kind"] == b"dungeon" and maps[36][b"continent"] == 0
-    L = lua_load(generated["borders"], fixtures.PRODUCT)
-    assert list(L.globals().MagicMap_Borders.keys()) == [0]  # Kalimdor is under --min-tiles
+    D = lua_load(generated["borders"])
+    assert list(D[b"Borders"].keys()) == [0]  # Kalimdor is under --min-tiles
+
+
+def test_labels_regenerate(tmp_path):
+    """tools/gen_labels.py over the committed Data files gives the committed Data/Labels.lua, byte for byte:
+    deterministic, and Data/Labels.lua is current with Borders, Places, ... (test_atlas: its golden)."""
+    out = tmp_path / "labels.lua"
+    run_tool("gen_labels.py", "-o", str(out))
+    with open(os.path.join(os.path.dirname(TOOLS), "Data", "Labels.lua"), "rb") as f:
+        assert out.read_bytes() == f.read(), "Data/Labels.lua is stale: tools/gen_labels.py -o Data/Labels.lua"

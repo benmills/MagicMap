@@ -1,0 +1,524 @@
+"""The way to the target on the simulated client (docs/v1-plan.md M3.3: ui/Path.lua; ui/You.lua's corpse and
+waypoint pins and the title's target), Model.Target and Model.Route stubbed as typed (types/model.lua):
+
+  test_path_line: the hand-inked dashes (S55-S57): light 1.6 px over a dark 3.4 px edge, laid back from the
+    target 6 px on, 4 off, 14 px clear of you and 15 of the target, faded at the ends, uneven; along the route
+    when there is one; gone once you're inside the target's area, or without a target (F33).
+  test_path_redraws: nothing laid out again standing (no widget call); a turn past 3°, a zoom, a new route
+    (not the same one handed again) and a walk lay it out again; a pan carries it along, the dashes shown
+    left as they stand, those it brings in shown (S58).
+  test_path_cap: a long line at zoom 800: 160 pieces at most, only those near the view shown, every line's
+    end within 4096 px of its canvas (S56; docs/v1-plan.md §2).
+  test_edge_arrow: a target off the view gets the gold arrow 16 px inside the edge where the line toward it
+    leaves (along the route's leg that does), pointing on; none on the view or inside (F34, S59).
+  test_corpse_forces_follow: your corpse becoming the target (a ghost) glides the view back to you; another
+    target doesn't, nor the one you had when the map first looked, nor browsing away and back (F7, F42).
+  test_title_target: the subtitle's "<title> N yd" and "<title> here", big or small and hovered (S12).
+  test_corpse_waypoint_pins: Known("corpse") and Known("waypoint") as pins (S49), from Game's parts through Model,
+    their tooltips, their gear rows.
+  test_path_walk_laid_as_new: walking, the line ends as a new layout from where you stop lays it out,
+    dash for dash (those left as they stand, those laid by halves), under MAX_PIECES and past it.
+  test_path_walk_alloc: walking with a route, the line laid out again as you go: the whole ≤ 50 KB/s (the
+    M3.3 Verify), the path's own next to none (its lines made at load).
+  test_path_priced: a long winding route at the client's prices, zooming in and out (the line laid out each
+    frame the zoom moves), walking and dragging: within the frame budgets, no call over 2 ms. With our Lua
+    charged too (R-P2's 10 ns an instruction): the line's own budgets.
+  test_path_priced_big: the big window, a waypoint at the view's corner (as a Ctrl-click there): its first
+    layout under 2 ms (no line made then); zooming with the line across the view, M shrinking and growing it:
+    no frame over 8 ms, the zoom state's p95 ≤ 5 (M1.15: the borders' slices fit the frame the line's dashes
+    share, ~1 ms of it; 6.3 at the M2 review). With our Lua charged too: printed.
+  test_path_walk_big: walking in the big window at zoom 400 toward a waypoint across the zone, Model's own
+    route, priced and with our Lua charged too: at rest p95 ≤ 1 ms (a line past MAX_PIECES re-spaces every
+    dash as you go: half its dashes a frame, their ends at whole pixels; under it, the dashes on legs that
+    didn't move left as they stand).
+"""
+import math
+
+import pytest
+
+import sim as S
+from test_addon import boot, errors
+from test_quest_areas import stretch
+from sim import TEST_UI
+
+SETUP = """
+local Sim, ns = ...
+local UI, S = ns.UI, Sim.state
+Tgt, Way = false, nil
+ns.Model.Target = function() if ns.Model.focus then return Tgt end end -- (nil: no Focus yet, as typed)
+ns.Model.Route = function() return Way end
+ns.Atlas.Walk.Snap = function() end -- (Model's own route, unseen here, finds nowhere to stand: no search runs)
+Sim.player.facing = -math.pi / 2 -- east (the client's facing: counter-clockwise from north)
+-- A target of kind at tile (col, row) on your map.
+function Target(kind, col, row, title)
+	Tgt = { kind = kind, key = kind .. ":" .. col .. "," .. row, pos = { inst = 0, col = col, row = row }, title = title }
+	return Tgt
+end
+-- A route: you, then each { col, row } given (the target last).
+function Route(pts)
+	local p = Sim.player
+	Way = { { inst = 0, col = p.col, row = p.row } }
+	for i, q in ipairs(pts) do Way[i + 1] = { inst = 0, col = q[1], row = q[2] } end
+	return Way
+end
+local looks = 0 -- the helpers' own calls on the canvas (Sim.callsOn counts them)
+local function Lines()
+	looks = looks + 1
+	return { UI.Path.canvas:GetRegions() }
+end
+-- The path's lines shown of a thickness: { ax, ay, bx, by, alpha } in px from the view's centre, y down.
+function Dashes(thick)
+	local c, out = S[UI.Path.canvas].points[1], {}
+	for _, r in ipairs(Lines()) do
+		local st = S[r]
+		if st.shown and st.thickness == thick then
+			out[#out + 1] = { c.x + st.startPoint[3], -(c.y + st.startPoint[4]), c.x + st.endPoint[3],
+				-(c.y + st.endPoint[4]), st.color[4] }
+		end
+	end
+	return out
+end
+-- The path's lines shown: line -> widget calls on it so far.
+function ShownLines()
+	local out = {}
+	for _, r in ipairs(Lines()) do
+		if S[r].shown then out[r] = Sim.callsOn[r] or 0 end
+	end
+	return out
+end
+-- Of the lines shown in before (ShownLines'), those still shown: how many, and how many had a widget call since.
+function Kept(before)
+	local kept, touched = 0, 0
+	for r, n in pairs(before) do
+		if S[r].shown then
+			kept = kept + 1
+			if (Sim.callsOn[r] or 0) ~= n then touched = touched + 1 end
+		end
+	end
+	return kept, touched
+end
+-- Widget calls on the path's lines and canvas so far.
+function Calls()
+	local n = 0
+	for _, r in ipairs(Lines()) do n = n + (Sim.callsOn[r] or 0) end
+	return n + (Sim.callsOn[UI.Path.canvas] or 0) - looks
+end
+"""
+SEP = "  ·  ".encode("utf-8").decode("latin-1")  # the title's join, as the sim holds it
+YD = 1600 / 3  # a tile
+
+
+def client(saved=None, shown=True, lua=False):
+    """lua: our own Lua charged too, as the client's (sim.LUA_PRICE: 10 ns a VM instruction)."""
+    L, sim, ns = boot(saved, lua=lua)
+    L.execute(SETUP, sim, ns)
+    if shown:
+        sim.Slash("/mm toggle")
+        sim.Run(1.5)
+    return L, sim, ns, L.globals()
+
+
+def dashes(G, thick):
+    return [tuple(d[i] for i in range(1, 6)) for d in G.Dashes(thick).values()]
+
+
+def off_line(pts, x, y):
+    """px from (x, y) to the polyline pts (view px)."""
+    best = math.inf
+    for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+        dx, dy = bx - ax, by - ay
+        t = max(0, min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)))
+        best = min(best, math.hypot(ax + dx * t - x, ay + dy * t - y))
+    return best
+
+
+def test_path_line():
+    L, sim, ns, G = client()
+    P, S, z = ns.UI.Path, sim.state, ns.UI.Camera.cam.zoom
+    G.Target("waypoint", 33.0, 49.75, "Waypoint")  # 1.05 tiles east of you: 100.8 px at 96
+    sim.Run(0.2)
+    strokes, washes = dashes(G, 1.6), dashes(G, 3.4)
+    assert len(strokes) == len(washes) == P.pieces == 8
+    end = (33.0 - 31.95) * z
+    for (ax, ay, bx, by, a), (wax, way, wbx, wby, wa) in zip(sorted(strokes), sorted(washes)):
+        assert (ax, ay, bx, by) == (wax, way, wbx, wby) and 0 < a <= 0.85 and 0 < wa <= 0.45
+        assert 13 <= ax < bx <= end - 14 and bx - ax <= 6 and abs(ay) <= 1.5 and abs(by) <= 1.5
+    assert sorted(strokes)[-1][2] - sorted(strokes)[-2][2] == 10  # laid back from the target, 10 apart
+    assert len({d[4] for d in strokes}) > 3  # faded at its ends, uneven along it
+    lines = [r for r in P.canvas.GetRegions(P.canvas) if S[r].shown]
+    assert {(S[r].thickness,) + tuple(S[r].color[i] for i in range(1, 4)) for r in lines} == {(1.6, 1, 0.93, 0.76),
+                                                                                             (3.4, 0.12, 0.08, 0.03)}
+
+    # Along a route: north, then east, then south to it (facing north: no lead-in curve to speak of).
+    sim.player.facing = 0
+    pts = [(31.95, 49.2), (33.0, 49.2), (33.0, 49.75)]
+    G.Route(L.table_from([L.table_from(p) for p in pts]))
+    sim.Run(0.2)
+    view = [(0, 0)] + [((c - 31.95) * z, (r - 49.75) * z) for c, r in pts]
+    strokes = dashes(G, 1.6)
+    assert len(strokes) > 15 and all(off_line(view, x, y) <= 1.5 for d in strokes for x, y in (d[:2], d[2:4]))
+
+    # Inside its area: arrived, the line steps aside; no target, none.
+    G.Tgt.inside = True
+    sim.Step()
+    assert dashes(G, 1.6) == [] and dashes(G, 3.4) == []
+    G.Tgt.inside = None
+    sim.Step()
+    n = len(dashes(G, 1.6))
+    sim.Step()
+    assert 8 < n < len(dashes(G, 1.6)) and len(dashes(G, 1.6)) > 15  # (a line new: half its dashes a frame)
+    G.Tgt = False
+    sim.Step()
+    assert dashes(G, 1.6) == [] and P.pieces == 0
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_path_redraws():
+    L, sim, ns, G = client()
+    P, cam = ns.UI.Path, ns.UI.Camera.cam
+    G.Target("waypoint", 33.0, 49.75, "Waypoint")
+    sim.Run(0.5)
+    draws, calls = P.draws, G.Calls()
+    sim.Run(3)  # standing: nothing laid out, no widget call
+    assert P.draws == draws and G.Calls() == calls
+
+    sim.player.facing += math.radians(1)  # under 3°: as it was
+    sim.Run(0.2)
+    assert P.draws == draws
+    sim.player.facing += math.radians(3)
+    sim.Run(0.2)
+    assert P.draws == draws + 1
+
+    pts = L.table_from([L.table_from(p) for p in [(32.5, 49.6), (33.0, 49.75)]])
+    G.Route(pts)  # found: laid out along it
+    sim.Run(0.2)
+    assert P.draws == draws + 2
+    G.Route(pts)  # the same route again, a new table: as it was
+    sim.Run(0.2)
+    assert P.draws == draws + 2
+
+    sim.Wheel(ns.UI.Window.view, 1)  # each frame the zoom moves
+    sim.Run(1)
+    assert P.draws > draws + 10
+    draws = P.draws
+    sim.player.speed = 7  # walking: as you move half a pixel (7 yd/s at 124.8 px a tile: ~1.6 px/s)
+    sim.Run(2)
+    sim.player.speed = 0
+    assert draws + 4 <= P.draws <= draws + 10
+
+    # A pan carries it: the canvas moves with the map, the dashes shown stay as they stand (no widget call),
+    # those coming into view are shown.
+    G.Target("waypoint", 36.0, 49.75)  # past the view's east edge
+    sim.Run(0.2)
+    before, x, n = G.ShownLines(), sim.state[P.canvas].points[1].x, len(dashes(G, 1.6))
+    sim.Drag(ns.UI.Window.view, -80, 0)
+    sim.Run(0.2)
+    assert not ns.UI.Camera.follow and abs(sim.state[P.canvas].points[1].x - (x - 80)) < 1e-6
+    kept, touched = G.Kept(before)
+    assert kept == 2 * n and touched == 0 and len(dashes(G, 1.6)) > n + 4
+    assert cam.zoom > 96 and not errors(sim, ns), errors(sim, ns)
+
+
+def test_path_cap():
+    L, sim, ns, G = client()
+    P, S = ns.UI.Path, sim.state
+    ns.UI.Motion.SetZoom(800)
+    G.Target("waypoint", 40.0, 49.75)  # 8 tiles east: 6440 px
+    sim.Run(0.3)
+    w, h = ns.UI.Window.Size()
+    strokes = dashes(G, 1.6)
+    assert P.pieces == 160 and 0 < len(strokes) < 160  # 40 px apart, 24 long; only those near the view
+    assert all(abs(x) <= w + 24 and abs(y) <= h for d in strokes for x, y in (d[:2], d[2:4]))
+    c = S[P.canvas].points[1]
+    assert abs(c.x) <= 4096 and abs(c.y) <= 4096
+    for r in P.canvas.GetRegions(P.canvas):
+        if S[r].shown:
+            assert max(abs(S[r].startPoint[3]), abs(S[r].startPoint[4]), abs(S[r].endPoint[3]), abs(S[r].endPoint[4])) <= 4096
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_edge_arrow():
+    L, sim, ns, G = client()
+    P, S, cam = ns.UI.Path, sim.state, ns.UI.Camera.cam
+    w, h = ns.UI.Window.Size()
+    z = cam.zoom
+    edge = P.edge
+    G.Target("waypoint", 33.0, 49.75)  # on the view: none
+    sim.Run(0.2)
+    assert not S[edge].shown
+
+    # Off it to the east: on the right edge's inset, where the line toward it leaves, pointing on.
+    G.Target("waypoint", 36.0, 49.5)
+    sim.Step()
+    you = ns.Model.you
+    x1, y1 = (you.col - cam.cx) * z + w / 2, (you.row - cam.cy) * z + h / 2
+    dx, dy = (36.0 - you.col) * z, (49.5 - you.row) * z
+    k = (w - 16 - x1) / dx
+    p = S[edge].points[1]
+    assert S[edge].shown and S[edge].texture == "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW"
+    assert (S[edge].width, S[edge].height) == (32, 32) and p.point == "CENTER" and p.relPoint == "TOPLEFT"
+    assert (p.x, p.y) == (math.floor(x1 + dx * k + 0.5), -math.floor(y1 + dy * k + 0.5))
+    assert abs(S[edge].rotation - math.atan2(-dx, -dy)) < 1e-9
+
+    # With a route, along its leg that leaves the view: north first, so on the top edge's inset.
+    G.Route(L.table_from([L.table_from(q) for q in [(32.2, 47.0), (36.0, 49.5)]]))
+    sim.Step()
+    dx, dy = (32.2 - you.col) * z, (47.0 - you.row) * z
+    k = (16 - y1) / dy
+    p = S[edge].points[1]
+    assert (p.x, p.y) == (math.floor(x1 + dx * k + 0.5), -16) and abs(S[edge].rotation - math.atan2(-dx, -dy)) < 1e-9
+
+    G.Tgt.inside = True  # arrived: none
+    sim.Step()
+    assert not S[edge].shown
+    G.Tgt.inside = None
+    sim.Step()
+    assert S[edge].shown
+    G.Tgt = False
+    sim.Step()
+    assert not S[edge].shown
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_corpse_forces_follow():
+    # Not following, saved; a ghost, your corpse already the target when the map first looks: your choice kept.
+    L, sim, ns, G = client(saved=TEST_UI.replace("zoom = 96,", "zoom = 96, follow = false,"), shown=False)
+    Camera, Motion = ns.UI.Camera, ns.UI.Motion
+    sim.units.player.dead, sim.ghost = True, True
+    G.Target("corpse", 31.0, 49.75, "Your corpse")
+    sim.Slash("/mm toggle")
+    sim.Run(1)
+    assert not Camera.follow
+    sim.units.player.dead, sim.ghost = False, False  # alive again, another target: still not
+    G.Target("waypoint", 33.0, 49.75, "Waypoint")
+    sim.Run(1)
+    assert not Camera.follow
+    sim.units.player.dead, sim.ghost = True, True  # you've died and released: back to you, gliding
+    G.Target("corpse", 31.0, 49.75, "Your corpse")
+    sim.Run(0.25)
+    you = ns.Model.you
+    assert not Camera.follow and Motion.Goal()[1] == you.col  # flying there
+    sim.Run(1)
+    assert Camera.follow and Camera.cam.cx == you.col
+    # Browsing another continent (no target there) and back: the corpse found already, the pick kept.
+    G.Tgt = False
+    sim.Slash("/mm map 1")
+    sim.Run(1)
+    G.Target("corpse", 31.0, 49.75, "Your corpse")
+    sim.Slash("/mm map 0")
+    sim.Run(1.5)
+    assert not Camera.follow
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_title_target():
+    L, sim, ns, G = client()
+    sub = ns.UI.Title.subtitle
+    text = lambda: sub.GetText(sub)  # noqa: E731
+    G.Target("waypoint", 33.0, 49.75, "Waypoint")
+    sim.Run(0.2)  # small, hovered: the target with where you are
+    yd = math.floor(1.05 * YD + 0.5)
+    assert text().startswith("Goldshire" + SEP) and text().endswith(SEP + f"|cffffd27fWaypoint|r {yd} yd")
+    sim.cursorX, sim.cursorY = 10, 10  # small, not hovered: where you are, nothing more
+    sim.Run(0.2)
+    assert text() == "Goldshire"
+    sim.Press("M")  # big: the target
+    sim.Run(0.5)
+    assert text().endswith(SEP + f"|cffffd27fWaypoint|r {yd} yd") and text().count(SEP) == 2
+    G.Tgt.inside = True
+    sim.Run(0.1)
+    assert text().endswith(SEP + "|cffffd27fWaypoint|r here")
+    G.Target("quest", 32.0, 49.75)  # untitled
+    sim.Run(0.1)
+    assert text().endswith(SEP + f"|cffffd27fTarget|r {math.floor(0.05 * YD + 0.5)} yd")
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_corpse_waypoint_pins():
+    L, sim, ns, G = client(shown=False)
+    # Your corpse where the client has it (read on PLAYER_DEAD), a waypoint set: Game's parts, then Model's kinds.
+    L.execute("""local ns, sim, col, row = ...
+        sim.corpse = { [1415] = CreateVector2D(ns.Atlas.TileToMap(1415, col, row)) }
+        ns.Game.Command({ kind = "waypoint", pos = { inst = 0, col = col + 0.3, row = row } })""", ns, sim, 31.95, 49.75)
+    sim.FireEvent("PLAYER_DEAD")
+    sim.Slash("/mm toggle")
+    sim.Run(1.5)
+    S, UI = sim.state, ns.UI
+    p = UI.Corpse.front.pools.pin
+    corpse = p[p.at.corpse]
+    assert S[corpse].width == 22 and S[corpse.ring].atlas == "UI-QuestPoi-QuestNumber" and S[corpse.ring].shown
+    assert S[corpse.icon].atlas == "deathrecap-icon-tombstone"
+    assert abs(S[corpse.icon].width - 22 * 0.6 * 15 / 20) < 1e-9 and abs(S[corpse.icon].height - 22 * 0.6) < 1e-9
+    p = UI.Waypoint.front.pools.pin
+    wp = p[p.at.waypoint]
+    assert S[wp].width == 22 and S[wp.icon].atlas == "Waypoint-MapPin-Tracked" and S[wp.icon].width == 22
+    assert not (wp.ring and S[wp.ring].shown)
+
+    # Their tooltips, the spike's.
+    tip, view = L.globals().GameTooltip, UI.Window.view
+    sim.MoveCursorTo(view)  # on the view's centre: you, on your corpse
+    sim.FireScript(view, "OnEnter", False)
+    sim.Run(0.2)
+    lines = S[tip].lines
+    assert S[tip].shown and S[lines[1]].text == "Your corpse" and tip.NumLines(tip) == 1
+    sim.cursorX += 0.3 * UI.Camera.cam.zoom * view.GetEffectiveScale(view)
+    sim.Run(0.2)
+    assert tip.NumLines(tip) == 2 and S[lines[1]].text == "Waypoint" and S[lines[2]].text == "Ctrl-right-click the map to clear"
+
+    sim.Slash("/mm layer corpse")  # turned off (the gear's You: Corpse, Waypoint): gone
+    sim.Run(0.5)
+    assert S[UI.Corpse.canvases[1]].alpha == 0 and S[UI.Corpse.canvases[2]].alpha == 0
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_path_walk_laid_as_new():
+    """Walking (the dashes on legs that didn't move left as they stand; past MAX_PIECES, half of them a frame),
+    the line ends as a new layout from where you stop lays it out, dash for dash (within a pixel: the last
+    layout was at the last half pixel you moved, its ends rounded)."""
+    def ends(L, sim, ns, G):
+        cam = ns.UI.Camera.cam
+        return [(cam.cx + d[0] / cam.zoom, cam.cy + d[1] / cam.zoom, cam.cx + d[2] / cam.zoom, cam.cy + d[3] / cam.zoom, d[4])
+                for d in dashes(G, 1.6)]
+
+    def matched(a, b, zoom):
+        px = 1.01 / zoom
+        return all(any(all(abs(x[k] - y[k]) <= px for k in range(4)) and abs(x[4] - y[4]) <= 0.02 for y in b) for x in a)
+
+    def line(zoom, at=None):
+        L, sim, ns, G = client()
+        ns.UI.Motion.SetZoom(zoom)
+        sim.player.facing = 3 * math.pi / 2  # east
+        if at:
+            sim.player.col, sim.player.row = at
+        G.Target("waypoint", 35.5, 49.6, "Waypoint")
+        G.Route(L.table_from([L.table_from(q) for q in [(32.4, 49.9), (33.0, 49.9), (33.6, 49.7), (34.5, 49.6), (35.5, 49.6)]]))
+        sim.Run(1)
+        return L, sim, ns, G
+
+    for zoom in (300, 400):  # (under MAX_PIECES, and past it)
+        L, sim, ns, G = walked = line(zoom)
+        sim.player.speed = 7  # toward it
+        sim.Run(2)
+        sim.player.speed = 0
+        sim.Run(0.2)
+        new = line(zoom, (sim.player.col, sim.player.row))
+        a, b = ends(*walked), ends(*new)
+        assert len(a) > 30 and abs(len(a) - len(b)) <= 1 and matched(a, b, zoom) and matched(b, a, zoom), (zoom, len(a), len(b))
+        assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_path_walk_alloc():
+    L, sim, ns, G = client()
+    P = ns.UI.Path
+    ns.UI.Motion.SetZoom(384)
+    G.Target("waypoint", 34.5, 49.6, "Waypoint")
+    G.Route(L.table_from([L.table_from(q) for q in [(32.4, 49.9), (33.0, 49.9), (33.6, 49.7), (34.0, 49.6), (34.5, 49.6)]]))
+    sim.Run(6)  # past login's grace
+    sim.player.facing, sim.player.speed = 3 * math.pi / 2, 7  # east
+    sim.Run(1)
+    draws, done = P.draws, stretch(L, ns)
+    sim.Run(10)
+    sim.player.speed = 0
+    kb, by = done()
+    print(f"walking with a route: {kb} KB/s, {P.draws - draws} layouts of the line; map: path {by.get('map: path', 0)} KB/s")
+    # The path's own: none to speak of (its lines made at load).
+    assert P.draws - draws > 60 and by.get("map: path", 0) <= 2 and kb <= 50
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+def slow(fs):
+    return {e.name: e.max for e in fs.slow.values()}
+
+
+# lua: our own Lua charged too (sim.LUA_PRICE, R-P2's 10 ns an instruction). Then the line's own budgets hold
+# (map: path never in perf.slow, its first layout within CALL_MS, at rest p95 ≤ 1); the zoom state's p95 is
+# held on the priced clock alone (with our Lua: printed).
+@pytest.mark.parametrize("lua", [False, True])
+def test_path_priced(lua):
+    L, sim, ns, G = client(lua=lua)
+    sim.Run(5)  # past login's grace and the first open's
+    G.Target("waypoint", 40.0, 47.0, "Waypoint")
+    G.Route(L.table_from([L.table_from(q) for q in [(33.0, 49.0), (35.0, 48.5), (37.0, 48.0), (38.5, 47.5), (40.0, 47.0)]]))
+    sim.Price(True)
+    sim.Run(1)
+    view = ns.UI.Window.view
+    for n in (4, -4, 6, -6):
+        for _ in range(abs(n)):
+            sim.Wheel(view, 1 if n > 0 else -1)
+            sim.Step()
+        sim.Run(1)
+    sim.player.facing, sim.player.speed = 3 * math.pi / 2, 7  # east
+    sim.Run(5)
+    sim.player.speed = 0
+    sim.Drag(view, 300, 100, 20)
+    sim.Run(1)
+    sim.Price(False)
+    fs = ns.Runtime.FrameStats()
+    by = {k: v for k, v in fs.byState.items()}
+    path = ns.Runtime.Perf()[0]["map: path"].max
+    print(f"long route, priced{' with Lua' if lua else ''}: "
+          + ", ".join(f"{k} {v.frames} p95 {v.p95} max {v.max}" for k, v in sorted(by.items()))
+          + f"; map: path max {path:.2f} ms; slow {slow(fs)}")
+    assert by["small"].p95 <= 1 and by["drag"].p95 <= 5 and fs.max <= 8 and path <= 2 and "map: path" not in slow(fs)
+    if not lua:
+        assert by["zoom"].p95 <= 5 and not slow(fs)
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+@pytest.mark.parametrize("lua", [False, True])
+def test_path_priced_big(lua):
+    L, sim, ns, G = client(lua=lua)
+    sim.Run(5)  # past login's grace and the first open's
+    sim.Press("M")
+    sim.Run(3)
+    UI = ns.UI
+    w, h = UI.Window.Size()
+    col, row = ns.Atlas.Camera.ScreenToTile(UI.Camera.cam, w, h, w - 10, 10)
+    sim.Price(True)
+    G.Target("waypoint", col, row, "Waypoint")
+    sim.Run(1)
+    first = ns.Runtime.Perf()[0]["map: path"].max
+    view = UI.Window.view
+    for n in (4, -4, 6, -6):
+        for _ in range(abs(n)):
+            sim.Wheel(view, 1 if n > 0 else -1)
+            sim.Step()
+        sim.Run(1)
+    for _ in range(2):  # M: shrink and grow again, the line across the way
+        sim.Press("M")
+        sim.Run(2)
+    sim.Price(False)
+    fs = ns.Runtime.FrameStats()
+    by = {k: v for k, v in fs.byState.items()}
+    path = ns.Runtime.Perf()[0]["map: path"].max
+    print(f"big, a corner waypoint, priced{' with Lua' if lua else ''}: the first layout {first:.2f} ms, {UI.Path.pieces} pieces; "
+          + ", ".join(f"{k} {v.frames} p95 {v.p95} max {v.max}" for k, v in sorted(by.items()))
+          + f"; map: path max {path:.2f} ms; slow {slow(fs)}")
+    assert first <= 2 and by["big"].p95 <= 1 and fs.max <= 8 and path <= 2 and "map: path" not in slow(fs)
+    if not lua:
+        assert by["zoom"].p95 <= 5 and not slow(fs)
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+@pytest.mark.parametrize("lua", [False, True])
+def test_path_walk_big(lua):
+    """Script (c)'s c2: the big window at zoom 400, a waypoint at Lakeshire (Model's own target and route,
+    from Game's waypoint), walking east 10 s: the line past MAX_PIECES, each dash re-spaced as you go."""
+    c = S.boot(priced=True, lua=lua)
+    c.slash("/mm toggle")
+    c.run(6)
+    c.press("M")
+    c.run(3)
+    c.lua("ns.UI.Motion.SetZoom(400)")
+    c.run(3)
+    c.lua("ns.Game.Command({ kind = 'waypoint', pos = { inst = 0, col = 36.09, row = 49.28 } })")
+    c.run(3)
+    P, ns = c.ns.UI.Path, c.ns
+    draws = P.draws
+    c.walk(10, "east")
+    fs = ns.Runtime.FrameStats()
+    print(f"walking, big, zoom 400{' with Lua' if lua else ''}: {P.draws - draws} layouts, {P.pieces} pieces; big p95 "
+          f"{fs.byState.big.p95} max {fs.byState.big.max}; map: path max {ns.Runtime.Perf()[0]['map: path'].max:.2f} ms")
+    assert P.draws - draws > 50 and P.pieces == 160 and not ns.Model.Route().straight
+    assert fs.byState.big.p95 <= 1 and "map: path" not in slow(fs) and fs.max <= 8
+    assert not c.errors(), c.errors()

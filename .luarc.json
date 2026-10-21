@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime.version": "Lua 5.1",
+  "workspace.library": ["types"],
+  "workspace.ignoreDir": [".venv", "demo", "dist", "tools", "Data", "Textures"],
+  "workspace.checkThirdParty": false,
+  "diagnostics.globals": [
+    "MagicMap2DB",
+    "SLASH_MAGICMAP1"
+  ]
+}

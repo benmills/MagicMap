@@ -1,0 +1,192 @@
+# Telemetry
+
+The addon can't reach the network, but WoW writes SavedVariables to disk on
+`/reload` and logout, and this machine can read them (and the client's `Logs/`
+and `Screenshots/`). So the loop is: play, `/reload`, run `tools/telemetry.py`.
+The scripted sessions that feed it are docs/playtest.md.
+
+## In game
+
+- **Version stamp**: `tools/install.py` writes the build's version, the checkout's
+  `git describe --always --dirty` and a digest of the files it installs (the gitignored
+  QuestieDB-derived Data among them, which git can't see), e.g. `7aa8b30-dirty.55aad87`, into
+  the installed TOC's `## Version:` and `## X-Stamped:` (`tools/package.sh`: the ref's describe).
+  Every record carries `## Version` (`GetAddOnMetadata(ADDON, "Version")`); the validation log
+  is one `## X-Stamped` build's, a TOC without it (a symlink to a checkout) "unstamped".
+- **Errors**: everything `Runtime.Wrap` catches, and anything else the global
+  error handler sees from our files, is kept with its stack.
+- **Flight recorder**: `Runtime.Trace(kind, detail)` appends to an in-memory ring
+  of the last 300 events. It's only persisted inside a mark, except the kinds that
+  must stay empty (`taint`, `art`, `sensor`), which the session keeps, and the
+  layout, swap and sweep events, which the session counts.
+- **Motion ring**: the camera (`View.camera`) and your position, every frame, in
+  120 preallocated slots (no garbage). Persisted inside a mark.
+- **Marks**: a snapshot of state plus the recorder's ring and the motion ring, taken
+  on an error's first occurrence, a taint's first occurrence per function,
+  `/mm mark <note>`, and `/mm shot <id> [note]` (which also takes a screenshot).
+- **Memory**: ours alone after a full `collectgarbage("collect")`, read twice: 10 s
+  after login (past its 5 s grace) and at logout. The collect's frame is graced
+  (`gc`), so it's never an overrun.
+- **Taint**: ADDON_ACTION_BLOCKED / ADDON_ACTION_FORBIDDEN naming our addon.
+
+## SavedVariables: `MagicMap2DB.telemetry`
+
+```lua
+telemetry = {
+  sessions = {          -- newest last, last 10 kept
+    { id = 1, version = "7aa8b30-dirty", build = "1.60.1.70374", started = <time()>,
+      boot = { loadMs, loadKB, loginMs }, frames = <n>, zones = { "Elwynn Forest", ... }, -- zones: first 30
+      perf = { frames, p50, p95, p99, max, overruns,  -- our cost a frame (ms), outside graces
+               grace = { login, loading, map, gc, bench }, -- slowest frame (ms) in each grace (a frame: the newest's)
+               graceTop = { [grace] = { top, topMs } },  -- that frame's slowest call (the first open's owner)
+               slow = { { name, n, max }, ... },      -- the 5 calls with most overruns
+               slowGc = { { name, n }, ... },         -- the 5 most over budget while the collector freed more than they made (its step: not gated)
+               kbMin, kbMax,                          -- Lua KB: all addons' heap (sampled)
+               kbPerSec, kbFrameP95, kbFrameMax, kbFrames, -- allocation outside graces (docs/runtime.md)
+               ourKBLoad, ourKB,                      -- ours, after a full collect: 10 s after login, at logout
+               alloc = { { name, kbPerSec, kbMax, calls }, ... },  -- top 5 allocators (KB/s; kbMax: one call's most)
+               gaps = { { job, ms, n, stack }, ... }, -- a job ran longer than its budget between Yields: longest, how often, first stack
+               ledger = { { frame, ms, top, topMs, events = { <events> } }, ... }, -- worst 5 frames outside graces, ±10 events
+               byState = { [state] = { frames, p50, p95, p99, max, -- by map state: closed small big zoom drag
+                                       client = { p50, p95, p99, max } } }, -- the client's whole frame (ms between OnUpdates)
+               errors, errorsPerHour, loadMs },       -- written at logout (and /reload) and with each mark
+      kept = { <events> },  -- taint, art and sensor events, the first 50 (each one a bug)
+      stats = { ["<kind> <layer or why>"] = { n, <field> = max |value|, lag } }, -- layout ends, swaps, blips sweeps, sensor restarts
+      bench = { [build] = { build, t, ops = { [op] = { n, ms, us } } } },  -- /mm bench regions (game/Bench.lua)
+    },
+  },
+  _v = 1,               -- Game.Load's version stamp (docs/runtime.md "Saved data")
+  errors = {            -- by key (name .. ": " .. first line), 50 kept (least recent dropped)
+    [key] = { name, msg, stack, count, first = <time()>, last = <time()>, version, session },
+  },
+  marks = {             -- newest last, 64 kept (MARKS; tools/telemetry.py says when it's full)
+    { kind = "error" | "taint" | "sensor" | "mark" | "shot", note, t = <time()>, stamp = "MMDDYY_HHMMSS",
+      session, version, frame, state = { ... }, trace = { <events> },
+      motion = { { f, ms, cx, cy, zoom, px, py, w, h }, ... }, -- the last 120 frames, oldest first
+      alloc = { secs, kbPerSec, top = { { name, kbPerSec }, ... } }, -- Lua allocation since this session's last
+                            -- mark, outside graces (5 names): two marks around a storm read it alone (b11)
+      shot = { inst, cx, cy, zoom, w, h, left, top, big, uiScale, screenW, screenH } }, -- shot marks only
+  },
+}
+```
+
+- **Event**: `{ f = frame, ms = <ms since login>, k = kind, d = detail }`. `d` is a
+  short string or a flat table of numbers and strings.
+- **State** (Game assembles it; `map` and `layers` from UI's `View.diag()`): `you = { inst, col, row, facing }`, `zone`,
+  `subzone`, `map = { shown, inst, cx, cy, zoom, follow, w, h }`, and
+  `layers = { { name, busy, zoom, region = { c0, r0, c1, r1 } }, ... }` (the shown
+  layout's; `zoom`/`region` nil before the first).
+- **Motion**: one row a frame, sampled in the apply phase: `f`, `ms` (as an event's), the
+  camera's centre `cx, cy` (tiles), `zoom` (px a tile) and view size `w, h` (UI's `View.camera`),
+  and your position `px, py` (tiles; nil where the game hides it). Following, `cx, cy` = `px, py`.
+  It's what to read for a tear: frame pacing (`ms` steps), camera steps in screen pixels, you
+  against the camera, and the tile edges crossed.
+- **Shot stamp**: what the screenshot shows, as View was in the last apply step when `/mm shot` runs
+  (Game reads View only there: types/view.lua): the map shown (`inst`), the
+  camera (`cx, cy, zoom`), the view's size (`w, h`) and top-left on screen (`left, top`, UI units;
+  nil while hidden), small or `big`, `uiScale` (UIParent's effective scale) and the screen in UI
+  units (`screenW, screenH`). `note`'s first word is the shot's id (docs/playtest.md "Shots").
+- **Errors' names**: the `Runtime.Wrap` name (e.g. `map: draw`), or `lua` for one
+  the global error handler caught. "First occurrence" is per key per session: it
+  sets the entry's `stack`, `version`, `session`, traces `error` (`d` = the key) and
+  takes an `error` mark (`note` = the key).
+- **Shot**: `stamp` is the local time formatted like the screenshot's file name
+  (`WoWScrnShot_<stamp>.jpg`), taken when SCREENSHOT_SUCCEEDED fires; chat then says
+  `shot <id>: WoWScrnShot_<stamp>, marked`. On SCREENSHOT_FAILED: no mark, a `shot` trace
+  `failed <note>`, and chat says `the client took no screenshot (no mark)`; with neither event in
+  5 s, the same trace and `the client took no screenshot (no answer, no mark)`. `/mm shot` without
+  an id takes no shot (chat asks for one), and one asked while another waits on the client is not
+  taken.
+- **Kept**: every event of a kind in Telemetry's `KEEP` (`taint`, `art`, `sensor`) as it's traced,
+  the first 50 a session: the ring forgets them, and each one fails the gate. The first `sensor`
+  event of each `e` a session takes a `sensor` mark (`note` = `e` and its `why` or `px`), so the
+  state and the trace it came in are kept, as a taint's first per function takes a `taint` mark.
+- **Stats**: every `layout` end, `swap` and `blips` sweep as it's traced, by kind and layer:
+  `n`, and the largest absolute value of each number in its `d` (a swap's `ms` and `live`: the
+  frame max's suspect before M1.3; its `x`, `y` are canvas offsets, the tear's ~33,000 px suspect,
+  now within a few thousand px of the shared origin); a swap's `lag` is frames since its layer's
+  last layout end (the end→swap delay).
+- **Bench**: `Game.Bench.result` (M0.5, `/mm bench regions`) copied at logout and with each mark,
+  keyed by its build: `ops[op] = { n, ms, us }`, `us` a call's µs (op names like `CreateLine`,
+  `SetPoint`, `canvas.SetScale@1000live`, `canvas.Show@1000hidden`, `SetParent.park`; M1.3's
+  `canvas.Show.moved@1000live`, `canvas.Show.moved.alpha0@1000live`, `canvas.SetAlpha.moved@1000live`,
+  `canvas.Show.moved@100masked`: docs/runtime.md "The map's engine").
+
+## Trace kinds (so far)
+
+`login`, `zone` (zone changed), `map` (shown or hidden), `cam` (a drag starts or
+ends, wheel zoom, follow on/off: at most one of each a frame), `layout` (a rebuild:
+start with its region, end with ms and regions used), `swap` (a layout shown: its cost,
+regions and where it was placed), `error`, `taint`, `mark`, `shot`; and Runtime's (docs/runtime.md):
+`slow` (a call over its budget), `spike` (a frame over its budget), `gap` (a job between
+Yields over its budget), `throttled`, `job` (cancelled), `enter` (PLAYER_ENTERING_WORLD),
+`position` (lost or back), `saved`; Game's `minimap` (the takeover engaged or released),
+`blips` (a sensor sweep ended), `art` (`/mm check art`: a name ui/Art.lua lists that the
+client lacks), `sensor` (the sensor blind, or its square off the client's: game/Blips.lua).
+
+Their `d`:
+
+| k | d |
+|---|---|
+| `login` | the version |
+| `zone` | the zone's name |
+| `map` | `"shown"` or `"hidden"` |
+| `cam` | `{ e, cx, cy, zoom }`, `e` = `drag start` (follow turns off), `drag end`, `wheel`, `follow on`, `follow off`; at most one of each e a frame. The wheel's, once a frame with wheel events: `{ e, delta, n, dt }`, `delta` (their deltas summed), `n` (how many), `dt` (s from the wheel event before them), no camera (one a frame of a flick: the marks' motion ring has it; M1b review); the ± buttons' `wheel` is `{ e, cx, cy, zoom }` (M1.14) |
+| `layout` | `{ e = "start", layer, zoom, ox, oy }` (`ox, oy` the shared origin tile; its region: a mark's `View.diag` layers), then `{ e = "end", layer, ms, regions, made }` (`ms` wall time, over several frames; `made` the regions it had to create), or `{ e = "failed", layer, retry }` |
+| `swap` | `{ layer, ms, live, parked, x, y, scale }`: `ms` the swap's own time (new canvas placed, the two canvases' alphas swapped: it can't yield), `live` the regions it shows, `parked` the regions its layout parked (SetParent onto a hidden frame), `x, y, scale` where it was placed (`x, y` absent for a held layer still zooming) |
+| `error` | the error's key |
+| `taint` | `{ e, fn }`: `e` = `blocked` (ADDON_ACTION_BLOCKED) or `forbidden` (ADDON_ACTION_FORBIDDEN), `fn` the protected function the client named |
+| `art` | the missing atlas name or file |
+| `mark`, `shot` | the note (nil without one) |
+| `slow` | `{ name, ms, n, gc }`: the call's 1st, 10th, then every 100th overrun (`n` = overruns so far); `gc` true: over budget while the collector freed more than the call made (counted apart, `perf.slowGc`) |
+| `spike` | `{ ms, top, topMs, alloc, allocKb }`: the frame's cost, its slowest call and its top allocator (`alloc` nil: none measured) |
+| `gap` | `{ job, ms, n }`: a job's stretch between Yields over its budget, at its 1st, 10th, then every 100th (`perf.gaps` has its stack) |
+| `throttled` | the name failing 10 calls in a row (now run once a second) |
+| `job` | `{ name, e = "cancelled" }` |
+| `enter` | `"login"`, `"reload"` or `"loading"` |
+| `position` | `"lost"` or `"back"` |
+| `saved` | `{ owner, e = "reset", was }` or `{ owner, e = "newer", v }` |
+| `minimap` | `"engaged"` or `"released"` |
+| `indoor` | `{ building, room, area, rooms, floor, indoors }`: each change of the building and room you're in, or of whether the Minimap draws its indoor map (game/parts/Interior.lua; ADR 0008): the building's key (nil: in none), your room (nil: unsure) and its subzone name, the candidates kept (`"65,88"`), your floor (your room's real floor, world height, yd) |
+| `blips` | `{ sweep, blips, yd, frames, probes }`: the sweep's number, the blips the sensor knows after it, its reach (yd), and the frames and probes it took |
+| `restart` | `{ why, probes }`: the sensor dropped a look in progress or what it had looked over (`why`: `radius` (a door, a zoom), `map`, `combat`, `alt-z`, `moved`/`rotated`/`hidden` (blind), `zoom`, `off`, `square` (refined), `tracking`, `error`); `probes`: the dropped look's so far. Counted by `why` in the session's stats |
+| `sensor` | `{ e = "blind", why }`: for 1 s the sensor couldn't read the Minimap where Apply placed it, `why` = `hidden`, `rotated` or `moved` (something fights Apply: G3); or `{ e = "square", px [, n = 4] }`: the refined answer square (screen units each way) strayed past 25% of the measured 8, or `n = 4`: one blip read as four (a square too big to read as lone, D3), so the sensor took the client's size, `px` |
+
+## Reading it
+
+`.venv/bin/python tools/telemetry.py` finds the SavedVariables for the addon and
+prints the sessions (with their perf), the newest session's attribution (`perf`:
+allocators, gaps, the worst-frames ledger, per-state histograms, memory after GC,
+layout/swap/sweep stats, the bench), its kept events, errors (with stacks), marks
+(state, the motion ring's summary, each layout's start → end → swap with the end→swap
+delay, and the trace around them), the newest screenshots matched to their shot marks
+and paired with the reference shots, the validation report (`/mm check log`: one build's log,
+named by its `version`; game/Validate.lua clears another build's at load), and
+client `Logs/` lines that mention the addon. It also lists
+other addons' Lua errors in `Logs/` while ours was loaded (from each session's start to the
+next's; any time when there are no sessions), `SHARED` first: an addon sharing our
+`MagicMap` prefix, or an error naming a `MagicMap_` global. The spike's E1 (our old data
+globals breaking it) named only its own files, so a filter on our own name missed it.
+
+- `--trace`: every event of each mark's ring (not the last 40), each ledger frame's events, and
+  each motion ring frame by frame: `dt`, the camera's step in screen pixels, you against the
+  camera in pixels, `|col`/`|row` where a tile edge was crossed. `--trace N`: the last N events.
+- `--budgets`: the newest session with perf against the budgets in docs/runtime.md, a
+  PASS / FAIL line each and, under each FAIL, its **owner**: the frame budgets from the ledger
+  (the call slowest in the worst frames, what that frame did), the per-state histograms and
+  the gaps; allocation from `perf.alloc`; memory from `ourKBLoad` against `ourKB`; first open
+  from `perf.graceTop.map` (older sessions: `perf.slow`); errors from the session's errors. Then the
+  gate's empties (docs/v1-plan.md §1): `perf.slow`, `perf.gaps`, `taint`, `art`, `sensor`, each named
+  (`/mm bench` runs in its own grace, so it's in neither; older sessions' `bench: regions` is left out).
+  Exit 1 on any FAIL.
+  `--budgets --trace` also prints the perf, kept and marks sections it judged from.
+- `--compare A B`: two sessions side by side with B − A: the budgets, memory after GC,
+  per-state p95/p99/max, allocators, bench ops. A session is its id in the SavedVariables
+  read, or `FILE:id` for another SavedVariables file (sessions roll off after 10: keep a copy).
+- Shot pairing: a shot mark's id (its note's first word, an id from docs/evidence/shots/README.md)
+  is matched to the spike's reference shot `docs/evidence/shots/ref-<id>.jpg|png` (`--refs` for
+  another folder; tools/refshots.py names them); the reader prints both paths, the shot's stamp,
+  and the reference ids with no shot this time.
+
+Older SavedVariables (before these fields) still read: a missing field prints "not recorded"
+and an owner says what's missing.

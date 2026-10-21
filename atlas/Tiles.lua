@@ -1,0 +1,61 @@
+-- The tile set (Data/Tiles.lua, from WoW Forever's own WDT files), less the
+-- open-sea tiles (Data/TileColor.lua's sea[]: one flat colour, the backdrop's).
+
+local _, ns = ...
+local Atlas = ns.Atlas or {}; ns.Atlas = Atlas
+local Data = ns.Data -- the generated datasets (Data/*.lua; atlas/Coords.lua)
+
+local function MapData(inst)
+	local maps = Data.Tiles and Data.Tiles.maps
+	return maps and maps[inst]
+end
+
+local maps -- sorted list, built once
+function Atlas.Maps()
+	if maps then return maps end
+	maps = {}
+	for inst, m in pairs(Data.Tiles and Data.Tiles.maps or {}) do
+		maps[#maps + 1] = { inst = inst, name = m.name, kind = m.kind, continent = m.continent, bg = m.bg }
+	end
+	table.sort(maps, function(a, b) return a.inst < b.inst end)
+	return maps
+end
+
+function Atlas.Tiles(inst)
+	local m = MapData(inst)
+	return m and m.tiles
+end
+
+-- The tile set's product and build (Core.lua:417-422: /mm tiles, the title's debug line).
+function Atlas.TileSet()
+	local set = Data.Tiles
+	return set and set.product, set and set.version
+end
+
+-- The tile-space bounds of a map's tiles.
+local bounds = {}
+function Atlas.TileBounds(inst)
+	local b = bounds[inst]
+	if b == nil then
+		b = false
+		local tiles = Atlas.Tiles(inst)
+		if tiles then
+			local c0, r0, c1, r1 = 64, 64, 0, 0
+			for key in pairs(tiles) do
+				local col, row = math.floor(key / 64), key % 64
+				c0, r0 = math.min(c0, col), math.min(r0, row)
+				c1, r1 = math.max(c1, col + 1), math.max(r1, row + 1)
+			end
+			if c1 > c0 then b = { c0, r0, c1, r1 } end
+		end
+		bounds[inst] = b
+	end
+	if b then return b[1], b[2], b[3], b[4] end
+end
+
+-- Is a tile drawn at key? Open sea tiles aren't, so beside them counts as open.
+function Atlas.Drawn(inst, key)
+	local tiles = Atlas.Tiles(inst)
+	local colors = Data.TileColor and Data.TileColor[inst]
+	return tiles and tiles[key] and not (colors and colors.sea and colors.sea[key]) and true or false
+end

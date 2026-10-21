@@ -1,257 +1,114 @@
 # MagicMap
 
-A minimap you can zoom out. MagicMap takes your minimap's spot and draws the game's own minimap
-terrain at any zoom, from Blizzard's closest zoom out to several zones at once. Blizzard's live
-blips (herbs, ore, tracked NPCs) stay on it. Press M and it grows into a big map in the same frame,
-which zooms out to a whole continent.
+**One map for all of Azeroth, right where your minimap is.** Zoom out from the street you're on to the
+whole continent, see inside cities and caves, and always know where your next quest, herb or flight
+master is. Press M and the same map grows into a big map.
 
-For **WoW Forever** only.
+For **WoW Forever**. Free and open source (GPLv3). [Download the latest release](https://github.com/benmills/MagicMap/releases/latest).
 
-![The minimap: zooming from a herb tooltip out past the whole coast](docs/zoomable-minimap.gif)
-<!-- GIF (re-shoot, same story, current UI): the square minimap in Elwynn Forest, a Copper Vein
-     blip and its tooltip, wheel out in one move to Elwynn, Westfall and Redridge, then back in. -->
+![The minimap at Red Cloud Mesa, and M grows it into the big map over Mulgore and the Barrens](docs/images/hero-minimap-and-big-map.jpg)
 
-## Why you'd want it
+## Why players use it
 
-- **See what's past the minimap's edge.** The next quest hub, the road, the coast, without
-  opening the world map.
-- **Your gathering blips stay.** Herbs, ore and Blizzard's tracking (vendors, trainers) still
-  show around you, with their tooltips, on top of the zoomed-out terrain.
-- **One map.** The minimap and the big map are the same frame, at the same place in the world.
-- **Questing in view.** Quest objective areas are on the map. Click a quest and the map keeps it
-  in view, with a faint line toward it.
-- **Your addons come along.** Questie, HandyNotes, GatherMate and other addons' pins show on it,
-  and nothing is drawn twice.
+**A minimap that zooms out.** Blizzard's minimap stops at a few hundred yards. MagicMap draws the game's
+own terrain at any zoom, from your feet to a whole continent, with zone names and borders to find your
+way. Drag to look around; a moment later it glides back to you.
+
+<img src="docs/images/minimap-zoomed-out.jpg" alt="The minimap zoomed out over Mulgore" width="400">
+
+**See inside cities, caves and buildings.** Indoors, the map shows Blizzard's own floor plans in place:
+the floor you're on in full, the levels above and below faded, so you never lose track in Undercity
+or Ironforge. On the big map, a capital shows all its buildings at once, with its districts named.
+
+![Undercity's Trade Quarter and Ironforge's Great Forge](docs/images/indoors-undercity-ironforge.jpg)
+
+**Quests at a glance.** Your quests with their progress, objective areas as the game draws them, quests
+to pick up, and a tooltip with the mobs, items and who to turn in to. Click a quest to follow it and a
+hand-drawn line walks you there, around cliffs, water and lava.
+
+![A followed quest at Camp Narache: the line to its turn-in](docs/images/followed-quest-route.jpg)
+
+**Everything Blizzard's minimap tracks, at any zoom.** Herbs, ore, mailboxes, trainers and other
+services keep their icons and tooltips however far you zoom out, and the map remembers the ones you've
+passed. Rares you've seen are remembered for every character.
+
+![Peacebloom herbs in Tirisfal Glades with their tooltip](docs/images/herb-blips.jpg)
+
+**Tidy and familiar.** Blizzard's own art and icons, crowded icons grouped into a small pill you can
+open, flight points, dungeons and your party on the map, and pins from Questie, HandyNotes and
+GatherMate where you'd expect them. Everything can be switched on or off from the gear menu.
+
+**Light and safe.** The map does its work in small slices so the game stays smooth, catches its own
+errors without breaking, and gives Blizzard's minimap back exactly as it was when you turn it off.
+
+[Every feature in detail](docs/features.md).
 
 ## Install
 
-1. Download `MagicMap-v<version>.zip` from [Releases](../../releases).
+1. Download `MagicMap-v2.0.0.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest).
 2. Unzip it into `World of Warcraft/_classic_beta_/Interface/AddOns/`, so you have
-   `Interface/AddOns/MagicMap/MagicMap.toc`. When updating, delete the old `MagicMap` folder first.
-3. Install [QuestieDB](https://github.com/Questie/QuestieDB) the same way (MagicMap needs it for
-   what each quest objective is: the mobs that drop an item, their levels, who to turn it in to).
-4. Restart the game. A `/reload` isn't enough the first time, because new texture files only load
-   at startup.
+   `Interface/AddOns/MagicMap/MagicMap.toc`. Updating from 1.x: delete the old `MagicMap` folder first.
+3. Restart the game (a `/reload` isn't enough the first time) and tick MagicMap in the AddOns list.
 
-MagicMap takes your minimap's spot at once. `/mm` swaps back to Blizzard's minimap. To return,
-type `/mm` again, click MagicMap's button on the minimap's rim, or use the addon compartment.
+You don't need any other addon: the quest data is built in.
 
 ## Using it
 
-### The minimap
-
-It sits where your minimap was, square, about 200 yards across. The wheel zooms it. Drag to
-pan. Take the mouse off it for a few seconds after panning and it glides back to you. Move it by dragging
-the zone name or the border, or Alt-drag the map. Resize it from the bottom-right corner; it keeps
-the same yards across as it grows. It remembers where you put it, and `/mm reset` puts it back.
-
-The buttons show while you hover: follow at the bottom left, zoom at the bottom right,
-and the gear and the big map button by the zone name.
-
-Outdoors, Blizzard's minimap stays out of sight and is read as a sensor, so MagicMap draws its
-blips (herbs, ore, tracked NPCs) itself, with Blizzard's tracking icons: herbs and ore, the
-mailbox, innkeepers, bankers, trainers and the other town services. Each blip within about 233
-yards of you gets a pin, anywhere on the map, at any zoom, with Rotate Minimap on or off. Further
-away, zoomed in to town scale, the town services you track show too (from QuestieDB), and so do
-blips seen before, like mailboxes. These are the "Minimap blips" layer in the gear's Places.
-Anything without an icon of its own is a gold dot. MagicMap also
-draws everything else: quests and their areas, flight points, dungeon entrances, points of
-interest, party members, rares, your corpse and your waypoint. Where both could draw something,
-only one does.
-
-<!-- SCREENSHOT: the minimap at about 600 yards in Hillsbrad Foothills with Find Herbs and Find
-     Minerals on: Kingsblood and Tin Vein blips near the arrow, one blip tooltip open, a quest
-     area and a flight point drawn by MagicMap. -->
-
-Indoors, it shows Blizzard's own floor plan, and the wheel zooms that.
-
-### The big map (M)
-
-M grows the minimap into a big map, centred on you; the red button by the zone name does the
-same. M, the button or Escape shrinks it back. The quest log (L) still opens Blizzard's world map.
-
-On the big map, right-click a spot for what's there: zone and sub-zone, coordinates, its level
-range against yours, how far it is, the quests whose areas cover it, and the flight point, dungeon
-or graveyard nearby.
-
-![Pressing M grows the minimap into a big map and back](docs/minimap-to-big-map.gif)
-<!-- GIF (re-shoot, current UI): standing in the Crossroads, press M; the minimap grows to the
-     big map over the Barrens, then M shrinks it back to the minimap's spot. -->
-
-### Every continent and instance
-
-Click the zone name to pick a continent, another map or a dungeon or raid. With more than one zone
-in view, click a zone to fly there. Zone borders and names are traced from the terrain itself.
-`/mm zone <name>` flies to a zone by name.
-
-![Picking Eastern Kingdoms from the title, then clicking Dun Morogh to fly there](docs/pick-and-fly.gif)
-
-### Follow a quest
-
-Click a quest's icon on the map to follow it, and click again to stop. Zoomed in to a single
-zone, clicking its area works too. The quest you follow is also the game's tracked quest.
-
-Whatever you track (the quest you follow, a waypoint, or your corpse while you're a ghost) gets a
-soft line from you to it. It follows the way you'd walk, around cliffs, mountains, lava and lakes,
-read from the game's own terrain, and leaves you the way you're facing. For a quest with an area,
-it goes to the area's nearest edge and stops once you're inside. When the target is off the map, a
-gold arrow on its edge points the way.
-
-<!-- GIF: riding south out of the Crossroads after following a Barrens kill quest. The quest
-     area sits at the minimap's edge, the line runs round the hills to it, and goes away as you
-     ride into the area. -->
-
-### Waypoints
-
-Ctrl-click the map to set a waypoint, Ctrl-right-click to clear it. Right-click also offers
-"Waypoint here" and "Clear waypoint". Shift-click opens chat with a `/way` line for that spot,
-ready to share or send to a waypoint addon.
-
-### Quest areas
-
-Each quest's objective areas are drawn as the game draws them on its world map. Kill and collect
-objectives the game gives no area for get a rough dashed circle. Hover an area to light it up and
-see its quest.
-
-<!-- SCREENSHOT: the big map over Westfall with three or four quest areas, one lit by hover with
-     its tooltip, and one dashed estimated circle. -->
-
-### Rares you've seen
-
-Target a rare, or pass one the game shows, and MagicMap remembers where it was. Every character
-on your account sees the ones you've found. Rares and treasures the game is showing right now get
-their own pin. `/mm landmarks` says how many are remembered.
-
-### Other addons
-
-Addons that put pins on the world map through HereBeDragons (Questie, HandyNotes and others) show
-them on MagicMap too, with their own icons, tooltips and clicks. Each addon gets an entry in the
-gear's layers, so you can turn it off. Their minimap pins (GatherMate, HandyNotes) show around you
-on the minimap. An addon whose world-map pins MagicMap already shows doesn't get its minimap pins
-drawn again.
-
-<!-- SCREENSHOT: the big map over Duskwood with Questie's quest givers and objectives on it, and
-     the gear menu open at Other addons > Questie. -->
-
-### The gear menu
-
-By the zone name, on hover.
-
-- **Map, Quests, Places, People, You, Other addons:** what's drawn. Hover an entry for what it
-  does.
-- **Tracking:** Blizzard's minimap tracking (herbs, minerals, vendors, trainers...). Its own
-  button is hidden with the minimap's corner, so it lives here.
-- **Settings:** *Map* (colour-matched tiles), *Minimap* (the minimap button, reset position,
-  use Blizzard's minimap), and *Advanced* for diagnostics and performance. Hover a setting for
-  what it does.
-
-<!-- SCREENSHOT: the gear menu open with the Quests submenu showing. -->
-
-## Controls
-
-| Do | How |
+| | |
 | --- | --- |
-| Pan / zoom | Drag / wheel, or + / − at the bottom right |
-| Move | Drag the zone name or the border, or Alt-drag the map |
-| Resize | Drag the bottom-right corner |
-| Big map | M, or the red button by the zone name; M, the button or Escape to go back |
-| Pick a map | Click the zone name |
-| Fly to a zone | Click it, while more than one zone is in view |
-| Follow a quest | Click its icon (or its area, zoomed in); again to stop |
-| Follow you | The button at the bottom left |
-| Waypoint | Ctrl-click; Ctrl-right-click clears |
-| `/way` for a spot | Shift-click |
-| Menu (waypoint, follow me; zone info on the big map) | Right-click |
-| Blizzard's minimap | `/mm`, or gear → Settings → Use Blizzard's minimap |
+| **Zoom, pan** | Mouse wheel or + / −; drag the map. Reset (above +) goes back to the default zoom. |
+| **Big map** | M or the red button; M or Escape to shrink. |
+| **Follow a quest** | Click its pin; the quest line at the bottom left shows its progress. |
+| **Waypoint** | Ctrl-click the map; right-click for more. |
+| **Settings** | The gear by the zone name. |
+| **Commands** | `/mm` swaps MagicMap and Blizzard's minimap; `/mm help` lists the rest. |
 
-Slash commands, `/mm` or `/magicmap`:
+**Limits:** WoW Forever only (English clients), on the game build it was made for. Instances hide your
+position, so they're shown without your arrow. Blizzard's blips are only seen within about 230 yards.
+Other minimap addons (SexyMap and the like) may conflict. [More](docs/features.md#limits-in-detail).
 
-| Command | Does |
-| --- | --- |
-| `/mm` | MagicMap or Blizzard's minimap |
-| `/mm follow` | Toggle following you |
-| `/mm map <name or id>` | Show a map; on its own, lists them |
-| `/mm zone <name>` | Fly to a zone |
-| `/mm reset` | Back onto the minimap's spot, at its size |
-| `/mm layers` | What's drawn, in chat |
-| `/mm landmarks` | How many rares are remembered |
-| `/mm indoor` | Report what the map shows indoors, and why |
-| `/mm blips` | What the minimap sensor knows now (and its log, for bug reports) |
-| `/mm icon` | Show or hide the minimap button |
-| `/mm tint` | Tile colour correction on or off |
+**Found a problem?** Type `/mm mark <what you saw>` the moment it happens, then
+[open an issue](https://github.com/benmills/MagicMap/issues) with a screenshot. For a deeper look,
+attach `WTF/Account/<your account>/SavedVariables/MagicMap.lua` after a `/reload`. Nothing leaves
+your computer otherwise.
 
-For reporting problems: `/mm perf` records 10 seconds of play (`perf top` compares MagicMap's CPU
-and memory with your other addons, `perf mem` breaks down its memory), `/mm tiles`
-lists the tile set, and `/mm debug` shows tile details in the title.
+# How it works
 
-Settings and remembered rares are shared by every character on your account.
+MagicMap is a World of Warcraft addon (Lua) built on facts prepared offline, and on what the game
+tells it while you play:
 
-## Limits
+- **Atlas, the facts** (`atlas/`, `Data/`). Offline tools in `tools/` read the game client's own files
+  and bake what never changes into Lua data: the minimap terrain tiles' IDs, zone borders and labels, a
+  walkable grid for routes, flight points and places, and every building's indoor minimap pictures,
+  placed from its 3D model ([ADR 0008](docs/decisions/0008-interiors.md)). Quest, NPC and item facts
+  come from QuestieDB. At runtime the addon only draws the game's own textures by file ID.
+- **Game, the senses** (`game/`). Blizzard's minimap keeps running out of sight as a sensor: MagicMap
+  reads its blips (herbs, services, quest givers) and turns them into its own pins. It reads your
+  position, quests and party, works out which building room you're in from your position and subzone,
+  and borrows other addons' pins.
+- **Model and UI** (`model/`, `ui/`). Model decides what matters (your target, the walking route, what's
+  remembered); UI draws it with a small engine that lays out each layer in timed slices off the frame,
+  so zooming and panning stay smooth.
 
-- **WoW Forever only.** The data and code target its client.
-- **Blizzard's blips are only sensed within about 233 yards of you,** and a blip is dropped once a
-  full sweep no longer finds it. Two of a name closer than a few yards show as one.
-- **Indoors** (Undercity, a city's halls), the map shows the art of the map you're on (the world
-  map's), with everything else as outdoors; where a place has no map art, Blizzard's floor plan.
-  `/mm indoor` says what it decided and why.
-- **Instances that hide your position** are shown whole, without the line or blips.
-  Instances have no zone borders.
-- **Rotate Minimap:** MagicMap stays north up, and other addons' minimap pins stay hidden while
-  Rotate Minimap is on (they'd land in the wrong places).
-- **Other minimap addons** (SexyMap, square-minimap addons) may conflict. While FarmHud has the
-  minimap, MagicMap leaves Blizzard's blips to it.
-- **"Action blocked" errors** are possible, especially in combat, since MagicMap hides Blizzard
-  frames (the minimap's corner, and the world map when M opens MagicMap instead).
-
-Please report anything odd as an [issue](../../issues), with a screenshot.
+Each part may only reach the others through a narrow, checked boundary
+([architecture.md](architecture.md), [docs/structure.md](docs/structure.md)). A headless simulator of
+the WoW client runs the addon in CI: every command, replays of past bugs, and frame-time budgets
+priced from real client measurements.
 
 ## Development
 
-Python 3.9+. Generators use only the standard library (`gen_tilecolor.py --preview` needs Pillow).
+    python3 -m venv .venv && .venv/bin/pip install -r tools/requirements-dev.txt
+    tools/check.sh                       # lint and every test, as CI runs them
+    .venv/bin/python tools/install.py    # install into your WoW Forever client
+    .venv/bin/python tools/sim.py --help # drive the simulated client
 
-- `tools/check.sh` runs everything CI runs: the Lua globals check, then the tests (the addon in a
-  simulated client, and the generators against golden output). It sets up `.venv` on first use.
-  pytest arguments pass through: `tools/check.sh -k minimap`.
-- `.venv/bin/python tools/install.py _classic_beta_` copies the working tree into WoW Forever's
-  AddOns folder, after the Lua check. `/reload` in game; new texture files need a restart. Set
-  `MAGICMAP_WOW` or pass `--wow` if the game isn't in the standard place.
-- Regenerate `Data/` when a Forever patch changes the terrain, in this order (`gen_tilecolor.py`
-  reads `Data/Tiles.lua` and rewrites `Textures/Water/`):
+Regenerating the data, telemetry, the simulator, the release steps and the architecture rules:
+[docs/development.md](docs/development.md).
 
-  ```sh
-  python3 tools/gen_tiles.py local "/Applications/World of Warcraft" wow_classic_beta -o Data/Tiles.lua
-  python3 tools/gen_borders.py local "/Applications/World of Warcraft" wow_classic_beta -o Data/Borders.lua
-  python3 tools/gen_tilecolor.py local "/Applications/World of Warcraft" wow_classic_beta -o Data/TileColor.lua
-  ```
+## License and credits
 
-  `wago wow_classic_beta` works in place of `local <install> wow_classic_beta`; `gen_tiles.py`
-  then needs `--all-maps` for instances.
-- Release: set `## Version:` in `MagicMap.toc`, commit, tag `v<version>`, then
-  `tools/package.sh v<version>` writes `dist/MagicMap-v<version>.zip`.
-
-### How it works
-
-Minimap tiles are textures an addon can draw by FileDataID; MagicMap lays them out on the 64×64
-grid of 533⅓-yard tiles and places everything else by world position. The tile lists, zone
-borders and coast colours in `Data/` are generated offline from the game files. Outdoors,
-Blizzard's Minimap sits under our window at its widest zoom, north up, its own icons shrunk out
-of sight, and `Blips.lua` reads it as a sensor: it sweeps a pretend mouse over it and draws each
-blip it finds on our map, in world yards. Indoors, `IndoorArt.lua` draws the world map's art for the map you're on in the terrain's place
-(as Blizzard's own HybridMinimap does); only where there's none is the Minimap shown in the window
-as the floor plan. Every
-change to Blizzard's minimap is in `MinimapTakeover.lua`, paired with its undo.
-
-### Risks
-
-The sensor relies on behaviour the client doesn't document, found by measuring in game:
-`UpdateMouseoverAtPoint` only works while `SetUsingSoftCursor(true)`; blips answer in a square
-about 8 screen units each way from their middle, whatever the Minimap's size, scale or icon scale;
-alpha 0 doesn't hide its blips; and off screen it stops updating them. QuestieDB's NPC flags are
-read with Classic's values, which it doesn't export. It also relies on HereBeDragons' internal pin table (`SetMinimapObject`,
-`minimapPins`). The tests catch crashes and wrong API assumptions, not how it looks in the real
-client. Tile IDs change between Forever builds, so `Data/` must be regenerated when they do.
-
-## Credits
-
-[wowdev](https://wowdev.wiki) for file-format docs and the community listfile;
-[wago.tools](https://wago.tools) for build and file access.
+MagicMap is free software under the GNU General Public License, version 3 ([LICENSE](LICENSE)). Its
+quest, NPC, object and item data is derived from [QuestieDB](https://github.com/Questie/QuestieDB) and
+[Questie](https://github.com/Questie/Questie), used under the GPLv3 terms they extend to copies of
+their work, with thanks to their authors and contributors ([NOTICE.md](NOTICE.md)). MagicMap isn't
+affiliated with Questie or Blizzard Entertainment.

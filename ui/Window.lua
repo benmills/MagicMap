@@ -1,0 +1,181 @@
+-- The map window: Blizzard's ButtonFrameTemplate (Forever's re-skin) stripped to its
+-- metal border (ui/Chrome.lua), the view inside it where the layers draw (ui/Engine.lua),
+-- and input routing: the view's wheel and left presses and releases go to Motion
+-- (ui/Motion.lua), a click to a pin, a quest's area or the zone under it and a Shift or Ctrl
+-- click to ui/ZoneInfo.lua, a right release opens the map's menu (ui/Menus.lua); dragging the
+-- border or Alt+left-dragging the map moves the window. Its draw step, each frame while shown:
+-- grow/shrink (ui/BigMap.lua), Motion's chase, the map shown (yours while following), the
+-- camera's speed, Engine's layers, the map state (your arrow: ui/You.lua).
+
+local _, ns = ...
+local UI = ns.UI
+local Atlas, Runtime = ns.Atlas, ns.Runtime
+local Camera = UI.Camera
+
+local BACKDROP = { 0.03, 0.06, 0.065 } -- a map without its sea colour (Core.lua:487)
+
+local Window = {}
+UI.Window = Window
+
+local function R2(v) return math.floor(v * 100 + 0.5) / 100 end -- for telemetry
+
+-- Core.lua:86-100: until the minimap's spot is known, 200 square at the top right (Core.lua:21, 1676).
+local frame = CreateFrame("Frame", "MagicMapFrame", UIParent, "ButtonFrameTemplate")
+frame:SetClampedToScreen(true)
+frame:SetMovable(true)
+frame:SetResizable(true)
+frame:EnableMouse(true)
+frame:RegisterForDrag("LeftButton")
+frame:SetResizeBounds(120, 120)
+frame:SetSize(200, 200)
+frame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -20, -20)
+frame:Hide()
+ButtonFrameTemplate_HidePortrait(frame)
+ButtonFrameTemplate_HideButtonBar(frame)
+Window.frame = frame
+
+local opened -- the first open builds Atlas's indexes: its frames are budgeted apart (docs/runtime.md)
+frame:SetScript("OnShow", Runtime.Wrap("map: shown", function()
+	if not opened then opened = true; Runtime.Grace("map", 2) end
+	Runtime.Trace("map", "shown")
+end))
+Runtime.SetState("closed") -- frames by map state (docs/runtime.md); the draw step sets the shown ones
+
+-- Its place, kept (ui/BigMap.lua: only the small window's).
+local function Moved() UI.BigMap.SaveLayout() end
+frame:SetScript("OnDragStart", Runtime.Wrap("map: move", function() frame:StartMoving() end))
+frame:SetScript("OnDragStop", Runtime.Wrap("map: moved", function()
+	frame:StopMovingOrSizing()
+	Moved()
+end))
+Window.Moved = Moved
+
+-- The view: the map, inside the border (placed by ui/Chrome.lua). Clips the layers to it.
+local view = CreateFrame("Frame", nil, frame)
+view:SetClipsChildren(true)
+view:EnableMouse(true)
+view:EnableMouseWheel(true)
+Window.view = view
+
+local backdrop = view:CreateTexture(nil, "BACKGROUND", nil, -8)
+backdrop:SetAllPoints()
+backdrop:SetColorTexture(0, 0, 0, 1)
+
+function Window.Size()
+	return view:GetWidth(), view:GetHeight()
+end
+
+-- The cursor in the view's units, from its top left.
+function Window.Cursor()
+	local x, y = GetCursorPosition()
+	local s = view:GetEffectiveScale()
+	return x / s - view:GetLeft(), view:GetTop() - y / s -- /: never 0 (an effective scale is > 0)
+end
+
+---------------------------------------------------------------------------
+-- Input: the view's mouse, to Motion and ZoneInfo (a click's, Shift and Ctrl clicks); Alt+left-drag
+-- moves the window; a right release opens the map's menu (Core.lua:1335-1416)
+---------------------------------------------------------------------------
+
+local moving
+view:SetScript("OnMouseWheel", Runtime.Wrap("map: wheel", function(_, delta) UI.Motion.Wheel(delta) end))
+view:SetScript("OnMouseDown", Runtime.Wrap("map: press", function(_, button)
+	if button == "LeftButton" and IsAltKeyDown() then
+		frame:StartMoving()
+		moving = true
+		return
+	end
+	-- Ctrl-click a waypoint, Ctrl-right-click none, Shift-click a /way line: taken on the press, no pan.
+	if (IsShiftKeyDown() or IsControlKeyDown()) and UI.ZoneInfo.Modified(button) then return end
+	if button ~= "LeftButton" then return end
+	UI.ZoneInfo.Press()
+	UI.Motion.Press()
+end))
+-- Only the left button's release ends a press; the right one's opens the map's menu (Core.lua:1387-1399):
+-- the client's own menu, MenuUtil, so the frame's budget, as the gear's.
+view:SetScript("OnMouseUp", Runtime.Wrap("map: release", function(_, button)
+	if moving then
+		frame:StopMovingOrSizing()
+		moving = nil
+		Moved()
+		return
+	end
+	if button == "RightButton" then
+		if not (IsShiftKeyDown() or IsControlKeyDown()) then UI.Menus.Map(view, UI.ZoneInfo.CursorTile()) end
+	elseif button == "LeftButton" then
+		-- A click, not a drag: a pin's; else a quest's area while zone clicks aren't on offer, else the
+		-- zone flown to (Core.lua:1400-1416).
+		if UI.Motion.Release() and not UI.Pins.Tap(button) then UI.ZoneInfo.Tap() end
+	end
+end, Runtime.FRAME_MS))
+-- In the window (a tip on one of its widgets goes with it: Game hides only its own, spike-bugs G7).
+local function Within(f)
+	while f do
+		if f == frame then return true end
+		f = f:GetParent()
+	end
+	return false
+end
+frame:SetScript("OnHide", Runtime.Wrap("map: hidden", function()
+	if moving then frame:StopMovingOrSizing(); moving = nil end
+	local owner = GameTooltip:GetOwner()
+	if owner and Within(owner) then GameTooltip:Hide() end
+	Runtime.Trace("map", "hidden")
+	Runtime.SetState("closed")
+end))
+
+---------------------------------------------------------------------------
+-- Each frame: grow/shrink, the map shown, the camera, layouts and canvases
+---------------------------------------------------------------------------
+
+local function You()
+	local you = ns.Model.you
+	return you and you.inst and you
+end
+
+-- Your map, if we can show it: an instance that withholds where you are counts only with its
+-- tiles; in one we have none for, the map stays the one you came from (Core.lua:1110-1121).
+local function Mine(you)
+	return you and (you.col or Atlas.Tiles(you.inst)) and you.inst
+end
+
+local drawn -- the map the layers show
+local function SetInst(inst)
+	drawn = inst
+	if Camera.zoneInst ~= inst then Camera.zone = nil end -- (another map's: SetMap, Core.lua:1071)
+	UI.Engine.Clear()
+	local bg = BACKDROP
+	for _, m in ipairs(Atlas.Maps()) do
+		if m.inst == inst and m.bg then bg = m.bg end
+	end
+	backdrop:SetColorTexture(bg[1], bg[2], bg[3], 1)
+end
+
+Runtime.Step("ui", "map: draw", function(elapsed)
+	UI.BigMap.Step(elapsed)
+	local you, Motion = You(), UI.Motion
+	Motion.Chase(you) -- (a map that withholds where you are: the whole of it)
+	local mine = Mine(you)
+	if not Camera.inst or (Camera.follow and mine) then Camera.inst = mine or Camera.inst or 0 end -- following: your map
+	Motion.Measure(elapsed)
+	local inst = Camera.inst
+	if inst ~= drawn then SetInst(inst) end
+	local cam = Camera.cam
+	local w, h = Window.Size()
+	if w <= 0 or h <= 0 then return end
+	local zooming = UI.Engine.Draw(inst, cam, w, h)
+	Runtime.SetState(Motion.Dragging() and "drag" or zooming and "zoom" or UI.BigMap.big and "big" or "small")
+end, { shownOnly = frame })
+
+-- Our map, or Blizzard's minimap (Core.lua:1654).
+function Window.Toggle()
+	frame:SetShown(not frame:IsShown())
+end
+
+-- For telemetry: the window and its camera (View.diag's map).
+function Window.State()
+	local cam, w, h = Camera.cam, Window.Size()
+	return { shown = frame:IsShown(), inst = Camera.inst, cx = R2(cam.cx), cy = R2(cam.cy), zoom = R2(cam.zoom),
+		follow = Camera.follow, w = R2(w), h = R2(h) }
+end
+

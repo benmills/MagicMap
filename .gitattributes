@@ -1,7 +1,0 @@
-# Left out of release zips (git archive, see tools/package.sh).
-tools export-ignore
-.gitignore export-ignore
-.gitattributes export-ignore
-docs export-ignore
-.github export-ignore
-.claude export-ignore

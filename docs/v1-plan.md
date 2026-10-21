@@ -1,0 +1,524 @@
+# MagicMap 1.0: the plan for the big run
+
+Status: PLAN, for an agent swarm. Inputs: synthesized plan + critic gaps (all applied, see §10) + readers (spike style, spike features, rebuild state, play-test perf).
+
+## 1. Goal and definition of done
+
+Ship the rebuild (now `MagicMapAtlas`, `/mma`) as **MagicMap 1.0**. It must look and behave like the spike's shipped 1.0 code (`~/code/MagicMap`, read-only) minus the non-goals, on the rebuild's locked contracts. Spec source is the spike's **code**, not `RELEASE_NOTES-v1.0.0` (path auto-fit and "blips past the edge" stay out unless the user says otherwise, §9 D4).
+
+1.0 is done when all of these hold:
+
+| # | Gate | Measured by |
+|---|---|---|
+| 1 | Every spike feature in §5 is shipped or marked "out, by decision"; the user signs off `docs/parity.md` with shots | parity.md, `/mma shot` pairs |
+| 2 | The look matches §4 values verbatim | shot pairs vs `docs/evidence/shots/` reference |
+| 3 | 8/8 budgets PASS in a real 10+ min session, twice, per script (a)–(e); `perf.slow`, `perf.gaps`, `sensor` and `art` traces empty | `tools/telemetry.py --budgets` |
+| 4 | `/mma check log` on throughout: 0 K4 drift lines; 0 taint events (ADDON_ACTION_BLOCKED/FORBIDDEN) | telemetry |
+| 5 | 0 errors | errors/hour budget |
+| 6 | CI green: `tools/check.sh`, `pytest tools/tests`, empty luacheck BASELINE, no-QuestieDB-data scenario green | CI |
+| 7 | Renamed (MagicMap, `/mm`), merged into `~/code/MagicMap`, packaged from a tag; the user does any push/upload | M6 exit |
+
+## 2. Play-test findings and how the plan answers them
+
+Session `345b724`, build 1.60.1.70374, ~90 s, Dun Morogh/Kharanos, 0 errors. Load 155 ms, p95 0.35 ms, p99 4.5 ms PASS.
+
+| Finding | Cause (from the mark ring + lupa heap) | Fix: package | Proof |
+|---|---|---|---|
+| **FAIL frame max 27.2 ms** (≤8) | Swap end (`front:Hide; Place; back:Show`) can't yield, ~20 µs/region; borders ~1000 Lines at 3/segment; hidden pooled Lines still pay; SetScale on borders ~2 ms/wheel frame; every wheel tick rebuilds all 5 layers. game.observe 10.5 ms: sensor capped by probe count (~100 probes × ~0.1 ms) | Park pools, settle flag, no SetScale on borders, bench-chosen swap: **M1.3**. 2 Lines/segment + simplification bands: **M1.4**. Time-budgeted, resumable sensor: **M1.5** | R-P1, R-P7, `swap` trace ≤4 ms, game.observe ≤2 ms |
+| **FAIL first open 67.5 ms** (≤50) | `Atlas.Labels` VisualCentre at runtime, one 56.2 ms call | Labels offline (`tools/gen_labels.py` → `Data/Labels.lua`): **M1.1** | test_atlas golden; grace.map ≤50 (target ≤20) |
+| **FAIL memory 70.8 MB** (≤64) | No GC before reading: ~24 MB is garbage (274 KB/s × 90 s). Data: Items 10.5 + Npcs 9.3 + Quests 5.5 + Objects 3.8 MB; only 2,683/21,262 Items referenced | Full collect before reading: **M0.4**. Offline data diet: **M1.2** (D3) | ourKB after GC ≤64 (expect ~40); Items ≤2 MB |
+| **FAIL allocation 274 KB/s** (≤50) | Not attributed. Suspect: sensor (fresh tooltip tables + gsub per probe), then a coroutine + closure per Rebuild × 5 layers/tick, Borders `p` per line, model/Blips Kind() | Attribute first: **M0.3** (HARD edge). Then parse cache + REST sweep: **M1.5**; settle-only rebuilds: **M1.3** | R-P3 ≤0.5 KB/frame; `perf.alloc` top 5 |
+| **Mark "slight tear when moving"** (zoom 1024, follow, 320×203) | Undiagnosed. Candidates: (1) tile seam in view (col-33 boundary at x≈232), (2) snapped mask textures/FontStrings against unsnapped ground, (3) ~33,000 px canvas offsets; blips region ~0.08 rows off the ground's | Motion ring in marks: **M0.4**. Region-local origins + shared origin: **M1.3**. Unsnap masks; seam overlap only if a shot shows one: **M1.4** | Re-mark crossing a tile boundary at 1024 with ring + shot; sim offsets ≤4096 px, all map textures unsnapped |
+
+The 4 FAILs and the tear are single-session inferences. M0 makes them measured before M1's engine and sensor fixes commit.
+
+Measured at the M0 gate (docs/evidence/perf-m0.md): the ~20 µs a region is what a swap's Show pays per region it makes visible after moving (35-50 µs a line), not SetScale or hidden children (bench: ~0.01 µs a child); a probe costs ~2 µs, not 0.1 ms, and makes ~0.35 KB whether anything answers; the sensor is the top allocator (233-297 KB/s), then `map: draw` (a layout per layer each zoom frame).
+
+## 3. Rules for every package
+
+- Contracts: OPEN additions only, by the single `types/` owner (M0.1). The only LOCKED changes are the SavedVariables rename (ADR 0007, M6.1) and ADR 0004's amendments: D6 (5000 seen blips an instance: done 2026-10-18) and optional keys (a key without a default, of another type, nil: recorded 2026-10-18, M1 review round 2).
+- Tests: simple sim scenarios or `R-*` replays only. No unit-test sprawl.
+- No defensive code. E3 (`x/0` raises in the client) is handled by the `/` lint rule (M0.7) and fixes at the source. Absent QuestieDB data is handled once in Atlas (empty indexes), not per call site.
+- Comments: terse, spike-style.
+- Values in §4 are constants copied verbatim with spike `file:line` in a comment. Not starting points.
+- Commands stay `/mma` until M6.
+- The spike addon is **disabled** in every play-test (both hook ToggleWorldMap and take over the Minimap). Exception: the one reference-shot session (M0.8), which has the spike only.
+- Risky client behaviour (QuestPOI Inside L1, HBD borrow, M/Escape hooks, taint) is proven thin and in game one milestone before features lean on it.
+- Model builds against fixture streams through stubs with the real interface, so the fixture → Game swap needs no code change.
+- Every package runs in its own git worktree branch; the lead merges. Packages marked **exclusive** below hold their files alone until merged.
+- Hand-off: each package lists the spike-bugs rows it closed and the parity rows it ticked. Only the lead edits `docs/evidence/spike-bugs.md` and `docs/parity.md`, once per gate.
+- Hot files are split in M0.2 so packages add files instead of editing shared ones: per-folder `files.txt` manifests (TOC generated), `Game.Part`/`Game.Handle`/`Game.Apply`/`Engine.Layer` registries, one replay per file under `tools/tests/replays/R-XX.lua`, per-Data-file FORMATS versions.
+
+## 4. Style guide (match exactly)
+
+All paths are in `~/code/MagicMap`. Font face is GameFontNormal's unless stated. Shadow colour is black.
+
+### Frame and chrome
+| Element | Value | Spike ref |
+|---|---|---|
+| Window | `ButtonFrameTemplate` stripped: portrait, button bar, Inset, TitleText off; every template region hidden but viewport, band, grip, border, controls | Core.lua:76-90, UI.lua:1-80 |
+| Border | Bottom metal pieces on all 4 sides: `UI-Frame-Metal-CornerBottomLeft/Right` (top corners = vertical texcoord flip), `_UI-Frame-Metal-EdgeBottom` (flipped for top), `!UI-Frame-Metal-EdgeLeft/Right`; OVERLAY, native size, edges stretched; level frame+505 | UI.lua ApplyBorder |
+| Viewport inset | Border thickness clamped 2..6 px per side (`MAX_INSET=6`; L2 oversized atlases) | Core.lua:383-391 |
+| Backdrop | (0,0,0,1) or sampled sea colour, default (0.03,0.06,0.065) | Core.lua |
+| Bounds | Clamped to screen, movable, `SetResizeBounds(120,120)` | Core.lua:76-90 |
+| Grip | 14×14 at BOTTOMRIGHT (-4,4), level +520, alpha 0.8; `Interface\ChatFrame\UI-ChatIM-SizeGrabber-Up/-Highlight/-Down` | Core.lua:316-327 |
+| Move | Drag title, drag frame/border, or Alt+left-drag map | Core.lua:1342-1389 |
+| Layer order | backdrop → tiles (sensor + path canvas on tile canvas) → shade → areas → lines → path → labels → pins (tile level +i) → overlay +8 (arrow, edge arrow); border +505, band +515, mapControls +518, grip +520 | Core.lua:142-153 |
+
+### Title band
+| Element | Value | Spike ref |
+|---|---|---|
+| Title | 14 pt, (1,0.82,0.25), hover (1,0.93,0.6), shadow (1,-1) alpha 1, left, no wrap | Core.lua:177-226 |
+| Subtitle | 11 pt, (0.74,0.68,0.58), 6 px right of title, same baseline, +1 y | Core.lua:177-226 |
+| Position | 4 px above frame top-left (x+2); below the bottom when frame is within 24 px of screen top | Core.lua:291-312 |
+| Joins | parts `'  ·  '`; coords `'%.1f, %.1f'`; target `'|cffffd27f<title>|r N yd'` or `'<title> here'`; big hint `'|cff8a7f6eright-click: Follow me|r'`; debug `|cff777777` | Core.lua:1244-1320 |
+| Width cap | frame w − 4 − (2·20+4+6+8) | Core.lua |
+| Hit rect | padded 4 px wide, 3 px tall | Core.lua |
+
+### Buttons and controls
+| Element | Value | Spike ref |
+|---|---|---|
+| Mode (big map) | 20×20 `redbutton-expand-c60` (fallback `redbutton-expand`), pushed `-pressed(-c60)`, highlight `redbutton-highlight(-c60)` ADD; BOTTOMRIGHT→frame TOPRIGHT (-2,+3), flipped (-2,-3); tip `Big map (M)` / `Minimap (M)` | Core.lua:281-310 |
+| Gear | 24×24 `Interface\WorldMap\Gear_64` tc (0,0.5,0,0.5), pushed (0,0.5,0.5,1), same as ADD highlight; 6 px left of mode; tip `Layers & settings` | Core.lua:281-310 |
+| Zoom out / in | `ui-hud-minimap-zoom-out` 20×11 at BOTTOMRIGHT (-12, 18); `ui-hud-minimap-zoom-in` 20×20, 2 px above; `-down`/`-mouseover` variants | Core.lua:335-381 |
+| Follow | 24×24 at BOTTOMLEFT (12,12); ring CIRCLE mask (1,0.82,0.3,0.9) only when on; disc (0,0,0,0.65) 21×21; icon `ui-hud-minimap-arrow-player` 17×17; highlight (1,1,1,0.12); off = desaturated, alpha 0.6 | Core.lua:335-381 |
+| Hover reveal | controls 0↔1 linear over 0.15 s; grip to 0.8×; reach `IsMouseOver(+32,-32)`; kept shown while a menu is open | Core.lua:393-408 |
+| Tiny tip | TOOLTIP strata, plate (0,0,0,0.6), 11 pt (0.95,0.9,0.8), pad +10 w +6 h, 3 px above; delay 0.35 s, fade-in 0.12 s, life 2.5 s; hide on leave/down/menu | Core.lua:1457-1504 |
+| Rim button | `CreateRoundButton`: bg CIRCLE (0.06,0.05,0.04,0.9) at size−3; icon masked at size−inset; ring `Interface\HUD\UIMinimap2xC60` tc (510,591,511,592)/1024 at size+2; highlight (1,0.9,0.6,0.18). Map button: 28 px, `INV_Misc_Map_01`, inset 8, MEDIUM, radius w/2+6, default 215°, draggable; tip `|cffffd100MagicMap|r` + white Click/Drag lines | UI.lua:82-126, MinimapButton.lua:7-30 |
+
+### Window states and motion
+| Element | Value | Spike ref |
+|---|---|---|
+| Minimap form | square on cluster home rect, side = max(w,h), cluster strata; SPAN 200 yd across; zoom = side/(200/533.33); no plate, no round mask | MinimapMode.lua:21-29, 98-114 |
+| Resize small | zoom × newSide/oldSide (yards kept) | MinimapMode.lua:88-96 |
+| Grow (M) | 0.7 screen each way, centred, HIGH + Raise, 0.22 s EaseOutCubic `1-(1-t)^3`; home alpha → 0; zoom /1.5 but not past whole zone at fit 0.92, over 0.32 s | MinimapMode.lua:47-80 |
+| Shrink | 0.18 s to saved small rect; home alpha back; fly to saved zoom, follow | MinimapMode.lua:139-189 |
+| Zoom | 16..800 px/tile (tile 533.33 yd), default 384; tick ×1.3, every wheel event one by its sign (the spike's: M1.14 removed M1.8b's rationing by time and `/mma wheel`, the user's play-test of M1); log-space chase 14/s, stop within 0.002 log; ticks stack onto the running target; anchor you while following, else the cursor (wheel) / centre (buttons) | Core.lua:13-17, 965-983, 1422-1441 |
+| Flight | `AnimateTo` 0.55 s EaseOutCubic, log-space zoom; zoom-in "comes to you"; zone fit 0.92 | Core.lua:946-1025 |
+| Click vs drag | click <5 px and <0.35 s; drag turns follow off | Core.lua:1064-1090 |
+| Idle return | 6 s untouched, small only, not hovered/dragging/animating | MinimapMode.lua |
+| Crossfade | borders 0.12 s; label fade-in 0.2 s | Layers.lua |
+
+### Ground
+| Element | Value | Spike ref |
+|---|---|---|
+| Tiles | by FileDataID, TRILINEAR, unsnapped; no colour data: inward fade 0.35 tile; with TileColor: inward 0.08 to edge mean, outward 0.6 to backdrop, gradient corners | Core.lua:441-700 |
+| Zone border | unsnapped; thick clamp(z/140,1.1,1.8), (1,0.9,0.72) α0.6; shadow from zoom 60 at thick+1.2, black α0.25 (2 Lines/segment, D5) | Layers.lua:1531-1590, 1735-1760 |
+| Subzone border | from zoom 140, clamp(z/300,0.8,1.1), (1,0.95,0.85) α0.22, simplify 0.035 tile | Layers.lua:1786-1802 |
+| Hover zone border | (1,0.84,0.4) α0.95, clamp(z/100,1.6,2.4) | Layers.lua |
+| Dead ends | last 36 px as 5 px dashes / 4 px gaps, width thick·(0.6+0.4f), α·f, dropped below f 0.08; merge points <2.5 px; cap ≤4 pieces/end (rebuild cost cap) | Layers.lua:218-227 |
+| Zone labels | UPPERCASE 10 pt (1,0.9,0.7,0.75), hover (1,1,0.9,1); hidden past zoom 450 | Layers.lua:1417-1458 |
+| Subzone labels | 9 pt (0.95,0.92,0.85,0.62); zoom 120 (weight ≥40), 220 (≥15), else 400 | Layers.lua:1636-1694 |
+| Label rules | no outline, shadow (1,-1) α0.55; collision ±4/±2 px; try 0, −(h+3), +(h+3), else skip; fade-in 0.2 s; re-place after log(1.25) drift | Layers.lua:239-244, 1804-1811 |
+| Shade | (0,0,0,0.55) cells 0.2 tile, +0.5 px, opt-in | Layers.lua:1772-1784 |
+| Indoor art backdrop | (0.06,0.05,0.04,1) | IndoorArt.lua |
+| Player arrow | `Textures/PlayerArrow.tga` (gen_arrow.py), 22·64/45 ≈31.3 px, unsnapped, overlay +8 | Core.lua:155-175 |
+
+### Pins
+| Element | Value | Spike ref |
+|---|---|---|
+| StylePin | default 14; forms (a) texture, (b) atlas, (c) atlas over tinted under, icon ×0.62, inner masked ×0.56 shaded (0.55,0.55,0.55) tc 0.08..0.92, (d) dot ×0.6 on black ring (0,0,0,0.9) ×0.6+3 | Layers.lua:303-400 |
+| Followed glow | CIRCLE size+14 (1,0.82,0.3,0.45) BACKGROUND | Layers.lua |
+| Count | `GameFontHighlightSmallOutline`, TOP→BOTTOM +2 | Layers.lua |
+| Tooltip | GameTooltip ANCHOR_RIGHT; title then grey 0.85 lines in `GameTooltipTextSmall`, restored on hide | Layers.lua:112-114 |
+| Quest | `Quest-In-Progress-Icon-yellow` over `UI-QuestPoi-QuestNumber` (difficulty tint), 22 / 26 followed; inner icon item or 135274/134063/133633; complete `UI-QuestIcon-TurnIn-Normal`; offer `QuestNormal` 18 | Layers.lua:603-613, QuestInfo.lua |
+| Difficulty | red (1,0.1,0.1) ≥+5; orange (1,0.5,0.25) ≥+3; yellow (1,0.82,0) to −2; green (0.25,0.75,0.25); grey (0.5,0.5,0.5) trivial | QuestInfo.lua:14-28 |
+| Places | flight `atlasName` 18, fallback (1,0.82,0)/(0.9,0.2,0.2)/(0.3,0.5,1); graveyard `poi-graveyard-neutral` 16; dungeon 20 fallback (0.7,0.4,1); area POI 18; vignette 20 | Layers.lua:459-659 |
+| You | corpse `deathrecap-icon-tombstone` on disc 22, scale 0.6, aspect 15/20; waypoint `Waypoint-MapPin-Tracked` 22 | Landmarks.lua |
+| Rares | 137008 at 15, from zoom 60, `Seen here <Mon DD>` | Landmarks.lua:15-134 |
+| Blips | ore `Professions_Tracking_Ore`, herb `Professions_Tracking_Herb` 14; mailbox 136459; services 136458/136453/136452/136466/136454/136463/136455/136465 at 14; quest `!` 132049 `?` 132048; unknown gold dot (1,0.82,0) 10; remote from zoom 60 | Blips.lua:373-641 |
+| Group | `Interface\Minimap\PartyRaidBlipsV2` tc (0,0.5,0,1) 12, class colour, dead (0.5,0.5,0.5), 20 Hz | Layers.lua:673-760 |
+| Quest blobs | fill/border/scalar: followed blue 32/120/0.8; kill rust 0/85/0.6; gather green 0/55/0.6; other blue 0/85/0.6; hover 40/150/0.8; drawn twice (now + next frame), hidden while zooming | Layers.lua:785-985 |
+| Estimates | disc (1,0.85,0.4,0.05) r 110 yd; 18 dashes at 1.5 px (1,0.85,0.4,0.35); merge within 0.6 r | Layers.lua |
+
+### Path
+| Element | Value | Spike ref |
+|---|---|---|
+| Stroke / wash | 1.6 px (1,0.93,0.76,0.7) over 3.4 px (0.12,0.08,0.03,0.3) | Path.lua:1-40 |
+| Dashes | 6/4 px, ≤160 pieces; end fades 40 px; clearance 14 / 15 px | Path.lua |
+| Ink | wobble 0.8·(0.6 sin(u·0.09+1.3)+0.4 sin(u·0.031+4.1)); α unevenness 25% sin(…·0.045+2); Bezier lead-in 48 px / 8 steps | Path.lua:220-275 |
+| Redraw | half-pixel move, 3° turn, zoom change, new route | Path.lua |
+| Edge arrow | `Interface\Minimap\ROTATING-MINIMAPGUIDEARROW` 32×32, 16 px inside edge | Path.lua |
+
+### Menus and text
+| Element | Value | Spike ref |
+|---|---|---|
+| Menus | client `MenuUtil.CreateContextMenu` only, no skin | Menu.lua |
+| Gear tips | white title, gold (1,0.82,0) body; children indented 5 spaces, disabled while parent off | GearMenu.lua |
+| Zone info | GOLD `|cffffd100`, WHITE, GREY `|cffa8a8a8`, DIM `|cff808080`; SEP dim `'  ·  '`; level green `|cff40c040` / red `|cffff6040` / grey | ZoneInfo.lua:1-187 |
+| Quest tooltip | facts DIM `|cff9d9d9d`, tag orange `|cffff8040`, `|cff33ff33Ready to turn in`; ≤3 mobs + `(+N more)`; 14 px portraits; `Turn in to` at 0.85; `Click to follow` | QuestInfo.lua:175-369 |
+| Chat | prefix `|cffffd100MagicMap|r: ` (`MagicMapAtlas` until M6); layers on `|cff33ff33`, off `|cff888888`, titles gold | Core.lua:44-46, Layers.lua:2196-2207 |
+
+## 5. Feature checklist
+
+Status today: B built, P partial, M missing. M0.8 turns this into `docs/parity.md` (one row per feature + style element, with proving test/script step and shot spot/zoom).
+
+| # | Spike feature | Package | Now |
+|---|---|---|---|
+| 1 | Takes the minimap's spot, exact release | M1.6, M1.7 | P (engage/release) |
+| 2 | Square metal chrome, hover controls | M1.7 | M |
+| 3 | Zone title line (small/big rules, debug) | M1.7 (+debug M4.6) | M |
+| 4 | Map picker on the title | M3.4 | M |
+| 5 | Wheel and ± zoom, log chase | M1.8 | P |
+| 6 | Pan; click vs drag | M1.8 | P |
+| 7 | Follow toggle, idle return | M1.7, M1.8 (corpse → follow M3.3) | P |
+| 8 | Move and resize (yards kept) | M1.7 | P |
+| 9 | `/mma reset` (refused while big) | M1.7 | M |
+| 10 | Big map: M, red button, Escape | M1.6, M1.7 | M |
+| 11 | Small vs big differences | M1.7, M3.4 | M |
+| 12 | Terrain tiles | M1.3 | B |
+| 13 | Colour-matched tiles, coast fades, `/mma tint` | M1.4 | P |
+| 14 | Player arrow (hidden off-map / withheld; under 'blizzard' M4.2) | M1.4 | P |
+| 15 | Zone and subzone borders | M1.4 | P (demo style) |
+| 16 | Zone and subzone labels | M1.1, M1.4 | P (demo style) |
+| 17 | Hover zone, click to fly | M3.4 | M |
+| 18 | `/mma map`, `/mma zone` | M3.4 | P (`map`) |
+| 19 | Blip sensor | M1.5 | B (over budget) |
+| 20 | Blip icons (incl. quest `!`/`?`) | M1.5, M4.3, M4.4 | P |
+| 21 | Town services and remembered blips | M4.3, M4.4 | P (live only) |
+| 22 | Duplicate tracking suppression, crash-safe | M4.2 | M |
+| 23 | Gear: Tracking | M4.5 | M |
+| 24 | Indoors: art or Blizzard floor plan, `/mma indoor` | M4.2, M4.4 | M |
+| 25 | Rotate Minimap ignored | M1.5, M4.2 | P |
+| 26 | Quest pins | M2.1–M2.4 | M |
+| 27 | Difficulty colours | M2.3 | M |
+| 28 | Rich quest tooltip | M2.4 | M |
+| 29 | Quest areas (blobs) | M1.9, M2.4 | M |
+| 30 | Estimated areas | M2.3, M2.4 | M |
+| 31 | Click to follow a quest | M2.2, M2.4 | M |
+| 32 | Target selection | M3.1 | M |
+| 33 | Walking route line | M3.1, M3.3 | M |
+| 34 | Off-map edge arrow | M3.3 | M |
+| 35 | Waypoints (Ctrl-click / Ctrl-right-click) | M3.2, M3.4 | M |
+| 36 | `/way` link (Shift-click) | M3.2, M3.4 | M |
+| 37 | Right-click menu | M3.4 | P (follow only) |
+| 38 | Zone info inspector | M3.4 (explored + landmark lines M4.4) | M |
+| 39 | Places: flight, dungeons, graveyards, POIs | M4.1, M4.3, M4.4 | P (flight in labels) |
+| 40 | Quests to pick up | M2.2–M2.4 | M |
+| 41 | Party and raid dots | M4.1, M4.3, M4.4 | M |
+| 42 | Corpse | M3.2, M3.3 | M |
+| 43 | Rares seen account-wide | M4.1, M4.3 | P (static) |
+| 44 | Live vignettes | M4.1, M4.3, M4.4 | M |
+| 45 | Unexplored shade (opt-in) | M4.1, M4.4 | M |
+| 46 | HBD world pins | M1.9 (thin), M4.2 | M |
+| 47 | HBD minimap pins | M4.2 | M |
+| 48 | Gear: layers + `/mma layers` | M1.7 (stub), M2–M3 add, M4.5 | M |
+| 49 | Gear: Settings | M1.7 (Map, Minimap), M4.5 (Advanced) | M |
+| 50 | Button tips | M1.7 | M |
+| 51 | Pin hover tooltips | M2.1 | M |
+| 52 | Minimap button, compartment, `/mma icon` | M1.6, M1.7 | M |
+| 53 | `/mma toggle`, `/mma follow` | M1.7 | P |
+| 54 | Diagnostics: blips, tiles, debug, perf, perf top, perf mem, landmarks | M4.6 | P (perf) |
+| 55 | Account-wide saved state (SavedUI fields) | M1.7, M4.3 | P |
+| 56 | No-data notice (one chat line) | M5.2 | M |
+
+### Non-goals (docs/v1-non-goals.md, confirmed: D2)
+| Out | Note |
+|---|---|
+| Spike data migration | v1 starts fresh. Seen rares and blips from the spike are lost (say so in release notes) |
+| Locales other than enUS | herb list, `Vein`/`Deposit`, tooltip-name matching are enUS |
+| Routes beyond walking | no flight network drawn |
+| Addon pin API | borrow HBD pins only |
+| Gamepad | |
+| Map rotating with camera | Rotate Minimap ignored |
+| Positions inside instances | instance maps shown whole, no arrow/path/blips/borders |
+| Per-character profiles, network telemetry, sharing rares | |
+| Release-notes-only features | path auto-fit, "blips past the edge" (D4) |
+
+## 6. Milestones
+
+Every milestone ends playable in game and is gated by: one scripted session read with `telemetry.py --budgets` (8/8 PASS, `perf.slow`/`perf.gaps` empty, 0 taint, no `art` misses); `/mma shot` pairs against the reference shots; the lead updating spike-bugs.md and parity.md from hand-offs.
+
+Legend for package tables: **Wave** = when it may start. **Iso** = worktree rule (W = own worktree, merged by lead; X = exclusive, holds listed files and merges before dependents start).
+
+### M0 Groundwork (no visible change)
+
+Goal: make parallel work safe, every FAIL attributable, the sim price what the client charges. User runs one session; its numbers are a HARD edge before M1.3 and M1.5's allocation work commit.
+
+Exit:
+- CI: check.sh green, BASELINE empty; `/` rule fails on a planted site; test_telemetry_fixture covers every new field.
+- Sim: test_blips, test_map, test_spike_bugs, test_blips_replay pass unchanged after the split; a View/Observation with every new OPEN field nil runs; 100 probes ≈10 ms sim time; blob hit before layout → nil (L1); mocked oversized edge atlas → 200 px (L2).
+- In game (user, ~5 min, spike disabled): `/mma bench regions` once; `/mma check art` clean; 2-min Dun Morogh with `/mma check log`. `--budgets --trace` names an owner for every FAIL from perf.alloc, swap {ms, live, parked}, perf.gaps, the worst-frames ledger, a mark's motion ring, ourKB after GC at load and logout, per-state histograms.
+- The ~20 µs/region price and "sensor is the top allocator" are confirmed or corrected in writing in `docs/evidence/perf-m0.md` (new file, lead).
+- Reference shots of the spike recorded (M0.8). `docs/parity.md` written.
+
+| Pkg | Owner | Scope | Contracts | Verify | Wave / Iso |
+|---|---|---|---|---|---|
+| M0.1 Contract seams (diff only) | `types/` (sole editor until M6) | Confirm already present: obs.minimap.home/indoors, obs.you uiMap/level/faction/dead/ghost/combat, tracking `kind="duplicate"`, explored, indoorArt, addons, SavedUI window..tint, SavedGame trackingOff/buttonAngle, SavedModel.rares. Add only: optional `View.chrome` {rimArrows?, questRing?}; MM.Target `inside?`, `title?`, `quest?`; Route keeps `MM.Pos[]` and gains optional array fields `straight?`, `partial?`; Known kind shapes (quests, offers, places, group, corpse, waypoint, vignettes, services). Cap stays 200 (D6) | OPEN clauses of view.lua, model.lua only | test_no_globals, test_luacheck; all-nil scenario | Wave 0a, X (`types/`) — short |
+| M0.2 Hot-file split + registries | game/, ui/, tools (one agent) | `Game.Part(name, read)` + `game/parts/*.lua`; `Game.Handle(kind, fn)` + `game/commands/*.lua`; `Game.Apply(name, fn)` for Minimap apply steps; ui/Map.lua → `ui/Engine.lua` (canvases, jobs, swap, pools, `Engine.Layer`), `ui/Camera.lua` (state, settled, velocity; stubs `Camera.Settled()`, `Camera.Velocity()`), `ui/Motion.lua` (chase, AnimateTo, idle, click/drag), `ui/Window.lua` (frame, input routing). Per-folder `files.txt` manifests, TOC generated by install.py and verified by check.sh. Replays move to `tools/tests/replays/R-XX.lua` with one parametrized collector. FORMATS becomes a per-Data-file table. Document registries in docs/structure.md and architecture.md | None | Same assertions pass, no behaviour change | Wave 0b (after M0.1), X (game/Observe, Command, Minimap; ui/Map; TOC; luacheck.py NS_RULES/BOUNDARIES; test_spike_bugs.py). Land within day 1 |
+| M0.3 Runtime attribution | runtime/Runtime.lua | Per-call kb/kbMax around Wrap Finish and each RunJobs resume (negatives ignored); `perf.alloc` top 5 KB/s; spike trace names top allocator; yield gaps: `gap` trace + `perf.gaps` with debugstack(2) once per job; worst-5 frames ledger ±10 events; histograms by map state (hook set by UI). Hands key list to M0.4 | None (Perf OPEN) | Sim: 100 KB job tops perf.alloc; 10 ms between yields leaves one gap; test_failures passes | Wave 0a, W |
+| M0.4 Telemetry, reader, play-test kit | game/Telemetry.lua, game/Record.lua, tools/telemetry.py, docs/telemetry.md, docs/runtime.md (sole owner of all five) | Full collect then UpdateAddOnMemoryUsage after login grace (`ourKBLoad`) and at logout (`ourKB`); runtime.md memory row "after full collect". 120-frame motion ring in marks. Record swap/layout-end/sweep stats, copy `Bench.result` → `bench[build]`, flag ADDON_ACTION_BLOCKED/FORBIDDEN as `taint`, `art` misses. `/mma shot` stamps zoom, camera, window size, UI scale. telemetry.py: `--trace` full ring, end→swap column, per-state histograms, alloc/gaps/ledger/bench/taint/art, `--compare`, shot pairing. Kit scripts (each lists steps, marks, shots, `/mma check log` on): (a) Dun Morogh open, wheel 4→1024→4, fling, 2-min follow at 1024 small across a tile boundary, grow/shrink ×5, Ironforge, continent 4–24; (b) 25-quest hub; (c) route + corpse run, M/Escape/L/`/mma toggle` in combat; (d) capital, indoor, party, combat toggles; (e) continent zoom with Questie + GatherMate. Shot list per gate: spot, uiMap, zoom, small/big | View.diag free-form | test_telemetry_fixture per field; `--budgets` on fixture names owners; sim mark mid-walk carries 120 ring entries | Wave 0a, W |
+| M0.5 Bench + art check | game/Bench.lua (replaces game/Validate.lua atlas checks), ui/Art.lua (art name list) | `/mma bench regions`: CreateLine/Texture/FontString, SetStartPoint, SetPoint; canvas SetPoint/SetScale/Show/Hide/SetAlpha at N=100, 1000 live and 1000 hidden; SetParent to park frame → `Bench.result`. `/mma check art`: GetAtlasInfo / file ids for every name in ui/Art.lua, at login after grace, misses → `art` trace. Delete Validate's spike checks covered by test_atlas; keep `/mma check log` | None | Sim writes bench table of right shape; a missing atlas gives one `art` trace | Wave 0a, W |
+| M0.6 Sim fidelity + fixture streams | tools/tests/wowsim.lua, fixtures.py, replay.lua | Clock cost per probe (~0.1 ms) and per region on canvas Show/Hide/SetScale (~20 µs, updated from bench); GetMinimapMouseover allocates; oversized edge atlases (L2); DrawBlob hit only after next layout frame (L1); view radius 0 while zooming (E3/E6); HBD-Pins-2.0 mock with renamed copies; protected-call log under InCombatLockdown (K2); x/0 raises in an opt-in strict mode. Fixture streams: quests, offers, group, corpse, waypoint, vignettes, places, tracking, explored | None | Existing pass; self-tests as in exit; each stream replays through Model | Wave 0a, W |
+| M0.7 `/` lint + Atlas first-use rule | tools/lint_div.py (new, called by check.sh), atlas/Camera.lua, docs/structure.md (rule section only) | R-E3: flag `/` in atlas/model/game/ui unless literal/named constant divisor or `-- /: never 0 (why)`. Fix/annotate all sites; Camera.Fit takes a minimum span. Rule: whole-table Atlas indexes are offline or take `step` | None | check.sh fails on planted site; Fit on one point is finite | Wave 0a, W; merge before M1.4/M1.5 |
+| M0.8 Parity doc + reference shots | Lead + user | Write docs/parity.md from §4–§5 (one row per feature and style element: package, proof, shot spot/zoom; non-goals "out, by decision"). User runs one spike-only session (rebuild disabled) taking the shot list → `docs/evidence/shots/` | None | Every §5 row present; shot set complete | Wave 0a, W |
+| M0 gate | Lead + user | Install, session above, triage to perf-m0.md | — | Exit list | Last. **Done 2026-10-18**: sessions #4-#6 → docs/evidence/perf-m0.md; the sim priced from it. Reference shots and the tear walk move to the final session (D10) |
+
+### M1 Budgets green + the spike's face
+
+Goal: user logs in and sees the spike: the 200 yd square on Blizzard's spot, metal hairline, gold title, hover controls, wheel glide, follow and idle return, M/Escape grow/shrink, spike ground style. 8/8 PASS, tear gone. QuestPOI Inside, HBD borrow, hooks and taint proven thin in game.
+
+Exit:
+- Sim: R-P1 at 1.5 views/s (borders ≥97% frames, tiles ≥99%, fresh ≤1 s); R-P7 (≤1 layout/layer after settle; borders scaled and dimmed while zooming, never out of sight, crossfaded as it lands); R-P3 ≤0.5 KB/frame walking with sensor + 10 blips; observe ≤2 ms on priced clock; R-P2 (every Atlas first-use in a 1 ms Job ≤2 ms); per-frame invariants on all replays: offsets ≤4096 px (on the screen, the canvases' included since the M1b review, as set and as each frame ends; a held canvas scaled past 1.4 exempt: docs/runtime.md), map textures/masks/lines unsnapped (FontStrings excepted), shared region origin, D1 (≤1 canvas/layer α>0 outside a timed fade), no visible Blizzard Minimap art, no protected calls in combat. test_atlas Labels golden; test_generators QuestSources identical after diet. test_chrome, test_bigmap, test_zoom, test_motion, reset refused while big. Replays R-G3, R-G7, R-D3, R-D5a, R-D5b, R-E6, R-L1, HBD round trip.
+- In game, script (a), spike disabled: 8/8 PASS (max ≤8, p95 ≤1, p99 ≤5, first open ≤50 target ≤20, ourKB after GC ≤64 expect ~40, alloc ≤50 KB/s, load ≤250, 0 errors); no `map: borders/labels/draw` or `game.observe` in perf.slow; perf.gaps empty; 0 taint; tear re-check at 1024 across a tile boundary clean (ring + shot); shot pairs vs reference and `docs/zoomable-minimap.gif`, `minimap-to-big-map.gif`, `big-map-zoom.gif` signed off; M, Escape, L as spike; `/mma toggle` restores Blizzard's minimap exactly; `/mma check inside` agrees with standing in a quest area; Questie pins borrowed and returned.
+
+| Pkg | Owner | Scope | Contracts | Verify | Wave / Iso |
+|---|---|---|---|---|---|
+| M1.1 Offline labels | tools/gen_labels.py (new), Data/Labels.lua, atlas/Labels.lua, atlas manifest, docs/atlas-data.md (Labels section) | Port VisualCentre, POI/subzone merge, rank sort to Python; emit `Data.Labels[inst]` ranked {text, col, row, tier, size, areaID?, poiID?}; Atlas.Labels = lookup; bump its own FORMATS key | None | Golden = old runtime output (col/row ±0.01, same order); determinism; in game first open ≤50 | Wave 1a, W |
+| M1.2 Data diet + BlipServices | tools/gen_questie.py, tools/gen_world.py, atlas/Entities.lua | Items reachable from Quests only (objectives, startedBy, startQuest); ItemIcons same; drop NPCs without open-world spawn unless quest/rare/service needs them; emit `Data.BlipServices {[name]=service}` (name agreed day 1); retire NpcsByName from runtime; Names() offline or `step`; Atlas returns empty indexes when Data.X is nil | None. **Blocked on D3** | QuestSources identical for every quest; all ids resolve; lupa Items ≤2 MB; boot.loadKB ~36 MB | Wave 1a, W |
+| M1.3 Engine perf | ui/Engine.lua, ui/Camera.lua | (a) park leftovers via SetParent to hidden frame; (b) settled = zoom unchanged 0.15 s; rebuild on settle or scale outside [0.7,1.4]; (c) zooming: tiles SetScale or in-place relayout per bench; borders scaled and dimmed as the spike's (Layers.lua:158-170), crossfaded 0.12 s from that alpha at settle (M1 review; it was hidden while zooming); labels move without SetScale; (d) swap = bench's pick (alpha-0 pre-shown + SetAlpha, or extend in place); (e) velocity prefetch leading side, trailing 0.25; uncovered layer 8 ms budget; order tiles, borders, labels, pins; (f) canvas origin at region's top-left tile; all layers share origin; (g) emit swap {ms, live, parked}, layout-end {made}; (h) D1 invariant | None | R-P1, R-P7, 20-step zoom-out call log (through the buttons' ZoomStep: the wheel's ticks were rationed by time from M1.8b until M1.14); children after swap = live; borders swap ≤4 ms; test_zoom_layouts_priced flipped (each layer's slowest layout frame ≤8 ms while zooming, swap included: priced 93/25/13 ms borders/tiles/rares, in game 116/24/13; test_zoom_draw_priced passes on the bench's prices since the M0 gate); park covers each art texture's mask (the tile swap's 9-10 ms floor: perf-m0.md); flights too (grow, shrink, follow glide, idle return: each frame re-lays and SetScales every canvas today, 19-31 overruns a grow on the priced clock): overruns and kbPerSec over the animation, not only the wheel's draw max; R-P3's drag start measured on its own (0.5-10 KB a drag start, outside every window now); before the offsets ≤4096 px invariant goes into T.Invariants, the world socket (ui/Sockets.lua): tile (0, 0) at its TOPLEFT puts it ~12,000-18,500 px off at zoom 373 and pins up to ~51,000 px at 800, and a pin far from the view stays far whatever the origin: give MM.Socket the shared region origin (an OPEN field) with pins hosted near the view, or exempt it in the invariant with that reason | Wave 1b (**after M0 gate numbers**), X (Engine, Camera) |
+| M1.4 Ground layers, spike cost and style | ui/Borders.lua, ui/Tiles.lua, ui/Labels.lua, ui/You.lua (arrow), tools/gen_borders.py (bands), tools/gen_arrow.py + Textures/PlayerArrow.tga | Borders per §4 (2 Lines/segment, cap 3000, ≤4 fade pieces/end, merge <2.5 px, no per-line `p`); bands 0.15 tile <zoom 12, 0.05 <30. Labels per §4; flight icons leave Labels; subzones placed near view, re-placed on pan out. Tiles: unsnap masks, a pooled art texture's mask hidden (and parked) with it (perf-m0.md: the tile swap's floor), `SavedUI.tint` + `/mma tint` with `(no data for this map)`, the gear's "Colour-matched tiles" (a stub flipping `SavedUI.tint` since M1.7) running the same function, re-lay and message, as GearMenu.lua:49 routes through the command; seam overlap (1 px R/B, half-texel inset) only if a shot shows a seam. Arrow per §4, hidden off-map or withheld | None | 2 Lines/segment; ≤3000 at zoom 4 EK; label counts at 100/200/500; tint relays; band goldens; shots at 3 zooms | Wave 1c (after M1.3's Engine.Layer API merges), W |
+| M1.5 Sensor time budget + G3 (allocation: M1.5b) | game/Blips.lua, game/Minimap.lua (sole owner in M1) | Probe until 0.5 ms (1 ms kept frame p95 over 1 ms: sweep frames are far more than 5%); resumable Locate record dropped on Restart, measured only while still; parse cache per raw leftText; while moving sweep at most every REST; Icon() reads BlipServices, pcall removed; `blips` trace per sweep, `sensor` trace on blind or >25% square drift; radius 0 = not engaged; re-assert ground textures, rotation, SetIgnoreRotateMinimap every apply | None | test_blips priced: ≤2 ms/frame, frame p95 ≤1 ms, exact within 2 sweeps; R-G3, R-D3, R-D5a, R-D5b, R-E6 | Wave 1a (alloc part after M0 gate), W |
+| M1.6 Takeover placement, hooks, button, tooltip hide | game/parts/MinimapState.lua, game/Home.lua, game/Chrome.lua (via Game.Apply), game/Hooks.lua, game/Button.lua, game/Tooltip.lua, game/Game.lua (Load('Game') line) | Publish obs.minimap.home (read before engage, cached, re-read on UI scale change). hooksecurefunc ToggleWorldMap (hide Blizzard's only when ours shown and it just opened → `hooked worldmap`). Escape catcher in UISpecialFrames while big. homeAlpha, big strata HIGH + Raise. Game.Load('Game'). Rim button per §4, `/mma icon`, AddonCompartmentFunc. View.chrome rim arrows/quest ring. One owner-checked GameTooltip hide path (leave, release, window hide) | M0.1 OPEN fields | Sim: M keeps WorldMapFrame hidden + hooked; L opens Blizzard's; Escape only while big; buttonAngle survives reload; release restores every property; R-G7; no protected calls in combat | Wave 1a, W |
+| M1.7 Chrome, window, big map | ui/Window.lua, ui/Chrome.lua, ui/Title.lua, ui/Controls.lua, ui/BigMap.lua, ui/Menus.lua (gear stub), ui/View.lua | Port §4 frame, title band, buttons, hover, tips, minimap form, grow/shrink exactly; zone fit uses you.uiMap (M1.10). Grow mid-shrink keeps small rect; hide while big snaps; logout saves small rect; consume Model.hooked. Load SavedUI window, shown, zoom, follow, inst, center, button, tint. `/mma reset` (`reset: shrink the map back first (M)`), `/mma toggle`, `/mma follow`. Minimal gear: Settings > Map (Colour-matched tiles), Minimap (Minimap button, Reset position, Use Blizzard's minimap) | M0.1 only | test_chrome (L2 clamp, home placement, 0.15 s fade), test_bigmap (L3, L4, Escape), yards kept on resize, reset refused while big; shots | Wave 1a, W |
+| M1.8 Camera feel | ui/Motion.lua | §4 zoom, chase, AnimateTo, click/drag thresholds, idle return 6 s; Focus sends rect; drives Camera.Settled via the M0.2 stub. (Corpse-forced follow moved to M3.3) | Focus (0002) rect | Sim: chase converges; idle fires at 6 s, not while hovered; flight end state; thresholds; zooming ≤2 ms draw | Wave 1a, W |
+| M1.9 Unknowns probe | game/Oracles.lua, game/AddonPins.lua (skeleton), game/parts/Addons.lua | Oracles.Inside on Game's hidden QuestPOI frame per uiMap: draw, redraw next frame, hit test, cache per quest until QUEST_POI_UPDATE, within CALL_MS; `/mma check inside`. Thin HBD borrow: every copy via LibStub, world pins to View.sockets.world while open, returned on close/world-map open, borrowed and returned in 1 ms jobs. Publish obs.addons. (Review: UI's minimal world socket, ui/Sockets.lua, brought forward from M4.4 so the round trip runs for real) | Oracles (0001), Sockets (0003) | R-L1 (nil before layout, right after, ≤2 ms over 25 quests), R-G6, R-G6b (3000 pins, no call over 2 ms), R-E4, pins return to original parent and points | Wave 1a, W |
+| M1.10 You part | game/parts/You.lua | uiMap, level, faction, dead, ghost, combat | Already typed | Sim round trip | Wave 1a, W |
+| M1.5b Sensor allocation (M0 gate) | game/Blips.lua | Every probe makes ~0.35 KB of the client's garbage, answer or not (perf-m0.md): 50 KB/s is ~140 probes/s for all of us, R-P3's 0.1 KB a frame ~17. Probe less: e.g. re-probe only around known blips, a slow discovery sweep, longer REST standing; say which bound it meets. The comment's "a probe costs ~0.1 ms" is ~2 µs. The 12 `sensor` events (`{square px=4.51}`, then `{square px=8 n=4}` ×11, #5's last seconds): find why; a `sensor` trace takes a mark, as `taint` does | None | test_default_ui_alloc_priced and test_replay[P3] flipped (strict xfail now); test_blips_priced still exact within 2 sweeps | Wave 1b, W |
+| M1.8b Wheel feel (M0 gate) | ui/Motion.lua | The user: "zooming in/out feels too sensitive". A trackpad or Magic Mouse flick sends a wheel event every frame (≥40 in 0.45 s, the `wheel` mark), each ×1.3 (Core.lua:14, 1418-1438), so one flick runs to the clamp. A lone tick stays ×1.3 (§4 S26); a burst counts by time, not events. The user's call over the spike's code (D4) | None | test_zoom: a lone tick ×1.3; a 40-event burst in 0.45 s at most ~3 ticks' worth; two notches in one frame one tick, notches 0.5 s apart whole ticks (test_wheel_burst; 0.3 s until round 2 of the M1 review set WHEEL_RATE 2, WHEEL_GESTURE 3); test_zoom_chase's same-frame and 30-tick runs through the buttons' ZoomStep; in game on trackpad and wheel mouse | Wave 1b, W (removed by M1.14: the user's play-test of M1) |
+| M1.11 Art and rares to spec (M0 gate) | ui/Art.lua, ui/Rares.lua | `/mma check art` lists the first name of a fallback chain: a miss only when no name of the chain resolves (`redbutton-expand-c60` → `redbutton-expand`, ui/Controls.lua); fonts: GetFileIDFromPath answers nil for `Fonts\MORPHEUS.TTF` and `Fonts\FRIZQT__.TTF`, so check them the way the client loads a font (and that the labels draw in them). Rares from zoom 60 (§4 S50; 696 live at continent zooms, a 13 ms swap) | None | test_bench test_check_art: a chain whose fallback exists is no miss; rares 0 below zoom 60; `art` empty in game | Wave 1b, W |
+| M1 gate | Lead + user | Script (a), triage via perf.alloc/ledger/swap, tear re-check, shots. Also, from wave 1a's review: M in combat (game/Hooks.lua leaves Blizzard's map open in combat: prove whether HideUIPanel(WorldMapFrame) is blocked there; if not, drop the guard, else record it in parity F10 and spike-bugs K2); the takeover in combat (the cluster faded, its hide or show waiting for combat's end: R-K2) as the client does it; QuestSources after the diet, identical once unresolvable ids are dropped (CI has no QuestieDB: the local run is the evidence, M0-end Atlas over the pre-diet Data against main's: 5219 quests each side, 67 differ, 159 source ids dropped and none of them resolved before the diet, so nothing drawn changes; 16 objectives in 15 quests are left with none, all items whose only source was an unknown object: quests 78261, 79092, 88756, 88757 ×3, 93680, 95036, 96987, 97047, 98069, 98071, 98208, 98246, 98293, 98417); the world socket (never scaled: see-through while the zoom moves, a parity F46 deviation for sign-off; re-placed where the view rests by a 1 ms job since the M1 review, 7.2 ms in one call on the counted clock before; R-G6b on the default clock, no frame over 8 ms after M or the wheel), and the window hiding with thousands hosted (0.1 ms priced, a Hide being ~0.02 µs a child; showing them is what costs, ~20 µs a visible region: R-G6b prints it); M4.2's continent filter hosts fewer; M with Questie loaded: the press's own HBD re-show (spike-bugs G6); `/mma check inside` timed with ~25 quests (R-L1's slowest frame, 0.81 ms on the counted clock: DrawBlob and hit tests have no sim price beyond a widget call's); the sensor's allocation (every probe ~0.35 KB, answer or not: R-P3 and test_default_ui_alloc_priced pass since M1.5b) | — | Exit list | Last. **Sim done 2026-10-18** (e50e7d5: every sim exit item and package Verify met, tools/check.sh green plain and strict, no xfail). In game: user-gate, docs/playtest-final.md (D10). Open for the user there: the budgets by map state (docs/runtime.md since ebdf22e, an agent's change in round 2 of the M1 review) against this exit's session-wide p95 ≤1, p99 ≤5 |
+
+Parallel waves: 1a = M1.1, 1.2, 1.5, 1.6, 1.7, 1.8, 1.9, 1.10 from day 1; 1b = M1.3 once M0 numbers land, with M1.5b, M1.8b, M1.11 (the M0 gate's follow-ups); 1c = M1.4 after M1.3's layer API. Day-1 agreements: BlipServices name (M1.2↔M1.5), settled API (M1.3↔M1.8, stubbed in M0.2), hooked/homeAlpha flow (M1.6↔M1.7).
+
+
+### M1b The user's play-test of the M1 build (sessions #9-#22)
+
+Goal: what the user's own play of the M1 build found, before M2. In the user's words: "the scrolling /
+zooming is still pretty broken compared to the MVP", and "I don't really get how to use the settings (im
+not sure if they even work)". The sessions: in Orgrimmar 83.5 and 131.6 KB/s against 50 (a tile layout
+225 KB in one call, a border layout 150-476 KB, the sensor 19-30 KB/s), the drag's frame p95 4.35 ms,
+`validate.log` 3.4 KB/s all session and earlier builds' log lines read as the current one's; the gear only
+a Settings submenu.
+
+Exit: tools/check.sh green plain and strict. In game (D10, docs/playtest-final.md): a2 (the wheel, against
+the MVP), a5g (the gear) and d1 (a city's big window and doors), and the read's `perf.alloc`.
+
+| Pkg | Owner | Scope | Contracts | Verify | Wave / Iso |
+|---|---|---|---|---|---|
+| M1.12 Motion allocation and the validator | ui/Engine.lua, ui/Tiles.lua, ui/Borders.lua, ui/Title.lua, game/Blips.lua, game/Validate.lua | A layout keeps what its canvas shows (`Engine.Keep`, `canvas.epoch`: docs/runtime.md "The map's engine"), so a pan's tile and border layouts set only the ground they add; tile masks on coast tiles only; ahead of a pan, 2.5 ms slices (`PAN_MS`). Title coordinates through SetFormattedText. A door keeps the sensor's circles looked over. The validator: a sample allocates ~0, the logger judges as `/mma check` (the login moment, a WMO's own subzone: info), its log one build's | SavedValidation `_v` 2, `version` (OPEN: ADR 0004's consequences) | R-K4; R-P3b (Orgrimmar at the client's prices: 14.2 KB/s over views seen before, 20.3 walking through doors, a layout 1.18 KB, the drag's p95 2.75 ms); R-P1 180/180 frames every layer | M1b wave 1, W: done c31930f |
+| M1.13 Settings that work and read like the MVP | ui/Menus.lua (gear), tools/tests/test_gear.py | The gear as GearMenu.lua: a submenu per group of layers (Map, Quests, Places, People, You, Other addons; a group with none left out), each layer a checkbox with its tip that keeps the menu open, a sub-option indented and greyed while its parent is off, then Settings (Map, Minimap). `Menus.Layer(row)`: the registry M2-M4 add their rows through (docs/structure.md). Only the layers turned off are saved (`/mma layer` too, since the merge); an addon turned off stays off across a /reload (ui/Sockets.lua) | None | test_gear: the tree small and big, tips, every toggle empties and redraws its layer (View.layers for the sensor and Questie's pins), each setting does what it says, changed keys only across a /reload | M1b wave 1, W: done 64d2ecf |
+| M1.14 Zoom and pan parity with the MVP | ui/Motion.lua, ui/Camera.lua, ui/Engine.lua, tools/tests/spike_camera.lua, tools/tests/test_feel.py | Every wheel event a x1.3 tick by its sign onto the running target (Core.lua:1422-1441), M1.8b's rationing and `/mma wheel` removed; the camera moved in place (no table a zoom frame); the spike's camera ported as a reference; zooming out, tiles, names and pins laid out where the zoom is headed (docs/runtime.md "The map's engine"); the `wheel` cam trace's delta, n, dt (docs/telemetry.md) | None | test_feel: the spike's path frame by frame on 9 input streams; what you see each frame priced (aligned, tiles covered, nothing gone and back, no frame over 8 ms); test_zoom test_wheel; R-P1's 20-step zoom-out 10 layouts (16 before; 12 since the M1b review's second round: names each drift and where the zoom lands); script (a) zoom p95 ≤5 ms priced (test_script_a_priced; measured: docs/runtime.md) | M1b wave 2, W: done 96068d0 |
+| M1.15 Borders through a glide | ui/Engine.lua (the held layer's plan), tools/tests/test_feel.py | Held borders laid out again through a glide (the idle return, follow's glide, a flight) where it's headed, as the spike's RequestGeometry aims its build at GoalZoom and GoalCenter, keeps it while it fits the goal's view and starts again once it doesn't (Layers.lua:1907-1937). Today a glide's zoom (log and back) isn't quite its own, so the held layer reads it as zooming and waits for it to land (the M1b review's round 2, Left below) | None | test_feel asserts borders cover the view on the drag-then-glide streams (uncovered at the M1b gate: small, a drag then the idle return, 30 frames; a long drag then the idle return 32; big, a drag then follow, 38); a zoom out's dim and crossfade unchanged (playtest-final decision 8); R-P1, R-P7 pass; and, from the M2 review, M's grow and shrink priced past the graces hold the moving budget, zoom state p95 ≤ 5 ms (6.3-6.35, max 6.9 at the review and at the M1b gate: docs/runtime.md "The map's engine"), asserted in a test; in game docs/playtest-final.md a1g. And, from the M2 review's round 2, allocation while zooming and dragging: test_quests_priced's wheel and drags, that stretch alone, 443 KB/s with 25 quests and 426 without (`map: borders` ~390, the quests' areas 6.8) against 50 KB/s; measured over its own stretch (FrameStats `kb`, `kbSecs`) beside the frame budgets, or judged over a session in script (a)'s read. And, from the M3 review, the zoom state's priced test runs with a route across the big window (the path laid out each zoom frame, ~0.8 ms of its p95: test_path_priced_big prints it, 6.25); from its round 2: when this lands, `by["zoom"].p95 <= 5` asserted in test_path_priced_big and test_route_gives_way (6.25 and 6.5 today, printed), as script (c)'s 8/8 PASS waits on it; and with our Lua charged too (`load(lua=True)`: the big window's zoom p95 7.2, `map: draw` 2.3 ms, in perf.slow). **Met** 2026-10-19: the glide at 4e0dcc2 (test_feel's GLIDES uncovered 6, 0, 9 of ≤ 10); the frame: the layouts fill one to 4.75 ms with the rest of it (ui/Engine.lua `FRAME_TO`, the last frame's cost but its layouts'; the ground, names and pins the view lacks take their slice whole, so test_feel reads as before), zoom p95 priced test_path_priced_big 4.8 with M's shrink and grow in it (asserted; 5.25 without them before), test_route_gives_way 4.75 (asserted; 5.1), test_quests_priced 4.5, test_soak 4.3; with our Lua charged, printed: test_path_priced_big 5.25 (the wheel alone 4.95; 6.4 before), the soak 4.75 (5.1), `map: draw` out of perf.slow; test_quests_priced's wheel and drags at the client's prices (test_soak's `FREE`: the sim's raw 425 KB/s was ~335 its own widget state) 89.5 KB/s the first time, 68.9 of it kept (the borders' pools at zooms new to the session, the services gathered: once a session), garbage 20.6 (asserted ≤ 50, all ≤ 100), 26.4 once more (asserted ≤ 50) | M1b wave 3 (after the M1b gate; may run beside M2's wave 2a), W: done 4e0dcc2 (merged 92edd18), the rest on main after M6.1 |
+| M1b gate | Lead + user | The hand-offs into spike-bugs, parity and playtest-final; tools/check.sh | — | Exit list | Last. **Sim done 2026-10-19** (2f79ffb: every M1b package's Verify met and M1's sim exit items still; tools/check.sh green, 86 passed plain and strict, no skip or xfail; R-P1 180/180 frames every layer, its zoom-out 12 layouts; R-P3b 12.8 KB/s over views seen before, 20.4 walking, 158.4 the first pass with its pools (7333 regions; garbage 8.9), the drag's p95 2.75 ms; script (a) zoom p95 4.5 priced). In game: user-gate, docs/playtest-final.md a1g, a2, a5g, d1 and the read's `perf.alloc` (D10). Left: borders through a glide (M1.15) |
+
+Left from wave 1, from the hand-offs (outside their files): ui/View.lua makes ~1.1 KB/s moving;
+`model.observe` 2.5 KB/s walking among blips; atlas/Areas.lua decodes an area tile with a parts table and
+`rep` strings (~5 KB the first hover of each: most of `map: title`'s 8 KB/s in #14); a layout's three
+`Runtime.Trace` detail tables (~1.1 KB: copying flat details into ring and ledger slots would let Engine
+reuse one a site); a door out is still a ring look (~180 probes: keeping blips past the indoor reach until
+the door out changes what Model is handed). The gear's Tracking and Settings > Advanced stay M4.5's (their
+commands are M4.1's and M4.6's); a layer off by default (M4.4's shade, graveyards): its row's `default`
+since the M1b review (Engine.defaults, Engine.SetLayer); the Rares row's tip ("remembered between sessions") is true from M4.3 (until then the layer
+draws Atlas.Rares).
+
+Left from wave 2 (M1.14's hand-off): zooming out fast, the held borders canvas can sit ~21,000 units from
+its anchor (800 to 16, scale ~0.02, ~440 screen px; the spike's PlaceCanvas divides by the scale the same
+way): T.Anchors didn't check a frame's SetPoint until the M1b review, which checks a canvas's offset times
+its scale (anchored to the view's centre since), and exempts one scaled past 1.4 (docs/runtime.md "The
+map's engine"); a tile's edge is off by up to half a pixel at its layout's zoom while a zoom out lands
+(times the scale on the screen: ~2 px landing a flick out to 16); the world socket's pins (ui/Sockets.lua) are still
+see-through while zooming (F46). The wheel is the MVP's again, so one trackpad flick can run to the clamp:
+the user's call at the final session (docs/playtest-final.md decision 2), from what the `wheel` cam traces
+show each device sends.
+
+M1b review, round 1 (the lead, on main: 0c8206a..74da8c4). The zoom against the MVP: names and pins are
+chosen for the zoom shown (laid out a log(1.25) drift on toward where it's headed, re-placed each drift,
+Layers.lua:2012-2030), a pin shown or hidden the frame the zoom crosses its minimum (PositionPins,
+Layers.lua:404-416; one notch 70 -> 54: rares hidden at frame 3, 34 before); tiles alone lay out where a
+zoom out is headed; a layer the view lacks or soon will goes first (the ground, names and pins, borders)
+and stops one after it, at 4.5 ms (5 left no room under the moving p95's 5 ms); late ones by age; borders
+lay out at the goal the frame after the last tick (still ~0.1 s after the spike's: playtest-final decision
+8); a layer with nothing at its zoom isn't laid out again zooming out. T.Anchors checks the canvases
+(never did: the M1 exit's offsets item hadn't held), on the screen, a canvas scaled past 1.4 exempt with
+its reason; canvases anchored to the view's centre; R-P1 adds the wheel 16 -> 800 -> 16, a flick out from
+800 and a drag, a flick and a grow. test_feel adds the big window's flick to the clamp and holds the zoom
+state's p95 to 5 ms and the draw's own. The wheel's anchor set in place, its trace 4 fields. The gear's
+rows in the spike's order, a row's `default`; View's step the one writer of View.frame and its layers; an
+uncommitted install stamped with its files' digest; R-P3b's and runtime.md's allocation claims what the
+replay shows. Refuted: none (every finding reproduced).
+
+M1b review, round 2 (the lead, on main: 1cc85ef..). Names drifted 3-7 drifts behind a fast zoom (a
+drifted layer was only late, by age, behind tile and border layouts), pins left the view for 9-11 of the
+idle return's 33 frames after a pan, and a free flick in toward a corner put a names canvas 4,471 px
+off (6,827 in the big window). Now: the layouts share a frame's budget in turn (Engine.Draw's plan: the
+view lacking a layer or about to, first; names and pins drifted; a blurred ground; borders; a layout
+going on; the one laid out longest ago), one outranked waits at budget 0, its place kept
+(Runtime.Requeue), one ending early hands what's left on (to 3.5 ms in all); names are laid out at the
+camera's zoom the frame they drift and the frame the zoom lands (LayoutLabels, Layers.lua:1647-1653,
+2012-2030); pins (a "pin" layer) a drift on toward where it's headed, for the view and not each drift,
+over a glide's whole path, before their offsets near the bound, those under their minimum zoom from a
+drift below it but zooming out (Engine.From; a build says from which zoom it left some out), shown by
+their frame's one SetAlpha; tiles zooming in two drifts on; a busy held layout re-aimed. A canvas whose
+offsets would pass 4,000 px on the screen is hidden and laid out first; T.Anchors checks each canvas as
+the frame ends and exempts only held ones. test_feel boots through the harness and adds 4 streams (a
+long drag then the idle return, the minimap-sized one, a drag then follow in the big window, a fast
+scroll in from the continent): names a drift off one frame at most, every rare in view drawn. R-P1 runs
+its wheel block in both windows, priced, with corner flicks; R-P3b holds the first pass's pools and
+prints the big window's regions by layer. View.frame stamps `still` and the world socket's zoom; one
+build stamp (## X-Stamped, the installed files' digest always, package.sh's ref); the bench prices a
+minimum zoom's reveal. Refuted: none. Left: borders (held) aren't re-laid during a glide at its zoom (a
+glide's zoom, log and back, isn't quite its own, so the held layer reads it as zooming), so they miss the
+view for most of the idle return's glide after a pan, as before; the spike re-aims its build at the
+destination: M1.15 (the M1b gate).
+
+### M2 Quests on one pin store
+
+Goal: quest pins in Blizzard art with difficulty discs, objective icons and counts; rich tooltip; styled blobs, estimates, hover lighting; click to super-track; quests to pick up. One pin store diffed by id also carries blips and rares.
+
+Exit:
+- Sim: test_quests (forms, 22/26, glow, count); click → follow Command → super-track back in obs; tooltip line order (≤3 mobs + `+N`, Turn in to); test_quest_areas (Inside after deferred layout; estimate when no blob, merged within 0.6 r); pin-store diff (200 pins, 1 changed → 1 relaid; unchanged rev → 0 regions); R-P5, R-L1 (UI); per-frame no-duplicate-pin; no-QuestieDB-data scenario: 0 errors, pins drawn, tooltip without mob/item/turn-in lines.
+- In game, script (b): 8/8 PASS, quest-heavy open ≤50 ms, shots match, click super-tracks in Blizzard's tracker.
+
+| Pkg | Owner | Scope | Contracts | Verify | Wave / Iso |
+|---|---|---|---|---|---|
+| M2.1 Pin store, StylePin, pin tooltips | ui/Pins.lua (+ migrate ui/Blips.lua, ui/Rares.lua) | One store diffed by id, re-placed on pan, changed on rev, minZoom per kind; StylePin (a)–(d), glow, count per §4; tooltip via M1.6 hide path; clicks propagate. Stub API in first commit | Reads Known (0006) | Diff scenario; drag over pin pans; test_blips, test_map pass | Wave 2a, W: done a98d34c (merged 7552c86) |
+| M2.2 Observation quests, offers; Commands follow, tooltip | game/parts/Quests.lua, Offers.lua; game/commands/follow.lua, tooltip.lua | Quests via GetQuestsOnMap over continent zones (smallest map wins, indicators skipped), objectives, complete, super-tracked, level, trivial, areaMap; coalesced 0.3 s on the 5 events. Offers via C_QuestLine per zone scoped to Focus.inst, once per map, re-asked on QUESTLINE_UPDATE with arg, hidden per CVar. follow: AddQuestWatch + SetSuperTrackedQuestID / 0. tooltip: unit/member/npc portrait; portraits from mouseover/target/nameplates ≤300/session | Typed | Per-part and per-command round trips; fixture stream = real part output | Wave 2a, W: done 74b7a60 (merged 19b7fba) |
+| M2.3 Model quests, offers | model/Quests.lua, model/Offers.lua | Known('quests') with difficulty (§4), first-objective icon, `n/m`, Atlas sources (drops by level ≤3 + N, objects, vendors, finishedBy); Inside nil → 110 yd estimate merged within 0.6 r for kill/collect/interact; Known('offers') skipping in-progress | M0.1 Known shapes | Model-alone fixture replay: kinds, colours, merge, blob → no estimate | Wave 2a (Inside stub until data), W: done 9552ecd (merged fa089e1) |
+| M2.4 UI quests, areas, estimates, tooltip | ui/Quests.lua, ui/Areas.lua, ui/QuestTooltip.lua | Pins, blobs (twice, hidden while zooming, redrawn at settle), estimates, hover per §4; click pin/area toggles follow, pins beat areas; tooltip exactly per QuestInfo.lua. Layers Quests, Quest areas, Estimate missing areas, Quests to pick up, added to the gear stub. **Quest areas, decided (lead, 2026-10-19, M2 review)**: the spike's blob art, as built (d634976): UI's own QuestPOIFrames draw and hit-test them (the one game read UI makes: architecture.md "Rules", luacheck `POI_FILES`); spike-bugs P5 MOVED, bounded by hiding while zooming (R-P5) | follow, tooltip Commands | R-P5, R-L1 (UI); click toggles; tooltip order; budgets with 25 quests | Wave 2b (after M2.1 stub), W: done ef8b2ee (merged d634976; its review's two rounds to 879fed0) |
+| M2 gate | Lead + user | Script (b), shots, triage | — | Exit list | Last. **Sim done 2026-10-19** (2112c2d: every M2 package's Verify and M2's sim exit met; tools/check.sh green, 112 passed plain and strict, no skip or xfail). test_quests: the forms, 22/26, the glow, the count (test_quest_pins); a click → the follow Command → super-tracked back in obs, again none, an area's click, pins beat areas (test_quest_follow); the tooltip's order, ≤3 droppers lowest first, `(+2 more)`, `Turn in to`, the click hint (test_quest_tooltip). test_quest_areas: Inside after the deferred layout, frame by frame (test_quest_area_answers), an estimate only without an area, one for two within 0.6 r. The pin store: 200 pins, 1 changed → that 1 re-set, the rev unchanged → no layout (test_pin_store_diff). R-P5 (162 frames, 0.000 px off) and R-L1's UI half; one pin a thing every frame (T.Invariants: test_quest_pins_each_frame). No QuestieDB data: 0 errors, the pins, the tooltip without droppers, sources or turn-in. Budgets with 25 quests, priced: the first open 6 ms (test_quests_first_open), big p95 0.2, zoom 5, drag 2.8, max 5.3; the storm 39.5 KB/s; a ticking count 17.9 / 19.4. Fixed at the gate (ee26c4f): an area's frame kept two anchors once the corner it stands on changed, so Stranglethorn's 9,572 px frame was laid out 515 x 114 at zoom 800 (test_quest_area_big_zone); the sim moves a drawing with its frame on a pan, so R-P5 holds areas on their pins through a drag and a fling (165 frames, 0.000 px). Decided: remembered blips' "Not in sight" only after a line, as the spike's (D4; M2.1's question); UI's GameTooltip OnHide/OnTooltipCleared hook, its own small fonts only (architecture.md "UI shows"); quests read on zones alone, as the client has no micro maps (Data/UiMaps.lua, the client's UiMap table: 4 continents, 51 zones, 4 orphans), so the spike's micro-map scan (Core.lua:880-887) finds none. In game: user-gate, docs/playtest-final.md b6-b20, c7, e4 and the read's Script (b) (8/8 PASS, b12's first open, the shots small-quests, big-quests, big-quest-follow, big-quest-tip, b8 and b14's super-track in Blizzard's tracker) (D10). Deferred: a member's tooltip on a group dot (the dots: M4, F41); allocation while zooming and dragging (M1's borders: M1.15) |
+
+### M3 Target, route, interactions
+
+Goal: hand-inked dashed route to corpse, followed-quest edge or waypoint, with edge arrow; waypoints and `/way`; right-click menu and big-map inspector; map picker; zone hover-and-fly; `/mma map`, `/mma zone`.
+
+Exit:
+- Sim: test_route (A* Job ≤2× budget/resume, 60k cap, old route kept, replan on 3-chunk stray / 2-chunk target move (a search that gave up: half its way on, the M3 review's decision), no inf/nan: R-M1, R-E3, R-P2; Dun Morogh route a 1 ms slice a frame, at most the slice and one node (≤1.1 ms: R-P2's rule for every Job); none while the view moves); test_target (ghost→corpse, quest edge, waypoint, inside held 0.5 s); path ≤160 pieces, 0 redraws standing, edge arrow when off view; corpse forces follow; test_interact (Ctrl-click waypoint, inspector lines for zone/coords/level/distance/quests, distance rounding, picker groups for EK, zone click flies 0.55 s follow off, quest areas not clickable while zone clicks on offer); instance map shown whole with no arrow/path/blips/borders; R-G2 (browsing another continent keeps the takeover engaged); R-G4.
+- In game, script (c): 8/8 PASS, route jobs never in perf.slow, 0 taint in combat toggles; shots vs `MagicMap-path-mode.gif` line style and spike ZoneInfo output.
+
+| Pkg | Owner | Scope | Contracts | Verify | Wave / Iso |
+|---|---|---|---|---|---|
+| M3.1 Model Target, Route | model/Target.lua, model/Route.lua | Priority corpse (ghost) → followed quest on shown map → waypoint; quest edge via 7 rays (±0.35/0.7/1.05) × 16 steps + 8 refinements every 0.25 s, inside held 0.5 s. A* over Atlas.Walk in a Job, a 1 ms slice a frame (none while the view moves: Focus.moving, the M3 review), 60k cap, 33 yd chunks; swim 3, magma/slime 25, cliffs blocked; snap ≤4 chunks; LOS straighten, corner round; replan rules; no data → straight, no way → partial; same instance only; divisors annotated | Target/Route OPEN fields from M0.1 | test_route, test_target, R-M1, R-E3, R-P2 | Wave 3a, W: done f161669 (merged c356a3d; integration b6e437b) |
+| M3.2 Game waypoint, way, corpse | game/commands/waypoint.lua, way.lua; game/parts/Waypoint.lua, Corpse.lua | waypoint: zone uiMap at point, SetUserWaypoint + super-track, spike messages, false clears; way: chat `/way <zone> %.1f %.1f` not sent; corpse polled 1 s after release until found, refreshed on PLAYER_DEAD/ALIVE/UNGHOST | Typed | Round trips; R-G4 | Wave 3a, W: done 69a152e (merged daf0581; integration b6e437b, cbef966) |
+| M3.3 UI path, edge arrow, corpse/waypoint pins, title target | ui/Path.lua, ui/You.lua (pins + title target only) | Path, edge arrow, pins per §4; title `|cffffd27f<title>|r N yd` / `here`; corpse target forces follow (moved from M1.8) | Reads Target, Route | Piece cap; 0 redraws standing; arrow position; alloc while walking ≤50 KB/s | Wave 3a, W: done d4b6694 (merged eb931bf; contract a22b7cc, integration 4fb3a9e) |
+| M3.4 Menus, inspector, zone hover/fly | ui/Menus.lua (picker + right-click sections), ui/ZoneInfo.lua, ui/Window.lua (input) | Picker per §4 (Continents ≥300 tiles, Other maps, Instances by entrance continent, single group skipped); zone hover only with >1 zone of weight ≥30 in view, hover border/label, click flies 0.92 fit, follow off; right-click: Waypoint here, Clear waypoint, Follow me; big map leads with inspector (zone, subzones, coords, level, distance/compass, ≤2 quests). Explored and landmark lines come in M4.4. Ctrl/Ctrl-right/Shift clicks; `/mma map`, `/mma zone` with spike messages; precedence rule for quest areas vs zone clicks | waypoint, way Commands | test_interact; picker groups EK; inspector at a known Elwynn spot; R-G2; instance-map scenario | Wave 3a, W (owns Window.lua input for M3): done 010f268 (merged 34074c4; integration cbef966) |
+| M3 gate | Lead + user | Script (c), shots, triage | — | Exit list | Last. **Sim done 2026-10-19** (2d0069e: every M3 package's Verify and M3's sim exit met; tools/check.sh green, 148 passed plain and strict, no skip or xfail). test_route: A* in a 1 ms job, every resume within 1.1 ms (≤2× its budget): Kharanos to Anvilmar round Dun Morogh's hills a slice a frame, 25 frames, its slowest 1.01 ms, long open routes 1.02 (Feralas to Thousand Needles 465 frames: test_route_dun_morogh); given up at 60,000 nodes, the way as near as it got (test_route_straight_partial); the old route shown till the new one is found, past 3 chunks off it or the target 2 chunks on (test_route_replan); a search that gave up, 697 frames and 4.4 MB, again only half its way on (test_route_capped); riding a minute off the line, 9 searches, 3.2 KB/s, small p95 0.4 (test_route_stray); none while the view moves, 1 slice in 8 zooms (test_route_gives_way); no inf or nan: R-E3 (your own row and column, Elwynn and the Barrens), R-M1 (inside flipped 0 times in 10 crossings, the old route 16 frames), R-P2 (Goldshire to Lakeshire 17 frames, 1.01 ms). test_target: the ghost's corpse, the quest followed on the map shown, the waypoint; a quest's area by its nearest edge, on or off its pin; inside held 0.5 s; each only while its layer is on. test_path: ≤160 pieces at zoom 800 (test_path_cap), no widget call standing (test_path_redraws), the edge arrow 16 px inside where the line leaves the view (test_edge_arrow), corpse forces follow (test_corpse_forces_follow, R-G4), walking 4.2 KB/s, the path's 0.5 (test_path_walk_alloc). test_interact: Ctrl-click a waypoint, Ctrl-right-click none, Shift-click the /way line, none at sea (test_modified_clicks); the inspector at Crystal Lake, Elwynn (zone, place and 48.5, 63.7, `Level 1-10` against yours, 185 yd E, ≤2 quests; 5 yd steps close, 10 further, thousands with commas: test_inspector); Eastern Kingdoms' picker groups (test_picker); a zone's click flies 0.55 s, fit 0.92, following off, a quest's area not clickable meanwhile, a pin still is (test_zone_hover); an instance's map whole with no arrow, line, blips, borders or names (test_map_and_zone). R-G2 (300 frames browsing Kalimdor and Deadmines, the takeover held), R-G4 (in the Observation 4 frames after the client knew it, the target that frame, the view back on you). Fixed at the gate (2d0069e): the sim walked the mirror way east and west of GetPlayerFacing (col += sin(facing): pi/2 east, the client's west; M3.3's hand-off), so a walk's lead-in and arrow turned against the way you went: now the client's (test_fidelity), every east walk 3pi/2, the numbers as they were; the instance map's check had no target, so no line to miss: a waypoint at Lakeshire now, its line and edge arrow on your map, none on Deadmines'. The hand-offs' questions, settled since wave 1: a part's false through Game.Part (b6e437b); waypoints offered and taken only where a zone's map has the spot (Atlas.ZoneMapAt, cbef966); the picker's click in ui/Title.lua (cbef966); the target follows the layers (Focus.off) and the inspector's levels are the client's (obs.levels, 15aeb8b); the zone flown to in the title, the inspector's quests by Areas.QuestsAt (db0c454); a quest's area off its pin by its edge (dad00b2); the corpse and waypoint pins at level 13 (docs/brief.md §4). Left with an owner: ui/ZoneInfo.lua's copy of ui/Borders.lua's polyline (M4.4); the corpse and waypoint kinds, M3.1's, struck from M4.3; `/mma zone`'s usage line one with M4.6's. In game: user-gate, docs/playtest-final.md c1-c3 (c1, c1b, c2, c2b, c2c, c2d, c3) and a5b's big-zones (the hover), and the read's Script (c): 8/8 PASS, `model: route` and `map: path` never in perf.slow, 0 taint in combat toggles, waypoints and after the /way box (c2, c4, c7), the shots small-edge-arrow (against MagicMap-path-mode.gif), big-waypoint, big-inspector (against the spike's ZoneInfo), big-picker, small-corpse, big-zones (D10). Deferred: F38's explored and landmark lines (M4.4, as planned; line 2's place is Atlas's area chain till then, not signed); the big window's zoom p95 with a line across it (test_path_priced_big 6.25 ms priced, the line's share ~0.8: M1's engine, M1.15) |
+
+### M4 Feature-complete
+
+Goal: places, group, rares account-wide with vignettes, services and remembered blips (incl. quest `!`/`?`), duplicate suppression with crash-safe restore, gear menu complete, indoor renderers, full HBD world + minimap pins, opt-in shade, diagnostics slash.
+
+Exit:
+- Sim: test_places (dedupe across maps), test_group (dead grey, 20 Hz), R-D4, R-E2, R-S1, test_services (zoom 60 shows, 59 not; tracking off hides), test_tracking (restored after simulated crash + reload), R-G1 (Undercity, Orgrimmar 1454, no art → blizzard), test_addonpins (continent filter, 128 px, Questie complete skipped, hidden under Rotate Minimap), test_gear (tree and indentation match spike), shade cell count, inspector explored + landmark lines; per-frame over all replays: no duplicate visible pins, no Blizzard Minimap art outside 'blizzard'. Every MOVED spike-bugs row has a replay or a listed in-game check.
+- In game, scripts (d) and (e): 8/8 PASS with every default layer on; every gear toggle works; `/reload` mid-session restores tracking; 0 taint.
+
+| Pkg | Owner | Scope | Contracts | Verify | Wave / Iso |
+|---|---|---|---|---|---|
+| M4.1 Game parts + tracking Command | game/parts/Places.lua, Group.lua, Vignettes.lua, Explored.lua, Tracking.lua; game/commands/tracking.lua | places (TaxiMap, EncounterJournal, DeathInfo graveyards, AreaPoiInfo on AREA_POIS_UPDATED); group ~20 Hz, class, dead, withheld skipped; vignettes not dead + rares from target (keyed by NPC id); explored per AreaID, 700 samples/frame; tracking with duplicate kind; SetTracking | Typed | Per part; R-E2; observe ≤2 ms all on | Wave 4a, W |
+| M4.2 Game apply: duplicates, indoors, full HBD | game/Tracking.lua, game/Renderer.lua, game/parts/IndoorArt.lua, game/AddonPins.lua (via Game.Apply) | Turn off TaxiNode/QuestPOIs/POI while sensing outdoors and our layer on; save trackingOff; restore at stop/release/logout and after crash on PLAYER_ENTERING_WORLD / MINIMAP_UPDATE_TRACKING; ≤ every 2 s. Indoors from view radius vs zoom widths, OPEN_CITIES (1454); indoorArt ≤1600 yd or dungeon floor; renderer 'blizzard' (whole Minimap in small window over black, wheel zooms it, its arrow; ours hidden); `/mma indoor`. HBD full: continent-only past 48 px/tile, skip >128 px and -1 pins, skip Questie complete when we show turn-in, sync 0.1 s after change + every 1 s; minimap pins via SetMinimapObject to host on sockets.minimap (in place of game/Minimap.lua's hidden host, M1), hidden under Rotate Minimap / off map; renamed copy hosting world pins → its minimap pins hidden | SavedGame (0004), View.renderer, sockets (0003) | test_tracking, R-G1, test_addonpins | Wave 4a, W |
+| M4.3 Model kinds | model/Places.lua, Group.lua, Rares.lua, Services.lua, Blips.lua | places static + live, deduped; the group kind (corpse and waypoint are M3.1's, built in model/Target.lua: Known("corpse"), Known("waypoint")); rares read/write SavedModel.rares, hidden under same-name live vignette (D4); services from zoom 60 in a Job, gated by tracking (one switch both trainers); remembered blips (Known("remembered"), Focus's instance, bucketed, from zoom 60, cap 5000: done in the M1 review) gated by tracking, hourly refresh, forget at 0.8×220 yd, LAG merge; quest `!`/`?` blip icons when our layers don't cover; rares: SavedModel.rares (the ones you've seen) replaces the static spawns (Atlas.Rares) as the pin source, 137008 at 15, tooltip `Rare` + `Seen here <Mon DD>` (Landmarks.lua:15, 53-69); NearOurs: no blip within 8 yd of our quest/flight/rare/dungeon/corpse/waypoint pins (Blips.lua:460-470) | SavedModel (0004; D6's amendment done) | R-D4, R-S1, test_services; rare survives reload | Wave 4a, W |
+| M4.4 UI remaining layers | ui/Places.lua, ui/Group.lua, ui/Shade.lua, ui/IndoorArt.lua, ui/Sockets.lua (the world socket's minimum is there since M1), ui/ZoneInfo.lua (explored + landmark lines; the hover border), ui/Borders.lua (its polyline exported, only that) | Pins per §4 on the store; shade (old kept until new pass done); indoor art; pick View.renderer; publish sockets (the minimap one; the world one's addon layers toggled from the menu: done in M1.13), layers (flight, quests, pois, addon:*), chrome flags; inspector line 2's place from the explored areas at the spot (the exploration M4.1 hands on for the shade; ZoneInfo.lua:71-109: their names but the zone's, ≤2; none explored, DIM `Unexplored` and `, near …` from the area chain; a city map, coordinates only), replacing M3.4's interim area chain, and ≤2 landmarks within 900 yd even when that layer is off; the hovered zone's border drawn by ui/Borders.lua's own clip and fading-end polyline (exported, the caller's scratch passed in: the layout and the hover border are two yielding jobs), dropping ui/ZoneInfo.lua's ~90-line copy (M3.4's hand-off; left at the M3 gate: Borders' loop is M1's priced hot path, and M4.4 opens ZoneInfo.lua next) | View (0003) | Each kind with defaults, toggle hides; shade count; View snapshot small/big/indoor/hidden; inspector lines; in game, once View.chrome is published, game/Chrome.lua's rim calls (Set*BlobRingScalar, SetMinimapInsetInfo: unguarded, never run before; the spike's 1.0 has none since da0a49c) | Wave 4a, W |
+| M4.5 Gear menu complete | ui/Menus.lua (gear section) | Structure done in M1.13 (`Menus.Layer`, docs/structure.md "Registries": groups Map, Quests, Places, People, You, Other addons; tips, indentation, greying, empty groups hidden; SavedUI.layers changed keys only; M2–M4 add their layers' rows from their own files). Left: Tracking (non-duplicates → Command); Settings Advanced (Diagnostics: Debug info in the title, Indoor maps; Performance: Record 10 seconds, Compare with other addons, Memory breakdown); `/mma layers` | SavedUI.layers | test_gear small vs big, toggles reach SavedUI and View.layers (both since M1.13); Tracking, Advanced | Wave 4a, W |
+| M4.6 Diagnostics slash + cleanup | game/Slash.lua, runtime Perf, ui/Title.lua (debug line) | `/mma blips, tiles, debug, indoor, perf, perf top, perf mem, landmarks` matching spike output (Runtime's summary is `/mma perf load` since the M1 review); an unknown command answers with the spike's one usage line (Core.lua:1752; `/mma zone` alone prints it too since M3.4, ui/ZoneInfo.lua's USAGE: one line for both), the rebuild's diagnostics (check, bench, shot, layer, mapstats, minimap, errors, perf load) outside it; gear Advanced calls same code; title debug (tile col_row, FileDataID, zoom, layout ms); remove remaining Validate spike code, keep check log, bench, art | None | Each command prints without error | Wave 4a, W |
+| M4 gate | Lead + user | Scripts (d), (e), parity rows, shots | — | Exit list | Last. **Sim done 2026-10-19** (9d2dc45: every M4 package's Verify and M4's sim exit met; tools/check.sh green, 178 passed plain and strict, no skip or xfail; luacheck's baseline empty). Places deduped across maps: test_model_kinds test_places_model (Atlas's until the game marks a kind; a flight point on its continent's and its zone's map once), test_world_parts test_places_round_trip, test_world_layers test_places (each kind at its size and default, its row's toggle hides it). The group: test_world_parts test_group (2 members, 38-42 reads a second, the same tables), test_world_layers test_group (class colour, dead grey, the member's tooltip, off hides). R-D4 (one Mother Fang each step: live, gone, the vignettes layer off), R-E2 (the vignette and, since the gate, its pin within 0.01 tile; a throwing read reported once, `map: draw` 60 a second), R-S1 (2 rares and 5 blips through a load with no _v and a /reload; 5000 an instance). test_services: none at 59, four at 60; Innkeeper, Trainer and Mailbox tracking off hides them and the remembered of them, Trainer both kinds. test_tracking: off while sensing outdoors with our layer on, back at the layer off, the whole Minimap, hidden, logout; after a crash at the next login, or at MINIMAP_UPDATE_TRACKING. R-G1: Elwynn ours, Orgrimmar 1454 ours, Undercity ours+art, a Mulgore hut blizzard (the wheel zooms it, our arrow under it), a dungeon floor ours+art, one `indoor` trace a change. test_addonpins: past 48 px a tile the continent's alone, none over 128 px or -1, Questie's turn-in skipped while our quests layer shows; minimap pins on the minimap socket's host, hidden under Rotate Minimap. test_gear and test_gear_tracking_advanced: the tree, indentation, Tracking (less the duplicates), Advanced (each row its command through `run`), `/mma layers`. The shade: test_shade, 351 dark cells drawn as 30 rectangles, the old kept 14 frames while the new pass runs. The inspector: test_inspector_lines (explored areas at the spot but the zone's, `Unexplored, near`, a city's coordinates alone, ≤2 landmarks within 900 yd). Every replay's invariants: one pin a thing a frame, no Blizzard Minimap art but under `blizzard`. Every MOVED spike-bugs row has a replay or a listed in-game check (de92bf0: K1 a3b/a3c, K3 e5). M4.1: per part (test_world_parts), observe all on 1.27 ms priced with our Lua (the explored sweep's 1.00: test_observe_all_on). M4.4: test_view (small, big, indoor, hidden). M4.6: test_diagnostics. R-G6b's grow 6.87 ms, R-P3b's first pass 204.8 KB/s (7,646 regions, garbage 18.7: the town services' indexes kept), both under their limits. Fixed at the gate: a vignette on a micro map (a cave, an inn: Atlas has none) placed by the client's rect as the spike's (Core.lua:838-865; it was dropped: M4.1's hand-off) (260d04e); `Unexplored, near` the nearest subzone label within 350 yd on the zone's map, as ZoneInfo.lua:99-106 (it named the spot's outermost area: M4.4's) (260d04e); `/mma layers` prints the spike's zoneLabels and zoneBorders (S64, M4.5's question; /mma layer and SavedUI keep our layer names) (260d04e); R-E2 checks the live rare's pin (f05817d); `/mma layer flight` and the other place kinds' keys toggle their rows (9d2dc45). The hand-offs' questions, settled in wave 1 and the review's round 1: `target` and the M4 OPEN additions typed (6f0c553); Model hands on indoorArt, explored, exploredCells, tracking (M4.4, M4.5, 518180f); the shade and inspector per cell (518180f); services drawn on the blips layer (d13d096); `Seen here <Mon DD>` in UI (a5d9680); quest enders' `?` and NPC titles, BlipServices format 2 (e56617a); Focus.off's TARGETED gains vignettes, offers, flight, dungeons, rares; test_quests' Npc stub falls back to Atlas's; the `run` command and its ADR 0003 line, SavedGame indoorDebug and SavedUI debug (ADR 0004, `_v` 1); levels in docs/brief.md §4 (the shade 2, places 11, group +15, indoor art +2, the minimap socket +16/+17, Game's backdrop +20 and the Minimap +21); R-G6b's engine question moot at 6.87 ms. Kept as built: the explored sweep runs with the shade off (the inspector reads it); city maps a constant of the six capitals (C_Map.IsCityMap's); `/mma blips` without the spike's blip log (the rebuild has none: `sensor` traces, `/mma record`); Validate's map-rect and flight-point checks stay for K4. In game: user-gate, docs/playtest-final.md d0-d8 and e1c, e2, e6 (and a6, a7s, a3c, b7, e5 from the review), and the read's Scripts (d) and (e): 8/8 PASS with every default layer on, every gear toggle works (d2), `/reload` mid-session restores tracking (d6), 0 taint (d5, e6); the client's answers M4 leans on (d0: an unexplored spot's nil or {}, a spell tracker's filterID, taxi nodes' isUndiscovered, vignettes' objectGUID), the explored sweep's client cost (perf.slow), game/Chrome.lua's rim calls run (d1r); shots small-town, big-places, big-shade, big-tracking, big-settings, small-indoor, big-indoor, chat-layers, big-addon-pins, small-addon-pins (small-group, small-rare, small-vignette if the moment comes). Deferred: none of M4's; F56 (the no-data notice) is M5.2's, S31's coast fades the user's call at the shot pairs |
+
+### M5 Full-load hardening + parity sign-off
+
+Goal: every layer on, budgets hold in the worst places, every parity row signed, no MOVED row without a test or reason.
+
+Exit: full replay suite + 10-min sim soak (memory flat after GC, no stuck jobs); spike-bugs.md has no unexplained MOVED (G3, P4, K2, L5 included); CI green, BASELINE empty. In game: scripts (a)–(e), 10+ min each, on two sessions: 0 errors, 8/8, perf.slow/gaps/sensor/art empty, 0 taint; parity.md signed by the user with shots; FarmHud yield and Rotate Minimap checked.
+
+| Pkg | Owner | Scope | Contracts | Verify | Wave / Iso |
+|---|---|---|---|---|---|
+| M5.1 Perf soak + fixes | Owners named by perf.alloc / perf.gaps | Run scripts, fix at the attributed owner, `--compare` | None | 2 sessions all PASS | Wave 5, W per fix |
+| M5.2 Replay sweep + no-data build | tools/tests/replays, test_spike_bugs.py | Close remaining R-*; CI "no-QuestieDB-data" scenario over M2–M4 replays (0 errors, pins drawn, reduced tooltips, one chat notice); hand statuses to lead | None | pytest green; no unexplained MOVED | Wave 5, W |
+| M5.3 Visual parity pass | UI owners, with user | Shot pairs vs reference; fix values only | None | User signs parity.md | Wave 5, W |
+| M5 gate | Lead + user | Scripts (a)-(e) twice, the shots, the sign-off | — | Exit list | Last. **Sim done 2026-10-19** (532cd9e: every M5 package's sim Verify and M5's sim exit met; tools/check.sh green, 211 passed plain and strict, no skip or xfail; luacheck's baseline empty). The full replay suite: test_spike_bugs, every R-* row with the QuestieDB-derived data and without it (test_replay_no_data: each boot ends with only its replay's own errors, the no-data notice once without the data, never with it). The 10-min sim soak: test_soak (M5.1 9fcd521), scripts (a)-(e) four rounds with every layer on, 649 s priced: the heap after a full collect flat from round 2 (59.27-59.30 MB), no job queued at rest, 8/8 PASS (rest p95 0.40, moving p95 4.30, max 6.2 ms, 45.5 KB/s), perf.slow, perf.gaps, taint, art and sensor empty. spike-bugs.md's 20 MOVED rows each have a replay or a sim test, but K1 (in game: a3b, a3c) and K3 (test_farmhud; in game: e5): none unexplained (G3 CONTAINED: R-G3; P4 PREVENTED: the priced zoom tests; K2: R-K2; L5 CONTAINED: test_check_art). The no-data build (M5.2 fe443f3): F56 by game/NoData.lua, R-G5 without the data (pins drawn, quest 60's tooltip without droppers or turn-in, one notice, 0 errors). M5.3's audit (b0e0560, no commit): every S row and §4 value the spike's code; the rows to compare most closely are playtest-final's decisions 10-11. CI: the M4 gate record's run green; this gate's push checked at the run's last step. Kept as built (the hand-offs' questions): game/NoData.lua outside M5.2's owner files (a chat line is Game's) reading Atlas.Data.Quests (named in atlas/Coords.lua's comment: 532cd9e), the notice in the spike's words (D4); pins off the pixel grid as everything on the map, the user's call (decision 10). In game: user-gate, docs/playtest-final.md a8, b21, c8, d9, e8 (two 10+ minute sessions a script: 0 errors, 8/8, perf.slow/gaps/sensor/art empty, 0 taint, 0 K4 drift lines), e2 (Rotate Minimap) and e5 (FarmHud's yield), e7 (no data), and the sign-off (every parity row at its shot; decisions 4, 5, 10, 11). Left: M1.15 (borders through a glide; M1b wave 3, todo): with our Lua charged the soak's zoom p95 reads 5.1 ms (map: tiles and labels slices) and the big window zooming with a line 5.25 priced, 6.4 with our Lua (test_path_priced_big), so a zoom FAIL in (a) or (c) is its; tools/sim.py's LUA_PRICE reads about twice the allocation (76 vs 38 KB/s, LUA_NS=0 too; not GC: the same with the collector stopped), so allocation is judged on plain runs (docs/runtime.md). S31 todo (decision 4) |
+
+### M6 Rename, merge, release (features frozen)
+
+Exit: full CI green under new names incl. test_only_game_defines_globals; sim loads a real spike `MagicMapDB` fixture and shows the D9 behaviour with ourKB after GC ≤64; packaged zip installed alone (spike removed) loads with 0 errors, final 8/8; `/mm`, rim button, compartment work; no `MagicMapAtlas` strings; Data regenerated for the release build with goldens checked and 0 K4 drift; release notes match code; the user does any push/upload.
+
+| Pkg | Owner | Scope | Contracts | Verify | Wave / Iso |
+|---|---|---|---|---|---|
+| M6.1 Rename | Whole tree, one agent | TOC/folder, SV per D9 with fresh `_v`, `/mm` + `/magicmap`, chat prefix, frame names, compartment func, luacheck BOUNDARIES, telemetry.py, install.py (refuses while spike folder present; warns "restart the client (not /reload)" when files were added, L5) | **ADR 0007** "v1 storage names" (LOCKED SV change; spike keys and MagicMapLandmarks loss stated) | Full pytest + luacheck; sim `/mm` toggle + reload; spike-DB fixture test; in-game install | Alone after M5, X (whole tree) |
+| M6.2 Merge into ~/code/MagicMap | Tooling (git; user approves every write and push) | Tag spike `spike-1.0.0`; import per D8; carry CI, docs, README media, LICENSE | None | CI green there; tag reachable | After M6.1, X |
+| M6.3 Package + release | tools/package.sh, dist/, README | Rerun every generator on the release build, test_generators goldens (re-bless only after in-game look), bump `## Interface`, one `/mma check log` session; zip from tag with Data per D1; release notes from code; version per D7; README features from parity.md; user records new GIFs; CurseForge/Wago metadata draft | None | Unzip into clean AddOns: 0 errors, final telemetry session | With M6.2, W |
+
+## 7. Swarm schedule
+
+| Wave | Packages (parallel) | Exclusive holds |
+|---|---|---|
+| 0a | M0.1, M0.3, M0.4, M0.5, M0.6, M0.7, M0.8 | M0.1: `types/` |
+| 0b | M0.2 (after M0.1; target: day 1) | game/Observe, Command, Minimap; ui/Map; TOC; luacheck.py; test_spike_bugs.py |
+| gate | M0 user session (HARD edge for M1.3 and M1.5 alloc) | — |
+| 1a | M1.1, 1.2*, 1.5, 1.6, 1.7, 1.8, 1.9, 1.10 (*after D3) | — |
+| 1b | M1.3 (after M0 numbers), M1.5b, M1.8b, M1.11 | ui/Engine.lua, ui/Camera.lua |
+| 1c | M1.4 (after M1.3 layer API) | — |
+| M1b-1 | M1.12, M1.13 (the user's play-test of M1) | — |
+| M1b-2 | M1.14 (the user's play-test of M1: the wheel) | — |
+| M1b-3 | M1.15 (the M1b gate: borders through a glide) | — |
+| 2a/2b | M2.1, 2.2, 2.3 → M2.4 after M2.1 stub | — |
+| 3a | M3.1–M3.4 | — |
+| 4a | M4.1–M4.6 | — |
+| 5 | M5.1–M5.3 | — |
+| 6 | M6.1 alone → M6.2 + M6.3 | M6.1: whole tree |
+
+Counts: **45 work packages** (M0 8, M1 13, M1b 4 so far, M2 4, M3 4, M4 6, M5 3, M6 3) + 7 gate packages (M0, M1, M1b, M2–M5). Max swarm width: 8 (wave 1a).
+
+## 8. Risks and mitigations
+
+| Risk | Mitigation |
+|---|---|
+| Perf diagnoses come from one 90 s session (20 µs/region, sensor as top allocator) | M0.3/M0.5 measure; HARD edge before M1.3 and M1.5 alloc commit. Measured: docs/evidence/perf-m0.md |
+| Sim can't see rendering, taint, SetScale cost, deferred layout, widget allocation; user play time is the critical path | M0.6 prices what it can; M0.4 batches each gate into one scripted session; reference shots once in M0.8 |
+| M1 is heavy (perf + chrome + hooks + probes + You part) | M0.2 seams (Motion.lua, Game.Apply, manifests) keep 8 packages parallel; only M1.3 → M1.4 is serial |
+| M0.2 is the single serial bottleneck | Mechanical, one agent, land day 1; everything else in wave 0a avoids its files |
+| QuestPOI draw-then-redraw quirk underpins areas, edges, estimates | Proven in game at M1 (M1.9, `/mma check inside`); R-L1 in sim |
+| HBD internals (worldmapPins, SetMinimapObject, Questie icon.data.Type) can change | Thin proof in M1, full in M4; round-trip test; re-check at M5 and in final session |
+| Forever atlases can blank chrome silently | `/mma check art` (M0.5) every login → `art` trace, `--budgets` prints misses |
+| Tear survives origin + unsnap fixes | Motion ring + shot; seam overlap fallback in M1.4 |
+| ~10 new layers in M2–M4 push budgets back over | Pin store diffed by id, parked pools, 8/8 at every gate, M5 backstop |
+| Spike and rebuild both hook ToggleWorldMap / take Minimap | Spike disabled in every play-test; install.py refuses at M6 while the spike folder exists |
+| Taint (K2) from hiding cluster, UISpecialFrames, hooks, SetParent of HBD frames | Sim protected-call log in combat; combat steps in scripts (c)/(d); `taint` events = 0 in M1/M5 exits |
+| New texture files not seen on `/reload` (L5) | install.py warns "restart the client"; kit says so |
+| Data filter removes rows a later feature needs | Only if D2/D3 confirmed; item tooltips and dungeon NPCs out of v1 |
+| No QuestieDB licence blocks public release | D1; no-data CI scenario keeps the public build working |
+| Shared `MagicMapDB` holds spike root keys (blipLog can be MBs) and breaks 64 MB for spike users; MagicMapLandmarks dropped | D9 + ADR 0007; spike-DB fixture test in M6.1 |
+| Data built for 1.60.1; K4 tile id drift at release | M6.3 regenerates, checks goldens, 0 drift lines |
+| Release notes promise removed features | Plan follows code (D4) |
+
+## 9. Decisions needed from the user up front
+
+| # | Decision | Blocks | Recommendation |
+|---|---|---|---|
+| D1 | QuestieDB licence: get permission, ship without derived data (degraded tooltips, services, blip icons), or keep 1.0 private | public upload (M6.3) | **DECIDED 2026-10-18: decide at the very end (before any public upload); internal 2.0.0 proceeds. DECIDED 2026-10-21: GPLv3, as Questie's and QuestieDB's LICENSE.md allow; the data committed and shipped, credited in NOTICE.md** |
+| D2 | Confirm docs/v1-non-goals.md (DRAFT) as listed in §5 | M1.2, parity.md | **DECIDED 2026-10-18: confirmed as drafted** |
+| D3 | Approve offline filter of Items, ItemIcons, NPCs (no item tooltips, no dungeon NPCs in v1) | M1.2 (memory FAIL) | **DECIDED 2026-10-15: approved** |
+| D4 | Spec source: spike 1.0 code, or bring back "blips past the edge" and path auto-fit | parity.md, scope | **DECIDED 2026-10-15: the spike's code** |
+| D5 | Border look: spike's 1 shadow + line (2 Lines/segment), or demo's 2 halos + line | M1.4 | **DECIDED 2026-10-15: spike (1 shadow + line)** |
+| D6 | Seen-blips cap per instance: 200 (contract) or 300 (spike, needs ADR 0004 amendment) | M4.3, R-S1 | **DECIDED 2026-10-18: very high: 5000 seen blips per instance (ADR 0004 amended 2026-10-18)** |
+| D7 | Version and channel: re-release as 1.0, or 1.1 / 2.0; CurseForge / Wago / GitHub; beta builds per milestone? | M6.3 | **DECIDED 2026-10-18: 2.x.x: this release is 2.0.0; channel decided at the end** |
+| D8 | Merge mechanics: tag spike `spike-1.0.0` and replace tree (history or squashed), or separate repo; confirm before any push | M6.2 | **DECIDED 2026-10-18: at the end; blunt is fine (giving up the old history is acceptable)** |
+| D9 | Saved name: new SV (e.g. `MagicMapDB_v1`, spike file left orphaned) or keep `MagicMapDB` and clear non-owner root keys once; accept spike rares are lost | M6.1, ADR 0007 | **DECIDED 2026-10-15: new SV name** (spike rares lost, accepted) |
+| D10 | Commit to the play-test sessions: M0 reference shots (spike only), M0, M1, M2, M3, M4, M5 ×2, M6 final, spike disabled, shots per script | every gate | **DECIDED 2026-10-18: one consolidated play-test at the end of the run (scripts a-e + reference shots), not per milestone** |
+
+## 10. Critic gaps: where each landed
+
+| Gap | Resolution |
+|---|---|
+| Camera.lua shared by M1.3 / M1.8 | M0.2 splits Camera.lua (M1.3) and Motion.lua (M1.8), Settled/Velocity stubbed |
+| game/Minimap.lua shared by M1.5 / M1.6 / M1.9 | `Game.Apply` registry; M1.6 gets Home.lua + Chrome.lua; M1.5 sole owner of Minimap.lua in M1 |
+| luacheck.py shared by M0.2 / M0.7 | M0.7 writes tools/lint_div.py |
+| Telemetry files shared by M0.3 / 0.4 / 0.5 | M0.4 owns Telemetry.lua + both docs; M0.5 writes `Bench.result`; M0.3 hands keys |
+| TOC, files.txt, FORMATS, spike-bugs, test_spike_bugs hot | Manifests + generated TOC, per-file FORMATS, one replay per file, lead edits evidence docs at gates |
+| gen_world.py shared by M1.1 / M1.2 | M1.1 uses new gen_labels.py |
+| you.uiMap needed in M1 | M1.10 You part |
+| Zone info needs explored + places | Explored/landmark lines and their test moved to M4.4 |
+| Corpse-forced follow before corpse exists | Moved to M3.3 |
+| K2 taint unchecked | Sim combat log (M0.6), combat script steps, `taint` events (M0.4), exit criteria M1/M3/M4/M5 |
+| L5 new files need restart | install.py warning (M6.1 and kept from M1 install), kit note (M0.4) |
+| G2 no replay | R-G2 in M3.4 |
+| Atlases may vanish silently | `/mma check art` + ui/Art.lua (M0.5) |
+| Spike root keys + MagicMapLandmarks | D9, ADR 0007, spike-DB fixture test (M6.1) |
+| Data regen + Interface bump at release | M6.3 |
+| No-data build untested | M5.2 CI scenario; Atlas empty indexes in M1.2; M2 exit checks it early |
+| No parity checklist | M0.8 docs/parity.md |
+| No shot protocol | M0.4 shot list + stamped `/mma shot`; M0.8 reference session |
+| Missing features (`/mma follow`, `/mma icon`, `!`/`?`, tint no-data, instance maps, arrow hiding, subzone re-place, title debug, area/zone click precedence) | M1.7, M1.6, M4.3/4.4, M1.4, M3.4, M1.4/M4.2, M1.4, M4.6, M3.4 |
+| Gear dead end M1–M3 | M1.7 minimal gear; M2/M3 add their layers |
+| Tooltip owners before G7 | One hide path in M1.6, R-G7 at M1 gate |
+| M0.1 re-adds existing fields | M0.1 is a diff; most fields confirmed present (checked against types/) |
+| Seen-blips cap under the LOCKED clause | D6 = 5000: ADR 0004 amended 2026-10-18 (M1 review) |
+| Structure docs unassigned | M0.2 updates structure.md + architecture.md; M6.3 rewrites README from parity.md |
+| Synth plan said "8 failing budgets" | Corrected: 4 FAIL today; every gate needs 8/8 PASS |
