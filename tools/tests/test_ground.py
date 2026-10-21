@@ -3,7 +3,7 @@ Tiles.lua, You.lua) on the simulated client. Borders: a zone border's segment is
 from zoom 60, then it) and a subzone's 1 (from zoom 140); a dead end at most 4 dashes; never more
 than 3000 Lines, the whole of the Eastern Kingdoms at zoom 4 included. Labels: zones in capitals,
 10 pt, up to zoom 450; subzones 9 pt, by size from 120, 220 and 400; none touching another; a name
-new to the view fades in. Tiles: where no land tile is, the sea's water texture, never a flat colour.
+new to the view fades in. Tiles: an open-sea tile isn't drawn (the backdrop shows).
 You: the arrow, on your map only.
 
   .venv/bin/python -m pytest tools/tests/test_ground.py -s   # prints the borders' Lines by zoom
