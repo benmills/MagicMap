@@ -1136,10 +1136,9 @@ C_CVar = { GetCVar = GetCVar }
 -- No font: Forever answers nil for the ones it has (the M0 gate's `art` misses); SetFont loads them.
 local FILES = {}
 for i, path in ipairs({ "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up", "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight",
-	"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down", "Interface\\Minimap\\MinimapArrow", "Interface\\COMMON\\Indicator-Yellow",
-	"Interface\\WorldMap\\Gear_64", "Interface\\CharacterFrame\\TempPortraitAlphaMask",
+	"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down", "Interface\\WorldMap\\Gear_64", "Interface\\CharacterFrame\\TempPortraitAlphaMask",
 	"Interface\\HUD\\UIMinimap2xC60", "Interface\\Icons\\INV_Misc_Map_01", "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",
-	"Interface\\Minimap\\PartyRaidBlipsV2", "Interface\\Minimap\\Tracking\\Herbalism", "Interface\\Minimap\\Tracking\\Mining" }) do
+	"Interface\\Minimap\\PartyRaidBlipsV2" }) do
 	FILES[path:lower()] = 100000 + i
 end
 function GetFileIDFromPath(path) return FILES[(path:lower():gsub("/", "\\"))] end
@@ -1688,8 +1687,7 @@ local ATLASES = { Professions_Tracking_Herb = true, Professions_Tracking_Ore = t
 for _, base in ipairs({ "ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-out" }) do
 	ATLASES[base], ATLASES[base .. "-mouseover"], ATLASES[base .. "-down"] = true, true, true
 end
-for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutton-highlight",
-	"ui-hud-minimap-arrow-player", "ui-hud-minimap-arrow-questtracking", "minimaparrow", "Quest-In-Progress-Icon-yellow" }) do
+for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutton-highlight", "Quest-In-Progress-Icon-yellow" }) do
 	ATLASES[name] = true
 end
 -- The metal frame's pieces, sized as Forever reports them: the edges far
@@ -1703,7 +1701,7 @@ ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
 ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }
 ATLASES["!UI-Frame-Metal-EdgeRight"] = { 200, 256 }
 -- ui/Art.lua's (Forever's ObjectIconsAtlas, as tools/export_icons.py cuts them for the demo)
-for _, name in ipairs({ "taxinode_alliance", "taxinode_horde", "taxinode_neutral", "vignettekill", "vignettekillelite",
+for _, name in ipairs({ "taxinode_alliance", "taxinode_horde", "taxinode_neutral", "vignettekill",
 	"questnormal", "questturnin", "dungeon", "raid" }) do
 	ATLASES[name] = true
 end

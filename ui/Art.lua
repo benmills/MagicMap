@@ -14,7 +14,7 @@ local Art = {
 	-- A name, or a chain as its button tries it (the first the client has): a chain is a miss
 	-- only when none of it is there, named by its first.
 	atlases = {
-		"vignettekill", "vignettekillelite",                       -- ui/Rares.lua (model/Rares.lua ICON)
+		"vignettekill",                                            -- ui/Menus.lua: the Rares & treasures row's icon
 		"Professions_Tracking_Herb", "Professions_Tracking_Ore",   -- ui/Blips.lua: gathering nodes (game/Blips.lua GATHER)
 		"UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight", -- ui/Chrome.lua: the border
 		"_UI-Frame-Metal-EdgeBottom", "!UI-Frame-Metal-EdgeLeft", "!UI-Frame-Metal-EdgeRight",
@@ -26,7 +26,6 @@ local Art = {
 		{ "redbutton-highlight-c60", "redbutton-highlight" },
 		"ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-in-down", "ui-hud-minimap-zoom-in-mouseover", -- the zoom buttons
 		"ui-hud-minimap-zoom-out", "ui-hud-minimap-zoom-out-down", "ui-hud-minimap-zoom-out-mouseover",
-		"ui-hud-minimap-arrow-player",                             -- the follow toggle
 		"deathrecap-icon-tombstone", "UI-QuestPoi-QuestNumber",       -- ui/You.lua: your corpse on the quest pins' disc
 		"Waypoint-MapPin-Tracked",                                 -- ui/You.lua: your waypoint
 		"questnormal", "questturnin",                              -- ui/Quests.lua, model/Blips.lua: quests to pick up ("!"), turn-ins ("?")
@@ -45,7 +44,6 @@ local Art = {
 		136458, 136453, 136452, 136466, 136454, 136463, 136455, 136465, 136459, -- ui/Blips.lua: services (game/Blips.lua SERVICE)
 		"Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",        -- ui/Path.lua: the edge arrow
 		"Interface\\Minimap\\PartyRaidBlipsV2",                  -- ui/Group.lua: party and raid members
-		"Interface\\Minimap\\Tracking\\Herbalism", "Interface\\Minimap\\Tracking\\Mining", -- ui/Blips.lua: gathering nodes (a fallback)
 		136441,                                                  -- ui/Places.lua: POIIcons, the area POIs the client gives no atlas for
 	},
 	fonts = { "Fonts\\FRIZQT__.TTF", "Fonts\\MORPHEUS.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS), and the zones' Morpheus
