@@ -152,7 +152,7 @@ or Sentinel Hill (Westfall, 1436). Some quests complete (turn-in), some offers (
 | b4 | Click a pin: it's super-tracked in Blizzard's tracker; click again: off. Click a quest area (blob). | `/mm mark b4 follow` |
 | b5 | Wheel 60 → 140 → 384 and back: blobs hide while zooming and come back at settle. | `/mm mark b5 zoom` |
 | b6 | Walk into a quest area; `/mm check inside` there; walk out. | `/mm mark b6 inside` |
-| b7 | Big map, wheeled until the quest areas fill it: areas and estimates. | `/mm shot big-quests` |
+| b7 | Big map, wheeled until the quest areas fill it: the areas. | `/mm shot big-quests` |
 | b8 | Every session's "after". | — |
 
 Checklist:
@@ -254,7 +254,7 @@ The scripts take these (the rest of the list is for M5's full pass):
 | big-indoor | a6 | big map in a city | M1, M5 |
 | big-continent | a7 | continent: tiles, zone labels | M1, M5 |
 | small-quests | b2 | quest pins, difficulty, counts | M2, M5 |
-| big-quests | b7 | quest areas, estimates | M2, M5 |
+| big-quests | b7 | quest areas | M2, M5 |
 | small-edge-arrow | c1 | route ink, edge arrow | M3, M5 |
 | small-corpse | c3 | corpse pin, route | M3, M5 |
 | small-town | a1b, d1 | subzone borders and names (a1b); services, mailbox, blips (d1) | M1, M4, M5 |

@@ -46,7 +46,13 @@ e6; a3c, a7s, b7, e5 from the review). M5 (hardening and parity): wave 1 merged 
 test_soak; M5.2 every replay without QuestieDB's data too, F56's notice; M5.3 the S rows audited against the spike's code);
 M5's sim half done at 532cd9e (the M5 gate, 2026-10-19: 211 passed plain and strict), its in-game half in
 docs/playtest-final.md (a8, b21, c8, d9, e8: two 10+ minute sessions a script; e2, e5, e7; the sign-off). M1.15 done at cfdc6d2.
-M6 (rename, package) done: 2.0.0 at 17c6870, tagged locally.
+M6 (rename, package) done: 2.0.0 at 17c6870, tagged locally (never published).
+Since 2.0.0 (the log from v2.0.0 to main), toward **2.0.0-rc.1**, a release candidate for external play-testing
+(docs/playtest-external.md): interiors (ADR 0008: Blizzard's indoor minimap pictures placed by us, City maps and the
+cities' area names on the big map) replaced the world map's indoor art and Blizzard's whole Minimap; the sea and the
+colour-matched tiles, the unexplored shade and the estimated quest areas are gone; zone borders are the big map's only;
+icon grouping (ui/Cluster.lua), the zoom reset button and the quest line; the gear reorganised (Map, Quests, Places,
+Nearby, Other addons; Follow you in Settings); Blizzard's HD icons; the QuestieDB data packed.
 
 ## 2. Rules for every package (v1-plan §3)
 
@@ -139,7 +145,7 @@ reads where the last Apply placed the Minimap, once that placement holds still.
 | `Model.Part(observe, load)`, `Model.Kind(kind, fn)` | model/Model.lua | `observe(obs, oracles)` each frame; `load(saved)`; `Known(kind)` answers `fn()` → list, rev |
 | `Engine.Layer(name, level, build, rev, zoom)` | ui/Engine.lua | `build(canvas, inst, zoom, c0, r0, c1, r1)` in a layout job when view, zoom, map or `rev()` changes |
 | `Pins.Layer(name, level, fill, rev, opts)` | ui/Pins.lua; the kind's own file in ui/ (Blips, Rares; Quests: quests and offers) | an Engine `"pin"` layer: its layout calls `fill(put, inst, zoom, want)`; `put(e, look, minZoom?)` for each Known entry to draw (kept by `e.key`: only what changed is set; `look` is StylePin's, one table a look); `want(minZoom)`: whether that zoom's pins draw in this layout. `opts`: `lines(e)` → title, lines... (default `e.name`, `e.text`), `tooltip(GameTooltip, e)`, `hover(e or nil)`, `click(e, button)` (ui/Window.lua's left click, before areas: `Pins.Tap`). Pins never take the mouse: `Pins.Hovered()` finds the one under the cursor while the view has it. `Pins.Small(first, last)`: tooltip lines in small type, restored on hide |
-| `Menus.Layer(row)` | ui/Menus.lua; the layer's own file in ui/ | each time the gear opens: `row = { key, label, group, tip, parent?, onToggle? }` a checkbox in its group's submenu (`map`, `quests`, `places`, `people`, `you`, `addons`), in the order added; `key` is the Engine.Layer's name (and View.layers'); on until turned off (`Engine.LayerOn`): only the layers turned off are saved; `parent`: indented, greyed while it's off |
+| `Menus.Layer(row)` | ui/Menus.lua; the layer's own file in ui/ | each time the gear opens: `row = { key, label, group, tip, parent?, onToggle? }` a checkbox in its group's submenu (`map`, `quests`, `places`, `nearby`, `addons`), in the order added; `key` is the Engine.Layer's name (and View.layers'); on until turned off (`Engine.LayerOn`): only the layers turned off are saved; `parent`: indented, greyed while it's off |
 
 **The map's engine** (ui/Engine.lua; why: docs/runtime.md "The map's engine"): each layer has two
 always-shown canvases swapped by alpha; one layout job at a time (a layer the view lacks first, 5 ms a
@@ -173,7 +179,7 @@ additions, committed by the lead (§2). UI, Model and Atlas internals aren't con
 | Contract | Types | ADR | LOCKED | OPEN |
 |---|---|---|---|---|
 | Shared shapes | core.lua | 0001 | tile space (`MM.Pos`, `MM.Rect`), nil/false/{}, time kinds (frame, `GetTime`, epoch) | — |
-| Observation + Oracles (Game → Model) | observation.lua | 0001 | one `Model.Observe(obs, oracles)` a frame; per-frame parts (`you`, `group`, `minimap`, `blips`, `hooked`) may be mutated, Model copies; every other part a new table on change (compare by identity); part names and meanings; oracles pure, same-frame, never error | how Game reads, new optional fields, new parts, new oracles (`Inside(quest, col, row)`, `HasArea(quest)` today) |
+| Observation + Oracles (Game → Model) | observation.lua | 0001 | one `Model.Observe(obs, oracles)` a frame; per-frame parts (`you`, `group`, `minimap`, `blips`, `hooked`) may be mutated, Model copies; every other part a new table on change (compare by identity); part names and meanings; oracles pure, same-frame, never error | how Game reads, new optional fields, new parts, new oracles (`Inside(quest, col, row)` today) |
 | Focus (UI → Model) | focus.lua | 0002 | `Model.Focus { inst, rect?, zoom?, shown, follow }`, one frame behind | new optional fields |
 | View + Commands (UI → Game) | view.lua | 0003 | `UI.View()` (v = 1, Game reads it only in apply, SAFE_VIEW fallback), its fields; `Game.Command` with kinds follow, waypoint, way, tracking, tooltip (idempotent, no reply); hooked kinds | new optional fields (`chrome`, `camera`, `diag`), command kinds (`slash`, `load`, `run`: not idempotent), hooked kinds (`toggle`) |
 | SavedVariables | saved.lua | 0004, 0007 | one root `MagicMap2DB` of owners (Game, UI, Model, telemetry...), `_v` per part, the migration rule, tile space, epoch times, v1 field names | what an owner adds in a new version (with `migrate`) |
@@ -316,7 +322,7 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   click and drag), test_quest_parts (Game's quests and offers parts, the follow and tooltip Commands;
   run as a script, it records fixtures/streams/quests.lua and offers.lua again), test_model_quests
   (Model alone on those streams), test_quests (UI's quest pins, follow, tooltip), test_quest_areas (areas,
-  hover, estimates, a 12-tile zone at zoom 800; 25 quests' budgets, the first open, allocation over a
+  hover, a 12-tile zone at zoom 800; 25 quests' budgets, the first open, allocation over a
   stretch alone: `stretch`), test_target (Model's target end to end: priority, a quest's area edge, inside
   held; the layers turned off), test_route (A* in its job: budget, cap, the old route kept, replans, Dun
   Morogh's pace and long open routes', riding off the line priced, a capped search priced and kept half
@@ -327,8 +333,9 @@ Commits end with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anth
   Game's handlers, the right-click menu and inspector), test_world_parts (Game's places, group, vignettes,
   explored and tracking parts, the tracking Command), test_tracking (duplicate tracking off and back, after a
   crash too), test_addonpins (HBD's world and minimap pins), test_model_kinds (Model's places and group),
-  test_services (services and remembered gated by tracking), test_world_layers (UI's places, group, shade,
-  View, indoor art, the inspector's lines), test_diagnostics (every `/mm` diagnostic, the recording, `run`), test_soak (M5's 10-min priced
+  test_services (services and remembered gated by tracking), test_world_layers (UI's places, group,
+  View, the inspector's lines), test_interiors (Atlas's buildings and rooms, the interiors layer, City maps),
+  test_cluster (grouped icons: pills and their grid), test_diagnostics (every `/mm` diagnostic, the recording, `run`), test_soak (M5's 10-min priced
   soak: scripts (a)-(e), every layer on; heap flat after a collect, no job stuck, 8/8 budgets). The sim's C_ calls make their tables anew each call, as the client's (their
   garbage is measured); a scenario changing Sim.quests fires QUEST_LOG_UPDATE, the sim QUEST_ACCEPTED and
   QUEST_REMOVED with it. A QuestPOIFrame draws into its rect as the last frame's end laid it out (L1); its

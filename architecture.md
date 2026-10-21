@@ -58,12 +58,13 @@ The blip sensor reads where the last Apply placed the Minimap, and waits until t
           · sockets for other addons' pins
   input   clicks → hits (pin, area, zone) → commands · camera, follow, idle return
           · small ⇄ big
-  draws   tiles · borders · labels · quest areas (the client's art: the exception above) · interiors (the building's indoor minimap pictures, ADR 0008)
-          · pins (one store, diffed by id) · group · addon pins · path · arrows
+  draws   tiles · borders (big map) · labels · quest areas (the client's art: the exception above) · interiors (the building's indoor minimap pictures, ADR 0008; city maps on the big map)
+          · pins (one store, diffed by id; overlapping ones grouped into pills) · group · addon pins · path · arrows
   shows   title · tooltips (its own small fonts put back on GameTooltip's hide) · inspector · menus & settings
 
 **Atlas** (library)
-  holds   tiles · tile colour · sea · zone borders, outlines + label anchors · walk grid
+  holds   tiles · zone borders, outlines + label anchors · walk grid · interiors (buildings' indoor
+          minimap pictures, rooms, floors) + the capitals' buildings and area names
           · uiMaps · areas + area grid · flight points + paths · POIs · dungeons
           · NPCs · objects · items · quests (Data/, generated; see docs/atlas-data.md)
   gives   coordinates · map rects · zone at point · zone levels · ranked map labels

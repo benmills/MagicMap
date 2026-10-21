@@ -6,7 +6,7 @@ here can become a goal later, but none of it shapes v1's contracts (docs/decisio
 
 v1 is the spike's feature set rebuilt on Game / Model / UI over Atlas and Runtime: the
 zoomable minimap that grows into a big map, Blizzard's blips, quests and their areas, places,
-group, rares, corpse, waypoint, the walking route, other addons' pins, and indoor art.
+group, rares, corpse, waypoint, the walking route, other addons' pins, and indoors (since 2.0.0: Blizzard's indoor minimap pictures, ADR 0008).
 
 ## Platform
 
@@ -33,7 +33,8 @@ group, rares, corpse, waypoint, the walking route, other addons' pins, and indoo
   anything else that opens Blizzard's map still opens it.
 - **Drawing the flight network or planning flights.** Atlas has taxi paths, but v1 only
   shows flight points.
-- **Unexplored shading beyond the spike's.** It stays an opt-in layer and gets no fog-of-war art.
+- **Unexplored shading.** The spike's opt-in shade was removed after 2.0.0; the inspector still says
+  whether a spot is explored. No fog-of-war art.
 
 ## Routes
 
@@ -46,7 +47,7 @@ group, rares, corpse, waypoint, the walking route, other addons' pins, and indoo
 ## Data and memory
 
 - **A quest or gathering database of our own.** Quests, NPCs and objects come from the
-  QuestieDB-derived Atlas data. Seen blips are capped at 200 an instance, so v1 is not a
+  QuestieDB-derived Atlas data. Seen blips are capped at 5000 an instance (D6), so v1 is not a
   GatherMate replacement.
 - **Sharing between players** (addon messages, guild-shared rares). Rares are shared only
   across your own account's characters.
