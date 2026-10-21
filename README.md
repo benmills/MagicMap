@@ -8,7 +8,10 @@ M and it grows into a big map in the same frame.
 For **WoW Forever** only. Version **2.0.0-rc.1**, the first release candidate of 2.0: a rebuild
 of 1.0 (release notes: [dist/RELEASE_NOTES-v2.0.0-rc.1.md](dist/RELEASE_NOTES-v2.0.0-rc.1.md)).
 
-![The minimap: zooming from a herb tooltip out past the whole coast](docs/zoomable-minimap.gif)
+![The minimap at Red Cloud Mesa, and M grows it into the big map over Mulgore and the Barrens](docs/images/hero-minimap-and-big-map.jpg)
+
+*Red Cloud Mesa in Mulgore: the minimap, and the same spot after M, the big map over Mulgore and
+the Barrens with the zone names and borders.*
 
 ## Features
 
@@ -20,10 +23,20 @@ zone name or the border (or Alt-drag the map), resize it by the corner (it keeps
 and `/mm reset` puts it back. `/mm`, the rim button or the addon compartment swaps it for
 Blizzard's minimap, and back.
 
+<img src="docs/images/minimap-zoomed-out.jpg" alt="The minimap zoomed out over Mulgore, with the gear, the big-map button and the zoom buttons" width="400">
+
+*The same minimap zoomed out to all of Mulgore, the hover buttons showing: the gear and the big-map
+button by the zone name, reset, + and − on the right.*
+
 **The big map (M).** M or the red button grows it into a big map, centred on you; M, the button
 or Escape shrinks it. The quest log (L) still opens Blizzard's map. Click the zone name to pick a
 continent, another map or an instance; with several zones in view, hover one to light it and click
 to fly there. `/mm map` and `/mm zone` do the same by name.
+
+![The big map over Durotar: subzone names, quest areas and pins, and a dashed line to a waypoint](docs/images/big-map-durotar-route.jpg)
+
+*Durotar on the big map: the subzone names, the Valley of Trials' quest areas and pins with their
+counts, and the walking line up to a waypoint at Razor Hill, its distance in the title.*
 
 **The ground.** The game's minimap tiles at any zoom, as Blizzard drew them, on each map's own dark
 water; zone and subzone names, and on the big map the zone borders traced from the terrain; your
@@ -36,11 +49,21 @@ maps** (gear → Map, on): on the big map in a capital (Ironforge, Orgrimmar, Un
 building of the city at once, indoors or out, what's underground faded, with the city's own area
 names (The Great Forge, the Cleft of Shadow...) among the subzone names.
 
+![Indoors: Undercity's Trade Quarter and Ironforge's Great Forge from Blizzard's indoor minimap pictures](docs/images/indoors-undercity-ironforge.jpg)
+
+*Indoors: Undercity's Trade Quarter with its services (grouped into `+2` and `+6` pills), and the
+Great Forge in Ironforge by the flight master.*
+
 **Blizzard's blips.** Outdoors Blizzard's Minimap stays out of sight and is read as a sensor:
 herbs, ore, the mailbox and tracked NPCs within about 230 yards get a pin with Blizzard's tracking
 icon and tooltip, at any zoom. Zoomed in to town scale, the town services you track show too, and
 blips seen before (up to 5000 a continent). Blizzard's own flight, quest and POI tracking is
 switched off while MagicMap draws those itself, and put back when it stops, even after a crash.
+
+![Peacebloom pins in Tirisfal Glades from Blizzard's herb tracking, with the tooltip](docs/images/herb-blips.jpg)
+
+*Herbs in Tirisfal Glades: Blizzard's Peacebloom blips as pins, with their tooltip, in a wide
+minimap.*
 
 **Quests.** The quests in your log in Blizzard's icons, with their objective icon and count, in
 their difficulty colour; quests to pick up; a tooltip with the quest's facts, mobs, items and who
@@ -49,12 +72,22 @@ Click a quest (or its area, zoomed in) to follow it: it becomes the game's track
 line at the bottom left shows the quest you follow and its progress, else how many of your quests
 are in this zone.
 
+<img src="docs/images/quest-tooltip.jpg" alt="A quest pin's tooltip in the Valley of Trials: Cutting Teeth, 2/10 Mottled Boar slain, turn in to Gornek" width="480">
+
+*A quest's tooltip in the Valley of Trials: its level, the objective's count, who to turn it in to.
+The quest line at the bottom left counts the quests in Durotar.*
+
 **Where to go.** Your target is your corpse while you're a ghost, else the quest you follow, else
 your waypoint. A hand-inked line walks you to it around cliffs, lava and water, to a quest area's
 nearest edge; off the map, a gold arrow on the edge points the way. Ctrl-click sets the game's
 waypoint (Ctrl-right-click clears it), Shift-click opens chat with a `/way` line, and right-click
 offers both. On the big map, right-click leads with what's there: zone, subzones, coordinates, level
 range against yours, distance, quests, explored or not, and the landmarks nearby.
+
+![A followed quest at Camp Narache: the line to its turn-in and the quest line saying it's ready](docs/images/followed-quest-route.jpg)
+
+*Following The Adventurer at Camp Narache: the line to the turn-in's `?`, the distance in the title,
+"ready to turn in" in the quest line.*
 
 **Places and people.** Flight points, dungeon entrances, graveyards and points of interest; party and
 raid members in class colours; rares you've seen, remembered for every character on your account;
@@ -73,8 +106,6 @@ on top: Map (zone labels, zone borders, City maps), Quests, Places, Nearby (rare
 party and raid, then Blizzard's tracking types), Other addons. Then Use Blizzard's minimap and Reset
 to defaults, then Settings: Follow you, Group overlapping icons, Minimap button, Reset window
 position, Advanced (diagnostics, grouping, performance). Settings are account-wide.
-
-![Pressing M grows the minimap into a big map and back](docs/minimap-to-big-map.gif)
 
 ## Install
 
