@@ -47,8 +47,8 @@ test_soak; M5.2 every replay without QuestieDB's data too, F56's notice; M5.3 th
 M5's sim half done at 532cd9e (the M5 gate, 2026-10-19: 211 passed plain and strict), its in-game half in
 docs/playtest-final.md (a8, b21, c8, d9, e8: two 10+ minute sessions a script; e2, e5, e7; the sign-off). M1.15 done at cfdc6d2.
 M6 (rename, package) done: 2.0.0 at 17c6870, tagged locally (never published).
-Since 2.0.0 (the log from v2.0.0 to main), toward **2.0.0-rc.1**, a release candidate for external play-testing
-(docs/playtest-external.md): interiors (ADR 0008: Blizzard's indoor minimap pictures placed by us, City maps and the
+Released as **2.0.0** (2026-10-21; 2.0.0-rc.1 before it, for external play-testing: docs/playtest-external.md),
+since the run's first 2.0.0 build: interiors (ADR 0008: Blizzard's indoor minimap pictures placed by us, City maps and the
 cities' area names on the big map) replaced the world map's indoor art and Blizzard's whole Minimap; the sea and the
 colour-matched tiles, the unexplored shade and the estimated quest areas are gone; zone borders are the big map's only;
 icon grouping (ui/Cluster.lua), the zoom reset button and the quest line; the gear reorganised (Map, Quests, Places,
