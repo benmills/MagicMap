@@ -9,8 +9,9 @@
 --   tile units, pixel (u, v) at o + u*U + v*V; floor its real floor in world height; underground: that more
 --   than 10 yd below the terrain at the mask's centre, or open to the sky with a third of its mask under the
 --   building's floors > 10 yd higher; overlapped: its rooms sharing >= 3 mask cells;
---   cities = { [uiMap] = { { key... }, { [key] = { [room] = { key, room, ... } } } } }: a capital's buildings and,
---   per room, the other buildings' rooms it shares >= 3 4-yd cells with (tile space)
+--   cities = { [uiMap] = { { key... }, { [key] = { [room] = { key, room, ... } } }, { { name, col, row, size }... } } }:
+--   a capital's buildings; per room, the other buildings' rooms it shares >= 3 4-yd cells with (tile space);
+--   its areas named on its rooms, each at its floor's cell nearest their middle, size their floor's side in tiles
 local _, ns = ...
 local D = ns.Data or {}; ns.Data = D
 D.formats = D.formats or {}; D.formats.Interiors = 1
@@ -1004,15 +1005,62 @@ D.Interiors = {
         { 10047 },
         {
         },
+        {
+          { "Dwarven District", 30.911, 47.756, 0.3396 },
+          { "Trade District", 30.859, 48.574, 0.3043 },
+          { "The Park", 29.996, 48.424, 0.291 },
+          { "Mage Quarter", 30.341, 48.776, 0.2835 },
+          { "Cathedral Square", 30.529, 48.146, 0.2822 },
+          { "Old Town", 31.211, 48.311, 0.2598 },
+          { "Stormwind Keep", 31.241, 47.824, 0.2408 },
+          { "Cathedral of Light", 30.401, 47.996, 0.2028 },
+          { "The Canals", 30.649, 48.326, 0.1638 },
+          { "The Slaughtered Lamb", 30.041, 48.851, 0.1331 },
+          { "Command Center", 31.369, 48.326, 0.1223 },
+          { "Cut-Throat Alley", 30.919, 48.004, 0.1069 },
+          { "SI:7", 31.346, 48.491, 0.1039 },
+          { "Wizard's Sanctum", 30.371, 48.881, 0.0842 },
+          { "War Room", 31.481, 47.749, 0.0739 },
+          { "Royal Library", 31.249, 47.659, 0.0723 },
+          { "Petitioner's Chamber", 31.301, 48.034, 0.0715 },
+          { "Royal Gallery", 31.024, 47.636, 0.07 },
+          { "Champion's Hall", 31.219, 48.454, 0.0456 },
+          { "Stormwind Harbor", 29.306, 48.049, 0.0075 },
+        },
       },
       [1455] = { -- Ironforge
         { 7706, 326121, 363311 },
         {
         },
+        {
+          { "The Great Forge", 34.054, 41.006, 0.3382 },
+          { "Hall of Explorers", 34.316, 40.796, 0.2286 },
+          { "The Mystic Ward", 33.784, 40.736, 0.2261 },
+          { "The Military Ward", 34.279, 41.329, 0.2236 },
+          { "Tinker Town", 34.459, 41.066, 0.2022 },
+          { "The Forlorn Cavern", 34.061, 40.699, 0.1633 },
+          { "The Library", 34.414, 40.721, 0.1622 },
+          { "Hall of Arms", 34.391, 41.464, 0.1395 },
+          { "The High Seat", 33.979, 41.096, 0.1232 },
+          { "Hall of Mysteries", 33.709, 40.646, 0.1015 },
+          { "Vault of Ironforge", 33.866, 41.164, 0.0636 },
+          { "Frostclaw Den", 33.589, 40.684, 0.048 },
+        },
       },
       [1458] = { -- Undercity
         { 239598 },
         {
+        },
+        {
+          { "Canals", 31.601, 28.954, 0.3858 },
+          { "Rogues' Quarter", 31.796, 29.254, 0.3259 },
+          { "Magic Quarter", 31.796, 28.766, 0.3253 },
+          { "War Quarter", 31.301, 28.766, 0.3195 },
+          { "The Apothecarium", 31.309, 29.246, 0.3148 },
+          { "Sewers", 30.911, 28.886, 0.2617 },
+          { "Royal Quarter", 31.331, 29.516, 0.2124 },
+          { "Trade Quarter", 31.549, 29.014, 0.2055 },
+          { "Ruins of Lordaeron", 31.549, 28.871, 0.1767 },
         },
       },
     },
@@ -1728,15 +1776,37 @@ D.Interiors = {
         { 165042, 250582 },
         {
         },
+        {
+          { "Valley of Honor", 40.856, 28.136, 0.649 },
+          { "Valley of Strength", 40.196, 28.954, 0.4949 },
+          { "The Drag", 40.444, 28.556, 0.3909 },
+          { "Valley of Wisdom", 39.979, 28.376, 0.3366 },
+          { "Valley of Spirits", 39.866, 29.156, 0.2504 },
+          { "Cleft of Shadow", 40.144, 28.616, 0.2362 },
+          { "The Ring of Valor", 40.931, 27.919, 0.1736 },
+          { "Grommash Hold", 39.821, 28.391, 0.1401 },
+          { "Hall of Legends", 39.904, 28.901, 0.1037 },
+          { "Hall of the Brave", 40.984, 28.286, 0.1026 },
+        },
       },
       [1456] = { -- Thunder Bluff
         { 175997, 179682 },
         {
         },
+        {
+          { "The Pools of Vision", 31.526, 33.851, 0.1515 },
+        },
       },
       [1457] = { -- Darnassus
         { 352798 },
         {
+        },
+        {
+          { "Temple of the Moon", 27.266, 13.939, 0.1963 },
+          { "Craftsmen's Terrace", 27.671, 13.009, 0.1445 },
+          { "Tradesmen's Terrace", 27.731, 13.684, 0.1407 },
+          { "Cenarion Enclave", 27.206, 13.069, 0.1375 },
+          { "The Temple Gardens", 27.116, 13.714, 0.1039 },
         },
       },
     },

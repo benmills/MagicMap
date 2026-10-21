@@ -227,4 +227,5 @@ local layer = Engine.Layer("interiors", 2, function(c, inst, zoom, c0, r0, c1, r
 	end
 end, Scene)
 layer.idle = function() return not Scene() end
+layer.City = City -- (ui/Labels.lua: the city's area names)
 UI.Interiors = layer

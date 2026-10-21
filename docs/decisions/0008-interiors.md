@@ -103,6 +103,8 @@ like terrain tiles.
     mountain, whole). A capital looked at from away: every room whole;
   - drawn below, then the ghosts above, then the rest by floor; your room, or every candidate, over
     every other room (the Forge hall's picture covers the High Seat's).
+  - with the city map shown, the areas named on its rooms (The Great Forge, the Apothecarium, the Cleft of
+    Shadow...) are subzone names (ui/Labels.lua's look and zooms), but for those the terrain's subzones have;
   - Outside a building with City maps off, or outside the capitals, nothing extra: the terrain tiles
     show its roof, as now.
 - **Gone**:

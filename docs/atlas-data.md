@@ -272,7 +272,7 @@ there is no name → NPC index at runtime (BlipServices is that answer, offline)
 ### Data/Interiors.lua — `ns.Data.Interiors` (obj0 MODF, root ADT MCVT, WMO roots and rooms, WMOMinimapTexture, WMOAreaTable)
 The buildings with indoor minimap pictures on the open-world maps Data/Tiles.lua lists (ADR 0008),
 committed (1,136 KB; 1.37 MB loaded). `[inst] = { tiles = { [tileKey] = { key... } }, buildings = { [key] =
-{ c0, r0, c1, r1, packed } }, cities = { [uiMap] = { { key... }, { [key] = { [room] = { key, room, ... } } } } } }`.
+{ c0, r0, c1, r1, packed } }, cities = { [uiMap] = { { key... }, { [key] = { [room] = { key, room, ... } } }, { { name, col, row, size }... } } } }`.
 - key: the placement's MODF unique ID (a building spanning tiles is listed once); tiles: the buildings whose
   box (c0, r0)-(c1, r1), tile space, touches that tile.
 - packed: one Lua table literal (as the packed rows above), decoded on first use: `{ fid, wmoID, col, row,
@@ -292,11 +292,15 @@ committed (1,136 KB; 1.37 MB loaded). `[inst] = { tiles = { [tileKey] = { key...
 - cities: per capital (uiMap 1453–1458; rect from Data/UiMaps.lua) its buildings, those whose box meets the
   rect and that have an underground room or ≥ 3,000 sq yd of floor (houses and shops left out), and per
   room the other city buildings' rooms sharing ≥ 3 4-yd cells (tile space). Today: Stormwind 1 (the city
-  WMO), Orgrimmar 2, Ironforge 3, Thunder Bluff 2, Darnassus 1, Undercity 1.
+  WMO), Orgrimmar 2, Ironforge 3, Thunder Bluff 2, Darnassus 1, Undercity 1. Its labels: the areas named on
+  its rooms (WMOAreaTable; not the city's own name, any case one name), each at its floor's 4-yd cell
+  nearest the middle of all of it, size the side of a square of that floor in tiles, biggest first
+  (Stormwind 20, Orgrimmar 10, Ironforge 12, Undercity 9, Darnassus 5, Thunder Bluff 1).
 - `Atlas.BuildingsAt(inst, col, row)` → the keys of the buildings whose box covers the point.
 - `Atlas.Building(inst, key)` → `{ key, inst, fid, wmo, col, row, yaw, rooms = { [room] = { zmin, zmax, area,
   links = { room... }, pics = { { fid, ox, oy, ux, uy, vx, vy }... }, floor, underground, over = { room... } } } }`
   (kept): a picture's pixel (u, v) in 0..1 lands at o + u·U + v·V, U along its width, V down its height.
-- `Atlas.City(inst, uiMap)` → `{ buildings = { key... }, over = { [key] = { [room] = { { key, room }... } } } }`
+- `Atlas.City(inst, uiMap)` → `{ buildings = { key... }, over = { [key] = { [room] = { { key, room }... } } },
+  labels = { { text, col, row, size }... } }`
   (kept; nil: not a capital): `over[key]` nil when none of its rooms overlaps another building's.
 - `Atlas.RoomsAt(building, col, row)` → the sorted rooms whose floor mask covers the point.

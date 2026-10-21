@@ -164,6 +164,8 @@ def test_city_maps():
     assert all(a == (0.35 if under(org, r) else 1) for (k, r), a in rooms.items() if k == 165042)
     assert rooms[165042, 136] == 1 and org.rooms[136].floor < 40  # the Drag's street: its floor the street's
     assert perf.max <= 5 and whole.max <= 8  # a slice within the moving budget, the frame within the max
+    look(sim, ns, (40.15, 28.65), 450)  # zoomed in: the city's areas named, the Cleft's among them
+    assert layer(ns, "labels").front.names["Cleft of Shadow"]
     look(sim, ns, (40.9, 29.2), ns.UI.Camera.cam.zoom)  # the rooms under the city's east edge
     assert all(a == 1 for (k, _), a in drawn()[1].items() if k == 250582) and any(k == 250582 for k, _ in drawn()[1])
     sim.player.col, sim.player.row = 42.0, 31.0  # out in Durotar, the map on Orgrimmar: looked at from away

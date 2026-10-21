@@ -7,7 +7,9 @@
 -- if all three touch one placed. Every zone of the map is placed (its box: a name's spot doesn't
 -- change on a pan), those over the view and its margin drawn (ui/Engine.lua); subzones are placed
 -- near the view, around them, and again once it pans out of them (Layers.lua:1631-1673); moved with
--- the zoom ("move"). A name the last layout didn't show fades in.
+-- the zoom ("move"). A name the last layout didn't show fades in. While the big map shows a capital's city map
+-- (ui/Interiors.lua), the areas named on its rooms (Atlas.City's labels: The Great Forge, the Apothecarium...)
+-- are subzones too, placed first, but for a name the terrain's subzones have.
 
 local _, ns = ...
 local UI = ns.UI
@@ -62,8 +64,27 @@ local function List(inst)
 	end
 	table.sort(list.zones, Bigger)
 	table.sort(list.subs, Bigger)
+	list.named = {}
+	for _, l in ipairs(list.subs) do list.named[l.text] = true end
 	lists[inst] = list
 	return list
+end
+
+-- A city's area names as subzones (weight, zoom: as List's), but for those the map's subzones have. Kept.
+local cityLists = {}
+local function CityList(city, list)
+	local out = cityLists[city]
+	if out then return out end
+	out = {}
+	for i, a in ipairs(city.labels) do
+		if not list.named[a.text] then
+			local w = math.floor((a.size * 16) ^ 2 + 0.5)
+			out[#out + 1] = { text = a.text, col = a.col, row = a.row, weight = w, rank = i,
+				zoom = w >= 40 and SUB_ZOOM or w >= 15 and 220 or 400 }
+		end
+	end
+	cityLists[city] = out
+	return out
 end
 
 -- Placed names' boxes (canvas px, flat: x0, y0, x1, y1, ...): scratch, reused.
@@ -157,6 +178,16 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 			if i % 16 == 0 then Yield() end
 		end
 	end
+	local city = UI.Interiors.City()
+	if zoom >= SUB_ZOOM and city then
+		for _, l in ipairs(CityList(city, list)) do
+			if zoom >= l.zoom and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
+				local fs = Font(c, l, BODY, SUB_SIZE, SUB, "")
+				local dy = Spot(c, l, zoom, fs:GetStringWidth() / 2 + PAD_X, fs:GetStringHeight())
+				if dy then Show(c, fs, l, dy, shown) else Unget(c, "label") end
+			end
+		end
+	end
 	if zoom >= SUB_ZOOM then
 		for i, l in ipairs(list.subs) do
 			if zoom >= l.zoom and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
@@ -167,7 +198,7 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 			if i % 16 == 0 then Yield() end
 		end
 	end
-end, nil, "move")
+end, function() return UI.Interiors.City() or false end, "move") -- (a city map shown or gone: laid out again)
 
 -- Each frame while shown: the shown layout's new names fading in, from when it first shows.
 Runtime.Step("ui", "map: labels fade", function()

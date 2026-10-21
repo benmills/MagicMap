@@ -22,7 +22,7 @@ import os
 import pickle
 import re
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from PIL import Image
 
@@ -133,8 +133,9 @@ def main() -> None:
     w("--   tile units, pixel (u, v) at o + u*U + v*V; floor its real floor in world height; underground: that more\n")
     w("--   than 10 yd below the terrain at the mask's centre, or open to the sky with a third of its mask under the\n")
     w("--   building's floors > 10 yd higher; overlapped: its rooms sharing >= 3 mask cells;\n")
-    w("--   cities = { [uiMap] = { { key... }, { [key] = { [room] = { key, room, ... } } } } }: a capital's buildings and,\n")
-    w("--   per room, the other buildings' rooms it shares >= 3 4-yd cells with (tile space)\n")
+    w("--   cities = { [uiMap] = { { key... }, { [key] = { [room] = { key, room, ... } } }, { { name, col, row, size }... } } }:\n")
+    w("--   a capital's buildings; per room, the other buildings' rooms it shares >= 3 4-yd cells with (tile space);\n")
+    w("--   its areas named on its rooms, each at its floor's cell nearest their middle, size their floor's side in tiles\n")
     w(data_head("Interiors"))
     w("D.Interiors = {\n")
     totals = [0, 0, 0]
@@ -184,6 +185,7 @@ def main() -> None:
                 if room < len(root.groups):
                     by_room[room].append((bx, by, fid))
             rooms, own, under, sq = {}, {}, {}, 0  # own: group -> its floor's cells in the building's frame
+            names = {}  # group -> its area's name (WMOAreaTable)
             for gi in sorted(by_room):
                 g = root.groups[gi]
                 gf = root.group_fids[gi]
@@ -213,6 +215,7 @@ def main() -> None:
                     links = sorted({root.portal_refs[k][1] for k in range(grp.portal_start, grp.portal_start + grp.portal_count)
                                     if root.portal_refs[k][1] in by_room} - {gi})
                 name = area.get((root.wmo_id, grp.group_id)) if grp else None
+                names[gi] = name
                 mask = run_letters(["b" if v else "a" for v in grid])
                 # The floor cells' centres in the building's own yards; the real floor in world height (yaw only).
                 x0c, y0c = g.mn[0] / CELL, g.mn[1] / CELL
@@ -244,7 +247,7 @@ def main() -> None:
                 ",".join("%s{%s}}" % (rooms[gi], ",".join(map(str, over[gi]))) for gi in sorted(rooms)))
             c0, r0, c1, r1 = m.mn[0] / TILE, m.mn[2] / TILE, m.mx[0] / TILE, m.mx[2] / TILE
             buildings[uid] = "{%s,%s,%s,%s,%s}" % (fmt(c0, 4), fmt(r0, 4), fmt(c1, 4), fmt(r1, 4), lua_str(packed))
-            info[uid] = ((c0, r0, c1, r1), under, sq)
+            info[uid] = ((c0, r0, c1, r1), under, sq, names)
             for col in range(math.floor(c0), math.floor(c1) + 1):
                 for row in range(math.floor(r0), math.floor(r1) + 1):
                     tiles[col * 64 + row].append(uid)
@@ -263,7 +266,7 @@ def main() -> None:
         w("    cities = {\n" if cities else "")
         for ui, name, (x0, y0, x1, y1) in cities:
             # The capital's buildings: their box over its rect, and underground or not a house.
-            keys = [uid for uid, ((c0, r0, c1, r1), under, sq) in sorted(info.items())
+            keys = [uid for uid, ((c0, r0, c1, r1), under, sq, _) in sorted(info.items())
                     if c0 <= x1 and c1 >= x0 and r0 <= y1 and r1 >= y0 and (sq >= CITY_AREA or any(d for d, _ in under.values()))]
             at = defaultdict(list)  # tile-space cell -> (key, room)...
             for uid in keys:
@@ -285,11 +288,33 @@ def main() -> None:
                 "%d (fid %d, %d rooms, %d sq yd%s)" % (k, placed[k].fid, len(info[k][1]), info[k][2],
                                                       ", underground" if any(d for d, _ in info[k][1].values()) else "")
                 for k in keys))
+            # The city's areas named on its rooms (WMOAreaTable: The Great Forge, the Apothecarium...), not the
+            # city's own name: each at its floor's cell nearest the middle of all its floor; size the side of a
+            # square of that floor, in tiles (Data/Labels.lua's).
+            areas, spell = defaultdict(set), defaultdict(Counter)  # name (any case) -> tile-space cells; its spellings' cells
+            for uid in keys:
+                for gi, (_, cells) in info[uid][1].items():
+                    n = info[uid][3].get(gi)
+                    if n and n != name and not n.isdigit():
+                        areas[n.lower()] |= cells
+                        spell[n.lower()][n] += len(cells)
+            labels = []
+            for k, cells in areas.items():
+                n = max(sorted(spell[k]), key=lambda t: spell[k][t])  # its commonest spelling
+                mx = sum(c for c, _ in cells) / len(cells)
+                my = sum(r for _, r in cells) / len(cells)
+                c, r = min(cells, key=lambda q: ((q[0] - mx) ** 2 + (q[1] - my) ** 2, q))
+                labels.append((len(cells), n, (c + 0.5) * CELL / TILE, (r + 0.5) * CELL / TILE))
+            labels.sort(key=lambda e: (-e[0], e[1]))
             w(f"      [{ui}] = {{ -- {name}\n        {{ {', '.join(map(str, keys))} }},\n        {{\n")
             for uid in sorted(over):
                 w("          [%d] = { %s },\n" % (uid, ", ".join(
                     "[%d] = { %s }" % (gi, ", ".join("%d, %d" % b for b in bs)) for gi, bs in sorted(over[uid].items()))))
+            w("        },\n        {\n")
+            for cells, n, col, row in labels:
+                w("          { %s, %s, %s, %s },\n" % (lua_str(n), fmt(col, 3), fmt(row, 3), fmt(math.sqrt(cells) * CELL / TILE, 4)))
             w("        },\n      },\n")
+            log(f"    {len(labels)} names: " + ", ".join(n for _, n, _, _ in labels))
         w("    },\n" if cities else "")
         w("  },\n")
     w("}\n")

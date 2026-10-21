@@ -75,13 +75,16 @@ function Atlas.RoomsAt(b, col, row)
 end
 
 -- A capital's buildings (uiMap 1453..1458; nil: not one): { buildings = { key... }, over = { [key] = { [room] =
--- { { key, room }... } } } }, over the other buildings' rooms each room's floor overlaps (kept).
+-- { { key, room }... } } }, labels = { { text, col, row, size }... } }, over the other buildings' rooms each
+-- room's floor overlaps, labels the areas named on its rooms (biggest first; size: their floor's side in
+-- tiles, as Atlas.Labels's) (kept).
 local cities = {} -- [uiMap]
 function Atlas.City(inst, uiMap)
 	local c = cities[uiMap]
 	local raw = not c and Map(inst) and Map(inst).cities and Map(inst).cities[uiMap]
 	if raw then
-		c = { buildings = raw[1], over = {} }
+		c = { buildings = raw[1], over = {}, labels = {} }
+		for i, l in ipairs(raw[3]) do c.labels[i] = { text = l[1], col = l[2], row = l[3], size = l[4] } end
 		for key, rooms in pairs(raw[2]) do
 			local o = {}
 			for room, list in pairs(rooms) do
