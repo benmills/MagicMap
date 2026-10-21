@@ -31,14 +31,4 @@ You don't need QuestieDB or any other addon.
 ### How to report
 - The moment something looks wrong, type `/mm mark <what you saw>` (it saves what the map was doing). A screenshot (Print Screen) helps a lot.
 - When you're done, `/reload` or log out (the game writes its file then), and send `World of Warcraft/_classic_beta_/WTF/Account/<your account>/SavedVariables/MagicMap.lua` and your screenshots (`_classic_beta_/Screenshots/`). Nothing is sent anywhere by the addon itself.
-- A 20-minute guide of places to try: [docs/playtest-external.md](../docs/playtest-external.md).
-
-<!--
-Release checklist (the user's, before the upload; delete this block from the published notes)
-
-- D1 (QuestieDB declares no licence): pick the zip. tools/package.sh v2.0.0-rc.1 builds both
-  (the tag must match the TOC's ## Version); which one goes up is D1's call. Without the data, the
-  install note "You don't need QuestieDB" still holds, but quest tooltips lose their mobs and items
-  (one chat line says so at login): say so in the notes.
-- Mark the GitHub release a pre-release.
--->
+- A 20-minute guide of places to try: `playtest-external.md`, attached below.
