@@ -4,10 +4,9 @@
 -- Other addons), each with an "All" box on top (the group on or off) and each row's icon beside its name;
 -- Nearby lists Blizzard's tracking types too (but those ours replace); each group's row shows how many of its
 -- rows are on, n/total (Tally). Then quick actions (Use Blizzard's
--- minimap, Reset to defaults: every layer as installed), then Settings, one list (Follow you, Group
--- overlapping icons, Minimap button, Reset window position, Advanced: Diagnostics, Look & feel… (the dialog,
--- ui/Feel.lua: the tracking line, grouping's tunables, the map's looks), Performance). Override world map (on
--- by default) sits after Follow you: game/Hooks.lua reads it.
+-- minimap, shown only while ours replaces it: UI.Replace.Get("minimap"); Reset to defaults: every layer as installed), then
+-- Settings…, one row that opens the settings window (ui/Feel.lua: General, Map, Icons, the tracking line, quest
+-- areas, grouping, Diagnostics: what the gear's Settings submenu held).
 -- /mm layers (Layers.lua:2196-2207).
 -- The map picker (the title's click: ui/ZoneInfo.lua) and /mm map; the map's right-click menu.
 
@@ -305,85 +304,6 @@ function Tally(sec)
 end
 
 ---------------------------------------------------------------------------
--- Settings
----------------------------------------------------------------------------
-
--- /mm <line>, as typed (Game owns them): Advanced runs the same code (GearMenu.lua:28).
-local function Slash(line) return function() Command({ kind = "run", line = line }) end end
-
--- Advanced (GearMenu.lua:33-46): a box shows its command's state where its owner keeps it: the title's
--- debug line in UI's saved part (the spike's db.debug), Game's indoor reports on obs.minimap, a recording
--- Runtime's.
-local ADVANCED = {
-	{ "Diagnostics", {
-		{ "Debug info in the title", on = function() return UI.saved.debug end, run = Slash("debug"),
-			tip = "Tile, zoom and layout timings next to the zone name." },
-		{ "Indoor maps", on = function() return Model.minimap.indoorDebug end, run = Slash("indoor"),
-			tip = "Says in chat which building and room you're in, each time either changes." },
-	} },
-	{ nil, { -- (a button: the menu closes, the dialog opens)
-		{ "Look & feel…", icon = "Interface\\Icons\\INV_Misc_Gear_01", run = function() UI.Feel.Open() end,
-			tip = "A dialog for the tracking line, how icons group, and the map's looks: label and arrow size, the pills." },
-	} },
-	{ "Performance", {
-		{ "Record 10 seconds", on = function() return Runtime.recording end, run = Slash("perf"),
-			tip = "Times every part of MagicMap while you play, then prints a summary." },
-		{ "Compare with other addons", run = Slash("perf top") },
-		{ "Memory breakdown", run = Slash("perf mem") },
-	} },
-}
-
--- In sections: { title, rows }. A row is a checkbox ({ label, on =, run =, tip = }), a button
--- ({ label, run =, tip? }) or a submenu ({ label, sub = sections }) (GearMenu.lua:30-59).
-local SETTINGS = {
-	{ nil, {
-		{ "Follow you", icon = "Interface\\Icons\\Ability_Hunter_Pathfinding",
-			on = function() return UI.Camera.follow end, run = function() UI.Motion.SetFollow(not UI.Camera.follow, true) end,
-			tip = "Keeps the map centred on you. Drag the map to look about; it glides back to you when left alone." },
-		{ "Override world map", icon = "Interface\\Icons\\INV_Misc_Map02",
-			on = function() return UI.saved.worldmap ~= false end, run = function() UI.saved.worldmap = UI.saved.worldmap == false end,
-			tip = "M opens our map while it's shown, in place of Blizzard's world map. Off: M opens Blizzard's world map as usual." },
-		{ "Group overlapping icons", icon = "Interface\\Icons\\INV_Misc_Bag_08", on = function() return UI.saved.cluster ~= false end,
-			run = function() UI.saved.cluster = UI.saved.cluster == false end,
-			tip = "Where icons crowd together, one small pill: click it to see them all." },
-		{ "Minimap button", icon = "Interface\\Icons\\INV_Misc_Spyglass_02", on = function() return UI.saved.button end,
-			run = function() UI.Icon() end,
-			tip = "The button on Blizzard's minimap, for when MagicMap is switched off." },
-		{ "Reset window position", icon = "Interface\\Icons\\Spell_Arcane_Blink", run = function() UI.BigMap.Reset() end },
-		{ "Advanced", icon = "Interface\\Icons\\INV_Gizmo_01", sub = ADVANCED },
-	} },
-}
-
-local function On(row) return row.on() and true or false end
-
-local function Set(row)
-	Ask(row, On(row))
-	row.run()
-end
-
--- A checkbox keeps the menu open; a button closes it (the client's default).
-local function AddSections(sub, sections)
-	for n, section in ipairs(sections) do
-		if n > 1 then sub:CreateDivider() end
-		if section[1] then sub:CreateTitle(section[1]) end
-		for _, row in ipairs(section[2]) do
-			if row.sub then
-				AddSections(sub:CreateButton(Mark(row.icon) .. row[1]), row.sub)
-			elseif row.on then
-				local cb = sub:CreateCheckbox(Mark(row.icon) .. row[1], function() return Shown(row, On(row)) end, function()
-					Run(Set, row)
-					return MenuResponse.Refresh
-				end)
-				cb:SetTooltip(Tip(row[1], row.tip))
-			else
-				local b = sub:CreateButton(Mark(row.icon) .. row[1], function() Run(row.run) end)
-				if row.tip then b:SetTooltip(Tip(row[1], row.tip)) end
-			end
-		end
-	end
-end
-
----------------------------------------------------------------------------
 -- The map picker (Core.lua:1161-1240) and /mm map (Core.lua:1704-1720)
 ---------------------------------------------------------------------------
 
@@ -525,10 +445,13 @@ function Menus.Gear(owner)
 	Menus.Show(owner, function(_, root)
 		AddLayers(root)
 		root:CreateDivider()
-		root:CreateButton(BLIZZARD_LOGO .. "Use Blizzard's minimap", function() Run(function() UI.Window.frame:Hide() end) end)
+		if not UI.Replace or UI.Replace.Get("minimap") then -- (only while ours stands in for it: the contract's Get; shown if it's absent)
+			root:CreateButton(BLIZZARD_LOGO .. "Use Blizzard's minimap", function() Run(function() UI.Window.frame:Hide() end) end)
+		end
 		root:CreateButton(Mark("Interface\\Buttons\\UI-RefreshButton") .. "Reset to defaults", function() Run(Reset) end)
 			:SetTooltip(Tip("Reset to defaults", "Every layer back as it was installed."))
 		root:CreateDivider()
-		AddSections(root:CreateButton(Mark("Interface\\Icons\\Trade_Engineering") .. "Settings"), SETTINGS)
+		root:CreateButton(Mark("Interface\\Icons\\Trade_Engineering") .. "Settings…", function() Run(UI.Feel.Open) end)
+			:SetTooltip(Tip("Settings", "MagicMap's settings window: general, the map's looks, icons, the tracking line, quest areas, grouping, diagnostics."))
 	end)
 end

@@ -36,6 +36,14 @@ local NONE = {}
 local Pins = {}
 UI.Pins = Pins
 
+-- Every pin's size, a factor (Feel "icons.scale"): Style takes it on a look's size but for a fixed one (a group's
+-- pill, whose slots are ICON px: ui/Cluster.lua); a pin layer's rev moves with it, so the pins are set again.
+local scale, scaleRev = 1, 0
+function Pins.SetScale(k)
+	if scale == k then return end
+	scale, scaleRev = k, scaleRev + 1
+end
+
 ---------------------------------------------------------------------------
 -- StylePin (Layers.lua:304-400)
 ---------------------------------------------------------------------------
@@ -156,7 +164,7 @@ local function Shown(r, on)
 	end
 end
 
--- look: { size? (14), icon? = { texture | atlas, alt?, coords?, under?, tint?, inner?, scale?, aspect?, color? }, glow?,
+-- look: { size? (14), fixed? (not scaled by the settings), icon? = { texture | atlas, alt?, coords?, under?, tint?, inner?, scale?, aspect?, color? }, glow?,
 -- count? }: (a) a texture (coords: its part, a cell of a sheet), bare; (b) an atlas, at its own aspect
 -- (aspect: its width over height, else the client's); (c) an atlas over its under atlas tinted, the inner
 -- texture in it; (d) else (an atlas the client lacks too, and no alt: the look drawn instead when the atlas is
@@ -164,7 +172,7 @@ end
 -- gold ring hugging the icon (the quest you follow; or glow, the caller's: the tracked pin, whose look is
 -- shared with its kind's); count: a line under it.
 local function Style(pin, look, glow)
-	local size, icon = look.size or SIZE, look.icon or NONE
+	local size, icon = (look.size or SIZE) * (look.fixed and 1 or scale), look.icon or NONE
 	if icon.alt and not icon.texture and not (icon.atlas and Has(icon.atlas)) then icon = icon.alt end -- (an atlas the client lacks: its alt)
 	pin.psize = size
 	Size(pin, size, size)
@@ -256,10 +264,10 @@ end
 -- e): fills it itself, owned by the pin (and Shows it); hover(e): the cursor on its pin e, or (nil) off it;
 -- click(e, button): a click on it (Pins.Tap), in place of the track menu.
 local function WithTrack(rev)
-	local a, t, n = nil, nil, 0
+	local a, t, s, n = nil, nil, nil, 0
 	return function()
 		local r, tr = rev and rev(), Track.Rev()
-		if r ~= a or tr ~= t then a, t, n = r, tr, n + 1 end
+		if r ~= a or tr ~= t or scaleRev ~= s then a, t, s, n = r, tr, scaleRev, n + 1 end
 		return n
 	end
 end
