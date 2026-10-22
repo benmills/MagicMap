@@ -1,11 +1,10 @@
 """Quest areas on the simulated client (docs/v1-plan.md M2.4: ui/Areas.lua), end to end from the sim's
 quest log (its blobs: Sim.blobShapes) through Game's parts and Inside, and Model:
 
-  test_quest_areas: one QuestPOIFrame a map and style in our art (Textures/Blob*, tools/gen_blob.py), each in
-    its quest's difficulty colour: the quest you follow a solid edge and faint fill over its glow (a frame
-    under it), the rest in progress a thin edge, one ready to turn in a dashed edge and no fill; each quest
-    drawn into its frame's rect as laid out (L1); out of sight while the zoom moves, back where it lands (P5);
-    the gear's toggles.
+  test_quest_areas: one QuestPOIFrame a map, style and hatch in the client's edge art (S53) over our hatched
+    fill (Textures/BlobHatch*, tools/gen_blob.py, one of four by quest id): the quest you follow filled blue
+    over the rest, kill rust, gather green, other blue; each quest drawn into its frame's rect as laid out
+    (L1); out of sight while the zoom moves, back where it lands (P5); the gear's toggles.
   test_quest_area_hover: an area under the cursor lit on top (HOVER) with its quest's tooltip, built once a
     hover (spike-bugs G7), up through a zoom and with the cursor on something standing on the view; a pin's
     tooltip wins, its quest lit; off both, neither.
@@ -41,52 +40,43 @@ MINE = {"id": 62, "title": "The Fargodeep Mine", "level": 7, "col": 31.7, "row":
 HOGGER = {"id": 176, "title": "Wanted: Hogger", "level": 11, "col": 32.4, "row": 49.55,
           "objectives": [["monster", "Hogger slain: 0/1", 0, 1, False]]}
 CANDLES_NEAR = dict(CANDLES, col=32.45, row=49.6)
-ART = "Interface\\AddOns\\MagicMap\\Textures\\Blob"
-STYLES = {  # fill, border, width, its edge art, over the canvas (at level 8: Frontier and Hogger 11 orange, the rest 7 yellow)
-    "followed": (36, 160, 0.8, "EdgeOrange", 2), "glow": (0, 70, 3, "GlowOrange", 1),
-    "orange": (16, 110, 0.5, "EdgeOrange", 1), "yellow": (16, 110, 0.5, "EdgeYellow", 1),
-    "complete": (0, 130, 0.6, "DashYellow", 1)}
+ART = "Interface\\WorldMap\\UI-"
+HATCH = "Interface\\AddOns\\MagicMap\\Textures\\BlobHatch"
+PATTERNS = ["Slash", "Back", "Horiz", "Dots"]  # a quest's by its id % 4
+STYLES = {  # fill, border, width, its edge art, over the canvas
+    "followed": (90, 120, 0.8, ART + "QuestBlob-Outside", 2), "kill": (55, 85, 0.6, ART + "ArchaeologyBlob-Outside", 1),
+    "gather": (55, 55, 0.6, ART + "BonusObjectiveBlob-Outside", 1), "other": (55, 85, 0.6, ART + "QuestBlob-Outside", 1)}
 
 
 def blobs(sim, ns):
-    """The front's frames: {(quests drawn, its edge art): (fill, border, width, its edge art, level over the canvas,
-    drawn as laid out)}; the fill's file the edge's colour."""
+    """The front's frames: {quests drawn: (fill, border, width, edge art, level over the canvas, drawn as laid out,
+    fill file)}."""
     S, A = sim.state, ns.UI.Areas.layer
     p, out = A.front.pools.blob, {}
     for i in range(1, p.n + 1):
         f = p[i]
         st, laid = S[f], S[f].laid
         right = all(list(d.values()) == list(laid.values()) for d in st.blobs.values())
-        edge = st.SetBorderTexture.replace(ART, "")
-        assert st.SetFillTexture == ART + "Fill" + edge.replace("Edge", "").replace("Glow", "").replace("Dash", "")
-        out[tuple(sorted(st.blobs.keys())) + (edge,)] = (st.SetFillAlpha, st.SetBorderAlpha, st.SetBorderScalar, edge,
-                                                        f.GetFrameLevel(f) - A.front.GetFrameLevel(A.front), right)
+        out[tuple(sorted(st.blobs.keys()))] = (st.SetFillAlpha, st.SetBorderAlpha, st.SetBorderScalar, st.SetBorderTexture,
+                                               f.GetFrameLevel(f) - A.front.GetFrameLevel(A.front), right, st.SetFillTexture)
     return out
 
 
 def test_quest_areas():
     L, sim, ns, G = client([FRONTIER, GOLD, MINE, HOGGER, CANDLES_NEAR, LOVERS], followed=52, before=RECORD)
     A, S, E, view = ns.UI.Areas.layer, sim.state, ns.UI.Engine, ns.UI.Window.view
-
-    def want(*groups):
-        return {k + (STYLES[st][3],): STYLES[st] + (True,) for k, st in groups}
-    assert blobs(sim, ns) == want(((52,), "followed"), ((52,), "glow"), ((176,), "orange"), ((47, 60, 62), "yellow"))
-    assert A.frame.GetAlpha(A.frame) == 1
-    # Ready to turn in: a dashed edge, no fill. (Game gives a ready quest no areaMap, its area being its
-    # turn-in's: here the Mine's entry is marked ready in place and the game's areas' version bumped.)
-    L.execute("""local sim, ns = ...
-        for _, e in ipairs(ns.Model.Known("quests")) do if e.quest == 62 then e.complete = true end end
-        sim.FireEvent("QUEST_POI_UPDATE")""", sim, ns)
-    sim.Run(1)
-    now = want(((52,), "followed"), ((52,), "glow"), ((176,), "orange"), ((47, 60), "yellow"), ((62,), "complete"))
-    assert blobs(sim, ns) == now
+    # Each quest's hatch by its id % 4 (52 and 176: Slash, 60: Slash, 62: Horiz, 47: Dots), so a frame a quest
+    # here: the quests of one style with one hatch are one frame.
+    want = {(quest,): STYLES[st] + (True, HATCH + PATTERNS[quest % 4]) for quest, st in
+            ((52, "followed"), (176, "kill"), (47, "gather"), (60, "gather"), (62, "other"))}
+    assert blobs(sim, ns) == want and A.frame.GetAlpha(A.frame) == 1
 
     # A zoom: out of sight from its first frame till it lands, then each drawn where it's laid out.
     sim.Wheel(view, 1)
     sim.Step()
     assert A.frame.GetAlpha(A.frame) == 0
     sim.Run(1)
-    assert A.frame.GetAlpha(A.frame) == 1 and blobs(sim, ns) == now
+    assert A.frame.GetAlpha(A.frame) == 1 and blobs(sim, ns) == want
 
     # The gear's: quests off (their areas with them), then areas off.
     E.SetLayer("quests", False)
@@ -113,7 +103,7 @@ def test_quest_area_hover():
     def lit():
         """The quests the lit frame (HOVER's alphas) shows."""
         for f in sim.Frames().values():
-            if f.GetObjectType(f) == "QuestPOIFrame" and S[f].SetFillAlpha == 40 and f.IsVisible(f):
+            if f.GetObjectType(f) == "QuestPOIFrame" and S[f].SetFillAlpha == 120 and f.IsVisible(f):
                 assert S[f].SetBorderAlpha == 150 and S[f].SetBorderScalar == 0.8
                 return sorted(S[f].blobs.keys())
         return []
@@ -164,7 +154,8 @@ def test_quest_area_big_zone():
 
     def at(x, y):
         return c0 + (c1 - c0) * x, r0 + (r1 - r0) * y
-    quests = [{"id": 9000 + i, "title": f"Quest {i}", "level": 7, "map": 1434, "col": at(x, y)[0], "row": at(x, y)[1],
+    # (ids 4 apart: one hatch, so one frame)
+    quests = [{"id": 9000 + 4 * i, "title": f"Quest {i}", "level": 7, "map": 1434, "col": at(x, y)[0], "row": at(x, y)[1],
                "objectives": [["monster", "Raptor slain: 0/5", 0, 5, False]], "area": 0.03}
               for i, (x, y) in enumerate(((0.1, 0.1), (0.5, 0.5), (0.9, 0.9)))]
     L, sim, ns, G = client(quests)
@@ -182,7 +173,7 @@ def test_quest_area_big_zone():
     laid, r = S[f].laid, ns.Atlas.MapRect(1434)
     assert len(S[f].points) == 1
     assert abs(laid[3] - (r.col1 - r.col0) * 800) < 1e-6 and abs(laid[4] - (r.row1 - r.row0) * 800) < 1e-6, list(laid.values())
-    assert sorted(S[f].blobs.keys()) == [9000, 9001, 9002]
+    assert sorted(S[f].blobs.keys()) == [9000, 9004, 9008]
     assert all(list(d.values()) == list(laid.values()) for d in S[f].blobs.values())
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 

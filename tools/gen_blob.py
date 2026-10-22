@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Generate Textures/Blob<Part><Colour>.tga: the quest areas' art (ui/Areas.lua), one set per quest-log
-difficulty colour (model/Quests.lua Difficulty: Grey, Green, Yellow, Orange, Red), since a QuestPOIFrame
-takes a file for its fill and edge and has no colour setter.
+"""Generate Textures/BlobHatch<Name>.tga: the quest areas' fill art (ui/Areas.lua), a fine hatch in place of
+the client's flat fill so that areas laid over one another stay told apart, as a printed map's hatching
+does. A QuestPOIFrame tiles its fill texture over the area (the client's UI-QuestBlob-Inside is 64x64,
+opaque, flat, tiled) and scales its alpha by SetFillAlpha; the edges stay the client's own
+(Interface/WorldMap/UI-QuestBlob-Outside and its kin).
 
-The layout mirrors Blizzard's own (Interface/WorldMap/UI-QuestBlob-Inside and -Outside, read off the
-client's files with tools/casc_extract.py, FileDataIDs 334387 and 334388): Inside 64x64, opaque, flat
-colour, tiled over the area (its alpha from SetFillAlpha); Outside 16x16, swept along the outline with
-x along the edge (constant) and y across it, alpha 220 at the first row falling to 0 by row 9 (the
-ramp RAMP). Four parts a colour:
-  Fill   64x64, the colour, opaque                            (as Inside)
-  Edge   16x16, RAMP across                                   (as Outside: a solid edge)
-  Dash   64x16, RAMP across, 16 px on and 16 off along x      (a dashed edge: complete quests)
-  Glow   16x16, a wide soft fall-off across (1-t)^2, 255 to 0 (drawn wide and faint under the followed one)
+Each is 32x32 and tiles seamlessly (every period divides 32), in Inside's colour (read off the client's
+file with tools/casc_extract.py, FileDataID 334387, a BLP2: flat 58, 109, 255, here BLUE) in every texel,
+so the soft side of a line blends to no other colour, with the pattern in the alpha:
+  Slash  "/" diagonals, 8 px apart
+  Back   "\\" diagonals, 8 px apart
+  Horiz  horizontal lines, 8 px apart
+  Dots   2 px dots on an 8 px grid
+ui/Areas.lua gives each quest one by its id; two that overlap with different ones read as a cross-hatch.
 Needs no game files; a new texture file needs a full client restart, not just /reload (spike-bugs L5).
 
   python3 tools/gen_blob.py
@@ -24,46 +25,49 @@ import os
 from mmtools.tga import write_tga
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# The quest log's difficulty colours (model/Quests.lua RED, ORANGE, YELLOW, GREEN, GREY), 0-255.
-COLOURS = {
-    "Red": (255, 26, 26),
-    "Orange": (255, 128, 64),
-    "Yellow": (255, 209, 0),
-    "Green": (64, 191, 64),
-    "Grey": (128, 128, 128),
+BLUE = (58, 109, 255)  # UI-QuestBlob-Inside's colour
+SIDE, STEP = 32, 8  # a tile's side; a pattern's period (divides SIDE, so it tiles)
+WIDTH = 1.6  # a line's width in px, soft at its sides
+
+
+def wrap(v: float) -> float:
+    """v's distance to the nearest multiple of STEP."""
+    v %= STEP
+    return min(v, STEP - v)
+
+
+def line(d: float) -> int:
+    """Alpha of a texel d px from the nearest line's centre: full within half WIDTH, 0 half a px beyond."""
+    return round(255 * min(1.0, max(0.0, WIDTH / 2 + 0.5 - d)))
+
+
+def dot(x: float, y: float) -> int:
+    d = (wrap(x) ** 2 + wrap(y) ** 2) ** 0.5
+    return round(255 * min(1.0, max(0.0, 1.6 - d)))
+
+
+# Alpha of the texel centred at (x, y); the diagonals' distance across a line is its offset over root 2.
+PATTERNS = {
+    "Slash": lambda x, y: line(wrap(x + y) / 2 ** 0.5),
+    "Back": lambda x, y: line(wrap(x - y) / 2 ** 0.5),
+    "Horiz": lambda x, y: line(wrap(y)),
+    "Dots": dot,
 }
-# UI-QuestBlob-Outside's alpha down its 16 rows (the edge's inside at row 0).
-RAMP = [220, 198, 155, 113, 82, 53, 34, 16, 5, 0, 0, 0, 0, 0, 0, 0]
-FILL, EDGE, DASH = 64, 16, 64  # Fill's side, Edge's side, Dash's length along the edge (half of it on)
-GLOW = [round(255 * (1 - (y + 0.5) / EDGE) ** 2) for y in range(EDGE)]
 
 
-def image(w: int, h: int, rgb: tuple[int, int, int], alpha) -> bytes:
-    """w by h of rgb, alpha(x, y) its alpha."""
-    r, g, b = rgb
-    return write_tga(w, h, [[(r, g, b, alpha(x, y)) for x in range(w)] for y in range(h)])
-
-
-def parts(rgb: tuple[int, int, int]) -> dict[str, bytes]:
-    return {
-        "Fill": image(FILL, FILL, rgb, lambda x, y: 255),
-        "Edge": image(EDGE, EDGE, rgb, lambda x, y: RAMP[y]),
-        "Dash": image(DASH, EDGE, rgb, lambda x, y: RAMP[y] if x % (DASH // 2) < DASH // 4 else 0),
-        "Glow": image(EDGE, EDGE, rgb, lambda x, y: GLOW[y]),
-    }
+def image(alpha) -> bytes:
+    r, g, b = BLUE
+    return write_tga(SIDE, SIDE, [[(r, g, b, alpha(x + 0.5, y + 0.5)) for x in range(SIDE)] for y in range(SIDE)])
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-o", "--outdir", default=os.path.join(ROOT, "Textures"))
     ns = parser.parse_args()
-    n = 0
-    for colour, rgb in COLOURS.items():
-        for part, data in parts(rgb).items():
-            with open(os.path.join(ns.outdir, f"Blob{part}{colour}.tga"), "wb") as f:
-                f.write(data)
-            n += 1
-    print(f"wrote {n} textures to {ns.outdir} (Fill {FILL}x{FILL}, Edge and Glow {EDGE}x{EDGE}, Dash {DASH}x{EDGE})")
+    for name, alpha in PATTERNS.items():
+        with open(os.path.join(ns.outdir, f"BlobHatch{name}.tga"), "wb") as f:
+            f.write(image(alpha))
+    print(f"wrote {len(PATTERNS)} textures to {ns.outdir} ({SIDE}x{SIDE}, period {STEP})")
 
 
 if __name__ == "__main__":

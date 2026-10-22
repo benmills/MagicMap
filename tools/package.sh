@@ -44,7 +44,7 @@ import luacheck
 root, data = sys.argv[1], bool(sys.argv[2])
 luacheck.ROOT, luacheck.TOC = root, os.path.join(root, "MagicMap.toc")
 import sim
-want = [f for f in luacheck.toc_files() if data or f not in sim.QUESTIE] + ["Textures/PlayerArrow.tga", "Textures/GlowRing.tga"] + [f"Textures/Blob{p}{c}.tga" for p in ("Fill", "Edge", "Dash", "Glow") for c in ("Grey", "Green", "Yellow", "Orange", "Red")] + ["LICENSE", "NOTICE.md"]
+want = [f for f in luacheck.toc_files() if data or f not in sim.QUESTIE] + ["Textures/PlayerArrow.tga", "Textures/GlowRing.tga"] + [f"Textures/BlobHatch{p}.tga" for p in ("Slash", "Back", "Horiz", "Dots")] + ["LICENSE", "NOTICE.md"]
 missing = [f for f in want if not os.path.isfile(os.path.join(root, f))]
 extra = [f for f in sim.QUESTIE if not data and os.path.exists(os.path.join(root, f))]
 s = sim.boot(saved="MagicMap2DB = nil")

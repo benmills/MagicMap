@@ -1,12 +1,12 @@
 -- Quest areas (Layers.lua:765-1069): the game's own objective areas ("blobs"), drawn as the world map
 -- draws them, by QuestPOIFrames on the "questAreas" layer (over the tiles, under the borders: parity S8):
 -- one frame per map and style (art and alpha are per frame), its map's rect in size, its quests drawn
--- in it. Each area is in its quest's difficulty colour (e.color: the log's five, as its pin and tooltip)
--- and styled by its state: the quest you follow a solid edge with a faint fill over a wide soft glow (a
--- second frame under it), the rest in progress a thin edge and a fainter fill, one ready to turn in a
--- dashed edge and no fill. The art is ours (Textures/Blob<Part><Colour>, tools/gen_blob.py: a
--- QuestPOIFrame takes files and has no colour setter), laid out as the client's UI-QuestBlob-Inside and
--- -Outside, which the spike used (S53). The client draws a blob into its frame's rect as it stands at
+-- in it, as the world map's: the quest you follow filled blue, the rest a quiet edge in what they still
+-- need (rust: kill, green: gather, blue: other) (S53). The edges are the client's own art
+-- (UI-QuestBlob-Outside and its kin), but the fill is a fine hatch of ours in the colour of the client's
+-- Inside (Textures/BlobHatch*, tools/gen_blob.py: a QuestPOIFrame takes a file), one of four patterns
+-- by quest id, so areas lying over one another stay told apart as a printed map's hatching does: a frame
+-- a map, style and pattern. The client draws a blob into its frame's rect as it stands at
 -- DrawBlob and lays a moved frame out only at the frame's end (spike-bugs L1), and its drawing doesn't
 -- follow a scaled canvas (P5): so the layer is out of sight while the zoom moves and laid out where it's
 -- headed once the wheel stops (Engine's "hold": after names and pins); a frame is drawn as it's laid out
@@ -15,7 +15,7 @@
 -- id), style and size are as they were, and the game's areas too (Known("quests")' poi), isn't drawn
 -- again: its drawing moves with it (a pan, Layers.lua:142-156), and a count ticking changes no area. Each
 -- stands on the point of its rect nearest the canvas's origin (a zone at zoom 800 is up to 9,600 px).
--- Hovering a quest's area or its pin (ui/Quests.lua) lights its area: drawn again on top (STATES.hover); an
+-- Hovering a quest's area or its pin (ui/Quests.lua) lights its area: drawn again on top (HOVER); an
 -- area's tooltip is its quest's (ui/QuestTooltip.lua), but a tooltip shown already wins (a pin's), and
 -- it stays up through a zoom (the frames last shown answer the hit test while the layer is out of
 -- sight, as the spike's blobFrames: Layers.lua:992-1025); a click on an area (no pin under it:
@@ -30,28 +30,34 @@ local ScreenToTile = Atlas.Camera.ScreenToTile
 local Command = ns.Game.Command
 
 local LEVEL = 3 -- over the tiles (1), under the borders (7) (Core.lua:149)
--- Our area art, Textures/Blob<Part><Colour> (tools/gen_blob.py): Fill (opaque, tiled over the area), Edge
--- (a solid edge), Dash (a dashed one), Glow (a wide soft one), each in the log's five difficulty colours.
-local FILE = Atlas.ROOT .. "Textures\\Blob"
-local HUES = { "Grey", "Green", "Yellow", "Orange", "Red" }
--- Fill and edge alpha (0-255), edge width (the spike's 32/120/0.8 and 0/85/0.6, Layers.lua:795-800), level
--- over the canvas (Layers.lua:910), edge art; hover: lit, on top (Layers.lua:822, 853).
+-- The client's edge art (each <base>Outside): quest blue, bonus-objective green, archaeology rust
+-- (Layers.lua:785-789); the fill is ours, a hatch (tools/gen_blob.py) in the colour of the client's Inside.
+local ART = { blue = "Interface\\WorldMap\\UI-QuestBlob-", green = "Interface\\WorldMap\\UI-BonusObjectiveBlob-",
+	rust = "Interface\\WorldMap\\UI-ArchaeologyBlob-" }
+local HATCH = Atlas.ROOT .. "Textures\\BlobHatch"
+local PATTERNS = { "Slash", "Back", "Horiz", "Dots" } -- a quest's by its id: neighbours cross-hatch
+-- Fill and edge alpha (0-255), edge width (the spike's 32/120/0.8 and 0/85/0.6, Layers.lua:795-800: the
+-- fill is hatch lines now, so its alpha higher for the same quiet, and the quiet ones have some, to tell
+-- them apart), level over the canvas (Layers.lua:910); hover: lit, on top (Layers.lua:822, 853).
 local STATES = {
-	followed = { fill = 36, border = 160, width = 0.8, level = 2, edge = "Edge", key = 1 },
-	glow = { fill = 0, border = 70, width = 3, level = 1, edge = "Glow", key = 2 }, -- under the followed one
-	active = { fill = 16, border = 110, width = 0.5, level = 1, edge = "Edge", key = 3 },
-	complete = { fill = 0, border = 130, width = 0.6, level = 1, edge = "Dash", key = 4 },
-	hover = { fill = 40, border = 150, width = 0.8, level = 3, edge = "Edge" },
+	followed = { art = "blue", fill = 90, border = 120, width = 0.8, level = 2, key = 1 },
+	kill = { art = "rust", fill = 55, border = 85, width = 0.6, level = 1, key = 2 },
+	gather = { art = "green", fill = 55, border = 55, width = 0.6, level = 1, key = 3 },
+	other = { art = "blue", fill = 55, border = 85, width = 0.6, level = 1, key = 4 },
 }
-local STYLES = {} -- [hue][state]: the state's, with its files and group key (the hue's index * 4 + the state's)
-for i, hue in ipairs(HUES) do
-	STYLES[hue] = {}
-	for state, s in pairs(STATES) do
-		STYLES[hue][state] = { fill = s.fill, border = s.border, width = s.width, level = s.level,
-			fillFile = FILE .. "Fill" .. hue, edgeFile = FILE .. s.edge .. hue, key = s.key and (i - 1) * 4 + s.key }
-	end
+local NSTATES = 4
+local HOVER = { art = "blue", fill = 120, border = 150, width = 0.8, level = 3 }
+local function Style(s, i)
+	return { fill = s.fill, border = s.border, width = s.width, level = s.level, fillFile = HATCH .. PATTERNS[i],
+		edgeFile = ART[s.art] .. "Outside", key = s.key and (i - 1) * NSTATES + s.key }
 end
-local NKEYS = 32 -- a map's groups' keys, 1..20 of them (a map's key * NKEYS + its style's)
+local STYLES, LIT = {}, {} -- [state][pattern]: the state's, with its files and group key (its pattern's * NSTATES + its); [pattern]: hover's
+for i in ipairs(PATTERNS) do LIT[i] = Style(HOVER, i) end
+for state, s in pairs(STATES) do
+	STYLES[state] = {}
+	for i in ipairs(PATTERNS) do STYLES[state][i] = Style(s, i) end
+end
+local NKEYS = 32 -- a map's groups' keys, 1..16 of them (a map's key * NKEYS + its style's)
 local POINTS = { { "TOPLEFT", "TOP", "TOPRIGHT" }, { "LEFT", "CENTER", "RIGHT" }, { "BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT" } }
 
 local Areas = {}
@@ -147,25 +153,16 @@ end
 -- The layer
 ---------------------------------------------------------------------------
 
--- A quest's colour's hue (its entry's color: one of the log's five shared tables, told apart by value and
--- kept by the table; none, the yellow of a quest whose level the log doesn't give).
-local hues = setmetatable({}, { __mode = "k" })
-local function Hue(c)
-	if not c then return "Yellow" end
-	local h = hues[c]
-	if h then return h end
-	local r, g = c[1], c[2]
-	h = g < 0.3 and "Red" or g > 0.8 and "Yellow" or g > 0.6 and "Green" or r > 0.75 and "Orange" or "Grey"
-	hues[c] = h
-	return h
-end
+-- A quest's hatch, 1..#PATTERNS: by its id, so it keeps it as the log changes.
+local function Pattern(e) return e.quest % #PATTERNS + 1 end
 
 -- A layout's frames: its groups by key (a map's * NKEYS + its style's), each { map, rect, st, n, entries };
 -- the keys its canvas didn't show (set after the rest).
 local groups, keys, nkeys = {}, {}, 0
 local missed, nmissed = {}, 0
 
-local function Add(e, r, st)
+local function Group(e, r)
+	local st = STYLES[e.followed and "followed" or e.need or "other"][Pattern(e)]
 	local key = e.areaMap * NKEYS + st.key
 	local g = groups[key]
 	if not g then
@@ -179,17 +176,6 @@ local function Add(e, r, st)
 	end
 	g.n = g.n + 1
 	g[g.n] = e
-end
-
--- e in its colour's styles: followed (over its glow), complete, else active.
-local function Group(e, r)
-	local st = STYLES[Hue(e.color)]
-	if e.followed then
-		Add(e, r, st.followed)
-		Add(e, r, st.glow)
-	else
-		Add(e, r, e.complete and st.complete or st.active)
-	end
 end
 
 local function Rev()
@@ -286,7 +272,7 @@ local function Light(c)
 	end
 	light = light or MakeBlob(c)
 	Place(c, light, r, c.zoom)
-	local st = STYLES[Hue(e.color)].hover
+	local st = LIT[Pattern(e)]
 	Look(light, st, c:GetFrameLevel() + st.level)
 	light.map, light.n, light.q[1], light.drawn = e.areaMap, 1, e, 0
 	light:Show()
