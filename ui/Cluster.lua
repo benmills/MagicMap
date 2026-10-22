@@ -16,7 +16,7 @@ local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
 local Engine, Pins, Window, Camera = UI.Engine, UI.Pins, UI.Window, UI.Camera
 local Yield = Runtime.Yield
 
-local PILL_H, ICON, GAP, PAD, MORE_W = 14, 12, 1, 2, 15 -- px: the pill's height, its icons, the gaps, its side padding, the "+N" slot
+local PILL_H, ICON, GAP, PAD, MORE_W = 14, 12, 0, 2, 15 -- px: the pill's height, its icons, the gaps, its side padding, the "+N" slot
 local CELL, COLS, PANEL_PAD, PANEL_GAP, PANEL_R = 24, 6, 6, 4, 6 -- px: the grid's cell, its columns, its padding, its gap above the pill, its corner radius
 local PANEL_ALPHA = 0.72 -- the grid's backing (the pill's: the "alpha" tunable)
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- Pins.lua's disc
@@ -34,7 +34,7 @@ UI.Cluster = Cluster
 -- range, px: pins whose centres are closer crowd each other; reach: a cluster grows from its first pin by
 -- neighbours of neighbours, up to this many ranges from it; min: pins that make one; slots: a pill's (every
 -- icon if they fit, else the first slots - 1 and "+N"); alpha: the pill's dark backing.
-Cluster.DEFAULTS = { range = 24, reach = 3, min = 2, slots = 3, alpha = 0.35 }
+Cluster.DEFAULTS = { range = 24, reach = 3, min = 2, slots = 2, alpha = 0.35 }
 local tuneV, tuneSeen = 0, 0 -- moves with each change (a regroup)
 function Cluster.Get(key)
 	local t = UI.saved and UI.saved.clusterTune
