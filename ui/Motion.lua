@@ -31,7 +31,7 @@ local WHOLE = 1.0 -- a whole map shown fills the view (Core.lua:1146)
 local CHUNKS = Atlas.Walk.CHUNKS -- a tile's walk chunks a side: Focus's rect is out to whole ones
 local JUMP = 0.5 -- of the view in a frame: a move further is a jump (a teleport, a hearth), not a speed
 
-local Motion = {}
+local Motion = { MAX_ZOOM = MAX_ZOOM } -- (ui/Interiors.lua: a small building zooms all the way in)
 UI.Motion = Motion
 
 local goal, anchor = nil, { 0, 0, 0, 0 } -- the wheel's target zoom; { col, row, dx, dy }: the tile kept at (dx, dy) from the view's centre (set in place: no table a tick)

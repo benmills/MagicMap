@@ -2,7 +2,8 @@
 -- under quest areas and pins: an Engine layer at level 2 (over the tiles' 1, under the areas' 3), "scale" like
 -- the tiles, so a zoom or pan moves its canvas. Which buildings: the one you're in on the map shown
 -- (Model.interior, Game's); with City maps on (gear -> Map) and the map big, every building of the capital
--- you're in, or else of the one at the view's centre (Atlas.City), indoors or out. The terrain dimmed x0.35 only while you're in a building. The prototype's
+-- you're in, or else of the one at the view's centre (Atlas.City), indoors or out. The terrain dimmed x0.35 only
+-- while you're in a building and the map is small (big, its outdoors stay bright, indoors or in a city). The prototype's
 -- drawing (docs/evidence/indoors/addon/Test.lua): each picture a parallelogram drawn as the axis-aligned box
 -- around it, the box's corner texture coordinates solved for, CLAMPTOBLACKADDITIVE so outside the picture is
 -- clear. By level from your floor (real floors, world height, so buildings compare): rooms on yours (within
@@ -10,15 +11,21 @@
 -- level, else whole. Outdoors your level is the surface: underground rooms faded where they're under it,
 -- the rest whole; a city looked at from away, whole. Drawn
 -- below, then above, then the rest by floor, your room (or every candidate) over every other room. The
--- boxes are worked out once a building; a new Model.interior or city (the layer's rev) lays it out again.
+-- boxes are worked out once a building; a new Model.interior, city or veil (the layer's rev) lays it out again.
 -- Nothing to draw: the layer idle, the tiles as they are.
+-- A small building (its box within 60 yd each way, outside the capitals: a house, an inn) zooms the small map
+-- all the way in as you walk in (a glide), following you on your map; leaving glides back to the zoom you were
+-- headed for at the door, whatever you zoomed to meanwhile. Big at the door: nothing; grown while inside, left
+-- alone, and leaving sets the small rect's zoom, so shrinking lands there; hidden, the zoom set straight.
 
 local _, ns = ...
 local UI, Model, Atlas, Runtime = ns.UI, ns.Model, ns.Atlas, ns.Runtime
-local Engine, Camera = UI.Engine, UI.Camera
+local Engine, Camera, Window, Motion = UI.Engine, UI.Camera, UI.Window, UI.Motion
 local Get, Keep, Yield = Engine.Get, Engine.Keep, Runtime.Yield
 
 local DIM = 0.35 -- the terrain under a building (Test.lua's opt.dim): a black veil at 1 - DIM
+local SMALL = 60 -- yd: a building whose box is within this each way zooms the small map in
+local YD = Atlas.TILE_YARDS
 local LEVEL = 22 -- yd: a room's floor within this of yours is on your level (Test.lua's opt.cull, tuned in Ironforge)
 local BELOW, ABOVE = 0.35, 0.15 -- the alpha of rooms on levels below yours (faded) and above (ghosted)
 local MINE = 7 -- the sublevel of your room's pictures, over every other room's (Test.lua's)
@@ -46,16 +53,17 @@ local function City()
 	end
 end
 
--- What's drawn: { i = Model.interior on the map shown, or nil; c, here = City() }, the same table while
--- they are; false: nothing.
+-- What's drawn: { i = Model.interior on the map shown, or nil; c, here = City(); veil: the terrain dimmed (in
+-- a building, the map small) }, the same table while they are; false: nothing.
 local scene = false
 local function Scene()
 	local i, c, here = Model.interior, City()
 	if not (i and i.inst == Camera.inst) then i = nil end
+	local veil = i ~= nil and not UI.BigMap.big
 	if not (i or c) then
 		scene = false
-	elseif not scene or scene.i ~= i or scene.c ~= c or scene.here ~= here then
-		scene = { i = i, c = c, here = here }
+	elseif not scene or scene.i ~= i or scene.c ~= c or scene.here ~= here or scene.veil ~= veil then
+		scene = { i = i, c = c, here = here, veil = veil }
 	end
 	return scene
 end
@@ -190,7 +198,7 @@ local left, nleft = {}, 0 -- the pictures no region on the canvas showed: placed
 local layer = Engine.Layer("interiors", 2, function(c, inst, zoom, c0, r0, c1, r1)
 	local s = Scene()
 	if not s then return true end
-	if s.i then
+	if s.veil then -- (not got: parked at the layout's end, Engine's)
 		local veil = Get(c, "veil", "tex", Veil)
 		veil:SetPoint("TOPLEFT", c, "TOPLEFT", (c0 - c.ox) * zoom, -(r0 - c.oy) * zoom)
 		veil:SetSize((c1 - c0) * zoom, (r1 - r0) * zoom)
@@ -229,3 +237,45 @@ end, Scene)
 layer.idle = function() return not Scene() end
 layer.City = City -- (ui/Labels.lua: the city's area names)
 UI.Interiors = layer
+
+---------------------------------------------------------------------------
+-- Small buildings zoom the small map in
+---------------------------------------------------------------------------
+
+-- A building outside the capitals whose box is within SMALL yd each way.
+local function Small(i)
+	local c0, r0, c1, r1 = Atlas.BuildingBox(i.inst, i.building)
+	if not c0 or (c1 - c0) * YD > SMALL or (r1 - r0) * YD > SMALL then return false end
+	for _, id in ipairs(CAPITALS) do
+		if In(id, i.inst, (c0 + c1) / 2, (r0 + r1) / 2) then return false end
+	end
+	return true
+end
+
+-- Shown, a glide; hidden, straight there (Motion's chase runs while shown).
+local function To(zoom)
+	if Window.frame:IsShown() then Motion.ZoomTo(zoom) else Motion.SetZoom(zoom) end
+end
+
+-- Each frame: the building you're in by Model.interior's key (the same table while unchanged: a compare).
+-- Walking into one from outside, small, the map small and following you on your map: in all the way, the
+-- zoom headed for kept; out of every building: back to it (big meanwhile: into the small rect's zoom).
+-- A zoom of yours inside stands until you leave.
+local inside -- the building's key as last seen; nil outside
+local back -- the zoom to go back to on leaving; nil: none
+Runtime.Step("ui", "map: indoors zoom", function()
+	local i = Model.interior
+	local key = i and i.building or nil
+	if key == inside then return end
+	if key and not inside then
+		if not UI.BigMap.big and Camera.follow and Model.you.inst == i.inst and Small(i) then
+			back = (Motion.Goal())
+			To(Motion.MAX_ZOOM)
+		end
+	elseif not key and back then
+		local small = UI.BigMap.Small()
+		if small then small.zoom = back else To(back) end
+		back = nil
+	end
+	inside = key
+end)

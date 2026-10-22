@@ -33,8 +33,10 @@ water; zone and subzone names, and on the big map the zone borders traced from t
 arrow.
 
 **Indoors.** In a building, Blizzard's own indoor minimap pictures, placed on our map over the
-dimmed terrain: the rooms on your floor whole, the floors below faded and those above ghosted where
-they overlap yours, the room you're in on top. Your pins, zoom and pan work as outdoors. **City
+terrain (dimmed on the small map): the rooms on your floor whole, the floors below faded and those above
+ghosted where they overlap yours, the room you're in on top. Your pins, zoom and pan work as outdoors; a
+small building (a house, an inn) zooms the small map all the way in as you walk in, and back out as you
+leave. **City
 maps** (gear → Map, on): on the big map in a capital (Ironforge, Orgrimmar, Undercity...), every
 building of the city at once, indoors or out, what's underground faded, with the city's own area
 names (The Great Forge, the Cleft of Shadow...) among the subzone names.

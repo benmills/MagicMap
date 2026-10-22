@@ -93,7 +93,13 @@ like terrain tiles.
   capital at the view's centre (looked at from away), indoors or out. Small (minimap mode) or off: only the
   one you're in. Zone borders are likewise the big map's only (laid out small too, hidden, so M needn't
   build them).
-  - the terrain tiles dimmed (×0.35) only while you're in a building;
+  - the terrain tiles dimmed (×0.35) only while you're in a building, and the map small (amended 2026-10-22,
+    #14: big, the outdoors stay bright, indoors or in a city: the veil is part of the layer's scene);
+  - (amended 2026-10-22, #13) a small building outside the capitals (its box within 60 yd each way: a house,
+    an inn) zooms the small map all the way in as you walk in, a glide, when following you on your map; leaving
+    glides back to the zoom you were headed for at the door (a zoom of yours inside stands until then). Big at
+    the door: nothing; grown while inside, left alone, leaving sets the small rect's zoom so shrinking lands
+    there; hidden, the zoom set straight;
   - the rooms drawn over them, under quest areas and pins;
   - levels by real floors (world height, so buildings compare): a room within **22 yd** of your floor is
     on your level, drawn whole. Another is faded below (×0.35) or ghosted above (×0.15) only where it
