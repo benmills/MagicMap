@@ -57,6 +57,7 @@ function Model.Observe(obs, oracles)
 		if o.inst and o.inst ~= you.inst then you.inst, you.col, you.row = o.inst, nil, nil end
 	end
 	if o.facing then you.facing = o.facing end
+	you.speed = o.speed
 	you.uiMap, you.zone, you.subzone, you.level, you.faction = o.uiMap, o.zone, o.subzone, o.level, o.faction
 	you.dead, you.ghost, you.combat = o.dead, o.ghost, o.combat
 	for _, p in ipairs(parts) do

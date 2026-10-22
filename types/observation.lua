@@ -53,6 +53,7 @@
 ---@field col? MM.Col          nil where the game hides your position (instances)
 ---@field row? MM.Row
 ---@field facing? number       radians, 0 north, counter-clockwise (GetPlayerFacing)
+---@field speed? number        yards a second (GetUnitSpeed); nil: the client keeps it secret
 ---@field uiMap? MM.UiMapID    C_Map.GetBestMapForUnit("player")
 ---@field zone? string         GetZoneText(): the client's name for your zone; nil: none
 ---@field subzone? string      GetSubZoneText(): its name for where you are in it (an inn, a keep); nil: none

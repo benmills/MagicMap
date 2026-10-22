@@ -40,7 +40,7 @@ C_VignetteInfo Enum
 # Functions
 AddQuestWatch ChatFrame_OpenChat
 GetBuildInfo GetCVar GetInstanceInfo Screenshot
-GetPlayerFacing GetRealZoneText GetSubZoneText GetZoneText
+GetPlayerFacing GetUnitSpeed GetRealZoneText GetSubZoneText GetZoneText
 IsFalling IsFlying IsSwimming UnitOnTaxi
 HideUIPanel ToggleWorldMap IsIndoors
 InCombatLockdown UnitClass UnitClassification UnitExists

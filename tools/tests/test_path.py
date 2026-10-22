@@ -13,7 +13,7 @@ waypoint pins and the title's target), Model.Target and Model.Route stubbed as t
     leaves (along the route's leg that does), pointing on; none on the view or inside (F34, S59).
   test_corpse_forces_follow: your corpse becoming the target (a ghost) glides the view back to you; another
     target doesn't, nor the one you had when the map first looked, nor browsing away and back (F7, F42).
-  test_title_target: the subtitle's "<title> N yd" and "<title> here", big or small and hovered (S12).
+  test_title_target: the subtitle's "<title>" and "<title> here", big or small and hovered (S12).
   test_corpse_waypoint_pins: Known("corpse") and Known("waypoint") as pins (S49), from Game's parts through Model,
     their tooltips, their gear rows.
   test_path_walk_laid_as_new: walking, the line ends as a new layout from where you stop lays it out,
@@ -318,19 +318,19 @@ def test_title_target():
     G.Target("waypoint", 33.0, 49.75, "Waypoint")
     sim.Run(0.2)  # small, hovered: the target with where you are
     yd = math.floor(1.05 * YD + 0.5)
-    assert text().startswith("Goldshire" + SEP) and text().endswith(SEP + f"|cffffd27fWaypoint|r {yd} yd")
+    assert text().startswith("Goldshire" + SEP) and text().endswith(SEP + f"|cffffd27fWaypoint|r")
     sim.cursorX, sim.cursorY = 10, 10  # small, not hovered: where you are, nothing more
     sim.Run(0.2)
     assert text() == "Goldshire"
     sim.Press("M")  # big: the target
     sim.Run(0.5)
-    assert text().endswith(SEP + f"|cffffd27fWaypoint|r {yd} yd") and text().count(SEP) == 2
+    assert text().endswith(SEP + f"|cffffd27fWaypoint|r") and text().count(SEP) == 2
     G.Tgt.inside = True
     sim.Run(0.1)
     assert text().endswith(SEP + "|cffffd27fWaypoint|r here")
     G.Target("quest", 32.0, 49.75)  # untitled
     sim.Run(0.1)
-    assert text().endswith(SEP + f"|cffffd27fTarget|r {math.floor(0.05 * YD + 0.5)} yd")
+    assert text().endswith(SEP + f"|cffffd27fTarget|r")
     assert not errors(sim, ns), errors(sim, ns)
 
 

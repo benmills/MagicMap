@@ -73,7 +73,11 @@ gear:SetPoint("RIGHT", mode, "LEFT", -6, 0)
 Controls.mode, Controls.gear = mode, gear
 
 local zoomOut = ArtButton(Chrome.controls, 20, 11, ZoomArt("ui-hud-minimap-zoom-out"))
-zoomOut:SetPoint("BOTTOMRIGHT", -PAD, PAD + 6) -- clear of the grip
+-- The quest line's gap from the window's left and bottom borders is one: the border's insets differ, so its
+-- bottom offset makes up the difference (BOTTOM_Y), and the zoom buttons drop by as much (clear of the grip).
+local insets = Chrome.border.insets
+local BOTTOM_Y = math.max(2, PAD + insets[1] - insets[4])
+zoomOut:SetPoint("BOTTOMRIGHT", -PAD, BOTTOM_Y + 6)
 local zoomIn = ArtButton(Chrome.controls, 20, 20, ZoomArt("ui-hud-minimap-zoom-in"))
 zoomIn:SetPoint("BOTTOM", zoomOut, "TOP", 0, 2)
 Controls.zoomIn, Controls.zoomOut = zoomIn, zoomOut
@@ -124,7 +128,7 @@ local ELLIPSIS = "\226\128\166" -- "…" in UTF-8
 -- and fades with the controls otherwise (the step below).
 local overlay = Chrome.overlay
 local line = CreateFrame("Frame", nil, overlay)
-line:SetPoint("BOTTOMLEFT", PAD, PAD)
+line:SetPoint("BOTTOMLEFT", PAD, BOTTOM_Y)
 line:SetHeight(LINE_H)
 line:Hide()
 local tracked = false -- the line shows the followed quest
@@ -138,25 +142,28 @@ icon:SetSize(ICON, ICON)
 icon:SetPoint("LEFT", line, "LEFT", ICON_X, 0)
 if questAtlas then icon:SetAtlas(questAtlas) else icon:Hide() end
 -- The pill: a half disc at each end (the circle mask's halves, so they don't overlap the middle).
-local function Cap(left)
-	local t = line:CreateTexture(nil, "BACKGROUND")
-	t:SetTexture(Chrome.CIRCLE)
-	t:SetVertexColor(0, 0, 0, 0.65)
-	t:SetSize(LINE_H / 2, LINE_H)
-	if left then
-		t:SetTexCoord(0, 0.5, 0, 1)
-		t:SetPoint("TOPLEFT")
-	else
-		t:SetTexCoord(0.5, 1, 0, 1)
-		t:SetPoint("TOPRIGHT")
+local function Backing(f)
+	local function Cap(left)
+		local t = f:CreateTexture(nil, "BACKGROUND")
+		t:SetTexture(Chrome.CIRCLE)
+		t:SetVertexColor(0, 0, 0, 0.65)
+		t:SetSize(LINE_H / 2, LINE_H)
+		if left then
+			t:SetTexCoord(0, 0.5, 0, 1)
+			t:SetPoint("TOPLEFT")
+		else
+			t:SetTexCoord(0.5, 1, 0, 1)
+			t:SetPoint("TOPRIGHT")
+		end
 	end
+	Cap(true)
+	Cap(false)
+	local middle = f:CreateTexture(nil, "BACKGROUND")
+	middle:SetColorTexture(0, 0, 0, 0.65)
+	middle:SetPoint("TOPLEFT", f, "TOPLEFT", LINE_H / 2, 0)
+	middle:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -LINE_H / 2, 0)
 end
-Cap(true)
-Cap(false)
-local middle = line:CreateTexture(nil, "BACKGROUND")
-middle:SetColorTexture(0, 0, 0, 0.65)
-middle:SetPoint("TOPLEFT", line, "TOPLEFT", LINE_H / 2, 0)
-middle:SetPoint("BOTTOMRIGHT", line, "BOTTOMRIGHT", -LINE_H / 2, 0)
+Backing(line)
 local lineText = line:CreateFontString(nil, "OVERLAY")
 lineText:SetFont(FONT, 11, "")
 lineText:SetTextColor(0.95, 0.9, 0.8)
@@ -285,6 +292,71 @@ local function Look()
 end
 
 ---------------------------------------------------------------------------
+-- The tracking pill (top left of the map): what's tracked on this map, by how far (the yards along the
+-- way, Model.Route(), else straight: UI.You.Target) and a plain ETA at your pace: now if you're moving, else
+-- the last pace you were seen at, else a run's (RUN). Gone with nothing tracked, or once you're inside its
+-- area. Looked at TRACK_EVERY s, its text set only when it changes (yards to 10 from 100 up, minutes whole).
+---------------------------------------------------------------------------
+
+local RUN = 7 -- yd/s, a run
+local TRACK_EVERY = 0.3 -- s: three or so a second
+local YARDS_STEP = 10 -- yards are rounded to this from 100 up: no flicker while you walk
+local track = CreateFrame("Frame", nil, overlay)
+track:SetPoint("TOPLEFT", PAD, -PAD)
+track:SetHeight(LINE_H)
+track:Hide()
+Backing(track)
+local trackText = track:CreateFontString(nil, "OVERLAY")
+trackText:SetFont(FONT, 11, "")
+trackText:SetTextColor(0.95, 0.9, 0.8)
+trackText:SetPoint("LEFT", track, "LEFT", LINE_H / 2, 0)
+Controls.trackLine = track
+
+local pace = RUN -- the last non-zero speed seen
+local trackShown, trackWords = false, nil
+local function Track()
+	local speed = Model.you.speed
+	if speed and speed > 0 then pace = speed end
+	local _, yd = UI.You.Target()
+	if not yd then -- nothing tracked here (nil), or inside its area (false)
+		if trackShown then
+			trackShown = false
+			track:Hide()
+		end
+		return
+	end
+	local way = Model.Route()
+	if way and #way > 1 then -- the length along the way: tiles to yards
+		local d = 0
+		for i = 1, #way - 1 do
+			local a, b = way[i], way[i + 1]
+			d = d + math.sqrt((b.col - a.col) ^ 2 + (b.row - a.row) ^ 2)
+		end
+		yd = math.floor(d * Atlas.TILE_YARDS + 0.5)
+	end
+	if yd >= 100 then yd = math.floor(yd / YARDS_STEP + 0.5) * YARDS_STEP end
+	local secs = yd / pace -- /: never 0 (pace starts at RUN and only takes speeds above 0)
+	local eta
+	if secs < 60 then
+		eta = "<1 min"
+	elseif secs < 5400 then
+		eta = string.format("~%d min", math.floor(secs / 60 + 0.5))
+	else
+		eta = string.format("~%d h", math.floor(secs / 3600 + 0.5))
+	end
+	local words = string.format("%d yd  \194\183  %s", yd, eta)
+	if words ~= trackWords then
+		trackWords = words
+		trackText:SetText(words)
+		track:SetWidth(trackText:GetStringWidth() + LINE_H)
+	end
+	if not trackShown then
+		trackShown = true
+		track:Show()
+	end
+end
+
+---------------------------------------------------------------------------
 -- Zoom reset: the button shows while the zoom is off the default; a click glides back to it
 -- (Motion.ZoomTo: the zoom buttons' own chase)
 ---------------------------------------------------------------------------
@@ -318,7 +390,7 @@ local function ToggleFollow() UI.Motion.SetFollow(not Camera.follow, true) end
 -- One step for the map's controls: the fade (the quest line's too, unless it shows a tracked quest), the
 -- zoom reset's look (each frame: a cheap compare), and the quest line's (EVERY s: a step's probes cost
 -- each frame, so these share one).
-local since = EVERY
+local since, trackSince = EVERY, TRACK_EVERY
 Runtime.Step("ui", "map: controls", function(elapsed)
 	local want = (Window.frame:IsMouseOver(REACH, -REACH, 0, 0) or Menus.IsOpen()) and 1 or 0
 	if hover ~= want then
@@ -336,6 +408,11 @@ Runtime.Step("ui", "map: controls", function(elapsed)
 	if since >= EVERY then
 		since = 0
 		Look()
+	end
+	trackSince = trackSince + elapsed
+	if trackSince >= TRACK_EVERY then
+		trackSince = 0
+		Track()
 	end
 end, { shownOnly = Window.frame })
 
