@@ -1,5 +1,6 @@
 -- Keys Blizzard owns, caught for UI (types/view.lua HookedInput; spike MinimapMode.lua:130-133, 195-202):
---   M (ToggleWorldMap) while our window is shown: the world map it just opened is hidden again, and
+--   M (ToggleWorldMap) while our window is shown and View.overrideMap (Settings > Override world map, on by
+--     default): the world map it just opened is hidden again, and
 --     UI hears "worldmap" (it grows or shrinks the window). M closing Blizzard's map (opened by L,
 --     the quest log) is left alone; so is M in combat, where hiding it is blocked (spike-bugs K2):
 --     Blizzard's opens as usual.
@@ -16,6 +17,7 @@ local Game, Runtime = ns.Game, ns.Runtime
 local INPUT = { worldmap = { kind = "worldmap" }, escape = { kind = "escape" }, toggle = { kind = "toggle" } }
 local caught, handed = {}, {}
 local shown, big = false, false -- the window, as the last apply read View
+local override = false -- View.overrideMap: M is ours to take (off: Blizzard's map opens as it always does)
 
 function Game.Hooked(kind) caught[#caught + 1] = INPUT[kind] end
 
@@ -25,7 +27,7 @@ Game.Part("hooked", function()
 end)
 
 hooksecurefunc("ToggleWorldMap", Runtime.Wrap("game: M", function()
-	if not shown or not WorldMapFrame:IsShown() or InCombatLockdown() then return end
+	if not (override and shown) or not WorldMapFrame:IsShown() or InCombatLockdown() then return end
 	HideUIPanel(WorldMapFrame)
 	Game.Hooked("worldmap")
 end))
@@ -41,6 +43,7 @@ end))
 Game.Apply("hooks", function(view)
 	local w = view.window
 	shown, big = w.shown, w.big
+	override = view.overrideMap ~= false
 	if catcher:IsShown() ~= big then catcher:SetShown(big) end
 end)
 
