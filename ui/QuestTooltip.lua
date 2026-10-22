@@ -22,7 +22,7 @@ local ELITE = string.format("|TInterface\\TargetingFrame\\UI-TargetingFrame-Skul
 local TURN_IN = 0.85 -- QuestInfo.lua:358
 local TURN_IN_ATLAS = "questturnin" -- the "?" before who takes it in (ui/Quests.lua's pin); the word where the client lacks it
 local turnInMark -- "|A:...|a " or the dim word, found once
-local FOLLOW, UNFOLLOW = DIM .. "Click to follow|r", DIM .. "Click to stop following|r" -- Layers.lua:113
+local FOLLOW, UNFOLLOW = DIM .. "Click to track|r", DIM .. "Click to stop tracking|r" -- Layers.lua:113 (the pin's menu: ui/Track.lua)
 
 local QuestTooltip = {}
 UI.QuestTooltip = QuestTooltip

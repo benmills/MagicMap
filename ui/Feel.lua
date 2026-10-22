@@ -49,7 +49,7 @@ local KEYS = {
 	{ key = "path.style", section = "path", label = "Style", kind = "pick", default = PathDefault("style"),
 		options = { { "Dotted", "dotted" }, { "Dashed", "dashed" }, { "Solid", "solid" } },
 		tip = "How the line to what you track is drawn." },
-	{ key = "path.weight", section = "path", label = "Weight", kind = "slider", min = 1, max = 6, step = 0.5,
+	{ key = "path.weight", section = "path", label = "Weight", kind = "slider", min = 1, max = 4, step = 0.2, -- (Path's range; its default 1.6 lies on the grid: an open mustn't save a snap)
 		default = PathDefault("weight"), fmt = "%.1f px", tip = "How thick the line is." },
 	{ key = "path.color", section = "path", label = "Colour", kind = "pick", default = ColorDefault, options = ColorOptions,
 		tip = "The line's colour." },
@@ -101,7 +101,7 @@ end
 function Feel.Get(key)
 	local k = assert(BY_KEY[key], "Feel.Get: no setting " .. tostring(key))
 	if k.cluster then return UI.Cluster.Get(k.cluster) end
-	local t = UI.saved.feel
+	local t = UI.saved and UI.saved.feel -- (nil before ui/View.lua loads: Path.lua's first Apply at load)
 	local v = t and t[key]
 	if v == nil then v = Default(k) end
 	return v

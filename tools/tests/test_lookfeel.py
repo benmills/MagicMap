@@ -23,7 +23,7 @@ def test_lookfeel():
     assert f.IsShown(f) and f.GetFrameStrata(f) == "DIALOG" and same(sim.Named("MagicMapFeel"), f)
     w = Feel.widgets
     assert w["group.range"].slider.GetValue(w["group.range"].slider) == 24 and w["group.range"].text.GetText(w["group.range"].text) == "24 px"
-    assert w["path.style"].button.GetText(w["path.style"].button) == "Dashed" and w["path.glow"].check.GetChecked(w["path.glow"].check)
+    assert w["path.style"].button.GetText(w["path.style"].button) == "Dotted" and w["path.glow"].check.GetChecked(w["path.glow"].check)
     rev = Feel.rev
 
     # A grouping slider: UI.Cluster's tunable, saved as clusterTune (as before), nothing in saved.feel.
@@ -35,12 +35,12 @@ def test_lookfeel():
     # A tracking-line pick: the client's menu, a radio per style; saved in feel, Get returns it, rev moved.
     sim.Click(w["path.style"].button)
     styles = {e.text: e for e in sim.MenuItems("radio").values()}
-    assert list(styles) == ["Dotted", "Dashed", "Solid"] and styles["Dashed"].isSelected() is True
-    styles["Dotted"].onSelect()
-    assert Feel.Get("path.style") == "dotted" and saved.feel["path.style"] == "dotted" and Feel.rev > rev
-    assert w["path.style"].button.GetText(w["path.style"].button) == "Dotted"
+    assert list(styles) == ["Dotted", "Dashed", "Solid"] and styles["Dotted"].isSelected() is True
+    styles["Dashed"].onSelect()
+    assert Feel.Get("path.style") == "dashed" and saved.feel["path.style"] == "dashed" and Feel.rev > rev
+    assert w["path.style"].button.GetText(w["path.style"].button) == "Dashed"
     # Back to the default: its key gone, the table with it.
-    Feel.Set("path.style", "dashed")
+    Feel.Set("path.style", "dotted")
     assert saved.feel is None
 
     # A check and a map slider: live. The arrow's size follows "arrow.scale"; the pills' alpha "pills.alpha".
