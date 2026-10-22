@@ -23,6 +23,13 @@ function Atlas.BuildingsAt(inst, col, row)
 	return out
 end
 
+-- A building's box in tile units: col0, row0, col1, row1 (Data's, no decode); nil: no such building.
+function Atlas.BuildingBox(inst, key)
+	local m = Map(inst)
+	local b = m and m.buildings[key]
+	if b then return b[1], b[2], b[3], b[4] end
+end
+
 local function Mask(enc)
 	local parts = {}
 	for letter, n in enc:gmatch("(%a)(%d*)") do parts[#parts + 1] = letter:rep(tonumber(n) or 1) end

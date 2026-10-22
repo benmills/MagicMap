@@ -62,7 +62,7 @@ def test_ironforge_rooms():
 
 def test_ironforge_drawn():
     """UI's interiors layer (ui/Interiors.lua) in Ironforge (city maps on: its three buildings), levels by real
-    floors: in the Forge its pictures over the tiles, veiled to x0.35, the Forge's on top, the lower bridge
+    floors: in the Forge its pictures over the tiles, veiled to x0.35 small, unveiled big, the Forge's on top, the lower bridge
     (room 90) on its level, the upper (96: 42 yd above) ghosted, the deep room under the city (103) faded; under
     "The High Seat" room 88 on top, the Forge and the lower bridge on its level; in the Commons ring (room 8: its
     box reaches 91 yd down, its floor the street's) every room on its level whole, the rest faded or ghosted only
@@ -95,7 +95,8 @@ def test_ironforge_drawn():
         veil = c.pools.veil and c.pools.veil.n > 0 and S[c.pools.veil[1]].color[4]
         return veil, {r: a for (k, r), a in alpha.items() if k == IF}, {r for k, r in top if k == IF}, alpha
 
-    assert {k for k, _ in at("The Great Forge")[3]} == {IF}  # small: only the building you're in
+    veil, _, _, every = at("The Great Forge")
+    assert {k for k, _ in every} == {IF} and abs(veil - 0.65) < 1e-9  # small: only the building you're in, veiled
     sim.Press("M")
     sim.Run(1)
     sim.Price(True)
@@ -103,9 +104,14 @@ def test_ironforge_drawn():
     veil, rooms, top, every = at("The Great Forge")
     sim.Price(False)
     print(f"the Forge: {len(every)} rooms drawn; its layout's slowest frame {perf.max:.2f} ms, the slowest frame {whole.max:.2f}")
-    assert abs(veil - 0.65) < 1e-9 and top == {65} and rooms[65] == rooms[88] == rooms[90] == 1
+    assert not veil and top == {65} and rooms[65] == rooms[88] == rooms[90] == 1  # big: no veil
     assert rooms[96] == 0.15 and rooms[103] == 0.35 and len({k for k, _ in every}) > 1
     assert perf.max <= 5 and whole.max <= 8  # a slice within the moving budget, the frame within the max
+    sim.Press("M")  # shrunk back: veiled again
+    sim.Run(1)
+    assert not ns.UI.BigMap.big and abs(at("The Great Forge")[0] - 0.65) < 1e-9
+    sim.Press("M")
+    sim.Run(1)
     veil, rooms, top, _ = at("The High Seat")
     assert top == {88} and rooms[65] == rooms[90] == 1 and rooms[96] == 0.15
     sim.player.col, sim.player.row = 34.0638, 41.3248  # the Commons ring, under room 8 alone
@@ -185,4 +191,48 @@ def test_city_maps():
     ns.UI.Engine.SetLayer("cities", False)
     sim.Run(1)
     assert drawn() is None
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_small_building_zoom():
+    """A small building outside the capitals (ui/Interiors.lua: Goldshire's house 96048, 45 x 39 yd, one room)
+    zooms the small map all the way in as you walk in, a glide; walking out glides back to the zoom you were
+    headed for at the door. M while inside: the zoom BigMap's, ours hands off; walking out while big sets the
+    small rect's zoom, so shrinking back lands at the one you had."""
+    from test_addon import boot, errors
+    L, sim, ns = boot()
+    sim.Slash("/mm toggle")
+    sim.Run(3)
+    cam, big = ns.UI.Camera.cam, ns.UI.BigMap
+    zoom = cam.zoom
+    assert zoom < 400 and ns.UI.Camera.follow
+    c0, r0, c1, r1 = ns.Atlas.BuildingBox(0, 96048)
+    assert (c1 - c0) * ns.Atlas.TILE_YARDS < 60 and (r1 - r0) * ns.Atlas.TILE_YARDS < 60
+    sim.floorPlan = True  # (the Minimap's indoor map)
+
+    def walk(col, row, s):
+        sim.player.col, sim.player.row = col, row
+        sim.FireEvent("ZONE_CHANGED_INDOORS")
+        sim.Run(s)
+
+    walk(31.8065, 49.7229, 0.1)  # in: a glide all the way in
+    assert ns.Model.interior.building == 96048 and zoom < cam.zoom < 800
+    sim.Run(2)
+    assert abs(cam.zoom - 800) < 1e-6
+    walk(31.9, 49.8, 2.5)  # out (2 s with no floor under you; 31.95, 49.75 is under the inn, 71414): back to the zoom you had, a glide
+    assert ns.Model.interior is False and zoom < cam.zoom < 800
+    sim.Run(2)
+    assert abs(cam.zoom - zoom) < 1e-6
+    walk(31.8065, 49.7229, 2)  # in again, then M: BigMap's zoom, not ours
+    assert abs(cam.zoom - 800) < 1e-6
+    sim.Press("M")
+    sim.Run(1)
+    assert big.big and cam.zoom < 700 and ns.Model.interior.building == 96048
+    grown = cam.zoom
+    walk(31.9, 49.8, 2.5)  # out while big: the big zoom stands, the small rect's set to the one you had
+    sim.Run(1)
+    assert ns.Model.interior is False and abs(cam.zoom - grown) < 1e-6 and abs(big.Small().zoom - zoom) < 1e-6
+    sim.Press("M")
+    sim.Run(1)
+    assert not big.big and abs(cam.zoom - zoom) < 1e-6
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
