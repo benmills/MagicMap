@@ -59,7 +59,7 @@ end
 function UI.Print(msg) print("|cffffd100MagicMap|r: " .. msg) end
 
 local OPTIONAL = { window = "table", inst = "number", center = "table", clusterTune = "table", worldmap = "boolean",
-	tracked = "table" } -- types/saved.lua MM.SavedUI
+	tracked = "table", feel = "table" } -- types/saved.lua MM.SavedUI
 Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS, optional = OPTIONAL }, fn = function(s)
 	saved = s
 	UI.saved = s

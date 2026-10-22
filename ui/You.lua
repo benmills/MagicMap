@@ -36,6 +36,7 @@ arrow:SetSnapToPixelGrid(false)
 arrow:SetTexelSnappingBias(0)
 arrow:Hide()
 You.arrow = arrow
+function You.SetArrowScale(k) arrow:SetSize(SIZE * k, SIZE * k) end -- (ui/Feel.lua "arrow.scale")
 
 -- Each frame while shown, after the map's draw: only what changed is applied (an idle frame makes
 -- no widget calls for it).

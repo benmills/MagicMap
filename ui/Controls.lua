@@ -142,12 +142,15 @@ icon:SetSize(ICON, ICON)
 icon:SetPoint("LEFT", line, "LEFT", ICON_X, 0)
 if questAtlas then icon:SetAtlas(questAtlas) else icon:Hide() end
 -- The pill: a half disc at each end (the circle mask's halves, so they don't overlap the middle).
-local PILL_A = 0.4 -- the backing's alpha: faint
+local PILL_A = 0.4 -- the backing's alpha: faint (ui/Feel.lua "pills.alpha" sets it live: SetPillAlpha)
+local pills = {} -- every pill's backing textures (caps and middle)
 local function Backing(f)
 	local function Cap(left)
 		local t = f:CreateTexture(nil, "BACKGROUND")
 		t:SetTexture(Chrome.CIRCLE)
 		t:SetVertexColor(0, 0, 0, PILL_A)
+		t.cap = true
+		pills[#pills + 1] = t
 		t:SetSize(LINE_H / 2, LINE_H)
 		if left then
 			t:SetTexCoord(0, 0.5, 0, 1)
@@ -163,6 +166,13 @@ local function Backing(f)
 	middle:SetColorTexture(0, 0, 0, PILL_A)
 	middle:SetPoint("TOPLEFT", f, "TOPLEFT", LINE_H / 2, 0)
 	middle:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -LINE_H / 2, 0)
+	pills[#pills + 1] = middle
+end
+-- The pills' backing alpha (a cap takes it through its vertex colour, the middle as its colour).
+function Controls.SetPillAlpha(a)
+	for _, t in ipairs(pills) do
+		if t.cap then t:SetVertexColor(0, 0, 0, a) else t:SetColorTexture(0, 0, 0, a) end
+	end
 end
 Backing(line)
 local lineText = line:CreateFontString(nil, "OVERLAY")

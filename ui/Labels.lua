@@ -27,6 +27,10 @@ local SHADOW = 0.85 -- the soft drop shadow's alpha, offset (1, -1)
 local PAD_X, PAD_Y, GAP = 4, 2, 3 -- a name's clearance, and its spots' gap above and below (Layers.lua:1447-1448)
 local FADE_S = 0.2 -- Layers.lua:1619
 
+-- The Look & feel dialog's label size (ui/Feel.lua: "labels.scale"), a factor on every name's size; the
+-- layer's rev moves with it, so the names are laid out again at the new size.
+local scale, subSize, scaleRev = 1, SUB_SIZE, 0
+
 local function MakeFont(c)
 	local fs = c:CreateFontString(nil, "OVERLAY")
 	fs:SetShadowOffset(1, -1)
@@ -39,7 +43,7 @@ local function Flags(size) return size <= OUTLINE_MAX and "OUTLINE" or "" end
 
 -- A name's size on screen: k * its land's side (tiles) * zoom, clamped, in whole points (fewer SetFonts as the zoom moves).
 local function SizeAt(l, k, min, max, zoom)
-	return math.floor(math.max(min, math.min(max, k * (l.side or 0) * zoom)) + 0.5)
+	return math.floor(scale * math.max(min, math.min(max, k * (l.side or 0) * zoom)) + 0.5)
 end
 
 -- Per map, its names as the spike has them: zones and subzones (a town that is one included), each
@@ -182,7 +186,7 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 	if zoom >= SUB_ZOOM and city then
 		for _, l in ipairs(CityList(city, list)) do
 			if zoom >= l.zoom and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-				local fs = Font(c, l, BODY, SUB_SIZE, SUB, "")
+				local fs = Font(c, l, BODY, subSize, SUB, "")
 				local dy = Spot(c, l, zoom, fs:GetStringWidth() / 2 + PAD_X, fs:GetStringHeight())
 				if dy then Show(c, fs, l, dy, shown) else Unget(c, "label") end
 			end
@@ -191,14 +195,19 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 	if zoom >= SUB_ZOOM then
 		for i, l in ipairs(list.subs) do
 			if zoom >= l.zoom and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-				local fs = Font(c, l, BODY, SUB_SIZE, SUB, "")
+				local fs = Font(c, l, BODY, subSize, SUB, "")
 				local dy = Spot(c, l, zoom, fs:GetStringWidth() / 2 + PAD_X, fs:GetStringHeight())
 				if dy then Show(c, fs, l, dy, shown) else Unget(c, "label") end
 			end
 			if i % 16 == 0 then Yield() end
 		end
 	end
-end, function() return UI.Interiors.City() or false end, "move") -- (a city map shown or gone: laid out again)
+end, function() return (UI.Interiors.City() or false), scaleRev end, "move") -- (a city map shown or gone, or the size: laid out again)
+
+function UI.Labels.SetScale(k)
+	if scale == k then return end
+	scale, subSize, scaleRev = k, math.floor(SUB_SIZE * k + 0.5), scaleRev + 1
+end
 
 -- Each frame while shown: the shown layout's new names fading in, from when it first shows.
 Runtime.Step("ui", "map: labels fade", function()

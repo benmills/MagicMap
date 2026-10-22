@@ -24,7 +24,8 @@ CreateFrame debugstack geterrorhandler
 # Widgets, templates, fonts, colours, texture atlases
 CreateFrame UIParent CreateColor CreateVector2D C_Texture GetFileIDFromPath
 ButtonFrameTemplate_HideButtonBar ButtonFrameTemplate_HidePortrait
-GameFontNormal GameTooltip GameTooltipText GameTooltipTextSmall STANDARD_TEXT_FONT
+GameFontNormal GameFontNormalSmall GameFontHighlight GameFontHighlightSmall
+GameTooltip GameTooltipText GameTooltipTextSmall STANDARD_TEXT_FONT
 MenuResponse MenuUtil LEVEL RAID_CLASS_COLORS
 # Input state
 GetCursorPosition IsAltKeyDown IsControlKeyDown IsMouseButtonDown IsShiftKeyDown
