@@ -52,8 +52,11 @@ and `--replace-spike` moves 1.0 to `MagicMap.spike-backup` first (its saved data
 read: docs/decisions/0007-v2-storage-names.md). Log in (it says when files are new to the client:
 restart it, not `/reload`), then:
 
-- `/mm help` lists the commands; the map sits on the Minimap's spot from login (`/mm` or
-  the minimap button hides and shows it, M grows it into the big map, `/mm reset` puts it back)
+- `/mm help` lists the commands. On a fresh install nothing of Blizzard's is touched until the welcome
+  (ui/Welcome.lua) is answered: click the minimap button (or `/mm`) and pick what MagicMap replaces. After that,
+  with the minimap replaced the map sits on the Minimap's spot from login (`/mm` or the minimap button hides and
+  shows it, M grows it into the big map, `/mm reset` puts it back); the settings are the gear's Settings, `/mm feel`,
+  or Game menu -> Options -> AddOns -> MagicMap
 - with the map shown, Blizzard's Minimap becomes an unseen sensor and its blips (mailboxes,
   herbs, services) are drawn on the map; `/mm minimap blizzard` gives it back, `/mm layer <name>`
   toggles a layer, `/mm record on|off` keeps the observations for Model replay tests
@@ -61,18 +64,24 @@ restart it, not `/reload`), then:
 - `/mm perf load`: Atlas's load cost (ms, KB) and time per step / event / timer / job
 - `/mm errors`: errors caught so far (each is also printed once when it happens)
 
+Trying the welcome: `/mm welcome` shows it again any time (Escape or the close button saves nothing). To see it
+as a new player does, quit the game, delete the `MagicMap2DB` table from
+`WTF/Account/<account>/SavedVariables/MagicMap.lua` (or that file), log in and click the minimap button.
+An existing 2.0 save migrates instead, both replaced and no welcome (ui/Replace.lua `Load`). In the sim,
+`sim.boot(saved="MagicMap2DB = nil")` is a fresh start (tools/tests/test_replace.py).
+
 ## Release
 
 Set `## Version:` in `MagicMap.toc` (D7: 2.x.x), run every generator on the installed client (above;
 the QuestieDB-derived five too) and `tools/check.sh`, commit, tag `v<version>`, then
 
-    tools/package.sh v2.0.0   # dist/MagicMap-v2.0.0.zip
+    tools/package.sh v2.1.0   # dist/MagicMap-v2.1.0.zip
 
 One zip of the committed tree, with LICENSE and NOTICE.md; it's unzipped into a scratch AddOns folder
 and loaded in the sim from there (every TOC file present; 0 errors) or isn't written. It goes on the
-GitHub release, with its notes: [dist/RELEASE_NOTES-v2.0.0.md](../dist/RELEASE_NOTES-v2.0.0.md) (the release
-candidate's: [dist/RELEASE_NOTES-v2.0.0-rc.1.md](../dist/RELEASE_NOTES-v2.0.0-rc.1.md); a listing draft for
-other channels: [dist/listing-v2.0.0.md](../dist/listing-v2.0.0.md)). How 2.0 replaced 1.x's tree in this repo:
+GitHub release, with its notes: [dist/RELEASE_NOTES-v2.1.0.md](../dist/RELEASE_NOTES-v2.1.0.md) (2.0's:
+[dist/RELEASE_NOTES-v2.0.0.md](../dist/RELEASE_NOTES-v2.0.0.md); a listing draft for other channels:
+[dist/listing-v2.1.0.md](../dist/listing-v2.1.0.md); what to try in game first: [playtest-2.1.md](playtest-2.1.md)). How 2.0 replaced 1.x's tree in this repo:
 [release/merge-plan.md](release/merge-plan.md) (option A).
 
 ## Telemetry

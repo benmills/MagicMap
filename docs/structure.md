@@ -6,7 +6,7 @@ The repo root is the addon root. Folders follow architecture.md: two libraries
 ```
 MagicMap.toc          load order (below), generated from each folder's files.txt
 Data/                 generated Atlas data (the QuestieDB-derived five: NOTICE.md)
-Textures/             generated textures the addon loads (PlayerArrow, GlowRing, the base picture)
+Textures/             generated textures the addon loads (PlayerArrow, GlowRing, BaseEasternKingdoms and BaseKalimdor: tools/gen_base.py)
 atlas/                Atlas library: facts that hold (plain Lua 5.1, no WoW API)
 runtime/              Runtime library: when things run (frame steps, slices, timers, events, perf)
 game/                 Game system: the only code that touches the WoW API, other addons, SavedVariables
@@ -54,11 +54,12 @@ wrapper"), never a global: a global is shared with every addon, and the rebuild'
 
 **Nothing is global** except, in game/ only, what the TOC names (the SavedVariables, and
 `MagicMap_OnAddonCompartmentClick`, the addon compartment's `AddonCompartmentFunc`) and the
-`SLASH_*` names (`SlashCmdList` entries are fields of WoW's table), and four named frames:
+`SLASH_*` names (`SlashCmdList` entries are fields of WoW's table), and five named frames:
 `MagicMapFrame` (the client keeps a moved frame's place by its name),
 `MagicMapMinimapStandIn` (the Minimap's children wait on it; for code that reads a parent's
 name), `MagicMapWorldMapEscape` (game/Hooks.lua's Escape catcher:
-`UISpecialFrames` holds names) and `MagicMapFeel` (ui/Feel.lua's dialog, named there too). tools/luacheck.py fails any other global write anywhere,
+`UISpecialFrames` holds names), `MagicMapFeel` (ui/Feel.lua's settings window) and `MagicMapWelcome` (ui/Welcome.lua's
+first-run dialog), both named in `UISpecialFrames` so Escape closes them. tools/luacheck.py fails any other global write anywhere,
 any other frame name (`FRAME_NAMES`), and any use of `_G`, `setglobal`, `getfenv` or
 `setfenv` (they reach globals past the bytecode check).
 
@@ -176,8 +177,15 @@ and button zoom, drag, follow, chase, flights, idle return), ui/Chrome.lua (the 
 band and grip), ui/Controls.lua (the buttons, hover reveal, tips), ui/Title.lua (the title
 band), ui/BigMap.lua (the minimap form, grow and shrink: Model.hooked, the home spot from
 Model.minimap), ui/Menus.lua (the client's menus: the gear's layers, `Menus.Layer`, and Settings; the map's right-click),
-ui/Feel.lua (the Look & feel dialog, Settings > Advanced and /mm feel: the tracking line's style, grouping's
-tunables and the map's looks, declared once in its KEYS; `UI.Feel.Get/Set/rev`, saved as UI.saved.feel),
+ui/Replace.lua (what MagicMap replaces, the minimap and the world map: `Replace.Get/Set/Chosen`, saved as UI.saved.replace;
+it migrates 2.0's `saved.worldmap` ("Override world map", retired) and `saved.minimap` to it at load: an existing player keeps
+both on), ui/Welcome.lua (the first-run welcome, `MagicMapWelcome`: four cards, one chosen, Continue saves it through Replace;
+shown on the first open while nothing is chosen, and by `/mm welcome`), ui/Feel.lua (the settings window, `MagicMapFeel`: the gear's
+Settings, `/mm feel`, `/mm settings`, and Options -> AddOns; a sidebar of categories, General, Map, Icons, Tracking line, Quest areas,
+Grouping, Diagnostics, each page built from its settings declared once in KEYS; `UI.Feel.Get/Set/rev`, saved as UI.saved.feel, the last
+page as UI.saved.feelPage), game/Options.lua (the client's own Options -> AddOns -> MagicMap entry: a button that opens the settings
+window; nothing is made without the client's Settings API), ui/Base.lua (the base picture: one stylised texture a continent from
+Data/Base.lua and Textures/Base*.blp, drawn under the tiles at every zoom, an underlay only for where they aren't yet),
 ui/Pins.lua (the one pin store: `Pins.Layer`, StylePin, hover, pin tooltips, clicks), ui/Track.lua (a pin's
 click menu: Track any icon, the waypoint at it, `UI.saved.tracked`),
 ui/Sockets.lua (View.sockets: the world socket Game hosts other addons' HereBeDragons pins on,

@@ -4,13 +4,29 @@ The full reference behind the [README](../README.md).
 
 ## What it does
 
+**What MagicMap replaces.** The first time you open it (the minimap button, the addon compartment or
+`/mm`) a welcome asks what MagicMap should take over, as four cards: **minimap and world map**
+(recommended), **minimap only**, **world map only**, or **neither**, opened from the button alone.
+Continue saves the choice and opens the map as it says; Escape saves nothing and asks again next
+time. Until you answer, nothing of Blizzard's is touched. The choice is two switches in Settings >
+General (Replace minimap, Replace world map), live, any time; `/mm welcome` shows the welcome again.
+Players who had 2.0 keep their setup (migrated to both, no welcome).
+
+- *Minimap replaced:* our small map sits on the minimap's spot from login.
+- *Minimap not replaced:* Blizzard's minimap stays, and our map is never small: it opens big, and
+  closing it hides it. Blizzard's Minimap is still read, unseen, as the blips' sensor while our map is shown.
+- *World map replaced:* M opens our big map. Not replaced: M is Blizzard's world map, as always.
+- *Neither:* nothing of Blizzard's is touched; the minimap button, the addon compartment and `/mm`
+  open and close our big map as a window of its own.
+
 **The minimap.** It sits square on your minimap's spot, about 200 yards across, in a metal frame
 whose buttons show while you hover. The wheel or + / − zoom it, every notch a step, and the reset
 button above + (shown while you're off the default zoom) glides back to it; drag to pan, and left
 alone for 6 seconds after a pan it glides back to you (Follow you, in Settings). Move it by the
 zone name or the border (or Alt-drag the map), resize it by the corner (it keeps the yards across),
 and `/mm reset` puts it back. `/mm`, the rim button or the addon compartment swaps it for
-Blizzard's minimap, and back.
+Blizzard's minimap, and back (with the minimap replaced). The minimap button is drawn as other
+addons' buttons are (LibDBIcon's shape), draggable round the rim.
 
 <img src="images/minimap-zoomed-out.jpg" alt="The minimap zoomed out over Mulgore, with the gear, the big-map button and the zoom buttons" width="400">
 
@@ -18,7 +34,7 @@ Blizzard's minimap, and back.
 button by the zone name, reset, + and − on the right.*
 
 **The big map (M).** M or the red button grows it into a big map, centred on you; M, the button
-or Escape shrinks it. The quest log (L) still opens Blizzard's map (so does M, with Override world
+or Escape shrinks it. The quest log (L) still opens Blizzard's map (so does M, with Replace world
 map off in Settings). Click the zone name to pick a
 continent, another map or an instance; with several zones in view, hover one to light it and click
 to fly there. `/mm map` and `/mm zone` do the same by name.
@@ -29,14 +45,17 @@ to fly there. `/mm map` and `/mm zone` do the same by name.
 counts, and the walking line up to a waypoint at Razor Hill.*
 
 **The ground.** The game's minimap tiles at any zoom, as Blizzard drew them, on each map's own dark
-water; zone and subzone names, and on the big map the zone borders traced from the terrain; your
-arrow.
+backdrop (open sea isn't drawn); zone and subzone names, and on the big map the zone borders traced
+from the terrain; your arrow, with a denser shadow. Under the tiles, a one-picture stand-in for each continent
+(Eastern Kingdoms, Kalimdor: zone colours, a crisp coast) shows through wherever the tiles aren't
+there yet, so a fast zoom out or a flick never shows bare backdrop. It's never switched over to:
+the tiles are the map at every zoom.
 
 **Indoors.** In a building, Blizzard's own indoor minimap pictures, placed on our map over the
 terrain (dimmed on the small map): the rooms on your floor whole, the floors below faded and those above
 ghosted where they overlap yours, the room you're in on top. Your pins, zoom and pan work as outdoors; a
 small building (a house, an inn) zooms the small map all the way in as you walk in, and back out as you
-leave. **City
+leave (Settings > Map > Indoor auto-zoom). The big map has no dimming veil over the terrain. **City
 maps** (gear → Map, on): on the big map in a capital (Ironforge, Orgrimmar, Undercity...), every
 building of the city at once, indoors or out, what's underground faded, with the city's own area
 names (The Great Forge, the Cleft of Shadow...) among the subzone names.
@@ -60,10 +79,12 @@ minimap.*
 **Quests.** The quests in your log in Blizzard's icons, with their objective icon and count, in
 their difficulty colour; quests to pick up; a tooltip with the quest's facts, mobs, items and who
 to turn it in to. Objective areas are drawn as the game draws them (its edges and fills); the quest you follow is filled, the rest a quiet edge; hovering an area lifts it gently.
-The fills, edges and hover are adjustable in Look & feel > Quest areas.
+The fills, edges and hover are adjustable in Settings > Quest areas. The tooltip is compact: one row of
+facts with the level in its difficulty colour, a `?` icon before who takes the quest in.
 Click a quest (or its area, zoomed in) to follow it: it becomes the game's tracked quest. The quest
 pill at the bottom left shows the quest you follow and its progress, else how many of your quests
-are in this zone.
+are in this zone. A sensed quest-giver's `!` (or `?`) shows only while you still have an offer (or a
+quest to hand in) there, so it goes as soon as you accept.
 
 <img src="images/quest-tooltip.jpg" alt="A quest pin's tooltip in the Valley of Trials: Cutting Teeth, 2/10 Mottled Boar slain, turn in to Gornek" width="480">
 
@@ -71,8 +92,13 @@ are in this zone.
 The quest pill at the bottom left counts the quests in Durotar.*
 
 **Where to go.** Your target is your corpse while you're a ghost, else the quest you follow, else
-your waypoint. A hand-inked line walks you to it around cliffs, lava and water, to a quest area's
-nearest edge; off the map, a gold arrow on the edge points the way. Ctrl-click sets the game's
+your waypoint. A dotted, softly glowing line that slowly breathes walks you to it around cliffs, lava
+and water, leaving your arrow on a lazy lead-in and turning corners in rounded bends, to a quest
+area's nearest edge; off the map, a gold arrow on the edge points the way. The line's style (dotted,
+dashed, solid), weight, colour, glow, breathing and opacity are in Settings > Tracking line.
+**Click any icon to track it**: a small menu offers Track (Stop tracking while it's the tracked one);
+that sets the game's waypoint at the icon, which wears the followed quest's gold ring, and the line and
+the title go to it. A quest icon's row is "Track quest" (it follows the quest). Ctrl-click sets the game's
 waypoint (Ctrl-right-click clears it), Shift-click opens chat with a `/way` line, and right-click
 offers both. A tracking pill at the top left of the map gives the yards along the route to the
 target and a plain ETA at your pace. On the big map, right-click leads with what's there: zone, subzones, coordinates, level
@@ -88,19 +114,34 @@ raid members in class colours; rares you've seen, remembered for every character
 the rares and treasures the game shows now; your corpse and waypoint.
 
 **Crowded icons.** Where icons overlap they group into a small pill of up to two icons (`+N` for
-the rest); click it for a grid of them all, each with its own tooltip and click (Settings: Group
-overlapping icons; its tunables under Advanced).
+the rest, sized to its digits); click it for a grid of them all, each with its own tooltip and click
+(Settings > General > Group icons; its tunables under Settings > Grouping).
 
 **Other addons.** World-map pins added through HereBeDragons (Questie, HandyNotes...) show on the
 map with their own icons, tooltips and clicks, each addon a row in the gear's Other addons; their
 minimap pins (GatherMate...) show around you. Nothing is drawn twice.
 
-**The gear menu** (by the zone name): the layers by group, each row with its icon and an "All" box
-on top: Map (zone labels, zone borders, City maps), Quests, Places, Nearby (rares and treasures,
-party and raid, then Blizzard's tracking types), Other addons. Then Use Blizzard's minimap and Reset
-to defaults, then Settings: Follow you, Override world map (on: M opens our map; off: M opens Blizzard's),
-Group overlapping icons, Minimap button, Reset window
-position, Advanced (diagnostics, grouping, performance). Settings are account-wide.
+**The gear menu** (by the zone name): the layers by group, each row with its icon, an "All" box
+on top and the n/total shown in the group's name: Map (zone labels, zone borders, City maps), Quests,
+Places, Nearby (rares and treasures, party and raid, then Blizzard's tracking types), Other addons.
+Then Use Blizzard's minimap (while ours replaces it; Blizzard's logo on the row) and Reset to defaults,
+then Settings.
+
+**Settings.** A window of its own (the gear's Settings, `/mm feel` or `/mm settings`, or Game menu >
+Options > AddOns > MagicMap > Open MagicMap Settings), a sidebar of categories with the page of the
+chosen one beside it (the last is remembered). Every change applies at once; each page has its own
+Reset (General and Diagnostics are switches and actions, so none), and Reset all at the bottom.
+Settings are account-wide.
+
+| Page | Settings (default) |
+| --- | --- |
+| General | Replace minimap, Replace world map (what the welcome chose); Follow you (on); Minimap button (on); Group icons (on); Reset window position |
+| Map | Label size (100%); Subzone size (100%); Subzone opacity (60%); Border opacity (100%); Border width (100%); Your arrow's size (100%); Info pill backing (40%); Indoor dimming (65%); Indoor auto-zoom (on) |
+| Icons | Icon size (100%); Quest icon size (100%) |
+| Tracking line | Style (dotted); Weight (1.6 px); Colour (Parchment); Glow (on); Breathing (on); Opacity (100%) |
+| Quest areas | The followed quest's fill, edge and edge width; the others' fill, edge and edge width; the hover's fill and edge (as the game draws them, a quiet fill by default) |
+| Grouping | Distance (24 px); Reach (3x); Smallest group (2 icons); Icons in a pill (2); Group pill backing (35%) |
+| Diagnostics | Debug info in title; Indoor maps report; Record 10 seconds; Compare with other addons; Memory breakdown (each also a `/mm` command) |
 
 ## Commands
 
@@ -112,6 +153,7 @@ position, Advanced (diagnostics, grouping, performance). Settings are account-wi
 | `/mm reset` | Back onto the minimap's spot, at its size |
 | `/mm layers`, `/mm layer <name>` | What's drawn; show or hide one layer |
 | `/mm icon` | The minimap button |
+| `/mm feel`, `/mm settings`, `/mm welcome` | The settings window; the first-run welcome again |
 | `/mm mark <note>` | Note something for the bug report (saved at `/reload` or logout) |
 | `/mm landmarks`, `/mm indoor`, `/mm blips` | Rares remembered; the building and room you're in; what the sensor knows |
 | `/mm help` | Every command, the diagnostics too (`perf`, `errors`, `check`...) |

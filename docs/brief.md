@@ -60,6 +60,16 @@ the map's follow button, "Estimate missing areas" and the corpse, waypoint, blip
 packed rows (Npcs, Objects, Items, Quests format 2); grouping's pills hold two icons by default; a tracking pill at the
 top left (yards along the route, ETA) and the title band no longer shows yards; the path's ADD-blended dashes, slow
 breath and yard lead-in; the route's corners rounded with Beziers; the minimap button on LibDBIcon's geometry.
+Released as **2.1.0** (a minor release on 2.0.0; notes in dist/RELEASE_NOTES-v2.1.0.md, the in-game checklist in
+docs/playtest-2.1.md): grouped icon pills and tighter map pills (the quest pill bottom left, the tracking pill top left);
+zoom reset above +/-; click any icon to Track it (ui/Track.lua); the tracking line dotted, glowing, breathing, on lazier turns;
+the quest tooltip compact; quest areas back to Blizzard's own art with a gentler hover (custom textures were tried and dropped:
+QuestPOIFrame loads only client files); a baked base picture per continent under the tiles (ui/Base.lua, Data/Base.lua,
+Textures/Base*.blp, tools/gen_base.py), an underlay only; indoors: a small building zooms the small map in, no veil on the big
+map; the sea stays gone; the settings window (ui/Feel.lua, `MagicMapFeel`: sidebar categories) plus an Options -> AddOns entry
+(game/Options.lua); replace modes (ui/Replace.lua: minimap, world map, both, neither) chosen in a first-run welcome
+(ui/Welcome.lua, `MagicMapWelcome`) which retires 2.0's Override world map (migrated: existing players keep both); the stale
+quest-giver "!" after accepting a quest fixed; memory cuts (packed QuestieDB rows).
 
 ## 2. Rules for every package (v1-plan §3)
 

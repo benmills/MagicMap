@@ -26,7 +26,8 @@ or Ironforge. On the big map, a capital shows all its buildings at once, with it
 
 **Quests at a glance.** Your quests with their progress, objective areas as the game draws them, quests
 to pick up, and a tooltip with the mobs, items and who to turn in to. Click a quest to follow it and a
-hand-drawn line walks you there, around cliffs, water and lava.
+dotted line walks you there, around cliffs, water and lava. Or click any icon on the map and choose
+Track: the line goes to it, with the distance and an estimated time in a small pill.
 
 ![A followed quest at Camp Narache: the line to its turn-in](docs/images/followed-quest-route.jpg)
 
@@ -38,7 +39,13 @@ passed. Rares you've seen are remembered for every character.
 
 **Tidy and familiar.** Blizzard's own art and icons, crowded icons grouped into a small pill you can
 open, flight points, dungeons and your party on the map, and pins from Questie, HandyNotes and
-GatherMate where you'd expect them. Everything can be switched on or off from the gear menu.
+GatherMate where you'd expect them. Layers switch on and off from the gear menu.
+
+**Yours to set up.** The first time you open it, a short welcome asks what MagicMap should replace:
+your minimap, the world map (M), both, or neither (then the minimap button opens it as a window of its
+own). Change your mind any time in the Settings window, which also tunes the look: label and icon
+sizes, the tracking line's style and colour, the quest areas, the grouping of crowded icons. It's
+in the gear menu and under Options > AddOns.
 
 **Light and safe.** The map does its work in small slices so the game stays smooth, catches its own
 errors without breaking, and gives Blizzard's minimap back exactly as it was when you turn it off.
@@ -47,10 +54,11 @@ errors without breaking, and gives Blizzard's minimap back exactly as it was whe
 
 ## Install
 
-1. Download `MagicMap-v2.0.0.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest).
+1. Download `MagicMap-v2.1.0.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest).
 2. Unzip it into `World of Warcraft/_classic_beta_/Interface/AddOns/`, so you have
    `Interface/AddOns/MagicMap/MagicMap.toc`. Updating from 1.x: delete the old `MagicMap` folder first.
 3. Restart the game (a `/reload` isn't enough the first time) and tick MagicMap in the AddOns list.
+4. Click the minimap button: the welcome asks what MagicMap replaces. (Updating from 2.0 keeps your setup.)
 
 You don't need any other addon: the quest data is built in.
 
@@ -59,10 +67,11 @@ You don't need any other addon: the quest data is built in.
 | | |
 | --- | --- |
 | **Zoom, pan** | Mouse wheel or + / −; drag the map. Reset (above +) goes back to the default zoom. |
-| **Big map** | M or the red button; M or Escape to shrink. |
+| **Big map** | M or the red button; M or Escape to shrink (if you kept Blizzard's world map, the button or `/mm` opens ours). |
 | **Follow a quest** | Click its pin; the quest pill at the bottom left shows its progress. |
+| **Track any icon** | Click it and choose Track; the pill at the top left gives the yards and time. |
 | **Waypoint** | Ctrl-click the map; right-click for more. |
-| **Settings** | The gear by the zone name. |
+| **Settings** | The gear by the zone name, then Settings; or Options > AddOns > MagicMap; or `/mm settings`. |
 | **Commands** | `/mm` swaps MagicMap and Blizzard's minimap; `/mm help` lists the rest. |
 
 **Limits:** WoW Forever only (English clients), on the game build it was made for. Instances hide your

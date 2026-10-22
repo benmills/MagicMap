@@ -1,0 +1,89 @@
+# Play-testing 2.1: a beta-session checklist
+
+For the next session on WoW Forever with the 2.1.0 tree installed (`.venv/bin/python tools/install.py`, then
+restart the game: new files need it). Each line is an action and what should happen. Note anything else with
+`/mm mark <what you saw>` and a screenshot. Items tagged **[unverified]** have never been seen in the real
+client: they are the likeliest to be wrong.
+
+## 1. Welcome and modes
+
+- Fresh start (delete `MagicMap2DB` from `WTF/.../SavedVariables/MagicMap.lua` with the game closed), log in:
+  Blizzard's minimap and world map are untouched, nothing of ours shows. Click the minimap button: the welcome
+  opens with four cards, the first (minimap and world map) chosen and marked recommended.
+- Escape on the welcome: it closes and nothing changes; click the button again and it asks again.
+- Pick each mode with Continue, and `/mm welcome` to return between them:
+  - **Minimap and world map:** our small map is on the minimap's spot at once; M opens our big map.
+  - **Minimap only:** our small map on the minimap's spot; M opens Blizzard's world map.
+  - **World map only:** Blizzard's minimap stays and works; the map opens big; M opens ours; closing it
+    hides it (it never shrinks to a minimap).
+  - **Neither:** nothing of Blizzard's changes; the minimap button, the addon compartment and `/mm` open and
+    close our big map as a window.
+- Settings > General: flip Replace minimap and Replace world map live; the map appears, hides or changes
+  M's behaviour straight away, without `/reload`.
+- Update path: with a 2.0 save (SavedVariables from before), log in: no welcome, both replaced as before.
+- Gear menu: "Use Blizzard's minimap" shows only while ours replaces the minimap, with Blizzard's logo.
+
+## 2. The Settings window
+
+- Gear, then Settings; `/mm settings`; and Game menu > Options > AddOns > MagicMap > Open MagicMap Settings
+  (the Options window closes behind it): each opens the same window. Escape closes it; reopening shows the
+  last page you used.
+- **[unverified]** The window looks right as the client's ButtonFrameTemplate: header bar, close button, sidebar
+  icons not clipped, nothing overlapping the footer, draggable by its header, clamped to the screen.
+- Visit every page (General, Map, Icons, Tracking line, Quest areas, Grouping, Diagnostics). **[unverified]**
+  Slider art: the track and thumb look like the client's, the value reads beside the label, the thumb follows
+  the mouse and the value is right at both ends.
+- Drag a slider on each page with the map visible: it changes live (label size, border width, arrow size,
+  icon size, pill backing, indoor dimming; line weight and opacity; area fills; grouping distance).
+- Each page's Reset puts its own settings back; Reset all (bottom) puts everything back and the widgets follow.
+  `/reload`: changed values persist.
+- Diagnostics: each row prints in chat or toggles (record 10 seconds, compare, memory).
+
+## 3. Tracking and the line
+
+- Click an icon (a flight point, a mailbox, a rare, a quest pin): a small menu with the icon's name and Track.
+  Track: the line goes to it, the icon gets a gold ring, the title names it, and the tracking pill (top left of
+  the map) shows yards and a time estimate. The menu then says Stop tracking.
+- Click a quest pin: the row is "Track quest" and follows it (the quest pill at the bottom left shows progress).
+- Click an icon inside a grouped pill's grid: the same menu.
+- Ctrl-right-click (clear waypoint): the tracking ends and the ring goes.
+- The line is **dotted** (not dashes) with a soft glow and a slow breath; it leaves your arrow with a gentle fade;
+  a turning route bends in rounded corners, and turns lazily as you move. Settings > Tracking line: Dashed and
+  Solid change it live; colour, glow and breathing toggle.
+
+## 4. Icons and pills
+
+- A crowd of icons (a town) becomes pills of two icons and "+N"; click one for the grid. Group icons off in
+  Settings > General ungroups them.
+- The quest pill (bottom left) and tracking pill (top left) are small and quiet; Info pill backing changes
+  how dark they are. Zoom reset above +/- appears only when off the default zoom.
+- Minimap button: round, with the ring and shape of other addons' buttons (LibDBIcon), dragging round the rim.
+
+## 5. Quests
+
+- Quest tooltip: a compact one-row of facts, level in its difficulty colour, "Group N" where it applies;
+  turn-in shown with a `?` icon before who takes it in; no "Dropped by" heading.
+- Quest areas look like Blizzard's own, the followed quest filled lightly, others a quiet edge; hover an area
+  or its pin: it lifts gently, not harshly. Settings > Quest areas sliders restyle live.
+- Accept a quest from an NPC you can sense on the map: the "!" over that NPC disappears as soon as the quest
+  is in your log (no stale "!"). Hand it in: the "?" goes the same way.
+
+## 6. Ground, base picture and indoors
+
+- **[unverified]** The base pictures load (Textures/BaseEasternKingdoms.blp, BaseKalimdor.blp): zoom all the
+  way out in Kalimdor and Eastern Kingdoms, and flick the wheel fast out and in: where tiles haven't drawn yet
+  you see flat zone-coloured ground with a clean coast, not the dark backdrop or a broken/white texture.
+  If it's missing, nothing breaks but gaps show backdrop: note it.
+- **[unverified]** No seam where the picture meets the open sea (the dark backdrop) at the coast, at any zoom
+  and when panning; no hairline between tiles on the big map.
+- The sea itself is not drawn: tiles over a dark backdrop. Zone borders and names are as before.
+- Walk into a small building (an inn, a house): the small map zooms in by itself; walking out zooms back.
+  Settings > Map > Indoor auto-zoom off stops it. Indoors the small map dims the terrain (Indoor dimming);
+  on the big map there is no veil.
+- A capital (Ironforge, Orgrimmar) on the big map: whole city, its area names (as 2.0).
+
+## 7. Memory and performance (a glance)
+
+- `/mm perf mem` after a session: note MagicMap's total; the quest data was packed in 2.1, so it should be lower
+  than 2.0's.
+- `/mm errors` after the session: none expected.
