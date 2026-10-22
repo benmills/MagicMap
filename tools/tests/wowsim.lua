@@ -530,6 +530,7 @@ local SCRIPTS = {
 	OnUpdate = true, OnEvent = true, OnShow = true, OnHide = true, OnClick = true, OnEnter = true, OnLeave = true,
 	OnMouseDown = true, OnMouseUp = true, OnMouseWheel = true, OnDragStart = true, OnDragStop = true,
 	OnSizeChanged = true, OnLoad = true, OnReceiveDrag = true, OnDoubleClick = true, OnTooltipCleared = true,
+	OnValueChanged = true,
 }
 function Frame:SetScript(name, fn)
 	assert(SCRIPTS[name], "SetScript: unknown script " .. tostring(name))
@@ -637,6 +638,38 @@ function Button:IsEnabled() return not S[self].disabled end
 function Button:Click(button) Sim.FireScript(self, "OnClick", button or "LeftButton", false) end
 function Button:SetText(t) S[self].text = t end
 function Button:GetText() return S[self].text end
+
+-- CheckButton: a click flips it before OnClick, as the client does (Sim.Click too).
+local CheckButton = class("CheckButton", "Button")
+function CheckButton:SetChecked(on) S[self].checked = not not on end
+function CheckButton:GetChecked() return S[self].checked == true end
+function CheckButton:SetCheckedTexture(t) buttonTexture(self, "checkedTex", t) end
+function CheckButton:GetCheckedTexture() return S[self].checkedTex end
+function CheckButton:Click(button)
+	S[self].checked = not S[self].checked
+	Sim.FireScript(self, "OnClick", button or "LeftButton", false)
+end
+
+-- Slider: a value between its bounds, on its step; SetValue fires OnValueChanged when it moves (userInput false).
+local Slider = class("Slider", "Frame")
+function Slider:SetMinMaxValues(lo, hi) assert(type(lo) == "number" and type(hi) == "number" and lo <= hi, "SetMinMaxValues: lo <= hi expected"); S[self].lo, S[self].hi = lo, hi end
+function Slider:GetMinMaxValues() return S[self].lo or 0, S[self].hi or 0 end
+function Slider:SetValueStep(step) assert(type(step) == "number", "SetValueStep: number expected"); S[self].step = step end
+function Slider:GetValueStep() return S[self].step or 0 end
+function Slider:SetObeyStepOnDrag(on) S[self].obeyStep = not not on end
+function Slider:SetOrientation(o) assert(o == "HORIZONTAL" or o == "VERTICAL", "SetOrientation: bad value"); S[self].orientation = o end
+function Slider:GetOrientation() return S[self].orientation or "HORIZONTAL" end
+function Slider:SetThumbTexture(t) buttonTexture(self, "thumb", t) end
+function Slider:GetThumbTexture() return S[self].thumb end
+function Slider:SetValue(v)
+	assert(type(v) == "number", "SetValue: number expected")
+	local st = S[self]
+	v = math.max(st.lo or 0, math.min(st.hi or 0, v))
+	if st.value == v then return end
+	st.value = v
+	Sim.FireScript(self, "OnValueChanged", v, false)
+end
+function Slider:GetValue() return S[self].value or S[self].lo or 0 end
 
 -- GameTooltip: lines are font strings named <name>TextLeft<i>, as in the game.
 local Tooltip = class("GameTooltip", "Frame")
@@ -839,10 +872,12 @@ function POI:UpdateMouseOverTooltip(x, y)
 end
 function POI:GetTooltipIndex() return 0 end
 
-local FRAME_TYPES = { Frame = "Frame", Button = "Button", GameTooltip = "GameTooltip", ScrollFrame = "ScrollFrame" }
+local FRAME_TYPES = { Frame = "Frame", Button = "Button", CheckButton = "CheckButton", Slider = "Slider",
+	GameTooltip = "GameTooltip", ScrollFrame = "ScrollFrame" }
 FRAME_TYPES.QuestPOIFrame = "QuestPOIFrame"
 
-local TEMPLATES = { UIPanelCloseButton = true, GameTooltipTemplate = true, ButtonFrameTemplate = true, BackdropTemplate = true }
+local TEMPLATES = { UIPanelCloseButton = true, UIPanelButtonTemplate = true, GameTooltipTemplate = true, ButtonFrameTemplate = true,
+	BackdropTemplate = true }
 
 function CreateFrame(typ, name, parent, template)
 	local cls = FRAME_TYPES[typ]
@@ -977,6 +1012,7 @@ function Sim.Click(frame, button, fx, fy, at)
 	Sim.Step()
 	Sim.buttonsDown[button] = nil
 	Sim.FireScript(frame, "OnMouseUp", button)
+	if isA(frame, "CheckButton") then S[frame].checked = not S[frame].checked end
 	Sim.FireScript(frame, "OnClick", button, false)
 	Sim.Step()
 end
@@ -1215,6 +1251,9 @@ function ChatFrame_OpenChat(text) Sim.chat = text end
 ChatFrameUtil = { OpenChat = function(text) Sim.chat = text end }
 
 GameFontNormal = { GetFont = function() return STANDARD_TEXT_FONT, 12, "" end }
+GameFontNormalSmall = { GetFont = function() return STANDARD_TEXT_FONT, 10, "" end }
+GameFontHighlight = { GetFont = function() return STANDARD_TEXT_FONT, 12, "" end }
+GameFontHighlightSmall = { GetFont = function() return STANDARD_TEXT_FONT, 10, "" end }
 GameTooltipText = { GetFont = function() return STANDARD_TEXT_FONT, 12, "" end }
 GameTooltipTextSmall = { GetFont = function() return STANDARD_TEXT_FONT, 10, "" end }
 GameTooltip = CreateFrame("GameTooltip", "GameTooltip", UIParent, "GameTooltipTemplate")

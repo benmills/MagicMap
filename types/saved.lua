@@ -66,6 +66,7 @@
 ---@field cluster? boolean          overlapping pins grouped into pills (ui/Cluster.lua); nil: on
 ---@field worldmap? boolean         M opens our map over Blizzard's world map (game/Hooks.lua); nil: on
 ---@field clusterTune? table<string, number> grouping's tunables changed from Cluster.DEFAULTS (range, reach, min, slots, alpha)
+---@field feel? table<string, number|string|boolean>  the Look & feel dialog's settings changed from their defaults, by key ("path.style", "labels.scale"...: ui/Feel.lua KEYS); nil when none is
 ---@field debug boolean             /mm debug's title line (Core.lua:1746-1748); default false
 
 -- Model --------------------------------------------------------------------------------

@@ -4,7 +4,8 @@
 --     UI hears "worldmap" (it grows or shrinks the window). M closing Blizzard's map (opened by L,
 --     the quest log) is left alone; so is M in combat, where hiding it is blocked (spike-bugs K2):
 --     Blizzard's opens as usual.
---   Escape while big: a catcher in UISpecialFrames is shown, and Escape closing it is "escape".
+--   Escape while big: a catcher in UISpecialFrames is shown, and Escape closing it is "escape"
+--   (the Look & feel dialog, ui/Feel.lua, is named there too).
 -- What's caught (game/Button.lua's "toggle" too) is handed over as obs.hooked, its own part:
 -- everything since the last observe, each a constant table.
 -- /mm check combat answers the M1 gate's question for the guard (the spike has none,
@@ -39,6 +40,9 @@ tinsert(UISpecialFrames, catcher:GetName())
 catcher:SetScript("OnHide", Runtime.Wrap("game: escape", function()
 	if big then Game.Hooked("escape") end
 end))
+-- UI's Look & feel dialog (ui/Feel.lua, made on its first open) closes on Escape too: the client reads the
+-- name when Escape is pressed, so it's registered before the frame exists.
+tinsert(UISpecialFrames, "MagicMapFeel")
 
 Game.Apply("hooks", function(view)
 	local w = view.window

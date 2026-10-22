@@ -3,7 +3,7 @@
 a checkbox with its tip (white title, gold body) that keeps the menu open, its icon beside it, a sub-option indented and
 greyed while its parent is off, each group's row with its n/total; Nearby's Blizzard tracking types; then Use Blizzard's
 minimap and Reset to defaults; then Settings: Follow you, Override world map, Group overlapping icons, Minimap button,
-Reset window position, Advanced (Diagnostics, Grouping, Performance), the same small
+Reset window position, Advanced (Diagnostics, Look & feel…, Performance), the same small
 and big. Every row works: a layer's toggle empties and redraws what it draws (and View.layers, for Game's: the
 blip sensor, Questie's borrowed pins) and is saved, the changed keys only, across a /reload; a layer off by
 default stays so until turned on; rows in the spike's order whenever added; each setting does what it says;
@@ -18,11 +18,10 @@ LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Quests": "quests"
           "Quests to pick up": "offers", "Rares & treasures": "rares"}
 SETTINGS = [("checkbox", "Follow you"), ("checkbox", "Override world map"), ("checkbox", "Group overlapping icons"), ("checkbox", "Minimap button"),
             ("button", "Reset window position"), ("button", "Advanced")]
+FEEL = "Look & feel\u2026".encode("utf-8").decode("latin-1")  # the row's label, as the sim's Lua (latin-1) reads it
 ADVANCED = [("title", "Diagnostics"), ("checkbox", "Debug info in the title"), ("checkbox", "Indoor maps"),
-            ("divider", None), ("title", "Grouping"), ("button", "Distance"), ("button", "Reach"),
-            ("button", "Smallest group"), ("button", "Icons in a pill"), ("button", "Pill background"),
-            ("button", "Reset grouping"), ("divider", None), ("title", "Performance"), ("checkbox", "Record 10 seconds"),
-            ("button", "Compare with other addons"), ("button", "Memory breakdown")]
+            ("divider", None), ("button", FEEL), ("divider", None), ("title", "Performance"),
+            ("checkbox", "Record 10 seconds"), ("button", "Compare with other addons"), ("button", "Memory breakdown")]
 WHITE, GOLD = (1, 1, 1), (1, 0.82, 0)
 SEEN = ("MagicMap2DB.Model = MagicMap2DB.Model or { _v = 1, blips = {}, rares = { [0] = { ['npc:1'] = "
         "{ name = 'Rare', npcID = 1, col = 31.97, row = 49.74, t = 1792077412 } } } }")  # a rare you've seen
@@ -363,17 +362,13 @@ def test_gear_groups_and_reset():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
-def test_gear_grouping_tunables():
-    """Advanced > Grouping: a choice sets its tunable (saved only while it differs), Reset grouping clears them."""
+def test_gear_look_feel():
+    """Advanced > Look & feel…: a button (the menu closes) that opens the dialog (ui/Feel.lua: test_lookfeel.py), with its tip."""
     L, sim, ns, pin = shown()
-    C, saved = ns.UI.Cluster, L.globals().MagicMap2DB.UI
     root, _ = gear(sim, ns)
-    adv = sub(sub(root, "Settings"), "Advanced")
-    dist = {plain(e.text): e for e in sub(adv, "Distance")["items"].values()}
-    assert dist["24 px  (default)"].isSelected() is True
-    dist["32 px"].onSelect()
-    assert C.Get("range") == 32 and saved.clusterTune.range == 32 and dist["32 px"].isSelected() is True
-    sub(adv, "Reset grouping").onSelect()
-    sim.Step()
-    assert C.Get("range") == 24 and saved.clusterTune is None
+    row = sub(sub(sub(root, "Settings"), "Advanced"), FEEL)
+    assert tip(L, row)[0] == (FEEL,) + WHITE and tip(L, row)[1][0].startswith("A dialog for the tracking line")
+    assert row.onSelect() is None
+    f = ns.UI.Feel.frame
+    assert f.IsShown(f) and f.GetFrameStrata(f) == "DIALOG"
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

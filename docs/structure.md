@@ -54,11 +54,11 @@ wrapper"), never a global: a global is shared with every addon, and the rebuild'
 
 **Nothing is global** except, in game/ only, what the TOC names (the SavedVariables, and
 `MagicMap_OnAddonCompartmentClick`, the addon compartment's `AddonCompartmentFunc`) and the
-`SLASH_*` names (`SlashCmdList` entries are fields of WoW's table), and three named frames:
+`SLASH_*` names (`SlashCmdList` entries are fields of WoW's table), and four named frames:
 `MagicMapFrame` (the client keeps a moved frame's place by its name),
 `MagicMapMinimapStandIn` (the Minimap's children wait on it; for code that reads a parent's
-name) and `MagicMapWorldMapEscape` (game/Hooks.lua's Escape catcher:
-`UISpecialFrames` holds names). tools/luacheck.py fails any other global write anywhere,
+name), `MagicMapWorldMapEscape` (game/Hooks.lua's Escape catcher:
+`UISpecialFrames` holds names) and `MagicMapFeel` (ui/Feel.lua's dialog, named there too). tools/luacheck.py fails any other global write anywhere,
 any other frame name (`FRAME_NAMES`), and any use of `_G`, `setglobal`, `getfenv` or
 `setfenv` (they reach globals past the bytecode check).
 
@@ -176,6 +176,8 @@ and button zoom, drag, follow, chase, flights, idle return), ui/Chrome.lua (the 
 band and grip), ui/Controls.lua (the buttons, hover reveal, tips), ui/Title.lua (the title
 band), ui/BigMap.lua (the minimap form, grow and shrink: Model.hooked, the home spot from
 Model.minimap), ui/Menus.lua (the client's menus: the gear's layers, `Menus.Layer`, and Settings; the map's right-click),
+ui/Feel.lua (the Look & feel dialog, Settings > Advanced and /mm feel: the tracking line's style, grouping's
+tunables and the map's looks, declared once in its KEYS; `UI.Feel.Get/Set/rev`, saved as UI.saved.feel),
 ui/Pins.lua (the one pin store: `Pins.Layer`, StylePin, hover, pin tooltips, clicks),
 ui/Sockets.lua (View.sockets: the world socket Game hosts other addons' HereBeDragons pins on,
 game/AddonPins.lua) and ui/You.lua (your arrow, over them all). The spike bugs' replays are one
