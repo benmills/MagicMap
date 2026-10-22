@@ -52,8 +52,12 @@ MAX_SIDE = 2048    # a texture's side at most
 CHUNKS = 16        # AreaGrid's chunks a tile side
 OVER = 2           # the land/water test and its clean-up at this times the picture's resolution
 SHADE = 0.28       # land darkened this much at the coast, to nothing PX / 8 inside it
-SMOOTH = 1.3       # px at OVER x: the coast rounded (blurred, cut at half)
-LAND_BLUR = 0.6    # px at OVER x: the mask's edge softened before it is averaged down (the antialiasing)
+SMOOTH = 0.045     # tiles: the coast blurred this wide (sigma), then cut with a RAMP-steep edge: a clean line
+RAMP = 7
+LAKE = 0.25        # tiles squared: an inland lake smaller than this is land (Loch Modan stays)
+ISLE = 0.125       # tiles squared: an island smaller than this is water
+MODE, MODE_PASSES = 11, 2  # px: the zones' mode filter, over the chunk grid's stairs
+LIFT_V, LIFT_S, VMAX = 1.3, 1.25, 0.72  # a zone's colour lifted to read as the live tiles do; snow's cap
 # Water: dark and blue-green (R low, B not far under G), or nearly black.
 WATER_R, WATER_BG = 24, 0.5
 BLACK = 14
@@ -127,7 +131,7 @@ def land_mask(im: Image.Image) -> Image.Image:
     land = ImageChops.invert(water)
     land = land.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(5))  # close: holes in land
     land = land.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(3))  # open: land specks
-    return land.filter(ImageFilter.GaussianBlur(SMOOTH)).point(lambda v: 255 if v > 127 else 0)  # the coast's jags rounded
+    return land
 
 
 def zone_of(data, inst: int) -> dict[int, int]:
@@ -201,22 +205,70 @@ def zone_colours(grid, im: Image.Image, mask: Image.Image) -> dict[int, tuple[in
     return {z: tuple(round(v / n[z]) for v in s) for z, s in sums.items() if n[z] > 0}
 
 
+def clean(binary: Image.Image, lake: int, isle: int) -> Image.Image:
+    """Components of a 0/255 image: land under isle px goes to water, then water under lake px that
+    doesn't reach the picture's edge (the open sea) goes to land."""
+    w, h = binary.size
+    data = bytearray(binary.tobytes())
+    for value, keep_edge, least in ((255, False, isle), (0, True, lake)):
+        seen = bytearray(w * h)
+        for start in range(w * h):
+            if data[start] != value or seen[start]:
+                continue
+            seen[start] = 1
+            comp, stack, edge = [start], [start], False
+            while stack:
+                i = stack.pop()
+                x, y = i % w, i // w
+                if x == 0 or y == 0 or x == w - 1 or y == h - 1:
+                    edge = True
+                for j in ((i - 1) if x else -1, (i + 1) if x < w - 1 else -1, (i - w) if y else -1, (i + w) if y < h - 1 else -1):
+                    if j >= 0 and data[j] == value and not seen[j]:
+                        seen[j] = 1
+                        comp.append(j)
+                        stack.append(j)
+            if len(comp) < least and not (keep_edge and edge):
+                for i in comp:
+                    data[i] = 255 - value
+    return Image.frombytes("L", (w, h), bytes(data))
+
+
+def lift(c: tuple[int, int, int]) -> tuple[int, int, int]:
+    """A zone colour as the live map reads it: the tiles' mean is darker than they look (their texture
+    is shadow), so value and saturation up a little, and snow capped short of glare."""
+    import colorsys
+    hh, ss, vv = colorsys.rgb_to_hsv(*(v / 255 for v in c))
+    ss, vv = min(1.0, ss * LIFT_S), min(VMAX, vv * LIFT_V)
+    return tuple(round(v * 255) for v in colorsys.hsv_to_rgb(hh, ss, vv))
+
+
 def bake(data, src_means: dict[int, bytes], inst: int, bg: tuple, c0: int, r0: int, c1: int, r1: int, px: int):
     """(the picture at px a tile, RGB; the zone colours)."""
     s = px * OVER
     im = mosaic(src_means, c0, r0, c1, r1, s, bg)
     mask = land_mask(im)
     grid = chunk_zones(data, inst, c0, r0, c1, r1)
-    cols = zone_colours(grid, im, mask)
-    fallback = (110, 100, 70)
-    cw, ch = len(grid[0]), len(grid)
-    zim = Image.new("RGB", (cw, ch))
-    zim.putdata([cols.get(z, fallback) for row in grid for z in row])
-    # Colour at the picture's resolution (bilinear: a chunk's blend), the mask softened a touch, both
-    # averaged down: the coast's edge is a pixel of the mix.
+    cols = {z: lift(c) for z, c in zone_colours(grid, im, mask).items()}
     w, h = (c1 - c0) * px, (r1 - r0) * px
-    land = zim.resize((w, h), Image.BILINEAR).filter(ImageFilter.GaussianBlur(px / CHUNKS))  # (the chunks' stairs rounded)
-    m = mask.filter(ImageFilter.GaussianBlur(LAND_BLUR)).resize((w, h), Image.BOX)
+    # The coast: the mask at the picture's resolution, its land specks and small lakes gone (clean), then
+    # blurred wide and cut with a steep ramp: a smooth line, one pixel of antialiasing.
+    sea = mask.resize((w, h), Image.BOX).point(lambda v: 255 if v > 127 else 0)
+    sea = clean(sea, int(px * px * LAKE), int(px * px * ISLE))
+    m = sea.filter(ImageFilter.GaussianBlur(px * SMOOTH)).point(lambda v: max(0, min(255, int((v - 127.5) * RAMP + 127.5))))
+    # The zones: ids on the chunk grid, the picture's resolution, a mode filter over them (the chunks'
+    # stairs rounded), then coloured and softened a touch.
+    ids = {z: i + 1 for i, z in enumerate(sorted({z for row in grid for z in row}))}
+    zid = Image.new("L", (len(grid[0]), len(grid)))
+    zid.putdata([ids[z] for row in grid for z in row])
+    zid = zid.resize((w, h), Image.NEAREST)
+    for _ in range(MODE_PASSES):
+        zid = zid.filter(ImageFilter.ModeFilter(MODE))
+    fallback = (110, 100, 70)
+    lut = [(0, 0, 0)] * 256
+    for z, i in ids.items():
+        lut[i] = cols.get(z, fallback)
+    land = Image.merge("RGB", tuple(zid.point([c[k] for c in lut]) for k in range(3)))
+    land = land.filter(ImageFilter.GaussianBlur(px / CHUNKS / 2))
     shade = m.filter(ImageFilter.GaussianBlur(px / 8))  # 255 deep inland, less toward the coast
     k = shade.point(lambda v: int(255 * (1 - SHADE * (1 - v / 255))))
     land = ImageChops.multiply(land, Image.merge("RGB", (k, k, k)))
