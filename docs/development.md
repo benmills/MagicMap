@@ -17,7 +17,7 @@ NPCs / objects / items / quests, coordinates and camera maths), from data the of
 ## Regenerate data
 
 Each generator reads a local install (see its docstring for options) and states the build
-in its output's header. Run them in this order: gen_tilecolor and gen_interiors read Data/Tiles.lua, gen_questie
+in its output's header. Run them in this order: gen_tilecolor and gen_interiors read Data/Tiles.lua (gen_base too, with TileColor, Areas and AreaGrid, so it runs after them), gen_questie
 reads Data/UiMaps.lua from gen_world and gen_world's ItemIcons reads gen_questie's
 Data/Items.lua (the data diet), so gen_world runs again after it; gen_labels reads Borders,
 Places, Areas, UiMaps, Tiles and Walk, so it runs last. The rest are independent. gen_questie's
@@ -35,6 +35,7 @@ their GPLv3 terms (NOTICE.md); they're committed like the rest.
     .venv/bin/python tools/gen_world.py     local "$W" wow_classic_beta -o Data   # again: ItemIcons for the items kept
     .venv/bin/python tools/gen_labels.py    -o Data/Labels.lua
     .venv/bin/python tools/gen_interiors.py local "$W" wow_classic_beta -o Data/Interiors.lua   # reads Data/Tiles.lua's maps
+    .venv/bin/python tools/gen_base.py      local "$W" wow_classic_beta   # Textures/Base*.blp and Data/Base.lua; reads Tiles, TileColor, Areas, AreaGrid (--preview DIR: PNGs)
 
 The demo's assets, after the above:
 

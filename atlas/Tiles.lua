@@ -59,3 +59,10 @@ function Atlas.Drawn(inst, key)
 	local colors = Data.TileColor and Data.TileColor[inst]
 	return tiles and tiles[key] and not (colors and colors.sea and colors.sea[key]) and true or false
 end
+
+-- A map's base picture (Data/Base.lua, tools/gen_base.py), the continents'; nil: none.
+-- { file (under the addon's folder), c0, r0, c1, r1 (the tile rect it covers), px (a tile), w, h (the texture) }
+function Atlas.Base(inst)
+	local b = Data.Base
+	return b and b[inst]
+end
