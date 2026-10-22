@@ -11,7 +11,8 @@
 --            (D6), the oldest dropped; not one Atlas's services have (Model.ServiceNear: Blips.lua:581-605).
 --            Without one (herbs and ore: an atlas; other NPCs) it's shown only while sensed.
 --   ours     a sensed blip within NEAR_OURS of one of our pins (quests, offers, flight points, rares,
---            dungeons, corpse, waypoint; while its layer is on: Focus.off) is that pin's: not listed,
+--            dungeons, corpse, waypoint; while its layer is on: Focus.off; not the waypoint while it stands
+--            on an icon tracked from the map, Focus.tracked: the blip is that icon) is that pin's: not listed,
 --            not kept (Blips.lua:446-468, 659-664). One with no icon a quest giver (Atlas.BlipService)
 --            shows the "!", a quest ender the "?" (Blips.lua:387-388, 433-436): those our layers don't cover.
 --            Its line: the NPC's title Atlas knows by its name (Atlas.BlipTitle; Blips.lua:436).
@@ -172,18 +173,19 @@ end
 -- Our pins a blip stands under: the kinds, each the layer it's drawn on (Focus.off's key; Blips.lua:447).
 local OURS = { quests = "quests", offers = "offers", rares = "rares", corpse = "corpse", waypoint = "waypoint" }
 local PLACES = { flight = "flight", dungeon = "dungeons" }
-local ours, oursRev, oursOff = {}, -1, nil -- inst, col, row of each; the revs (summed) and Focus.off they're of
+local ours, oursRev, oursOff, oursTracked = {}, -1, nil, nil -- inst, col, row of each; the revs (summed), Focus.off and .tracked they're of
 
 -- ours made again if any of those changed: whether it was.
 local function Ours()
 	local f = Model.focus
-	local off, r = f and f.off, select(2, Model.Known("places"))
+	local off, tracked, r = f and f.off, f and f.tracked, select(2, Model.Known("places"))
 	for kind in pairs(OURS) do r = r + select(2, Model.Known(kind)) end
-	if r == oursRev and off == oursOff then return false end
-	oursRev, oursOff, off = r, off, off or NONE
+	if r == oursRev and off == oursOff and tracked == oursTracked then return false end
+	oursRev, oursOff, oursTracked, off = r, off, tracked, off or NONE
 	local n = 0
 	for kind, layer in pairs(OURS) do
-		for _, e in ipairs(off[layer] and NONE or Model.Known(kind)) do
+		local skip = off[layer] or kind == "waypoint" and tracked -- (a tracked icon's waypoint: the blip under it is the icon)
+		for _, e in ipairs(skip and NONE or Model.Known(kind)) do
 			local p = e.pos
 			ours[n + 1], ours[n + 2], ours[n + 3], n = p.inst, p.col, p.row, n + 3
 		end

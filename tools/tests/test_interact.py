@@ -230,10 +230,13 @@ def test_zone_hover():
     assert not UI.Camera.follow and not near(cam(ns), fit(L, ns, elwynn, 0.92))
     sim.Run(0.2)
     assert near(cam(ns), fit(L, ns, elwynn, 0.92)) and sim.superTracked == 0
-    # Its pin is still its quest's.
+    # Its pin is still its quest's: its track menu (ui/Track.lua), no flight; its row follows the quest.
     G.Over(GOLD["col"], GOLD["row"])
     sim.Run(0.3)
+    sim.menu = None
     sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")
+    assert [e.text for e in sim.MenuItems("button").values()] == ["Track quest"]
+    sim.MenuItems("button")[1].onSelect()
     sim.Run(0.2)
     assert sim.superTracked == 47 and near(cam(ns), fit(L, ns, elwynn, 0.92))
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

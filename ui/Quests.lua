@@ -3,8 +3,9 @@
 -- atlas over the quest-number disc ("UI-QuestPoi-QuestNumber") tinted its difficulty (Model's colour),
 -- the first unfinished objective's icon inside, its count under it; ready to turn in, the "questturnin"
 -- "?" the atlas Model names; 24 px (the "?" 19), the one you follow 28 (23) in a thin gold ring (Pins' glow).
--- Hovering one lights its area (ui/Areas.lua) and shows its tooltip (ui/QuestTooltip.lua); a click
--- follows it, again to stop. And quests to pick up (Layers.lua:636-664): Known("offers"), "questnormal"
+-- Hovering one lights its area (ui/Areas.lua) and shows its tooltip (ui/QuestTooltip.lua); a click opens
+-- the track menu (ui/Track.lua), whose one row follows it ("Track quest"), again to stop ("Stop tracking").
+-- And quests to pick up (Layers.lua:636-664): Known("offers"), "questnormal"
 -- (the "!") at 18, their tooltip the quest, its line's name and "Quest to pick up". Over the other pins.
 
 local _, ns = ...
@@ -40,7 +41,6 @@ UI.Quests = Pins.Layer("quests", 15, function(put)
 end, function() return select(2, Model.Known("quests")) end, {
 	tooltip = function(_, e) UI.QuestTooltip.Show(e) end,
 	hover = Areas.Hover,
-	click = Areas.Follow,
 	cluster = true,
 })
 
@@ -61,5 +61,5 @@ end, function() return select(2, Model.Known("offers")) end, {
 	cluster = true,
 })
 
-UI.Menus.Layer({ key = "quests", label = "Quests", group = "quests", tip = "Quests in your log. Click one to follow it." })
+UI.Menus.Layer({ key = "quests", label = "Quests", group = "quests", tip = "Quests in your log. Click one to track it." })
 UI.Menus.Layer({ key = "offers", label = "Quests to pick up", group = "quests", tip = "Quests you could start nearby." })

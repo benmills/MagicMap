@@ -12,11 +12,13 @@
 -- the nearest centre), and every click and drag is the view's. Its tooltip: GameTooltip ANCHOR_RIGHT on
 -- the pin, its title, then grey 0.85 lines in GameTooltipTextSmall, restored when it hides or clears
 -- (Layers.lua:288-301, QuestInfo.lua:251-305); built once a hover, hidden on the one owner-checked path:
--- the cursor off it or the view, the window hidden (ui/Window.lua).
+-- the cursor off it or the view, the window hidden (ui/Window.lua). A left click on a pin is its layer's
+-- click, or else the track menu (ui/Track.lua: Track, Stop tracking); the tracked pin wears the glow whatever
+-- its look says (Set: Track.Is), and every pin layer's rev carries Track's, so a change lays them out again.
 
 local _, ns = ...
 local UI, Runtime = ns.UI, ns.Runtime
-local Engine, Window, Camera = UI.Engine, UI.Window, UI.Camera
+local Engine, Window, Camera, Track = UI.Engine, UI.Window, UI.Camera, UI.Track
 local Get, Keep, At, Yield = Engine.Get, Engine.Keep, Engine.At, Runtime.Yield
 
 local SIZE = 14 -- px: a pin's (StylePin's default, Layers.lua:344)
@@ -159,8 +161,9 @@ end
 -- (aspect: its width over height, else the client's); (c) an atlas over its under atlas tinted, the inner
 -- texture in it; (d) else (an atlas the client lacks too, and no alt: the look drawn instead when the atlas is
 -- missing) a dot of its colour on a dark ring. glow: a thin
--- gold ring hugging the icon (the quest you follow); count: a line under it.
-local function Style(pin, look)
+-- gold ring hugging the icon (the quest you follow; or glow, the caller's: the tracked pin, whose look is
+-- shared with its kind's); count: a line under it.
+local function Style(pin, look, glow)
 	local size, icon = look.size or SIZE, look.icon or NONE
 	if icon.alt and not icon.texture and not (icon.atlas and Has(icon.atlas)) then icon = icon.alt end -- (an atlas the client lacks: its alt)
 	pin.psize = size
@@ -172,7 +175,7 @@ local function Style(pin, look)
 			fs:SetText(look.count)
 		end
 	end
-	if look.glow then
+	if look.glow or glow then
 		local g = Glow(pin)
 		Size(g, size + GLOW_PAD, size + GLOW_PAD)
 		Shown(g, true)
@@ -230,10 +233,11 @@ Pins.Style = Style -- (ui/Cluster.lua's pills)
 
 local layers = {} -- Pins' own, the highest level first: { layer, opts }
 
--- A pin of e (its key's) on canvas c: its look, then its place where that moved.
+-- A pin of e (its key's) on canvas c: its look (the glow forced on the tracked one), then its place where
+-- that moved.
 local function Set(c, o, e, look, minZoom)
 	o.entry = e
-	Style(o, look)
+	Style(o, look, Track.Is(e))
 	local p = e.pos
 	local x, y, on = (p.col - c.ox) * c.zoom, (p.row - c.oy) * c.zoom, c
 	if minZoom then on = c.mins[minZoom] end -- (its frame for that zoom: Engine.At's)
@@ -247,13 +251,23 @@ end
 -- and in its rect): look, StylePin's (above; a layer keeps one table a look, not one a layout); minZoom
 -- (optional), shown from that zoom only (Engine.At's). want(minZoom): whether pins from that zoom draw in
 -- this layout (false: they're left out, and shown once a layout would draw them: Engine.From), for fill
--- to skip a whole kind. rev: Engine.Layer's (Model.Known's revs). opts (optional): lines(e) -> title,
--- lines... for its tooltip (default e.name, e.text); tooltip(GameTooltip, e): fills it itself, owned by
--- the pin (and Shows it); hover(e): the cursor on its pin e, or (nil) off it; click(e, button): a click on
--- it (Pins.Tap).
+-- to skip a whole kind. rev: Engine.Layer's (Model.Known's revs); the tracked key's goes with it (Track.Rev).
+-- opts (optional): lines(e) -> title, lines... for its tooltip (default e.name, e.text); tooltip(GameTooltip,
+-- e): fills it itself, owned by the pin (and Shows it); hover(e): the cursor on its pin e, or (nil) off it;
+-- click(e, button): a click on it (Pins.Tap), in place of the track menu.
+local function WithTrack(rev)
+	local a, t, n = nil, nil, 0
+	return function()
+		local r, tr = rev and rev(), Track.Rev()
+		if r ~= a or tr ~= t then a, t, n = r, tr, n + 1 end
+		return n
+	end
+end
+
 function Pins.Layer(name, level, fill, rev, opts)
 	local clustered = opts and opts.cluster -- (ui/Cluster.lua: its members stand in pills where they overlap)
 	if clustered then rev = UI.Cluster.Add(name, fill, rev, opts) end
+	rev = WithTrack(rev)
 	-- The pins the canvas didn't show: set after the rest (a Get takes the next region, whatever it showed).
 	local n, es, looks, mins = 0, {}, {}, {}
 	local c, inst, zoom, c0, r0, c1, r1, any, from
@@ -412,12 +426,17 @@ function Pins.Hovered()
 	if hovered then return hovered.entry, hoveredAt.layer.name end
 end
 
--- A click on the map (button: "LeftButton", ...): the pin under the cursor's, if its layer takes clicks.
--- True when one did.
+-- A click on the map (button: "LeftButton", ...): the pin under the cursor's: its layer's click, else the
+-- track menu on it (a grid pin's: the entry it stands for; ui/Cluster.lua's Wrap gives a click that too).
+-- True when a pin took it.
 function Pins.Tap(button)
 	if UI.Cluster.Tap(button) then return true end
-	local click = hovered and hoveredAt.opts.click
-	if not click then return false end
-	click(hovered.entry, button)
+	if not hovered or button ~= "LeftButton" then return false end
+	local e, click = hovered.entry, hoveredAt.opts.click
+	if click then
+		click(e, button)
+	else
+		Track.Menu(hovered, rawget(e, "real") or e)
+	end
 	return true
 end
