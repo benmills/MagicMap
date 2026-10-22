@@ -41,8 +41,8 @@ TOC = os.path.join(ROOT, f"{ADDON}.toc")
 BACKUP = f"{ADDON}.spike-backup"
 HEADER = f"""## Interface: 16001
 ## Title: MagicMap
-## Notes: For WoW Forever. Your minimap, zooming out to the whole world on the game's own minimap terrain, with Blizzard's blips on it; M grows it into a big map.
-## Version: 2.0.0
+## Notes: For WoW Forever. Your minimap, zooming out to the whole world on the game's own minimap terrain, with Blizzard's blips on it. Press M for a big map; choose what it replaces in Settings.
+## Version: 2.1.0
 ## X-License: GPL-3.0-only
 ## Category: Map & Minimap
 ## IconTexture: Interface\\Icons\\INV_Misc_Map_01

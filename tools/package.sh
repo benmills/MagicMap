@@ -9,7 +9,7 @@
 # errors, or no zip.
 #
 #   tools/package.sh          # HEAD
-#   tools/package.sh v2.0.0
+#   tools/package.sh v2.1.0
 set -eu
 ref=${1:-HEAD}
 cd "$(dirname "$0")/.."
