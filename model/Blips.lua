@@ -14,7 +14,9 @@
 --            dungeons, corpse, waypoint; while its layer is on: Focus.off; not the waypoint while it stands
 --            on an icon tracked from the map, Focus.tracked: the blip is that icon) is that pin's: not listed,
 --            not kept (Blips.lua:446-468, 659-664). One with no icon a quest giver (Atlas.BlipService)
---            shows the "!", a quest ender the "?" (Blips.lua:387-388, 433-436): those our layers don't cover.
+--            shows the "!", a quest ender the "?" (Blips.lua:387-388, 433-436), but only while the client still has
+--            the NPC one: an offer, a quest ready to hand in, there (layers on or off). The minimap goes on
+--            showing an NPC you took the quest from, as a dot: the name alone said only that it once gave one.
 --            Its line: the NPC's title Atlas knows by its name (Atlas.BlipTitle; Blips.lua:436).
 -- The store is bucketed by cell, so dedupe and forget look at a blip's neighbours only, and
 -- Known("remembered") changes only when what's remembered on its map does, not with each sweep;
@@ -174,6 +176,7 @@ end
 local OURS = { quests = "quests", offers = "offers", rares = "rares", corpse = "corpse", waypoint = "waypoint" }
 local PLACES = { flight = "flight", dungeon = "dungeons" }
 local ours, oursRev, oursOff, oursTracked = {}, -1, nil, nil -- inst, col, row of each; the revs (summed), Focus.off and .tracked they're of
+local backs = {} -- inst, col, row, service of each offer ("questgiver") and quest ready to hand in ("questender"): whatever layers are on
 
 -- ours made again if any of those changed: whether it was.
 local function Ours()
@@ -195,6 +198,16 @@ local function Ours()
 		if layer and not off[layer] then ours[n + 1], ours[n + 2], ours[n + 3], n = p.inst, p.col, p.row, n + 3 end
 	end
 	for i = #ours, n + 1, -1 do ours[i] = nil end
+	n = 0
+	for kind, service in pairs({ offers = "questgiver", quests = "questender" }) do
+		for _, e in ipairs(Model.Known(kind)) do
+			if kind == "offers" or e.complete then
+				local p = e.pos
+				backs[n + 1], backs[n + 2], backs[n + 3], backs[n + 4], n = p.inst, p.col, p.row, service, n + 4
+			end
+		end
+	end
+	for i = #backs, n + 1, -1 do backs[i] = nil end
 	return true
 end
 
@@ -207,16 +220,24 @@ local function NearOurs(e)
 	return false
 end
 
--- A quest giver's "!", a quest ender's "?" (no tracking icon: Atlas.BlipService's), by name; nil: neither.
+-- A quest giver's "!", a quest ender's "?" (no tracking icon: Atlas.BlipService's, by name) while the
+-- client still has the NPC one: an offer within NEAR_OURS of the blip, a quest of yours ready to hand in
+-- there. The minimap goes on showing an NPC once you've taken (or handed in) the quest, as a dot, and
+-- the name alone says only that it ever gave one: the "!" stayed. nil: neither.
 local quests = {}
-local function Quest(name)
-	local q = quests[name]
+local function Quest(e)
+	local q = quests[e.name]
 	if q == nil then
-		local t = QUEST[ns.Atlas.BlipService(name)]
-		q = t and Atlas(t) or false
-		quests[name] = q
+		q = ns.Atlas.BlipService(e.name) or false
+		quests[e.name] = q
 	end
-	return q or nil
+	if not q or not QUEST[q] then return nil end
+	for i = 1, #backs, 4 do
+		if backs[i + 3] == q and backs[i] == e.inst and math.abs(backs[i + 1] - e.col) < NEAR_OURS
+			and math.abs(backs[i + 2] - e.row) < NEAR_OURS then
+			return Atlas(QUEST[q])
+		end
+	end
 end
 
 -- Known("blips") anew: each live one but ours, under the key of a remembered one it stands for.
@@ -234,7 +255,7 @@ local function Live()
 			end
 			list[#list + 1] = { key = key, kind = "blips", name = e.name, live = true,
 				pos = { inst = e.inst, col = e.col, row = e.row }, text = ns.Atlas.BlipTitle(e.name),
-				icon = e.icon and Texture(e.icon) or e.atlas and Atlas(e.atlas) or Quest(e.name) }
+				icon = e.icon and Texture(e.icon) or e.atlas and Atlas(e.atlas) or Quest(e) }
 		end
 	end
 end
