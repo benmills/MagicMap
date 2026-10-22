@@ -1,11 +1,14 @@
-"""The Look & feel dialog (ui/Feel.lua) on the simulated client: opened from the gear (Settings > Advanced >
-Look & feel…) or /mm feel, built once; a grouping slider sets its tunable through UI.Cluster (saved as
-clusterTune), a tracking-line pick is saved in UI.saved.feel (Feel.Get returns it, Feel.rev moves), a map
-slider reaches its setter live; Reset all clears both and the widgets follow; Escape (UISpecialFrames) hides it;
-no errors."""
+"""The settings window (ui/Feel.lua) on the simulated client: opened from the gear (Settings…) or /mm feel, built once,
+a sidebar of categories and the page of the chosen one (the last kept: UI.saved.feelPage); a grouping slider sets its
+tunable through UI.Cluster (saved as clusterTune), a tracking-line pick is saved in UI.saved.feel (Feel.Get returns it,
+Feel.rev moves), a map slider reaches its setter live; Reset all clears both and the widgets follow; Escape
+(UISpecialFrames) hides it; each page's settings apply and its Reset puts them back; the client's Settings entry
+(game/Options.lua) opens it; no errors."""
+import os
+
 from test_addon import boot, errors
-from test_gear import FEEL, gear, sub
-from sim import TEST_UI
+from test_gear import SETTINGS, gear, sub
+from sim import TEST_UI, TESTS
 
 
 def test_lookfeel():
@@ -14,16 +17,22 @@ def test_lookfeel():
     sim.Slash("/mm toggle")
     sim.Run(1)
 
-    # From the gear: the dialog, shown, DIALOG strata, named for Escape; the widgets show the defaults.
+    # From the gear: the window, shown, DIALOG strata, named for Escape, on General (the first); only that page built.
     root, _ = gear(sim, ns)
-    sub(sub(sub(root, "Settings"), "Advanced"), FEEL).onSelect()
+    sub(root, SETTINGS).onSelect()
     sim.Step()
     Feel, f = UI.Feel, UI.Feel.frame
     same = L.eval("function(a, b) return a == b end")
     assert f.IsShown(f) and f.GetFrameStrata(f) == "DIALOG" and same(sim.Named("MagicMapFeel"), f)
+    assert list(Feel.pages.keys()) == ["general"] and saved.feelPage == "general"
     w = Feel.widgets
+    assert w["general.follow"].check.GetChecked(w["general.follow"].check) is True
+
+    # A category's row: its page shown and built, the last one's hidden, kept.
+    sim.Click(_tab(L, Feel, "Grouping"))
+    assert saved.feelPage == "group" and not Feel.pages["general"].IsShown(Feel.pages["general"])
+    assert Feel.pages["group"].IsShown(Feel.pages["group"])
     assert w["group.range"].slider.GetValue(w["group.range"].slider) == 24 and w["group.range"].text.GetText(w["group.range"].text) == "24 px"
-    assert w["path.style"].button.GetText(w["path.style"].button) == "Dotted" and w["path.glow"].check.GetChecked(w["path.glow"].check)
     rev = Feel.rev
 
     # A grouping slider: UI.Cluster's tunable, saved as clusterTune (as before), nothing in saved.feel.
@@ -33,6 +42,9 @@ def test_lookfeel():
     assert Feel.Get("group.range") == 32 and w["group.range"].text.GetText(w["group.range"].text) == "32 px"
 
     # A tracking-line pick: the client's menu, a radio per style; saved in feel, Get returns it, rev moved.
+    Feel.Open("path")
+    w = Feel.widgets
+    assert w["path.style"].button.GetText(w["path.style"].button) == "Dotted" and w["path.glow"].check.GetChecked(w["path.glow"].check)
     sim.Click(w["path.style"].button)
     styles = {e.text: e for e in sim.MenuItems("radio").values()}
     assert list(styles) == ["Dotted", "Dashed", "Solid"] and styles["Dotted"].isSelected() is True
@@ -46,6 +58,8 @@ def test_lookfeel():
     # A check and a map slider: live. The arrow's size follows "arrow.scale"; the pills' alpha "pills.alpha".
     sim.Click(w["path.glow"].check)
     assert Feel.Get("path.glow") is False and saved.feel["path.glow"] is False
+    Feel.Open("map")
+    w = Feel.widgets
     arrow = UI.You.arrow
     size = arrow.GetWidth(arrow)
     w["arrow.scale"].slider.SetValue(w["arrow.scale"].slider, 1.5)
@@ -56,11 +70,91 @@ def test_lookfeel():
     assert saved.clusterTune is None and saved.feel is None and UI.Cluster.Get("range") == 24
     assert s.GetValue(s) == 24 and w["path.glow"].check.GetChecked(w["path.glow"].check) and abs(arrow.GetWidth(arrow) - size) < 1e-6
 
-    # Escape hides it (the client's CloseSpecialWindows); /mm feel shows it again, the same frame.
+    # Escape hides it (the client's CloseSpecialWindows); /mm feel shows it again on the last page, the same frame.
     assert sim.Escape()[0] and not f.IsShown(f)
     sim.Slash("/mm feel")
-    assert f.IsShown(f) and same(UI.Feel.frame, f)
+    assert f.IsShown(f) and same(UI.Feel.frame, f) and saved.feelPage == "map"
     sim.Slash("/mm feel")
     assert not f.IsShown(f)
+    sim.Slash("/mm feel icons")
+    assert f.IsShown(f) and saved.feelPage == "icons"
     sim.Run(1)
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def _tab(L, Feel, title):
+    """A sidebar row by its category's name."""
+    return L.eval("""function(frame, title)
+        for _, c in ipairs({ frame:GetChildren() }) do
+            if c.text and c.sel and c.text:GetText() == title then return c end
+        end
+    end""")(Feel.frame, title)
+
+
+def test_settings_pages_apply_and_reset():
+    """Every page's sliders and checks apply (Get returns the new value, saved in feel; a switch of its owner's is the
+    owner's) and its Reset (or Reset all) puts each back on its default, the saved table gone; every row has its tip."""
+    L, sim, ns = boot(TEST_UI)
+    UI, saved, Feel = ns.UI, L.globals().MagicMap2DB.UI, ns.UI.Feel
+    sim.Slash("/mm toggle")
+    sim.Run(1)
+    pages = ["general", "map", "icons", "path", "areas", "group", "diag"]
+    for p in pages:
+        Feel.Open(p)
+    assert sorted(Feel.pages.keys()) == sorted(pages)
+    changed, defaults = [], {}
+    for key, wd in Feel.widgets.items():
+        k = wd.k
+        assert k.tip and k.label, key
+        if k.get or k.kind not in ("slider", "check"):
+            continue  # (an owner's switch, an action, a pick: path.style's is above)
+        default = defaults[key] = Feel.Get(key)
+        v = (k.max if default != k.max else k.min) if k.kind == "slider" else not default
+        Feel.Set(key, v)
+        assert Feel.Get(key) == v, key
+        changed.append(key)
+    assert len(changed) > 25 and saved.feel is not None and saved.clusterTune is not None
+    sim.Run(1)
+    for p in pages:
+        Feel.Reset(p)
+    assert saved.feel is None and saved.clusterTune is None
+    for key in changed:
+        assert Feel.Get(key) == defaults[key], key
+    # The same by Reset all.
+    for key in changed:
+        k = Feel.widgets[key].k
+        default = Feel.Get(key)
+        Feel.Set(key, (k.max if default != k.max else k.min) if k.kind == "slider" else not default)
+    Feel.ResetAll()
+    assert saved.feel is None and saved.clusterTune is None
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_blizzard_settings_entry():
+    """The client's Settings API (stubbed: the sim lacks it): MagicMap registers a canvas and an add-on category;
+    its button closes the client's Options and opens the window. Without the API, nothing is registered."""
+    stub = """CALLS = {}
+Settings = { RegisterCanvasLayoutCategory = function(panel, name) CALLS.canvas = { panel = panel, name = name }; return { name = name } end,
+	RegisterAddOnCategory = function(cat) CALLS.addon = cat end }
+SettingsPanel = CreateFrame("Frame")
+SettingsPanel:Show()"""
+    L, sim, ns = boot(TEST_UI)
+    assert L.globals().Settings is None  # (the sim has none: game/Options.lua made nothing)
+    G = L.globals()
+    L.execute(stub)
+    path = os.path.join(TESTS, "..", "..", "game", "Options.lua")  # (loaded again, now there is one)
+    L.eval("function(path, ns) return assert(loadfile(path))('MagicMap', ns) end")(path, ns)
+    assert G.CALLS.canvas.name == "MagicMap" and G.CALLS.addon.name == "MagicMap"
+    panel = G.CALLS.canvas.panel
+    panel.Show(panel)
+    sim.Step()
+    button = L.eval("""function(panel)
+        for _, c in ipairs({ panel:GetChildren() }) do
+            if c.GetText and c:GetText() == "Open MagicMap Settings" then return c end
+        end
+    end""")(panel)
+    button.GetScript(button, "OnClick")(button)  # (the panel isn't placed: no cursor to click it with)
+    sim.Step()
+    f = ns.UI.Feel.frame
+    assert f.IsShown(f)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

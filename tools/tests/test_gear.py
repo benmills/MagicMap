@@ -2,12 +2,11 @@
 2154-2207): a submenu per group of layers with any (Map, Quests, Places, Nearby, Other addons), each layer
 a checkbox with its tip (white title, gold body) that keeps the menu open, its icon beside it, a sub-option indented and
 greyed while its parent is off, each group's row with its n/total; Nearby's Blizzard tracking types; then Use Blizzard's
-minimap and Reset to defaults; then Settings: Follow you, Override world map, Group overlapping icons, Minimap button,
-Reset window position, Advanced (Diagnostics, Look & feel…, Performance), the same small
-and big. Every row works: a layer's toggle empties and redraws what it draws (and View.layers, for Game's: the
+minimap (while ours replaces it) and Reset to defaults; then one row, Settings…, which opens the settings window
+(ui/Feel.lua: test_lookfeel.py holds what was the Settings submenu), the same small and big. Every row works: a layer's toggle empties and redraws what it draws (and View.layers, for Game's: the
 blip sensor, Questie's borrowed pins) and is saved, the changed keys only, across a /reload; a layer off by
 default stays so until turned on; rows in the spike's order whenever added; each setting does what it says;
-a tracking type's box and Advanced's rows send Game their Commands (test_gear_tracking_advanced); /mm layers."""
+a tracking type's box sends Game its Command (test_gear_tracking); /mm layers."""
 import re
 
 from test_addon import boot, errors
@@ -16,12 +15,7 @@ from sim import TEST_UI
 
 LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Quests": "quests", "Quest areas": "questAreas",
           "Quests to pick up": "offers", "Rares & treasures": "rares"}
-SETTINGS = [("checkbox", "Follow you"), ("checkbox", "Override world map"), ("checkbox", "Group overlapping icons"), ("checkbox", "Minimap button"),
-            ("button", "Reset window position"), ("button", "Advanced")]
-FEEL = "Look & feel\u2026".encode("utf-8").decode("latin-1")  # the row's label, as the sim's Lua (latin-1) reads it
-ADVANCED = [("title", "Diagnostics"), ("checkbox", "Debug info in the title"), ("checkbox", "Indoor maps"),
-            ("divider", None), ("button", FEEL), ("divider", None), ("title", "Performance"),
-            ("checkbox", "Record 10 seconds"), ("button", "Compare with other addons"), ("button", "Memory breakdown")]
+SETTINGS = "Settings\u2026".encode("utf-8").decode("latin-1")  # the row's label, as the sim's Lua (latin-1) reads it
 WHITE, GOLD = (1, 1, 1), (1, 0.82, 0)
 SEEN = ("MagicMap2DB.Model = MagicMap2DB.Model or { _v = 1, blips = {}, rares = { [0] = { ['npc:1'] = "
         "{ name = 'Rare', npcID = 1, col = 31.97, row = 49.74, t = 1792077412 } } } }")  # a rare you've seen
@@ -119,7 +113,7 @@ def test_gear():
     root, rows = gear(sim, ns)
     assert items(root) == [("button", "Map"), ("button", "Quests"), ("button", "Places"), ("button", "Nearby"),
                            ("button", "Other addons"), ("divider", None), ("button", "Use Blizzard's minimap"),
-                           ("button", "Reset to defaults"), ("divider", None), ("button", "Settings")]
+                           ("button", "Reset to defaults"), ("divider", None), ("button", SETTINGS)]
     assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"),
                                        ("checkbox", "Zone borders"), ("checkbox", "City maps")]
     assert items(sub(root, "Quests")) == [("checkbox", "All quests"), ("divider", None), ("checkbox", "Quests"),
@@ -130,12 +124,11 @@ def test_gear():
     assert items(sub(root, "Nearby"))[:4] == [("checkbox", "All nearby"), ("divider", None),
                                               ("checkbox", "Rares & treasures"), ("checkbox", "Party & raid")]
     assert items(sub(root, "Other addons")) == [("checkbox", "All other addons"), ("divider", None), ("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
-    assert items(sub(root, "Settings")) == SETTINGS and items(sub(sub(root, "Settings"), "Advanced")) == ADVANCED
     assert plain(sub(root, "Map").text) == "Map  3/3" and plain(sub(root, "Quests").text) == "Quests  3/3"
     sim.Press("M")
     sim.Run(1)
     big, _ = gear(sim, ns)
-    assert items(big) == items(root) and items(sub(big, "Settings")) == SETTINGS
+    assert items(big) == items(root)
     sim.Press("M")
     sim.Run(1)
 
@@ -196,23 +189,26 @@ def test_gear():
     rows["Zone labels"].onSelect()
     assert not child.IsEnabled(child)
 
-    # Settings. Minimap button: Game's button hidden, and shown again.
+    # Settings… (its page's rows: test_lookfeel.py). The minimap button and Reset window position, through the window:
+    # Game's button hidden, and shown again; the window back on the minimap's spot, following.
     button = rim_button(L, sim)
     assert button.IsShown(button)
-    assert rows["Minimap button"].onSelect() == refresh
+    UI.Feel.Set("general.button", False)
     sim.Step()
     assert saved.button is False and view.button is False and not button.IsShown(button)
-    rows["Minimap button"].onSelect()
+    UI.Feel.Set("general.button", True)
     sim.Step()
     assert saved.button and button.IsShown(button)
-    # Reset window position: back on the minimap's spot, following (a button: the menu closes, the client's default).
     UI.Motion.SetFollow(False)
     home = UI.BigMap.home
     assert (f.GetLeft(f), f.GetTop(f)) != (home.left, home.top)
-    assert rows["Reset window position"].onSelect() is None
+    UI.Feel.Open("general")
+    w = UI.Feel.widgets["general.resetpos"].button
+    sim.Click(w)
     sim.Step()
     assert (f.GetLeft(f), f.GetTop(f), f.GetWidth(f), f.GetHeight(f)) == (home.left, home.top, home.w, home.h)
     assert UI.Camera.follow
+    UI.Feel.frame.Hide(UI.Feel.frame)
     # Use Blizzard's minimap: ours hidden, the Minimap Blizzard's again, the button on it.
     _, rows = gear(sim, ns)
     assert rows["Use Blizzard's minimap"].onSelect() is None
@@ -221,12 +217,12 @@ def test_gear():
     sim.Slash("/mm toggle")
     sim.Run(1)
     _, rows = gear(sim, ns)
-    rows["Minimap button"].onSelect()
+    UI.Feel.Set("general.button", False)
     rows["Questie"].onSelect()
     sim.Slash("/mm toggle")
     sim.Step()
     perf = ns.Runtime.Perf()[0]["map: gear pick"]
-    assert perf.n == 21 and perf.over == 0, (perf.n, perf.max)
+    assert perf.n == 17 and perf.over == 0, (perf.n, perf.max)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
     # /reload: the changed keys only (borders and the rest went off and on again, from the gear or
@@ -242,8 +238,7 @@ def test_gear():
     assert drawn(layer(ns, "labels")) == 0 and drawn(layer(ns, "borders")) > 0
     assert view.layers["addon:Questie"] is None and not hosted(L, pin, ns)
     _, rows = gear(sim, ns)
-    assert [rows[t].isSelected() for t in ("Zone labels", "Zone borders", "Questie",
-                                           "Minimap button")] == [False, True, False, False]
+    assert [rows[t].isSelected() for t in ("Zone labels", "Zone borders", "Questie")] == [False, True, False]
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
@@ -280,10 +275,10 @@ STUBS = """function(ns, sent, ran)
 end"""
 
 
-def test_gear_tracking_advanced():
+def test_gear_tracking():
     """Tracking (GearMenu.lua:9-26), in Nearby: Blizzard's types but those ours replace, each a box that sends Game the
-    tracking Command and shows the click till Game's next Observation says so. Settings > Advanced
-    (GearMenu.lua:33-46): each row runs its /mm command, a box showing its command's state. /mm layers
+    tracking Command and shows the click till Game's next Observation says so. The Diagnostics page's rows run
+    their /mm command, a box showing its command's state. /mm layers
     (Layers.lua:2196-2207): each group's layers, on green, off grey, a sub-option grey while its parent's off."""
     L, sim, ns = boot()
     refresh, sent, ran = L.globals().MenuResponse.Refresh, L.table(), L.table()
@@ -308,23 +303,22 @@ def test_gear_tracking_advanced():
     assert [c.on for c in sent.values()] == [False, True, False] and mail.isSelected() is False
     assert rows["Find Herbs"].isSelected() is True and rows["Innkeeper"].isSelected() is True
 
-    # Advanced: each row its /mm command; a box shows the click, then its state.
-    adv = {e.text: e for e in sub(sub(root, "Settings"), "Advanced")["items"].values() if e.text}
-    assert tip(L, adv["Debug info in the title"]) == [
-        ("Debug info in the title",) + WHITE, ("Tile, zoom and layout timings next to the zone name.",) + GOLD]
-    assert tip(L, adv["Indoor maps"])[1][0].startswith("Says in chat which building and room you're in")
-    assert tip(L, adv["Record 10 seconds"])[1][0] == "Times every part of MagicMap while you play, then prints a summary."
-    for text in ("Debug info in the title", "Indoor maps", "Record 10 seconds"):
-        row = adv[text]
-        assert row.isSelected() is False and row.onSelect() == refresh and row.isSelected() is True, text
+    # Diagnostics (the settings window's page, once the gear's Advanced): each row its /mm command; a box shows the
+    # click, then its state.
+    UI = ns.UI
+    UI.Feel.Open("diag")
+    w = UI.Feel.widgets
+    checked = lambda k: w[k].check.GetChecked(w[k].check)  # noqa: E731
+    for key in ("diag.debug", "diag.indoor"):
+        assert not checked(key)
+        sim.Click(w[key].check)
         sim.Step()
-        assert row.isSelected() is True, text
-    assert ns.UI.saved.debug and ns.Model.minimap.indoorDebug and ns.Runtime.recording
-    ns.Runtime.recording = False  # its 10 seconds up
-    assert adv["Record 10 seconds"].isSelected() is False
-    assert adv["Compare with other addons"].onSelect() is None and adv["Memory breakdown"].onSelect() is None
-    sim.Step()
+    assert ns.UI.saved.debug and ns.Model.minimap.indoorDebug
+    for key in ("diag.record", "diag.top", "diag.mem"):
+        sim.Click(w[key].button)
+        sim.Step()
     assert list(ran.values()) == ["debug", "indoor", "perf", "perf top", "perf mem"]
+    ns.Runtime.recording = False
 
     # /mm layers.
     sim.Slash("/mm layer questAreas")
@@ -362,12 +356,12 @@ def test_gear_groups_and_reset():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
-def test_gear_look_feel():
-    """Advanced > Look & feel…: a button (the menu closes) that opens the dialog (ui/Feel.lua: test_lookfeel.py), with its tip."""
+def test_gear_settings():
+    """Settings…: one button (the menu closes) that opens the settings window (ui/Feel.lua: test_lookfeel.py), with its tip."""
     L, sim, ns, pin = shown()
     root, _ = gear(sim, ns)
-    row = sub(sub(sub(root, "Settings"), "Advanced"), FEEL)
-    assert tip(L, row)[0] == (FEEL,) + WHITE and tip(L, row)[1][0].startswith("A dialog for the tracking line")
+    row = sub(root, SETTINGS)
+    assert tip(L, row)[0] == ("Settings",) + WHITE and tip(L, row)[1][0].startswith("MagicMap's settings window")
     assert row.onSelect() is None
     f = ns.UI.Feel.frame
     assert f.IsShown(f) and f.GetFrameStrata(f) == "DIALOG"

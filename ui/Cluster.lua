@@ -343,7 +343,7 @@ end
 local function Small(m)
 	local s = m[SMALL]
 	if not s then
-		s = { size = ICON, icon = m[LOOK].icon }
+		s = { size = ICON, fixed = true, icon = m[LOOK].icon }
 		m[SMALL] = s
 	end
 	return s

@@ -24,6 +24,7 @@ local SHADOW_ZOOM, SUBZONE_ZOOM = 60, 140 -- Layers.lua:1746, 1424
 -- Layers.lua:1589-1590, 1747; the casing darker, and more alpha on both: legible on pale ground
 local ZONE, SHADOW, SUB = { 1, 0.9, 0.72, 0.75 }, { 0, 0, 0, 0.45 }, { 1, 0.95, 0.85, 0.4 }
 local COLOR = { line = ZONE, shadow = SHADOW, sub = SUB }
+local alphaK, widthK, lookRev = 1, 1, 0 -- the settings' (Feel "borders.alpha", "borders.width"): factors on the alphas and widths
 local SHADOW_PX = 1.2 -- the shadow's width over the line's (Layers.lua:1747)
 
 -- Line makers by kind: subzones under the shadows, the shadows under the zone lines (Layers.lua:230-233).
@@ -185,11 +186,11 @@ end
 local style = {} -- this layout's: thick, shadow (zone), sub (subzone thick)
 local function ZonePiece(c, key, x1, y1, x2, y2, f, whole)
 	local w = 0.6 + 0.4 * f
-	if style.shadow then Line(c, "shadow", key, x1, y1, x2, y2, (style.thick + SHADOW_PX) * w, SHADOW[4] * f, whole) end
-	Line(c, "line", key, x1, y1, x2, y2, style.thick * w, ZONE[4] * f, whole)
+	if style.shadow then Line(c, "shadow", key, x1, y1, x2, y2, (style.thick + SHADOW_PX) * w, math.min(1, SHADOW[4] * f * alphaK), whole) end
+	Line(c, "line", key, x1, y1, x2, y2, style.thick * w, math.min(1, ZONE[4] * f * alphaK), whole)
 end
 local function SubPiece(c, key, x1, y1, x2, y2, _, whole)
-	Line(c, "sub", key, x1, y1, x2, y2, style.sub, SUB[4], whole)
+	Line(c, "sub", key, x1, y1, x2, y2, style.sub, math.min(1, SUB[4] * alphaK), whole)
 end
 
 -- Each line's bounds in tiles, once per line (its points from first).
@@ -228,9 +229,9 @@ UI.Borders = Engine.Layer("borders", 7, function(c, inst, zoom, c0, r0, c1, r1)
 	made, nl = 0, 0
 	local box = scratch.box -- (the canvas's origin, ui/Engine.lua)
 	box[1], box[2], box[3], box[4] = (c0 - c.ox) * zoom, (r0 - c.oy) * zoom, (c1 - c.ox) * zoom, (r1 - c.oy) * zoom
-	style.thick = math.max(1.1, math.min(1.8, zoom / 140)) -- Layers.lua:1589
+	style.thick = math.max(1.1, math.min(1.8, zoom / 140)) * widthK -- Layers.lua:1589
 	style.shadow = zoom >= SHADOW_ZOOM
-	style.sub = math.max(0.8, math.min(1.1, zoom / 300)) -- Layers.lua:1590
+	style.sub = math.max(0.8, math.min(1.1, zoom / 300)) * widthK -- Layers.lua:1590
 	Lines(c, lines, 5, true, c0, r0, c1, r1)
 	if zoom >= SUBZONE_ZOOM then Lines(c, Atlas.SubzoneLines(inst, zoom) or NONE, 3, false, c0, r0, c1, r1) end
 	for i = 1, nl do
@@ -238,6 +239,11 @@ UI.Borders = Engine.Layer("borders", 7, function(c, inst, zoom, c0, r0, c1, r1)
 		Set(c, Get(c, kind, "line", makers[kind], lkey[i]), kind, lx1[i], ly1[i], lx2[i], ly2[i], lw[i], la[i], lwhole[i])
 		Yield()
 	end
-end, nil, "hold")
+end, function() return lookRev end, "hold")
+-- The settings' opacity and width (a factor each, nil: as it is): the borders are laid out again.
+function UI.Borders.SetLook(a, w)
+	if (a == nil or a == alphaK) and (w == nil or w == widthK) then return end
+	alphaK, widthK, lookRev = a or alphaK, w or widthK, lookRev + 1
+end
 UI.Borders.Polyline, UI.Borders.Scratch = Polyline, Scratch
 UI.Borders.frame:SetAlpha(0) -- shown on the big map only (ui/BigMap.lua's Grow); laid out small too, so M needn't build them

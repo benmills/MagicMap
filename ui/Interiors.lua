@@ -23,7 +23,7 @@ local UI, Model, Atlas, Runtime = ns.UI, ns.Model, ns.Atlas, ns.Runtime
 local Engine, Camera, Window, Motion = UI.Engine, UI.Camera, UI.Window, UI.Motion
 local Get, Keep, Yield = Engine.Get, Engine.Keep, Runtime.Yield
 
-local DIM = 0.35 -- the terrain under a building (Test.lua's opt.dim): a black veil at 1 - DIM
+local VEIL = 0.65 -- the terrain under a building (Test.lua's opt.dim, 0.35 left): a black veil of this alpha (the settings': Feel "interiors.dim")
 local SMALL = 60 -- yd: a building whose box is within this each way zooms the small map in
 local YD = Atlas.TILE_YARDS
 local LEVEL = 22 -- yd: a room's floor within this of yours is on your level (Test.lua's opt.cull, tuned in Ironforge)
@@ -170,10 +170,12 @@ local function Tex(c)
 	return t
 end
 
+local veilA, veilRev = VEIL, 0
 local function Veil(c)
 	local t = Tex(c)
 	t:SetDrawLayer("BACKGROUND")
-	t:SetColorTexture(0, 0, 0, 1 - DIM)
+	t:SetColorTexture(0, 0, 0, veilA)
+	t.a = veilA
 	return t
 end
 
@@ -200,6 +202,10 @@ local layer = Engine.Layer("interiors", 2, function(c, inst, zoom, c0, r0, c1, r
 	if not s then return true end
 	if s.veil then -- (not got: parked at the layout's end, Engine's)
 		local veil = Get(c, "veil", "tex", Veil)
+		if veil.a ~= veilA then
+			veil:SetColorTexture(0, 0, 0, veilA)
+			veil.a = veilA
+		end
 		veil:SetPoint("TOPLEFT", c, "TOPLEFT", (c0 - c.ox) * zoom, -(r0 - c.oy) * zoom)
 		veil:SetSize((c1 - c0) * zoom, (r1 - r0) * zoom)
 	end
@@ -233,7 +239,19 @@ local layer = Engine.Layer("interiors", 2, function(c, inst, zoom, c0, r0, c1, r
 		Pic(c, t, p, zoom, s.looks[p.key][p.room])
 		if k % 16 == 0 then Yield() end
 	end
-end, Scene)
+end, (function() -- the scene, or the veil's strength: laid out again (one value, which Engine compares)
+	local seen, strength, n = nil, nil, 0
+	return function()
+		local s = Scene()
+		if s ~= seen or veilRev ~= strength then seen, strength, n = s, veilRev, n + 1 end
+		return n
+	end
+end)())
+-- The veil's alpha (Feel "interiors.dim"); a building's pictures are laid out again.
+function layer.SetDim(a)
+	if veilA == a then return end
+	veilA, veilRev = a, veilRev + 1
+end
 layer.idle = function() return not Scene() end
 layer.City = City -- (ui/Labels.lua: the city's area names)
 UI.Interiors = layer
@@ -268,7 +286,7 @@ Runtime.Step("ui", "map: indoors zoom", function()
 	local key = i and i.building or nil
 	if key == inside then return end
 	if key and not inside then
-		if not UI.BigMap.big and Camera.follow and Model.you.inst == i.inst and Small(i) then
+		if not UI.BigMap.big and Camera.follow and Model.you.inst == i.inst and Small(i) and UI.Feel.Get("interiors.zoom") then
 			back = (Motion.Goal())
 			To(Motion.MAX_ZOOM)
 		end

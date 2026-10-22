@@ -20,6 +20,7 @@ local DIM = "|cff9d9d9d" -- Layers.lua:652
 
 -- StylePin's look, one an entry (Model makes a new one when it changes): (c) in progress, (b) ready.
 local looks = setmetatable({}, { __mode = "k" })
+local scale, scaleRev = 1, 0 -- the settings' (Feel "quests.scale"): a factor on the quests' size; the layer's rev moves with it
 local function Look(e)
 	local look = looks[e]
 	if look then return look end
@@ -31,18 +32,32 @@ local function Look(e)
 		icon.color = e.icon.color
 	end
 	local size = e.complete and (e.followed and TURN_IN_FOLLOWED or TURN_IN) or (e.followed and FOLLOWED or SIZE)
-	look = { size = size, glow = e.followed, count = e.count, icon = icon }
+	look = { size = size * scale, glow = e.followed, count = e.count, icon = icon }
 	looks[e] = look
 	return look
 end
 
 UI.Quests = Pins.Layer("quests", 15, function(put)
 	for _, e in ipairs(Model.Known("quests")) do put(e, Look(e)) end
-end, function() return select(2, Model.Known("quests")) end, {
+end, (function()
+	local seen, strength, n = nil, nil, 0
+	return function()
+		local r = select(2, Model.Known("quests"))
+		if r ~= seen or scaleRev ~= strength then seen, strength, n = r, scaleRev, n + 1 end
+		return n
+	end
+end)(), {
 	tooltip = function(_, e) UI.QuestTooltip.Show(e) end,
 	hover = Areas.Hover,
 	cluster = true,
 })
+
+-- Quests' icon size (a factor on every in-progress and turn-in icon): the looks made again.
+function UI.Quests.SetScale(k)
+	if scale == k then return end
+	scale, scaleRev = k, scaleRev + 1
+	looks = setmetatable({}, { __mode = "k" })
+end
 
 local offers = {} -- an offer's icon -> its look
 UI.Offers = Pins.Layer("offers", 14, function(put)

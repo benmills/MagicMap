@@ -69,6 +69,7 @@
 ---@field clusterTune? table<string, number> grouping's tunables changed from Cluster.DEFAULTS (range, reach, min, slots, alpha)
 ---@field tracked? { key: string|number, name?: string, inst: MM.Inst, col: MM.Col, row: MM.Row }  the icon tracked (ui/Track.lua): its Known key, its name, where it was (the waypoint's pos); nil: none
 ---@field feel? table<string, number|string|boolean>  the Look & feel dialog's settings changed from their defaults, by key ("path.style", "labels.scale"...: ui/Feel.lua KEYS); nil when none is
+---@field feelPage? string        the settings window's last category (ui/Feel.lua PAGES: "general", "map"...); not in OPTIONAL: it survives as it is, a wrong one is ignored
 ---@field debug boolean             /mm debug's title line (Core.lua:1746-1748); default false
 
 -- Model --------------------------------------------------------------------------------

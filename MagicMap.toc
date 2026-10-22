@@ -76,6 +76,7 @@ game\Home.lua
 game\Chrome.lua
 game\Hooks.lua
 game\Button.lua
+game\Options.lua
 game\Tooltip.lua
 game\NoData.lua
 

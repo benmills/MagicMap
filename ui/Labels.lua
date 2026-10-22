@@ -28,8 +28,10 @@ local PAD_X, PAD_Y, GAP = 4, 2, 3 -- a name's clearance, and its spots' gap abov
 local FADE_S = 0.2 -- Layers.lua:1619
 
 -- The Look & feel dialog's label size (ui/Feel.lua: "labels.scale"), a factor on every name's size; the
--- layer's rev moves with it, so the names are laid out again at the new size.
-local scale, subSize, scaleRev = 1, SUB_SIZE, 0
+-- layer's rev moves with it, so the names are laid out again at the new size (and, as the subzone names', at the
+-- new size or opacity).
+local scale, subScale, subSize, scaleRev = 1, 1, SUB_SIZE, 0
+local sub = SUB -- the subzone names' colour (its alpha is the settings': Feel "labels.subAlpha")
 
 local function MakeFont(c)
 	local fs = c:CreateFontString(nil, "OVERLAY")
@@ -186,7 +188,7 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 	if zoom >= SUB_ZOOM and city then
 		for _, l in ipairs(CityList(city, list)) do
 			if zoom >= l.zoom and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-				local fs = Font(c, l, BODY, subSize, SUB, "")
+				local fs = Font(c, l, BODY, subSize, sub, "")
 				local dy = Spot(c, l, zoom, fs:GetStringWidth() / 2 + PAD_X, fs:GetStringHeight())
 				if dy then Show(c, fs, l, dy, shown) else Unget(c, "label") end
 			end
@@ -195,18 +197,35 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 	if zoom >= SUB_ZOOM then
 		for i, l in ipairs(list.subs) do
 			if zoom >= l.zoom and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-				local fs = Font(c, l, BODY, subSize, SUB, "")
+				local fs = Font(c, l, BODY, subSize, sub, "")
 				local dy = Spot(c, l, zoom, fs:GetStringWidth() / 2 + PAD_X, fs:GetStringHeight())
 				if dy then Show(c, fs, l, dy, shown) else Unget(c, "label") end
 			end
 			if i % 16 == 0 then Yield() end
 		end
 	end
-end, function() return (UI.Interiors.City() or false), scaleRev end, "move") -- (a city map shown or gone, or the size: laid out again)
+end, (function() -- (a city map shown or gone, or the size or opacity: laid out again; one value, which Engine compares)
+	local city, seen, n = nil, nil, 0
+	return function()
+		local c = UI.Interiors.City() or false
+		if c ~= city or scaleRev ~= seen then city, seen, n = c, scaleRev, n + 1 end
+		return n
+	end
+end)(), "move")
 
 function UI.Labels.SetScale(k)
 	if scale == k then return end
-	scale, subSize, scaleRev = k, math.floor(SUB_SIZE * k + 0.5), scaleRev + 1
+	scale, subSize, scaleRev = k, math.floor(SUB_SIZE * k * subScale + 0.5), scaleRev + 1
+end
+
+-- The subzone names' own size (a factor on the label size's) and opacity (Feel "labels.subScale", "labels.subAlpha").
+function UI.Labels.SetSubScale(k)
+	if subScale == k then return end
+	subScale, subSize, scaleRev = k, math.floor(SUB_SIZE * scale * k + 0.5), scaleRev + 1
+end
+function UI.Labels.SetSubAlpha(a)
+	if sub[4] == a then return end
+	sub, scaleRev = { SUB[1], SUB[2], SUB[3], a }, scaleRev + 1
 end
 
 -- Each frame while shown: the shown layout's new names fading in, from when it first shows.
