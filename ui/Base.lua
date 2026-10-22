@@ -1,12 +1,9 @@
 -- The base picture: the continent as one stylised flat picture (Data/Base.lua, Textures/Base*.blp, tools/
 -- gen_base.py: land a colour a zone from the tiles' own mean, water the backdrop's, a crisp coast), one
--- texture on the view under every layer. Two jobs. Under the tiles, always: a fast zoom or a flick that
--- outruns the tiles' layout shows ground, not the dark backdrop (the tiles' seams too: a hairline between two
--- shows the zone's colour). And from FAR px a tile out, in their place: the tiles hidden and not laid out
--- (one region instead of ~1,800: the far zoom's cost), the picture the baked 42-51 px a tile there is
--- (1:1 or better; the mips below). The crossfade: the picture is already there, the tiles' frame fades out over
--- FADE_S and, the layer idle (Engine: its canvases emptied, no layout), stays out; from NEAR it lays out and
--- fades in once it has a canvas. FAR and NEAR a ratio apart, so a zoom hovering at one doesn't flap.
+-- texture on the view under every layer: the underlay only. The tiles are always the map, at every zoom;
+-- the picture shows through where they aren't (yet): a fast zoom or a flick that outruns the tiles' layout,
+-- tiles not yet loaded, the tiles' seams (a hairline between two shows the zone's colour), so what shows
+-- is ground, not the dark backdrop. Nothing switches over to it, however far out.
 -- Placed from the camera each frame, not laid out: the part of the picture in the view, as a sub-rectangle
 -- of the texture (its texture coordinates), at (the tile rect - the camera's centre) x zoom, so no offset
 -- grows past the view's size however far in, and it moves with the camera in the frame it moves (the tiles'
@@ -14,11 +11,9 @@
 
 local _, ns = ...
 local UI, Atlas = ns.UI, ns.Atlas
-local Window, Camera, Engine = UI.Window, UI.Camera, UI.Engine
+local Window = UI.Window
 
-local FAR, NEAR = 24, 26 -- px a tile: the tiles hidden under FAR, laid out again over NEAR
-local FADE_S = 0.18 -- the tiles' crossfade
-local Base = { FAR = FAR }
+local Base = {}
 UI.Base = Base
 
 local tex = Window.view:CreateTexture(nil, "BACKGROUND", nil, -7) -- over the backdrop (-8), under every layer's frame
@@ -26,8 +21,6 @@ tex:SetSnapToPixelGrid(false)
 tex:SetTexelSnappingBias(0)
 tex:Hide()
 
-local far = false -- the camera is under FAR (NEAR, once it has been)
-local alpha, at = 1, nil -- the tiles layer's frame alpha; the time of its last step
 local file = nil -- what the texture shows
 local ki, kx, ky, kz, kw, kh -- where it stands: nothing moved, nothing set
 
@@ -61,36 +54,7 @@ local function Place(inst, cam, w, h)
 	ki, kx, ky, kz, kw, kh = inst, cam.cx, cam.cy, z, w, h
 end
 
--- The tiles layer's frame, faded toward 1 (near) or 0 (far) at 1 / FADE_S a second; it starts rising once
--- the layout has laid it out (a canvas shown: its first layout lands in a frame or two).
-local function Fade(now, up)
-	local tiles = UI.Tiles
-	local dt = at and math.min(now - at, 0.1) or 0
-	at = now
-	local to = up and (tiles.front and 1 or 0) or 0
-	if alpha < to then
-		alpha = math.min(to, alpha + dt / FADE_S)
-	elseif alpha > to then
-		alpha = math.max(to, alpha - dt / FADE_S)
-	end
-	tiles.frame:SetAlpha(alpha)
-end
-
--- Each frame (Window's draw step, before Engine.Draw): the picture placed, the tiles' fade stepped.
-function Base.Draw(inst, cam, w, h)
-	local has = Atlas.Base(inst) ~= nil
-	if not has then
-		far = false
-	elseif far then
-		far = cam.zoom < NEAR
-	else
-		far = cam.zoom < FAR
-	end
-	Place(inst, cam, w, h)
-	if alpha ~= 1 or far then Fade(GetTime(), not far) else at = nil end
-end
+-- Each frame (Window's draw step, before Engine.Draw): the picture placed.
+function Base.Draw(inst, cam, w, h) Place(inst, cam, w, h) end
 
 function Base.Shown() return file ~= nil end -- (the tests)
-
--- The tiles layer not laid out: the camera far out and the tiles faded away (Engine: idle, its canvases emptied).
-UI.Tiles.idle = function() return far and alpha == 0 end

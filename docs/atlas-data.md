@@ -96,7 +96,7 @@ that read it.
   `Atlas.Zones(inst)` (zone uiMaps by name), `Atlas.Continent(inst)` → the continent's uiMapID.
 
 ### Data/Base.lua — `ns.Data.Base` (the minimap tiles, Areas, AreaGrid)
-`[inst] = { file, c0, r0, c1, r1, px, w, h }` for the two continents: the base picture (ui/Base.lua,
+`[inst] = { file, c0, r0, c1, r1, px, w, h }` for the two continents: the base picture (ui/Base.lua: the underlay beneath the tiles, shown through their gaps; never in their place;
 Textures/Base*.blp: a flat map, land a colour a zone from the tiles' mean, water the backdrop's, a crisp
 coast; tools/gen_base.py), the tile rect it covers (c0, r0 to c1, r1), px a tile and the texture's size
 (power of two, the picture in its top left). `Atlas.Base(inst)` → that row, or nil.

@@ -432,7 +432,7 @@ def test_zoom_look():
         assert layers["tiles"].tile <= 0.5 + 1e-6 and layers["tiles"].uncovered == 0, name
         assert all(r.uncovered <= 6 for k, r in layers.items() if k not in ("borders", "questAreas")), name
         assert name not in GLIDES or layers["borders"].uncovered <= 10, name
-        assert all(r.back == 0 for k, r in layers.items() if k not in ("questAreas", "tiles")), name  # (the tiles leave for the base picture far out, and come back)
+        assert all(r.back == 0 for k, r in layers.items() if k != "questAreas"), name
         assert names.lag <= 2 and names.runMax <= 1 and (names.groundLag or 0) <= 4, name
         assert look.short == 0, f"{name}: {look.shortAt}"
         assert fs.max <= 8 and sum(v.over for v in perf.values()) == 0 and perf["map: draw"].max <= 2, name

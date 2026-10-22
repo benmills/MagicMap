@@ -1,7 +1,7 @@
 -- The Look & feel dialog (Settings > Advanced > Look & feel…, /mm feel): a small movable dialog of the
 -- client's ButtonFrameTemplate (as the map window, ui/Window.lua, but kept as the client draws it:
 -- header bar, close button), DIALOG strata, clamped to the screen, dragged by its header, Escape
--- closes it (game/Hooks.lua names it in UISpecialFrames). Three sections, each with a Reset, and
+-- closes it (game/Hooks.lua names it in UISpecialFrames). Four sections, each with a Reset, and
 -- Reset all at the bottom; every change applies live:
 --   Tracking line: style, weight, colour, glow, breathing, opacity. ui/Path.lua owns the values: it
 --     reads Feel.Get("path.<key>") and lays out again when Feel.rev moves; its UI.Path.DEFAULTS and
@@ -10,6 +10,9 @@
 --   Grouping: ui/Cluster.lua's five tunables, through Cluster.Get/Set (saved as UI.saved.clusterTune, as before).
 --   Map: label size (ui/Labels.lua), your arrow's size (ui/You.lua), the pills' backing (ui/Controls.lua):
 --     pushed to their setters on change, and again each time the map shows (the saved values, once loaded).
+--   Quest areas: the fill, edge alpha and edge width of the followed quest's area and of the others', and the
+--     hover's fill and edge alpha (alphas 0-255, shown as %): ui/Areas.lua reads Feel.Get("areas.<key>") and
+--     styles its frames anew when Feel.rev moves (UI.Areas.DEFAULTS are the defaults, read when asked).
 -- Every setting is declared once in KEYS ({ key, section, label, kind = "slider" | "check" | "pick", min, max,
 -- step, default (a value, or a function), options (or a function), tip, apply? }): the dialog is built from
 -- it, once, on the first open; its widgets are refreshed from the values on open and after a reset, each set
@@ -27,6 +30,8 @@ UI.Feel = Feel
 -- Until ui/Path.lua exposes its own.
 local PATH_DEFAULTS = { style = "dashed", weight = 2, color = "Parchment", glow = true, breath = true, opacity = 0.9 }
 local PATH_COLORS = { { "Parchment", { r = 1, g = 0.9, b = 0.7 } } }
+-- Until ui/Areas.lua (after this file) exposes its own.
+local AREA_DEFAULTS = { fFill = 32, fEdge = 120, fWidth = 0.8, oFill = 0, oEdge = 85, oWidth = 0.6, hFill = 45, hEdge = 150 }
 local function PathDefaults() return UI.Path and UI.Path.DEFAULTS or PATH_DEFAULTS end
 local function PathColors() return UI.Path and UI.Path.COLORS or PATH_COLORS end
 local function PathDefault(k) return function() return PathDefaults()[k] end end
@@ -41,9 +46,12 @@ local function ColorOptions()
 	return out
 end
 
-local SECTIONS = { { key = "path", title = "Tracking line" }, { key = "group", title = "Grouping" }, { key = "map", title = "Map" } }
+local function AreaDefault(k) return function() return UI.Areas and UI.Areas.DEFAULTS[k] or AREA_DEFAULTS[k] end end
 
--- pct: shown as a percentage. cluster: ui/Cluster.lua's tunable it is (held there, not in saved.feel).
+local SECTIONS = { { key = "path", title = "Tracking line" }, { key = "group", title = "Grouping" }, { key = "map", title = "Map" },
+	{ key = "areas", title = "Quest areas" } }
+
+-- pct: shown as a percentage; of: as a percentage of it (alphas 0-255; step 1: their defaults lie on the grid). cluster: ui/Cluster.lua's tunable it is (held there, not in saved.feel).
 -- apply(v): its setter, called on change and each time the map shows.
 local KEYS = {
 	{ key = "path.style", section = "path", label = "Style", kind = "pick", default = PathDefault("style"),
@@ -70,6 +78,23 @@ local KEYS = {
 		fmt = "%d", tip = "A pill's slots: every icon if they fit, else one fewer and \"+N\"." },
 	{ key = "group.alpha", section = "group", label = "Pill background", kind = "slider", min = 0, max = 0.7, step = 0.05, pct = true,
 		cluster = "alpha", tip = "How dark the pill behind grouped icons is." },
+
+	{ key = "areas.fFill", section = "areas", label = "Followed fill", kind = "slider", min = 0, max = 255, step = 1, of = 255,
+		default = AreaDefault("fFill"), tip = "How solid the fill of the quest you follow is." },
+	{ key = "areas.fEdge", section = "areas", label = "Followed edge", kind = "slider", min = 0, max = 255, step = 1, of = 255,
+		default = AreaDefault("fEdge"), tip = "How solid the edge of the quest you follow is." },
+	{ key = "areas.fWidth", section = "areas", label = "Followed width", kind = "slider", min = 0.2, max = 1.5, step = 0.1,
+		default = AreaDefault("fWidth"), fmt = "%.1f", tip = "How thick the edge of the quest you follow is." },
+	{ key = "areas.oFill", section = "areas", label = "Others' fill", kind = "slider", min = 0, max = 255, step = 1, of = 255,
+		default = AreaDefault("oFill"), tip = "How solid the fill of the other quests' areas is." },
+	{ key = "areas.oEdge", section = "areas", label = "Others' edge", kind = "slider", min = 0, max = 255, step = 1, of = 255,
+		default = AreaDefault("oEdge"), tip = "How solid the edge of the other quests' areas is (a gather area's a little less)." },
+	{ key = "areas.oWidth", section = "areas", label = "Others' width", kind = "slider", min = 0.2, max = 1.5, step = 0.1,
+		default = AreaDefault("oWidth"), fmt = "%.1f", tip = "How thick the edge of the other quests' areas is." },
+	{ key = "areas.hFill", section = "areas", label = "Hover fill", kind = "slider", min = 0, max = 255, step = 1, of = 255,
+		default = AreaDefault("hFill"), tip = "How much an area under the cursor (or its pin) lifts its fill." },
+	{ key = "areas.hEdge", section = "areas", label = "Hover edge", kind = "slider", min = 0, max = 255, step = 1, of = 255,
+		default = AreaDefault("hEdge"), tip = "How solid the edge of an area under the cursor (or its pin) is." },
 
 	{ key = "labels.scale", section = "map", label = "Label size", kind = "slider", min = 0.7, max = 1.5, step = 0.1, pct = true,
 		default = 1, apply = function(v) UI.Labels.SetScale(v) end, tip = "The zone and subzone names' size." },
@@ -156,6 +181,7 @@ local function Snap(k, v)
 end
 
 local function Shown(k, v)
+	if k.of then return math.floor(v * 100 / k.of + 0.5) .. "%" end -- /: never 0 (of is 255)
 	if k.pct then return math.floor(v * 100 + 0.5) .. "%" end
 	return string.format(k.fmt or "%s", v)
 end
@@ -380,4 +406,4 @@ function Feel.Toggle()
 	if built and frame:IsShown() then frame:Hide() else Feel.Open() end
 end
 
-Command({ kind = "slash", name = "feel", help = "the Look & feel dialog (the tracking line, grouping, the map)", fn = Feel.Toggle })
+Command({ kind = "slash", name = "feel", help = "the Look & feel dialog (the tracking line, grouping, the map, quest areas)", fn = Feel.Toggle })

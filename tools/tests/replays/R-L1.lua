@@ -125,7 +125,7 @@ for i = 1, 60 do
 end
 local ok, n = Right()
 T.Print("L1 (UI): out of sight %d frames of a zoom, shown again at frame %d, %d draws", hid, back, sim.calls.DrawBlob - draws)
-assert(back and hid == back - 1 and ok and n == 27 and Areas.front.pools.blob.n <= 16, "a frame a style and hatch, the 27, right")
+assert(back and hid == back - 1 and ok and n == 27 and Areas.front.pools.blob.n <= 16, "a frame a style, the 27, right")
 assert(sim.calls.DrawBlob - draws == 2 * 27, "drawn twice where it lands")
 
 -- /mm check inside, standing in quest 60's area (the sim's log: 60 in progress, 62 to turn in).

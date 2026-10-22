@@ -6,7 +6,7 @@ The repo root is the addon root. Folders follow architecture.md: two libraries
 ```
 MagicMap.toc          load order (below), generated from each folder's files.txt
 Data/                 generated Atlas data (the QuestieDB-derived five: NOTICE.md)
-Textures/             generated textures the addon loads (PlayerArrow, GlowRing, the quest areas' BlobHatch*)
+Textures/             generated textures the addon loads (PlayerArrow, GlowRing, the base picture)
 atlas/                Atlas library: facts that hold (plain Lua 5.1, no WoW API)
 runtime/              Runtime library: when things run (frame steps, slices, timers, events, perf)
 game/                 Game system: the only code that touches the WoW API, other addons, SavedVariables
@@ -91,7 +91,7 @@ be installed together.
 - **Quest areas (the one game read in UI).** A QuestPOIFrame draws the client's quest areas
   (`DrawBlob`) and hit-tests them (`UpdateMouseOverTooltip`): game state read through a widget.
   Only game/Oracles.lua (the `Inside` sensor, unseen) and ui/Areas.lua (the areas you see, the
-  spike's blobs, their fill hatched, decided at M2: docs/brief.md §7) make one; `tools/luacheck.py` fails any other
+  spike's blobs, decided at M2: docs/brief.md §7) make one; `tools/luacheck.py` fails any other
   file that does (`POI_FILES`).
 
 ## Load order (TOC)

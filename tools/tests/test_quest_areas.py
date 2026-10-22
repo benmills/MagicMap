@@ -1,8 +1,7 @@
 """Quest areas on the simulated client (docs/v1-plan.md M2.4: ui/Areas.lua), end to end from the sim's
 quest log (its blobs: Sim.blobShapes) through Game's parts and Inside, and Model:
 
-  test_quest_areas: one QuestPOIFrame a map, style and hatch in the client's edge art (S53) over our hatched
-    fill (Textures/BlobHatch*, tools/gen_blob.py, one of four by quest id): the quest you follow filled blue
+  test_quest_areas: one QuestPOIFrame a map and style in the client's art (S53): the quest you follow filled blue
     over the rest, kill rust, gather green, other blue; each quest drawn into its frame's rect as laid out
     (L1); out of sight while the zoom moves, back where it lands (P5); the gear's toggles.
   test_quest_area_hover: an area under the cursor lit on top (HOVER) with its quest's tooltip, built once a
@@ -41,11 +40,9 @@ HOGGER = {"id": 176, "title": "Wanted: Hogger", "level": 11, "col": 32.4, "row":
           "objectives": [["monster", "Hogger slain: 0/1", 0, 1, False]]}
 CANDLES_NEAR = dict(CANDLES, col=32.45, row=49.6)
 ART = "Interface\\WorldMap\\UI-"
-HATCH = "Interface\\AddOns\\MagicMap\\Textures\\BlobHatch"
-PATTERNS = ["Slash", "Back", "Horiz", "Dots"]  # a quest's by its id % 4
 STYLES = {  # fill, border, width, its edge art, over the canvas
-    "followed": (90, 120, 0.8, ART + "QuestBlob-Outside", 2), "kill": (55, 85, 0.6, ART + "ArchaeologyBlob-Outside", 1),
-    "gather": (55, 55, 0.6, ART + "BonusObjectiveBlob-Outside", 1), "other": (55, 85, 0.6, ART + "QuestBlob-Outside", 1)}
+    "followed": (32, 120, 0.8, ART + "QuestBlob-Outside", 2), "kill": (0, 85, 0.6, ART + "ArchaeologyBlob-Outside", 1),
+    "gather": (0, 55, 0.6, ART + "BonusObjectiveBlob-Outside", 1), "other": (0, 85, 0.6, ART + "QuestBlob-Outside", 1)}
 
 
 def blobs(sim, ns):
@@ -65,10 +62,9 @@ def blobs(sim, ns):
 def test_quest_areas():
     L, sim, ns, G = client([FRONTIER, GOLD, MINE, HOGGER, CANDLES_NEAR, LOVERS], followed=52, before=RECORD)
     A, S, E, view = ns.UI.Areas.layer, sim.state, ns.UI.Engine, ns.UI.Window.view
-    # Each quest's hatch by its id % 4 (52 and 176: Slash, 60: Slash, 62: Horiz, 47: Dots), so a frame a quest
-    # here: the quests of one style with one hatch are one frame.
-    want = {(quest,): STYLES[st] + (True, HATCH + PATTERNS[quest % 4]) for quest, st in
-            ((52, "followed"), (176, "kill"), (47, "gather"), (60, "gather"), (62, "other"))}
+    # A frame a style: the two gather quests (47, 60) are one.
+    want = {quests: STYLES[st] + (True, ART + ("QuestBlob" if st in ("followed", "other") else "ArchaeologyBlob" if st == "kill" else "BonusObjectiveBlob") + "-Inside") for quests, st in
+            (((52,), "followed"), ((176,), "kill"), ((47, 60), "gather"), ((62,), "other"))}
     assert blobs(sim, ns) == want and A.frame.GetAlpha(A.frame) == 1
 
     # A zoom: out of sight from its first frame till it lands, then each drawn where it's laid out.
@@ -77,6 +73,15 @@ def test_quest_areas():
     assert A.frame.GetAlpha(A.frame) == 0
     sim.Run(1)
     assert A.frame.GetAlpha(A.frame) == 1 and blobs(sim, ns) == want
+
+    # Look & feel > Quest areas: a setting restyles the frames live, drawn again; its reset puts the defaults back.
+    n = sim.calls.DrawBlob
+    ns.UI.Feel.Set("areas.fFill", 100)
+    sim.Run(1)
+    assert blobs(sim, ns)[(52,)][0] == 100 and sim.calls.DrawBlob > n
+    ns.UI.Feel.Reset("areas")
+    sim.Run(1)
+    assert blobs(sim, ns) == want and not ns.UI.saved.feel
 
     # The gear's: quests off (their areas with them), then areas off.
     E.SetLayer("quests", False)
@@ -103,7 +108,7 @@ def test_quest_area_hover():
     def lit():
         """The quests the lit frame (HOVER's alphas) shows."""
         for f in sim.Frames().values():
-            if f.GetObjectType(f) == "QuestPOIFrame" and S[f].SetFillAlpha == 120 and f.IsVisible(f):
+            if f.GetObjectType(f) == "QuestPOIFrame" and S[f].SetFillAlpha == 45 and f.IsVisible(f):
                 assert S[f].SetBorderAlpha == 150 and S[f].SetBorderScalar == 0.8
                 return sorted(S[f].blobs.keys())
         return []
@@ -154,7 +159,6 @@ def test_quest_area_big_zone():
 
     def at(x, y):
         return c0 + (c1 - c0) * x, r0 + (r1 - r0) * y
-    # (ids 4 apart: one hatch, so one frame)
     quests = [{"id": 9000 + 4 * i, "title": f"Quest {i}", "level": 7, "map": 1434, "col": at(x, y)[0], "row": at(x, y)[1],
                "objectives": [["monster", "Raptor slain: 0/5", 0, 5, False]], "area": 0.03}
               for i, (x, y) in enumerate(((0.1, 0.1), (0.5, 0.5), (0.9, 0.9)))]

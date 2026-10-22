@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Generate Textures/Base<Continent>.blp and Data/Base.lua: each continent as one stylised flat map.
 
-The base layer (ui/Base.lua) lies under the tiles and, zoomed far out, stands in for them: one
-picture of the continent instead of ~1,800 tiles. It is not the tiles shrunk (blurry): it's drawn
-from them.
+The base layer (ui/Base.lua) lies under the tiles, the underlay that shows through their gaps (a flick
+outrunning the layout, tiles not yet loaded): one picture of the continent. It is not the tiles shrunk
+(blurry): it's drawn from them.
 
   - Land and water per pixel from the real tile art (the minimap's water is a dark teal or black,
     land is anything redder or brighter), at twice the picture's resolution, then a 3x3 close and
