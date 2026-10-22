@@ -100,11 +100,11 @@ Title.Fit = Fit
 frame:HookScript("OnSizeChanged", Runtime.Wrap("map: title fit", Fit))
 
 -- The subtitle's forms: a subzone (or the hint), coordinates ("x, y" at a tenth of a percent), the target
--- ("<title> N yd", "<title> here": Core.lua:1294-1300), the debug line, each there or not, joined.
+-- ("<title>", "<title> here": Core.lua:1294-1300), the debug line, each there or not, joined.
 -- Coordinates and yards go through SetFormattedText: the client formats them without a Lua string (hovering
 -- the big map, they change every update: a string and its join each, 20 times a second).
 local COORDS = "%.1f, %.1f"
-local TARGET, HERE = "|cffffd27f%s|r %d yd", "|cffffd27f%s|r here" -- Core.lua:1295-1299
+local TARGET, HERE = "|cffffd27f%s|r", "|cffffd27f%s|r here" -- Core.lua:1295-1299; the yards are the tracking pill's (ui/Controls.lua)
 local forms, args = {}, {} -- a form by its parts (a subzone 1, coordinates 2, a target 4, here 8, debug 16), made once
 local function Form(k)
 	local f = forms[k]
@@ -119,7 +119,7 @@ local function Form(k)
 	end
 	return f
 end
-local shown = {} -- what it shows: name, sub, nx, ny (tenths of a percent: nil, none), hint, the target's tt, yd, debug
+local shown = {} -- what it shows: name, sub, nx, ny (tenths of a percent: nil, none), hint, the target's tt, yd (false: here), debug
 local function Show(name, sub, x, y, hint, tt, yd, debug)
 	local nx, ny = x and math.floor(x * 1000 + 0.5), y and math.floor(y * 1000 + 0.5)
 	local s = shown
@@ -139,8 +139,8 @@ local function Show(name, sub, x, y, hint, tt, yd, debug)
 			k, n = k + 2, n + 2
 		end
 		if tt then
-			args[n + 1], args[n + 2] = tt, yd
-			k, n = k + (yd and 4 or 8), n + (yd and 2 or 1)
+			args[n + 1] = tt
+			k, n = k + (yd and 4 or 8), n + 1
 		end
 		if debug then
 			args[n + 1] = debug
@@ -211,7 +211,10 @@ local function Update()
 		a, b = you.col, you.row
 	end
 	local tt, yd -- the target: big, or small and hovered (Core.lua:1294)
-	if onMap and (big and not hovering or hovering and not big) then tt, yd = UI.You.Target() end
+	if onMap and (big and not hovering or hovering and not big) then
+		tt, yd = UI.You.Target()
+		yd = yd and true -- not how far: just whether you're outside its area (no yards to redraw for)
+	end
 	local l = last
 	if not debug and not l.debug and l.inst == inst and l.big == big and l.hovering == hovering and l.a == a
 		and l.b == b and l.uiMap == you.uiMap and l.subzone == you.subzone and l.tt == tt and l.yd == yd

@@ -39,6 +39,8 @@ Game.Part("you", function()
 	you.inst, you.col, you.row = select(8, GetInstanceInfo()), nil, nil
 	if north then you.col, you.row = Atlas.WorldToTile(north, west) end
 	you.facing = GetPlayerFacing()
+	local speed = GetUnitSpeed("player") -- (the client may hand it back secret: no arithmetic on that, so none)
+	you.speed = speed and not issecretvalue(speed) and speed or nil
 	if moved then
 		local zone, sub = GetZoneText(), GetSubZoneText()
 		you.uiMap, you.zone, you.subzone, moved = C_Map.GetBestMapForUnit("player"), zone ~= "" and zone or nil,

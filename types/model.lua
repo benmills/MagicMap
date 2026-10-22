@@ -115,6 +115,7 @@
 ---@field col? MM.Col          last known (kept while unknown)
 ---@field row? MM.Row
 ---@field facing? number
+---@field speed? number        yards a second (obs.you.speed); nil: unknown
 ---@field stale boolean        the position is the last known, not this frame's
 ---@field uiMap? MM.UiMapID    this frame's (obs.you.uiMap); nil: the client gives none (an instance without a map)
 ---@field zone? string         this frame's (obs.you.zone): the client's name for your zone
