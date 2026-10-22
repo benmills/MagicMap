@@ -2,10 +2,11 @@
 -- as open for the controls that opened them, so those don't fade out under them.
 -- The gear menu (GearMenu.lua): what's drawn, a submenu per group of layers (Map, Quests, Places, Nearby,
 -- Other addons), each with an "All" box on top (the group on or off) and each row's icon beside its name;
--- Nearby lists Blizzard's tracking types too (but those ours replace). Then quick actions (Use Blizzard's
+-- Nearby lists Blizzard's tracking types too (but those ours replace); each group's row shows how many of its
+-- rows are on, n/total (Tally). Then quick actions (Use Blizzard's
 -- minimap, Reset to defaults: every layer as installed), then Settings, one list (Follow you, Group
 -- overlapping icons, Minimap button, Reset window position, Advanced: Diagnostics, Grouping's tunables,
--- Performance).
+-- Performance). Override world map (on by default) sits after Follow you: game/Hooks.lua reads it.
 -- /mm layers (Layers.lua:2196-2207).
 -- The map picker (the title's click: ui/ZoneInfo.lua) and /mm map; the map's right-click menu.
 
@@ -40,17 +41,27 @@ local function Tip(label, tip)
 	end
 end
 
+-- A row's icon beside its name: 16 px, a file's border cropped; an atlas as it is, if this client has it.
+-- "" for none, so a row with no icon reads as it always did.
+local function Mark(icon)
+	if not icon then return "" end
+	if icon:sub(1, 2) == "A:" then
+		return C_Texture.GetAtlasInfo(icon:sub(3)) and "|A:" .. icon:sub(3) .. ":16:16|a  " or ""
+	end
+	return "|T" .. icon .. ":16:16:0:0:64:64:5:59:5:59|t  "
+end
+
 ---------------------------------------------------------------------------
 -- Layers: a submenu per group, of checkboxes that keep the menu open
 ---------------------------------------------------------------------------
 
 -- The groups, in order (Layers.lua:63-70); one with no layer is left out.
 local GROUPS = {
-	{ key = "map", title = "Map" },
-	{ key = "quests", title = "Quests" },
-	{ key = "places", title = "Places" },
-	{ key = "nearby", title = "Nearby" }, -- then Blizzard's tracking types (AddLayers)
-	{ key = "addons", title = "Other addons" },
+	{ key = "map", title = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01" },
+	{ key = "quests", title = "Quests", icon = "A:Quest-In-Progress-Icon-yellow" },
+	{ key = "places", title = "Places", icon = "A:dungeon" },
+	{ key = "nearby", title = "Nearby", icon = "Interface\\Icons\\Ability_Tracking" }, -- then Blizzard's tracking types (AddLayers)
+	{ key = "addons", title = "Other addons", icon = "Interface\\Icons\\INV_Misc_EngGizmos_01" },
 }
 
 -- The layers' rows: { key, label, group, tip, default?, parent?, onToggle? } (Layers.lua:30-61,
@@ -108,7 +119,7 @@ local function Sections()
 				if a.world then rows[#rows + 1] = AddonRow(a) end
 			end
 		end
-		if rows[1] then out[#out + 1] = { key = g.key, title = g.title, rows = rows } end
+		if rows[1] then out[#out + 1] = { key = g.key, title = g.title, icon = g.icon, rows = rows } end
 	end
 	return out
 end
@@ -130,13 +141,7 @@ local ICON = {
 	rares = "A:vignettekill", areaPOIs = "Interface\\Icons\\INV_Misc_Map_01",
 }
 local function Label(row)
-	local icon, mark = ICON[row.key], ""
-	if icon and icon:sub(1, 2) == "A:" then
-		if C_Texture.GetAtlasInfo(icon:sub(3)) then mark = "|A:" .. icon:sub(3) .. ":16:16|a  " end
-	elseif icon then
-		mark = "|T" .. icon .. ":16:16:0:0:64:64:5:59:5:59|t  " -- (an icon's border cropped)
-	end
-	return (row.parent and "     " or "") .. mark .. row.label
+	return (row.parent and "     " or "") .. Mark(ICON[row.key]) .. row.label
 end
 
 -- Its setting set (Flip, when it differs).
@@ -144,8 +149,8 @@ local function Set(row, on)
 	if Engine.LayerOn(row.key) ~= on then Flip(row) end
 end
 
--- Nearby's tracking rows (Blizzard's types, below): set later in this file.
-local TrackingOn, SetTracking, AddTrackingRows
+-- Nearby's tracking rows (Blizzard's types, below): set later in this file. Tally: a group's "n/total" (below).
+local TrackingOn, SetTracking, AddTrackingRows, Tally
 
 -- A group's rows all on (Nearby: its tracking types too).
 local function AllOn(sec)
@@ -171,7 +176,8 @@ end
 
 local function AddLayers(root)
 	for _, sec in ipairs(Sections()) do
-		local sub = root:CreateButton(sec.title)
+		-- The group's row: its icon, its title, then how many of its rows are on, dimmed (Tally).
+		local sub = root:CreateButton(Mark(sec.icon) .. sec.title .. Tally(sec))
 		local rows = sec.rows
 		sub:CreateCheckbox("All " .. sec.title:lower(), function() return AllOn(sec) end, function()
 			Run(SetGroup, sec)
@@ -220,6 +226,11 @@ local want, was = {}, {} -- a box's key -> what was asked, its state then
 local function Shown(key, on)
 	if was[key] == on then return want[key] end
 	was[key] = nil
+	return on
+end
+-- Shown's answer, without the update (a count reads the boxes as they are drawn, and must not clear them).
+local function Peek(key, on)
+	if was[key] == on then return want[key] end
 	return on
 end
 local function Ask(key, on)
@@ -274,6 +285,21 @@ function AddTrackingRows(sub)
 	end)
 end
 
+-- A group's count for its row: "  n/total" dimmed, its rows on out of its rows (Nearby's tracking types too).
+function Tally(sec)
+	local on, total = 0, #sec.rows
+	for _, row in ipairs(sec.rows) do
+		if Engine.LayerOn(row.key) then on = on + 1 end
+	end
+	if sec.key == "nearby" then
+		Listed(function(t)
+			total = total + 1
+			if Peek(t.id, Active(t.id)) then on = on + 1 end
+		end)
+	end
+	return "  |cff888888" .. on .. "/" .. total .. "|r"
+end
+
 ---------------------------------------------------------------------------
 -- Settings
 ---------------------------------------------------------------------------
@@ -316,15 +342,20 @@ local ADVANCED = {
 -- ({ label, run = }) or a submenu ({ label, sub = sections }) (GearMenu.lua:30-59).
 local SETTINGS = {
 	{ nil, {
-		{ "Follow you", on = function() return UI.Camera.follow end, run = function() UI.Motion.SetFollow(not UI.Camera.follow, true) end,
+		{ "Follow you", icon = "Interface\\Icons\\Ability_Hunter_Pathfinding",
+			on = function() return UI.Camera.follow end, run = function() UI.Motion.SetFollow(not UI.Camera.follow, true) end,
 			tip = "Keeps the map centred on you. Drag the map to look about; it glides back to you when left alone." },
-		{ "Group overlapping icons", on = function() return UI.saved.cluster ~= false end,
+		{ "Override world map", icon = "Interface\\Icons\\INV_Misc_Map02",
+			on = function() return UI.saved.worldmap ~= false end, run = function() UI.saved.worldmap = UI.saved.worldmap == false end,
+			tip = "M opens our map while it's shown, in place of Blizzard's world map. Off: M opens Blizzard's world map as usual." },
+		{ "Group overlapping icons", icon = "Interface\\Icons\\INV_Misc_Bag_08", on = function() return UI.saved.cluster ~= false end,
 			run = function() UI.saved.cluster = UI.saved.cluster == false end,
 			tip = "Where icons crowd together, one small pill: click it to see them all." },
-		{ "Minimap button", on = function() return UI.saved.button end, run = function() UI.Icon() end,
+		{ "Minimap button", icon = "Interface\\Icons\\INV_Misc_Spyglass_02", on = function() return UI.saved.button end,
+			run = function() UI.Icon() end,
 			tip = "The button on Blizzard's minimap, for when MagicMap is switched off." },
-		{ "Reset window position", run = function() UI.BigMap.Reset() end },
-		{ "Advanced", sub = ADVANCED },
+		{ "Reset window position", icon = "Interface\\Icons\\Spell_Arcane_Blink", run = function() UI.BigMap.Reset() end },
+		{ "Advanced", icon = "Interface\\Icons\\INV_Gizmo_01", sub = ADVANCED },
 	} },
 }
 
@@ -342,7 +373,7 @@ local function AddSections(sub, sections)
 		if section[1] then sub:CreateTitle(section[1]) end
 		for _, row in ipairs(section[2]) do
 			if row.sub then
-				AddSections(sub:CreateButton(row[1]), row.sub)
+				AddSections(sub:CreateButton(Mark(row.icon) .. row[1]), row.sub)
 			elseif row.choices then -- (grouping's tunables: one of a few values, UI.Cluster's)
 				local pick = sub:CreateButton(row[1])
 				pick:SetTooltip(Tip(row[1], row.tip))
@@ -355,13 +386,13 @@ local function AddSections(sub, sections)
 						end)
 				end
 			elseif row.on then
-				local cb = sub:CreateCheckbox(row[1], function() return Shown(row, On(row)) end, function()
+				local cb = sub:CreateCheckbox(Mark(row.icon) .. row[1], function() return Shown(row, On(row)) end, function()
 					Run(Set, row)
 					return MenuResponse.Refresh
 				end)
 				cb:SetTooltip(Tip(row[1], row.tip))
 			else
-				sub:CreateButton(row[1], function() Run(row.run) end)
+				sub:CreateButton(Mark(row.icon) .. row[1], function() Run(row.run) end)
 			end
 		end
 	end
@@ -509,10 +540,10 @@ function Menus.Gear(owner)
 	Menus.Show(owner, function(_, root)
 		AddLayers(root)
 		root:CreateDivider()
-		root:CreateButton("Use Blizzard's minimap", function() Run(function() UI.Window.frame:Hide() end) end)
-		root:CreateButton("Reset to defaults", function() Run(Reset) end)
+		root:CreateButton(Mark("Interface\\Icons\\INV_Misc_Map_03") .. "Use Blizzard's minimap", function() Run(function() UI.Window.frame:Hide() end) end)
+		root:CreateButton(Mark("Interface\\Buttons\\UI-RefreshButton") .. "Reset to defaults", function() Run(Reset) end)
 			:SetTooltip(Tip("Reset to defaults", "Every layer back as it was installed."))
 		root:CreateDivider()
-		AddSections(root:CreateButton("Settings"), SETTINGS)
+		AddSections(root:CreateButton(Mark("Interface\\Icons\\Trade_Engineering") .. "Settings"), SETTINGS)
 	end)
 end

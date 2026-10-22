@@ -22,7 +22,7 @@ UI.saved = saved
 local window = { shown = false, big = false, still = false, strata = "LOW", level = 0, homeAlpha = 1 }
 local camera = { cx = 0, cy = 0, zoom = 0, w = 0, h = 0 } -- the map's, each frame (telemetry's motion ring, shot stamps)
 local view = { v = 1, frame = 0, minimap = "ours", inst = 0, window = window,
-	layers = {}, sockets = {}, button = true, camera = camera }
+	layers = {}, sockets = {}, button = true, overrideMap = true, camera = camera }
 local focus = { inst = 0, shown = false, follow = true }
 -- The layers Model reads (Focus.off): turned off, its target skips that one (or a quest's area), a seen rare
 -- shows under a live vignette (vignettes), a blip near one of those pins isn't skipped (model/Blips.lua).
@@ -58,7 +58,7 @@ end
 -- UI's chat line (Core.lua:45-46).
 function UI.Print(msg) print("|cffffd100MagicMap|r: " .. msg) end
 
-local OPTIONAL = { window = "table", inst = "number", center = "table", clusterTune = "table" } -- types/saved.lua MM.SavedUI
+local OPTIONAL = { window = "table", inst = "number", center = "table", clusterTune = "table", worldmap = "boolean" } -- types/saved.lua MM.SavedUI
 Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS, optional = OPTIONAL }, fn = function(s)
 	saved = s
 	UI.saved = s
@@ -105,6 +105,7 @@ Runtime.Step("ui", "ui: view", function()
 	window.shown, window.place, window.still = shown, place, still
 	window.big, window.homeAlpha, window.strata, window.level = BigMap.big, BigMap.homeAlpha, strata, level
 	view.minimap, view.inst, view.button = saved.minimap, Camera.inst or 0, saved.button
+	view.overrideMap = saved.worldmap ~= false -- (Settings > Override world map: Game hides Blizzard's map on M only while on)
 	view.layers.blips = layersOn or nil
 	if UI.Sockets.Update(view) then view.frame = Runtime.frames end -- (the world socket, an addon's layer)
 	local cam = Camera.cam

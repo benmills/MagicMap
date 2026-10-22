@@ -109,7 +109,7 @@ sim.Slash("/mm toggle")
 sim.Run(0.5)
 sim.Click(ns.UI.Controls.gear)
 for _, e in ipairs(sim.MenuItems("button")) do
-	if e.text == "Use Blizzard's minimap" then e.onSelect() end
+	if e.text:find("Use Blizzard's minimap", 1, true) then e.onSelect() end
 end
 sim.Run(0.5)
 Is(ns, "the gear's Blizzard minimap, in combat", false, true, 1)

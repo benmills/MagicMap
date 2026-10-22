@@ -15,7 +15,7 @@ from sim import TEST_UI
 
 LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Quests": "quests", "Quest areas": "questAreas",
           "Quests to pick up": "offers", "Rares & treasures": "rares"}
-SETTINGS = [("checkbox", "Follow you"), ("checkbox", "Group overlapping icons"), ("checkbox", "Minimap button"),
+SETTINGS = [("checkbox", "Follow you"), ("checkbox", "Override world map"), ("checkbox", "Group overlapping icons"), ("checkbox", "Minimap button"),
             ("button", "Reset window position"), ("button", "Advanced")]
 ADVANCED = [("title", "Diagnostics"), ("checkbox", "Debug info in the title"), ("checkbox", "Indoor maps"),
             ("divider", None), ("title", "Grouping"), ("button", "Distance"), ("button", "Reach"),
@@ -61,16 +61,25 @@ def gear(sim, ns):
 
 
 def plain(text):
-    """A row's text without its icon (|A...|a or |T...|t markup) and the spaces after it."""
-    return text and re.sub(r"\|[AT].*?\|[at] *", "", text)
+    """A row's text without its icon (|A...|a or |T...|t markup) and the spaces after it, and without colour
+    codes (a group's dimmed "n/total" stays: "Map  3/5")."""
+    return text and re.sub(r"\|c[0-9a-f]{8}|\|r|\|[AT].*?\|[at] *", "", text)
 
 
 def items(d):
-    return [(e.kind, plain(e.text)) for e in d["items"].values()]
+    """Each row's (kind, text): a group's "  n/total" left out (count() reads it)."""
+    return [(e.kind, re.sub(r"  \d+/\d+$", "", plain(e.text) or "") or None) for e in d["items"].values()]
+
+
+def count(sim, ns, title):
+    """A group's row as the gear draws it now: its title and n/total."""
+    root, _ = gear(sim, ns)
+    return plain(sub(root, title).text)
 
 
 def sub(root, title):
-    return next(e for e in root["items"].values() if plain(e.text) == title)
+    """The row titled so (a group's count after its title)."""
+    return next(e for e in root["items"].values() if (plain(e.text) or "").partition("  ")[0] == title)
 
 
 def tip(L, row):
@@ -122,6 +131,7 @@ def test_gear():
                                               ("checkbox", "Rares & treasures"), ("checkbox", "Party & raid")]
     assert items(sub(root, "Other addons")) == [("checkbox", "All other addons"), ("divider", None), ("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
     assert items(sub(root, "Settings")) == SETTINGS and items(sub(sub(root, "Settings"), "Advanced")) == ADVANCED
+    assert plain(sub(root, "Map").text) == "Map  3/3" and plain(sub(root, "Quests").text) == "Quests  3/3"
     sim.Press("M")
     sim.Run(1)
     big, _ = gear(sim, ns)
@@ -337,14 +347,18 @@ def test_gear_groups_and_reset():
     L, sim, ns, pin = shown()
     E = ns.UI.Engine
     root, rows = gear(sim, ns)
+    assert count(sim, ns, "Places") == "Places  3/4"  # (Graveyards are off by default)
     rows["All places"].onSelect()  # (Graveyards are off by default: not all on, so all on)
     assert E.LayerOn("flight") and E.LayerOn("graveyards")
+    assert count(sim, ns, "Places") == "Places  4/4"
     rows["All places"].onSelect()
     assert not E.LayerOn("flight") and not E.LayerOn("graveyards")
+    assert count(sim, ns, "Places") == "Places  0/4"
     rows["All quests"].onSelect()
-    assert not E.LayerOn("quests")
+    assert not E.LayerOn("quests") and count(sim, ns, "Quests") == "Quests  0/3"
     rows["Reset to defaults"].onSelect()
     assert E.LayerOn("quests") and E.LayerOn("flight") and not E.LayerOn("graveyards")  # (off by default)
+    assert count(sim, ns, "Places") == "Places  3/4" and count(sim, ns, "Quests") == "Quests  3/3"
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
