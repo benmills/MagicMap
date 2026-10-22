@@ -95,13 +95,45 @@ def test_group_model():
     assert revs[-1] > revs[-2] and known(model, "group")[0] == [] and len(set(revs[:11])) == 11
 
 
+def test_blips_questgiver_taken_model():
+    """Accepting a quest: the giver's blip stays on the minimap (a dot), but the "!" goes with the offer; a
+    quest ender's "?" with the hand-in. (The layers off, else the pins stand for the blips.)"""
+    L, tools, model = setup("""return { formats = { BlipServices = 2 },
+        BlipServices = { ["Marshal Dughan"] = { "questgiver" }, ["Remy"] = { "questender" } } }""")
+    model.Focus(L.table_from({"inst": 0, "shown": True, "off": L.table_from({"offers": True, "quests": True})}))
+    obs = L.eval("""function(frame, list, extra)
+        local o = { frame = frame, t = frame / 60, epoch = frame, hooked = {},
+            you = { inst = 0, col = 31.95, row = 49.75, facing = 0 },
+            blips = { list = list, sweep = frame, center = { inst = 0, col = 31.95, row = 49.75 }, reach = 200 * 3 / 1600 } }
+        for k, v in pairs(extra) do o[k] = v end
+        return o end""")
+    blip = L.eval("""function(name, east) return { name = name, rough = false,
+        pos = { inst = 0, col = 31.95 + east * 3 / 1600, row = 49.75 } } end""")
+    dughan, remy = blip("Marshal Dughan", 30), blip("Remy", -30)
+    both = L.table_from([dughan, remy])
+    offers = L.eval("function(b) return { { questID = 1, name = 'Report', pos = b.pos } } end")
+    log = L.eval("function(b, done) return { { id = 1, title = 'Report', complete = done, objectives = {}, pin = b.pos } } end")
+    none = L.table()
+
+    def icons(frame, extra):
+        model.Observe(obs(frame, both, L.table_from(extra)), L.table())
+        return {e.name: e.icon and e.icon.atlas for e in known(model, "blips")[0]}
+
+    assert icons(1, {"offers": offers(dughan), "quests": none}) == {"Marshal Dughan": "questnormal", "Remy": None}
+    # accepted: the offer gone, the log has it (not done); the sensor still has Dughan: no "!"
+    assert icons(2, {"offers": none, "quests": log(dughan, False)}) == {"Marshal Dughan": None, "Remy": None}
+    # done, handed in at Remy: his "?" while it's ready, none after
+    assert icons(3, {"quests": log(remy, True)}) == {"Marshal Dughan": None, "Remy": "questturnin"}
+    assert icons(4, {"quests": none}) == {"Marshal Dughan": None, "Remy": None}
+
+
 def test_blips_ours_model():
     L, tools, model = setup("""return { formats = { BlipServices = 2 },
         BlipServices = { ["Marshal Dughan"] = { "questgiver" }, ["Remy"] = { "questender", "Fishing Supplies" },
             ["Stormwind City Guard"] = { nil, "Guard" } } }""")
     saved = L.eval(SAVED)
     model.Load(saved)
-    model.Focus(L.table_from({"inst": 0, "shown": True}))
+    model.Focus(L.table_from({"inst": 0, "shown": True, "off": L.table_from({"offers": True, "quests": True})}))
     obs = L.eval("""function(frame, epoch, list, extra)
         local o = { frame = frame, t = frame / 60, epoch = epoch, hooked = {},
             you = { inst = 0, col = 31.95, row = 49.75, facing = 0 },
@@ -110,10 +142,13 @@ def test_blips_ours_model():
         return o end""")
     blip = L.eval("""function(name, east, north, icon) return { name = name, rough = false, icon = icon,
         pos = { inst = 0, col = 31.95 + east * 3 / 1600, row = 49.75 - north * 3 / 1600 } } end""")
+    quest = L.eval("function(b, done) return { { id = 2, title = 'Fishing', complete = done, objectives = {}, pin = b.pos } } end")
     dughan, remy, guard = blip("Marshal Dughan", 30, 0), blip("Remy", -30, 0), blip("Stormwind City Guard", 0, 40)
     mail = blip("Mailbox", 40, 20, 136459)
     four = L.table_from([dughan, remy, guard, mail])
-    model.Observe(obs(1, 1000, four), L.table())
+    # Dughan has an offer for you, Remy a quest of yours to hand in (their layers off: it's the blips' "!" and "?").
+    here = L.eval("function(b) return { { questID = 1, name = 'Report to Goldshire', pos = b.pos } } end")
+    model.Observe(obs(1, 1000, four, L.table_from({"offers": here(dughan), "quests": quest(remy, True)})), L.table())
     icons = {e.name: e.icon and (e.icon.texture or e.icon.atlas) for e in known(model, "blips")[0]}
     assert icons == {"Marshal Dughan": "questnormal", "Remy": "questturnin", "Stormwind City Guard": None, "Mailbox": 136459}
     titles = {e.name: e.text for e in known(model, "blips")[0]}  # the NPC's title (Blips.lua:436)
@@ -123,8 +158,10 @@ def test_blips_ours_model():
     # An offer's pin 5 yd from Dughan: its blip is that pin's; the offers layer off, it's back.
     offer = L.eval("function(b) return { { questID = 1, name = 'Report to Goldshire', pos = { inst = 0, col = b.pos.col, "
                    "row = b.pos.row + 5 * 3 / 1600 } } } end")(dughan)
-    model.Observe(obs(2, 1600, L.table_from([remy, guard, mail, dughan]), L.table_from({"offers": offer})), L.table())
-    assert sorted(e.name for e in known(model, "blips")[0]) == ["Mailbox", "Remy", "Stormwind City Guard"]
+    model.Focus(L.table_from({"inst": 0, "shown": True}))
+    model.Observe(obs(2, 1600, L.table_from([remy, guard, mail, dughan]),
+                      L.table_from({"offers": offer, "quests": quest(remy, True)})), L.table())
+    assert sorted(e.name for e in known(model, "blips")[0]) == ["Mailbox", "Stormwind City Guard"]  # (Remy: his quest's pin)
     assert mailbox.t == 1000  # seen again within the hour: left as it is
     model.Focus(L.table_from({"inst": 0, "shown": True, "off": L.table_from({"offers": True})}))
     assert "Marshal Dughan" in [e.name for e in known(model, "blips")[0]]
