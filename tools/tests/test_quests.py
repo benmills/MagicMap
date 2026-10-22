@@ -12,7 +12,8 @@ clicks in ui/Areas.lua), end to end from the sim's quest log through Game's part
     each step) through the wheel, drags, the big map, the follow moving, an offer taken into the log and
     the log abandoned (F26).
   test_quest_tooltip: the tooltip's lines in QuestInfo.lua's order and type (S63): the tag and group
-    size on the facts line, ≤3 droppers lowest first and how many more, Turn in to, the click hint; a
+    size on the facts line (the level bare in its colour), ≤3 droppers lowest first (no heading: their
+    swords say it) and how many more, the turn-in "?" before who takes it in, the click hint; a
     met dropper's portrait (the tooltip Command) the frame the tooltip is built; without QuestieDB's
     data, no dropper, source or turn-in lines (F28).
 """
@@ -21,7 +22,7 @@ from test_addon import boot, errors
 SETUP = """
 local Sim, ns = ...
 local Atlas = ns.Atlas
-Sim.atlases["UI-QuestIcon-TurnIn-Normal"], Sim.atlases.QuestNormal = true, true
+Sim.atlases["UI-QuestIcon-TurnIn-Normal"], Sim.atlases.QuestNormal, Sim.atlases.questturnin = true, true, true
 Sim.units.player.level = 8
 -- The sim's quest log: Quests{ { id, title, level, col, row (its pin on Elwynn, or map), complete?, objectives =
 -- { { type, text, have, need, finished } }, area = r? (its objective area: a circle about the pin, r
@@ -234,22 +235,21 @@ def test_quest_tooltip():
     disc = "|TInterface\\CharacterFrame\\TempPortraitAlphaMask:14:14:0:0:64:64:0:64:0:64:0:0:0|t"
     want = [
         ("Kobold Candles", False),
-        ("|cff9d9d9dLevel|r |cffffd1007|r|cff9d9d9d" + SEP + "|r|cffff8040Group (3)|r", True),  # its tag (F28)
+        ("|cffffd1007|r|cff9d9d9d" + SEP + "|r|cffff8040Group 3|r", True),  # its level, its tag (F28)
         ("Large Candle: 3/8", False),
-        ("    |cff9d9d9dDropped by|r", True),
         ("    " + MOB + " |cffffffffOld Mole|r", True),  # not met: its sword
         ("    " + disc + " |cffffffffTunnel Rat|r |cff3fbf3f4-5|r", True),  # met: its portrait over a dark disc
         ("    " + ELITE + " |cffffffffWick Keeper|r |cffffd1007|r |cff9d9d9dElite|r", True),
         ("    |cff9d9d9d(+2 more)|r", True),
         (" ", True),
-        ("|cff9d9d9dTurn in to|r Candle Taker", True),
+        ("|A:questturnin:14:14|a Candle Taker", True),
         ("|cff9d9d9dClick to follow|r", True),
     ]
     # The frame the tooltip is built: the tooltip Commands carried out in Game's apply step, after UI's.
     assert lines() == want
     assert any(v.portrait == "Creature-0-1-0-1-9002-0000000001" and v.shown for v in S.values())
     assert list(S[tip.GetLeftLine(tip, 1)].textColor.values()) == [1, 0.82, 0]
-    assert list(S[tip.GetLeftLine(tip, 10)].textColor.values()) == [0.85, 0.85, 0.85]
+    assert list(S[tip.GetLeftLine(tip, 9)].textColor.values()) == [0.85, 0.85, 0.85]
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
     # Booted without QuestieDB's files (Atlas's own empty indexes, as CI's checkout): the pin, its tooltip
@@ -263,5 +263,5 @@ def test_quest_tooltip():
     p = pin(ns, G, "Quests", 60)
     assert S[p.inner].texture == 133633 and S[p.count].text == "3/8"  # an item QuestieDB doesn't know
     assert [S[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)] == [
-        "Kobold Candles", "|cff9d9d9dLevel|r |cffffd1007|r", "Large Candle: 3/8", " ", "|cff9d9d9dClick to follow|r"]
+        "Kobold Candles", "|cffffd1007|r", "Large Candle: 3/8", " ", "|cff9d9d9dClick to follow|r"]
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

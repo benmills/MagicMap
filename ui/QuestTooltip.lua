@@ -1,9 +1,11 @@
 -- A quest's tooltip (QuestInfo.lua:244-369), from its Known("quests") entry: the title in its
--- difficulty colour; a small line of facts (level, tag, ready); what's left to do, each item with where
--- it comes from in small type (who drops it, at most 3 lowest first and how many more; else the objects
--- it's in; else who sells it); then, apart and dim, who takes it in and the click hint. A dropper's line
--- shows a sword (a skull for an elite) until Game has met it, then its portrait (the tooltip Command,
--- game/commands/tooltip.lua). Small lines get their font back when the tooltip hides or clears
+-- difficulty colour; one compact line of facts (the level in its difficulty colour, no word before it;
+-- its tag: Elite, Group N, Dungeon; ready to turn in); what's left to do, each item with where it comes
+-- from in small type (who drops it, at most 3 lowest first and how many more, each line's sword or skull
+-- saying "dropped by" with no heading; else the objects it's in; else who sells it); then, apart and dim,
+-- who takes it in behind the turn-in "?" (the questturnin atlas, the word only where the client lacks it)
+-- and the click hint. A dropper's line shows a sword (a skull for an elite) until Game has met it, then its
+-- portrait (the tooltip Command, game/commands/tooltip.lua). Small lines get their font back when the tooltip hides or clears
 -- (Pins.Small). Without QuestieDB's data Model has no droppers, sources or turn-in: none of those lines.
 
 local _, ns = ...
@@ -18,6 +20,8 @@ local SEP = DIM .. "  ·  |r"
 local MOB = string.format("|T135274:%d:%d:0:0:64:64:5:59:5:59|t", PORTRAIT, PORTRAIT) -- QuestInfo.lua:177-178
 local ELITE = string.format("|TInterface\\TargetingFrame\\UI-TargetingFrame-Skull:%d:%d|t", PORTRAIT, PORTRAIT)
 local TURN_IN = 0.85 -- QuestInfo.lua:358
+local TURN_IN_ATLAS = "questturnin" -- the "?" before who takes it in (ui/Quests.lua's pin); the word where the client lacks it
+local turnInMark -- "|A:...|a " or the dim word, found once
 local FOLLOW, UNFOLLOW = DIM .. "Click to follow|r", DIM .. "Click to stop following|r" -- Layers.lua:113
 
 local QuestTooltip = {}
@@ -45,7 +49,6 @@ end
 -- Where an objective's item comes from (QuestInfo.lua:213-242), each line small.
 local function Sources(tip, k)
 	if k.drops then
-		Add(tip, INDENT .. DIM .. "Dropped by|r", 1, 1, 1)
 		for _, m in ipairs(k.drops) do
 			Add(tip, MobLine(m), 1, 1, 1)
 			mobs[tip:NumLines()] = m.npc
@@ -69,8 +72,8 @@ function QuestTooltip.Show(e)
 	-- Facts: level, tag (Elite, Group (3), Dungeon), ready.
 	local f = facts
 	for i = #f, 1, -1 do f[i] = nil end
-	if e.level then f[#f + 1] = DIM .. "Level|r " .. Hex(c) .. e.level .. "|r" end
-	if e.tag then f[#f + 1] = ORANGE .. e.tag .. (e.group and e.group > 1 and string.format(" (%d)", e.group) or "") .. "|r" end
+	if e.level then f[#f + 1] = Hex(c) .. e.level .. "|r" end
+	if e.tag then f[#f + 1] = ORANGE .. e.tag .. (e.group and e.group > 1 and " " .. e.group or "") .. "|r" end
 	if e.complete then f[#f + 1] = GREEN .. "Ready to turn in|r" end
 	if f[1] then Add(tip, table.concat(f, SEP)) end
 
@@ -83,7 +86,13 @@ function QuestTooltip.Show(e)
 
 	-- Apart and dim: who takes it in, and the click hint.
 	Add(tip, " ")
-	if e.turnIn then Add(tip, DIM .. "Turn in to|r " .. e.turnIn, TURN_IN, TURN_IN, TURN_IN) end
+	if e.turnIn then
+		if not turnInMark then
+			turnInMark = C_Texture.GetAtlasInfo(TURN_IN_ATLAS) and "|A:" .. TURN_IN_ATLAS .. ":" .. PORTRAIT .. ":" .. PORTRAIT .. "|a "
+				or DIM .. "Turn in to|r "
+		end
+		Add(tip, turnInMark .. e.turnIn, TURN_IN, TURN_IN, TURN_IN)
+	end
 	Add(tip, e.followed and UNFOLLOW or FOLLOW)
 	tip:Show()
 	local n, from = tip:NumLines(), nil -- the small lines in runs: Pins.Small(first, last) sets first + 1 .. last
