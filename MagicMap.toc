@@ -15,6 +15,7 @@ runtime\Boot.lua
 # Atlas
 Data\Tiles.lua
 Data\TileColor.lua
+Data\Base.lua
 Data\Borders.lua
 Data\Walk.lua
 Data\UiMaps.lua
@@ -118,6 +119,7 @@ ui\Controls.lua
 ui\Title.lua
 ui\BigMap.lua
 ui\Tiles.lua
+ui\Base.lua
 ui\Interiors.lua
 ui\Borders.lua
 ui\Labels.lua

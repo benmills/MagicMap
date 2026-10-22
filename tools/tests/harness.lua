@@ -174,8 +174,10 @@ function T.Layer(ns, name)
 	end
 end
 
--- The layer shows a layout at the camera's zoom on the map shown, covering the view.
+-- The layer shows a layout at the camera's zoom on the map shown, covering the view (or is idle: the tiles
+-- far out, under the base picture, nothing to lay out).
 function T.Fresh(ns, lay)
+	if lay.idle and lay.idle() then return true end
 	local m, c = ns.UI.Camera, lay.front
 	if c == nil or c.zoom ~= m.cam.zoom or c.inst ~= m.inst then return false end
 	if c.none then return true end -- nothing to draw at this zoom anywhere

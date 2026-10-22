@@ -99,6 +99,9 @@ end
 T.Print("P1: 20-step zoom-out, %.0f to %.0f px a tile: %d layouts started for %d layers (%s)", zoom, m.cam.zoom, total,
 	#layers, table.concat(each, ", "))
 assert(m.cam.zoom == 16)
+-- Far out the base picture stands in for the tiles (ui/Base.lua): shown, the tiles' layer not laid out, none of its regions live.
+local tiles = T.Layer(ns, "tiles")
+assert(ns.UI.Base.Shown() and not tiles.on and tiles.front == nil and not tiles.busy, "the base picture, no tiles, at 16 px a tile")
 for _, lay in ipairs(layers) do assert(T.Fresh(ns, lay), lay.name) end
 
 -- The long pan: 0.75 views a second for 10 s at the top zoom.

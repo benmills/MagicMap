@@ -163,6 +163,7 @@ Runtime.Step("ui", "map: draw", function(elapsed)
 	local cam = Camera.cam
 	local w, h = Window.Size()
 	if w <= 0 or h <= 0 then return end
+	UI.Base.Draw(inst, cam, w, h)
 	local zooming = UI.Engine.Draw(inst, cam, w, h)
 	Runtime.SetState(Motion.Dragging() and "drag" or zooming and "zoom" or UI.BigMap.big and "big" or "small")
 end, { shownOnly = frame })
