@@ -46,6 +46,9 @@ else about the camera stays inside UI.
   of its name only while "vignettes" is on (Landmarks.lua:112-117), and a sensed blip within 8 yd of a
   pin of "quests", "offers", "flight", "dungeons", "rares", "corpse" or "waypoint" is skipped only while
   that layer is on (Blips.lua:446-470). UI puts those keys in `off` (ui/View.lua's TARGETED).
+- OPEN addition (Track any icon): `tracked`, true while the waypoint stands on an icon tracked from the
+  map (ui/Track.lua sets the waypoint at it). A sensed blip under the waypoint is then that icon, listed
+  as it is (model/Blips.lua skips the waypoint pin's 8 yd), so the tracked blip doesn't vanish under it.
 
 ## Revisit if
 

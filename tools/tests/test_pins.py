@@ -160,3 +160,55 @@ def test_pin_tooltip_click_drag():
     sim.FireScript(view, "OnLeave", False)
     assert not S[tip].shown and Pins.Hovered() is None
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+# The cursor over tile (col, row) of the map shown (test_quests.py's).
+OVER = """function(ns, col, row)
+    local view, cam = ns.UI.Window.view, ns.UI.Camera.cam
+    local w, h = ns.UI.Window.Size()
+    local x, y = ns.Atlas.Camera.TileToScreen(cam, w, h, col, row)
+    local s = view:GetEffectiveScale()
+    Sim.cursorX, Sim.cursorY = (view:GetLeft() + x) * s, (view:GetTop() - y) * s
+end"""
+
+
+def test_track_icon():
+    """A click on a blip opens the track menu (ui/Track.lua): Track sets the user waypoint at it (the sim's
+    C_Map), the pin wears the glow, the waypoint's own pin stays away and the title's target is the icon;
+    Stop tracking clears both. The waypoint cleared elsewhere (the map's menu) ends the tracking too."""
+    from sim import put_blips
+    L, sim, ns = boot()
+    UI, S, view = ns.UI, sim.state, ns.UI.Window.view
+    put_blips(L, sim, ns, [("Mailbox", 40, 20)])
+    sim.Slash("/mm toggle")
+    sim.Run(3)
+    b = next(e for e in ns.Model.Known("blips")[0].values() if e.name == "Mailbox")
+    pin_of = L.eval("function(layer, key) local p = layer.front.pools.pin; return p[p.at[key]] end")
+
+    def drawn(lay):
+        c = lay.front
+        return c is not None and c.alpha == 1 and c.pools.pin is not None and c.pools.pin.n or 0
+
+    def click(row_text):
+        L.eval(OVER)(ns, b.pos.col, b.pos.row)
+        sim.FireScript(view, "OnEnter", False)
+        sim.Step()
+        sim.menu = None
+        sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")
+        assert [(e.kind, e.text) for e in sim.MenuItems().values()] == [("title", "Mailbox"), ("button", row_text)]
+        sim.MenuItems("button")[1].onSelect()
+        sim.Run(0.5)
+
+    click("Track")
+    assert sim.waypoint is not None and UI.saved.tracked.key == b.key
+    pin = pin_of(UI.Blips, b.key)
+    assert S[pin.glow].shown and drawn(UI.Waypoint) == 0
+    assert UI.You.Target()[0] == "Mailbox"
+    click("Stop tracking")
+    assert sim.waypoint is None and UI.saved.tracked is None and not S[pin_of(UI.Blips, b.key).glow].shown
+    click("Track")
+    assert sim.waypoint is not None and drawn(UI.Waypoint) == 0
+    ns.Game.Command(L.table_from({"kind": "waypoint", "pos": False}))  # cleared elsewhere: the tracking ends
+    sim.Run(0.5)
+    assert UI.saved.tracked is None and not S[pin_of(UI.Blips, b.key).glow].shown
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

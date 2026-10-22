@@ -66,6 +66,7 @@
 ---@field cluster? boolean          overlapping pins grouped into pills (ui/Cluster.lua); nil: on
 ---@field worldmap? boolean         M opens our map over Blizzard's world map (game/Hooks.lua); nil: on
 ---@field clusterTune? table<string, number> grouping's tunables changed from Cluster.DEFAULTS (range, reach, min, slots, alpha)
+---@field tracked? { key: string|number, name?: string, inst: MM.Inst, col: MM.Col, row: MM.Row }  the icon tracked (ui/Track.lua): its Known key, its name, where it was (the waypoint's pos); nil: none
 ---@field debug boolean             /mm debug's title line (Core.lua:1746-1748); default false
 
 -- Model --------------------------------------------------------------------------------

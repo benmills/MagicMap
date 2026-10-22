@@ -4,6 +4,7 @@ ui/Chrome.lua
 ui/Engine.lua
 ui/Motion.lua
 ui/Menus.lua
+ui/Track.lua
 ui/Controls.lua
 ui/Title.lua
 ui/BigMap.lua

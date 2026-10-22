@@ -27,6 +27,8 @@
 ---                           "rares", "corpse", "waypoint" while that layer is on (Blips.lua:446-470)
 ---@field moving? boolean      the view zooms, flies or is dragged, or its zoom hasn't settled (Camera.Settled):
 ---                           Model leaves the frame to the map (the route's search waits: no slice a frame)
+---@field tracked? true        the waypoint stands on an icon tracked from the map (ui/Track.lua): a sensed blip
+---                           under it is that icon, listed as it is, not the waypoint pin's (model/Blips.lua)
 
 -- The two entry points into Model that Game and UI call (LOCKED). What UI reads back,
 -- and Model.Load (its saved part): types/model.lua. --------------------------------

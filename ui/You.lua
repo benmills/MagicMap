@@ -2,7 +2,9 @@
 -- softened (Textures/PlayerArrow.tga: tools/gen_arrow.py), the size the Minimap draws it, unsnapped
 -- so it turns smoothly, over every layer. None while the map shown isn't yours, while the client
 -- withholds where you are (Model.you stale: an instance's), or without a facing. Your corpse and your
--- waypoint as pins (Layers.lua:500-521, 625-634), and the title band's target (Core.lua:1294-1300).
+-- waypoint as pins (Layers.lua:500-521, 625-634), the waypoint's left out while a tracked icon stands on it
+-- (ui/Track.lua: the icon is the target), and the title band's target (Core.lua:1294-1300), named for the
+-- tracked icon then.
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
@@ -63,10 +65,12 @@ end, { shownOnly = Window.frame })
 function You.Target()
 	local t, you = Model.Target(), Model.you
 	if not (t and t.pos.inst == Camera.inst) then return nil end
-	if t.inside then return t.title or TARGET, false end
+	local title = t.title or TARGET
+	if t.kind == "waypoint" and UI.Track.Covers(t.pos) then title = UI.Track.Name() or title end
+	if t.inside then return title, false end
 	if not you.col or you.stale then return nil end
 	local yd = math.sqrt((t.pos.col - you.col) ^ 2 + (t.pos.row - you.row) ^ 2) * Atlas.TILE_YARDS
-	return t.title or TARGET, math.floor(yd + 0.5)
+	return title, math.floor(yd + 0.5)
 end
 
 -- Your corpse (Known("corpse"): the ghost's target) and your waypoint (Known("waypoint")), their tooltips
@@ -77,7 +81,9 @@ end, function() return select(2, Model.Known("corpse")) end, {
 	lines = function() return "Your corpse" end, -- Layers.lua:514
 })
 UI.Waypoint = UI.Pins.Layer("waypoint", PINS, function(put)
-	for _, e in ipairs(Model.Known("waypoint")) do put(e, WAYPOINT) end
+	for _, e in ipairs(Model.Known("waypoint")) do
+		if not UI.Track.Covers(e.pos) then put(e, WAYPOINT) end -- (a tracked icon stands on it: that reads as the target)
+	end
 end, function() return select(2, Model.Known("waypoint")) end, {
 	lines = function() return "Waypoint", "Ctrl-right-click the map to clear" end, -- Layers.lua:629
 })

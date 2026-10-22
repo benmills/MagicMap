@@ -58,7 +58,8 @@ end
 -- UI's chat line (Core.lua:45-46).
 function UI.Print(msg) print("|cffffd100MagicMap|r: " .. msg) end
 
-local OPTIONAL = { window = "table", inst = "number", center = "table", clusterTune = "table", worldmap = "boolean" } -- types/saved.lua MM.SavedUI
+local OPTIONAL = { window = "table", inst = "number", center = "table", clusterTune = "table", worldmap = "boolean",
+	tracked = "table" } -- types/saved.lua MM.SavedUI
 Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS, optional = OPTIONAL }, fn = function(s)
 	saved = s
 	UI.saved = s
@@ -123,13 +124,15 @@ Runtime.Step("ui", "ui: view", function()
 	-- Focus: Model only compares, but send it only on a change (the rect: a new table when it changes;
 	-- the zoom, as the rect, where the view rests: held while a chase or flight moves it; off: a new table
 	-- when a layer it names turns on or off; moving: till the camera settles and the map's layers show its zoom).
+	-- tracked: the waypoint is a tracked icon's (ui/Track.lua): the blip under it stays listed (model/Blips.lua).
 	local rect, moving, off = UI.Motion.Rect(), not Camera.Settled() or Engine.zooming or nil, focus.off
+	local tracked = saved.tracked ~= nil or nil
 	if OffChanged(off) then off = Off() end
 	if focus.inst ~= view.inst or focus.shown ~= shown or focus.follow ~= Camera.follow
 		or (focus.zoom ~= cam.zoom and not Camera.moving) or focus.rect ~= rect or focus.moving ~= moving
-		or focus.off ~= off then
+		or focus.off ~= off or focus.tracked ~= tracked then
 		focus = { inst = view.inst, rect = rect, shown = shown, follow = Camera.follow, zoom = cam.zoom, off = off,
-			moving = moving }
+			moving = moving, tracked = tracked }
 		Model.Focus(focus)
 	end
 end)

@@ -4,10 +4,10 @@ clicks in ui/Areas.lua), end to end from the sim's quest log through Game's part
   test_quest_pins: StylePin's quest forms (S46): in progress, the in-progress atlas over the number disc
     tinted its difficulty, the objective's icon inside, its count; ready to turn in, the turn-in atlas;
     22 px, the one you follow 26 in its halo (S43, S44); quests to pick up at 18, their tooltip (F40).
-  test_quest_follow: a click on a pin follows its quest (the follow Command, Blizzard's super-tracked
-    quest back in the next observation, its pin 26 in the halo), again stops; a click on an area with
-    no pin under it follows its quest; a pin over another quest's area wins (F31). Each frame one pin a
-    quest.
+  test_quest_follow: a click on a pin opens the track menu (ui/Track.lua), its one row "Track quest"
+    follows its quest (the follow Command, Blizzard's super-tracked quest back in the next observation,
+    its pin 26 in the halo), "Stop tracking" stops; a click on an area with no pin under it follows its
+    quest; a pin over another quest's area wins (F31). Each frame one pin a quest.
   test_quest_pins_each_frame: one pin a quest every frame (the harness's invariants, T.Invariants, after
     each step) through the wheel, drags, the big map, the follow moving, an offer taken into the log and
     the log abandoned (F26).
@@ -147,24 +147,31 @@ def test_quest_follow():
     def followed():
         return {e.quest for e in known(ns, "quests") if e.followed}
 
-    def click(col, row):
+    def click(col, row, row_text=None):
+        """A click there; on a pin, the track menu opens: its one row (row_text, the quest's name over it) picked."""
         G.Over(col, row)
         sim.Step()  # (the pin under it found)
+        sim.menu = None
         sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")
+        if row_text:
+            assert [(e.kind, e.text) for e in sim.MenuItems().values()] == [("title", "Protect the Frontier"), ("button", row_text)]
+            sim.MenuItems("button")[1].onSelect()
+        else:
+            assert sim.menu is None
         sim.Run(0.2)
         # one pin a quest, on the one canvas shown
         lay = ns.UI.Quests
         keys = [lay.front.pools.pin["keys"][i] for i in range(1, lay.front.pools.pin.n + 1)]
         assert sorted(keys) == ["quest:47", "quest:52"] and sum(c.alpha > 0 for c in lay.canvases.values()) == 1
 
-    click(31.8, 49.7)  # Frontier's pin, in Gold Dust's area: the pin wins
+    click(31.8, 49.7, "Track quest")  # Frontier's pin, in Gold Dust's area: the pin wins
     assert sim.superTracked == 52 and sim.watched == 52 and followed() == {52}
     sim.cursorX, sim.cursorY = 5, 5  # off the window: the tracked quest's pill stays, at full alpha
     sim.Run(1)
     assert ns.UI.Controls.questLine.IsShown(ns.UI.Controls.questLine) and ns.UI.Controls.questLine.GetAlpha(ns.UI.Controls.questLine) == 1
     p = pin(ns, G, "Quests", 52)
     assert sim.state[p].width == 28 and sim.state[p.glow].shown
-    click(31.8, 49.7)  # again: none
+    click(31.8, 49.7, "Stop tracking")  # again: none
     assert sim.superTracked == 0 and followed() == set() and sim.state[pin(ns, G, "Quests", 52)].width == 24
     click(32.15, 49.7)  # Gold Dust's area, no pin under it
     assert sim.superTracked == 47 and followed() == {47}
