@@ -143,7 +143,7 @@ def test_button_home_release():
 
     def at(angle):  # on the rim at angle degrees, as placed
         p, rel, rp, x, y = button.GetPoint(button)
-        r = mm.GetWidth(mm) / 2 + 6
+        r = mm.GetWidth(mm) / 2 + 10  # game/Button.lua's RIM
         a = math.radians(angle)
         return p == "CENTER" and same(rel, mm) and abs(x - math.cos(a) * r) < 1e-6 and abs(y - math.sin(a) * r) < 1e-6
 

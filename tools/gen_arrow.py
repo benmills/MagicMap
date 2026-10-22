@@ -4,9 +4,11 @@
 softened. On our bright map that shadow reads as a heavy dark halo.
 
 The shadow is the dark, translucent part reachable from the image's edge
-without crossing the arrow's lit outline; only its alpha is scaled (by
---shadow), so the arrow and its dark centre ring are untouched. The
-texture is padded to 64x64 (the arrow centred), a size every client loads.
+without crossing the arrow's lit outline. Its alpha is scaled (by --shadow)
+and it is dropped beyond --reach pixels from the arrow, so it hugs the edge:
+denser, never wider (the arrow's footprint is the same). The arrow and its
+dark centre ring are untouched. The texture is padded to 64x64 (the arrow
+centred), a size every client loads.
 The spike's tools/gen_arrow.py, on this repo's sources (docs/v1-plan.md §4).
 
   python3 tools/gen_arrow.py local "/Applications/World of Warcraft" wow_classic_beta
@@ -43,8 +45,9 @@ def decode_blp(data: bytes) -> tuple[int, int, bytes]:
     return w, h, bytes(rgba)
 
 
-def soften(px: list[list[list[int]]], k: float) -> None:
-    """Scale the alpha of the shadow (see the module doc) by k, in place."""
+def soften(px: list[list[list[int]]], k: float, reach: int) -> None:
+    """Scale the alpha of the shadow (see the module doc) by k, and drop the
+    part more than reach steps from the arrow, in place."""
     h, w = len(px), len(px[0])
     seen = set()
     q = deque([(x, y) for x in range(w) for y in (0, h - 1)] + [(x, y) for y in range(h) for x in (0, w - 1)])
@@ -57,16 +60,25 @@ def soften(px: list[list[list[int]]], k: float) -> None:
             continue
         seen.add((x, y))
         q.extend(((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
+    # Steps from the arrow (every pixel outside the shadow), through the shadow.
+    near = {(x, y): 0 for y in range(h) for x in range(w) if (x, y) not in seen}
+    q = deque(near)
+    while q:
+        x, y = q.popleft()
+        for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if 0 <= n[0] < w and 0 <= n[1] < h and n not in near:
+                near[n] = near[(x, y)] + 1
+                q.append(n)
     for x, y in seen:
-        px[y][x][3] = int(px[y][x][3] * k)
+        px[y][x][3] = int(px[y][x][3] * k) if near[(x, y)] <= reach else 0
 
 
-def arrow(blp: bytes, shadow: float) -> bytes:
+def arrow(blp: bytes, shadow: float, reach: int) -> bytes:
     """The TGA's bytes from the atlas file's."""
     w, _, rgba = decode_blp(blp)
     l, t, r, b = ARROW
     px = [[list(rgba[(y * w + x) * 4:(y * w + x) * 4 + 4]) for x in range(l, r)] for y in range(t, b)]
-    soften(px, shadow)
+    soften(px, shadow, reach)
     pad_x, pad_y = (SIZE - (r - l)) // 2, (SIZE - (b - t)) // 2
     rows = [[(0, 0, 0, 0)] * SIZE for _ in range(SIZE)]
     for y, row in enumerate(px):
@@ -77,7 +89,8 @@ def arrow(blp: bytes, shadow: float) -> bytes:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     add_source_args(parser)
-    parser.add_argument("--shadow", type=float, default=0.4, help="the shadow's alpha, of the original")
+    parser.add_argument("--shadow", type=float, default=0.7, help="the shadow's alpha, of the original")
+    parser.add_argument("--reach", type=int, default=6, help="the shadow's reach past the arrow, in pixels")
     parser.add_argument("-o", "--output", default=os.path.join(ROOT, "Textures", "PlayerArrow.tga"))
     ns = parser.parse_args()
     src = source_from_args(parser, ns)
@@ -86,9 +99,9 @@ def main() -> None:
     if blp is None:
         raise SystemExit(f"file {ATLAS_FILE} (the 2x minimap atlas) not available")
     with open(ns.output, "wb") as f:
-        f.write(arrow(blp, ns.shadow))
+        f.write(arrow(blp, ns.shadow, ns.reach))
     l, t, r, b = ARROW
-    print(f"wrote {ns.output} ({r - l}x{b - t} arrow in {SIZE}x{SIZE}, shadow at {ns.shadow:.0%})")
+    print(f"wrote {ns.output} ({r - l}x{b - t} arrow in {SIZE}x{SIZE}, shadow at {ns.shadow:.0%}, reach {ns.reach})")
 
 
 if __name__ == "__main__":
