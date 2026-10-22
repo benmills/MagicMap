@@ -118,8 +118,8 @@ Controls.zoomReset = zoomReset
 -- and only when one of those changed. It fades with the other controls, but stays shown while a quest is tracked.
 ---------------------------------------------------------------------------
 
-local LINE_H, LINE_PAD = 18, 8
-local ICON, ICON_X, ICON_GAP = 14, 8, 5 -- the quest icon: its size, its left, the gap to the text
+local LINE_H, LINE_PAD = 15, 7
+local ICON, ICON_X, ICON_GAP = 12, 7, 4 -- the quest icon: its size, its left, the gap to the text
 local ZOOM_COL = 30 -- px at the map's right kept clear of the line: the zoom buttons' column and a gap
 local EVERY = 0.5 -- s between looks at the quest list and your zone (two a second at most)
 local ELLIPSIS = "\226\128\166" -- "…" in UTF-8
@@ -142,11 +142,12 @@ icon:SetSize(ICON, ICON)
 icon:SetPoint("LEFT", line, "LEFT", ICON_X, 0)
 if questAtlas then icon:SetAtlas(questAtlas) else icon:Hide() end
 -- The pill: a half disc at each end (the circle mask's halves, so they don't overlap the middle).
+local PILL_A = 0.4 -- the backing's alpha: faint
 local function Backing(f)
 	local function Cap(left)
 		local t = f:CreateTexture(nil, "BACKGROUND")
 		t:SetTexture(Chrome.CIRCLE)
-		t:SetVertexColor(0, 0, 0, 0.65)
+		t:SetVertexColor(0, 0, 0, PILL_A)
 		t:SetSize(LINE_H / 2, LINE_H)
 		if left then
 			t:SetTexCoord(0, 0.5, 0, 1)
@@ -159,13 +160,13 @@ local function Backing(f)
 	Cap(true)
 	Cap(false)
 	local middle = f:CreateTexture(nil, "BACKGROUND")
-	middle:SetColorTexture(0, 0, 0, 0.65)
+	middle:SetColorTexture(0, 0, 0, PILL_A)
 	middle:SetPoint("TOPLEFT", f, "TOPLEFT", LINE_H / 2, 0)
 	middle:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -LINE_H / 2, 0)
 end
 Backing(line)
 local lineText = line:CreateFontString(nil, "OVERLAY")
-lineText:SetFont(FONT, 11, "")
+lineText:SetFont(FONT, 10, "")
 lineText:SetTextColor(0.95, 0.9, 0.8)
 Controls.questLine = line
 
@@ -307,7 +308,7 @@ track:SetHeight(LINE_H)
 track:Hide()
 Backing(track)
 local trackText = track:CreateFontString(nil, "OVERLAY")
-trackText:SetFont(FONT, 11, "")
+trackText:SetFont(FONT, 10, "")
 trackText:SetTextColor(0.95, 0.9, 0.8)
 trackText:SetPoint("LEFT", track, "LEFT", LINE_H / 2, 0)
 Controls.trackLine = track
@@ -340,9 +341,9 @@ local function Track()
 	if secs < 60 then
 		eta = "<1 min"
 	elseif secs < 5400 then
-		eta = string.format("~%d min", math.floor(secs / 60 + 0.5))
+		eta = string.format("%d min", math.floor(secs / 60 + 0.5))
 	else
-		eta = string.format("~%d h", math.floor(secs / 3600 + 0.5))
+		eta = string.format("%d h", math.floor(secs / 3600 + 0.5))
 	end
 	local words = string.format("%d yd  \194\183  %s", yd, eta)
 	if words ~= trackWords then

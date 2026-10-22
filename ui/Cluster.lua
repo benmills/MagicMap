@@ -16,7 +16,7 @@ local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
 local Engine, Pins, Window, Camera = UI.Engine, UI.Pins, UI.Window, UI.Camera
 local Yield = Runtime.Yield
 
-local PILL_H, ICON, GAP, PAD, MORE_W = 14, 12, 0, 2, 15 -- px: the pill's height, its icons, the gaps, its side padding, the "+N" slot
+local PILL_H, ICON, GAP, PAD, MORE_W, DIGIT_W = 14, 12, 0, 2, 9, 6 -- px: the pill's height, its icons, the gaps, its side padding, the "+" and each digit of the "+N" slot
 local CELL, COLS, PANEL_PAD, PANEL_GAP, PANEL_R = 24, 6, 6, 4, 6 -- px: the grid's cell, its columns, its padding, its gap above the pill, its corner radius
 local PANEL_ALPHA = 0.72 -- the grid's backing (the pill's: the "alpha" tunable)
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- Pins.lua's disc
@@ -355,7 +355,7 @@ local function Shown(n)
 end
 local function PillWidth(n)
 	local shown = Shown(n)
-	return 2 * PAD + shown * ICON + (shown - 1) * GAP + (n > shown and GAP + MORE_W or 0)
+	return 2 * PAD + shown * ICON + (shown - 1) * GAP + (n > shown and GAP + MORE_W + DIGIT_W * #tostring(n - shown) or 0)
 end
 
 -- A pill for cluster cl on region p: its backing, its first icons in a line (each a pin's look at ICON px,

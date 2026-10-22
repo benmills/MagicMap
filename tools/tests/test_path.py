@@ -142,7 +142,7 @@ def test_path_line():
     end = (33.0 - 31.95) * z
     for (ax, ay, bx, by, a), (wax, way, wbx, wby, wa) in zip(sorted(strokes), sorted(washes)):
         assert (ax, ay, bx, by) == (wax, way, wbx, wby) and 0 < a <= 0.92 and 0 < wa <= 0.45
-        assert 13 <= ax < bx <= end - 14 and bx - ax <= 6 and abs(ay) <= 1.5 and abs(by) <= 1.5
+        assert 11 <= ax < bx <= end - 14 and bx - ax <= 6 and abs(ay) <= 1.5 and abs(by) <= 1.5
     assert sorted(strokes)[-1][2] - sorted(strokes)[-2][2] == 10  # laid back from the target, 10 apart
     assert len({d[4] for d in strokes}) > 3  # faded at its ends, uneven along it
     lines = [r for r in P.canvas.GetRegions(P.canvas) if S[r].shown]

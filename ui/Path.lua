@@ -17,8 +17,8 @@ local Maths = ns.Atlas.Camera
 local floor, sin = math.floor, math.sin
 
 local LEVEL = 8 -- over the borders (7), under the names (9): the spike's path frame (Core.lua:149)
-local CLEAR_YOU, CLEAR_TARGET = 14, 15 -- px left clear around your arrow and the target's pin (Path.lua:11)
-local FADE = 40 -- px over which the line fades in and out at its ends (Path.lua:12)
+local CLEAR_YOU, CLEAR_TARGET = 12, 15 -- px left clear around your arrow and the target's pin (Path.lua:11)
+local FADE, FADE_YOU = 40, 10 -- px over which the line fades in at the target and out at you: short at you, so it leaves your arrow (Path.lua:12)
 local STROKE, WASH = 1.9, 3.8 -- px: the light dash and the dark edge under it (Path.lua:13)
 local STROKE_RGBA = { 1, 0.93, 0.76, 0.92 } -- Path.lua:14 (more alpha: legible on snow)
 -- What makes it stand out, without being thicker: the dash is ADDed to the ground (it lights dark ground and
@@ -32,8 +32,8 @@ local PERIOD = DASH + GAP
 local MAX_PIECES = 160 -- Path.lua:17
 local WOBBLE = 0.8 -- px the line strays either side of true, in long slow waves (Path.lua:18)
 local UNEVEN = 0.25 -- share of the dashes' alpha that comes and goes along it (Path.lua:19)
-local LEAD_YD, LEAD_STEPS = 90, 8 -- yards of line (at most 60% of it) that bend from where you face onto the way, the same at any zoom (Path.lua:20-21)
-local LEAD_HANDLE = 0.45 -- of the curve's chord, how far out along your facing (and in along the way) its handles reach: lazy turns
+local LEAD_YD, LEAD_STEPS = 130, 8 -- yards of line (at most 60% of it) that bend from where you face onto the way, the same at any zoom (Path.lua:20-21)
+local LEAD_HANDLE = 0.5 -- of the curve's chord, how far out along your facing (and in along the way) its handles reach: lazy turns
 local LEAD_TILES = LEAD_YD / ns.Atlas.TILE_YARDS
 local FACING_STEP = math.rad(3) -- turning less than this doesn't redraw the line (Path.lua:22)
 local EDGE_INSET = 16 -- px from the view's edge to the arrow's centre (Path.lua:27)
@@ -274,7 +274,7 @@ local function Dashes(half)
 				o = WOBBLE * (0.6 * sin(u * 0.09 + 1.3) + 0.4 * sin(u * 0.031 + 4.1))
 				bx, by = floor((xs[j] + vx * d - vy * o) * q + 0.5) / q, floor((ys[j] + vy * d + vx * o) * q + 0.5) / q -- /: never 0 (q 1 or 2)
 				local mid = (a + b) / 2
-				local f = (mid - s0) / FADE
+				local f = (mid - s0) / FADE_YOU
 				if f > 1 then f = 1 end
 				local g = (s1 - mid) / FADE
 				if g < f then f = g end
@@ -372,7 +372,7 @@ local function Line(t, me, cam, w, h)
 	if s1 > s0 then
 		local L = lay
 		L.m, L.len, L.s0, L.s1, L.step, L.id, L.still = m, len, s0, s1, step, Path.draws, -1
-		if fixed >= 0 and last.step == step then L.still = math.min(fixed, math.min(len, last.len) - s0 - FADE) end
+		if fixed >= 0 and last.step == step then L.still = math.min(fixed, math.min(len, last.len) - s0 - FADE_YOU) end
 		-- At the zoom and origin of the last layout (walking, turning, a route found), or a line new: half its
 		-- dashes this frame, the rest the next, odd and even by turns (the M3 review: one frame behind, unseen;
 		-- past MAX_PIECES every dash moves as its length does). While the zoom moves, all at once.

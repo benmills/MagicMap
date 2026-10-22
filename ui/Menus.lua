@@ -43,6 +43,9 @@ end
 
 -- A row's icon beside its name: 16 px, a file's border cropped; an atlas as it is, if this client has it.
 -- "" for none, so a row with no icon reads as it always did.
+-- The login screen's Blizzard logo (Blizzard_GlueXML/Classic/AccountLogin.xml), whole: twice as wide as tall.
+local BLIZZARD_LOGO = "|TInterface\\Glues\\Mainmenu\\Glues-BlizzardLogo:16:32|t  "
+
 local function Mark(icon)
 	if not icon then return "" end
 	if icon:sub(1, 2) == "A:" then
@@ -540,7 +543,7 @@ function Menus.Gear(owner)
 	Menus.Show(owner, function(_, root)
 		AddLayers(root)
 		root:CreateDivider()
-		root:CreateButton(Mark("Interface\\Icons\\INV_Misc_Map_03") .. "Use Blizzard's minimap", function() Run(function() UI.Window.frame:Hide() end) end)
+		root:CreateButton(BLIZZARD_LOGO .. "Use Blizzard's minimap", function() Run(function() UI.Window.frame:Hide() end) end)
 		root:CreateButton(Mark("Interface\\Buttons\\UI-RefreshButton") .. "Reset to defaults", function() Run(Reset) end)
 			:SetTooltip(Tip("Reset to defaults", "Every layer back as it was installed."))
 		root:CreateDivider()
