@@ -6,7 +6,7 @@
 -- sight (the spike's hiddenHost, MinimapTakeover.lua:84-93), but around you on the minimap socket UI
 -- publishes (M4.4; test_addonpins.py); released, back on the Minimap, last.
 local T = ...
-local sim, ns = T.Boot("MagicMap2DB = nil") -- the shipped default: shown, small, on the minimap's spot
+local sim, ns = T.Boot("MagicMap2DB = { UI = { _v = 1 } }") -- a 2.0 player's default (migrated to both): shown, small, on the minimap's spot
 sim.Run(3)
 local Game, Window = ns.Game, ns.UI.Window
 assert(Game.minimap.engaged)

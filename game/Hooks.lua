@@ -1,6 +1,7 @@
 -- Keys Blizzard owns, caught for UI (types/view.lua HookedInput; spike MinimapMode.lua:130-133, 195-202):
---   M (ToggleWorldMap) while our window is shown and View.overrideMap (Settings > Override world map, on by
---     default): the world map it just opened is hidden again, and
+--   M (ToggleWorldMap) while View.replace.worldmap (the user chose to replace the world map) and our window is
+--     shown, or the minimap isn't replaced (then the window is hidden until M opens it big): the world map it
+--     just opened is hidden again, and
 --     UI hears "worldmap" (it grows or shrinks the window). M closing Blizzard's map (opened by L,
 --     the quest log) is left alone; so is M in combat, where hiding it is blocked (spike-bugs K2):
 --     Blizzard's opens as usual.
@@ -18,7 +19,7 @@ local Game, Runtime = ns.Game, ns.Runtime
 local INPUT = { worldmap = { kind = "worldmap" }, escape = { kind = "escape" }, toggle = { kind = "toggle" } }
 local caught, handed = {}, {}
 local shown, big = false, false -- the window, as the last apply read View
-local override = false -- View.overrideMap: M is ours to take (off: Blizzard's map opens as it always does)
+local override = false -- M is ours to take (View.replace.worldmap, and the window shown or the minimap not ours); else Blizzard's opens as it always does
 
 function Game.Hooked(kind) caught[#caught + 1] = INPUT[kind] end
 
@@ -28,7 +29,7 @@ Game.Part("hooked", function()
 end)
 
 hooksecurefunc("ToggleWorldMap", Runtime.Wrap("game: M", function()
-	if not (override and shown) or not WorldMapFrame:IsShown() or InCombatLockdown() then return end
+	if not override or not WorldMapFrame:IsShown() or InCombatLockdown() then return end
 	HideUIPanel(WorldMapFrame)
 	Game.Hooked("worldmap")
 end))
@@ -43,11 +44,14 @@ end))
 -- UI's Look & feel dialog (ui/Feel.lua, made on its first open) closes on Escape too: the client reads the
 -- name when Escape is pressed, so it's registered before the frame exists.
 tinsert(UISpecialFrames, "MagicMapFeel")
+-- The first-run welcome (ui/Welcome.lua): Escape closes it with nothing chosen.
+tinsert(UISpecialFrames, "MagicMapWelcome")
 
 Game.Apply("hooks", function(view)
 	local w = view.window
 	shown, big = w.shown, w.big
-	override = view.overrideMap ~= false
+	local r = view.replace
+	override = r ~= nil and r.worldmap == true and (shown or r.minimap ~= true)
 	if catcher:IsShown() ~= big then catcher:SetShown(big) end
 end)
 

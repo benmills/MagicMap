@@ -6,7 +6,7 @@
 -- every frame, the Minimap still the sensor, its cluster hidden (T.Invariants), HereBeDragons' minimap
 -- pins on a host of Game's, out of sight but on the minimap socket (R-G6c).
 local T = ...
-local sim, ns = T.Boot("MagicMap2DB = nil") -- the shipped default: shown, small, on the minimap's spot
+local sim, ns = T.Boot("MagicMap2DB = { UI = { _v = 1 } }") -- a 2.0 player's default (migrated to both): shown, small, on the minimap's spot
 sim.Run(3)
 local Game, UI = ns.Game, ns.UI
 local m, gather = Game.minimap, sim.gatherPin

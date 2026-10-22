@@ -134,14 +134,14 @@ def test_hooks():
 
 
 def test_override_world_map_off():
-    """Settings > Override world map off: M, with our window shown, opens Blizzard's world map and leaves it
+    """Replace worldmap off: M, with our window shown, opens Blizzard's world map and leaves it
     open; nothing is handed on (no "worldmap")."""
     L, sim, ns = boot()
     G = L.globals()
     shown = lambda: G.WorldMapFrame.IsShown(G.WorldMapFrame)  # noqa: E731
     sim.Slash("/mm toggle")
     sim.Run(1)
-    ns.UI.saved.worldmap = False  # (the gear's row: UI's saved part, read by View each frame)
+    ns.UI.Replace.Set("worldmap", False)  # (UI's saved part, read by View each frame)
     sim.Run(1)
     sim.Press("M")
     sim.Step()

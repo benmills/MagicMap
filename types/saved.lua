@@ -64,7 +64,8 @@
 ---@field minimap MM.MinimapMode    "blizzard": the user chose Blizzard's minimap
 ---@field button boolean            the minimap button is shown
 ---@field cluster? boolean          overlapping pins grouped into pills (ui/Cluster.lua); nil: on
----@field worldmap? boolean         M opens our map over Blizzard's world map (game/Hooks.lua); nil: on
+---@field replace? { minimap: boolean, worldmap: boolean }  what MagicMap replaces (ui/Replace.lua): our small map on the Minimap's spot, M opening our big map; nil: not chosen yet (the welcome, ui/Welcome.lua, asks)
+---@field welcome? boolean          a new install, the welcome not yet answered: never migrated to "both" on a later login
 ---@field clusterTune? table<string, number> grouping's tunables changed from Cluster.DEFAULTS (range, reach, min, slots, alpha)
 ---@field tracked? { key: string|number, name?: string, inst: MM.Inst, col: MM.Col, row: MM.Row }  the icon tracked (ui/Track.lua): its Known key, its name, where it was (the waypoint's pos); nil: none
 ---@field feel? table<string, number|string|boolean>  the Look & feel dialog's settings changed from their defaults, by key ("path.style", "labels.scale"...: ui/Feel.lua KEYS); nil when none is

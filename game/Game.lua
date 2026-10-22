@@ -32,6 +32,7 @@ local function Open(owner, spec)
 	spec = spec or {}
 	local db, version, defaults = Game.db, spec.version or 1, spec.defaults or {}
 	local saved = db[owner]
+	local fresh = saved == nil -- nothing saved yet by this owner: a new install (fn's second argument)
 	local from = type(saved) == "table" and saved._v or 0
 	if type(saved) ~= "table" or type(from) ~= "number" then
 		if saved ~= nil then Runtime.Trace("saved", { owner = owner, e = "reset", was = type(saved) }) end
@@ -58,7 +59,7 @@ local function Open(owner, spec)
 		end
 	end
 	saved._v = version
-	return saved
+	return saved, fresh
 end
 
 function Game.Load(owner, fn, spec)

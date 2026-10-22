@@ -36,7 +36,8 @@
 ---@field layers table<string, boolean> shown layers Game acts on (keys: MM.GameLayer); a missing key is off
 ---@field sockets MM.ViewSockets
 ---@field button boolean         Game's minimap button is shown
----@field overrideMap? boolean   M hides Blizzard's world map while our window is shown (Settings > Override world map); nil: on
+---@field replace? { minimap: boolean, worldmap: boolean }  what the user has MagicMap replace (ui/Replace.lua); nil: neither.
+---                              worldmap: M is ours while the window is shown, or while minimap is off (it then opens the window big)
 ---@field diag? fun(): table      UI's state for telemetry marks (camera, layouts: docs/telemetry.md "State" `map`, `layers`).
 ---                              Game calls it only when taking a mark and stores the result; it never acts on it. Its shape is UI's (OPEN).
 ---@field chrome? MM.ViewChrome  Blizzard's Minimap rim parts while the Minimap is ours; nil: left as Blizzard has them
@@ -175,7 +176,7 @@ function Game.Command(cmd) end
 -- Model.hooked for UI's ui step to act on, the same frame.
 
 ---@alias MM.HookedKind
----| "worldmap"   M (ToggleWorldMap) while View.window.shown and View.overrideMap: Game has hidden Blizzard's world map
+---| "worldmap"   M (ToggleWorldMap) while View.replace.worldmap (and View.window.shown, or View.replace.minimap off): Game has hidden Blizzard's world map
 ---| "escape"     Escape while View.window.big: Game's catcher closed
 ---| "toggle"     the minimap button or the addon compartment clicked: UI shows or hides the map (as /mm toggle)
 

@@ -71,7 +71,9 @@ def test_spike_saved():
     db = G.MagicMap2DB
     assert set(db.keys()) == {"Game", "UI", "Model", "telemetry", "validation", "recording"}
     assert all(db[k]._v == 1 for k in db.keys()) and not next(iter(db.Model.rares.keys()), None)
-    sim.Slash("/mm toggle")
+    sim.Slash("/mm toggle")  # a new install: the welcome first, nothing replaced yet
+    assert ns.UI.Welcome.frame.IsShown(ns.UI.Welcome.frame) and not ns.UI.Replace.Chosen()
+    ns.UI.Replace.Set("minimap", True)
     sim.Run(6)  # past login's grace
     assert ns.UI.Window.frame.IsShown(ns.UI.Window.frame) and db.UI.shown
     assert all(not str(k).startswith("rare:") for k in ns.Model.Known("rares")[0].keys())

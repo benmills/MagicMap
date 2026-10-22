@@ -168,8 +168,10 @@ Runtime.Step("ui", "map: draw", function(elapsed)
 	Runtime.SetState(Motion.Dragging() and "drag" or zooming and "zoom" or UI.BigMap.big and "big" or "small")
 end, { shownOnly = frame })
 
--- Our map, or Blizzard's minimap (Core.lua:1654).
+-- Our map, or Blizzard's minimap (Core.lua:1654); until the user has chosen what we replace, the welcome
+-- instead (ui/Welcome.lua): the button's first click.
 function Window.Toggle()
+	if not UI.Replace.Chosen() then return UI.Welcome.Toggle() end
 	frame:SetShown(not frame:IsShown())
 end
 

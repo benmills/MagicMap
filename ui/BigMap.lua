@@ -8,6 +8,8 @@
 --   * Small, it sits at the minimap's strata (its cluster's: obs.minimap.homeStrata), so
 --     other windows go over it.
 --   * The rim button or the addon compartment (hooked "toggle") shows or hides it, as /mm toggle.
+--   * Without the minimap replaced (ui/Replace.lua) it is never small: shown, it grows at once (the keys
+--     step), and M, the button or Escape close it (Close: hide) instead of shrinking it.
 -- The camera's flights and zoom are Motion's (ui/Motion.lua: FlyTo, SetZoom, SetFollow).
 -- Only the small window's rect and zoom are saved (SavedUI.window, zoom): never the big one,
 -- so hiding or logging out while big comes back small (spike-bugs L4); growing again while
@@ -107,6 +109,7 @@ end
 
 local function Grow()
 	if BigMap.big then return end
+	if not UI.saved.window then Place() end -- (so the small rect to return to is the minimap's spot)
 	BigMap.big = true
 	UI.Borders.frame:SetAlpha(1) -- zone borders: the big map's only
 	if not small then -- still shrinking back from the last time: the rect to return to stands
@@ -153,11 +156,17 @@ local function Shrink()
 	end
 end
 
+-- Closing the big map: back to the small one on the Minimap's spot, or, with the minimap not replaced, away
+-- (hidden: the OnHide below puts the small rect back for next time).
+function BigMap.Close()
+	if UI.Replace.Get("minimap") then Shrink() else frame:Hide() end
+end
+
 -- While big or shrinking back: the small rect it returns to (its zoom is the one saved).
 function BigMap.Small() return small end
 
 function BigMap.Toggle()
-	if BigMap.big then Shrink() else Grow() end
+	if BigMap.big then BigMap.Close() else Grow() end
 end
 
 -- Hidden while big (or growing, or shrinking): straight back to the small rect, so it comes back there.
@@ -193,16 +202,23 @@ end))
 -- A grow raises the window's tree (SetFrameStrata, Raise: its thousands of regions, ~2-3 ms in the
 -- client), once a press: the press's calls get the frame's budget.
 Controls.mode:SetScript("OnClick", Runtime.Wrap("map: mode", BigMap.Toggle, Runtime.FRAME_MS))
-Controls.Tip(Controls.mode, function() return BigMap.big and "Minimap (M)" or "Big map (M)" end)
+Controls.Tip(Controls.mode, function()
+	if not BigMap.big then return "Big map (M)" end
+	return UI.Replace.Get("minimap") and "Minimap (M)" or "Close (M)"
+end)
 
 -- M, Escape and the rim button, as Game caught them (Model hands them on the same frame); the
 -- Minimap's home spot and strata, once Game has read them. (A grow's press: the frame's budget, as above.)
 Runtime.Step("ui", "map: keys", function()
 	for _, h in ipairs(Model.hooked) do
-		if h.kind == "worldmap" then BigMap.Toggle()
-		elseif h.kind == "escape" then Shrink()
+		if h.kind == "worldmap" then
+			if frame:IsShown() then BigMap.Toggle() else frame:Show() end -- (hidden: M with the minimap not replaced)
+		elseif h.kind == "escape" then BigMap.Close()
 		elseif h.kind == "toggle" then Window.Toggle() end
 	end
+	-- Without the minimap, shown means big (M, the button or /mm just showed it; a window left small by
+	-- turning the minimap off is hidden by Replace.Set).
+	if frame:IsShown() and not BigMap.big and not small and frame:GetLeft() and not UI.Replace.Get("minimap") then Grow() end
 	local m = Model.minimap
 	if m and m.home then
 		BigMap.home = m.home

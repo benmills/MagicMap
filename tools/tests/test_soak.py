@@ -176,7 +176,7 @@ end"""
 def soak():
     """The soak, priced from past login's grace, then logged out: (L, sim, ns, rounds: each (heaps, seconds, KB/s,
     {name: KB/s}), the jobs left)."""
-    L, sim, ns = boot("MagicMap2DB = nil")  # a first login's: shown, small on the Minimap's spot
+    L, sim, ns = boot("MagicMap2DB = { UI = { _v = 1 } }")  # a first login's: shown, small on the Minimap's spot
     G = L.globals()
     L.execute(FREE, sim)
     L.execute(SETUP, sim, ns)

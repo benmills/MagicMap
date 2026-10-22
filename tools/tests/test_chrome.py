@@ -13,7 +13,7 @@ SEP = "  \u00b7  ".encode("utf-8").decode("latin-1")  # the title's joins, as th
 def fresh():
     """A first login (no saved data): Game reads the minimap's spot, the sim's Minimap's rect
     (obs.minimap.home, with its cluster's strata), and Model hands it on to BigMap.home."""
-    L, sim, ns = boot("MagicMap2DB = {}")
+    L, sim, ns = boot("MagicMap2DB = { UI = { _v = 1 } }")
     mm = L.globals().Minimap
     spot = (mm.GetLeft(mm), mm.GetTop(mm), mm.GetWidth(mm), mm.GetHeight(mm))
     sim.Step()

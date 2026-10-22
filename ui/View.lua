@@ -4,7 +4,7 @@
 -- the focus (types/focus.lua) when it changes. UI's saved part (types/saved.lua
 -- MM.SavedUI) comes through a load Command: the window (ui/BigMap.lua), shown,
 -- zoom, follow, the map and centre when not following, the layer toggles, the
--- minimap mode, the title's debug line and the minimap button (UI.saved, read where they're used).
+-- what MagicMap replaces (ui/Replace.lua), the minimap mode, the title's debug line and the minimap button (UI.saved, read where they're used).
 
 local _, ns = ...
 local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
@@ -22,7 +22,7 @@ UI.saved = saved
 local window = { shown = false, big = false, still = false, strata = "LOW", level = 0, homeAlpha = 1 }
 local camera = { cx = 0, cy = 0, zoom = 0, w = 0, h = 0 } -- the map's, each frame (telemetry's motion ring, shot stamps)
 local view = { v = 1, frame = 0, minimap = "ours", inst = 0, window = window,
-	layers = {}, sockets = {}, button = true, overrideMap = true, camera = camera }
+	layers = {}, sockets = {}, button = true, replace = { minimap = false, worldmap = false }, camera = camera }
 local focus = { inst = 0, shown = false, follow = true }
 -- The layers Model reads (Focus.off): turned off, its target skips that one (or a quest's area), a seen rare
 -- shows under a live vignette (vignettes), a blip near one of those pins isn't skipped (model/Blips.lua).
@@ -58,16 +58,17 @@ end
 -- UI's chat line (Core.lua:45-46).
 function UI.Print(msg) print("|cffffd100MagicMap|r: " .. msg) end
 
-local OPTIONAL = { window = "table", inst = "number", center = "table", clusterTune = "table", worldmap = "boolean",
+local OPTIONAL = { window = "table", inst = "number", center = "table", clusterTune = "table", replace = "table", welcome = "boolean",
 	tracked = "table", feel = "table" } -- types/saved.lua MM.SavedUI
-Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS, optional = OPTIONAL }, fn = function(s)
+Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS, optional = OPTIONAL }, fn = function(s, fresh)
 	saved = s
 	UI.saved = s
 	Engine.toggles = s.layers
 	for _, key in ipairs({ "corpse", "waypoint", "blips", "unexplored" }) do s.layers[key] = nil end -- (no gear rows now: on)
 	s.layers.vignettes = s.layers.rares -- (one row turns both: ui/Menus.lua)
+	UI.Replace.Load(s, fresh)
 	BigMap.Load(s)
-	showing = s.shown
+	showing = s.shown and UI.Replace.Get("minimap") -- (without the minimap, a big map is never reopened at login)
 end })
 
 local function R(v) return math.floor(v * 100 + 0.5) / 100 end
@@ -97,7 +98,11 @@ Runtime.Step("ui", "ui: view", function()
 	end
 	local strata, level = frame:GetFrameStrata(), frame:GetFrameLevel()
 	local layersOn = Engine.LayerOn("blips")
-	if shown ~= window.shown or place ~= window.place or still ~= window.still or saved.minimap ~= view.minimap
+	local rmin, rworld = UI.Replace.Get("minimap"), UI.Replace.Get("worldmap")
+	local mode = rmin and saved.minimap or "ours" -- (the Minimap is ours whenever the window is shown, but Blizzard's quick hide while minimap mode is on)
+	local replace = view.replace
+	if shown ~= window.shown or place ~= window.place or still ~= window.still or mode ~= view.minimap
+		or rmin ~= replace.minimap or rworld ~= replace.worldmap
 		or layersOn ~= (view.layers.blips == true) or (Camera.inst or 0) ~= view.inst or BigMap.big ~= window.big
 		or BigMap.homeAlpha ~= window.homeAlpha or strata ~= window.strata or level ~= window.level
 		or saved.button ~= view.button then
@@ -105,8 +110,8 @@ Runtime.Step("ui", "ui: view", function()
 	end
 	window.shown, window.place, window.still = shown, place, still
 	window.big, window.homeAlpha, window.strata, window.level = BigMap.big, BigMap.homeAlpha, strata, level
-	view.minimap, view.inst, view.button = saved.minimap, Camera.inst or 0, saved.button
-	view.overrideMap = saved.worldmap ~= false -- (Settings > Override world map: Game hides Blizzard's map on M only while on)
+	view.minimap, view.inst, view.button = mode, Camera.inst or 0, saved.button
+	replace.minimap, replace.worldmap = rmin, rworld -- (Game: M is ours only while worldmap; ui/Replace.lua)
 	view.layers.blips = layersOn or nil
 	if UI.Sockets.Update(view) then view.frame = Runtime.frames end -- (the world socket, an addon's layer)
 	local cam = Camera.cam

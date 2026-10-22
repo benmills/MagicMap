@@ -285,7 +285,7 @@ def default_ui_priced():
     engaged from the start), on the priced clock, standing then walking, with the blips layer on (the
     tests' window is hidden at login and 720x520: the replays' budgets don't cover this one): its
     frame stats."""
-    L, sim, ns = boot("MagicMap2DB = nil")
+    L, sim, ns = boot("MagicMap2DB = { UI = { _v = 1 } }")
     stub_services(L, ns)
     put_blips(L, sim, ns, BLIPS)
     sim.Clock = L.eval("function() return 0 end")  # only what's priced moves the clock, every frame measured

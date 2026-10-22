@@ -141,7 +141,7 @@ sim.Run(0.5)
 sim.FireEvent("PLAYER_LOGOUT") -- logging out (or reloading) in combat
 
 -- A /reload in combat, the map shown at login (a first login's): taken faded; hidden once it ends.
-sim, ns = T.Boot("MagicMap2DB = nil")
+sim, ns = T.Boot("MagicMap2DB = { UI = { _v = 1 } }")
 sim.inCombat = true
 sim.Run(1)
 Is(ns, "reloaded in combat", true, true, 0)
