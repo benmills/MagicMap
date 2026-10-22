@@ -521,6 +521,9 @@ end
 function Frame:CreateTexture(name, layer, template, sublevel) return newRegion(self, "Texture", name, layer, template, sublevel) end
 function Frame:CreateMaskTexture(name, layer, template, sublevel) return newRegion(self, "MaskTexture", name, layer, template, sublevel) end
 function Frame:CreateLine(name, layer, template, sublevel) return newRegion(self, "Line", name, layer, template, sublevel) end
+-- Animations run in the client, in C: the sim only takes the calls (a group and its animations answer any).
+local Anim = setmetatable({}, { __index = function(t, k) return function() return t end end })
+function Frame:CreateAnimationGroup() return Anim end
 function Frame:CreateFontString(name, layer, template) return newRegion(self, "FontString", name, layer, template) end
 
 local SCRIPTS = {

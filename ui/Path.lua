@@ -19,8 +19,12 @@ local floor, sin = math.floor, math.sin
 local LEVEL = 8 -- over the borders (7), under the names (9): the spike's path frame (Core.lua:149)
 local CLEAR_YOU, CLEAR_TARGET = 14, 15 -- px left clear around your arrow and the target's pin (Path.lua:11)
 local FADE = 40 -- px over which the line fades in and out at its ends (Path.lua:12)
-local STROKE, WASH = 1.6, 3.4 -- px: the light dash and the dark edge under it (Path.lua:13)
-local STROKE_RGBA = { 1, 0.93, 0.76, 0.85 } -- Path.lua:14 (more alpha: legible on snow)
+local STROKE, WASH = 1.9, 3.8 -- px: the light dash and the dark edge under it (Path.lua:13)
+local STROKE_RGBA = { 1, 0.93, 0.76, 0.92 } -- Path.lua:14 (more alpha: legible on snow)
+-- What makes it stand out, without being thicker: the dash is ADDed to the ground (it lights dark ground and
+-- whitens mid tones; over the dark edge it stays a light core on pale snow too), and the canvas breathes
+-- slowly (one Alpha animation, run in C: no Lua a frame, no widget call at rest).
+local PULSE_LOW, PULSE_S = 0.68, 1.8 -- the canvas's lowest alpha, and s each way
 local WASH_RGBA = { 0.12, 0.08, 0.03, 0.45 } -- Path.lua:15 (the casing: a darker edge, more alpha)
 local STROKE_A, WASH_A = STROKE_RGBA[4] * 200, WASH_RGBA[4] * 200 -- (their alphas in half hundredths)
 local DASH, GAP = 6, 4 -- px (longer, in proportion, when there'd be more than MAX_PIECES dashes: Path.lua:16)
@@ -28,7 +32,9 @@ local PERIOD = DASH + GAP
 local MAX_PIECES = 160 -- Path.lua:17
 local WOBBLE = 0.8 -- px the line strays either side of true, in long slow waves (Path.lua:18)
 local UNEVEN = 0.25 -- share of the dashes' alpha that comes and goes along it (Path.lua:19)
-local LEAD, LEAD_STEPS = 48, 8 -- px of line (at most half of it) that bends from where you face onto the way (Path.lua:20-21)
+local LEAD_YD, LEAD_STEPS = 90, 8 -- yards of line (at most 60% of it) that bend from where you face onto the way, the same at any zoom (Path.lua:20-21)
+local LEAD_HANDLE = 0.45 -- of the curve's chord, how far out along your facing (and in along the way) its handles reach: lazy turns
+local LEAD_TILES = LEAD_YD / ns.Atlas.TILE_YARDS
 local FACING_STEP = math.rad(3) -- turning less than this doesn't redraw the line (Path.lua:22)
 local EDGE_INSET = 16 -- px from the view's edge to the arrow's centre (Path.lua:27)
 local EDGE_ART, EDGE_SIZE = "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW", 32 -- Path.lua:31-33
@@ -46,6 +52,16 @@ frame:SetFrameLevel(Window.view:GetFrameLevel() + LEVEL)
 local canvas = CreateFrame("Frame", nil, frame)
 canvas:SetSize(1, 1)
 Path.canvas = canvas
+do
+	local group = canvas:CreateAnimationGroup()
+	group:SetLooping("BOUNCE")
+	local a = group:CreateAnimation("Alpha")
+	a:SetFromAlpha(1)
+	a:SetToAlpha(PULSE_LOW)
+	a:SetDuration(PULSE_S)
+	a:SetSmoothing("IN_OUT")
+	group:Play()
+end
 
 local edge = UI.You.overlay:CreateTexture(nil, "OVERLAY", nil, 3)
 edge:SetTexture(EDGE_ART)
@@ -66,8 +82,9 @@ Path.edge = edge
 -- wash's alpha is its colour's but by the ends).
 local strokes, washes = {}, {}
 local used = 0
-local function Make(sublevel, thick, c)
+local function Make(sublevel, thick, c, add)
 	local l = canvas:CreateLine(nil, "ARTWORK", nil, sublevel)
+	if add then l:SetBlendMode("ADD") end
 	l:SetSnapToPixelGrid(false)
 	l:SetTexelSnappingBias(0)
 	l:SetThickness(thick)
@@ -76,7 +93,7 @@ local function Make(sublevel, thick, c)
 	l.on, l.a = false, c[4]
 	return l
 end
-for i = 1, MAX_PIECES do washes[i], strokes[i] = Make(0, WASH, WASH_RGBA), Make(1, STROKE, STROKE_RGBA) end
+for i = 1, MAX_PIECES do washes[i], strokes[i] = Make(0, WASH, WASH_RGBA), Make(1, STROKE, STROKE_RGBA, true) end
 
 -- Only what changed: the far end of the line (its waves are counted from the target) stays put as you go;
 -- of a dash that moves, only the end that does.
@@ -169,7 +186,7 @@ end
 local function LeadIn(pts, facing, lead)
 	local m, total = #pts, 0
 	for i = 2, m do total = total + math.sqrt((pts[i].col - pts[i - 1].col) ^ 2 + (pts[i].row - pts[i - 1].row) ^ 2) end
-	lead = math.min(lead, total / 2)
+	lead = math.min(lead, total * 0.6)
 	if lead <= 0 then return pts end
 	-- Where the curve joins the way: `lead` along it, on leg j.
 	local j, left = 1, lead
@@ -190,7 +207,7 @@ local function LeadIn(pts, facing, lead)
 	end
 	if not jx then return pts end
 	local x0, y0 = pts[1].col, pts[1].row
-	local k = math.sqrt((jx - x0) ^ 2 + (jy - y0) ^ 2) / 2
+	local k = math.sqrt((jx - x0) ^ 2 + (jy - y0) ^ 2) * LEAD_HANDLE
 	-- A cubic Bezier: out along your facing, in along the way.
 	local ax, ay = x0 - math.sin(facing) * k, y0 - math.cos(facing) * k
 	local bx, by = jx - ux * k, jy - uy * k
@@ -263,7 +280,7 @@ local function Dashes(half)
 				if g < f then f = g end
 				local even = 1 - UNEVEN * (0.5 + 0.5 * sin((len - mid) * 0.045 + 2))
 				kept[n], dax[n], day[n], dbx[n], dby[n] = id, ax, ay, bx, by
-				dwa[n], dsa[n] = floor(WASH_A * f + 0.5) / 200, floor(STROKE_A * f * even + 0.5) / 200
+				dwa[n], dsa[n], dsa[n] = floor(WASH_A * f + 0.5) / 200, floor(STROKE_A * f * even + 0.5) / 200
 				near = (ax >= r1 or bx >= r1) and (ax <= r3 or bx <= r3) and (ay >= r2 or by >= r2) and (ay <= r4 or by <= r4)
 				if near then
 					Segment(washes[n], ax, ay, bx, by, WASH_RGBA, dwa[n])
@@ -312,7 +329,7 @@ local function Line(t, me, cam, w, h)
 	for i = 2, route and #route - 1 or 0 do way[#way + 1] = route[i] end
 	way[#way + 1] = dest
 	local pts = way
-	if facing then pts = LeadIn(pts, facing, LEAD / z) end -- /: never 0 (zoom >= MIN_ZOOM)
+	if facing then pts = LeadIn(pts, facing, LEAD_TILES) end
 	shownWay = route and pts
 	local m = #pts
 	-- Over the view and a margin: a dash that doesn't meet it is left off.

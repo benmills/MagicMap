@@ -1,7 +1,7 @@
 """The way to the target on the simulated client (docs/v1-plan.md M3.3: ui/Path.lua; ui/You.lua's corpse and
 waypoint pins and the title's target), Model.Target and Model.Route stubbed as typed (types/model.lua):
 
-  test_path_line: the hand-inked dashes (S55-S57): light 1.6 px over a dark 3.4 px edge, laid back from the
+  test_path_line: the hand-inked dashes (S55-S57): light 1.9 px over a dark 3.8 px edge, laid back from the
     target 6 px on, 4 off, 14 px clear of you and 15 of the target, faded at the ends, uneven; along the route
     when there is one; gone once you're inside the target's area, or without a target (F33).
   test_path_redraws: nothing laid out again standing (no widget call); a turn past 3°, a zoom, a new route
@@ -137,17 +137,17 @@ def test_path_line():
     P, S, z = ns.UI.Path, sim.state, ns.UI.Camera.cam.zoom
     G.Target("waypoint", 33.0, 49.75, "Waypoint")  # 1.05 tiles east of you: 100.8 px at 96
     sim.Run(0.2)
-    strokes, washes = dashes(G, 1.6), dashes(G, 3.4)
+    strokes, washes = dashes(G, 1.9), dashes(G, 3.8)
     assert len(strokes) == len(washes) == P.pieces == 8
     end = (33.0 - 31.95) * z
     for (ax, ay, bx, by, a), (wax, way, wbx, wby, wa) in zip(sorted(strokes), sorted(washes)):
-        assert (ax, ay, bx, by) == (wax, way, wbx, wby) and 0 < a <= 0.85 and 0 < wa <= 0.45
+        assert (ax, ay, bx, by) == (wax, way, wbx, wby) and 0 < a <= 0.92 and 0 < wa <= 0.45
         assert 13 <= ax < bx <= end - 14 and bx - ax <= 6 and abs(ay) <= 1.5 and abs(by) <= 1.5
     assert sorted(strokes)[-1][2] - sorted(strokes)[-2][2] == 10  # laid back from the target, 10 apart
     assert len({d[4] for d in strokes}) > 3  # faded at its ends, uneven along it
     lines = [r for r in P.canvas.GetRegions(P.canvas) if S[r].shown]
-    assert {(S[r].thickness,) + tuple(S[r].color[i] for i in range(1, 4)) for r in lines} == {(1.6, 1, 0.93, 0.76),
-                                                                                             (3.4, 0.12, 0.08, 0.03)}
+    assert {(S[r].thickness,) + tuple(S[r].color[i] for i in range(1, 4)) for r in lines} == {(1.9, 1, 0.93, 0.76),
+                                                                                             (3.8, 0.12, 0.08, 0.03)}
 
     # Along a route: north, then east, then south to it (facing north: no lead-in curve to speak of).
     sim.player.facing = 0
@@ -155,21 +155,21 @@ def test_path_line():
     G.Route(L.table_from([L.table_from(p) for p in pts]))
     sim.Run(0.2)
     view = [(0, 0)] + [((c - 31.95) * z, (r - 49.75) * z) for c, r in pts]
-    strokes = dashes(G, 1.6)
+    strokes = dashes(G, 1.9)
     assert len(strokes) > 15 and all(off_line(view, x, y) <= 1.5 for d in strokes for x, y in (d[:2], d[2:4]))
 
     # Inside its area: arrived, the line steps aside; no target, none.
     G.Tgt.inside = True
     sim.Step()
-    assert dashes(G, 1.6) == [] and dashes(G, 3.4) == []
+    assert dashes(G, 1.9) == [] and dashes(G, 3.8) == []
     G.Tgt.inside = None
     sim.Step()
-    n = len(dashes(G, 1.6))
+    n = len(dashes(G, 1.9))
     sim.Step()
-    assert 8 < n < len(dashes(G, 1.6)) and len(dashes(G, 1.6)) > 15  # (a line new: half its dashes a frame)
+    assert 8 < n < len(dashes(G, 1.9)) and len(dashes(G, 1.9)) > 15  # (a line new: half its dashes a frame)
     G.Tgt = False
     sim.Step()
-    assert dashes(G, 1.6) == [] and P.pieces == 0
+    assert dashes(G, 1.9) == [] and P.pieces == 0
     assert not errors(sim, ns), errors(sim, ns)
 
 
@@ -210,12 +210,12 @@ def test_path_redraws():
     # those coming into view are shown.
     G.Target("waypoint", 36.0, 49.75)  # past the view's east edge
     sim.Run(0.2)
-    before, x, n = G.ShownLines(), sim.state[P.canvas].points[1].x, len(dashes(G, 1.6))
+    before, x, n = G.ShownLines(), sim.state[P.canvas].points[1].x, len(dashes(G, 1.9))
     sim.Drag(ns.UI.Window.view, -80, 0)
     sim.Run(0.2)
     assert not ns.UI.Camera.follow and abs(sim.state[P.canvas].points[1].x - (x - 80)) < 1e-6
     kept, touched = G.Kept(before)
-    assert kept == 2 * n and touched == 0 and len(dashes(G, 1.6)) > n + 4
+    assert kept == 2 * n and touched == 0 and len(dashes(G, 1.9)) > n + 4
     assert cam.zoom > 96 and not errors(sim, ns), errors(sim, ns)
 
 
@@ -226,7 +226,7 @@ def test_path_cap():
     G.Target("waypoint", 40.0, 49.75)  # 8 tiles east: 6440 px
     sim.Run(0.3)
     w, h = ns.UI.Window.Size()
-    strokes = dashes(G, 1.6)
+    strokes = dashes(G, 1.9)
     assert P.pieces == 160 and 0 < len(strokes) < 160  # 40 px apart, 24 long; only those near the view
     assert all(abs(x) <= w + 24 and abs(y) <= h for d in strokes for x, y in (d[:2], d[2:4]))
     c = S[P.canvas].points[1]
@@ -378,7 +378,7 @@ def test_path_walk_laid_as_new():
     def ends(L, sim, ns, G):
         cam = ns.UI.Camera.cam
         return [(cam.cx + d[0] / cam.zoom, cam.cy + d[1] / cam.zoom, cam.cx + d[2] / cam.zoom, cam.cy + d[3] / cam.zoom, d[4])
-                for d in dashes(G, 1.6)]
+                for d in dashes(G, 1.9)]
 
     def matched(a, b, zoom):
         px = 1.01 / zoom
@@ -520,5 +520,6 @@ def test_path_walk_big(lua):
     print(f"walking, big, zoom 400{' with Lua' if lua else ''}: {P.draws - draws} layouts, {P.pieces} pieces; big p95 "
           f"{fs.byState.big.p95} max {fs.byState.big.max}; map: path max {ns.Runtime.Perf()[0]['map: path'].max:.2f} ms")
     assert P.draws - draws > 50 and P.pieces == 160 and not ns.Model.Route().straight
-    assert fs.byState.big.p95 <= 1 and "map: path" not in slow(fs) and fs.max <= 8
+    # (1.1 with our Lua: the rounder route (5 chunks a corner) re-spaces a little more of it: 1.05 priced)
+    assert fs.byState.big.p95 <= (1.1 if lua else 1) and "map: path" not in slow(fs) and fs.max <= 8
     assert not c.errors(), c.errors()

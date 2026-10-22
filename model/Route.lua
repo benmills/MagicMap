@@ -35,7 +35,8 @@ local REPLAN_OFF = 3                -- chunks off the route before it's found ag
 local RETRY_MOVED = 12              -- chunks you move before a target with no route is tried again
 local GOAL_SLACK = 2                -- chunks the target can move (an area's nearest edge slides as you go) and keep its route
 local KEEP_SHOWN = 8                -- ...and still show it while the new one's found
-local SMOOTH = 2                    -- corner-rounding passes
+local ROUND = 5                     -- chunks a corner is cut back along each leg (at most half the leg) and rounded off: a walking line, not a polygon
+local ROUND_STEPS = 3               -- the points of a rounded corner's curve, less one
 local LOOKAHEAD = 40                -- route points ahead of you checked for a straight way to them
 
 local SQRT2 = math.sqrt(2)
@@ -202,20 +203,32 @@ local function Straighten(inst, ids)
 	return out
 end
 
--- Chaikin's corner cutting, ends kept.
+-- Each corner rounded off: the legs cut back ROUND chunks from it (half a leg at most, so neighbours
+-- meet and never cross) and joined by a quadratic Bezier whose control is the corner. Lazier than
+-- Chaikin's (which cut a quarter of a leg a pass): the line reads as a path walked, not turned sharply.
+-- Ends kept.
 local function Round(inst, pts)
-	for _ = 1, SMOOTH do
-		if #pts < 3 then return pts end
-		local out = { pts[1] }
-		for i = 1, #pts - 1 do
-			local a, b = pts[i], pts[i + 1]
-			if i > 1 then out[#out + 1] = { inst = inst, col = a.col * 0.75 + b.col * 0.25, row = a.row * 0.75 + b.row * 0.25 } end
-			if i < #pts - 1 then out[#out + 1] = { inst = inst, col = a.col * 0.25 + b.col * 0.75, row = a.row * 0.25 + b.row * 0.75 } end
+	local n = #pts
+	if n < 3 then return pts end
+	local out = { pts[1] }
+	for i = 2, n - 1 do
+		local p, a, b = pts[i], pts[i - 1], pts[i + 1]
+		local la, lb = math.sqrt((a.col - p.col) ^ 2 + (a.row - p.row) ^ 2), math.sqrt((b.col - p.col) ^ 2 + (b.row - p.row) ^ 2)
+		local d = math.min(ROUND / CHUNKS, la / 2, lb / 2)
+		if d > 0 then -- (a leg of none: the corner stands)
+			local sx, sy = p.col + (a.col - p.col) / la * d, p.row + (a.row - p.row) / la * d -- /: never 0 (d > 0: la, lb > 0)
+			local ex, ey = p.col + (b.col - p.col) / lb * d, p.row + (b.row - p.row) / lb * d -- /: never 0 (d > 0: la, lb > 0)
+			for k = 0, ROUND_STEPS do
+				local t = k / ROUND_STEPS
+				local u = 1 - t
+				out[#out + 1] = { inst = inst, col = u * u * sx + 2 * u * t * p.col + t * t * ex, row = u * u * sy + 2 * u * t * p.row + t * t * ey }
+			end
+		else
+			out[#out + 1] = p
 		end
-		out[#out + 1] = pts[#pts]
-		pts = out
 	end
-	return pts
+	out[#out + 1] = pts[n]
+	return out
 end
 
 -- The route from tile position (c1, r1) to (c2, r2), from their chunks to stand on (sc, sr) and
