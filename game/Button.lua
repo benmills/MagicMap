@@ -7,30 +7,33 @@
 local _, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
 
-local SIZE, INSET = 28, 8 -- MinimapButton.lua:7-9
-local RIM = 6             -- past the Minimap's edge, so the ring overlaps it (MinimapButton.lua:20)
+-- The geometry of LibDBIcon-1.0's button (createButton): a 31 button, its tracking border 53 at
+-- TOPLEFT (the one border, the ring round the icon), the background 20 at (7,-5), the icon 17 at
+-- (7,-6), its centre 80 from a 140 Minimap's middle: RIM past the Minimap's half width.
+local SIZE, RIM = 31, 10
 local ANGLE = 215         -- degrees, until dragged (Core.lua:28)
-local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- UI.lua:6
-local RING = "Interface\\HUD\\UIMinimap2xC60"                      -- UI.lua:9-11: Forever's minimap button ring
-local RING_COORDS = { 510 / 1024, 591 / 1024, 511 / 1024, 592 / 1024 }
+local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- UI.lua:6: the icon's round mask
+local RING = "Interface\\Minimap\\MiniMap-TrackingBorder"
+local BACK = "Interface\\Minimap\\UI-Minimap-Background"
+local HIGHLIGHT = "Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight"
 local ICON = "Interface\\Icons\\INV_Misc_Map_01"                  -- MinimapButton.lua:8
 local TIP = "|cffffd100MagicMap|r\n|cffffffffClick|r to open the map\n|cffffffffDrag|r to move this button" -- MinimapButton.lua:10
 
 local button = CreateFrame("Button", nil, Minimap)
 button:SetSize(SIZE, SIZE)
 button:RegisterForDrag("LeftButton")
+button:SetHighlightTexture(HIGHLIGHT)
 button:Hide()
 
 local bg = button:CreateTexture(nil, "BACKGROUND")
-bg:SetTexture(CIRCLE)
-bg:SetVertexColor(0.06, 0.05, 0.04, 0.9)
-bg:SetPoint("CENTER")
-bg:SetSize(SIZE - 3, SIZE - 3)
+bg:SetTexture(BACK)
+bg:SetSize(20, 20)
+bg:SetPoint("TOPLEFT", 7, -5)
 
 local icon = button:CreateTexture(nil, "ARTWORK")
 icon:SetTexture(ICON)
-icon:SetPoint("CENTER")
-icon:SetSize(SIZE - INSET, SIZE - INSET)
+icon:SetSize(17, 17)
+icon:SetPoint("TOPLEFT", 7, -6)
 local mask = button:CreateMaskTexture()
 mask:SetTexture(CIRCLE, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
 mask:SetAllPoints(icon)
@@ -38,15 +41,8 @@ icon:AddMaskTexture(mask)
 
 local ring = button:CreateTexture(nil, "OVERLAY")
 ring:SetTexture(RING)
-ring:SetTexCoord(unpack(RING_COORDS))
-ring:SetPoint("CENTER")
-ring:SetSize(SIZE + 2, SIZE + 2)
-
-local hl = button:CreateTexture(nil, "HIGHLIGHT")
-hl:SetTexture(CIRCLE)
-hl:SetVertexColor(1, 0.9, 0.6, 0.18)
-hl:SetPoint("CENTER")
-hl:SetSize(SIZE - 3, SIZE - 3)
+ring:SetSize(53, 53)
+ring:SetPoint("TOPLEFT")
 
 -- On the rim of its parent: the Minimap, or the stand-in holding its spot, at MEDIUM 8 levels
 -- above it (MinimapButton.lua:12-23).
