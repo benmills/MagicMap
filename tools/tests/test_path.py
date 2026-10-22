@@ -1,14 +1,18 @@
 """The way to the target on the simulated client (docs/v1-plan.md M3.3: ui/Path.lua; ui/You.lua's corpse and
 waypoint pins and the title's target), Model.Target and Model.Route stubbed as typed (types/model.lua):
 
-  test_path_line: the hand-inked dashes (S55-S57): light 1.9 px over a dark 3.8 px edge, laid back from the
-    target 6 px on, 4 off, 14 px clear of you and 15 of the target, faded at the ends, uneven; along the route
-    when there is one; gone once you're inside the target's area, or without a target (F33).
+  test_path_line: the dotted line (S55-S57, lighter and dotted since 2.0): a light 1.6 px dot each 4 px over a
+    dark 3.2 px casing, laid back from the target, 12 px clear of you and 15 of the target, faded at the ends,
+    uneven; along the route when there is one; gone once you're inside the target's area, or without a target
+    (F33); and Path.DEFAULTS and COLORS as the settings dialog lists them.
+  test_path_feel: the look's settings through ui/Feel.lua's API (stubbed, set after Path loaded): a solid line
+    at another weight laid out again, a line a leg; the glow off BLEND; a colour, the breath off, an opacity;
+    the dashed style the spike's 6/4 at 1.9; a value out of range the default's.
   test_path_redraws: nothing laid out again standing (no widget call); a turn past 3°, a zoom, a new route
     (not the same one handed again) and a walk lay it out again; a pan carries it along, the dashes shown
     left as they stand, those it brings in shown (S58).
-  test_path_cap: a long line at zoom 800: 160 pieces at most, only those near the view shown, every line's
-    end within 4096 px of its canvas (S56; docs/v1-plan.md §2).
+  test_path_cap: a long line at zoom 800: 160 pieces at most (the dots spread), only those near the view shown,
+    every piece within 4096 px of its canvas (S56; docs/v1-plan.md §2).
   test_edge_arrow: a target off the view gets the gold arrow 16 px inside the edge where the line toward it
     leaves (along the route's leg that does), pointing on; none on the view or inside (F34, S59).
   test_corpse_forces_follow: your corpse becoming the target (a ghost) glides the view back to you; another
@@ -66,14 +70,29 @@ local function Lines()
 	looks = looks + 1
 	return { UI.Path.canvas:GetRegions() }
 end
--- The path's lines shown of a thickness: { ax, ay, bx, by, alpha } in px from the view's centre, y down.
+-- The path's pieces shown of a thickness (a line's, or a dot's side): { ax, ay, bx, by, alpha } in px from
+-- the view's centre, y down (a dot: its centre twice).
 function Dashes(thick)
 	local c, out = S[UI.Path.canvas].points[1], {}
 	for _, r in ipairs(Lines()) do
 		local st = S[r]
-		if st.shown and st.thickness == thick then
+		if st.shown and st.type == "Line" and st.thickness == thick then
 			out[#out + 1] = { c.x + st.startPoint[3], -(c.y + st.startPoint[4]), c.x + st.endPoint[3],
 				-(c.y + st.endPoint[4]), st.color[4] }
+		elseif st.shown and st.type == "Texture" and st.width == thick then
+			local p = st.points[1]
+			out[#out + 1] = { c.x + p.x, -(c.y + p.y), c.x + p.x, -(c.y + p.y), st.color[4] }
+		end
+	end
+	return out
+end
+-- The path's pieces shown: { thickness or side, blend, r, g, b } distinct.
+function Looks()
+	local out = {}
+	for _, r in ipairs(Lines()) do
+		local st = S[r]
+		if st.shown then
+			out[table.concat({ st.thickness or st.width, st.blend or "BLEND", st.color[1], st.color[2], st.color[3] }, " ")] = true
 		end
 	end
 	return out
@@ -135,19 +154,19 @@ def off_line(pts, x, y):
 def test_path_line():
     L, sim, ns, G = client()
     P, S, z = ns.UI.Path, sim.state, ns.UI.Camera.cam.zoom
+    assert P.DEFAULTS.style == "dotted" and P.DEFAULTS.weight == 1.6 and P.DEFAULTS.color == P.COLORS[1][1] == "Parchment"
+    assert P.DEFAULTS.glow and P.DEFAULTS.breath and P.DEFAULTS.opacity == 1 and len(P.COLORS) == 6
     G.Target("waypoint", 33.0, 49.75, "Waypoint")  # 1.05 tiles east of you: 100.8 px at 96
     sim.Run(0.2)
-    strokes, washes = dashes(G, 1.9), dashes(G, 3.8)
-    assert len(strokes) == len(washes) == P.pieces == 8
+    strokes, washes = dashes(G, 1.6), dashes(G, 3.2)
+    assert len(strokes) == len(washes) == P.pieces == 19
     end = (33.0 - 31.95) * z
     for (ax, ay, bx, by, a), (wax, way, wbx, wby, wa) in zip(sorted(strokes), sorted(washes)):
         assert (ax, ay, bx, by) == (wax, way, wbx, wby) and 0 < a <= 0.92 and 0 < wa <= 0.45
-        assert 11 <= ax < bx <= end - 14 and bx - ax <= 6 and abs(ay) <= 1.5 and abs(by) <= 1.5
-    assert sorted(strokes)[-1][2] - sorted(strokes)[-2][2] == 10  # laid back from the target, 10 apart
+        assert 12 <= ax == bx <= end - 15 and ay == by and abs(ay) <= 1.5  # a dot: its centre, half px
+    assert sorted(strokes)[-1][0] - sorted(strokes)[-2][0] == 4  # laid back from the target, 4 px apart
     assert len({d[4] for d in strokes}) > 3  # faded at its ends, uneven along it
-    lines = [r for r in P.canvas.GetRegions(P.canvas) if S[r].shown]
-    assert {(S[r].thickness,) + tuple(S[r].color[i] for i in range(1, 4)) for r in lines} == {(1.9, 1, 0.93, 0.76),
-                                                                                             (3.8, 0.12, 0.08, 0.03)}
+    assert set(G.Looks().keys()) == {"1.6 ADD 1 0.93 0.76", "3.2 BLEND 0.12 0.08 0.03"}  # a dot ADDed over its casing
 
     # Along a route: north, then east, then south to it (facing north: no lead-in curve to speak of).
     sim.player.facing = 0
@@ -155,21 +174,86 @@ def test_path_line():
     G.Route(L.table_from([L.table_from(p) for p in pts]))
     sim.Run(0.2)
     view = [(0, 0)] + [((c - 31.95) * z, (r - 49.75) * z) for c, r in pts]
-    strokes = dashes(G, 1.9)
-    assert len(strokes) > 15 and all(off_line(view, x, y) <= 1.5 for d in strokes for x, y in (d[:2], d[2:4]))
+    strokes = dashes(G, 1.6)
+    assert len(strokes) > 40 and all(off_line(view, x, y) <= 1.5 for d in strokes for x, y in (d[:2], d[2:4]))
 
     # Inside its area: arrived, the line steps aside; no target, none.
     G.Tgt.inside = True
     sim.Step()
-    assert dashes(G, 1.9) == [] and dashes(G, 3.8) == []
+    assert dashes(G, 1.6) == [] and dashes(G, 3.2) == []
     G.Tgt.inside = None
     sim.Step()
-    n = len(dashes(G, 1.9))
+    n = len(dashes(G, 1.6))
     sim.Step()
-    assert 8 < n < len(dashes(G, 1.9)) and len(dashes(G, 1.9)) > 15  # (a line new: half its dashes a frame)
+    assert 20 < n < len(dashes(G, 1.6)) and len(dashes(G, 1.6)) > 40  # (a line new: half its dots a frame)
     G.Tgt = False
     sim.Step()
-    assert dashes(G, 1.9) == [] and P.pieces == 0
+    assert dashes(G, 1.6) == [] and P.pieces == 0
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+FEEL = """
+local Sim, ns = ...
+Over = {} -- ui/Feel.lua's API, stubbed: the values set here over Path's defaults; a change moves rev
+ns.UI.Feel = { rev = 1, Get = function(k) local v = Over[k]; if v == nil then v = ns.UI.Path.DEFAULTS[k:sub(6)] end; return v end }
+function Feel(k, v)
+	Over[k] = v
+	ns.UI.Feel.rev = ns.UI.Feel.rev + 1
+end
+"""
+
+
+def test_path_feel():
+    """The settings, through Feel's API set after Path loaded: a solid line at another weight is laid out again,
+    one line a leg, fewer pieces; the glow off is BLEND; a colour, the breath off (the canvas's alpha 1), an
+    opacity; standing, no further layout nor widget call; a value out of range draws the default."""
+    L, sim, ns, G = client()
+    L.execute(FEEL, sim, ns)
+    P, S, z = ns.UI.Path, sim.state, ns.UI.Camera.cam.zoom
+    sim.player.facing = 0
+    pts = [(31.95, 49.2), (33.0, 49.2), (33.0, 49.75)]
+    G.Target("waypoint", 33.0, 49.75, "Waypoint")
+    G.Route(L.table_from([L.table_from(p) for p in pts]))
+    sim.Run(0.5)
+    dots, draws = P.pieces, P.draws
+    assert dots > 40 and set(G.Looks().keys()) == {"1.6 ADD 1 0.93 0.76", "3.2 BLEND 0.12 0.08 0.03"}
+
+    G.Feel("path.style", "solid")
+    G.Feel("path.weight", 3)
+    sim.Run(0.2)
+    view = [(0, 0)] + [((c - 31.95) * z, (r - 49.75) * z) for c, r in pts]
+    strokes, washes = dashes(G, 3), dashes(G, 6)
+    assert P.draws == draws + 1 and dashes(G, 1.6) == [] and dashes(G, 3.2) == []
+    assert 3 <= P.pieces == len(strokes) == len(washes) <= 12 < dots  # the legs (the lead-in's steps and the route's)
+    assert all(off_line(view, x, y) <= 1e-6 for d in strokes for x, y in (d[:2], d[2:4]))  # no wobble
+    assert all(d[:4] == w[:4] for d, w in zip(sorted(strokes), sorted(washes)))
+    assert set(G.Looks().keys()) == {"3 ADD 1 0.93 0.76", "6 BLEND 0.12 0.08 0.03"}
+    draws, calls = P.draws, G.Calls()
+    sim.Run(1)  # standing: nothing more
+    assert P.draws == draws and G.Calls() == calls
+
+    G.Feel("path.glow", False)
+    G.Feel("path.color", "Sky")
+    G.Feel("path.breath", False)
+    G.Feel("path.opacity", 0.5)
+    sim.Run(0.2)
+    assert P.draws == draws + 1 and S[P.canvas].alpha == 1
+    assert set(G.Looks().keys()) == {"3 BLEND 0.55 0.8 1", "6 BLEND 0.12 0.08 0.03"}
+    assert all(0 < d[4] <= 0.46 for d in dashes(G, 3)) and all(0 < d[4] <= 0.225 for d in dashes(G, 6))
+
+    G.Feel("path.style", "dashed")  # the spike's 6/4 at 1.9, by the weight
+    G.Feel("path.weight", 1.9)
+    G.Feel("path.opacity", 1)
+    G.Feel("path.breath", True)
+    sim.Run(0.2)
+    strokes = dashes(G, 1.9)
+    assert P.pieces == len(dashes(G, 3.8)) > 15 and all(0 < d[2] - d[0] <= 6 or 0 < abs(d[3] - d[1]) <= 6 for d in strokes)
+    assert set(G.Looks().keys()) == {"1.9 BLEND 0.55 0.8 1", "3.8 BLEND 0.12 0.08 0.03"}
+
+    G.Feel("path.weight", 40)  # out of range: the default's
+    G.Feel("path.color", "Plaid")
+    sim.Run(0.2)
+    assert P.pieces == len(dashes(G, 1.6)) > 15 and set(G.Looks().keys()) == {"1.6 BLEND 1 0.93 0.76", "3.2 BLEND 0.12 0.08 0.03"}
     assert not errors(sim, ns), errors(sim, ns)
 
 
@@ -210,12 +294,12 @@ def test_path_redraws():
     # those coming into view are shown.
     G.Target("waypoint", 36.0, 49.75)  # past the view's east edge
     sim.Run(0.2)
-    before, x, n = G.ShownLines(), sim.state[P.canvas].points[1].x, len(dashes(G, 1.9))
+    before, x, n = G.ShownLines(), sim.state[P.canvas].points[1].x, len(dashes(G, 1.6))
     sim.Drag(ns.UI.Window.view, -80, 0)
     sim.Run(0.2)
     assert not ns.UI.Camera.follow and abs(sim.state[P.canvas].points[1].x - (x - 80)) < 1e-6
     kept, touched = G.Kept(before)
-    assert kept == 2 * n and touched == 0 and len(dashes(G, 1.9)) > n + 4
+    assert kept == 2 * n and touched == 0 and len(dashes(G, 1.6)) > n + 4
     assert cam.zoom > 96 and not errors(sim, ns), errors(sim, ns)
 
 
@@ -226,14 +310,15 @@ def test_path_cap():
     G.Target("waypoint", 40.0, 49.75)  # 8 tiles east: 6440 px
     sim.Run(0.3)
     w, h = ns.UI.Window.Size()
-    strokes = dashes(G, 1.9)
-    assert P.pieces == 160 and 0 < len(strokes) < 160  # 40 px apart, 24 long; only those near the view
+    strokes = dashes(G, 1.6)
+    assert P.pieces == 160 and 0 < len(strokes) < 160  # 40 px apart; only those near the view
     assert all(abs(x) <= w + 24 and abs(y) <= h for d in strokes for x, y in (d[:2], d[2:4]))
     c = S[P.canvas].points[1]
     assert abs(c.x) <= 4096 and abs(c.y) <= 4096
     for r in P.canvas.GetRegions(P.canvas):
         if S[r].shown:
-            assert max(abs(S[r].startPoint[3]), abs(S[r].startPoint[4]), abs(S[r].endPoint[3]), abs(S[r].endPoint[4])) <= 4096
+            p = S[r].points[1]
+            assert max(abs(p.x), abs(p.y)) <= 4096  # (a dot)
     assert not errors(sim, ns), errors(sim, ns)
 
 
@@ -373,16 +458,17 @@ def test_corpse_waypoint_pins():
 
 def test_path_walk_laid_as_new():
     """Walking (the dashes on legs that didn't move left as they stand; past MAX_PIECES, half of them a frame),
-    the line ends as a new layout from where you stop lays it out, dash for dash (within a pixel: the last
-    layout was at the last half pixel you moved, its ends rounded)."""
+    the line ends as a new layout from where you stop lays it out, dot for dot (within a pixel, and 0.05 of
+    alpha in the fade by you: the last layout was at the last half pixel you moved, its ends rounded; the dots
+    all but unseen there, under 0.1, left out: one more or less fits by that half pixel)."""
     def ends(L, sim, ns, G):
         cam = ns.UI.Camera.cam
         return [(cam.cx + d[0] / cam.zoom, cam.cy + d[1] / cam.zoom, cam.cx + d[2] / cam.zoom, cam.cy + d[3] / cam.zoom, d[4])
-                for d in dashes(G, 1.9)]
+                for d in dashes(G, 1.6) if d[4] > 0.1]
 
     def matched(a, b, zoom):
         px = 1.01 / zoom
-        return all(any(all(abs(x[k] - y[k]) <= px for k in range(4)) and abs(x[4] - y[4]) <= 0.02 for y in b) for x in a)
+        return all(any(all(abs(x[k] - y[k]) <= px for k in range(4)) and abs(x[4] - y[4]) <= 0.05 for y in b) for x in a)
 
     def line(zoom, at=None):
         L, sim, ns, G = client()
@@ -395,7 +481,7 @@ def test_path_walk_laid_as_new():
         sim.Run(1)
         return L, sim, ns, G
 
-    for zoom in (300, 400):  # (under MAX_PIECES, and past it)
+    for zoom in (120, 400):  # (under MAX_PIECES, and past it)
         L, sim, ns, G = walked = line(zoom)
         sim.player.speed = 7  # toward it
         sim.Run(2)

@@ -23,7 +23,7 @@ map off in Settings). Click the zone name to pick a
 continent, another map or an instance; with several zones in view, hover one to light it and click
 to fly there. `/mm map` and `/mm zone` do the same by name.
 
-![The big map over Durotar: subzone names, quest areas and pins, and a dashed line to a waypoint](images/big-map-durotar-route.jpg)
+![The big map over Durotar: subzone names, quest areas and pins, and the line to a waypoint](images/big-map-durotar-route.jpg)
 
 *Durotar on the big map: the subzone names, the Valley of Trials' quest areas and pins with their
 counts, and the walking line up to a waypoint at Razor Hill.*
