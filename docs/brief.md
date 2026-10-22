@@ -257,8 +257,8 @@ M1's engine's zoom frames go past their budgets, `map: draw` to 2.3 ms in the bi
   a package's in-game Verify items go to the lead for docs/playtest-final.md.
 
 **Quest areas** (decided by the lead, 2026-10-19, at M2's review): the spike's blob art, as M2.4 built
-it (the M2.4 row, parity S53; D4: what you see is the spike's). UI draws your quests' areas with the
-client's art on QuestPOIFrames of its own (ui/Areas.lua): drawn as laid out and again the next frame,
+it (the M2.4 row, parity S53; D4: what you see is the spike's; since 2.0.0 our own art in the quest's
+difficulty colour, laid out as the client's: tools/gen_blob.py). UI draws your quests' areas on QuestPOIFrames of its own (ui/Areas.lua): drawn as laid out and again the next frame,
 out of sight while the zoom moves, laid out and drawn twice where it lands (Layers.lua:765-1069,
 2032-2043), and hit-tests them for hover and click. It is the one game read UI makes, through a
 widget (architecture.md "Rules"; luacheck's `POI_FILES`: ui/Areas.lua and game/Oracles.lua, which alone

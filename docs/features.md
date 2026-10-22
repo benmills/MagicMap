@@ -57,7 +57,8 @@ minimap.*
 
 **Quests.** The quests in your log in Blizzard's icons, with their objective icon and count, in
 their difficulty colour; quests to pick up; a tooltip with the quest's facts, mobs, items and who
-to turn it in to. Objective areas are drawn as the game draws them, and hovering an area lights it.
+to turn it in to. Objective areas are drawn as the game draws them, each in its quest's difficulty colour: the quest you
+follow glows, the rest have a thin edge, one ready to turn in a dashed one; hovering an area lights it.
 Click a quest (or its area, zoomed in) to follow it: it becomes the game's tracked quest. The quest
 pill at the bottom left shows the quest you follow and its progress, else how many of your quests
 are in this zone.
