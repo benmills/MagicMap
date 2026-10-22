@@ -18,14 +18,15 @@ Blizzard's minimap, and back.
 button by the zone name, reset, + and − on the right.*
 
 **The big map (M).** M or the red button grows it into a big map, centred on you; M, the button
-or Escape shrinks it. The quest log (L) still opens Blizzard's map. Click the zone name to pick a
+or Escape shrinks it. The quest log (L) still opens Blizzard's map (so does M, with Override world
+map off in Settings). Click the zone name to pick a
 continent, another map or an instance; with several zones in view, hover one to light it and click
 to fly there. `/mm map` and `/mm zone` do the same by name.
 
 ![The big map over Durotar: subzone names, quest areas and pins, and a dashed line to a waypoint](images/big-map-durotar-route.jpg)
 
 *Durotar on the big map: the subzone names, the Valley of Trials' quest areas and pins with their
-counts, and the walking line up to a waypoint at Razor Hill, its distance in the title.*
+counts, and the walking line up to a waypoint at Razor Hill.*
 
 **The ground.** The game's minimap tiles at any zoom, as Blizzard drew them, on each map's own dark
 water; zone and subzone names, and on the big map the zone borders traced from the terrain; your
@@ -58,31 +59,32 @@ minimap.*
 their difficulty colour; quests to pick up; a tooltip with the quest's facts, mobs, items and who
 to turn it in to. Objective areas are drawn as the game draws them, and hovering an area lights it.
 Click a quest (or its area, zoomed in) to follow it: it becomes the game's tracked quest. The quest
-line at the bottom left shows the quest you follow and its progress, else how many of your quests
+pill at the bottom left shows the quest you follow and its progress, else how many of your quests
 are in this zone.
 
 <img src="images/quest-tooltip.jpg" alt="A quest pin's tooltip in the Valley of Trials: Cutting Teeth, 2/10 Mottled Boar slain, turn in to Gornek" width="480">
 
 *A quest's tooltip in the Valley of Trials: its level, the objective's count, who to turn it in to.
-The quest line at the bottom left counts the quests in Durotar.*
+The quest pill at the bottom left counts the quests in Durotar.*
 
 **Where to go.** Your target is your corpse while you're a ghost, else the quest you follow, else
 your waypoint. A hand-inked line walks you to it around cliffs, lava and water, to a quest area's
 nearest edge; off the map, a gold arrow on the edge points the way. Ctrl-click sets the game's
 waypoint (Ctrl-right-click clears it), Shift-click opens chat with a `/way` line, and right-click
-offers both. On the big map, right-click leads with what's there: zone, subzones, coordinates, level
+offers both. A tracking pill at the top left of the map gives the yards along the route to the
+target and a plain ETA at your pace. On the big map, right-click leads with what's there: zone, subzones, coordinates, level
 range against yours, distance, quests, explored or not, and the landmarks nearby.
 
-![A followed quest at Camp Narache: the line to its turn-in and the quest line saying it's ready](images/followed-quest-route.jpg)
+![A followed quest at Camp Narache: the line to its turn-in and the quest pill saying it's ready](images/followed-quest-route.jpg)
 
-*Following The Adventurer at Camp Narache: the line to the turn-in's `?`, the distance in the title,
-"ready to turn in" in the quest line.*
+*Following The Adventurer at Camp Narache: the line to the turn-in's `?`,
+"ready to turn in" in the quest pill.*
 
 **Places and people.** Flight points, dungeon entrances, graveyards and points of interest; party and
 raid members in class colours; rares you've seen, remembered for every character on your account;
 the rares and treasures the game shows now; your corpse and waypoint.
 
-**Crowded icons.** Where icons overlap they group into a small pill of up to three icons (`+N` for
+**Crowded icons.** Where icons overlap they group into a small pill of up to two icons (`+N` for
 the rest); click it for a grid of them all, each with its own tooltip and click (Settings: Group
 overlapping icons; its tunables under Advanced).
 
@@ -93,7 +95,8 @@ minimap pins (GatherMate...) show around you. Nothing is drawn twice.
 **The gear menu** (by the zone name): the layers by group, each row with its icon and an "All" box
 on top: Map (zone labels, zone borders, City maps), Quests, Places, Nearby (rares and treasures,
 party and raid, then Blizzard's tracking types), Other addons. Then Use Blizzard's minimap and Reset
-to defaults, then Settings: Follow you, Group overlapping icons, Minimap button, Reset window
+to defaults, then Settings: Follow you, Override world map (on: M opens our map; off: M opens Blizzard's),
+Group overlapping icons, Minimap button, Reset window
 position, Advanced (diagnostics, grouping, performance). Settings are account-wide.
 
 ## Commands

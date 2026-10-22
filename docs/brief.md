@@ -38,7 +38,7 @@ done at 2d0069e (the M3 gate, 2026-10-19: 148 passed plain and strict; the sim w
 points since), its in-game half in docs/playtest-final.md (c1-c3, a5b's big-zones). M4 (feature-complete):
 wave 1 merged 2026-10-19 (M4.1 Game's places, group, vignettes, explored and tracking parts; M4.2 duplicate
 tracking, indoors and the whole Minimap, full HBD; M4.3 Model's places, group, seen rares, vignettes,
-services; M4.4 UI's places, group, shade, indoor art, renderer, sockets (the art and renderer since replaced by ADR 0008's interiors), the inspector's lines; M4.5 the
+services; M4.4 UI's places, group, shade (since removed), indoor art, renderer, sockets (the art and renderer since replaced by ADR 0008's interiors), the inspector's lines; M4.5 the
 gear's Tracking and Advanced; M4.6 the diagnostics slash), its types/ additions committed, its review's round 1
 on main; M4's sim half done at 9d2dc45 (the M4 gate, 2026-10-19: 178 passed plain and strict; every parity row
 built but F56, M5.2's, and S31, the user's call), its in-game half in docs/playtest-final.md (a6, d0-d8, e1c, e2,
@@ -51,8 +51,15 @@ Released as **2.0.0** (2026-10-21; 2.0.0-rc.1 before it, for external play-testi
 since the run's first 2.0.0 build: interiors (ADR 0008: Blizzard's indoor minimap pictures placed by us, City maps and the
 cities' area names on the big map) replaced the world map's indoor art and Blizzard's whole Minimap; the sea and the
 colour-matched tiles, the unexplored shade and the estimated quest areas are gone; zone borders are the big map's only;
-icon grouping (ui/Cluster.lua), the zoom reset button and the quest line; the gear reorganised (Map, Quests, Places,
+icon grouping (ui/Cluster.lua), the zoom reset button and the quest pill; the gear reorganised (Map, Quests, Places,
 Nearby, Other addons; Follow you in Settings); Blizzard's HD icons; the QuestieDB data packed.
+And since 2.0.0 (a polish session): the sea (atlas/Sea.lua, Data/Sea.lua, Textures/Sea) and ui/Shade.lua are gone,
+tiles plain on the window's dark backdrop with open-sea tiles undrawn (Atlas.Drawn; Data/TileColor holds only sea[]);
+the map's follow button, "Estimate missing areas" and the corpse, waypoint, blips and unexplored toggles are gone
+(Follow you and Override world map, on by default, are Settings rows); the gear's groups carry icons and n/total counts;
+packed rows (Npcs, Objects, Items, Quests format 2); grouping's pills hold two icons by default; a tracking pill at the
+top left (yards along the route, ETA) and the title band no longer shows yards; the path's ADD-blended dashes, slow
+breath and yard lead-in; the route's corners rounded with Beziers; the minimap button on LibDBIcon's geometry.
 
 ## 2. Rules for every package (v1-plan §3)
 
@@ -162,7 +169,7 @@ o, point, col, row)`, laid out at the camera's zoom each log(1.25) drift and whe
 the canvas's frame for it, `Engine.From` saying whether a layout at a zoom draws them), `"hold"`
 (borders). `build` yields with `Runtime.Yield()` and returns true when it has nothing to draw at that
 zoom, or the zoom what it left out shows from. Levels (an offset to the view's frame level), renumbered
-at M2.4 (ef8b2ee) for the spike's order (parity S8: tiles → shade → areas → lines → path → labels → pins):
+at M2.4 (ef8b2ee) for the spike's order (parity S8: tiles → areas → lines → path → labels → pins; its shade is gone since 2.0.0):
 tiles 1, the interiors 2 (ui/Interiors.lua: the building's indoor minimap pictures and their veil, ADR 0008), quest areas 3 (their frames +5..+7, ui/Areas.lua), borders 7 (the hovered
 zone's border over theirs, on their canvas: ui/ZoneInfo.lua), the path 8 (its own canvas: ui/Path.lua),
 labels 9, the world socket +10 (other addons' pins, under ours: ui/Sockets.lua), rares 11 and places with

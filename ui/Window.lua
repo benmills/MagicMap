@@ -12,7 +12,7 @@ local UI = ns.UI
 local Atlas, Runtime = ns.Atlas, ns.Runtime
 local Camera = UI.Camera
 
-local BACKDROP = { 0.03, 0.06, 0.065 } -- a map without its sea colour (Core.lua:487)
+local BACKDROP = { 0.03, 0.06, 0.065 } -- the dark water the tiles lie on (a map without its own bg: Data/Tiles.lua)
 
 local Window = {}
 UI.Window = Window

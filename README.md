@@ -60,7 +60,7 @@ You don't need any other addon: the quest data is built in.
 | --- | --- |
 | **Zoom, pan** | Mouse wheel or + / −; drag the map. Reset (above +) goes back to the default zoom. |
 | **Big map** | M or the red button; M or Escape to shrink. |
-| **Follow a quest** | Click its pin; the quest line at the bottom left shows its progress. |
+| **Follow a quest** | Click its pin; the quest pill at the bottom left shows its progress. |
 | **Waypoint** | Ctrl-click the map; right-click for more. |
 | **Settings** | The gear by the zone name. |
 | **Commands** | `/mm` swaps MagicMap and Blizzard's minimap; `/mm help` lists the rest. |

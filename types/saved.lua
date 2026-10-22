@@ -63,7 +63,6 @@
 ---@field layers table<string, boolean>  every toggle the user changed; a missing key: the layer's default
 ---@field minimap MM.MinimapMode    "blizzard": the user chose Blizzard's minimap
 ---@field button boolean            the minimap button is shown
----@field tint boolean              tile colour correction
 ---@field cluster? boolean          overlapping pins grouped into pills (ui/Cluster.lua); nil: on
 ---@field worldmap? boolean         M opens our map over Blizzard's world map (game/Hooks.lua); nil: on
 ---@field clusterTune? table<string, number> grouping's tunables changed from Cluster.DEFAULTS (range, reach, min, slots, alpha)

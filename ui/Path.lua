@@ -1,8 +1,9 @@
 -- The line to what you go to (Model.Target: your corpse, the quest you follow, your waypoint): narrow
 -- dashes like a route on a printed map, a little uneven as if inked by hand, light on a faint dark edge
--- so they read on pale ground (Path.lua:1-6). It follows the way you'd walk (Model.Route: you first, the
--- target last) once that's found, else it's straight - "that way". It leaves you the way you're facing and
--- bends onto the way, under the names and pins (level 8). On a canvas of its own whose origin is a tile
+-- so they read on pale ground (Path.lua:1-6): ADD-blended dashes on a slowly breathing canvas. It follows the
+-- way you'd walk (Model.Route: you first, the target last) once that's found, else it's straight - "that way".
+-- It leaves you the way you're facing, a short fade at your arrow, and bends onto the way over a lead-in
+-- of LEAD_YD yards (a cubic Bezier), under the names and pins (level 8). On a canvas of its own whose origin is a tile
 -- near the view, so a pan carries it along (Path.lua:126-129); laid out again when you or the target move
 -- half a pixel, you turn 3°, the zoom changes or the route is found again, only the dashes that meet the
 -- view (and a margin) shown (a line's ends stay within a few thousand px: docs/v1-plan.md §2); and as a pan

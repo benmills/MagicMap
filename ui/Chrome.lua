@@ -101,13 +101,13 @@ Chrome.grip = grip
 local border = Border(base + LEVEL_BORDER, frame.NineSlice)
 Chrome.border = border
 
--- Inside the map, shown while you hover: the follow toggle and zoom buttons (ui/Controls.lua).
+-- Inside the map, shown while you hover: the zoom buttons and reset (ui/Controls.lua).
 local controls = CreateFrame("Frame", nil, frame)
 controls:SetAllPoints(view)
 controls:SetFrameLevel(base + LEVEL_CONTROLS) -- under the grip
 Chrome.controls = controls
 
--- The quest line's frame (ui/Controls.lua): at the controls' level, but not under them, so the line
+-- The pills' frame (ui/Controls.lua: the quest and tracking pills): at the controls' level, but not under them, so a pill
 -- can stay shown at full alpha when they fade.
 local overlay = CreateFrame("Frame", nil, frame)
 overlay:SetAllPoints(view)

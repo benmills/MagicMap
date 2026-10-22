@@ -8,7 +8,7 @@
 -- still paying); and the swap's question (ui/Engine.lua, docs/runtime.md "The map's engine"):
 -- Show after the 1000 live lines moved while hidden (the M0 gate's 35-50 us a line), the same
 -- at alpha 0, SetAlpha(1) after they moved while shown at alpha 0 (the engine's swap), and Show
--- after 100 masked textures moved (a tile's art and its coast fade). Each call is timed alone in
+-- after 100 masked textures moved (a masked disc: a pin's art). Each call is timed alone in
 -- a Job, its frames graced ("bench"), and a canvas-wide call (setup, timed, or between ops) gets
 -- a frame to itself, so the run's frames cost no more than one such call; every region is clear
 -- until the moved and alpha ops, whose 1000 lines are coloured as a border's (a canvas at alpha 0
@@ -53,7 +53,7 @@ local PINS = 500 -- a minimum zoom's pins (~440 rares in the big window at 60)
 local PATH = 160 -- the path's lines a pool (ui/Path.lua MAX_PIECES)
 local POI_QUESTS, POI_SIZE = 25, 1024 -- quests drawn (a hub's), px (a zone on the big map)
 local BLOB = "Interface\\WorldMap\\UI-QuestBlob-" -- Inside / Outside (Layers.lua:786)
-local MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- a mask the client has (ui/Art.lua), as a tile's coast fade
+local MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- a mask the client has (ui/Art.lua), as a pin's disc
 
 local result, order, job -- the run's, committed at its end
 
@@ -103,7 +103,7 @@ local function Line(c, i)
 	return l
 end
 
--- A tile's art with its coast fade, clear.
+-- A masked texture (a pin's disc), clear.
 local function Masked(c, i)
 	local t = c:CreateTexture(nil, "ARTWORK")
 	t:SetColorTexture(1, 1, 1, 0)

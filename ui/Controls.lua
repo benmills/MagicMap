@@ -1,8 +1,8 @@
 -- The window's buttons (Core.lua:235-381): on the band, right-aligned on the title's line,
 -- the gear (the world map's) and the mode button (its red expand: ui/BigMap.lua); inside
--- the map, bottom left the quest line (the followed quest and its progress, else your quests in
--- this zone), bottom right the zoom buttons and, while the zoom isn't the default, the reset
--- above them. They and the grip fade in while you hover (Core.lua:394-408), and each has a
+-- the map, top left the tracking pill (yards along the route and an ETA), bottom left the quest
+-- pill (the followed quest and its progress, else your quests in this zone), bottom right the
+-- zoom buttons and, while the zoom isn't the default, the reset above them. They and the grip fade in while you hover (Core.lua:394-408), and each has a
 -- tiny tip (Core.lua:1454-1497). Follow is a Settings row now (ui/Menus.lua).
 
 local _, ns = ...
@@ -73,7 +73,7 @@ gear:SetPoint("RIGHT", mode, "LEFT", -6, 0)
 Controls.mode, Controls.gear = mode, gear
 
 local zoomOut = ArtButton(Chrome.controls, 20, 11, ZoomArt("ui-hud-minimap-zoom-out"))
--- The quest line's gap from the window's left and bottom borders is one: the border's insets differ, so its
+-- The quest pill's gap from the window's left and bottom borders is one: the border's insets differ, so its
 -- bottom offset makes up the difference (BOTTOM_Y), and the zoom buttons drop by as much (clear of the grip).
 local insets = Chrome.border.insets
 local BOTTOM_Y = math.max(2, PAD + insets[1] - insets[4])
@@ -112,7 +112,7 @@ zoomReset:Hide()
 Controls.zoomReset = zoomReset
 
 ---------------------------------------------------------------------------
--- The quest line (bottom left): the followed quest and its progress, else how many of your quests
+-- The quest pill (bottom left): the followed quest and its progress, else how many of your quests
 -- are in this zone; on a small dark pill that reads on any map. Worked out from Model's quest list
 -- (Known("quests") and its rev: a change to the log) and your zone's map, at most every EVERY s,
 -- and only when one of those changed. It fades with the other controls, but stays shown while a quest is tracked.
@@ -388,8 +388,8 @@ local function ToggleFollow() UI.Motion.SetFollow(not Camera.follow, true) end
 -- Hover reveal: the controls and grip fade in while the mouse is over the map
 ---------------------------------------------------------------------------
 
--- One step for the map's controls: the fade (the quest line's too, unless it shows a tracked quest), the
--- zoom reset's look (each frame: a cheap compare), and the quest line's (EVERY s: a step's probes cost
+-- One step for the map's controls: the fade (the quest pill's too, unless it shows a tracked quest), the
+-- zoom reset's look (each frame: a cheap compare), and the pills' (EVERY s: a step's probes cost
 -- each frame, so these share one).
 local since, trackSince = EVERY, TRACK_EVERY
 Runtime.Step("ui", "map: controls", function(elapsed)

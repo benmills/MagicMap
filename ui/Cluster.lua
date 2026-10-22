@@ -1,7 +1,8 @@
 -- Overlapping pins grouped (ui/Cluster.lua). Where two or more pins of the clustered layers (quests, offers,
 -- places, rares, blips: opts.cluster in Pins.Layer) crowd together at the zoom (each within range px of
 -- another, at most reach ranges from the first: the greedy pass in Group), they draw as one pill at their
--- centroid: up to three icons side by side, the third a "+N" when there are more, on a faint dark backing. Clicking the pill opens a grid of its members above it at their normal size; each
+-- centroid: up to two icons by default (the "slots" tunable) side by side, the last a "+N" when there are more, on a
+-- faint dark backing. Clicking the pill opens a grid of its members above it at their normal size; each
 -- grid icon is a pin of its own layer (a proxy at its cell, standing for the real entry), so its tooltip and
 -- click are its layer's. Clicking elsewhere, Escape, a zoom or a pan away closes the grid.
 --

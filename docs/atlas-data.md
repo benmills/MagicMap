@@ -79,15 +79,13 @@ that read it.
   `Atlas.TileSet()`; `Atlas.Drawn(inst, key)` (false on an open-sea tile: TileColor's sea).
 
 ### Data/TileColor.lua — `ns.Data.TileColor` (minimap tiles)
-`[inst] = { tint, edge, sea }`, key = col * 64 + row
-- tint[key] = `{ mr, mg, mb, ar, ag, ab }`: drawn = texel * m + a, for tiles whose baked
-  lighting is off from their neighbours' (open-world maps; only those that need it).
-- edge[key] = `{ l = {r,g,b}, ... }`: the median of the outer 0.08 tile on each side facing
-  open space (no tile or a sea tile), after the tint.
+`[inst] = { sea }`, key = col * 64 + row
 - sea[key] = true: open-sea tiles (the art's flat deep water all over, or that plus a frame):
-  not drawn; `Atlas.Drawn` is false there. The art's own water is otherwise left as it is.
-- Read through `Atlas.Drawn` (above). The tint and edge data aren't used at run time (tiles are
-  drawn as Blizzard drew them, on the map's backdrop colour).
+  not drawn; `Atlas.Drawn` is false there, and the map's backdrop shows. Tiles are otherwise drawn
+  as Blizzard drew them, on the backdrop colour.
+- Read through `Atlas.Drawn` (above). Before 2.0.0's polish this file also held per-tile colour
+  tints and edge colours for colour matching; that and the sea texture are gone, and
+  tools/gen_tilecolor.py writes only sea[].
 
 ### Data/UiMaps.lua — `ns.Data.UiMaps` (UiMap + UiMapAssignment DB2)
 `[uiMapID] = { name, mapType, parent, inst, col0, row0, col1, row1, areaID }`
