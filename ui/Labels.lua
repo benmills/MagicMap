@@ -27,7 +27,7 @@ local SHADOW = 0.85 -- the soft drop shadow's alpha, offset (1, -1)
 local PAD_X, PAD_Y, GAP = 4, 2, 3 -- a name's clearance, and its spots' gap above and below (Layers.lua:1447-1448)
 local FADE_S = 0.2 -- Layers.lua:1619
 
--- The Look & feel dialog's label size (ui/Feel.lua: "labels.scale"), a factor on every name's size; the
+-- The settings window's label size (ui/Feel.lua: "labels.scale"), a factor on every name's size; the
 -- layer's rev moves with it, so the names are laid out again at the new size (and, as the subzone names', at the
 -- new size or opacity).
 local scale, subScale, subSize, scaleRev = 1, 1, SUB_SIZE, 0

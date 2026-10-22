@@ -34,7 +34,7 @@ local ART = { blue = "Interface\\WorldMap\\UI-QuestBlob-", green = "Interface\\W
 	rust = "Interface\\WorldMap\\UI-ArchaeologyBlob-" }
 -- Fill and edge alpha (0-255), edge width (Layers.lua:795-800), level over the canvas (Layers.lua:910);
 -- hover: lit, on top (Layers.lua:822, 853), a gentle lift over the area's own style (the world map's hover).
--- The look's numbers are the settings' (ui/Feel.lua's "areas.<name>", Look & feel > Quest areas): DEFAULTS
+-- The look's numbers are the settings' (ui/Feel.lua's "areas.<name>", Settings > Quest areas): DEFAULTS
 -- are the spike's. Restyle makes the style tables from them anew when they change (a frame's style is
 -- the table, so a new one is applied again), and the layer's rev moves with that: every frame laid out
 -- and drawn again.

@@ -74,7 +74,7 @@ def test_quest_areas():
     sim.Run(1)
     assert A.frame.GetAlpha(A.frame) == 1 and blobs(sim, ns) == want
 
-    # Look & feel > Quest areas: a setting restyles the frames live, drawn again; its reset puts the defaults back.
+    # Settings > Quest areas: a setting restyles the frames live, drawn again; its reset puts the defaults back.
     n = sim.calls.DrawBlob
     ns.UI.Feel.Set("areas.fFill", 100)
     sim.Run(1)
