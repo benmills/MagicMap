@@ -90,15 +90,18 @@
   <select id="zone"><option value="">Fly to zone…</option></select>
   <button id="walk" aria-pressed="false">Walk grid</button>
   <button id="layersBtn" aria-expanded="false">Layers</button>
+  <button id="reviewBtn" aria-pressed="false" title="The map linter's issues, to accept or reject">Review</button>
   <div id="hl" hidden><span></span><button class="x" aria-label="Clear highlight">✕</button></div>
 </div>
 <div id="results" class="panel sheet" hidden></div>
 <div id="layers" class="panel sheet" hidden></div>
+<div id="review" class="panel sheet" hidden></div>
 <div id="readout" class="panel"></div>
 <div id="card" class="panel" hidden></div>
 <script src="tiles.js"></script>
 <script src="borders.js"></script>
 <script src="labels.js"></script>
+<script src="review.js"></script>
 <script>
 // Everything shown comes from the server's Atlas calls; this file only draws.
 // Zoom stops at twice the tiles' own resolution (512 texels a tile): past that it's only blur.
@@ -142,6 +145,7 @@ function frame() {
   drawTiles();
   if (walk) drawWalk();
   drawBorders();
+  Review.drawOverlay();
   // Pins: where they'll be drawn first, so labels keep clear of them; quieter at continent zoom,
   // where names win; pins a name covers aren't drawn.
   const quiet = pinQuiet(), onScreen = [];
@@ -423,7 +427,7 @@ function release(e, cancelled) {
       flyTo(zoomGoal(tap.x, tap.y, cam.zoom * 2), 250); lastTap = null;
     } else {
       const pin = pinAt(tap.x, tap.y, e.pointerType === "mouse" ? 12 : 22);
-      if (pin) openPin(pin); else inspect(tap.x, tap.y, true);
+      if (pin) openPin(pin); else if (!Review.tap(...toTile(tap.x, tap.y))) inspect(tap.x, tap.y, true);
       lastTap = tap;
     }
   } else if (pts.size === 0 && e.timeStamp - vel.t < 80 && Math.hypot(vel.x, vel.y) > 0.1) {
@@ -468,7 +472,10 @@ function closeSheets() {
   results.hidden = true; q.blur();
   if (narrow.matches) setLayersOpen(false);
 }
-function setLayersOpen(open) { layersEl.hidden = !open; layersBtn.setAttribute("aria-expanded", open); if (open) results.hidden = true; }
+function setLayersOpen(open) {
+  layersEl.hidden = !open; layersBtn.setAttribute("aria-expanded", open);
+  if (open) { results.hidden = true; if (Review.isOn()) $("reviewBtn").click(); } // one sheet in that spot
+}
 layersBtn.onclick = () => setLayersOpen(layersEl.hidden);
 
 // The layers sheet: a toggle per layer, each with its icon as the legend.
@@ -675,6 +682,10 @@ addEventListener("keydown", (e) => { if (e.key === "Escape" && document.activeEl
   addEventListener("resize", resize);
   resize(); renderLayers();
   setLayersOpen(matchMedia("(min-width: 700px) and (hover: hover)").matches);
+  // The map review: this page draws Eastern Kingdoms alone, so another map's issue is listed, not flown to.
+  Review.mount({ ctx: () => ctx, toScreen, zoom: () => cam.zoom, inst: () => INST, draw, sheet: $("review"), button: $("reviewBtn"),
+    onOpen: () => { setLayersOpen(false); results.hidden = true; },
+    fly: (i) => i.inst === INST && fitTo([{ col: i.bbox[0], row: i.bbox[1] }, { col: i.bbox[2], row: i.bbox[3] }]) });
 })();
 </script>
 </body>

@@ -91,7 +91,8 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 | M3 | Zone borders wrap unplayable land the game assigns to a zone (Wetlands' east and west coasts, west of Dun Morogh). | screenshots 2026-10-27. | open |
 | M4 | Seams: 0 tile edges by the linter; 6 colour blocks (worst 29,42 and 29,40, Dun Morogh's west coast). The demo's WebP export lifts dark sea from (5,7,7) to (8,17,16), so drawn sea tiles read paler than the backdrop in skipped ones (86 sea edges in the demo, 0 in game art). | maplint | open |
 | M5 | No linter to score the map and ratchet it. | — | fixed (tools/maplint.py; check.sh ratchets its data scores) |
-| M6 | No shared place to review map issues: the user wants the linter's issues in the web demo, on the exe VM, each marked accepted / rejected / later, with notes, and the decisions readable by Claude. | user, 2026-10-27 | open |
+| M6 | No shared place to review map issues: the user wants the linter's issues in the web demo, on the exe VM, each marked accepted / rejected / later, with notes, and the decisions readable by Claude. | user, 2026-10-27 | open (built: demo/review.js, demo/review_api.py, tools/review.py, demo/lint/issues.json; the hosted demo's patch in demo/hosted/; deploy pending) |
+| M7 | The hosted demo (magic-map-outdoor.exe.xyz: 2D/3D, both continents) is its own code on the VM, in no repo here; this repo's demo/ and the lab's are older forks. Changes to it go by patch (demo/hosted/), and it can drift. | found building M6, 2026-10-27 | open |
 
 ## Log
 
@@ -104,3 +105,6 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
   outline), then Eastern Plaguelands, Arathi, Tirisfal. M1 corrected (see the row).
 - 2026-10-27: merged the sim checks (T.Drawn, T.OneThing behind T.strictPins, P1 and P2's strict xfails, the reload
   round trip); reviewed, 229 passed + 5 xfailed. New rows S9, P9.
+- 2026-10-27: built the map review (M6): issues drawn on the map and listed, Accept / Reject / Later with notes, saved
+  on the server, read back by tools/review.py. Checked in this repo's demo and in the hosted demo's pages patched
+  locally (proxied to the VM). The issues file is from the installed client's art (150 issues). New row M7.

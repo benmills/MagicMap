@@ -19,6 +19,7 @@ them.
   /api/npc|object|item|quest|flight|dungeon?id=
                                      one entity, its links named (QuestSources for a quest)
   /api/find?q=                       Atlas.Find over npc, quest, object, item
+  /api/lint, /api/review             the map review: the linter's issues, the review's marks (demo/review_api.py)
 """
 from __future__ import annotations
 
@@ -34,6 +35,7 @@ DEMO = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(DEMO), "tools"))
 
 from atlas_lua import load_atlas  # noqa: E402
+import review_api  # noqa: E402
 
 L, Atlas = load_atlas()
 lua_type = L.globals().type
@@ -308,20 +310,32 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kw):
         super().__init__(*args, directory=DEMO, **kw)
 
+    def reply(self, status, body):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        if len(body) > 1024 and "gzip" in self.headers.get("Accept-Encoding", ""):
+            body = gzip.compress(body, 6)
+            self.send_header("Content-Encoding", "gzip")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        n = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(min(n, review_api.MAX_BODY + 1))
+        self.close_connection = n > review_api.MAX_BODY  # the rest is unread
+        self.reply(*(review_api.handle("POST", urlparse(self.path).path, body, self.headers) or (404, b"{}")))
+
     def do_GET(self):
         u = urlparse(self.path)
-        if u.path.startswith("/api/"):
+        got = review_api.handle("GET", u.path, b"", self.headers)
+        if got:
+            self.reply(*got)
+        elif u.path.startswith("/api/"):
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             with atlas_lock:
                 body = json.dumps(API[u.path[5:]](q)).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            if len(body) > 1024 and "gzip" in self.headers.get("Accept-Encoding", ""):
-                body = gzip.compress(body, 6)
-                self.send_header("Content-Encoding", "gzip")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            self.reply(200, body)
         else:
             super().do_GET()
 
