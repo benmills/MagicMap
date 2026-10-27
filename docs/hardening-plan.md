@@ -22,13 +22,14 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 
 | id | problem | evidence | status |
 | --- | --- | --- | --- |
-| P1 | A grouped pin draws alone beside its pill for up to 0.5 s after each blip update. | Cluster hides members by entry table (ui/Cluster.lua:167, 279); model/Blips.lua Live() makes new tables each sensor change; reproduced in the sim (5 pins + 2 pills for 0.4 s). | open |
-| P2 | A remembered pin vanishes as you walk into the blips' range, until the sensor finds it. | ui/Blips.lua REACH is a fixed 220 yd; the sensor finds blips within ~208 yd outdoors, ~131 indoors (game/Blips.lua:338). | open |
+| P1 | A grouped pin draws alone beside its pill for up to 0.5 s after each blip update. | Cluster hides members by entry table (ui/Cluster.lua:167, 279); model/Blips.lua Live() makes new tables each sensor change; reproduced in the sim (5 pins + 2 pills for 0.4 s). | check |
+| P2 | A remembered pin vanishes as you walk into the blips' range, until the sensor finds it. | ui/Blips.lua REACH is a fixed 220 yd; the sensor finds blips within ~208 yd outdoors, ~131 indoors (game/Blips.lua:338). | check |
 | P3 | A blip within 8 yd of a quest objective's centre or a rare spawn is dropped even when that pin isn't drawn (zoom, layer off, grouping). | model/Blips.lua Ours/NearOurs. | open |
 | P4 | Three different "same thing" distances (6, 10/18, 8 yd) in three places; no live-vs-live dedupe in Model. | game/Blips.lua SAME, model/Blips.lua SAME+LAG, NEAR_OURS. | open |
 | P5 | Services draw beside their live blip between 220 yd and the sensor's edge (no carried check). | ui/Blips.lua:76-78. | open |
 | P6 | Quests and offers share the key form `quest:<id>`: a tracked offer makes the quest pin glow once accepted. | model/Quests.lua:168, model/Offers.lua:43, Track.Is. | open |
 | P7 | Layers swap canvases independently, so a pill and its members can be out of step for a few frames. | ui/Engine.lua:396-419. | open |
+| P9 | A remembered blip the sensor misses (not on the minimap until close) is forgotten by a sweep and stays gone until found again. Forgetting is right for a picked herb; wrong for a sensor miss. Design question for ADR 0009. Also: the reviewer found the missed blip, once on the minimap at about 100 yd, stays undrawn until you stop, so the sensor may not pick up new blips while you move: a second cause, to be split from P2 before the fix. | T2 [missed], 2026-10-27 | check |
 | P8 | Model decides drawing using UI's layer names and tracking (Focus.off, Focus.tracked). | model/Blips.lua:176-198, model/Rares.lua:55. | open |
 
 ### S: settings and saved state
@@ -42,6 +43,7 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 | S5 | `/mm layer rares` doesn't turn vignettes with it. | Engine.lua:808-811 vs Menus.lua:102. | open |
 | S6 | Tracking only ends while some pin layer asks for redraws (Watch inside Track.Rev). | ui/Track.lua:71-88. | open |
 | S7 | Reset and downgrade turn both replace options on (`fresh` false). | Game.lua:35, 44; Replace.lua:55-56. | open |
+| S9 | "Follow you" off doesn't hold: the idle return (ui/Motion.lua, as the MVP's) turns following back on after about 6 s, and it isn't kept across a reload. Is the setting meant to be "glide back when left alone" on/off? Ask the user. | found by T3, 2026-10-27 | open |
 | S8 | The saved schema lives in three places and they disagree; migrations are done by hand outside `spec.migrate`. | types/saved.lua vs View.lua OPTIONAL; Replace.lua:51-61. | open |
 
 ### I: clicks, menus, tooltips
@@ -72,13 +74,13 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 
 | id | problem | evidence | status |
 | --- | --- | --- | --- |
-| T1 | No check for one pin per real thing across layers; OnePin is per layer. | harness.lua:100-126. | open |
-| T2 | Every blip test is outdoors in Goldshire with a perfect sensor. | test_blips.py. | open |
-| T3 | `/reload` (PLAYER_ENTERING_WORLD false, true) is never simulated; no full settings round trip. | sim.py:121-123. | open |
+| T1 | No check for one pin per real thing across layers; OnePin is per layer. | harness.lua:100-126. | check |
+| T2 | Every blip test is outdoors in Goldshire with a perfect sensor. | test_blips.py. | check |
+| T3 | `/reload` (PLAYER_ENTERING_WORLD false, true) is never simulated; no full settings round trip. | sim.py:121-123. | fixed (passes: S2, S4 stay latent in the sim) |
 | T4 | Tests assert pixel sizes and colours (TEST_LOOK pins the old look). | test_path, test_pins, test_quests. | open |
 | T5 | The quest-log path is untested; the sim lacks both client shapes. | wowsim.lua. | open |
 | T6 | No warning when the game ran an older build than the checkout; install.py needs the venv's Python. | install.py:147, telemetry.py. | open |
-| T7 | No shared "what's drawn" dump (five tests each write their own). | test_blips, test_gear, test_interiors, test_pins, test_services. | open |
+| T7 | No shared "what's drawn" dump (five tests each write their own). | test_blips, test_gear, test_interiors, test_pins, test_services. | check |
 
 ### M: map quality (tiles, borders)
 
@@ -95,3 +97,5 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 
 - 2026-10-27: plan written; 2.1 work committed (60e3daf). Design notes proposed: ADR 0009 (the pin set), ADR 0010
   (settings ownership). Started in parallel: the sim checks (T1, T2, T3, T7) and the map linter (M1-M5).
+- 2026-10-27: merged the sim checks (T.Drawn, T.OneThing behind T.strictPins, P1 and P2's strict xfails, the reload
+  round trip); reviewed, 229 passed + 5 xfailed. New rows S9, P9.
