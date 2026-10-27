@@ -30,8 +30,10 @@ import sys
 TESTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(TESTS))  # (run as a script: luacheck, for test_addon)
 
+import pytest  # noqa: E402
 from lupa import lua51  # noqa: E402
 
+import sim as simmod  # noqa: E402
 from sim import START, YD, put_blips  # noqa: E402
 from test_addon import boot, errors  # noqa: E402
 
@@ -41,6 +43,7 @@ FIXTURE = os.path.join(TESTS, "fixtures", "blips_stream.lua")
 BLIPS = [("Mailbox", 40, 20), ("Mailbox", -50, -70), ("Peacebloom", -60, 30)]
 MAILBOX = 136459  # the sim's Mailbox tracking texture
 HERB = "Professions_Tracking_Herb"  # a herb's (Atlas.BlipService: "herb")
+FACING_EAST = 3 * math.pi / 2  # the client's facing (counter-clockwise from north)
 # Atlas.BlipService (M1.2's accessor of Data.BlipServices), stubbed: the names these scenarios use.
 SERVICES = {"Innkeeper Belm": "innkeeper"}
 
@@ -340,3 +343,99 @@ def record():
 
 if __name__ == "__main__":
     record()
+
+
+# T2 / P2: remembered blips walked into. Two mailboxes (they have an icon: remembered) seen standing at the start,
+# saved; a fresh client from that save, you WALK_FROM yd west of them, walking east into them and standing there.
+WALK_BLIPS = [("Mailbox", 40, 20), ("Mailbox", -10, -40)]
+WALK_FROM, WALK_YDS = 350, 7  # yd west of the start; yd/s
+MISSED_UNTIL = 100  # "missed": the sensor doesn't find the second mailbox until you're this close (yd)
+
+# Each real blip's count among what's drawn (T.Drawn: pills counted as what they hold, grid pins as their entry):
+# drawn items of its name whose entry stands within YDS of it (a rough measure: within a square, ~25 yd).
+COUNT = """function(T, sim, ns, want, yds)
+    local out = {}
+    for i = 1, #want do out[i] = 0 end
+    local function count(e)
+        for i, w in ipairs(want) do
+            if e.name == w[1] and math.sqrt((e.col - w[2]) ^ 2 + (e.row - w[3]) ^ 2) < yds then out[i] = out[i] + 1 end
+        end
+    end
+    for _, d in ipairs(T.Drawn(sim, ns)) do
+        if d.members then
+            for _, m in ipairs(d.members) do count(m) end
+        else
+            count(d)
+        end
+    end
+    return out
+end"""
+
+
+@functools.cache
+def walk_saved():
+    """The SavedVariables after standing among WALK_BLIPS with the map shown until both are remembered."""
+    L, sim, ns = boot()
+    put_blips(L, sim, ns, WALK_BLIPS)
+    sim.Slash("/mm toggle")
+    G = L.globals()
+    for _ in range(30):
+        sim.Run(1)
+        if len(list(G.MagicMap2DB.Model.blips[0].keys())) == 2:
+            break
+    assert len(list(G.MagicMap2DB.Model.blips[0].keys())) == 2
+    assert not errors(sim, ns), errors(sim, ns)
+    sim.FireEvent("PLAYER_LOGOUT")
+    return "MagicMap2DB = " + lua_tools(L).Dump(G.MagicMap2DB)
+
+
+def radius_scaled(L, sim, k):
+    """The Minimap's view radius k times its own (0 still 0: a zoom applying)."""
+    sim_globals = L.globals()
+    sim_globals.C_Minimap.GetViewRadius = L.eval("function(g, k) return function() return g() * k end end")(
+        sim_globals.C_Minimap.GetViewRadius, k)
+
+
+WALK = [
+    pytest.param("outdoors", marks=pytest.mark.xfail(strict=True, raises=AssertionError, reason="P2: REACH 220 yd hides the remembered one before the sensor (~208 yd) finds it")),
+    pytest.param("zoomed", marks=pytest.mark.xfail(strict=True, raises=AssertionError, reason="P2: a smaller view radius (zoom 3's 133 yd): a wider gap under REACH")),
+    pytest.param("indoors", marks=pytest.mark.xfail(strict=True, raises=AssertionError, reason="P2: indoors the sensor reaches ~131 yd, REACH stays 220")),
+    pytest.param("missed", marks=pytest.mark.xfail(strict=True, raises=AssertionError, reason="P2: a blip the sensor misses is not drawn within REACH; a sweep forgets it, and it is not drawn again until the sensor finds it")),
+]
+
+
+@pytest.mark.parametrize("variant", WALK)
+def test_blips_walk_into_remembered(variant):
+    """Each remembered mailbox drawn exactly once on every frame from the map's first layout on, walking in from
+    350 yd and standing among them: no gap frame, no double. outdoors (the sim's perfect sensor); zoomed (the
+    view radius of the Minimap's zoom 3: Game's Hold puts the zoom back to 0, so the radius is scaled: any
+    smaller radius); indoors (Sim.indoors: its indoor radius); missed (the second mailbox not on the Minimap
+    until you're within MISSED_UNTIL yd)."""
+    L, sim, ns, T = simmod.checked(walk_saved())
+    if variant == "zoomed":
+        radius_scaled(L, sim, 266.67 / 466.67)
+    elif variant == "indoors":
+        sim.indoors = True
+    sim.player.col = START[0] - WALK_FROM * YD
+    present = WALK_BLIPS if variant != "missed" else WALK_BLIPS[:1]
+    put_blips(L, sim, ns, present)
+    want = L.table_from([L.table_from([name, START[0] + east * YD, START[1] - north * YD]) for name, east, north in WALK_BLIPS])
+    count = L.eval(COUNT)
+    sim.Run(2)  # the map shown since login, laid out
+    assert list(count(T, sim, ns, want, 30 * YD).values()) == [1, 1], T.Drawn(sim, ns)
+    sim.player.facing, sim.player.speed = FACING_EAST, WALK_YDS
+    bad = []
+    for frame in range(60 * (WALK_FROM // WALK_YDS + 10)):
+        if frame == 60 * (WALK_FROM // WALK_YDS):
+            sim.player.speed = 0  # among them: stand
+        sim.Step()
+        if variant == "missed" and len(present) == 1:
+            east = (sim.player.col - START[0]) / YD
+            if math.hypot(east - WALK_BLIPS[1][1], WALK_BLIPS[1][2]) < MISSED_UNTIL:
+                present = WALK_BLIPS
+                put_blips(L, sim, ns, present)
+        got = list(count(T, sim, ns, want, 30 * YD).values())
+        if got != [1, 1]:
+            bad.append((frame, round((sim.player.col - START[0]) / YD), got))
+    assert not errors(sim, ns), errors(sim, ns)
+    assert not bad, f"{len(bad)} frames not drawn once each (frame, yd east of the start, counts): {bad[:3]} ... {bad[-3:]}"
