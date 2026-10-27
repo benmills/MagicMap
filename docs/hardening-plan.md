@@ -92,4 +92,5 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 
 ## Log
 
-- 2026-10-27: plan written; 2.1 work committed (60e3daf).
+- 2026-10-27: plan written; 2.1 work committed (60e3daf). Design notes proposed: ADR 0009 (the pin set), ADR 0010
+  (settings ownership). Started in parallel: the sim checks (T1, T2, T3, T7) and the map linter (M1-M5).
