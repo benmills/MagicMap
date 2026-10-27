@@ -53,6 +53,8 @@ def read() -> dict:
             return json.load(f)
     except FileNotFoundError:
         return {"schema": 1, "updated": None, "decisions": {}, "log": []}
+    except ValueError:  # hand-edited badly: say so, and don't save over it
+        raise Refused(500, f"the marks file ({STORE}) isn't valid JSON") from None
 
 
 def review() -> bytes:
