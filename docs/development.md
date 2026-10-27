@@ -124,8 +124,10 @@ shell: `s = sim.boot(priced=True)`, then `s.blips([("Mailbox", 40, 20)])` (yards
 where you log in), `s.slash("/mm toggle")`, `s.run(6)` (past login's 5 s grace: a grace's frames
 aren't in perf's byState), `s.wheel(3)`, `s.drag(200, 0, 20)`, `s.walk(10, "east")`, `s.press("M")`,
 `s.lua(code)` (sim and ns are locals), and read back
-`s.perf()` (FrameStats: byState, alloc, ledger; per-name calls), `s.errors()`, `s.layers()`;
-`s.T` is the replays' harness (tools/tests/harness.lua). From the shell, a script:
+`s.perf()` (FrameStats: byState, alloc, ledger; per-name calls), `s.errors()`, `s.layers()`,
+`s.pins()` (what's drawn: every pin and pill shown, T.Drawn; `pins` in a script);
+`s.T` is the replays' harness (tools/tests/harness.lua: `sim.checked()` boots through its T.Boot, T.Invariants
+after every frame, and `T.strictPins = True` adds one pin per real thing across layers). From the shell, a script:
 
     .venv/bin/python tools/sim.py --priced --run 'blip Mailbox 40 20; slash /mm toggle; run 6; wheel 3; run 2; perf; layers'
     .venv/bin/python tools/sim.py --run 'run 1; lua local cam = ns.UI.Camera.cam

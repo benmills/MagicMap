@@ -1,5 +1,13 @@
 """Overlapping pins grouped (ui/Cluster.lua): five pins at one spot draw as one pill, none of them alone; with
-"Group overlapping icons" off (UI.saved.cluster), all five draw and no pill does."""
+"Group overlapping icons" off (UI.saved.cluster), all five draw and no pill does.
+
+test_pill_members_new_tables: the same five, their entries made anew twice within the regroup's 0.5 s (as
+model/Blips.lua's Live() does each sensor change), with the harness's one-thing-one-pin check on every frame
+(T.strictPins: docs/hardening-plan.md T1): today each draws alone beside the pill holding it (P1)."""
+import pytest
+from lupa import lua51
+
+import sim as simmod
 from test_addon import boot, errors
 
 # A clustered test layer: n pins at (cx, cy), all one spot.
@@ -39,4 +47,39 @@ def test_five_overlapping_pins_one_pill():
     t.rev = 2
     sim.Run(0.5)
     assert shown(t.layer, "pin") == 5 and shown(pills, "pill") == 0
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+# The entries made anew, the same keys (model/Blips.lua's Live(): new tables each sensor change).
+RENEW = """function(t)
+    local new = {}
+    for i, e in ipairs(t.list) do
+        new[i] = { key = e.key, kind = e.kind, name = e.name, text = "", live = true,
+            pos = { inst = e.pos.inst, col = e.pos.col, row = e.pos.row } }
+    end
+    t.list, t.rev = new, t.rev + 1
+end"""
+
+
+@pytest.mark.xfail(strict=True, raises=lua51.LuaError,
+                   reason="P1: Cluster hides members by entry table; new tables with the same keys draw alone beside their pill until the next regroup")
+def test_pill_members_new_tables():
+    L, sim, ns, T = simmod.checked()
+    ns.UI.saved.cluster = True
+    sim.Slash("/mm toggle")
+    sim.Run(1)
+    cam = ns.UI.Camera.cam
+    t = L.eval(LAYER)(ns.UI.Pins, 5, cam.cx, cam.cy)
+    T.strictPins = True
+    try:
+        sim.Run(1)  # grouped: one pill, no pin alone (the check holds before the trigger)
+    except lua51.LuaError as e:
+        raise AssertionError(f"one thing, one pin, before any update: {e}")
+    shown = L.eval(SHOWN)
+    assert shown(t.layer, "pin") == 0 and shown(T.Layer(ns, "clusters"), "pill") >= 1
+    renew = L.eval(RENEW)
+    renew(t)  # regrouped at once (over 0.5 s since the last)
+    sim.Run(0.1)
+    renew(t)  # within REGROUP: not regrouped
+    sim.Run(0.6)  # T.OneThing: "Pin 1 drawn twice: clustertest c1 ... and clusters c1 ..."
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
