@@ -125,6 +125,127 @@ local function OnePin(E, S)
 	end
 end
 
+-- What's drawn (T7): every pin the map shows this frame, on each pin layer (Engine's "pin" layers: Pins.Layer's
+-- and their grids, the clusters' pills) on: a pin or pill on a canvas at alpha > 0, it and every frame up to
+-- the screen shown at alpha > 0 (a minimum zoom's frame too), its centre inside the view. Each(sim, ns, fn)
+-- calls fn(layer, src, key, name, icon, x, y, size, entry, pill) for each: src, the layer whose thing it is (a
+-- grid pin's, its source's); entry, the real one (a grid pin's: what it stands for); icon, its texture or atlas
+-- (Pins' own record of what it set, .art); x, y, size: screen px (Sim.Rect: from the bottom-left), its width. A
+-- pill calls fn once for each entry it holds, at the pill's centre, pill: its region (else nil).
+local function Seen(S, o)
+	while o do
+		local st = S[o]
+		if not st.shown or st.alpha <= 0 then return false end
+		o = st.parent
+	end
+	return true
+end
+
+-- A pill's entry's icon as its own pin draws it (Pins.Style: an atlas the client lacks, its alt; else a dot).
+local DOT = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+local function LookArt(look)
+	local i = look and look.icon or {}
+	local has = i.atlas and C_Texture.GetAtlasInfo(i.atlas)
+	if i.alt and not i.texture and not has then return LookArt({ icon = i.alt }) end
+	return i.texture or has and i.atlas or DOT
+end
+
+local function Each(sim, ns, fn)
+	local S, view, rect = sim.state, ns.UI.Window.view, sim.Rect
+	local vl, vb, vw, vh = rect(view)
+	if not vl or not Seen(S, view) then return end
+	for _, l in ipairs(ns.UI.Engine.layers) do
+		if l.zoom == "pin" and l.on then
+			local src = l.name:match("^grid (.+)$") or l.name
+			for _, c in ipairs(l.canvases) do
+				if S[c].alpha > 0 then
+					local p = c.pools.pin
+					for i = 1, p and p.n or 0 do
+						local o = p[i]
+						if Seen(S, o) then
+							local a, b, w, h = rect(o)
+							local x, y = a and a + w / 2, a and b + h / 2
+							if x and x >= vl and x <= vl + vw and y >= vb and y <= vb + vh then
+								local e = o.entry
+								local real = rawget(e, "real") or e
+								fn(l.name, src, p.keys[i], real.name, o.icon.art, x, y, w, real, nil)
+							end
+						end
+					end
+					local q = c.pools.pill
+					for i = 1, q and q.n or 0 do
+						local o = q[i]
+						if Seen(S, o) and o.cluster then
+							local a, b, w, h = rect(o)
+							local x, y = a and a + w / 2, a and b + h / 2
+							if x and x >= vl and x <= vl + vw and y >= vb and y <= vb + vh then
+								for _, m in ipairs(o.cluster.members) do -- (a member: { entry, look, minZoom, source, ... })
+									fn(l.name, m[4].name, m[1].key, m[1].name, LookArt(m[2]), x, y, w, m[1], o)
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+T.EachDrawn = Each
+
+-- What's drawn, as a list: { layer, src, key, name, text, icon, x, y, size, col, row, live } a pin (col, row,
+-- live, text: its entry's), and a pill one item ({ layer = "clusters", key = its cluster's, x, y, size, members =
+-- { { src, key, name, text, icon, col, row, live }, ... } }). For tests and tools/sim.py's `pins`.
+function T.Drawn(sim, ns)
+	local out, pills = {}, {}
+	Each(sim, ns, function(layer, src, key, name, icon, x, y, size, e, pill)
+		local p = e.pos
+		local t = { layer = layer, src = src, key = key, name = name, text = e.text, icon = icon, x = x, y = y,
+			size = size, col = p and p.col, row = p and p.row, live = e.live }
+		if not pill then
+			out[#out + 1] = t
+			return
+		end
+		local item = pills[pill]
+		if not item then
+			item = { layer = layer, key = pill.cluster.key, x = x, y = y, size = size, members = {} }
+			pills[pill] = item
+			out[#out + 1] = item
+		end
+		t.layer, t.x, t.y, t.size = nil, nil, nil, nil
+		item.members[#item.members + 1] = t
+	end)
+	return out
+end
+
+-- One pin per real thing, across layers (T1): no two things drawn (a pill counted as each entry it holds, a grid
+-- pin as the entry it stands for) with the same name (or, both unnamed, the same icon) whose centres are within
+-- T.PIN_PX px, but two entries of one pill (grouped: drawn as one). Off unless T.strictPins (it fails today:
+-- docs/hardening-plan.md P1); on, T.Invariants runs it every frame (its scratch arrays kept). Two distinct things of
+-- one name that close (two herbs a few yards apart, far out) count too: it's for scenarios that don't have them.
+T.strictPins, T.PIN_PX = false, 6
+local dl, ds, dk, dn, di, dx, dy, dg, dN = {}, {}, {}, {}, {}, {}, {}, {}, 0
+local function Note(layer, src, key, name, icon, x, y, _, _, pill)
+	dN = dN + 1
+	dl[dN], ds[dN], dk[dN], dn[dN], di[dN], dx[dN], dy[dN], dg[dN] = layer, src, key, name ~= "" and name or nil, icon, x, y,
+		pill or false
+end
+function T.OneThing(sim, ns)
+	dN = 0
+	Each(sim, ns, Note)
+	local r2 = T.PIN_PX * T.PIN_PX
+	for i = 1, dN do
+		for j = i + 1, dN do
+			local same = dn[i] and dn[i] == dn[j] or not dn[i] and not dn[j] and di[i] ~= nil and di[i] == di[j]
+			if same and not (dg[i] and dg[i] == dg[j]) and (dx[i] - dx[j]) ^ 2 + (dy[i] - dy[j]) ^ 2 < r2 then
+				error(string.format("%s drawn twice: %s %s (%s) and %s %s (%s), %.1f px apart", tostring(dn[i] or di[i]),
+					dl[i], tostring(dk[i]), ds[i], dl[j], tostring(dk[j]), ds[j],
+					math.sqrt((dx[i] - dx[j]) ^ 2 + (dy[i] - dy[j]) ^ 2)))
+			end
+		end
+	end
+	for i = 1, dN do dl[i], ds[i], dk[i], dn[i], di[i], dg[i] = nil, nil, nil, nil, nil, nil end
+end
+
 function T.Invariants(sim, ns)
 	local c = sim.protectedCalls[1]
 	assert(c == nil, c and ("a protected call in combat: " .. c.call .. c.stack))
@@ -149,6 +270,7 @@ function T.Invariants(sim, ns)
 		end
 	end
 	OnePin(E, S)
+	if T.strictPins then T.OneThing(sim, ns) end
 end
 
 -- Booted, the map open and past its first-open grace (2 s).

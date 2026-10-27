@@ -9,6 +9,7 @@ test_addon.boot; harness: the replays' T, test_spike_bugs.py).
     s.slash("/mm toggle"); s.run(6)           # the map open, past login's 5 s grace: a grace's frames aren't in byState
     s.wheel(3); s.drag(200, 0, 20); s.walk(10, "east"); s.press("M")
     s.perf(); s.errors(); s.layers()           # FrameStats (+ names: Runtime.Perf), errors, live regions per layer
+    s.pins()                                   # what's drawn: every pin and pill shown (T.Drawn), as dicts
     s.lua("return ns.UI.Camera.cam.zoom")      # sim and ns are locals
     s.L, s.sim, s.ns, s.T                      # the Lua, wowsim's Sim, the addon's ns, the harness (T.Fresh, T.Ours, ...)
 
@@ -17,7 +18,7 @@ test_addon.boot; harness: the replays' T, test_spike_bugs.py).
 Script commands, ';' or newline apart:
     run SECONDS | step [N] | slash LINE | press KEY | wheel N [FRAME] | drag DX DY [FRAMES]
     walk SECONDS [north|east|south|west|RADIANS] [YD/S, default 7] | blip NAME EAST NORTH (yards; adds one,
-    `blip` alone clears) | perf | errors | layers
+    `blip` alone clears) | perf | errors | layers | pins (what's drawn: a line each pin, pill)
     lua CODE: the rest of the script, as is (lines, ';'), with sim and ns as locals: what it returns
 Exits 1 if the sim or Runtime caught an error (listed last).
 """
@@ -98,12 +99,13 @@ end
 """
 
 
-def load(saved=None, data=True, lua=False):
+def load(saved=None, data=True, lua=False, reload=False):
     """A simulated client with MagicMap loaded and logged in: (Lua, Sim, ns), on the counted clock
     (Sim.Counted: what a budgeted call or job gets done is the same on every machine).
     saved: Lua source for the SavedVariables (MagicMap2DB = ...) found at load (default TEST_UI).
     data=False: without QuestieDB's data (QUESTIE), as CI's checkout and a no-data build.
-    lua=True: our own Lua charged too (LUA_PRICE)."""
+    lua=True: our own Lua charged too (LUA_PRICE).
+    reload=True: entered as a /reload does (PLAYER_ENTERING_WORLD false, true), not a login."""
     L = lua51.LuaRuntime(encoding="latin-1", unpack_returned_tuples=True)
     sim = L.eval("function(path) return assert(loadfile(path))() end")(os.path.join(TESTS, "wowsim.lua"))
     sim.Counted()
@@ -120,7 +122,7 @@ def load(saved=None, data=True, lua=False):
     L.execute(saved or TEST_UI)
     sim.FireEvent("ADDON_LOADED", "MagicMap")
     sim.FireEvent("PLAYER_LOGIN")
-    sim.FireEvent("PLAYER_ENTERING_WORLD", True, False)
+    sim.FireEvent("PLAYER_ENTERING_WORLD", not reload, reload)
     return L, sim, ns
 
 
@@ -134,6 +136,21 @@ def harness(L, skip=None):
     """The replays' T (tools/tests/harness.lua) in L; T.Print prints, T.Skip is skip."""
     return L.eval("function(path, ...) return assert(loadfile(path))(...) end")(
         os.path.join(TESTS, "harness.lua"), TESTS, L.table_from(files()), print, skip, TEST_UI)
+
+
+def checked(saved=None, data=True, skip=None):
+    """A client booted by the harness (T.Boot): T.Invariants after every frame (set T.strictPins for T.OneThing
+    too). (L, sim, ns, T)."""
+    L = lua51.LuaRuntime(encoding="latin-1", unpack_returned_tuples=True)
+    T = L.eval("function(path, ...) return assert(loadfile(path))(...) end")(
+        os.path.join(TESTS, "harness.lua"), TESTS, L.table_from(files(data)), print, skip, TEST_UI)
+    s, ns = T.Boot(saved)
+    return L, s, ns, T
+
+
+def drawn(T, sim, ns):
+    """T.Drawn as dicts: every pin and pill shown this frame (a pill's members under "members")."""
+    return py(T.Drawn(sim, ns))
 
 
 def put_blips(L, sim, ns, blips):
@@ -238,6 +255,10 @@ class Client:
         """Live regions per map layer on its shown canvas (T.Live)."""
         return {lay.name: self.T.Live(lay) for lay in self.ns.UI.Engine.layers.values()}
 
+    def pins(self):
+        """What's drawn this frame (T.Drawn): a dict each pin and pill shown."""
+        return drawn(self.T, self.sim, self.ns)
+
 
 def boot(saved=None, priced=False, lua=False):
     return Client(saved, priced, lua)
@@ -256,6 +277,15 @@ def digest(p):
     slow = sorted(names.items(), key=lambda kv: -kv[1]["max"])[:10]
     rows.append("slowest calls (max ms, n, over): " + ", ".join(f"{k} {v['max']:.2f} {v['n']:g} {v['over']:g}" for k, v in slow))
     return "\n".join(rows)
+
+
+def pin_line(p):
+    """One drawn pin (or pill: its members after it) as a line."""
+    where = f"{p['x']:.1f},{p['y']:.1f} {p['size']:g}px"
+    if "members" in p:
+        held = "; ".join(f"{m['src']} {m['key']} {m.get('name')} {m.get('icon')}" for m in p["members"])
+        return f"{p['layer']} {p['key']} {where} [{held}]"
+    return f"{p['layer']} {p['key']} {p.get('name')} {p.get('icon')} {where}"
 
 
 def command(s, line):
@@ -288,6 +318,8 @@ def command(s, line):
         return "\n".join(s.errors()) or "none"
     elif name == "layers":
         return " ".join(f"{k} {v:g}" for k, v in s.layers().items())
+    elif name == "pins":
+        return "\n".join(pin_line(p) for p in s.pins()) or "none"
     else:
         raise SystemExit(f"unknown command: {line}")
 

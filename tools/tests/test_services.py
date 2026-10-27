@@ -11,7 +11,8 @@ obs.tracking is Game's (M4.1's game/parts/Tracking.lua): until it's here, the te
 """
 import pytest
 
-from sim import START, YD
+from sim import START, YD, harness
+from sim import drawn as sim_drawn
 from test_addon import boot, errors
 
 # name, subName, faction, npcFlags, yards east and north of where you log in (START)
@@ -54,16 +55,14 @@ def names(ns, kind):
     return sorted(e.name for e in ns.Model.Known(kind)[0].values())
 
 
-def drawn(ns):
-    """The blips layer's pins shown (their minimum zoom's frame too): name, title."""
-    lay = ns.UI.Blips
-    p = lay.front and lay.front.pools.pin
-    pins = [p[i] for i in range(1, p.n + 1)] if p else []
-    return sorted((o.entry.name, o.entry.text) for o in pins if o.on.GetAlpha(o.on) > 0)
+def drawn(T, sim, ns):
+    """The blips layer's pins shown (T.Drawn: their minimum zoom's frame too): name, title."""
+    return sorted((d["name"], d.get("text")) for d in sim_drawn(T, sim, ns) if d["layer"] == "blips")
 
 
 def test_services():
     L, sim, ns = boot(SAVED % {"yd": YD})
+    T = harness(L)
     ns.UI.saved.cluster = False  # (each pin on its own: not grouped)
     G = L.globals()
     L.execute(STUB, ns.Atlas, L.table_from({k: L.table_from(v) for k, v in NPCS.items()}), START[0], START[1], YD)
@@ -73,7 +72,7 @@ def test_services():
     sim.Slash("/mm toggle")
     sim.Run(3)
     assert ns.UI.Camera.cam.zoom == 59 and names(ns, "services") == []  # not gathered below town scale
-    assert names(ns, "remembered") == ["Innkeeper Farley", "Mailbox"] and drawn(ns) == []
+    assert names(ns, "remembered") == ["Innkeeper Farley", "Mailbox"] and drawn(T, sim, ns) == []
     ns.UI.Motion.SetZoom(60)
     sim.Run(4)  # (the blips layer asks for them: gathered in a job)
     got = {e.name: e for e in ns.Model.Known("services")[0].values()}
@@ -85,13 +84,13 @@ def test_services():
         "Smith Argus": (136465, "repair", "Weaponsmith", 1004, False, "services")}
     assert names(ns, "remembered") == ["Mailbox"]  # the innkeeper: Atlas's service of the name is 10 yd off
     # Drawn on the blips layer from zoom 60, but those within the sensor's word around you (Blips.lua:628-650).
-    assert drawn(ns) == [("Innkeeper Farley", "Innkeeper"), ("Mailbox", None)]
+    assert drawn(T, sim, ns) == [("Innkeeper Farley", "Innkeeper"), ("Mailbox", None)]
     # Tracking off: its kind hidden, the remembered of it too; Trainer: both kinds of trainer.
     for name in ("Innkeeper", "Find Trainers", "Mailbox"):
         i = next(i for i, t in G.Sim.tracking.items() if t.name == name)
         G.C_Minimap.SetTracking(i, False)
     sim.Run(0.5)
-    assert names(ns, "services") == ["Smith Argus"] and names(ns, "remembered") == [] and drawn(ns) == []
+    assert names(ns, "services") == ["Smith Argus"] and names(ns, "remembered") == [] and drawn(T, sim, ns) == []
     i = next(i for i, t in G.Sim.tracking.items() if t.name == "Find Trainers")
     G.C_Minimap.SetTracking(i, True)
     sim.Run(0.5)
@@ -101,6 +100,7 @@ def test_services():
 
 def test_services_data():
     L, sim, ns = boot(SAVED % {"yd": YD})
+    T = harness(L)
     ns.UI.saved.cluster = False  # (each pin on its own: not grouped)
     if not ns.Data.Npcs:
         pytest.skip("no QuestieDB-derived data (tools/gen_questie.py)")
