@@ -8,7 +8,8 @@ import os
 
 from test_addon import boot, errors
 from test_gear import SETTINGS, gear, sub
-from sim import TEST_UI, TESTS
+from sim import TEST_UI, TESTS, harness
+from sim import drawn as sim_drawn
 
 
 def test_lookfeel():
@@ -158,3 +159,94 @@ SettingsPanel:Show()"""
     f = ns.UI.Feel.frame
     assert f.IsShown(f)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+# Every setting of ui/Feel.lua's KEYS but the buttons, each to a valid value other than its own: (key, value) sorted.
+# KEYS is Feel's local: read through Feel.Get's upvalue BY_KEY (no hook in the addon for a test).
+# But general.follow: the camera's state more than a setting (ui/Motion.lua's idle return follows you again 6 s
+# after the map is left alone, as the MVP's MinimapMode.lua:20), so it doesn't hold even within a session.
+CHANGED = """local SKIP = { ["general.follow"] = true }
+return function(Feel)
+    local by
+    for i = 1, 50 do
+        local name, v = debug.getupvalue(Feel.Get, i)
+        if name == nil then break end
+        if name == "BY_KEY" then by = v end
+    end
+    local out = {}
+    for key, k in pairs(assert(by, "Feel.Get has no BY_KEY")) do
+        local v, new = Feel.Get(key), nil
+        if k.kind == "check" then
+            new = not v
+        elseif k.kind == "slider" then
+            new = v + k.step <= k.max + 1e-9 and v + k.step or v - k.step
+            new = math.floor(new * 1000 + 0.5) / 1000
+        elseif k.kind == "pick" then
+            local o = type(k.options) == "function" and k.options() or k.options
+            for _, opt in ipairs(o) do
+                if new == nil and opt[2] ~= v then new = opt[2] end
+            end
+        end
+        if new ~= nil and not SKIP[key] then out[#out + 1] = { key, new } end
+    end
+    table.sort(out, function(a, b) return a[1] < b[1] end)
+    return out
+end"""
+
+
+def _settings(ns, keys):
+    return {k: ns.UI.Feel.Get(k) for k in keys}
+
+
+def _drawn(T, sim, ns):
+    """What's drawn, comparable across clients: (layer, key, name, icon, size, x, y), positions to 0.5 px."""
+    out = []
+    for d in sim_drawn(T, sim, ns):
+        held = tuple(sorted((m["src"], str(m["key"])) for m in d.get("members", [])))
+        out.append((d["layer"], str(d["key"]), d.get("name"), str(d.get("icon")), round(d["size"] * 2) / 2,
+                    round(d["x"] * 2) / 2, round(d["y"] * 2) / 2, held))
+    return sorted(out)
+
+
+def _shown(sim, ns):
+    """The map shown (/mm toggle if it isn't), laid out."""
+    sim.Run(1)
+    w = ns.UI.Window.frame
+    if not w.IsShown(w):
+        sim.Slash("/mm toggle")
+    sim.Run(3)
+    assert w.IsShown(w)
+
+
+def test_reload_keeps_every_setting():
+    """T3: every setting changed, logged out (PLAYER_LOGOUT), the saved data dumped and a fresh client booted from
+    it as /reload enters (PLAYER_ENTERING_WORLD false, true): Feel.Get the same for every key, and the same pins
+    drawn (T.Drawn)."""
+    L, sim, ns = boot(TEST_UI)
+    T = harness(L)
+    sim.Slash("/mm toggle")
+    sim.Run(1)
+    changed = [(c[1], c[2]) for c in L.execute(CHANGED)(ns.UI.Feel).values()]
+    assert len(changed) >= 30, changed
+    for key, v in changed:
+        ns.UI.Feel.Set(key, v)
+    _shown(sim, ns)  # (Replace minimap off hides the map: /mm shows it)
+    keys = [k for k, _ in changed]
+    before = _settings(ns, keys)
+    assert before == dict(changed), {k: (v, before[k]) for k, v in changed if before[k] != v}
+    pins = _drawn(T, sim, ns)
+    assert pins and not errors(sim, ns), errors(sim, ns)
+    L0, sim0, ns0 = boot(TEST_UI)  # (the settings show in what's drawn: icon size, grouping)
+    _shown(sim0, ns0)
+    assert _drawn(harness(L0), sim0, ns0) != pins
+
+    sim.FireEvent("PLAYER_LOGOUT")
+    saved = "MagicMap2DB = " + L.eval("function(path) return assert(loadfile(path))() end")(
+        os.path.join(TESTS, "replay.lua")).Dump(L.globals().MagicMap2DB)
+    L2, sim2, ns2 = boot(saved, reload=True)
+    T2 = harness(L2)
+    _shown(sim2, ns2)
+    after = _settings(ns2, keys)
+    assert after == before, {k: (before[k], after[k]) for k in keys if after[k] != before[k]}
+    assert _drawn(T2, sim2, ns2) == pins
+    assert not errors(sim2, ns2), errors(sim2, ns2)
