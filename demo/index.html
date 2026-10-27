@@ -281,7 +281,19 @@ function refreshPins() {
     if (seq === pinSeq) { pins = got; draw(); }
   }, 200);
 }
-function settled() { refreshWalk(); refreshPins(); }
+function settled() { refreshWalk(); refreshPins(); saveHash(); }
+
+// The view in the URL as the hosted addon demo writes it: #map=<inst>&view=2d&x=<col>&y=<row>&z=<px per
+// tile> (tile space, as Atlas), so a link (tools/maplint.py's) opens there and a reload stays put.
+function hashCam() {
+  const q = new URLSearchParams(location.hash.slice(1)), x = +q.get("x"), y = +q.get("y"), z = +q.get("z");
+  if (q.has("map") && +q.get("map") !== INST) return null;
+  return q.has("x") && q.has("y") && isFinite(x) && isFinite(y) ? { cx: x, cy: y, zoom: clamp(z || 128, MIN_ZOOM, maxZoom()) } : null;
+}
+function saveHash() {
+  if (cam) history.replaceState(null, "", `#map=${INST}&view=2d&x=${cam.cx.toFixed(3)}&y=${cam.cy.toFixed(3)}&z=${Math.round(cam.zoom)}`);
+}
+addEventListener("hashchange", () => { const c = hashCam(); if (c && cam) { cam = c; draw(); settled(); } });
 
 // Walk overlay: class 0 blocked, 1 land, 2 water, 3 magma/slime; a line where you can't cross east/south.
 const CLASS = ["rgba(255,0,0,.35)", "rgba(0,255,0,.12)", "rgba(0,120,255,.3)", "rgba(255,140,0,.45)"];
@@ -658,7 +670,8 @@ addEventListener("keydown", (e) => { if (e.key === "Escape" && document.activeEl
   for (const z of m.zones) sel.add(new Option(z.name, z.uiMapID));
   await Promise.all([loadTiles(), loadBorders(), loadLabels(), loadIcons()]);
   W = innerWidth; H = innerHeight;
-  cam = (await get(`/api/fit?uiMapID=${m.uiMapID}&w=${W}&h=${H}`)).cam;
+  dpr = Math.min(devicePixelRatio || 1, 3); // (maxZoom, for the hash's zoom)
+  cam = hashCam() || (await get(`/api/fit?uiMapID=${m.uiMapID}&w=${W}&h=${H}`)).cam;
   addEventListener("resize", resize);
   resize(); renderLayers();
   setLayersOpen(matchMedia("(min-width: 700px) and (hover: hover)").matches);

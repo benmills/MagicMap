@@ -1,6 +1,6 @@
 #!/bin/sh
 # Everything CI runs (.github/workflows/check.yml): lint_div (no `/` that may be 0:
-# spike-bugs E3), then the tests (luacheck among them: test_luacheck), twice and
+# spike-bugs E3), maplint's ratchet (tools/maplint-baseline.json), then the tests (luacheck among them: test_luacheck), twice and
 # side by side: as plain Lua, and strict (MM_STRICT=1: `/` by 0 raises, as the
 # client's). Each pass spread over half the CPUs (pytest-xdist); their output
 # printed in turn. Sets up .venv (gitignored) on first use.
@@ -15,8 +15,11 @@
 set -eu
 cd "$(dirname "$0")/.."
 [ -x .venv/bin/python ] || python3 -m venv .venv
-.venv/bin/python -c "import xdist" 2>/dev/null || .venv/bin/pip install -q -r tools/requirements-dev.txt
+.venv/bin/python -c "import xdist, numpy" 2>/dev/null || .venv/bin/pip install -q -r tools/requirements-dev.txt
 .venv/bin/python tools/lint_div.py
+# The map's quality scores against the committed baseline (docs/hardening-plan.md M5; ~1 s, ~2 s with
+# demo/tiles: its art checks are skipped without them, as in CI). Better: --write-baseline ratchets it.
+.venv/bin/python tools/maplint.py --no-install -q --baseline tools/maplint-baseline.json
 if [ "${1:-}" = --quick ]; then
 	shift
 	# -k picks a few tests: starting workers costs more than they save.
