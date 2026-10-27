@@ -89,6 +89,7 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 | M3 | Zone borders wrap unplayable land the game assigns to a zone (Wetlands' east and west coasts, west of Dun Morogh). | screenshots 2026-10-27. | open |
 | M4 | A few tile-edge seams. | probe: 5 of 1,402 edges with a jump over 3 times the tile's own variation. | open |
 | M5 | No linter to score the map and ratchet it. | — | open |
+| M6 | No shared place to review map issues: the user wants the linter's issues in the web demo, on the exe VM, each marked accepted / rejected / later, with notes, and the decisions readable by Claude. | user, 2026-10-27 | open |
 
 ## Log
 
