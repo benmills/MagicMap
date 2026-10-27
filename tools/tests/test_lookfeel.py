@@ -8,11 +8,11 @@ import os
 
 from test_addon import boot, errors
 from test_gear import SETTINGS, gear, sub
-from sim import TEST_UI, TESTS
+from sim import TEST_UI_DEFAULTS, TESTS
 
 
 def test_lookfeel():
-    L, sim, ns = boot(TEST_UI)
+    L, sim, ns = boot(TEST_UI_DEFAULTS)
     UI, saved = ns.UI, L.globals().MagicMap2DB.UI
     sim.Slash("/mm toggle")
     sim.Run(1)
@@ -44,20 +44,20 @@ def test_lookfeel():
     # A tracking-line pick: the client's menu, a radio per style; saved in feel, Get returns it, rev moved.
     Feel.Open("path")
     w = Feel.widgets
-    assert w["path.style"].button.GetText(w["path.style"].button) == "Dotted" and w["path.glow"].check.GetChecked(w["path.glow"].check)
+    assert w["path.style"].button.GetText(w["path.style"].button) == "Dashed" and not w["path.glow"].check.GetChecked(w["path.glow"].check)
     sim.Click(w["path.style"].button)
     styles = {e.text: e for e in sim.MenuItems("radio").values()}
-    assert list(styles) == ["Dotted", "Dashed", "Solid"] and styles["Dotted"].isSelected() is True
-    styles["Dashed"].onSelect()
-    assert Feel.Get("path.style") == "dashed" and saved.feel["path.style"] == "dashed" and Feel.rev > rev
-    assert w["path.style"].button.GetText(w["path.style"].button) == "Dashed"
+    assert list(styles) == ["Dotted", "Dashed", "Solid"] and styles["Dashed"].isSelected() is True
+    styles["Dotted"].onSelect()
+    assert Feel.Get("path.style") == "dotted" and saved.feel["path.style"] == "dotted" and Feel.rev > rev
+    assert w["path.style"].button.GetText(w["path.style"].button) == "Dotted"
     # Back to the default: its key gone, the table with it.
-    Feel.Set("path.style", "dotted")
+    Feel.Set("path.style", "dashed")
     assert saved.feel is None
 
     # A check and a map slider: live. The arrow's size follows "arrow.scale"; the pills' alpha "pills.alpha".
     sim.Click(w["path.glow"].check)
-    assert Feel.Get("path.glow") is False and saved.feel["path.glow"] is False
+    assert Feel.Get("path.glow") is True and saved.feel["path.glow"] is True
     Feel.Open("map")
     w = Feel.widgets
     arrow = UI.You.arrow
@@ -68,7 +68,7 @@ def test_lookfeel():
     # Reset all: both stores cleared, the widgets back on the defaults, the arrow too.
     sim.Click(Feel.resetAll)
     assert saved.clusterTune is None and saved.feel is None and UI.Cluster.Get("range") == 24
-    assert s.GetValue(s) == 24 and w["path.glow"].check.GetChecked(w["path.glow"].check) and abs(arrow.GetWidth(arrow) - size) < 1e-6
+    assert s.GetValue(s) == 24 and not w["path.glow"].check.GetChecked(w["path.glow"].check) and abs(arrow.GetWidth(arrow) - size) < 1e-6
 
     # Escape hides it (the client's CloseSpecialWindows); /mm feel shows it again on the last page, the same frame.
     assert sim.Escape()[0] and not f.IsShown(f)
@@ -94,7 +94,7 @@ def _tab(L, Feel, title):
 def test_settings_pages_apply_and_reset():
     """Every page's sliders and checks apply (Get returns the new value, saved in feel; a switch of its owner's is the
     owner's) and its Reset (or Reset all) puts each back on its default, the saved table gone; every row has its tip."""
-    L, sim, ns = boot(TEST_UI)
+    L, sim, ns = boot(TEST_UI_DEFAULTS)
     UI, saved, Feel = ns.UI, L.globals().MagicMap2DB.UI, ns.UI.Feel
     sim.Slash("/mm toggle")
     sim.Run(1)
@@ -138,7 +138,7 @@ Settings = { RegisterCanvasLayoutCategory = function(panel, name) CALLS.canvas =
 	RegisterAddOnCategory = function(cat) CALLS.addon = cat end }
 SettingsPanel = CreateFrame("Frame")
 SettingsPanel:Show()"""
-    L, sim, ns = boot(TEST_UI)
+    L, sim, ns = boot(TEST_UI_DEFAULTS)
     assert L.globals().Settings is None  # (the sim has none: game/Options.lua made nothing)
     G = L.globals()
     L.execute(stub)

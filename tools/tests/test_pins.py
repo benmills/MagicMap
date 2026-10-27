@@ -96,6 +96,14 @@ def test_stylepin():
     assert S[c.icon].atlas == "Quest-In-Progress-Icon-yellow" and abs(S[c.icon].width - 22 * 0.62) < 1e-9
     assert vis(c.glow) and S[c.glow].width == 26 and list(S[c.glow].vertex.values()) == [1, 0.82, 0.3, 0.9]
     assert S[c.glow].texture.endswith("Textures\\GlowRing")  # a ring, no disc (Pins' RING_FILE)
+    # The focus ring's settings (Feel "ring.*"): its size, opacity and colour, on the next layout.
+    for name, v in (("size", 1.5), ("alpha", 0.5), ("color", "Sky")):
+        ns.UI.Feel.Set("ring." + name, v)
+    sim.Run(0.5)
+    pins = t.layer.front.pools.pin
+    g = {pins["keys"][i]: pins[i] for i in range(1, pins.n + 1)}["t3"].glow
+    assert S[g].width == 39 and list(S[g].vertex.values()) == [0.55, 0.8, 1, 0.5]
+    ns.UI.Feel.Reset("icons")
     assert S[c.count].text == "2/5" and S[c.count].points[1].point == "TOP" and S[c.count].points[1].y == 2
     # (d): a dot of its colour on a dark ring
     for p, size, col in ((d, 10, [1, 0.82, 0]), (e, 14, [0.4, 0.9, 0.3])):
@@ -189,13 +197,15 @@ def test_track_icon():
         c = lay.front
         return c is not None and c.alpha == 1 and c.pools.pin is not None and c.pools.pin.n or 0
 
-    def click(row_text):
+    def click(row_text, button="LeftButton"):
         L.eval(OVER)(ns, b.pos.col, b.pos.row)
         sim.FireScript(view, "OnEnter", False)
         sim.Step()
         sim.menu = None
-        sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")
-        assert [(e.kind, e.text) for e in sim.MenuItems().values()] == [("title", "Mailbox"), ("button", row_text)]
+        sim.Click(view, button, sim.cursorX, sim.cursorY, "screen")
+        items = [(e.kind, e.text) for e in sim.MenuItems().values()]
+        assert items[:2] == [("title", "Mailbox"), ("button", row_text)], items  # (then the map's rows)
+        assert ("button", "Waypoint here") not in items
         sim.MenuItems("button")[1].onSelect()
         sim.Run(0.5)
 
@@ -204,7 +214,7 @@ def test_track_icon():
     pin = pin_of(UI.Blips, b.key)
     assert S[pin.glow].shown and drawn(UI.Waypoint) == 0
     assert UI.You.Target()[0] == "Mailbox"
-    click("Stop tracking")
+    click("Stop tracking", "RightButton")  # a right click: the same menu
     assert sim.waypoint is None and UI.saved.tracked is None and not S[pin_of(UI.Blips, b.key).glow].shown
     click("Track")
     assert sim.waypoint is not None and drawn(UI.Waypoint) == 0

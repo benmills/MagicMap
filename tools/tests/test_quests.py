@@ -148,14 +148,16 @@ def test_quest_follow():
     def followed():
         return {e.quest for e in known(ns, "quests") if e.followed}
 
-    def click(col, row, row_text=None):
-        """A click there; on a pin, the track menu opens: its one row (row_text, the quest's name over it) picked."""
+    def click(col, row, row_text=None, button="LeftButton"):
+        """A click there (either button: the same); on a pin, the track menu opens: its first row (row_text, the
+        quest's name over it, Open in quest log under it) picked."""
         G.Over(col, row)
         sim.Step()  # (the pin under it found)
         sim.menu = None
-        sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")
+        sim.Click(view, button, sim.cursorX, sim.cursorY, "screen")
         if row_text:
-            assert [(e.kind, e.text) for e in sim.MenuItems().values()] == [("title", "Protect the Frontier"), ("button", row_text)]
+            items = [(e.kind, e.text) for e in sim.MenuItems().values()]
+            assert items[:3] == [("title", "Protect the Frontier"), ("button", row_text), ("button", "Open in quest log")], items
             sim.MenuItems("button")[1].onSelect()
         else:
             assert sim.menu is None
@@ -172,7 +174,20 @@ def test_quest_follow():
     assert ns.UI.Controls.questLine.IsShown(ns.UI.Controls.questLine) and ns.UI.Controls.questLine.GetAlpha(ns.UI.Controls.questLine) == 1
     p = pin(ns, G, "Quests", 52)
     assert sim.state[p].width == 28 and sim.state[p.glow].shown
-    click(31.8, 49.7, "Stop tracking")  # again: none
+    # The pill, while it shows the followed quest, is its pin: its tooltip on a hover, its menu on a click.
+    pill, tip = ns.UI.Controls.questLine, G.GameTooltip
+    sim.FireScript(pill, "OnEnter", False)
+    assert sim.state[tip].shown and sim.state[tip.GetLeftLine(tip, 1)].text.endswith("Protect the Frontier")
+    sim.menu = None
+    sim.FireScript(pill, "OnMouseUp", "RightButton")
+    assert [e.text for e in sim.MenuItems("button").values()][:2] == ["Stop tracking", "Open in quest log"]
+    sim.MenuItems("button")[2].onSelect()  # Open in quest log: the client's (the sim's L opens the world map)
+    sim.Run(0.2)
+    assert G.WorldMapFrame.IsShown(G.WorldMapFrame)
+    G.ToggleQuestLog()
+    sim.FireScript(pill, "OnLeave", False)
+    sim.FireScript(view, "OnEnter", False)
+    click(31.8, 49.7, "Stop tracking", "RightButton")  # again (a right click, the same menu): none
     assert sim.superTracked == 0 and followed() == set() and sim.state[pin(ns, G, "Quests", 52)].width == 24
     click(32.15, 49.7)  # Gold Dust's area, no pin under it
     assert sim.superTracked == 47 and followed() == {47}

@@ -154,8 +154,9 @@ def off_line(pts, x, y):
 def test_path_line():
     L, sim, ns, G = client()
     P, S, z = ns.UI.Path, sim.state, ns.UI.Camera.cam.zoom
-    assert P.DEFAULTS.style == "dotted" and P.DEFAULTS.weight == 1.6 and P.DEFAULTS.color == P.COLORS[1][1] == "Parchment"
-    assert P.DEFAULTS.glow and P.DEFAULTS.breath and P.DEFAULTS.opacity == 1 and len(P.COLORS) == 6
+    assert P.DEFAULTS.style == "dashed" and P.DEFAULTS.weight == 1 and P.DEFAULTS.color == "Gold" and P.COLORS[1][1] == "Parchment"
+    assert not P.DEFAULTS.glow and not P.DEFAULTS.breath and P.DEFAULTS.opacity == 0.55 and not P.DEFAULTS.edge and len(P.COLORS) == 6
+    # (the line measured below is the tests' look, sim.TEST_LOOK: dotted parchment, its edge on)
     G.Target("waypoint", 33.0, 49.75, "Waypoint")  # 1.05 tiles east of you: 100.8 px at 96
     sim.Run(0.2)
     strokes, washes = dashes(G, 1.6), dashes(G, 3.2)
@@ -195,7 +196,9 @@ def test_path_line():
 FEEL = """
 local Sim, ns = ...
 Over = {} -- ui/Feel.lua's API, stubbed: the values set here over Path's defaults; a change moves rev
-ns.UI.Feel = { rev = 1, Get = function(k) local v = Over[k]; if v == nil then v = ns.UI.Path.DEFAULTS[k:sub(6)] end; return v end }
+-- (the tests' look under it, sim.TEST_LOOK's: not Path's defaults)
+local Look = { style = "dotted", weight = 1.6, color = "Parchment", glow = true, breath = true, opacity = 1, edge = true, edgeColor = "Dark" }
+ns.UI.Feel = { rev = 1, Get = function(k) local v = Over[k]; if v == nil then v = Look[k:sub(6)] end; return v end }
 function Feel(k, v)
 	Over[k] = v
 	ns.UI.Feel.rev = ns.UI.Feel.rev + 1
@@ -250,10 +253,18 @@ def test_path_feel():
     assert P.pieces == len(dashes(G, 3.8)) > 15 and all(0 < d[2] - d[0] <= 6 or 0 < abs(d[3] - d[1]) <= 6 for d in strokes)
     assert set(G.Looks().keys()) == {"1.9 BLEND 0.55 0.8 1", "3.8 BLEND 0.12 0.08 0.03"}
 
-    G.Feel("path.weight", 40)  # out of range: the default's
+    G.Feel("path.weight", 40)  # out of range: the default's (1 px, gold)
     G.Feel("path.color", "Plaid")
     sim.Run(0.2)
-    assert P.pieces == len(dashes(G, 1.6)) > 15 and set(G.Looks().keys()) == {"1.6 BLEND 1 0.93 0.76", "3.2 BLEND 0.12 0.08 0.03"}
+    assert P.pieces == len(dashes(G, 1)) > 15 and set(G.Looks().keys()) == {"1 BLEND 1 0.82 0.3", "2 BLEND 0.12 0.08 0.03"}
+
+    G.Feel("path.edge", False)  # the outline off: the strokes alone; its colour, once on again
+    sim.Run(0.2)
+    assert P.pieces == len(dashes(G, 1)) > 15 and dashes(G, 2) == []
+    G.Feel("path.edge", True)
+    G.Feel("path.edgeColor", "White")
+    sim.Run(0.2)
+    assert set(G.Looks().keys()) == {"1 BLEND 1 0.82 0.3", "2 BLEND 1 1 1"} and len(dashes(G, 2)) == P.pieces
     assert not errors(sim, ns), errors(sim, ns)
 
 

@@ -37,6 +37,7 @@ UI.Cluster = Cluster
 -- icon if they fit, else the first slots - 1 and "+N"); alpha: the pill's dark backing.
 Cluster.DEFAULTS = { range = 24, reach = 3, min = 2, slots = 2, alpha = 0.35 }
 local tuneV, tuneSeen = 0, 0 -- moves with each change (a regroup)
+local trackSeen -- Track.Rev at the last Stamp
 function Cluster.Get(key)
 	local t = UI.saved and UI.saved.clusterTune
 	local v = t and t[key]
@@ -66,15 +67,16 @@ local cache = { stamp = nil, inst = nil, byBand = {}, n = 0 }
 -- Membership
 ---------------------------------------------------------------------------
 
--- Moves when the setting, a source's rev or its layer's toggle does (read once a frame).
+-- Moves when the setting, the tracked icon, a source's rev or its layer's toggle does (read once a frame).
 local REGROUP, regrouped = 0.5, -math.huge
 local function Stamp()
 	local f = Runtime.frames
 	if f == stampFrame then return stamp end
 	stampFrame = f
 	local on = UI.saved.cluster ~= false
-	local changed = on ~= setting or tuneV ~= tuneSeen
-	setting, tuneSeen = on, tuneV
+	local tr = UI.Track.Rev() -- (what you track leaves its pill at once)
+	local changed = on ~= setting or tuneV ~= tuneSeen or tr ~= trackSeen
+	setting, tuneSeen, trackSeen = on, tuneV, tr
 	local moved = false -- a source's own rev: grouped again REGROUP s at most after the last time
 	for _, s in ipairs(sources) do
 		local lo = Engine.LayerOn(s.name)
@@ -124,7 +126,7 @@ local function want(minZoom) return Engine.From(zoom_, minZoom) end
 
 -- The collecting put a source's fill calls: the instance's entries, each once.
 local function put(e, l, minZoom)
-	if e.pos.inst == inst_ and (not minZoom or want(minZoom)) then
+	if e.pos.inst == inst_ and (not minZoom or want(minZoom)) and not UI.Track.Focus(e) then -- (what you track stays on its own)
 		n = n + 1
 		ent[n], look[n], minz[n], srcs[n], cols[n], rows[n] = e, l, minZoom, src_, e.pos.col, e.pos.row
 	end

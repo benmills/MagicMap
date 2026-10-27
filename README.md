@@ -26,7 +26,7 @@ or Ironforge. On the big map, a capital shows all its buildings at once, with it
 
 **Quests at a glance.** Your quests with their progress, objective areas as the game draws them, quests
 to pick up, and a tooltip with the mobs, items and who to turn in to. Click a quest to follow it and a
-dotted line walks you there, around cliffs, water and lava. Or click any icon on the map and choose
+line walks you there, around cliffs, water and lava. Or click any icon on the map and choose
 Track: the line goes to it, with the distance and an estimated time in a small pill.
 
 ![A followed quest at Camp Narache: the line to its turn-in](docs/images/followed-quest-route.jpg)

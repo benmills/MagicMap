@@ -1,12 +1,13 @@
--- Track any icon. A left click on a pin of any pin layer (ui/Pins.lua's Pins.Tap; a pill's grid pins too,
--- ui/Cluster.lua) opens a small menu, the client's own (UI.Menus.Show, as the map's right-click): the pin's
--- name, then Track, or Stop tracking while it's the tracked one. Tracking sets the user waypoint the map
+-- Track any icon. A click, left or right, on a pin of any pin layer (ui/Pins.lua's Pins.Tap; a pill's grid
+-- pins too, ui/Cluster.lua) opens its menu, the map's (UI.Menus.Map: the pin's rows, then the map's): the
+-- pin's name, then Track, or Stop tracking while it's the tracked one. Tracking sets the user waypoint the map
 -- already follows (the waypoint Command, game/commands/waypoint.lua: C_Map's, super-tracked) at the icon's
 -- pos, and stops following a followed quest (Model's target is corpse, then the followed quest, then the
 -- waypoint: model/Target.lua), so the line and the title band's target go to the icon. The tracked pin wears
 -- the followed quest's gold ring (Pins.Style's glow, forced for its key: Track.Is) and the waypoint's own pin
 -- steps aside while it stands under the icon (ui/You.lua: Track.Covers); the title names the icon (You.Target).
--- A quest pin's Track is following it, no waypoint (ui/Areas.lua's Follow): one row, "Track quest".
+-- A quest pin's Track is following it, no waypoint (ui/Areas.lua's Follow): "Track quest", and "Open in quest
+-- log" (the questlog Command). The quest pill, while it shows the followed quest, is that quest's pin (ui/Controls.lua).
 -- The tracked icon is UI.saved.tracked = { key, name, inst, col, row } (types/saved.lua): its key, where
 -- it was. It ends when the waypoint goes or moves elsewhere (Ctrl-right-click, the map's menu, /way, the
 -- game's own), watched once a frame from the pin layers' revs (Track.Rev: a change lays them out again) once
@@ -46,6 +47,12 @@ end
 function Track.Is(e)
 	local t = Saved()
 	return t ~= nil and t.key == e.key
+end
+
+-- e is what you track: the tracked icon, or the quest you follow. Never grouped into a pill, nor held back
+-- to a closer zoom (ui/Pins.lua, ui/Cluster.lua): it is always on the map while its layer is.
+function Track.Focus(e)
+	return Track.Is(e) or e.kind == "quests" and e.followed == true
 end
 
 -- The tracked icon's name, or nil.
@@ -104,16 +111,22 @@ end
 
 local Pick = Runtime.Wrap("map: track pick", function(fn, e) fn(e) end)
 
--- The menu for pin e (a Known entry), anchored on owner (its frame).
+local OpenLog = function(e) Command({ kind = "questlog", quest = e.quest }) end
+
+-- Pin e's rows (a Known entry) in a menu being built (UI.Menus.Map's, under its title).
+function Track.Items(root, e)
+	root:CreateTitle(e.name or "?")
+	if e.kind == "quests" then -- (following it: ui/Quests.lua)
+		root:CreateButton(e.followed and "Stop tracking" or "Track quest", function() Pick(UI.Areas.Follow, e) end)
+		root:CreateButton("Open in quest log", function() Pick(OpenLog, e) end)
+	elseif Track.Is(e) then
+		root:CreateButton("Stop tracking", function() Pick(Track.Stop) end)
+	else
+		root:CreateButton("Track", function() Pick(Track.Start, e) end)
+	end
+end
+
+-- The menu for pin e, anchored on owner (its frame): the map's, led by the pin's rows.
 function Track.Menu(owner, e)
-	UI.Menus.Show(owner, function(_, root)
-		root:CreateTitle(e.name or "?")
-		if e.kind == "quests" then -- (following it: ui/Quests.lua)
-			root:CreateButton(e.followed and "Stop tracking" or "Track quest", function() Pick(UI.Areas.Follow, e) end)
-		elseif Track.Is(e) then
-			root:CreateButton("Stop tracking", function() Pick(Track.Stop) end)
-		else
-			root:CreateButton("Track", function() Pick(Track.Start, e) end)
-		end
-	end)
+	UI.Menus.Map(owner, e.pos.col, e.pos.row, e)
 end

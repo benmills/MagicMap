@@ -106,12 +106,17 @@ local SAFE_VIEW = {
 -- shows in the next Observation (the same frame for one carried out in Input).
 -- One that fails is reported (Runtime) and dropped, never retried.
 
----@alias MM.Command MM.CmdFollow|MM.CmdWaypoint|MM.CmdWay|MM.CmdTracking|MM.CmdTooltip|MM.CmdSlash|MM.CmdLoad|MM.CmdRun
+---@alias MM.Command MM.CmdFollow|MM.CmdQuestLog|MM.CmdWaypoint|MM.CmdWay|MM.CmdTracking|MM.CmdTooltip|MM.CmdSlash|MM.CmdLoad|MM.CmdRun
 
 ---Follow a quest: the game's super-tracked quest (and watched); false: follow none.
 ---@class MM.CmdFollow
 ---@field kind "follow"
 ---@field quest MM.QuestID|false
+
+---Open the client's quest log on a quest.
+---@class MM.CmdQuestLog
+---@field kind "questlog"
+---@field quest MM.QuestID
 
 ---Set the user waypoint at pos (Game finds the zone uiMap there); false clears it.
 ---@class MM.CmdWaypoint

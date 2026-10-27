@@ -41,15 +41,20 @@ client: they are the likeliest to be wrong.
 
 ## 3. Tracking and the line
 
-- Click an icon (a flight point, a mailbox, a rare, a quest pin): a small menu with the icon's name and Track.
-  Track: the line goes to it, the icon gets a gold ring, the title names it, and the tracking pill (top left of
+- Click an icon (a flight point, a mailbox, a rare, a quest pin), left or right: the same menu, the icon's name,
+  Track, then the map's rows (Clear waypoint, Follow me). Track: the line goes to it, the icon gets the focus ring, the title names it, and the tracking pill (top left of
   the map) shows yards and a time estimate. The menu then says Stop tracking.
-- Click a quest pin: the row is "Track quest" and follows it (the quest pill at the bottom left shows progress).
+- Click a quest pin: "Track quest" follows it (the quest pill at the bottom left shows progress); "Open in quest
+  log" opens the game's quest log on it.
+- Following a quest: hover the quest pill (the quest's tooltip, its area lit); click it: its menu, Stop tracking.
+- A tracked icon in a crowd (a town) stands alone, out of its pill; a tracked rare shows zoomed out too.
 - Click an icon inside a grouped pill's grid: the same menu.
 - Ctrl-right-click (clear waypoint): the tracking ends and the ring goes.
-- The line is **dotted** (not dashes) with a soft glow and a slow breath; it leaves your arrow with a gentle fade;
-  a turning route bends in rounded corners, and turns lazily as you move. Settings > Tracking line: Dashed and
-  Solid change it live; colour, glow and breathing toggle.
+- The line is a thin gold **dashed** line at 55%, no glow, breath or outline; it leaves your arrow with a gentle
+  fade; a turning route bends in rounded corners, and turns lazily as you move. Settings > Tracking line: Dotted
+  and Solid change it live; colour, glow, breathing and the outline (and its colour) toggle.
+- Settings > Icons: the focus ring's size, opacity and colour change the ring on what you track, live.
+- /reload with a changed line look: it comes back as set (not the defaults).
 
 ## 4. Icons and pills
 

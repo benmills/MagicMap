@@ -81,7 +81,7 @@ def test_quest_areas():
     assert blobs(sim, ns)[(52,)][0] == 100 and sim.calls.DrawBlob > n
     ns.UI.Feel.Reset("areas")
     sim.Run(1)
-    assert blobs(sim, ns) == want and not ns.UI.saved.feel
+    assert blobs(sim, ns) == want and not any(str(k).startswith("areas.") for k in (ns.UI.saved.feel or {}))
 
     # The gear's: quests off (their areas with them), then areas off.
     E.SetLayer("quests", False)

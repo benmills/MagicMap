@@ -43,14 +43,15 @@ AddQuestWatch ChatFrame_OpenChat
 GetBuildInfo GetCVar GetInstanceInfo Screenshot
 GetPlayerFacing GetUnitSpeed GetRealZoneText GetSubZoneText GetZoneText
 IsFalling IsFlying IsSwimming UnitOnTaxi
-HideUIPanel ToggleWorldMap IsIndoors
+HideUIPanel ShowUIPanel ToggleWorldMap ToggleQuestLog IsIndoors
+QuestMapFrame_OpenToQuestDetails GetQuestLogIndexByID QuestLog_SetSelection QuestLog_Update
 InCombatLockdown UnitClass UnitClassification UnitExists
 GetNumGroupMembers IsInRaid Minimap_OnUpdate UnitIsDeadOrGhost UnitIsUnit
 GetAddOnInfo GetAddOnMemoryUsage GetNumAddOns UpdateAddOnMemoryUsage
 UnitFactionGroup MagicMapLandmarks UnitGUID UnitIsGhost UnitIsPlayer UnitLevel UnitName UnitPosition
 # Blizzard's frames and registries (Game owns the Minimap takeover, hooks, slash, Escape)
 ChatFrameUtil DEFAULT_CHAT_FRAME Minimap MinimapCluster SlashCmdList UISpecialFrames UiMapPoint
-WorldMapFrame Settings SettingsPanel
+WorldMapFrame Settings SettingsPanel QuestLogFrame
 # Our named frames, made in one game/ file and read in another (docs/structure.md "Namespace")
 MagicMapMinimapStandIn
 # Other addons (always checked for before use)

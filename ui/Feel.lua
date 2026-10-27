@@ -11,11 +11,13 @@
 --     your arrow's size (ui/You.lua), the info pills' backing (ui/Controls.lua), the indoor veil's strength and whether
 --     a small building zooms the map in (ui/Interiors.lua). Pushed to their setters on change, and again each time the
 --     map shows (the saved values, once loaded); each owner lays out anew by a rev of its own.
---   Icons: every pin's size, and the quests' (ui/Pins.lua, ui/Quests.lua; their revs move with it).
---   Tracking line: style, weight, colour, glow, breathing, opacity. ui/Path.lua owns the values: it
+--   Icons: every pin's size, and the quests' (ui/Pins.lua, ui/Quests.lua; their revs move with it); the focus ring
+--     round what you track: its size, opacity and colour (Pins.SetGlow; "ring.color" a name of UI.Pins.GLOW_COLORS).
+--   Tracking line: style, weight, colour, glow, breathing, opacity, the outline and its colour. ui/Path.lua owns the values: it
 --     reads Feel.Get("path.<key>") and lays out again when Feel.rev moves; its UI.Path.DEFAULTS and
---     UI.Path.COLORS (ordered presets { name, { r, g, b } }, the first the default) are read when asked,
---     never at load (Path.lua loads after this file; fallbacks until it lands). "path.color" is a preset's name.
+--     UI.Path.COLORS and EDGE_COLORS (ordered presets { name, { r, g, b } }, the first the default) are read when
+--     asked, never at load (Path.lua loads after this file; fallbacks until it lands). "path.color" and
+--     "path.edgeColor" are presets' names.
 --   Quest areas: the fill, edge alpha and edge width of the followed quest's area and of the others', and the
 --     hover's fill and edge alpha (alphas 0-255, shown as %): ui/Areas.lua reads Feel.Get("areas.<key>") and
 --     styles its frames anew when Feel.rev moves (UI.Areas.DEFAULTS are the defaults, read when asked).
@@ -28,7 +30,8 @@
 -- it differs. A look is saved in UI.saved.feel = { ["path.style"] = ... } (types/saved.lua), a key only while it
 -- differs from its default, the table gone when none does. A key with get/set (ext) lives where its owner keeps it
 -- (UI.saved, UI.Replace, Game's commands): Get/Set go there, no rev, no reset. Hidden almost always: no step, nothing a frame.
--- API: Feel.Get(key), Feel.Set(key, v), Feel.Reset(section), Feel.ResetAll(), Feel.Open(page?), Feel.Toggle(), Feel.rev.
+-- API: Feel.Get(key), Feel.Set(key, v), Feel.Reset(section), Feel.ResetAll(), Feel.Open(page?), Feel.Toggle(), Feel.rev,
+-- Feel.OnLoad(fn) (fn runs once the saved part loads; Feel.Loaded() is View's).
 -- Feel.Get is safe before the saved part loads (a layer's load-time Apply asks it). The client's own Settings
 -- entry (Game menu -> Options -> AddOns -> MagicMap) is Game's (game/Options.lua): its button runs /mm feel open.
 
@@ -40,8 +43,12 @@ local Feel = { rev = 0 }
 UI.Feel = Feel
 
 -- Until ui/Path.lua exposes its own.
-local PATH_DEFAULTS = { style = "dashed", weight = 2, color = "Parchment", glow = true, breath = true, opacity = 0.9 }
-local PATH_COLORS = { { "Parchment", { r = 1, g = 0.9, b = 0.7 } } }
+local PATH_DEFAULTS = { style = "dashed", weight = 1, color = "Gold", glow = false, breath = false, opacity = 0.55,
+	edge = false, edgeColor = "Dark" }
+local PATH_COLORS = { { "Gold", { 1, 0.82, 0.3 } } }
+local EDGE_COLORS = { { "Dark", { 0.12, 0.08, 0.03 } } }
+-- Until ui/Pins.lua (after this file) exposes its own.
+local RING_COLORS = { { "Gold", { 1, 0.82, 0.3 } } }
 -- Until ui/Areas.lua (after this file) exposes its own.
 local AREA_DEFAULTS = { fFill = 32, fEdge = 120, fWidth = 0.8, oFill = 0, oEdge = 85, oWidth = 0.6, hFill = 45, hEdge = 150 }
 local function PathDefaults() return UI.Path and UI.Path.DEFAULTS or PATH_DEFAULTS end
@@ -52,11 +59,17 @@ local function ColorDefault()
 	local d = PathDefaults().color
 	return type(d) == "string" and d or PathColors()[1][1]
 end
-local function ColorOptions()
-	local out = {}
-	for i, c in ipairs(PathColors()) do out[i] = { c[1], c[1] } end
-	return out
+-- A pick's options from presets { name, rgb } (a function: read when asked).
+local function Names(list)
+	return function()
+		local out = {}
+		for i, c in ipairs(list()) do out[i] = { c[1], c[1] } end
+		return out
+	end
 end
+local ColorOptions = Names(PathColors)
+local EdgeOptions = Names(function() return UI.Path and UI.Path.EDGE_COLORS or EDGE_COLORS end)
+local RingColors = function() return UI.Pins and UI.Pins.GLOW_COLORS or RING_COLORS end
 
 local function AreaDefault(k) return function() return UI.Areas and UI.Areas.DEFAULTS[k] or AREA_DEFAULTS[k] end end
 
@@ -109,7 +122,7 @@ local KEYS = {
 	{ key = "arrow.scale", section = "map", label = "Your arrow", kind = "slider", min = 0.6, max = 1.6, step = 0.1, pct = true,
 		default = 1, apply = function(v) UI.You.SetArrowScale(v) end, tip = "Your arrow's size." },
 	{ key = "pills.alpha", section = "map", label = "Info pill backing", kind = "slider", min = 0, max = 0.8, step = 0.05, pct = true,
-		default = 0.4, apply = function(v) UI.Controls.SetPillAlpha(v) end,
+		default = 0.25, apply = function(v) UI.Controls.SetPillAlpha(v) end,
 		tip = "How dark the backing of the map's pills (the tracked distance, the quest) is." },
 	{ key = "interiors.dim", section = "map", label = "Indoor dimming", kind = "slider", min = 0.3, max = 0.9, step = 0.05, pct = true,
 		default = 0.65, apply = function(v) UI.Interiors.SetDim(v) end,
@@ -118,15 +131,22 @@ local KEYS = {
 		tip = "Walking into a small building (a house, an inn) zooms the small map in; leaving zooms back." },
 
 	{ key = "icons.scale", section = "icons", label = "Icon size", kind = "slider", min = 0.6, max = 1.6, step = 0.1, pct = true,
-		default = 1, apply = function(v) UI.Pins.SetScale(v) end,
+		default = 1.2, apply = function(v) UI.Pins.SetScale(v) end,
 		tip = "Every icon on the map: quests, places, rares, the lot (a group's pill keeps its size)." },
 	{ key = "quests.scale", section = "icons", label = "Quest icon size", kind = "slider", min = 0.7, max = 1.6, step = 0.1, pct = true,
 		default = 1, apply = function(v) UI.Quests.SetScale(v) end, tip = "The quests' icons, on top of the icon size." },
+	{ key = "ring.size", section = "icons", label = "Focus ring size", kind = "slider", min = 0.8, max = 1.6, step = 0.05, pct = true,
+		default = 1.45, apply = function(v) UI.Pins.SetGlow("size", v) end,
+		tip = "The ring round what you track (the quest you follow, a tracked pin)." },
+	{ key = "ring.alpha", section = "icons", label = "Focus ring opacity", kind = "slider", min = 0.1, max = 1, step = 0.05, pct = true,
+		default = 0.25, apply = function(v) UI.Pins.SetGlow("alpha", v) end, tip = "How solid the ring round what you track is." },
+	{ key = "ring.color", section = "icons", label = "Focus ring colour", kind = "pick", default = function() return RingColors()[1][1] end,
+		options = Names(RingColors), apply = function(v) UI.Pins.SetGlow("color", v) end, tip = "The ring's colour." },
 
 	{ key = "path.style", section = "path", label = "Style", kind = "pick", default = PathDefault("style"),
 		options = { { "Dotted", "dotted" }, { "Dashed", "dashed" }, { "Solid", "solid" } },
 		tip = "How the line to what you track is drawn." },
-	{ key = "path.weight", section = "path", label = "Weight", kind = "slider", min = 1, max = 4, step = 0.2, -- (Path's range; its default 1.6 lies on the grid: an open mustn't save a snap)
+	{ key = "path.weight", section = "path", label = "Weight", kind = "slider", min = 1, max = 4, step = 0.2, -- (Path's range; its default 1 lies on the grid: an open mustn't save a snap)
 		default = PathDefault("weight"), fmt = "%.1f px", tip = "How thick the line is." },
 	{ key = "path.color", section = "path", label = "Colour", kind = "pick", default = ColorDefault, options = ColorOptions,
 		tip = "The line's colour." },
@@ -136,6 +156,10 @@ local KEYS = {
 		tip = "The line slowly brightens and dims." },
 	{ key = "path.opacity", section = "path", label = "Opacity", kind = "slider", min = 0.2, max = 1, step = 0.05, pct = true,
 		default = PathDefault("opacity"), tip = "How solid the line is." },
+	{ key = "path.edge", section = "path", label = "Outline", kind = "check", default = PathDefault("edge"),
+		tip = "A darker edge under the line, so it reads on pale ground." },
+	{ key = "path.edgeColor", section = "path", label = "Outline colour", kind = "pick", default = PathDefault("edgeColor"),
+		options = EdgeOptions, tip = "The outline's colour." },
 
 	{ key = "areas.fFill", section = "areas", label = "Followed fill", kind = "slider", min = 0, max = 255, step = 1, of = 255,
 		default = AreaDefault("fFill"), tip = "How solid the fill of the quest you follow is." },
@@ -226,6 +250,15 @@ function Feel.Set(key, v)
 		Apply(k, v)
 	end
 	Feel.rev = Feel.rev + 1
+end
+
+-- The saved part loaded (ui/View.lua's load, at login): rev moves, so what read the looks before it (the line, the
+-- areas) reads them again, and each OnLoad fn runs then, in login's grace (the line's restyle: 640 regions).
+local loaded = {}
+function Feel.OnLoad(fn) loaded[#loaded + 1] = fn end
+function Feel.Loaded()
+	Feel.rev = Feel.rev + 1
+	for _, fn in ipairs(loaded) do fn() end
 end
 
 -- The map's setters given the saved values, each time the map shows (the saved part is loaded by then;

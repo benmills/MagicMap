@@ -415,10 +415,11 @@ end })
 
 -- Only what makes sense where you clicked: Waypoint here (in a zone), Clear waypoint (one set), Follow me
 -- (not following); the big map leads with what's there (ui/ZoneInfo.lua), at the minimap's size the
--- actions alone.
-function Menus.Map(owner, col, row)
+-- actions alone. On a pin (pin: its Known entry; either button, ui/Pins.lua's Tap) the pin's rows lead
+-- instead (UI.Track.Items: Track, Stop tracking, the quest's), then the map's but Waypoint here (its Track).
+function Menus.Map(owner, col, row, pin)
 	local inst, items = UI.Camera.inst, {}
-	if Atlas.ZoneMapAt(inst, col, row) then -- (where Game's waypoint can go)
+	if not pin and Atlas.ZoneMapAt(inst, col, row) then -- (where Game's waypoint can go)
 		items[#items + 1] = { "Waypoint here", function()
 			Command({ kind = "waypoint", pos = { inst = inst, col = col, row = row } })
 		end }
@@ -429,10 +430,13 @@ function Menus.Map(owner, col, row)
 	if not UI.Camera.follow then
 		items[#items + 1] = { "Follow me", function() UI.Motion.SetFollow(true, true) end }
 	end
-	local info = UI.BigMap.big and UI.ZoneInfo.At(col, row) or nil
-	if not (items[1] or info) then return end
+	local info = not pin and UI.BigMap.big and UI.ZoneInfo.At(col, row) or nil
+	if not (items[1] or info or pin) then return end
 	Menus.Show(owner, function(_, root)
-		if info then
+		if pin then
+			UI.Track.Items(root, pin)
+			if items[1] then root:CreateDivider() end
+		elseif info then
 			for _, line in ipairs(info) do root:CreateTitle(line) end
 			if items[1] then root:CreateDivider() end
 		end

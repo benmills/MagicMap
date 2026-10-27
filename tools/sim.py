@@ -36,7 +36,13 @@ TESTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests")
 # No saved data given: the map's window as the tests have it (UI's saved part, ui/View.lua): hidden
 # at login (/mm toggle opens it), 720x520 in the screen's middle, 96 px a tile. A first login's shows
 # on the minimap's spot (test_chrome.py).
-TEST_UI = "MagicMap2DB = { UI = { _v = 1, shown = false, zoom = 96, window = { left = 600, top = 800, w = 720, h = 520 }, cluster = false } }"  # (grouping off: tests see each pin; test_cluster and test_soak turn it on)
+# The look the tests measure (sizes at 100%, the dotted parchment line with its edge, glow and breath, the ring at
+# its design size): the settings' defaults moved on in 2.1, the tests' geometry didn't. test_lookfeel boots without it.
+TEST_LOOK = ('feel = { ["icons.scale"] = 1, ["ring.size"] = 1, ["ring.alpha"] = 0.9, ["pills.alpha"] = 0.4, ["path.style"] = "dotted", '
+             '["path.weight"] = 1.6, ["path.color"] = "Parchment", ["path.glow"] = true, ["path.breath"] = true, ["path.opacity"] = 1, '
+             '["path.edge"] = true }')
+TEST_UI_DEFAULTS = "MagicMap2DB = { UI = { _v = 1, shown = false, zoom = 96, window = { left = 600, top = 800, w = 720, h = 520 }, cluster = false } }"
+TEST_UI = TEST_UI_DEFAULTS.replace("cluster = false", "cluster = false, " + TEST_LOOK)  # (grouping off: tests see each pin; test_cluster and test_soak turn it on)
 FACING = {"north": 0, "east": 3 * math.pi / 2, "south": math.pi, "west": math.pi / 2}  # the client's: counter-clockwise
 START = (31.95, 49.75)  # Sim.player's tile at login (col, row): Goldshire
 YD = 3 / 1600  # a yard in tiles

@@ -235,7 +235,7 @@ def test_zone_hover():
     sim.Run(0.3)
     sim.menu = None
     sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")
-    assert [e.text for e in sim.MenuItems("button").values()] == ["Track quest"]
+    assert [e.text for e in sim.MenuItems("button").values()][:2] == ["Track quest", "Open in quest log"]
     sim.MenuItems("button")[1].onSelect()
     sim.Run(0.2)
     assert sim.superTracked == 47 and near(cam(ns), fit(L, ns, elwynn, 0.92))

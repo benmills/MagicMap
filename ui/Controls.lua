@@ -115,7 +115,9 @@ Controls.zoomReset = zoomReset
 -- The quest pill (bottom left): the followed quest and its progress, else how many of your quests
 -- are in this zone; on a small dark pill that reads on any map. Worked out from Model's quest list
 -- (Known("quests") and its rev: a change to the log) and your zone's map, at most every EVERY s,
--- and only when one of those changed. It fades with the other controls, but stays shown while a quest is tracked.
+-- and only when one of those changed. It fades with the other controls, but stays shown while a quest is tracked;
+-- then it is that quest's pin: hovering it shows the quest's tooltip and lights its area, a click (either button)
+-- opens its menu (ui/Track.lua: Stop tracking, Open in quest log). Otherwise it takes no mouse.
 ---------------------------------------------------------------------------
 
 local LINE_H, LINE_PAD = 15, 7
@@ -132,6 +134,7 @@ line:SetPoint("BOTTOMLEFT", PAD, BOTTOM_Y)
 line:SetHeight(LINE_H)
 line:Hide()
 local tracked = false -- the line shows the followed quest
+local followedQuest -- its Known entry, while it does
 local hover = 1 -- the controls' fade (the step below)
 
 -- The quest's icon: the quest log tab's, filled (the client has no outline of it to pair with); not
@@ -142,7 +145,7 @@ icon:SetSize(ICON, ICON)
 icon:SetPoint("LEFT", line, "LEFT", ICON_X, 0)
 if questAtlas then icon:SetAtlas(questAtlas) else icon:Hide() end
 -- The pill: a half disc at each end (the circle mask's halves, so they don't overlap the middle).
-local PILL_A = 0.4 -- the backing's alpha: faint (ui/Feel.lua "pills.alpha" sets it live: SetPillAlpha)
+local PILL_A = 0.25 -- the backing's alpha: faint (ui/Feel.lua "pills.alpha" sets it live: SetPillAlpha)
 local pills = {} -- every pill's backing textures (caps and middle)
 local function Backing(f)
 	local function Cap(left)
@@ -210,8 +213,8 @@ local function PinZone(p)
 	return z
 end
 
--- What the line says, as pre (kept), head (cut first when long) and tail (kept), and whether it is the
--- followed quest; nil for nothing: the followed quest first, else your quests in your zone.
+-- What the line says, as pre (kept), head (cut first when long) and tail (kept), and the followed quest's
+-- entry if it is that (else false); nil for nothing: the followed quest first, else your quests in your zone.
 local function Words(list, here)
 	local followed
 	for _, e in ipairs(list) do
@@ -221,10 +224,10 @@ local function Words(list, here)
 		end
 	end
 	if followed then
-		if followed.complete then return "", followed.name, "  ready to turn in", true end
+		if followed.complete then return "", followed.name, "  ready to turn in", followed end
 		local have, need = Progress(followed)
-		if need > 0 then return "", followed.name, "  " .. have .. "/" .. need, true end
-		return "", followed.name, "", true
+		if need > 0 then return "", followed.name, "  " .. have .. "/" .. need, followed end
+		return "", followed.name, "", followed
 	end
 	if not here then return nil end
 	local n = 0
@@ -259,12 +262,14 @@ local function Fit(pre, head, tail, avail)
 end
 
 local function Show(pre, head, tail, followed)
+	followedQuest = followed or nil
+	line:EnableMouse(followedQuest ~= nil)
 	if not pre then
 		tracked = false
 		line:Hide()
 		return
 	end
-	tracked = followed
+	tracked = followed ~= false
 	-- Capped so the line never reaches the zoom buttons (the map's width less the zoom column).
 	local textX = questAtlas and ICON_X + ICON + ICON_GAP or LINE_PAD
 	local w = overlay:GetWidth()
@@ -290,6 +295,25 @@ local function YourZone()
 	end
 	return here
 end
+
+-- The followed quest's pin, in the pill: its tooltip and area under the cursor, its menu on a click.
+line:SetScript("OnEnter", Runtime.Wrap("map: quest pill", function()
+	local e = followedQuest
+	if not e then return end
+	UI.Areas.Hover(e)
+	GameTooltip:SetOwner(line, "ANCHOR_TOPRIGHT")
+	UI.QuestTooltip.Show(e)
+end))
+line:SetScript("OnLeave", Runtime.Wrap("map: quest pill", function()
+	UI.Areas.Hover(nil)
+	if GameTooltip:IsOwned(line) then GameTooltip:Hide() end
+end))
+line:SetScript("OnMouseUp", Runtime.Wrap("map: quest pill", function()
+	local e = followedQuest
+	if not e then return end
+	if GameTooltip:IsOwned(line) then GameTooltip:Hide() end
+	UI.Track.Menu(line, e)
+end, Runtime.FRAME_MS))
 
 local lastRev, lastZone, lastW -- what the line was last worked out from (the map's width too: its cap)
 local function Look()

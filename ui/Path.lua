@@ -11,7 +11,7 @@
 -- the rest left as they stand.
 -- Its look is the settings' (UI.Feel, when loaded; Path.DEFAULTS without it): the style (dotted, dashed
 -- or solid: one line a leg), the weight (the stroke's px; its edge twice that), the colour (Path.COLORS),
--- the ADD glow, the breath and an opacity. A change (Feel.rev) restyles the pieces and lays the line out anew.
+-- the ADD glow, the breath, an opacity, and the dark edge (the outline: on or off, its colour from Path.EDGE_COLORS). A change (Feel.rev) restyles the pieces and lays the line out anew.
 -- Off the view, the target gets a gold arrow on its edge, where the line toward it leaves (Path.lua:24-79).
 -- And your corpse becoming the target brings the view back to you (Core.lua:1095-1108), once a ghost.
 
@@ -26,12 +26,18 @@ local CLEAR_YOU, CLEAR_TARGET = 12, 15 -- px left clear around your arrow and th
 local FADE, FADE_YOU = 40, 10 -- px over which the line fades in at the target and out at you: short at you, so it leaves your arrow (Path.lua:12)
 -- The look's settings (ui/Feel.lua's "path.<name>", read at use: it may load later or not at all) and
 -- their defaults; the colours in the order a dialog lists them, the first the default. The spike's dashes
--- were 1.9 px over a 3.8 edge, 6 on and 4 off (Path.lua:13-16): now a 1.6 px dot each 4 px, a lighter line.
+-- were 1.9 px over a 3.8 edge, 6 on and 4 off (Path.lua:13-16): by default now a 1 px gold dash at 55%, no
+-- edge, glow or breath: a quiet line.
 local COLORS = {
 	{ "Parchment", { 1, 0.93, 0.76 } }, { "Gold", { 1, 0.82, 0.3 } }, { "White", { 1, 1, 1 } },
 	{ "Sky", { 0.55, 0.8, 1 } }, { "Mint", { 0.6, 1, 0.75 } }, { "Rose", { 1, 0.6, 0.7 } },
 }
-local DEFAULTS = { style = "dotted", weight = 1.6, color = COLORS[1][1], glow = true, breath = true, opacity = 1 }
+local EDGE_COLORS = {
+	{ "Dark", { 0.12, 0.08, 0.03 } }, { "Black", { 0, 0, 0 } }, { "Brown", { 0.3, 0.18, 0.07 } },
+	{ "Navy", { 0.04, 0.07, 0.2 } }, { "White", { 1, 1, 1 } },
+}
+local DEFAULTS = { style = "dashed", weight = 1, color = "Gold", glow = false, breath = false, opacity = 0.55,
+	edge = false, edgeColor = EDGE_COLORS[1][1] }
 local STYLES = { dotted = { 1, 1.5 }, dashed = { 6 / 1.9, 4 / 1.9 } } -- a piece and its gap, in strokes (solid: a leg a line)
 local WEIGHT_MIN, WEIGHT_MAX, OPACITY_MIN = 1, 4, 0.3
 local STROKE_ALPHA, WASH_ALPHA = 0.92, 0.45 -- Path.lua:14-15 (more alpha: legible on snow; the casing darker)
@@ -42,7 +48,7 @@ local PULSE_LOW, PULSE_S = 0.68, 1.8 -- the canvas's lowest alpha, and s each wa
 -- As set (Apply): the stroke's and the edge's px, their colours (the edge's fixed, the stroke's chosen), their
 -- alphas in half hundredths, a piece's px on and off and their sum (longer, in proportion, when there'd be
 -- more than MAX_PIECES: Path.lua:16; a dot keeps its size, the gaps grow), and whether the line is solid, or dotted.
-local STROKE, WASH, STROKE_A, WASH_A, DASH, GAP, PERIOD, SOLID, DOTS
+local STROKE, WASH, STROKE_A, WASH_A, DASH, GAP, PERIOD, SOLID, DOTS, EDGE
 local STROKE_RGBA, WASH_RGBA = { 1, 0.93, 0.76, STROKE_ALPHA }, { 0.12, 0.08, 0.03, WASH_ALPHA }
 local MAX_PIECES = 160 -- Path.lua:17
 local WOBBLE = 0.8 -- px the line strays either side of true, in long slow waves (Path.lua:18)
@@ -57,7 +63,7 @@ local CHECK = 0.2 -- s between looks at which target you have (Core.lua:1096 TAR
 local MARGIN = 32 -- px laid out past the view's edges (following you, the view moves less between layouts)
 local ORIGIN_PX = 1024 -- the canvas's origin moves to the tile at the view's centre once further off than this
 
-local Path = { draws = 0, pieces = 0, DEFAULTS = DEFAULTS, COLORS = COLORS } -- draws: the line laid out again; pieces: its dots, dashes or legs then (≤ MAX_PIECES)
+local Path = { draws = 0, pieces = 0, DEFAULTS = DEFAULTS, COLORS = COLORS, EDGE_COLORS = EDGE_COLORS } -- draws: the line laid out again; pieces: its dots, dashes or legs then (≤ MAX_PIECES)
 UI.Path = Path
 
 local frame = CreateFrame("Frame", nil, Window.view)
@@ -135,11 +141,20 @@ local function Off(l)
 	end
 end
 
+-- A preset's colour by its name, from list (else the default's, else the first's); and the name it is.
+local function Preset(list, name, default)
+	for _, c in ipairs(list) do
+		if c[1] == name then return name, c[2] end
+	end
+	if default then return Preset(list, default) end
+	return list[1][1], list[1][2]
+end
+
 -- The settings as applied (Apply: the current ones, from Feel when loaded, else the defaults; a value
 -- out of range is the default's, so a dialog's slip can't draw nothing). Whether any changed: then the
 -- pool shown is emptied (the step lays the line out anew).
 local KEYS = { style = "path.style", weight = "path.weight", color = "path.color", glow = "path.glow",
-	breath = "path.breath", opacity = "path.opacity" }
+	breath = "path.breath", opacity = "path.opacity", edge = "path.edge", edgeColor = "path.edgeColor" }
 local feel, feelRev = {}, nil
 local function Setting(name)
 	local F = UI.Feel
@@ -152,18 +167,18 @@ local function Apply()
 	feelRev = F and F.rev
 	local style, weight, color, glow, pulse, opacity = Setting("style"), Setting("weight"), Setting("color"),
 		Setting("glow"), Setting("breath"), Setting("opacity")
+	local edge, edgeColor = Setting("edge") ~= false, Setting("edgeColor")
 	if not (STYLES[style] or style == "solid") then style = DEFAULTS.style end
 	if type(weight) ~= "number" or weight < WEIGHT_MIN or weight > WEIGHT_MAX then weight = DEFAULTS.weight end
 	if type(opacity) ~= "number" or opacity < OPACITY_MIN or opacity > 1 then opacity = DEFAULTS.opacity end
-	local rgb
-	for _, c in ipairs(COLORS) do
-		if c[1] == color then rgb = c[2] end
-	end
-	if not rgb then color, rgb = COLORS[1][1], COLORS[1][2] end
+	local rgb, edgeRgb
+	color, rgb = Preset(COLORS, color, DEFAULTS.color)
+	edgeColor, edgeRgb = Preset(EDGE_COLORS, edgeColor, DEFAULTS.edgeColor)
 	if feel.style == style and feel.weight == weight and feel.color == color and feel.glow == glow
-		and feel.breath == pulse and feel.opacity == opacity then return false end
-	if feel.color ~= color or feel.opacity ~= opacity then colourRev = colourRev + 1 end
+		and feel.breath == pulse and feel.opacity == opacity and feel.edge == edge and feel.edgeColor == edgeColor then return false end
+	if feel.color ~= color or feel.opacity ~= opacity or feel.edgeColor ~= edgeColor then colourRev = colourRev + 1 end
 	feel.style, feel.weight, feel.color, feel.glow, feel.opacity = style, weight, color, glow, opacity
+	feel.edge, feel.edgeColor, EDGE = edge, edgeColor, edge
 	for i = 1, used do
 		Off(strokes[i])
 		Off(washes[i])
@@ -176,7 +191,7 @@ local function Apply()
 	PERIOD = DASH + GAP
 	if DOTS then strokes, washes = dotS, dotW else strokes, washes = lineS, lineW end
 	STROKE_RGBA[1], STROKE_RGBA[2], STROKE_RGBA[3], STROKE_RGBA[4] = rgb[1], rgb[2], rgb[3], STROKE_ALPHA * opacity
-	WASH_RGBA[4] = WASH_ALPHA * opacity
+	WASH_RGBA[1], WASH_RGBA[2], WASH_RGBA[3], WASH_RGBA[4] = edgeRgb[1], edgeRgb[2], edgeRgb[3], WASH_ALPHA * opacity
 	STROKE_A, WASH_A = STROKE_RGBA[4] * 200, WASH_RGBA[4] * 200
 	for i = 1, #lineS do
 		Restyle(lineW[i], WASH, WASH_RGBA, false)
@@ -196,6 +211,7 @@ local function Apply()
 	return true
 end
 Apply()
+if UI.Feel then UI.Feel.OnLoad(Apply) end -- (the saved look, at login: not in the first frame shown)
 for i = 1, MAX_PIECES do
 	lineW[i], lineS[i] = Make(false, 0, WASH, WASH_RGBA, false), Make(false, 1, STROKE, STROKE_RGBA, feel.glow)
 	dotW[i], dotS[i] = Make(true, 0, WASH, WASH_RGBA, false), Make(true, 1, STROKE, STROKE_RGBA, feel.glow)
@@ -238,13 +254,13 @@ local function Dot(l, x, y, c, a)
 	end
 end
 
--- Piece n, from a to b (a dot: at a), with the wash's and the stroke's alphas.
+-- Piece n, from a to b (a dot: at a), with the wash's and the stroke's alphas (the wash only with the edge on).
 local function Place(n, ax, ay, bx, by, wa, sa)
 	if DOTS then
-		Dot(washes[n], ax, ay, WASH_RGBA, wa)
+		if EDGE then Dot(washes[n], ax, ay, WASH_RGBA, wa) end
 		Dot(strokes[n], ax, ay, STROKE_RGBA, sa)
 	else
-		Segment(washes[n], ax, ay, bx, by, WASH_RGBA, wa)
+		if EDGE then Segment(washes[n], ax, ay, bx, by, WASH_RGBA, wa) end
 		Segment(strokes[n], ax, ay, bx, by, STROKE_RGBA, sa)
 	end
 end
@@ -383,7 +399,7 @@ local function Dashes(half)
 			if len - a <= still and kept[n] == id - 1 then -- as it was: shown again if it's come into the rect
 				kept[n], ax, ay, bx, by = id, dax[n], day[n], dbx[n], dby[n]
 				near = (ax >= r1 or bx >= r1) and (ax <= r3 or bx <= r3) and (ay >= r2 or by >= r2) and (ay <= r4 or by <= r4)
-				if near and not (washes[n].on and strokes[n].on) then Place(n, ax, ay, bx, by, dwa[n], dsa[n]) end
+				if near and not (strokes[n].on and (washes[n].on or not EDGE)) then Place(n, ax, ay, bx, by, dwa[n], dsa[n]) end
 				a = nil
 			else
 				kept[n], near = nil, meet[j] > meet[i - 1]

@@ -1,5 +1,5 @@
 """Overlapping pins grouped (ui/Cluster.lua): five pins at one spot draw as one pill, none of them alone; with
-"Group overlapping icons" off (UI.saved.cluster), all five draw and no pill does."""
+"Group overlapping icons" off (UI.saved.cluster), all five draw and no pill does; the tracked one always draws alone."""
 from test_addon import boot, errors
 
 # A clustered test layer: n pins at (cx, cy), all one spot.
@@ -34,6 +34,14 @@ def test_five_overlapping_pins_one_pill():
     shown, layers = L.eval(SHOWN), ns.UI.Engine.layers
     pills = next(lay for lay in layers.values() if lay.name == "clusters")
     assert shown(pills, "pill") >= 1 and shown(t.layer, "pin") == 0  # a pill for them (Goldshire's own pins may group too); none drawn
+
+    # The one you track leaves the pill: drawn alone at once (ui/Track.lua's Focus), the rest still grouped.
+    ns.UI.Track.Start(t.list[3])  # (the waypoint at it, as the menu's Track)
+    sim.Run(0.5)
+    assert shown(t.layer, "pin") == 1 and shown(pills, "pill") >= 1
+    ns.UI.Track.Stop()
+    sim.Run(0.5)
+    assert shown(t.layer, "pin") == 0
 
     ns.UI.saved.cluster = False  # the gear's setting, off: laid out again
     t.rev = 2

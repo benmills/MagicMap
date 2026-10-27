@@ -11,6 +11,7 @@ import time
 
 import telemetry
 from test_addon import boot, errors
+from sim import TEST_UI_DEFAULTS
 
 FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "MagicMap.lua")
 
@@ -137,7 +138,7 @@ end"""
 
 
 def test_telemetry_sim(tmp_path, capsys):
-    L, sim, ns = boot()
+    L, sim, ns = boot(TEST_UI_DEFAULTS)  # (the settings' own look: none restyled at login, so the first open tops the grace)
     sim.Slash("/mm toggle")
     sim.player.speed = 7  # yd/s, north: the map follows
     sim.Run(11)  # past the first open's grace and ourKBLoad (10 s after login)

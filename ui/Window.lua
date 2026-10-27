@@ -101,7 +101,8 @@ view:SetScript("OnMouseUp", Runtime.Wrap("map: release", function(_, button)
 		return
 	end
 	if button == "RightButton" then
-		if not (IsShiftKeyDown() or IsControlKeyDown()) then UI.Menus.Map(view, UI.ZoneInfo.CursorTile()) end
+		-- On a pin (or a pill), the same as a left click: its menu; else the map's.
+		if not (IsShiftKeyDown() or IsControlKeyDown() or UI.Pins.Tap(button)) then UI.Menus.Map(view, UI.ZoneInfo.CursorTile()) end
 	elseif button == "LeftButton" then
 		-- A click, not a drag: a pin's; else a quest's area while zone clicks aren't on offer, else the
 		-- zone flown to (Core.lua:1400-1416).

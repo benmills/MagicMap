@@ -92,15 +92,17 @@ quest to hand in) there, so it goes as soon as you accept.
 The quest pill at the bottom left counts the quests in Durotar.*
 
 **Where to go.** Your target is your corpse while you're a ghost, else the quest you follow, else
-your waypoint. A dotted, softly glowing line that slowly breathes walks you to it around cliffs, lava
+your waypoint. A thin, quiet gold dashed line walks you to it around cliffs, lava
 and water, leaving your arrow on a lazy lead-in and turning corners in rounded bends, to a quest
 area's nearest edge; off the map, a gold arrow on the edge points the way. The line's style (dotted,
-dashed, solid), weight, colour, glow, breathing and opacity are in Settings > Tracking line.
-**Click any icon to track it**: a small menu offers Track (Stop tracking while it's the tracked one);
-that sets the game's waypoint at the icon, which wears the followed quest's gold ring, and the line and
-the title go to it. A quest icon's row is "Track quest" (it follows the quest). Ctrl-click sets the game's
-waypoint (Ctrl-right-click clears it), Shift-click opens chat with a `/way` line, and right-click
-offers both. A tracking pill at the top left of the map gives the yards along the route to the
+dashed, solid), weight, colour, glow, breathing, opacity and outline are in Settings > Tracking line.
+**Click any icon to track it**: a click, left or right, opens the icon's menu: Track (Stop tracking while
+it's the tracked one), then the map's rows (Clear waypoint, Follow me). Track sets the game's waypoint at
+the icon, which wears the focus ring, and the line and the title go to it; what you track is never grouped
+into a pill and shows at any zoom. A quest icon's rows are "Track quest" (it follows the quest) and "Open in
+quest log". While you follow a quest, the quest pill is its icon: hover it for the quest's tooltip, click it
+for its menu (Stop tracking is one click away). Ctrl-click sets the game's waypoint (Ctrl-right-click clears
+it), Shift-click opens chat with a `/way` line, and right-click off an icon offers both. A tracking pill at the top left of the map gives the yards along the route to the
 target and a plain ETA at your pace. On the big map, right-click leads with what's there: zone, subzones, coordinates, level
 range against yours, distance, quests, explored or not, and the landmarks nearby.
 
@@ -136,9 +138,9 @@ Settings are account-wide.
 | Page | Settings (default) |
 | --- | --- |
 | General | Replace minimap, Replace world map (what the welcome chose); Follow you (on); Minimap button (on); Group icons (on); Reset window position |
-| Map | Label size (100%); Subzone size (100%); Subzone opacity (60%); Border opacity (100%); Border width (100%); Your arrow's size (100%); Info pill backing (40%); Indoor dimming (65%); Indoor auto-zoom (on) |
-| Icons | Icon size (100%); Quest icon size (100%) |
-| Tracking line | Style (dotted); Weight (1.6 px); Colour (Parchment); Glow (on); Breathing (on); Opacity (100%) |
+| Map | Label size (100%); Subzone size (100%); Subzone opacity (60%); Border opacity (100%); Border width (100%); Your arrow's size (100%); Info pill backing (25%); Indoor dimming (65%); Indoor auto-zoom (on) |
+| Icons | Icon size (120%); Quest icon size (100%); Focus ring size (145%); Focus ring opacity (25%); Focus ring colour (Gold) |
+| Tracking line | Style (dashed); Weight (1.0 px); Colour (Gold); Glow (off); Breathing (off); Opacity (55%); Outline (off); Outline colour (Dark) |
 | Quest areas | The followed quest's fill, edge and edge width; the others' fill, edge and edge width; the hover's fill and edge (as the game draws them, a quiet fill by default) |
 | Grouping | Distance (24 px); Reach (3x); Smallest group (2 icons); Icons in a pill (2); Group pill backing (35%) |
 | Diagnostics | Debug info in title; Indoor maps report; Record 10 seconds; Compare with other addons; Memory breakdown (each also a `/mm` command) |

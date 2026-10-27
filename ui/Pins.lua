@@ -12,8 +12,8 @@
 -- the nearest centre), and every click and drag is the view's. Its tooltip: GameTooltip ANCHOR_RIGHT on
 -- the pin, its title, then grey 0.85 lines in GameTooltipTextSmall, restored when it hides or clears
 -- (Layers.lua:288-301, QuestInfo.lua:251-305); built once a hover, hidden on the one owner-checked path:
--- the cursor off it or the view, the window hidden (ui/Window.lua). A left click on a pin is its layer's
--- click, or else the track menu (ui/Track.lua: Track, Stop tracking); the tracked pin wears the glow whatever
+-- the cursor off it or the view, the window hidden (ui/Window.lua). A click on a pin, left or right, is its
+-- layer's click, or else the track menu (ui/Track.lua: Track, Stop tracking); the tracked pin wears the glow whatever
 -- its look says (Set: Track.Is), and every pin layer's rev carries Track's, so a change lays them out again.
 
 local _, ns = ...
@@ -26,8 +26,8 @@ local INNER_SIZE, INNER_SHADE = 0.56, 0.55 -- (c)'s objective icon: share of its
 local SCALE = 0.62 -- (c)'s atlas over its disc (Layers.lua:379)
 local DOT, RING_PAD = 0.6, 3 -- (d): the dot's share of size, its ring's past it (Layers.lua:396-399)
 local RING = { 0, 0, 0, 0.9 } -- Layers.lua:396
-local GLOW, GLOW_PAD = { 1, 0.82, 0.3, 0.9 }, 4 -- the followed one's ring: gold, 2 px out past its icon (Textures/GlowRing.tga)
-local RING_FILE = ns.Atlas.ROOT .. "Textures\\GlowRing" -- a thin white ring, tinted GLOW
+local GLOW_PAD = 4 -- the followed one's ring: 2 px out past its icon (Textures/GlowRing.tga), at size 1
+local RING_FILE = ns.Atlas.ROOT .. "Textures\\GlowRing" -- a thin white ring, tinted the ring's colour
 local WHITE = { 1, 1, 1 }
 local GREY = 0.85 -- a tooltip's lines under its title (Layers.lua:298)
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- UI.lua:6
@@ -38,10 +38,30 @@ UI.Pins = Pins
 
 -- Every pin's size, a factor (Feel "icons.scale"): Style takes it on a look's size but for a fixed one (a group's
 -- pill, whose slots are ICON px: ui/Cluster.lua); a pin layer's rev moves with it, so the pins are set again.
-local scale, scaleRev = 1, 0
+local scale, scaleRev = 1.2, 0 -- (Feel's default)
 function Pins.SetScale(k)
 	if scale == k then return end
 	scale, scaleRev = k, scaleRev + 1
+end
+
+-- The focus ring's look (Feel "ring.<name>"): its size (a factor on the whole ring: 1 is GLOW_PAD past the icon), its
+-- opacity and its colour (a preset's name; the first the default). A change moves scaleRev, so the pins are set again.
+local GLOW_COLORS = {
+	{ "Gold", { 1, 0.82, 0.3 } }, { "White", { 1, 1, 1 } }, { "Sky", { 0.55, 0.8, 1 } },
+	{ "Mint", { 0.6, 1, 0.75 } }, { "Rose", { 1, 0.6, 0.7 } }, { "Red", { 1, 0.3, 0.25 } },
+}
+Pins.GLOW_COLORS = GLOW_COLORS
+local ring = { size = 1.45, alpha = 0.25, color = GLOW_COLORS[1][1], rgb = GLOW_COLORS[1][2] }
+function Pins.SetGlow(name, v)
+	if ring[name] == v then return end
+	ring[name] = v
+	if name == "color" then
+		ring.rgb = GLOW_COLORS[1][2]
+		for _, c in ipairs(GLOW_COLORS) do
+			if c[1] == v then ring.rgb = c[2] end
+		end
+	end
+	scaleRev = scaleRev + 1
 end
 
 ---------------------------------------------------------------------------
@@ -99,7 +119,6 @@ local function Glow(pin)
 	if t then return t end
 	t = Tex(pin, "BACKGROUND")
 	t:SetTexture(RING_FILE)
-	t:SetVertexColor(GLOW[1], GLOW[2], GLOW[3], GLOW[4])
 	pin.glow = t
 	return t
 end
@@ -169,7 +188,7 @@ end
 -- (aspect: its width over height, else the client's); (c) an atlas over its under atlas tinted, the inner
 -- texture in it; (d) else (an atlas the client lacks too, and no alt: the look drawn instead when the atlas is
 -- missing) a dot of its colour on a dark ring. glow: a thin
--- gold ring hugging the icon (the quest you follow; or glow, the caller's: the tracked pin, whose look is
+-- ring (gold by default: Pins.SetGlow) hugging the icon (the quest you follow; or glow, the caller's: the tracked pin, whose look is
 -- shared with its kind's); count: a line under it.
 local function Style(pin, look, glow)
 	local size, icon = (look.size or SIZE) * (look.fixed and 1 or scale), look.icon or NONE
@@ -184,8 +203,10 @@ local function Style(pin, look, glow)
 		end
 	end
 	if look.glow or glow then
-		local g = Glow(pin)
-		Size(g, size + GLOW_PAD, size + GLOW_PAD)
+		local g, c = Glow(pin), ring.rgb
+		local d = (size + GLOW_PAD) * ring.size
+		Size(g, d, d)
+		Color(g, c[1], c[2], c[3], ring.alpha)
 		Shown(g, true)
 	else
 		Shown(pin.glow, false)
@@ -286,6 +307,7 @@ function Pins.Layer(name, level, fill, rev, opts)
 	end
 	local function put(e, look, minZoom)
 		local p = e.pos
+		if minZoom and Track.Focus(e) then minZoom = nil end -- (what you track: at any zoom)
 		if p.inst ~= inst or minZoom and not want(minZoom) then return end
 		if clustered and UI.Cluster.Hides(e, inst, zoom) then return end
 		any = true
@@ -434,12 +456,12 @@ function Pins.Hovered()
 	if hovered then return hovered.entry, hoveredAt.layer.name end
 end
 
--- A click on the map (button: "LeftButton", ...): the pin under the cursor's: its layer's click, else the
--- track menu on it (a grid pin's: the entry it stands for; ui/Cluster.lua's Wrap gives a click that too).
--- True when a pin took it.
+-- A click on the map (button: "LeftButton" or "RightButton", the same either way): the pin under the cursor's:
+-- its layer's click, else the track menu on it (a grid pin's: the entry it stands for; ui/Cluster.lua's Wrap
+-- gives a click that too). True when a pin took it.
 function Pins.Tap(button)
 	if UI.Cluster.Tap(button) then return true end
-	if not hovered or button ~= "LeftButton" then return false end
+	if not hovered then return false end
 	local e, click = hovered.entry, hoveredAt.opts.click
 	if click then
 		click(e, button)
