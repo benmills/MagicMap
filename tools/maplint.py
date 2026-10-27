@@ -1,0 +1,838 @@
+#!/usr/bin/env python3
+"""Score the map's quality and list its issues (docs/hardening-plan.md M1-M5), to hill-climb and ratchet it.
+
+The primary output is an issues file (--issues FILE, JSON; schema below), reviewed in the web demo: one
+issue per thing to look at, each with a stable id, so a review's marks survive reruns. Its summary holds
+the scores (each a count or a share, lower is better) that --baseline ratchets.
+
+Checks (issue kinds in brackets):
+
+  data       game-derived Data/*.lua headers all name one build (with an install found, the installed
+             client's) [data] (M1).
+  skipped    tiles not drawn (Data/TileColor.lua sea) where the base picture (Data/Base.lua,
+             Textures/Base*.blp) or the tile's art shows land [skipped-tile]; and, with art, where a drawn
+             neighbour's water at the shared edge is far from the backdrop that shows in the skipped tile's
+             place: a tile-aligned block in the sea [sea-edge] (M1).
+  flat       flat untextured land: a chunk (1/16 tile, 4x4 px of the 64 px art) whose grey std is under
+             FLAT_STD and that isn't water; connected regions [flat-land] (M2).
+  seams      tile edges whose jump is SEAM_RATIO times the tiles' own variation [seam]; tiles whose mean
+             land colour is far from every neighbour's [colour-block] (M4).
+  borders    Data/Borders.lua's outlines and lines, per zone: the wrap, its outline's chunks that aren't
+             playable land (Walk.lua blocked or water, or with art flat) and reach the sea through such
+             chunks: land the border wraps past the coast [border-wrap]; the share of border length over
+             water or flat land (shore fades left out); rings that are tiny or slivers [border-sliver] (M3).
+
+Water is a chunk Walk.lua calls water or one in a tile not drawn (open sea) or missing; with art also one
+whose pixels are mostly the minimap's water colour (tools/gen_base.py's test). Data-only scores use the
+first alone, so they're the same with art and without.
+
+The art is the web demo's export (demo/tiles/<inst>/64/<key>.webp, gitignored: --tiles, default demo/tiles
+or $MAGICMAP_TILES), or the install's tiles (--wow INSTALL: decoded and shrunk to 64 px as
+demo/export_tiles.py does, without its WebP: cached in --out). Note the WebP lifts the dark sea (BLP
+(5,7,7) -> WebP (8,17,16)), so sea-edge reads the demo's look with --tiles, the game's with --wow. Without
+art the art checks are skipped and their scores left out; --baseline compares the scores both sides have.
+
+  .venv/bin/python tools/maplint.py                         # the text report
+  .venv/bin/python tools/maplint.py --issues FILE           # the issues file (- for stdout)
+  .venv/bin/python tools/maplint.py --baseline tools/maplint-baseline.json   # exit 1 if any score is worse
+  .venv/bin/python tools/maplint.py --write-baseline tools/maplint-baseline.json
+  .venv/bin/python tools/maplint.py --wow "/Applications/World of Warcraft" --overlays   # + debug PNGs in --out
+
+Issues file (schema 1):
+  { schema: 1, build: Data/Tiles.lua's, commit: git HEAD (+"-dirty"), generated: ISO time,
+    art: { "<inst>": source or null },
+    summary: { scores: { "<name>": number }, counts: { "<kind>": n } },
+    issues: [ { id, kind, inst, bbox: [c0, r0, c1, r1], centroid: [col, row], severity, zone, desc,
+                metrics: {...}, mask?: { x0, y0, w, h, rle } } ] }
+  Positions are tile space (Data: col, row 0..64). id = "<kind>:<inst>:<place>", place a rounded tile, an
+  edge, a zone's areaID or a file name: stable across reruns and small threshold changes. severity: higher
+  is worse, comparable within a kind. mask (flat-land, border-wrap; at most MASK_RUNS runs): the chunks
+  (16 a tile) in the box x0, y0 (chunk units), w by h, row by row as run lengths, off first (the runs
+  alternate off, on, ...; what follows the last is off). Data issues have inst -1 and no place on the map.
+
+Web-demo links use the demos' hash, #map=<inst>&view=2d&x=<col>&y=<row>&z=<px per tile> (tile space), on
+--demo (default http://localhost:8000/, demo/server.py, which draws Eastern Kingdoms only; the hosted addon
+demo reads the same hash for both continents).
+"""
+from __future__ import annotations
+
+import argparse
+import datetime
+import json
+import math
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import time
+from collections import deque
+
+import numpy as np
+from PIL import Image, ImageDraw
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lupa import lua51  # noqa: E402
+
+from mmtools.formats import blp_dxt  # noqa: E402
+from mmtools.luaout import load_data  # noqa: E402
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Debug output never goes into the repo: $MAGICMAP_LINT_OUT, else the temp dir.
+SCRATCH = os.environ.get("MAGICMAP_LINT_OUT") or os.path.join(tempfile.gettempdir(), "maplint")
+CONTINENTS = {0: "EasternKingdoms", 1: "Kalimdor"}
+CH = 16              # chunks a tile side
+GRID = 64 * CH       # chunks a map side
+PX = 64              # the art's side as read (the demo's smallest copy)
+CPX = PX // CH       # px a chunk
+
+FLAT_STD = 1.5       # a chunk's grey std under this (0..255) is flat
+FLAT_REGION = 4      # chunks: a smaller flat region is counted, not an issue
+SEAM_RATIO, SEAM_JUMP = 3.0, 6.0   # an edge's jump over 3x the tiles' own variation, and over 6
+BLOCK_LAND, BLOCK_DIST = 0.6, 40.0 # a tile mostly land whose land mean is this far (RGB) from every neighbour's
+SKIP_BASE, SKIP_ART = 0.02, 0.02   # share of a sea tile that's land in the base picture / its art
+SEA_EDGE = 8.0       # mean |RGB| between a drawn neighbour's edge water and the backdrop
+WRAP_CHUNKS, WRAP_SHARE = 100, 0.05  # a zone's wrap is an issue at either
+SLIVER_AREA = 0.06   # tiles squared (~15 chunks): a ring smaller is tiny
+SLIVER_WIDTH = 0.08  # tiles: a ring whose mean width (2 area / perimeter) is under this is a sliver
+MASK_RUNS = 4000     # an issue's mask at most this many runs (else left out)
+TOL = 1e-9
+
+# gen_base.py's water: dark and blue-green (R low, B not far under G), or nearly black.
+WATER_R, WATER_BG, BLACK = 24, 0.5, 14
+
+
+# --- reading -----------------------------------------------------------------------
+
+def lua_list(t) -> list:
+    return [t[i] for i in range(1, len(t) + 1)] if t is not None else []
+
+
+def runs(cells: str) -> list[int]:
+    """Letter cells with run lengths (Walk.lua, AreaGrid.lua): the letters' values."""
+    out, i, n = [], 0, len(cells)
+    while i < n:
+        ch = cells[i]
+        i += 1
+        j = i
+        while j < n and cells[j].isdigit():
+            j += 1
+        k = int(cells[i:j]) if j > i else 1
+        i = j
+        out += [(ord(ch) - 97) if ch.islower() else (ord(ch) - 65 + 26)] * k
+    return out
+
+
+def header_builds(data_dir: str) -> dict[str, str]:
+    """Data file -> the game build its header names (files from QuestieDB alone name none)."""
+    out = {}
+    for f in sorted(os.listdir(data_dir)):
+        if f.endswith(".lua"):
+            with open(os.path.join(data_dir, f), encoding="utf-8") as fh:
+                m = re.search(r"wow_\w+ (\d+\.\d+\.\d+\.\d+)", fh.readline())
+            if m:
+                out[f] = m.group(1)
+    return out
+
+
+def installed_build(wow: str | None, product: str) -> str | None:
+    """The installed client's version from its .build.info, or None."""
+    try:
+        with open(os.path.join(wow, ".build.info"), encoding="utf-8") as f:
+            rows = [line.rstrip("\n").split("|") for line in f if line.strip()]
+    except (OSError, TypeError):
+        return None
+    cols = [c.split("!")[0] for c in rows[0]]
+    for r in rows[1:]:
+        row = dict(zip(cols, r))
+        if row.get("Product") == product:
+            return row.get("Version")
+    return None
+
+
+def git_commit() -> str | None:
+    try:
+        head = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=5).stdout.strip()
+        dirty = subprocess.run(["git", "-C", ROOT, "status", "--porcelain", "--untracked-files=no"], capture_output=True, text=True, timeout=5).stdout.strip()
+        return (head + ("-dirty" if dirty else "")) or None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def dxt_rgb(img) -> np.ndarray:
+    """A DxtImage (mmtools.formats) decoded with numpy: (h, w, 3) uint8."""
+    bw, bh, bb = img.blocks_wide, img.blocks_high, img.block_bytes
+    raw = np.frombuffer(img.data, np.uint8, bw * bh * bb, img.offset).reshape(bw * bh, bb)[:, bb - 8:]
+    c0 = raw[:, 0].astype(np.uint32) | (raw[:, 1].astype(np.uint32) << 8)
+    c1 = raw[:, 2].astype(np.uint32) | (raw[:, 3].astype(np.uint32) << 8)
+    idx = raw[:, 4:8].copy().view("<u4")[:, 0]
+
+    def c565(c):
+        return np.stack([((c >> 11) & 31) / 31, ((c >> 5) & 63) / 63, (c & 31) / 31], 1)
+    p0, p1 = c565(c0), c565(c1)
+    four = ((c0 > c1) | (bb == 16))[:, None]
+    p2 = np.where(four, (2 * p0 + p1) / 3, (p0 + p1) / 2)
+    p3 = np.where(four, (p0 + 2 * p1) / 3, 0.0)
+    pal = np.round(np.stack([p0, p1, p2, p3], 1) * 255).astype(np.uint8)        # (n, 4, 3)
+    ids = (idx[:, None] >> (2 * np.arange(16, dtype=np.uint32))) & 3            # (n, 16)
+    px = pal[np.arange(len(ids))[:, None], ids]                                 # (n, 16, 3)
+    px = px.reshape(bh, bw, 4, 4, 3).transpose(0, 2, 1, 3, 4).reshape(bh * 4, bw * 4, 3)
+    return px[:img.height, :img.width]
+
+
+def tile_slice(k: int) -> tuple[slice, slice]:
+    c, r = k // 64, k % 64
+    return slice(r * CH, (r + 1) * CH), slice(c * CH, (c + 1) * CH)
+
+
+class Data:
+    """The Data files the checks read, as Python and chunk grids (GRID x GRID, [y, x])."""
+
+    def __init__(self, data_dir: str):
+        lua = lua51.LuaRuntime()
+        ns = lua.table()
+        for name in ("Tiles", "TileColor", "Base", "Areas", "AreaGrid", "Walk", "Borders"):
+            load_data(lua, os.path.join(data_dir, name + ".lua"), ns)
+        D = ns.Data
+        self.version = D.Tiles.version
+        self.tiles, self.sea, self.bg, self.base, self.walk, self.zone_grid = {}, {}, {}, {}, {}, {}
+        self.lines, self.outlines = {}, {}
+        areas = {int(k): (v[1], v[2]) for k, v in D.Areas.items()}
+        self.names = {k: v[0] for k, v in areas.items()}
+
+        def top(a):
+            for _ in range(8):
+                p = areas.get(a, (None, None))[1]
+                if p is None:
+                    return a
+                a = int(p)
+            return a
+        for inst in CONTINENTS:
+            m = D.Tiles.maps[inst]
+            self.tiles[inst] = {int(k): int(v) for k, v in m.tiles.items()}
+            tc = D.TileColor[inst]
+            self.sea[inst] = {int(k) for k, v in tc.sea.items() if v} if tc else set()
+            self.bg[inst] = tuple(round(m.bg[i] * 255) for i in (1, 2, 3))
+            b = D.Base[inst] if D.Base else None
+            self.base[inst] = {k: b[k] for k in ("file", "c0", "r0", "c1", "r1", "px", "w", "h")} if b else None
+            walk = np.full((GRID, GRID), -1, np.int16)  # Walk's value: class (& 3) + 4 east + 8 south; -1 none
+            for k, cells in D.Walk[inst].items():
+                walk[tile_slice(int(k))] = np.array(runs(cells), np.int16).reshape(CH, CH)
+            self.walk[inst] = walk
+            zg = np.zeros((GRID, GRID), np.int32)
+            for k, enc in D.AreaGrid[inst].items():
+                pal = [int(x) for x in lua_list(enc[1])]
+                zg[tile_slice(int(k))] = np.array([top(pal[i]) if pal[i] else 0 for i in runs(enc[2])], np.int32).reshape(CH, CH)
+            self.zone_grid[inst] = zg
+            B = D.Borders[inst]
+            self.lines[inst] = [lua_list(l) for l in lua_list(B.lines)]
+            self.outlines[inst] = {int(z): [lua_list(r) for r in lua_list(rings)] for z, rings in B.outlines.items()}
+
+
+# --- the art -----------------------------------------------------------------------------
+
+def art_from_dir(d: str, inst: int, keys) -> dict[int, np.ndarray]:
+    out, sub = {}, os.path.join(d, str(inst), str(PX))
+    if os.path.isdir(sub):
+        for k in keys:
+            p = os.path.join(sub, f"{k}.webp")
+            if os.path.exists(p):
+                out[k] = np.asarray(Image.open(p).convert("RGB"), dtype=np.float32)
+    return out
+
+
+def art_from_install(wow: str, product: str, inst: int, tiles: dict[int, int], cache_dir: str) -> dict[int, np.ndarray]:
+    from mmtools.sources import open_source
+    src = open_source("local", product, install=wow)
+    path = os.path.join(cache_dir, f"art-{src.version}-{inst}.npz")
+    if os.path.exists(path):
+        z = np.load(path)
+        return {int(k): z[k].astype(np.float32) for k in z.files}
+    src.prefetch(tiles.values())
+    out = {}
+    for k, fdid in sorted(tiles.items()):
+        blp = src.read(fdid)
+        img = blp_dxt(blp) if blp else None
+        if img is not None:
+            out[k] = np.asarray(Image.fromarray(dxt_rgb(img)).resize((PX, PX), Image.LANCZOS), dtype=np.float32)
+    os.makedirs(cache_dir, exist_ok=True)
+    np.savez_compressed(path, **{str(k): v.astype(np.uint8) for k, v in out.items()})
+    return out
+
+
+def water_px(a: np.ndarray) -> np.ndarray:
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    return ((r < WATER_R) & (b > g * WATER_BG)) | (a.max(-1) < BLACK)
+
+
+def base_picture(base: dict | None) -> np.ndarray | None:
+    if not base:
+        return None
+    path = os.path.join(ROOT, base["file"].replace("\\", os.sep) + ".blp")
+    if not os.path.exists(path):
+        return None
+    with open(path, "rb") as f:
+        rgb = dxt_rgb(blp_dxt(f.read()))
+    return rgb[:(base["r1"] - base["r0"]) * base["px"], :(base["c1"] - base["c0"]) * base["px"]]
+
+
+def dilate(m: np.ndarray) -> np.ndarray:
+    o = m.copy()
+    o[1:] |= m[:-1]
+    o[:-1] |= m[1:]
+    o[:, 1:] |= m[:, :-1]
+    o[:, :-1] |= m[:, 1:]
+    return o
+
+
+def reach(seed: np.ndarray, within: np.ndarray) -> np.ndarray:
+    """The chunks of `within` connected (4-way) to seed through `within`."""
+    cur = seed & within
+    n = int(cur.sum())
+    while True:
+        cur = dilate(cur) & within
+        m = int(cur.sum())
+        if m == n:
+            return cur
+        n = m
+
+
+def mask_of(cells: np.ndarray) -> dict | None:
+    """A chunk mask's compact form: its box (chunk units) and row-major run lengths, off first."""
+    ys, xs = np.nonzero(cells)
+    if not len(ys):
+        return None
+    y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    flat = cells[y0:y1, x0:x1].ravel()
+    edges = np.flatnonzero(np.diff(np.concatenate([[0], flat.astype(np.int8), [0]])))
+    rle, prev, on = [], 0, False
+    for e in edges:
+        rle.append(int(e - prev))
+        prev, on = e, not on
+    if len(rle) > MASK_RUNS:
+        return None
+    return {"x0": int(x0), "y0": int(y0), "w": int(x1 - x0), "h": int(y1 - y0), "rle": rle}
+
+
+def box_of(cells: np.ndarray) -> list[float]:
+    ys, xs = np.nonzero(cells)
+    return [round(xs.min() / CH, 3), round(ys.min() / CH, 3), round((xs.max() + 1) / CH, 3), round((ys.max() + 1) / CH, 3)]
+
+
+# --- the per-continent checks ---------------------------------------------------------
+
+class Continent:
+    def __init__(self, data: Data, inst: int, art: dict[int, np.ndarray]):
+        self.inst, self.name, self.data, self.art = inst, CONTINENTS[inst], data, art
+        tiles, sea = data.tiles[inst], data.sea[inst]
+        drawn = np.zeros((64, 64), bool)
+        for k in tiles:
+            drawn[k % 64, k // 64] = k not in sea
+        self.drawn = np.kron(drawn, np.ones((CH, CH), bool))
+        walk = data.walk[inst]
+        self.cls = np.where(walk >= 0, walk & 3, -1)
+        self.water_data = (self.cls == 2) | ~self.drawn
+        self.water = self.water_data.copy()
+        self.has_art = np.zeros((GRID, GRID), bool)
+        self.flat = np.zeros((GRID, GRID), bool)
+        for k, a in art.items():
+            if k in sea:
+                continue
+            g = a.mean(-1).reshape(CH, CPX, CH, CPX)
+            cw = water_px(a).reshape(CH, CPX, CH, CPX).mean(axis=(1, 3)) > 0.5
+            sl = tile_slice(k)
+            self.has_art[sl] = True
+            self.water[sl] |= cw
+            self.flat[sl] = (g.std(axis=(1, 3)) < FLAT_STD) & (g.mean(axis=(1, 3)) > 20)
+        self.flat &= ~self.water
+        self.land = self.has_art & ~self.water
+        self.base = base_picture(data.base[inst])
+        self.masks = None
+
+    def zone_at(self, col: float, row: float) -> str:
+        z = int(self.data.zone_grid[self.inst][min(GRID - 1, int(row * CH)), min(GRID - 1, int(col * CH))])
+        return self.data.names.get(z, "-") if z else "-"
+
+    def skipped(self) -> list[dict]:
+        out, b = [], self.data.base[self.inst]
+        bgc = np.array(self.data.bg[self.inst], np.float32)
+        for k in sorted(self.data.sea[self.inst]):
+            c, r = k // 64, k % 64
+            why = {}
+            if self.base is not None and b["c0"] <= c < b["c1"] and b["r0"] <= r < b["r1"]:
+                p = b["px"]
+                cut = self.base[(r - b["r0"]) * p:(r - b["r0"] + 1) * p, (c - b["c0"]) * p:(c - b["c0"] + 1) * p].astype(np.float32)
+                share = float((np.abs(cut - bgc).max(-1) > 12).mean())
+                if share > SKIP_BASE:
+                    why["base_land"] = round(share, 3)
+            a = self.art.get(k)
+            if a is not None:
+                share = float((~water_px(a)).mean())
+                if share > SKIP_ART:
+                    why["art_land"] = round(share, 3)
+            if why:
+                sev = max(why.values())
+                out.append(issue("skipped-tile", self.inst, f"{c},{r}", [c, r, c + 1, r + 1], [c + .5, r + .5], sev * 100,
+                                 self.zone_at(c + .5, r + .5), why,
+                                 f"tile {c},{r} isn't drawn (open sea) but its " + " and ".join(
+                                     f"{'base picture' if w == 'base_land' else 'art'} is {v:.0%} land" for w, v in why.items())))
+        return out
+
+    def sea_edges(self) -> list[dict]:
+        """Skipped tiles beside a drawn tile whose water at the shared edge isn't the backdrop."""
+        out, sea = [], self.data.sea[self.inst]
+        bgc = np.array(self.data.bg[self.inst], np.float32)
+        tiles = self.data.tiles[self.inst]
+        for k in sorted(sea):
+            c, r = k // 64, k % 64
+            worst = []
+            for dc, dr, side in ((1, 0, "E"), (-1, 0, "W"), (0, 1, "S"), (0, -1, "N")):
+                n = (c + dc) * 64 + r + dr
+                a = self.art.get(n)
+                if a is None or n in sea or n not in tiles:
+                    continue
+                strip = {"E": a[:, 0], "W": a[:, -1], "S": a[0, :], "N": a[-1, :]}[side]
+                w = water_px(strip)
+                if w.mean() < 0.5:
+                    continue
+                jump = float(np.abs(strip[w] - bgc).mean())
+                if jump > SEA_EDGE:
+                    worst.append((jump, side))
+            if worst:
+                worst.sort(reverse=True)
+                out.append(issue("sea-edge", self.inst, f"{c},{r}", [c, r, c + 1, r + 1], [c + .5, r + .5], worst[0][0],
+                                 self.zone_at(c + .5, r + .5), {"jump": round(worst[0][0], 1), "sides": "".join(s for _, s in worst)},
+                                 f"skipped sea tile {c},{r}: the backdrop meets drawn water {worst[0][0]:.0f} apart "
+                                 f"({', '.join(s for _, s in worst)}): a tile-aligned block"))
+        return out
+
+    def flat_regions(self) -> list[dict]:
+        seen = np.zeros_like(self.flat)
+        ys, xs = np.nonzero(self.flat)
+        out = []
+        for y0, x0 in zip(ys, xs):
+            if seen[y0, x0]:
+                continue
+            seen[y0, x0] = True
+            q, comp = deque([(y0, x0)]), []
+            while q:
+                y, x = q.popleft()
+                comp.append((y, x))
+                for dy in (-1, 0, 1):
+                    for dx in (-1, 0, 1):
+                        ny, nx = y + dy, x + dx
+                        if 0 <= ny < GRID and 0 <= nx < GRID and self.flat[ny, nx] and not seen[ny, nx]:
+                            seen[ny, nx] = True
+                            q.append((ny, nx))
+            if len(comp) < FLAT_REGION:
+                continue
+            cells = np.zeros((GRID, GRID), bool)
+            cy, cx = zip(*comp)
+            cells[list(cy), list(cx)] = True
+            col, row = (sum(cx) / len(comp) + .5) / CH, (sum(cy) / len(comp) + .5) / CH
+            zone = self.zone_at(col, row)
+            out.append(issue("flat-land", self.inst, f"{round(col)},{round(row)}", box_of(cells), [col, row], len(comp), zone,
+                             {"chunks": len(comp), "tiles2": round(len(comp) / CH / CH, 2)},
+                             f"{len(comp)} chunks of flat untextured land ({len(comp) / 256:.1f} tiles²) in {zone}", mask_of(cells)))
+        return out
+
+    def seams(self) -> list[dict]:
+        out, sea = [], self.data.sea[self.inst]
+        for k, a in self.art.items():
+            if k in sea:
+                continue
+            c, r = k // 64, k % 64
+            for dc, dr, side in ((1, 0, "E"), (0, 1, "S")):
+                nk = (c + dc) * 64 + r + dr
+                n = self.art.get(nk)
+                if n is None or nk in sea:
+                    continue
+                if dc:
+                    e1, e2, i1, i2 = a[:, -1], n[:, 0], a[:, -2], n[:, 1]
+                    bbox = [c + 1, r, c + 1, r + 1]
+                else:
+                    e1, e2, i1, i2 = a[-1, :], n[0, :], a[-2, :], n[1, :]
+                    bbox = [c, r + 1, c + 1, r + 1]
+                jump = float(np.abs(e1 - e2).mean())
+                inner = float((np.abs(e1 - i1).mean() + np.abs(e2 - i2).mean()) / 2) + 1
+                if jump / inner > SEAM_RATIO and jump > SEAM_JUMP:
+                    cen = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
+                    out.append(issue("seam", self.inst, f"{c},{r},{side}", bbox, cen, jump / inner, self.zone_at(*cen),
+                                     {"ratio": round(jump / inner, 2), "jump": round(jump, 1)},
+                                     f"seam on tile {c},{r}'s {'east' if dc else 'south'} edge: a jump {jump / inner:.1f}x the tiles' own variation"))
+        return out
+
+    def blocks(self) -> list[dict]:
+        sea, means = self.data.sea[self.inst], {}
+        for k, a in self.art.items():
+            land = ~water_px(a)
+            if k not in sea and land.mean() >= BLOCK_LAND:
+                means[k] = a[land].mean(0)
+        out = []
+        for k, m in means.items():
+            c, r = k // 64, k % 64
+            ns = [means[n] for n in ((c - 1) * 64 + r, (c + 1) * 64 + r, k - 1, k + 1) if n in means]
+            if len(ns) < 2:
+                continue
+            d = min(float(np.linalg.norm(m - n)) for n in ns)
+            if d > BLOCK_DIST:
+                out.append(issue("colour-block", self.inst, f"{c},{r}", [c, r, c + 1, r + 1], [c + .5, r + .5], d, self.zone_at(c + .5, r + .5),
+                                 {"dist": round(d, 1), "neighbours": len(ns)},
+                                 f"tile {c},{r}'s land colour is {d:.0f} (RGB) from its nearest neighbour's: a tile-aligned block"))
+        return out
+
+    def zone_masks(self) -> dict[int, np.ndarray]:
+        if self.masks is None:
+            self.masks = {}
+            for z, rings in self.data.outlines[self.inst].items():
+                acc = np.zeros((GRID, GRID), bool)
+                for ring in rings:
+                    if len(ring) >= 6:
+                        im = Image.new("1", (GRID, GRID), 0)
+                        ImageDraw.Draw(im).polygon([(ring[i] * CH, ring[i + 1] * CH) for i in range(0, len(ring), 2)], fill=1)
+                        acc ^= np.asarray(im, bool)
+                self.masks[z] = acc
+        return self.masks
+
+    def borders(self, with_art: bool) -> tuple[list[dict], list[dict], dict, list]:
+        """(wrap issues, sliver issues, totals, line samples (x, y, kind) for the overlays)."""
+        masks = self.zone_masks()
+        inside = np.zeros((GRID, GRID), bool)
+        for m in masks.values():
+            inside |= m
+        unplay_data = (self.cls != 1) | self.water_data
+        unplay = unplay_data | self.water | self.flat if with_art else unplay_data
+        sea_data = dilate(self.water_data & ~inside)
+        sea = dilate(self.water & ~inside)
+        tot = dict.fromkeys(("enclosed", "water", "flat", "wrap_data", "wrap", "len", "len_water", "len_flat", "slivers"), 0)
+        rows, slivers = {}, []
+        for z, m in masks.items():
+            n = int(m.sum())
+            if not n:
+                continue
+            wrap_d = reach(sea_data & m & unplay_data, m & unplay_data)
+            wrap = reach(sea & m & unplay, m & unplay) if with_art else wrap_d
+            row = {"id": z, "zone": self.data.names.get(z, str(z)), "enclosed": n, "water": int((m & self.water_data).sum()),
+                   "flat": int((m & self.flat).sum()), "wrap": int(wrap.sum()), "wrap_data": int(wrap_d.sum()),
+                   "len": 0.0, "len_water": 0.0, "len_flat": 0.0, "cells": wrap}
+            rows[z] = row
+            for k in ("enclosed", "water", "flat", "wrap", "wrap_data"):
+                tot[k] += row[k]
+            for ring in self.data.outlines[self.inst][z]:
+                pts = [(ring[i], ring[i + 1]) for i in range(0, len(ring), 2)]
+                area = abs(sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]))) / 2
+                per = sum(math.dist(p, q) for p, q in zip(pts, pts[1:] + pts[:1]))
+                width = 2 * area / per if per else 0
+                if area < SLIVER_AREA or width < SLIVER_WIDTH:
+                    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+                    cen = [sum(xs) / len(xs), sum(ys) / len(ys)]
+                    tot["slivers"] += 1
+                    slivers.append(issue("border-sliver", self.inst, f"{z}:{round(cen[0] * 2) / 2},{round(cen[1] * 2) / 2}",
+                                         [min(xs), min(ys), max(xs), max(ys)], cen, 1 / max(area, 1e-3), row["zone"],
+                                         {"area": round(area, 3), "width": round(width, 3), "zoneID": z},
+                                         f"{row['zone']}'s outline has a {'tiny' if area < SLIVER_AREA else 'sliver'} ring: "
+                                         f"{area:.3f} tiles², {width:.3f} tiles wide"))
+        samples, step = [], 1 / (CH * 2)
+        for line in self.data.lines[self.inst]:
+            a, b, fs, fe = int(line[0]), int(line[1]), line[2], line[3]
+            pts = [(line[i], line[i + 1]) for i in range(4, len(line), 2)]
+            total, s = sum(math.dist(p, q) for p, q in zip(pts, pts[1:])), 0.0
+            for p, q in zip(pts, pts[1:]):
+                d = math.dist(p, q)
+                n = max(1, int(d / step))
+                for i in range(n):
+                    t = (i + .5) / n
+                    x, y = p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t
+                    if not fs <= s + d * t <= total - fe:
+                        samples.append((x, y, "fade"))
+                        continue
+                    gy, gx = min(GRID - 1, int(y * CH)), min(GRID - 1, int(x * CH))
+                    kind = "water" if self.water_data[gy, gx] else "flat" if self.flat[gy, gx] else "land"
+                    samples.append((x, y, kind))
+                    seg = d / n
+                    tot["len"] += seg
+                    if kind != "land":
+                        tot["len_" + kind] += seg
+                    for zz in (a, b):
+                        if zz in rows:
+                            rows[zz]["len"] += seg
+                            if kind != "land":
+                                rows[zz]["len_" + kind] += seg
+                s += d
+        wraps = []
+        tot["wrap_zones"] = sum(1 for r in rows.values()  # (the score: data only, the same with art and without)
+                                if r["wrap_data"] >= WRAP_CHUNKS or r["wrap_data"] / r["enclosed"] >= WRAP_SHARE)
+        for r in rows.values():
+            share = r["wrap"] / r["enclosed"]
+            if r["wrap"] < WRAP_CHUNKS and share < WRAP_SHARE:
+                continue
+            ys, xs = np.nonzero(r["cells"])
+            cen = [(xs.mean() + .5) / CH, (ys.mean() + .5) / CH]
+            lb = (r["len_water"] + r["len_flat"]) / r["len"] if r["len"] else 0.0
+            wraps.append(issue("border-wrap", self.inst, f"z{r['id']}", box_of(r["cells"]), cen, r["wrap"], r["zone"],
+                               {"wrap": r["wrap"], "wrap_share": round(share, 4), "enclosed": r["enclosed"], "water": r["water"],
+                                "flat": r["flat"], "line": round(r["len"], 2), "line_bad_share": round(lb, 4), "zoneID": r["id"]},
+                               f"{r['zone']}'s outline wraps {r['wrap']} chunks ({share:.1%}) of blocked, water or flat land "
+                               f"that reach the sea; {lb:.0%} of its border line runs over water or flat land", mask_of(r["cells"])))
+        return wraps, slivers, tot, samples
+
+
+def issue(kind, inst, place, bbox, centroid, severity, zone, metrics, desc, mask=None) -> dict:
+    out = {"id": f"{kind}:{inst}:{place}", "kind": kind, "inst": inst, "bbox": [round(float(v), 3) for v in bbox],
+           "centroid": [round(float(v), 3) for v in centroid], "severity": round(float(severity), 3), "zone": zone,
+           "desc": desc, "metrics": metrics}
+    if mask:
+        out["mask"] = mask
+    return out
+
+
+# --- overlays (debugging) --------------------------------------------------------------
+
+def overlay(cont: Continent, out_dir: str, issues: list[dict], samples) -> list[str]:
+    S = 32  # px a tile
+    ys, xs = np.nonzero(cont.drawn[::CH, ::CH])
+    c0, c1, r0, r1 = xs.min(), xs.max() + 1, ys.min(), ys.max() + 1
+    W, H = (c1 - c0) * S, (r1 - r0) * S
+    pic = np.empty((H, W, 3), np.float32)
+    pic[:] = cont.data.bg[cont.inst]
+    b = cont.data.base[cont.inst]
+    if cont.base is not None:
+        arr = np.asarray(Image.fromarray(cont.base).resize(((b["c1"] - b["c0"]) * S, (b["r1"] - b["r0"]) * S), Image.BOX), np.float32)
+        ox, oy = (b["c0"] - c0) * S, (b["r0"] - r0) * S
+        y0, x0, y1, x1 = max(0, oy), max(0, ox), min(H, oy + arr.shape[0]), min(W, ox + arr.shape[1])
+        pic[y0:y1, x0:x1] = arr[y0 - oy:y1 - oy, x0 - ox:x1 - ox]
+    for k, a in cont.art.items():
+        c, r = k // 64, k % 64
+        if k not in cont.data.sea[cont.inst] and c0 <= c < c1 and r0 <= r < r1:
+            pic[(r - r0) * S:(r - r0 + 1) * S, (c - c0) * S:(c - c0 + 1) * S] = np.asarray(Image.fromarray(a.astype(np.uint8)).resize((S, S), Image.BOX), np.float32)
+    sub, cs = (slice(r0 * CH, r1 * CH), slice(c0 * CH, c1 * CH)), S // CH
+
+    def tint(p, mask, colour, k):
+        m = np.kron(mask[sub], np.ones((cs, cs), bool))
+        p[m] = p[m] * (1 - k) + np.array(colour, np.float32) * k
+
+    def xy(col, row):
+        return (col - c0) * S, (row - r0) * S
+    os.makedirs(out_dir, exist_ok=True)
+    paths, colours = [], {"skipped-tile": (0, 255, 255), "sea-edge": (0, 160, 255), "seam": (255, 40, 40),
+                          "colour-block": (255, 230, 0), "border-sliver": (0, 255, 0), "flat-land": (255, 255, 255), "border-wrap": (255, 255, 255)}
+    for which, kinds in (("tiles", ("skipped-tile", "sea-edge", "seam", "colour-block", "flat-land")), ("borders", ("border-wrap", "border-sliver"))):
+        p = pic.copy()
+        if which == "tiles":
+            tint(p, cont.flat, (255, 0, 255), 0.7)
+        else:
+            wrap = np.zeros((GRID, GRID), bool)
+            for m in cont.zone_masks().values():
+                wrap |= m
+            tint(p, wrap & ~cont.drawn, (0, 200, 255), 0.5)
+            for i in issues:
+                if i["kind"] == "border-wrap" and "mask" in i:
+                    mk = i["mask"]
+                    cells = np.zeros(mk["w"] * mk["h"], bool)
+                    pos, on = 0, False
+                    for n in mk["rle"]:
+                        cells[pos:pos + n] = on
+                        pos, on = pos + n, not on
+                    full = np.zeros((GRID, GRID), bool)
+                    full[mk["y0"]:mk["y0"] + mk["h"], mk["x0"]:mk["x0"] + mk["w"]] = cells.reshape(mk["h"], mk["w"])
+                    tint(p, full, (255, 90, 0), 0.6)
+        im = Image.fromarray(np.clip(p, 0, 255).astype(np.uint8))
+        d = ImageDraw.Draw(im)
+        if which == "borders":
+            col = {"land": (255, 255, 255), "fade": (120, 120, 120), "water": (0, 160, 255), "flat": (255, 0, 255)}
+            for x, y, kind in samples:
+                px, py = xy(x, y)
+                d.point((px, py), fill=col[kind])
+        rank = 0
+        for i in issues:
+            if i["kind"] not in kinds:
+                continue
+            x0, y0 = xy(i["bbox"][0], i["bbox"][1])
+            x1, y1 = xy(i["bbox"][2], i["bbox"][3])
+            if i["kind"] in ("flat-land", "border-wrap"):
+                rank += 1
+                if rank <= 10:
+                    cx, cy = xy(*i["centroid"])
+                    d.text((cx, cy), f"{rank} {i['zone'] if i['kind'] == 'border-wrap' else ''}", fill=(255, 255, 255), stroke_width=2, stroke_fill=(0, 0, 0))
+                continue
+            d.rectangle([x0, y0, max(x0, x1 - 1), max(y0, y1 - 1)], outline=colours[i["kind"]], width=2 if i["kind"] != "seam" else 3)
+        path = os.path.join(out_dir, f"{cont.name}-{which}.png")
+        im.save(path)
+        paths.append(path)
+    return paths
+
+
+# --- the run ---------------------------------------------------------------------------
+
+def url(demo: str, i: dict, zoom: int = 128) -> str:
+    u = f"{demo}#map={i['inst']}&view=2d&x={i['centroid'][0]:.3f}&y={i['centroid'][1]:.3f}&z={zoom}"
+    return u if i["inst"] == 0 or "localhost" not in demo else u + " (this repo's demo: EK only)"
+
+
+def run(ns) -> tuple[dict, list[str]]:
+    t0 = time.time()
+    lines = []
+    say = lines.append
+    data_dir = os.path.join(ROOT, "Data")
+    builds = header_builds(data_dir)
+    inst_build = None if ns.no_install else installed_build(ns.wow or "/Applications/World of Warcraft", ns.product)
+    target = inst_build or max(builds.values(), key=lambda v: tuple(int(x) for x in v.split(".")))
+    scores, issues, art_src = {}, [], {}
+    stale = {f: v for f, v in builds.items() if v != target}
+    scores["data.stale_files"] = len(stale)
+    for f, v in stale.items():
+        issues.append(issue("data", -1, f, [0, 0, 0, 0], [0, 0], 1, "-", {"build": v, "target": target},
+                            f"Data/{f} is from {v}, not {target}: regenerate (docs/development.md)"))
+    say(f"== data: {len(builds)} game-derived files; target build {target} ({'installed' if inst_build else 'newest header'})")
+    by = {}
+    for f, v in builds.items():
+        by.setdefault(v, []).append(f[:-4])
+    for v, fs in sorted(by.items()):
+        say(f"  {v}{' (target)' if v == target else ''}: {', '.join(fs)}")
+    say(f"  data.stale_files = {len(stale)}")
+
+    data = Data(data_dir)
+    tiles_dir = ns.tiles or os.environ.get("MAGICMAP_TILES") or os.path.join(ROOT, "demo", "tiles")
+    overlays = []
+    for inst in (ns.inst or list(CONTINENTS)):
+        if ns.no_art:
+            art, src = {}, None
+        elif ns.wow and not ns.tiles:
+            art, src = art_from_install(ns.wow, ns.product, inst, data.tiles[inst], ns.out), f"install {ns.wow}"
+        else:
+            art, src = art_from_dir(tiles_dir, inst, data.tiles[inst]), tiles_dir
+        art_src[str(inst)] = src if art else None
+        cont = Continent(data, inst, art)
+        P, mine = f"{inst}.", []
+        say(f"\n== [{inst}] {cont.name}: {len(data.tiles[inst])} tiles, {len(data.sea[inst])} sea; art: "
+            + (f"{len(art)} tiles from {src}" if art else "none (art checks skipped)"))
+
+        def show(title, got, n=10, zoom=128):
+            say(f"  {title}")
+            for i in got[:n]:
+                say(f"    {i['desc']}  {url(ns.demo, i, zoom)}")
+            mine.extend(got)
+        sk = cont.skipped()
+        scores[P + "skipped.base_tiles"] = sum(1 for i in sk if "base_land" in i["metrics"])
+        show(f"skipped: {len(sk)} sea tiles show land (base picture{' or art' if art else ''})", sk)
+        if art:
+            scores[P + "skipped.art_tiles"] = sum(1 for i in sk if "art_land" in i["metrics"])
+            se = cont.sea_edges()
+            se.sort(key=lambda i: -i["severity"])
+            scores[P + "skipped.sea_edges"] = len(se)
+            show(f"sea edges: {len(se)} skipped tiles beside drawn water over {SEA_EDGE:g} from the backdrop", se, 5)
+            land, flat = int(cont.land.sum()), int(cont.flat.sum())
+            regions = cont.flat_regions()
+            regions.sort(key=lambda i: -i["severity"])
+            scores[P + "flat.chunks"] = flat
+            scores[P + "flat.share"] = round(flat / land, 4) if land else 0.0
+            scores[P + "flat.regions"] = len(regions)
+            show(f"flat: {flat} of {land} land chunks ({flat / max(1, land):.2%}); {len(regions)} regions of >= {FLAT_REGION}", regions)
+            seams, blocks = cont.seams(), cont.blocks()
+            seams.sort(key=lambda i: -i["severity"])
+            blocks.sort(key=lambda i: -i["severity"])
+            scores[P + "seams.edges"] = len(seams)
+            scores[P + "seams.blocks"] = len(blocks)
+            show(f"seams: {len(seams)} edges over {SEAM_RATIO:g}x the tiles' variation", seams, zoom=256)
+            show(f"colour blocks: {len(blocks)} tiles", blocks)
+        wraps, slivers, tot, samples = cont.borders(bool(art))
+        wraps.sort(key=lambda i: -i["severity"])
+        slivers.sort(key=lambda i: -i["severity"])
+        E = tot["enclosed"]
+        scores[P + "borders.water_share"] = round(tot["water"] / E, 4)
+        scores[P + "borders.line_water_share"] = round(tot["len_water"] / tot["len"], 4)
+        scores[P + "borders.wrap_share"] = round(tot["wrap_data"] / E, 4)
+        scores[P + "borders.slivers"] = tot["slivers"]
+        if art:
+            scores[P + "borders.flat_share"] = round(tot["flat"] / E, 4)
+            scores[P + "borders.line_flat_share"] = round(tot["len_flat"] / tot["len"], 4)
+            scores[P + "borders.wrap_art_share"] = round(tot["wrap"] / E, 4)
+        scores[P + "borders.wrap_zones"] = tot["wrap_zones"]
+        say(f"  borders: outlines enclose {E} chunks: water {tot['water'] / E:.2%}" + (f", flat {tot['flat'] / E:.2%}" if art else "")
+            + f"; wrapped past the coast {tot['wrap_data'] / E:.2%} (blocked or water)" + (f", {tot['wrap'] / E:.2%} with flat" if art else "")
+            + f"; border lines {tot['len']:.1f} tiles, over water {tot['len_water'] / tot['len']:.2%}"
+            + (f", flat {tot['len_flat'] / tot['len']:.2%}" if art else "") + " (shore fades left out)")
+        show(f"border wraps: {len(wraps)} zones over {WRAP_CHUNKS} chunks or {WRAP_SHARE:.0%}", wraps, zoom=64)
+        show(f"slivers: {len(slivers)} tiny or sliver rings", slivers, 5, zoom=256)
+        issues += mine
+        if ns.overlays:
+            overlays += overlay(cont, ns.out, mine, samples)
+    counts = {}
+    for i in issues:
+        counts[i["kind"]] = counts.get(i["kind"], 0) + 1
+    seen = {}
+    for i in issues:  # ids unique: a second at the same rounded place gets #2
+        n = seen.get(i["id"], 0) + 1
+        seen[i["id"]] = n
+        if n > 1:
+            i["id"] += f"#{n}"
+    say(f"\n{len(issues)} issues: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())) + f" ({time.time() - t0:.1f}s)"
+        + (f"\noverlays: {', '.join(overlays)}" if overlays else ""))
+    res = {"schema": 1, "build": data.version, "commit": git_commit(),
+           "generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), "art": art_src,
+           "summary": {"scores": scores, "counts": counts}, "issues": issues}
+    return res, lines
+
+
+def compare(scores: dict, base: dict) -> tuple[list[str], list[str], list[str]]:
+    worse, better, skipped = [], [], []
+    for k, b in sorted(base.items()):
+        if k not in scores:
+            skipped.append(k)
+        elif scores[k] > b + TOL:
+            worse.append(f"{k}: {scores[k]} (baseline {b})")
+        elif scores[k] < b - TOL:
+            better.append(f"{k}: {scores[k]} (baseline {b})")
+    return worse, better, skipped
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--tiles", help="the demo's tile export (<dir>/<inst>/64/<key>.webp); default demo/tiles or $MAGICMAP_TILES")
+    ap.add_argument("--wow", help="read the art from this install instead (cached in --out)")
+    ap.add_argument("--product", default="wow_classic_beta")
+    ap.add_argument("--no-art", action="store_true", help="the data checks alone: no tile art read (tools/check.sh: the art's"
+                    " scores move with the local export and its codec, so they're not ratcheted)")
+    ap.add_argument("--no-install", action="store_true", help="don't look for an installed build (CI, tools/check.sh)")
+    ap.add_argument("--inst", type=int, action="append", help="a continent (0, 1); default both")
+    ap.add_argument("--issues", metavar="FILE", help="write the issues file (JSON; - for stdout)")
+    ap.add_argument("--json", metavar="FILE", help="write the summary alone (JSON; - for stdout)")
+    ap.add_argument("--out", default=SCRATCH, help=f"debug output (--overlays, --wow's cache) here; default {SCRATCH}")
+    ap.add_argument("--overlays", action="store_true", help="also write overlay PNGs per continent into --out")
+    ap.add_argument("--baseline", metavar="FILE", help="exit 1 if any score is worse than FILE's")
+    ap.add_argument("--write-baseline", metavar="FILE", help="write the scores to FILE")
+    ap.add_argument("--demo", default="http://localhost:8000/", help="the web demo's URL for links")
+    ap.add_argument("-q", "--quiet", action="store_true", help="no report")
+    ns = ap.parse_args()
+    res, lines = run(ns)
+    if not ns.quiet and "-" not in (ns.issues, ns.json):
+        print("\n".join(lines))
+    for path, obj in ((ns.issues, res), (ns.json, {k: res[k] for k in ("schema", "build", "commit", "generated", "art", "summary")})):
+        if path:
+            text = json.dumps(obj, separators=(",", ":")) if path != "-" else json.dumps(obj, indent=1)
+            if path == "-":
+                print(text)
+            else:
+                with open(path, "w") as f:
+                    f.write(text + "\n")
+    if ns.write_baseline:
+        with open(ns.write_baseline, "w") as f:
+            json.dump({"build": res["build"], "scores": res["summary"]["scores"]}, f, indent=1, sort_keys=True)
+            f.write("\n")
+    if ns.baseline:
+        with open(ns.baseline) as f:
+            base = json.load(f)["scores"]
+        worse, better, skipped = compare(res["summary"]["scores"], base)
+        if skipped:
+            print(f"maplint: {len(skipped)} scores skipped (no tile art here: demo/export_tiles.py)", file=sys.stderr)
+        if better:
+            print(f"maplint: better than the baseline (ratchet: --write-baseline {ns.baseline}):\n  " + "\n  ".join(better), file=sys.stderr)
+        if worse:
+            print("maplint: worse than the baseline:\n  " + "\n  ".join(worse), file=sys.stderr)
+            return 1
+        print(f"maplint: {len(base) - len(skipped)} scores at or under the baseline", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

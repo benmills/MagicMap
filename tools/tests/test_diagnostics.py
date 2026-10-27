@@ -2,14 +2,19 @@
 print as the spike's do (Core.lua, Blips.lua, Landmarks.lua, Perf.lua); an unknown name or zone alone
 answers with its one usage line; the gear's Advanced runs the same code (the `run` Command); the title's
 debug line (Core.lua:1305-1313)."""
+import os
 import re
 
 import sim as S
 
+# The tile set's build, as Data/Tiles.lua names it (so a regeneration from another build doesn't break these).
+with open(os.path.join(S.TESTS, "..", "..", "Data", "Tiles.lua")) as f:
+    BUILD = re.search(r'version = "([\d.]+)"', f.read()).group(1)
+
 SAY = "|cffffd100MagicMap|r: "
 USAGE = SAY + ("/mm [toggle] | follow | map <id|name> | zone <name> | icon | tiles | layers | landmarks"
                " | blips | indoor | perf | debug | reset")
-DEBUG = re.compile(r"\|cff777777(\d+)_(\d+)  (\d+|-)  zoom (\d+)  layout [\d.]+ ms / (\d+) lines  1\.60\.1\.70450\|r$")
+DEBUG = re.compile(r"\|cff777777(\d+)_(\d+)  (\d+|-)  zoom (\d+)  layout [\d.]+ ms / (\d+) lines  " + re.escape(BUILD) + r"\|r$")
 
 
 def said(s, line):
@@ -29,7 +34,7 @@ def test_commands():
     assert re.fullmatch(re.escape(SAY) + r"blips: 1 known, answer square \d\.\d\d screen units each way", blips[0])
     assert blips[1:] == [SAY + "  Mailbox +40.0E +20.0N"]
     tiles = said(s, "/mm tiles")
-    assert len(tiles) == 1 and tiles[0].startswith(SAY + "tile set: wow_classic_beta 1.60.1.70450. Maps: Eastern "
+    assert len(tiles) == 1 and tiles[0].startswith(SAY + "tile set: wow_classic_beta " + BUILD + ". Maps: Eastern "
                                                    "Kingdoms (736), Kalimdor (988), Shadowfang Keep (25),")
     assert said(s, "/mm landmarks") == [SAY + "0 rares remembered. Target one, or pass one the game shows, and it'll "
                                                "appear on the map."]
