@@ -1,5 +1,5 @@
 {
- "build": "1.60.1.70450",
+ "build": "1.60.1.70532",
  "scores": {
   "0.borders.flat_share": 0.0319,
   "0.borders.line_flat_share": 0.0343,
@@ -23,6 +23,6 @@
   "1.borders.wrap_share": 0.0372,
   "1.borders.wrap_zones": 9,
   "1.skipped.base_tiles": 0,
-  "data.stale_files": 11
+  "data.stale_files": 0
  }
 }
