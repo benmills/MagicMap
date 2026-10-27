@@ -19,7 +19,7 @@ cd "$(dirname "$0")/.."
 .venv/bin/python tools/lint_div.py
 # The map's quality scores against the committed baseline (docs/hardening-plan.md M5; ~1 s, ~2 s with
 # demo/tiles: its art checks are skipped without them, as in CI). Better: --write-baseline ratchets it.
-.venv/bin/python tools/maplint.py --no-install -q --baseline tools/maplint-baseline.json
+.venv/bin/python tools/maplint.py --no-install --no-art -q --baseline tools/maplint-baseline.json
 if [ "${1:-}" = --quick ]; then
 	shift
 	# -k picks a few tests: starting workers costs more than they save.

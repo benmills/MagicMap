@@ -78,9 +78,8 @@ from mmtools.formats import blp_dxt  # noqa: E402
 from mmtools.luaout import load_data  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# Debug output never goes into the repo: $MAGICMAP_LINT_OUT, else the lead's scratchpad, else the temp dir.
-_PAD = "/private/tmp/claude-501/-Users-benmills-code-magic-map/79566c4f-2f3a-40f6-8483-218c9c616ca1/scratchpad"
-SCRATCH = os.environ.get("MAGICMAP_LINT_OUT") or os.path.join(_PAD if os.path.isdir(_PAD) else tempfile.gettempdir(), "maplint")
+# Debug output never goes into the repo: $MAGICMAP_LINT_OUT, else the temp dir.
+SCRATCH = os.environ.get("MAGICMAP_LINT_OUT") or os.path.join(tempfile.gettempdir(), "maplint")
 CONTINENTS = {0: "EasternKingdoms", 1: "Kalimdor"}
 CH = 16              # chunks a tile side
 GRID = 64 * CH       # chunks a map side
@@ -696,7 +695,9 @@ def run(ns) -> tuple[dict, list[str]]:
     tiles_dir = ns.tiles or os.environ.get("MAGICMAP_TILES") or os.path.join(ROOT, "demo", "tiles")
     overlays = []
     for inst in (ns.inst or list(CONTINENTS)):
-        if ns.wow and not ns.tiles:
+        if ns.no_art:
+            art, src = {}, None
+        elif ns.wow and not ns.tiles:
             art, src = art_from_install(ns.wow, ns.product, inst, data.tiles[inst], ns.out), f"install {ns.wow}"
         else:
             art, src = art_from_dir(tiles_dir, inst, data.tiles[inst]), tiles_dir
@@ -790,6 +791,8 @@ def main() -> int:
     ap.add_argument("--tiles", help="the demo's tile export (<dir>/<inst>/64/<key>.webp); default demo/tiles or $MAGICMAP_TILES")
     ap.add_argument("--wow", help="read the art from this install instead (cached in --out)")
     ap.add_argument("--product", default="wow_classic_beta")
+    ap.add_argument("--no-art", action="store_true", help="the data checks alone: no tile art read (tools/check.sh: the art's"
+                    " scores move with the local export and its codec, so they're not ratcheted)")
     ap.add_argument("--no-install", action="store_true", help="don't look for an installed build (CI, tools/check.sh)")
     ap.add_argument("--inst", type=int, action="append", help="a continent (0, 1); default both")
     ap.add_argument("--issues", metavar="FILE", help="write the issues file (JSON; - for stdout)")
