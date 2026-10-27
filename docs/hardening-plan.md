@@ -86,10 +86,10 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 
 | id | problem | evidence | status |
 | --- | --- | --- | --- |
-| M1 | Game data comes from two builds: Base from 70532 (the client's), the rest from 70450. Where 70532 has land that 70450 had as sea, the tile is skipped and the base picture shows as pale blocks (east Loch Modan, south of Blasted Lands). | Data/*.lua headers; Data/TileColor.lua sea keys (41,34..38), (42,31..39), (40,54..56). | open |
+| M1 | Game data headers name two builds (Base 70532, the rest 70450). Corrected 2026-10-27: the 70532 data is byte-identical (headers only), and no skipped sea tile shows land in the game's art or the base picture, so this is *not* the pale-block cause. The pale blocks in the screenshots come from the hosted demo, which is the terrain lab (~/code/magic-map-lab: a separate renderer drawing all 3,322 ADT tiles), not this repo's demo or the addon. Still: regenerate from 70532 so the headers match the client. | maplint data check; linter report | open |
 | M2 | Unfinished terrain: flat untextured land in the game's own tiles (east Loch Modan, north of the Plaguelands, the Hinterlands' coast, south-west of Dun Morogh, south of Blasted Lands). | probe: 3,568 flat land chunks in Eastern Kingdoms. | open |
 | M3 | Zone borders wrap unplayable land the game assigns to a zone (Wetlands' east and west coasts, west of Dun Morogh). | screenshots 2026-10-27. | open |
-| M4 | A few tile-edge seams. | probe: 5 of 1,402 edges with a jump over 3 times the tile's own variation. | open |
+| M4 | Seams: 0 tile edges by the linter; 6 colour blocks (worst 29,42 and 29,40, Dun Morogh's west coast). The demo's WebP export lifts dark sea from (5,7,7) to (8,17,16), so drawn sea tiles read paler than the backdrop in skipped ones (86 sea edges in the demo, 0 in game art). | maplint | open |
 | M5 | No linter to score the map and ratchet it. | — | open |
 | M6 | No shared place to review map issues: the user wants the linter's issues in the web demo, on the exe VM, each marked accepted / rejected / later, with notes, and the decisions readable by Claude. | user, 2026-10-27 | open |
 
@@ -97,5 +97,8 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 
 - 2026-10-27: plan written; 2.1 work committed (60e3daf). Design notes proposed: ADR 0009 (the pin set), ADR 0010
   (settings ownership). Started in parallel: the sim checks (T1, T2, T3, T7) and the map linter (M1-M5).
+- 2026-10-27: the linter reported: flat land 3.66% of Eastern Kingdoms in 59 regions (worst SW of Dun Morogh, Eastern
+  Plaguelands' north, Tirisfal, east Loch Modan, the Arathi coast); border wrap worst in Wetlands (16.7% of its
+  outline), then Eastern Plaguelands, Arathi, Tirisfal. M1 corrected (see the row).
 - 2026-10-27: merged the sim checks (T.Drawn, T.OneThing behind T.strictPins, P1 and P2's strict xfails, the reload
   round trip); reviewed, 229 passed + 5 xfailed. New rows S9, P9.
