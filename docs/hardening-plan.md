@@ -110,3 +110,9 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
   locally (proxied to the VM). The issues file is from the installed client's art (150 issues). New row M7.
 - 2026-10-27: M6 deployed to magic-map-outdoor (targeted update over infra's bin/vm-ssh; marks in
   /var/lib/magic-map-outdoor; token in mills.systems:~dev/infra/secrets/magic-map-outdoor.env).
+- 2026-10-28: reviewed the linter's 150 issues with the user on the hosted demo. Border slivers, colour blocks and
+  border wraps were mostly false (they judged the outline data and mean colours, not what's drawn); fixed and merged:
+  wraps and slivers judge the drawn lines (new kind border-fragment: The Great Sea's piece of Kalimdor's coast),
+  colour blocks must jump at their own edges, dark green sea is water, skipped tiles skip edge stripes. 150 -> 99
+  issues. M3: the drawn lines don't wrap Wetlands' coasts; that wrap is only the demo's hover outline. Flat land
+  (M2) kept: no rule separates smooth natural ground from the filler, so those are rejected by hand.
