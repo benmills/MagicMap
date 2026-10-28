@@ -10,20 +10,24 @@ Checks (issue kinds in brackets):
   data       game-derived Data/*.lua headers all name one build (with an install found, the installed
              client's) [data] (M1).
   skipped    tiles not drawn (Data/TileColor.lua sea) where the base picture (Data/Base.lua,
-             Textures/Base*.blp) or the tile's art shows land [skipped-tile]; and, with art, where a drawn
+             Textures/Base*.blp) shows land or the tile's art strays from the backdrop (by over SEA_EDGE, past
+             the solid stripes some empty tiles have along their edges) [skipped-tile]; and, with art, where a drawn
              neighbour's water at the shared edge is far from the backdrop that shows in the skipped tile's
              place: a tile-aligned block in the sea [sea-edge] (M1).
   flat       flat untextured land: a chunk (1/16 tile, 4x4 px of the 64 px art) whose grey std is under
-             FLAT_STD and that isn't water; connected regions [flat-land] (M2).
-  seams      tile edges whose jump is SEAM_RATIO times the tiles' own variation [seam]; tiles whose mean
-             land colour is far from every neighbour's [colour-block] (M4).
+             FLAT_STD and that isn't water; connected regions [flat-land] (M2). Also smooth natural ground
+             (snow, sand, smooth grass): none the 70532 review rejected has liquid (MH2O), and no rule found
+             separates them from the filler by colour, size, heights or texture layers.
+  seams      tile edges whose jump is SEAM_RATIO times the tiles' own variation [seam]; tiles whose colour
+             jumps at their own edges on BLOCK_SIDES of their drawn sides, as seams or as one colour offset
+             BLOCK_SHIFT times the gradient beside the edges (a misplaced or tinted tile) [colour-block] (M4).
   borders    Data/Borders.lua's outlines and lines, per zone: the wrap, its outline's chunks that aren't
              playable land (Walk.lua blocked or water, or with art flat) and reach the sea through such
              chunks: land the border wraps past the coast [border-wrap]; the share of border length over
              water or flat land (shore fades left out); rings that are tiny or slivers [border-sliver] (M3).
 
 Water is a chunk Walk.lua calls water or one in a tile not drawn (open sea) or missing; with art also one
-whose pixels are mostly the minimap's water colour (tools/gen_base.py's test). Data-only scores use the
+whose pixels are mostly the minimap's water colour (WATER_*: dark, green to blue). Data-only scores use the
 first alone, so they're the same with art and without.
 
 The art is the web demo's export (demo/tiles/<inst>/64/<key>.webp, gitignored: --tiles, default demo/tiles
@@ -89,8 +93,11 @@ CPX = PX // CH       # px a chunk
 FLAT_STD = 1.5       # a chunk's grey std under this (0..255) is flat
 FLAT_REGION = 4      # chunks: a smaller flat region is counted, not an issue
 SEAM_RATIO, SEAM_JUMP = 3.0, 6.0   # an edge's jump over 3x the tiles' own variation, and over 6
-BLOCK_LAND, BLOCK_DIST = 0.6, 40.0 # a tile mostly land whose land mean is this far (RGB) from every neighbour's
+BLOCK_SIDES = 3      # a colour block's edges jump on this many of its drawn sides (of 4)...
+BLOCK_SHIFT = 2.0    # ...as seams, or as one colour offset this many times the gradient beside the edges
+SHIFT_BAND = 4       # px: the edge bands whose mean colours the offset compares
 SKIP_BASE, SKIP_ART = 0.02, 0.02   # share of a sea tile that's land in the base picture / its art
+STRIPE_STD = 3.0     # an edge line of a sea tile's art this uniform (RGB std) and off the backdrop is a painted stripe
 SEA_EDGE = 8.0       # mean |RGB| between a drawn neighbour's edge water and the backdrop
 WRAP_CHUNKS, WRAP_SHARE = 100, 0.05  # a zone's wrap is an issue at either
 SLIVER_AREA = 0.06   # tiles squared (~15 chunks): a ring smaller is tiny
@@ -98,8 +105,11 @@ SLIVER_WIDTH = 0.08  # tiles: a ring whose mean width (2 area / perimeter) is un
 MASK_RUNS = 4000     # an issue's mask at most this many runs (else left out)
 TOL = 1e-9
 
-# gen_base.py's water: dark and blue-green (R low, B not far under G), or nearly black.
-WATER_R, WATER_BG, BLACK = 24, 0.5, 14
+# Water: dark and green to blue (R low, G at least R, B over WATER_BG G), or nearly black. gen_base.py's test
+# with B > 0.5 G missed the dark green-tinted sea along coasts (~(17,32,16)); this one, against the ADT liquids
+# (MH2O) of 70532's drawn tiles, finds 83% of water chunks in EK (was 70%; Kalimdor 79%, was 63%) and calls 20 of
+# 87k dry chunks water (was 50). The unfinished filler (hardening-plan M2: R over 50) stays land.
+WATER_R, WATER_BG, BLACK = 24, 0.3, 14
 
 
 # --- reading -----------------------------------------------------------------------
@@ -262,7 +272,24 @@ def art_from_install(wow: str, product: str, inst: int, tiles: dict[int, int], c
 
 def water_px(a: np.ndarray) -> np.ndarray:
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    return ((r < WATER_R) & (b > g * WATER_BG)) | (a.max(-1) < BLACK)
+    return ((r < WATER_R) & (g >= r) & (b > g * WATER_BG)) | (a.max(-1) < BLACK)
+
+
+def unstriped(a: np.ndarray, bgc: np.ndarray) -> np.ndarray:
+    """A sea tile's art without the solid stripes Blizzard paints along some empty tiles' edges (magenta on GM
+    Island, pale yellow east of Kalimdor; 4-8 px at 64): edge lines, uniform and off the backdrop, and the
+    resampled line past them."""
+    def band(lines):
+        n = 0
+        for ln in lines:
+            if ln.std(0).max() >= STRIPE_STD or np.abs(ln.mean(0) - bgc).max() <= SEA_EDGE:
+                break
+            n += 1
+        return n + 1 if n else 0
+    h = a.shape[0]
+    t, b = band(a[i] for i in range(h // 2)), band(a[h - 1 - i] for i in range(h // 2))
+    l, r = band(a[:, i] for i in range(h // 2)), band(a[:, h - 1 - i] for i in range(h // 2))
+    return a[t:h - b, l:h - r]
 
 
 def base_picture(base: dict | None) -> np.ndarray | None:
@@ -367,7 +394,7 @@ class Continent:
                     why["base_land"] = round(share, 3)
             a = self.art.get(k)
             if a is not None:
-                share = float((~water_px(a)).mean())
+                share = float((np.abs(unstriped(a, bgc) - bgc).max(-1) > SEA_EDGE).mean())
                 if share > SKIP_ART:
                     why["art_land"] = round(share, 3)
             if why:
@@ -375,7 +402,7 @@ class Continent:
                 out.append(issue("skipped-tile", self.inst, f"{c},{r}", [c, r, c + 1, r + 1], [c + .5, r + .5], sev * 100,
                                  self.zone_at(c + .5, r + .5), why,
                                  f"tile {c},{r} isn't drawn (open sea) but its " + " and ".join(
-                                     f"{'base picture' if w == 'base_land' else 'art'} is {v:.0%} land" for w, v in why.items())))
+                                     f"base picture is {v:.0%} land" if w == "base_land" else f"art is {v:.0%} off the backdrop" for w, v in why.items())))
         return out
 
     def sea_edges(self) -> list[dict]:
@@ -447,15 +474,9 @@ class Continent:
                 n = self.art.get(nk)
                 if n is None or nk in sea:
                     continue
-                if dc:
-                    e1, e2, i1, i2 = a[:, -1], n[:, 0], a[:, -2], n[:, 1]
-                    bbox = [c + 1, r, c + 1, r + 1]
-                else:
-                    e1, e2, i1, i2 = a[-1, :], n[0, :], a[-2, :], n[1, :]
-                    bbox = [c, r + 1, c + 1, r + 1]
-                jump = float(np.abs(e1 - e2).mean())
-                inner = float((np.abs(e1 - i1).mean() + np.abs(e2 - i2).mean()) / 2) + 1
-                if jump / inner > SEAM_RATIO and jump > SEAM_JUMP:
+                bbox = [c + 1, r, c + 1, r + 1] if dc else [c, r + 1, c + 1, r + 1]
+                jump, inner = edge_jump(a, n, bool(dc))
+                if is_seam(jump, inner):
                     cen = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
                     out.append(issue("seam", self.inst, f"{c},{r},{side}", bbox, cen, jump / inner, self.zone_at(*cen),
                                      {"ratio": round(jump / inner, 2), "jump": round(jump, 1)},
@@ -463,22 +484,36 @@ class Continent:
         return out
 
     def blocks(self) -> list[dict]:
-        sea, means = self.data.sea[self.inst], {}
+        """Tiles whose colour jumps at their own edges, on BLOCK_SIDES or more drawn sides: as seams (a misplaced
+        tile breaks the texture) or as one shift (a tinted tile is off its neighbours by the same colour on every
+        side). A biome edge or a coast runs on through the neighbours, so neither."""
+        out, sea = [], self.data.sea[self.inst]
         for k, a in self.art.items():
-            land = ~water_px(a)
-            if k not in sea and land.mean() >= BLOCK_LAND:
-                means[k] = a[land].mean(0)
-        out = []
-        for k, m in means.items():
-            c, r = k // 64, k % 64
-            ns = [means[n] for n in ((c - 1) * 64 + r, (c + 1) * 64 + r, k - 1, k + 1) if n in means]
-            if len(ns) < 2:
+            if k in sea:
                 continue
-            d = min(float(np.linalg.norm(m - n)) for n in ns)
-            if d > BLOCK_DIST:
-                out.append(issue("colour-block", self.inst, f"{c},{r}", [c, r, c + 1, r + 1], [c + .5, r + .5], d, self.zone_at(c + .5, r + .5),
-                                 {"dist": round(d, 1), "neighbours": len(ns)},
-                                 f"tile {c},{r}'s land colour is {d:.0f} (RGB) from its nearest neighbour's: a tile-aligned block"))
+            c, r = k // 64, k % 64
+            seams, shifts, grads = "", [], []
+            for nk, side in ((k + 64, "E"), (k - 64, "W"), (k + 1, "S"), (k - 1, "N")):
+                n = self.art.get(nk)
+                if n is None or nk in sea:
+                    continue
+                if is_seam(*(edge_jump(a, n, side == "E") if side in "ES" else edge_jump(n, a, side == "W"))):
+                    seams += side
+                d, g = edge_shift(a, n, side)
+                shifts.append(d)
+                grads.append(g)
+            if len(shifts) < BLOCK_SIDES:
+                continue
+            m = np.mean(shifts, 0)
+            u = m / (np.linalg.norm(m) + TOL)
+            shift = sorted(float(d @ u) for d in shifts)[-BLOCK_SIDES] / (float(np.mean(grads)) + 1)  # the BLOCK_SIDES-th side's
+            if len(seams) >= BLOCK_SIDES or shift > BLOCK_SHIFT:
+                why = (f"seams on {len(seams)} of {len(shifts)} sides ({seams})" if len(seams) >= BLOCK_SIDES else
+                       f"its colour is off its neighbours' by ({', '.join(f'{v:+.0f}' for v in m)}) RGB, {shift:.1f}x the gradient beside its edges")
+                out.append(issue("colour-block", self.inst, f"{c},{r}", [c, r, c + 1, r + 1], [c + .5, r + .5], max(shift, len(seams)),
+                                 self.zone_at(c + .5, r + .5),
+                                 {"seams": seams, "shift": round(shift, 2), "offset": [round(float(v), 1) for v in m], "sides": len(shifts)},
+                                 f"tile {c},{r}: {why}: a tile-aligned block"))
         return out
 
     def zone_masks(self) -> dict[int, np.ndarray]:
@@ -575,6 +610,34 @@ class Continent:
                                f"{r['zone']}'s outline wraps {r['wrap']} chunks ({share:.1%}) of blocked, water or flat land "
                                f"that reach the sea; {lb:.0%} of its border line runs over water or flat land", mask_of(r["cells"])))
         return wraps, slivers, tot, samples
+
+
+def edge_jump(a: np.ndarray, n: np.ndarray, east: bool) -> tuple[float, float]:
+    """The edge between tile art a and its east (or south) neighbour n: (mean jump across it, the tiles' own
+    variation beside it + 1)."""
+    if east:
+        e1, e2, i1, i2 = a[:, -1], n[:, 0], a[:, -2], n[:, 1]
+    else:
+        e1, e2, i1, i2 = a[-1, :], n[0, :], a[-2, :], n[1, :]
+    return float(np.abs(e1 - e2).mean()), float((np.abs(e1 - i1).mean() + np.abs(e2 - i2).mean()) / 2) + 1
+
+
+def edge_shift(t: np.ndarray, n: np.ndarray, side: str) -> tuple[np.ndarray, float]:
+    """Tile art t against its neighbour n on side (E, W, S, N): t's edge band (SHIFT_BAND px) minus n's facing band,
+    as mean RGB; and the gradient beside the edge (|band - the next band in|, the two tiles' mean)."""
+    if side in "NS":
+        t, n = t.transpose(1, 0, 2), n.transpose(1, 0, 2)
+    B = SHIFT_BAND
+    if side in "ES":
+        t0, t1, n0, n1 = t[:, -B:], t[:, -2 * B:-B], n[:, :B], n[:, B:2 * B]
+    else:
+        t0, t1, n0, n1 = t[:, :B], t[:, B:2 * B], n[:, -B:], n[:, -2 * B:-B]
+    t0, t1, n0, n1 = (x.mean((0, 1)) for x in (t0, t1, n0, n1))
+    return t0 - n0, float(np.linalg.norm(t0 - t1) + np.linalg.norm(n0 - n1)) / 2
+
+
+def is_seam(jump: float, inner: float) -> bool:
+    return jump / inner > SEAM_RATIO and jump > SEAM_JUMP
 
 
 def issue(kind, inst, place, bbox, centroid, severity, zone, metrics, desc, mask=None) -> dict:
