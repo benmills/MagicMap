@@ -17,10 +17,14 @@ Checks (issue kinds in brackets):
              FLAT_STD and that isn't water; connected regions [flat-land] (M2).
   seams      tile edges whose jump is SEAM_RATIO times the tiles' own variation [seam]; tiles whose mean
              land colour is far from every neighbour's [colour-block] (M4).
-  borders    Data/Borders.lua's outlines and lines, per zone: the wrap, its outline's chunks that aren't
-             playable land (Walk.lua blocked or water, or with art flat) and reach the sea through such
-             chunks: land the border wraps past the coast [border-wrap]; the share of border length over
-             water or flat land (shore fades left out); rings that are tiny or slivers [border-sliver] (M3).
+  borders    Data/Borders.lua's lines, as drawn (the addon draws them alone; an outline is only the web
+             demo's hover highlight), and outlines: per zone, the drawn (unfaded) line running WRAP_RUN or
+             more over water (with art, or flat land), all four chunks round it so, counted to whichever
+             of the line's two zones AreaGrid gives most of those chunks [border-wrap] (not over blocked
+             land: borders follow ridges); the share of drawn line over water or flat land; outline
+             rings tiny or slivers with drawn line along SLIVER_DRAWN of them [border-sliver]; a zone with
+             drawn line but under FRAGMENT chunks of land, or no name (The Great Sea's piece of Kalimdor's
+             coast): a stray piece of an area, bordered as if a place [border-fragment] (M3).
 
 Water is a chunk Walk.lua calls water or one in a tile not drawn (open sea) or missing; with art also one
 whose pixels are mostly the minimap's water colour (tools/gen_base.py's test). Data-only scores use the
@@ -46,9 +50,10 @@ Issues file (schema 1):
                 metrics: {...}, mask?: { x0, y0, w, h, rle } } ] }
   Positions are tile space (Data: col, row 0..64). id = "<kind>:<inst>:<place>", place a rounded tile, an
   edge, a zone's areaID or a file name: stable across reruns and small threshold changes. severity: higher
-  is worse, comparable within a kind. mask (flat-land, border-wrap; at most MASK_RUNS runs): the chunks
-  (16 a tile) in the box x0, y0 (chunk units), w by h, row by row as run lengths, off first (the runs
-  alternate off, on, ...; what follows the last is off). Data issues have inst -1 and no place on the map.
+  is worse, comparable within a kind. mask (flat-land; border-wrap: the chunks round its bad line;
+  border-fragment; at most MASK_RUNS runs): the chunks (16 a tile) in the box x0, y0 (chunk units), w by
+  h, row by row as run lengths, off first (the runs alternate off, on, ...; what follows the last is
+  off). Data issues have inst -1 and no place on the map.
 
 Web-demo links use the demos' hash, #map=<inst>&view=2d&x=<col>&y=<row>&z=<px per tile> (tile space), on
 --demo (default http://localhost:8000/, demo/server.py, which draws Eastern Kingdoms only; the hosted addon
@@ -92,9 +97,13 @@ SEAM_RATIO, SEAM_JUMP = 3.0, 6.0   # an edge's jump over 3x the tiles' own varia
 BLOCK_LAND, BLOCK_DIST = 0.6, 40.0 # a tile mostly land whose land mean is this far (RGB) from every neighbour's
 SKIP_BASE, SKIP_ART = 0.02, 0.02   # share of a sea tile that's land in the base picture / its art
 SEA_EDGE = 8.0       # mean |RGB| between a drawn neighbour's edge water and the backdrop
-WRAP_CHUNKS, WRAP_SHARE = 100, 0.05  # a zone's wrap is an issue at either
+WRAP_RUN = 0.25      # tiles: drawn (unfaded) line this long over water or flat land, its chunks all round, is a wrap
+WRAP_GAP = 1 / 16    # tiles: ...through gaps this short
 SLIVER_AREA = 0.06   # tiles squared (~15 chunks): a ring smaller is tiny
 SLIVER_WIDTH = 0.08  # tiles: a ring whose mean width (2 area / perimeter) is under this is a sliver
+SLIVER_DRAWN = 0.25  # ...an issue when this share of its perimeter has drawn line along it (else nothing shows)
+LINE_NEAR = 1 / 32   # tiles: a ring's point this near a drawn line's sample is drawn
+FRAGMENT = 64        # chunks: a zone with less land than this on a continent (or no name) is a stray piece
 MASK_RUNS = 4000     # an issue's mask at most this many runs (else left out)
 TOL = 1e-9
 
@@ -283,18 +292,6 @@ def dilate(m: np.ndarray) -> np.ndarray:
     o[:, 1:] |= m[:, :-1]
     o[:, :-1] |= m[:, 1:]
     return o
-
-
-def reach(seed: np.ndarray, within: np.ndarray) -> np.ndarray:
-    """The chunks of `within` connected (4-way) to seed through `within`."""
-    cur = seed & within
-    n = int(cur.sum())
-    while True:
-        cur = dilate(cur) & within
-        m = int(cur.sum())
-        if m == n:
-            return cur
-        n = m
 
 
 def mask_of(cells: np.ndarray) -> dict | None:
@@ -494,49 +491,25 @@ class Continent:
                 self.masks[z] = acc
         return self.masks
 
-    def borders(self, with_art: bool) -> tuple[list[dict], list[dict], dict, list]:
-        """(wrap issues, sliver issues, totals, line samples (x, y, kind) for the overlays)."""
-        masks = self.zone_masks()
-        inside = np.zeros((GRID, GRID), bool)
-        for m in masks.values():
-            inside |= m
-        unplay_data = (self.cls != 1) | self.water_data
-        unplay = unplay_data | self.water | self.flat if with_art else unplay_data
-        sea_data = dilate(self.water_data & ~inside)
-        sea = dilate(self.water & ~inside)
-        tot = dict.fromkeys(("enclosed", "water", "flat", "wrap_data", "wrap", "len", "len_water", "len_flat", "slivers"), 0)
-        rows, slivers = {}, []
-        for z, m in masks.items():
-            n = int(m.sum())
-            if not n:
-                continue
-            wrap_d = reach(sea_data & m & unplay_data, m & unplay_data)
-            wrap = reach(sea & m & unplay, m & unplay) if with_art else wrap_d
-            row = {"id": z, "zone": self.data.names.get(z, str(z)), "enclosed": n, "water": int((m & self.water_data).sum()),
-                   "flat": int((m & self.flat).sum()), "wrap": int(wrap.sum()), "wrap_data": int(wrap_d.sum()),
-                   "len": 0.0, "len_water": 0.0, "len_flat": 0.0, "cells": wrap}
-            rows[z] = row
-            for k in ("enclosed", "water", "flat", "wrap", "wrap_data"):
-                tot[k] += row[k]
-            for ring in self.data.outlines[self.inst][z]:
-                pts = [(ring[i], ring[i + 1]) for i in range(0, len(ring), 2)]
-                area = abs(sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]))) / 2
-                per = sum(math.dist(p, q) for p, q in zip(pts, pts[1:] + pts[:1]))
-                width = 2 * area / per if per else 0
-                if area < SLIVER_AREA or width < SLIVER_WIDTH:
-                    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
-                    cen = [sum(xs) / len(xs), sum(ys) / len(ys)]
-                    tot["slivers"] += 1
-                    slivers.append(issue("border-sliver", self.inst, f"{z}:{round(cen[0] * 2) / 2},{round(cen[1] * 2) / 2}",
-                                         [min(xs), min(ys), max(xs), max(ys)], cen, 1 / max(area, 1e-3), row["zone"],
-                                         {"area": round(area, 3), "width": round(width, 3), "zoneID": z},
-                                         f"{row['zone']}'s outline has a {'tiny' if area < SLIVER_AREA else 'sliver'} ring: "
-                                         f"{area:.3f} tiles², {width:.3f} tiles wide"))
-        samples, step = [], 1 / (CH * 2)
+    def borders(self, with_art: bool) -> tuple[list[dict], list[dict], list[dict], dict, list]:
+        """(wrap, sliver and fragment issues, totals, line samples (x, y, kind) for the overlays). The addon draws
+        the lines alone (an outline is the demo's hover highlight), so the issues judge what's drawn."""
+        masks, names, zg = self.zone_masks(), self.data.names, self.data.zone_grid[self.inst]
+        bad = (self.water | self.flat) if with_art else self.water_data
+        tot = dict.fromkeys(("enclosed", "water", "flat", "len", "len_water", "len_flat", "slivers", "fragments"), 0)
+        rows, none = {}, np.zeros((GRID, GRID), bool)
+        for z in sorted(set(masks) | {int(line[i]) for line in self.data.lines[self.inst] for i in (0, 1)}):
+            m = masks.get(z, none)  # (a zone with lines but no outline: no land)
+            rows[z] = {"id": z, "zone": names.get(z, str(z)), "enclosed": int(m.sum()), "water": int((m & self.water_data).sum()),
+                       "flat": int((m & self.flat).sum()), "len": 0.0, "len_water": 0.0, "len_flat": 0.0,
+                       "with": set(), "drawn": [], "wrap": [], "wrap_data": []}
+            for k in ("enclosed", "water", "flat"):
+                tot[k] += rows[z][k]
+        samples, near, step = [], {}, 1 / (CH * 2)
         for line in self.data.lines[self.inst]:
             a, b, fs, fe = int(line[0]), int(line[1]), line[2], line[3]
             pts = [(line[i], line[i + 1]) for i in range(4, len(line), 2)]
-            total, s = sum(math.dist(p, q) for p, q in zip(pts, pts[1:])), 0.0
+            total, s, seq = sum(math.dist(p, q) for p, q in zip(pts, pts[1:])), 0.0, []
             for p, q in zip(pts, pts[1:]):
                 d = math.dist(p, q)
                 n = max(1, int(d / step))
@@ -545,36 +518,129 @@ class Continent:
                     x, y = p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t
                     if not fs <= s + d * t <= total - fe:
                         samples.append((x, y, "fade"))
+                        seq.append(None)
                         continue
                     gy, gx = min(GRID - 1, int(y * CH)), min(GRID - 1, int(x * CH))
                     kind = "water" if self.water_data[gy, gx] else "flat" if self.flat[gy, gx] else "land"
                     samples.append((x, y, kind))
+                    near.setdefault((gx, gy), []).append((x, y))
                     seg = d / n
+                    seq.append((x, y, seg))
                     tot["len"] += seg
                     if kind != "land":
                         tot["len_" + kind] += seg
-                    for zz in (a, b):
-                        if zz in rows:
-                            rows[zz]["len"] += seg
-                            if kind != "land":
-                                rows[zz]["len_" + kind] += seg
+                    for zz, other in ((a, b), (b, a)):
+                        rows[zz]["len"] += seg
+                        rows[zz]["with"].add(other)
+                        rows[zz]["drawn"].append((x, y))
+                        if kind != "land":
+                            rows[zz]["len_" + kind] += seg
                 s += d
+            art_st = wrap_stretches(seq, bad)
+            for key, sts in (("wrap", art_st), ("wrap_data", wrap_stretches(seq, self.water_data) if with_art else art_st)):
+                for length, cells in sts:
+                    rows[owner(zg, cells, a, b)][key].append((length, cells))
+        slivers, fragments = [], []
+        for z, row in rows.items():
+            for ring in self.data.outlines[self.inst].get(z, ()):
+                pts = [(ring[i], ring[i + 1]) for i in range(0, len(ring), 2)]
+                area = abs(sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]))) / 2
+                per = sum(math.dist(p, q) for p, q in zip(pts, pts[1:] + pts[:1]))
+                width = 2 * area / per if per else 0
+                if area >= SLIVER_AREA and width >= SLIVER_WIDTH:
+                    continue
+                drawn = drawn_share(pts, near)
+                if drawn < SLIVER_DRAWN:
+                    continue
+                xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+                cen = [sum(xs) / len(xs), sum(ys) / len(ys)]
+                tot["slivers"] += 1
+                slivers.append(issue("border-sliver", self.inst, f"{z}:{round(cen[0] * 2) / 2},{round(cen[1] * 2) / 2}",
+                                     [min(xs), min(ys), max(xs), max(ys)], cen, 1 / max(area, 1e-3), row["zone"],
+                                     {"area": round(area, 3), "width": round(width, 3), "drawn": round(drawn, 3), "zoneID": z},
+                                     f"{row['zone']}'s outline has a {'tiny' if area < SLIVER_AREA else 'sliver'} ring: "
+                                     f"{area:.3f} tiles², {width:.3f} tiles wide, {drawn:.0%} of it drawn as border line"))
+            if row["len"] and (row["enclosed"] < FRAGMENT or z not in names):
+                xs, ys = zip(*row["drawn"])  # (the box: its drawn lines')
+                others = ", ".join(sorted(names.get(o, str(o)) for o in row["with"]))
+                tot["fragments"] += 1
+                fragments.append(issue("border-fragment", self.inst, f"z{z}", [min(xs), min(ys), max(xs), max(ys)],
+                                       [sum(xs) / len(xs), sum(ys) / len(ys)], row["len"], row["zone"],
+                                       {"enclosed": row["enclosed"], "line": round(row["len"], 2), "with": others, "zoneID": z},
+                                       f"{row['zone']} gets {row['len']:.2f} tiles of drawn border line (with {others}) round "
+                                       f"{row['enclosed']} chunks of land: a stray piece of an area, bordered as if a place",
+                                       mask_of(masks[z]) if z in masks else None))
         wraps = []
-        tot["wrap_zones"] = sum(1 for r in rows.values()  # (the score: data only, the same with art and without)
-                                if r["wrap_data"] >= WRAP_CHUNKS or r["wrap_data"] / r["enclosed"] >= WRAP_SHARE)
+        tot["line_wrap"] = sum(length for r in rows.values() for length, _ in r["wrap_data"])  # (the scores: data only,
+        tot["line_wrap_art"] = sum(length for r in rows.values() for length, _ in r["wrap"])
+        tot["line_wrap_zones"] = sum(1 for r in rows.values() if r["wrap_data"])               # the same with art and without)
         for r in rows.values():
-            share = r["wrap"] / r["enclosed"]
-            if r["wrap"] < WRAP_CHUNKS and share < WRAP_SHARE:
+            if not r["wrap"]:
                 continue
-            ys, xs = np.nonzero(r["cells"])
+            cells = np.zeros((GRID, GRID), bool)
+            for _, cs in r["wrap"]:
+                cells[tuple(np.array(cs).T)] = True
+            L, longest = sum(length for length, _ in r["wrap"]), max(length for length, _ in r["wrap"])
+            ys, xs = np.nonzero(cells)
             cen = [(xs.mean() + .5) / CH, (ys.mean() + .5) / CH]
             lb = (r["len_water"] + r["len_flat"]) / r["len"] if r["len"] else 0.0
-            wraps.append(issue("border-wrap", self.inst, f"z{r['id']}", box_of(r["cells"]), cen, r["wrap"], r["zone"],
-                               {"wrap": r["wrap"], "wrap_share": round(share, 4), "enclosed": r["enclosed"], "water": r["water"],
-                                "flat": r["flat"], "line": round(r["len"], 2), "line_bad_share": round(lb, 4), "zoneID": r["id"]},
-                               f"{r['zone']}'s outline wraps {r['wrap']} chunks ({share:.1%}) of blocked, water or flat land "
-                               f"that reach the sea; {lb:.0%} of its border line runs over water or flat land", mask_of(r["cells"])))
-        return wraps, slivers, tot, samples
+            wraps.append(issue("border-wrap", self.inst, f"z{r['id']}", box_of(cells), cen, L, r["zone"],
+                               {"wrap_line": round(L, 2), "stretches": len(r["wrap"]), "longest": round(longest, 2),
+                                "line": round(r["len"], 2), "line_bad_share": round(lb, 4), "zoneID": r["id"]},
+                               f"{r['zone']}'s drawn border line runs {L:.2f} tiles over water{' or flat land' if with_art else ''} "
+                               f"({len(r['wrap'])} stretch{'es' if len(r['wrap']) > 1 else ''} of {WRAP_RUN:g}+ tiles, the longest {longest:.2f})",
+                               mask_of(cells)))
+        return wraps, slivers, fragments, tot, samples
+
+
+def wrap_stretches(seq: list, bad: np.ndarray) -> list[tuple[float, list]]:
+    """A line's unfaded samples (x, y, length; None where faded): its stretches of WRAP_RUN or more whose
+    four chunks round each sample are all `bad` (through gaps up to WRAP_GAP), as (length, chunks (y, x))."""
+    out, cur, gap, h = [], None, 0.0, 0.5 / CH
+    for e in seq + [None]:
+        cells = None
+        if e is not None:
+            x, y, seg = e
+            cells = [(min(GRID - 1, max(0, int((y + dy) * CH))), min(GRID - 1, max(0, int((x + dx) * CH))))
+                     for dx in (-h, h) for dy in (-h, h)]
+            if not all(bad[c] for c in cells):
+                cells = None
+        if cells:
+            cur = cur or [0.0, []]
+            cur[0] += seg + gap
+            cur[1] += cells
+            gap = 0.0
+            continue
+        if cur is not None and e is not None and gap + e[2] <= WRAP_GAP:
+            gap += e[2]
+            continue
+        if cur is not None and cur[0] >= WRAP_RUN:
+            out.append((cur[0], cur[1]))
+        cur, gap = None, 0.0
+    return out
+
+
+def owner(zg: np.ndarray, cells: list, a: int, b: int) -> int:
+    """Of a line's two zones, the one AreaGrid gives more of a stretch's chunks (a on a tie)."""
+    na = sum(1 for c in cells if zg[c] == a)
+    nb = sum(1 for c in cells if zg[c] == b)
+    return b if nb > na else a
+
+
+def drawn_share(pts: list, near: dict) -> float:
+    """The share of a closed ring's perimeter within LINE_NEAR of a drawn line's sample (`near`: by chunk)."""
+    step, on, per = 1 / (CH * 4), 0.0, 0.0
+    for p, q in zip(pts, pts[1:] + pts[:1]):
+        d = math.dist(p, q)
+        n = max(1, int(d / step))
+        for i in range(n):
+            t = (i + .5) / n
+            x, y = p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t
+            gx, gy = int(x * CH), int(y * CH)
+            per += d / n
+            if any(math.dist((x, y), s) <= LINE_NEAR for dx in (-1, 0, 1) for dy in (-1, 0, 1) for s in near.get((gx + dx, gy + dy), ())):
+                on += d / n
+    return on / per if per else 0.0
 
 
 def issue(kind, inst, place, bbox, centroid, severity, zone, metrics, desc, mask=None) -> dict:
@@ -615,8 +681,8 @@ def overlay(cont: Continent, out_dir: str, issues: list[dict], samples) -> list[
         return (col - c0) * S, (row - r0) * S
     os.makedirs(out_dir, exist_ok=True)
     paths, colours = [], {"skipped-tile": (0, 255, 255), "sea-edge": (0, 160, 255), "seam": (255, 40, 40),
-                          "colour-block": (255, 230, 0), "border-sliver": (0, 255, 0), "flat-land": (255, 255, 255), "border-wrap": (255, 255, 255)}
-    for which, kinds in (("tiles", ("skipped-tile", "sea-edge", "seam", "colour-block", "flat-land")), ("borders", ("border-wrap", "border-sliver"))):
+                          "colour-block": (255, 230, 0), "border-sliver": (0, 255, 0), "border-fragment": (255, 0, 0), "flat-land": (255, 255, 255), "border-wrap": (255, 255, 255)}
+    for which, kinds in (("tiles", ("skipped-tile", "sea-edge", "seam", "colour-block", "flat-land")), ("borders", ("border-wrap", "border-sliver", "border-fragment"))):
         p = pic.copy()
         if which == "tiles":
             tint(p, cont.flat, (255, 0, 255), 0.7)
@@ -735,25 +801,27 @@ def run(ns) -> tuple[dict, list[str]]:
             scores[P + "seams.blocks"] = len(blocks)
             show(f"seams: {len(seams)} edges over {SEAM_RATIO:g}x the tiles' variation", seams, zoom=256)
             show(f"colour blocks: {len(blocks)} tiles", blocks)
-        wraps, slivers, tot, samples = cont.borders(bool(art))
+        wraps, slivers, fragments, tot, samples = cont.borders(bool(art))
         wraps.sort(key=lambda i: -i["severity"])
         slivers.sort(key=lambda i: -i["severity"])
         E = tot["enclosed"]
         scores[P + "borders.water_share"] = round(tot["water"] / E, 4)
         scores[P + "borders.line_water_share"] = round(tot["len_water"] / tot["len"], 4)
-        scores[P + "borders.wrap_share"] = round(tot["wrap_data"] / E, 4)
-        scores[P + "borders.slivers"] = tot["slivers"]
+        scores[P + "borders.line_wrap"] = round(tot["line_wrap"], 2)
+        scores[P + "borders.line_wrap_zones"] = tot["line_wrap_zones"]
+        scores[P + "borders.drawn_slivers"] = tot["slivers"]
+        scores[P + "borders.fragments"] = tot["fragments"]
         if art:
             scores[P + "borders.flat_share"] = round(tot["flat"] / E, 4)
             scores[P + "borders.line_flat_share"] = round(tot["len_flat"] / tot["len"], 4)
-            scores[P + "borders.wrap_art_share"] = round(tot["wrap"] / E, 4)
-        scores[P + "borders.wrap_zones"] = tot["wrap_zones"]
+            scores[P + "borders.line_wrap_art"] = round(tot["line_wrap_art"], 2)
         say(f"  borders: outlines enclose {E} chunks: water {tot['water'] / E:.2%}" + (f", flat {tot['flat'] / E:.2%}" if art else "")
-            + f"; wrapped past the coast {tot['wrap_data'] / E:.2%} (blocked or water)" + (f", {tot['wrap'] / E:.2%} with flat" if art else "")
             + f"; border lines {tot['len']:.1f} tiles, over water {tot['len_water'] / tot['len']:.2%}"
-            + (f", flat {tot['len_flat'] / tot['len']:.2%}" if art else "") + " (shore fades left out)")
-        show(f"border wraps: {len(wraps)} zones over {WRAP_CHUNKS} chunks or {WRAP_SHARE:.0%}", wraps, zoom=64)
-        show(f"slivers: {len(slivers)} tiny or sliver rings", slivers, 5, zoom=256)
+            + (f", flat {tot['len_flat'] / tot['len']:.2%}" if art else "") + " (shore fades left out); in stretches of "
+            + f"{WRAP_RUN:g}+ tiles, {tot['line_wrap']:.2f} tiles over water" + (f", {tot['line_wrap_art']:.2f} with art's water and flat" if art else ""))
+        show(f"border wraps: {len(wraps)} zones with drawn line over water{' or flat land' if art else ''}", wraps, zoom=64)
+        show(f"slivers: {len(slivers)} tiny or sliver rings with drawn line along them", slivers, 5, zoom=256)
+        show(f"fragments: {len(fragments)} stray pieces of an area with drawn border line", fragments, 5, zoom=256)
         issues += mine
         if ns.overlays:
             overlays += overlay(cont, ns.out, mine, samples)

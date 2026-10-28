@@ -11,7 +11,7 @@ const Review = (() => {
   const CHUNKS = 16;
   const STATUS = { open: "#ff3df0", accepted: "#5ad17a", rejected: "#8a8a8a", later: "#f2b84c" };
   const KEYS = { a: "accepted", r: "rejected", l: "later", o: null };
-  const KIND = { "flat-land": "Flat land", "border-wrap": "Border wrap", "border-sliver": "Border sliver",
+  const KIND = { "flat-land": "Flat land", "border-wrap": "Border wrap", "border-sliver": "Border sliver", "border-fragment": "Border fragment",
     "colour-block": "Colour block", seam: "Seam", "skipped-tile": "Skipped tile", "sea-edge": "Sea edge", data: "Data" };
   const MAPS = { "-1": "data", 0: "Eastern Kingdoms", 1: "Kalimdor" };
   const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k) || ""; localStorage.setItem(k, v); } catch { return ""; } };
