@@ -116,3 +116,6 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
   colour blocks must jump at their own edges, dark green sea is water, skipped tiles skip edge stripes. 150 -> 99
   issues. M3: the drawn lines don't wrap Wetlands' coasts; that wrap is only the demo's hover outline. Flat land
   (M2) kept: no rule separates smooth natural ground from the filler, so those are rejected by hand.
+- 2026-10-29: the user found stepped, chunk-aligned patches (pale and green squares east of Loch Modan) that no
+  check caught: colour blocks are whole tiles, seams tile edges, flat land only the untextured filler. New kind
+  patch-edge: straight hard colour edges along the chunk grid (33 issues; ~2 look benign). 99 -> 132 issues.
