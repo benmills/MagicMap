@@ -1,0 +1,2087 @@
+{
+ "schema": 1,
+ "updated": "2026-10-29T16:36:21Z",
+ "decisions": {
+  "border-sliver:1:332:42.0,28.0": {
+   "id": "border-sliver:1:332:42.0,28.0",
+   "status": "accepted",
+   "note": "User: the real one. A lone piece of The Great Sea's area on the Durotar/Azshara coast; its whole outline is drawn as border lines with no fade.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:27Z"
+  },
+  "flat-land:0:30,32": {
+   "id": "flat-land:0:30,32",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:27Z"
+  },
+  "flat-land:0:30,33": {
+   "id": "flat-land:0:30,33",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:27Z"
+  },
+  "flat-land:0:31,31": {
+   "id": "flat-land:0:31,31",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:27Z"
+  },
+  "flat-land:0:30,33#2": {
+   "id": "flat-land:0:30,33#2",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:27Z"
+  },
+  "flat-land:0:40,39": {
+   "id": "flat-land:0:40,39",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:27Z"
+  },
+  "flat-land:0:31,31#2": {
+   "id": "flat-land:0:31,31#2",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  "flat-land:0:38,55": {
+   "id": "flat-land:0:38,55",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  "flat-land:0:30,51": {
+   "id": "flat-land:0:30,51",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  "flat-land:0:36,44": {
+   "id": "flat-land:0:36,44",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  "flat-land:1:40,28": {
+   "id": "flat-land:1:40,28",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  "flat-land:1:34,35": {
+   "id": "flat-land:1:34,35",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  "flat-land:1:26,41": {
+   "id": "flat-land:1:26,41",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  "flat-land:0:37,27": {
+   "id": "flat-land:0:37,27",
+   "status": "later",
+   "note": "Unsure: a flat brown patch with no terrain liquid, so not a pond as first noted; it could be filler. Needs your eye.",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:00Z"
+  },
+  "flat-land:0:31,27": {
+   "id": "flat-land:0:31,27",
+   "status": "later",
+   "note": "Unsure: a flat brown patch with no terrain liquid, so not a pond as first noted; it could be filler. Needs your eye.",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:01Z"
+  },
+  "flat-land:0:31,28": {
+   "id": "flat-land:0:31,28",
+   "status": "later",
+   "note": "Unsure: a flat brown patch with no terrain liquid, so not a pond as first noted; it could be filler. Needs your eye.",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:01Z"
+  },
+  "flat-land:0:33,28": {
+   "id": "flat-land:0:33,28",
+   "status": "later",
+   "note": "Unsure: a flat brown patch with no terrain liquid, so not a pond as first noted; it could be filler. Needs your eye.",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:01Z"
+  },
+  "flat-land:0:42,45": {
+   "id": "flat-land:0:42,45",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:01Z"
+  },
+  "flat-land:0:36,34": {
+   "id": "flat-land:0:36,34",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:01Z"
+  },
+  "flat-land:1:30,31": {
+   "id": "flat-land:1:30,31",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:01Z"
+  },
+  "flat-land:1:28,15": {
+   "id": "flat-land:1:28,15",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  "flat-land:1:28,15#2": {
+   "id": "flat-land:1:28,15#2",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  "flat-land:1:38,25": {
+   "id": "flat-land:1:38,25",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  "flat-land:1:38,25#2": {
+   "id": "flat-land:1:38,25#2",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  "flat-land:1:30,11": {
+   "id": "flat-land:1:30,11",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  "flat-land:1:30,12": {
+   "id": "flat-land:1:30,12",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  "flat-land:1:31,12": {
+   "id": "flat-land:1:31,12",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  "flat-land:1:37,24": {
+   "id": "flat-land:1:37,24",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:03Z"
+  },
+  "flat-land:1:37,24#2": {
+   "id": "flat-land:1:37,24#2",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:03Z"
+  },
+  "flat-land:1:34,29": {
+   "id": "flat-land:1:34,29",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:03Z"
+  },
+  "flat-land:0:30,41": {
+   "id": "flat-land:0:30,41",
+   "status": "rejected",
+   "note": "Bright snow saturates to flat white: natural, not filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  "skipped-tile:1:0,0": {
+   "id": "skipped-tile:1:0,0",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  "skipped-tile:1:0,1": {
+   "id": "skipped-tile:1:0,1",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  "skipped-tile:1:0,2": {
+   "id": "skipped-tile:1:0,2",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  "skipped-tile:1:1,0": {
+   "id": "skipped-tile:1:1,0",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  "skipped-tile:1:2,0": {
+   "id": "skipped-tile:1:2,0",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  "skipped-tile:1:45,20": {
+   "id": "skipped-tile:1:45,20",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  "skipped-tile:1:46,20": {
+   "id": "skipped-tile:1:46,20",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:32Z"
+  },
+  "skipped-tile:1:47,20": {
+   "id": "skipped-tile:1:47,20",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:32Z"
+  },
+  "flat-land:0:31,45": {
+   "id": "flat-land:0:31,45",
+   "status": "later",
+   "note": "Large flat olive-green plain with soft shading and a mountain edge; it could be the blank filler or a grassy plain, which earlier rulings rejected, so I can't tell from the image.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:04Z"
+  },
+  "flat-land:0:41,25": {
+   "id": "flat-land:0:41,25",
+   "status": "accepted",
+   "note": "Uniform textureless olive-brown fill with a straight edge against the mauve ground: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:04Z"
+  },
+  "flat-land:0:40,41": {
+   "id": "flat-land:0:40,41",
+   "status": "accepted",
+   "note": "Flat dark-brown filler east of the Loch Modan border, with the magenta on the smooth untextured strip.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:04Z"
+  },
+  "flat-land:0:39,35": {
+   "id": "flat-land:0:39,35",
+   "status": "rejected",
+   "note": "Natural valley floor between the hills, with soft shaded edges and a road-like shape: normal ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:04Z"
+  },
+  "flat-land:0:36,26": {
+   "id": "flat-land:0:36,26",
+   "status": "accepted",
+   "note": "Smooth dark olive-brown fill with stepped edges against the rocks and the zone line: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:04Z"
+  },
+  "flat-land:0:39,25": {
+   "id": "flat-land:0:39,25",
+   "status": "accepted",
+   "note": "Flat olive fill with no texture around the ruins, bounded by a hard straight band: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:04Z"
+  },
+  "flat-land:0:41,30": {
+   "id": "flat-land:0:41,30",
+   "status": "later",
+   "note": "Flat dark olive plain between the zone line and the cliffs; it looks like filler but also like a valley floor, so I'm unsure.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:05Z"
+  },
+  "flat-land:0:37,25": {
+   "id": "flat-land:0:37,25",
+   "status": "accepted",
+   "note": "Flat untextured olive fill with a stepped edge against the mauve ground: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:05Z"
+  },
+  "flat-land:0:36,56": {
+   "id": "flat-land:0:36,56",
+   "status": "later",
+   "note": "Flat brown ground between a sandy patch and the rocks with a straight top edge; it may be filler or a natural path, so I can't tell.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:05Z"
+  },
+  "flat-land:0:40,25": {
+   "id": "flat-land:0:40,25",
+   "status": "accepted",
+   "note": "Flat olive strip with a ruler-straight top edge along the mauve ground: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:05Z"
+  },
+  "flat-land:0:40,40": {
+   "id": "flat-land:0:40,40",
+   "status": "accepted",
+   "note": "Flat dark-brown filler by the Loch Modan border corner, untextured with no natural boundary.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:05Z"
+  },
+  "flat-land:0:38,25": {
+   "id": "flat-land:0:38,25",
+   "status": "accepted",
+   "note": "Flat olive fill with stepped edges beside the ridge line and the ruins: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:05Z"
+  },
+  "flat-land:0:34,26": {
+   "id": "flat-land:0:34,26",
+   "status": "accepted",
+   "note": "Flat grey-green rectangular block with hard straight edges set into the land: a patch of different art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:06Z"
+  },
+  "flat-land:0:40,34": {
+   "id": "flat-land:0:40,34",
+   "status": "accepted",
+   "note": "Stepped strip of flat brown filler against the rocky ridge, with a hard staircase edge.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:06Z"
+  },
+  "flat-land:0:34,57": {
+   "id": "flat-land:0:34,57",
+   "status": "accepted",
+   "note": "Flat olive-brown rectangle with ruler-straight edges against the textured land: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:06Z"
+  },
+  "flat-land:0:36,26#2": {
+   "id": "flat-land:0:36,26#2",
+   "status": "accepted",
+   "note": "Flat grey-green block with straight edges beside the mauve ground: a patch of different art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:06Z"
+  },
+  "flat-land:0:37,56": {
+   "id": "flat-land:0:37,56",
+   "status": "accepted",
+   "note": "Flat olive fill with a straight top edge against the grey snow and a stepped bottom: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:06Z"
+  },
+  "flat-land:0:40,38": {
+   "id": "flat-land:0:40,38",
+   "status": "later",
+   "note": "Brown valley-bed strip with straight horizontal edges across a river-like floor; it may be filler or natural ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:06Z"
+  },
+  "flat-land:0:39,44": {
+   "id": "flat-land:0:39,44",
+   "status": "later",
+   "note": "Pale grey textured ground with a stepped magenta patch on its edge against orange Badlands dirt; the grey is not the usual filler colour, so it is unclear whether this is a placeholder or natural ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:07Z"
+  },
+  "flat-land:0:29,28": {
+   "id": "flat-land:0:29,28",
+   "status": "accepted",
+   "note": "Uniform dull brown rectangle with hard straight edges and no texture, set among textured fungal ground: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:07Z"
+  },
+  "flat-land:0:42,29": {
+   "id": "flat-land:0:42,29",
+   "status": "later",
+   "note": "Magenta sits on a textured rust-tan slope next to a smooth tan block; the filler edge is visible but the marked area itself looks textured, so it is unclear.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:07Z"
+  },
+  "flat-land:0:38,24": {
+   "id": "flat-land:0:38,24",
+   "status": "later",
+   "note": "Smooth olive-brown valley floor with a stepped edge against textured foliage and a dark stream line; it may be natural ground or the filler, and I cannot tell from the image.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:07Z"
+  },
+  "flat-land:0:39,40": {
+   "id": "flat-land:0:39,40",
+   "status": "accepted",
+   "note": "Flat dark olive-brown fill with stepped edges against the rocky terrain beside the zone border, matching the filler east of Loch Modan.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:07Z"
+  },
+  "flat-land:0:40,38#2": {
+   "id": "flat-land:0:40,38#2",
+   "status": "rejected",
+   "note": "Magenta covers a dirt path running between green and rocky ground: a natural track, not filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:07Z"
+  },
+  "flat-land:0:29,41": {
+   "id": "flat-land:0:29,41",
+   "status": "rejected",
+   "note": "Magenta covers bright white snow on a glacier-like slope, which is natural and blends with the surroundings.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:08Z"
+  },
+  "flat-land:0:38,55#2": {
+   "id": "flat-land:0:38,55#2",
+   "status": "later",
+   "note": "Flat olive swamp ground with a stepped magenta edge at the rust terrain boundary; it could be filler or natural swamp floor.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:08Z"
+  },
+  "flat-land:0:37,55": {
+   "id": "flat-land:0:37,55",
+   "status": "accepted",
+   "note": "Flat olive fill with a stepped, notched edge and a hard-edged pale grey block beside it, sitting against the zone border: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:08Z"
+  },
+  "flat-land:0:38,25#2": {
+   "id": "flat-land:0:38,25#2",
+   "status": "rejected",
+   "note": "Magenta covers textured Plaguelands ground with rings and a rocky pattern, not a flat block.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:08Z"
+  },
+  "flat-land:0:40,44": {
+   "id": "flat-land:0:40,44",
+   "status": "rejected",
+   "note": "Magenta covers a smooth stretch of orange Badlands ground between rocky ridges: natural terrain.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:08Z"
+  },
+  "flat-land:0:36,45": {
+   "id": "flat-land:0:36,45",
+   "status": "rejected",
+   "note": "Magenta straddles the zone border over grey and orange textured ground that blends naturally; no filler is visible.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:08Z"
+  },
+  "flat-land:0:36,26#3": {
+   "id": "flat-land:0:36,26#3",
+   "status": "accepted",
+   "note": "Flat dark maroon block with hard straight edges and no texture against textured rocky ground: the filler, with a stepped magenta edge.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:09Z"
+  },
+  "flat-land:0:40,40#2": {
+   "id": "flat-land:0:40,40#2",
+   "status": "later",
+   "note": "Brown ground by the Loch Modan filler; Haiku said a dirt path, but its shading is soft and it may be filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:09Z"
+  },
+  "flat-land:0:41,42": {
+   "id": "flat-land:0:41,42",
+   "status": "later",
+   "note": "A straight brown strip in line with the Loch Modan filler; Haiku said a dirt path, but it may be filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:09Z"
+  },
+  "flat-land:0:37,44": {
+   "id": "flat-land:0:37,44",
+   "status": "rejected",
+   "note": "Magenta covers orange Badlands dirt with a blended edge and textured ground: natural.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:09Z"
+  },
+  "flat-land:0:35,57": {
+   "id": "flat-land:0:35,57",
+   "status": "rejected",
+   "note": "Magenta covers a dark olive dirt track leading to the shore, a natural feature, not a flat filler block.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:09Z"
+  },
+  "flat-land:0:40,40#3": {
+   "id": "flat-land:0:40,40#3",
+   "status": "later",
+   "note": "Small patch of smooth dark-brown ground beside the rocks; could be filler or a dirt path, and the image doesn't settle it.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:09Z"
+  },
+  "flat-land:0:30,43": {
+   "id": "flat-land:0:30,43",
+   "status": "rejected",
+   "note": "Dark brown dirt track between snow and forest with textured edges; natural ground that blends into its surroundings.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  "flat-land:0:38,55#3": {
+   "id": "flat-land:0:38,55#3",
+   "status": "accepted",
+   "note": "Flat untextured olive-brown filler with hard stepped edges against the rocky land and the red zone: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  "flat-land:1:31,43": {
+   "id": "flat-land:1:31,43",
+   "status": "accepted",
+   "note": "Large flat brown block with ruler-straight and stepped edges against the textured land: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  "flat-land:1:33,41": {
+   "id": "flat-land:1:33,41",
+   "status": "accepted",
+   "note": "Uniform dark olive-brown square with straight edges and no texture, cut off from the forest and orange trees: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  "flat-land:1:35,40": {
+   "id": "flat-land:1:35,40",
+   "status": "rejected",
+   "note": "Smooth tan basin inside a rocky rim, with soft natural edges; a natural depression, not filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  "flat-land:1:34,39": {
+   "id": "flat-land:1:34,39",
+   "status": "rejected",
+   "note": "Open smooth tan plain with a faint darker patch and soft edges, blending into the surrounding dirt.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  "flat-land:1:34,39#2": {
+   "id": "flat-land:1:34,39#2",
+   "status": "rejected",
+   "note": "Smooth tan plain with soft edges that blends into the dirt around it.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  "flat-land:1:35,30": {
+   "id": "flat-land:1:35,30",
+   "status": "rejected",
+   "note": "Smooth tan dirt path between the rim and the hills, with natural soft edges.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:11Z"
+  },
+  "flat-land:1:32,43": {
+   "id": "flat-land:1:32,43",
+   "status": "rejected",
+   "note": "Brown dirt beside a pale grey crater ring; the ground has some texture and blends naturally.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:11Z"
+  },
+  "flat-land:1:35,38": {
+   "id": "flat-land:1:35,38",
+   "status": "rejected",
+   "note": "Smooth tan plain between hills and a path, with natural soft edges.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:11Z"
+  },
+  "flat-land:1:33,42": {
+   "id": "flat-land:1:33,42",
+   "status": "later",
+   "note": "Flat grey paving with straight edges next to a red-brown strip and the flower garden; could be a plaza (rejected) or blank filler, and the image doesn't settle it.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:11Z"
+  },
+  "flat-land:1:31,42": {
+   "id": "flat-land:1:31,42",
+   "status": "accepted",
+   "note": "Flat dark brown block with stepped straight edges against the forest: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:11Z"
+  },
+  "flat-land:1:34,30": {
+   "id": "flat-land:1:34,30",
+   "status": "rejected",
+   "note": "Smooth tan path running beside the cream border line, with natural edges.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:11Z"
+  },
+  "flat-land:1:32,39": {
+   "id": "flat-land:1:32,39",
+   "status": "accepted",
+   "note": "Smooth olive-brown clearing with hard right-angle edges and no texture inside the forest: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:12Z"
+  },
+  "flat-land:1:33,39": {
+   "id": "flat-land:1:33,39",
+   "status": "rejected",
+   "note": "Grass-to-dirt transition with soft natural edges, not a hard block.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:12Z"
+  },
+  "flat-land:1:32,43#2": {
+   "id": "flat-land:1:32,43#2",
+   "status": "later",
+   "note": "Flat brown ground under a stepped crack line beside the grey plaza; the stepped edge is visible but the magenta sits on textured dirt, so the image is unclear.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:12Z"
+  },
+  "patch-edge:0:35,56": {
+   "id": "patch-edge:0:35,56",
+   "status": "accepted",
+   "note": "Stepped, right-angled edge where a flat dark-brown filler block meets the textured tan and rock land, the magenta on the straight segments.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:12Z"
+  },
+  "patch-edge:0:40,44": {
+   "id": "patch-edge:0:40,44",
+   "status": "accepted",
+   "note": "Bright green and grey rectangular block with ruler-straight vertical edges set against the orange-brown land, out of place with the surrounding art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:12Z"
+  },
+  "patch-edge:0:40,42": {
+   "id": "patch-edge:0:40,42",
+   "status": "accepted",
+   "note": "Bright green rectangle with ruler-straight edges set into dark brown terrain, a blocky patch of other art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:12Z"
+  },
+  "patch-edge:0:35,56#2": {
+   "id": "patch-edge:0:35,56#2",
+   "status": "accepted",
+   "note": "Straight stepped edge where the flat dark-brown filler runs under the tan plaza block, a chunk-aligned colour step.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:13Z"
+  },
+  "patch-edge:0:37,44": {
+   "id": "patch-edge:0:37,44",
+   "status": "accepted",
+   "note": "Flat pale grey block with stepped right-angle edges against the orange land, the magenta on the blocky steps rather than the natural cream border line.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:13Z"
+  },
+  "patch-edge:0:37,55": {
+   "id": "patch-edge:0:37,55",
+   "status": "accepted",
+   "note": "Flat pale grey strip with straight, right-angle edges against the olive filler below the rock, a blocky patch rather than natural ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:13Z"
+  },
+  "patch-edge:0:37,25": {
+   "id": "patch-edge:0:37,25",
+   "status": "accepted",
+   "note": "Ruler-straight horizontal edge where flat dark-olive filler meets the textured pink-brown ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:13Z"
+  },
+  "patch-edge:0:36,26": {
+   "id": "patch-edge:0:36,26",
+   "status": "rejected",
+   "note": "Shaded mauve cliff face and rock wall at the foot of the ridge beside the zone border, a natural feature.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:13Z"
+  },
+  "patch-edge:0:40,41": {
+   "id": "patch-edge:0:40,41",
+   "status": "accepted",
+   "note": "Pale grey plateau with a stepped right-angle corner against flat dark-brown filler, a blocky patch edge.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:14Z"
+  },
+  "patch-edge:0:36,54": {
+   "id": "patch-edge:0:36,54",
+   "status": "rejected",
+   "note": "Straight vertical line where green grassland meets grey mountain rock along the zone border, a natural transition with both sides textured.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:14Z"
+  },
+  "patch-edge:0:34,57": {
+   "id": "patch-edge:0:34,57",
+   "status": "accepted",
+   "note": "L-shaped straight edge where flat dark filler meets the textured land and the rock shoreline, the magenta on right-angle block edges.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:14Z"
+  },
+  "patch-edge:0:33,60": {
+   "id": "patch-edge:0:33,60",
+   "status": "accepted",
+   "note": "Hard horizontal colour step at tile height where dark sea above meets flat dark-green land below, a straight tile-sized mismatch.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:14Z"
+  },
+  "patch-edge:0:35,37": {
+   "id": "patch-edge:0:35,37",
+   "status": "rejected",
+   "note": "Straight run along a swampy shoreline where green marsh meets the olive land, a natural coastline.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:14Z"
+  },
+  "patch-edge:0:34,26": {
+   "id": "patch-edge:0:34,26",
+   "status": "accepted",
+   "note": "Rectangular flat grey-green block with straight edges set against the textured forest, a chunk-aligned patch of other art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:14Z"
+  },
+  "patch-edge:0:39,25": {
+   "id": "patch-edge:0:39,25",
+   "status": "accepted",
+   "note": "Ruler-straight horizontal edge where a flat dark-mauve band meets the pink textured ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:15Z"
+  },
+  "patch-edge:0:41,31": {
+   "id": "patch-edge:0:41,31",
+   "status": "later",
+   "note": "Straight vertical strip at the edge between rocky cliff and a green lake area, could be a natural shoreline or a chunk-aligned patch; hard to tell from the image.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:15Z"
+  },
+  "patch-edge:0:40,41#2": {
+   "id": "patch-edge:0:40,41#2",
+   "status": "accepted",
+   "note": "Straight vertical edge of the pale grey plateau against the flat dark-brown filler, a blocky step matching the other stepped edges in this area.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:15Z"
+  },
+  "patch-edge:0:33,41": {
+   "id": "patch-edge:0:33,41",
+   "status": "rejected",
+   "note": "Magenta sits on white snow beside the rock edge with no distinct block of other art, so it reads as natural snow.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:15Z"
+  },
+  "patch-edge:0:35,53": {
+   "id": "patch-edge:0:35,53",
+   "status": "later",
+   "note": "Grey rock with a dark brown strip and a straight blue-grey edge nearby; it could be a patch of other art, but the image is too ambiguous to call.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:15Z"
+  },
+  "patch-edge:0:38,55": {
+   "id": "patch-edge:0:38,55",
+   "status": "accepted",
+   "note": "Flat olive filler with stepped, right-angled edges butts against the red land and grey rock, looking like a blocky patch of other art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:15Z"
+  },
+  "patch-edge:0:39,43": {
+   "id": "patch-edge:0:39,43",
+   "status": "rejected",
+   "note": "Magenta covers the natural rock and cliff edge between the orange land and the grey-green ground, following a soft curve.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:16Z"
+  },
+  "patch-edge:0:42,30": {
+   "id": "patch-edge:0:42,30",
+   "status": "accepted",
+   "note": "A flat salmon-tan rectangle with hard straight edges sits on the dark olive filler, a clear block of different art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:16Z"
+  },
+  "patch-edge:1:32,43": {
+   "id": "patch-edge:1:32,43",
+   "status": "accepted",
+   "note": "Flat pale grey blocks with ruler-straight edges and right-angle corners sit among the textured ground, an unnatural patchwork.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:16Z"
+  },
+  "patch-edge:1:33,42": {
+   "id": "patch-edge:1:33,42",
+   "status": "accepted",
+   "note": "A flat pale grey rectangle with straight edges and square corners sits inside the green and brown ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:16Z"
+  },
+  "patch-edge:1:35,30": {
+   "id": "patch-edge:1:35,30",
+   "status": "accepted",
+   "note": "The dark forest edge steps in clean horizontal blocks against the flat tan ground, a blocky chunk-aligned boundary rather than a natural edge.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:16Z"
+  },
+  "patch-edge:1:33,41": {
+   "id": "patch-edge:1:33,41",
+   "status": "accepted",
+   "note": "A flat olive-brown filler meets the autumn-tree strip along a perfectly straight vertical edge, a clear patch boundary.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:17Z"
+  },
+  "patch-edge:1:32,43#2": {
+   "id": "patch-edge:1:32,43#2",
+   "status": "accepted",
+   "note": "Flat olive-brown filler with a blocky stepped corner meets lighter dirt, looking like a patch of other art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:17Z"
+  },
+  "patch-edge:1:34,29": {
+   "id": "patch-edge:1:34,29",
+   "status": "later",
+   "note": "Magenta covers the orange rock edge and a dark flat area with a straight vertical boundary that could be cliff shading or a patch; unclear from the image.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:17Z"
+  },
+  "patch-edge:1:36,43": {
+   "id": "patch-edge:1:36,43",
+   "status": "accepted",
+   "note": "A flat reddish-brown rectangle with hard straight edges sits among the autumn trees, a blocky patch of different art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:17Z"
+  },
+  "patch-edge:1:29,37": {
+   "id": "patch-edge:1:29,37",
+   "status": "rejected",
+   "note": "The straight line is the zone border, and the terrain change beneath it is natural rocky ground against dark forest.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:17Z"
+  },
+  "patch-edge:1:34,39": {
+   "id": "patch-edge:1:34,39",
+   "status": "accepted",
+   "note": "A flat tan area with a faint straight-edged rectangle and a hard vertical edge against the rocky ground looks like blank filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:18Z"
+  },
+  "patch-edge:1:28,30": {
+   "id": "patch-edge:1:28,30",
+   "status": "rejected",
+   "note": "Magenta covers the rocky coast meeting dark water, a natural shoreline.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:18Z"
+  },
+  "patch-edge:1:30,40": {
+   "id": "patch-edge:1:30,40",
+   "status": "rejected",
+   "note": "The straight grey stone paving is a built path or wall, a constructed feature rather than a patch of art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:18Z"
+  },
+  "border-wrap:0:z11": {
+   "id": "border-wrap:0:z11",
+   "status": "rejected",
+   "note": "Border line runs straight over textured dark-brown ground with cracks and tracks, not water or blank filler, so it reads as a plausible zone boundary.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:18Z"
+  },
+  "border-wrap:0:z36": {
+   "id": "border-wrap:0:z36",
+   "status": "later",
+   "note": "Line runs over dark forest and lake-edge ground near the dark blue water; it is hard to tell from the image whether it sits on water or a plausible divide.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:18Z"
+  },
+  "border-wrap:0:z10": {
+   "id": "border-wrap:0:z10",
+   "status": "rejected",
+   "note": "Line follows the natural edge between olive grassland and green swamp terrain, a plausible zone divide.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:18Z"
+  },
+  "border-wrap:0:z46": {
+   "id": "border-wrap:0:z46",
+   "status": "rejected",
+   "note": "Magenta sits on smooth green grassland above the rocky cliff edge; grass fields are natural ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:19Z"
+  },
+  "border-wrap:0:z85": {
+   "id": "border-wrap:0:z85",
+   "status": "accepted",
+   "note": "Straight line runs over flat, textureless dark olive filler left of the brown rocky ground, with no sensible boundary there.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:19Z"
+  },
+  "border-wrap:0:z38": {
+   "id": "border-wrap:0:z38",
+   "status": "rejected",
+   "note": "Rounded corner line runs over dark brown ground with visible streaks and texture, not blank filler or water.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:19Z"
+  },
+  "border-wrap:0:z1": {
+   "id": "border-wrap:0:z1",
+   "status": "rejected",
+   "note": "Line runs along the mountain and snow edge over olive grassland, a natural boundary against the rocks.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:19Z"
+  },
+  "sea-edge:0:30,55": {
+   "id": "sea-edge:0:30,55",
+   "status": "accepted",
+   "note": "Skipped backdrop tile shows as a solid black square against dark teal water, with a visible block edge.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:19Z"
+  },
+  "seam:0:39,24,S": {
+   "id": "seam:0:39,24,S",
+   "status": "accepted",
+   "note": "Hard straight horizontal discontinuity at the tile's south edge, where olive-grey meets purple-brown art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:20Z"
+  },
+  "border-fragment:1:z332": {
+   "id": "border-fragment:1:z332",
+   "status": "accepted",
+   "note": "Small closed border loop sits on the coastal rocky land and encloses a stray patch with no real place.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:20Z"
+  },
+  "border-wrap:1:z16": {
+   "id": "border-wrap:1:z16",
+   "status": "rejected",
+   "note": "Line follows the dark river channel between the green land and the rock, a plausible zone divide.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:20Z"
+  },
+  "seam:1:32,42,S": {
+   "id": "seam:1:32,42,S",
+   "status": "accepted",
+   "note": "Straight hard edge at the tile's south border where pale grey-blue flat patches stop against brown sand.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:20Z"
+  },
+  "skipped-tile:1:25,45": {
+   "id": "skipped-tile:1:25,45",
+   "status": "rejected",
+   "note": "The tile's art is dark open sea that looks the same as the backdrop.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:20Z"
+  },
+  "skipped-tile:1:37,51": {
+   "id": "skipped-tile:1:37,51",
+   "status": "rejected",
+   "note": "The tile's art is dark open sea with only a faint diagonal, indistinguishable from the backdrop.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:20Z"
+  },
+  "skipped-tile:1:32,16": {
+   "id": "skipped-tile:1:32,16",
+   "status": "rejected",
+   "note": "The tile's art is dark open sea with a faint diagonal, no land or detail the player should see.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:21Z"
+  },
+  "skipped-tile:1:45,21": {
+   "id": "skipped-tile:1:45,21",
+   "status": "rejected",
+   "note": "The tile's art is near-black open sea with only faint shading, no land inside the box.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:21Z"
+  }
+ },
+ "log": [
+  {
+   "id": "border-sliver:1:332:42.0,28.0",
+   "status": "accepted",
+   "note": "User: the real one. A lone piece of The Great Sea's area on the Durotar/Azshara coast; its whole outline is drawn as border lines with no fade.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:27Z"
+  },
+  {
+   "id": "flat-land:0:30,32",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:27Z"
+  },
+  {
+   "id": "flat-land:0:30,33",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:27Z"
+  },
+  {
+   "id": "flat-land:0:31,31",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:27Z"
+  },
+  {
+   "id": "flat-land:0:30,33#2",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:27Z"
+  },
+  {
+   "id": "flat-land:0:40,39",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:27Z"
+  },
+  {
+   "id": "flat-land:0:31,31#2",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  {
+   "id": "flat-land:0:38,55",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  {
+   "id": "flat-land:0:30,51",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  {
+   "id": "flat-land:0:36,44",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  {
+   "id": "flat-land:1:40,28",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  {
+   "id": "flat-land:1:34,35",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  {
+   "id": "flat-land:1:26,41",
+   "status": "rejected",
+   "note": "Natural smooth ground (grass, field, plain, canyon floor), not the unfinished filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  {
+   "id": "flat-land:0:37,27",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:28Z"
+  },
+  {
+   "id": "flat-land:0:31,27",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:29Z"
+  },
+  {
+   "id": "flat-land:0:31,28",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:29Z"
+  },
+  {
+   "id": "flat-land:0:33,28",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:29Z"
+  },
+  {
+   "id": "flat-land:0:42,45",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:29Z"
+  },
+  {
+   "id": "flat-land:0:36,34",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:29Z"
+  },
+  {
+   "id": "flat-land:1:30,31",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:29Z"
+  },
+  {
+   "id": "flat-land:1:28,15",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:29Z"
+  },
+  {
+   "id": "flat-land:1:28,15#2",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:29Z"
+  },
+  {
+   "id": "flat-land:1:38,25",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:30Z"
+  },
+  {
+   "id": "flat-land:1:38,25#2",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:30Z"
+  },
+  {
+   "id": "flat-land:1:30,11",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:30Z"
+  },
+  {
+   "id": "flat-land:1:30,12",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:30Z"
+  },
+  {
+   "id": "flat-land:1:31,12",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:30Z"
+  },
+  {
+   "id": "flat-land:1:37,24",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:30Z"
+  },
+  {
+   "id": "flat-land:1:37,24#2",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:30Z"
+  },
+  {
+   "id": "flat-land:1:34,29",
+   "status": "rejected",
+   "note": "Natural water (a lake or pond) the water test misses, not unfinished land.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:30Z"
+  },
+  {
+   "id": "flat-land:0:30,41",
+   "status": "rejected",
+   "note": "Bright snow saturates to flat white: natural, not filler.",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  {
+   "id": "skipped-tile:1:0,0",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  {
+   "id": "skipped-tile:1:0,1",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  {
+   "id": "skipped-tile:1:0,2",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  {
+   "id": "skipped-tile:1:1,0",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  {
+   "id": "skipped-tile:1:2,0",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  {
+   "id": "skipped-tile:1:45,20",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:31Z"
+  },
+  {
+   "id": "skipped-tile:1:46,20",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:32Z"
+  },
+  {
+   "id": "skipped-tile:1:47,20",
+   "status": "rejected",
+   "note": "Not land: a 1-2 px stripe along the tile's edge in Blizzard's art for an empty sea tile (the tile isn't drawn, so nothing shows).",
+   "by": "Claude",
+   "at": "2026-10-28T20:44:32Z"
+  },
+  {
+   "id": "flat-land:0:37,27",
+   "status": "later",
+   "note": "Unsure: a flat brown patch with no terrain liquid, so not a pond as first noted; it could be filler. Needs your eye.",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:00Z"
+  },
+  {
+   "id": "flat-land:0:31,27",
+   "status": "later",
+   "note": "Unsure: a flat brown patch with no terrain liquid, so not a pond as first noted; it could be filler. Needs your eye.",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:01Z"
+  },
+  {
+   "id": "flat-land:0:31,28",
+   "status": "later",
+   "note": "Unsure: a flat brown patch with no terrain liquid, so not a pond as first noted; it could be filler. Needs your eye.",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:01Z"
+  },
+  {
+   "id": "flat-land:0:33,28",
+   "status": "later",
+   "note": "Unsure: a flat brown patch with no terrain liquid, so not a pond as first noted; it could be filler. Needs your eye.",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:01Z"
+  },
+  {
+   "id": "flat-land:0:42,45",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:01Z"
+  },
+  {
+   "id": "flat-land:0:36,34",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:01Z"
+  },
+  {
+   "id": "flat-land:1:30,31",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:01Z"
+  },
+  {
+   "id": "flat-land:1:28,15",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  {
+   "id": "flat-land:1:28,15#2",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  {
+   "id": "flat-land:1:38,25",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  {
+   "id": "flat-land:1:38,25#2",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  {
+   "id": "flat-land:1:30,11",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  {
+   "id": "flat-land:1:30,12",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  {
+   "id": "flat-land:1:31,12",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:02Z"
+  },
+  {
+   "id": "flat-land:1:37,24",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:03Z"
+  },
+  {
+   "id": "flat-land:1:37,24#2",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:03Z"
+  },
+  {
+   "id": "flat-land:1:34,29",
+   "status": "rejected",
+   "note": "Smooth natural ground, not the unfinished filler. (Corrected: first noted as a pond; the terrain has no liquid here.)",
+   "by": "Claude",
+   "at": "2026-10-28T21:04:03Z"
+  },
+  {
+   "id": "flat-land:0:31,45",
+   "status": "later",
+   "note": "Large flat olive-green plain with soft shading and a mountain edge; it could be the blank filler or a grassy plain, which earlier rulings rejected, so I can't tell from the image.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:04Z"
+  },
+  {
+   "id": "flat-land:0:41,25",
+   "status": "accepted",
+   "note": "Uniform textureless olive-brown fill with a straight edge against the mauve ground: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:04Z"
+  },
+  {
+   "id": "flat-land:0:40,41",
+   "status": "accepted",
+   "note": "Flat dark-brown filler east of the Loch Modan border, with the magenta on the smooth untextured strip.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:04Z"
+  },
+  {
+   "id": "flat-land:0:39,35",
+   "status": "rejected",
+   "note": "Natural valley floor between the hills, with soft shaded edges and a road-like shape: normal ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:04Z"
+  },
+  {
+   "id": "flat-land:0:36,26",
+   "status": "accepted",
+   "note": "Smooth dark olive-brown fill with stepped edges against the rocks and the zone line: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:04Z"
+  },
+  {
+   "id": "flat-land:0:39,25",
+   "status": "accepted",
+   "note": "Flat olive fill with no texture around the ruins, bounded by a hard straight band: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:04Z"
+  },
+  {
+   "id": "flat-land:0:41,30",
+   "status": "later",
+   "note": "Flat dark olive plain between the zone line and the cliffs; it looks like filler but also like a valley floor, so I'm unsure.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:05Z"
+  },
+  {
+   "id": "flat-land:0:37,25",
+   "status": "accepted",
+   "note": "Flat untextured olive fill with a stepped edge against the mauve ground: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:05Z"
+  },
+  {
+   "id": "flat-land:0:36,56",
+   "status": "later",
+   "note": "Flat brown ground between a sandy patch and the rocks with a straight top edge; it may be filler or a natural path, so I can't tell.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:05Z"
+  },
+  {
+   "id": "flat-land:0:40,25",
+   "status": "accepted",
+   "note": "Flat olive strip with a ruler-straight top edge along the mauve ground: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:05Z"
+  },
+  {
+   "id": "flat-land:0:40,40",
+   "status": "accepted",
+   "note": "Flat dark-brown filler by the Loch Modan border corner, untextured with no natural boundary.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:05Z"
+  },
+  {
+   "id": "flat-land:0:38,25",
+   "status": "accepted",
+   "note": "Flat olive fill with stepped edges beside the ridge line and the ruins: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:05Z"
+  },
+  {
+   "id": "flat-land:0:34,26",
+   "status": "accepted",
+   "note": "Flat grey-green rectangular block with hard straight edges set into the land: a patch of different art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:06Z"
+  },
+  {
+   "id": "flat-land:0:40,34",
+   "status": "accepted",
+   "note": "Stepped strip of flat brown filler against the rocky ridge, with a hard staircase edge.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:06Z"
+  },
+  {
+   "id": "flat-land:0:34,57",
+   "status": "accepted",
+   "note": "Flat olive-brown rectangle with ruler-straight edges against the textured land: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:06Z"
+  },
+  {
+   "id": "flat-land:0:36,26#2",
+   "status": "accepted",
+   "note": "Flat grey-green block with straight edges beside the mauve ground: a patch of different art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:06Z"
+  },
+  {
+   "id": "flat-land:0:37,56",
+   "status": "accepted",
+   "note": "Flat olive fill with a straight top edge against the grey snow and a stepped bottom: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:06Z"
+  },
+  {
+   "id": "flat-land:0:40,38",
+   "status": "later",
+   "note": "Brown valley-bed strip with straight horizontal edges across a river-like floor; it may be filler or natural ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:06Z"
+  },
+  {
+   "id": "flat-land:0:39,44",
+   "status": "later",
+   "note": "Pale grey textured ground with a stepped magenta patch on its edge against orange Badlands dirt; the grey is not the usual filler colour, so it is unclear whether this is a placeholder or natural ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:07Z"
+  },
+  {
+   "id": "flat-land:0:29,28",
+   "status": "accepted",
+   "note": "Uniform dull brown rectangle with hard straight edges and no texture, set among textured fungal ground: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:07Z"
+  },
+  {
+   "id": "flat-land:0:42,29",
+   "status": "later",
+   "note": "Magenta sits on a textured rust-tan slope next to a smooth tan block; the filler edge is visible but the marked area itself looks textured, so it is unclear.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:07Z"
+  },
+  {
+   "id": "flat-land:0:38,24",
+   "status": "later",
+   "note": "Smooth olive-brown valley floor with a stepped edge against textured foliage and a dark stream line; it may be natural ground or the filler, and I cannot tell from the image.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:07Z"
+  },
+  {
+   "id": "flat-land:0:39,40",
+   "status": "accepted",
+   "note": "Flat dark olive-brown fill with stepped edges against the rocky terrain beside the zone border, matching the filler east of Loch Modan.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:07Z"
+  },
+  {
+   "id": "flat-land:0:40,38#2",
+   "status": "rejected",
+   "note": "Magenta covers a dirt path running between green and rocky ground: a natural track, not filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:07Z"
+  },
+  {
+   "id": "flat-land:0:29,41",
+   "status": "rejected",
+   "note": "Magenta covers bright white snow on a glacier-like slope, which is natural and blends with the surroundings.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:08Z"
+  },
+  {
+   "id": "flat-land:0:38,55#2",
+   "status": "later",
+   "note": "Flat olive swamp ground with a stepped magenta edge at the rust terrain boundary; it could be filler or natural swamp floor.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:08Z"
+  },
+  {
+   "id": "flat-land:0:37,55",
+   "status": "accepted",
+   "note": "Flat olive fill with a stepped, notched edge and a hard-edged pale grey block beside it, sitting against the zone border: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:08Z"
+  },
+  {
+   "id": "flat-land:0:38,25#2",
+   "status": "rejected",
+   "note": "Magenta covers textured Plaguelands ground with rings and a rocky pattern, not a flat block.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:08Z"
+  },
+  {
+   "id": "flat-land:0:40,44",
+   "status": "rejected",
+   "note": "Magenta covers a smooth stretch of orange Badlands ground between rocky ridges: natural terrain.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:08Z"
+  },
+  {
+   "id": "flat-land:0:36,45",
+   "status": "rejected",
+   "note": "Magenta straddles the zone border over grey and orange textured ground that blends naturally; no filler is visible.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:08Z"
+  },
+  {
+   "id": "flat-land:0:36,26#3",
+   "status": "accepted",
+   "note": "Flat dark maroon block with hard straight edges and no texture against textured rocky ground: the filler, with a stepped magenta edge.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:09Z"
+  },
+  {
+   "id": "flat-land:0:40,40#2",
+   "status": "later",
+   "note": "Brown ground by the Loch Modan filler; Haiku said a dirt path, but its shading is soft and it may be filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:09Z"
+  },
+  {
+   "id": "flat-land:0:41,42",
+   "status": "later",
+   "note": "A straight brown strip in line with the Loch Modan filler; Haiku said a dirt path, but it may be filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:09Z"
+  },
+  {
+   "id": "flat-land:0:37,44",
+   "status": "rejected",
+   "note": "Magenta covers orange Badlands dirt with a blended edge and textured ground: natural.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:09Z"
+  },
+  {
+   "id": "flat-land:0:35,57",
+   "status": "rejected",
+   "note": "Magenta covers a dark olive dirt track leading to the shore, a natural feature, not a flat filler block.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:09Z"
+  },
+  {
+   "id": "flat-land:0:40,40#3",
+   "status": "later",
+   "note": "Small patch of smooth dark-brown ground beside the rocks; could be filler or a dirt path, and the image doesn't settle it.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:09Z"
+  },
+  {
+   "id": "flat-land:0:30,43",
+   "status": "rejected",
+   "note": "Dark brown dirt track between snow and forest with textured edges; natural ground that blends into its surroundings.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  {
+   "id": "flat-land:0:38,55#3",
+   "status": "accepted",
+   "note": "Flat untextured olive-brown filler with hard stepped edges against the rocky land and the red zone: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  {
+   "id": "flat-land:1:31,43",
+   "status": "accepted",
+   "note": "Large flat brown block with ruler-straight and stepped edges against the textured land: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  {
+   "id": "flat-land:1:33,41",
+   "status": "accepted",
+   "note": "Uniform dark olive-brown square with straight edges and no texture, cut off from the forest and orange trees: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  {
+   "id": "flat-land:1:35,40",
+   "status": "rejected",
+   "note": "Smooth tan basin inside a rocky rim, with soft natural edges; a natural depression, not filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  {
+   "id": "flat-land:1:34,39",
+   "status": "rejected",
+   "note": "Open smooth tan plain with a faint darker patch and soft edges, blending into the surrounding dirt.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  {
+   "id": "flat-land:1:34,39#2",
+   "status": "rejected",
+   "note": "Smooth tan plain with soft edges that blends into the dirt around it.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:10Z"
+  },
+  {
+   "id": "flat-land:1:35,30",
+   "status": "rejected",
+   "note": "Smooth tan dirt path between the rim and the hills, with natural soft edges.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:11Z"
+  },
+  {
+   "id": "flat-land:1:32,43",
+   "status": "rejected",
+   "note": "Brown dirt beside a pale grey crater ring; the ground has some texture and blends naturally.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:11Z"
+  },
+  {
+   "id": "flat-land:1:35,38",
+   "status": "rejected",
+   "note": "Smooth tan plain between hills and a path, with natural soft edges.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:11Z"
+  },
+  {
+   "id": "flat-land:1:33,42",
+   "status": "later",
+   "note": "Flat grey paving with straight edges next to a red-brown strip and the flower garden; could be a plaza (rejected) or blank filler, and the image doesn't settle it.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:11Z"
+  },
+  {
+   "id": "flat-land:1:31,42",
+   "status": "accepted",
+   "note": "Flat dark brown block with stepped straight edges against the forest: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:11Z"
+  },
+  {
+   "id": "flat-land:1:34,30",
+   "status": "rejected",
+   "note": "Smooth tan path running beside the cream border line, with natural edges.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:11Z"
+  },
+  {
+   "id": "flat-land:1:32,39",
+   "status": "accepted",
+   "note": "Smooth olive-brown clearing with hard right-angle edges and no texture inside the forest: the filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:12Z"
+  },
+  {
+   "id": "flat-land:1:33,39",
+   "status": "rejected",
+   "note": "Grass-to-dirt transition with soft natural edges, not a hard block.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:12Z"
+  },
+  {
+   "id": "flat-land:1:32,43#2",
+   "status": "later",
+   "note": "Flat brown ground under a stepped crack line beside the grey plaza; the stepped edge is visible but the magenta sits on textured dirt, so the image is unclear.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:12Z"
+  },
+  {
+   "id": "patch-edge:0:35,56",
+   "status": "accepted",
+   "note": "Stepped, right-angled edge where a flat dark-brown filler block meets the textured tan and rock land, the magenta on the straight segments.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:12Z"
+  },
+  {
+   "id": "patch-edge:0:40,44",
+   "status": "accepted",
+   "note": "Bright green and grey rectangular block with ruler-straight vertical edges set against the orange-brown land, out of place with the surrounding art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:12Z"
+  },
+  {
+   "id": "patch-edge:0:40,42",
+   "status": "accepted",
+   "note": "Bright green rectangle with ruler-straight edges set into dark brown terrain, a blocky patch of other art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:12Z"
+  },
+  {
+   "id": "patch-edge:0:35,56#2",
+   "status": "accepted",
+   "note": "Straight stepped edge where the flat dark-brown filler runs under the tan plaza block, a chunk-aligned colour step.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:13Z"
+  },
+  {
+   "id": "patch-edge:0:37,44",
+   "status": "accepted",
+   "note": "Flat pale grey block with stepped right-angle edges against the orange land, the magenta on the blocky steps rather than the natural cream border line.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:13Z"
+  },
+  {
+   "id": "patch-edge:0:37,55",
+   "status": "accepted",
+   "note": "Flat pale grey strip with straight, right-angle edges against the olive filler below the rock, a blocky patch rather than natural ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:13Z"
+  },
+  {
+   "id": "patch-edge:0:37,25",
+   "status": "accepted",
+   "note": "Ruler-straight horizontal edge where flat dark-olive filler meets the textured pink-brown ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:13Z"
+  },
+  {
+   "id": "patch-edge:0:36,26",
+   "status": "rejected",
+   "note": "Shaded mauve cliff face and rock wall at the foot of the ridge beside the zone border, a natural feature.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:13Z"
+  },
+  {
+   "id": "patch-edge:0:40,41",
+   "status": "accepted",
+   "note": "Pale grey plateau with a stepped right-angle corner against flat dark-brown filler, a blocky patch edge.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:14Z"
+  },
+  {
+   "id": "patch-edge:0:36,54",
+   "status": "rejected",
+   "note": "Straight vertical line where green grassland meets grey mountain rock along the zone border, a natural transition with both sides textured.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:14Z"
+  },
+  {
+   "id": "patch-edge:0:34,57",
+   "status": "accepted",
+   "note": "L-shaped straight edge where flat dark filler meets the textured land and the rock shoreline, the magenta on right-angle block edges.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:14Z"
+  },
+  {
+   "id": "patch-edge:0:33,60",
+   "status": "accepted",
+   "note": "Hard horizontal colour step at tile height where dark sea above meets flat dark-green land below, a straight tile-sized mismatch.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:14Z"
+  },
+  {
+   "id": "patch-edge:0:35,37",
+   "status": "rejected",
+   "note": "Straight run along a swampy shoreline where green marsh meets the olive land, a natural coastline.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:14Z"
+  },
+  {
+   "id": "patch-edge:0:34,26",
+   "status": "accepted",
+   "note": "Rectangular flat grey-green block with straight edges set against the textured forest, a chunk-aligned patch of other art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:14Z"
+  },
+  {
+   "id": "patch-edge:0:39,25",
+   "status": "accepted",
+   "note": "Ruler-straight horizontal edge where a flat dark-mauve band meets the pink textured ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:15Z"
+  },
+  {
+   "id": "patch-edge:0:41,31",
+   "status": "later",
+   "note": "Straight vertical strip at the edge between rocky cliff and a green lake area, could be a natural shoreline or a chunk-aligned patch; hard to tell from the image.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:15Z"
+  },
+  {
+   "id": "patch-edge:0:40,41#2",
+   "status": "accepted",
+   "note": "Straight vertical edge of the pale grey plateau against the flat dark-brown filler, a blocky step matching the other stepped edges in this area.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:15Z"
+  },
+  {
+   "id": "patch-edge:0:33,41",
+   "status": "rejected",
+   "note": "Magenta sits on white snow beside the rock edge with no distinct block of other art, so it reads as natural snow.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:15Z"
+  },
+  {
+   "id": "patch-edge:0:35,53",
+   "status": "later",
+   "note": "Grey rock with a dark brown strip and a straight blue-grey edge nearby; it could be a patch of other art, but the image is too ambiguous to call.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:15Z"
+  },
+  {
+   "id": "patch-edge:0:38,55",
+   "status": "accepted",
+   "note": "Flat olive filler with stepped, right-angled edges butts against the red land and grey rock, looking like a blocky patch of other art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:15Z"
+  },
+  {
+   "id": "patch-edge:0:39,43",
+   "status": "rejected",
+   "note": "Magenta covers the natural rock and cliff edge between the orange land and the grey-green ground, following a soft curve.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:16Z"
+  },
+  {
+   "id": "patch-edge:0:42,30",
+   "status": "accepted",
+   "note": "A flat salmon-tan rectangle with hard straight edges sits on the dark olive filler, a clear block of different art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:16Z"
+  },
+  {
+   "id": "patch-edge:1:32,43",
+   "status": "accepted",
+   "note": "Flat pale grey blocks with ruler-straight edges and right-angle corners sit among the textured ground, an unnatural patchwork.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:16Z"
+  },
+  {
+   "id": "patch-edge:1:33,42",
+   "status": "accepted",
+   "note": "A flat pale grey rectangle with straight edges and square corners sits inside the green and brown ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:16Z"
+  },
+  {
+   "id": "patch-edge:1:35,30",
+   "status": "accepted",
+   "note": "The dark forest edge steps in clean horizontal blocks against the flat tan ground, a blocky chunk-aligned boundary rather than a natural edge.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:16Z"
+  },
+  {
+   "id": "patch-edge:1:33,41",
+   "status": "accepted",
+   "note": "A flat olive-brown filler meets the autumn-tree strip along a perfectly straight vertical edge, a clear patch boundary.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:17Z"
+  },
+  {
+   "id": "patch-edge:1:32,43#2",
+   "status": "accepted",
+   "note": "Flat olive-brown filler with a blocky stepped corner meets lighter dirt, looking like a patch of other art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:17Z"
+  },
+  {
+   "id": "patch-edge:1:34,29",
+   "status": "later",
+   "note": "Magenta covers the orange rock edge and a dark flat area with a straight vertical boundary that could be cliff shading or a patch; unclear from the image.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:17Z"
+  },
+  {
+   "id": "patch-edge:1:36,43",
+   "status": "accepted",
+   "note": "A flat reddish-brown rectangle with hard straight edges sits among the autumn trees, a blocky patch of different art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:17Z"
+  },
+  {
+   "id": "patch-edge:1:29,37",
+   "status": "rejected",
+   "note": "The straight line is the zone border, and the terrain change beneath it is natural rocky ground against dark forest.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:17Z"
+  },
+  {
+   "id": "patch-edge:1:34,39",
+   "status": "accepted",
+   "note": "A flat tan area with a faint straight-edged rectangle and a hard vertical edge against the rocky ground looks like blank filler.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:18Z"
+  },
+  {
+   "id": "patch-edge:1:28,30",
+   "status": "rejected",
+   "note": "Magenta covers the rocky coast meeting dark water, a natural shoreline.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:18Z"
+  },
+  {
+   "id": "patch-edge:1:30,40",
+   "status": "rejected",
+   "note": "The straight grey stone paving is a built path or wall, a constructed feature rather than a patch of art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:18Z"
+  },
+  {
+   "id": "border-wrap:0:z11",
+   "status": "rejected",
+   "note": "Border line runs straight over textured dark-brown ground with cracks and tracks, not water or blank filler, so it reads as a plausible zone boundary.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:18Z"
+  },
+  {
+   "id": "border-wrap:0:z36",
+   "status": "later",
+   "note": "Line runs over dark forest and lake-edge ground near the dark blue water; it is hard to tell from the image whether it sits on water or a plausible divide.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:18Z"
+  },
+  {
+   "id": "border-wrap:0:z10",
+   "status": "rejected",
+   "note": "Line follows the natural edge between olive grassland and green swamp terrain, a plausible zone divide.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:18Z"
+  },
+  {
+   "id": "border-wrap:0:z46",
+   "status": "rejected",
+   "note": "Magenta sits on smooth green grassland above the rocky cliff edge; grass fields are natural ground.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:19Z"
+  },
+  {
+   "id": "border-wrap:0:z85",
+   "status": "accepted",
+   "note": "Straight line runs over flat, textureless dark olive filler left of the brown rocky ground, with no sensible boundary there.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:19Z"
+  },
+  {
+   "id": "border-wrap:0:z38",
+   "status": "rejected",
+   "note": "Rounded corner line runs over dark brown ground with visible streaks and texture, not blank filler or water.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:19Z"
+  },
+  {
+   "id": "border-wrap:0:z1",
+   "status": "rejected",
+   "note": "Line runs along the mountain and snow edge over olive grassland, a natural boundary against the rocks.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:19Z"
+  },
+  {
+   "id": "sea-edge:0:30,55",
+   "status": "accepted",
+   "note": "Skipped backdrop tile shows as a solid black square against dark teal water, with a visible block edge.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:19Z"
+  },
+  {
+   "id": "seam:0:39,24,S",
+   "status": "accepted",
+   "note": "Hard straight horizontal discontinuity at the tile's south edge, where olive-grey meets purple-brown art.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:20Z"
+  },
+  {
+   "id": "border-fragment:1:z332",
+   "status": "accepted",
+   "note": "Small closed border loop sits on the coastal rocky land and encloses a stray patch with no real place.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:20Z"
+  },
+  {
+   "id": "border-wrap:1:z16",
+   "status": "rejected",
+   "note": "Line follows the dark river channel between the green land and the rock, a plausible zone divide.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:20Z"
+  },
+  {
+   "id": "seam:1:32,42,S",
+   "status": "accepted",
+   "note": "Straight hard edge at the tile's south border where pale grey-blue flat patches stop against brown sand.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:20Z"
+  },
+  {
+   "id": "skipped-tile:1:25,45",
+   "status": "rejected",
+   "note": "The tile's art is dark open sea that looks the same as the backdrop.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:20Z"
+  },
+  {
+   "id": "skipped-tile:1:37,51",
+   "status": "rejected",
+   "note": "The tile's art is dark open sea with only a faint diagonal, indistinguishable from the backdrop.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:20Z"
+  },
+  {
+   "id": "skipped-tile:1:32,16",
+   "status": "rejected",
+   "note": "The tile's art is dark open sea with a faint diagonal, no land or detail the player should see.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:21Z"
+  },
+  {
+   "id": "skipped-tile:1:45,21",
+   "status": "rejected",
+   "note": "The tile's art is near-black open sea with only faint shading, no land inside the box.",
+   "by": "Claude (Haiku)",
+   "at": "2026-10-29T16:36:21Z"
+  }
+ ]
+}

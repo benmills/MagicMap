@@ -16,6 +16,7 @@ runtime\Boot.lua
 Data\Tiles.lua
 Data\TileColor.lua
 Data\Base.lua
+Data\Clouds.lua
 Data\Borders.lua
 Data\Walk.lua
 Data\UiMaps.lua
@@ -122,6 +123,7 @@ ui\Track.lua
 ui\Controls.lua
 ui\Title.lua
 ui\BigMap.lua
+ui\Clouds.lua
 ui\Tiles.lua
 ui\Base.lua
 ui\Interiors.lua

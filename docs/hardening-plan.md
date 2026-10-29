@@ -119,3 +119,10 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 - 2026-10-29: the user found stepped, chunk-aligned patches (pale and green squares east of Loch Modan) that no
   check caught: colour blocks are whole tiles, seams tile edges, flat land only the untextured filler. New kind
   patch-edge: straight hard colour edges along the chunk grid (33 issues; ~2 look benign). 99 -> 132 issues.
+- 2026-10-29: Haiku agents marked the 101 open issues (50 accepted, 69 rejected, 21 later with the user's; the user
+  takes the 21 later). Fixes, first pass: the user chose clouds for the broken art (M2, M4): the game's own
+  fog-of-war puff (atlas "fogofwar", the adventure map's) stamped over each accepted flat-land, patch-edge, seam
+  and sea-edge place (tools/gen_clouds.py -> Data/Clouds.lua; ui/Clouds.lua, laid out with the tiles on a frame
+  of their canvas over the borders: a layer of its own held up the names, test_feel). 243 clouds in Eastern
+  Kingdoms, 93 in Kalimdor. The sea edge's tile is black in Blizzard's own art, so drawing it wouldn't help: it's
+  clouded. The Great Sea's piece of Kalimdor's coast joins Azshara (gen_borders.py FRAGMENT): no border round it.

@@ -3,7 +3,8 @@ Tiles.lua, You.lua) on the simulated client. Borders: a zone border's segment is
 from zoom 60, then it) and a subzone's 1 (from zoom 140); a dead end at most 4 dashes; never more
 than 3000 Lines, the whole of the Eastern Kingdoms at zoom 4 included. Labels: zones in capitals,
 10 pt, up to zoom 450; subzones 9 pt, by size from 120, 220 and 400; none touching another; a name
-new to the view fades in. Tiles: an open-sea tile isn't drawn (the backdrop shows).
+new to the view fades in. Tiles: an open-sea tile isn't drawn (the backdrop shows). Clouds: over the filler
+east of Loch Modan, over the borders; none in Elwynn; a pan there from none lays them out.
 You: the arrow, on your map only.
 
   .venv/bin/python -m pytest tools/tests/test_ground.py -s   # prints the borders' Lines by zoom
@@ -187,6 +188,27 @@ def test_open_sea():
     p = tiles.front.pools
     fdid = ns.Atlas.Tiles(0)[key]
     assert all(p.art[i].fdid != fdid for i in range(1, p.art.n + 1))
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_clouds():
+    """ui/Clouds.lua: the game's puff (Data/Clouds.lua's file) over the filler east of Loch Modan, laid out with
+    the tiles on their canvas, over the borders; none in Elwynn Forest."""
+    L, sim, ns = shown()
+    tiles, borders = layer(ns, "tiles"), layer(ns, "borders")
+    S, file = sim.state, ns.Atlas.Data.Clouds.puff.file
+
+    def drawn():
+        p = tiles.front.pools.cloud
+        return [p[i] for i in range(1, p.n + 1)] if p else []
+    look(sim, ns, (40.2, 40.8), 200)
+    got = drawn()
+    assert got and all(S[t].texture == file for t in got)
+    veil = got[0].GetParent(got[0])
+    same = L.eval("rawequal")
+    assert same(veil.GetParent(veil), tiles.front) and veil.GetFrameLevel(veil) > borders.frame.GetFrameLevel(borders.frame)
+    look(sim, ns, (32.5, 48.5), 200)
+    assert not drawn()
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

@@ -223,7 +223,7 @@ local function Lines(c, lines, first, zone, c0, r0, c1, r1)
 	end
 end
 
-UI.Borders = Engine.Layer("borders", 7, function(c, inst, zoom, c0, r0, c1, r1)
+UI.Borders = Engine.Layer("borders", 6, function(c, inst, zoom, c0, r0, c1, r1)
 	local lines = Atlas.BorderLines(inst, zoom)
 	if not lines then return end
 	made, nl = 0, 0
