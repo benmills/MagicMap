@@ -52,6 +52,7 @@ LEVELS = (           # below a zoom (px per tile), each within about 1.5 px ther
 COAST = 0.01         # Douglas-Peucker tolerance of outlines along the coast (and land of no zone)
 TAIL = 4             # chunk edges a border runs on over water, fading out
 DEAD_END = 0.1       # tiles a border fades over where it stops on land (no zone beyond)
+FRAGMENT = 64        # zones with fewer land chunks on a map join the neighbour they border most (no border round them)
 MIN_RING = 12        # outline rings enclosing fewer chunks (islets, ponds) are dropped
 MIN_SUBZONE_CELLS = 6  # subzones smaller than this get no label
 MIN_SUBZONE_EDGE_CELLS = 4  # ...nor a border, under this many land chunks (the spike's gen_borders.py)
@@ -255,6 +256,21 @@ def trace_map(area: dict, sea: set, wet: set, water: set, areas: Areas):
     # islets) aren't zones on a map.
     sea_zone = {z for z, n in zone_all.items() if zone_land.get(z, 0) < 10 or zone_land[z] < n * 0.25}
     zone = {c: z for c, z in zone.items() if z not in sea_zone}
+    # A stray piece of an area (The Great Sea's on Kalimdor's coast, between Durotar and Azshara) is no place
+    # on this map: its chunks join the zone they border most, so no border is drawn round it.
+    for z in sorted(z for z, n in zone_land.items() if n < FRAGMENT and z not in sea_zone):
+        mine = [c for c, y in zone.items() if y == z]
+        near = {}
+        for c in mine:
+            for n in neighbours(c):
+                y = zone.get(n)
+                if y is not None and y != z:
+                    near[y] = near.get(y, 0) + 1
+        if near:
+            to = max(sorted(near), key=near.get)
+            log(f"  zone {z}: {len(mine)} chunks ({zone_land[z]} land) join zone {to}")
+            for c in mine:
+                zone[c] = to
 
     # --- every edge of every zone's land (to another zone, or 0: water, no zone)
     land = {c: z for c, z in zone.items() if c not in water}
