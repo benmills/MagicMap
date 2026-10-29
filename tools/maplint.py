@@ -21,6 +21,11 @@ Checks (issue kinds in brackets):
   seams      tile edges whose jump is SEAM_RATIO times the tiles' own variation [seam]; tiles whose colour
              jumps at their own edges on BLOCK_SIDES of their drawn sides, as seams or as one colour offset
              BLOCK_SHIFT times the gradient beside the edges (a misplaced or tinted tile) [colour-block] (M4).
+  patches    straight colour edges along the chunk grid inside the art: a chunk line (also a tile edge) whose band
+             colours either side are PATCH_JUMP apart and PATCH_RATIO times the gradient beside it, in runs of
+             PATCH_RUN chunks or more; runs within PATCH_NEAR chunks grouped, a group with PATCH_EDGE chunks of
+             edge an issue: a stepped, chunk-aligned patch of other art (pale or green squares by the flat filler
+             east of Loch Modan) [patch-edge] (M2, M4).
   borders    Data/Borders.lua's lines, as drawn (the addon draws them alone; an outline is only the web
              demo's hover highlight), and outlines: per zone, the drawn (unfaded) line running WRAP_RUN or
              more over water (with art, or flat land), all four chunks round it so, counted to whichever
@@ -102,6 +107,11 @@ BLOCK_SIDES = 3      # a colour block's edges jump on this many of its drawn sid
 BLOCK_SHIFT = 2.0    # ...as seams, or as one colour offset this many times the gradient beside the edges
 SHIFT_BAND = 4       # px: the edge bands whose mean colours the offset compares
 SKIP_BASE, SKIP_ART = 0.02, 0.02   # share of a sea tile that's land in the base picture / its art
+PATCH_JUMP = 25.0     # sum |RGB| between the 2 px bands either side of a chunk line...
+PATCH_RATIO = 3.0     # ...and this many times the gradient beside it (+1): a hard edge
+PATCH_RUN = 3         # chunks: a straight run of hard edge this long counts
+PATCH_NEAR = 3        # chunks: runs this near are one patch...
+PATCH_EDGE = 4        # ...an issue with this many chunks of edge
 STRIPE_STD = 3.0     # an edge line of a sea tile's art this uniform (RGB std) and off the backdrop is a painted stripe
 SEA_EDGE = 8.0       # mean |RGB| between a drawn neighbour's edge water and the backdrop
 WRAP_RUN = 0.25      # tiles: drawn (unfaded) line this long over water or flat land, its chunks all round, is a wrap
@@ -504,6 +514,66 @@ class Continent:
                                  f"tile {c},{r}: {why}: a tile-aligned block"))
         return out
 
+    def patches(self) -> list[dict]:
+        """Straight hard colour edges along the chunk grid (PATCH_*), grouped into patches."""
+        N, P, sea = 64 * PX, CPX, self.data.sea[self.inst]
+        pic, drawn = np.zeros((N, N, 3), np.uint8), np.zeros((N, N), bool)
+        for k, a in self.art.items():
+            if k not in sea:
+                c, r = k // 64, k % 64
+                pic[r * PX:(r + 1) * PX, c * PX:(c + 1) * PX] = a
+                drawn[r * PX:(r + 1) * PX, c * PX:(c + 1) * PX] = True
+        xs = np.arange(P, N - P, P)
+
+        def hard(p, d):  # the lines x = xs (chunk units xs // P): [chunk row, line] hard, in runs of PATCH_RUN
+            l2, l1, r0, r1 = (p[:, xs + o].astype(np.float32) for o in (-2, -1, 0, 1))
+            off = np.abs((l2 + l1) - (r0 + r1)).sum(-1) / 2
+            grad = (np.abs(l2 - l1).sum(-1) + np.abs(r0 - r1).sum(-1)) / 2
+            off, grad = (v.reshape(GRID, P, len(xs)).mean(1) for v in (off, grad))
+            ok = (d[:, xs - 2] & d[:, xs + 1]).reshape(GRID, P, len(xs)).all(1)
+            m = (off > PATCH_JUMP) & (off > PATCH_RATIO * (grad + 1)) & ok
+            keep = np.zeros_like(m)
+            for i in np.flatnonzero(m.sum(0) >= PATCH_RUN):
+                e = np.diff(np.r_[0, m[:, i].astype(np.int8), 0])
+                for a, b in zip(np.flatnonzero(e == 1), np.flatnonzero(e == -1)):
+                    keep[a:b, i] = b - a >= PATCH_RUN
+            return keep
+        segs = [(j, x, 0) for j, i in zip(*np.nonzero(hard(pic, drawn))) for x in [xs[i] // P]]
+        segs += [(y, i, 1) for i, j in zip(*np.nonzero(hard(pic.transpose(1, 0, 2), drawn.T))) for y in [xs[j] // P]]
+        at = {}  # chunk -> segments beside it
+        for s in segs:
+            j, x, h = s
+            for cell in (((j, x), (j, x - 1)) if not h else ((j, x), (j - 1, x))):
+                at.setdefault(cell, []).append(s)
+        out, seen = [], set()
+        for s0 in segs:
+            if s0 in seen:
+                continue
+            seen.add(s0)
+            q, group = deque([s0]), []
+            while q:
+                s = q.popleft()
+                group.append(s)
+                for dy in range(-PATCH_NEAR, PATCH_NEAR + 1):
+                    for dx in range(-PATCH_NEAR, PATCH_NEAR + 1):
+                        for t in at.get((s[0] + dy, s[1] + dx), ()):
+                            if t not in seen:
+                                seen.add(t)
+                                q.append(t)
+            if len(group) < PATCH_EDGE:
+                continue
+            cells = np.zeros((GRID, GRID), bool)
+            for j, x, h in group:
+                cells[j, x] = True
+                cells[(j - 1, x) if h else (j, x - 1)] = True
+            cy, cx = np.nonzero(cells)
+            col, row = (cx.mean() + .5) / CH, (cy.mean() + .5) / CH
+            zone = self.zone_at(col, row)
+            out.append(issue("patch-edge", self.inst, f"{round(col)},{round(row)}", box_of(cells), [col, row], len(group), zone,
+                             {"edge": len(group)}, f"{len(group)} chunks of straight colour edge on the chunk grid in {zone}: "
+                             "a chunk-aligned patch of other art", mask_of(cells)))
+        return out
+
     def zone_masks(self) -> dict[int, np.ndarray]:
         if self.masks is None:
             self.masks = {}
@@ -735,8 +805,8 @@ def overlay(cont: Continent, out_dir: str, issues: list[dict], samples) -> list[
         return (col - c0) * S, (row - r0) * S
     os.makedirs(out_dir, exist_ok=True)
     paths, colours = [], {"skipped-tile": (0, 255, 255), "sea-edge": (0, 160, 255), "seam": (255, 40, 40),
-                          "colour-block": (255, 230, 0), "border-sliver": (0, 255, 0), "border-fragment": (255, 0, 0), "flat-land": (255, 255, 255), "border-wrap": (255, 255, 255)}
-    for which, kinds in (("tiles", ("skipped-tile", "sea-edge", "seam", "colour-block", "flat-land")), ("borders", ("border-wrap", "border-sliver", "border-fragment"))):
+                          "colour-block": (255, 230, 0), "patch-edge": (255, 128, 0), "border-sliver": (0, 255, 0), "border-fragment": (255, 0, 0), "flat-land": (255, 255, 255), "border-wrap": (255, 255, 255)}
+    for which, kinds in (("tiles", ("skipped-tile", "sea-edge", "seam", "colour-block", "patch-edge", "flat-land")), ("borders", ("border-wrap", "border-sliver", "border-fragment"))):
         p = pic.copy()
         if which == "tiles":
             tint(p, cont.flat, (255, 0, 255), 0.7)
@@ -855,6 +925,11 @@ def run(ns) -> tuple[dict, list[str]]:
             scores[P + "seams.blocks"] = len(blocks)
             show(f"seams: {len(seams)} edges over {SEAM_RATIO:g}x the tiles' variation", seams, zoom=256)
             show(f"colour blocks: {len(blocks)} tiles", blocks)
+            patches = cont.patches()
+            patches.sort(key=lambda i: -i["severity"])
+            scores[P + "patches.edge"] = sum(i["metrics"]["edge"] for i in patches)
+            scores[P + "patches.regions"] = len(patches)
+            show(f"patches: {len(patches)} chunk-aligned patches ({scores[P + 'patches.edge']} chunks of edge)", patches, zoom=256)
         wraps, slivers, fragments, tot, samples = cont.borders(bool(art))
         wraps.sort(key=lambda i: -i["severity"])
         slivers.sort(key=lambda i: -i["severity"])

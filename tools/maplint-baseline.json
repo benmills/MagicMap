@@ -12,6 +12,8 @@
   "0.flat.chunks": 3402,
   "0.flat.regions": 59,
   "0.flat.share": 0.0366,
+  "0.patches.edge": 248,
+  "0.patches.regions": 22,
   "0.seams.blocks": 6,
   "0.seams.edges": 0,
   "0.skipped.art_tiles": 1,
@@ -23,6 +25,8 @@
   "1.borders.line_wrap": 0.82,
   "1.borders.line_wrap_zones": 1,
   "1.borders.water_share": 0.0157,
+  "1.patches.edge": 121,
+  "1.patches.regions": 11,
   "1.skipped.base_tiles": 0,
   "data.stale_files": 0
  }
