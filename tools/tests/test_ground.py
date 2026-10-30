@@ -207,6 +207,17 @@ def test_clouds():
     veil = got[0].GetParent(got[0])
     same = L.eval("rawequal")
     assert same(veil.GetParent(veil), tiles.front) and veil.GetFrameLevel(veil) > borders.frame.GetFrameLevel(borders.frame)
+    washes = lambda: (lambda p: p.n if p else 0)(tiles.front.pools.wash)
+    assert washes()
+    feel = ns.UI.Feel
+    feel.Set("clouds.on", False)
+    look(sim, ns, (40.3, 40.8), 200)
+    assert not drawn() and washes()
+    feel.Set("clouds.wash", False)
+    look(sim, ns, (40.2, 40.8), 200)
+    assert not washes()
+    feel.Set("clouds.on", True)
+    feel.Set("clouds.wash", True)
     look(sim, ns, (32.5, 48.5), 200)
     assert not drawn()
     look(sim, ns, (30.5, 55.5), 200)  # the sea tile that left a block in the sea: water of ours, no cloud

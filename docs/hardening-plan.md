@@ -130,3 +130,6 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
   ground's colour comes through. No cloud at Solliden Farmstead (flat-land:0:29,28 rejected). The black sea tile at
   30,55 gets water of our own instead of a cloud (tools/gen_patches.py -> Textures/Patch0_30_55.tga, Data/Patches.lua,
   Atlas.TileArt): its neighbours' edge colours, smoothed across it. Blizzard's own seam east of it stays.
+- 2026-10-30: a wash under the clouds: the colours of the ground round each covered place, smoothed across it, soft-edged
+  (tools/gen_patches.py -> Textures/Wash*.tga, 16 of them, 884 KB; ui/Clouds.lua). Switches: Settings -> Map, "Clouds" and
+  "Smooth broken ground" (Feel "clouds.on", "clouds.wash"), and two buttons on the hosted demo (demo/clouds.js).

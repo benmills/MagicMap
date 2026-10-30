@@ -7,6 +7,9 @@
 -- the map has none, and a layer's layouts would hold up the names and pins as the ground's do. Tinted to the
 -- minimap's warm greys (TINT): white reads as a hole on the dark ground; thin (the puff's alpha), so the ground's
 -- colour comes through. Kept by cloud (Engine.Keep).
+-- Under them, on the canvas over the tiles, a wash of the ground's colours over the same places (Data/Patches.lua's
+-- Washes, tools/gen_patches.py): soft-edged, so the hard edges and colour jumps have gone before the cloud goes on.
+-- Each can be switched off (Feel's "clouds.on", "clouds.wash"): Clouds.Rev lays the tiles out anew.
 
 local _, ns = ...
 local UI = ns.UI
@@ -18,6 +21,45 @@ local TINT = { 0.78, 0.75, 0.68 }
 
 local Clouds = {}
 UI.Clouds = Clouds
+
+local cloudsOn, washOn, rev = true, true, 0
+function Clouds.Rev() return rev end
+function Clouds.SetLook(clouds, wash)
+	if clouds == nil then clouds = cloudsOn end
+	if wash == nil then wash = washOn end
+	if clouds ~= cloudsOn or wash ~= washOn then cloudsOn, washOn, rev = clouds, wash, rev + 1 end
+end
+
+-- A wash's texture: on the canvas, over the tiles' ARTWORK.
+local function WashTex(c)
+	local t = c:CreateTexture(nil, "ARTWORK", nil, 1)
+	t:SetSnapToPixelGrid(false)
+	t:SetTexelSnappingBias(0)
+	return t
+end
+
+-- The washes over the region: placed each layout (a few dozen at most, few in view).
+local function Washes(c, inst, zoom, c0, r0, c1, r1)
+	local list = Atlas.Washes(inst)
+	if not list then return end
+	for i = 1, #list, 4 do
+		local col, row, side = list[i + 1], list[i + 2], list[i + 3]
+		if col + side > c0 and col < c1 and row + side > r0 and row < r1 then
+			local t = Get(c, "wash", "tex", WashTex, i)
+			local file = Atlas.ROOT .. list[i]
+			if t.file ~= file then
+				t:SetTexture(file, "CLAMP", "CLAMP", "TRILINEAR")
+				t.file = file
+			end
+			-- clipped to the region: a big one at a close zoom would lie further off than a point's offset may
+			local l, t_, r, b = math.max(col, c0), math.max(row, r0), math.min(col + side, c1), math.min(row + side, r1)
+			t:SetTexCoord((l - col) / side, (r - col) / side, (t_ - row) / side, (b - row) / side) -- /: never 0 (a wash's side, Data/Patches.lua)
+			local x0, y0 = Px(l - c.ox, zoom), Px(t_ - c.oy, zoom)
+			t:SetPoint("TOPLEFT", c, "TOPLEFT", x0, -y0)
+			t:SetSize(Px(r - c.ox, zoom) - x0, Px(b - c.oy, zoom) - y0)
+		end
+	end
+end
 
 -- A cloud's texture, on its canvas's veil frame (made the first time; home: where Engine puts it back).
 local function CloudTex(c)
@@ -85,6 +127,8 @@ local pend, np = {}, 0
 
 -- The clouds over the region (c0, r0)-(c1, r1) on the tiles' canvas c.
 function Clouds.Lay(c, inst, zoom, c0, r0, c1, r1)
+	if washOn then Washes(c, inst, zoom, c0, r0, c1, r1) end
+	if not cloudsOn then return end
 	local list, p = Atlas.Clouds(inst)
 	if not list then return end
 	local _, tall = Puff(p)

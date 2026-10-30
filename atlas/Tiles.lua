@@ -66,6 +66,13 @@ function Atlas.Drawn(inst, key)
 	return tiles and tiles[key] and (Patch(inst, key) or not (colors and colors.sea and colors.sea[key])) and true or false
 end
 
+-- A map's washes of colour over the broken land (Data/Patches.lua, tools/gen_patches.py); nil: none.
+-- { file, col, row, side, ... }: a wash's picture (under the addon's folder), its corner and side in tiles.
+function Atlas.Washes(inst)
+	local w = Data.Washes and Data.Washes[inst]
+	if w and #w > 0 then return w end
+end
+
 -- What a drawn tile shows: its patch, or Blizzard's tile (a FileDataID).
 function Atlas.TileArt(inst, key)
 	return Patch(inst, key) or Atlas.Tiles(inst)[key]
