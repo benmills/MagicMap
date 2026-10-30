@@ -141,15 +141,21 @@ local function Mine(you)
 end
 
 local drawn -- the map the layers show
+
+-- What the tiles lie on: the ocean's colour (ui/Sea.lua), else the map's own dark water.
+function Window.Backdrop()
+	local bg = BACKDROP
+	for _, m in ipairs(Atlas.Maps()) do
+		if m.inst == drawn and m.bg then bg = m.bg end
+	end
+	bg = UI.Sea and UI.Sea.Deep(drawn) or bg
+	backdrop:SetColorTexture(bg[1], bg[2], bg[3], 1)
+end
 local function SetInst(inst)
 	drawn = inst
 	if Camera.zoneInst ~= inst then Camera.zone = nil end -- (another map's: SetMap, Core.lua:1071)
 	UI.Engine.Clear()
-	local bg = BACKDROP
-	for _, m in ipairs(Atlas.Maps()) do
-		if m.inst == inst and m.bg then bg = m.bg end
-	end
-	backdrop:SetColorTexture(bg[1], bg[2], bg[3], 1)
+	Window.Backdrop()
 end
 
 Runtime.Step("ui", "map: draw", function(elapsed)
@@ -165,6 +171,7 @@ Runtime.Step("ui", "map: draw", function(elapsed)
 	local w, h = Window.Size()
 	if w <= 0 or h <= 0 then return end
 	UI.Base.Draw(inst, cam, w, h)
+	UI.Sea.Draw(inst, cam, w, h)
 	local zooming = UI.Engine.Draw(inst, cam, w, h)
 	Runtime.SetState(Motion.Dragging() and "drag" or zooming and "zoom" or UI.BigMap.big and "big" or "small")
 end, { shownOnly = frame })

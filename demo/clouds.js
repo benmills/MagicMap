@@ -10,12 +10,13 @@ const Clouds = (() => {
     if (!pics[url]) { pics[url] = new Image(); pics[url].onload = () => again && again(); pics[url].src = url; }
     return pics[url].complete && pics[url].naturalWidth ? pics[url] : null;
   };
-  let fill = null;
+  let fill = null, sea = null;
+  fetch("sea/sea.json").then((r) => (r.ok ? r.json() : null)).then((d) => { sea = d; if (again) again(); }).catch(() => {});
   fetch("fill/fill.json").then((r) => (r.ok ? r.json() : null)).then((d) => { fill = d; if (again) again(); }).catch(() => {});
 
   // The two switches, as the addon's Feel "fill.on", "clouds.on": a corner of the page, kept for this viewer.
   const read = (k, dflt) => { try { const v = localStorage.getItem(`mm.${k}`); return v ? v === "on" : dflt; } catch { return dflt; } };
-  const on = { fill: read("fill", true), clouds: read("clouds2", false) };
+  const on = { sea: read("sea", true), fill: read("fill", true), clouds: read("clouds2", false) };
   const panel = document.createElement("div");
   panel.style.cssText = "position:fixed;left:10px;bottom:44px;z-index:20;display:flex;gap:6px;font:12px system-ui,sans-serif";
   const button = (key, label) => {
@@ -31,6 +32,7 @@ const Clouds = (() => {
     show();
     panel.append(b);
   };
+  button("sea", "Ocean");
   button("fill", "Rebuilt ground");
   button("clouds", "Clouds");
   document.body.append(panel);
@@ -57,6 +59,14 @@ const Clouds = (() => {
     for (const [col, row, png] of (data && data.patches && data.patches[inst]) || []) {
       const p = pic(`clouds/${png}`), [x, y] = toScreen(col, row);
       if (p) g.drawImage(p, x, y, zoom, zoom);
+    }
+    const ocean = on.sea && sea && sea.maps[inst];
+    if (ocean) {
+      const p = pic(`sea/${ocean.file}`), [x0, y0] = toScreen(ocean.col, ocean.row), W = g.canvas.clientWidth || g.canvas.width, H = g.canvas.clientHeight || g.canvas.height;
+      const x1 = x0 + ocean.w * zoom, y1 = y0 + ocean.h * zoom;
+      g.fillStyle = `rgb(${sea.deep.join(",")})`; // past the picture
+      g.fillRect(0, 0, W, Math.max(0, y0)); g.fillRect(0, y1, W, Math.max(0, H - y1)); g.fillRect(0, y0, Math.max(0, x0), y1 - y0); g.fillRect(x1, y0, Math.max(0, W - x1), y1 - y0);
+      if (p) g.drawImage(p, x0, y0, x1 - x0, y1 - y0);
     }
     if (on.fill) for (const f of (fill && fill[inst]) || []) {
       const p = pic(`fill/${f.file}`), [x, y] = toScreen(f.col, f.row);

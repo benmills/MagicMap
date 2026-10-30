@@ -7,10 +7,9 @@
 
 local _, ns = ...
 local UI = ns.UI
-local Atlas, Engine, Runtime, Window = ns.Atlas, ns.UI.Engine, ns.Runtime, ns.UI.Window
+local Atlas, Engine, Runtime = ns.Atlas, ns.UI.Engine, ns.Runtime
 local Get, Keep, Px, Yield = Engine.Get, Engine.Keep, Engine.Px, Runtime.Yield
 
-local LEVEL = 1 -- the tiles' own: over them, under the rest
 local CHUNKS = 16 -- chunks a tile side
 local STRIDE = 10 -- a piece's fields in the list
 local BUDGET = 0.5 -- ms a frame for making pieces
@@ -30,7 +29,7 @@ local function Tex(c)
 	if not frame then
 		frame = CreateFrame("Frame", nil, c)
 		frame:SetAllPoints()
-		frame:SetFrameLevel(Window.view:GetFrameLevel() + LEVEL)
+		frame:SetFrameLevel(c:GetFrameLevel() + 1) -- over its canvas: at its own level it would lie under the tiles
 		c.fill = frame
 	end
 	local t = frame:CreateTexture(nil, "ARTWORK")

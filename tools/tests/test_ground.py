@@ -210,6 +210,15 @@ def test_clouds():
     assert same(veil.GetParent(veil), tiles.front) and veil.GetFrameLevel(veil) > borders.frame.GetFrameLevel(borders.frame)
     pieces = lambda: (lambda p: p.n if p else 0)(tiles.front.pools.fill)
     assert pieces(), "the rebuilt ground, on by default"
+    fp = tiles.front.fill
+    assert fp.GetFrameLevel(fp) > tiles.front.GetFrameLevel(tiles.front), "over the tiles, not under them"
+    sea = ns.UI.Sea
+    assert sea.frame.GetFrameLevel(sea.frame) > tiles.front.GetFrameLevel(tiles.front) and sea.frame.GetFrameLevel(sea.frame) < borders.frame.GetFrameLevel(borders.frame)
+    assert sea.Shown(), "the ocean, on by default"
+    ns.UI.Feel.Set("sea.on", False)
+    sim.Run(0.1)
+    assert not sea.Shown()
+    ns.UI.Feel.Set("sea.on", True)
     feel = ns.UI.Feel
     feel.Set("fill.on", False)
     look(sim, ns, (40.3, 40.8), 200)

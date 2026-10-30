@@ -31,7 +31,7 @@ import numpy as np
 from PIL import Image
 
 from gen_clouds import blp_rgba, components, grow, places
-from mmtools.formats import adt_chunks, iter_chunks, wdt_maid
+from mmtools.formats import adt_chunks, adt_liquids, iter_chunks, wdt_maid
 from mmtools.log import log
 from mmtools.luaout import data_head, load_data
 from mmtools.sources import add_source_args, source_from_args
@@ -132,6 +132,21 @@ class Ground:
         if key not in self.tiles or key in self.sea:
             return None
         return np.asarray(blp_rgba(self.src.read(self.tiles[key])).convert("RGB").resize((n, n), Image.LANCZOS), np.float32)
+
+    def heights_and_water(self, key: int) -> tuple[np.ndarray, np.ndarray]:
+        """Heights and the water's surface (-inf: none), 128 x 128."""
+        path = os.path.join(self.cache, f"{self.inst}_{key}.water.npy")
+        h, _ = self.terrain(key)
+        if os.path.exists(path):
+            return h, np.load(path)
+        w = np.full((16, 16), -np.inf, np.float32)
+        t = self.maid.get(key)
+        b = t and t.root_adt and self.src.read(t.root_adt)
+        for l in adt_liquids(b) if b else ():
+            w[l.iy, l.ix] = max(w[l.iy, l.ix], l.surface)
+        w = w.repeat(8, 0).repeat(8, 1)
+        np.save(path, w)
+        return h, w
 
     def terrain(self, key: int) -> tuple[np.ndarray, np.ndarray]:
         """Heights and painted textures, 128 x 128."""

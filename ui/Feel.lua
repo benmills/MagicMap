@@ -9,7 +9,7 @@
 --     Follow you (UI.Motion), Minimap button (UI.Icon), Group icons (UI.saved.cluster), Reset window position.
 --   Map: label size, subzone label size and opacity (ui/Labels.lua), zone borders' opacity and width (ui/Borders.lua),
 --     your arrow's size (ui/You.lua), the info pills' backing (ui/Controls.lua), the indoor veil's strength and whether
---     a small building zooms the map in (ui/Interiors.lua), the rebuilt ground (ui/Fill.lua) and the clouds (ui/Clouds.lua). Pushed to their setters on change, and again each time the
+--     a small building zooms the map in (ui/Interiors.lua), the ocean (ui/Sea.lua), the rebuilt ground (ui/Fill.lua) and the clouds (ui/Clouds.lua). Pushed to their setters on change, and again each time the
 --     map shows (the saved values, once loaded); each owner lays out anew by a rev of its own.
 --   Icons: every pin's size, and the quests' (ui/Pins.lua, ui/Quests.lua; their revs move with it); the focus ring
 --     round what you track: its size, opacity and colour (Pins.SetGlow; "ring.color" a name of UI.Pins.GLOW_COLORS).
@@ -130,6 +130,8 @@ local KEYS = {
 	{ key = "interiors.zoom", section = "map", label = "Indoor auto-zoom", kind = "check", default = true,
 		tip = "Walking into a small building (a house, an inn) zooms the small map in; leaving zooms back." },
 
+	{ key = "sea.on", section = "map", label = "Ocean", kind = "check", default = true,
+		apply = function(v) UI.Sea.Set(v) end, tip = "A coloured ocean round the land, where Blizzard's map is near-black." },
 	{ key = "fill.on", section = "map", label = "Rebuild broken ground", kind = "check", default = true,
 		apply = function(v) UI.Fill.Set(v) end, tip = "Fills the unfinished land in Blizzard's map art with pieces of the good ground beside it." },
 	{ key = "clouds.on", section = "map", label = "Clouds", kind = "check", default = false,

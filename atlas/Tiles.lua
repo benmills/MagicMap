@@ -66,6 +66,13 @@ function Atlas.Drawn(inst, key)
 	return tiles and tiles[key] and (Patch(inst, key) or not (colors and colors.sea and colors.sea[key])) and true or false
 end
 
+-- A map's ocean (Data/Sea.lua, tools/gen_sea.py) and the colour past it; nil: none.
+function Atlas.Sea(inst)
+	local s = Data.Sea
+	return s and s[inst]
+end
+function Atlas.SeaDeep() return Data.Sea.deep end
+
 -- A map's rebuilt ground (Data/Fill.lua, tools/gen_fill.py) and its pieces' side, in chunks; nil: none.
 -- { col, row, file, sc, sr, r, g, b, mask, sub, ... }: where (chunks), its source (a tile's FileDataID, the chunk in it),
 -- gain, Textures/FillMask<mask>, sublevel.
