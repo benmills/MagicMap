@@ -4,7 +4,9 @@
 Blizzard's minimap tiles have unfinished land in them: flat filler, stepped patches of other art (tools/maplint.py's
 flat-land, patch-edge and seam issues). What to rebuild is the map review's call (M6): the issues accepted in
 docs/map-review.json, spreading over chunks the game's terrain files show as the same filler: one painted texture over
-the whole chunk (tex0 ADT: MCLY, MCAL) and next to no detail in the art. Real ground is finely painted, so it's safe.
+the whole chunk (tex0 ADT: MCLY, MCAL) and next to no detail in the art. Real ground is finely painted, so it's safe, and
+any block of BLOCK such chunks is rebuilt whether the review named it or not. Landmarks are left alone and never copied:
+chunks with a building on them (obj0 MODF) or with vivid px out of keeping with the rest.
 
 Each hole is quilted (Efros & Freeman's image quilting, guided): square PIECE-chunk pieces, on a grid, overlapping by a
 chunk, each cut from good ground of a nearby zone, inside one tile, and chosen for how well it meets what's round it,
@@ -31,7 +33,7 @@ import numpy as np
 from PIL import Image
 
 from gen_clouds import blp_rgba, components, grow, places
-from mmtools.formats import adt_chunks, adt_liquids, iter_chunks, wdt_maid
+from mmtools.formats import adt_chunks, adt_liquids, adt_modf, iter_chunks, wdt_maid
 from mmtools.log import log
 from mmtools.luaout import data_head, load_data
 from mmtools.sources import add_source_args, source_from_args
@@ -39,12 +41,16 @@ from mmtools.tga import write_tga
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WDT = {0: 775971, 1: 782779}
+TILE = 1600 / 3
 PX = 8              # px a chunk the choosing works at
 PIECE = 6           # chunks a piece's side
-OVERLAP = 1         # chunks neighbours share
+OVERLAP = 2         # chunks neighbours share
 REACH = 4           # tiles of ground read round a region
 RING = 40           # chunks from a hole a piece may come from
 ZONE_NEAR = 24      # chunks round a piece whose zones it may come from
+BLOCK = 48         # chunks of filler together: rebuilt whether the review named them or not
+STANDS_OUT = 60     # a chunk with over 1% of its px this far from its mean (0-255)...
+VIVID = 120         # ...and this saturated has a landmark in it
 FLAT = 6            # a chunk's art this flat (mean std of its px, 0-255) can be filler
 SPREAD = 40         # chunks a hole may spread over filler
 KEEP_RANGE = 70     # percentile: pieces with less contrast than this
@@ -60,6 +66,7 @@ TONE_CAP = 32       # the most a piece's tone may be off, after its gain
 GAIN = 0.6          # the least gain
 PASSES = 2          # further passes
 MASKS = 8           # soft-edged masks to choose from
+GUIDE_BLUR = 6      # chunks: the guide's line between two sides, softened
 FLAT_WATER = 28     # a chunk with no channel over this is water or dark: no hole, no source
 
 
@@ -133,6 +140,21 @@ class Ground:
             return None
         return np.asarray(blp_rgba(self.src.read(self.tiles[key])).convert("RGB").resize((n, n), Image.LANCZOS), np.float32)
 
+    def buildings(self, key: int) -> np.ndarray:
+        """The chunks of a tile with a building (WMO) on them, 16 x 16."""
+        path = os.path.join(self.cache, f"{self.inst}_{key}.built.npy")
+        if os.path.exists(path):
+            return np.load(path)
+        out = np.zeros((16, 16), bool)
+        t = self.maid.get(key)
+        b = t and t.obj0 and self.src.read(t.obj0)
+        for m in adt_modf(b) if b else ():
+            cx = lambda v: (v / TILE - key // 64) * 16
+            cy = lambda v: (v / TILE - key % 64) * 16
+            out[max(0, int(cy(m.mn[2]))):max(0, int(cy(m.mx[2])) + 1), max(0, int(cx(m.mn[0]))):max(0, int(cx(m.mx[0])) + 1)] = True
+        np.save(path, out)
+        return out
+
     def heights_and_water(self, key: int) -> tuple[np.ndarray, np.ndarray]:
         """Heights and the water's surface (-inf: none), 128 x 128."""
         path = os.path.join(self.cache, f"{self.inst}_{key}.water.npy")
@@ -177,6 +199,24 @@ def spread(t: np.ndarray, n: int, within: np.ndarray | None = None) -> np.ndarra
     return t
 
 
+def filler(g: Ground, tiles: dict, sea: dict) -> np.ndarray:
+    """The blocks of filler anywhere on the map, by chunk: one texture over each chunk, its art flat, and many of them together."""
+    found = np.zeros((64 * 16, 64 * 16), bool)
+    for k in tiles:
+        a = None if k in sea else g.art(k, 16 * PX)
+        if a is None:
+            continue
+        _, t = g.terrain(k)
+        cells = lambda v: v.reshape(16, PX, 16, PX, *v.shape[2:])
+        flat = (cells(t).max((1, 3)) == cells(t).min((1, 3))) & (cells(a).std((1, 3)).mean(-1) < FLAT) & (cells(a).mean((1, 3)).max(-1) >= FLAT_WATER)
+        found[k % 64 * 16:k % 64 * 16 + 16, k // 64 * 16:k // 64 * 16 + 16] = flat
+    out = np.zeros_like(found)
+    for sy, sx in components(found):
+        if found[sy, sx].sum() >= BLOCK:
+            out[sy, sx] |= found[sy, sx]
+    return out
+
+
 def regions(accepted: np.ndarray) -> list[tuple[int, int, int, int]]:
     """Tile boxes round the accepted places, merged where they touch."""
     boxes = [[sx.start // 16 - 1, sy.start // 16 - 1, (sx.stop - 1) // 16 + 2, (sy.stop - 1) // 16 + 2] for sy, sx in components(grow(accepted, 3))]
@@ -202,6 +242,7 @@ def quilt(g: Ground, box: tuple, accepted: np.ndarray, flagged: np.ndarray, zone
     P = 16 * PX
     H, W = (R1 - R0) * P, (C1 - C0) * P
     img, heights, tex = np.zeros((H, W, 3), np.float32), np.full((H, W), np.nan, np.float32), np.zeros((H, W), np.int64)
+    built = np.zeros((H, W), bool)
     have = np.zeros((R1 - R0, C1 - C0), bool)
     for c in range(C0, C1):
         for r in range(R0, R1):
@@ -210,6 +251,7 @@ def quilt(g: Ground, box: tuple, accepted: np.ndarray, flagged: np.ndarray, zone
             if a is not None:
                 img[y:y + P, x:x + P], have[r - R0, c - C0] = a, True
             heights[y:y + P, x:x + P], tex[y:y + P, x:x + P] = g.terrain(c * 64 + r)
+            built[y:y + P, x:x + P] = g.buildings(c * 64 + r).repeat(PX, 0).repeat(PX, 1)
     heights = np.nan_to_num(heights, nan=float(np.nanmean(heights)))
     gy, gx = np.gradient(heights)
     shade = np.clip((gx - gy) / 5, -1, 1).astype(np.float32)
@@ -227,7 +269,12 @@ def quilt(g: Ground, box: tuple, accepted: np.ndarray, flagged: np.ndarray, zone
     corner = tex[::PX, ::PX]
     hole = spread(hole, SPREAD, uniform & (detail < FLAT) & ~dark & land & np.isin(corner, np.unique(corner[hole])))
     hole = grow(hole, 1) & land & ~dark
-    bad = hole | sub(flagged) | (uniform & (detail < FLAT))
+    # what stays: buildings and whatever stands out from the ground, a landmark; never copied, never covered
+    px_ = cells(img).transpose(0, 2, 1, 3, 4)
+    vivid = (np.abs(px_ - tone[:, :, None, None]).max(-1) > STANDS_OUT) & (px_.max(-1) - px_.min(-1) > VIVID)
+    feature = (vivid.mean((2, 3)) > .01) | (cells(built).any((1, 3)) & (detail >= FLAT))
+    hole &= ~feature
+    bad = hole | sub(flagged) | (uniform & (detail < FLAT)) | feature
     zs = sub(zones)
     ring = spread(hole, RING)
     # the sources: whole pieces of good ground, inside one tile
@@ -260,17 +307,25 @@ def quilt(g: Ground, box: tuple, accepted: np.ndarray, flagged: np.ndarray, zone
     pics = np.stack([block(img, y, x) for y, x in zip(ys, xs)])[:, ::2, ::2]
     shapes = np.stack([block(shade, y, x) for y, x in zip(ys, xs)])[:, ::4, ::4]
     index = {(int(y), int(x)): i for i, (y, x) in enumerate(zip(ys, xs))}
-    # the tone that belongs: the ground round the hole smoothed across it
-    guide = tone.copy()
-    guide[hole] = tone[~hole & land].mean(0)
-    for _ in range(1500):
+    # the tone that belongs: the nearest good ground's, a hole split between its sides (an average of them would match neither)
+    guide, known_tone = tone.copy(), ~hole & land
+    while not known_tone[hole].all():
+        p, k = np.pad(guide * known_tone[..., None], ((1, 1), (1, 1), (0, 0))), np.pad(known_tone, 1).astype(np.float32)
+        n = k[:-2, 1:-1] + k[2:, 1:-1] + k[1:-1, :-2] + k[1:-1, 2:]
+        v = (p[:-2, 1:-1] + p[2:, 1:-1] + p[1:-1, :-2] + p[1:-1, 2:]) / np.maximum(n, 1)[..., None]
+        new = (n > 0) & ~known_tone
+        if not new.any():
+            break
+        guide[new], known_tone = v[new], known_tone | new
+    for _ in range(GUIDE_BLUR):
         p = np.pad(guide, ((1, 1), (1, 1), (0, 0)), mode="edge")
         v = (p[:-2, 1:-1] + p[2:, 1:-1] + p[1:-1, :-2] + p[1:-1, 2:]) / 4
         guide[hole] = v[hole]
     masks = [wobble(i, b)[..., None] for i in range(MASKS)]
     step = PIECE - OVERLAP
     spots = {(min(h - PIECE, y // step * step), min(w - PIECE, x // step * step)) for y, x in zip(*np.nonzero(hole))}
-    spots = [p for p in spots if hole[p[0]:p[0] + PIECE, p[1]:p[1] + PIECE].any()]
+    inner = lambda a, p: a[p[0] + 1:p[0] + PIECE - 1, p[1] + 1:p[1] + PIECE - 1]
+    spots = [p for p in spots if hole[p[0]:p[0] + PIECE, p[1]:p[1] + PIECE].any() and not inner(feature, p).any()]
     holepx = hole.repeat(PX, 0).repeat(PX, 1)
     used, chosen = np.zeros(len(ys)), {}
 
@@ -395,7 +450,7 @@ def main() -> None:
     maps, baked = {}, {}
     for inst in (0, 1):
         g = Ground(src, inst, data.tiles[inst], data.sea[inst], ns.cache)
-        accepted, flagged = places(issues, decisions, inst), grow(places(issues, everything, inst), 1)
+        accepted, flagged = places(issues, decisions, inst) | filler(g, data.tiles[inst], data.sea[inst]), grow(places(issues, everything, inst), 1)
         zones = np.asarray(data.zone_grid[inst])
         maps[inst], baked[inst] = [], []
         for n, box in enumerate(regions(accepted)):
@@ -416,7 +471,7 @@ def main() -> None:
         with open(os.path.join(ROOT, "Textures", f"FillMask{i + 1}.tga"), "wb") as f:
             f.write(write_tga(n, n, rows))
     with open(os.path.join(ROOT, "Data", "Fill.lua"), "w", encoding="utf-8", newline="\n") as f:
-        f.write(f"-- GENERATED by tools/gen_fill.py from the map review's accepted issues ({os.path.relpath(ns.review, ROOT)}), the terrain and tiles of {src.product} {src.version}. Do not edit.\n")
+        f.write(f"-- GENERATED by tools/gen_fill.py from the map review's accepted issues ({os.path.relpath(ns.review, ROOT)}), the filler it finds, the terrain and tiles of {src.product} {src.version}. Do not edit.\n")
         f.write("-- [inst] = { col, row, file, sc, sr, r, g, b, mask, sub, ... }: a piece PIECE chunks a side: where (chunks), its source\n")
         f.write("--   (a tile's FileDataID, the chunk in it), gain, Textures/FillMask<mask>, sublevel\n")
         f.write(data_head("Fill"))
