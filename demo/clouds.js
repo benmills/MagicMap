@@ -5,15 +5,17 @@
 const Clouds = (() => {
   const TINT = [0.78, 0.75, 0.68]; // ui/Clouds.lua's
   let data = null, puff = null, again = null;
-  const pics = {}; // the sea tiles' water and the washes by file (Data/Patches.lua)
-  const pic = (png) => {
-    if (!pics[png]) { pics[png] = new Image(); pics[png].onload = () => again && again(); pics[png].src = `clouds/${png}`; }
-    return pics[png].complete ? pics[png] : null;
+  const pics = {}; // the sea tiles' water (Data/Patches.lua) and the rebuilt ground (tools/gen_fill.py --bake) by file
+  const pic = (url) => {
+    if (!pics[url]) { pics[url] = new Image(); pics[url].onload = () => again && again(); pics[url].src = url; }
+    return pics[url].complete && pics[url].naturalWidth ? pics[url] : null;
   };
+  let fill = null;
+  fetch("fill/fill.json").then((r) => (r.ok ? r.json() : null)).then((d) => { fill = d; if (again) again(); }).catch(() => {});
 
-  // The two switches, as the addon's Feel "clouds.on", "clouds.wash": a corner of the page, kept for this viewer.
-  const read = (k) => { try { return localStorage.getItem(k) !== "off"; } catch { return true; } };
-  const on = { clouds: read("mm.clouds"), wash: read("mm.wash") };
+  // The two switches, as the addon's Feel "fill.on", "clouds.on": a corner of the page, kept for this viewer.
+  const read = (k, dflt) => { try { const v = localStorage.getItem(`mm.${k}`); return v ? v === "on" : dflt; } catch { return dflt; } };
+  const on = { fill: read("fill", true), clouds: read("clouds2", false) };
   const panel = document.createElement("div");
   panel.style.cssText = "position:fixed;left:10px;bottom:44px;z-index:20;display:flex;gap:6px;font:12px system-ui,sans-serif";
   const button = (key, label) => {
@@ -22,14 +24,14 @@ const Clouds = (() => {
     b.style.cssText = "padding:5px 9px;border:1px solid #fff3;border-radius:6px;background:#000b;color:#fff;cursor:pointer";
     b.onclick = () => {
       on[key] = !on[key];
-      try { localStorage.setItem(`mm.${key}`, on[key] ? "on" : "off"); } catch {}
+      try { localStorage.setItem(`mm.${key === "clouds" ? "clouds2" : key}`, on[key] ? "on" : "off"); } catch {}
       show();
       if (again) again();
     };
     show();
     panel.append(b);
   };
-  button("wash", "Smooth ground");
+  button("fill", "Rebuilt ground");
   button("clouds", "Clouds");
   document.body.append(panel);
 
@@ -53,12 +55,12 @@ const Clouds = (() => {
   function draw(g, toScreen, zoom, inst, redraw) {
     again = redraw;
     for (const [col, row, png] of (data && data.patches && data.patches[inst]) || []) {
-      const p = pic(png), [x, y] = toScreen(col, row);
+      const p = pic(`clouds/${png}`), [x, y] = toScreen(col, row);
       if (p) g.drawImage(p, x, y, zoom, zoom);
     }
-    if (on.wash) for (const [col, row, side, png] of (data && data.washes && data.washes[inst]) || []) {
-      const p = pic(png), [x, y] = toScreen(col, row);
-      if (p) g.drawImage(p, x, y, side * zoom, side * zoom);
+    if (on.fill) for (const f of (fill && fill[inst]) || []) {
+      const p = pic(`fill/${f.file}`), [x, y] = toScreen(f.col, f.row);
+      if (p) g.drawImage(p, x, y, f.w * zoom, f.h * zoom);
     }
     if (!on.clouds) return;
     const list = data && puff && data[inst];

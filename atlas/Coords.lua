@@ -46,6 +46,7 @@ Atlas.FORMATS = {
 	BlipServices = 2, -- Data/BlipServices.lua (tools/gen_questie.py)
 	Interiors = 1, -- Data/Interiors.lua (tools/gen_interiors.py)
 	Clouds = 1,    -- Data/Clouds.lua (tools/gen_clouds.py)
+	Fill = 1,      -- Data/Fill.lua (tools/gen_fill.py)
 	Patches = 1,   -- Data/Patches.lua (tools/gen_patches.py)
 }
 local Data = ns.Data or {}; ns.Data = Data

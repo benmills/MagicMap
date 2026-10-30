@@ -201,23 +201,23 @@ def test_clouds():
     def drawn():
         p = tiles.front.pools.cloud
         return [p[i] for i in range(1, p.n + 1)] if p else []
+    ns.UI.Feel.Set("clouds.on", True)  # off by default
     look(sim, ns, (40.2, 40.8), 200)
     got = drawn()
     assert got and all(S[t].texture == file for t in got)
     veil = got[0].GetParent(got[0])
     same = L.eval("rawequal")
     assert same(veil.GetParent(veil), tiles.front) and veil.GetFrameLevel(veil) > borders.frame.GetFrameLevel(borders.frame)
-    washes = lambda: (lambda p: p.n if p else 0)(tiles.front.pools.wash)
-    assert washes()
+    pieces = lambda: (lambda p: p.n if p else 0)(tiles.front.pools.fill)
+    assert pieces(), "the rebuilt ground, on by default"
     feel = ns.UI.Feel
-    feel.Set("clouds.on", False)
+    feel.Set("fill.on", False)
     look(sim, ns, (40.3, 40.8), 200)
-    assert not drawn() and washes()
-    feel.Set("clouds.wash", False)
+    assert not pieces()
+    feel.Set("fill.on", True)
+    feel.Set("clouds.on", False)
     look(sim, ns, (40.2, 40.8), 200)
-    assert not washes()
-    feel.Set("clouds.on", True)
-    feel.Set("clouds.wash", True)
+    assert not drawn() and pieces()
     look(sim, ns, (32.5, 48.5), 200)
     assert not drawn()
     look(sim, ns, (30.5, 55.5), 200)  # the sea tile that left a block in the sea: water of ours, no cloud

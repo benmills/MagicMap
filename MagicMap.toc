@@ -18,6 +18,7 @@ Data\TileColor.lua
 Data\Base.lua
 Data\Clouds.lua
 Data\Patches.lua
+Data\Fill.lua
 Data\Borders.lua
 Data\Walk.lua
 Data\UiMaps.lua
@@ -125,6 +126,7 @@ ui\Controls.lua
 ui\Title.lua
 ui\BigMap.lua
 ui\Clouds.lua
+ui\Fill.lua
 ui\Tiles.lua
 ui\Base.lua
 ui\Interiors.lua

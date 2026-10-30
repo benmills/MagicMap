@@ -47,16 +47,6 @@ def main() -> None:
         json.dump(out, f, separators=(",", ":"))
     src = open_source("local", ns.product, install=ns.wow)
     blp_rgba(src.read(p.file)).crop((p.l, p.t, p.r, p.b)).save(os.path.join(ns.out, "puff.png"))
-    out["washes"] = {}  # the broken land's (tools/gen_patches.py): { "<inst>": [[col, row, side, png], ...] }
-    W = load_data(lua, os.path.join(ROOT, "Data", "Patches.lua")).Data.Washes
-    for inst, ws in W.items():
-        v = list(ws.values())
-        for i in range(0, len(v), 4):
-            png = v[i].split("\\")[-1] + ".png"
-            Image.open(os.path.join(ROOT, v[i].replace("\\", "/") + ".tga")).save(os.path.join(ns.out, png))
-            out["washes"].setdefault(str(inst), []).append([v[i + 1], v[i + 2], v[i + 3], png])
-    with open(os.path.join(ns.out, "clouds.json"), "w") as f:
-        json.dump(out, f, separators=(",", ":"))
     print(f"{ns.out}: " + ", ".join(f"[{k}] {len(out[k]) // 4} clouds" for k in ("0", "1") if k in out) + f"; puff {p.r - p.l}x{p.b - p.t}")
 
 

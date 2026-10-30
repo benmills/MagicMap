@@ -133,3 +133,7 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 - 2026-10-30: a wash under the clouds: the colours of the ground round each covered place, smoothed across it, soft-edged
   (tools/gen_patches.py -> Textures/Wash*.tga, 16 of them, 884 KB; ui/Clouds.lua). Switches: Settings -> Map, "Clouds" and
   "Smooth broken ground" (Feel "clouds.on", "clouds.wash"), and two buttons on the hosted demo (demo/clouds.js).
+- 2026-10-30: the broken art rebuilt, in place of the wash ("pure blur") and, by default, the clouds: guided image quilting
+  (tools/gen_fill.py -> Data/Fill.lua; ui/Fill.lua draws each piece from Blizzard's tile, masked, toned). The terrain files show
+  filler exactly (one painted texture a chunk): safe to spread over. New pieces are made by a job after the layout, masks parked
+  with their pieces, none far out: the budgets hold (231 passed). Switches: Settings -> Map, the demo's buttons; clouds off.

@@ -12,6 +12,7 @@ ui/Controls.lua
 ui/Title.lua
 ui/BigMap.lua
 ui/Clouds.lua
+ui/Fill.lua
 ui/Tiles.lua
 ui/Base.lua
 ui/Interiors.lua
