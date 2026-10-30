@@ -1,6 +1,7 @@
 -- The tiles' art as Blizzard drew it (SetTexture(fdid)), on the window's backdrop: the map's own
 -- dark water colour (ui/Window.lua, Data/Tiles.lua's bg), as the game's minimap has it. Open-sea
--- tiles (Atlas.Drawn: one flat colour, the backdrop's) aren't drawn. Wrap CLAMP:
+-- tiles (Atlas.Drawn: one flat colour, the backdrop's) aren't drawn, but for the few patched with water of
+-- ours (Atlas.TileArt). Wrap CLAMP:
 -- CLAMPTOBLACKADDITIVE would fade every edge's last texel to clear and draw the tile grid in
 -- hairlines. A layout keeps the tiles its canvas showed (Engine.Keep, by tile): at the same zoom and
 -- origin they're left as they are, so a pan's layout re-textures and places only the ground it adds
@@ -23,7 +24,7 @@ end
 -- A tile's art at (col, row), kept as it stands while its canvas's epoch holds.
 local function Art(c, t, inst, zoom, col, row, kept)
 	if kept and t.e == c.epoch then return end
-	local fdid = Atlas.Tiles(inst)[col * 64 + row]
+	local fdid = Atlas.TileArt(inst, col * 64 + row)
 	if t.fdid ~= fdid then
 		t:SetTexture(fdid, "CLAMP", "CLAMP", "TRILINEAR")
 		t.fdid = fdid

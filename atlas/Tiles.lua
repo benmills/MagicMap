@@ -53,11 +53,22 @@ function Atlas.TileBounds(inst)
 	if b then return b[1], b[2], b[3], b[4] end
 end
 
--- Is a tile drawn at key? Open sea tiles aren't, so beside them counts as open.
+-- The picture for a sea tile that leaves a block in the sea (Data/Patches.lua, tools/gen_patches.py), its path; nil: none.
+local function Patch(inst, key)
+	local p = Data.Patches and Data.Patches[inst]
+	return p and p[key] and Atlas.ROOT .. p[key]
+end
+
+-- Is a tile drawn at key? Open sea tiles aren't, so beside them counts as open; but for a patched one.
 function Atlas.Drawn(inst, key)
 	local tiles = Atlas.Tiles(inst)
 	local colors = Data.TileColor and Data.TileColor[inst]
-	return tiles and tiles[key] and not (colors and colors.sea and colors.sea[key]) and true or false
+	return tiles and tiles[key] and (Patch(inst, key) or not (colors and colors.sea and colors.sea[key])) and true or false
+end
+
+-- What a drawn tile shows: its patch, or Blizzard's tile (a FileDataID).
+function Atlas.TileArt(inst, key)
+	return Patch(inst, key) or Atlas.Tiles(inst)[key]
 end
 
 -- A map's base picture (Data/Base.lua, tools/gen_base.py), the continents'; nil: none.

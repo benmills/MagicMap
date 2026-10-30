@@ -209,6 +209,11 @@ def test_clouds():
     assert same(veil.GetParent(veil), tiles.front) and veil.GetFrameLevel(veil) > borders.frame.GetFrameLevel(borders.frame)
     look(sim, ns, (32.5, 48.5), 200)
     assert not drawn()
+    look(sim, ns, (30.5, 55.5), 200)  # the sea tile that left a block in the sea: water of ours, no cloud
+    q = ns.Atlas.Data.Clouds[0]
+    assert not any(abs(q[i] - 30.5) < 1 and abs(q[i + 1] - 55.5) < 1 for i in range(1, len(q) + 1, 4))
+    p = tiles.front.pools.art
+    assert any("Patch0_30_55" in str(S[p[i]].texture) for i in range(1, p.n + 1))
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

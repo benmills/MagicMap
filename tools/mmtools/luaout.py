@@ -42,6 +42,7 @@ FORMATS = {
     "BlipServices": 2,  # Data/BlipServices.lua (tools/gen_questie.py)
     "Interiors": 1,  # Data/Interiors.lua (tools/gen_interiors.py)
     "Clouds": 1,     # Data/Clouds.lua (tools/gen_clouds.py)
+    "Patches": 1,    # Data/Patches.lua (tools/gen_patches.py)
 }
 
 

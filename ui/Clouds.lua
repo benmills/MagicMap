@@ -1,11 +1,12 @@
 -- Clouds over the map's broken art (Data/Clouds.lua, tools/gen_clouds.py): the unfinished land in Blizzard's
--- tiles (flat filler, stepped patches of other art, a seam, a hole in the sea) that the map review accepted,
+-- tiles (flat filler, stepped patches of other art, a seam) that the map review accepted,
 -- under the game's own cloud, the adventure map's fog-of-war puff, stamped over and over, each sized, turned
 -- and flipped. Laid out with the tiles (UI.Clouds.Lay, from ui/Tiles.lua's layout), on their canvas, so they
 -- move, scale and fade with them; but on a frame of the canvas's own at level 7 (VEIL): over the borders (6),
 -- so no border runs across a cloud, under the path (8) and the names (9). Not a layer of their own: most of
 -- the map has none, and a layer's layouts would hold up the names and pins as the ground's do. Tinted to the
--- minimap's warm greys (TINT): white reads as a hole on the dark ground. Kept by cloud (Engine.Keep).
+-- minimap's warm greys (TINT): white reads as a hole on the dark ground; thin (the puff's alpha), so the ground's
+-- colour comes through. Kept by cloud (Engine.Keep).
 
 local _, ns = ...
 local UI = ns.UI
@@ -64,7 +65,10 @@ end
 local function Cloud(c, t, p, zoom, x, y, w, h, turn, kept)
 	if kept and t.e == c.epoch then return end
 	if t.turn ~= turn then
-		if not t.turn then t:SetTexture(p.file, "CLAMP", "CLAMP", "TRILINEAR") end
+		if not t.turn then
+			t:SetTexture(p.file, "CLAMP", "CLAMP", "TRILINEAR")
+			t:SetAlpha(p.alpha)
+		end
 		local q = Puff(p)[turn]
 		t:SetTexCoord(q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8])
 		t.turn = turn

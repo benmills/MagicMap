@@ -126,3 +126,7 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
   of their canvas over the borders: a layer of its own held up the names, test_feel). 243 clouds in Eastern
   Kingdoms, 93 in Kalimdor. The sea edge's tile is black in Blizzard's own art, so drawing it wouldn't help: it's
   clouded. The Great Sea's piece of Kalimdor's coast joins Azshara (gen_borders.py FRAGMENT): no border round it.
+- 2026-10-30: the user's look at the clouds. Thinner (a stamp's alpha 0.4, wider and fewer: 206 from 336), so the
+  ground's colour comes through. No cloud at Solliden Farmstead (flat-land:0:29,28 rejected). The black sea tile at
+  30,55 gets water of our own instead of a cloud (tools/gen_patches.py -> Textures/Patch0_30_55.tga, Data/Patches.lua,
+  Atlas.TileArt): its neighbours' edge colours, smoothed across it. Blizzard's own seam east of it stays.

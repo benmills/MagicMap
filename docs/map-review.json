@@ -410,10 +410,10 @@
   },
   "flat-land:0:29,28": {
    "id": "flat-land:0:29,28",
-   "status": "accepted",
-   "note": "Uniform dull brown rectangle with hard straight edges and no texture, set among textured fungal ground: the filler.",
-   "by": "Claude (Haiku)",
-   "at": "2026-10-29T16:36:07Z"
+   "status": "rejected",
+   "note": "Uniform dull brown rectangle with hard straight edges and no texture, set among textured fungal ground: the filler. Overruled by Ben: no cloud here.",
+   "by": "Ben",
+   "at": "2026-10-30T00:00:00Z"
   },
   "flat-land:0:42,29": {
    "id": "flat-land:0:42,29",

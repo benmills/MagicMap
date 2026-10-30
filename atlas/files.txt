@@ -2,6 +2,7 @@ Data/Tiles.lua
 Data/TileColor.lua
 Data/Base.lua
 Data/Clouds.lua
+Data/Patches.lua
 Data/Borders.lua
 Data/Walk.lua
 Data/UiMaps.lua

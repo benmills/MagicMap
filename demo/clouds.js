@@ -5,6 +5,7 @@
 const Clouds = (() => {
   const TINT = [0.78, 0.75, 0.68]; // ui/Clouds.lua's
   let data = null, puff = null, again = null;
+  const water = {}; // the sea tiles' water by file (Data/Patches.lua)
 
   const ready = () => { if (data && puff && again) again(); };
   fetch("clouds/clouds.json").then((r) => (r.ok ? r.json() : null)).then((d) => { data = d; ready(); }).catch(() => {});
@@ -25,8 +26,15 @@ const Clouds = (() => {
   // Each cloud: centre (x, y) and width w in tiles, turn 0-3 quarter turns clockwise, +4 mirrored first.
   function draw(g, toScreen, zoom, inst, redraw) {
     again = redraw;
+    for (const [col, row, png] of (data && data.patches && data.patches[inst]) || []) {
+      if (!water[png]) { water[png] = new Image(); water[png].onload = () => again && again(); water[png].src = `clouds/${png}`; }
+      const [x, y] = toScreen(col, row);
+      if (water[png].complete) g.drawImage(water[png], x, y, zoom, zoom);
+    }
     const list = data && puff && data[inst];
     if (!list) return;
+    g.save();
+    g.globalAlpha = data.alpha; // a stamp's, as the addon's SetAlpha
     const aspect = puff.height / puff.width, W = g.canvas.clientWidth || g.canvas.width, H = g.canvas.clientHeight || g.canvas.height;
     for (let i = 0; i < list.length; i += 4) {
       const w = list[i + 2] * zoom, turn = list[i + 3], odd = turn % 2 === 1;
@@ -40,6 +48,7 @@ const Clouds = (() => {
       g.drawImage(puff, -pw / 2, -ph / 2, pw, ph);
       g.restore();
     }
+    g.restore();
   }
   return { draw };
 })();
