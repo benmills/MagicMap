@@ -14,15 +14,20 @@ const Clouds = (() => {
   fetch("sea/sea.json").then((r) => (r.ok ? r.json() : null)).then((d) => { sea = d; if (again) again(); }).catch(() => {});
   fetch("fill/fill.json").then((r) => (r.ok ? r.json() : null)).then((d) => { fill = d; if (again) again(); }).catch(() => {});
 
-  // The two switches, as the addon's Feel "fill.on", "clouds.on": a corner of the page, kept for this viewer.
+  // The switches, as the addon's Feel "sea.on", "fill.on", "clouds.on": in the Map sheet, kept for this viewer.
   const read = (k, dflt) => { try { const v = localStorage.getItem(`mm.${k}`); return v ? v === "on" : dflt; } catch { return dflt; } };
   const on = { sea: read("sea", true), fill: read("fill", true), clouds: read("clouds2", false) };
   const panel = document.createElement("div");
-  panel.style.cssText = "position:fixed;left:10px;bottom:44px;z-index:20;display:flex;gap:6px;font:12px system-ui,sans-serif";
+  panel.id = "mapArt";
+  panel.style.cssText = "margin-top:10px;padding-top:6px;border-top:1px solid #fff2";
+  const heading = document.createElement("div");
+  heading.textContent = "Map art";
+  heading.style.cssText = "padding:4px 7px;font-size:12px;opacity:.7";
+  panel.append(heading);
   const button = (key, label) => {
     const b = document.createElement("button");
+    b.className = "row";
     const show = () => { b.textContent = `${label}: ${on[key] ? "on" : "off"}`; b.setAttribute("aria-pressed", on[key]); };
-    b.style.cssText = "padding:5px 9px;border:1px solid #fff3;border-radius:6px;background:#000b;color:#fff;cursor:pointer";
     b.onclick = () => {
       on[key] = !on[key];
       try { localStorage.setItem(`mm.${key === "clouds" ? "clouds2" : key}`, on[key] ? "on" : "off"); } catch {}
@@ -35,7 +40,8 @@ const Clouds = (() => {
   button("sea", "Ocean");
   button("fill", "Rebuilt ground");
   button("clouds", "Clouds");
-  document.body.append(panel);
+  const place = () => { const sheet = document.getElementById("mapSheet"); if (sheet) sheet.append(panel); };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", place); else place();
 
   const ready = () => { if (data && puff && again) again(); };
   fetch("clouds/clouds.json").then((r) => (r.ok ? r.json() : null)).then((d) => { data = d; ready(); }).catch(() => {});

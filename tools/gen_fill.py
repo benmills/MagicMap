@@ -4,16 +4,17 @@
 Blizzard's minimap tiles have unfinished land in them: flat filler, stepped patches of other art (tools/maplint.py's
 flat-land, patch-edge and seam issues). What to rebuild is the map review's call (M6): the issues accepted in
 docs/map-review.json, spreading over chunks the game's terrain files show as the same filler: one painted texture over
-the whole chunk (tex0 ADT: MCLY, MCAL) and next to no detail in the art. Real ground is finely painted, so it's safe, and
-any block of BLOCK such chunks is rebuilt whether the review named it or not. Landmarks are left alone and never copied:
-chunks with a building on them (obj0 MODF) or with vivid px out of keeping with the rest.
+the whole chunk (tex0 ADT: MCLY, MCAL) and next to no detail in the art. Real ground is finely painted, so it's safe.
+Landmarks and water are left alone: chunks with a building on them (obj0 MODF), with vivid px out of keeping with the rest,
+or with water on them (MH2O). Each piece's mask (Textures/FillMask*.tga, ours) shows it only inside the hole, so a square
+piece never covers good ground, and a piece comes from its own zone or there is none.
 
 Each hole is quilted (Efros & Freeman's image quilting, guided): square PIECE-chunk pieces, on a grid, overlapping by a
 chunk, each cut from good ground of a nearby zone, inside one tile, and chosen for how well it meets what's round it,
 the terrain's real shape under it (MCVT heights, hillshaded) and the tone that belongs there (the ground round the hole
 smoothed across it), with a gain per piece (vertex colour, which can only darken) to bring it there. A piece that carries on from
 its neighbour's source has no seam at all, and is favoured. Then PASSES of each piece chosen again against all its
-neighbours, with the irregular soft-edged mask (Textures/FillMask*.tga) that hides its seam best. Deterministic.
+neighbours, with the irregular soft edge that hides its seam best. Deterministic.
 
 The addon draws each piece from Blizzard's texture at runtime (ui/Fill.lua; NOTICE.md): this file holds where they go.
 Draw order: a piece's sublevel (0-3) from its grid place, so neighbours always lie the same way up.
@@ -30,7 +31,7 @@ import sys
 import tempfile
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 from gen_clouds import blp_rgba, components, grow, places
 from mmtools.formats import adt_chunks, adt_liquids, adt_modf, iter_chunks, wdt_maid
@@ -47,8 +48,6 @@ PIECE = 6           # chunks a piece's side
 OVERLAP = 2         # chunks neighbours share
 REACH = 4           # tiles of ground read round a region
 RING = 40           # chunks from a hole a piece may come from
-ZONE_NEAR = 24      # chunks round a piece whose zones it may come from
-BLOCK = 48         # chunks of filler together: rebuilt whether the review named them or not
 STANDS_OUT = 60     # a chunk with over 1% of its px this far from its mean (0-255)...
 VIVID = 120         # ...and this saturated has a landmark in it
 FLAT = 6            # a chunk's art this flat (mean std of its px, 0-255) can be filler
@@ -59,7 +58,6 @@ KEEP_SPECK = 75     # percentile: ...and fewer outlying px (buildings, roads) th
 W_SHAPE = 8.0       # the weights: the terrain's shape
 W_TONE = 0.25       # ...the tone that belongs here
 W_NEAR = 0.03       # ...a chunk's distance to the source
-W_ZONE = 0.1        # ...another zone
 W_USED = 0.6        # ...each use of the source so far
 CARRY = 0.45        # a piece that carries on from a neighbour's source, its cost by this
 TONE_CAP = 32       # the most a piece's tone may be off, after its gain
@@ -67,6 +65,7 @@ GAIN = 0.6          # the least gain
 PASSES = 2          # further passes
 MASKS = 8           # soft-edged masks to choose from
 GUIDE_BLUR = 6      # chunks: the guide's line between two sides, softened
+ENOUGH = 20         # sources of a piece's own zone it takes
 FLAT_WATER = 28     # a chunk with no channel over this is water or dark: no hole, no source
 
 
@@ -199,22 +198,15 @@ def spread(t: np.ndarray, n: int, within: np.ndarray | None = None) -> np.ndarra
     return t
 
 
-def filler(g: Ground, tiles: dict, sea: dict) -> np.ndarray:
-    """The blocks of filler anywhere on the map, by chunk: one texture over each chunk, its art flat, and many of them together."""
-    found = np.zeros((64 * 16, 64 * 16), bool)
-    for k in tiles:
-        a = None if k in sea else g.art(k, 16 * PX)
-        if a is None:
-            continue
-        _, t = g.terrain(k)
-        cells = lambda v: v.reshape(16, PX, 16, PX, *v.shape[2:])
-        flat = (cells(t).max((1, 3)) == cells(t).min((1, 3))) & (cells(a).std((1, 3)).mean(-1) < FLAT) & (cells(a).mean((1, 3)).max(-1) >= FLAT_WATER)
-        found[k % 64 * 16:k % 64 * 16 + 16, k // 64 * 16:k // 64 * 16 + 16] = flat
-    out = np.zeros_like(found)
-    for sy, sx in components(found):
-        if found[sy, sx].sum() >= BLOCK:
-            out[sy, sx] |= found[sy, sx]
-    return out
+def hole_mask(hole: np.ndarray, seed: int) -> np.ndarray:
+    """Where a region's pieces show, 0..1, 16 px a chunk (over its pieces' box): the hole, its edge soft and wandering."""
+    n = 16
+    h, w = hole.shape
+    big = Image.fromarray(hole.astype(np.uint8) * 255).resize((w * n, h * n), Image.BILINEAR).filter(ImageFilter.GaussianBlur(n * .5))
+    r = np.random.RandomState(seed)
+    noise = np.asarray(Image.fromarray((r.rand(h + 1, w + 1) * 255).astype(np.uint8)).resize((w * n, h * n), Image.BICUBIC), np.float32) / 255 - .5
+    t = np.clip((np.asarray(big, np.float32) / 255 + noise * .5 - .32) / .36, 0, 1)
+    return t * t * (3 - 2 * t)
 
 
 def regions(accepted: np.ndarray) -> list[tuple[int, int, int, int]]:
@@ -242,7 +234,7 @@ def quilt(g: Ground, box: tuple, accepted: np.ndarray, flagged: np.ndarray, zone
     P = 16 * PX
     H, W = (R1 - R0) * P, (C1 - C0) * P
     img, heights, tex = np.zeros((H, W, 3), np.float32), np.full((H, W), np.nan, np.float32), np.zeros((H, W), np.int64)
-    built = np.zeros((H, W), bool)
+    built, wet = np.zeros((H, W), bool), np.zeros((H, W), bool)
     have = np.zeros((R1 - R0, C1 - C0), bool)
     for c in range(C0, C1):
         for r in range(R0, R1):
@@ -252,6 +244,8 @@ def quilt(g: Ground, box: tuple, accepted: np.ndarray, flagged: np.ndarray, zone
                 img[y:y + P, x:x + P], have[r - R0, c - C0] = a, True
             heights[y:y + P, x:x + P], tex[y:y + P, x:x + P] = g.terrain(c * 64 + r)
             built[y:y + P, x:x + P] = g.buildings(c * 64 + r).repeat(PX, 0).repeat(PX, 1)
+            ground, surface = g.heights_and_water(c * 64 + r)
+            wet[y:y + P, x:x + P] = ground < surface
     heights = np.nan_to_num(heights, nan=float(np.nanmean(heights)))
     gy, gx = np.gradient(heights)
     shade = np.clip((gx - gy) / 5, -1, 1).astype(np.float32)
@@ -265,7 +259,7 @@ def quilt(g: Ground, box: tuple, accepted: np.ndarray, flagged: np.ndarray, zone
     dark = tone.max(-1) < FLAT_WATER
     hole = sub(accepted) & land
     if not hole.any():
-        return []
+        return [], None
     corner = tex[::PX, ::PX]
     hole = spread(hole, SPREAD, uniform & (detail < FLAT) & ~dark & land & np.isin(corner, np.unique(corner[hole])))
     hole = grow(hole, 1) & land & ~dark
@@ -273,9 +267,19 @@ def quilt(g: Ground, box: tuple, accepted: np.ndarray, flagged: np.ndarray, zone
     px_ = cells(img).transpose(0, 2, 1, 3, 4)
     vivid = (np.abs(px_ - tone[:, :, None, None]).max(-1) > STANDS_OUT) & (px_.max(-1) - px_.min(-1) > VIVID)
     feature = (vivid.mean((2, 3)) > .01) | (cells(built).any((1, 3)) & (detail >= FLAT))
-    hole &= ~feature
+    hole &= ~feature & ~cells(wet).any((1, 3))
+    if not hole.any():
+        return [], None
     bad = hole | sub(flagged) | (uniform & (detail < FLAT)) | feature
-    zs = sub(zones)
+    zs = sub(zones).copy()
+    while True:  # most of a hole is in no zone: the nearest one's
+        none = zs == 0
+        p = np.pad(zs, 1)
+        v = np.maximum.reduce([p[:-2, 1:-1], p[2:, 1:-1], p[1:-1, :-2], p[1:-1, 2:]])
+        new = none & (v > 0) & (hole | spread(hole, RING))
+        if not new.any():
+            break
+        zs[new] = v[new]
     ring = spread(hole, RING)
     # the sources: whole pieces of good ground, inside one tile
     ys, xs = [], []
@@ -287,23 +291,26 @@ def quilt(g: Ground, box: tuple, accepted: np.ndarray, flagged: np.ndarray, zone
                 xs.append(x)
     if len(ys) < 30:
         log(f"  {box}: {len(ys)} sources: left as it is")
-        return []
+        return [], None
     ys, xs = np.array(ys), np.array(xs)
     b = PIECE * PX
     block = lambda a, y, x: a[y * PX:y * PX + b, x * PX:x * PX + b]
     mean = np.stack([tone[y:y + PIECE, x:x + PIECE].mean((0, 1)) for y, x in zip(ys, xs)])
     spreadout = np.array([np.abs(tone[y:y + PIECE, x:x + PIECE] - m).max() for y, x, m in zip(ys, xs, mean)])
-    off = np.linalg.norm(mean - np.median(mean, 0), axis=1)
     speck = []
     for y, x in zip(ys, xs):
         v = block(img, y, x)
         lum = v.mean(-1)
         speck.append((np.percentile(lum, 99.5) - np.percentile(lum, .5), np.percentile(np.abs(v - v.mean((0, 1))).max(-1), 99.5)))
     speck = np.array(speck)
-    keep = (spreadout < np.percentile(spreadout, KEEP_RANGE)) & (off < np.percentile(off, KEEP_TONE)) \
-        & (speck[:, 0] < np.percentile(speck[:, 0], KEEP_SPECK)) & (speck[:, 1] < np.percentile(speck[:, 1], KEEP_SPECK))
-    ys, xs, mean = ys[keep], xs[keep], mean[keep]
     zone_of = np.array([np.bincount(zs[y:y + PIECE, x:x + PIECE].ravel()).argmax() for y, x in zip(ys, xs)])
+    keep = np.zeros(len(ys), bool)
+    for z in np.unique(zone_of):  # each zone's own usual ground: a big neighbour's mustn't squeeze the others out
+        m = zone_of == z
+        off = np.linalg.norm(mean[m] - np.median(mean[m], 0), axis=1)
+        keep[m] = (spreadout[m] <= np.percentile(spreadout[m], KEEP_RANGE)) & (off <= np.percentile(off, KEEP_TONE)) \
+            & (speck[m, 0] <= np.percentile(speck[m, 0], KEEP_SPECK)) & (speck[m, 1] <= np.percentile(speck[m, 1], KEEP_SPECK))
+    ys, xs, mean, zone_of = ys[keep], xs[keep], mean[keep], zone_of[keep]
     pics = np.stack([block(img, y, x) for y, x in zip(ys, xs)])[:, ::2, ::2]
     shapes = np.stack([block(shade, y, x) for y, x in zip(ys, xs)])[:, ::4, ::4]
     index = {(int(y), int(x)): i for i, (y, x) in enumerate(zip(ys, xs))}
@@ -326,6 +333,15 @@ def quilt(g: Ground, box: tuple, accepted: np.ndarray, flagged: np.ndarray, zone
     spots = {(min(h - PIECE, y // step * step), min(w - PIECE, x // step * step)) for y, x in zip(*np.nonzero(hole))}
     inner = lambda a, p: a[p[0] + 1:p[0] + PIECE - 1, p[1] + 1:p[1] + PIECE - 1]
     spots = [p for p in spots if hole[p[0]:p[0] + PIECE, p[1]:p[1] + PIECE].any() and not inner(feature, p).any()]
+
+    def here_of(y, x):
+        """The zone a piece here is in: most of the hole it covers."""
+        v = zs[y:y + PIECE, x:x + PIECE][hole[y:y + PIECE, x:x + PIECE]]
+        return np.bincount(v).argmax()
+
+    spots = [p for p in spots if (zone_of == here_of(*p)).sum() >= ENOUGH]  # (none of its own: as it is)
+    if not spots:
+        return [], None
     holepx = hole.repeat(PX, 0).repeat(PX, 1)
     used, chosen = np.zeros(len(ys)), {}
 
@@ -344,17 +360,12 @@ def quilt(g: Ground, box: tuple, accepted: np.ndarray, flagged: np.ndarray, zone
         cost = cost + W_TONE * ((toned - want) ** 2).sum(1) / 3
         cost = cost + W_SHAPE * ((shapes - block(shade, y, x)[::4, ::4]) ** 2).mean((1, 2))
         cost = cost + W_NEAR * np.hypot(ys - y, xs - x)
-        here = np.bincount(zs[y:y + PIECE, x:x + PIECE].ravel()).argmax()
-        cost = cost * (1 + W_ZONE * (zone_of != here)) * (1 + used * W_USED)
-        no = np.linalg.norm(toned - want, axis=1) > TONE_CAP
-        ya, xa = max(0, y - ZONE_NEAR), max(0, x - ZONE_NEAR)
-        near = zs[ya:y + PIECE + ZONE_NEAR, xa:x + PIECE + ZONE_NEAR][~hole[ya:y + PIECE + ZONE_NEAR, xa:x + PIECE + ZONE_NEAR]]
-        if near.size:
-            other = ~np.isin(zone_of, np.unique(near))
-            if (~(no | other)).sum() > 20:
-                no = no | other
-        if (~no).sum() > 20:
-            cost[no] = 1e12
+        cost = cost * (1 + used * W_USED)
+        other = zone_of != here_of(y, x)
+        no = other | (np.linalg.norm(toned - want, axis=1) > TONE_CAP)
+        if (~no).sum() <= ENOUGH:
+            no = other
+        cost[no] = 1e12
         for q, c in chosen.items():
             if q != spot and abs(q[0] - y) <= step and abs(q[1] - x) <= step:
                 jn = index.get((int(ys[c[0]]) + y - q[0], int(xs[c[0]]) + x - q[1]))
@@ -408,10 +419,12 @@ def quilt(g: Ground, box: tuple, accepted: np.ndarray, flagged: np.ndarray, zone
         sy, sx = int(ys[j]) + R0 * 16, int(xs[j]) + C0 * 16
         out.append({"col": spot[1] + C0 * 16, "row": spot[0] + R0 * 16, "key": (sx // 16) * 64 + sy // 16, "sc": sx % 16, "sr": sy % 16,
                     "gain": [round(float(v), 3) for v in gain], "mask": m + 1, "sub": sub_of(spot)})
-    return out
+    c0_, r0_ = min(p[1] for p in order), min(p[0] for p in order)
+    c1_, r1_ = max(p[1] for p in order) + PIECE, max(p[0] for p in order) + PIECE
+    return out, hole_mask(hole[r0_:r1_, c0_:c1_], len(out))
 
 
-def bake(g: Ground, pieces: list, path: str, px: int) -> dict:
+def bake(g: Ground, pieces: list, hole: np.ndarray, path: str, px: int) -> dict:
     """The pieces as one see-through picture (the web demo's: it has no masks to draw with): its box in tiles."""
     c0, r0 = min(p["col"] for p in pieces), min(p["row"] for p in pieces)
     c1, r1 = max(p["col"] for p in pieces) + PIECE, max(p["row"] for p in pieces) + PIECE
@@ -427,8 +440,22 @@ def bake(g: Ground, pieces: list, path: str, px: int) -> dict:
         pic[y:y + n, x:x + n] = pic[y:y + n, x:x + n] * (1 - a) + src * a  # (premultiplied)
         alpha[y:y + n, x:x + n] = alpha[y:y + n, x:x + n] * (1 - a) + a
     rgb = pic / np.maximum(alpha, 1e-3)
+    alpha = alpha * np.asarray(Image.fromarray(hole).resize((alpha.shape[1], alpha.shape[0]), Image.BILINEAR))[..., None]
     Image.fromarray(np.dstack([rgb, alpha * 255]).clip(0, 255).astype(np.uint8), "RGBA").save(path, quality=88, method=4)
     return {"col": c0 / 16, "row": r0 / 16, "w": (c1 - c0) / 16, "h": (r1 - r0) / 16}
+
+
+def write_masks(g_pieces: list, hole: np.ndarray, first: int) -> None:
+    """Textures/FillMask<n>.tga, a piece's: its wobbling edge (the mask it was chosen with) inside the hole's shape. Numbers them."""
+    n, c0, r0 = 32, min(p["col"] for p in g_pieces), min(p["row"] for p in g_pieces)
+    wobbles = [wobble(i, n) for i in range(MASKS)]
+    for k, p in enumerate(g_pieces):
+        x, y = (p["col"] - c0) * 16, (p["row"] - r0) * 16
+        a = np.asarray(Image.fromarray(hole[y:y + PIECE * 16, x:x + PIECE * 16]).resize((n, n), Image.BILINEAR)) * wobbles[p["mask"] - 1]
+        rows = [[(255, 255, 255, int(round(float(v) * 255))) for v in line] for line in a]
+        with open(os.path.join(ROOT, "Textures", f"FillMask{first + k}.tga"), "wb") as f:
+            f.write(write_tga(n, n, rows))
+        p["mask"] = first + k
 
 
 def main() -> None:
@@ -447,31 +474,29 @@ def main() -> None:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import maplint
     data = maplint.Data(os.path.join(ROOT, "Data"))
-    maps, baked = {}, {}
+    maps, baked, masks = {}, {}, 1
     for inst in (0, 1):
         g = Ground(src, inst, data.tiles[inst], data.sea[inst], ns.cache)
-        accepted, flagged = places(issues, decisions, inst) | filler(g, data.tiles[inst], data.sea[inst]), grow(places(issues, everything, inst), 1)
+        accepted, flagged = places(issues, decisions, inst), grow(places(issues, everything, inst), 1)
         zones = np.asarray(data.zone_grid[inst])
         maps[inst], baked[inst] = [], []
         for n, box in enumerate(regions(accepted)):
-            pieces = quilt(g, box, accepted, flagged, zones)
-            maps[inst] += pieces
+            pieces, hole = quilt(g, box, accepted, flagged, zones)
             log(f"[{inst}] {box}: {len(pieces)} pieces")
-            if ns.bake and pieces:
+            if not pieces:
+                continue
+            if ns.bake:
                 os.makedirs(ns.bake, exist_ok=True)
                 name = f"{inst}_{n}.webp"
-                baked[inst].append({"file": name, **bake(g, pieces, os.path.join(ns.bake, name), ns.bake_px)})
+                baked[inst].append({"file": name, **bake(g, pieces, hole, os.path.join(ns.bake, name), ns.bake_px)})
+            write_masks(pieces, hole, masks)
+            masks += len(pieces)
+            maps[inst] += pieces
     if ns.bake:
         with open(os.path.join(ns.bake, "fill.json"), "w") as f:
             json.dump({str(k): v for k, v in baked.items()}, f, separators=(",", ":"))
-    n = 32
-    for i in range(MASKS):
-        m = wobble(i, n)
-        rows = [[(255, 255, 255, int(round(v * 255))) for v in line] for line in m]
-        with open(os.path.join(ROOT, "Textures", f"FillMask{i + 1}.tga"), "wb") as f:
-            f.write(write_tga(n, n, rows))
     with open(os.path.join(ROOT, "Data", "Fill.lua"), "w", encoding="utf-8", newline="\n") as f:
-        f.write(f"-- GENERATED by tools/gen_fill.py from the map review's accepted issues ({os.path.relpath(ns.review, ROOT)}), the filler it finds, the terrain and tiles of {src.product} {src.version}. Do not edit.\n")
+        f.write(f"-- GENERATED by tools/gen_fill.py from the map review's accepted issues ({os.path.relpath(ns.review, ROOT)}), the terrain and tiles of {src.product} {src.version}. Do not edit.\n")
         f.write("-- [inst] = { col, row, file, sc, sr, r, g, b, mask, sub, ... }: a piece PIECE chunks a side: where (chunks), its source\n")
         f.write("--   (a tile's FileDataID, the chunk in it), gain, Textures/FillMask<mask>, sublevel\n")
         f.write(data_head("Fill"))
