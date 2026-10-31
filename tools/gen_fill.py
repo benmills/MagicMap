@@ -75,7 +75,7 @@ def wobble(seed: int, n: int) -> np.ndarray:
     noise = np.asarray(Image.fromarray((r.rand(7, 7) * 255).astype(np.uint8)).resize((n, n), Image.BICUBIC), np.float32) / 255 - .5
     d = np.minimum.outer(np.arange(n), n - 1 - np.arange(n)) + 1.0
     px = OVERLAP * n / PIECE
-    return np.clip((d + noise * px * 1.6) / (px * 1.2), 0, 1)
+    return np.clip((d + noise * px * .5) / (px * .55), 0, 1)  # (whole by the overlap's middle: two half-faded pieces would let what's under them through)
 
 
 def layer_alpha(mcal: bytes, off: int, size: int, flags: int) -> np.ndarray:
