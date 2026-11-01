@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Bake the demo's "out of bounds" veil: land players can't reach, muted so the map doesn't invite them there.
+"""Bake the demo's "out of bounds" veil: flat land players can't reach, muted so the map doesn't invite them there.
 
 A chunk is in bounds if the terrain lets you walk or swim to it from a town (Data/Walk.lua's crossings) and it's in a zone
 (Data/AreaGrid.lua: the game's unfinished land is mostly in none). The terrain can't see invisible walls, so the zone test
 does what it can there. An estimate: named exceptions go in KEEP. Ours, a colour and a soft edge, no Blizzard px.
 
-  python3 tools/gen_bounds.py --bake demo/bounds
+  python3 tools/gen_bounds.py --cache DIR --bake demo/bounds
 """
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ PX = 4              # the picture's px a chunk
 VEIL = (34, 36, 40) # its colour
 ALPHA = .62         # at its strongest
 MARGIN = 3          # chunks: land this near what's in bounds stays clear
+GROW = 2            # chunks round flat ground it may reach
 
 
 def walk(inst_body: str) -> np.ndarray:
@@ -64,6 +65,7 @@ def reach(v: np.ndarray, towns: list) -> np.ndarray:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--bake", default=os.path.join(ROOT, "demo", "bounds"))
+    ap.add_argument("--cache", required=True, help="where tools/flatmap.py's arrays are")
     ns = ap.parse_args()
     data = maplint.Data(os.path.join(ROOT, "Data"))
     text, labels = open(os.path.join(ROOT, "Data", "Walk.lua")).read(), open(os.path.join(ROOT, "Data", "Labels.lua")).read()
@@ -81,7 +83,9 @@ def main() -> None:
                 land[k % 64 * 16:k % 64 * 16 + 16, k // 64 * 16:k // 64 * 16 + 16] = True
         inb = seen & zones
         g = Image.fromarray(inb.astype(np.uint8) * 255).filter(ImageFilter.MaxFilter(MARGIN * 2 + 1))
-        off = land & ~(np.asarray(g) > 0)
+        flat = np.load(os.path.join(ns.cache, f"flatmap{inst}.npz"))["flat"]
+        near = Image.fromarray(flat.astype(np.uint8) * 255).filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(GROW * 2 + 1))  # (specks gone)
+        off = land & ~(np.asarray(g) > 0) & (np.asarray(near) > 0)  # only ever unfinished ground: a wrong guess mustn't dim a real zone
         rows, cols = np.nonzero(off)
         y0, y1, x0, x1 = rows.min() // 16, rows.max() // 16 + 1, cols.min() // 16, cols.max() // 16 + 1
         pic = Image.fromarray(off[y0 * 16:y1 * 16, x0 * 16:x1 * 16].astype(np.uint8) * 255).resize(((x1 - x0) * 16 * PX, (y1 - y0) * 16 * PX), Image.BILINEAR).filter(ImageFilter.GaussianBlur(PX * 1.5))
