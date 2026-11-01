@@ -11,3 +11,8 @@ __pycache__/
 demo/fill/
 demo/seams/
 demo/sea/
+demo/bounds/
+demo/ground/
+demo/ground_out/
+demo/relief/
+demo/relief_out/
