@@ -11,7 +11,7 @@ const Clouds = (() => {
     return pics[url].complete && pics[url].naturalWidth ? pics[url] : null;
   };
   let fill = null, seams = null, sea = null;
-  const under = { ground: null, relief: null }, over = { bounds: null }; // the flat ground's texture and shading (tools/gen_ground.py, gen_relief.py), under the rebuilt ground
+  const under = { ground: null, relief: null, quilt: null }, over = { bounds: null }; // the flat ground's texture and shading (tools/gen_ground.py, gen_relief.py), under the rebuilt ground
   fetch("sea/sea.json").then((r) => (r.ok ? r.json() : null)).then((d) => { sea = d; if (again) again(); }).catch(() => {});
   for (const k of Object.keys(under)) fetch(`${k}/${k}.json`, { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).then((d) => { under[k] = d; if (d) buttons(); if (again) again(); }).catch(() => {});
   fetch("bounds/bounds.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).then((d) => { over.bounds = d; if (d) buttons(); if (again) again(); }).catch(() => {});
@@ -20,7 +20,7 @@ const Clouds = (() => {
 
   // The switches, as the addon's Feel "sea.on", "fill.on", "seams.on", "clouds.on": in the Map sheet, kept for this viewer.
   const read = (k, dflt) => { try { const v = localStorage.getItem(`mm.${k}`); return v ? v === "on" : dflt; } catch { return dflt; } };
-  const on = { sea: read("sea", true), fill: read("fill", true), ground: read("ground", true), relief: read("relief", true), bounds: read("bounds", true), seams: read("seams", true), clouds: read("clouds2", false) };
+  const on = { sea: read("sea", true), fill: read("fill", true), ground: read("ground", false), relief: read("relief", false), quilt: read("quilt", true), bounds: read("bounds", true), seams: read("seams", true), clouds: read("clouds2", false) };
   const panel = document.createElement("div");
   panel.id = "mapArt";
   panel.style.cssText = "margin-top:10px;padding-top:6px;border-top:1px solid #fff2";
@@ -43,7 +43,8 @@ const Clouds = (() => {
     return b;
   };
   const buttons = () => { // (a layer's switch once it's there)
-    if (under.ground && !shown.ground) { shown.ground = true; slot.before(button("ground", "Flat ground")); }
+    if (under.quilt && !shown.quilt) { shown.quilt = true; slot.before(button("quilt", "Tile texture")); }
+    if (under.ground && !shown.ground) { shown.ground = true; slot.before(button("ground", "Game textures")); }
     if (under.relief && !shown.relief) { shown.relief = true; slot.before(button("relief", "Relief")); }
     if (over.bounds && !shown.bounds) { shown.bounds = true; slot.before(button("bounds", "Mute unreachable land")); }
   };
