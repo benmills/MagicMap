@@ -19,6 +19,7 @@ Data\Base.lua
 Data\Clouds.lua
 Data\Patches.lua
 Data\Fill.lua
+Data\Seams.lua
 Data\Sea.lua
 Data\Borders.lua
 Data\Walk.lua

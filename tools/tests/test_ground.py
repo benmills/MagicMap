@@ -224,6 +224,15 @@ def test_clouds():
     look(sim, ns, (40.3, 40.8), 200)
     assert not pieces()
     feel.Set("fill.on", True)
+    seam = ns.Atlas.Data.Seams[0]  # the softened seams, over the rebuilt ground; on the same switch's terms
+    at = (seam[1] / 16 + .1, seam[2] / 16 + .1)
+    laid = lambda: (lambda p: p.n if p else 0)(tiles.front.pools.seams)
+    look(sim, ns, at, 200)
+    assert laid(), "the seams, on by default"
+    feel.Set("seams.on", False)
+    look(sim, ns, (at[0] + .01, at[1]), 200)
+    assert not laid()
+    feel.Set("seams.on", True)
     feel.Set("clouds.on", False)
     look(sim, ns, (40.2, 40.8), 200)
     assert not drawn() and pieces()

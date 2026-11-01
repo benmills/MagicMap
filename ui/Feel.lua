@@ -134,6 +134,8 @@ local KEYS = {
 		apply = function(v) UI.Sea.Set(v) end, tip = "A coloured ocean round the land, where Blizzard's map is near-black." },
 	{ key = "fill.on", section = "map", label = "Rebuild broken ground", kind = "check", default = true,
 		apply = function(v) UI.Fill.Set(v) end, tip = "Fills the unfinished land in Blizzard's map art with pieces of the good ground beside it." },
+	{ key = "seams.on", section = "map", label = "Soften seams", kind = "check", default = true,
+		apply = function(v) UI.Seams.Set(v) end, tip = "Softens the harsh straight edges in Blizzard's map art with the ground beside them." },
 	{ key = "clouds.on", section = "map", label = "Clouds", kind = "check", default = false,
 		apply = function(v) UI.Clouds.Set(v) end, tip = "Clouds over the unfinished land in the map's art." },
 

@@ -62,5 +62,6 @@ UI.Tiles = Engine.Layer("tiles", 1, function(c, inst, zoom, c0, r0, c1, r1)
 		if i % 32 == 0 then Yield() end
 	end
 	UI.Fill.Lay(c, inst, zoom, c0, r0, c1, r1)
+	UI.Seams.Lay(c, inst, zoom, c0, r0, c1, r1)
 	UI.Clouds.Lay(c, inst, zoom, c0, r0, c1, r1)
-end, function() return UI.Fill.Rev() + UI.Clouds.Rev() end)
+end, function() return UI.Fill.Rev() + UI.Seams.Rev() + UI.Clouds.Rev() end)

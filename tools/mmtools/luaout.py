@@ -43,6 +43,7 @@ FORMATS = {
     "Interiors": 1,  # Data/Interiors.lua (tools/gen_interiors.py)
     "Clouds": 1,     # Data/Clouds.lua (tools/gen_clouds.py)
     "Fill": 1,       # Data/Fill.lua (tools/gen_fill.py)
+    "Seams": 1,      # Data/Seams.lua (tools/gen_seams.py)
     "Sea": 1,        # Data/Sea.lua (tools/gen_sea.py)
     "Patches": 1,    # Data/Patches.lua (tools/gen_patches.py)
 }

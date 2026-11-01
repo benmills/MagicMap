@@ -82,6 +82,15 @@ function Atlas.Fill(inst)
 	if list and #list > 0 then return list, f.piece end
 end
 
+-- A map's softened seams (Data/Seams.lua, tools/gen_seams.py); nil: none.
+-- { col, row, w, h, file, l, r, t, b, mask, ... }: where (chunks), its source (a tile's FileDataID, the square of it in
+-- chunks: reversed, mirrored), Textures/SeamMask<mask>.
+function Atlas.Seams(inst)
+	local s = Data.Seams
+	local list = s and s[inst]
+	if list and #list > 0 then return list end
+end
+
 -- What a drawn tile shows: its patch, or Blizzard's tile (a FileDataID).
 function Atlas.TileArt(inst, key)
 	return Patch(inst, key) or Atlas.Tiles(inst)[key]

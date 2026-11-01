@@ -10,13 +10,14 @@ const Clouds = (() => {
     if (!pics[url]) { pics[url] = new Image(); pics[url].onload = () => again && again(); pics[url].src = url; }
     return pics[url].complete && pics[url].naturalWidth ? pics[url] : null;
   };
-  let fill = null, sea = null;
+  let fill = null, seams = null, sea = null;
   fetch("sea/sea.json").then((r) => (r.ok ? r.json() : null)).then((d) => { sea = d; if (again) again(); }).catch(() => {});
+  fetch("seams/seams.json").then((r) => (r.ok ? r.json() : null)).then((d) => { seams = d; if (again) again(); }).catch(() => {});
   fetch("fill/fill.json").then((r) => (r.ok ? r.json() : null)).then((d) => { fill = d; if (again) again(); }).catch(() => {});
 
-  // The switches, as the addon's Feel "sea.on", "fill.on", "clouds.on": in the Map sheet, kept for this viewer.
+  // The switches, as the addon's Feel "sea.on", "fill.on", "seams.on", "clouds.on": in the Map sheet, kept for this viewer.
   const read = (k, dflt) => { try { const v = localStorage.getItem(`mm.${k}`); return v ? v === "on" : dflt; } catch { return dflt; } };
-  const on = { sea: read("sea", true), fill: read("fill", true), clouds: read("clouds2", false) };
+  const on = { sea: read("sea", true), fill: read("fill", true), seams: read("seams", true), clouds: read("clouds2", false) };
   const panel = document.createElement("div");
   panel.id = "mapArt";
   panel.style.cssText = "margin-top:10px;padding-top:6px;border-top:1px solid #fff2";
@@ -39,6 +40,7 @@ const Clouds = (() => {
   };
   button("sea", "Ocean");
   button("fill", "Rebuilt ground");
+  button("seams", "Soften seams");
   button("clouds", "Clouds");
   const place = () => { const sheet = document.getElementById("mapSheet"); if (sheet) sheet.append(panel); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", place); else place();
@@ -76,6 +78,10 @@ const Clouds = (() => {
     }
     if (on.fill) for (const f of (fill && fill[inst]) || []) {
       const p = pic(`fill/${f.file}`), [x, y] = toScreen(f.col, f.row);
+      if (p) g.drawImage(p, x, y, f.w * zoom, f.h * zoom);
+    }
+    if (on.seams) for (const f of (seams && seams[inst]) || []) {
+      const p = pic(`seams/${f.file}`), [x, y] = toScreen(f.col, f.row);
       if (p) g.drawImage(p, x, y, f.w * zoom, f.h * zoom);
     }
     if (!on.clouds) return;

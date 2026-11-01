@@ -73,7 +73,8 @@ def wobble(seed: int, n: int) -> np.ndarray:
     """A soft-edged mask, n px: 1 inside, fading over the overlap, the fade's line wandering."""
     r = np.random.RandomState(seed)
     noise = np.asarray(Image.fromarray((r.rand(7, 7) * 255).astype(np.uint8)).resize((n, n), Image.BICUBIC), np.float32) / 255 - .5
-    d = np.minimum.outer(np.arange(n), n - 1 - np.arange(n)) + 1.0
+    e = np.minimum(np.arange(n), n - 1 - np.arange(n))
+    d = np.minimum.outer(e, e) + 1.0  # (to its nearest edge, all four)
     px = OVERLAP * n / PIECE
     return np.clip((d + noise * px * .5) / (px * .55), 0, 1)  # (whole by the overlap's middle: two half-faded pieces would let what's under them through)
 
