@@ -18,3 +18,5 @@ demo/ground_out/
 demo/relief/
 demo/relief_out/
 demo/quilt/
+/.env
+/demo/aifix/
