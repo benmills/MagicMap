@@ -150,30 +150,20 @@ local function Where(r)
 	end
 end
 
--- The map's gauge (ui/Engine.lua) at the recording's start: its borders' counts are since load.
-local before
-
--- The recording, reported (Perf.lua:146-159): the client's frames, our cost in them (the borders' layouts
--- part of it), the borders' layouts (builds at a new zoom, pans at the zoom shown: the spike's extensions)
--- and the frames the view ran past them, where the time went, and the comparison.
+-- The recording, reported (Perf.lua:146-159): the client's frames, our cost in them, where the time went,
+-- and the comparison.
 local function Report(r)
 	if r.frames == 0 then return Game.Say("perf: no frames recorded (is the map open?)") end
-	local m, b = Runtime.gauges.map(), before
 	Game.Say(string.format("perf: %d frames in %.1f s, %.0f fps, worst frame %.0f ms, %d hitches (>%d ms)",
 		r.frames, r.t, r.frames / r.t, r.worst * 1000, r.hitches, Runtime.HITCH * 1000)) -- /: never 0 (a frame's elapsed > 0)
-	local borders = r.calls["map: borders"]
-	Game.Say(string.format("  map script: %.2f ms/frame on average, %.1f ms at most (borders %.2f ms/frame)",
-		r.ms / r.frames, r.peak, borders and borders.ms / r.frames or 0)) -- /: never 0 (frames > 0)
-	local builds, past = m.builds - b.builds, m.past - b.past
-	Game.Say(string.format("  borders: %d builds (%.0f ms each), %d extensions, %d frames (%.0f%%) showing past them",
-		builds, builds > 0 and (m.buildMs - b.buildMs) / builds or 0, m.pans - b.pans, past, 100 * past / r.frames)) -- /: never 0 (builds > 0, frames > 0)
+	Game.Say(string.format("  map script: %.2f ms/frame on average, %.1f ms at most",
+		r.ms / r.frames, r.peak)) -- /: never 0 (frames > 0)
 	Where(r)
 	Compare()
 end
 
 Game.Slash("perf", "record 10 s of play, then how the map kept up (again: stop early)", function()
 	if Runtime.recording then return Runtime.RecordEnd() end
-	before = Runtime.gauges.map()
 	Runtime.Record(DURATION, "perf: report", Report)
 	Game.Say(string.format("perf: recording %d s; pan and zoom around (/mm perf again to stop early)", DURATION))
 end)

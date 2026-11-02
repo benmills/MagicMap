@@ -322,7 +322,7 @@ def map_rows() -> list[tuple[int, list]]:
 AREA_FIELDS = [("string",), ("string",), ("int", 16), ("int", 16)]
 # Zones 1 (west), 2 (east); 1's subzones 10, 11; 99 a sea "zone"; 98 a tiny
 # subzone too small to outline.
-# 3 is a lake-like zone ringed by 2 (a closed border); 4 meets 1 and 2 (a
+# 3 is a lake-like zone ringed by 2; 4 meets 1 and 2 (a
 # three-way junction).
 AREAS = {1: (0, "Westfall"), 2: (0, "Duskwood"), 3: (0, "Deadwind"), 4: (0, "Redridge"),
          10: (1, "Moonbrook"), 11: (1, "Sentinel Hill"), 99: (0, "The Great Sea"), 98: (2, "Tiny")}
@@ -386,7 +386,7 @@ def build_world(install: str) -> None:
         return lambda bx, by: (((2 + key % 3) << 11) | (10 << 5) | 12, (3 << 11) | ((8 + bx % 4) << 5) | 14)
 
     add_map(AZEROTH_WDT, world_terrain(), 2000000, water)
-    # Kalimdor: few tiles (no borders), all land at one height (flat tiles).
+    # Kalimdor: few tiles (no anchors), all land at one height (flat tiles).
     kalimdor = {c * 64 + r: [(ix, iy, 1, 5.0, [0.0] * 145) for iy in range(16) for ix in range(16)]
                 for c in range(10, 13) for r in range(10, 12)}
     add_map(KALIMDOR_WDT, kalimdor, 3000000, water)

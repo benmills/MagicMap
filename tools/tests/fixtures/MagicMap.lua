@@ -18,7 +18,7 @@ MagicMap2DB = {
 ["kbMin"] = 52100, ["kbMax"] = 72500, ["ourKB"] = 72500, ["loadMs"] = 412.6, ["errors"] = 0, ["errorsPerHour"] = 0,
 ["kbPerSec"] = 274, ["kbFrameP95"] = 6.2,
 ["grace"] = { ["login"] = 155, ["map"] = 67.5 },
-["slow"] = { { ["name"] = "map: borders", ["n"] = 12, ["max"] = 20.1 } },
+["slow"] = { { ["name"] = "map: places", ["n"] = 12, ["max"] = 20.1 } },
 },
 ["zones"] = {
 "Dun Morogh", -- [1]
@@ -45,25 +45,25 @@ MagicMap2DB = {
 ["slow"] = { { ["name"] = "map: labels", ["n"] = 3, ["max"] = 11.0 }, { ["name"] = "bench: regions", ["n"] = 2, ["max"] = 9.5 } },
 ["alloc"] = {
 { ["name"] = "game.observe", ["kbPerSec"] = 180.2, ["kbMax"] = 12.4, ["calls"] = 5400 }, -- [1]
-{ ["name"] = "map: borders", ["kbPerSec"] = 60.1, ["kbMax"] = 850.2, ["calls"] = 40 }, -- [2]
+{ ["name"] = "map: places", ["kbPerSec"] = 60.1, ["kbMax"] = 850.2, ["calls"] = 40 }, -- [2]
 { ["name"] = "ui: view", ["kbPerSec"] = 2.5, ["kbMax"] = 0.3, ["calls"] = 18342 }, -- [3]
 },
 ["gaps"] = {
 { ["job"] = "bench: regions", ["ms"] = 15.1, ["n"] = 1, ["stack"] = "(ran to the job's end)" }, -- bench: ignored by the gate
-{ ["job"] = "map: borders", ["ms"] = 14.2, ["n"] = 3, ["stack"] = "[string \"@Interface/AddOns/MagicMap/ui/Borders.lua\"]:88: in function <Interface/AddOns/MagicMap/ui/Borders.lua:60>" }, -- [1]
+{ ["job"] = "map: places", ["ms"] = 14.2, ["n"] = 3, ["stack"] = "[string \"@Interface/AddOns/MagicMap/ui/Places.lua\"]:88: in function <Interface/AddOns/MagicMap/ui/Places.lua:60>" }, -- [1]
 },
 ["ledger"] = {
 { ["frame"] = 9300, ["ms"] = 9.1, ["top"] = "game.observe", ["topMs"] = 8.2, ["events"] = {
 { ["f"] = 9300, ["ms"] = 405010, ["k"] = "spike", ["d"] = { ["ms"] = 9.1, ["top"] = "game.observe", ["topMs"] = 8.2, ["alloc"] = "game.observe", ["allocKb"] = 12.4 } }, -- [1]
 } }, -- [1]
-{ ["frame"] = 9118, ["ms"] = 11.2, ["top"] = "map: borders", ["topMs"] = 10.4, ["events"] = {
-{ ["f"] = 9109, ["ms"] = 402250, ["k"] = "layout", ["d"] = { ["e"] = "start", ["layer"] = "borders", ["inst"] = 0, ["zoom"] = 384 } }, -- [1]
-{ ["f"] = 9118, ["ms"] = 402398, ["k"] = "layout", ["d"] = { ["e"] = "end", ["layer"] = "borders", ["ms"] = 22.3, ["regions"] = 1012 } }, -- [2]
-{ ["f"] = 9118, ["ms"] = 402398, ["k"] = "swap", ["d"] = { ["layer"] = "borders", ["ms"] = 6.2, ["live"] = 1012, ["parked"] = 0, ["x"] = -12, ["y"] = 40, ["scale"] = 1 } }, -- [3]
-{ ["f"] = 9118, ["ms"] = 402399, ["k"] = "gap", ["d"] = { ["job"] = "map: borders", ["ms"] = 14.2, ["n"] = 1 } }, -- [4]
-{ ["f"] = 9118, ["ms"] = 402399, ["k"] = "spike", ["d"] = { ["ms"] = 11.2, ["top"] = "map: borders", ["topMs"] = 10.4, ["alloc"] = "map: borders", ["allocKb"] = 850.2 } }, -- [5]
+{ ["frame"] = 9118, ["ms"] = 11.2, ["top"] = "map: places", ["topMs"] = 10.4, ["events"] = {
+{ ["f"] = 9109, ["ms"] = 402250, ["k"] = "layout", ["d"] = { ["e"] = "start", ["layer"] = "places", ["inst"] = 0, ["zoom"] = 384 } }, -- [1]
+{ ["f"] = 9118, ["ms"] = 402398, ["k"] = "layout", ["d"] = { ["e"] = "end", ["layer"] = "places", ["ms"] = 22.3, ["regions"] = 1012 } }, -- [2]
+{ ["f"] = 9118, ["ms"] = 402398, ["k"] = "swap", ["d"] = { ["layer"] = "places", ["ms"] = 6.2, ["live"] = 1012, ["parked"] = 0, ["x"] = -12, ["y"] = 40, ["scale"] = 1 } }, -- [3]
+{ ["f"] = 9118, ["ms"] = 402399, ["k"] = "gap", ["d"] = { ["job"] = "map: places", ["ms"] = 14.2, ["n"] = 1 } }, -- [4]
+{ ["f"] = 9118, ["ms"] = 402399, ["k"] = "spike", ["d"] = { ["ms"] = 11.2, ["top"] = "map: places", ["topMs"] = 10.4, ["alloc"] = "map: places", ["allocKb"] = 850.2 } }, -- [5]
 } }, -- [2]
-{ ["frame"] = 9120, ["ms"] = 8.4, ["top"] = "map: borders", ["topMs"] = 7.9, ["events"] = {} }, -- [3]
+{ ["frame"] = 9120, ["ms"] = 8.4, ["top"] = "map: places", ["topMs"] = 7.9, ["events"] = {} }, -- [3]
 },
 ["byState"] = {
 ["small"] = { ["frames"] = 12000, ["p50"] = 0.25, ["p95"] = 0.7, ["p99"] = 3.9, ["max"] = 9.1,
@@ -82,10 +82,10 @@ MagicMap2DB = {
 },
 ["stats"] = {
 ["layout tiles"] = { ["n"] = 40, ["ms"] = 11.4, ["regions"] = 36 },
-["layout borders"] = { ["n"] = 38, ["ms"] = 22.3, ["regions"] = 1012 },
+["layout places"] = { ["n"] = 38, ["ms"] = 22.3, ["regions"] = 1012 },
 ["blips"] = { ["n"] = 210, ["sweep"] = 211, ["blips"] = 7, ["yd"] = 233 },
 ["swap tiles"] = { ["n"] = 40, ["ms"] = 0.4, ["live"] = 36, ["parked"] = 0, ["x"] = 33012, ["y"] = 25510, ["scale"] = 1.3, ["lag"] = 0 },
-["swap borders"] = { ["n"] = 38, ["ms"] = 6.2, ["live"] = 1012, ["parked"] = 0, ["x"] = 31990, ["y"] = 25100, ["scale"] = 1.3, ["lag"] = 0 },
+["swap places"] = { ["n"] = 38, ["ms"] = 6.2, ["live"] = 1012, ["parked"] = 0, ["x"] = 31990, ["y"] = 25100, ["scale"] = 1.3, ["lag"] = 0 },
 },
 ["bench"] = {
 ["1.60.1.70374"] = { ["build"] = "1.60.1.70374", ["t"] = 1791993700, ["ops"] = {
@@ -128,7 +128,7 @@ MagicMap2DB = {
 ["map"] = { ["shown"] = true, ["inst"] = 0, ["cx"] = 32.4, ["cy"] = 48.2, ["zoom"] = 3.5, ["follow"] = false, ["w"] = 900, ["h"] = 640 },
 ["layers"] = {
 { ["name"] = "tiles", ["busy"] = true, ["zoom"] = 3.5, ["region"] = "30,46-35,51" }, -- [1]
-{ ["name"] = "borders", ["busy"] = false, ["zoom"] = 3, ["region"] = "29,45-36,52" }, -- [2]
+{ ["name"] = "places", ["busy"] = false, ["zoom"] = 3, ["region"] = "29,45-36,52" }, -- [2]
 },
 },
 ["trace"] = {

@@ -99,7 +99,6 @@
 <div id="readout" class="panel"></div>
 <div id="card" class="panel" hidden></div>
 <script src="tiles.js"></script>
-<script src="borders.js"></script>
 <script src="labels.js"></script>
 <script src="review.js"></script>
 <script>
@@ -144,7 +143,6 @@ function frame() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   drawTiles();
   if (walk) drawWalk();
-  drawBorders();
   Review.drawOverlay();
   // Pins: where they'll be drawn first, so labels keep clear of them; quieter at continent zoom,
   // where names win; pins a name covers aren't drawn.
@@ -342,7 +340,6 @@ async function inspect(x, y, mark) {
   const a = await get(`/api/at?inst=${INST}&col=${col}&row=${row}`);
   if (seq !== atSeq) return;
   const z = a.zone, ar = a.area;
-  setZoneHighlight(z && z.zone); // borders.js: the zone under the pointer
   readout.textContent =
     `tile   ${col.toFixed(3)}, ${row.toFixed(3)}  (key ${Math.floor(col) * 64 + Math.floor(row)})\n` +
     `world  north ${a.north.toFixed(1)}, west ${a.west.toFixed(1)}\n` +
@@ -675,7 +672,7 @@ addEventListener("keydown", (e) => { if (e.key === "Escape" && document.activeEl
   document.body.style.background = bg;
   const sel = $("zone");
   for (const z of m.zones) sel.add(new Option(z.name, z.uiMapID));
-  await Promise.all([loadTiles(), loadBorders(), loadLabels(), loadIcons()]);
+  await Promise.all([loadTiles(), loadLabels(), loadIcons()]);
   W = innerWidth; H = innerHeight;
   dpr = Math.min(devicePixelRatio || 1, 3); // (maxZoom, for the hash's zoom)
   cam = hashCam() || (await get(`/api/fit?uiMapID=${m.uiMapID}&w=${W}&h=${H}`)).cam;

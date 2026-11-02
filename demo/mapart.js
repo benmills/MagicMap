@@ -1,6 +1,6 @@
-// The map's art layers in the hosted demo's 2D view, under the borders' overlay: the sea tiles' water, the ocean, the AI repaints.
+// The map's art layers in the hosted demo's 2D view, over the tiles: the sea tiles' water, the ocean, the AI repaints.
 // Baked by demo/export_patches.py, tools/gen_sea.py --bake and tools/ai_map.py bake; Blizzard's
-// art, so gitignored like demo/tiles. core.js calls MapArt.draw right after drawBorders (demo/hosted/mapart.patch).
+// art, so gitignored like demo/tiles. core.js calls MapArt.draw after the tiles (demo/hosted/mapart.patch).
 const MapArt = (() => {
   let patches = null, again = null;
   const pics = {}; // by file
@@ -19,7 +19,7 @@ const MapArt = (() => {
   fetch("sea/sea.json").then((r) => (r.ok ? r.json() : null)).then((d) => { sea = d; if (again) again(); }).catch(() => {});
   fetch("ai/ai.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).then((d) => { over.ai = d; if (d) buttons(); if (again) again(); }).catch(() => {});
 
-  // The switches, as the addon's Feel "sea.on": in the Map sheet, kept for this viewer.
+  // The switches, as the addon's Feel "sea.on": in the Menu sheet, kept for this viewer.
   const read = (k, dflt) => { try { const v = localStorage.getItem(`mm2.${k}`); return v ? v === "on" : dflt; } catch { return dflt; } };
   const on = { sea: read("sea", true), ai: read("ai", true) };
   const panel = document.createElement("div");
@@ -50,27 +50,35 @@ const MapArt = (() => {
   button("sea", "Ocean");
   const slot = document.createElement("span");
   panel.append(slot);
-  const place = () => { const sheet = document.getElementById("mapSheet"); if (sheet) sheet.append(panel); };
+  const place = () => { const sheet = document.getElementById("settings"); if (sheet) sheet.append(panel); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", place); else place();
 
   fetch("patches/patches.json").then((r) => (r.ok ? r.json() : null)).then((d) => { patches = d; if (again) again(); }).catch(() => {});
 
+  // One map (server.py's OFFSET): each layer's pieces at their map's place. Past the oceans' pictures: their colour; Zephras Isle,
+  // which has no ocean of its own, lies over them, its near-black gone (sea/isle.webp, baked from its tiles).
+  const OFFSET = { 1: [0, 0], 2991: [27, 26], 0: [41, 0] }, ISLE = [52, 48, 9, 8];
   function draw(g, toScreen, zoom, inst, redraw) {
     again = redraw;
-    for (const [col, row, png] of (patches && patches[inst]) || []) {
-      const p = pic(`patches/${png}`), [x, y] = toScreen(col, row);
+    for (const [i, [dx, dy]] of Object.entries(OFFSET)) for (const [col, row, png] of (patches && patches[i]) || []) {
+      const p = pic(`patches/${png}`), [x, y] = toScreen(col + dx, row + dy);
       if (p) g.drawImage(p, x, y, zoom, zoom);
     }
-    const ocean = on.sea && sea && sea.maps[inst];
-    if (ocean) {
-      const p = pic(`sea/${ocean.file}`), [x0, y0] = toScreen(ocean.col, ocean.row), W = g.canvas.clientWidth || g.canvas.width, H = g.canvas.clientHeight || g.canvas.height;
-      const x1 = x0 + ocean.w * zoom, y1 = y0 + ocean.h * zoom;
-      g.fillStyle = `rgb(${sea.deep.join(",")})`; // past the picture
-      g.fillRect(0, 0, W, Math.max(0, y0)); g.fillRect(0, y1, W, Math.max(0, H - y1)); g.fillRect(0, y0, Math.max(0, x0), y1 - y0); g.fillRect(x1, y0, Math.max(0, W - x1), y1 - y0);
-      if (p) g.drawImage(p, x0, y0, x1 - x0, y1 - y0);
+    if (on.sea && sea) {
+      const W = g.canvas.clientWidth || g.canvas.width, H = g.canvas.clientHeight || g.canvas.height;
+      const oceans = Object.entries(sea.maps).map(([i, o]) => {
+        const [dx, dy] = OFFSET[i], [x0, y0] = toScreen(o.col + dx, o.row + dy);
+        return { p: pic(`sea/${o.file}`), x0, y0, w: o.w * zoom, h: o.h * zoom };
+      });
+      g.beginPath(); g.rect(0, 0, W, H);
+      for (const o of oceans) g.rect(o.x0, o.y0, o.w, o.h);
+      g.fillStyle = `rgb(${sea.deep.join(",")})`; g.fill("evenodd");
+      for (const o of oceans) if (o.p) g.drawImage(o.p, o.x0, o.y0, o.w, o.h);
+      const isle = pic("sea/isle.webp"), [ix, iy] = toScreen(ISLE[0], ISLE[1]);
+      if (isle) g.drawImage(isle, ix, iy, ISLE[2] * zoom, ISLE[3] * zoom);
     }
-    if (on.ai) for (const f of (over.ai && over.ai[inst]) || []) {
-      const p = pic(`ai/${f.file}`), [x, y] = toScreen(f.col, f.row);
+    if (on.ai) for (const [i, [dx, dy]] of Object.entries(OFFSET)) for (const f of (over.ai && over.ai[i]) || []) {
+      const p = pic(`ai/${f.file}`), [x, y] = toScreen(f.col + dx, f.row + dy);
       if (p) g.drawImage(p, x, y, f.w * zoom, f.h * zoom);
     }
   }

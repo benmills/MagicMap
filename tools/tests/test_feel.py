@@ -410,10 +410,7 @@ def test_zoom_look():
     view, but on the frame the zoom crosses their minimum zoom (Layers.lua:404-416), a glide's whole way (laid
     out over its path: Layers.lua:418-430 lays every pin out); no layer gone and back (a pin layer's last pins in view
     leaving it isn't); no frame over 8 ms, no call
-    over its budget. Borders: as the spike's, the canvas from before the zoom scaled and dimmed until the one for
-    where it's headed crossfades in (Layers.lua:1906-1940), so not counted zooming; through a glide (GLIDES: its
-    zoom, log and back, isn't quite its own), laid out for the view over its way, 10 frames uncovered at most (6 a
-    glide, as its fast start runs off the old layout; until M1.15, 30-39 waiting for it to land); nor quest areas
+    over its budget. Not counted: quest areas
     (a few, often none in view), out of sight while the zoom moves (Layers.lua:2032-2043): R-P5 has them. Moving,
     the frame's p95 (docs/runtime.md: <= 5 ms in the client) is the layouts' share of it (4.5 ms at most, a layer
     the view lacks; one ending early hands on what's left, to 3.5) and the steps, the draw's widget calls priced
@@ -430,8 +427,7 @@ def test_zoom_look():
                           f"{r.uncovered} ({r.worst:.2f})" for k, r in layers.items()))
         assert look.arrow < 1e-6 and all(r.off < 1e-6 for r in layers.values()), name
         assert layers["tiles"].tile <= 0.5 + 1e-6 and layers["tiles"].uncovered == 0, name
-        assert all(r.uncovered <= 6 for k, r in layers.items() if k not in ("borders", "questAreas")), name
-        assert name not in GLIDES or layers["borders"].uncovered <= 10, name
+        assert all(r.uncovered <= 6 for k, r in layers.items() if k != "questAreas"), name
         assert all(r.back == 0 for k, r in layers.items() if k != "questAreas"), name
         assert names.lag <= 2 and names.runMax <= 1 and (names.groundLag or 0) <= 4, name
         assert look.short == 0, f"{name}: {look.shortAt}"

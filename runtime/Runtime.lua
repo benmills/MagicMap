@@ -364,10 +364,6 @@ end
 -- ms of the running job's budget left in this resume (outside a job: 0).
 function Runtime.Left() return current and current.budget - (now() - current.t0) or 0 end
 
--- ms the running job has taken since it was made or woken: its resumes' and this one's so far (outside
--- a job: 0). A map layout's (ui/Engine.lua; the spike's build ms, Layers.lua:1946-1947).
-function Runtime.Spent() return current and current.ms + now() - current.t0 or 0 end
-
 -- Gives the frame back once the running job's budget is spent; elsewhere a no-op.
 function Runtime.Yield()
 	local job = current

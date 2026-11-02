@@ -29,7 +29,7 @@ waypoint pins and the title's target), Model.Target and Model.Route stubbed as t
     charged too (R-P2's 10 ns an instruction): the line's own budgets.
   test_path_priced_big: the big window, a waypoint at the view's corner (as a Ctrl-click there): its first
     layout under 2 ms (no line made then); zooming with the line across the view, M shrinking and growing it:
-    no frame over 8 ms, the zoom state's p95 ≤ 5 (M1.15: the borders' slices fit the frame the line's dashes
+    no frame over 8 ms, the zoom state's p95 ≤ 5 (M1.15: the layouts' slices fit the frame the line's dashes
     share, ~1 ms of it; 6.3 at the M2 review). With our Lua charged too: printed.
   test_path_walk_big: walking in the big window at zoom 400 toward a waypoint across the zone, Model's own
     route, priced and with our Lua charged too: at rest p95 ≤ 1 ms (a line past MAX_PIECES re-spaces every

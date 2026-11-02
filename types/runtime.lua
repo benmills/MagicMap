@@ -22,7 +22,7 @@
 -- new optional opts; Grace, SetState, FrameStats; Worker / Wake / Idle (a job
 -- that lasts: its coroutine made once); Requeue / Left (jobs sharing a frame's
 -- budget in an order of their own: ui/Engine.lua's layouts); the onTrace hook; Record / RecordEnd /
--- recording, Spent, Gauge / gauges (diagnostics: /mm perf, perf mem, debug).
+-- recording, Gauge / gauges (diagnostics: /mm perf, perf mem, debug).
 
 ---@alias MM.Phase "input"|"observe"|"model"|"ui"|"apply"
 
@@ -224,12 +224,8 @@ function Runtime.RecordEnd() end
 ---@field peak number            ms: our cost in one frame, the most
 ---@field calls table<string, { ms: number, n: integer, max: number }>  budgeted wrapped calls, by name
 
----ms the running job has taken since it was made or woken (outside a job: 0). OPEN
----@return number
-function Runtime.Spent() end
-
 ---Numbers a system keeps for diagnostics: Runtime.gauges[name]() returns fn's table, wrapped; its shape the
----registrant's (ui/Engine.lua's "map": builds, buildMs, pans, past, objects, tiles, spare). OPEN
+---registrant's (ui/Engine.lua's "map": objects, tiles, spare). OPEN
 ---@param name string
 ---@param fn fun(): table
 function Runtime.Gauge(name, fn) end

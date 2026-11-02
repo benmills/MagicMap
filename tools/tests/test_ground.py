@@ -1,18 +1,11 @@
-"""The ground layers at the spike's look and cost (docs/v1-plan.md M1.4: ui/Borders.lua, Labels.lua,
-Tiles.lua, You.lua) on the simulated client. Borders: a zone border's segment is 2 Lines (its shadow
-from zoom 60, then it) and a subzone's 1 (from zoom 140); a dead end at most 4 dashes; never more
-than 3000 Lines, the whole of the Eastern Kingdoms at zoom 4 included. Labels: zones in capitals,
-10 pt, up to zoom 450; subzones 9 pt, by size from 120, 220 and 400; none touching another; a name
-new to the view fades in. Tiles: an open-sea tile isn't drawn (the backdrop shows). Map art: 
-east of Loch Modan, over the borders; none in Elwynn; a pan there from none lays them out.
+"""The ground layers at the spike's look and cost (docs/v1-plan.md M1.4: ui/Labels.lua, Tiles.lua, You.lua) on the
+simulated client. Labels: zones in capitals, 10 pt, up to zoom 450; subzones 9 pt, by size from 120, 220 and 400;
+none touching another; a name new to the view fades in. Tiles: an open-sea tile isn't drawn (the backdrop shows).
 You: the arrow, on your map only.
-
-  .venv/bin/python -m pytest tools/tests/test_ground.py -s   # prints the borders' Lines by zoom
 """
 from test_addon import boot, errors
 
-CAP = 3000
-TARREN_MILL, KHARANOS = (33.689, 32.051), (32.904, 42.474)  # the towns' AreaPOI spots
+KHARANOS = (32.904, 42.474)  # the town's AreaPOI spot
 
 
 def shown(big=False):
@@ -38,82 +31,6 @@ def look(sim, ns, at, zoom):
     sim.Run(2)
     for lay in ns.UI.Engine.layers.values():
         assert not lay.on or lay.front.zoom == zoom and not lay.busy, lay.name
-
-
-def lines(front):
-    return {k: front.pools[k].n if front.pools[k] else 0 for k in ("shadow", "line", "sub")}
-
-
-# Of the lines drawn over the canvas's region: the ends that fade (a dead end: fadeStart, fadeEnd > 0).
-FADING = """function(Atlas, c, inst)
-    local r, n = c.region, 0
-    for _, l in ipairs(Atlas.BorderLines(inst, c.zoom)) do
-        local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
-        for i = 5, #l, 2 do
-            x0, x1, y0, y1 = math.min(x0, l[i]), math.max(x1, l[i]), math.min(y0, l[i + 1]), math.max(y1, l[i + 1])
-        end
-        if not (x1 < r[1] or x0 > r[3] or y1 < r[2] or y0 > r[4]) then
-            n = n + (l[3] > 0 and 1 or 0) + (l[4] > 0 and 1 or 0)
-        end
-    end
-    return n
-end"""
-
-
-def test_borders():
-    L, sim, ns = shown(big=True)
-    borders, fading = layer(ns, "borders"), L.eval(FADING)
-    S = sim.state
-    trace = L.eval("""function(R)
-        local got, trace = {}, R.Trace
-        R.Trace = function(kind, d)
-            if kind == "layout" and d.layer == "borders" and d.e == "end" then got.ms = d.ms end
-            if kind == "swap" and d.layer == "borders" then got.swap = d.ms end
-            return trace(kind, d)
-        end
-        return got
-    end""")(ns.Runtime)
-    perf = ns.Runtime.Perf()[0]["map: borders"]
-    for name, at in (("Tarren Mill", TARREN_MILL), ("Kharanos", KHARANOS)):
-        counts = []
-        for zoom in (16, 30, 60, 100, 140, 200, 300, 500, 800):
-            perf.max = 0
-            sim.Price(True)  # (docs/evidence/perf-m0.md's prices)
-            look(sim, ns, at, zoom)
-            sim.Price(False)
-            front = borders.front
-            n = lines(front)
-            assert set(k for k in front.pools.keys()) <= {"shadow", "line", "sub"}
-            # 2 Lines a zone border's segment (the shadow from zoom 60), 1 a subzone's (from 140).
-            assert n["shadow"] == (n["line"] if zoom >= 60 else 0) and (zoom >= 140 or n["sub"] == 0), (zoom, n)
-            assert sum(n.values()) < CAP, (name, zoom, n)  # (the cap never cuts a view short here)
-            # A dead end's dashes: at most 4 an end, each 5 px or less, faded (Layers.lua:1531-1580).
-            dashes = 0
-            for i in range(1, n["line"] + 1):
-                st = S[front.pools.line[i]]
-                if st.color[4] < 0.6:
-                    s, e = st.startPoint, st.endPoint
-                    assert ((e[3] - s[3]) ** 2 + (e[4] - s[4]) ** 2) ** 0.5 <= 5 + 1e-9
-                    dashes += 1
-            assert dashes <= 4 * fading(ns.Atlas, front, 0), (zoom, dashes)
-            counts.append(f"{zoom} {sum(n.values())} ({n['line']} + {n['shadow']} + {n['sub']}; {trace.ms:.0f} ms,"
-                          f" {perf.max:.1f} a frame, swap {trace.swap:.2f})")
-            assert perf.max <= 8 and trace.swap <= 4
-        print(f"borders, big window, {name}: Lines by zoom (zone + shadow + subzone; the layout priced: in all,"
-              " its slowest frame, its swap):\n  " + "\n  ".join(counts))
-
-    # The whole of the Eastern Kingdoms at zoom 4 (its coarsest level, the band within 0.15 tiles).
-    n = L.eval("""function(UI, view)
-        local c = CreateFrame("Frame", nil, view)
-        c.pools, c.made, c.ox, c.oy, c.zoom = {}, 0, 32, 32, 4
-        UI.Borders.build(c, 0, 4, 0, 0, 64, 64)
-        local n = 0
-        for _, p in pairs(c.pools) do n = n + p.n end
-        return n
-    end""")(ns.UI, ns.UI.Window.view)
-    print(f"borders: the Eastern Kingdoms whole at zoom 4: {n} Lines")
-    assert 0 < n <= CAP
-    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
 def placed(sim, front):
@@ -194,11 +111,11 @@ def test_open_sea():
 def test_map_art():
     """The ocean, on its switch; a sea tile's water of ours."""
     L, sim, ns = shown()
-    tiles, borders = layer(ns, "tiles"), layer(ns, "borders")
+    tiles, labels = layer(ns, "tiles"), layer(ns, "labels")
     S = sim.state
     look(sim, ns, (40.2, 40.8), 200)
     sea = ns.UI.Sea
-    assert sea.frame.GetFrameLevel(sea.frame) > tiles.front.GetFrameLevel(tiles.front) and sea.frame.GetFrameLevel(sea.frame) < borders.frame.GetFrameLevel(borders.frame)
+    assert sea.frame.GetFrameLevel(sea.frame) > tiles.front.GetFrameLevel(tiles.front) and sea.frame.GetFrameLevel(sea.frame) < labels.frame.GetFrameLevel(labels.frame)
     assert sea.Shown(), "the ocean, on by default"
     ns.UI.Feel.Set("sea.on", False)
     sim.Run(0.1)
@@ -233,14 +150,14 @@ EK1 = (38.5, 25.5)  # ek1a and ek1b meet here
 
 
 def test_repaint():
-    """The AI repaints, with the tiles on their canvas: over the ocean, under the borders, later places over earlier."""
+    """The AI repaints, with the tiles on their canvas: over the ocean, under the names, later places over earlier."""
     L, sim, ns = repaint_shown()
-    tiles, borders, S = layer(ns, "tiles"), layer(ns, "borders"), sim.state
+    tiles, labels, S = layer(ns, "tiles"), layer(ns, "labels"), sim.state
     pieces = repaints(ns)
     assert pieces, "repaints near one, on by default"
     frame = pieces[0].GetParent(pieces[0])
     assert L.eval("rawequal")(frame.GetParent(frame), tiles.front)
-    assert ns.UI.Sea.frame.GetFrameLevel(ns.UI.Sea.frame) < frame.GetFrameLevel(frame) < borders.frame.GetFrameLevel(borders.frame)
+    assert ns.UI.Sea.frame.GetFrameLevel(ns.UI.Sea.frame) < frame.GetFrameLevel(frame) < labels.frame.GetFrameLevel(labels.frame)
     subs = {str(S[t].texture).split("\\")[-1].split("_")[0]: S[t].sublevel for t in pieces}
     assert subs["Repaintek1b"] > subs["Repaintek1a"]
     z = ns.UI.Camera.cam.zoom

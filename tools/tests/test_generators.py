@@ -1,6 +1,6 @@
 """The data generators, end to end on a synthetic install, against golden
 output. The goldens were checked against the generators' pre-port output:
-tiles byte for byte, borders geometry for geometry (the old generator
+tiles byte for byte, anchors value for value (the old generator
 chained and broke ties in hash order, so only its geometry was stable).
 
 Regenerate after an intended change: UPDATE_GOLDEN=1 pytest tools/tests
@@ -37,21 +37,21 @@ def check_golden(path, name):
 @pytest.fixture(scope="module")
 def generated(world, tmp_path_factory):
     out = tmp_path_factory.mktemp("out")
-    tiles, borders = out / "tiles.lua", out / "borders.lua"
+    tiles, anchors = out / "tiles.lua", out / "anchors.lua"
     run_tool("gen_tiles.py", "local", world, fixtures.PRODUCT, "-o", str(tiles))
-    run_tool("gen_borders.py", "local", world, fixtures.PRODUCT, "-o", str(borders))
-    return {"tiles": tiles, "borders": borders}
+    run_tool("gen_anchors.py", "local", world, fixtures.PRODUCT, "-o", str(anchors))
+    return {"tiles": tiles, "anchors": anchors}
 
 
-@pytest.mark.parametrize("kind", ["tiles", "borders"])
+@pytest.mark.parametrize("kind", ["tiles", "anchors"])
 def test_golden(generated, kind):
     check_golden(generated[kind], f"{kind}.lua")
 
 
 def test_deterministic(world, generated, tmp_path):
-    again = tmp_path / "borders.lua"
-    run_tool("gen_borders.py", "local", world, fixtures.PRODUCT, "-o", str(again))
-    assert again.read_bytes() == generated["borders"].read_bytes()
+    again = tmp_path / "anchors.lua"
+    run_tool("gen_anchors.py", "local", world, fixtures.PRODUCT, "-o", str(again))
+    assert again.read_bytes() == generated["anchors"].read_bytes()
 
 
 def lua_load(path):
@@ -142,13 +142,13 @@ def test_files_load_in_lua(generated):
     maps = tiles[b"maps"]
     assert sorted(maps.keys()) == [0, 1, 36]  # not the battleground; not maps without a WDT
     assert maps[36][b"kind"] == b"dungeon" and maps[36][b"continent"] == 0
-    D = lua_load(generated["borders"])
-    assert list(D[b"Borders"].keys()) == [0]  # Kalimdor is under --min-tiles
+    D = lua_load(generated["anchors"])
+    assert list(D[b"Anchors"].keys()) == [0]  # Kalimdor is under --min-tiles
 
 
 def test_labels_regenerate(tmp_path):
     """tools/gen_labels.py over the committed Data files gives the committed Data/Labels.lua, byte for byte:
-    deterministic, and Data/Labels.lua is current with Borders, Places, ... (test_atlas: its golden)."""
+    deterministic, and Data/Labels.lua is current with Anchors, Places, ... (test_atlas: its golden)."""
     out = tmp_path / "labels.lua"
     run_tool("gen_labels.py", "-o", str(out))
     with open(os.path.join(os.path.dirname(TOOLS), "Data", "Labels.lua"), "rb") as f:

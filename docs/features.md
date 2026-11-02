@@ -45,8 +45,7 @@ to fly there. `/mm map` and `/mm zone` do the same by name.
 counts, and the walking line up to a waypoint at Razor Hill.*
 
 **The ground.** The game's minimap tiles at any zoom, as Blizzard drew them, on each map's own dark
-backdrop (open sea isn't drawn); zone and subzone names, and on the big map the zone borders traced
-from the terrain; your arrow, with a denser shadow. Under the tiles, a one-picture stand-in for each continent
+backdrop (open sea isn't drawn); zone and subzone names; your arrow, with a denser shadow. Under the tiles, a one-picture stand-in for each continent
 (Eastern Kingdoms, Kalimdor: zone colours, a crisp coast) shows through wherever the tiles aren't
 there yet, so a fast zoom out or a flick never shows bare backdrop. It's never switched over to:
 the tiles are the map at every zoom. **Map art repairs** (Settings > Map > Repair broken map art, on):
@@ -128,7 +127,7 @@ map with their own icons, tooltips and clicks, each addon a row in the gear's Ot
 minimap pins (GatherMate...) show around you. Nothing is drawn twice.
 
 **The gear menu** (by the zone name): the layers by group, each row with its icon, an "All" box
-on top and the n/total shown in the group's name: Map (zone labels, zone borders, City maps), Quests,
+on top and the n/total shown in the group's name: Map (zone labels, City maps), Quests,
 Places, Nearby (rares and treasures, party and raid, then Blizzard's tracking types), Other addons.
 Then Use Blizzard's minimap (while ours replaces it; Blizzard's logo on the row) and Reset to defaults,
 then Settings.
@@ -142,7 +141,7 @@ Settings are account-wide.
 | Page | Settings (default) |
 | --- | --- |
 | General | Replace minimap, Replace world map (what the welcome chose); Follow you (on); Minimap button (on); Group icons (on); Reset window position |
-| Map | Label size (100%); Subzone size (100%); Subzone opacity (60%); Border opacity (100%); Border width (100%); Your arrow's size (100%); Info pill backing (25%); Indoor dimming (65%); Indoor auto-zoom (on); Repair broken map art (on) |
+| Map | Label size (100%); Subzone size (100%); Subzone opacity (60%); Your arrow's size (100%); Info pill backing (25%); Indoor dimming (65%); Indoor auto-zoom (on); Repair broken map art (on) |
 | Icons | Icon size (120%); Quest icon size (100%); Focus ring size (145%); Focus ring opacity (25%); Focus ring colour (Gold) |
 | Tracking line | Style (dashed); Weight (1.0 px); Colour (Gold); Glow (off); Breathing (off); Opacity (55%); Outline (off); Outline colour (Dark) |
 | Quest areas | The followed quest's fill, edge and edge width; the others' fill, edge and edge width; the hover's fill and edge (as the game draws them, a quiet fill by default) |

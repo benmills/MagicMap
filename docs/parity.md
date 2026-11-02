@@ -8,6 +8,8 @@ against. The non-goals are here too, as rows that are out by decision. 1.0 ships
 - **Spec**: the spike's code, `~/code/MagicMap` at 1.0.0 (D4), not its release notes. The style
   values are copied verbatim from §4, and the spike ref is the `file:line` there. Packages copy
   them as constants, with that ref in a comment.
+- **Since**: the zone and subzone borders (F15, S32-S35) were removed after 2.1 work, by decision (ADR 0012). Those rows
+  are the record of what was built.
 - **Who edits**: only the lead, once per gate, from the packages' hand-offs (v1-plan §3). The
   user signs rows at M5.3 against the shot pairs.
 - **Status**: `todo` → `built <pkg> <sha>` (lead, from a hand-off) → `signed` (user, with its

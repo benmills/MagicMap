@@ -28,7 +28,7 @@ REPLAYS = os.path.join(sim.TESTS, "replays")
 XFAIL = {}
 
 # The errors a replay makes on purpose (and checks itself), by Runtime's name.
-ERRORS = {"E1": {"map: borders"}, "E2": {"game.part vignettes"}, "E7": {"map: borders", "test.every-frame"}}
+ERRORS = {"E1": {"map: labels"}, "E2": {"game.part vignettes"}, "E7": {"map: labels", "test.every-frame"}}
 # game/NoData.lua's line (QuestInfo.lua:74, in Game.Say's prefix).
 NOTICE = "|cffffd100MagicMap|r: QuestieDB isn't loaded: quests show without their mobs and items."
 

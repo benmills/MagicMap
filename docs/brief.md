@@ -167,9 +167,9 @@ reads where the last Apply placed the Minimap, once that placement holds still.
 **The map's engine** (ui/Engine.lua; why: docs/runtime.md "The map's engine"): each layer has two
 always-shown canvases swapped by alpha; one layout job at a time (a layer the view lacks first, 5 ms a
 frame, else by level at 4 ms, and 2.5 ms ahead of a pan while the view is still covered: `PAN_MS`);
-regions come from `Engine.Get(canvas, kind, "tex"|"line"|"font", make, key)` (pooled per canvas, the
+regions come from `Engine.Get(canvas, kind, "tex"|"font", make, key)` (pooled per canvas, the
 unused parked). A layout keeps what it can first: `Engine.Keep(canvas, kind, key)` hands back the region
-that showed `key` (a tile, a border piece) on that canvas (nil: none, then Get it); stamped with
+that showed `key` (a tile, a pin) on that canvas (nil: none, then Get it); stamped with
 `canvas.epoch` (its map, zoom, origin, the layer's rev), one set in the same epoch is left as it stands,
 so a pan's layout sets only the ground it adds (ui/Tiles.lua). Tile (col, row) sits at `((col -
 canvas.ox) * zoom, -(row - canvas.oy) * zoom)` on a shared origin; `zoom` says how a layer shows until
@@ -177,11 +177,10 @@ the zoom settles (0.15 s, `Camera.ZoomSettled`): `"scale"` (tiles), `"move"` (pl
 o, point, col, row)`, laid out at the camera's zoom each log(1.25) drift and where it lands: names),
 `"pin"` (placed so too, laid out a drift on toward where the zoom is headed: pins, `minZoom` shown by
 the canvas's frame for it, `Engine.From` saying whether a layout at a zoom draws them), `"hold"`
-(borders). `build` yields with `Runtime.Yield()` and returns true when it has nothing to draw at that
+(quest areas). `build` yields with `Runtime.Yield()` and returns true when it has nothing to draw at that
 zoom, or the zoom what it left out shows from. Levels (an offset to the view's frame level), renumbered
 at M2.4 (ef8b2ee) for the spike's order (parity S8: tiles → areas → lines → path → labels → pins; its shade is gone since 2.0.0):
-tiles 1, the interiors 2 (ui/Interiors.lua: the building's indoor minimap pictures and their veil, ADR 0008), the ocean's frame 3 (ui/Sea.lua), the AI repaints +4 (ui/Repaint.lua: a frame of the tiles' canvas, so they move, scale and fade with the tiles, at a level of its own: the ocean lies over the tiles and some repaints reach the coast; the areas' canvas also stands at +4, with no regions of its own), quest areas 3 (their frames +5..+7, ui/Areas.lua), borders 6 (the hovered
-zone's border over theirs, on their canvas: ui/ZoneInfo.lua), the path 8 (its own canvas: ui/Path.lua),
+tiles 1, the interiors 2 (ui/Interiors.lua: the building's indoor minimap pictures and their veil, ADR 0008), the ocean's frame 3 (ui/Sea.lua), the AI repaints +4 (ui/Repaint.lua: a frame of the tiles' canvas, so they move, scale and fade with the tiles, at a level of its own: the ocean lies over the tiles and some repaints reach the coast; the areas' canvas also stands at +4, with no regions of its own), quest areas 3 (their frames +5..+7, ui/Areas.lua), the path 8 (its own canvas: ui/Path.lua),
 labels 9, the world socket +10 (other addons' pins, under ours: ui/Sockets.lua), rares 11 and places with
 the live vignettes 11 (ui/Places.lua), blips 12, your corpse and waypoint 13 (ui/You.lua), offers 14, quests
 15, the group's dots +15 (ui/Group.lua), the minimap socket +16 and its pins +17 (ui/Sockets.lua), the arrow's
@@ -217,7 +216,7 @@ types/core.lua). ADR 0007: the SV rename to `MagicMap2DB` (M6.1).
   after 600 resumes: a long job passes its own, as the route's 2400); `.done`, `.err`. `Runtime.Yield()`
   gives the frame back once the budget is spent.
 - `Runtime.Worker(name, fn, budgetMs, maxFrames)`, `Runtime.Wake(job)`, `Runtime.Idle()`: a job whose
-  coroutine is made once (the engine's layouts; ZoneInfo's hover border): a new one only when a run was
+  coroutine is made once (the engine's layouts): a new one only when a run was
   cancelled or failed after it began.
 - `Runtime.Wrap(name, fn, budgetMs)`: timed, budgeted, isolated (every callback above is wrapped: an error
   is caught, reported once, the rest runs on; 10 failures in a row → once a second).
@@ -258,7 +257,7 @@ M1's engine's zoom frames go past their budgets, `map: draw` to 2.3 ms in the bi
 - **D3** Offline data diet approved: Items/ItemIcons only what quests reach, NPCs only open-world or needed
   (no item tooltips, no dungeon NPCs).
 - **D4** The spec is the spike's code (not "blips past the edge" or path auto-fit from its release notes).
-- **D5** Borders: the spike's look, 1 shadow + line (2 Lines a segment).
+- **D5** Borders: the spike's look, 1 shadow + line (2 Lines a segment). Removed since: ADR 0012.
 - **D6** Seen blips: 5000 an instance (ADR 0004 amended).
 - **D7** Version 2.x.x: this release is 2.0.0; channel decided at the end.
 - **D8** Merge into ~/code/MagicMap at the end; blunt is fine (old history may go).

@@ -5,10 +5,10 @@ input), as the spike's (Core.lua:1161-1240, 1247-1416, 1698-1735; Layers.lua:178
     kind and the continent their entrance is on, a lone group's level skipped; a pick shows the map whole, following
     off; a drag of the title picks nothing (F4, S60).
   test_map_and_zone: /mm map alone lists the maps, by id or name shows one whole; an instance's map shown whole has
-    no arrow, line to your waypoint, blips, borders or names (the exit's instance-map scenario); /mm zone flies to a zone (0.55 s, fit
+    no arrow, line to your waypoint, blips or names (the exit's instance-map scenario); /mm zone flies to a zone (0.55 s, fit
     0.92, following off), with the spike's messages (F18).
   test_zone_hover: big (or off your map) with more than one zone in view, the zone under the cursor lit, its name
-    and its border (S34, S36's hover); a click flies there in 0.55 s, following off; a quest's area isn't clickable
+    brighter (S36's hover); a click flies there in 0.55 s, following off; a quest's area isn't clickable
     while zone clicks are on offer, a pin still is (F17).
   test_modified_clicks: Ctrl-click a waypoint there, Ctrl-right-click none, Shift-click the /way line (the waypoint
     and way Commands, carried out by Game's handlers: M3.2's); none off the zones' maps, where the press is the
@@ -121,7 +121,7 @@ def test_map_and_zone():
     L.execute("(...).Game.Command({ kind = 'waypoint', pos = { inst = 0, col = 36.09, row = 49.28 } })", ns)
     sim.Run(1)
     assert UI.Path.pieces > 0 and sim.state[UI.Path.edge].shown
-    # An instance's map by id: its tiles whole; no arrow (you're not on it), line, blips, borders or names.
+    # An instance's map by id: its tiles whole; no arrow (you're not on it), line, blips or names.
     sim.Slash("/mm map 36")
     sim.Run(2)
     c0, r0, c1, r1 = A.TileBounds(36)
@@ -169,47 +169,36 @@ def test_zone_hover():
     L, sim, ns, G = client([GOLD])
     UI, S, view = ns.UI, sim.state, ns.UI.Window.view
     L.execute("""local Sim, ns = ...
-        -- The hovered zone's border on the borders' shown canvas (its Lines over theirs: sublevel 3); the
-        -- zone names lit.
+        -- The zone names lit.
         function Lit()
-            local c, n, lit = ns.UI.Borders.front, 0, {}
-            for _, r in ipairs(Sim.state[c].regions) do
-                if Sim.state[r].sublevel == 3 then
-                    n = n + 1
-                    Line = r
-                end
-            end
+            local lit = {}
             local names = ns.UI.Labels.front.pools.label
             for i = 1, names.n do
                 if names[i].color[4] == 1 then lit[#lit + 1] = names[i].text end
             end
-            return n, table.concat(lit, ",")
+            return table.concat(lit, ",")
         end""", sim, ns)
     sim.FireScript(view, "OnEnter", False)
     G.Over(32.6, 49.9)  # Elwynn, your map at the minimap's size: no zone to click
     sim.Run(0.3)
-    assert G.Lit() == (0, "")
+    assert G.Lit() == ""
     sim.Press("M")
     sim.Run(1)
     z = UI.Camera.cam.zoom
     G.Over(32.6, 49.9)
     sim.Run(0.3)
-    n, names = G.Lit()
-    assert n > 10 and names == "Elwynn Forest"
-    line = S[G.Line]
-    assert list(line.color.values()) == [1, 0.84, 0.4, 0.95] and line.thickness == max(1.6, min(2.4, z / 100))
-    assert line.sublevel == 3 and line.layer == "ARTWORK" and line.snap is False
+    assert G.Lit() == "Elwynn Forest"
     label = next(fs for fs in UI.Labels.front.pools.label.values() if getattr(fs, "text", None) == "Elwynn Forest")
     assert list(label.color.values()) == [1, 1, 0.9, 1]  # (its colour, as ui/Labels.lua keeps it)
     G.Over(35.9, 51.3)  # Deadwind Pass: Elwynn back as it was
     sim.Run(0.3)
-    assert G.Lit()[1] == "Deadwind Pass" and list(label.color.values()) == [1, 0.89, 0.63, 0.95]  # ui/Labels.lua's ZONE
+    assert G.Lit() == "Deadwind Pass" and list(label.color.values()) == [1, 0.89, 0.63, 0.95]  # ui/Labels.lua's ZONE
     # Zoomed in on one zone's heart: nothing to click.
     G.Over(32.6, 49.9)
     sim.Run(0.3)
     UI.Motion.SetZoom(600)
     sim.Run(1)
-    assert G.Lit() == (0, "")
+    assert G.Lit() == ""
     UI.Motion.SetZoom(z)
     sim.Run(1)
 
@@ -217,11 +206,11 @@ def test_zone_hover():
     # flown to, fit 0.92, in 0.55 s, following off. Held still, nothing lit (Core.lua:1323, 1349); the press's zone flown to.
     G.Over(32.15, 49.7)
     sim.Run(0.3)
-    assert G.Lit()[1] == "Elwynn Forest"
+    assert G.Lit() == "Elwynn Forest"
     sim.buttonsDown["LeftButton"] = True
     sim.FireScript(view, "OnMouseDown", "LeftButton")
     sim.Run(0.2)
-    assert G.Lit() == (0, "") and not UI.Motion.Dragging()
+    assert G.Lit() == "" and not UI.Motion.Dragging()
     sim.buttonsDown["LeftButton"] = None
     sim.FireScript(view, "OnMouseUp", "LeftButton")
     sim.Step()

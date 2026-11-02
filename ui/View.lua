@@ -64,7 +64,7 @@ Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS
 	saved = s
 	UI.saved = s
 	Engine.toggles = s.layers
-	for _, key in ipairs({ "corpse", "waypoint", "blips", "unexplored" }) do s.layers[key] = nil end -- (no gear rows now: on)
+	for _, key in ipairs({ "corpse", "waypoint", "blips", "unexplored", "borders" }) do s.layers[key] = nil end -- (no gear rows now: on; borders: gone)
 	s.layers.vignettes = s.layers.rares -- (one row turns both: ui/Menus.lua)
 	UI.Feel.Loaded() -- (the saved looks reach what read them at load: the line, the areas)
 	UI.Replace.Load(s, fresh)

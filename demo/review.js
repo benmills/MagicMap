@@ -6,7 +6,7 @@
 //   Review.mount({ ctx, toScreen, zoom, inst, draw, fly(issue), sheet, button, onOpen? })
 //     ctx() the 2D context (CSS px), toScreen(col, row) -> [x, y], zoom() px per tile, inst() the map shown,
 //     fly(issue) shows an issue (its bbox, its map), sheet the panel to fill, button the toggle.
-//   Review.drawOverlay()  in the frame, over the tiles and borders;  Review.tap(col, row) -> true if it took it.
+//   Review.drawOverlay()  in the frame, over the tiles;  Review.tap(col, row) -> true if it took it.
 const Review = (() => {
   const CHUNKS = 16;
   const STATUS = { open: "#ff3df0", accepted: "#5ad17a", rejected: "#8a8a8a", later: "#f2b84c" };

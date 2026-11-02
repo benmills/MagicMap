@@ -13,7 +13,7 @@ For **WoW Forever**. Free and open source (GPLv3). [Download the latest release]
 ## Why players use it
 
 **A minimap that zooms out.** Blizzard's minimap stops at a few hundred yards. MagicMap draws the game's
-own terrain at any zoom, from your feet to a whole continent, with zone names and borders to find your
+own terrain at any zoom, from your feet to a whole continent, with zone names to find your
 way. Drag to look around; a moment later it glides back to you.
 
 <img src="docs/images/minimap-zoomed-out.jpg" alt="The minimap zoomed out over Mulgore" width="400">
@@ -89,7 +89,7 @@ MagicMap is a World of Warcraft addon (Lua) built on facts prepared offline, and
 tells it while you play:
 
 - **Atlas, the facts** (`atlas/`, `Data/`). Offline tools in `tools/` read the game client's own files
-  and bake what never changes into Lua data: the minimap terrain tiles' IDs, zone borders and labels, a
+  and bake what never changes into Lua data: the minimap terrain tiles' IDs, zone and place names, a
   walkable grid for routes, flight points and places, and every building's indoor minimap pictures,
   placed from its 3D model ([ADR 0008](docs/decisions/0008-interiors.md)). Quest, NPC and item facts
   come from QuestieDB. At runtime the addon draws the game's own textures by file ID, and a few

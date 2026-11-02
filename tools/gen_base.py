@@ -12,7 +12,7 @@ outrunning the layout, tiles not yet loaded): one picture of the continent. It i
   - Land a flat colour a zone: the mean of that zone's land pixels in the real tiles (AreaGrid's
     16x16 chunks a tile say which zone a pixel is in; unzoned ones take the nearest's), so the
     switch to the tiles reads as the same ground. Where two zones meet the colour blends over a
-    chunk (~33 yd). No zone borders or names: the live layers draw them.
+    chunk (~33 yd). No names: the live layers draw them.
   - Water the map's backdrop colour (Data/Tiles.lua's bg: ui/Window.lua's), so open sea is
     seamless, with the picture's box and without.
   - A subtle shade inside the coast (SHADE): land darkened by up to a quarter at the water's edge.

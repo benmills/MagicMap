@@ -7,7 +7,7 @@
 -- Reset all at the bottom. The last category is kept (UI.saved.feelPage). Every change applies live:
 --   General: Replace minimap / world map (UI.Replace, the other half of the contract: Get(key), Set(key, on)),
 --     Follow you (UI.Motion), Minimap button (UI.Icon), Group icons (UI.saved.cluster), Reset window position.
---   Map: label size, subzone label size and opacity (ui/Labels.lua), zone borders' opacity and width (ui/Borders.lua),
+--   Map: label size, subzone label size and opacity (ui/Labels.lua),
 --     your arrow's size (ui/You.lua), the info pills' backing (ui/Controls.lua), the indoor veil's strength and whether
 --     a small building zooms the map in (ui/Interiors.lua), the ocean (ui/Sea.lua) and the repaints (ui/Repaint.lua). Pushed to their setters on change, and again each time the
 --     map shows (the saved values, once loaded); each owner lays out anew by a rev of its own.
@@ -115,10 +115,6 @@ local KEYS = {
 		default = 1, apply = function(v) UI.Labels.SetSubScale(v) end, tip = "The subzone names' size, on top of the label size." },
 	{ key = "labels.subAlpha", section = "map", label = "Subzone opacity", kind = "slider", min = 0.2, max = 1, step = 0.05, pct = true,
 		default = 0.6, apply = function(v) UI.Labels.SetSubAlpha(v) end, tip = "How solid the subzone names are." },
-	{ key = "borders.alpha", section = "map", label = "Border opacity", kind = "slider", min = 0.2, max = 1.3, step = 0.1, pct = true,
-		default = 1, apply = function(v) UI.Borders.SetLook(v, nil) end, tip = "How solid the zone and subzone borders are (100%: as designed)." },
-	{ key = "borders.width", section = "map", label = "Border width", kind = "slider", min = 0.5, max = 2, step = 0.1, pct = true,
-		default = 1, apply = function(v) UI.Borders.SetLook(nil, v) end, tip = "How thick the zone and subzone borders are (100%: as designed)." },
 	{ key = "arrow.scale", section = "map", label = "Your arrow", kind = "slider", min = 0.6, max = 1.6, step = 0.1, pct = true,
 		default = 1, apply = function(v) UI.You.SetArrowScale(v) end, tip = "Your arrow's size." },
 	{ key = "pills.alpha", section = "map", label = "Info pill backing", kind = "slider", min = 0, max = 0.8, step = 0.05, pct = true,

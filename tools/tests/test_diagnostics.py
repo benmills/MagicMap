@@ -14,7 +14,7 @@ with open(os.path.join(S.TESTS, "..", "..", "Data", "Tiles.lua")) as f:
 SAY = "|cffffd100MagicMap|r: "
 USAGE = SAY + ("/mm [toggle] | follow | map <id|name> | zone <name> | icon | tiles | layers | landmarks"
                " | blips | indoor | perf | debug | reset")
-DEBUG = re.compile(r"\|cff777777(\d+)_(\d+)  (\d+|-)  zoom (\d+)  layout [\d.]+ ms / (\d+) lines  " + re.escape(BUILD) + r"\|r$")
+DEBUG = re.compile(r"\|cff777777(\d+)_(\d+)  (\d+|-)  zoom (\d+)  " + re.escape(BUILD) + r"\|r$")
 
 
 def said(s, line):
@@ -49,7 +49,7 @@ def test_commands():
     mem = said(s, "/mm perf mem")
     assert mem[0] == SAY + "perf mem: MagicMap 2400 KB, 2400 KB after a full collection (0 KB was garbage)"
     assert re.fullmatch(re.escape(SAY) + r"  objects: \d+ FontString \(\d+ in use\), \d+ Texture \(\d+ in use\), "
-                        r"\d+ Line \(\d+ in use\), \d+ tiles drawn, \d+ spare", mem[1]), mem[1]
+                        r"\d+ tiles drawn, \d+ spare", mem[1]), mem[1]
     # An unknown name, zone alone: the spike's one line; /mm help lists every name, the rebuild's too.
     assert said(s, "/mm nothing") == [USAGE] and said(s, "/mm zone") == [USAGE]
     listed = said(s, "/mm help")
@@ -63,7 +63,7 @@ def test_commands():
 
 
 def test_perf_record():
-    """10 s of play recorded, then the spike's report: frames, our cost, the borders' layouts, where the time
+    """10 s of play recorded, then the spike's report: frames, our cost, where the time
     went, the comparison. Again while recording: it stops early."""
     s = S.boot()
     s.slash("/mm toggle")
@@ -79,15 +79,12 @@ def test_perf_record():
     assert re.fullmatch(re.escape(SAY) + r"perf: 600 frames in 10\.0 s, 60 fps, worst frame 17 ms, 0 hitches \(>33 ms\)",
                         report[0]), report[0]
     assert report[1].startswith(SAY + "  map script: ") and "ms/frame on average" in report[1]
-    m = re.fullmatch(re.escape(SAY) + r"  borders: (\d+) builds \(\d+ ms each\), (\d+) extensions, (\d+) frames "
-                     r"\((\d+)%\) showing past them", report[2])
-    assert m and int(m[1]) >= 1, report[2]  # (the wheel's zoom: a build)
-    assert report[3].startswith(SAY + "  all of MagicMap's scripts and events: ")
-    where = report[4:12]
+    assert report[2].startswith(SAY + "  all of MagicMap's scripts and events: ")
+    where = report[3:11]
     assert all(re.fullmatch(re.escape(SAY) + r"    .+  \d+\.\d{3} ms/frame \(max \d+\.\d ms(, \d+ calls)?\)", w)
                for w in where), where
-    assert any("map: borders" in w for w in where)
-    assert report[12].startswith(SAY + "  client profiler: ") and report[-1].startswith(SAY + "  memory: ")
+    assert any("map: " in w for w in where)
+    assert report[11].startswith(SAY + "  client profiler: ") and report[-1].startswith(SAY + "  memory: ")
     said(s, "/mm perf")
     s.run(1)
     stopped = said(s, "/mm perf")
@@ -108,8 +105,8 @@ def test_debug_line():
     cam = s.ns.UI.Camera.cam
     m = DEBUG.search(sub.GetText(sub))
     assert m, sub.GetText(sub)
-    col, row, fdid, zoom, lines = int(m[1]), int(m[2]), m[3], int(m[4]), int(m[5])
-    assert (col, row, zoom) == (int(cam.cx), int(cam.cy), int(cam.zoom)) and lines > 0
+    col, row, fdid, zoom = int(m[1]), int(m[2]), m[3], int(m[4])
+    assert (col, row, zoom) == (int(cam.cx), int(cam.cy), int(cam.zoom))
     assert fdid == str(s.ns.Atlas.Tiles(0)[col * 64 + row])
     s.sim.MoveCursorTo(s.ns.UI.Window.view, 0.95, 0.5)  # hovering: the tile under the cursor
     s.run(0.1)

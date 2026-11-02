@@ -6,7 +6,7 @@
 -- Engine.Keep: what the canvas already shows, left as it is), parks what it didn't use (SetParent to a
 -- hidden frame), then swaps the two by alpha. The layouts share a frame's budget, one at a time, in turn
 -- (Draw's plan: the view lacking a layer, or about to, first, the ground, then names and pins, then
--- borders; a layout going on; else the one laid out longest ago; ahead of a pan in smaller slices): one
+-- quest areas; a layout going on; else the one laid out longest ago; ahead of a pan in smaller slices): one
 -- ending with budget left hands it on (Chain); all of it within what the rest of the frame leaves (Rest), but
 -- the ground, names and pins the view lacks. Tile (col, row) is at ((col - ox) * zoom, -(row - oy) *
 -- zoom) on a canvas: (ox, oy), the origin, a whole tile near the view shared by every layer, so no offset
@@ -18,7 +18,7 @@
 -- frame it's crossed; laid out a drift on toward where the zoom is headed, for the view, not each drift:
 -- pins, PositionPins, Layers.lua:403-416), "hold" (scaled and dimmed the further it is from its layout's
 -- zoom, laid out where the zoom is headed once the wheel stops, crossfaded in as it lands; in a glide, the
--- camera within 2% of that zoom, laid out for the view as a pan's, over the glide's way: borders,
+-- camera within 2% of that zoom, laid out for the view as a pan's, over the glide's way: quest areas,
 -- Layers.lua:16-24, 158-170, 1824-1836, 1907-1937). The window hidden or a layer turned off, its canvases
 -- are emptied. Why, from the client's prices: docs/runtime.md "The map's engine". Window's draw step
 -- calls Engine.Draw.
@@ -84,14 +84,11 @@ function Engine.Layer(name, level, build, rev, zoom)
 	f:SetFrameLevel(view:GetFrameLevel() + level)
 	zoom = zoom or "scale"
 	-- order: which goes first when the view lacks it, or soon will: the ground, then names and pins (quick),
-	-- then borders (held meanwhile, scaled and dimmed); by level within each
+	-- then quest areas (held meanwhile); by level within each
 	local layer = { name = name, level = level, frame = f, build = build, rev = rev, zoom = zoom,
 		moves = zoom == "move" or zoom == "pin", -- placed with Engine.At, moved to the camera's zoom
 		order = (zoom == "scale" and 0 or zoom == "hold" and 200 or 100) + level, started = 0, -- started: its last layout's frame
-		canvases = {}, fading = {}, -- fading: its crossfade (layer.fade while one runs)
-		-- since load, for /mm perf and debug (the gauge below): its layouts at a new zoom (builds, their ms) and at
-		-- the zoom shown (pans: the spike's extensions), the frames the view ran past it; its last layout's ms, regions
-		builds = 0, buildMs = 0, pans = 0, past = 0, ms = 0, regions = 0 }
+		canvases = {}, fading = {} } -- fading: its crossfade (layer.fade while one runs)
 	layer.job = Runtime.Worker("map: " .. name, function()
 		while true do
 			Layout(layer)
@@ -119,7 +116,7 @@ local function Reparent(o, to)
 end
 
 -- The next region of a kind on the canvas being laid out: make(canvas) makes one. what: "tex" |
--- "line" | "font", for the counts. Pooled per canvas: 1..out on it, the rest parked; 1..n this layout's.
+-- "font", for the counts. Pooled per canvas: 1..out on it, the rest parked; 1..n this layout's.
 -- key (optional): what it shows (a tile), so the next layout on this canvas finds it (Engine.Keep).
 function Engine.Get(canvas, kind, what, make, key)
 	local p = canvas.pools[kind]
@@ -429,13 +426,6 @@ function Layout(layer)
 	back.none, back.from = more == true or more ~= nil and live == 0, more ~= true and more or nil
 	Runtime.Trace("layout", { e = "end", layer = layer.name, ms = R2(debugprofilestop() - t0), regions = live,
 		made = back.made })
-	local f, ms = layer.front, Runtime.Spent()
-	if f and f.inst == back.inst and f.zoom == back.zoom then
-		layer.pans = layer.pans + 1
-	else
-		layer.builds, layer.buildMs = layer.builds + 1, layer.buildMs + ms
-	end
-	layer.ms, layer.regions = ms, live
 	layer.busy, layer.retryAt, layer.backoff = false, nil, nil
 	Swap(layer, back, live, parked)
 	Chain(layer)
@@ -443,7 +433,7 @@ end
 
 -- Lay layer out at at.zoom over the tile rect at[1..4] (For's), on its back canvas. A crossfade running
 -- ends first (its old canvas is the back: Layers.lua:1853-1855, FinishCrossfade). Names and pins, the goal
--- a drift or less away in zoom (a glide, a chase landing): over the goal's view too; borders (laid out at
+-- a drift or less away in zoom (a glide, a chase landing): over the goal's view too; a held layer (laid out at
 -- the goal) in a glide: over the camera's; if that stays within ORIGIN_PX of the origin, so one layout holds
 -- every view on the way (the spike lays its pins out map-wide, Layers.lua:418-430). Draw's its own call,
 -- for what a start costs (perf.alloc: its trace; Chain's counts in the layout's job that started it). (4
@@ -597,8 +587,8 @@ end
 
 local function On(layer) return layer.on end
 -- Stale's urgent kinds (at MISSING_MS), each its turn after layer.order (the ground 0, names and pins 100,
--- borders 200, + level): the view lacking a layer, or soon to, first (a zoom out's ground laid out later is
--- laid out further out: the goal runs on), but borders after names and pins drifted, then a blurred ground.
+-- quest areas 200, + level): the view lacking a layer, or soon to, first (a zoom out's ground laid out later is
+-- laid out further out: the goal runs on), but quest areas after names and pins drifted, then a blurred ground.
 local URGENT = { missing = 0, soon = 0, drift = 50, blur = 170 }
 
 -- A layer's turn this frame, lower first: an urgent one; then a layout going on; then the one laid out
@@ -717,7 +707,6 @@ function Engine.Draw(inst, cam, w, h)
 			layer.busy = false
 		end
 		local stale = on and Stale(layer, inst, cam, w, h, settled)
-		if stale == "missing" and layer.front then layer.past = layer.past + 1 end -- (laid out once: Perf.lua:172)
 		pending = pending or stale or layer.busy or layer.fade
 		if layer.busy or stale and (not layer.retryAt or now >= layer.retryAt) then
 			local r = Rank(layer, stale)
@@ -773,7 +762,7 @@ end
 
 -- Live regions on the shown canvases, and all made (pooled), by kind.
 function Engine.Stats()
-	local live, made = { tex = 0, line = 0, font = 0 }, { tex = 0, line = 0, font = 0 }
+	local live, made = { tex = 0, font = 0 }, { tex = 0, font = 0 }
 	for _, layer in ipairs(Engine.layers) do
 		for _, c in ipairs(layer.canvases) do
 			for _, p in pairs(c.pools) do
@@ -785,11 +774,11 @@ function Engine.Stats()
 	return live, made
 end
 
--- /mm perf and perf mem (Perf.lua:103-122, 146-159): the borders' counts (Engine.Layer's), each kind's
+-- /mm perf mem (Perf.lua:103-122): each kind's
 -- regions made and in use (Layers.lua:2262-2273), the tiles drawn and their textures spare (Core.lua:1640-1646).
-local KINDS = { tex = "Texture", line = "Line", font = "FontString" }
+local KINDS = { tex = "Texture", font = "FontString" }
 Runtime.Gauge("map", function()
-	local b, t, live, made = UI.Borders, UI.Tiles, Engine.Stats()
+	local t, live, made = UI.Tiles, Engine.Stats()
 	local objects, drawn, all = {}, 0, 0
 	for what, kind in pairs(KINDS) do objects[kind] = { made = made[what], used = live[what] } end
 	for _, c in ipairs(t.canvases) do
@@ -799,8 +788,7 @@ Runtime.Gauge("map", function()
 			if c == t.front then drawn = p.n end
 		end
 	end
-	return { builds = b.builds, buildMs = b.buildMs, pans = b.pans, past = b.past, objects = objects, tiles = drawn,
-		spare = all - drawn }
+	return { objects = objects, tiles = drawn, spare = all - drawn }
 end)
 
 local Command = ns.Game.Command
@@ -814,10 +802,9 @@ Command({ kind = "slash", name = "layer", help = "<name>: show or hide a map lay
 	end
 	for _, l in ipairs(Engine.layers) do print(string.format("  %s %s", l.name, Engine.LayerOn(l.name) and "on" or "off")) end
 end })
-Command({ kind = "slash", name = "mapstats", help = "the map's live textures, lines and font strings", fn = function()
+Command({ kind = "slash", name = "mapstats", help = "the map's live textures and font strings", fn = function()
 	local live, made = Engine.Stats()
 	local cam = Camera.cam
-	print(string.format("MagicMap map: inst %s, zoom %.1f px/tile; live %d textures, %d lines, %d font strings"
-		.. " (made %d, %d, %d)", tostring(Camera.inst), cam.zoom, live.tex, live.line, live.font, made.tex, made.line,
-		made.font))
+	print(string.format("MagicMap map: inst %s, zoom %.1f px/tile; live %d textures, %d font strings"
+		.. " (made %d, %d)", tostring(Camera.inst), cam.zoom, live.tex, live.font, made.tex, made.font))
 end })

@@ -75,7 +75,7 @@ local GROUPS = {
 -- theirs with their layers; each group's rows in the spike's order (ORDER: its keys, Layers.lua:30-61,
 -- then Landmarks.lua:70, 110, 142 and Blips.lua:671 as its TOC loads them), a key not in it last.
 local ORDER = {}
-for i, key in ipairs({ "labels", "borders", "quests", "questAreas", "offers",
+for i, key in ipairs({ "labels", "quests", "questAreas", "offers",
 	"flight", "dungeons", "graveyards", "areaPOIs", "rares", "group" }) do
 	ORDER[key] = i
 end
@@ -92,8 +92,6 @@ end
 
 -- Drawn so far (Layers.lua:34-37, Blips.lua:671-672, Landmarks.lua:70-71).
 Menus.Layer({ key = "labels", label = "Zone labels", group = "map", tip = "Names of zones and sub-zones." })
-Menus.Layer({ key = "borders", label = "Zone borders", group = "map",
-	tip = "Outlines between zones, traced from the terrain." })
 -- Not a layer of its own: the interiors layer draws a capital's every building while it's on (ui/Interiors.lua).
 Menus.Layer({ key = "cities", label = "City maps", group = "map",
 	tip = "In the capital cities, every city building's indoor map, what's under the ground faded." })
@@ -137,7 +135,7 @@ end
 
 -- Each layer's icon beside its name (legibility): the art its pins draw (an atlas), else a client icon.
 local ICON = {
-	labels = "Interface\\Icons\\INV_Misc_Note_01", borders = "Interface\\Icons\\INV_Misc_Map_01",
+	labels = "Interface\\Icons\\INV_Misc_Note_01",
 	questAreas = "Interface\\Icons\\INV_Misc_Map02",
 	quests = "A:Quest-In-Progress-Icon-yellow", offers = "A:QuestNormal", flight = "A:taxinode_neutral",
 	dungeons = "A:dungeon", graveyards = "A:poi-graveyard-neutral",
@@ -204,7 +202,7 @@ end
 
 -- On green, off grey (a sub-option off while its parent is), by group (Layers.lua:2196-2207); the spike's
 -- keys (Layers.lua:33-36) where ours name the layer that draws them.
-local SPIKE_KEY = { labels = "zoneLabels", borders = "zoneBorders" }
+local SPIKE_KEY = { labels = "zoneLabels" }
 Command({ kind = "slash", name = "layers", help = "the map's layers by group, on or off", fn = function()
 	local parts = {}
 	for _, sec in ipairs(Sections()) do

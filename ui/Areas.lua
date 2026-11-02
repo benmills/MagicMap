@@ -1,5 +1,5 @@
 -- Quest areas (Layers.lua:765-1069): the game's own objective areas ("blobs"), drawn as the world map
--- draws them, by QuestPOIFrames on the "questAreas" layer (over the tiles, under the borders: parity S8):
+-- draws them, by QuestPOIFrames on the "questAreas" layer (over the tiles: parity S8):
 -- one frame per map and style (art and alpha are per frame), its map's rect in size, its quests drawn
 -- in it, as the world map's: the quest you follow filled blue, the rest a quiet edge in what they still
 -- need (rust: kill, green: gather, blue: other) (S53). The art is the client's own (UI-QuestBlob-Inside
@@ -27,7 +27,7 @@ local Get, Keep, At, Yield = Engine.Get, Engine.Keep, Engine.At, Runtime.Yield
 local ScreenToTile = Atlas.Camera.ScreenToTile
 local Command = ns.Game.Command
 
-local LEVEL = 4 -- over the tiles (1) and the buildings (4: these pieces stand over their canvas), under the borders (6) (Core.lua:149)
+local LEVEL = 4 -- over the tiles (1) and the buildings (4: these pieces stand over their canvas) (Core.lua:149)
 -- The client's area art (each <base>Inside / <base>Outside): quest blue, bonus-objective green,
 -- archaeology rust (Layers.lua:785-789).
 local ART = { blue = "Interface\\WorldMap\\UI-QuestBlob-", green = "Interface\\WorldMap\\UI-BonusObjectiveBlob-",

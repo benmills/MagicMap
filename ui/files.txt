@@ -16,7 +16,6 @@ ui/Tiles.lua
 ui/Repaint.lua
 ui/Base.lua
 ui/Interiors.lua
-ui/Borders.lua
 ui/Labels.lua
 ui/Pins.lua
 ui/Cluster.lua

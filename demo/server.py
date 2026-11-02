@@ -7,8 +7,6 @@ them.
 
   /api/maps                          Atlas.Maps, with Continent and Zones per inst
   /api/tiles?inst=                   per tile: its key, whether it's open sea (not drawn)
-  /api/borders?inst=                 Borders lines and far (zone borders, two levels of detail)
-  /api/zone-outline?inst=&zone=      ZoneOutline: a zone's land as rings
   /api/labels?inst=                  Atlas.Labels: ranked name anchors (continent, zone, town, subzone, poi)
   /api/at?inst=&col=&row=            TileToWorld, ZoneAt, Walk.Cell at that chunk
   /api/fit?uiMapID=&w=&h=            MapRect and Camera.Fit
@@ -67,17 +65,6 @@ def tiles(q):
     for key in Atlas.Tiles(inst).keys():
         out.append({"key": key, "sea": not Atlas.Drawn(inst, key)})
     return {"tiles": out}
-
-
-def borders(q):
-    # both levels of detail, { areaA, areaB, fadeStart, fadeEnd, x1, y1, ... } each; the page picks
-    # by zoom as Atlas.BorderLines does
-    b = Atlas.Borders(int(q["inst"]))
-    return {"lines": py(b.lines), "far": py(b.far), "farZoom": Atlas.BORDER_FAR_ZOOM}
-
-
-def zone_outline(q):
-    return {"rings": py(Atlas.ZoneOutline(int(q["inst"]), int(q["zone"]))) or []}
 
 
 def labels(q):
@@ -293,7 +280,7 @@ def find(q):
     return out
 
 
-API = {"maps": maps, "tiles": tiles, "borders": borders, "zone-outline": zone_outline, "labels": labels,
+API = {"maps": maps, "tiles": tiles, "labels": labels,
        "at": at, "fit": fit, "walk": walk, "pins": pins, "npc": npc, "object": object, "item": item, "quest": quest,
        "flight": flight, "dungeon": dungeon, "find": find}
 

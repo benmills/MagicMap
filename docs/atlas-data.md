@@ -127,34 +127,12 @@ docs/decisions/0011-ai-map-art.md.
   `{ mapID, name, x, y, zone, area }`, only on a continent and a zone whose map is on it (as the
   spike asks the continent's map: an instance's map has none); `Atlas.ZoneMapAt`: ZoneAt's, x and y in 0..1.
 
-### Data/Borders.lua — `ns.Data.Borders` (ADT chunk areas)
-`[inst] = { lines, z12, z30, far, z100, z200, sub, subz200, outlines, labels }`, positions in
-tile space (3 decimals). Format 2 (M1.4: the levels and subzone borders).
-- lines: zone borders `{ areaA, areaB, fadeStart, fadeEnd, x1, y1, x2, y2, ... }`, one
-  per stretch between junctions. Traced along chunk edges between two zones' land,
-  then smoothed offline (Gaussian, ~2 chunks) into curves and simplified to 0.003
-  tiles. Ends stay exact: neighbours meet, three zones at one point.
-- fadeStart / fadeEnd: tiles over which that end fades out, 0 none. A border that
-  reaches the shore runs on a few chunks over water and fades there; one that stops
-  on land of no zone fades over 0.1.
-- z12, z30, far, z100, z200: the same lines simplified to 0.15, 0.05, 0.03, 0.015 and 0.0075
-  tiles, each drawn below its zoom (far: 50 px per tile), where it's within about 1.5 px
-  (`Atlas.BORDER_LEVELS`; Atlas.BorderLines picks by zoom). The first two are M1.4's bands;
-  the rest halve the Lines a layout draws at zoom 50-200 (docs/v1-plan.md M1.4).
-- sub: subzone borders `{ areaA, areaB, x1, y1, ... }`: chunk edges between two subzones of
-  one zone, both on land with ≥ 4 land chunks (the spike's rule), smoothed and simplified as
-  `lines`; subz200: within 0.0075 (`Atlas.SubzoneLines(inst, zoom)`: below zoom 300). The spike
-  melts their steps with Douglas-Peucker at 0.035 tiles and Chaikin (Layers.lua:1424-1425,
-  1503-1519); the zone borders' smoothing comes out rounder in about half the points.
-- outlines: `[zone areaID] = { ring, ... }`, ring `{ x1, y1, ... }` closed (last joins
-  first): the zone's land, from the same smoothed chains (shared stretches match
-  `lines`; the coast within 0.01). Even-odd: a ring inside another is a hole. Rings
-  under 12 chunks (islets, ponds) are dropped. For hit-testing and highlighting a zone.
-- labels: `{ areaID, col, row, weight, kind }`: the land chunk deepest inside each zone
-  (kind 1) and subzone (kind 2, ≥ 6 chunks); weight = its land chunks.
-- `Atlas.Borders(inst)`, `Atlas.BorderLines(inst, zoom)`, `Atlas.SubzoneLines(inst, zoom)`,
-  `Atlas.ZoneOutline(inst, zone)`; Data/Labels.lua ranks these labels with the
-  continent's name and AreaPOI towns and landmarks (Places).
+### Data/Anchors.lua — `ns.Data.Anchors` (ADT chunk areas)
+`[inst] = { { areaID, col, row, weight, kind }, ... }`, tile space (2 decimals).
+- The land chunk deepest inside each zone (kind 1) and subzone (kind 2, ≥ 6 chunks); weight = its land chunks.
+- Mostly-water "zones" (The Great Sea) aren't zones here; a stray piece of an area, under 64 land chunks on a map,
+  joins the zone it meets most.
+- `Atlas.Anchors(inst)`; Data/Labels.lua ranks these with the continent's name and AreaPOI towns and landmarks (Places).
 
 ### Data/Walk.lua — `ns.Data.Walk` (ADT MCVT heights, MH2O liquids)
 `[inst] = { [tileKey] = cells }`, open-world maps with ≥ 20 terrain tiles.
@@ -178,7 +156,7 @@ tile space (3 decimals). Format 2 (M1.4: the levels and subzone borders).
 - `Atlas.FlightPoints(inst)`, `Atlas.TaxiPaths()`, `Atlas.POIs(inst)` (sorted by id),
   `Atlas.Dungeon(instID)`, `Atlas.Dungeons(entranceInst)`.
 
-### Data/Labels.lua — `ns.Data.Labels` (Data/Tiles, Walk, UiMaps, Areas, Borders, Places)
+### Data/Labels.lua — `ns.Data.Labels` (Data/Tiles, Walk, UiMaps, Areas, Anchors, Places)
 `[inst] = { { text, col, row, tier, size, areaID, poiID }, ... }` in rank order (1 first)
 - Every map name as a ranked anchor, ranked offline by tools/gen_labels.py from the
   other Data files: it was Atlas.Labels' first-use work, ~50 ms for the two continents in
@@ -186,8 +164,8 @@ tile space (3 decimals). Format 2 (M1.4: the levels and subzone borders).
   Regenerate it after any of them: tools/tests/test_generators.py fails while it's stale.
 - tier, most important first: `continent` (its name, at the land's visual centre: the
   land sample, 4 per tile side, farthest from deep water or the map's edge by a chamfer
-  distance transform), `zone` (Borders labels of kind 1), `town` (AreaPOI icons 4 town,
-  5 capital, or 2/6 with importance ≥ 2), `subzone` (Borders labels of kind 2), `poi`
+  distance transform), `zone` (Anchors of kind 1), `town` (AreaPOI icons 4 town,
+  5 capital, or 2/6 with importance ≥ 2), `subzone` (Anchors of kind 2), `poi`
   (AreaPOI icons 2/6 otherwise). POIs with a description (events, world-PvP states) are
   left out. Within a tier by score, high first (zone, subzone: land chunks; town:
   importance × 10, + 2 capital, + 1 town), then by text.

@@ -13,7 +13,7 @@ import pytest
 
 from test_addon import boot, errors
 
-LAYERS = ("map: tiles", "map: borders", "map: labels", "map: blips", "map: rares")
+LAYERS = ("map: tiles", "map: labels", "map: blips", "map: rares")
 
 
 def shown():
@@ -169,7 +169,7 @@ def test_zoom_draw_priced():
 
 def test_zoom_layouts_priced():
     """Zooming keeps each layer's layout within a job's resume budget (2x its 4 ms) on the priced clock,
-    its swap included (before M1.3, 93 ms borders, 25 tiles, 13 rares: each swap showed its whole canvas)."""
+    its swap included (before M1.3, 93 ms the old borders, 25 tiles, 13 rares: each swap showed its whole canvas)."""
     perf, _ = wheel_priced()
     assert all(perf[name].max <= 8 for name in LAYERS), {name: perf[name].max for name in LAYERS}
 

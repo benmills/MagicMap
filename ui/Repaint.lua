@@ -1,7 +1,7 @@
 -- The AI repaints of the broken map art (Data/Repaint.lua, tools/ai_map.py ship; Feel's "repaint.on"): the flat, unfinished ground of
 -- Blizzard's tiles painted over, each picture a tile's size with its own soft alpha. Laid out with the tiles (Lay, at the end of ui/
 -- Tiles.lua's layout), on their canvas, so they move, scale and fade with them; on a frame of that canvas's own, over the ocean
--- (ui/Sea.lua: it lies over the tiles and some repaints reach the coast) and under the borders. Places overlapping keep their order by sublevel.
+-- (ui/Sea.lua: it lies over the tiles and some repaints reach the coast) and under the layers above the ground. Places overlapping keep their order by sublevel.
 -- They're painted for one set of tiles, so they're drawn only on the game build Data/Repaint.lua names (tools/ai_map.py check and stamp
 -- move it on, when the tiles under them haven't changed): on any other, or with no data, the raw map, whatever the setting.
 

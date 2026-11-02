@@ -27,6 +27,18 @@ Copy in `demo/mapart.js` → `mapart.js` and the baked layers (`patches/`, from 
 from `tools/ai_map.py bake`), then `patch -p1 < mapart.patch` (made against the pages as served
 on 2026-10-29, with review.patch in). No restart.
 
+## One map (world.patch)
+
+The hosted demo shows Kalimdor, the Eastern Kingdoms and Zephras Isle as one map, with the menu's Map switch and the borders gone. `server.py`'s
+`OFFSET` and `ISLE` place them; review.js shifts its issues to match. 3D and the terrain tools aren't available on it (the page says so and stays in 2D).
+
+Delete `borders.js`, `patch -p1 < world.patch` (made against the pages as served on 2026-11-02, with the patches above in), copy in `demo/mapart.js`,
+bake the pictures below, restart the service.
+
+    .venv/bin/python demo/hosted/bake_world.py isle demo/sea/isle.webp    # the isle over the ocean, its near-black gone
+    .venv/bin/python demo/hosted/bake_world.py world demo/sea/world.webp  # the whole map while its tiles load
+    .venv/bin/python demo/hosted/bake_world.py feather demo/sea           # the ocean pictures' edges into deep water; once after each gen_sea.py --bake
+
 ## Reading the marks back
 
     .venv/bin/python tools/review.py --from https://magic-map-outdoor.exe.xyz/

@@ -2,13 +2,9 @@
 -- flags, one disagreeing). The map reads one, Camera.ZoomSettled (the zoom unchanged 0.15 s; Settled
 -- adds "nothing moving it"), and before it lays a layer out again only past [0.7, 1.4] of its layout's
 -- zoom (names and pins each log(1.25) drift, and where it lands, as the spike's LayoutLabels: Layers.lua:
--- 2012-2030); a held layer (borders) where the zoom is headed (ui/Engine.lua).
+-- 2012-2030); a held layer where the zoom is headed (ui/Engine.lua).
 -- Replayed: a wheel tick and a zone fit start at most 2 layouts a layer (names and pins: one a drift crossed
--- and one landing), at most 1 once settled; the
--- borders stay in sight meanwhile, each frame scaled to the camera and dimmed as far as that scale is
--- from 1, to 0.25 at most (Layers.lua:158-170), then crossfaded over FADE_S from the alpha they had
--- (Layers.lua:1820-1836); no layout starts on a canvas still showing (a crossfade ends first:
--- Layers.lua:1853-1855). On the priced clock
+-- and one landing), at most 1 once settled; no layout starts on a canvas still showing. On the priced clock
 -- (docs/evidence/perf-m0.md), the flights (grow, shrink, the follow glide, the idle return): no frame of
 -- ours over 8 ms, no swap over 4 ms, the map's allocation over each (its regions made once, by a first
 -- grow); a drag's start on its own; the window shown again (after a plain hide, one mid-layout, and its
@@ -18,10 +14,10 @@ local T = ...
 local sim, ns = T.Shown()
 local E, Cam, M = ns.UI.Engine, ns.UI.Camera, ns.UI.Motion
 local view, S = ns.UI.Window.view, sim.state
-local borders = T.Layer(ns, "borders")
+local labels = T.Layer(ns, "labels")
 -- Layouts started (by whether the zoom had settled) and the slowest swap, as traced.
 local starts, swapMax, trace = {}, 0, ns.Runtime.Trace
-local fadeAt, mid, shown = -1, 0, {} -- the borders' last crossfade's start; layouts started during one; on a canvas in sight
+local shown = {} -- layouts started on a canvas in sight
 ns.Runtime.Trace = function(kind, d)
 	if kind == "layout" and d.e == "start" then
 		local k = (Cam.ZoomSettled() and "settled " or "moving ") .. d.layer
@@ -30,45 +26,18 @@ ns.Runtime.Trace = function(kind, d)
 		for _, c in ipairs(l.canvases) do -- (an error here would be Runtime's to catch)
 			if c ~= l.front and S[c].alpha > 0 then shown[#shown + 1] = d.layer .. " " .. S[c].alpha end
 		end
-		if l == borders and GetTime() - fadeAt < 0.12 then mid = mid + 1 end -- (FADE_S)
 	elseif kind == "swap" then
 		swapMax = math.max(swapMax, d.ms)
-		if d.layer == "borders" and borders.fade then fadeAt = GetTime() end
 	end
 	return trace(kind, d)
 end
 
-local LN2 = math.log(2)
 local function Ease(name, start, most) -- most: layouts a layer (default 2: one a band, [0.7, 1.4], crossed)
 	most = most or 2
 	for k in pairs(starts) do starts[k] = nil end
 	local z0 = Cam.cam.zoom
 	start()
-	local dim, fades, longest, run, was = 1, 0, 0, 0, {} -- was: last frame's front and alphas
-	for _ = 1, 120 do
-		sim.Step()
-		local c, f, z = borders.front, borders.fade, Cam.cam.zoom
-		dim = math.min(dim, math.max(S[borders.canvases[1]].alpha, S[borders.canvases[2]].alpha))
-		if f then -- crossfading: the old falls from the alpha it had, the new rises, both in sight
-			if f.from == was.front then
-				fades, run = fades + 1, 0
-				assert(S[f.from].alpha <= was.alpha, name .. ": the crossfade's old canvas brightened")
-			else
-				assert(S[f.from].alpha < was.fromAlpha and S[c].alpha > was.alpha, name .. ": a crossfade not moving")
-			end
-			assert(S[f.from].alpha > 0 and (S[c].alpha > 0 or run == 0), name .. ": a crossfade with a canvas out of sight")
-			run = run + 1
-			longest = math.max(longest, run)
-		elseif c.zoom ~= z then -- scaled to the camera, dimmed the further from 1 (Layers.lua:163-167)
-			local s = z / c.zoom
-			assert(math.abs(S[c].scale - s) < 1e-9, name .. ": the borders not scaled to the camera")
-			local a = math.max(0.25, math.min(1, 1.6 - 0.6 * math.abs(math.log(s) / LN2)))
-			assert(math.abs(S[c].alpha - a) < 1e-9, string.format("%s: the borders at alpha %.2f, scaled %.2f", name, S[c].alpha, s))
-		end
-		was.front, was.alpha, was.fromAlpha = c, S[c].alpha, f and S[f.from].alpha
-	end
-	assert(dim >= 0.25, name .. ": the borders out of sight, alpha " .. dim)
-	assert(fades >= 1 and longest >= 6, name .. ": no crossfade as the borders landed")
+	for _ = 1, 120 do sim.Step() end
 	assert(Cam.Settled() and not E.pending, name .. ": still moving")
 	local each = {}
 	local drifts = math.floor(math.abs(math.log(Cam.cam.zoom / z0)) / math.log(E.DRIFT))
@@ -77,8 +46,7 @@ local function Ease(name, start, most) -- most: layouts a layer (default 2: one 
 		each[#each + 1] = string.format("%s %d+%d", l.name, a, b)
 		assert(a + b <= (l.moves and math.max(most, drifts + 1) or most) and b <= 1, name .. ": " .. each[#each])
 	end
-	T.Print("P7: %s: layouts while moving + once settled: %s; the borders' faintest %.2f, %d crossfade(s), the longest %d frames",
-		name, table.concat(each, ", "), dim, fades, longest)
+	T.Print("P7: %s: layouts while moving + once settled: %s", name, table.concat(each, ", "))
 end
 Ease("a wheel tick", function() sim.Wheel(view, 1) end)
 Ease("a zone fit", function() M.FlyToRect(28, 46, 36, 52) end)
@@ -169,7 +137,7 @@ assert(M.Dragging() == false and kb <= 14) -- (7.8-11.9 KB run to run: which per
 
 -- Hidden, every canvas is emptied (its regions parked), so showing the window again shows none of them
 -- at once; the layers lay out again as at the first open, within a frame's budget, fresh within 1 s.
--- Hidden mid-layout too (the big window's borders at 250 at Kharanos: its subzones', a few frames), and
+-- Hidden mid-layout too (the big window's names at 250 at Kharanos), and
 -- through its parent (Alt-Z: UIParent).
 local frame = ns.UI.Window.frame
 local function Held(layers)
@@ -225,13 +193,19 @@ Cam.cam.cx, Cam.cam.cy = 32.904, 42.474 -- Kharanos
 M.SetZoom(200)
 sim.Run(2)
 Again("mid-layout", function()
+	local build = labels.build
+	labels.build = function(...) -- (a frame's more than the layouts now take, unpriced)
+		coroutine.yield()
+		return build(...)
+	end
 	M.SetZoom(250)
 	for _ = 1, 60 do
 		sim.Step()
-		if borders.busy then break end
+		if labels.busy then break end
 	end
-	assert(borders.busy, "the borders laid out at 250")
+	assert(labels.busy, "the names laid out at 250")
 	frame:Hide()
+	labels.build = build
 end, function() frame:Show() end)
 sim.Run(1)
 Again("Alt-Z", function() UIParent:Hide() end, function() UIParent:Show() end)
@@ -243,41 +217,13 @@ Again("Alt-Z, the line across the big window", function() UIParent:Hide() end, f
 ns.Game.Command({ kind = "waypoint", pos = false })
 sim.Run(1)
 
--- A zoom, and a drag as the borders crossfade to it (the view leaves their layout): they lay out again
--- mid-crossfade, on a canvas out of sight (the trace hook above), as the spike's StartBuild
--- (Layers.lua:1853-1855).
-M.SetFollow(false)
-Cam.cam.cx, Cam.cam.cy = 32.904, 42.474 -- Kharanos, the big window: a borders layout takes frames
-mid = 0
-for round = 1, 4 do
-	M.SetZoom(round % 2 == 1 and 250 or 325)
-	for _ = 1, 60 do
-		sim.Step()
-		if borders.fade then break end
-	end
-	sim.MoveCursorTo(view)
-	sim.buttonsDown.LeftButton = true
-	sim.FireScript(view, "OnMouseDown", "LeftButton")
-	for _ = 1, 10 do
-		sim.cursorX = sim.cursorX + 100
-		sim.Step()
-	end
-	sim.buttonsDown.LeftButton = nil
-	sim.FireScript(view, "OnMouseUp", "LeftButton")
-	sim.Run(1)
-end
-T.Print("P7: a drag as the borders crossfade: %d laid out again mid-crossfade", mid)
-assert(mid >= 3 and #shown == 0, table.concat(shown, ", "))
-Cam.cam.cx, Cam.cam.cy = 32.904, 42.474
-sim.Run(1)
-
 -- A layer turned off is emptied too: turned back on after a pan, it lays out anew, no frame over 8 ms.
-sim.Slash("/mm layer borders")
+sim.Slash("/mm layer labels")
 sim.Run(1)
-local held = Held({ borders })
+local held = Held({ labels })
 Cam.cam.cx = Cam.cam.cx + 4
 sim.Run(1)
-local _, worst = Priced(function() sim.Slash("/mm layer borders") end)
-T.Print("P7: the borders turned off: %d regions held; back on after a pan, the slowest frame %.2f ms priced", held, worst)
-assert(held == 0 and worst <= 8 and T.Fresh(ns, borders))
+local _, worst = Priced(function() sim.Slash("/mm layer labels") end)
+T.Print("P7: the names turned off: %d regions held; back on after a pan, the slowest frame %.2f ms priced", held, worst)
+assert(held == 0 and worst <= 8 and T.Fresh(ns, labels))
 assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n"))

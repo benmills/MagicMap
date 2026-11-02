@@ -4,7 +4,7 @@ Data/Base.lua
 Data/Patches.lua
 Data/Sea.lua
 Data/Repaint.lua
-Data/Borders.lua
+Data/Anchors.lua
 Data/Walk.lua
 Data/UiMaps.lua
 Data/Areas.lua
@@ -20,7 +20,7 @@ Data/BlipServices.lua
 Data/Interiors.lua
 atlas/Coords.lua
 atlas/Tiles.lua
-atlas/Borders.lua
+atlas/Anchors.lua
 atlas/Walk.lua
 atlas/UiMaps.lua
 atlas/Areas.lua

@@ -3,9 +3,9 @@
 -- step failing every frame takes one stack, not one per failure.
 local T = ...
 local sim, ns = T.Shown()
-local m, borders = ns.UI.Camera, T.Layer(ns, "borders")
-local orig, failed = borders.build, nil
-borders.build = function(...)
+local m, labels = ns.UI.Camera, T.Layer(ns, "labels")
+local orig, failed = labels.build, nil
+labels.build = function(...)
 	if not failed then failed = true; error("layout boom") end
 	return orig(...)
 end
@@ -14,12 +14,12 @@ sim.Wheel(ns.UI.Window.view, 1)
 sim.Run(1)
 assert(m.cam.zoom ~= zoom)
 local errors = ns.Runtime.errors
-assert(#errors == 1 and errors[1].name == "map: borders" and errors[1].n == 1)
-assert(not borders.busy and T.Fresh(ns, borders) and T.Live(borders) > 0)
+assert(#errors == 1 and errors[1].name == "map: labels" and errors[1].n == 1)
+assert(not labels.busy and T.Fresh(ns, labels) and T.Live(labels) > 0)
 local tel = MagicMap2DB.telemetry
 local kept
 for _, e in pairs(tel.errors) do
-	if e.name == "map: borders" then kept = kept or e end
+	if e.name == "map: labels" then kept = kept or e end
 end
 assert(kept.count == 1 and kept.msg:find("layout boom", 1, true) and kept.stack)
 local traced = false
@@ -36,4 +36,4 @@ sim.Run(3)
 local fails = T.Errs(ns, "test.every-frame")
 T.Print("E7: a step failing every frame for 3 s: %d failures, %d stack walks", fails, stacks.v)
 assert(fails >= 10 and stacks.v == 1)
-assert(T.Fresh(ns, borders) and T.Errs(ns, "map: borders") == 1)
+assert(T.Fresh(ns, labels) and T.Errs(ns, "map: labels") == 1)

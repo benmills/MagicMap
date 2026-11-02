@@ -8,7 +8,7 @@
 --   otherwise: the zone last flown to on this map (a zone's click, /mm zone), else the map's name; big:
 --     the hint to follow you again
 -- and with /mm debug, last (Core.lua:1305-1313), grey: the tile under the cursor (else the view's centre),
--- its FileDataID, the zoom, the borders' last layout (its ms, its Lines) and the tile set's build.
+-- its FileDataID, the zoom and the tile set's build.
 
 local _, ns = ...
 local UI = ns.UI
@@ -24,7 +24,7 @@ local EVERY = 0.05 -- s (Core.lua:1563)
 local SEP = "  ·  " -- Core.lua:1244
 local HINT = "|cff8a7f6eright-click: Follow me|r" -- Core.lua:1303
 local COLOR, HOVER = { 1, 0.82, 0.25 }, { 1, 0.93, 0.6 } -- Core.lua:202
-local DEBUG = "|cff777777%d_%d  %s  zoom %d  layout %.1f ms / %d lines  %s|r" -- Core.lua:1311
+local DEBUG = "|cff777777%d_%d  %s  zoom %d  %s|r" -- Core.lua:1311
 local FONT = GameFontNormal:GetFont()
 local _, BUILD = Atlas.TileSet()
 
@@ -189,9 +189,9 @@ local function Debug(inst, hovering)
 		c, r = cam.cx, cam.cy
 	end
 	local col, row = math.floor(c), math.floor(r)
-	local tiles, b = Atlas.Tiles(inst), UI.Borders
+	local tiles = Atlas.Tiles(inst)
 	local fdid = tiles and col >= 0 and col < 64 and row >= 0 and row < 64 and tiles[col * 64 + row]
-	return string.format(DEBUG, col, row, fdid and tostring(fdid) or "-", cam.zoom, b.ms, b.regions, tostring(BUILD))
+	return string.format(DEBUG, col, row, fdid and tostring(fdid) or "-", cam.zoom, tostring(BUILD))
 end
 
 -- What it was last worked out from, so a still map works nothing out (and allocates nothing; the debug
@@ -248,7 +248,7 @@ function Title.Debug()
 	UI.Print("debug info " .. (UI.saved.debug and "on" or "off"))
 end
 ns.Game.Command({ kind = "slash", name = "debug", fn = Title.Debug,
-	help = "the tile, its FileDataID, the zoom and the borders' last layout in the title" })
+	help = "the tile, its FileDataID and the zoom in the title" })
 
 local since = EVERY
 Runtime.Step("ui", "map: title", function(elapsed)

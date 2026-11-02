@@ -203,7 +203,7 @@ def test_quests_priced():
     p95 <= 5 ms, none over 8, no call over its budget nor a layout's stretch past it. And the Lua allocation over
     that stretch alone at the client's prices (FREE: the sim's widget state left out, ~335 KB/s of the 425 the sim
     read there before M1.15): the first time, its garbage <= 50 KB/s, and all of it held under 100 so a pool that
-    grows shows (the borders' Lines at the zooms new to the session, the town services gathered as the view comes
+    grows shows (the town services gathered as the view comes
     to them: kept, made once a session, docs/runtime.md); once more, all of it <= 50 KB/s."""
     kinds = [["monster", "Kobold slain: 1/8", 1, 8, False], ["item", "Candle: 2/8", 2, 8, False],
              ["event", "Scout the mine", 0, 1, False]]
@@ -248,7 +248,7 @@ def test_quests_priced():
 
 # What the client's widget calls allocate in its Lua heap: nothing (C functions; a region's own table aside). The
 # sim's keep their state in Lua tables (wowsim.lua S[region]: ~750 bytes a region made, more as it's set), which
-# made the pools' first growth the biggest maker (borders, tiles: ~100 KB/s over the soak's first round; ~335 of
+# made the pools' first growth the biggest maker (the old borders, tiles: ~100 KB/s over the soak's first round; ~335 of
 # test_quests_priced's wheel and drags' 425 before M1.15). Taken
 # out of collectgarbage("count") as LUA_PRICE takes its hook's (tools/sim.py), so Runtime's KB is ours and the
 # C_ API's tables' (the client's, as in game); a script a call fires (OnShow, OnSizeChanged) counts as ours.

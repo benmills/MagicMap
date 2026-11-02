@@ -6,7 +6,7 @@ The developer manual behind the [README](../README.md)'s "How it works".
 The rebuild's design is in [architecture.md](../architecture.md); the addon (the repo root is the
 addon root, `MagicMap.toc`), its folders, load order and the Runtime contract are in
 [structure.md](structure.md). **Atlas** (`atlas/`) is the library of facts that hold
-(tiles, borders, labels, walk grid, uiMaps, areas, places, interiors and the capitals' buildings,
+(tiles, labels, walk grid, uiMaps, areas, places, interiors and the capitals' buildings,
 NPCs / objects / items / quests, coordinates and camera maths), from data the offline tools generate (`Data/`, see
 [atlas-data.md](atlas-data.md)).
 
@@ -19,7 +19,7 @@ NPCs / objects / items / quests, coordinates and camera maths), from data the of
 Each generator reads a local install (see its docstring for options) and states the build
 in its output's header. Run them in this order: gen_tilecolor and gen_interiors read Data/Tiles.lua (gen_base too, with TileColor, Areas and AreaGrid, so it runs after them), gen_questie
 reads Data/UiMaps.lua from gen_world and gen_world's ItemIcons reads gen_questie's
-Data/Items.lua (the data diet), so gen_world runs again after it; gen_labels reads Borders,
+Data/Items.lua (the data diet), so gen_world runs again after it; gen_labels reads Anchors,
 Places, Areas, UiMaps, Tiles and Walk, so it runs last. The rest are independent. gen_questie's
 five files (Npcs, Objects, Items, Quests, BlipServices) come from QuestieDB and Questie, used under
 their GPLv3 terms (NOTICE.md); they're committed like the rest.
@@ -27,7 +27,7 @@ their GPLv3 terms (NOTICE.md); they're committed like the rest.
     W="/Applications/World of Warcraft"
     .venv/bin/python tools/gen_tiles.py     local "$W" wow_classic_beta -o Data/Tiles.lua
     .venv/bin/python tools/gen_tilecolor.py local "$W" wow_classic_beta -o Data/TileColor.lua
-    .venv/bin/python tools/gen_borders.py   local "$W" wow_classic_beta -o Data/Borders.lua
+    .venv/bin/python tools/gen_anchors.py   local "$W" wow_classic_beta -o Data/Anchors.lua
     .venv/bin/python tools/gen_walk.py      local "$W" wow_classic_beta -o Data/Walk.lua
     .venv/bin/python tools/gen_areagrid.py  local "$W" wow_classic_beta -o Data/AreaGrid.lua
     .venv/bin/python tools/gen_world.py     local "$W" wow_classic_beta -o Data   # UiMaps, Areas, Places, ItemIcons

@@ -6,7 +6,7 @@ local _, ns = ...
 local UI = ns.UI
 local Atlas, Window = ns.Atlas, ns.UI.Window
 
-local LEVEL = 3 -- over the tiles' canvas (ui/Engine.lua: its layer's level 1, its child), under the borders (6)
+local LEVEL = 3 -- over the tiles' canvas (ui/Engine.lua: its layer's level 1, its child), under the buildings (4)
 
 local frame = CreateFrame("Frame", nil, Window.view)
 frame:SetAllPoints()

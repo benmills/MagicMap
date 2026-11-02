@@ -9,9 +9,9 @@ play-test's 56 ms first open (docs/v1-plan.md §2, M1.1).
 
 Tiers, most important first:
   continent  the continent's name, at the land's visual centre
-  zone       Data/Borders.lua labels of kind 1, by land area
+  zone       Data/Anchors.lua of kind 1, by land area
   town       AreaPOI towns and cities (Places.lua), capitals first
-  subzone    Data/Borders.lua labels of kind 2, by land area
+  subzone    Data/Anchors.lua of kind 2, by land area
   poi        AreaPOI landmarks
 A town and the subzone label of the same name at the same spot are one name: the
 town, at the subzone label's spot, as the spike placed it (its POI's pin is apart,
@@ -34,7 +34,7 @@ from mmtools.log import log
 from mmtools.luaout import data_head, load_data, lua_str
 
 DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Data")
-INPUTS = ("Tiles", "Walk", "UiMaps", "Areas", "Borders", "Places")
+INPUTS = ("Tiles", "Walk", "UiMaps", "Areas", "Anchors", "Places")
 
 CHUNKS = 16           # walk chunks per tile side (atlas/Walk.lua)
 WATER = 2             # walk class: deep water
@@ -136,8 +136,7 @@ def tile_bounds(tiles) -> tuple[int, int, int, int] | None:
 def labels(inst, D, conts) -> list[dict]:
     """The inst's names in rank order: { text, col, row, tier, size?, areaID?, poiID? }."""
     out, subzones, land = [], [], 0
-    b = D.Borders[inst]
-    for l in array(b.labels if b is not None else None):
+    for l in array(D.Anchors[inst]):
         area, col, row, weight, kind = l[1], l[2], l[3], l[4], l[5]
         if kind == 1:
             land += weight
@@ -202,7 +201,7 @@ def main() -> None:
         load_data(lua, os.path.join(args.data, name + ".lua"), ns)
     D = ns.Data
     conts = continents(D.UiMaps)
-    insts = set(D.Borders.keys()) | set(conts) | {p[5] for p in D.Places.pois.values()}
+    insts = set(D.Anchors.keys()) | set(conts) | {p[5] for p in D.Places.pois.values()}
 
     out = open(args.output, "w", encoding="utf-8", newline="\n") if args.output else sys.stdout
     w = out.write

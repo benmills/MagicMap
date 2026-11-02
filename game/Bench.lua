@@ -4,14 +4,14 @@
 -- lines, font strings; anchored: SetPoint, SetStartPoint; parked: SetParent
 -- onto a hidden frame and back; a canvas's own calls (SetPoint, SetScale,
 -- SetAlpha, Hide, Show) over 100 live, 1000 live and 1000 hidden child Lines
--- (the borders' kind: the play-test's ~20 us a region, hidden pooled Lines
+-- (the play-test's ~20 us a region, hidden pooled Lines
 -- still paying); and the swap's question (ui/Engine.lua, docs/runtime.md "The map's engine"):
 -- Show after the 1000 live lines moved while hidden (the M0 gate's 35-50 us a line), the same
 -- at alpha 0, SetAlpha(1) after they moved while shown at alpha 0 (the engine's swap), and Show
 -- after 100 masked textures moved (a masked disc: a pin's art). Each call is timed alone in
 -- a Job, its frames graced ("bench"), and a canvas-wide call (setup, timed, or between ops) gets
 -- a frame to itself, so the run's frames cost no more than one such call; every region is clear
--- until the moved and alpha ops, whose 1000 lines are coloured as a border's (a canvas at alpha 0
+-- until the moved and alpha ops, whose 1000 lines are coloured (a canvas at alpha 0
 -- hides them; shown, the 320x200 clipped box shows them a frame at a time). And what no call's time
 -- can show, a cost the client defers to its drawing: the whole frame after the 1000 lines moved on a
 -- shown canvas at alpha 0 (the engine's back canvas), against the same move on a hidden canvas and an
@@ -92,7 +92,7 @@ local function Frame(op, setup)
 	order[#order + 1] = op
 end
 
--- A border's hairline on canvas c.
+-- A hairline on canvas c.
 local function Line(c, i)
 	local l = c:CreateLine(nil, "ARTWORK")
 	l:SetColorTexture(1, 1, 1, 0)
@@ -175,7 +175,7 @@ local function Run()
 		Yield()
 	end
 	-- Shown after moving: at alpha 1, at alpha 0, and moved while shown at alpha 0 (a frame drawn between)
-	-- then SetAlpha(1); masked textures. The lines coloured as a border's (ui/Borders.lua ZONE), so the
+	-- then SetAlpha(1); masked textures. The lines coloured, so the
 	-- client has something to draw.
 	local live, masked, k = CANVASES[2], { n = 100, masked = true }, 0
 	local c = live.frame

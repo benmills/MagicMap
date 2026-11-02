@@ -13,7 +13,7 @@ from test_addon import boot, errors
 from test_blips import lua_tools, put_blips, stub_services
 from sim import TEST_UI
 
-LAYERS = {"Zone labels": "labels", "Zone borders": "borders", "Quests": "quests", "Quest areas": "questAreas",
+LAYERS = {"Zone labels": "labels", "Quests": "quests", "Quest areas": "questAreas",
           "Quests to pick up": "offers", "Rares & treasures": "rares"}
 SETTINGS = "Settings\u2026".encode("utf-8").decode("latin-1")  # the row's label, as the sim's Lua (latin-1) reads it
 WHITE, GOLD = (1, 1, 1), (1, 0.82, 0)
@@ -115,7 +115,7 @@ def test_gear():
                            ("button", "Other addons"), ("divider", None), ("button", "Use Blizzard's minimap"),
                            ("button", "Reset to defaults"), ("divider", None), ("button", SETTINGS)]
     assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"),
-                                       ("checkbox", "Zone borders"), ("checkbox", "City maps")]
+                                       ("checkbox", "City maps")]
     assert items(sub(root, "Quests")) == [("checkbox", "All quests"), ("divider", None), ("checkbox", "Quests"),
                                           ("checkbox", "Quest areas"), ("checkbox", "Quests to pick up")]
     assert items(sub(root, "Places")) == [("checkbox", "All places"), ("divider", None), ("checkbox", "Flight points"),
@@ -124,7 +124,7 @@ def test_gear():
     assert items(sub(root, "Nearby"))[:4] == [("checkbox", "All nearby"), ("divider", None),
                                               ("checkbox", "Rares & treasures"), ("checkbox", "Party & raid")]
     assert items(sub(root, "Other addons")) == [("checkbox", "All other addons"), ("divider", None), ("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
-    assert plain(sub(root, "Map").text) == "Map  3/3" and plain(sub(root, "Quests").text) == "Quests  3/3"
+    assert plain(sub(root, "Map").text) == "Map  2/2" and plain(sub(root, "Quests").text) == "Quests  3/3"
     sim.Press("M")
     sim.Run(1)
     big, _ = gear(sim, ns)
@@ -222,23 +222,23 @@ def test_gear():
     sim.Slash("/mm toggle")
     sim.Step()
     perf = ns.Runtime.Perf()[0]["map: gear pick"]
-    assert perf.n == 17 and perf.over == 0, (perf.n, perf.max)
+    assert perf.n == 15 and perf.over == 0, (perf.n, perf.max)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
-    # /reload: the changed keys only (borders and the rest went off and on again, from the gear or
+    # /reload: the changed keys only (quest areas and the rest went off and on again, from the gear or
     # /mm layer), each still in effect.
-    sim.Slash("/mm layer borders")
-    sim.Slash("/mm layer borders")
+    sim.Slash("/mm layer questAreas")
+    sim.Slash("/mm layer questAreas")
     sim.FireEvent("PLAYER_LOGOUT")
     assert dict(saved.layers.items()) == {"labels": False, "addon:Questie": False}
     L, sim, ns, pin = shown("MagicMap2DB = " + lua_tools(L).Dump(G.MagicMap2DB))
     saved, view = L.globals().MagicMap2DB.UI, ns.UI.View()
     assert dict(saved.layers.items()) == {"labels": False, "addon:Questie": False}
     assert saved.button is False and view.button is False
-    assert drawn(layer(ns, "labels")) == 0 and drawn(layer(ns, "borders")) > 0
+    assert drawn(layer(ns, "labels")) == 0 and drawn(layer(ns, "tiles")) > 0
     assert view.layers["addon:Questie"] is None and not hosted(L, pin, ns)
     _, rows = gear(sim, ns)
-    assert [rows[t].isSelected() for t in ("Zone labels", "Zone borders", "Questie")] == [False, True, False]
+    assert [rows[t].isSelected() for t in ("Zone labels", "Quest areas", "Questie")] == [False, True, False]
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
@@ -328,7 +328,7 @@ def test_gear_tracking():
     on, off = "|cff33ff33%s|r".__mod__, "|cff888888%s|r".__mod__
     assert sim.prints[len(sim.prints)] == (
         "|cffffd100MagicMap|r: layers: "
-        f"|cffffd100Map:|r {on('zoneLabels')}, {on('zoneBorders')}, {on('cities')}; "
+        f"|cffffd100Map:|r {on('zoneLabels')}, {on('cities')}; "
         f"|cffffd100Quests:|r {on('quests')}, {off('questAreas')}, {on('offers')}; "
         f"|cffffd100Places:|r {off('flight')}, {on('dungeons')}, {off('graveyards')}, {on('areaPOIs')}; "
         f"|cffffd100Nearby:|r {off('rares')}, {on('group')}. Toggle them from the gear. "

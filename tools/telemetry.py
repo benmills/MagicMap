@@ -50,7 +50,7 @@ def alloc(p) -> list:
 
 
 def in_frame(e) -> str:
-    """A ledger frame's own events, short: 'swap borders 6.2 ms 1012 live, layout borders'."""
+    """A ledger frame's own events, short: 'swap tiles 6.2 ms 1012 live, layout tiles'."""
     out = []
     for ev in e.get("events") or []:
         if ev.get("f") == e.get("frame") and ev.get("k") not in ("spike", "slow"):

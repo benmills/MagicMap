@@ -1,8 +1,8 @@
 -- Zones on the map, and what's at a spot (Core.lua:1247-1416, 1721-1734; Layers.lua:1786-1811,
 -- 1996-2010, 2064-2122, 2280-2316; ZoneInfo.lua):
 --   Hover: while more than one zone (its heart, weight 30 or more) is in view, the zone under the cursor
---     (big, or off your map: as the title names it) lights up, its name brighter, its border drawn over
---     the borders' on their shown canvas; a click there flies to it (fit 0.92), following off. A click's
+--     (big, or off your map: as the title names it) lights up, its name brighter; a click there flies to it
+--     (fit 0.92), following off. A click's
 --     turn (ui/Window.lua): a pin, then a quest's area while zone clicks aren't on offer, then the zone.
 --   Ctrl-click: a waypoint there; Ctrl-right-click: none; Shift-click: its /way line in the chat box
 --     (the waypoint and way Commands: Game's). Taken on the press, so the map doesn't pan; not off the
@@ -15,15 +15,13 @@
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
 local Atlas, Runtime = ns.Atlas, ns.Runtime
-local Camera, Window, Motion, Engine = UI.Camera, UI.Window, UI.Motion, UI.Engine
+local Camera, Window, Motion = UI.Camera, UI.Window, UI.Motion
 local Maths = Atlas.Camera
 local Command = ns.Game.Command
-local Yield = Runtime.Yield
 
 local EVERY = 0.05 -- s: the hover's look, as the title's (Core.lua:1563)
 local MIN_WEIGHT = 30 -- a zone's land chunks to count as in view (Layers.lua:2006)
 local LABEL, LABEL_HOVER = { 1, 0.89, 0.63, 0.95 }, { 1, 1, 0.9, 1 } -- ui/Labels.lua's ZONE (the MVP's), and its hover
-local LIT = { 1, 0.84, 0.4, 0.95 } -- the hovered zone's border (Layers.lua:1799)
 local TILE_YARDS = Atlas.TILE_YARDS
 local MAX_QUESTS, MAX_NEARBY = 2, 2 -- ZoneInfo.lua:13-14
 local HERE_YD = 15 -- closer: "You're here" (ZoneInfo.lua:115)
@@ -64,7 +62,7 @@ local function ZoneAt(inst, col, row)
 	return at.z
 end
 
--- How many zones meaningfully share the view: those whose heart (their label's anchor, Data/Borders.lua)
+-- How many zones meaningfully share the view: those whose heart (their name's anchor, Data/Anchors.lua)
 -- is on it (Layers.lua:1996-2010). Worked out again when the view moves.
 local inView = {}
 local function ZonesInView(inst)
@@ -75,8 +73,8 @@ local function ZonesInView(inst)
 	end
 	local c0, r0 = Maths.ScreenToTile(cam, w, h, 0, 0)
 	local c1, r1 = Maths.ScreenToTile(cam, w, h, w, h)
-	local n, b = 0, Atlas.Borders(inst)
-	for _, l in ipairs(b and b.labels or NONE) do -- { areaID, col, row, weight, kind (1: a zone) }
+	local n = 0
+	for _, l in ipairs(Atlas.Anchors(inst) or NONE) do -- { areaID, col, row, weight, kind (1: a zone) }
 		if l[5] == 1 and l[4] >= MIN_WEIGHT and l[2] >= c0 and l[2] <= c1 and l[3] >= r0 and l[3] <= r1 then n = n + 1 end
 	end
 	v.inst, v.cx, v.cy, v.zoom, v.w, v.h, v.n = inst, cam.cx, cam.cy, cam.zoom, w, h, n
@@ -97,7 +95,7 @@ local function Hover()
 end
 
 ---------------------------------------------------------------------------
--- Its look (Layers.lua:1786-1811): its name brighter, its border over the borders', on the canvases shown
+-- Its look (Layers.lua:1786-1811): its name brighter, on the canvas shown
 ---------------------------------------------------------------------------
 
 -- Its name on the labels' shown canvas (ui/Labels.lua: each name's font string carries its label, fs.label;
@@ -122,95 +120,6 @@ local function Name(zone)
 	end
 end
 
--- Its border: Lines of its own on the borders' shown canvas, over theirs (Layers.lua:235: the spike's
--- highlight pool), thick clamp(z / 100, 1.6, 2.4) at that canvas's zoom, its lines as theirs (ui/Borders.lua's
--- polyline: clipped to its layout's region, fading ends), scaled, dimmed and crossfaded with it. Drawn by a
--- job a few a frame, once the map's layouts are done (Engine.pending: their frames are full); parked off the
--- canvases when not drawn, as Engine's.
-local lit = {} -- zone, c: what it's drawn for (c nil: none)
-local BUDGET = 1 -- ms a frame
-local park = CreateFrame("Frame", nil, Window.view)
-park:Hide()
-local lines = { n = 0, out = 0 } -- 1..n this drawing's; 1..out on lit.c, the rest parked
-local scratch, thick = UI.Borders.Scratch(), 1 -- (its own: the borders' layout is another job); this drawing's width
-
-local function Park(from)
-	for i = from, lines.out do
-		local l = lines[i]
-		if l.on ~= park then
-			l:SetParent(park)
-			l.on = park
-		end
-	end
-	lines.out = math.min(lines.out, from - 1)
-end
-
-local function MakeLine()
-	local l = park:CreateLine(nil, "ARTWORK", nil, 3)
-	l:SetSnapToPixelGrid(false)
-	l:SetTexelSnappingBias(0)
-	l.on = park
-	return l
-end
-
--- A piece f of the way faded in (Layers.lua:1568-1577), clipped: the next Line, on the canvas.
-local function Piece(c, _, x1, y1, x2, y2, f)
-	local n = lines.n + 1
-	local l = lines[n] or MakeLine()
-	lines[n], lines.n = l, n
-	if l.on ~= c then
-		l:SetParent(c)
-		l.on = c
-	end
-	if n > lines.out then lines.out = n end
-	local a, w = LIT[4] * f, thick * (0.6 + 0.4 * f)
-	if l.a ~= a then
-		l:SetColorTexture(LIT[1], LIT[2], LIT[3], a)
-		l.a = a
-	end
-	if l.w ~= w then
-		l:SetThickness(w)
-		l.w = w
-	end
-	l:SetStartPoint("TOPLEFT", c, x1, -y1)
-	l:SetEndPoint("TOPLEFT", c, x2, -y2)
-	Yield()
-end
-
--- Its lines of Data/Borders.lua ({ areaA, areaB, fadeStart, fadeEnd, x1, y1, ... }), each as ui/Borders.lua
--- draws a zone's.
-local function Light()
-	local c, zone = lit.c, lit.zone
-	local list = zone and Atlas.BorderLines(c.inst, c.zoom)
-	lines.n = 0
-	if list then
-		local z, r, box = c.zoom, c.region, scratch.box
-		box[1], box[2], box[3], box[4] = (r[1] - c.ox) * z, (r[2] - c.oy) * z, (r[3] - c.ox) * z, (r[4] - c.oy) * z
-		thick = math.max(1.6, math.min(2.4, z / 100)) -- Layers.lua:1794
-		for _, l in ipairs(list) do
-			if l[1] == zone or l[2] == zone then UI.Borders.Polyline(scratch, c, l, 5, l[3] > 0, l[4] > 0, 0, Piece) end
-		end
-	end
-	Park(lines.n + 1)
-end
-local job = Runtime.Worker("map: zone border", function()
-	while true do
-		Light()
-		Runtime.Idle()
-	end
-end, BUDGET)
-
-local function Border(zone)
-	local c = UI.Borders.on and UI.Borders.front or nil
-	if zone ~= lit.zone or c ~= lit.c then
-		if c ~= lit.c then Park(1) end
-		lit.zone, lit.c = zone, c
-		Runtime.Cancel(job)
-		if c then Runtime.Wake(job) end
-	end
-	job.budget = Engine.pending and 0 or BUDGET -- (0: it waits its turn, queued)
-end
-
 local since = EVERY
 Runtime.Step("ui", "map: zone hover", function(elapsed)
 	since = since + elapsed
@@ -219,13 +128,11 @@ Runtime.Step("ui", "map: zone hover", function(elapsed)
 		Hover()
 	end
 	Name(hover.zone)
-	Border(hover.zone)
 end, { shownOnly = Window.frame })
 -- Hidden: none (the canvases are emptied: ui/Engine.lua).
 Window.frame:HookScript("OnHide", Runtime.Wrap("map: zone hover hidden", function()
 	hover.zone, hover.map, since = nil, nil, EVERY
 	Name(nil)
-	Border(nil)
 end))
 
 ---------------------------------------------------------------------------
@@ -324,12 +231,12 @@ local function Explored(zone, inst, col, row)
 	return names
 end
 
--- The subzone label nearest the spot (the borders' labels: Layers.lua:1479-1494, 2318-2327), within NEAR_SUB_YD,
--- not the zone's name and on the zone's own map (not one across a border): where an unexplored spot is near
+-- The subzone anchor nearest the spot (Layers.lua:1479-1494, 2318-2327), within NEAR_SUB_YD,
+-- not the zone's name and on the zone's own map (not one in the next zone): where an unexplored spot is near
 -- (ZoneInfo.lua:99-106).
 local function Near(zone, inst, col, row)
-	local b, best, bestD, name = Atlas.Borders(inst), nil, nil, nil
-	for _, l in ipairs(b and b.labels or NONE) do
+	local best, bestD, name
+	for _, l in ipairs(Atlas.Anchors(inst) or NONE) do
 		local a = l[5] ~= 1 and Atlas.Area(l[1])
 		if a and a.name ~= "" then
 			local d = (l[2] - col) ^ 2 + (l[3] - row) ^ 2
