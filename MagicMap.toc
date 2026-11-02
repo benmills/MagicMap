@@ -17,8 +17,6 @@ Data\Tiles.lua
 Data\TileColor.lua
 Data\Base.lua
 Data\Patches.lua
-Data\Fill.lua
-Data\Seams.lua
 Data\Sea.lua
 Data\Borders.lua
 Data\Walk.lua
@@ -126,7 +124,6 @@ ui\Track.lua
 ui\Controls.lua
 ui\Title.lua
 ui\BigMap.lua
-ui\Fill.lua
 ui\Sea.lua
 ui\Tiles.lua
 ui\Base.lua

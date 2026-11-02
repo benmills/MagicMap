@@ -9,15 +9,7 @@ __pycache__/
 /demo/review/
 /demo/patches/
 /demo/fullmap/
-demo/fill/
-demo/seams/
 demo/sea/
-demo/bounds/
-demo/ground/
-demo/ground_out/
-demo/relief/
-demo/relief_out/
-demo/quilt/
 /.env
 /demo/aifix/
 demo/ai/

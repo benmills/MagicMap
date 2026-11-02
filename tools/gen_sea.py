@@ -21,10 +21,10 @@ from collections import deque
 import numpy as np
 from PIL import Image
 
-from gen_fill import Ground
 from mmtools.log import log
 from mmtools.luaout import data_head
 from mmtools.sources import add_source_args, source_from_args
+from mmtools.terrain import Ground
 from mmtools.tga import write_tga
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

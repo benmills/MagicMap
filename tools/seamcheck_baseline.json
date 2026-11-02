@@ -1,8 +1,0 @@
-{
-  "why": "A continent's allowance per layer (tools/seamcheck.py --check). hard_visible: chunks of hard alpha edge that show on the map; hard_chunks: all of them, shown or not; added_in_footprint: seam chunks the layer adds. *: any layer not named. seams' hard_chunks are its pieces whole on their mirrored lines, by design (they show nothing). sea's are as measured 2026-11-01, not yet looked into.",
-  "allow": {
-    "*": {"hard_visible": 2, "hard_chunks": 5, "added_in_footprint": 0},
-    "sea": {"hard_visible": 12, "hard_chunks": 104, "added_in_footprint": 2},
-    "seams": {"hard_visible": 1, "hard_chunks": 90, "added_in_footprint": 0}
-  }
-}

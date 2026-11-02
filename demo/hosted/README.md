@@ -23,8 +23,8 @@ The page then has a **Review** button.
 
 ## Map art (in the 2D view)
 
-Copy in `demo/mapart.js` → `mapart.js` and the baked layers (`patches/`, from `demo/export_patches.py`; `sea/`, `quilt/`,
-`fill/`, `seams/`, `bounds/`, from their tools' `--bake`), then `patch -p1 < mapart.patch` (made against the pages as served
+Copy in `demo/mapart.js` → `mapart.js` and the baked layers (`patches/`, from `demo/export_patches.py`; `sea/` from `tools/gen_sea.py --bake`; `ai/`
+from `tools/ai_map.py bake`), then `patch -p1 < mapart.patch` (made against the pages as served
 on 2026-10-29, with review.patch in). No restart.
 
 ## Reading the marks back

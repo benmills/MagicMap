@@ -115,7 +115,6 @@ end
 -- A region onto a frame (o.on).
 local function Reparent(o, to)
 	o:SetParent(to)
-	if o.mask then o.mask:SetParent(to) end -- (ui/Fill.lua's: a Show pays by the region, parked or not)
 	o.on = to
 end
 

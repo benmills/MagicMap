@@ -3,7 +3,7 @@ Tiles.lua, You.lua) on the simulated client. Borders: a zone border's segment is
 from zoom 60, then it) and a subzone's 1 (from zoom 140); a dead end at most 4 dashes; never more
 than 3000 Lines, the whole of the Eastern Kingdoms at zoom 4 included. Labels: zones in capitals,
 10 pt, up to zoom 450; subzones 9 pt, by size from 120, 220 and 400; none touching another; a name
-new to the view fades in. Tiles: an open-sea tile isn't drawn (the backdrop shows). Map art: over the filler
+new to the view fades in. Tiles: an open-sea tile isn't drawn (the backdrop shows). Map art: 
 east of Loch Modan, over the borders; none in Elwynn; a pan there from none lays them out.
 You: the arrow, on your map only.
 
@@ -192,15 +192,11 @@ def test_open_sea():
 
 
 def test_map_art():
-    """The rebuilt ground, the ocean and the softened seams, each on its switch, east of Loch Modan; a sea tile's water of ours."""
+    """The ocean, on its switch; a sea tile's water of ours."""
     L, sim, ns = shown()
     tiles, borders = layer(ns, "tiles"), layer(ns, "borders")
     S = sim.state
     look(sim, ns, (40.2, 40.8), 200)
-    pieces = lambda: (lambda p: p.n if p else 0)(tiles.front.pools.fill)
-    assert pieces(), "the rebuilt ground, on by default"
-    fp = tiles.front.fill
-    assert fp.GetFrameLevel(fp) > tiles.front.GetFrameLevel(tiles.front), "over the tiles, not under them"
     sea = ns.UI.Sea
     assert sea.frame.GetFrameLevel(sea.frame) > tiles.front.GetFrameLevel(tiles.front) and sea.frame.GetFrameLevel(sea.frame) < borders.frame.GetFrameLevel(borders.frame)
     assert sea.Shown(), "the ocean, on by default"
@@ -208,20 +204,6 @@ def test_map_art():
     sim.Run(0.1)
     assert not sea.Shown()
     ns.UI.Feel.Set("sea.on", True)
-    feel = ns.UI.Feel
-    feel.Set("fill.on", False)
-    look(sim, ns, (40.3, 40.8), 200)
-    assert not pieces()
-    feel.Set("fill.on", True)
-    seam = ns.Atlas.Data.Seams[0]  # the softened seams, over the rebuilt ground; on the same switch's terms
-    at = (seam[1] / 16 + .1, seam[2] / 16 + .1)
-    laid = lambda: (lambda p: p.n if p else 0)(tiles.front.pools.seams)
-    look(sim, ns, at, 200)
-    assert laid(), "the seams, on by default"
-    feel.Set("seams.on", False)
-    look(sim, ns, (at[0] + .01, at[1]), 200)
-    assert not laid()
-    feel.Set("seams.on", True)
     look(sim, ns, (30.5, 55.5), 200)  # the sea tile that left a block in the sea: water of ours
     p = tiles.front.pools.art
     assert any("Patch0_30_55" in str(S[p[i]].texture) for i in range(1, p.n + 1))

@@ -11,7 +11,6 @@ ui/Track.lua
 ui/Controls.lua
 ui/Title.lua
 ui/BigMap.lua
-ui/Fill.lua
 ui/Sea.lua
 ui/Tiles.lua
 ui/Base.lua

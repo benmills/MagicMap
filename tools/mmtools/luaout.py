@@ -41,8 +41,6 @@ FORMATS = {
     "Quests": 2,     # Data/Quests.lua (tools/gen_questie.py)
     "BlipServices": 2,  # Data/BlipServices.lua (tools/gen_questie.py)
     "Interiors": 1,  # Data/Interiors.lua (tools/gen_interiors.py)
-    "Fill": 1,       # Data/Fill.lua (tools/gen_fill.py)
-    "Seams": 1,      # Data/Seams.lua (tools/gen_seams.py)
     "Sea": 1,        # Data/Sea.lua (tools/gen_sea.py)
     "Patches": 1,    # Data/Patches.lua (tools/gen_patches.py)
 }
