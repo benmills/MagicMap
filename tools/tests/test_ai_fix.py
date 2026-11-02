@@ -19,9 +19,9 @@ def test_put_back():
 
 
 def test_sizes():
-    w, h = af.api_size(3552, 2432, af.MAX_PIXELS)
-    assert w % 16 == h % 16 == 0 and w * h <= af.MAX_PIXELS and abs(w / h - 3552 / 2432) < .02
-    assert af.api_size(1024, 1024, af.MAX_PIXELS) == (1024, 1024)
+    w, h = af.api_size(3552, 2432, af.LIMIT_PIXELS)
+    assert w % 16 == h % 16 == 0 and w * h <= af.LIMIT_PIXELS and abs(w / h - 3552 / 2432) < .02
+    assert af.api_size(1024, 1024, af.LIMIT_PIXELS) == (1024, 1024)
     c0, r0, c1, r1 = af.window_of((30, 30, 30.2, 34), .1)
     w, h = (c1 - c0), (r1 - r0)
     assert max(w, h) <= 3 * min(w, h) and w * h * af.CHUNK ** 2 >= af.MIN_PIXELS

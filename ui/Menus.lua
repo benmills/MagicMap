@@ -85,6 +85,7 @@ function Menus.Layer(row)
 	LAYERS[#LAYERS + 1] = row
 	row.place = ORDER[row.key] or 100 + #LAYERS
 	Engine.defaults[row.key] = row.default ~= false -- (a gear row's key: /mm layer takes it too)
+	Engine.onToggle[row.key] = row.onToggle
 	table.sort(LAYERS, Before)
 	return row
 end

@@ -47,7 +47,7 @@ def test_ironforge_rooms():
     assert at("The Great Forge") == (65, [65]) and ns.Model.minimap.indoors
     b = ns.Model.interior
     assert ns.Atlas.Building(0, b.building).fid == 7801267 and b.floor == ns.Atlas.Building(0, b.building).rooms[65].floor
-    assert "room 65 (The Great Forge), candidates {65}" in sim.prints[len(sim.prints)]
+    assert any("room 65 (The Great Forge), candidates {65}" in str(p) for p in sim.prints.values())
     assert at("The High Seat") == (88, [88])
     assert at("The Great Forge") == (65, [65])
     sim.player.col, sim.player.row = 33.9166, 40.9465  # under 65 and unnamed 103 (floor -140)

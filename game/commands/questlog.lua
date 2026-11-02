@@ -8,7 +8,7 @@ local Game = ns.Game
 Game.Handle("questlog", function(c)
 	local id = c.quest
 	if QuestMapFrame_OpenToQuestDetails then return QuestMapFrame_OpenToQuestDetails(id) end
-	local index = C_QuestLog.GetLogIndexForQuestID and C_QuestLog.GetLogIndexForQuestID(id)
+	local index = C_QuestLog and C_QuestLog.GetLogIndexForQuestID and C_QuestLog.GetLogIndexForQuestID(id)
 		or GetQuestLogIndexByID and GetQuestLogIndexByID(id)
 	if QuestLogFrame and index and index > 0 and QuestLog_SetSelection then
 		ShowUIPanel(QuestLogFrame)

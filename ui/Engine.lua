@@ -52,8 +52,8 @@ local SHOWN_PX = 4000
 local RETRY_S, RETRY_MAX_S = 0.5, 30 -- a failed layout is tried again after this, doubling each failure in a row
 
 -- toggles: UI's saved layers (ui/View.lua loads them); defaults: each gear row's key, on until turned off
--- (false: off until turned on; ui/Menus.lua)
-local Engine = { layers = {}, toggles = {}, defaults = {}, DRIFT = DRIFT }
+-- (false: off until turned on; ui/Menus.lua); onToggle: a gear row's, for /mm layer too
+local Engine = { layers = {}, toggles = {}, defaults = {}, onToggle = {}, DRIFT = DRIFT }
 UI.Engine = Engine
 
 local perf = Runtime.Perf() -- (the frame's and each layout worker's time: Rest)
@@ -807,7 +807,11 @@ local Command = ns.Game.Command
 Command({ kind = "slash", name = "layer", help = "<name>: show or hide a map layer; alone, list them", fn = function(name)
 	local known = Engine.defaults[name] ~= nil -- a gear row's (a place kind's: one Engine layer draws them all)
 	for _, l in ipairs(Engine.layers) do known = known or l.name == name end
-	if known then Engine.SetLayer(name, not Engine.LayerOn(name)) end -- (the gear's: ui/Menus.lua)
+	if known then -- (the gear's: ui/Menus.lua)
+		local on = not Engine.LayerOn(name)
+		Engine.SetLayer(name, on)
+		if Engine.onToggle[name] then Engine.onToggle[name](on) end
+	end
 	for _, l in ipairs(Engine.layers) do print(string.format("  %s %s", l.name, Engine.LayerOn(l.name) and "on" or "off")) end
 end })
 Command({ kind = "slash", name = "mapstats", help = "the map's live textures, lines and font strings", fn = function()

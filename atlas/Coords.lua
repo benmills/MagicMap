@@ -47,6 +47,7 @@ Atlas.FORMATS = {
 	Interiors = 1, -- Data/Interiors.lua (tools/gen_interiors.py)
 	Sea = 1,       -- Data/Sea.lua (tools/gen_sea.py)
 	Patches = 1,   -- Data/Patches.lua (tools/gen_patches.py)
+	Repaint = 1,   -- Data/Repaint.lua (tools/ai_map.py ship)
 }
 local Data = ns.Data or {}; ns.Data = Data
 Atlas.Data = Data -- raw datasets, read only: for tests and game/NoData.lua (which data loaded); use Atlas's functions

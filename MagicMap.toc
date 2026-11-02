@@ -18,6 +18,7 @@ Data\TileColor.lua
 Data\Base.lua
 Data\Patches.lua
 Data\Sea.lua
+Data\Repaint.lua
 Data\Borders.lua
 Data\Walk.lua
 Data\UiMaps.lua
@@ -104,6 +105,7 @@ game\parts\Offers.lua
 game\parts\Waypoint.lua
 game\parts\Corpse.lua
 game\parts\Levels.lua
+game\parts\Build.lua
 game\parts\Places.lua
 game\parts\Group.lua
 game\parts\Vignettes.lua
@@ -126,6 +128,7 @@ ui\Title.lua
 ui\BigMap.lua
 ui\Sea.lua
 ui\Tiles.lua
+ui\Repaint.lua
 ui\Base.lua
 ui\Interiors.lua
 ui\Borders.lua

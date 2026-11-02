@@ -4,8 +4,14 @@
 const MapArt = (() => {
   let patches = null, again = null;
   const pics = {}; // by file
+  const load = (url, tries) => { // a failed load (the host 503s in bursts) tries again: about 1, 2, 4, 8 s apart, not all at once
+    const p = pics[url] = new Image();
+    p.onload = () => again && again();
+    p.onerror = () => { if (tries < 4) setTimeout(() => load(url, tries + 1), 2 ** tries * (1000 + Math.random() * 500)); };
+    p.src = url;
+  };
   const pic = (url) => {
-    if (!pics[url]) { pics[url] = new Image(); pics[url].onload = () => again && again(); pics[url].src = url; }
+    if (!pics[url]) load(url, 0);
     return pics[url].complete && pics[url].naturalWidth ? pics[url] : null;
   };
   let sea = null;

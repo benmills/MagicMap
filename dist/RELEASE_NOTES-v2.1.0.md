@@ -18,6 +18,7 @@ You don't need QuestieDB or any other addon: the quest facts MagicMap shows are 
 - **A steadier ground.** A flat picture of each continent lies under the map tiles, so a fast zoom out or a flick never shows bare backdrop. The sea is gone: the tiles sit on a dark backdrop.
 - **Indoors.** Walking into a small building (a house, an inn) zooms the small map in, and out again when you leave. The big map has no veil over the terrain.
 - **Lighter.** Quest data takes less memory.
+- **Broken map art repaired.** Some clearly broken parts of the game's map art, flat unfinished blocks, are patched with repaints made using AI image generation from the surrounding game art. The rest of the terrain is the game's own textures. It's a setting, on by default ("Repair broken map art", under Map in the Settings window); off, or on a game build they weren't made for, you see Blizzard's map as it is.
 
 ### What it does
 - **The minimap:** square on your minimap's spot, wheel and +/− zoom, drag to pan, glides back to you a few seconds after a pan, move and resize it, `/mm reset`.

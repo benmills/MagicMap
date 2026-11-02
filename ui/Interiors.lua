@@ -1,5 +1,5 @@
 -- Interiors (docs/decisions/0008-interiors.md): buildings' indoor minimap pictures over the terrain tiles,
--- under quest areas and pins: an Engine layer at level 2 (over the tiles' 1, under the areas' 3), "scale" like
+-- under quest areas and pins: an Engine layer at level 4 (over the tiles' 1, the ocean's 3 and the repaints' frame, view + 4; under the areas' 4 pieces, a level or more over their canvas), "scale" like
 -- the tiles, so a zoom or pan moves its canvas. Which buildings: the one you're in on the map shown
 -- (Model.interior, Game's); with City maps on (gear -> Map) and the map big, every building of the capital
 -- you're in, or else of the one at the view's centre (Atlas.City), indoors or out. The terrain dimmed x0.35 only
@@ -197,7 +197,7 @@ end
 
 local left, nleft = {}, 0 -- the pictures no region on the canvas showed: placed after the rest (Tiles.lua's)
 
-local layer = Engine.Layer("interiors", 2, function(c, inst, zoom, c0, r0, c1, r1)
+local layer = Engine.Layer("interiors", 4, function(c, inst, zoom, c0, r0, c1, r1)
 	local s = Scene()
 	if not s then return true end
 	if s.veil then -- (not got: parked at the layout's end, Engine's)

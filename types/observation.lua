@@ -44,6 +44,7 @@
 ---@field tracking? MM.ObsTracking[] on change: Blizzard's minimap tracking types
 ---@field interior? MM.ObsInterior|false on change: the building you're in and its room (ADR 0008); false = in none
 ---@field addons? MM.ObsAddon[]      on change: other addons whose pins Game can borrow (View.layers "addon:<key>")
+---@field build? string           on change: the client's build, GetBuildInfo's version.build ("1.60.1.70532"; game/parts/Build.lua)
 ---@field levels? table<MM.UiMapID, integer[]> on change: each map's level range as the client gives it,
 ---                                   { lo, hi } (C_Map.GetMapLevels), for the maps Atlas has; one it gives none is
 ---                                   missing. Read once.

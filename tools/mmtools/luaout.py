@@ -43,6 +43,7 @@ FORMATS = {
     "Interiors": 1,  # Data/Interiors.lua (tools/gen_interiors.py)
     "Sea": 1,        # Data/Sea.lua (tools/gen_sea.py)
     "Patches": 1,    # Data/Patches.lua (tools/gen_patches.py)
+    "Repaint": 1,    # Data/Repaint.lua (tools/ai_map.py ship)
 }
 
 

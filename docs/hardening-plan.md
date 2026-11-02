@@ -22,7 +22,7 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 
 | id | problem | evidence | status |
 | --- | --- | --- | --- |
-| P1 | A grouped pin draws alone beside its pill for up to 0.5 s after each blip update. | Cluster hides members by entry table (ui/Cluster.lua:167, 279); model/Blips.lua Live() makes new tables each sensor change; reproduced in the sim (5 pins + 2 pills for 0.4 s). | check |
+| P1 | A grouped pin draws alone beside its pill for up to 0.5 s after each blip update. | Cluster hides members by entry table (ui/Cluster.lua:167, 279); model/Blips.lua Live() makes new tables each sensor change; reproduced in the sim (5 pins + 2 pills for 0.4 s). Now hidden by key; quest and offer keys (P6) never coexist, Model drops an offer once it's in your log. | fixed |
 | P2 | A remembered pin vanishes as you walk into the blips' range, until the sensor finds it. | ui/Blips.lua REACH is a fixed 220 yd; the sensor finds blips within ~208 yd outdoors, ~131 indoors (game/Blips.lua:338). | check |
 | P3 | A blip within 8 yd of a quest objective's centre or a rare spawn is dropped even when that pin isn't drawn (zoom, layer off, grouping). | model/Blips.lua Ours/NearOurs. | open |
 | P4 | Three different "same thing" distances (6, 10/18, 8 yd) in three places; no live-vs-live dedupe in Model. | game/Blips.lua SAME, model/Blips.lua SAME+LAG, NEAR_OURS. | open |
@@ -40,7 +40,7 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 | S2 | Settings pushed on the window's OnShow aren't pushed again when saved data loads. | Feel.lua:266-270; safe only while the window shows after the load. | open |
 | S3 | One bad saved value (wrong type) stops the push for every setting after it; nothing is range-checked. | Feel.lua:266-270, Game.lua:55-59. | open |
 | S4 | Grouping's tunables have the latent reload bug the tracking line had. | Cluster.lua tuneV. | open |
-| S5 | `/mm layer rares` doesn't turn vignettes with it. | Engine.lua:808-811 vs Menus.lua:102. | open |
+| S5 | `/mm layer rares` doesn't turn vignettes with it. | Engine.lua:808-811 vs Menus.lua:102. | fixed |
 | S6 | Tracking only ends while some pin layer asks for redraws (Watch inside Track.Rev). | ui/Track.lua:71-88. | open |
 | S7 | Reset and downgrade turn both replace options on (`fresh` false). | Game.lua:35, 44; Replace.lua:55-56. | open |
 | S9 | "Follow you" off doesn't hold: the idle return (ui/Motion.lua, as the MVP's) turns following back on after about 6 s, and it isn't kept across a reload. Is the setting meant to be "glide back when left alone" on/off? Ask the user. | found by T3, 2026-10-27 | open |
@@ -51,13 +51,13 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 | id | problem | evidence | status |
 | --- | --- | --- | --- |
 | I1 | A quest area follows on click; its pin and the quest pill open a menu. | Areas.lua:386-391. | open |
-| I2 | A click that closes a pill's grid also goes through (it can follow a quest or fly to a zone). | Cluster.lua:544-549, Window.lua:109. | open |
+| I2 | A click that closes a pill's grid also goes through (it can follow a quest or fly to a zone). | Cluster.lua:544-549, Window.lua:109. | fixed |
 | I3 | Escape doesn't close the grid on the small map; on the big map one press can close several things. | Hooks.lua catcher, Cluster.Watch. | open |
 | I4 | Ctrl- and Shift-clicks on a pin use the cursor position, not the pin's. | Window.lua:89, ZoneInfo.lua:238-249. | open |
-| I5 | The quest tooltip says "Click to track" where a click opens a menu; Quests.lua's header and features.md are stale. | QuestTooltip.lua:25, 92. | open |
+| I5 | The quest tooltip says "Click to track" where a click opens a menu; Quests.lua's header and features.md are stale. | QuestTooltip.lua:25, 92. Tooltip's text fixed ("Click for options"); features.md:88 and the quests row's tip (ui/Quests.lua) still to do. | open |
 | I6 | The tracked pin's menu shows both Stop tracking and Clear waypoint. | Track.lua, Menus.lua:426. | open |
 | I7 | Dead ends: no tooltip on a pill, the tracking pill, or the zone-count pill. | Controls.lua, Cluster.lua. | open |
-| I8 | questlog.lua: C_QuestLog unguarded; Blizzard's quest panel may open under our big map; the fallback toggles. | game/commands/questlog.lua. | open |
+| I8 | questlog.lua: C_QuestLog unguarded; Blizzard's quest panel may open under our big map; the fallback toggles. | game/commands/questlog.lua. C_QuestLog guarded; the panel under our big map and the fallback's toggle still to do (in game). | open |
 
 ### C: code health
 
@@ -140,3 +140,5 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 - 2026-11-02: clouds removed, the user's call: not a direction to go down any more (ui/Clouds.lua, Data/Clouds.lua, tools/gen_clouds.py, the switch, the demo's). What others used of the tool is in tools/mmtools/mapgrid.py; the demo's map art is demo/mapart.js, the sea tiles' water demo/export_patches.py. The entries above stay as they were. Whole-map pictures: tools/gen_fullmap.py -> demo/fullmap/<map>_raw.png, _fixed.png (gitignored: Blizzard's art), same frame; Eastern Kingdoms and Kalimdor, the only continents in Data/Tiles.lua.
 - 2026-11-02: the map's broken art repainted by OpenAI's image edits, the user's pivot (accepting that the addon would then ship derivatives of Blizzard's tiles, unlike NOTICE.md's today; not in the addon yet): tools/ai_fix.py (a place -> candidates, put back so only the broken ground changes), tools/ai_regions.json (places and the pick), tools/ai_map.py (run, bake -> demo/ai). The demo's "AI repaint" is on and the older layers off by default. All 14 places painted and picked; docs/ai-map-art.md is the plan from here.
 - 2026-11-02: the older art systems removed, the user's call, the AI repaints taking their place: Rebuilt ground (ui/Fill.lua, Data/Fill.lua, Textures/FillMask*, tools/gen_fill.py), Soften seams (Data/Seams.lua, Textures/SeamMask*, tools/gen_seams.py), Tile texture (tools/gen_quilt.py), Game textures (tools/gen_ground.py), Relief (tools/gen_relief.py), Mute unreachable land (tools/gen_bounds.py), and their tooling (tools/flatmap.py, tools/seamcheck.py). What tools/gen_sea.py used of them is tools/mmtools/terrain.py. The entries above stay as they were. Until the repaints are in the addon (docs/ai-map-art.md), its map shows Blizzard's broken art as it is.
+- 2026-11-02: the repaints in the addon, the user's call: a setting, "Repair broken map art" (`repaint.on`, on by default), that shows Blizzard's map as it is when off or on another game build, and a disclosure at the end of README.md; NOTICE.md carves `Textures/Repaint*` and `Data/Repaint.lua` out of the GPLv3. The user chose not to wait on legal review. docs/decisions/0011-ai-map-art.md. tools/ai_fix.py cut to the recipes in use, `blend` and `sea` (what it sends is byte-for-byte as before).
+- 2026-11-02: launch fixes, sim only, none seen in a real client: P1 (Cluster hides by key; its xfail gone), I2 (the click that closes a grid is spent, a grid pin's click still its own), S5 (/mm layer takes a row's onToggle). I5's tooltip text and I8's guard done; both rows stay open for what's left.

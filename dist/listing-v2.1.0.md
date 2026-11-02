@@ -52,5 +52,7 @@ For **WoW Forever** only.
 **Limits:** WoW Forever only, enUS clients; Blizzard's blips reach about 230 yards around you;
 north up always; walking routes only. Other minimap addons may conflict.
 
+**AI-repainted map art:** Some clearly broken parts of the game's map art, flat unfinished blocks, are patched with repaints made using AI image generation from the surrounding game art. The rest of the terrain is the game's own textures. It's a setting, on by default ("Repair broken map art", under Map in the Settings window); off, or on a game build they weren't made for, you see Blizzard's map as it is.
+
 **Updating from 2.0:** delete the old `MagicMap` folder first, then restart the game. Your setup is kept
 (minimap and world map both replaced, as before); new players get the welcome.

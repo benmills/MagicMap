@@ -210,6 +210,91 @@ def test_map_art():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
+def repaint_shown(build=None):
+    """The map over a repaint on a client of that build (default: the one Data/Repaint.lua names; the sim's own is another)."""
+    L, sim, ns = boot()
+    v, b = (build or ns.Data.Repaint.build).rsplit(".", 1)
+    L.globals().GetBuildInfo = L.eval(f"""function() return "{v}", "{b}", "Sep 1 2026", 16001 end""")
+    sim.Slash("/mm toggle")
+    sim.Run(3)
+    ns.UI.Motion.SetFollow(False)
+    look(sim, ns, EK1, 200)
+    sim.Run(1)
+    return L, sim, ns
+
+
+def repaints(ns, tiles=None):
+    tiles = tiles or layer(ns, "tiles")
+    p = tiles.front.pools.repaint
+    return [p[i] for i in range(1, p.n + 1)] if p else []
+
+
+EK1 = (38.5, 25.5)  # ek1a and ek1b meet here
+
+
+def test_repaint():
+    """The AI repaints, with the tiles on their canvas: over the ocean, under the borders, later places over earlier."""
+    L, sim, ns = repaint_shown()
+    tiles, borders, S = layer(ns, "tiles"), layer(ns, "borders"), sim.state
+    pieces = repaints(ns)
+    assert pieces, "repaints near one, on by default"
+    frame = pieces[0].GetParent(pieces[0])
+    assert L.eval("rawequal")(frame.GetParent(frame), tiles.front)
+    assert ns.UI.Sea.frame.GetFrameLevel(ns.UI.Sea.frame) < frame.GetFrameLevel(frame) < borders.frame.GetFrameLevel(borders.frame)
+    subs = {str(S[t].texture).split("\\")[-1].split("_")[0]: S[t].sublevel for t in pieces}
+    assert subs["Repaintek1b"] > subs["Repaintek1a"]
+    z = ns.UI.Camera.cam.zoom
+    assert all(S[t].layer == "ARTWORK" and abs(S[t].width - z) <= 1 and S[t].snap is False for t in pieces)
+
+    ns.UI.Feel.Set("repaint.on", False)
+    sim.Run(1)
+    assert not repaints(ns), "none with the setting off"
+    ns.UI.Feel.Set("repaint.on", True)
+    sim.Run(1)
+    assert repaints(ns), "back with it on"
+    look(sim, ns, (32, 49.75), 200)  # Elwynn: none near
+    sim.Run(1)
+    assert not repaints(ns)
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_repaint_other_build():
+    """A client on another build: the raw map, whatever the setting; said once; no errors."""
+    L, sim, ns = repaint_shown("9.9.9.1")
+    assert ns.UI.Feel.Get("repaint.on") is True and not repaints(ns)
+    look(sim, ns, (40, 41), 200)
+    sim.Run(1)
+    assert not repaints(ns)
+    said = [p for p in sim.prints.values() if "art repairs are off" in str(p)]
+    assert len(said) == 1 and "9.9.9.1" in str(said[0])
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_dxt5_round_trip():
+    """DXT5 keeps a soft edge and its colours, through what the map tools read a BLP with; a mip for each halving."""
+    import struct
+
+    import numpy as np
+
+    from mmtools.blp import write_blp, write_blp_dxt5
+    from mmtools.mapgrid import blp_rgba
+    y, x = np.mgrid[0:64, 0:64]
+    rgba = np.dstack((x * 4, y * 4, np.full_like(x, 90), np.clip((x - 16) * 8, 0, 255))).astype(np.uint8)
+    blp = write_blp_dxt5(rgba)
+    enc, depth, kind, mips, w, h = struct.unpack_from("<BBBBII", blp, 8)
+    assert (enc, depth, kind, mips, w, h) == (2, 8, 7, 1, 64, 64)
+    sizes = struct.unpack_from("<16I", blp, 20 + 64)
+    assert list(sizes[:7]) == [16 * 16 * 16, 8 * 8 * 16, 4 * 4 * 16, 2 * 2 * 16, 16, 16, 16] and not any(sizes[7:])
+    back = np.asarray(blp_rgba(blp)).astype(int)
+    assert back.shape == rgba.shape
+    a = rgba.astype(int)
+    assert np.abs(back[..., 3] - a[..., 3]).max() <= 12, "the soft edge"
+    assert back[:, :12, 3].max() == 0 and back[:, 56:, 3].min() == 255, "clear stays clear, solid solid"
+    shows = a[..., 3] > 0
+    assert np.abs(back[..., :3] - a[..., :3])[shows].mean() < 4, "the colours"
+    assert struct.unpack_from("<BBBB", write_blp([(1, 1, bytes(3))]), 8) == (2, 0, 0, 1), "DXT1's as it was"
+
+
 def test_arrow():
     """Core.lua:155-175: the arrow 22 * 64 / 45 px (Textures/PlayerArrow.tga, 64 px around the
     Minimap's 45 px art), over every layer, unsnapped; none while another map shows (and none while

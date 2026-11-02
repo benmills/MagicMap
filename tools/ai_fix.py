@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""An MVP: repaint a broken part of the map with OpenAI's image edits, and see whether we like it.
+"""Repaint a broken part of the map with OpenAI's image edits: candidates for a person to pick from (tools/ai_map.py runs this for the
+places in tools/ai_regions.json, and bakes the picks; docs/ai-map-art.md).
 
 Give it a range of the map in tile units (the demo's URL shows them: x is col, y is row); the broken ground in it is the
 map review's accepted issues and any flat ground found there, or --whole-box. It writes demo/aifix/<name>/ (gitignored: Blizzard's art is in it):
@@ -12,9 +13,9 @@ map review's accepted issues and any flat ground found there, or --whole-box. It
   sheet.png       the original and every result side by side
   results.json    each result's scores, tokens, cost, time
 
-A mask only guides these models ("may not follow its exact shape with complete precision", OpenAI's guide) and they redraw the whole
-picture, so the put-back is ours: the model's colours pulled to the real ones round the hole, then laid in through a soft, wandering
-edge. Scores, all from the put-back:
+The recipes: blend, for ground; sea, for joins in shallow water. A mask only guides these models ("may not follow its exact shape with
+complete precision", OpenAI's guide) and they redraw the whole picture, so the put-back is ours: the model's colours pulled to the real ones
+round the hole, then laid in through a soft, wandering edge. Scores, all from the put-back (they can't pick a winner: a person does):
   drift   how far the model strayed from the good ground it was asked to keep (0-255, lower is better)
   edge    how busy the new edge is against the ground round it (about 1 is invisible)
   detail  the new ground's texture against the ground round it (about 1 matches; well under 1 is still flat)
@@ -51,8 +52,9 @@ CHUNK = TILE // 16
 URL = "https://api.openai.com/v1/images/edits"
 SHEET_W = 900         # px a picture on the sheet
 TOKENS = (8e-6, 30e-6)  # $ an image input, output token (gpt-image-2.5's)
-# The API's limits on a size. Over MAX_PIXELS is "experimental", so asked for only by --max-pixels.
-EDGE, MIN_PIXELS, LIMIT_PIXELS, MAX_PIXELS, RATIO = 3840, 655_360, 8_294_400, 2560 * 1440, 3
+MODEL = "gpt-image-2.5-sunburst"
+# The API's limits on a size. (It calls anything over 2560 x 1440 "experimental"; every pick was painted over that.)
+EDGE, MIN_PIXELS, LIMIT_PIXELS, RATIO = 3840, 655_360, 8_294_400, 3
 
 FLAT = 3.5            # a chunk with less detail than this (px-to-px step, 0-255, across and down) is flat...
 FLAT_LEAST = 6        # ...if this many chunks of it touch: a lone chunk can be a calm bit of real ground
@@ -69,67 +71,16 @@ EXCLUDE = ("Do not add text, labels, icons, roads, paths, bridges, buildings, ru
            "only plain natural ground, of the kinds already in the picture.")
 INTEGRATE = ("Match the surrounding terrain's texture scale, brush detail, relief, shading direction, colour and saturation, so the "
              "new ground reads as painted by the same hand at the same zoom.")
-# What the flat block should become, for the prompts that say. The first image's own colours are a guide to what belongs there.
-KEEP_GROUND = ("Treat each block's colour as the truth about that ground: a brown block is low, bare, muddy earth and stays brown earth; "
-               "paint it with the fine painted relief, cracks, damp patches and soft colour variation of finished terrain. Let the "
-               "neighbouring terrain's edge break up and spill a little way in, irregularly. Keep it quiet and low: no rocks, cliffs, "
-               "hills or dark masses in the middle of a block.")
-GROW_IN = ("Work inward from each edge: extend exactly the terrain that touches that edge, and where two kinds of terrain meet let them "
-           "mix in a natural, irregular transition. Every kind of ground you paint must already touch the area. Do not start any new "
-           "rocky mass, ridge, cliff or feature.")
-PLAIN = "This map has unfinished areas: flat colour blocks with hard edges. Fix them so that it looks like a seamless finished map. Leave the rest as it is."
 BLEND = ("Work inward from each edge, extending exactly the terrain that touches that edge, its edge breaking up irregularly, and mix the kinds "
          "of ground where they meet. Where a block is brown, let bare earth show through as low damp patches among them; keep the middle of "
          "an area quiet. Paint at the very same fine scale and crisp detail as the terrain beside it. No rocks or cliffs that don't "
          "already touch the area, no black pools or water, no dark holes, no trails.")
-REFINE = ("The masked area has been painted in as a draft, and is too soft and too smooth beside the crisp terrain around it. Keep the draft's "
-          "composition exactly: every patch of ground, rock and earth stays where it is, the same shape and colour. Change only its finish: repaint "
-          "it at the very same fine scale and sharp, crisp, slightly dithered pixel detail as the original terrain around it, with the same "
-          "hard small shadows. Add no new features.")
 SEA = ("This is shallow coastal sea seen from above. There are straight, stepped joins in the water, where one square of water meets another. "
        "{where} Change only those parts: paint soft, continuous water that fades smoothly from the shallows into the deep, with no straight line, "
        "step or join. Keep the islands, sandbars and boats exactly as they are; add no new land, rocks or boats.")
-PROMPTS = {"full": [DESCRIBE, CHANGE, PRESERVE, EXCLUDE, INTEGRATE],
-           "ground": [DESCRIBE, CHANGE, KEEP_GROUND, PRESERVE, EXCLUDE, INTEGRATE],
-           "grow": [DESCRIBE, CHANGE, GROW_IN, PRESERVE, EXCLUDE, INTEGRATE],
-           "blend": [DESCRIBE, CHANGE, BLEND, PRESERVE, EXCLUDE, INTEGRATE],
-           "refine": [DESCRIBE, REFINE, PRESERVE, EXCLUDE],
-           "sea": [SEA, PRESERVE],
-           "plain": [PLAIN]}
-S, F = "gpt-image-2.5-sunburst", "gpt-image-2.5-flare"
-RECIPES = {  # what we're comparing: model; how we point at the broken ground; references; the prompt
-    "mask": dict(model=S, point="mask", refs="none", prompt="full"),
-    "refs": dict(model=S, point="mask", refs="sheet", prompt="full"),
-    "markup": dict(model=S, point="markup", refs="none", prompt="full"),
-    "flare": dict(model=F, point="mask", refs="none", prompt="full"),
-    "flare-refs": dict(model=F, point="mask", refs="sheet", prompt="full"),
-    "no-mask": dict(model=S, point="words", refs="none", prompt="full"),
-    "plain": dict(model=S, point="words", refs="none", prompt="plain"),
-    "plain-mask": dict(model=S, point="mask", refs="none", prompt="plain"),
-    "ground": dict(model=S, point="mask", refs="none", prompt="ground"),
-    "grow": dict(model=S, point="mask", refs="none", prompt="grow"),
-    "ground-nomask": dict(model=S, point="words", refs="none", prompt="ground"),
-    "ground-wide": dict(model=S, point="mask", refs="wide", prompt="ground"),
-    "ground-sheet": dict(model=S, point="mask", refs="sheet", prompt="ground"),
-    "ground-near": dict(model=S, point="mask", refs="near", prompt="ground"),
-    "ground-many": dict(model=S, point="mask", refs="many", prompt="ground"),
-    "blend": dict(model=S, point="mask", refs="none", prompt="blend"),
-    "blend-wide": dict(model=S, point="mask", refs="wide", prompt="blend"),
-    "blend-sheet": dict(model=S, point="mask", refs="sheet", prompt="blend"),
-    "refine": dict(model=S, point="mask", refs="none", prompt="refine"),
-    "sea": dict(model=S, point="mask", refs="none", prompt="sea"),
-    "grow-near": dict(model=S, point="mask", refs="near", prompt="grow"),
-}
-REFS_SAID = {
-    "wide": "Image 2 is a wider view of the country around image 1, for what kind of ground belongs where: do not copy its framing. ",
-    "sheet": "Image 2 is a wider view of the country around image 1, for what kind of ground belongs where: do not copy its framing. "
-             "Image 3 is four squares of finished terrain from nearby, at the same zoom: match their texture and brushwork exactly. ",
-    "near": "Images 2 and up are squares of finished terrain from right beside the area, at the same zoom, chosen for their colour: match "
-            "their texture, scale and brushwork exactly, but do not copy their features. ",
-    "many": "Image 2 is a wider view of the country around image 1, for what kind of ground belongs where: do not copy its framing. Images 3 and "
-            "up are squares of finished terrain from right beside the area, at the same zoom: match their texture, scale and brushwork "
-            "exactly, but do not copy their features. ",
-}
+PROMPTS = {"blend": [DESCRIBE, CHANGE, BLEND, PRESERVE, EXCLUDE, INTEGRATE],
+           "sea": [SEA, PRESERVE]}
+WHERE = "They are the masked (transparent) area of the first image."
 
 
 def window_of(box, context: float) -> tuple[int, int, int, int]:
@@ -248,44 +199,6 @@ def data_url(b: bytes) -> str:
     return "data:image/png;base64," + base64.b64encode(b).decode()
 
 
-def references(tile, tiles: dict, sea, win: tuple, broken: np.ndarray) -> dict:
-    """The kinds of reference: "wide", the country round the window, small; "sheet", it and four squares of good ground nearest the hole on
-    one picture; "near", squares of good ground beside the hole, closest to its surroundings' colour; "many", the wide view and more of those."""
-    c0, r0, c1, r1 = win
-    m = 16 * 4  # chunks of country beyond the window
-    C0, R0, C1, R1 = max(0, c0 - m), max(0, r0 - m), min(1024, c1 + m), min(1024, r1 + m)
-    wide, _ = compose(tile, tiles, sea, (C0, R0, C1, R1))
-    side = 1024 / max(wide.shape[:2])
-    view = Image.fromarray(wide).resize((max(16, int(wide.shape[1] * side)) // 16 * 16, max(16, int(wide.shape[0] * side)) // 16 * 16), Image.LANCZOS)
-    S_ = 16  # a square's chunks (one tile)
-    hole = broken[R0:R1, C0:C1]
-    cy, cx = np.argwhere(hole).mean(0)
-    around = grow(hole, 4) & ~grow(hole, 1)  # the ground that touches it, its colour
-    tone = wide[around.repeat(CHUNK, 0).repeat(CHUNK, 1)].mean(0)
-    cands = []
-    for y in range(0, R1 - R0 - S_, 4):
-        for x in range(0, C1 - C0 - S_, 4):
-            if hole[y:y + S_, x:x + S_].any():
-                continue
-            p = wide[y * CHUNK:(y + S_) * CHUNK, x * CHUNK:(x + S_) * CHUNK]
-            if p.mean() < 25 or (p.max(-1) < 12).mean() > .05 or flat_chunks(p).any():  # sea, a hole in the tiles, ground the review didn't get to
-                continue
-            cands.append((float(((y - cy) ** 2 + (x - cx) ** 2) ** .5), float(np.abs(p.mean((0, 1)) - tone).sum()), y, x))
-    def pick(score, n):
-        chosen = []
-        for c in sorted(cands, key=score):
-            if all(abs(c[2] - a) >= S_ or abs(c[3] - b) >= S_ for a, b in chosen):
-                chosen.append((c[2], c[3]))
-            if len(chosen) == n:
-                break
-        return [Image.fromarray(wide[y * CHUNK:(y + S_) * CHUNK, x * CHUNK:(x + S_) * CHUNK]) for y, x in chosen]
-    sheet = Image.new("RGB", (TILE * 2, TILE * 2))
-    for i, p in enumerate(pick(lambda c: c[0], 4)):
-        sheet.paste(p, (i % 2 * TILE, i // 2 * TILE))
-    alike = lambda c: c[1] + c[0] * 1.5  # the right colour, near
-    return {"none": [], "wide": [view], "sheet": [view, sheet], "near": pick(alike, 4), "many": [view] + pick(alike, 8)}
-
-
 def flat_chunks(img: np.ndarray) -> np.ndarray:
     """What the review didn't get to: the chunks of a chunk-aligned picture with no detail in them."""
     g = img.astype(np.float32).mean(-1)
@@ -317,48 +230,30 @@ def compose(tile, tiles: dict, sea, win: tuple) -> tuple[np.ndarray, np.ndarray]
     return img, img.any(-1)
 
 
-def prompt_of(recipe: dict, extra: str) -> str:
-    where = {"mask": "They are the masked (transparent) area of the first image.",
-             "markup": "They are the areas outlined in bright magenta on the first image; the outline itself must not appear in the result.",
-             "words": "Look for them: they are obvious against the finished terrain."}[recipe["point"]]
-    parts = [p.format(where=where) if p in (CHANGE, SEA) else p for p in PROMPTS[recipe["prompt"]]]
-    if recipe["refs"] != "none":
-        parts.append("Image 1 is the picture to edit. " + REFS_SAID[recipe["refs"]] + "Return only the edit of image 1, at its framing.")
+def prompt_of(recipe: str, extra: str) -> str:
+    parts = [p.format(where=WHERE) if p in (CHANGE, SEA) else p for p in PROMPTS[recipe]]
     if extra:
         parts.append(extra)
     return "\n\n".join(parts)
 
 
-def inputs(recipe: dict, name: str, small: Image.Image, edit_small: np.ndarray, refs: list, out: str) -> dict:
-    """What the recipe sends: {images, mask?, markup?}, as bytes, saved as sent."""
+def inputs(name: str, small: Image.Image, edit_small: np.ndarray, out: str) -> dict:
+    """What a recipe sends: {images, mask}, as bytes, saved as sent."""
     d = os.path.join(out, "input")
     os.makedirs(d, exist_ok=True)
-    got = {"images": [png(small)] + [png(r) for r in refs[recipe["refs"]]]}
-    if recipe["point"] == "mask":  # transparent: what may change
-        rgba = np.full(edit_small.shape + (4,), 255, np.uint8)
-        rgba[..., 3] = np.where(edit_small, 0, 255)
-        got["mask"] = png(Image.fromarray(rgba))
-    elif recipe["point"] == "markup":
-        h, w = edit_small.shape
-        e = Image.fromarray(edit_small.astype(np.uint8) * 255)
-        wide = np.asarray(e.resize((w, h))) > 0
-        rim = grow_px(wide, 6) & ~wide
-        rgba = np.zeros((h, w, 4), np.uint8)
-        rgba[rim] = (255, 0, 255, 255)
-        got["markup"] = png(Image.fromarray(rgba))
+    rgba = np.full(edit_small.shape + (4,), 255, np.uint8)
+    rgba[..., 3] = np.where(edit_small, 0, 255)  # transparent: what may change
+    got = {"images": [png(small)], "mask": [png(Image.fromarray(rgba))]}
     for k, v in got.items():
-        for i, b in enumerate(v if isinstance(v, list) else [v]):
+        for i, b in enumerate(v):
             with open(os.path.join(d, f"{name}.{k}{i}.png"), "wb") as f:
                 f.write(b)
     return got
 
 
-def call(api_key: str, recipe: dict, sent: dict, prompt: str, size: tuple, quality: str, n: int) -> tuple[list[bytes], dict]:
-    body = {"model": recipe["model"], "prompt": prompt, "images": [{"image_url": data_url(b)} for b in sent["images"]], "n": n,
+def call(api_key: str, sent: dict, prompt: str, size: tuple, quality: str, n: int) -> tuple[list[bytes], dict]:
+    body = {"model": MODEL, "prompt": prompt, "images": [{"image_url": data_url(b)} for b in sent["images"]], "mask": {"image_url": data_url(sent["mask"][0])}, "n": n,
             "size": f"{size[0]}x{size[1]}", "quality": quality, "output_format": "png", "background": "opaque", "moderation": "low"}
-    for k in ("mask", "markup"):
-        if k in sent:
-            body[k] = {"image_url": data_url(sent[k])}
     req = urllib.request.Request(URL, json.dumps(body).encode(), {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=900) as r:
@@ -401,14 +296,13 @@ def main() -> None:
     ap.add_argument("--reach", type=int, default=48, help="chunks flat ground may run from the review's to count (0: any in the box)")
     ap.add_argument("--over", action="append", default=[], help="<name>:<recipe_i>: a repaint this one continues from, in the picture sent; can repeat")
     ap.add_argument("--review-only", action="store_true", help="only the review's broken ground, not the flat ground found in the box too")
-    ap.add_argument("--grow", type=int, default=1, help="chunks the repaint reaches past the broken ground (default 1)")
+    ap.add_argument("--grow", type=int, default=2, help="chunks the repaint reaches past the broken ground (default 2)")
     ap.add_argument("--context", type=float, default=.75, help="tiles of good ground round the box (default .75)")
-    ap.add_argument("--recipes", default="refs", help=f"which, by comma (default refs): {', '.join(RECIPES)}")
+    ap.add_argument("--recipes", default="blend", help=f"which, by comma (default blend): {', '.join(PROMPTS)}")
     ap.add_argument("--quality", default="high", choices=("low", "medium", "high", "xhigh", "max", "auto"))
-    ap.add_argument("-n", type=int, default=2, help="pictures a recipe")
-    ap.add_argument("--max-pixels", type=int, default=MAX_PIXELS, help=f"of what's sent (default {MAX_PIXELS}; to {LIMIT_PIXELS}, experimental)")
+    ap.add_argument("-n", type=int, default=6, help="pictures a recipe (default 6)")
+    ap.add_argument("--max-pixels", type=int, default=LIMIT_PIXELS, help=f"of what's sent (default {LIMIT_PIXELS}, the API's limit)")
     ap.add_argument("--prompt-extra", default="", help="more words for the prompt, for this place")
-    ap.add_argument("--start", help="<name>:<recipe_i>: a second pass, from that earlier result (its repaint in the picture sent)")
     ap.add_argument("--parallel", type=int, default=4, help="calls at once")
     ap.add_argument("--dry-run", action="store_true", help="prepare and save what would be sent; no call")
     ap.add_argument("--force", action="store_true", help="call again, though there are pictures")
@@ -418,7 +312,7 @@ def main() -> None:
         ap.error("--box is col0,row0,col1,row1")
     recipes = ns.recipes.split(",")
     for r in recipes:
-        if r not in RECIPES:
+        if r not in PROMPTS:
             ap.error(f"no recipe {r}")
     src = source_from_args(ap, ns)
     data = maplint.Data(os.path.join(ROOT, "Data"))
@@ -476,23 +370,13 @@ def main() -> None:
         kc, kr, rad = (float(v) * TILE for v in k.split(","))
         edit &= (xx + c0 * CHUNK - kc) ** 2 + (yy + r0 * CHUNK - kr) ** 2 > rad ** 2
     size = api_size(W, H, ns.max_pixels)
-    start = window
-    if ns.start:  # the draft over the real ground, whatever window it was painted in
-        d, n = ns.start.split(":")
-        base = os.path.join(ROOT, "demo", "aifix", d)
-        w0 = json.load(open(os.path.join(base, "results.json")))["_window"]
-        draft = Image.open(os.path.join(base, n + ".fixed.png")).convert("RGB")
-        canvas = Image.fromarray(window)
-        canvas.paste(draft, (int(round((w0[0] * 16 - c0) * CHUNK)), int(round((w0[1] * 16 - r0) * CHUNK))))
-        start = np.where(edit[..., None], np.asarray(canvas), window)
-    small = Image.fromarray(start).resize(size, Image.LANCZOS)
+    small = Image.fromarray(window).resize(size, Image.LANCZOS)
     edit_small = np.asarray(Image.fromarray(edit.astype(np.uint8) * 255).resize(size, Image.BILINEAR)) > 127
     Image.fromarray(window).save(os.path.join(out, "window.png"))
     Image.fromarray(edit.astype(np.uint8) * 255).save(os.path.join(out, "broken.png"))
     print(f"{out}\n  window {c0 / 16:g},{r0 / 16:g} to {c1 / 16:g},{r1 / 16:g}: {W}x{H}; sent at {size[0]}x{size[1]} ({size[0] / W:.2f} of full size); "
           f"repainting {edit.mean():.0%} of it, {edit.sum() / TILE ** 2:.1f} tiles' worth")
 
-    refs = references(tile, tiles, sea, win, edit_grid) if any(RECIPES[r]["refs"] != "none" for r in recipes) else {"none": []}
     api_key = None if ns.dry_run else key()
     if not ns.dry_run and not api_key and any(ns.force or not os.path.exists(os.path.join(out, f"{r}_0.raw.png")) for r in recipes):
         raise SystemExit("no key: OPENAI_API_KEY, or a line of it in the repo's .env. --dry-run prepares without one.")
@@ -501,13 +385,13 @@ def main() -> None:
     shots = [("original", window)]
     prepared = {}
     for r in recipes:
-        recipe, prompt = RECIPES[r], prompt_of(RECIPES[r], ns.prompt_extra)
-        sent = inputs(recipe, r, small, edit_small, refs, out)
+        prompt = prompt_of(r, ns.prompt_extra)
+        sent = inputs(r, small, edit_small, out)
         with open(os.path.join(out, "input", f"{r}.prompt.txt"), "w") as f:
             f.write(prompt)
-        prepared[r] = (recipe, prompt, sent)
+        prepared[r] = (prompt, sent)
         if ns.dry_run:
-            print(f"  {r}: {recipe['model']} {ns.quality}, n={ns.n}, {len(sent['images'])} image(s), {sum(map(len, sent['images'])) / 1e6:.1f} MB: would call")
+            print(f"  {r}: {MODEL} {ns.quality}, n={ns.n}, {len(sent['images'])} image(s), {sum(map(len, sent['images'])) / 1e6:.1f} MB: would call")
 
     # (pictures from another window would be stretched onto this one)
     if not ns.dry_run and not ns.force and results.get("_window") not in (None, [c0 / 16, r0 / 16, c1 / 16, r1 / 16]):
@@ -517,10 +401,10 @@ def main() -> None:
         return [i for i in range(10) if os.path.exists(os.path.join(out, f"{r}_{i}.raw.png"))]
 
     def fetch(r):
-        recipe, prompt, sent = prepared[r]
+        prompt, sent = prepared[r]
         t = time.time()
         try:
-            pics, usage = call(api_key, recipe, sent, prompt, size, ns.quality, ns.n)
+            pics, usage = call(api_key, sent, prompt, size, ns.quality, ns.n)
         except (RuntimeError, urllib.error.URLError, TimeoutError) as e:
             print(f"  {r}: FAILED: {e}", flush=True)
             return
@@ -529,7 +413,7 @@ def main() -> None:
         for i, b in enumerate(pics):
             with open(os.path.join(out, f"{r}_{i}.raw.png"), "wb") as f:
                 f.write(b)
-        results[r] = {"model": recipe["model"], "quality": ns.quality, "size": size, "seconds": round(time.time() - t), "usage": usage, "cost": cost(usage)}
+        results[r] = {"model": MODEL, "quality": ns.quality, "size": size, "seconds": round(time.time() - t), "usage": usage, "cost": cost(usage)}
         print(f"  {r}: {len(pics)} in {results[r]['seconds']} s, ${results[r]['cost']}", flush=True)
     if not ns.dry_run:
         with ThreadPoolExecutor(ns.parallel) as pool:

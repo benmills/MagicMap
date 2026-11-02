@@ -148,6 +148,7 @@
 ---@field minimap? MM.ObsMinimap  this frame's obs.minimap, handed on unchanged like hooked (UI places its small window on home)
 ---@field addons MM.ObsAddon[]     other addons whose pins Game can borrow, handed on from obs.addons (the "Other addons"
 ---                                layers: View.layers "addon:<key>"); {} until known
+---@field build? string             the client's build, handed on from obs.build (ui/Repaint.lua: whether the repaints fit); nil until the first observe
 ---@field levels table<MM.UiMapID, integer[]> each map's level range, { lo, hi }, handed on from obs.levels (the
 ---                                inspector's level line); {} until known
 ---@field waypointSet? boolean     obs.waypointSet, the last handed: a user waypoint is set, wherever (the menu's Clear

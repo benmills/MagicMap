@@ -135,7 +135,7 @@ def ocean(g: Ground, tiles: dict, sea: dict) -> tuple:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     add_source_args(ap)
-    ap.add_argument("--cache", default=os.path.join(tempfile.gettempdir(), "mm-fill"), help="the terrain read so far")
+    ap.add_argument("--cache", default=os.path.join(tempfile.gettempdir(), "mm-terrain"), help="the terrain read so far")
     ap.add_argument("--bake", help="also write the web demo's pictures here (sea.json, *.webp)")
     ns = ap.parse_args()
     src = source_from_args(ap, ns)

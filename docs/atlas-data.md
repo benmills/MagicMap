@@ -101,6 +101,14 @@ Textures/Base*.blp: a flat map, land a colour a zone from the tiles' mean, water
 coast; tools/gen_base.py), the tile rect it covers (c0, r0 to c1, r1), px a tile and the texture's size
 (power of two, the picture in its top left). `Atlas.Base(inst)` → that row, or nil.
 
+### Data/Repaint.lua — `ns.Data.Repaint` (tools/ai_regions.json's picks; not under the GPLv3: NOTICE.md)
+The AI-repainted patches over the tiles' broken ground, for ui/Repaint.lua (setting `repaint.on`), and the game build they were made
+for: off it, nothing is drawn. The pictures are Textures/Repaint*.blp, sliced on a 512 px grid with their own soft alpha. Baked by
+tools/ai_map.py from the candidates tools/ai_fix.py makes; how and why: docs/ai-map-art.md,
+docs/decisions/0011-ai-map-art.md.
+`{ build, maps = { [inst] = { col, row, file, sublevel, ... } } }`
+- build: the client's GetBuildInfo version.build. A flat list, 4 fields a piece; file: under the addon's folder, no extension; later places over earlier by sublevel.
+
 ### Data/Areas.lua — `ns.Data.Areas` (AreaTable DB2)
 `[areaID] = { name, parent, inst, level, faction, uiMap }`
 - parent: parent areaID (nil for zones). level: ExplorationLevel.

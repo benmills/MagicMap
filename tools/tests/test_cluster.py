@@ -3,7 +3,12 @@
 
 test_pill_members_new_tables: the same five, their entries made anew twice within the regroup's 0.5 s (as
 model/Blips.lua's Live() does each sensor change), with the harness's one-thing-one-pin check on every frame
-(T.strictPins: docs/hardening-plan.md T1): today each draws alone beside the pill holding it (P1)."""
+(T.strictPins: docs/hardening-plan.md T1): none draws alone beside the pill holding it (P1).
+
+test_grid_close_is_spent: the click that closes a pill's grid does nothing else (I2); a click on a grid pin is still
+its own, after its entry was made anew.
+
+test_layer_rares_takes_vignettes: /mm layer rares turns vignettes with it, as the gear's row does (S5)."""
 import pytest
 from lupa import lua51
 
@@ -69,8 +74,6 @@ RENEW = """function(t)
 end"""
 
 
-@pytest.mark.xfail(strict=True, raises=lua51.LuaError,
-                   reason="P1: Cluster hides members by entry table; new tables with the same keys draw alone beside their pill until the next regroup")
 def test_pill_members_new_tables():
     L, sim, ns, T = simmod.checked()
     ns.UI.saved.cluster = True
@@ -90,4 +93,71 @@ def test_pill_members_new_tables():
     sim.Run(0.1)
     renew(t)  # within REGROUP: not regrouped
     sim.Run(0.6)  # T.OneThing: "Pin 1 drawn twice: clustertest c1 ... and clusters c1 ..."
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+# The screen point of a region placed at (acol, arow), for the cursor.
+AT = """function(UI, o)
+    local cam, view = UI.Camera.cam, UI.Window.view
+    local s = view:GetEffectiveScale()
+    local w, h = UI.Window.Size()
+    return (view:GetLeft() + w / 2 + (o.acol - cam.cx) * cam.zoom) * s, (view:GetTop() - h / 2 - (o.arow - cam.cy) * cam.zoom) * s
+end"""
+
+# The pill holding key, on the front canvas.
+PILL = """function(layer, key)
+    local p = layer.front.pools.pill
+    for i = 1, p.n do
+        for _, m in ipairs(p[i].cluster.members) do
+            if m[1].key == key then return p[i] end
+        end
+    end
+end"""
+
+
+def test_grid_close_is_spent():
+    L, sim, ns, T = simmod.checked()
+    UI = ns.UI
+    UI.saved.cluster = True
+    sim.Slash("/mm toggle")
+    sim.Run(1)
+    cam, view = UI.Camera.cam, UI.Window.view
+    t = L.eval(LAYER)(UI.Pins, 5, cam.cx, cam.cy)
+    sim.Run(1)
+    ran = L.eval("""function(UI) local t = { n = 0 }; UI.ZoneInfo.Tap = function() t.n = t.n + 1 end; return t end""")(UI)
+    at = L.eval(AT)
+    sim.FireScript(view, "OnEnter", False)  # (the view has the mouse: pins hover)
+
+    def click(x, y):
+        sim.cursorX, sim.cursorY = x, y
+        sim.Run(0.2)
+        sim.Click(view, "LeftButton", x, y, "screen")
+        sim.Step()
+    x, y = at(UI, L.eval(PILL)(T.Layer(ns, "clusters"), "c1"))
+    click(x, y)  # the pill: its grid
+    grid = T.Layer(ns, "grid clustertest")
+    sim.Run(0.2)
+    assert L.eval(SHOWN)(grid, "pin") == 5 and ran.n == 0
+    click(x + 150, y - 150)  # off the grid: closed, and nothing else
+    assert L.eval(SHOWN)(grid, "pin") == 0 and ran.n == 0
+    click(x + 150, y - 150)  # the next click is the map's
+    assert ran.n == 1
+
+    click(x, y)  # open again, the entries made anew: a click on a grid pin is still its own
+    L.eval(RENEW)(t)
+    sim.Run(0.7)
+    assert L.eval(SHOWN)(grid, "pin") == 5
+    sim.menu = None
+    click(*at(UI, grid.front.pools.pin[1]))
+    assert sim.menu is not None and L.eval(SHOWN)(grid, "pin") == 5 and ran.n == 1
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_layer_rares_takes_vignettes():
+    L, sim, ns = boot()
+    E = ns.UI.Engine
+    sim.Slash("/mm layer rares")
+    assert not E.LayerOn("rares") and not E.LayerOn("vignettes")
+    sim.Slash("/mm layer rares")
+    assert E.LayerOn("rares") and E.LayerOn("vignettes")
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

@@ -73,6 +73,17 @@ function Atlas.Sea(inst)
 end
 function Atlas.SeaDeep() return Data.Sea.deep end
 
+-- A map's AI repaints (Data/Repaint.lua, tools/ai_map.py ship): { col, row, file, sublevel, ... }, a tile each; nil: none.
+function Atlas.Repaint(inst)
+	local r = Data.Repaint
+	return r and r.maps[inst]
+end
+-- The game build they're good for (as "1.60.1.70532"); nil: none shipped.
+function Atlas.RepaintBuild()
+	local r = Data.Repaint
+	return r and r.build
+end
+
 -- What a drawn tile shows: its patch, or Blizzard's tile (a FileDataID).
 function Atlas.TileArt(inst, key)
 	return Patch(inst, key) or Atlas.Tiles(inst)[key]

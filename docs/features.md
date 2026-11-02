@@ -49,7 +49,11 @@ backdrop (open sea isn't drawn); zone and subzone names, and on the big map the 
 from the terrain; your arrow, with a denser shadow. Under the tiles, a one-picture stand-in for each continent
 (Eastern Kingdoms, Kalimdor: zone colours, a crisp coast) shows through wherever the tiles aren't
 there yet, so a fast zoom out or a flick never shows bare backdrop. It's never switched over to:
-the tiles are the map at every zoom.
+the tiles are the map at every zoom. **Map art repairs** (Settings > Map > Repair broken map art, on):
+14 places where Blizzard's art is broken, flat unfinished blocks and straight joins in shallow water, are
+patched with repaints made with AI image generation from the art round them. Everything else in the tiles
+stays the game's own. Off, or on a game build they weren't made for, you see Blizzard's map as it is
+([NOTICE.md](../NOTICE.md), [ADR 0011](decisions/0011-ai-map-art.md)).
 
 **Indoors.** In a building, Blizzard's own indoor minimap pictures, placed on our map over the
 terrain (dimmed on the small map): the rooms on your floor whole, the floors below faded and those above
@@ -138,7 +142,7 @@ Settings are account-wide.
 | Page | Settings (default) |
 | --- | --- |
 | General | Replace minimap, Replace world map (what the welcome chose); Follow you (on); Minimap button (on); Group icons (on); Reset window position |
-| Map | Label size (100%); Subzone size (100%); Subzone opacity (60%); Border opacity (100%); Border width (100%); Your arrow's size (100%); Info pill backing (25%); Indoor dimming (65%); Indoor auto-zoom (on) |
+| Map | Label size (100%); Subzone size (100%); Subzone opacity (60%); Border opacity (100%); Border width (100%); Your arrow's size (100%); Info pill backing (25%); Indoor dimming (65%); Indoor auto-zoom (on); Repair broken map art (on) |
 | Icons | Icon size (120%); Quest icon size (100%); Focus ring size (145%); Focus ring opacity (25%); Focus ring colour (Gold) |
 | Tracking line | Style (dashed); Weight (1.0 px); Colour (Gold); Glow (off); Breathing (off); Opacity (55%); Outline (off); Outline colour (Dark) |
 | Quest areas | The followed quest's fill, edge and edge width; the others' fill, edge and edge width; the hover's fill and edge (as the game draws them, a quiet fill by default) |

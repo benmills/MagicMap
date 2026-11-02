@@ -37,6 +37,13 @@ their GPLv3 terms (NOTICE.md); they're committed like the rest.
     .venv/bin/python tools/gen_interiors.py local "$W" wow_classic_beta -o Data/Interiors.lua   # reads Data/Tiles.lua's maps
     .venv/bin/python tools/gen_base.py      local "$W" wow_classic_beta   # Textures/Base*.blp and Data/Base.lua; reads Tiles, TileColor, Areas, AreaGrid (--preview DIR: PNGs)
 
+The map art repairs aren't regenerated with the rest: a new run gives new pictures, and each costs money
+(OpenAI's image edits; the key is `OPENAI_API_KEY` or the repo's `.env`). `tools/ai_regions.json` holds the
+places and which candidate was picked; `tools/ai_fix.py` makes candidates for one place, under `demo/aifix/`
+(gitignored); `tools/ai_map.py` runs it for the listed places and bakes the picks. After a game patch that
+changes tiles under a place, repaint it or the setting's build check keeps the patches off. See
+[ai-map-art.md](ai-map-art.md).
+
 The demo's assets, after the above:
 
     .venv/bin/python demo/export_tiles.py   # demo/tiles/<inst>: tile WebPs (--inst N, --all); after gen_tiles

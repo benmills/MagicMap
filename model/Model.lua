@@ -10,7 +10,7 @@
 -- this frame's, as handed (nil: the client gave nothing).
 -- Model.hooked, Model.minimap: this frame's obs.hooked and obs.minimap, handed on unchanged
 -- (UI reads them the same frame). Model.addons: obs.addons, the last handed ({} until then); Model.levels,
--- Model.tracking: obs.levels, obs.tracking so. Model.explored, Model.exploredCells, Model.interior:
+-- Model.tracking, Model.build: obs.levels, obs.tracking, obs.build so (build: nil until then). Model.explored, Model.exploredCells, Model.interior:
 -- obs.explored, obs.exploredCells, obs.interior, the last handed (nil until then; interior false: in no
 -- building): UI's inspector and the building's rooms.
 --
@@ -47,7 +47,7 @@ function Model.Focus(focus) Model.focus = focus end
 function Model.Observe(obs, oracles)
 	local o, you = obs.you, Model.you
 	Model.hooked, Model.minimap, Model.addons = obs.hooked or NONE, obs.minimap, obs.addons or Model.addons
-	Model.levels, Model.tracking = obs.levels or Model.levels, obs.tracking or Model.tracking
+	Model.levels, Model.tracking, Model.build = obs.levels or Model.levels, obs.tracking or Model.tracking, obs.build or Model.build
 	Model.explored, Model.exploredCells = obs.explored or Model.explored, obs.exploredCells or Model.exploredCells
 	if obs.interior ~= nil then Model.interior = obs.interior end
 	if o.col then

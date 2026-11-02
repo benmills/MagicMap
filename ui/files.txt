@@ -13,6 +13,7 @@ ui/Title.lua
 ui/BigMap.lua
 ui/Sea.lua
 ui/Tiles.lua
+ui/Repaint.lua
 ui/Base.lua
 ui/Interiors.lua
 ui/Borders.lua

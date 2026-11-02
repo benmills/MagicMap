@@ -6,7 +6,7 @@ The repo root is the addon root. Folders follow architecture.md: two libraries
 ```
 MagicMap.toc          load order (below), generated from each folder's files.txt
 Data/                 generated Atlas data (the QuestieDB-derived five: NOTICE.md)
-Textures/             generated textures the addon loads (PlayerArrow, GlowRing, BaseEasternKingdoms and BaseKalimdor: tools/gen_base.py)
+Textures/             generated textures the addon loads (PlayerArrow, GlowRing, BaseEasternKingdoms and BaseKalimdor: tools/gen_base.py; Repaint*: tools/ai_map.py, not under the GPLv3: NOTICE.md)
 atlas/                Atlas library: facts that hold (plain Lua 5.1, no WoW API)
 runtime/              Runtime library: when things run (frame steps, slices, timers, events, perf)
 game/                 Game system: the only code that touches the WoW API, other addons, SavedVariables
@@ -186,6 +186,8 @@ Grouping, Diagnostics, each page built from its settings declared once in KEYS; 
 page as UI.saved.feelPage), game/Options.lua (the client's own Options -> AddOns -> MagicMap entry: a button that opens the settings
 window; nothing is made without the client's Settings API), ui/Base.lua (the base picture: one stylised texture a continent from
 Data/Base.lua and Textures/Base*.blp, drawn under the tiles at every zoom, an underlay only for where they aren't yet),
+ui/Repaint.lua (the map art repairs: AI-repainted patches from Data/Repaint.lua and Textures/Repaint*.blp over the tiles' broken ground,
+the setting `repaint.on`, on by default; nothing drawn when it's off or on another game build: docs/decisions/0011-ai-map-art.md),
 ui/Pins.lua (the one pin store: `Pins.Layer`, StylePin, hover, pin tooltips, clicks), ui/Track.lua (a pin's
 click menu: Track any icon, the waypoint at it, `UI.saved.tracked`),
 ui/Sockets.lua (View.sockets: the world socket Game hosts other addons' HereBeDragons pins on,

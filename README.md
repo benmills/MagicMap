@@ -92,7 +92,8 @@ tells it while you play:
   and bake what never changes into Lua data: the minimap terrain tiles' IDs, zone borders and labels, a
   walkable grid for routes, flight points and places, and every building's indoor minimap pictures,
   placed from its 3D model ([ADR 0008](docs/decisions/0008-interiors.md)). Quest, NPC and item facts
-  come from QuestieDB. At runtime the addon only draws the game's own textures by file ID.
+  come from QuestieDB. At runtime the addon draws the game's own textures by file ID, and a few
+  pictures that ship with it: the base map under the tiles, the ocean, and the map art repairs (below).
 - **Game, the senses** (`game/`). Blizzard's minimap keeps running out of sight as a sensor: MagicMap
   reads its blips (herbs, services, quest givers) and turns them into its own pins. It reads your
   position, quests and party, works out which building room you're in from your position and subzone,
@@ -121,5 +122,14 @@ Regenerating the data, telemetry, the simulator, the release steps and the archi
 MagicMap is free software under the GNU General Public License, version 3 ([LICENSE](LICENSE)). Its
 quest, NPC, object and item data is derived from [QuestieDB](https://github.com/Questie/QuestieDB) and
 [Questie](https://github.com/Questie/Questie), used under the GPLv3 terms they extend to copies of
-their work, with thanks to their authors and contributors ([NOTICE.md](NOTICE.md)). MagicMap isn't
-affiliated with Questie or Blizzard Entertainment.
+their work, with thanks to their authors and contributors ([NOTICE.md](NOTICE.md)). The repainted map
+art isn't under the GPLv3 (also in NOTICE.md). MagicMap isn't affiliated with Questie or Blizzard
+Entertainment.
+
+## AI-repainted map art
+
+Some clearly broken parts of the game's map art, flat unfinished blocks, are patched with repaints made
+using AI image generation from the surrounding game art. The rest of the terrain is the game's own
+textures, drawn at runtime. It's a setting, on by default, under Map in the Settings window ("Repair
+broken map art"). Turn it off, or play on a game build the repaints weren't made for, and you see
+Blizzard's map as it is. MagicMap isn't affiliated with Blizzard.

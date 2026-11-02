@@ -60,7 +60,7 @@ local sources = {} -- { name, fill, rev, lo (its layer on, at the last Stamp), r
 local setting -- UI.saved.cluster: grouping on
 local stamp, stampFrame = 0, -1 -- the membership's counter, the frame it was last read in
 local openV = 0 -- the grid's state's counter (a rev of the pill and grid layers)
-local open -- the grid open: { key, col, row, zoom, set } (its cluster's key, its centroid, the zoom, its members' entries)
+local open -- the grid open: { key, col, row, zoom } (its cluster's key, its centroid, the zoom)
 local cache = { stamp = nil, inst = nil, byBand = {}, n = 0 }
 
 ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ local function Collect(inst, zoom)
 end
 
 -- A cluster of m members (near[1..m], scratch): its members, its centroid, its key (the least of its members'
--- keys); c.hidden: each member's entry -> it.
+-- keys); c.hidden: each member's key -> it (not its entry: a source makes new tables between regroups, Live()'s).
 local POOL = 128 -- kept at most, each pool
 local clPool, listPool, memPool = {}, {}, {} -- retired clusters, their member lists and members, made again
 local function Make(c, m)
@@ -164,7 +164,7 @@ local function Make(c, m)
 	cl.key, cl.col, cl.row, cl.members = key, col / m, row / m, members -- /: never 0 (m >= MIN)
 	c.clusters[#c.clusters + 1] = cl
 	local hidden = c.hidden
-	for _, mem in ipairs(members) do hidden[mem[E]] = cl end
+	for _, mem in ipairs(members) do hidden[mem[E].key] = cl end
 end
 
 -- The clusters of the collection, at zoom, into c: from each member not yet taken, the untaken members within
@@ -216,7 +216,7 @@ local function Group(zoom, c)
 	for h = 1, BUCKETS do bucket[h] = nil end
 end
 
--- The clusters at zoom in inst, and hidden: each clustered member's entry -> its cluster. Worked out once a
+-- The clusters at zoom in inst, and hidden: each clustered member's key -> its cluster. Worked out once a
 -- frame for each zoom band asked for (a few kept).
 -- A band's table, retired: emptied and kept for the next band (its hash kept, not made again).
 local spare = {} -- (kept at SPARE most)
@@ -276,7 +276,7 @@ end
 
 -- Pins.Layer's put: whether e (of a clustered layer) stands in a pill at this layout's zoom, not on its own.
 function Cluster.Hides(e, inst, zoom)
-	return Members(inst, zoom).hidden[e] ~= nil
+	return Members(inst, zoom).hidden[e.key] ~= nil
 end
 
 ---------------------------------------------------------------------------
@@ -520,9 +520,7 @@ local function Close()
 end
 
 local function Open(cl)
-	local set = {}
-	for _, m in ipairs(cl.members) do set[m[E]] = true end
-	open = { key = cl.key, col = cl.col, row = cl.row, zoom = Camera.cam.zoom, set = set }
+	open = { key = cl.key, col = cl.col, row = cl.row, zoom = Camera.cam.zoom }
 	openV = openV + 1
 end
 
@@ -539,7 +537,8 @@ local function PillAt(x, y)
 end
 
 -- Pins.Tap's, first: a click on a pill opens its grid (or closes it, again). Else a click off the grid
--- closes it (a click on one of its pins is theirs: false). True when the click was the pill's.
+-- closes it and is spent (a click on one of its pins, proxies only the grid has, is theirs: false). True when
+-- the click was the pill's, or closed the grid.
 function Cluster.Tap(button)
 	local x, y = Window.Cursor()
 	local w, h = Window.Size()
@@ -550,8 +549,10 @@ function Cluster.Tap(button)
 	end
 	if open then
 		local e = Pins.Hovered()
-		local real = e and rawget(e, "real")
-		if not (real and open.set[real]) then Close() end
+		if not (e and rawget(e, "real")) then
+			Close()
+			return true
+		end
 	end
 	return false
 end

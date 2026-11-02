@@ -22,7 +22,7 @@ local ELITE = string.format("|TInterface\\TargetingFrame\\UI-TargetingFrame-Skul
 local TURN_IN = 0.85 -- QuestInfo.lua:358
 local TURN_IN_ATLAS = "questturnin" -- the "?" before who takes it in (ui/Quests.lua's pin); the word where the client lacks it
 local turnInMark -- "|A:...|a " or the dim word, found once
-local FOLLOW, UNFOLLOW = DIM .. "Click to track|r", DIM .. "Click to stop tracking|r" -- Layers.lua:113 (the pin's menu: ui/Track.lua)
+local HINT = DIM .. "Click for options|r" -- (the pin's menu: ui/Track.lua)
 
 local QuestTooltip = {}
 UI.QuestTooltip = QuestTooltip
@@ -61,8 +61,7 @@ local function Sources(tip, k)
 	end
 end
 
--- e's tooltip on GameTooltip (owned by the caller), the click hint last (Layers.lua:107-114: following
--- it or not). QuestInfo.lua:308-369.
+-- e's tooltip on GameTooltip (owned by the caller), the click hint last. QuestInfo.lua:308-369.
 function QuestTooltip.Show(e)
 	local tip, c = GameTooltip, e.color
 	for k in pairs(small) do small[k] = nil end
@@ -93,7 +92,7 @@ function QuestTooltip.Show(e)
 		end
 		Add(tip, turnInMark .. e.turnIn, TURN_IN, TURN_IN, TURN_IN)
 	end
-	Add(tip, e.followed and UNFOLLOW or FOLLOW)
+	Add(tip, HINT)
 	tip:Show()
 	local n, from = tip:NumLines(), nil -- the small lines in runs: Pins.Small(first, last) sets first + 1 .. last
 	for i = 1, n + 1 do

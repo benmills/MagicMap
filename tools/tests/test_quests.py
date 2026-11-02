@@ -265,7 +265,7 @@ def test_quest_tooltip():
         ("    |cff9d9d9d(+2 more)|r", True),
         (" ", True),
         ("|A:questturnin:14:14|a Candle Taker", True),
-        ("|cff9d9d9dClick to track|r", True),
+        ("|cff9d9d9dClick for options|r", True),
     ]
     # The frame the tooltip is built: the tooltip Commands carried out in Game's apply step, after UI's.
     assert lines() == want
@@ -285,5 +285,5 @@ def test_quest_tooltip():
     p = pin(ns, G, "Quests", 60)
     assert S[p.inner].texture == 133633 and S[p.count].text == "3/8"  # an item QuestieDB doesn't know
     assert [S[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)] == [
-        "Kobold Candles", "|cffffd1007|r", "Large Candle: 3/8", " ", "|cff9d9d9dClick to track|r"]
+        "Kobold Candles", "|cffffd1007|r", "Large Candle: 3/8", " ", "|cff9d9d9dClick for options|r"]
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
