@@ -21,11 +21,11 @@ navigation.js, cards.js, app.js.
 To check it: `curl -s https://magic-map-outdoor.exe.xyz/api/lint | head -c 200` should name build 1.60.1.70532.
 The page then has a **Review** button.
 
-## Clouds (ui/Clouds.lua's, in the 2D view)
+## Map art (in the 2D view)
 
-Copy in `demo/clouds.js` → `clouds.js` and `demo/clouds/` → `clouds/` (`demo/export_clouds.py` writes it:
-clouds.json from Data/Clouds.lua, puff.png from the install), then `patch -p1 < clouds.patch` (made against the
-pages as served on 2026-10-29, with review.patch in). No restart.
+Copy in `demo/mapart.js` → `mapart.js` and the baked layers (`patches/`, from `demo/export_patches.py`; `sea/`, `quilt/`,
+`fill/`, `seams/`, `bounds/`, from their tools' `--bake`), then `patch -p1 < mapart.patch` (made against the pages as served
+on 2026-10-29, with review.patch in). No restart.
 
 ## Reading the marks back
 

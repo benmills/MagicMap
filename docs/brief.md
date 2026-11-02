@@ -181,8 +181,7 @@ the canvas's frame for it, `Engine.From` saying whether a layout at a zoom draws
 zoom, or the zoom what it left out shows from. Levels (an offset to the view's frame level), renumbered
 at M2.4 (ef8b2ee) for the spike's order (parity S8: tiles → areas → lines → path → labels → pins; its shade is gone since 2.0.0):
 tiles 1, the interiors 2 (ui/Interiors.lua: the building's indoor minimap pictures and their veil, ADR 0008), quest areas 3 (their frames +5..+7, ui/Areas.lua), borders 6 (the hovered
-zone's border over theirs, on their canvas: ui/ZoneInfo.lua), clouds 7 (ui/Clouds.lua: the game's fog-of-war puff over the
-broken art the map review accepted, Data/Clouds.lua; laid out with the tiles, on a frame of their canvas), the path 8 (its own canvas: ui/Path.lua),
+zone's border over theirs, on their canvas: ui/ZoneInfo.lua), the path 8 (its own canvas: ui/Path.lua),
 labels 9, the world socket +10 (other addons' pins, under ours: ui/Sockets.lua), rares 11 and places with
 the live vignettes 11 (ui/Places.lua), blips 12, your corpse and waypoint 13 (ui/You.lua), offers 14, quests
 15, the group's dots +15 (ui/Group.lua), the minimap socket +16 and its pins +17 (ui/Sockets.lua), the arrow's

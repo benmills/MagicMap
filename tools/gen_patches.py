@@ -19,7 +19,7 @@ import os
 import numpy as np
 from PIL import Image
 
-from gen_clouds import blp_rgba
+from mmtools.mapgrid import blp_rgba
 from mmtools.log import log
 from mmtools.luaout import data_head, load_data
 from mmtools.sources import add_source_args, source_from_args

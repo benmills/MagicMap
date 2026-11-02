@@ -5,8 +5,8 @@
 -- CLAMPTOBLACKADDITIVE would fade every edge's last texel to clear and draw the tile grid in
 -- hairlines. A layout keeps the tiles its canvas showed (Engine.Keep, by tile): at the same zoom and
 -- origin they're left as they are, so a pan's layout re-textures and places only the ground it adds
--- (a pan's re-set every region: the drag's frame p95 4.35 ms in game). The rebuilt ground and the clouds are
--- laid out with them, on their canvas (ui/Fill.lua, ui/Clouds.lua).
+-- (a pan's re-set every region: the drag's frame p95 4.35 ms in game). The rebuilt ground and the softened seams are
+-- laid out with them, on their canvas (ui/Fill.lua).
 
 local _, ns = ...
 local UI = ns.UI
@@ -63,5 +63,4 @@ UI.Tiles = Engine.Layer("tiles", 1, function(c, inst, zoom, c0, r0, c1, r1)
 	end
 	UI.Fill.Lay(c, inst, zoom, c0, r0, c1, r1)
 	UI.Seams.Lay(c, inst, zoom, c0, r0, c1, r1)
-	UI.Clouds.Lay(c, inst, zoom, c0, r0, c1, r1)
-end, function() return UI.Fill.Rev() + UI.Seams.Rev() + UI.Clouds.Rev() end)
+end, function() return UI.Fill.Rev() + UI.Seams.Rev() end)

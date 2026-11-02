@@ -9,7 +9,7 @@
 --     Follow you (UI.Motion), Minimap button (UI.Icon), Group icons (UI.saved.cluster), Reset window position.
 --   Map: label size, subzone label size and opacity (ui/Labels.lua), zone borders' opacity and width (ui/Borders.lua),
 --     your arrow's size (ui/You.lua), the info pills' backing (ui/Controls.lua), the indoor veil's strength and whether
---     a small building zooms the map in (ui/Interiors.lua), the ocean (ui/Sea.lua), the rebuilt ground (ui/Fill.lua) and the clouds (ui/Clouds.lua). Pushed to their setters on change, and again each time the
+--     a small building zooms the map in (ui/Interiors.lua), the ocean (ui/Sea.lua) and the rebuilt ground (ui/Fill.lua). Pushed to their setters on change, and again each time the
 --     map shows (the saved values, once loaded); each owner lays out anew by a rev of its own.
 --   Icons: every pin's size, and the quests' (ui/Pins.lua, ui/Quests.lua; their revs move with it); the focus ring
 --     round what you track: its size, opacity and colour (Pins.SetGlow; "ring.color" a name of UI.Pins.GLOW_COLORS).
@@ -136,8 +136,6 @@ local KEYS = {
 		apply = function(v) UI.Fill.Set(v) end, tip = "Fills the unfinished land in Blizzard's map art with pieces of the good ground beside it." },
 	{ key = "seams.on", section = "map", label = "Soften seams", kind = "check", default = true,
 		apply = function(v) UI.Seams.Set(v) end, tip = "Softens the harsh straight edges in Blizzard's map art with the ground beside them." },
-	{ key = "clouds.on", section = "map", label = "Clouds", kind = "check", default = false,
-		apply = function(v) UI.Clouds.Set(v) end, tip = "Clouds over the unfinished land in the map's art." },
 
 	{ key = "icons.scale", section = "icons", label = "Icon size", kind = "slider", min = 0.6, max = 1.6, step = 0.1, pct = true,
 		default = 1.2, apply = function(v) UI.Pins.SetScale(v) end,

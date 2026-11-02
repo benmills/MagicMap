@@ -21,7 +21,7 @@ local Camera, Window, Motion = UI.Camera, UI.Window, UI.Motion
 local Maths = ns.Atlas.Camera
 local floor, sin = math.floor, math.sin
 
-local LEVEL = 8 -- over the clouds (7) and borders (6), under the names (9): the spike's path frame (Core.lua:149)
+local LEVEL = 8 -- over the borders (6), under the names (9): the spike's path frame (Core.lua:149)
 local CLEAR_YOU, CLEAR_TARGET = 12, 15 -- px left clear around your arrow and the target's pin (Path.lua:11)
 local FADE, FADE_YOU = 40, 10 -- px over which the line fades in at the target and out at you: short at you, so it leaves your arrow (Path.lua:12)
 -- The look's settings (ui/Feel.lua's "path.<name>", read at use: it may load later or not at all) and

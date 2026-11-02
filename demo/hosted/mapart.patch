@@ -5,7 +5,7 @@ diff -ru a/core.js b/core.js
    drawAnalysis();
    if (walk) drawWalk();
    if (layerOn.has("borders")) drawBorders();
-+  if (state.mode === "2d" && typeof Clouds === "object") Clouds.draw(ctx, toScreen, state.camera.zoom, state.inst, draw); // over the borders (clouds.js)
++  if (state.mode === "2d" && typeof MapArt === "object") MapArt.draw(ctx, toScreen, state.camera.zoom, state.inst, draw); // over the borders (mapart.js)
    Review.drawOverlay();
    // Pins: where they'll be drawn first, so labels keep clear of them; quieter at continent zoom,
    // where names win; pins a name covers aren't drawn.
@@ -16,7 +16,7 @@ diff -ru a/index.html b/index.html
      <script src="navigation.js" defer></script>
      <script src="cards.js" defer></script>
      <script src="review.js" defer></script>
-+    <script src="clouds.js" defer></script>
++    <script src="mapart.js" defer></script>
      <script src="app.js" defer></script>
    </body>
  </html>

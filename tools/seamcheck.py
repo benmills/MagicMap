@@ -30,7 +30,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from gen_clouds import KINDS, components, grow, places
+from mmtools.mapgrid import KINDS, components, grow, places
 from gen_fill import Ground
 from gen_seams import PX, STEP, agreement, lines, mosaic, runs
 from mmtools.log import log
@@ -65,7 +65,7 @@ def lay(img: np.ndarray, layer: dict) -> np.ndarray:
     """A layer over a mosaic, as gen_seams.mosaic() lays the fill; returns the chunks it shows on."""
     n = 16 * PX
     shown = np.zeros(img.shape[:2], bool)
-    if layer.get("deep"):  # past the sea's picture: its colour, over everything (demo/clouds.js, ui/Sea.lua)
+    if layer.get("deep"):  # past the sea's picture: its colour, over everything (demo/mapart.js, ui/Sea.lua)
         past = np.ones(img.shape[:2], bool)
         for e in layer["pics"]:
             past[int(round(e["row"] * n)):int(round((e["row"] + e["h"]) * n)), int(round(e["col"] * n)):int(round((e["col"] + e["w"]) * n))] = False

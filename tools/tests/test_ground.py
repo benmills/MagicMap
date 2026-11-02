@@ -3,7 +3,7 @@ Tiles.lua, You.lua) on the simulated client. Borders: a zone border's segment is
 from zoom 60, then it) and a subzone's 1 (from zoom 140); a dead end at most 4 dashes; never more
 than 3000 Lines, the whole of the Eastern Kingdoms at zoom 4 included. Labels: zones in capitals,
 10 pt, up to zoom 450; subzones 9 pt, by size from 120, 220 and 400; none touching another; a name
-new to the view fades in. Tiles: an open-sea tile isn't drawn (the backdrop shows). Clouds: over the filler
+new to the view fades in. Tiles: an open-sea tile isn't drawn (the backdrop shows). Map art: over the filler
 east of Loch Modan, over the borders; none in Elwynn; a pan there from none lays them out.
 You: the arrow, on your map only.
 
@@ -191,23 +191,12 @@ def test_open_sea():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
-def test_clouds():
-    """ui/Clouds.lua: the game's puff (Data/Clouds.lua's file) over the filler east of Loch Modan, laid out with
-    the tiles on their canvas, over the borders; none in Elwynn Forest."""
+def test_map_art():
+    """The rebuilt ground, the ocean and the softened seams, each on its switch, east of Loch Modan; a sea tile's water of ours."""
     L, sim, ns = shown()
     tiles, borders = layer(ns, "tiles"), layer(ns, "borders")
-    S, file = sim.state, ns.Atlas.Data.Clouds.puff.file
-
-    def drawn():
-        p = tiles.front.pools.cloud
-        return [p[i] for i in range(1, p.n + 1)] if p else []
-    ns.UI.Feel.Set("clouds.on", True)  # off by default
+    S = sim.state
     look(sim, ns, (40.2, 40.8), 200)
-    got = drawn()
-    assert got and all(S[t].texture == file for t in got)
-    veil = got[0].GetParent(got[0])
-    same = L.eval("rawequal")
-    assert same(veil.GetParent(veil), tiles.front) and veil.GetFrameLevel(veil) > borders.frame.GetFrameLevel(borders.frame)
     pieces = lambda: (lambda p: p.n if p else 0)(tiles.front.pools.fill)
     assert pieces(), "the rebuilt ground, on by default"
     fp = tiles.front.fill
@@ -233,14 +222,7 @@ def test_clouds():
     look(sim, ns, (at[0] + .01, at[1]), 200)
     assert not laid()
     feel.Set("seams.on", True)
-    feel.Set("clouds.on", False)
-    look(sim, ns, (40.2, 40.8), 200)
-    assert not drawn() and pieces()
-    look(sim, ns, (32.5, 48.5), 200)
-    assert not drawn()
-    look(sim, ns, (30.5, 55.5), 200)  # the sea tile that left a block in the sea: water of ours, no cloud
-    q = ns.Atlas.Data.Clouds[0]
-    assert not any(abs(q[i] - 30.5) < 1 and abs(q[i + 1] - 55.5) < 1 for i in range(1, len(q) + 1, 4))
+    look(sim, ns, (30.5, 55.5), 200)  # the sea tile that left a block in the sea: water of ours
     p = tiles.front.pools.art
     assert any("Patch0_30_55" in str(S[p[i]].texture) for i in range(1, p.n + 1))
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

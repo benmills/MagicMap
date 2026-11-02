@@ -33,7 +33,7 @@ import tempfile
 import numpy as np
 from PIL import Image, ImageFilter
 
-from gen_clouds import blp_rgba, components, grow, places
+from mmtools.mapgrid import blp_rgba, components, grow, places
 from mmtools.formats import adt_chunks, adt_liquids, adt_modf, iter_chunks, wdt_maid
 from mmtools.log import log
 from mmtools.luaout import data_head, load_data

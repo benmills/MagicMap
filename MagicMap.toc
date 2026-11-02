@@ -16,7 +16,6 @@ runtime\Boot.lua
 Data\Tiles.lua
 Data\TileColor.lua
 Data\Base.lua
-Data\Clouds.lua
 Data\Patches.lua
 Data\Fill.lua
 Data\Seams.lua
@@ -127,7 +126,6 @@ ui\Track.lua
 ui\Controls.lua
 ui\Title.lua
 ui\BigMap.lua
-ui\Clouds.lua
 ui\Fill.lua
 ui\Sea.lua
 ui\Tiles.lua

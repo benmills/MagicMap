@@ -103,11 +103,3 @@ function Atlas.Base(inst)
 	return b and b[inst]
 end
 
--- A map's clouds (Data/Clouds.lua, tools/gen_clouds.py) and the puff they stamp; nil: none.
--- { col, row, width, turn, ... }: a cloud's centre, width (tiles), turn (0-3 quarter turns clockwise, +4 mirrored);
--- the puff: { file, w, h (its texture), l, r, t, b (the cloud's texels in it) }
-function Atlas.Clouds(inst)
-	local c = Data.Clouds
-	local list = c and c[inst]
-	if list and #list > 0 then return list, c.puff end
-end

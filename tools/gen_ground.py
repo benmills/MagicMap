@@ -36,7 +36,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 from flatmap import read
-from gen_clouds import blp_rgba, components, grow
+from mmtools.mapgrid import blp_rgba, components, grow
 from mmtools.casc import CascStore
 from mmtools.log import log
 from mmtools.sources import add_source_args, source_from_args

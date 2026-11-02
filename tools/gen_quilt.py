@@ -20,7 +20,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import maplint
 from flatmap import read
-from gen_clouds import components, grow, places
+from mmtools.mapgrid import components, grow, places
 from gen_fill import PIECE, Ground, bake, quilt, regions
 from mmtools.sources import add_source_args, source_from_args
 

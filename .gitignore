@@ -7,7 +7,8 @@ __pycache__/
 /.claude/
 /dist/*.zip
 /demo/review/
-/demo/clouds/
+/demo/patches/
+/demo/fullmap/
 demo/fill/
 demo/seams/
 demo/sea/
