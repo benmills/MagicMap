@@ -1,0 +1,16 @@
+[
+ {"name": "ek1a", "map": 0, "box": [38.3, 23.8, 43.8, 27.1], "recipe": "blend", "pick": 0, "context": 0.5, "reach": 0},
+ {"name": "ek1b", "map": 0, "box": [33.812, 23.75, 38.7, 27.188], "recipe": "blend", "pick": null, "over": "ek1a"},
+ {"name": "ek2", "map": 0, "box": [38.7, 39.6, 41.2, 42.6], "recipe": "blend", "pick": 0, "reach": 0},
+ {"name": "ek2b", "map": 0, "box": [38.625, 42.4, 41.188, 44.125], "recipe": "blend", "pick": null, "over": "ek2"},
+ {"name": "ek3", "map": 0, "box": [33.438, 54.875, 38.188, 57.125], "recipe": "blend", "pick": null},
+ {"name": "ek4", "map": 0, "box": [37.938, 33.312, 40.125, 36.312], "recipe": "blend", "pick": null},
+ {"name": "ek5", "map": 0, "box": [40.312, 29.375, 42.438, 30.688], "recipe": "blend", "pick": null},
+ {"name": "ek6", "map": 0, "box": [35.938, 43.312, 38.062, 44.25], "recipe": "blend", "pick": null},
+ {"name": "ek7", "map": 0, "box": [31.688, 59.625, 33.312, 60.5], "recipe": "sea", "pick": null},
+ {"name": "kal1", "map": 1, "box": [30, 40.8, 33.6, 43.7], "add": ["30.6,42.3,32,42.5"], "keep": ["33.28,42.27,.2", "33.15,43.06,.12", "32.3,42.12,.25", "32.5,42.63,.27"], "recipe": "blend", "pick": 4, "reach": 0},
+ {"name": "kal2", "map": 1, "box": [33.062, 37.812, 35.125, 39.875], "recipe": "blend", "pick": null},
+ {"name": "kal3", "map": 1, "box": [33.875, 29.125, 35.625, 30.375], "recipe": "blend", "pick": null},
+ {"name": "kal4", "map": 1, "box": [35.375, 42.625, 36.062, 43.25], "recipe": "blend", "pick": null},
+ {"name": "kal5", "map": 1, "box": [32.062, 38.75, 32.625, 39.312], "recipe": "blend", "pick": null}
+]

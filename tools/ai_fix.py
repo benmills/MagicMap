@@ -86,11 +86,15 @@ REFINE = ("The masked area has been painted in as a draft, and is too soft and t
           "composition exactly: every patch of ground, rock and earth stays where it is, the same shape and colour. Change only its finish: repaint "
           "it at the very same fine scale and sharp, crisp, slightly dithered pixel detail as the original terrain around it, with the same "
           "hard small shadows. Add no new features.")
+SEA = ("This is shallow coastal sea seen from above. There are straight, stepped joins in the water, where one square of water meets another. "
+       "{where} Change only those parts: paint soft, continuous water that fades smoothly from the shallows into the deep, with no straight line, "
+       "step or join. Keep the islands, sandbars and boats exactly as they are; add no new land, rocks or boats.")
 PROMPTS = {"full": [DESCRIBE, CHANGE, PRESERVE, EXCLUDE, INTEGRATE],
            "ground": [DESCRIBE, CHANGE, KEEP_GROUND, PRESERVE, EXCLUDE, INTEGRATE],
            "grow": [DESCRIBE, CHANGE, GROW_IN, PRESERVE, EXCLUDE, INTEGRATE],
            "blend": [DESCRIBE, CHANGE, BLEND, PRESERVE, EXCLUDE, INTEGRATE],
            "refine": [DESCRIBE, REFINE, PRESERVE, EXCLUDE],
+           "sea": [SEA, PRESERVE],
            "plain": [PLAIN]}
 S, F = "gpt-image-2.5-sunburst", "gpt-image-2.5-flare"
 RECIPES = {  # what we're comparing: model; how we point at the broken ground; references; the prompt
@@ -113,6 +117,7 @@ RECIPES = {  # what we're comparing: model; how we point at the broken ground; r
     "blend-wide": dict(model=S, point="mask", refs="wide", prompt="blend"),
     "blend-sheet": dict(model=S, point="mask", refs="sheet", prompt="blend"),
     "refine": dict(model=S, point="mask", refs="none", prompt="refine"),
+    "sea": dict(model=S, point="mask", refs="none", prompt="sea"),
     "grow-near": dict(model=S, point="mask", refs="near", prompt="grow"),
 }
 REFS_SAID = {
@@ -174,21 +179,29 @@ def edge_alpha(edit: np.ndarray, seed: int = 1) -> np.ndarray:
     return a
 
 
+def matched(window: np.ndarray, picture: np.ndarray, edit: np.ndarray) -> np.ndarray:
+    """The model's colours pulled to the real ones round the hole, a slow correction: its own detail stays."""
+    good = ~edit
+    a0, p0 = window.astype(np.float32), picture.astype(np.float32)
+    w = good.astype(np.float32)
+    weight = smooth(w, CHUNK * 3)
+    out = np.empty_like(p0)
+    for c in range(3):
+        shift = smooth((a0[..., c] - p0[..., c]) * w, CHUNK * 3) / np.maximum(weight, 1e-3)
+        shift[weight < 1e-3] = float((a0[..., c] - p0[..., c])[good].mean()) if good.any() else 0.
+        out[..., c] = p0[..., c] + np.clip(shift, -60, 60)
+    return np.clip(out + .5, 0, 255).astype(np.uint8)
+
+
 def put_back(window: np.ndarray, picture: np.ndarray, edit: np.ndarray, seed: int = 1) -> tuple[np.ndarray, dict]:
     """The model's picture (window's size) into the window through the broken ground; its scores."""
     good = ~edit
     a0, p0 = window.astype(np.float32), picture.astype(np.float32)
     ring = grow_px(edit, CHUNK * 2) & good  # what the hole is judged against
     drift = float(np.abs(a0[good] - p0[good]).mean()) if good.any() else 0.
-    w = good.astype(np.float32)
-    weight = smooth(w, CHUNK * 3)
-    fixed_colour = np.empty_like(p0)
-    for c in range(3):  # its colours pulled to the real ones round the hole, a slow correction: its own detail stays
-        shift = smooth((a0[..., c] - p0[..., c]) * w, CHUNK * 3) / np.maximum(weight, 1e-3)
-        shift[weight < 1e-3] = float((a0[..., c] - p0[..., c])[good].mean()) if good.any() else 0.
-        fixed_colour[..., c] = p0[..., c] + np.clip(shift, -60, 60)
     alpha = edge_alpha(edit, seed)[..., None]
-    out = np.where(alpha > 0, a0 * (1 - alpha) + np.clip(fixed_colour, 0, 255) * alpha + .5, a0).astype(np.uint8)
+    fixed_colour = matched(window, picture, edit).astype(np.float32)
+    out = np.where(alpha > 0, a0 * (1 - alpha) + fixed_colour * alpha + .5, a0).astype(np.uint8)
     out[good] = window[good]
     return out, {"drift": round(drift, 1), **judge(out, edit, alpha[..., 0], ring)}
 
@@ -207,6 +220,12 @@ def judge(img: np.ndarray, edit: np.ndarray, alpha: np.ndarray, ring: np.ndarray
     inside = (alpha >= .98)
     return {"edge": round(float(grad[band].mean()) / max(base, 1e-3), 2) if band.any() else None,
             "detail": round(float(grad[inside].mean()) / max(base, 1e-3), 2) if inside.any() else None}
+
+
+def patch_rgba(window: np.ndarray, picture: np.ndarray, edit: np.ndarray, seed: int = 1) -> np.ndarray:
+    """What goes on the map: the model's picture, its colours pulled to the ground's, through the soft edge."""
+    a = (edge_alpha(edit, seed) * 255 + .5).astype(np.uint8)
+    return np.dstack((matched(window, picture, edit), a))
 
 
 def key() -> str | None:
@@ -302,7 +321,7 @@ def prompt_of(recipe: dict, extra: str) -> str:
     where = {"mask": "They are the masked (transparent) area of the first image.",
              "markup": "They are the areas outlined in bright magenta on the first image; the outline itself must not appear in the result.",
              "words": "Look for them: they are obvious against the finished terrain."}[recipe["point"]]
-    parts = [p.format(where=where) if p is CHANGE else p for p in PROMPTS[recipe["prompt"]]]
+    parts = [p.format(where=where) if p in (CHANGE, SEA) else p for p in PROMPTS[recipe["prompt"]]]
     if recipe["refs"] != "none":
         parts.append("Image 1 is the picture to edit. " + REFS_SAID[recipe["refs"]] + "Return only the edit of image 1, at its framing.")
     if extra:
@@ -379,6 +398,8 @@ def main() -> None:
     ap.add_argument("--whole-box", action="store_true", help="repaint the whole box, not the review's broken ground in it")
     ap.add_argument("--add", action="append", default=[], help="col0,row0,col1,row1: more to repaint, by hand; can repeat")
     ap.add_argument("--keep", action="append", default=[], help="col,row,radius (tiles): a real feature the repaint mustn't touch; can repeat")
+    ap.add_argument("--reach", type=int, default=48, help="chunks flat ground may run from the review's to count (0: any in the box)")
+    ap.add_argument("--over", action="append", default=[], help="<name>:<recipe_i>: a repaint this one continues from, in the picture sent; can repeat")
     ap.add_argument("--review-only", action="store_true", help="only the review's broken ground, not the flat ground found in the box too")
     ap.add_argument("--grow", type=int, default=1, help="chunks the repaint reaches past the broken ground (default 1)")
     ap.add_argument("--context", type=float, default=.75, help="tiles of good ground round the box (default .75)")
@@ -423,6 +444,11 @@ def main() -> None:
         c0, r0, c1, r1 = win
         found = np.zeros_like(grid)
         found[r0:r1, c0:c1] = flat_chunks(compose(tile, tiles, sea, win)[0])
+        if ns.reach:  # only what connects to the review's: a lake's calm shore doesn't
+            seed = grid.copy()
+            for _ in range(ns.reach):
+                seed |= grow(seed, 1) & found
+            found = seed
         grid[bc[1]:bc[3], bc[0]:bc[2]] |= found[bc[1]:bc[3], bc[0]:bc[2]]
     for rect in ns.add:
         a0, b0, a1, b1 = (int(round(float(v) * 16)) for v in rect.split(","))
@@ -436,6 +462,13 @@ def main() -> None:
 
     window, _ = compose(tile, tiles, sea, win)
     c0, r0, c1, r1 = win
+    for o in ns.over:  # (a big place is painted in overlapping steps: what's done is ground to continue)
+        d, n = o.split(":")
+        base = os.path.join(ROOT, "demo", "aifix", d)
+        w0 = json.load(open(os.path.join(base, "results.json")))["_window"]
+        canvas = Image.fromarray(window)
+        canvas.paste(Image.open(os.path.join(base, n + ".fixed.png")).convert("RGB"), (int(round((w0[0] * 16 - c0) * CHUNK)), int(round((w0[1] * 16 - r0) * CHUNK))))
+        window = np.asarray(canvas).copy()
     edit = edit_grid[r0:r1, c0:c1].repeat(CHUNK, 0).repeat(CHUNK, 1)
     H, W = window.shape[:2]
     yy, xx = np.mgrid[0:H, 0:W]
@@ -475,6 +508,10 @@ def main() -> None:
         prepared[r] = (recipe, prompt, sent)
         if ns.dry_run:
             print(f"  {r}: {recipe['model']} {ns.quality}, n={ns.n}, {len(sent['images'])} image(s), {sum(map(len, sent['images'])) / 1e6:.1f} MB: would call")
+
+    # (pictures from another window would be stretched onto this one)
+    if not ns.dry_run and not ns.force and results.get("_window") not in (None, [c0 / 16, r0 / 16, c1 / 16, r1 / 16]):
+        raise SystemExit(f"{out} was painted for another window: --force, or another --name")
 
     def have(r):
         return [i for i in range(10) if os.path.exists(os.path.join(out, f"{r}_{i}.raw.png"))]

@@ -33,7 +33,7 @@ from mmtools.sources import add_source_args, source_from_args
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAPS = {0: "Eastern Kingdoms", 1: "Kalimdor"}
-LAYERS = ("sea", "quilt", "fill", "seams", "bounds")
+LAYERS = ("sea", "ai")
 PX = 128     # px a tile (the game's are 512)
 MARGIN = 1   # tiles of backdrop round the map
 

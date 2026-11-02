@@ -9,16 +9,17 @@ const MapArt = (() => {
     return pics[url].complete && pics[url].naturalWidth ? pics[url] : null;
   };
   let fill = null, seams = null, sea = null;
-  const under = { ground: null, relief: null, quilt: null }, over = { bounds: null }; // the flat ground's texture and shading (tools/gen_ground.py, gen_relief.py), under the rebuilt ground
+  const under = { ground: null, relief: null, quilt: null }, over = { bounds: null, ai: null }; // the flat ground's texture and shading (tools/gen_ground.py, gen_relief.py), under the rebuilt ground
   fetch("sea/sea.json").then((r) => (r.ok ? r.json() : null)).then((d) => { sea = d; if (again) again(); }).catch(() => {});
   for (const k of Object.keys(under)) fetch(`${k}/${k}.json`, { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).then((d) => { under[k] = d; if (d) buttons(); if (again) again(); }).catch(() => {});
   fetch("bounds/bounds.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).then((d) => { over.bounds = d; if (d) buttons(); if (again) again(); }).catch(() => {});
+  fetch("ai/ai.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).then((d) => { over.ai = d; if (d) buttons(); if (again) again(); }).catch(() => {});
   fetch("seams/seams.json").then((r) => (r.ok ? r.json() : null)).then((d) => { seams = d; if (again) again(); }).catch(() => {});
   fetch("fill/fill.json").then((r) => (r.ok ? r.json() : null)).then((d) => { fill = d; if (again) again(); }).catch(() => {});
 
   // The switches, as the addon's Feel "sea.on", "fill.on", "seams.on": in the Map sheet, kept for this viewer.
-  const read = (k, dflt) => { try { const v = localStorage.getItem(`mm.${k}`); return v ? v === "on" : dflt; } catch { return dflt; } };
-  const on = { sea: read("sea", true), fill: read("fill", true), ground: read("ground", false), relief: read("relief", false), quilt: read("quilt", true), bounds: read("bounds", true), seams: read("seams", true) };
+  const read = (k, dflt) => { try { const v = localStorage.getItem(`mm2.${k}`); return v ? v === "on" : dflt; } catch { return dflt; } };
+  const on = { sea: read("sea", true), fill: read("fill", false), ai: read("ai", true), ground: read("ground", false), relief: read("relief", false), quilt: read("quilt", false), bounds: read("bounds", false), seams: read("seams", false) };
   const panel = document.createElement("div");
   panel.id = "mapArt";
   panel.style.cssText = "margin-top:10px;padding-top:6px;border-top:1px solid #fff2";
@@ -32,7 +33,7 @@ const MapArt = (() => {
     const show = () => { b.textContent = `${label}: ${on[key] ? "on" : "off"}`; b.setAttribute("aria-pressed", on[key]); };
     b.onclick = () => {
       on[key] = !on[key];
-      try { localStorage.setItem(`mm.${key}`, on[key] ? "on" : "off"); } catch {}
+      try { localStorage.setItem(`mm2.${key}`, on[key] ? "on" : "off"); } catch {}
       show();
       if (again) again();
     };
@@ -41,6 +42,7 @@ const MapArt = (() => {
     return b;
   };
   const buttons = () => { // (a layer's switch once it's there)
+    if (over.ai && !shown.ai) { shown.ai = true; slot.before(button("ai", "AI repaint")); }
     if (under.quilt && !shown.quilt) { shown.quilt = true; slot.before(button("quilt", "Tile texture")); }
     if (under.ground && !shown.ground) { shown.ground = true; slot.before(button("ground", "Game textures")); }
     if (under.relief && !shown.relief) { shown.relief = true; slot.before(button("relief", "Relief")); }
@@ -81,6 +83,10 @@ const MapArt = (() => {
     }
     if (on.seams) for (const f of (seams && seams[inst]) || []) {
       const p = pic(`seams/${f.file}`), [x, y] = toScreen(f.col, f.row);
+      if (p) g.drawImage(p, x, y, f.w * zoom, f.h * zoom);
+    }
+    if (on.ai) for (const f of (over.ai && over.ai[inst]) || []) {
+      const p = pic(`ai/${f.file}`), [x, y] = toScreen(f.col, f.row);
       if (p) g.drawImage(p, x, y, f.w * zoom, f.h * zoom);
     }
     if (on.bounds) for (const f of (over.bounds && over.bounds[inst]) || []) {
