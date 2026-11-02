@@ -34,7 +34,7 @@ from mmtools.sources import add_source_args, source_from_args
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAPS = {0: "Eastern Kingdoms", 1: "Kalimdor"}
 LAYERS = ("sea", "quilt", "fill", "seams", "bounds")
-PX = 128     # px a tile (the game's are 256)
+PX = 128     # px a tile (the game's are 512)
 MARGIN = 1   # tiles of backdrop round the map
 
 
@@ -97,7 +97,7 @@ def raw(tile, tiles: dict, box: tuple, px: int) -> np.ndarray:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     add_source_args(ap)
-    ap.add_argument("--px", type=int, default=PX, help=f"px a tile (default {PX}; the game's are 256)")
+    ap.add_argument("--px", type=int, default=PX, help=f"px a tile (default {PX}; the game's are 512)")
     ap.add_argument("--layers", default=",".join(LAYERS), help="the fixed picture's layers, in draw order")
     ap.add_argument("--maps", default=",".join(map(str, MAPS)), help="instances")
     ap.add_argument("-o", "--out", default=os.path.join(ROOT, "demo", "fullmap"))
