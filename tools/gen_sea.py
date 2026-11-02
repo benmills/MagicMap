@@ -125,8 +125,8 @@ def ocean(g: Ground, tiles: dict, sea: dict) -> tuple:
     rgb = (SHALLOW * (1 - a1) + MID * a1) * (1 - a2) + DEEP * a2
     rgb = rgb * (1 + ((swell - .5) * .5 * smooth(0, 2, edge))[..., None])
     # seen through by the land and where Blizzard's water has colour
-    colour = smooth(26, 64, art.max(-1))
-    near = smooth(.02, .3, tiles_off + (drift - .5) * .15)
+    colour = smooth(34, 72, art.max(-1))
+    near = smooth(.02, .2, tiles_off + (drift - .5) * .15)
     far = smooth(.3, 1.4, tiles_off)
     alpha = near * (1 - colour * (1 - far)) * seen
     return (c0, r0, c1, r1), np.dstack([rgb, alpha * 255]).clip(0, 255).astype(np.uint8)

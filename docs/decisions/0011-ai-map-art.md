@@ -12,7 +12,7 @@ our own that hold none of Blizzard's pixels. Fixing the art within that rule was
 
 ## Decision
 
-**1. Repaint the broken ground with OpenAI's image edits, and ship the result.** 14 places, 32.9 tiles' worth of
+**1. Repaint the broken ground with OpenAI's image edits, and ship the result.** 13 places, 32.9 tiles' worth of
 ground (tools/ai_regions.json). This changes the art rule: the addon now ships pictures derived from Blizzard's
 tiles, `Textures/Repaint*.blp` with `Data/Repaint.lua`, drawn by ui/Repaint.lua on the tiles' canvas.
 

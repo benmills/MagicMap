@@ -50,7 +50,7 @@ from the terrain; your arrow, with a denser shadow. Under the tiles, a one-pictu
 (Eastern Kingdoms, Kalimdor: zone colours, a crisp coast) shows through wherever the tiles aren't
 there yet, so a fast zoom out or a flick never shows bare backdrop. It's never switched over to:
 the tiles are the map at every zoom. **Map art repairs** (Settings > Map > Repair broken map art, on):
-14 places where Blizzard's art is broken, flat unfinished blocks and straight joins in shallow water, are
+13 places where Blizzard's art is broken, flat unfinished blocks and straight joins in shallow water, are
 patched with repaints made with AI image generation from the art round them. Everything else in the tiles
 stays the game's own. Off, or on a game build they weren't made for, you see Blizzard's map as it is
 ([NOTICE.md](../NOTICE.md), [ADR 0011](decisions/0011-ai-map-art.md)).

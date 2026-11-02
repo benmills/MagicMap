@@ -24,7 +24,7 @@ import subprocess
 import sys
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -77,9 +77,12 @@ def patch(r: dict) -> tuple[np.ndarray, list]:
     """A place's picture as it goes on the map (RGBA, the window's size), and its window (results.json's: tiles)."""
     d = os.path.join(ROOT, "demo", "aifix", r["name"])
     window = np.asarray(Image.open(os.path.join(d, "window.png")).convert("RGB"))
-    edit = np.asarray(Image.open(os.path.join(d, "broken.png")).convert("L")) > 127
+    edit = Image.open(os.path.join(d, "broken.png")).convert("L")
     picture = Image.open(os.path.join(d, f"{r['recipe']}_{r['pick']}.raw.png")).convert("RGB").resize(window.shape[1::-1], Image.LANCZOS)
-    return af.patch_rgba(window, np.asarray(picture), edit, seed=r["pick"] + 1), json.load(open(os.path.join(d, "results.json")))["_window"]
+    w0 = json.load(open(os.path.join(d, "results.json")))["_window"]
+    for poly in r.get("leave", ()):  # (col, row)s: ground that's fine as the game has it, though the candidate painted it
+        ImageDraw.Draw(edit).polygon([((c - w0[0]) * af.TILE, (y - w0[1]) * af.TILE) for c, y in poly], fill=0)
+    return af.patch_rgba(window, np.asarray(picture), np.asarray(edit) > 127, seed=r["pick"] + 1), w0
 
 
 def bake() -> None:
