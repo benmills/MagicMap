@@ -183,6 +183,7 @@ async function loadWorld(camera) {
   clearTimeout(hoverTimer);
   clearTimeout(findTimer);
   const visible = visibleMapRect();
+  if (camera && ![camera.cx, camera.cy, camera.zoom].every(Number.isFinite)) camera = null;
   state.camera = camera || centerFit(viewState.fitBounds(
     m.bounds, visible.right - visible.left, visible.bottom - visible.top, 0.82,
   ), visible, "2d");
@@ -216,7 +217,7 @@ async function loadWorld(camera) {
   assets = got;
   // Start drawing terrain as soon as its index arrives; labels can follow. A remembered 3D waits
   // for a view near enough for it (a link's 3D view always is).
-  if (state.desiredMode === "3d" && state.camera.zoom < MIN_3D_ZOOM) state.desiredMode = "2d";
+  if (state.desiredMode === "3d" && !(state.camera.zoom >= MIN_3D_ZOOM)) state.desiredMode = "2d"; // (NaN too)
   if (state.desiredMode === "3d") await setMode("3d", { remember: false });
   const outcomes = await metadata;
   if (epoch !== requests.epoch) return;
@@ -488,6 +489,12 @@ addEventListener(
     });
   addEventListener("resize", resize);
   resize();
+  // The page can start before its canvas has a size (a background tab, a pane not laid out yet): a camera worked
+  // out then is NaN. Wait for one (polled: a hidden page gets no animation frames).
+  for (let i = 0; !(W > 0 && H > 0) && i < 600; i++) {
+    await new Promise((r) => setTimeout(r, 50));
+    resize();
+  }
   await restoreView();
   // The map review: tools/maplint.py's issues, marked on the server (review.js, review_api.py).
   Review.mount({ ctx: () => ctx, toScreen, zoom: () => state.camera.zoom, draw,
