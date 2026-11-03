@@ -10,7 +10,6 @@ D.Places = {
   flight = {
     [1] = { "Northshire Abbey", nil, 0, 32.001, 48.667, 9 },
     [2] = { "Stormwind, Elwynn", "A", 0, 31.103, 48.561, 1519 },
-    [3] = { "Programmer Isle", nil, 0, 1.36, 1.265 },
     [4] = { "Sentinel Hill, Westfall", "A", 0, 30.056, 51.929, 108 },
     [5] = { "Lakeshire, Redridge", "A", 0, 36.184, 49.68, 44 },
     [6] = { "Ironforge, Dun Morogh", "A", 0, 34.166, 41.041, 1 },

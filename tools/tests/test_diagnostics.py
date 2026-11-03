@@ -35,7 +35,7 @@ def test_commands():
     assert blips[1:] == [SAY + "  Mailbox +40.0E +20.0N"]
     tiles = said(s, "/mm tiles")
     assert len(tiles) == 1 and tiles[0].startswith(SAY + "tile set: " + PRODUCT + " " + BUILD + ". Maps: Eastern "
-                                                   "Kingdoms (736), Kalimdor (988), Shadowfang Keep (25),")
+                                                   "Kingdoms (736), Kalimdor (987), Shadowfang Keep (25),")
     assert said(s, "/mm landmarks") == [SAY + "0 rares remembered. Target one, or pass one the game shows, and it'll "
                                                "appear on the map."]
     s.lua("ns.Game.db.Model.rares[0] = { ['npc:61'] = { name = 'Thuros Lightfingers', col = 32, row = 49, t = 0 } }")

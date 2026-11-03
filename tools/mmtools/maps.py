@@ -13,6 +13,11 @@ AZEROTH_WDT = 775971
 
 KINDS = {0: None, 1: "dungeon", 2: "raid"}  # Map InstanceType -> kind
 
+# Blizzard's leftovers on the open-world maps, left out of the data: GM Island's tile (Kalimdor 1_1), whose ground
+# tools/gen_sea.py then takes for sea, and Programmer Isle's flight point (in the Eastern Kingdoms' empty corner).
+CRUFT_TILES = {1: {1 * 64 + 1}}  # [inst] = tile keys
+CRUFT_FLIGHTS = {3}              # TaxiNodes IDs
+
 
 @dataclass(frozen=True)
 class MapInfo:

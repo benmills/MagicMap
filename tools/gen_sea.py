@@ -4,9 +4,10 @@
 The minimap's open water has colour in its shallows and none further out, so there's nothing there to copy: this one is
 made, no pixel of anyone's art in it. Open water is what the terrain files say is under water or has no terrain (MCVT,
 MH2O), joined to the map's edge (lakes aren't). Its colour runs from SHALLOW by the land through MID to DEEP with the
-distance from the land, the line wandering (fractal noise), with a soft swell that dies out by the picture's edge. It lies
-over the tiles (ui/Sea.lua), seen through near the land and where Blizzard's water has colour (its alpha reads the art), so
-their coast and shallows stay theirs and their near-black goes. Past the picture: DEEP, the window's backdrop.
+distance from the land, the line wandering (fractal noise), with a soft swell that dies out by the picture's edge; right by
+the land it's SHORE, the dark green Blizzard's own maps use there. It lies over the tiles (ui/Sea.lua), seen through where
+Blizzard's water has colour (its alpha reads the art), so their coast and shallows stay theirs and their near-black goes.
+Past the picture: DEEP, the window's backdrop.
 
   python3 tools/gen_sea.py local "/Applications/World of Warcraft" wow_classic_beta --bake demo/sea
 """
@@ -31,7 +32,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PAD = 6            # tiles of sea round the land
 PX = 32            # px a tile the picture's worked out at (the demo's)
 SHIP = 16          # ...and shipped at
-SHALLOW, MID, DEEP = np.array([26, 74, 70.]), np.array([12, 48, 62.]), np.array([6, 26, 44.])
+SHORE, SHALLOW, MID, DEEP = np.array([23, 39, 22.]), np.array([26, 74, 70.]), np.array([12, 48, 62.]), np.array([6, 26, 44.])
 NAMES = {0: "EasternKingdoms", 1: "Kalimdor"}
 
 
@@ -121,12 +122,12 @@ def ocean(g: Ground, tiles: dict, sea: dict) -> tuple:
     edge = distance(np.pad(np.zeros((H - 2, W - 2), bool), 1, constant_values=True)) / PX
     drift, swell = fractal(1, H, W, .7), fractal(2, H, W, 2.5)
     t = np.clip(tiles_off + (drift - .5) * 1.4, 0, None)
-    a1, a2 = smooth(.1, 1.3, t)[..., None], smooth(1.0, 4.5, t)[..., None]
-    rgb = (SHALLOW * (1 - a1) + MID * a1) * (1 - a2) + DEEP * a2
+    a0, a1, a2 = smooth(0, .22, tiles_off + (drift - .5) * .12)[..., None], smooth(.1, 1.3, t)[..., None], smooth(1.0, 4.5, t)[..., None]
+    rgb = ((SHORE * (1 - a0) + SHALLOW * a0) * (1 - a1) + MID * a1) * (1 - a2) + DEEP * a2
     rgb = rgb * (1 + ((swell - .5) * .5 * smooth(0, 2, edge))[..., None])
-    # seen through by the land and where Blizzard's water has colour
+    # seen through where Blizzard's water has colour (their near-black by the land: SHORE over it)
     colour = smooth(34, 72, art.max(-1))
-    near = smooth(.02, .2, tiles_off + (drift - .5) * .15)
+    near = smooth(0, .05, tiles_off)
     far = smooth(.3, 1.4, tiles_off)
     alpha = near * (1 - colour * (1 - far)) * seen
     return (c0, r0, c1, r1), np.dstack([rgb, alpha * 255]).clip(0, 255).astype(np.uint8)

@@ -22,7 +22,7 @@ import sys
 from mmtools.formats import blp_edge_colors, wdt_maid
 from mmtools.log import log
 from mmtools.luaout import data_head, lua_str
-from mmtools.maps import MAP_DB2, MapInfo, read_maps
+from mmtools.maps import CRUFT_TILES, MAP_DB2, MapInfo, read_maps
 from mmtools.sources import Source, add_source_args, source_from_args
 
 CLASSIC_CONTINENTS = [
@@ -110,7 +110,7 @@ def main() -> None:
         wdt = src.read(m.wdt)
         if wdt is None or wdt[:4] != b"REVM":
             continue
-        tiles = {k: t.minimap for k, t in wdt_maid(wdt).items() if t.minimap}
+        tiles = {k: t.minimap for k, t in wdt_maid(wdt).items() if t.minimap and k not in CRUFT_TILES.get(m.inst, ())}
         if tiles:
             tiles_of[m.inst] = tiles
             samples[m.inst] = edge_samples(tiles)
