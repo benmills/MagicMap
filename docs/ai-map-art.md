@@ -2,18 +2,18 @@
 
 The broken parts of Blizzard's minimap art are repainted with OpenAI's image edits. Only the broken ground changes. This replaces every earlier art fix. The decision, its reasons and the alternatives: [ADR 0011](decisions/0011-ai-map-art.md).
 
-## Where it stands (2026-11-02)
+## Where it stands (2026-11-03)
 
 Done:
 
-- All 13 places are painted, picked and live in the web demo (Map -> Map art -> AI repaint): 32.9 tiles' worth of ground.
+- All 16 places are painted, picked and live in the web demo (Menu -> Map art -> AI repaint). ek8, ek9 and kal6 (2026-11-03) had their seams marked by hand (`add`): the broken-ground detector doesn't see hard seams.
 - `tools/ai_fix.py` makes candidates (cut to the recipes in use, `blend` and `sea`), `tools/ai_regions.json` holds the places and picks, `tools/ai_map.py` bakes them to `demo/ai/`.
 - `tools/gen_fullmap.py` draws each continent raw and fixed.
 - Removed: Relief, Tile texture, Game textures, Mute unreachable land, Rebuilt ground, Soften seams, and their tooling.
 - Decided: the repaints ship as a default-on setting with a disclosure, without waiting on legal review (step 2).
 - Written: the README's disclosure, `NOTICE.md`, ADR 0011, and the mentions in `docs/atlas-data.md`, `docs/structure.md` and `docs/features.md`.
 
-Built: **step 3, the addon layer**, full size (107 textures, 37.5 MB). Not yet seen in the real client: that test is what's left of step 3.
+Built: **step 3, the addon layer**, full size (123 textures, 43.1 MB), stamped for wowf 1.60.1.70707. Not yet seen in the real client: that test is what's left of step 3.
 
 The recipe the experiments settled on: the `blend` prompt, no reference images, full size, 0.75 tiles of context, 6 candidates at `high`, a person picks. References made results worse, a second refine pass doesn't hold the layout, and the scores can't pick a winner.
 
@@ -38,7 +38,7 @@ If a host or a rights holder objects: remove the pictures, or move them to a sep
 
 ### 3. Draw it in the addon (built; real-client test to do)
 
-1. Slice each patch on a 512 px grid, dropping empty cells: **107 textures**.
+1. Slice each patch on a 512 px grid, dropping empty cells: **123 textures**.
 2. Write them as BLP. DXT5, for the soft alpha, in `tools/mmtools/blp.py`.
 3. Generate `Data/Repaint.lua` and add its format to `atlas/Coords.lua` and `tools/mmtools/luaout.py`.
 4. Add `ui/Repaint.lua`, a layer on the tiles' canvas with a Feel switch, `repaint.on`, "Repair broken map art", on by default. It draws nothing on a game build the patches weren't made for. Start from the piece layout in the removed `ui/Fill.lua` (in git history), without its masks: these pictures carry their own alpha.
@@ -54,7 +54,7 @@ Each patch is painted for one set of tiles. The layer's build check keeps patche
 
 ### 5. Protect the source
 
-Candidates live in `demo/aifix/` (2 GB, gitignored) and can't be regenerated the same: a new run gives new pictures. Back up the raw picks, at least, before anything clears the folder. Once step 3 lands, the shipped textures are committed, which is the record of what's on the map.
+Candidates live in `demo/aifix/` (2 GB, gitignored) and can't be regenerated the same: a new run gives new pictures. The user backed it up on 2026-11-03. Once step 3 lands, the shipped textures are committed, which is the record of what's on the map.
 
 ### 6. Update the project
 
@@ -76,4 +76,4 @@ Left:
 
 ## Costs
 
-About $15 so far, experiments included. Repainting all 13 places again would be about $8.50. Each further place is about $0.40-0.90 for six candidates.
+About $17.50 so far, experiments included. Repainting all 16 places again would be about $10. Each further place is about $0.40-0.90 for six candidates.
