@@ -70,7 +70,7 @@ let labelClock = 0;
 // Canvas text silently uses a fallback until a web font has loaded, so the map waits for both.
 async function loadLabels() {
   const ticket = requests.ticket('labels');
-  const got = await get(`/api/labels?inst=${state.inst}`);
+  const got = await get("/api/labels");
   if (requests.current(ticket)) labels = got.labels;
   Promise.allSettled([`700 20px Cinzel`,`400 20px Marcellus`].map(f=>document.fonts.load(f))).then(draw);
 }

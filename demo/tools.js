@@ -66,7 +66,7 @@ function refreshWalk() {
         return;
       }
       const got = await get(
-        `/api/walk?inst=${state.inst}&c0=${q[0]}&r0=${q[1]}&c1=${q[2]}&r1=${q[3]}`,
+        `/api/walk?c0=${q[0]}&r0=${q[1]}&c1=${q[2]}&r1=${q[3]}`,
       );
       if (requests.current(ticket) && walkOn) {
         walk = got;
@@ -102,7 +102,7 @@ async function inspect(x, y, mark) {
       renderProfile();
     }
   }
-  const a = await get(`/api/at?inst=${state.inst}&col=${col}&row=${row}`);
+  const a = await get(`/api/at?col=${col}&row=${row}`);
   if (!requests.current(ticket)) return;
   const z = a.zone,
     ar = a.area,

@@ -1,6 +1,6 @@
-// The map's art layers in the hosted demo's 2D view, over the tiles: the sea tiles' water, the ocean, the AI repaints.
-// Baked by demo/export_patches.py, tools/gen_sea.py --bake and tools/ai_map.py bake; Blizzard's
-// art, so gitignored like demo/tiles. core.js calls MapArt.draw after the tiles (demo/hosted/mapart.patch).
+// The map's art layers in the 2D view, over the tiles, as the addon draws them: the patched sea tile's water (Data/Patches.lua),
+// the ocean (ui/Sea.lua), the AI repaints (ui/Repaint.lua). Baked by demo/export_patches.py, tools/gen_sea.py --bake and
+// tools/ai_map.py bake (README.md); Blizzard's art, so gitignored like demo/tiles. core.js calls MapArt.draw after the tiles.
 const MapArt = (() => {
   let patches = null, again = null;
   const pics = {}; // by file
@@ -55,11 +55,11 @@ const MapArt = (() => {
 
   fetch("patches/patches.json").then((r) => (r.ok ? r.json() : null)).then((d) => { patches = d; if (again) again(); }).catch(() => {});
 
-  // One map (server.py's OFFSET): each layer's pieces at their map's place. Past the oceans' pictures: their colour; Zephras Isle,
+  // Each layer's pieces at their map's place on the world (parts: /api/maps). Past the oceans' pictures: their colour; Zephras Isle,
   // which has no ocean of its own, lies over them, its near-black gone (sea/isle.webp, baked from its tiles).
-  const OFFSET = { 1: [0, 0], 2991: [27, 26], 0: [41, 0] }, ISLE = [52, 48, 9, 8];
-  function draw(g, toScreen, zoom, inst, redraw) {
+  function draw(g, toScreen, zoom, parts, redraw) {
     again = redraw;
+    const OFFSET = Object.fromEntries(parts.map((p) => [p.inst, p.offset])), isleBox = parts.find((p) => p.inst === 2991).bounds;
     for (const [i, [dx, dy]] of Object.entries(OFFSET)) for (const [col, row, png] of (patches && patches[i]) || []) {
       const p = pic(`patches/${png}`), [x, y] = toScreen(col + dx, row + dy);
       if (p) g.drawImage(p, x, y, zoom, zoom);
@@ -74,8 +74,8 @@ const MapArt = (() => {
       for (const o of oceans) g.rect(o.x0, o.y0, o.w, o.h);
       g.fillStyle = `rgb(${sea.deep.join(",")})`; g.fill("evenodd");
       for (const o of oceans) if (o.p) g.drawImage(o.p, o.x0, o.y0, o.w, o.h);
-      const isle = pic("sea/isle.webp"), [ix, iy] = toScreen(ISLE[0], ISLE[1]);
-      if (isle) g.drawImage(isle, ix, iy, ISLE[2] * zoom, ISLE[3] * zoom);
+      const isle = pic("sea/isle.webp"), [c0, r0, c1, r1] = isleBox, [ix, iy] = toScreen(c0, r0);
+      if (isle) g.drawImage(isle, ix, iy, (c1 - c0) * zoom, (r1 - r0) * zoom);
     }
     if (on.ai) for (const [i, [dx, dy]] of Object.entries(OFFSET)) for (const f of (over.ai && over.ai[i]) || []) {
       const p = pic(`ai/${f.file}`), [x, y] = toScreen(f.col + dx, f.row + dy);

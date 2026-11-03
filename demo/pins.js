@@ -271,7 +271,7 @@ function refreshPins() {
       }
       const [c0, r0, c1, r1] = view();
       const got = await get(
-        `/api/pins?inst=${state.inst}&c0=${c0}&r0=${r0}&c1=${c1}&r1=${r1}&zoom=${state.camera.zoom}&layers=${want.join(",")}&groups=1`,
+        `/api/pins?c0=${c0}&r0=${r0}&c1=${c1}&r1=${r1}&zoom=${state.camera.zoom}&layers=${want.join(",")}&groups=1`,
       );
       if (seq === pinSeq && requests.current(ticket)) {
         pins = Array.isArray(got) ? got : got.pins;

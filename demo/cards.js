@@ -189,9 +189,7 @@ q.addEventListener("keydown", (e) => {
 });
 async function pick(r) {
   closeSheets();
-  if (r.kind === "map") return switchMap(r.inst);
-  if (r.kind === "place") return navigatePlace(r.id, r.inst);
-  if (r.inst != null && r.inst !== state.inst) await switchMap(r.inst);
+  if (r.kind === "place") return navigatePlace(r.id);
   if (r.kind === "poi") {
     await openCard("poi", r.id, { data: r });
     return fitTo([r]);
@@ -328,17 +326,7 @@ async function showSources(refs, label, options = {}) {
       .map((r) => entity(r.kind, r.id)),
   );
   if (!requests.current(ticket)) return false;
-  let points = es.flatMap(spawnsOf);
-  if (!points.length && !options.restore) {
-    const other = es
-      .flatMap((e) => e.spawns)
-      .find((s) => s.points.length && maps.some((m) => m.inst === s.inst));
-    if (other) {
-      const ok = await switchMap(other.inst, { keepSelection: true });
-      if (!ok) return;
-      points = es.flatMap(spawnsOf);
-    }
-  }
+  const points = es.flatMap(spawnsOf);
   if (points.length) {
     setHighlight(`${label} · ${points.length} spawns`, points);
     if (!options.restore) await fitTo(points);
@@ -443,23 +431,6 @@ function spawnInfo(e) {
     ),
     other &&
       h("p", { className: "note" }, `${here ? "Also" : "Found"} ${other}.`),
-    e.spawns
-      .filter(
-        (s) => s.inst !== state.inst && maps.some((m) => m.inst === s.inst),
-      )
-      .map((s) =>
-        h(
-          "button",
-          {
-            className: "ref",
-            onclick: run(async () => {
-              await switchMap(s.inst, { keepSelection: true });
-              await showSources([e], e.name);
-            }),
-          },
-          `Go to ${s.map} · ${s.points.length} spawns`,
-        ),
-      ),
   ];
 }
 const RENDER = {
@@ -635,18 +606,6 @@ async function openCard(kind, id, opts = {}) {
   stack.push(d);
   renderCard();
   saveView();
-  if (opts.fly && ["npc", "object", "flight", "dungeon"].includes(kind)) {
-    const dest = d.spawns?.find((s) => s.points.length)?.inst ?? d.inst;
-    if (
-      dest != null &&
-      dest !== state.inst &&
-      !spawnsOf({ ...d, spawns: d.spawns || [] }).length &&
-      maps.some((m) => m.inst === dest)
-    ) {
-      const ok = await switchMap(dest, { keepSelection: true });
-      if (!ok || seq !== cardSeq) return;
-    }
-  }
   if (!opts.highlight) return;
   if (kind === "npc" || kind === "object") {
     const points = spawnsOf(d);

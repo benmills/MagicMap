@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-"""The combined map's pictures (see README.md): isle OUT, world OUT, feather SEA_DIR. Reads the tiles from the live demo."""
+"""The one map's pictures (README.md), from a running demo's tiles (MAGICMAP_DEMO, default the hosted one):
+
+  .venv/bin/python demo/bake_world.py isle demo/sea/isle.webp    # Zephras Isle over the ocean, its near-black gone
+  .venv/bin/python demo/bake_world.py world demo/sea/world.webp  # the whole map while its tiles load: again after OFFSET moves
+  .venv/bin/python demo/bake_world.py feather demo/sea           # the ocean pictures' edges into deep water: once after each gen_sea.py --bake
+"""
 import io, json, os, sys, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 from PIL import Image
 
-URL = "https://magic-map-outdoor.exe.xyz"
+URL = os.environ.get("MAGICMAP_DEMO", "https://magic-map-outdoor.exe.xyz").rstrip("/")
 
 
 def get(path):
@@ -19,13 +24,15 @@ def get(path):
 
 
 def isle(out):
-    P, c0, r0, w, h = 256, 25, 22, 9, 8
+    P = 256
+    c0, r0, c1, r1 = next(p for p in json.loads(get("/api/maps"))["parts"] if p["inst"] == 2991)["bounds"]  # (mapart.js draws it there)
+    w, h = c1 - c0, r1 - r0
     im = np.zeros((h * P, w * P, 4), np.uint8)
-    for t in json.loads(get("/api/tiles?inst=2991"))["tiles"]:
+    for t in json.loads(get("/api/tiles"))["tiles"]:
         c, r = t["key"] // 64, t["key"] % 64
-        if t["sea"] or not (c0 <= c < c0 + w and r0 <= r < r0 + h):
+        if t["inst"] != 2991 or t["sea"]:
             continue
-        a = np.asarray(Image.open(io.BytesIO(get(f"/tiles/2991/{t['key']}.webp"))).convert("RGB").resize((P, P), Image.LANCZOS))
+        a = np.asarray(Image.open(io.BytesIO(get(f"/tiles/2991/{t['src']}.webp"))).convert("RGB").resize((P, P), Image.LANCZOS))
         k = np.clip((a.max(-1).astype(float) - 26) / 38, 0, 1)
         k = k * k * (3 - 2 * k)
         im[(r - r0) * P:(r - r0 + 1) * P, (c - c0) * P:(c - c0 + 1) * P] = np.dstack([a, k * 255]).astype(np.uint8)
@@ -33,9 +40,10 @@ def isle(out):
 
 
 def world(out):
-    P, W, H = 24, 92, 64
+    P = 24  # px a tile; tiles.js draws it over [0, 0, the world's c1, r1]
+    _, _, W, H = json.loads(get("/api/maps"))["bounds"]
     im = Image.new("RGB", (W * P, H * P))
-    land = [t for t in json.loads(get("/api/tiles?inst=1"))["tiles"] if not t["sea"]]
+    land = [t for t in json.loads(get("/api/tiles"))["tiles"] if not t["sea"]]
     with ThreadPoolExecutor(4) as ex:
         for t, b in ex.map(lambda t: (t, get(f"/tiles/{t['inst']}/64/{t['src']}.webp")), land):
             if b:

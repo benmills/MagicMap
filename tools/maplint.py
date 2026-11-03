@@ -55,9 +55,9 @@ Issues file (schema 1):
   h, row by row as run lengths, off first (the runs alternate off, on, ...; what follows the last is
   off). Data issues have inst -1 and no place on the map.
 
-Web-demo links use the demos' hash, #map=<inst>&view=2d&x=<col>&y=<row>&z=<px per tile> (tile space), on
---demo (default http://localhost:8000/, demo/server.py, which draws Eastern Kingdoms only; the hosted addon
-demo reads the same hash for both continents).
+Web-demo links use the demo's hash, #map=<inst>&view=2d&x=<col>&y=<row>&z=<px per tile> (tile space), on
+--demo (default http://localhost:8000/, demo/server.py). The demo is one map now (demo/README.md): these links' x and y
+are the issue's own map's, so only Kalimdor's land where they should; the review panel's own links are right.
 """
 from __future__ import annotations
 

@@ -116,23 +116,19 @@ async function setMode(mode, { remember = true } = {}) {
   draw();
   settled();
 }
-async function navigatePlace(uiMapID, inst = state.inst) {
+async function navigatePlace(uiMapID) {
   stopMotion();
-  if (inst !== state.inst) await switchMap(inst);
   closeSheets();
   const r = visibleMapRect();
   const ticket = requests.ticket("fit"),
     got = await get(`/api/fit?uiMapID=${uiMapID}&w=${Math.max(100, r.right-r.left)}&h=${Math.max(100, r.bottom-r.top)}`);
   if (!requests.current(ticket)) return;
-  if (got.inst !== state.inst) await switchMap(got.inst);
   flyTo(centerFit(got.cam, r), 450);
   $("zone").value = String(uiMapID);
 }
-async function switchMap(inst, { camera = null, keepSelection = true } = {}) {
-  const m = maps.find((m) => m.inst === inst);
-  if (!m) throw Error(`Unknown map ${inst}`);
-  const previousSources = keepSelection ? [...state.sources] : [];
-  const selectionSeq = cardSeq;
+// The world's tiles, names and assets, afresh (a link's view restored: restoreView).
+async function loadWorld(camera) {
+  const m = world;
   stopMotion();
   requests.reset();
   const epoch = requests.epoch;
@@ -142,7 +138,6 @@ async function switchMap(inst, { camera = null, keepSelection = true } = {}) {
   clearTimeout(walkTimer);
   clearTimeout(hoverTimer);
   clearTimeout(findTimer);
-  state.inst = inst;
   const visible = visibleMapRect();
   state.camera = camera || centerFit(viewState.fitBounds(
     m.bounds, visible.right - visible.left, visible.bottom - visible.top, 0.82,
@@ -165,8 +160,6 @@ async function switchMap(inst, { camera = null, keepSelection = true } = {}) {
   bg = rgb(m.bg || [0.03, 0.06, 0.06]);
   $("zone").replaceChildren(new Option("Go to a zone…", ""));
   for (const z of m.zones) $("zone").add(new Option(z.name, z.uiMapID));
-  if (!keepSelection) closeCard();
-  else if (stack.length) renderCard();
   updateViewControls();
   draw();
   notice(`Loading ${m.name}…`);
@@ -174,10 +167,10 @@ async function switchMap(inst, { camera = null, keepSelection = true } = {}) {
     loadTiles(),
     loadLabels(),
   ]);
-  const got = await get(`/api/assets?inst=${inst}`);
+  const got = await get("/api/assets");
   if (epoch !== requests.epoch) return;
   assets = got;
-  // Start drawing terrain as soon as its index arrives; labels and borders can follow.
+  // Start drawing terrain as soon as its index arrives; labels can follow.
   if (state.desiredMode === "3d") await setMode("3d", { remember: false });
   const outcomes = await metadata;
   if (epoch !== requests.epoch) return;
@@ -185,9 +178,9 @@ async function switchMap(inst, { camera = null, keepSelection = true } = {}) {
   if (failed.length || state.desiredMode === "2d")
     notice(
       failed.length
-        ? "Some map data could not load. Try another map or reload."
+        ? "Some map data could not load. Reload to try again."
         : !assets.tiles.length
-          ? "Map images are not installed here. Names, borders, search and pins remain available."
+          ? "Map images are not installed here. Names, search and pins remain available."
           : "",
     );
   if (epoch !== requests.epoch) return;
@@ -201,17 +194,9 @@ async function switchMap(inst, { camera = null, keepSelection = true } = {}) {
     } catch (e) {
       notice(e.message);
     }
-  if (previousSources.length && cardSeq === selectionSeq) {
-    const restored = await showSources(previousSources, "Selected sources", {
-      restore: true,
-    });
-    if (epoch !== requests.epoch) return false;
-    if (restored) state.sources = previousSources;
-  }
   draw();
   settled();
   renderLayers();
-  return true;
 }
 function renderExtraLayers() {
   const box = $("baseLayers");
@@ -293,11 +278,10 @@ async function restoreView() {
   state.desiredMode = restored.mode;
   closeCard();
   state.sources = [];
-  const inst = maps[0].inst; // (one map; a link from before it opens here)
   const intro = restored.flyover && !restored.camera;
   let camera = restored.camera;
   if (!camera && (intro || !location.hash)) {
-    const bounds = maps.find((m) => m.inst === inst).bounds;
+    const bounds = world.bounds;
     camera = {
       cx: (bounds[0] + bounds[2]) / 2,
       cy: (bounds[1] + bounds[3]) / 2,
@@ -305,12 +289,12 @@ async function restoreView() {
     };
     if (!intro) camera = centerFit(camera, visibleMapRect(), "2d");
   }
-  await switchMap(inst, { camera });
+  await loadWorld(camera);
   if (restored.selection) {
     try {
       if (restored.selection.kind === "poi") {
         const found = await get(
-          `/api/pins?inst=${state.inst}&c0=0&r0=0&c1=128&r1=64&zoom=1024&layers=poi`,
+          `/api/pins?c0=0&r0=0&c1=128&r1=64&zoom=1024&layers=poi`,
         );
         const p = found.find((p) => p.id === restored.selection.id);
         if (p) await openCard("poi", p.id, { data: p });
@@ -325,7 +309,7 @@ async function restoreView() {
       const d = await entity("flight", state.selection.id);
       setHighlight(
         d.name,
-        d.destinations.filter((d) => d.inst === state.inst),
+        d.destinations,
         [d.col, d.row],
       );
     } else
@@ -448,7 +432,7 @@ addEventListener(
 );
 (async () => {
   await modulesReady;
-  maps = await get("/api/maps");
+  world = await get("/api/maps");
   // Pins have a drawn fallback; icon decoding must not gate the terrain.
   loadIcons()
     .then(draw)
@@ -460,12 +444,10 @@ addEventListener(
   resize();
   await restoreView();
   // The map review: tools/maplint.py's issues, marked on the server (review.js, review_api.py).
-  Review.mount({ ctx: () => ctx, toScreen, zoom: () => state.camera.zoom, inst: () => state.inst, draw,
+  Review.mount({ ctx: () => ctx, toScreen, zoom: () => state.camera.zoom, draw,
+    offset: (inst) => world.parts.find((p) => p.inst === inst)?.offset,
     sheet: $("reviewSheet"), button: $("reviewBtn"), onOpen: () => setSheet(null),
-    fly: run(async (i) => {
-      if (i.inst !== state.inst) await switchMap(i.inst);
-      return fitTo([{ col: i.bbox[0], row: i.bbox[1] }, { col: i.bbox[2], row: i.bbox[3] }]);
-    }) }).catch(fail);
+    fly: run((i) => fitTo([{ col: i.bbox[0], row: i.bbox[1] }, { col: i.bbox[2], row: i.bbox[3] }])) }).catch(fail);
   const observer = new ResizeObserver(placeSheets);
   observer.observe(ui);
   observer.observe(card);

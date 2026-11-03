@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """A web demo of the Atlas library on its own: Atlas runs in Lua (lupa) over
 its bundled data; this serves its answers as JSON, and index.html only draws
-them.
+them. One map: Kalimdor, the Eastern Kingdoms and Zephras Isle placed on a world
+(OFFSET); requests and replies speak its tile coordinates. See README.md.
 
   .venv/bin/python demo/server.py [port]      # then open http://localhost:8000
 
-  /api/maps                          Atlas.Maps, with Continent and Zones per inst
-  /api/tiles?inst=                   per tile: its key, whether it's open sea (not drawn)
-  /api/labels?inst=                  Atlas.Labels: ranked name anchors (continent, zone, town, subzone, poi)
-  /api/at?inst=&col=&row=            TileToWorld, ZoneAt, Walk.Cell at that chunk
-  /api/fit?uiMapID=&w=&h=            MapRect and Camera.Fit
-  /api/walk?inst=&c0=&r0=&c1=&r1=    Walk.Cell over a chunk range, one hex digit each
-  /api/pins?inst=&c0=&r0=&c1=&r1=&zoom=&layers=
+  /api/maps                          the world: its bounds, zones, and parts (each map's inst, offset, bounds)
+  /api/tiles                         per tile: its world key, its map's inst and key (src), whether it's open sea
+  /api/labels                        Atlas.Labels: ranked name anchors (continent, zone, town, subzone, poi)
+  /api/at?col=&row=                  TileToWorld, ZoneAt, Walk.Cell at that chunk
+  /api/fit?uiMapID=&w=&h=            MapRect and Camera.Fit (or c0=&r0=&c1=&r1=: a box)
+  /api/walk?c0=&r0=&c1=&r1=          Walk.Cell over a chunk range, one hex digit each
+  /api/pins?c0=&r0=&c1=&r1=&zoom=&layers=
                                      FlightPoints, POIs, Dungeons, SpawnsIn (by NPC flags, quests,
                                      rank, object kind) in a box; groups=1 returns compact groups and omitted count
   /api/npc|object|item|quest|flight|dungeon?id=
@@ -56,12 +57,17 @@ def py(v):
 
 
 WORLD, WORLD_NAME = 1, "Azeroth"
-OFFSET = {1: (0, 0), 2991: (27, 26), 0: (41, 0)}
-ISLE = (52, 48, 61, 56)  # Zephras Isle's world box
+# Each map's place on the world, in tiles (world = map + offset). The Eastern Kingdoms' is from Blizzard's own world map
+# (UiMap 947, Azeroth: UiMapAssignment places both continents on it at one scale): (+44.9..45.0, -9.3..-9.1) from
+# Kalimdor across the Eastern Kingdoms, rounded. Zephras Isle has no place there: ours, between them near the bottom.
+# Rows stay in 0..63, so a world tile's key still reads col * 64 + row. The page reads these from /api/maps.
+OFFSET = {1: (0, 0), 0: (45, -9), 2991: (28, 24)}
+BOUNDS = {i: tuple(v + OFFSET[i][k % 2] for k, v in enumerate(Atlas.TileBounds(i))) for i in OFFSET}  # world, c0 r0 c1 r1
 CITIES = {"Stormwind City": "Stormwind", "Stormwind": "Stormwind", "Ironforge": "Ironforge", "The Undercity": "Undercity",
           "Orgrimmar": "Orgrimmar", "Thunder Bluff": "Thunder Bluff", "Darnassus": "Darnassus"}
 CITIES_AS_TOWNS = {"Ironforge", "The Undercity"}
 CITY_SIZE = 1.5  # (a zone label's: the side of the area, in tiles)
+assert all(0 <= b[1] and b[3] <= 64 for b in BOUNDS.values())
 
 
 def to_world(inst, col, row):
@@ -70,11 +76,12 @@ def to_world(inst, col, row):
 
 
 def to_real(col, row):
-    """The real map under a world position, and the position on it."""
-    if ISLE[0] <= col <= ISLE[2] and ISLE[1] <= row <= ISLE[3]:
+    """The real map under a world position, and the position on it: the isle's box, else the nearer continent's."""
+    c0, r0, c1, r1 = BOUNDS[2991]
+    if c0 <= col < c1 and r0 <= row < r1:
         inst = 2991
     else:
-        inst = 1 if col < 56 else 0
+        inst = 1 if col < (BOUNDS[1][2] + BOUNDS[0][0]) / 2 else 0
     dx, dy = OFFSET[inst]
     return inst, col - dx, row - dy
 
@@ -94,31 +101,10 @@ def on_world(p):
 
 
 def real_maps():
-    out = []
-    for m in py(Atlas.Maps()):
-        inst = m["inst"]
-        keys = list(Atlas.Tiles(inst).keys())
-        cols, rows = [k // 64 for k in keys], [k % 64 for k in keys]
-        bounds = [min(cols), min(rows), max(cols) + 1, max(rows) + 1] if keys else [0, 0, 64, 64]
-        out.append(dict(m, bounds=bounds, uiMapID=Atlas.Continent(inst), zones=py(Atlas.Zones(inst)) or []))
-    return out
+    return [dict(m, uiMapID=Atlas.Continent(m["inst"]), zones=py(Atlas.Zones(m["inst"])) or []) for m in py(Atlas.Maps())]
 
 
-def real_tiles(q):
-    inst = int(q["inst"])
-    out = []
-    for key in Atlas.Tiles(inst).keys():
-        out.append({"key": key, "sea": not Atlas.Drawn(inst, key)})
-    return {"tiles": out}
-
-
-def real_labels(q):
-    # Atlas.Labels: { text, col, row, tier, rank, areaID?, poiID?, size? }, rank order
-    return {"labels": py(Atlas.Labels(int(q["inst"])))}
-
-
-def real_at(q):
-    inst, col, row = int(q["inst"]), float(q["col"]), float(q["row"])
+def real_at(inst, col, row):
     north, west = Atlas.TileToWorld(col, row)
     n = Atlas.Walk.CHUNKS
     gc, gr = int(col * n // 1), int(row * n // 1)
@@ -139,10 +125,11 @@ def fit(q):
     w, h = float(q["w"]), float(q["h"])
     if "uiMapID" in q:
         r = Atlas.MapRect(int(q["uiMapID"]))
+        if r.inst not in OFFSET:
+            raise ValueError("not on the world")
         cx, cy, zoom = Atlas.Camera.Fit(r.col0, r.row0, r.col1, r.row1, w, h, None, 16, 2048)
-        if r.inst in OFFSET:
-            cx, cy = to_world(r.inst, cx, cy)
-        return {"inst": WORLD if r.inst in OFFSET else r.inst, "rect": py(r), "cam": {"cx": cx, "cy": cy, "zoom": zoom}}
+        cx, cy = to_world(r.inst, cx, cy)
+        return {"cam": {"cx": cx, "cy": cy, "zoom": zoom}}
     # a box of spawns: at least 0.6 tiles (~320 yards) across, so one spawn isn't zoomed in on all the way
     c0, r0, c1, r1 = (float(q[k]) for k in ("c0", "r0", "c1", "r1"))
     cx, cy, zoom = Atlas.Camera.Fit(c0, r0, c1, r1, w, h, 0.8, 16, 1024, 0.6)
@@ -150,7 +137,7 @@ def fit(q):
 
 
 def walk(q):
-    _, c0, r0, c1, r1 = (int(q[k]) for k in ("inst", "c0", "r0", "c1", "r1"))
+    c0, r0, c1, r1 = (int(q[k]) for k in ("c0", "r0", "c1", "r1"))
     n = Atlas.Walk.CHUNKS
 
     def cell(gc, gr):  # (a world chunk: its map's)
@@ -253,9 +240,8 @@ def real_pins(q):
     # SpawnsIn's tile loop into an unbounded scan, including direct API calls.
     c0, r0, c1, r1 = max(0, c0), max(0, r0), min(64, c1), min(64, r1)
     out, omitted = [], 0
-    grouped = q.get("groups") == "1"
     if c1 < c0 or r1 < r0:
-        return {"pins": [], "omitted": 0} if grouped else []
+        return out, omitted
     inside = lambda p: c0 <= p["col"] <= c1 and r0 <= p["row"] <= r1  # noqa: E731
     for layer in layers:
         found = []
@@ -297,11 +283,7 @@ def real_pins(q):
             else:  # a POI's card is drawn from its pin
                 pin.update(name=p["name"], faction=p.get("faction"), description=p.get("description"), icon=p.get("icon"))
             out.append(pin)
-    if grouped:
-        # A modest zoom band keeps membership steady through small zoom changes.
-        group_zoom = 1.25 ** math.floor(math.log(zoom, 1.25) + 0.5)
-        return {"pins": group_pins(out, group_zoom), "omitted": omitted}
-    return out
+    return out, omitted
 
 
 def ref(kind, id):
@@ -370,7 +352,7 @@ def quest(q):
             "objectives": objectives, "triggerEnd": t and dict(where(t), text=t.text)}
 
 
-FLIGHTS = {p["id"]: on_world(dict(p, inst=m)) for m in MAP_NAMES for p in py(Atlas.FlightPoints(m))}
+FLIGHTS = {p["id"]: on_world(dict(p, inst=m)) for m in OFFSET for p in py(Atlas.FlightPoints(m))}
 
 
 def flight(q):
@@ -393,12 +375,14 @@ def find(q):
     if len(term) < 2:
         return out
     for m in real_maps():
+        if m["inst"] not in OFFSET:
+            continue
         if term in m["name"].casefold():
             out.append(dict(kind="place", id=m["uiMapID"], inst=WORLD, name=m["name"], detail="Map"))
         for z in m["zones"]:
             if term in z["name"].casefold():
                 out.append(dict(kind="place", id=z["uiMapID"], inst=WORLD, name=z["name"], detail=m["name"]))
-    for inst in MAP_NAMES:
+    for inst in OFFSET:
         for p in py(Atlas.POIs(inst)):
             if term in p["name"].casefold():
                 out.append(on_world(dict(p, kind="poi", inst=inst, detail=MAP_NAMES[inst])))
@@ -427,30 +411,25 @@ def assets(q):
     return out
 
 
-# The one map the demo shows: Kalimdor to the west, the Eastern Kingdoms to the east, Zephras Isle between them near the
-# bottom. World tile coordinates are a map's plus its offset; rows stay under 64, so a tile's key still reads col * 64 + row.
-# Requests and replies speak world coordinates: real_* are the Atlas's, one real map at a time.
+# The world the page shows (it reads the offsets from here); real_* are the Atlas's, one real map at a time.
 def maps(q):
     ms = {m["inst"]: m for m in real_maps()}
-    zones, bounds = [], []
-    for inst, (dx, dy) in OFFSET.items():
-        zones += ms[inst]["zones"]
-        b = ms[inst]["bounds"]
-        bounds.append([b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy])
-    zones.sort(key=lambda z: z["name"])
-    b = [min(x[0] for x in bounds), min(x[1] for x in bounds), max(x[2] for x in bounds), max(x[3] for x in bounds)]
-    return [dict(ms[WORLD], inst=WORLD, name=WORLD_NAME, bounds=b, zones=zones)]
+    zones = sorted((z for i in OFFSET for z in ms[i]["zones"]), key=lambda z: z["name"])
+    bounds = [min(b[0] for b in BOUNDS.values()), min(b[1] for b in BOUNDS.values()),
+              max(b[2] for b in BOUNDS.values()), max(b[3] for b in BOUNDS.values())]
+    parts = [{"inst": i, "name": ms[i]["name"], "offset": OFFSET[i], "bounds": BOUNDS[i]} for i in OFFSET]
+    return dict(ms[WORLD], inst=WORLD, name=WORLD_NAME, bounds=bounds, zones=zones, parts=parts)
 
 
 def tiles(q):
     return {"tiles": [{"key": world_key(i, t["key"]), "sea": t["sea"], "inst": i, "src": t["key"]}
-                      for i in OFFSET for t in real_tiles({"inst": i})["tiles"]]}
+                      for i in OFFSET for t in ({"key": k, "sea": not Atlas.Drawn(i, k)} for k in Atlas.Tiles(i).keys())]}
 
 
 def labels(q):
     out, cities = [], []
     for inst in OFFSET:
-        for l in real_labels({"inst": inst})["labels"]:
+        for l in py(Atlas.Labels(inst)):  # { text, col, row, tier, rank, areaID?, poiID?, size? }, rank order
             l["col"], l["row"] = to_world(inst, l["col"], l["row"])
             town = l["tier"] == "town"
             if l["text"] in CITIES:  # every capital named as a zone is, from afar: Ironforge and the Undercity are only towns
@@ -467,7 +446,7 @@ def labels(q):
 
 def at(q):
     inst, col, row = to_real(float(q["col"]), float(q["row"]))
-    return real_at({"inst": inst, "col": col, "row": row})
+    return real_at(inst, col, row)
 
 
 def pins(q):
@@ -475,13 +454,14 @@ def pins(q):
     out, omitted = [], 0
     grouped = q.get("groups") == "1"
     for inst, (dx, dy) in OFFSET.items():
-        local = dict(q, inst=inst, c0=c0 - dx, r0=r0 - dy, c1=c1 - dx, r1=r1 - dy)
-        local.pop("groups", None)
-        for p in real_pins(local):
+        found, n = real_pins(dict(q, inst=inst, c0=c0 - dx, r0=r0 - dy, c1=c1 - dx, r1=r1 - dy))
+        omitted += n
+        for p in found:
             p["col"], p["row"] = p["col"] + dx, p["row"] + dy
             p["key"] = f'{inst}:{p["key"]}'
             out.append(p)
     if grouped:
+        # A modest zoom band keeps membership steady through small zoom changes.
         zoom = float(q["zoom"])
         return {"pins": group_pins(out, 1.25 ** math.floor(math.log(zoom, 1.25) + 0.5)), "omitted": omitted}
     return out
@@ -553,8 +533,6 @@ class Handler(SimpleHTTPRequestHandler):
                 endpoint = API.get(u.path[5:])
                 if endpoint is None:
                     raise LookupError("Unknown endpoint")
-                if "inst" in q and int(q["inst"]) not in MAP_NAMES:
-                    raise ValueError("unknown map")
                 for k in ("col", "row", "zoom", "w", "h", "c0", "r0", "c1", "r1"):
                     if k in q and (not math.isfinite(float(q[k])) or abs(float(q[k])) > 1e6):
                         raise ValueError("invalid coordinate or dimension")

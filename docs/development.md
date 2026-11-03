@@ -45,10 +45,7 @@ places and which candidate was picked; `tools/ai_fix.py` makes candidates for on
 changes tiles under a place, repaint it or the setting's build check keeps the patches off. See
 [ai-map-art.md](ai-map-art.md).
 
-The demo's assets, after the above:
-
-    .venv/bin/python demo/export_tiles.py   # demo/tiles/<inst>: tile WebPs (--inst N, --all); after gen_tiles
-    .venv/bin/python tools/export_icons.py local "$W" wow_classic_beta   # demo/icons: the icons named in demo/index.html's GAME_ICON
+The demo's assets, after the above: [demo/README.md](../demo/README.md).
 
 ## Install and try it in game
 
@@ -167,9 +164,9 @@ its TODO); the check fails once one is gone, so the list only shrinks.
 
 ## Demo
 
-Atlas on its own in a browser: the server runs Atlas in Lua (lupa) over its bundled data and
-serves its answers as JSON; `demo/index.html` only draws them (Eastern Kingdoms: drag to pan, wheel to zoom, hover readout, zone fly-to,
-walk-grid overlay).
+Atlas on its own in a browser (the hosted one: https://magic-map-outdoor.exe.xyz): the server runs Atlas in Lua (lupa) over its
+bundled data and serves its answers as JSON; `demo/index.html` only draws them, Kalimdor, the Eastern Kingdoms and Zephras Isle
+as one map. Its assets, how they're baked and how it's deployed: [demo/README.md](../demo/README.md).
 
     .venv/bin/python demo/server.py        # http://localhost:8000 (optional port argument)
 

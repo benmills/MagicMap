@@ -28,7 +28,7 @@ let viewState,
   mapMotion,
   requests,
   terrain = null,
-  maps = [],
+  world = null, // /api/maps: the one map, its parts each map's place on it
   assets = null,
   modeSeq = 0,
   terrainLoading = false,
@@ -230,7 +230,7 @@ function frame() {
   }
   drawAnalysis();
   if (walk) drawWalk();
-  if (state.mode === "2d" && typeof MapArt === 'object') MapArt.draw(ctx, toScreen, state.camera.zoom, state.inst, draw); // over the borders (mapart.js)
+  if (state.mode === "2d" && typeof MapArt === "object") MapArt.draw(ctx, toScreen, state.camera.zoom, world.parts, draw); // (mapart.js)
   Review.drawOverlay();
   // Pins: where they'll be drawn first, so labels keep clear of them; quieter at continent zoom,
   // where names win; pins a name covers aren't drawn.

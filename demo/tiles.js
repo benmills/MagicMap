@@ -51,7 +51,7 @@ async function loadTileOverview() {
     image = await createImageBitmap(await response.blob());
     if (controller.signal.aborted || epoch !== requests.epoch || image.width * image.height > 4e6) return;
     tileOverview.image = image;
-    tileOverview.bounds = [0, 0, 92, 64]; // (the world's, at 24 px a tile: baked from its tiles)
+    tileOverview.bounds = [0, 0, world.bounds[2], world.bounds[3]]; // (at 24 px a tile: demo/bake_world.py world)
     image = null;
     draw();
   } catch (_) {
@@ -72,12 +72,12 @@ function evict() {
 
 // The wanted copy if baked, else any other of the tile's (sharper first) while it loads.
 function tileImage(t, size, previous = false) {
-  const id = `${state.inst}:${t.key}@${size}`, c = baked.get(id);
+  const id = `${t.key}@${size}`, c = baked.get(id);
   if (c && !previous) { baked.delete(id); baked.set(id, c); used.set(id, frameNo); return c; }
   for (const s of [...SIZES].reverse()) {
     if (s === size) continue;
-    const other = baked.get(`${state.inst}:${t.key}@${s}`);
-    if (other) { used.set(`${state.inst}:${t.key}@${s}`, frameNo); return other; }
+    const other = baked.get(`${t.key}@${s}`);
+    if (other) { used.set(`${t.key}@${s}`, frameNo); return other; }
   }
 }
 
@@ -97,7 +97,7 @@ function drawTiles() {
   vis.sort((a, b) => Math.hypot(a.col + .5 - state.camera.cx, a.row + .5 - state.camera.cy) - Math.hypot(b.col + .5 - state.camera.cx, b.row + .5 - state.camera.cy));
   const epoch = requests.epoch;
   const jobs = vis.flatMap((t, priority) => {
-    const id = `${state.inst}:${t.key}@${size}`;
+    const id = `${t.key}@${size}`;
     if (baked.has(id)) return [];
     const path = url(t, size);
     return [{ key: id, priority,
@@ -131,7 +131,7 @@ function drawTiles() {
     }
     const img = tileImage(t, size);
     if (img) {
-      const since = tileFade.get(`${state.inst}:${t.key}@${size}`);
+      const since = tileFade.get(`${t.key}@${size}`);
       const blend = tileReducedMotion.matches || since == null ? 1 : Math.min(1, (performance.now() - since) / 140);
       const previous = blend < 1 && tileImage(t, size, true);
       if (previous) ctx.drawImage(previous, ...rect);
@@ -147,7 +147,7 @@ function drawTiles() {
 async function loadTiles() {
   resetTileImages();
   const ticket = requests.ticket("tiles");
-  const t = await get(`/api/tiles?inst=${state.inst}`);
+  const t = await get("/api/tiles");
   if (!requests.current(ticket)) return;
   tiles = t.tiles.map((x) => ({ ...x, col: Math.floor(x.key / 64), row: x.key % 64 }));
 }

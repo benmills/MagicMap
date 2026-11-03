@@ -1,30 +1,29 @@
 // The map review (docs/hardening-plan.md M6): tools/maplint.py's issues on the map and in a list, each marked
 // accepted / rejected / later with a note, saved on the server (demo/review_api.py) for everyone reviewing;
 // tools/review.py reads the marks back.
-// Its own scope: a page mounts it with a host (the camera and the drawing it doesn't own), so this repo's
-// demo and the hosted one share it:
-//   Review.mount({ ctx, toScreen, zoom, inst, draw, fly(issue), sheet, button, onOpen? })
-//     ctx() the 2D context (CSS px), toScreen(col, row) -> [x, y], zoom() px per tile, inst() the map shown,
-//     fly(issue) shows an issue (its bbox, its map), sheet the panel to fill, button the toggle.
-//   Review.drawOverlay()  in the frame, over the tiles and borders;  Review.tap(col, row) -> true if it took it.
-const WORLD_OFFSET = { 1: [0, 0], 2991: [27, 26], 0: [41, 0] }; // (server.py's OFFSET)
-const onWorld = (i) => {
-  const o = WORLD_OFFSET[i.inst];
-  if (!o) return i;
-  return { ...i, inst: 1, centroid: i.centroid && [i.centroid[0] + o[0], i.centroid[1] + o[1]],
-    bbox: i.bbox && [i.bbox[0] + o[0], i.bbox[1] + o[1], i.bbox[2] + o[0], i.bbox[3] + o[1]],
-    mask: i.mask && { ...i.mask, x0: i.mask.x0 + o[0] * 16, y0: i.mask.y0 + o[1] * 16 } };
-};
+// Its own scope: the page mounts it with a host (the camera and the drawing it doesn't own):
+//   Review.mount({ ctx, toScreen, zoom, offset, draw, fly(issue), sheet, button, onOpen? })
+//     ctx() the 2D context (CSS px), toScreen(col, row) -> [x, y], zoom() px per tile, offset(inst) -> [dx, dy]
+//     its map's place on the world (none: not on it), fly(issue) shows an issue (its bbox), sheet the panel to fill, button the toggle.
+//   Review.drawOverlay()  in the frame, over the tiles;  Review.tap(col, row) -> true if it took it.
 const Review = (() => {
   const CHUNKS = 16;
   const STATUS = { open: "#ff3df0", accepted: "#5ad17a", rejected: "#8a8a8a", later: "#f2b84c" };
   const KEYS = { a: "accepted", r: "rejected", l: "later", o: null };
   const KIND = { "flat-land": "Flat land", "border-wrap": "Border wrap", "border-sliver": "Border sliver", "border-fragment": "Border fragment",
     "colour-block": "Colour block", "patch-edge": "Patch edge", seam: "Seam", "skipped-tile": "Skipped tile", "sea-edge": "Sea edge", data: "Data" };
-  const MAPS = { "-1": "data", 0: "Eastern Kingdoms", 1: "Kalimdor" };
+  const MAPS = { "-1": "data", 0: "Eastern Kingdoms", 1: "Kalimdor", 2991: "Zephras Isle" };
   const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k) || ""; localStorage.setItem(k, v); } catch { return ""; } };
   let host, issues = [], byId = new Map(), marks = {}, updated = null, lint = {}, on = false, sel = null;
   let filter = { status: "open", kind: "", here: false }, list = [], poll;
+  // An issue on the world: its place moved by its map's offset; inst 1 (the world), map its own.
+  const onWorld = (i) => {
+    const o = host.offset(i.inst);
+    if (!o) return i;
+    return { ...i, inst: 1, map: i.inst, centroid: i.centroid && [i.centroid[0] + o[0], i.centroid[1] + o[1]],
+      bbox: i.bbox && [i.bbox[0] + o[0], i.bbox[1] + o[1], i.bbox[2] + o[0], i.bbox[3] + o[1]],
+      mask: i.mask && { ...i.mask, x0: i.mask.x0 + o[0] * 16, y0: i.mask.y0 + o[1] * 16 } };
+  };
   const asked = new URLSearchParams(location.hash.slice(1)).get("issue"); // a link's issue, read before the page rewrites the hash
 
   const statusOf = (i) => marks[i.id]?.status || "open";
@@ -79,7 +78,7 @@ const Review = (() => {
   // ---- the list ----
   function relist() {
     list = issues.filter((i) => (filter.status === "all" || statusOf(i) === filter.status) && (!filter.kind || i.kind === filter.kind)
-      && (!filter.here || i.inst === host.inst()));
+      && (!filter.here || i.inst >= 0));
   }
   function select(i, fly = true) {
     sel = i;
@@ -109,7 +108,7 @@ const Review = (() => {
     const copy = el("button", { className: "rv-link", onclick: () => navigator.clipboard?.writeText(link(i)).then(() => { copy.textContent = "Copied"; }) }, "Copy link");
     return el("div", { className: "rv-detail" },
       el("div", { className: "rv-head" }, el("span", { className: "rv-kind" }, KIND[i.kind] || i.kind), el("b", {}, i.zone !== "-" ? i.zone : ""),
-        el("small", {}, `${MAPS[i.inst] || i.inst} · severity ${i.severity}`)),
+        el("small", {}, `${MAPS[i.map ?? i.inst] || i.inst} · severity ${i.severity}`)),
       el("p", {}, i.desc),
       el("p", { className: "rv-metrics" }, Object.entries(i.metrics || {}).map(([k, v]) => `${k} ${typeof v === "number" ? +v.toFixed(3) : JSON.stringify(v)}`).join(" · ")),
       el("div", { className: "rv-btns" }, btn("accepted", "Accept", "a"), btn("rejected", "Reject", "r"), btn("later", "Later", "l"), btn(null, "Open", "o")),
@@ -132,11 +131,11 @@ const Review = (() => {
       el("option", { value: "" }, "All kinds"),
       [...new Set(issues.map((i) => i.kind))].map((k) => el("option", { value: k, selected: filter.kind === k }, `${KIND[k] || k} (${issues.filter((i) => i.kind === k).length})`)));
     const here = el("label", { className: "rv-here" }, el("input", { type: "checkbox", checked: filter.here,
-      onchange: (e) => { filter.here = e.target.checked; render(); host.draw(); } }), "This map");
+      onchange: (e) => { filter.here = e.target.checked; render(); host.draw(); } }), "On the map");
     const rows = list.map((i) => el("button", { className: `rv-row${i === sel ? " rv-sel" : ""}`, onclick: () => select(i) },
       el("i", { style: `background:${STATUS[statusOf(i)]}` }), el("span", { className: "rv-kind" }, KIND[i.kind] || i.kind),
       el("span", { className: "rv-zone" }, i.zone !== "-" ? i.zone : i.desc), marks[i.id]?.note && el("span", { title: marks[i.id].note }, "✎"),
-      el("small", {}, i.inst === host.inst() || i.inst < 0 ? `${i.severity}` : `${MAPS[i.inst]} · ${i.severity}`)));
+      el("small", {}, `${MAPS[i.map ?? i.inst]} · ${i.severity}`)));
     host.sheet.replaceChildren(
       el("div", { className: "rv-top" }, el("b", {}, "Map review"), name, el("button", { className: "x", ariaLabel: "Close review", onclick: () => toggle(false) }, "✕")),
       el("p", { className: "rv-src" }, lint.missing ? `No issues file on the server (${lint.missing}).`
@@ -182,16 +181,16 @@ const Review = (() => {
   }
   function drawOverlay() {
     if (!on || !issues.length) return;
-    const g = host.ctx(), inst = host.inst();
+    const g = host.ctx();
     g.save();
-    for (const i of list) if (i.inst === inst && i !== sel) drawOne(g, i, false);
-    if (sel && sel.inst === inst) drawOne(g, sel, true);
+    for (const i of list) if (i.inst >= 0 && i !== sel) drawOne(g, i, false);
+    if (sel && sel.inst >= 0) drawOne(g, sel, true);
     g.restore();
   }
   function tap(col, row) {
     if (!on) return false;
-    const reach = 6 / host.zoom(), inst = host.inst();
-    const hit = list.filter((i) => i.inst === inst && col >= i.bbox[0] - reach && col <= i.bbox[2] + reach
+    const reach = 6 / host.zoom();
+    const hit = list.filter((i) => i.inst >= 0 && col >= i.bbox[0] - reach && col <= i.bbox[2] + reach
       && row >= i.bbox[1] - reach && row <= i.bbox[3] + reach);
     if (!hit.length) return false;
     const inMask = (i) => !i.mask || cells(i).some(([c, r]) => Math.floor(col * CHUNKS) === c && Math.floor(row * CHUNKS) === r);
