@@ -108,8 +108,7 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 - 2026-10-27: built the map review (M6): issues drawn on the map and listed, Accept / Reject / Later with notes, saved
   on the server, read back by tools/review.py. Checked in this repo's demo and in the hosted demo's pages patched
   locally (proxied to the VM). The issues file is from the installed client's art (150 issues). New row M7.
-- 2026-10-27: M6 deployed to magic-map-outdoor (targeted update over infra's bin/vm-ssh; marks in
-  /var/lib/magic-map-outdoor; token in mills.systems:~dev/infra/secrets/magic-map-outdoor.env).
+- 2026-10-27: M6 deployed to magic-map-outdoor (marks kept on the VM; the token in the infra repo's secrets).
 - 2026-10-28: reviewed the linter's 150 issues with the user on the hosted demo. Border slivers, colour blocks and
   border wraps were mostly false (they judged the outline data and mean colours, not what's drawn); fixed and merged:
   wraps and slivers judge the drawn lines (new kind border-fragment: The Great Sea's piece of Kalimdor's coast),
