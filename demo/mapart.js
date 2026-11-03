@@ -24,10 +24,8 @@ const MapArt = (() => {
   const on = { sea: read("sea", true), ai: read("ai", true) };
   const panel = document.createElement("div");
   panel.id = "mapArt";
-  panel.style.cssText = "margin-top:10px;padding-top:6px;border-top:1px solid #fff2";
   const heading = document.createElement("div");
   heading.textContent = "Map art";
-  heading.style.cssText = "padding:4px 7px;font-size:12px;opacity:.7";
   panel.append(heading);
   const button = (key, label) => {
     const b = document.createElement("button");

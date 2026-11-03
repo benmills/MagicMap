@@ -143,7 +143,7 @@ const Review = (() => {
       el("div", { className: "rv-chips" }, chip("open", "Open", counts.open), chip("accepted", "Accepted", counts.accepted),
         chip("rejected", "Rejected", counts.rejected), chip("later", "Later", counts.later), chip("all", "All", issues.length)),
       el("div", { className: "rv-filters" }, kinds, here),
-      sel && detail(sel),
+      sel ? detail(sel) : "",
       el("div", { className: "rv-list" }, rows.length ? rows : el("p", { className: "rv-src" }, "Nothing here.")),
       el("p", { className: "rv-src" }, "Keys: j / k next, previous · a accept · r reject · l later · o reopen"));
   }
@@ -219,7 +219,6 @@ const Review = (() => {
 
   async function mount(h) {
     host = h;
-    document.head.append(el("style", {}, CSS));
     host.sheet.classList.add("rv");
     host.button.onclick = () => toggle();
     const [l, doc] = await Promise.all([json("/api/lint"), json("/api/review").catch(() => ({}))]);
@@ -228,37 +227,6 @@ const Review = (() => {
     byId = new Map(issues.map((i) => [i.id, i]));
     if (asked && byId.has(asked)) { filter.status = "all"; toggle(true); select(byId.get(asked), false); }
   }
-
-  const CSS = `
-  .rv { display: flex; flex-direction: column; gap: 6px; font: 13px system-ui, -apple-system, sans-serif; color: #ddd; }
-  .rv i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
-  .rv button { font: inherit; color: inherit; cursor: pointer; }
-  .rv-top { display: flex; align-items: center; gap: 8px; padding-left: 6px; } .rv-top b { font-size: 15px; flex: none; }
-  .rv-by { flex: 1; min-width: 0; font: 14px system-ui, sans-serif; background: #222; color: #eee; border: 1px solid #444; border-radius: 6px; padding: 6px 8px; }
-  .rv-src { margin: 0 6px; color: #999; font-size: 12px; }
-  .rv-chips { display: flex; flex-wrap: wrap; gap: 4px; }
-  .rv-chip { display: inline-flex; align-items: center; gap: 5px; background: #222; border: 1px solid #444; border-radius: 14px; padding: 4px 10px; }
-  .rv-chip.on { background: #3a3a3a; border-color: #888; color: #fff; }
-  .rv-filters { display: flex; gap: 8px; align-items: center; }
-  .rv-kinds { flex: 1; font: 14px system-ui, sans-serif; background: #222; color: #eee; border: 1px solid #444; border-radius: 6px; padding: 5px; }
-  .rv-here { display: flex; gap: 4px; align-items: center; color: #bbb; white-space: nowrap; }
-  .rv-detail { position: sticky; top: -6px; z-index: 1; background: #242424; box-shadow: 0 4px 10px rgba(0,0,0,.5); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
-  .rv-detail p { margin: 0; line-height: 1.4; } .rv-metrics { color: #999; font-size: 12px; }
-  .rv-detail code { color: #777; font-size: 11px; user-select: all; -webkit-user-select: all; }
-  .rv-head { display: flex; align-items: baseline; gap: 8px; } .rv-head small { margin-left: auto; color: #999; }
-  .rv-kind { font: 600 10px ui-monospace, Menlo, monospace; text-transform: uppercase; color: #111; background: #bbb; border-radius: 4px; padding: 2px 4px; flex: none; }
-  .rv-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-  .rv-btn { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; background: #222; border: 1px solid #444; border-radius: 6px; }
-  .rv-btn.on { background: #3a3a3a; border-color: #aaa; color: #fff; font-weight: 600; }
-  .rv-note { font: 13px system-ui, sans-serif; background: #181818; color: #eee; border: 1px solid #444; border-radius: 6px; padding: 6px; resize: vertical; -webkit-user-select: text; user-select: text; }
-  .rv-foot { display: flex; align-items: center; color: #999; font-size: 12px; gap: 6px; } .rv-foot span { margin-left: auto; display: flex; gap: 2px; }
-  .rv-link { background: none; border: 0; color: #9cc4ff; padding: 4px 6px; border-radius: 6px; } .rv-link:hover { background: rgba(255,255,255,.08); }
-  .rv-list { display: flex; flex-direction: column; }
-  .rv-row { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 8px; border-radius: 6px; background: none; border: 0; text-align: left; }
-  .rv-row:hover { background: rgba(255,255,255,.08); } .rv-row.rv-sel { background: rgba(255,61,240,.16); }
-  .rv-zone { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-  .rv-row small { color: #999; white-space: nowrap; }
-  @media (max-width: 600px) { .rv.sheet { max-height: 46vh; } } /* the issue stays in sight below */`;
 
   return { mount, drawOverlay, tap, isOn: () => on };
 })();
