@@ -7,9 +7,14 @@ MH2O), joined to the map's edge (lakes aren't). Its colour runs from SHALLOW by 
 distance from the land, the line wandering (fractal noise), with a soft swell that dies out by the picture's edge; right by
 the land it's SHORE, the dark green Blizzard's own maps use there. It lies over the tiles (ui/Sea.lua), seen through where
 Blizzard's water has colour (its alpha reads the art), so their coast and shallows stay theirs and their near-black goes.
-Past the picture: DEEP, the window's backdrop.
+Zephras Isle's terrain is mostly encrypted: its water is where its art is near-black (ART_WATER).
 
-  python3 tools/gen_sea.py local "/Applications/World of Warcraft" wow_classic_beta --bake demo/sea
+The far water's swell is one seamless texture laid on the world (SWELL tiles a repeat, from world tile 0, 0; the demo's
+OFFSET places each map): sea/swell.webp, which the demo tiles as its whole background. The demo's ocean is one picture over
+the whole world (sea/world-sea.webp: every map's land at its place, so no picture overlaps another), its edge meeting the
+background pixel for pixel. The addon's pictures, one a map, fade the swell out by their edge, to its flat backdrop (DEEP).
+
+  python3 tools/gen_sea.py local "/Applications/World of Warcraft" wowf --bake demo/sea
 """
 from __future__ import annotations
 
@@ -33,7 +38,48 @@ PAD = 6            # tiles of sea round the land
 PX = 32            # px a tile the picture's worked out at (the demo's)
 SHIP = 16          # ...and shipped at
 SHORE, SHALLOW, MID, DEEP = np.array([23, 39, 22.]), np.array([26, 74, 70.]), np.array([12, 48, 62.]), np.array([6, 26, 44.])
-NAMES = {0: "EasternKingdoms", 1: "Kalimdor"}
+NAMES = {0: "EasternKingdoms", 1: "Kalimdor", 2991: "ZephrasIsle"}
+ART_WATER = {2991}  # maps whose water is read from the art, not the terrain
+SWELL = 8           # tiles: the swell texture's repeat
+SWELL_AMP = .5      # the swell's strength: DEEP * (1 + (swell - .5) * SWELL_AMP)
+
+
+def world_offsets() -> dict:
+    """The demo's OFFSET (demo/server.py): where each map lies on its one world."""
+    import ast
+    import re
+    src = open(os.path.join(ROOT, "demo", "server.py"), encoding="utf-8").read()
+    return ast.literal_eval(re.search(r"^OFFSET = (\{.*\})", src, re.M).group(1))
+
+
+def map_tiles(inst: int) -> dict:
+    """Data/Tiles.lua's tiles of one map: key -> minimap FileDataID."""
+    import re
+    src = open(os.path.join(ROOT, "Data", "Tiles.lua"), encoding="utf-8").read()
+    m = re.search(r"\[%d\] = \{ name = .*?tiles = \{(.*?)\} \}" % inst, src, re.S)
+    return {int(k): int(v) for k, v in re.findall(r"\[(\d+)\]=(\d+)", m.group(1))}
+
+
+def swell_texture(seed: int = 2, base: float = 2.5) -> np.ndarray:
+    """Fractal noise, 0..1, SWELL x SWELL tiles at PX a tile, seamless: each octave's grid wraps (tiled 3 x 3, resized,
+    the middle kept)."""
+    n = SWELL * PX
+    r, out, amp, total, cells = np.random.RandomState(seed), np.zeros((n, n), np.float32), 1.0, 0.0, base
+    for _ in range(5):
+        k = int(round(SWELL * cells))
+        g = (r.rand(k, k) * 255).astype(np.uint8)
+        big = np.asarray(Image.fromarray(np.tile(g, (3, 3))).resize((3 * n, 3 * n), Image.BICUBIC), np.float32) / 255
+        out += amp * big[n:2 * n, n:2 * n]
+        total, amp, cells = total + amp, amp * .55, cells * 2
+    out /= total
+    return (out - out.min()) / (out.max() - out.min()) * .8 + .1  # (the octaves sum to a narrow middle: spread it)
+
+
+def swell_at(tex: np.ndarray, x0: int, y0: int, h: int, w: int) -> np.ndarray:
+    """The texture over a picture h x w px whose top left is world tile (x0, y0)."""
+    n = tex.shape[0]
+    ys, xs = (np.arange(h) + y0 * PX) % n, (np.arange(w) + x0 * PX) % n
+    return tex[np.ix_(ys, xs)]
 
 
 def smooth(a: float, b: float, x: np.ndarray) -> np.ndarray:
@@ -95,8 +141,8 @@ def stray(land: np.ndarray, art: np.ndarray) -> np.ndarray:
     return out
 
 
-def ocean(g: Ground, tiles: dict, sea: dict) -> tuple:
-    """(c0, r0, c1, r1), RGBA px at PX a tile."""
+def fields(g: Ground, tiles: dict, sea: dict) -> tuple:
+    """A map's (c0, r0, c1, r1), its water (bool) and its art (RGB), px at PX a tile."""
     drawn = [k for k in tiles if k not in sea]
     c0, c1 = max(0, min(k // 64 for k in drawn) - PAD), min(64, max(k // 64 for k in drawn) + 1 + PAD)
     r0, r1 = max(0, min(k % 64 for k in drawn) - PAD), min(64, max(k % 64 for k in drawn) + 1 + PAD)
@@ -106,13 +152,24 @@ def ocean(g: Ground, tiles: dict, sea: dict) -> tuple:
     for c in range(c0, c1):
         for r in range(r0, r1):
             k, y, x = c * 64 + r, (r - r0) * PX, (c - c0) * PX
-            if k in g.maid:
+            a = g.art(k, PX)
+            if g.inst in ART_WATER:
+                if a is not None:
+                    wet[y:y + PX, x:x + PX] = a.max(-1) < 26
+            elif k in g.maid:
                 h, water = g.heights_and_water(k)
                 wet[y:y + PX, x:x + PX] = (np.isnan(h) | (h < water))[::step, ::step]
-            a = g.art(k, PX)
             if a is not None:
                 art[y:y + PX, x:x + PX] = a
     wet |= stray(~wet, art)
+    return (c0, r0, c1, r1), wet, art
+
+
+def paint(wet: np.ndarray, art: np.ndarray, swell: np.ndarray, addon: bool) -> np.ndarray:
+    """The ocean over a picture's water and art, RGBA. addon: the swell fading out by the edge, to the window's flat
+    backdrop; else (the demo's) the world's swell to the edge, and three tiles in from it the far water's own colour
+    (where the picture stops short of DEEP)."""
+    H, W = wet.shape
     seen = np.zeros((H, W), bool)
     start = [(y, x) for y in range(H) for x in (0, W - 1) if wet[y, x]] + [(y, x) for x in range(W) for y in (0, H - 1) if wet[y, x]]
     for s in start:
@@ -120,17 +177,37 @@ def ocean(g: Ground, tiles: dict, sea: dict) -> tuple:
     flood(start, H, W, wet, seen)
     tiles_off = distance(~seen) / PX
     edge = distance(np.pad(np.zeros((H - 2, W - 2), bool), 1, constant_values=True)) / PX
-    drift, swell = fractal(1, H, W, .7), fractal(2, H, W, 2.5)
+    drift = fractal(1, H, W, .7)
     t = np.clip(tiles_off + (drift - .5) * 1.4, 0, None)
     a0, a1, a2 = smooth(0, .22, tiles_off + (drift - .5) * .12)[..., None], smooth(.1, 1.3, t)[..., None], smooth(1.0, 4.5, t)[..., None]
     rgb = ((SHORE * (1 - a0) + SHALLOW * a0) * (1 - a1) + MID * a1) * (1 - a2) + DEEP * a2
-    rgb = rgb * (1 + ((swell - .5) * .5 * smooth(0, 2, edge))[..., None])
+    wave = ((swell - .5) * SWELL_AMP)[..., None]
+    if addon:
+        rgb = rgb * (1 + wave * smooth(0, 2, edge)[..., None])
+    else:
+        e = smooth(0, 3, edge)[..., None]
+        rgb = (rgb * (1 + wave)) * e + (DEEP * (1 + wave)) * (1 - e)
     # seen through where Blizzard's water has colour (their near-black by the land: SHORE over it)
     colour = smooth(34, 72, art.max(-1))
     near = smooth(0, .05, tiles_off)
     far = smooth(.3, 1.4, tiles_off)
     alpha = near * (1 - colour * (1 - far)) * seen
-    return (c0, r0, c1, r1), np.dstack([rgb, alpha * 255]).clip(0, 255).astype(np.uint8)
+    return np.dstack([rgb, alpha * 255]).clip(0, 255).astype(np.uint8)
+
+
+def world_ocean(parts: dict, at: dict, swell_tex: np.ndarray) -> tuple:
+    """The demo's one ocean, over every map at its place on the world (no picture overlaps another): the world box
+    (c0, r0, c1, r1) and its RGBA. parts: [inst] = fields(...)."""
+    boxes = {i: (b[0] + at[i][0], b[1] + at[i][1], b[2] + at[i][0], b[3] + at[i][1]) for i, (b, _, _) in parts.items()}
+    c0, r0 = min(b[0] for b in boxes.values()), min(b[1] for b in boxes.values())
+    c1, r1 = max(b[2] for b in boxes.values()), max(b[3] for b in boxes.values())
+    wet, art = np.ones(((r1 - r0) * PX, (c1 - c0) * PX), bool), np.zeros(((r1 - r0) * PX, (c1 - c0) * PX, 3), np.float32)
+    for i, (_, w, a) in parts.items():
+        x, y = (boxes[i][0] - c0) * PX, (boxes[i][1] - r0) * PX
+        h_, w_ = w.shape
+        wet[y:y + h_, x:x + w_] &= w  # (land is any map's)
+        np.maximum(art[y:y + h_, x:x + w_], a, out=art[y:y + h_, x:x + w_])
+    return (c0, r0, c1, r1), paint(wet, art, swell_at(swell_tex, c0, r0, *wet.shape), addon=False)
 
 
 def main() -> None:
@@ -142,9 +219,12 @@ def main() -> None:
     src = source_from_args(ap, ns)
     import maplint
     data = maplint.Data(os.path.join(ROOT, "Data"))
-    out, baked = {}, {}
+    out, parts = {}, {}
+    swell_tex, at = swell_texture(), world_offsets()
     for inst, name in NAMES.items():
-        box, pic = ocean(Ground(src, inst, data.tiles[inst], data.sea[inst], ns.cache), data.tiles[inst], data.sea[inst])
+        tiles, sea = data.tiles.get(inst) or map_tiles(inst), data.sea.get(inst, set())  # (maplint's: the continents)
+        box, wet, art = parts[inst] = fields(Ground(src, inst, tiles, sea, ns.cache), tiles, sea)
+        pic = paint(wet, art, swell_at(swell_tex, box[0] + at[inst][0], box[1] + at[inst][1], *wet.shape), addon=True)
         w, h = (box[2] - box[0]) * SHIP, (box[3] - box[1]) * SHIP
         small = np.asarray(Image.fromarray(pic).resize((w, h), Image.LANCZOS))
         tw, th = 2 ** int(np.ceil(np.log2(w))), 2 ** int(np.ceil(np.log2(h)))
@@ -155,13 +235,17 @@ def main() -> None:
             f.write(write_tga(tw, th, rows))
         out[inst] = (name, box, tw, th)
         log(f"[{inst}] {box}: {w} x {h} in {tw} x {th}")
-        if ns.bake:
-            os.makedirs(ns.bake, exist_ok=True)
-            Image.fromarray(pic).save(os.path.join(ns.bake, f"{inst}.webp"), quality=85, method=4)
-            baked[str(inst)] = {"file": f"{inst}.webp", "col": box[0], "row": box[1], "w": box[2] - box[0], "h": box[3] - box[1]}
     if ns.bake:
+        box, pic = world_ocean(parts, at, swell_tex)
+        os.makedirs(ns.bake, exist_ok=True)
+        Image.fromarray(pic).save(os.path.join(ns.bake, "world-sea.webp"), quality=85, method=4)
+        far = (DEEP * (1 + ((swell_tex - .5) * SWELL_AMP)[..., None])).clip(0, 255).astype(np.uint8)
+        Image.fromarray(far).save(os.path.join(ns.bake, "swell.webp"), lossless=True, method=6)
         with open(os.path.join(ns.bake, "sea.json"), "w") as f:
-            json.dump({"deep": [int(v) for v in DEEP], "maps": baked}, f, separators=(",", ":"))
+            json.dump({"deep": [int(v) for v in DEEP], "file": "world-sea.webp", "col": box[0], "row": box[1],
+                       "w": box[2] - box[0], "h": box[3] - box[1], "swell": {"file": "swell.webp", "tiles": SWELL}}, f,
+                      separators=(",", ":"))
+        log(f"demo: {box} (world tiles)")
     with open(os.path.join(ROOT, "Data", "Sea.lua"), "w", encoding="utf-8", newline="\n") as f:
         f.write(f"-- GENERATED by tools/gen_sea.py from the terrain of {src.product} {src.version}. Do not edit.\n")
         f.write("-- [inst] = the continent's ocean (ui/Sea.lua): file (under the addon's folder, no extension), the tile rect it covers,\n")

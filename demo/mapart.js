@@ -51,27 +51,29 @@ const MapArt = (() => {
 
   fetch("patches/patches.json").then((r) => (r.ok ? r.json() : null)).then((d) => { patches = d; if (again) again(); }).catch(() => {});
 
-  // Each layer's pieces at their map's place on the world (parts: /api/maps). Past the oceans' pictures: their colour; Zephras Isle,
-  // which has no ocean of its own, lies over them, its near-black gone (sea/isle.webp, baked from its tiles).
+  // Each layer's pieces at their map's place on the world (parts: /api/maps). The ocean: one picture over the whole world
+  // (sea/world-sea.webp, in world tiles), and past it the far water's swell (sea/swell.webp, seamless, laid on the world from
+  // tile 0, 0 as gen_sea.py made the picture's far water, so they meet pixel for pixel at any size).
+  let swell = null;
   function draw(g, toScreen, zoom, parts, redraw) {
     again = redraw;
-    const OFFSET = Object.fromEntries(parts.map((p) => [p.inst, p.offset])), isleBox = parts.find((p) => p.inst === 2991).bounds;
+    const OFFSET = Object.fromEntries(parts.map((p) => [p.inst, p.offset]));
     for (const [i, [dx, dy]] of Object.entries(OFFSET)) for (const [col, row, png] of (patches && patches[i]) || []) {
       const p = pic(`patches/${png}`), [x, y] = toScreen(col + dx, row + dy);
       if (p) g.drawImage(p, x, y, zoom, zoom);
     }
     if (on.sea && sea) {
       const W = g.canvas.clientWidth || g.canvas.width, H = g.canvas.clientHeight || g.canvas.height;
-      const oceans = Object.entries(sea.maps).map(([i, o]) => {
-        const [dx, dy] = OFFSET[i], [x0, y0] = toScreen(o.col + dx, o.row + dy);
-        return { p: pic(`sea/${o.file}`), x0, y0, w: o.w * zoom, h: o.h * zoom };
-      });
-      g.beginPath(); g.rect(0, 0, W, H);
-      for (const o of oceans) g.rect(o.x0, o.y0, o.w, o.h);
-      g.fillStyle = `rgb(${sea.deep.join(",")})`; g.fill("evenodd");
-      for (const o of oceans) if (o.p) g.drawImage(o.p, o.x0, o.y0, o.w, o.h);
-      const isle = pic("sea/isle.webp"), [c0, r0, c1, r1] = isleBox, [ix, iy] = toScreen(c0, r0);
-      if (isle) g.drawImage(isle, ix, iy, (c1 - c0) * zoom, (r1 - r0) * zoom);
+      const ocean = pic(`sea/${sea.file}`), [x0, y0] = toScreen(sea.col, sea.row), w = sea.w * zoom, h = sea.h * zoom;
+      const tex = sea.swell && pic(`sea/${sea.swell.file}`);
+      if (tex && (!swell || swell.tex !== tex)) swell = { tex, fill: g.createPattern(tex, "repeat") };
+      if (tex) {
+        const [ox, oy] = toScreen(0, 0), k = (sea.swell.tiles * zoom) / tex.width;
+        swell.fill.setTransform(new DOMMatrix([k, 0, 0, k, ox, oy]));
+      }
+      g.beginPath(); g.rect(0, 0, W, H); g.rect(x0, y0, w, h);
+      g.fillStyle = tex ? swell.fill : `rgb(${sea.deep.join(",")})`; g.fill("evenodd");
+      if (ocean) g.drawImage(ocean, x0, y0, w, h);
     }
     if (on.ai) for (const [i, [dx, dy]] of Object.entries(OFFSET)) for (const f of (over.ai && over.ai[i]) || []) {
       const p = pic(`ai/${f.file}`), [x, y] = toScreen(f.col + dx, f.row + dy);

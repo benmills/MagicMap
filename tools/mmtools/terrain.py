@@ -10,7 +10,7 @@ from PIL import Image
 from mmtools.formats import adt_chunks, adt_liquids, adt_modf, iter_chunks, wdt_maid
 from mmtools.mapgrid import blp_rgba
 
-WDT = {0: 775971, 1: 782779}
+WDT = {0: 775971, 1: 782779, 2991: 7198644}  # 2991: Zephras Isle (most of its ADTs encrypted)
 TILE = 1600 / 3
 
 

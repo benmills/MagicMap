@@ -31,8 +31,7 @@ Without the baked assets below it still runs: names, search and pins, on the bac
 | folder | what | made by |
 |---|---|---|
 | tiles/&lt;inst&gt;/ | tile WebPs, 512 px and 256/128/64 copies, a manifest naming the build | `demo/export_tiles.py --all` (the local install, `--wow`) |
-| sea/0.webp, 1.webp, sea.json | the oceans | `tools/gen_sea.py local "$W" wowf --bake demo/sea`, then `bake_world.py feather demo/sea` |
-| sea/isle.webp | Zephras Isle over the ocean, its near-black gone | `demo/bake_world.py isle demo/sea/isle.webp` |
+| sea/world-sea.webp, swell.webp, sea.json | the ocean: one picture over the whole world (every map's coasts, the isle's too), and the far water's seamless swell the page tiles behind it | `tools/gen_sea.py local "$W" wowf --bake demo/sea`: again after `OFFSET` moves |
 | sea/world.webp | the whole map at 24 px a tile, while the tiles load | `demo/bake_world.py world demo/sea/world.webp`: again after `OFFSET` moves |
 | patches/ | the patched sea tile (Data/Patches.lua) | `demo/export_patches.py` |
 | ai/ | the AI repaints | `tools/ai_map.py bake` |
