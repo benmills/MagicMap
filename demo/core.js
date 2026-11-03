@@ -3,9 +3,12 @@
 // limit would stretch each source pixel six times on a DPR3 phone.
 const CHUNKS = 16,
   MIN_ZOOM = 4,
+  MIN_3D_ZOOM = 64, // px a tile: 3D no further out, so a phone keeps 60 fps (README)
   TEXELS = 512,
   MAX_STRETCH = 2;
 const maxZoom = () => TEXELS * MAX_STRETCH / (dpr || 1);
+const minZoom = () => (state.mode === "3d" ? MIN_3D_ZOOM : MIN_ZOOM);
+let out3D = false; // a zoom asked for less than 3D allows: back to 2D once it settles (app.js)
 const $ = (id) => document.getElementById(id);
 const canvas = $("map"),
   ctx = canvas.getContext("2d"),
@@ -159,7 +162,9 @@ function zoomAt(x, y, zoom, x1 = x, y1 = y) {
   const [c, r] = toTile(x, y);
   const height =
     state.mode === "3d" ? (terrain.sample(c, r)?.height ?? terrain.focus) : 0;
-  zoom = clamp(zoom, MIN_ZOOM, maxZoom());
+  // Pushing out against 3D's limit (a wheel or button at it; a pinch: navigation.js).
+  out3D = state.mode === "3d" && zoom < MIN_3D_ZOOM && state.camera.zoom <= MIN_3D_ZOOM * 1.01;
+  zoom = clamp(zoom, minZoom(), maxZoom());
   state.camera = { ...state.camera, zoom };
   if (state.mode === "3d")
     terrain.setView(state.camera, W, H, state.yaw, state.tilt);
@@ -201,7 +206,7 @@ function frame() {
   // Reconcile at the drawing boundary so an old backing cannot remain scaled.
   if (dpr !== terrainQuality.renderDensity(W, H, devicePixelRatio || 1)) resize();
   // Old shared cameras and density changes use the same limit as gestures.
-  state.camera.zoom = clamp(state.camera.zoom, MIN_ZOOM, maxZoom());
+  state.camera.zoom = clamp(state.camera.zoom, minZoom(), maxZoom());
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (state.mode === "3d") {
     terrain.setView(state.camera, W, H, state.yaw, state.tilt);

@@ -405,10 +405,35 @@ def find(q):
 
 def assets(q):
     product, version = Atlas.Data.Tiles.product, Atlas.Data.Tiles.version
-    out = inventory(DEMO, WORLD, product, version)
-    out["tiles"] = sorted(world_key(i, k) for i in OFFSET for k in inventory(DEMO, i, product, version)["tiles"])
-    out["terrain"] = {"available": False, "reason": "3D isn't available on the combined map."}
+    each = {i: inventory(DEMO, i, product, version) for i in OFFSET}
+    out = dict(each[WORLD], tiles=sorted(world_key(i, k) for i in OFFSET for k in each[i]["tiles"]))
+    for kind in ("terrain", "objects"):
+        out[kind] = world_assets(kind, {i: m[kind] for i, m in each.items()})
     return out
+
+
+def world_assets(kind, per_map):
+    """Each map's 3D manifest on the world: its tiles at world keys (inst and src: where its files are), its parts'
+    offsets and previews. Maps without them are left out; the page translates their meshes by the offset."""
+    ok = {i: m for i, m in per_map.items() if m["available"]}
+    if not ok:
+        return per_map[WORLD]
+    tiles = [dict(t, key=world_key(i, t["key"]), inst=i, src=t["key"]) for i, m in ok.items() for t in m["data"]["tiles"]]
+    parts = [{"inst": i, "offset": OFFSET[i], "preview": world_preview(i, m["data"].get("preview"))} for i, m in ok.items()]
+    expected = sum(m["data"].get("expectedTiles", len(m["data"]["tiles"])) for m in ok.values())
+    missing = [MAP_NAMES[i] for i in per_map if i not in ok]
+    return {"available": True, "data": {"tiles": tiles, "parts": parts, "expectedTiles": expected},
+            "reason": f'{len(tiles)}/{expected} tiles · {next(iter(ok.values()))["reason"].split(" · ")[-1]}'
+                      + (f' · none for {", ".join(missing)}' if missing else '')}
+
+
+def world_preview(inst, p):
+    if not p:
+        return p
+    dx, dy = OFFSET[inst]
+    b = p["bounds"]
+    return dict(p, bounds=[b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy],
+                tiles=[dict(t, key=world_key(inst, t["key"])) for t in p["tiles"]])
 
 
 # The world the page shows (it reads the offsets from here); real_* are the Atlas's, one real map at a time.

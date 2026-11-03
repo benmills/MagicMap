@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Export outdoor ADT terrain for the web explorer, without changing Atlas formats.
 
-.venv/bin/python demo/export_terrain.py local INSTALL wow_classic_beta --inst 0
-.venv/bin/python demo/export_terrain.py wago wow_classic_beta --version 1.60.1.70450 --inst 0
+.venv/bin/python demo/export_terrain.py local INSTALL wowf --inst 0
+.venv/bin/python demo/export_terrain.py wago wowf --version 1.60.1.70707 --inst 0
 
 Exports a coarse mesh covering every available root ADT and a native fan mesh for
 close inspection. Hole bits are respected at both resolutions. Source version
@@ -105,8 +105,8 @@ def write_mesh(path, vertices, indices):
 
 
 def compatible(product, version, atlas):
-    if product != 'wow_classic_beta' or not version.startswith('1.60.'):
-        raise ValueError('Expected WoW Forever wow_classic_beta 1.60.x')
+    if product not in ('wowf', 'wow_classic_beta') or not version.startswith('1.60.'):
+        raise ValueError('Expected WoW Forever (wowf or wow_classic_beta) 1.60.x')
     if (product, version) != (atlas.Data.Tiles.product, atlas.Data.Tiles.version):
         raise ValueError(f'Source must match Atlas: {atlas.Data.Tiles.product} {atlas.Data.Tiles.version}')
 

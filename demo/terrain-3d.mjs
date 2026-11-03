@@ -48,7 +48,7 @@ export class TerrainView {
     this.decoder = new TerrainDecoder();
     this.meshStream = new TileStream(changed, 6);
     this.displayed = new Map();
-    this.preview = new TerrainPreview(gl, changed, this.decoder);
+    this.previews = new Map(); // per map (inst): its overview, at its offset
     this.scenery = false;
     this.visible = [];
     this.focus = 0;
@@ -61,7 +61,7 @@ export class TerrainView {
       this.controller.abort();
       this.textures.clear();
       this.meshStream.clear();
-      this.preview.clear();
+      for (const p of this.previews.values()) p.clear();
       onLost("WebGL context lost. Switched to 2D.");
     });
   }
@@ -85,18 +85,31 @@ export class TerrainView {
     this.manifest = assets.terrain.data;
     this.objectManifest = assets.objects.available ? assets.objects.data : null;
     this.tileAssets = new Set(assets.tiles);
+    const src = new Map(this.manifest.tiles.map((t) => [t.key, t]));
     this.textures.setMap(
-      inst,
-      this.version,
-      this.tileAssets,
+      (key, size) => {
+        const t = src.get(key);
+        return `tiles/${t.inst}/${size === 512 ? "" : size + "/"}${t.src}.webp?v=${encodeURIComponent(this.version)}`;
+      },
+      new Set([...this.tileAssets].filter((k) => src.has(k))),
       this.controller.signal,
     );
-    this.base = `terrain/${inst}`;
-    this.preview.load(
-      this.manifest.preview,
-      (file) =>
-        safeFile(this.base, file) + `?v=${encodeURIComponent(this.version)}`,
-      this.controller.signal,
+    // The world's maps: each one's files in terrain/<inst>/, its meshes moved by its offset.
+    this.offsets = new Map(this.manifest.parts.map((p) => [p.inst, p.offset]));
+    for (const p of this.previews.values()) p.clear();
+    this.previews = new Map(
+      this.manifest.parts.map((p) => {
+        const preview = new TerrainPreview(this.gl, this.changed, this.decoder);
+        preview.load(
+          p.preview,
+          (file) =>
+            safeFile(`terrain/${p.inst}`, file) +
+            `?v=${encodeURIComponent(this.version)}`,
+          this.controller.signal,
+          p.offset,
+        );
+        return [p.inst, preview];
+      }),
     );
     this.visible = [];
     this.focus = 0;
@@ -278,12 +291,15 @@ export class TerrainView {
       priority,
       run: async (signal) => {
         const buffer = await this.fetchFile(
-          safeFile(this.base, t.lods[lod]) +
+          safeFile(`terrain/${t.inst}`, t.lods[lod]) +
             `?v=${encodeURIComponent(this.version)}`,
           "buffer",
           signal,
         );
-        return this.decoder.decode(buffer, { signal });
+        return this.decoder.decode(buffer, {
+          signal,
+          offset: this.offsets.get(t.inst),
+        });
       },
       apply: (mesh) => {
         const gpu = upload(this.gl, mesh);
@@ -309,12 +325,14 @@ export class TerrainView {
     this.waiting.add(key);
     this.active++;
     this.fetchFile(
-      safeFile(`objects/${this.inst}`, t.file) +
+      safeFile(`objects/${t.inst}`, t.file) +
         `?v=${encodeURIComponent(this.version)}`,
       "json",
       signal,
     )
       .then((data) => {
+        const [dx, dy] = this.offsets.get(t.inst) || [0, 0];
+        for (const i of data.instances || []) (i.col += dx), (i.row += dy);
         if (epoch === this.epoch && !this.lost) this.objects.add(t.key, data);
       })
       .catch((e) => {
@@ -417,7 +435,10 @@ export class TerrainView {
       visibleKeys.add(t.key);
     }
     this.meshStream.update(meshJobs);
-    this.textures.update(imageJobs, !!this.preview.texture);
+    this.textures.update(
+      imageJobs,
+      [...this.previews.values()].every((p) => p.texture),
+    );
     this.meshStream.commit(this.interacting ? 1 : 2, 3);
     this.textures.stream.commit(this.interacting ? 1 : 2, 3);
     const at = uniforms(
@@ -444,7 +465,7 @@ export class TerrainView {
         // Overview geometry is only a visual placeholder, never ground analysis.
         gl.uniform1i(at("analysis"), 0);
         gl.uniform1i(at("contours"), 0);
-        this.preview.draw(t.key, at);
+        this.previews.get(t.inst)?.draw(t.key, at);
         gl.uniform1i(
           at("analysis"),
           tools.has("slope") ? 2 : tools.has("elevation") ? 1 : 0,
@@ -456,7 +477,7 @@ export class TerrainView {
       keep.add(e.key);
       e.used = performance.now();
       gl.bindVertexArray(e.gpu.vao);
-      this.textures.bind(t.key, at, this.preview);
+      this.textures.bind(t.key, at, this.previews.get(t.inst));
       gl.drawElements(gl.TRIANGLES, e.gpu.count, gl.UNSIGNED_INT, 0);
     }
     const objectTiles =
@@ -496,6 +517,8 @@ export class TerrainView {
       : null;
   }
   diagnostics() {
+    const previews = [...this.previews.values()],
+      sum = (f) => previews.reduce((n, p) => n + f(p), 0);
     return {
       visible: this.visible.length,
       loaded: this.visible.filter((t) => this.entry(t.key)).length,
@@ -505,20 +528,22 @@ export class TerrainView {
         this.meshStream.active.size +
         this.meshStream.ready.size +
         this.textures.waiting.size +
-        Number(this.preview.pending),
+        sum((p) => Number(p.pending)),
       failed:
         this.failed.size +
         this.meshStream.failed.size +
         this.textures.failed.size +
-        Number(this.preview.failed),
+        sum((p) => Number(p.failed)),
       memoryMB: Math.round(
-        (this.bytes + this.textures.bytes + this.preview.bytes) / 1048576,
+        (this.bytes + this.textures.bytes + sum((p) => p.bytes)) / 1048576,
       ),
       backgroundMeshes: !!this.decoder.worker,
       cancelled: this.meshStream.cancelled + this.textures.stream.cancelled,
-      previewReady: !!this.preview.gpu,
+      previewReady: previews.some((p) => p.gpu),
       previewTiles: this.visible.filter(
-        (t) => !this.entry(t.key) && this.preview.ranges.get(t.key)?.count,
+        (t) =>
+          !this.entry(t.key) &&
+          this.previews.get(t.inst)?.ranges.get(t.key)?.count,
       ).length,
       pixelRatio: renderDensity(this.w, this.h, devicePixelRatio || 1),
       textureSize: this.textureSize(),
@@ -533,7 +558,7 @@ export class TerrainView {
     for (const e of this.cache.values()) dispose(this.gl, e.gpu);
     this.objects.clear();
     this.textures.clear();
-    this.preview.clear();
+    for (const p of this.previews.values()) p.clear();
     this.meshStream.clear();
     this.decoder.dispose();
     this.gl.deleteProgram(this.program);

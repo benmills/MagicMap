@@ -20,7 +20,7 @@ export class TerrainPreview {
     this.pending = false;
     this.failed = false;
   }
-  async load(data, assetUrl, signal) {
+  async load(data, assetUrl, signal, offset) {
     this.clear();
     if (!data) return;
     const epoch = this.epoch;
@@ -44,6 +44,7 @@ export class TerrainPreview {
       const mesh = await this.decoder.decode(buffer, {
         spatialIndex: false,
         signal,
+        offset,
       });
       const bounds = data.bounds;
       if (

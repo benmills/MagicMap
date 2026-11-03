@@ -32,10 +32,10 @@ export class TerrainTextures {
         ),
     );
   }
-  setMap(inst, version, keys, signal) {
+  // url(key, size): a tile's image; keys: the tiles that have one.
+  setMap(url, keys, signal) {
     this.clear();
-    this.inst = inst;
-    this.version = version;
+    this.url = url;
     this.keys = keys;
     this.signal = signal;
   }
@@ -51,10 +51,7 @@ export class TerrainTextures {
         size: target,
         priority,
         run: async (signal) => {
-          const response = await fetch(
-            `tiles/${this.inst}/${target === 512 ? "" : target + "/"}${key}.webp?v=${encodeURIComponent(this.version)}`,
-            { signal },
-          );
+          const response = await fetch(this.url(key, target), { signal });
           if (!response.ok) throw Error(`Texture ${response.status}`);
           return createImageBitmap(await response.blob());
         },

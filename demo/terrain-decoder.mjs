@@ -41,12 +41,13 @@ export class TerrainDecoder {
       this.worker = null;
     }
   }
-  decode(buffer, { spatialIndex = true, signal } = {}) {
+  decode(buffer, { spatialIndex = true, signal, offset } = {}) {
     return new Promise((resolve, reject) => {
       const job = {
         id: ++this.next,
         buffer,
         spatialIndex,
+        offset,
         signal,
         resolve,
         reject,
@@ -67,7 +68,7 @@ export class TerrainDecoder {
       this.active = job;
       if (this.worker)
         this.worker.postMessage(
-          { id: job.id, buffer: job.buffer, spatialIndex: job.spatialIndex },
+          { id: job.id, buffer: job.buffer, spatialIndex: job.spatialIndex, offset: job.offset },
           [job.buffer],
         );
       else
@@ -76,6 +77,7 @@ export class TerrainDecoder {
             if (!job.signal?.aborted) {
               const mesh = parseMesh(job.buffer, {
                 spatialIndex: job.spatialIndex,
+                offset: job.offset,
               });
               mesh.normals = meshNormals(mesh);
               job.resolve(mesh);

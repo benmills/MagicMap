@@ -286,6 +286,7 @@ function refreshPins() {
 }
 function settled() {
   if (!state.camera || !requests) return;
+  if (out3D) leave3D();
   refreshWalk();
   refreshPins();
   saveView();

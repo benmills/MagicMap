@@ -83,17 +83,30 @@ async function setMode(mode, { remember = true } = {}) {
     epoch = requests.epoch;
   stopMotion();
   if (terrain) terrain.focusLocked = false;
-  terrainLoading = mode === "3d";
   state.desiredMode = mode;
-  updateViewControls();
   if (remember)
     try {
       localStorage.setItem("atlas.view", mode);
     } catch {}
   if (mode === "3d") {
+    const loading = ensureTerrain();
+    loading.catch(() => {}); // (awaited below)
+    // Too far out for 3D: in to its limit first, about the middle, while the terrain loads.
+    if (state.camera.zoom < MIN_3D_ZOOM) {
+      const landed = await new Promise((done) =>
+        flyTo(zoomGoal(W / 2, H / 2, MIN_3D_ZOOM), 450, done),
+      );
+      if (seq !== modeSeq || epoch !== requests.epoch) return;
+      if (!landed) {
+        state.desiredMode = state.mode;
+        return updateViewControls();
+      }
+    }
+    terrainLoading = true;
+    updateViewControls();
     notice("Loading terrain…");
     try {
-      await ensureTerrain();
+      await loading;
       if (seq !== modeSeq || epoch !== requests.epoch) return;
       state.mode = "3d";
       const coverage = assets.terrain.data;
@@ -108,6 +121,7 @@ async function setMode(mode, { remember = true } = {}) {
       notice(`${e.message} Using 2D.`);
     }
   } else {
+    terrainLoading = false;
     state.mode = "2d";
     notice("");
   }
@@ -115,6 +129,36 @@ async function setMode(mode, { remember = true } = {}) {
   updateViewControls();
   draw();
   settled();
+}
+// Zoomed out past 3D's limit (out3D): level the view, then the 2D map under it.
+function leave3D() {
+  out3D = false;
+  if (state.mode !== "3d" || terrainLoading) return;
+  stopMotion();
+  const yaw = state.yaw,
+    tilt = state.tilt,
+    t0 = performance.now();
+  motionKind = "level";
+  const step = (now) => {
+    const t = Math.min(1, (now - t0) / 300),
+      e = 1 - (1 - t) ** 3;
+    state.yaw = yaw * (1 - e);
+    state.tilt = tilt * (1 - e);
+    updateViewControls();
+    draw();
+    if (t < 1) motion = requestAnimationFrame(step);
+    else {
+      motion = null;
+      motionKind = null;
+      setMode("2d").then(() => {
+        state.yaw = yaw; // as the 3D button leaves them, for coming back
+        state.tilt = tilt;
+        updateViewControls();
+        saveView();
+      });
+    }
+  };
+  motion = requestAnimationFrame(step);
 }
 async function navigatePlace(uiMapID) {
   stopMotion();
@@ -170,7 +214,9 @@ async function loadWorld(camera) {
   const got = await get("/api/assets");
   if (epoch !== requests.epoch) return;
   assets = got;
-  // Start drawing terrain as soon as its index arrives; labels can follow.
+  // Start drawing terrain as soon as its index arrives; labels can follow. A remembered 3D waits
+  // for a view near enough for it (a link's 3D view always is).
+  if (state.desiredMode === "3d" && state.camera.zoom < MIN_3D_ZOOM) state.desiredMode = "2d";
   if (state.desiredMode === "3d") await setMode("3d", { remember: false });
   const outcomes = await metadata;
   if (epoch !== requests.epoch) return;

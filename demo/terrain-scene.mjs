@@ -80,7 +80,8 @@ export function barycentric(x, y, a, b, c) {
     : null;
 }
 // MMT1: 12-byte header, float32 xyz vertices, uint32 triangle indices, little endian.
-export function parseMesh(buffer, { spatialIndex = true } = {}) {
+// offset: the map's place on the world, in tiles (a mesh is in its own map's).
+export function parseMesh(buffer, { spatialIndex = true, offset = [0, 0] } = {}) {
   if (!(buffer instanceof ArrayBuffer) || buffer.byteLength < 12)
     throw Error("Truncated terrain mesh");
   const d = new DataView(buffer),
@@ -98,7 +99,7 @@ export function parseMesh(buffer, { spatialIndex = true } = {}) {
   const positions = new Float32Array(nv * 3),
     indices = new Uint32Array(ni);
   for (let i = 0; i < positions.length; i++) {
-    positions[i] = d.getFloat32(12 + i * 4, true);
+    positions[i] = d.getFloat32(12 + i * 4, true) + (i % 3 < 2 ? offset[i % 3] : 0);
     if (!Number.isFinite(positions[i])) throw Error("Non-finite vertex");
   }
   for (let i = 0; i < ni; i++) {

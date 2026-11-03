@@ -7,8 +7,13 @@ tools/atlas_lua.py) in Lua (lupa) and serves its answers as JSON; the page (inde
 One map: Kalimdor, the Eastern Kingdoms and Zephras Isle on one world. `server.py`'s `OFFSET` places each (world tile =
 the map's tile + its offset); the page reads the offsets and bounds from `/api/maps`. The Eastern Kingdoms sit where
 Blizzard's Azeroth world map (UiMap 947) has them; the isle, which isn't on it, is ours. Requests speak world
-coordinates; `real_*` and `to_real` turn them back into one map's. 3D isn't available on it (the page says so and stays in 2D),
-nor are the terrain tools; the code is kept.
+coordinates; `real_*` and `to_real` turn them back into one map's.
+
+3D works on the world: `/api/assets` gives each map's terrain (and scenery) at world keys, with the map's `inst` and own
+key (`src`) for its files in `terrain/<inst>/`, and the page moves each mesh by its map's offset as it decodes it. Heights
+are each map's own (the maps don't touch). 3D draws the game's tiles on the ground, not the ocean or the AI repaints (it
+never did). It needs 64 px a tile (`MIN_3D_ZOOM`, core.js): about 150 tiles on a phone, all streamed while panning;
+further out, 3D zooms in to it first, and zooming out past it levels the view and goes back to 2D.
 
 What it draws, as the addon does: the tiles on the map's backdrop (open-sea tiles not drawn), the patched sea tile, the ocean, the
 AI repaints (Menu: Ocean, AI repaint), place names, pins and flight points from the Atlas, search (`/api/find`) and cards. The
@@ -32,11 +37,11 @@ Without the baked assets below it still runs: names, search and pins, on the bac
 | ai/ | the AI repaints | `tools/ai_map.py bake` |
 | icons/ (committed) | pin icons | `tools/export_icons.py` |
 | lint/issues.json (committed) | the review's issues | `tools/maplint.py --wow "$W" -q --issues demo/lint/issues.json` |
-| terrain/, objects/ | 3D meshes and scenery, per map | `demo/export_terrain.py`, `demo/export_preview.py` |
+| terrain/, objects/ | 3D meshes and scenery, per map | `demo/export_terrain.py local "$W" wowf --all`, `demo/export_preview.py` |
 
 `bake_world.py` reads a running demo's tiles (`MAGICMAP_DEMO`, default the hosted one). The server only draws tiles whose
 manifest names Data/Tiles.lua's product and version: after a new build's data, re-export them, or, where gen_tiles.py gave every
-tile the same FileDataID as before (the art is the same), change the manifests' `product` and `version`.
+tile the same FileDataID as before (the art is the same), change the manifests' `product` and `version`. The same goes for terrain/: 70707's export is byte for byte the beta 70450's.
 
 ## Deploy (the hosted demo)
 

@@ -21,15 +21,19 @@ function stopMotion() {
   motion = null;
   if (motionKind === "glide") finishGroundPan();
   motionKind = null;
+  flown?.(false);
+  flown = null;
   if (wheelTimer) {
     clearTimeout(wheelTimer);
     wheelTimer = null;
     finishGroundPan();
   }
 }
-function flyTo(goal, ms = 350) {
-  goal = { ...goal, zoom: clamp(goal.zoom, MIN_ZOOM, maxZoom()) };
+let flown = null; // a flight's done(true) when it lands, done(false) if stopped
+function flyTo(goal, ms = 350, done) {
+  goal = { ...goal, zoom: clamp(goal.zoom, minZoom(), maxZoom()) };
   stopMotion();
+  flown = done;
   const from = state.camera,
     t0 = performance.now();
   motionKind = "flight";
@@ -46,7 +50,10 @@ function flyTo(goal, ms = 350) {
     else {
       motion = null;
       motionKind = null;
+      const landed = flown;
+      flown = null;
       settled();
+      landed?.(true);
     }
   };
   motion = requestAnimationFrame(step);
@@ -138,11 +145,9 @@ function applyGesture() {
       state.tilt = clamp(g.tilt + dy * 0.2, 0, 65);
       anchorAt(g.anchor, g.start.x, g.start.y);
     } else {
-      state.camera.zoom = clamp(
-        (g.camera.zoom * p.span) / Math.max(1, g.start.span),
-        MIN_ZOOM,
-        maxZoom(),
-      );
+      const zoom = (g.camera.zoom * p.span) / Math.max(1, g.start.span);
+      out3D = state.mode === "3d" && zoom < MIN_3D_ZOOM * 0.8;
+      state.camera.zoom = clamp(zoom, minZoom(), maxZoom());
       if (state.mode === "3d")
         state.yaw = mapMotion.angleDelta(
           g.yaw + mapMotion.angleDelta(p.angle, g.start.angle),
