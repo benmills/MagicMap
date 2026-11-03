@@ -40,12 +40,12 @@ function placeSheets() {
 }
 // All secondary surfaces share the same small transition, including async search.
 function setSheet(id = null) {
-  if (id && Review.isOn()) $("reviewBtn").click(); // one sheet in that spot
   if (id !== "results") requests?.ticket("find");
   results.hidden = id !== "results";
   for (const name of ["searchSheet", "settings", "layerSheet", "tools"])
     $(name).hidden = name !== (id === "results" ? "searchSheet" : id);
-  for (const [button, sheet] of [["menuBtn", "settings"], ["layersBtn", "layerSheet"], ["toolsBtn", "tools"]])
+  $("menuBtn").setAttribute("aria-expanded", String(!!id));
+  for (const [button, sheet] of [["layersBtn", "layerSheet"], ["toolsBtn", "tools"]])
     $(button).setAttribute("aria-expanded", String(sheet === id));
   if (id && id !== "results") q.blur();
   placeSheets();
@@ -60,6 +60,8 @@ $("menuBtn").onclick = () => setSheet($("settings").hidden ? "settings" : null);
 $("searchBtn").onclick = () => { setSheet("results"); q.focus(); };
 for (const button of document.querySelectorAll("[data-close-sheet]"))
   button.onclick = () => { closeSheets(); $("menuBtn").focus(); };
+for (const button of document.querySelectorAll("[data-back]")) // a page's way back to the menu
+  button.onclick = () => { setSheet("settings"); };
 document.addEventListener("pointerdown", (e) => {
   if (!e.target.closest("#ui, .sheet")) closeSheets();
 });
@@ -90,54 +92,14 @@ function renderLayers() {
       const row = h(
         "label",
         { className: "row" },
-        box,
         pinSwatch(id, sample),
         h("span", {}, name),
         h("small"),
+        box,
       );
       row.dataset.layer = id;
       layersEl.append(row);
     }
-    const key = (layer, sample, text) =>
-      h("span", {}, pinSwatch(layer, sample, 20), text);
-    layersEl.append(
-      h(
-        "div",
-        { className: "legend" },
-        ...Object.keys(FACTION).map((f) =>
-          key(
-            "flight",
-            { faction: f },
-            f === "AH" ? "Neutral" : FACTION_NAME[f],
-          ),
-        ),
-        h(
-          "div",
-          {},
-          "Services and quest givers glow in their faction's colour:",
-        ),
-        ...Object.keys(FACTION).map((f) =>
-          key("service", { mark: "innkeeper", faction: f }, FACTION_NAME[f]),
-        ),
-        h("div", {}),
-        ...Object.entries(SERVICE_NAME).map(([mark, name]) =>
-          key("service", { mark }, name),
-        ),
-        h("div", {}),
-        ...Object.keys(GAME_ICON.dungeon).map((mark) =>
-          key("dungeon", { mark }, mark[0].toUpperCase() + mark.slice(1)),
-        ),
-        ...Object.keys(GAME_ICON.rare).map((mark) =>
-          key("rare", { mark }, RANK[mark]),
-        ),
-        h(
-          "span",
-          {},
-          swatch(20, (g, m) => drawRing(g, m, m, 0.9)),
-          "Highlighted spawns",
-        ),
-      ),
-    );
   }
   for (const [id, , minZoom] of LAYERS) {
     layersEl.querySelector(`[data-layer="${id}"] small`).textContent =

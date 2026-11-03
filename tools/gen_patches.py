@@ -70,7 +70,7 @@ def fill(edges: dict) -> np.ndarray:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     add_source_args(ap)
-    ap.add_argument("--issues", default=os.path.join(ROOT, "demo", "lint", "issues.json"))
+    ap.add_argument("--issues", default=os.path.join(ROOT, "docs", "map-issues.json"))
     ap.add_argument("--review", default=os.path.join(ROOT, "docs", "map-review.json"))
     ns = ap.parse_args()
     src = source_from_args(ap, ns)

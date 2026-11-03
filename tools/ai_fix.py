@@ -329,7 +329,7 @@ def main() -> None:
     if ns.whole_box:
         grid[bc[1]:bc[3], bc[0]:bc[2]] = True
     else:
-        issues = json.load(open(os.path.join(ROOT, "demo", "lint", "issues.json")))["issues"]
+        issues = json.load(open(os.path.join(ROOT, "docs", "map-issues.json")))["issues"]
         d = json.load(open(os.path.join(ROOT, "docs", "map-review.json")))
         all_broken = places(issues, d.get("decisions", d), ns.map)
         grid[bc[1]:bc[3], bc[0]:bc[2]] = all_broken[bc[1]:bc[3], bc[0]:bc[2]]

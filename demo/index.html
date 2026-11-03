@@ -34,85 +34,64 @@
     <canvas id="map" aria-label="World map" tabindex="0"></canvas>
     <nav id="ui" aria-label="Map controls">
       <button id="menuBtn" aria-expanded="false" aria-controls="settings">Menu</button>
-      <button id="layersBtn" aria-expanded="false" aria-controls="layerSheet">Tracking</button>
-      <button id="reviewBtn" aria-pressed="false" aria-controls="reviewSheet" title="The map linter's issues, to accept or reject">Review</button>
       <button id="viewBtn" aria-pressed="false" aria-label="3D terrain" title="Switch to 3D terrain">3D</button>
       <div id="northControls">
       <button id="compass" aria-label="Reset bearing north" title="North"><span>↑</span></button>
       <button id="flyover" aria-pressed="false" aria-label="Start flyover" title="Start flyover" hidden>▶</button>
       </div>
     </nav>
+    <!-- One menu, iOS-like: a root list, and pages it opens (each with a way back). On a phone it's a bottom sheet. -->
     <section id="settings" class="panel sheet" aria-label="Menu" hidden>
       <div class="sheet-bar"><h2>Menu</h2><button class="x" data-close-sheet aria-label="Close menu">✕</button></div>
-      <button id="searchBtn" class="row">Search the Atlas…</button>
-      <div class="location-controls">
-        <label>Zone<select id="zone" aria-label="Zone"><option value="">Go to a zone…</option></select></label>
+      <div class="group">
+        <button id="searchBtn" class="row nav">Search</button>
+        <label class="row pick">Go to zone<select id="zone" aria-label="Go to zone"><option value="">None</option></select></label>
       </div>
-      <button id="share" class="row" title="Copy a link to this view">Share view ↗</button>
-      <button id="toolsBtn" class="row" aria-expanded="false" aria-controls="tools">Terrain tools</button>
+      <div class="group">
+        <button id="layersBtn" class="row nav" aria-expanded="false" aria-controls="layerSheet">Show on Map</button>
+        <button id="toolsBtn" class="row nav" aria-expanded="false" aria-controls="tools">Terrain</button>
+      </div>
+      <div class="group">
+        <button id="share" class="row" title="Copy a link to this view">Share This View</button>
+      </div>
       <div id="hl" hidden><span></span><button class="x" aria-label="Clear highlight">✕</button></div>
     </section>
     <section id="searchSheet" class="panel sheet" aria-label="Search" hidden>
-      <div class="sheet-bar"><h2>Search</h2><button class="x" data-close-sheet aria-label="Close search">✕</button></div>
-      <input id="q" type="search" placeholder="Search the Atlas…"
+      <div class="sheet-bar"><button class="back" data-back aria-label="Back to menu">Menu</button><h2>Search</h2><button class="x" data-close-sheet aria-label="Close search">✕</button></div>
+      <input id="q" type="search" placeholder="NPCs, quests, items, places"
         autocomplete="off" autocorrect="off" spellcheck="false"
         enterkeyhint="search" aria-label="Search maps and entities" />
       <div id="results" role="region" aria-label="Search results"></div>
     </section>
-    <section id="reviewSheet" class="panel sheet" aria-label="Map review" hidden></section>
-    <section id="layerSheet" class="panel sheet" aria-label="Map layers" hidden>
-      <div class="sheet-bar"><h2>Tracking</h2><button class="x" data-close-sheet aria-label="Close layers">✕</button></div>
-      <p>Atlas database locations. Quest starters, resources and rares are known locations, not live sightings or available quests.</p>
-      <div id="baseLayers"></div>
-      <div id="layers"></div>
+    <section id="layerSheet" class="panel sheet" aria-label="Show on map" hidden>
+      <div class="sheet-bar"><button class="back" data-back aria-label="Back to menu">Menu</button><h2>Show on Map</h2><button class="x" data-close-sheet aria-label="Close">✕</button></div>
+      <h3>Pins</h3>
+      <div id="layers" class="group"></div>
+      <h3>Names &amp; scenery</h3>
+      <div id="baseLayers" class="group"></div>
     </section>
-    <section id="tools" class="panel sheet" aria-label="Terrain tools" hidden>
-      <div class="sheet-bar"><h2>Inspect the ground</h2><button class="x" data-close-sheet aria-label="Close tools">✕</button></div>
+    <section id="tools" class="panel sheet" aria-label="Terrain" hidden>
+      <div class="sheet-bar"><button class="back" data-back aria-label="Back to menu">Menu</button><h2>Terrain</h2><button class="x" data-close-sheet aria-label="Close">✕</button></div>
       <div id="tiltWrap" hidden>
-        <h2>Camera</h2>
-        <div class="bearing"><button id="rotateLeft" aria-label="Rotate left">↶</button><label for="tilt">Tilt <output id="tiltValue">45°</output></label><button id="rotateRight" aria-label="Rotate right">↷</button></div>
-        <input id="tilt" type="range" min="0" max="65" value="45" aria-label="3D tilt" />
-        <small id="gestureHint">Drag to pan · Two fingers: pinch, rotate, slide to tilt</small>
+        <h3>Camera</h3>
+        <div class="group">
+          <div class="bearing row"><button id="rotateLeft" aria-label="Rotate left">↶</button><label for="tilt">Tilt <output id="tiltValue">45°</output></label><button id="rotateRight" aria-label="Rotate right">↷</button></div>
+          <div class="row"><input id="tilt" type="range" min="0" max="65" value="45" aria-label="3D tilt" /></div>
+        </div>
+        <small id="gestureHint">Drag to pan · two fingers: pinch, rotate, slide to tilt</small>
         <small id="flyoverHint">Drag or use a control to pause</small>
       </div>
-      <p>
-        Outdoor terrain only. Buildings are scenery; these tools do not measure
-        collision, bridges or indoor floors.
-      </p>
-      <label class="row"
-        ><input type="checkbox" data-tool="elevation" />Elevation
-        <small>yards</small></label
-      >
-      <label class="row"
-        ><input type="checkbox" data-tool="slope" />Slope
-        <small>0–60° · green → red</small></label
-      >
-      <label class="row"
-        ><input type="checkbox" data-tool="contours" />Contours
-        <small>25 yd · sampled in 2D</small></label
-      >
-      <label class="row"
-        ><input type="checkbox" data-tool="walk" />Walk grid
-        <small>Atlas ground classes</small></label
-      >
-      <button id="profile" class="row" aria-pressed="false">
-        ↗ Measure a ground profile
-      </button>
+      <h3>Overlays</h3>
+      <div class="group">
+        <label class="row"><span>Elevation</span><input type="checkbox" data-tool="elevation" /></label>
+        <label class="row"><span>Slope</span><input type="checkbox" data-tool="slope" /></label>
+        <label class="row"><span>Contours</span><input type="checkbox" data-tool="contours" /></label>
+        <label class="row"><span>Walk grid</span><input type="checkbox" data-tool="walk" /></label>
+      </div>
+      <div class="group">
+        <button id="profile" class="row" aria-pressed="false">Measure a Ground Profile</button>
+      </div>
       <div id="profileResult"></div>
-      <h2>Technical</h2>
-      <label class="row"
-        ><input type="checkbox" data-tool="coverage" />Asset coverage</label
-      >
-      <p>Mint: terrain · gold: map image · red: missing</p>
-      <label class="row"
-        ><input type="checkbox" data-tool="diagnostics" />Diagnostics</label
-      >
-      <button id="copyDiagnostics" class="row" hidden>Copy diagnostics</button>
-      <pre id="diagnostics" hidden></pre>
-      <pre id="locationDiagnostics" hidden></pre>
-      <p id="toolNote">
-        Samples report their resolution. Missing ground stays unknown.
-      </p>
     </section>
     <nav id="viewControls" aria-label="Zoom controls">
       <button id="zoomIn" aria-label="Zoom in">+</button>
@@ -144,7 +123,6 @@
     <script src="flyover.js" defer></script>
     <script src="navigation.js" defer></script>
     <script src="cards.js" defer></script>
-    <script src="review.js" defer></script>
     <script src="mapart.js" defer></script>
     <script src="app.js" defer></script>
   </body>

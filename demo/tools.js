@@ -107,47 +107,13 @@ async function inspect(x, y, mark) {
   const z = a.zone,
     ar = a.area,
     ground = terrain?.inst === state.inst ? terrain.sample(col, row) : null;
-  const detail = state.tools.has("diagnostics");
   readout.textContent =
     `${ar?.subzone || ar?.zone || z?.name || MAP_NAME}${z ? ` · ${(z.x * 100).toFixed(1)}, ${(z.y * 100).toFixed(1)}` : ""}` +
     (ground && (state.tools.has("elevation") || state.tools.has("slope"))
       ? ` · ${ground.height.toFixed(0)} yd · ${ground.slope.toFixed(0)}°`
       : "");
-  $("locationDiagnostics").hidden = !detail;
-  $("locationDiagnostics").textContent =
-    (ground ? `Ground ${ground.height.toFixed(1)} yd · slope ${ground.slope.toFixed(1)}° · ${ground.resolution}` : "Ground elevation unavailable") +
-    `\ntile ${col.toFixed(3)}, ${row.toFixed(3)} · key ${Math.floor(col) * 64 + Math.floor(row)}\nworld N ${a.north.toFixed(1)}, W ${a.west.toFixed(1)}\nwalk ${a.chunk.join(", ")} · class ${a.walk.class} · E ${a.walk.east} S ${a.walk.south}`;
 }
 function drawAnalysis() {
-  if (state.tools.has("coverage")) {
-    const bounds = view(),
-      meshKeys = new Set(assets?.terrain.data?.tiles.map((t) => t.key) || []),
-      imageKeys = new Set(assets?.tiles || []);
-    for (const t of tiles) {
-      if (
-        t.col + 1 < bounds[0] ||
-        t.col > bounds[2] ||
-        t.row + 1 < bounds[1] ||
-        t.row > bounds[3]
-      )
-        continue;
-      path(
-        [
-          [t.col, t.row],
-          [t.col + 1, t.row],
-          [t.col + 1, t.row + 1],
-          [t.col, t.row + 1],
-        ].map((p) => toScreen(...p)),
-      );
-      ctx.strokeStyle = meshKeys.has(t.key)
-        ? "#80d9c4"
-        : imageKeys.has(t.key)
-          ? "#d2ae64"
-          : "#cf6f70";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-  }
   if (
     state.mode === "2d" &&
     terrain?.inst === state.inst &&
@@ -248,15 +214,8 @@ function renderProfile() {
     ),
   );
 }
-function updateDiagnostics() {
+function updateScale() {
   if (!state.camera) return;
-  const d = terrain?.inst === state.inst ? terrain.diagnostics() : null;
-  $("diagnostics").hidden = !state.tools.has("diagnostics");
-  $("copyDiagnostics").hidden = !state.tools.has("diagnostics");
-  $("diagnostics").textContent =
-    `${assets?.product || "wow_classic_beta"} ${assets?.version || ""}\nMap ${state.inst} · ${state.mode.toUpperCase()} · ${state.camera.zoom.toFixed(1)} px/tile\nTiles installed: ${assets?.tiles.length || 0}/${tiles.length} · ${assets?.tileReason || ""}\nTerrain: ${assets?.terrain.reason || "checking…"}\n${d ? `${d.loaded}/${d.visible} visible meshes · ${d.native} native\n${d.previewReady ? `${d.previewTiles} preview tiles (display only)` : "No overview preview"}\n${d.pending} requests · ${d.failed} failed · ${d.memoryMB} MB\n${d.backgroundMeshes ? "Background" : "Main-thread"} mesh preparation · ${d.cancelled} cancelled requests\n${d.sceneryTiles} scenery tiles loaded` : ""}`;
-  if (state.tools.has("diagnostics"))
-    $("diagnostics").textContent += `\n\nRendering and viewport\n${JSON.stringify(renderMetrics(), null, 2)}`;
   $("scale").textContent =
     `${Math.round(((100 / state.camera.zoom) * 1600) / 3).toLocaleString()} yd`;
 }
@@ -274,12 +233,3 @@ function selectBuilding(building) {
   );
 }
 
-$("copyDiagnostics").onclick = run(async () => {
-  updateDiagnostics();
-  try {
-    await navigator.clipboard.writeText($("diagnostics").textContent + "\n" + $("locationDiagnostics").textContent);
-    notice("Diagnostics copied.");
-  } catch {
-    notice("Select and copy the diagnostics below.");
-  }
-});

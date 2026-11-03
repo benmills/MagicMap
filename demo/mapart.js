@@ -19,36 +19,34 @@ const MapArt = (() => {
   fetch("sea/sea.json").then((r) => (r.ok ? r.json() : null)).then((d) => { sea = d; if (again) again(); }).catch(() => {});
   fetch("ai/ai.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).then((d) => { over.ai = d; if (d) buttons(); if (again) again(); }).catch(() => {});
 
-  // The switches, as the addon's Feel "sea.on": in the Menu sheet, kept for this viewer.
+  // The switches, as the addon's Feel "sea.on": in the menu's Show on Map page, kept for this viewer.
   const read = (k, dflt) => { try { const v = localStorage.getItem(`mm2.${k}`); return v ? v === "on" : dflt; } catch { return dflt; } };
   const on = { sea: read("sea", true), ai: read("ai", true) };
+  const heading = document.createElement("h3");
+  heading.textContent = "Map art";
   const panel = document.createElement("div");
   panel.id = "mapArt";
-  const heading = document.createElement("div");
-  heading.textContent = "Map art";
-  panel.append(heading);
-  const button = (key, label) => {
-    const b = document.createElement("button");
-    b.className = "row";
-    const show = () => { b.textContent = `${label}: ${on[key] ? "on" : "off"}`; b.setAttribute("aria-pressed", on[key]); };
-    b.onclick = () => {
-      on[key] = !on[key];
+  panel.className = "group";
+  const toggle = (key, label) => {
+    const row = document.createElement("label"), text = document.createElement("span"), box = document.createElement("input");
+    row.className = "row";
+    text.textContent = label;
+    box.type = "checkbox";
+    box.checked = on[key];
+    box.onchange = () => {
+      on[key] = box.checked;
       try { localStorage.setItem(`mm2.${key}`, on[key] ? "on" : "off"); } catch {}
-      show();
       if (again) again();
     };
-    show();
-    panel.append(b);
-    return b;
+    row.append(text, box);
+    return row;
   };
   const buttons = () => { // (a layer's switch once it's there)
-    if (over.ai && !shown.ai) { shown.ai = true; slot.before(button("ai", "AI repaint")); }
+    if (over.ai && !shown.ai) { shown.ai = true; panel.append(toggle("ai", "Repaired map art")); }
   };
   const shown = {};
-  button("sea", "Ocean");
-  const slot = document.createElement("span");
-  panel.append(slot);
-  const place = () => { const sheet = document.getElementById("settings"); if (sheet) sheet.append(panel); };
+  panel.append(toggle("sea", "Ocean"));
+  const place = () => { const sheet = document.getElementById("layerSheet"); if (sheet) sheet.append(heading, panel); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", place); else place();
 
   fetch("patches/patches.json").then((r) => (r.ok ? r.json() : null)).then((d) => { patches = d; if (again) again(); }).catch(() => {});

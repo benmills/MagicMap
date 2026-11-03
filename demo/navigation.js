@@ -259,7 +259,6 @@ function release(e, cancelled) {
         !pin && state.mode === "3d" && terrain.pickBuilding(tap.x, tap.y);
       if (pin) run(openPin)(pin);
       else if (building) selectBuilding(building);
-      else if (Review.tap(...toTile(tap.x, tap.y))) {}
       else run(inspect)(tap.x, tap.y, true);
       lastTap = tap;
     }

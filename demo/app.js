@@ -54,7 +54,7 @@ async function ensureTerrain() {
         $("terrain"),
         () => {
           draw();
-          updateDiagnostics();
+          updateScale();
           if (profilePoints.length === 2) renderProfile();
         },
         (message) => {
@@ -109,12 +109,7 @@ async function setMode(mode, { remember = true } = {}) {
       await loading;
       if (seq !== modeSeq || epoch !== requests.epoch) return;
       state.mode = "3d";
-      const coverage = assets.terrain.data;
-      notice(
-        coverage.tiles.length < coverage.expectedTiles
-          ? `Ground coverage: ${coverage.tiles.length}/${coverage.expectedTiles} ADT files. Unsampled ground remains unknown.`
-          : "",
-      );
+      notice("");
     } catch (e) {
       if (seq !== modeSeq || epoch !== requests.epoch) return;
       state.mode = "2d";
@@ -203,7 +198,7 @@ async function loadWorld(camera) {
   closeSheets();
   MAP_NAME = m.name;
   bg = rgb(m.bg || [0.03, 0.06, 0.06]);
-  $("zone").replaceChildren(new Option("Go to a zone…", ""));
+  $("zone").replaceChildren(new Option("Choose", ""));
   for (const z of m.zones) $("zone").add(new Option(z.name, z.uiMapID));
   updateViewControls();
   draw();
@@ -272,7 +267,7 @@ function renderExtraLayers() {
       saveView();
       draw();
     });
-    box.append(h("label", { className: "row" }, input, text));
+    box.append(h("label", { className: "row" }, h("span", {}, text), input));
     if (id === "labels") {
       const group = h("fieldset", {
         id: "labelSublayers",
@@ -299,7 +294,7 @@ function renderExtraLayers() {
           draw();
           saveView();
         };
-        group.append(h("label", { className: "row" }, child, title));
+        group.append(h("label", { className: "row sub" }, h("span", {}, title), child));
       }
       box.append(group);
     }
@@ -425,7 +420,7 @@ $("rotateRight").onclick = () => {
 };
 $("toolsBtn").onclick = () => {
   setSheet($("tools").hidden ? "tools" : null);
-  updateDiagnostics();
+  updateScale();
 };
 $("share").onclick = run(async () => {
   clearTimeout(saveTimer);
@@ -459,7 +454,6 @@ $("profile").onclick = run(async () => {
 for (const input of $("tools").querySelectorAll("input[data-tool]"))
   input.onchange = run(async () => {
     const id = input.dataset.tool;
-    if (id === "diagnostics") $("locationDiagnostics").hidden = !input.checked;
     input.checked ? state.tools.add(id) : state.tools.delete(id);
     if (["elevation", "slope", "contours"].includes(id) && input.checked)
       try {
@@ -496,11 +490,6 @@ addEventListener(
     resize();
   }
   await restoreView();
-  // The map review: tools/maplint.py's issues, marked on the server (review.js, review_api.py).
-  Review.mount({ ctx: () => ctx, toScreen, zoom: () => state.camera.zoom, draw,
-    offset: (inst) => world.parts.find((p) => p.inst === inst)?.offset,
-    sheet: $("reviewSheet"), button: $("reviewBtn"), onOpen: () => setSheet(null),
-    fly: run((i) => fitTo([{ col: i.bbox[0], row: i.bbox[1] }, { col: i.bbox[2], row: i.bbox[3] }])) }).catch(fail);
   const observer = new ResizeObserver(placeSheets);
   observer.observe(ui);
   observer.observe(card);

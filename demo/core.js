@@ -102,30 +102,6 @@ function mapPoint(clientX, clientY) {
   return { x: (clientX - rect.left) * W / rect.width, y: (clientY - rect.top) * H / rect.height };
 }
 
-// Read-only evidence for a physical device: browser compositing cannot be
-// diagnosed from getImageData() or a desktop browser's device emulation alone.
-function renderMetrics() {
-  const rect = canvas.getBoundingClientRect(), viewport = window.visualViewport;
-  const terrainRect = terrain?.canvas.getBoundingClientRect();
-  return {
-    browser: navigator.userAgent,
-    reportedDPR: devicePixelRatio || 1,
-    drawingDPR: dpr,
-    window: { width: innerWidth, height: innerHeight },
-    css: { width: rect.width, height: rect.height, left: rect.left, top: rect.top },
-    backing: { width: canvas.width, height: canvas.height },
-    webgl: terrain ? {
-      width: terrain.gl.drawingBufferWidth, height: terrain.gl.drawingBufferHeight,
-      css: { width: terrainRect.width, height: terrainRect.height },
-    } : null,
-    resolution3x: matchMedia("(min-resolution: 3dppx)").matches,
-    visualViewport: viewport ? {
-      width: viewport.width, height: viewport.height,
-      offsetLeft: viewport.offsetLeft, offsetTop: viewport.offsetTop, scale: viewport.scale,
-    } : null,
-  };
-}
-
 // Atlas.Camera.ScreenToTile / TileToScreen / ZoomAt, per frame.
 // Small view interface: projection, ground picking, bounds, and fit share Atlas tile coordinates.
 const flatView = {
@@ -236,7 +212,6 @@ function frame() {
   drawAnalysis();
   if (walk) drawWalk();
   if (state.mode === "2d" && typeof MapArt === "object") MapArt.draw(ctx, toScreen, state.camera.zoom, world.parts, draw); // (mapart.js)
-  Review.drawOverlay();
   // Pins: where they'll be drawn first, so labels keep clear of them; quieter at continent zoom,
   // where names win; pins a name covers aren't drawn.
   const quiet = pinQuiet(),

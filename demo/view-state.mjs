@@ -20,8 +20,6 @@ export const TOOL_IDS = [
   "slope",
   "contours",
   "walk",
-  "coverage",
-  "diagnostics",
 ];
 export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const number = (p, k, fallback, lo, hi) => {

@@ -16,8 +16,9 @@ never did). It needs 64 px a tile (`MIN_3D_ZOOM`, core.js): about 150 tiles on a
 further out, 3D zooms in to it first, and zooming out past it levels the view and goes back to 2D.
 
 What it draws, as the addon does: the tiles on the map's backdrop (open-sea tiles not drawn), the patched sea tile, the ocean, the
-AI repaints (Menu: Ocean, AI repaint), place names, pins and flight points from the Atlas, search (`/api/find`) and cards. The
-Review button is the map review (docs/hardening-plan.md M6): tools/maplint.py's issues, marked on the server.
+AI repaints, place names, pins and flight points from the Atlas, search (`/api/find`) and cards. The menu (top left) is one
+list with pages, iOS-like: Search, Go to zone, Show on Map (pins, names, scenery, Ocean, Repaired map art), Terrain (3D camera,
+elevation, slope, contours, walk grid, ground profile), Share. On a phone it's a bottom sheet.
 
 ## Run it here
 
@@ -36,7 +37,6 @@ Without the baked assets below it still runs: names, search and pins, on the bac
 | patches/ | the patched sea tile (Data/Patches.lua) | `demo/export_patches.py` |
 | ai/ | the AI repaints | `tools/ai_map.py bake` |
 | icons/ (committed) | pin icons | `tools/export_icons.py` |
-| lint/issues.json (committed) | the review's issues | `tools/maplint.py --wow "$W" -q --issues demo/lint/issues.json` |
 | terrain/, objects/ | 3D meshes and scenery, per map | `demo/export_terrain.py local "$W" wowf --all`, `demo/export_preview.py` |
 
 `bake_world.py` reads a running demo's tiles (`MAGICMAP_DEMO`, default the hosted one). The server only draws tiles whose
@@ -46,17 +46,9 @@ tile the same FileDataID as before (the art is the same), change the manifests' 
 ## Deploy (the hosted demo)
 
 The VM `magic-map-outdoor` runs it from `/opt/magic-map-outdoor` (a copy of this repo's atlas/, Data/, tools/ and demo/; not a
-git checkout): service `magic-map-outdoor`, `.venv/bin/python demo/server.py 8000`. The review's marks are kept on the VM outside it (`MAGICMAP_REVIEW`), so a
-deploy doesn't touch them; saving one needs the token (`MAGICMAP_REVIEW_TOKEN`, from the infra repo's secrets).
+git checkout): service `magic-map-outdoor`, `.venv/bin/python demo/server.py 8000`.
 
 1. Copy in the committed files: `git ls-files atlas Data tools demo` into `/opt/magic-map-outdoor` (tar, then `tar xzf - -C`).
    The assets above stay where they are; bake and copy one when it changes.
 2. `sudo systemctl restart magic-map-outdoor` (the page's scripts are served no-cache; the server loads the Atlas once).
 3. Check: `curl -s https://magic-map-outdoor.exe.xyz/api/maps` names the parts; the page shows both continents and the isle.
-
-## Reading the review's marks back
-
-    .venv/bin/python tools/review.py --from https://magic-map-outdoor.exe.xyz/
-    .venv/bin/python tools/review.py --from https://magic-map-outdoor.exe.xyz/ --save docs/map-review.json
-
-After a linter change, regenerate lint/issues.json and copy it in. Issue ids are stable, so the marks carry over.

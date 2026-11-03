@@ -6,7 +6,6 @@ __pycache__/
 /.claude/worktrees/
 /.claude/
 /dist/*.zip
-/demo/review/
 /demo/patches/
 /demo/fullmap/
 demo/sea/

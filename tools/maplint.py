@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Score the map's quality and list its issues (docs/hardening-plan.md M1-M5), to hill-climb and ratchet it.
 
-The primary output is an issues file (--issues FILE, JSON; schema below), reviewed in the web demo: one
-issue per thing to look at, each with a stable id, so a review's marks survive reruns. Its summary holds
+The primary output is an issues file (--issues FILE, JSON; schema below; the reviewed one is docs/map-issues.json,
+its marks docs/map-review.json): one issue per thing to look at, each with a stable id, so marks survive reruns. Its summary holds
 the scores (each a count or a share, lower is better) that --baseline ratchets.
 
 Checks (issue kinds in brackets):

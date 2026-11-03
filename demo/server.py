@@ -37,7 +37,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(DEMO), "tools"))
 from atlas_lua import load_atlas  # noqa: E402
 from lupa.lua51 import LuaError  # noqa: E402
 from asset_manifest import inventory  # noqa: E402
-import review_api  # noqa: E402  the map review (/api/lint, /api/review)
 from static_assets import COMPRESSIBLE, accepts_gzip, compressed_file  # noqa: E402
 
 L, Atlas = load_atlas()
@@ -529,28 +528,8 @@ class Handler(SimpleHTTPRequestHandler):
                 pass  # Normal static-file handling supplies the appropriate 404.
         return super().send_head()
 
-    def review(self, method, body=b""):
-        got = review_api.handle(method, urlparse(self.path).path, body, self.headers)
-        if not got:
-            return False
-        status, body = got
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-        return True
-
-    def do_POST(self):
-        n = int(self.headers.get("Content-Length") or 0)
-        self.close_connection = n > review_api.MAX_BODY  # the rest is unread
-        if not self.review("POST", self.rfile.read(min(n, review_api.MAX_BODY + 1))):
-            self.send_error(404)
-
     def do_GET(self):
         u = urlparse(self.path)
-        if self.review("GET"):
-            return
         if u.path.startswith("/api/"):
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             status = 200
