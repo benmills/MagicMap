@@ -41,8 +41,8 @@ tile the same FileDataID as before (the art is the same), change the manifests' 
 ## Deploy (the hosted demo)
 
 The VM `magic-map-outdoor` runs it from `/opt/magic-map-outdoor` (a copy of this repo's atlas/, Data/, tools/ and demo/; not a
-git checkout): service `magic-map-outdoor`, `.venv/bin/python demo/server.py 8000`. The review's marks are kept outside it
-(`MAGICMAP_REVIEW=/var/lib/magic-map-outdoor/decisions.json`), its token in `/etc/magic-map-outdoor/review.env`.
+git checkout): service `magic-map-outdoor`, `.venv/bin/python demo/server.py 8000`. The review's marks are kept on the VM outside it (`MAGICMAP_REVIEW`), so a
+deploy doesn't touch them; saving one needs the token (`MAGICMAP_REVIEW_TOKEN`, from the infra repo's secrets).
 
 1. Copy in the committed files: `git ls-files atlas Data tools demo` into `/opt/magic-map-outdoor` (tar, then `tar xzf - -C`).
    The assets above stay where they are; bake and copy one when it changes.
