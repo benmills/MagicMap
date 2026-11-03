@@ -13,3 +13,5 @@ demo/sea/
 /.env
 /demo/aifix/
 demo/ai/
+/demo/terrain/
+/demo/objects/

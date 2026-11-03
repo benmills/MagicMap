@@ -6,7 +6,15 @@
 //   Review.mount({ ctx, toScreen, zoom, inst, draw, fly(issue), sheet, button, onOpen? })
 //     ctx() the 2D context (CSS px), toScreen(col, row) -> [x, y], zoom() px per tile, inst() the map shown,
 //     fly(issue) shows an issue (its bbox, its map), sheet the panel to fill, button the toggle.
-//   Review.drawOverlay()  in the frame, over the tiles;  Review.tap(col, row) -> true if it took it.
+//   Review.drawOverlay()  in the frame, over the tiles and borders;  Review.tap(col, row) -> true if it took it.
+const WORLD_OFFSET = { 1: [0, 0], 2991: [27, 26], 0: [41, 0] }; // (server.py's OFFSET)
+const onWorld = (i) => {
+  const o = WORLD_OFFSET[i.inst];
+  if (!o) return i;
+  return { ...i, inst: 1, centroid: i.centroid && [i.centroid[0] + o[0], i.centroid[1] + o[1]],
+    bbox: i.bbox && [i.bbox[0] + o[0], i.bbox[1] + o[1], i.bbox[2] + o[0], i.bbox[3] + o[1]],
+    mask: i.mask && { ...i.mask, x0: i.mask.x0 + o[0] * 16, y0: i.mask.y0 + o[1] * 16 } };
+};
 const Review = (() => {
   const CHUNKS = 16;
   const STATUS = { open: "#ff3df0", accepted: "#5ad17a", rejected: "#8a8a8a", later: "#f2b84c" };
@@ -217,7 +225,7 @@ const Review = (() => {
     host.button.onclick = () => toggle();
     const [l, doc] = await Promise.all([json("/api/lint"), json("/api/review").catch(() => ({}))]);
     lint = l; took(doc);
-    issues = (l.issues || []).slice().sort((a, b) => (a.inst < 0) - (b.inst < 0) || a.kind.localeCompare(b.kind) || b.severity - a.severity);
+    issues = (l.issues || []).map(onWorld).sort((a, b) => (a.inst < 0) - (b.inst < 0) || a.kind.localeCompare(b.kind) || b.severity - a.severity);
     byId = new Map(issues.map((i) => [i.id, i]));
     if (asked && byId.has(asked)) { filter.status = "all"; toggle(true); select(byId.get(asked), false); }
   }

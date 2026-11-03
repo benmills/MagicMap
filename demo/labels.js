@@ -1,4 +1,4 @@
-// Map names. Shares the page's globals (cam, ctx, toScreen, ...): classic scripts, one scope.
+// Map names. Shares the page's globals (state.camera, ctx, toScreen, ...): classic scripts, one scope.
 //
 // Atlas.Labels ranks every name (continent, zone, town, subzone, poi); this draws them as a
 // typographic hierarchy: each tier has a zoom band, a face, size, tracking, case, colour and a
@@ -46,12 +46,12 @@ const LABEL_STYLE = {
   tiers: {
     continent: { zoom: [0, 26], over: 26, fit: 0.8, font: TITLE_FONT, weight: 700, size: { k: 0.1, min: 15, max: 22 }, track: 0.28,
       caps: null, color: "#f2dfae", alpha: 0.92 },
-    zone: { zoom: [6, 320], over: 40, covers: ["rare", "quest", "mail", "herb", "ore"], font: TITLE_FONT, weight: 700, size: { k: 0.085, min: 11.5, max: 22 }, track: 0.12,
+    zone: { zoom: [6, 450], over: 40, covers: ["rare", "quest", "mail", "herb", "ore"], font: TITLE_FONT, weight: 700, size: { k: 0.085, min: 11.5, max: 22 }, track: 0.12,
       caps: null, color: "#ffe3a1", alpha: 0.95 },
     town: { zoom: [30, Infinity], covers: ["rare", "mail", "herb", "ore"], font: BODY_FONT, weight: 400, size: 12.5, track: 0,
       caps: null, color: "#fbf6ea", alpha: 0.9 },
-    subzone: { zoom: [72, Infinity], covers: ["mail", "herb", "ore"], font: BODY_FONT, weight: 400, size: { k: 0.1, min: 10.5, max: 13 }, track: 0.04,
-      caps: null, color: "rgb(232,219,196)", alpha: 0.78 },
+    subzone: { zoom: [120, Infinity], covers: ["mail", "herb", "ore"], font: BODY_FONT, weight: 400, size: 9, track: 0,
+      caps: null, color: "rgb(232,219,196)", alpha: 0.6, outline: false },
     poi: { zoom: [150, Infinity], covers: ["mail", "herb", "ore"], font: BODY_FONT, weight: 400, size: 10.5, track: 0,
       caps: null, color: "#d6ccb6", alpha: 0.68 },
   },
@@ -69,26 +69,33 @@ let labelClock = 0;
 
 // Canvas text silently uses a fallback until a web font has loaded, so the map waits for both.
 async function loadLabels() {
-  [{ labels }] = await Promise.all([get(`/api/labels?inst=${INST}`),
-    ...[`700 20px Cinzel`, `400 20px Marcellus`].map((f) => document.fonts.load(f))]);
+  const ticket = requests.ticket('labels');
+  const got = await get(`/api/labels?inst=${state.inst}`);
+  if (requests.current(ticket)) labels = got.labels;
+  Promise.allSettled([`700 20px Cinzel`,`400 20px Marcellus`].map(f=>document.fonts.load(f))).then(draw);
 }
 
 // How quiet pins are at this zoom: { s: scale, a: opacity }.
 function pinQuiet() {
   const { quietZoom: [z0, z1], scale, alpha } = LABEL_STYLE.pins;
-  const t = clamp(Math.log(cam.zoom / z0) / Math.log(z1 / z0), 0, 1);
+  const t = clamp(Math.log(state.camera.zoom / z0) / Math.log(z1 / z0), 0, 1);
   return { s: scale + (1 - scale) * t, a: alpha + (1 - alpha) * t };
 }
 
 function labelSize(l, st) {
   const s = st.size;
   if (typeof s === "number") return s;
-  return Math.round(clamp(s.k * l.size * cam.zoom, s.min, s.max) * 2) / 2; // half-px steps: fewer re-measures
+  return Math.round(clamp(s.k * l.size * state.camera.zoom, s.min, s.max) * 2) / 2; // half-px steps: fewer re-measures
 }
 
-function inBand(st, on) {
-  const [lo, hi] = st.zoom, k = on ? 1 + LABEL_STYLE.bandPad : 1;
-  return cam.zoom >= lo / k && cam.zoom < hi * k;
+function inBand(st, on, label) {
+  let [lo, hi] = st.zoom;
+  if (label?.tier === "subzone") {
+    const weight = Math.round(((label.size || 0) * CHUNKS) ** 2);
+    lo = weight >= 40 ? 120 : weight >= 15 ? 220 : 400;
+  }
+  const k = on ? 1 + LABEL_STYLE.bandPad : 1;
+  return state.camera.zoom >= lo / k && state.camera.zoom < hi * k;
 }
 
 // Set the context up for a tier at a size; the text's width (measured once per font and text).
@@ -126,6 +133,10 @@ function drawLabels(pinBoxes) {
   ctx.save();
   ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineJoin = "round";
   for (const l of labels) {
+    if (!state.labelTiers.has(l.tier)) {
+      labelState.delete(l.rank);
+      continue;
+    }
     const st = LABEL_STYLE.tiers[l.tier];
     let s = labelState.get(l.rank);
     if (!s) { s = { a: 0, on: false, spot: 0 }; labelState.set(l.rank, s); }
@@ -135,10 +146,10 @@ function drawLabels(pinBoxes) {
     let size = labelSize(l, st), w = setFont(text, st, size);
     if (st.fit && w > W * st.fit) { size = Math.floor(size * W * st.fit / w); w = setFont(text, st, size); }
     const h = size * 1.15;
-    let want = inBand(st, s.on), at = null;
+    let want = inBand(st, s.on, l), at = null;
     if (want) {
       const cands = spots(l, w, h), order = [s.spot, ...cands.keys()];
-      const pad = s.on ? LABEL_STYLE.keepPad : LABEL_STYLE.pad, over = cam.zoom < (st.over || 0);
+      const pad = s.on ? LABEL_STYLE.keepPad : LABEL_STYLE.pad, over = state.camera.zoom < (st.over || 0);
       const wins = (p) => over || st.covers?.includes(p[4]);
       const blocking = over ? [] : (blockers[l.tier] ??= pinBoxes.filter((p) => !wins(p)));
       for (const i of order) {
@@ -165,7 +176,7 @@ function drawLabels(pinBoxes) {
 function drawLabel(text, x, y, st, size, a) {
   const sh = LABEL_STYLE.shadow, ol = LABEL_STYLE.outline;
   ctx.globalAlpha = a * st.alpha;
-  if (size <= ol.maxSize) { // the thin outline, under the glyphs
+  if (st.outline !== false && size <= ol.maxSize) { // the thin outline, under the glyphs
     ctx.lineWidth = ol.width; ctx.strokeStyle = ol.color; ctx.strokeText(text, x, y);
   }
   ctx.shadowColor = sh.color; ctx.shadowOffsetX = sh.offset; ctx.shadowOffsetY = sh.offset; ctx.shadowBlur = sh.blur;

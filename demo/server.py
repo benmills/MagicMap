@@ -13,16 +13,17 @@ them.
   /api/walk?inst=&c0=&r0=&c1=&r1=    Walk.Cell over a chunk range, one hex digit each
   /api/pins?inst=&c0=&r0=&c1=&r1=&zoom=&layers=
                                      FlightPoints, POIs, Dungeons, SpawnsIn (by NPC flags, quests,
-                                     rank, object kind) in a box, thinned to one per layer per cell
+                                     rank, object kind) in a box; groups=1 returns compact groups and omitted count
   /api/npc|object|item|quest|flight|dungeon?id=
                                      one entity, its links named (QuestSources for a quest)
   /api/find?q=                       Atlas.Find over npc, quest, object, item
-  /api/lint, /api/review             the map review: the linter's issues, the review's marks (demo/review_api.py)
 """
 from __future__ import annotations
 
 import gzip
+import io
 import json
+import math
 import os
 import sys
 import threading
@@ -33,7 +34,10 @@ DEMO = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(DEMO), "tools"))
 
 from atlas_lua import load_atlas  # noqa: E402
-import review_api  # noqa: E402
+from lupa.lua51 import LuaError  # noqa: E402
+from asset_manifest import inventory  # noqa: E402
+import review_api  # noqa: E402  the map review (/api/lint, /api/review)
+from static_assets import COMPRESSIBLE, accepts_gzip, compressed_file  # noqa: E402
 
 L, Atlas = load_atlas()
 lua_type = L.globals().type
@@ -51,15 +55,56 @@ def py(v):
     return {str(k): py(x) for k, x in d.items()}
 
 
-def maps(q):
+WORLD, WORLD_NAME = 1, "Azeroth"
+OFFSET = {1: (0, 0), 2991: (27, 26), 0: (41, 0)}
+ISLE = (52, 48, 61, 56)  # Zephras Isle's world box
+CITIES = {"Stormwind City": "Stormwind", "Stormwind": "Stormwind", "Ironforge": "Ironforge", "The Undercity": "Undercity",
+          "Orgrimmar": "Orgrimmar", "Thunder Bluff": "Thunder Bluff", "Darnassus": "Darnassus"}
+CITIES_AS_TOWNS = {"Ironforge", "The Undercity"}
+CITY_SIZE = 1.5  # (a zone label's: the side of the area, in tiles)
+
+
+def to_world(inst, col, row):
+    dx, dy = OFFSET[inst]
+    return col + dx, row + dy
+
+
+def to_real(col, row):
+    """The real map under a world position, and the position on it."""
+    if ISLE[0] <= col <= ISLE[2] and ISLE[1] <= row <= ISLE[3]:
+        inst = 2991
+    else:
+        inst = 1 if col < 56 else 0
+    dx, dy = OFFSET[inst]
+    return inst, col - dx, row - dy
+
+
+def world_key(inst, key):
+    dx, dy = OFFSET[inst]
+    return (key // 64 + dx) * 64 + key % 64 + dy
+
+
+def on_world(p):
+    """A thing with an inst, col and row, moved onto the world if its map is on it."""
+    if p.get("inst") in OFFSET:
+        if "col" in p:
+            p["col"], p["row"] = to_world(p["inst"], p["col"], p["row"])
+        p["inst"] = WORLD
+    return p
+
+
+def real_maps():
     out = []
     for m in py(Atlas.Maps()):
         inst = m["inst"]
-        out.append(dict(m, uiMapID=Atlas.Continent(inst), zones=py(Atlas.Zones(inst)) or []))
+        keys = list(Atlas.Tiles(inst).keys())
+        cols, rows = [k // 64 for k in keys], [k % 64 for k in keys]
+        bounds = [min(cols), min(rows), max(cols) + 1, max(rows) + 1] if keys else [0, 0, 64, 64]
+        out.append(dict(m, bounds=bounds, uiMapID=Atlas.Continent(inst), zones=py(Atlas.Zones(inst)) or []))
     return out
 
 
-def tiles(q):
+def real_tiles(q):
     inst = int(q["inst"])
     out = []
     for key in Atlas.Tiles(inst).keys():
@@ -67,12 +112,12 @@ def tiles(q):
     return {"tiles": out}
 
 
-def labels(q):
+def real_labels(q):
     # Atlas.Labels: { text, col, row, tier, rank, areaID?, poiID?, size? }, rank order
     return {"labels": py(Atlas.Labels(int(q["inst"])))}
 
 
-def at(q):
+def real_at(q):
     inst, col, row = int(q["inst"]), float(q["col"]), float(q["row"])
     north, west = Atlas.TileToWorld(col, row)
     n = Atlas.Walk.CHUNKS
@@ -95,7 +140,9 @@ def fit(q):
     if "uiMapID" in q:
         r = Atlas.MapRect(int(q["uiMapID"]))
         cx, cy, zoom = Atlas.Camera.Fit(r.col0, r.row0, r.col1, r.row1, w, h, None, 16, 2048)
-        return {"inst": r.inst, "rect": py(r), "cam": {"cx": cx, "cy": cy, "zoom": zoom}}
+        if r.inst in OFFSET:
+            cx, cy = to_world(r.inst, cx, cy)
+        return {"inst": WORLD if r.inst in OFFSET else r.inst, "rect": py(r), "cam": {"cx": cx, "cy": cy, "zoom": zoom}}
     # a box of spawns: at least 0.6 tiles (~320 yards) across, so one spawn isn't zoomed in on all the way
     c0, r0, c1, r1 = (float(q[k]) for k in ("c0", "r0", "c1", "r1"))
     cx, cy, zoom = Atlas.Camera.Fit(c0, r0, c1, r1, w, h, 0.8, 16, 1024, 0.6)
@@ -103,13 +150,20 @@ def fit(q):
 
 
 def walk(q):
-    inst, c0, r0, c1, r1 = (int(q[k]) for k in ("inst", "c0", "r0", "c1", "r1"))
-    cell = Atlas.Walk.Cell
+    _, c0, r0, c1, r1 = (int(q[k]) for k in ("inst", "c0", "r0", "c1", "r1"))
+    n = Atlas.Walk.CHUNKS
+
+    def cell(gc, gr):  # (a world chunk: its map's)
+        inst, col, row = to_real(gc / n, gr / n)
+        dx, dy = OFFSET[inst]
+        return Atlas.Walk.Cell(inst, gc - dx * n, gr - dy * n)
+    if c1 < c0 or r1 < r0 or (c1-c0)*(r1-r0) > 40000:
+        raise ValueError("walk grid is limited to 40000 cells")
     rows = []
     for gr in range(r0, r1):
         s = []
         for gc in range(c0, c1):
-            cls, east, south = cell(inst, gc, gr)
+            cls, east, south = cell(gc, gr)
             s.append("%x" % (cls + 4 * east + 8 * south))
         rows.append("".join(s))
     return {"c0": c0, "r0": r0, "rows": rows}
@@ -121,7 +175,7 @@ GET = {"npc": Atlas.Npc, "object": Atlas.Object, "item": Atlas.Item, "quest": At
 # Which spawns each pin layer shows (Lua, so SpawnsIn's filter stays in Lua).
 FILTERS = L.eval("""function(Atlas)
   local function Has(flags, bit) return math.floor(flags / bit) % 2 == 1 end
-  local SERVICE = { 128, 256, 4096, 8, 8192, 16, 16384 } -- inn, bank, auction, flight, stable, trainer, repair
+  local SERVICE = { 128, 256, 4096, 8192, 2048, 16, 16384 } -- model/Services.lua; flights have their own layer
   return {
     service = function(id)
       local f = Atlas.Npc(id).flags
@@ -136,19 +190,74 @@ FILTERS = L.eval("""function(Atlas)
     ore = function(id) return Atlas.Object(id).kind == "ore" end,
   }
 end""")(Atlas)
-SERVICES = ["innkeeper", "flightmaster", "banker", "auctioneer", "stablemaster", "trainer", "repair"]
+SERVICES = ["innkeeper", "banker", "auctioneer", "stablemaster", "battlemaster", "trainer", "repair"]
 SPAWN_LAYERS = {"service": [("npc", "service")], "quest": [("npc", "questNpc"), ("object", "questObject")],
                 "rare": [("npc", "rare")], "mail": [("object", "mail")], "herb": [("object", "herb")],
                 "ore": [("object", "ore")]}
-PIN_CELL, PIN_CAP = 22, 400  # px per thinning cell; most pins per layer
+PIN_CAP = 1200  # members per layer; explicit omitted count for the grouped browser response
+GROUP_RANGE, GROUP_REACH = 24, 3  # ui/Cluster.lua; grouping runs only on settled requests
 
 
-def pins(q):
+def group_pins(found, zoom):
+    """Greedy neighbouring pins, bounded to three ranges from a stable seed.
+
+    Tile buckets avoid an all-pairs pass. Removing a claimed member from its
+    bucket also keeps a dense stack of identical positions cheap to collect.
+    Returned membership remains unchanged while the browser pans or animates.
+    """
+    cell = GROUP_RANGE / zoom
+    buckets = {}
+    found = sorted(found, key=lambda p: p["key"])
+    for i, p in enumerate(found):
+        key = (math.floor(p["col"] / cell), math.floor(p["row"] / cell))
+        buckets.setdefault(key, {})[i] = p
+    taken, out = set(), []
+    for i, seed in enumerate(found):
+        if i in taken:
+            continue
+        taken.add(i)
+        key = (math.floor(seed["col"] / cell), math.floor(seed["row"] / cell))
+        buckets[key].pop(i)
+        members = [seed]
+        for p in members:
+            cx, cy = math.floor(p["col"] / cell), math.floor(p["row"] / cell)
+            for dc in (-1, 0, 1):
+                for dr in (-1, 0, 1):
+                    bucket = buckets.get((cx + dc, cy + dr), {})
+                    for j, q in list(bucket.items()):
+                        if ((q["col"] - p["col"]) ** 2 + (q["row"] - p["row"]) ** 2 < cell ** 2
+                            and (q["col"] - seed["col"]) ** 2 + (q["row"] - seed["row"]) ** 2 < (cell * GROUP_REACH) ** 2):
+                            taken.add(j)
+                            del bucket[j]
+                            members.append(q)
+        if len(members) == 1:
+            out.append(seed)
+        else:
+            out.append({"kind": "group", "key": seed["key"], "layer": seed["layer"],
+                        "col": sum(p["col"] for p in members) / len(members),
+                        "row": sum(p["row"] for p in members) / len(members),
+                        "count": len(members), "members": members})
+    return out
+
+
+def real_pins(q):
     inst, zoom = int(q["inst"]), float(q["zoom"])
     c0, r0, c1, r1 = (float(q[k]) for k in ("c0", "r0", "c1", "r1"))
+    if (not all(math.isfinite(v) for v in (zoom, c0, r0, c1, r1))
+        or not 0 < zoom <= 4096 or c1 < c0 or r1 < r0):
+        raise ValueError("invalid pin viewport")
+    layers = list(dict.fromkeys(q["layers"].split(",")))
+    if any(layer not in SPAWN_LAYERS and layer not in ("flight", "poi", "dungeon") for layer in layers):
+        raise ValueError("unknown pin layer")
+    # Atlas tile keys have 64 rows. A far-away/tilted viewport must never turn
+    # SpawnsIn's tile loop into an unbounded scan, including direct API calls.
+    c0, r0, c1, r1 = max(0, c0), max(0, r0), min(64, c1), min(64, r1)
+    out, omitted = [], 0
+    grouped = q.get("groups") == "1"
+    if c1 < c0 or r1 < r0:
+        return {"pins": [], "omitted": 0} if grouped else []
     inside = lambda p: c0 <= p["col"] <= c1 and r0 <= p["row"] <= r1  # noqa: E731
-    out, cell = [], PIN_CELL / zoom
-    for layer in q["layers"].split(","):
+    for layer in layers:
         found = []
         if layer == "flight":
             found = [dict(p, kind="flight") for p in py(Atlas.FlightPoints(inst)) if inside(p)]
@@ -161,29 +270,37 @@ def pins(q):
             for kind, f in SPAWN_LAYERS[layer]:
                 for s in Atlas.SpawnsIn(kind, inst, c0, r0, c1, r1, FILTERS[f]).values():
                     found.append({"kind": kind, "id": s.id, "col": s.col, "row": s.row})
-        if layer == "service":  # the most useful service wins a crowded cell
+        if layer == "service":
             for p in found:
                 services = py(Atlas.Npc(p["id"]).services)
                 p["mark"] = next(s for s in SERVICES if s in services)
-            found.sort(key=lambda p: SERVICES.index(p["mark"]))
+        found.sort(key=lambda p: (p["kind"], p["id"], p["col"], p["row"]))
         seen = set()
         for p in found:
-            key = (int(p["col"] // cell), int(p["row"] // cell))
+            key = f'{layer}:{p["kind"]}:{p["id"]}:{p["col"]}:{p["row"]}'
             if key in seen:
                 continue
             seen.add(key)
+            if len(seen) > PIN_CAP:
+                omitted += 1
+                continue
             pin = {"layer": layer, "kind": p["kind"], "id": p["id"], "col": p["col"], "row": p["row"],
-                   "mark": p.get("mark")}
+                   "mark": p.get("mark"), "key": key}
             if p["kind"] == "npc":  # its faction's glow, a rare's rank
                 e = Atlas.Npc(p["id"])
+                pin["name"] = e.name
                 pin["faction"] = e.faction
                 if layer == "rare":
                     pin["mark"] = e.rank
-            elif p["kind"] != "object":  # a POI's card is drawn from its pin
+            elif p["kind"] == "object":
+                pin["name"] = Atlas.Object(p["id"]).name
+            else:  # a POI's card is drawn from its pin
                 pin.update(name=p["name"], faction=p.get("faction"), description=p.get("description"), icon=p.get("icon"))
             out.append(pin)
-            if len(seen) >= PIN_CAP:
-                break
+    if grouped:
+        # A modest zoom band keeps membership steady through small zoom changes.
+        group_zoom = 1.25 ** math.floor(math.log(zoom, 1.25) + 0.5)
+        return {"pins": group_pins(out, group_zoom), "omitted": omitted}
     return out
 
 
@@ -201,11 +318,16 @@ def refs(kind, ids):
 
 def where(e):
     """Spawns per inst as [col, row] pairs, and the dungeons it's inside."""
-    spawns = []
+    spawns, world_points = [], []
     for inst, pts in sorted(e.spawns.items()):
         p = list(pts.values())
-        spawns.append({"inst": inst, "map": MAP_NAMES.get(inst, f"#{inst}"),
-                       "points": [p[i:i + 2] for i in range(0, len(p), 2)]})
+        points = [p[i:i + 2] for i in range(0, len(p), 2)]
+        if inst in OFFSET:
+            world_points += [list(to_world(inst, *x)) for x in points]
+        else:
+            spawns.append({"inst": inst, "map": MAP_NAMES.get(inst, f"#{inst}"), "points": points})
+    if world_points:
+        spawns.insert(0, {"inst": WORLD, "map": WORLD_NAME, "points": world_points})
     inside = [{"id": i, "name": (Atlas.Dungeon(i) or {"name": MAP_NAMES.get(i, f"#{i}")})["name"]}
               for i in e.instances.values()]
     return {"spawns": spawns, "instances": inside}
@@ -248,7 +370,7 @@ def quest(q):
             "objectives": objectives, "triggerEnd": t and dict(where(t), text=t.text)}
 
 
-FLIGHTS = {p["id"]: dict(p, inst=m) for m in MAP_NAMES for p in py(Atlas.FlightPoints(m))}
+FLIGHTS = {p["id"]: on_world(dict(p, inst=m)) for m in MAP_NAMES for p in py(Atlas.FlightPoints(m))}
 
 
 def flight(q):
@@ -262,11 +384,28 @@ def flight(q):
 
 def dungeon(q):
     d = py(Atlas.Dungeon(int(q["id"])))
-    return dict(d, dungeonKind=d["kind"], kind="dungeon")
+    return on_world(dict(d, dungeonKind=d["kind"], kind="dungeon"))
 
 
 def find(q):
     out = []
+    term = q["q"].strip().casefold()
+    if len(term) < 2:
+        return out
+    for m in real_maps():
+        if term in m["name"].casefold():
+            out.append(dict(kind="place", id=m["uiMapID"], inst=WORLD, name=m["name"], detail="Map"))
+        for z in m["zones"]:
+            if term in z["name"].casefold():
+                out.append(dict(kind="place", id=z["uiMapID"], inst=WORLD, name=z["name"], detail=m["name"]))
+    for inst in MAP_NAMES:
+        for p in py(Atlas.POIs(inst)):
+            if term in p["name"].casefold():
+                out.append(on_world(dict(p, kind="poi", inst=inst, detail=MAP_NAMES[inst])))
+    for f in FLIGHTS.values():
+        if term in f["name"].casefold():
+            out.append(dict(kind="flight", id=f["id"], inst=f["inst"], name=f["name"], detail="Flight point"))
+    out = out[:40]
     for kind in ("npc", "quest", "object", "item"):
         for id in Atlas.Find(kind, q["q"], 8).values():
             e, r = GET[kind](id), ref(kind, id)
@@ -280,7 +419,75 @@ def find(q):
     return out
 
 
-API = {"maps": maps, "tiles": tiles, "labels": labels,
+def assets(q):
+    product, version = Atlas.Data.Tiles.product, Atlas.Data.Tiles.version
+    out = inventory(DEMO, WORLD, product, version)
+    out["tiles"] = sorted(world_key(i, k) for i in OFFSET for k in inventory(DEMO, i, product, version)["tiles"])
+    out["terrain"] = {"available": False, "reason": "3D isn't available on the combined map."}
+    return out
+
+
+# The one map the demo shows: Kalimdor to the west, the Eastern Kingdoms to the east, Zephras Isle between them near the
+# bottom. World tile coordinates are a map's plus its offset; rows stay under 64, so a tile's key still reads col * 64 + row.
+# Requests and replies speak world coordinates: real_* are the Atlas's, one real map at a time.
+def maps(q):
+    ms = {m["inst"]: m for m in real_maps()}
+    zones, bounds = [], []
+    for inst, (dx, dy) in OFFSET.items():
+        zones += ms[inst]["zones"]
+        b = ms[inst]["bounds"]
+        bounds.append([b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy])
+    zones.sort(key=lambda z: z["name"])
+    b = [min(x[0] for x in bounds), min(x[1] for x in bounds), max(x[2] for x in bounds), max(x[3] for x in bounds)]
+    return [dict(ms[WORLD], inst=WORLD, name=WORLD_NAME, bounds=b, zones=zones)]
+
+
+def tiles(q):
+    return {"tiles": [{"key": world_key(i, t["key"]), "sea": t["sea"], "inst": i, "src": t["key"]}
+                      for i in OFFSET for t in real_tiles({"inst": i})["tiles"]]}
+
+
+def labels(q):
+    out, cities = [], []
+    for inst in OFFSET:
+        for l in real_labels({"inst": inst})["labels"]:
+            l["col"], l["row"] = to_world(inst, l["col"], l["row"])
+            town = l["tier"] == "town"
+            if l["text"] in CITIES:  # every capital named as a zone is, from afar: Ironforge and the Undercity are only towns
+                if town and l["text"] in CITIES_AS_TOWNS:
+                    cities.append(dict(l, tier="zone", size=CITY_SIZE, text=CITIES[l["text"]]))
+                elif l["tier"] == "zone":
+                    cities.append(dict(l, text=CITIES[l["text"]]))
+                continue
+            out.append(l)
+    continents = [l for l in out if l["tier"] == "continent"]
+    rest = sorted((l for l in out if l["tier"] != "continent"), key=lambda l: l["rank"])
+    return {"labels": [dict(l, rank=i + 1) for i, l in enumerate(continents + cities + rest)]}
+
+
+def at(q):
+    inst, col, row = to_real(float(q["col"]), float(q["row"]))
+    return real_at({"inst": inst, "col": col, "row": row})
+
+
+def pins(q):
+    c0, r0, c1, r1 = (float(q[k]) for k in ("c0", "r0", "c1", "r1"))
+    out, omitted = [], 0
+    grouped = q.get("groups") == "1"
+    for inst, (dx, dy) in OFFSET.items():
+        local = dict(q, inst=inst, c0=c0 - dx, r0=r0 - dy, c1=c1 - dx, r1=r1 - dy)
+        local.pop("groups", None)
+        for p in real_pins(local):
+            p["col"], p["row"] = p["col"] + dx, p["row"] + dy
+            p["key"] = f'{inst}:{p["key"]}'
+            out.append(p)
+    if grouped:
+        zoom = float(q["zoom"])
+        return {"pins": group_pins(out, 1.25 ** math.floor(math.log(zoom, 1.25) + 0.5)), "omitted": omitted}
+    return out
+
+
+API = {"assets": assets, "maps": maps, "tiles": tiles, "labels": labels,
        "at": at, "fit": fit, "walk": walk, "pins": pins, "npc": npc, "object": object, "item": item, "quest": quest,
        "flight": flight, "dungeon": dungeon, "find": find}
 
@@ -297,32 +504,81 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kw):
         super().__init__(*args, directory=DEMO, **kw)
 
-    def reply(self, status, body):
+    def send_head(self):
+        path = self.translate_path(self.path)
+        if os.path.isdir(path):
+            path = os.path.join(path, 'index.html')
+        if os.path.splitext(path)[1] in COMPRESSIBLE and accepts_gzip(self.headers.get('Accept-Encoding', '')):
+            try:
+                stat = os.stat(path)
+                if 1024 < stat.st_size <= 8 * 1024 * 1024 and os.path.isfile(path):
+                    body = compressed_file(path, stat.st_mtime_ns, stat.st_size)
+                    self.send_response(200)
+                    self.send_header('Content-Type', self.guess_type(path))
+                    self.send_header('Content-Encoding', 'gzip')
+                    self.send_header('Content-Length', str(len(body)))
+                    self.send_header('Last-Modified', self.date_time_string(stat.st_mtime))
+                    self.end_headers()
+                    return io.BytesIO(body)
+            except OSError:
+                pass  # Normal static-file handling supplies the appropriate 404.
+        return super().send_head()
+
+    def review(self, method, body=b""):
+        got = review_api.handle(method, urlparse(self.path).path, body, self.headers)
+        if not got:
+            return False
+        status, body = got
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        if len(body) > 1024 and "gzip" in self.headers.get("Accept-Encoding", ""):
-            body = gzip.compress(body, 6)
-            self.send_header("Content-Encoding", "gzip")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+        return True
 
     def do_POST(self):
         n = int(self.headers.get("Content-Length") or 0)
-        body = self.rfile.read(min(n, review_api.MAX_BODY + 1))
         self.close_connection = n > review_api.MAX_BODY  # the rest is unread
-        self.reply(*(review_api.handle("POST", urlparse(self.path).path, body, self.headers) or (404, b"{}")))
+        if not self.review("POST", self.rfile.read(min(n, review_api.MAX_BODY + 1))):
+            self.send_error(404)
 
     def do_GET(self):
         u = urlparse(self.path)
-        got = review_api.handle("GET", u.path, b"", self.headers)
-        if got:
-            self.reply(*got)
-        elif u.path.startswith("/api/"):
+        if self.review("GET"):
+            return
+        if u.path.startswith("/api/"):
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
-            with atlas_lock:
-                body = json.dumps(API[u.path[5:]](q)).encode()
-            self.reply(200, body)
+            status = 200
+            try:
+                endpoint = API.get(u.path[5:])
+                if endpoint is None:
+                    raise LookupError("Unknown endpoint")
+                if "inst" in q and int(q["inst"]) not in MAP_NAMES:
+                    raise ValueError("unknown map")
+                for k in ("col", "row", "zoom", "w", "h", "c0", "r0", "c1", "r1"):
+                    if k in q and (not math.isfinite(float(q[k])) or abs(float(q[k])) > 1e6):
+                        raise ValueError("invalid coordinate or dimension")
+                for k in ("w", "h"):
+                    if k in q and float(q[k]) <= 0:
+                        raise ValueError("invalid viewport size")
+                with atlas_lock:
+                    body = json.dumps(endpoint(q), allow_nan=False).encode()
+            except LookupError:
+                status, body = 404, b'{"error":"Not found"}'
+            except (ValueError, TypeError, AttributeError, LuaError):
+                status, body = 400, b'{"error":"Invalid request"}'
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Vary", "Accept-Encoding")
+            if len(body) > 1024 and accepts_gzip(self.headers.get("Accept-Encoding", "")):
+                body = gzip.compress(body, 6)
+                self.send_header("Content-Encoding", "gzip")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # a superseded view may close the connection
         else:
             super().do_GET()
 
@@ -331,7 +587,10 @@ class Handler(SimpleHTTPRequestHandler):
         super().send_response(code, message)
 
     def end_headers(self):
-        if self.path.startswith("/tiles/") and self.code == 200:
+        path = urlparse(self.path).path
+        if os.path.splitext(path)[1] in COMPRESSIBLE or path.endswith('/'):
+            self.send_header('Vary', 'Accept-Encoding')
+        if self.path.startswith(("/tiles/", "/terrain/", "/objects/")) and not self.path.endswith("manifest.json") and self.code == 200:
             self.send_header("Cache-Control", "public, max-age=86400")
         else:  # the page and its scripts: always the current ones
             self.send_header("Cache-Control", "no-cache")
