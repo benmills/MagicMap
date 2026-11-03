@@ -219,7 +219,7 @@ function visibleMapRect() {
   const headerStyle = getComputedStyle(ui);
   const start = mapPoint(parseFloat(headerStyle.left) + 4, parseFloat(headerStyle.top) + 4);
   const end = mapPoint(
-    innerWidth - parseFloat(getComputedStyle($("scaleWrap")).right) - 4,
+    innerWidth - parseFloat(getComputedStyle($("viewControls")).right) - 4,
     innerHeight - parseFloat(getComputedStyle($("readout")).bottom) - 4,
   );
   let rect = { left: start.x, top: start.y, right: end.x, bottom: end.y };

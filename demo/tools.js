@@ -85,6 +85,11 @@ function hoverInspect(x, y) {
   );
 }
 async function inspect(x, y, mark) {
+  if (state.camera.zoom < READOUT_ZOOM) {
+    requests.ticket("inspect");
+    readout.textContent = "";
+    return;
+  }
   const ticket = requests.ticket("inspect"),
     hit = activeView().pick(x, y);
   if (!hit) {
@@ -214,10 +219,8 @@ function renderProfile() {
     ),
   );
 }
-function updateScale() {
-  if (!state.camera) return;
-  $("scale").textContent =
-    `${Math.round(((100 / state.camera.zoom) * 1600) / 3).toLocaleString()} yd`;
+function settleReadout() { // (the camera moved: zoomed out past the readout's zoom, it goes)
+  if (state.camera && state.camera.zoom < READOUT_ZOOM) readout.textContent = "";
 }
 function selectBuilding(building) {
   const detail = {

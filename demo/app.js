@@ -54,7 +54,7 @@ async function ensureTerrain() {
         $("terrain"),
         () => {
           draw();
-          updateScale();
+          settleReadout();
           if (profilePoints.length === 2) renderProfile();
         },
         (message) => {
@@ -165,6 +165,12 @@ async function navigatePlace(uiMapID) {
   flyTo(centerFit(got.cam, r), 450);
   $("zone").value = String(uiMapID);
 }
+// The first view: all the land, as close as the screen allows (a small margin; the top bar's height clear above it).
+function worldView() {
+  const m = 14, top = Math.max(m, ui.getBoundingClientRect().bottom + 4);
+  const rect = { left: m, top, right: W - m, bottom: H - m };
+  return centerFit(viewState.fitBounds(world.land || world.bounds, rect.right - rect.left, rect.bottom - rect.top, 1), rect, "2d");
+}
 // The world's tiles, names and assets, afresh (a link's view restored: restoreView).
 async function loadWorld(camera) {
   const m = world;
@@ -177,11 +183,8 @@ async function loadWorld(camera) {
   clearTimeout(walkTimer);
   clearTimeout(hoverTimer);
   clearTimeout(findTimer);
-  const visible = visibleMapRect();
   if (camera && ![camera.cx, camera.cy, camera.zoom].every(Number.isFinite)) camera = null;
-  state.camera = camera || centerFit(viewState.fitBounds(
-    m.bounds, visible.right - visible.left, visible.bottom - visible.top, 0.82,
-  ), visible, "2d");
+  state.camera = camera || worldView();
   state.mode = "2d";
   assets = null;
   tiles = [];
@@ -322,15 +325,7 @@ async function restoreView() {
   state.sources = [];
   const intro = restored.flyover && !restored.camera;
   let camera = restored.camera;
-  if (!camera && (intro || !location.hash)) {
-    const bounds = world.bounds;
-    camera = {
-      cx: (bounds[0] + bounds[2]) / 2,
-      cy: (bounds[1] + bounds[3]) / 2,
-      zoom: Math.min((W - 60) / (bounds[2] - bounds[0]), (H - 60) / (bounds[3] - bounds[1])),
-    };
-    if (!intro) camera = centerFit(camera, visibleMapRect(), "2d");
-  }
+  if (!camera && (intro || !location.hash)) camera = worldView();
   await loadWorld(camera);
   if (restored.selection) {
     try {
@@ -420,7 +415,7 @@ $("rotateRight").onclick = () => {
 };
 $("toolsBtn").onclick = () => {
   setSheet($("tools").hidden ? "tools" : null);
-  updateScale();
+  settleReadout();
 };
 $("share").onclick = run(async () => {
   clearTimeout(saveTimer);

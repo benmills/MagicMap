@@ -290,5 +290,5 @@ function settled() {
   refreshWalk();
   refreshPins();
   saveView();
-  updateScale();
+  settleReadout();
 }

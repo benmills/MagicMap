@@ -121,14 +121,18 @@ function drawTiles() {
   tileStream?.commit(2, 3);
   loadTileOverview();
   ctx.imageSmoothingQuality = "high";
+  if (tileOverview.image) { // the whole map at once (its ocean too), the part in view, under the tiles as they come
+    const [left, top, right, bottom] = tileOverview.bounds, image = tileOverview.image;
+    const sx = image.width / (right - left), sy = image.height / (bottom - top);
+    const a0 = Math.max(left, c0), b0 = Math.max(top, r0), a1 = Math.min(right, c1), b1 = Math.min(bottom, r1);
+    if (a1 > a0 && b1 > b0) {
+      const [x, y] = toScreen(a0, b0);
+      ctx.drawImage(image, (a0 - left) * sx, (b0 - top) * sy, (a1 - a0) * sx, (b1 - b0) * sy,
+        x, y, (a1 - a0) * state.camera.zoom, (b1 - b0) * state.camera.zoom);
+    }
+  }
   for (const t of vis) {
     const rect = tileRect(t.col, t.row);
-    if (tileOverview.image) {
-      const [left, top, right, bottom] = tileOverview.bounds;
-      const image = tileOverview.image, sx = image.width / (right - left), sy = image.height / (bottom - top);
-      if (t.col >= left && t.col + 1 <= right && t.row >= top && t.row + 1 <= bottom)
-        ctx.drawImage(image, (t.col - left) * sx, (t.row - top) * sy, sx, sy, ...rect);
-    }
     const img = tileImage(t, size);
     if (img) {
       const since = tileFade.get(`${t.key}@${size}`);

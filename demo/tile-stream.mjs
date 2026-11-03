@@ -1,5 +1,7 @@
 // Reconciles work against the *current* view. Completed results wait for the
 // renderer's upload budget; network completion never uploads directly to the GPU.
+// A failed job is tried again later (about 1, 2, 4, 8 s: the host 503s in bursts), then left.
+const RETRIES = 4;
 export class TileStream {
   constructor(changed, limit = 6) {
     this.changed = changed;
@@ -7,7 +9,7 @@ export class TileStream {
     this.active = new Map();
     this.ready = new Map();
     this.wanted = new Map();
-    this.failed = new Set();
+    this.failed = new Map(); // key -> { tries, until }
     this.epoch = 0;
     this.cancelled = 0;
   }
@@ -31,7 +33,7 @@ export class TileStream {
         (j) =>
           !this.active.has(j.key) &&
           !this.ready.has(j.key) &&
-          !this.failed.has(j.key),
+          !this.waiting(j.key),
       )
       .sort((a, b) => a.priority - b.priority);
     for (const job of pending) {
@@ -61,7 +63,7 @@ export class TileStream {
       if (
         this.active.has(job.key) ||
         this.ready.has(job.key) ||
-        this.failed.has(job.key)
+        this.waiting(job.key)
       )
         continue;
       const controller = new AbortController(),
@@ -84,7 +86,7 @@ export class TileStream {
             !controller.signal.aborted &&
             error.name !== "AbortError"
           )
-            this.failed.add(job.key);
+            this.fail(job.key);
         })
         .finally(() => {
           if (this.active.get(job.key)?.controller === controller)
@@ -94,6 +96,19 @@ export class TileStream {
             this.pump();
           }
         });
+    }
+  }
+  waiting(key) {
+    const f = this.failed.get(key);
+    return !!f && (f.tries >= RETRIES || performance.now() < f.until);
+  }
+  fail(key) {
+    const tries = (this.failed.get(key)?.tries || 0) + 1;
+    const delay = 2 ** (tries - 1) * (800 + Math.random() * 400);
+    this.failed.set(key, { tries, until: performance.now() + delay });
+    if (tries < RETRIES) {
+      const epoch = this.epoch;
+      setTimeout(() => { if (epoch === this.epoch) this.pump(); }, delay + 20);
     }
   }
   commit(limit = 1, budget = 3) {
@@ -113,7 +128,7 @@ export class TileStream {
         job.apply(value);
       } catch (error) {
         job.discard?.(value);
-        this.failed.add(key);
+        this.failed.set(key, { tries: RETRIES, until: Infinity }); // (a bad result: no retry)
       }
       count++;
     }

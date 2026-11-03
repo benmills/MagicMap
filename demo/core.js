@@ -74,9 +74,8 @@ let W,
   walk = null,
   marker = null;
 
-readout.textContent = matchMedia("(hover: hover)").matches
-  ? "hover the map"
-  : "tap the map";
+// The place under the pointer (and a tap's marker): only zoomed in this far; from afar it's noise.
+const READOUT_ZOOM = 24; // px a tile
 
 function resize() {
   // CSS owns the large viewport behind Safari's translucent controls. Measure

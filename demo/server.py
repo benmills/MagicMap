@@ -436,13 +436,18 @@ def world_preview(inst, p):
 
 
 # The world the page shows (it reads the offsets from here); real_* are the Atlas's, one real map at a time.
+# The drawn land's extent on the world (c0, r0, c1, r1): what the first view frames.
+LAND = (lambda keys: [min(c for c, _ in keys), min(r for _, r in keys), max(c for c, _ in keys) + 1, max(r for _, r in keys) + 1])(
+    [to_world(i, k // 64, k % 64) for i in OFFSET for k in Atlas.Tiles(i).keys() if Atlas.Drawn(i, k)])
+
+
 def maps(q):
     ms = {m["inst"]: m for m in real_maps()}
     zones = sorted((z for i in OFFSET for z in ms[i]["zones"]), key=lambda z: z["name"])
     bounds = [min(b[0] for b in BOUNDS.values()), min(b[1] for b in BOUNDS.values()),
               max(b[2] for b in BOUNDS.values()), max(b[3] for b in BOUNDS.values())]
     parts = [{"inst": i, "name": ms[i]["name"], "offset": OFFSET[i], "bounds": BOUNDS[i]} for i in OFFSET]
-    return dict(ms[WORLD], inst=WORLD, name=WORLD_NAME, bounds=bounds, zones=zones, parts=parts)
+    return dict(ms[WORLD], inst=WORLD, name=WORLD_NAME, bounds=bounds, land=LAND, zones=zones, parts=parts)
 
 
 def tiles(q):
