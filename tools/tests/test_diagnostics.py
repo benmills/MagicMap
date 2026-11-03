@@ -7,9 +7,9 @@ import re
 
 import sim as S
 
-# The tile set's build, as Data/Tiles.lua names it (so a regeneration from another build doesn't break these).
+# The tile set's product and build, as Data/Tiles.lua names them (so a regeneration from another build doesn't break these).
 with open(os.path.join(S.TESTS, "..", "..", "Data", "Tiles.lua")) as f:
-    BUILD = re.search(r'version = "([\d.]+)"', f.read()).group(1)
+    PRODUCT, BUILD = re.search(r'product = "(\w+)", version = "([\d.]+)"', f.read()).groups()
 
 SAY = "|cffffd100MagicMap|r: "
 USAGE = SAY + ("/mm [toggle] | follow | map <id|name> | zone <name> | icon | tiles | layers | landmarks"
@@ -34,7 +34,7 @@ def test_commands():
     assert re.fullmatch(re.escape(SAY) + r"blips: 1 known, answer square \d\.\d\d screen units each way", blips[0])
     assert blips[1:] == [SAY + "  Mailbox +40.0E +20.0N"]
     tiles = said(s, "/mm tiles")
-    assert len(tiles) == 1 and tiles[0].startswith(SAY + "tile set: wow_classic_beta " + BUILD + ". Maps: Eastern "
+    assert len(tiles) == 1 and tiles[0].startswith(SAY + "tile set: " + PRODUCT + " " + BUILD + ". Maps: Eastern "
                                                    "Kingdoms (736), Kalimdor (988), Shadowfang Keep (25),")
     assert said(s, "/mm landmarks") == [SAY + "0 rares remembered. Target one, or pass one the game shows, and it'll "
                                                "appear on the map."]

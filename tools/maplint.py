@@ -141,7 +141,9 @@ def header_builds(data_dir: str) -> dict[str, str]:
     for f in sorted(os.listdir(data_dir)):
         if f.endswith(".lua"):
             with open(os.path.join(data_dir, f), encoding="utf-8") as fh:
-                m = re.search(r"wow_\w+ (\d+\.\d+\.\d+\.\d+)", fh.readline())
+                text = fh.read() if f == "Repaint.lua" else fh.readline()
+            # Repaint.lua's header names the build it was painted on; the build it's good for is the one ai_map.py stamps
+            m = re.search(r'D\.Repaint = \{ build = "(\d+\.\d+\.\d+\.\d+)"' if f == "Repaint.lua" else r"\bwow\w* (\d+\.\d+\.\d+\.\d+)", text)
             if m:
                 out[f] = m.group(1)
     return out
@@ -757,7 +759,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--tiles", help="the demo's tile export (<dir>/<inst>/64/<key>.webp); default demo/tiles or $MAGICMAP_TILES")
     ap.add_argument("--wow", help="read the art from this install instead (cached in --out)")
-    ap.add_argument("--product", default="wow_classic_beta")
+    ap.add_argument("--product", default="wowf")
     ap.add_argument("--no-art", action="store_true", help="the data checks alone: no tile art read (tools/check.sh: the art's"
                     " scores move with the local export and its codec, so they're not ratcheted)")
     ap.add_argument("--no-install", action="store_true", help="don't look for an installed build (CI, tools/check.sh)")

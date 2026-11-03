@@ -25,17 +25,18 @@ five files (Npcs, Objects, Items, Quests, BlipServices) come from QuestieDB and 
 their GPLv3 terms (NOTICE.md); they're committed like the rest.
 
     W="/Applications/World of Warcraft"
-    .venv/bin/python tools/gen_tiles.py     local "$W" wow_classic_beta -o Data/Tiles.lua
-    .venv/bin/python tools/gen_tilecolor.py local "$W" wow_classic_beta -o Data/TileColor.lua
-    .venv/bin/python tools/gen_anchors.py   local "$W" wow_classic_beta -o Data/Anchors.lua
-    .venv/bin/python tools/gen_walk.py      local "$W" wow_classic_beta -o Data/Walk.lua
-    .venv/bin/python tools/gen_areagrid.py  local "$W" wow_classic_beta -o Data/AreaGrid.lua
-    .venv/bin/python tools/gen_world.py     local "$W" wow_classic_beta -o Data   # UiMaps, Areas, Places, ItemIcons
+    .venv/bin/python tools/gen_tiles.py     local "$W" wowf -o Data/Tiles.lua
+    .venv/bin/python tools/gen_tilecolor.py local "$W" wowf -o Data/TileColor.lua
+    .venv/bin/python tools/gen_anchors.py   local "$W" wowf -o Data/Anchors.lua
+    .venv/bin/python tools/gen_walk.py      local "$W" wowf -o Data/Walk.lua
+    .venv/bin/python tools/gen_areagrid.py  local "$W" wowf -o Data/AreaGrid.lua
+    .venv/bin/python tools/gen_world.py     local "$W" wowf -o Data   # UiMaps, Areas, Places, ItemIcons
     .venv/bin/python tools/gen_questie.py "$W/_classic_beta_/Interface/AddOns/QuestieDB"
-    .venv/bin/python tools/gen_world.py     local "$W" wow_classic_beta -o Data   # again: ItemIcons for the items kept
+    .venv/bin/python tools/gen_world.py     local "$W" wowf -o Data   # again: ItemIcons for the items kept
     .venv/bin/python tools/gen_labels.py    -o Data/Labels.lua
-    .venv/bin/python tools/gen_interiors.py local "$W" wow_classic_beta -o Data/Interiors.lua   # reads Data/Tiles.lua's maps
-    .venv/bin/python tools/gen_base.py      local "$W" wow_classic_beta   # Textures/Base*.blp and Data/Base.lua; reads Tiles, TileColor, Areas, AreaGrid (--preview DIR: PNGs)
+    .venv/bin/python tools/gen_interiors.py local "$W" wowf -o Data/Interiors.lua   # reads Data/Tiles.lua's maps
+    .venv/bin/python tools/gen_base.py      local "$W" wowf   # Textures/Base*.blp and Data/Base.lua; reads Tiles, TileColor, Areas, AreaGrid (--preview DIR: PNGs)
+    .venv/bin/python tools/gen_sea.py       local "$W" wowf   # Textures/Sea*.tga and Data/Sea.lua, from the terrain (--bake demo/sea: the demo's)
 
 The map art repairs aren't regenerated with the rest: a new run gives new pictures, and each costs money
 (OpenAI's image edits; the key is `OPENAI_API_KEY` or the repo's `.env`). `tools/ai_regions.json` holds the
