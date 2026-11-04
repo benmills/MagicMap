@@ -91,6 +91,7 @@ async function loadIcons() {
     img.decode(),
   ]);
   iconSheet = img;
+  drawSwatches(); // (cards.js)
 }
 function iconOf(layer, p) {
   const m = GAME_ICON[layer];

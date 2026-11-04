@@ -40,31 +40,22 @@
       <button id="flyover" aria-pressed="false" aria-label="Start flyover" title="Start flyover" hidden>▶</button>
       </div>
     </nav>
-    <!-- One compact menu, a pull-down from its button as Apple's are: dense rows, checkmarks on the left, an
-         icon on the right, sections split by a thick rule. A row with › opens a page in its place (its first row
-         goes back). Tapping outside closes it. -->
+    <!-- One small menu: search at its top (results in place), then plain rows; a row with › opens a page in its
+         place (its first row goes back). Tapping outside closes it. -->
     <section id="settings" class="panel sheet" aria-label="Menu" hidden>
-      <div class="group">
-        <button id="searchBtn" class="row"><span>Search</span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></button>
-        <label class="row pick"><span>Go to Zone</span><select id="zone" aria-label="Go to zone"><option value="">Choose</option></select></label>
-      </div>
-      <div class="group">
-        <button id="layersBtn" class="row nav" aria-expanded="false" aria-controls="layerSheet"><span>Show on Map</span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg></button>
-        <button id="toolsBtn" class="row nav" aria-expanded="false" aria-controls="tools"><span>Terrain</span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 19.5 9 9l3.5 5.5L15 11l6.5 8.5z"/></svg></button>
-      </div>
-      <div class="group">
-        <button id="share" class="row" title="Copy a link to this view"><span>Share This View</span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M6 11H5v10h14V11h-1"/></svg></button>
-      </div>
-      <div id="hl" hidden><span></span><button class="x" aria-label="Clear highlight">✕</button></div>
-    </section>
-    <section id="searchSheet" class="panel sheet" aria-label="Search" hidden>
-      <button class="row back" data-back>Search</button>
-      <div class="group pad">
-        <input id="q" type="search" placeholder="NPCs, quests, items, places"
+      <div class="group find">
+        <input id="q" type="search" placeholder="Search"
           autocomplete="off" autocorrect="off" spellcheck="false"
           enterkeyhint="search" aria-label="Search maps and entities" />
       </div>
       <div id="results" role="region" aria-label="Search results"></div>
+      <div class="group">
+        <label class="row pick"><span>Go to Zone</span><select id="zone" aria-label="Go to zone"><option value="">Choose</option></select></label>
+        <button id="layersBtn" class="row nav" aria-expanded="false" aria-controls="layerSheet"><span>Show on Map</span></button>
+        <button id="toolsBtn" class="row nav" aria-expanded="false" aria-controls="tools"><span>Terrain</span></button>
+        <button id="share" class="row" title="Copy a link to this view"><span>Share This View</span></button>
+      </div>
+      <div id="hl" hidden><span></span><button class="x" aria-label="Clear highlight">✕</button></div>
     </section>
     <!-- Show on Map: everything off or on in one tap, and each section's header turns its whole section off or on. -->
     <section id="layerSheet" class="panel sheet" aria-label="Show on map" hidden>

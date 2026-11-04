@@ -1,12 +1,11 @@
 /* The page's chrome, quiet so the map is what you look at. The controls fixed on the map have no backdrop (text and
-   icons with a soft shadow). The menu is a compact pull-down from its button, as Apple's menus are: dense rows,
-   a checkmark on the left, an icon on the right, sections split by a thick rule; a row with › opens a page in its
-   place. The card is a panel (a bottom sheet on a phone). Tokens only here; the map's own drawing (labels, pins,
+   icons with a soft shadow). The menu is a small, plain pull-down from its button: search at its top, dense rows,
+   a checkmark on the left, a thin rule between sections; a row with › opens a page in its place. It opens at once
+   (no animation, no blur: cheap on a phone). The card is a panel (a bottom sheet on a phone). Tokens only here; the map's own drawing (labels, pins,
    tiles) doesn't use them. */
 :root {
   color-scheme: dark;
-  --sheet: rgba(30, 32, 32, .9);
-  --gap: rgba(0, 0, 0, .3); /* the thick rule between a menu's sections */
+  --sheet: rgba(26, 28, 28, .96);
   --bar: rgba(22, 26, 25, .98);
   --group: rgba(255, 255, 255, .06);
   --line: rgba(255, 255, 255, .1);
@@ -19,7 +18,7 @@
   --fs: 14px;
   --fs-s: 12px;
   --u: 8px;
-  --row: 36px;
+  --row: 32px;
   --r: 12px;
   --glow: 0 0 3px #000, 0 1px 2px #000;
   --ctl: 40px;  /* the bottom row: a zoom button, and the readout's line, mirrored */
@@ -33,7 +32,7 @@
   :root { --inset: 18px; }
 }
 @media (pointer: coarse) {
-  :root { --row: 44px; --fs: 17px; --fs-s: 13px; --ctl: 48px; }
+  :root { --row: 42px; --fs: 16px; --fs-s: 13px; --ctl: 48px; }
 }
 html, body {
   margin: 0;
@@ -239,10 +238,8 @@ input[type="search"] {
   overflow: auto;
   overscroll-behavior: contain;
   background: var(--sheet);
-  border-radius: 14px;
-  box-shadow: 0 10px 34px rgba(0, 0, 0, .5);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  backdrop-filter: blur(20px) saturate(1.4);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .4);
 }
 #card {
   padding: 0 var(--u) var(--u);
@@ -250,21 +247,17 @@ input[type="search"] {
 .sheet {
   top: var(--below, 56px);
   left: var(--edge-left);
-  width: 268px;
+  width: 236px;
   max-width: calc(100vw - var(--edge-left) - var(--edge-right));
   max-height: calc(var(--visible-bottom, 100dvh) - var(--below, 56px) - max(8px, env(safe-area-inset-bottom)));
   z-index: 5;
-  transform-origin: top left;
-  animation: pull .14s ease-out;
 }
-@keyframes pull {
-  from { opacity: 0; transform: scale(.94); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .sheet { animation: none; }
-}
-#searchSheet {
+/* While there are results, they are the menu. */
+#settings:has(#results:not([hidden]):not(:empty)) {
   width: 340px;
+}
+#settings:has(#results:not([hidden]):not(:empty)) > .group:not(.find), #settings:has(#results:not([hidden]):not(:empty)) > #hl {
+  display: none;
 }
 #card .bar {
   display: flex;
@@ -301,7 +294,7 @@ h3 {
 }
 /* A section; the next one starts below a thick rule. */
 .sheet .group + .group, .sheet .back + .group, .sheet .group + #profileResult:not(:empty), .sheet .group + #results:not(:empty) {
-  border-top: 8px solid var(--gap);
+  border-top: 1px solid rgba(255, 255, 255, .16);
 }
 #card .group {
   margin-bottom: var(--u);
@@ -325,7 +318,7 @@ h3 {
 .sheet .row {
   box-shadow: inset 0 1px var(--line);
 }
-.sheet > .row:first-child, .sheet .group > .row:first-child, .sheet .group.pad + #results > .row:first-child {
+.sheet > .row:first-child, .sheet .group > .row:first-child, #results > .row:first-child {
   box-shadow: none;
 }
 /* On a page with checkmarks, a row without one still starts where their text does. */
@@ -333,21 +326,10 @@ h3 {
   padding-left: calc(14px + 18px + 10px);
 }
 .row.head > span { /* a section's header: it turns the whole section off or on */
-  font-weight: 600;
+  color: var(--dim);
 }
 .row.sub {
   padding-left: calc(14px + 18px);
-}
-.ico {
-  flex: none;
-  width: 19px;
-  height: 19px;
-  margin-left: auto;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 .row > canvas { /* a pin layer's icon, at the row's end */
   margin-left: auto;
@@ -365,14 +347,13 @@ label.row {
   cursor: pointer;
 }
 .back { /* a page's first row: its name, and the way back */
-  font-weight: 600;
+  color: var(--dim);
 }
 .back::before {
   content: "‹";
   width: 18px;
-  font-size: 1.5em;
+  font-size: 1.4em;
   line-height: 0;
-  color: var(--hi);
 }
 .row.nav::after { /* a row that opens a page */
   content: "›";
@@ -381,11 +362,15 @@ label.row {
   font-size: 1.3em;
   text-align: right;
 }
-.row.nav .ico {
-  margin-left: auto;
+.row.nav > span {
+  flex: 1;
 }
-.group.pad {
-  padding: 8px;
+.group.find {
+  padding: 6px;
+}
+.group.find input {
+  min-height: calc(var(--row) - 4px);
+  border-radius: 7px;
 }
 .row.pick select { /* the value at the row's end, the system's own picker */
   -webkit-appearance: none;
@@ -471,7 +456,7 @@ p, #card .sub {
   display: flex;
   align-items: center;
   padding-left: 14px;
-  border-top: 8px solid var(--gap);
+  border-top: 1px solid rgba(255, 255, 255, .16);
   color: var(--hi);
 }
 .bearing {
@@ -529,9 +514,9 @@ body:has(#card:not([hidden])) #readout {
 /* ---- phones: the menu and the card are bottom sheets ---- */
 @media (max-width: 767px) {
   .sheet {
-    width: min(300px, calc(100vw - var(--edge-left) - var(--edge-right)));
+    width: min(280px, calc(100vw - var(--edge-left) - var(--edge-right)));
   }
-  #searchSheet {
+  #settings:has(#results:not([hidden]):not(:empty)) {
     width: calc(100vw - var(--edge-left) - var(--edge-right));
   }
   #card {
@@ -577,4 +562,7 @@ body:has(#card:not([hidden])) #readout {
   #viewControls {
     flex-direction: row;
   }
+}
+.group.find input:focus-visible { /* the caret is enough */
+  outline: none;
 }

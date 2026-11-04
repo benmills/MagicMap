@@ -42,15 +42,14 @@ function placeSheets() {
 function setSheet(id = null) {
   if (id !== "results") requests?.ticket("find");
   results.hidden = id !== "results";
-  for (const name of ["searchSheet", "settings", "layerSheet", "tools"])
-    $(name).hidden = name !== (id === "results" ? "searchSheet" : id);
+  for (const name of ["settings", "layerSheet", "tools"])
+    $(name).hidden = name !== (id === "results" ? "settings" : id);
   $("menuBtn").setAttribute("aria-expanded", String(!!id));
   for (const [button, sheet] of [["layersBtn", "layerSheet"], ["toolsBtn", "tools"]])
     $(button).setAttribute("aria-expanded", String(sheet === id));
-  if (id && id !== "results") q.blur();
+  if (id && id !== "results" && id !== "settings") q.blur();
   if (id === "layerSheet" || id === "tools") syncHeads();
-  if (id === "layerSheet") // the layer icons, drawn again: the first may have come before the icons loaded
-    for (const [layer, , , sample] of LAYERS) layersEl.querySelector(`[data-layer="${layer}"] canvas`)?.replaceWith(pinSwatch(layer, sample, 22));
+  if (id === "layerSheet") drawSwatches();
   placeSheets();
 }
 function closeSheets() {
@@ -59,8 +58,10 @@ function closeSheets() {
 }
 function setLayersOpen(open) { setSheet(open ? "layerSheet" : null); }
 layersBtn.onclick = () => setLayersOpen($("layerSheet").hidden);
-$("menuBtn").onclick = () => setSheet($("settings").hidden ? "settings" : null);
-$("searchBtn").onclick = () => { setSheet("results"); q.focus(); };
+$("menuBtn").onclick = () => {
+  setSheet($("settings").hidden ? "settings" : null);
+  if (!$("settings").hidden && matchMedia("(pointer: fine)").matches) q.focus(); // type straight away (not on a phone: no keyboard pop)
+};
 for (const button of document.querySelectorAll("[data-close-sheet]"))
   button.onclick = () => { closeSheets(); $("menuBtn").focus(); };
 for (const button of document.querySelectorAll("[data-back]")) // a page's way back to the menu
@@ -103,6 +104,11 @@ $("allLayers").onclick = () => {
   setSwitches(boxes, !boxes.some((b) => b.checked));
 };
 
+// The layer icons, drawn again once the icons have loaded (and on opening): the first may have come before.
+function drawSwatches() {
+  for (const [layer, , , sample] of LAYERS) layersEl.querySelector(`[data-layer="${layer}"] canvas`)?.replaceWith(pinSwatch(layer, sample, 18));
+}
+
 // The layers sheet: a toggle per layer, each with its icon as the legend.
 function swatch(px, paint) {
   const c = h("canvas", { width: px * dpr, height: px * dpr });
@@ -132,7 +138,7 @@ function renderLayers() {
         box,
         h("span", {}, name),
         h("small"),
-        pinSwatch(id, sample, 22),
+        pinSwatch(id, sample, 18),
       );
       row.dataset.layer = id;
       layersEl.append(row);
@@ -153,7 +159,7 @@ q.addEventListener("input", () => {
   const text = q.value.trim();
   results.replaceChildren(h("div", { className: "row" }, "Searching…"));
   if (text.length < 2) {
-    results.replaceChildren(h("p", {}, "Search places, NPCs, quests and items."));
+    results.replaceChildren();
     return;
   }
   setSheet("results");
@@ -639,7 +645,7 @@ function openPin(p) {
 }
 addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  const hasSheet = ["searchSheet", "settings", "layerSheet", "tools"].some((id) => !$(id).hidden);
+  const hasSheet = ["settings", "layerSheet", "tools"].some((id) => !$(id).hidden);
   if (hasSheet || document.activeElement === q) {
     closeSheets();
     $("menuBtn").focus();
