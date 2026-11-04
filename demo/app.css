@@ -175,6 +175,9 @@ input[type="checkbox"]:disabled {
 #controls svg {
   filter: drop-shadow(0 0 2px #000);
 }
+#compass {
+  pointer-events: none; /* a marker: 2D is always north up */
+}
 #compass span {
   display: inline-block;
   color: var(--hi);
@@ -396,7 +399,7 @@ p {
   }
 }
 /* ---- the flyover: a clean frame for recording ---- */
-body.flying #controls, body.flying #status, body.flying #place, body.flying .sheet {
+body.flying #controls, body.flying #about, body.flying #status, body.flying #place, body.flying .sheet {
   opacity: 0;
   pointer-events: none;
   transition: opacity .4s;
@@ -415,4 +418,67 @@ body.flying #map {
 }
 #fade.on {
   opacity: 1;
+}
+
+/* About: the addon's mark, top right, small and quiet; the wordmark after the README banner's (a yellow slab with a
+   dark edge). On a narrow screen just the mark and the links. */
+#about {
+  position: fixed;
+  top: calc(var(--edge-top) + var(--inset) - 8px);
+  right: calc(var(--edge-right) + var(--inset) - 8px);
+  box-sizing: border-box;
+  width: 236px;
+  padding: 10px 12px 9px;
+  background: var(--sheet);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .4);
+  z-index: 3;
+}
+#about .brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#about .mark {
+  width: 30px;
+  height: 24px;
+  flex: none;
+  transform: rotate(-6deg);
+}
+#about .word {
+  font: 21px/1 "Alfa Slab One", Georgia, serif;
+  text-transform: uppercase;
+  letter-spacing: .01em;
+  color: #f7e23a;
+  transform: skewX(-9deg);
+  -webkit-text-stroke: 1px #1a1406;
+  paint-order: stroke fill;
+  text-shadow: 2px 2px 0 #1a1406;
+}
+#about p {
+  margin: 7px 0 0;
+  font-size: var(--fs-s);
+  line-height: 1.4;
+  color: var(--dim);
+}
+#about .links {
+  margin-top: 6px;
+  color: var(--dim);
+}
+#about a {
+  color: var(--hi);
+  text-decoration: none;
+}
+#about a:hover, #about a:focus-visible {
+  text-decoration: underline;
+}
+@media (max-width: 520px) {
+  #about {
+    width: auto;
+    padding: 7px 10px 6px;
+  }
+  #about .word { font-size: 16px; }
+  #about .mark { width: 24px; height: 19px; }
+  #about p:not(.links) { display: none; }
+  #about .links { margin-top: 3px; }
 }

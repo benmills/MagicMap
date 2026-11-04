@@ -18,12 +18,13 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='2' y='25' font-size='30' fill='%23e2c383'%3E✦%3C/text%3E%3C/svg%3E"
     />
     <title>MagicMap · Addon demo</title>
-    <!-- Label faces (see labels.js): Cinzel for Morpheus's titles, Marcellus for Friz Quadrata. -->
+    <!-- Label faces (see labels.js): Cinzel for Morpheus's titles, Marcellus for Friz Quadrata. Alfa Slab One: the
+         logo's wordmark, after the README banner's. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Marcellus&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Cinzel:wght@700&family=Marcellus&display=swap"
       media="print"
       onload="this.media='all'"
     />
@@ -32,10 +33,28 @@
   <body>
     <canvas id="terrain" aria-hidden="true" hidden></canvas>
     <canvas id="map" aria-label="World map" tabindex="0"></canvas>
-    <!-- The controls: one column in the bottom right, in reach of a thumb. North shows only while the view is turned
-         or tilted; the menu opens beside the column, from the bottom up. -->
+    <!-- The controls: one column in the bottom right, in reach of a thumb. North shows in 2D only (a marker: 2D is
+         always north up); the menu opens beside the column, from the bottom up. -->
+    <!-- What this is: the addon's mark (the README banner's yellow slab and folded map, quieter), a line, the links. -->
+    <aside id="about" aria-label="About MagicMap">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 40 32" aria-hidden="true">
+          <path d="M3 9 14 5l12 4 11-4v19l-11 4-12-4-11 4z" fill="#3f8f3a" stroke="#f7d33a" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M14 5v19M26 9v19" stroke="#1d4f22" stroke-width="1.5"/>
+          <path d="M5 20c4-1 6-5 10-4s5 5 9 3 6-6 11-6" fill="none" stroke="#4fb3ff" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M20 9l1.5 3 3 .6-2.2 2 .5 3.1L20 16.2l-2.8 1.5.5-3.1-2.2-2 3-.6z" fill="#fff6b0"/>
+        </svg>
+        <span class="word">Magic Map</span>
+      </div>
+      <p>A free WoW Forever addon: your minimap, zooming out from your feet to the whole of Azeroth.</p>
+      <p class="links">
+        <a href="https://github.com/benmills/MagicMap" target="_blank" rel="noopener">GitHub</a>
+        <span aria-hidden="true">·</span>
+        <a href="https://www.curseforge.com/wow/addons/magicmap" target="_blank" rel="noopener">CurseForge</a>
+      </p>
+    </aside>
     <nav id="controls" aria-label="Map controls">
-      <button id="compass" aria-label="Reset to north" title="North" hidden><span>↑</span></button>
+      <button id="compass" aria-label="North is up" title="North" tabindex="-1" hidden><span>↑</span></button>
       <button id="flyover" aria-pressed="false" aria-label="Start flyover" title="Start flyover" hidden>▶</button>
       <button id="viewBtn" aria-pressed="false" aria-label="3D terrain" title="Switch to 3D terrain">3D</button>
       <button id="zoomIn" aria-label="Zoom in" title="Zoom in">+</button>

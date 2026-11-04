@@ -290,9 +290,4 @@ function diveInAt(col, row) {
   const zoom = clamp(Math.max(state.camera.zoom * 2, 260), MIN_3D_ZOOM, maxZoom());
   return setMode("3d", { goal: { cx: col, cy: row, zoom, yaw: mapMotion.angleDelta(state.yaw - 0.3, 0), tilt: 60 }, centre: true });
 }
-// North: a turned view turns back; one only tilted levels too.
-$("compass").onclick = () => {
-  if (state.mode !== "3d") return;
-  const level = Math.abs(state.yaw) < 0.01;
-  flight({ ...state.camera, yaw: 0, tilt: level ? 0 : state.tilt }, "3d", { ms: 700 });
-};
+

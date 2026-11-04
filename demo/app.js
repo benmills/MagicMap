@@ -21,8 +21,8 @@ function updateViewControls() {
   $("tilt").value = state.tilt;
   $("tiltValue").textContent = `${Math.round(state.tilt)}°`;
   $("compass").style.setProperty("--yaw", `${-state.yaw}rad`);
-  // North only when it would do something: the 3D view turned or tilted.
-  $("compass").hidden = !(is3D && (Math.abs(state.yaw) > 0.01 || state.tilt > 0.5));
+  // North in 2D only: a marker (2D is always north up); 3D has none.
+  $("compass").hidden = is3D;
   $("map").setAttribute(
     "aria-label",
     `${MAP_NAME}, ${state.mode.toUpperCase()} map`,
@@ -127,14 +127,10 @@ function leave3D() {
   if (state.mode !== "3d" || terrainLoading) return;
   setMode("2d", { goal: { ...state.camera, yaw: 0, tilt: 0 }, ms: 650 });
 }
-// The first view: all the land, as close as the screen allows (a small margin; the controls' column clear at the right).
-function worldView() {
-  const m = 14, right = Math.min(W - m, controls.getBoundingClientRect().left - 4);
-  const rect = { left: m, top: m, right, bottom: H - m };
-  const goal = viewState.fitBounds(world.land || world.bounds, rect.right - rect.left, rect.bottom - rect.top, 1);
-  goal.cx -= ((rect.left + rect.right) / 2 - W / 2) / goal.zoom;
-  goal.cy -= ((rect.top + rect.bottom) / 2 - H / 2) / goal.zoom;
-  return goal;
+// The first view: close in, over Ashenvale and Mount Hyjal, about 120 tiles' worth of ground on any screen (a few zones).
+const START = { cx: 35.0, cy: 25.5, area: 120 };
+function startView() {
+  return { cx: START.cx, cy: START.cy, zoom: Math.sqrt((W * H) / START.area) };
 }
 // The world's tiles, names and assets, afresh (a link's view restored: restoreView).
 async function loadWorld(camera) {
@@ -147,7 +143,7 @@ async function loadWorld(camera) {
   clearTimeout(pinTimer);
   clearTimeout(walkTimer);
   if (camera && ![camera.cx, camera.cy, camera.zoom].every(Number.isFinite)) camera = null;
-  state.camera = camera || worldView();
+  state.camera = camera || startView();
   state.mode = "2d";
   assets = null;
   tiles = [];
@@ -282,7 +278,7 @@ async function restoreView() {
   state.desiredMode = restored.mode;
   const intro = restored.flyover && !restored.camera;
   let camera = restored.camera;
-  if (!camera && (intro || !location.hash)) camera = worldView();
+  if (!camera && (intro || !location.hash)) camera = startView();
   await loadWorld(camera);
   renderExtraLayers();
   $("layers").replaceChildren();
