@@ -32,57 +32,52 @@
   <body>
     <canvas id="terrain" aria-hidden="true" hidden></canvas>
     <canvas id="map" aria-label="World map" tabindex="0"></canvas>
-    <nav id="ui" aria-label="Map controls">
-      <button id="menuBtn" aria-expanded="false" aria-controls="settings">Menu</button>
-      <button id="viewBtn" aria-pressed="false" aria-label="3D terrain" title="Switch to 3D terrain">3D</button>
-      <div id="northControls">
-      <button id="compass" aria-label="Reset bearing north" title="North"><span>↑</span></button>
+    <!-- The controls: one column in the bottom right, in reach of a thumb. North shows only while the view is turned
+         or tilted; the menu opens beside the column, from the bottom up. -->
+    <nav id="controls" aria-label="Map controls">
+      <button id="compass" aria-label="Reset to north" title="North" hidden><span>↑</span></button>
       <button id="flyover" aria-pressed="false" aria-label="Start flyover" title="Start flyover" hidden>▶</button>
-      </div>
+      <button id="viewBtn" aria-pressed="false" aria-label="3D terrain" title="Switch to 3D terrain">3D</button>
+      <button id="zoomIn" aria-label="Zoom in" title="Zoom in">+</button>
+      <button id="zoomOut" aria-label="Zoom out" title="Zoom out">−</button>
+      <button id="menuBtn" aria-expanded="false" aria-controls="settings" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
     </nav>
-    <!-- One small menu: search at its top (results in place), then plain rows; a row with › opens a page in its
-         place (its first row goes back). Tapping outside closes it. -->
+    <!-- One small menu: two switches, Share, and Advanced (a page in its place; its first row goes back). Tapping
+         outside closes it. -->
     <section id="settings" class="panel sheet" aria-label="Menu" hidden>
-      <div class="group find">
-        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
-        <input id="q" type="search" placeholder="Search"
-          autocomplete="off" autocorrect="off" spellcheck="false"
-          enterkeyhint="search" aria-label="Search maps and entities" />
-      </div>
-      <div id="results" role="region" aria-label="Search results"></div>
       <div class="group">
-        <label class="row pick"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg><span>Go to Zone</span><select id="zone" aria-label="Go to zone"><option value="">Choose</option></select></label>
-        <button id="layersBtn" class="row nav" aria-expanded="false" aria-controls="layerSheet"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg><span>Show on Map</span></button>
-        <button id="toolsBtn" class="row nav" aria-expanded="false" aria-controls="tools"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 19.5 9 9l3.5 5.5L15 11l6.5 8.5z"/></svg><span>Terrain</span></button>
-        <button id="share" class="row" title="Copy a link to this view"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M6 11H5v10h14V11h-1"/></svg><span>Share This View</span></button>
-      </div>
-      <div id="hl" hidden><span></span><button class="x" aria-label="Clear highlight">✕</button></div>
-    </section>
-    <!-- Show on Map: everything off or on in one tap, and each section's header turns its whole section off or on. -->
-    <section id="layerSheet" class="panel sheet" aria-label="Show on map" hidden>
-      <button class="row back" data-back>Show on Map</button>
-      <div class="group">
-        <button id="allLayers" class="row"><span>Hide All</span></button>
-      </div>
-      <div class="group">
-        <label class="row head"><input type="checkbox" data-all="layers" /><span>Pins</span></label>
-        <div id="layers"></div>
-      </div>
-      <div class="group">
-        <label class="row head"><input type="checkbox" data-all="baseLayers" /><span>Names &amp; Scenery</span></label>
-        <div id="baseLayers"></div>
+        <label class="row"><input type="checkbox" id="pinsAll" /><span>Map Pins</span></label>
+        <label class="row"><input type="checkbox" id="namesAll" /><span>Zone Names</span></label>
+        <button id="share" class="row" title="Copy a link to this view"><span>Share This View</span></button>
+        <button id="advancedBtn" class="row nav" aria-expanded="false" aria-controls="advanced"><span>Advanced</span></button>
       </div>
     </section>
-    <section id="tools" class="panel sheet" aria-label="Terrain" hidden>
-      <button class="row back" data-back>Terrain</button>
+    <!-- Advanced: everything shown on the map (all off or on in one tap, and each section's header its whole section),
+         then the terrain's tools. -->
+    <section id="advanced" class="panel sheet" aria-label="Advanced" hidden>
+      <button class="row back" data-back>Advanced</button>
+      <div id="layerSheet">
+        <div class="group">
+          <button id="allLayers" class="row"><span>Hide All</span></button>
+        </div>
+        <div class="group">
+          <label class="row head"><input type="checkbox" data-all="layers" /><span>Pins</span></label>
+          <div id="layers"></div>
+        </div>
+        <div class="group">
+          <label class="row head"><input type="checkbox" data-all="baseLayers" /><span>Names &amp; Scenery</span></label>
+          <div id="baseLayers"></div>
+        </div>
+      </div>
       <div id="tiltWrap" class="group" hidden>
+        <div class="row head"><span>3D Camera</span></div>
         <div class="bearing row"><button id="rotateLeft" aria-label="Rotate left">↶</button><label for="tilt">Tilt <output id="tiltValue">45°</output></label><button id="rotateRight" aria-label="Rotate right">↷</button></div>
         <div class="row"><input id="tilt" type="range" min="0" max="65" value="45" aria-label="3D tilt" /></div>
         <small id="gestureHint">Drag to pan · two fingers: pinch, rotate, slide to tilt</small>
         <small id="flyoverHint">Drag or use a control to pause</small>
       </div>
       <div class="group">
-        <label class="row head"><input type="checkbox" data-all="overlays" /><span>Overlays</span></label>
+        <label class="row head"><input type="checkbox" data-all="overlays" /><span>Terrain Overlays</span></label>
         <div id="overlays">
           <label class="row"><input type="checkbox" data-tool="elevation" /><span>Elevation</span></label>
           <label class="row"><input type="checkbox" data-tool="slope" /><span>Slope</span></label>
@@ -95,10 +90,12 @@
       </div>
       <div id="profileResult"></div>
     </section>
-    <nav id="viewControls" aria-label="Zoom controls">
-      <button id="zoomIn" aria-label="Zoom in">+</button>
-      <button id="zoomOut" aria-label="Zoom out">−</button>
-    </nav>
+    <!-- A tap on the map: the zone and the place there, and two ways in. -->
+    <section id="place" class="panel" aria-label="Place" hidden>
+      <div class="names"><b></b><small></small></div>
+      <button id="placeZoom" aria-label="Zoom in here" title="Zoom in"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21M10.5 7.5v6M7.5 10.5h6"/></svg></button>
+      <button id="place3D" aria-label="Zoom in with 3D" title="Zoom in with 3D"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 19.5 9 9l3.5 5.5L15 11l6.5 8.5z"/></svg></button>
+    </section>
     <div
       id="status"
       class="panel"
@@ -106,13 +103,6 @@
       aria-live="polite"
       hidden
     ></div>
-    <div id="readout" class="panel"></div>
-    <section
-      id="card"
-      class="panel"
-      aria-label="Selection details"
-      hidden
-    ></section>
     <script src="core.js" defer></script>
     <script src="tiles.js" defer></script>
     <script src="labels.js" defer></script>
@@ -120,7 +110,7 @@
     <script src="tools.js" defer></script>
     <script src="flyover.js" defer></script>
     <script src="navigation.js" defer></script>
-    <script src="cards.js" defer></script>
+    <script src="menu.js" defer></script>
     <script src="mapart.js" defer></script>
     <script src="app.js" defer></script>
   </body>

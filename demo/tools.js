@@ -7,7 +7,6 @@ const CLASS = [
 ];
 let walkOn = false,
   walkTimer,
-  hoverTimer,
   profilePoints = [];
 function path(points) {
   ctx.beginPath();
@@ -61,8 +60,7 @@ function refreshWalk() {
       if ((q[2] - q[0]) * (q[3] - q[1]) > 40000) {
         walk = null;
         draw();
-        $("toolNote").textContent =
-          "Zoom in for the walk grid (at most 40,000 cells).";
+        notice("Zoom in for the walk grid (at most 40,000 cells).");
         return;
       }
       const got = await get(
@@ -76,47 +74,15 @@ function refreshWalk() {
     150,
   );
 }
-function hoverInspect(x, y) {
-  clearTimeout(hoverTimer);
-  requests.ticket("inspect");
-  hoverTimer = setTimeout(
-    run(() => inspect(x, y, false)),
-    65,
-  );
-}
-async function inspect(x, y, mark) {
-  if (state.camera.zoom < READOUT_ZOOM) {
-    requests.ticket("inspect");
-    readout.textContent = "";
-    return;
-  }
-  const ticket = requests.ticket("inspect"),
-    hit = activeView().pick(x, y);
-  if (!hit) {
-    readout.textContent = "No loaded ground under the pointer.";
-    return;
-  }
-  const [col, row] = hit;
-  if (mark) {
-    marker = [col, row];
-    draw();
-    saveView();
-    if ($("profile").getAttribute("aria-pressed") === "true") {
-      profilePoints.push(hit);
-      if (profilePoints.length > 2) profilePoints = [hit];
-      renderProfile();
-    }
-  }
-  const a = await get(`/api/at?col=${col}&row=${row}`);
-  if (!requests.current(ticket)) return;
-  const z = a.zone,
-    ar = a.area,
-    ground = terrain?.inst === state.inst ? terrain.sample(col, row) : null;
-  readout.textContent =
-    `${ar?.subzone || ar?.zone || z?.name || MAP_NAME}${z ? ` · ${(z.x * 100).toFixed(1)}, ${(z.y * 100).toFixed(1)}` : ""}` +
-    (ground && (state.tools.has("elevation") || state.tools.has("slope"))
-      ? ` · ${ground.height.toFixed(0)} yd · ${ground.slope.toFixed(0)}°`
-      : "");
+// Measuring a profile: a tap is one of its two ends.
+const profiling = () => $("profile").getAttribute("aria-pressed") === "true";
+function profileTap(x, y) {
+  const hit = activeView().pick(x, y);
+  if (!hit) return notice("No loaded ground there.");
+  profilePoints.push(hit);
+  if (profilePoints.length > 2) profilePoints = [hit];
+  renderProfile();
+  draw();
 }
 function drawAnalysis() {
   if (
@@ -219,20 +185,3 @@ function renderProfile() {
     ),
   );
 }
-function settleReadout() { // (the camera moved: zoomed out past the readout's zoom, it goes)
-  if (state.camera && state.camera.zoom < READOUT_ZOOM) readout.textContent = "";
-}
-function selectBuilding(building) {
-  const detail = {
-    inst: state.inst,
-    buildingId: building.id,
-    roomId: null,
-    name: building.name || "Building",
-    placement: building,
-  };
-  window.dispatchEvent(new CustomEvent("atlas:building-select", { detail }));
-  notice(
-    `${detail.name} · scenery selection. Room selection is not installed.`,
-  );
-}
-

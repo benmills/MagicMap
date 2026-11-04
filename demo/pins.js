@@ -48,18 +48,6 @@ const PIN_R = Object.fromEntries(
 // feathered disc texture under the icon, SetVertexColor per faction).
 const FACTION = { A: "#4a8cff", H: "#ff4d40", AH: "#f2c94c" },
   TINTED = new Set(["service", "quest"]);
-const FACTION_NAME = { A: "Alliance", H: "Horde", AH: "Alliance & Horde" };
-const SERVICE_NAME = {
-  innkeeper: "Inn",
-  flightmaster: "Flight master",
-  banker: "Bank",
-  auctioneer: "Auction",
-  stablemaster: "Stable",
-  battlemaster: "Battlemaster",
-  trainer: "Trainer",
-  repair: "Repair",
-};
-const RANK = { 1: "Elite", 2: "Rare elite", 3: "Boss", 4: "Rare" };
 const LAYERS = [
   // id, name, shown from this zoom (px per tile), a sample pin for the legend
   ["flight", "Flight points", 0, { faction: "A" }],
@@ -72,13 +60,14 @@ const LAYERS = [
   ["herb", "Herbs", 256, {}],
   ["ore", "Ore", 256, {}],
 ];
-const layerOn = new Set(["flight", "poi", "dungeon", "service", "labels"]);
+// The layers picked (Advanced), and whether pins show at all (the menu's Map Pins: off keeps the picks).
+const layerOn = new Set(["flight", "dungeon", "labels"]);
+let pinsOn = true;
 const shown = (id) =>
-  layerOn.has(id) && state.camera.zoom >= LAYERS.find((l) => l[0] === id)[2];
+  pinsOn && layerOn.has(id) && state.camera.zoom >= LAYERS.find((l) => l[0] === id)[2];
 const pinVisible = (p) => p.kind === "group" ? p.members.some((m) => shown(m.layer)) : shown(p.layer);
 let pins = [],
   drawnPins = [],
-  highlight = null,
   iconSheet,
   ICONS;
 
@@ -91,7 +80,7 @@ async function loadIcons() {
     img.decode(),
   ]);
   iconSheet = img;
-  drawSwatches(); // (cards.js)
+  drawSwatches(); // (menu.js)
 }
 function iconOf(layer, p) {
   const m = GAME_ICON[layer];
@@ -191,7 +180,7 @@ function drawMapPin(g, p, x, y, s = 1) {
   }
   g.restore();
 }
-// A fine cross marks highlighted database locations without obscuring the map.
+// A fine cross: a ground profile's ends (tools.js).
 function drawRing(g, x, y, s = 1) {
   g.beginPath();
   g.moveTo(x - 5 * s, y);
@@ -205,33 +194,7 @@ function drawRing(g, x, y, s = 1) {
   g.strokeStyle = "#f5deb3b3";
   g.stroke();
 }
-// Highlighted spawns (and, for a flight point, lines to where it flies).
-function drawHighlight() {
-  if (highlight.from) {
-    const [x0, y0] = toScreen(...highlight.from);
-    ctx.beginPath();
-    for (const p of highlight.pts) {
-      const [x, y] = toScreen(p.col, p.row);
-      ctx.moveTo(x0, y0);
-      ctx.lineTo(x, y);
-    }
-    ctx.setLineDash([6, 5]);
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = "rgba(12,8,4,.25)";
-    ctx.stroke(); // dark casing
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "rgba(245,222,179,.6)";
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-  const s = highlight.pts.length > 40 ? 0.65 : 1; // many: smaller crosses
-  for (const p of highlight.pts) {
-    const [x, y] = toScreen(p.col, p.row);
-    if (x < -20 || x > W + 20 || y < -20 || y > H + 20) continue;
-    drawRing(ctx, x, y, s);
-  }
-}
-// The pin (or highlighted spawn) under a point, if any: the nearest within a finger's reach.
+// The pin under a point, if any: the nearest within a finger's reach.
 function pinAt(x, y, reach) {
   let best = null,
     bd = reach;
@@ -244,8 +207,7 @@ function pinAt(x, y, reach) {
       best = p;
     }
   };
-  if (highlight) highlight.pts.forEach(consider);
-  if (!best) drawnPins.forEach((p) => pinVisible(p) && consider(p));
+  drawnPins.forEach((p) => pinVisible(p) && consider(p));
   return best;
 }
 
@@ -292,5 +254,4 @@ function settled() {
   refreshWalk();
   refreshPins();
   saveView();
-  settleReadout();
 }

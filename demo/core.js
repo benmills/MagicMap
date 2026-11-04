@@ -11,8 +11,7 @@ const minZoom = () => (state.mode === "3d" ? MIN_3D_ZOOM : MIN_ZOOM);
 let out3D = false; // a zoom asked for less than 3D allows: back to 2D once it settles (app.js)
 const $ = (id) => document.getElementById(id);
 const canvas = $("map"),
-  ctx = canvas.getContext("2d"),
-  readout = $("readout");
+  ctx = canvas.getContext("2d");
 const state = {
   inst: 1,
   camera: null,
@@ -20,10 +19,8 @@ const state = {
   desiredMode: "2d",
   yaw: 0,
   tilt: 45,
-  selection: null,
-  sources: [],
   tools: new Set(),
-  labelTiers: new Set(["zone", "town", "subzone"]),
+  labelTiers: new Set(["zone"]),
   flyover: false,
 };
 let viewState,
@@ -71,11 +68,7 @@ let W,
   dpr,
   bg = "#000",
   tiles = [],
-  walk = null,
-  marker = null;
-
-// The place under the pointer (and a tap's marker): only zoomed in this far; from afar it's noise.
-const READOUT_ZOOM = 24; // px a tile
+  walk = null;
 
 function resize() {
   // CSS owns the large viewport behind Safari's translucent controls. Measure
@@ -203,7 +196,7 @@ function frame() {
       state.tools.has("slope") ||
       state.tools.has("contours") ||
       profilePoints.length ||
-      $("profile").getAttribute("aria-pressed") === "true")
+      profiling())
   ) {
     terrain.setView(state.camera, W, H, 0, 0);
     terrain.interacting =
@@ -235,19 +228,4 @@ function frame() {
     drawMapPin(ctx, p, x, y, quiet.s);
   }
   ctx.globalAlpha = 1;
-  if (highlight) drawHighlight();
-  if (marker) {
-    const [x, y] = toScreen(marker[0], marker[1]);
-    ctx.beginPath();
-    ctx.moveTo(x - 5, y);
-    ctx.lineTo(x + 5, y);
-    ctx.moveTo(x, y - 5);
-    ctx.lineTo(x, y + 5);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "#10201b66";
-    ctx.stroke();
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "#f0ead0b3";
-    ctx.stroke();
-  }
 }

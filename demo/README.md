@@ -16,15 +16,19 @@ never did). It needs 64 px a tile (`MIN_3D_ZOOM`, core.js): about 150 tiles on a
 further out, 3D zooms in to it first, and zooming out past it levels the view and goes back to 2D.
 
 What it draws, as the addon does: the tiles on the map's backdrop (open-sea tiles not drawn), the patched sea tile, the ocean, the
-AI repaints, place names, pins and flight points from the Atlas, search (`/api/find`) and cards. The menu (top left) is one
-list with pages, iOS-like: Search, Go to zone, Show on Map (pins, names, scenery, Ocean, Repaired map art), Terrain (3D camera,
-elevation, slope, contours, walk grid, ground profile), Share. On a phone it's a bottom sheet.
+AI repaints, place names, and pins and flight points from the Atlas. A fresh view shows only flight points, dungeon entrances and
+zone names. The controls are one column in the bottom right: north (only while 3D is turned or tilted), 3D, zoom, and the menu,
+which opens beside them: Map Pins and Zone Names (each all of its kind off or on, keeping what Advanced picked), Share, and
+Advanced (every pin layer, name tier, scenery and map-art switch, and the terrain's tools: 3D camera, elevation, slope, contours,
+walk grid, ground profile). A tap on the map (or a pin) opens a small popup naming the zone and the place there (`/api/at`), with
+Zoom In and Zoom In with 3D. Going into 3D and back out is a flight (flyover.js `flight`): the camera eases its zoom, heading,
+tilt and ground height, from the 2D view down into a tilted one and back up, level and north, to 2D; any input stops it.
 
 ## Run it here
 
     .venv/bin/python demo/server.py 8000      # http://localhost:8000; tools/check.sh sets up .venv
 
-Without the baked assets below it still runs: names, search and pins, on the backdrop.
+Without the baked assets below it still runs: names and pins, on the backdrop.
 
 ## Assets (all gitignored: Blizzard's art)
 

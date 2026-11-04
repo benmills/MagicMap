@@ -172,7 +172,7 @@ function startFlyover() {
   saveView({ immediate: true });
 }
 
-// Interaction always wins, including keyboard search and controls during startup.
+// Interaction always wins, including the keyboard and controls during startup.
 function interruptFlyover(e) {
   if (e.target.closest?.("#flyover, #share")) return;
   interactionEpoch++;
@@ -191,3 +191,108 @@ for (const name of [
     passive: true,
   });
 $("flyover").onclick = () => (state.flyover ? pauseFlyover() : startFlyover());
+
+// ---- Flights between views: one eased move of the camera (its centre, zoom, heading and tilt) and of 3D's ground
+// height, for the switch between 2D and 3D, a place's zoom in, and north. The page stays as it is (no clean frame);
+// any input stops it where it is (stopMotion: navigation.js). 3D can't be nearer than MIN_3D_ZOOM, so a flight into 3D
+// from further out stays 2D until its zoom gets there, then tilts and turns for the rest of the way; one out of 3D
+// levels and turns north first, and goes 2D as it lands.
+const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+function flightMs(from, goal, k = 1) {
+  const zooms = Math.abs(Math.log2(goal.zoom / from.zoom)),
+    turn = Math.abs(mapMotion.angleDelta(goal.yaw, from.yaw)) / Math.PI,
+    tilt = Math.abs(goal.tilt - from.tilt) / 60;
+  return clamp((700 + 320 * zooms + 700 * Math.max(turn, tilt)) * k, 500, 2800);
+}
+// goal: { cx, cy, zoom, yaw, tilt }; mode: the view it lands in. Resolves true on landing, false if stopped.
+function flight(goal, mode, { ms, centre = false } = {}) {
+  return new Promise((done) => {
+    stopMotion();
+    goal = { ...goal, zoom: clamp(goal.zoom, mode === "3d" ? MIN_3D_ZOOM : MIN_ZOOM, maxZoom()) };
+    const from = { ...state.camera, yaw: state.yaw, tilt: state.mode === "3d" ? state.tilt : 0 },
+      to3D = mode === "3d" && state.mode !== "3d",
+      to2D = mode === "2d" && state.mode === "3d",
+      // when the 3D part starts or ends (as a share of the zoom's way): where the zoom passes 3D's limit
+      zoomShare = (z) => Math.log(z / from.zoom) / (Math.log(goal.zoom / from.zoom) || 1),
+      split = to3D && from.zoom < MIN_3D_ZOOM ? clamp(zoomShare(MIN_3D_ZOOM), 0, 1) : 0,
+      turn = mapMotion.angleDelta(goal.yaw, from.yaw),
+      // zooming in about a point: the point slides to the centre on screen, as the zoom grows
+      about = centre && goal.zoom > from.zoom;
+    ms ??= flightMs(from, goal);
+    // the time the zoom reaches the 3D limit (easeInOut inverted, by bisection): tilting starts then
+    let tSplit = 0;
+    if (split > 0) {
+      let lo = 0, hi = 1;
+      for (let i = 0; i < 30; i++) ((easeInOut((lo + hi) / 2) < split) ? (lo = (lo + hi) / 2) : (hi = (lo + hi) / 2));
+      tSplit = lo;
+    }
+    if (to2D || state.mode === "3d") {
+      terrain.focusLocked = true;
+    }
+    let lift = state.mode === "3d" ? terrain.focus : null, last = performance.now();
+    const t0 = last;
+    flown = done;
+    motionKind = "cinema";
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / ms), e = easeInOut(t), dt = Math.min(50, now - last) / 1000;
+      last = now;
+      const zoom = from.zoom * (goal.zoom / from.zoom) ** e;
+      const k = about ? (1 - e) * (from.zoom / zoom) : 1 - e;
+      state.camera = { cx: goal.cx - (goal.cx - from.cx) * k, cy: goal.cy - (goal.cy - from.cy) * k, zoom };
+      if (to3D && state.mode !== "3d" && t >= tSplit) { // into 3D, still flat: nothing moves on screen
+        state.mode = "3d";
+        state.yaw = from.yaw;
+        state.tilt = 0;
+        lift = terrain.sample(state.camera.cx, state.camera.cy)?.height ?? terrain.focus;
+        terrain.focusLocked = true;
+        updateViewControls();
+      }
+      if (state.mode === "3d") {
+        const p = to3D ? easeInOut(clamp((t - tSplit) / (1 - tSplit || 1), 0, 1)) : e;
+        state.yaw = mapMotion.angleDelta(from.yaw + turn * p, 0);
+        state.tilt = from.tilt + (goal.tilt - from.tilt) * p;
+        const ground = terrain.sample(state.camera.cx, state.camera.cy)?.height;
+        if (ground !== undefined) lift += (ground - lift) * (1 - Math.exp(-dt / 0.3)); // never snapping to a hill
+        terrain.focus = lift;
+      }
+      $("tilt").value = state.tilt;
+      $("tiltValue").textContent = `${Math.round(state.tilt)}°`;
+      $("compass").style.setProperty("--yaw", `${-state.yaw}rad`);
+      draw();
+      if (t < 1) {
+        motion = requestAnimationFrame(step);
+        return;
+      }
+      motion = null;
+      motionKind = null;
+      flown = null;
+      if (to2D) {
+        state.mode = "2d";
+        state.yaw = 0;
+        state.tilt = 0;
+      }
+      if (state.mode === "3d") finishGroundPan();
+      updateViewControls();
+      draw();
+      settled();
+      done(true);
+    };
+    motion = requestAnimationFrame(step);
+  });
+}
+// The popup's two ways in (menu.js): closer on the map where it is, or down into a low, tilted 3D view.
+function zoomInAt(col, row) {
+  const zoom = clamp(Math.max(state.camera.zoom * 3, 64), state.camera.zoom, maxZoom());
+  const goal = { cx: col, cy: row, zoom, yaw: state.yaw, tilt: state.mode === "3d" ? state.tilt : 0 };
+  return flight(goal, state.mode, { centre: true, ms: state.mode === "3d" ? undefined : clamp(450 + 180 * Math.log2(zoom / state.camera.zoom), 500, 1100) });
+}
+function diveInAt(col, row) {
+  const zoom = clamp(Math.max(state.camera.zoom * 2, 260), MIN_3D_ZOOM, maxZoom());
+  return setMode("3d", { goal: { cx: col, cy: row, zoom, yaw: mapMotion.angleDelta(state.yaw - 0.3, 0), tilt: 60 }, centre: true });
+}
+// North: a turned view turns back; one only tilted levels too.
+$("compass").onclick = () => {
+  if (state.mode !== "3d") return;
+  const level = Math.abs(state.yaw) < 0.01;
+  flight({ ...state.camera, yaw: 0, tilt: level ? 0 : state.tilt }, "3d", { ms: 700 });
+};

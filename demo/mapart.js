@@ -27,7 +27,7 @@ const MapArt = (() => {
   section.className = "group";
   head.className = "row head";
   all.type = "checkbox";
-  all.dataset.all = "mapArt"; // the section's header: all of it off or on (cards.js)
+  all.dataset.all = "mapArt"; // the section's header: all of it off or on (menu.js)
   title.textContent = "Map Art";
   head.append(all, title);
   panel.id = "mapArt";

@@ -17,9 +17,10 @@ function lockGround() {
 }
 function stopMotion() {
   pauseFlyover();
+  closePlace(); // (menu.js) the map moves: the popup's point goes
   if (motion) cancelAnimationFrame(motion);
   motion = null;
-  if (motionKind === "glide") finishGroundPan();
+  if (motionKind === "glide" || motionKind === "cinema") finishGroundPan();
   motionKind = null;
   flown?.(false);
   flown = null;
@@ -178,8 +179,6 @@ canvas.addEventListener("pointerdown", (e) => {
   flushGesture();
   stopMotion();
   closeSheets();
-  clearTimeout(hoverTimer);
-  requests.ticket("inspect");
   if (!pts.size) lockGround();
   pts.set(e.pointerId, mapPoint(e.clientX, e.clientY));
   canvas.setPointerCapture(e.pointerId);
@@ -199,7 +198,6 @@ canvas.addEventListener("pointermove", (e) => {
   if (!pts.has(e.pointerId)) {
     if (e.pointerType === "mouse" && state.camera && !movingMap()) {
       const point = mapPoint(e.clientX, e.clientY);
-      hoverInspect(point.x, point.y);
       canvas.style.cursor = pinAt(point.x, point.y, 12)
         ? "pointer"
         : "grab";
@@ -255,11 +253,8 @@ function release(e, cancelled) {
       lastTap = null;
     } else {
       const pin = pinAt(tap.x, tap.y, e.pointerType === "mouse" ? 12 : 22);
-      const building =
-        !pin && state.mode === "3d" && terrain.pickBuilding(tap.x, tap.y);
-      if (pin) run(openPin)(pin);
-      else if (building) selectBuilding(building);
-      else run(inspect)(tap.x, tap.y, true);
+      if (profiling()) profileTap(tap.x, tap.y);
+      else openPlace(tap.x, tap.y, pin);
       lastTap = tap;
     }
   }
@@ -330,7 +325,3 @@ function panBy(dx, dy) {
     cy: state.camera.cy + a[1] - b[1],
   };
 }
-$("zone").onchange = run(async (e) => {
-  if (e.target.value) await navigatePlace(Number(e.target.value));
-  e.target.blur();
-});

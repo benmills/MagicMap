@@ -6,7 +6,7 @@ function saveView({ immediate = false } = {}) {
   if (restoring || !viewState || !state.camera) return;
   clearTimeout(saveTimer);
   const write = () => {
-    hashWritten = viewState.writeView({ ...state, layers: layerOn, marker });
+    hashWritten = viewState.writeView({ ...state, layers: layerOn, pins: pinsOn });
     history.replaceState(null, "", hashWritten);
   };
   if (immediate) write();
@@ -21,7 +21,8 @@ function updateViewControls() {
   $("tilt").value = state.tilt;
   $("tiltValue").textContent = `${Math.round(state.tilt)}°`;
   $("compass").style.setProperty("--yaw", `${-state.yaw}rad`);
-  $("compass").title = "Reset bearing to north";
+  // North only when it would do something: the 3D view turned or tilted.
+  $("compass").hidden = !(is3D && (Math.abs(state.yaw) > 0.01 || state.tilt > 0.5));
   $("map").setAttribute(
     "aria-label",
     `${MAP_NAME}, ${state.mode.toUpperCase()} map`,
@@ -54,7 +55,6 @@ async function ensureTerrain() {
         $("terrain"),
         () => {
           draw();
-          settleReadout();
           if (profilePoints.length === 2) renderProfile();
         },
         (message) => {
@@ -78,7 +78,11 @@ async function ensureTerrain() {
   );
   return terrain;
 }
-async function setMode(mode, { remember = true } = {}) {
+// Into 3D and out: a flight (flyover.js), from the view as it is to a tilted one of the same place (or the goal given:
+// the place popup's), and back up, level, north and 2D. A link's or a remembered 3D view (animate: false) is there at once.
+const goal3D = () => ({ ...state.camera, zoom: clamp(state.camera.zoom * 1.6, 96, maxZoom()), yaw: 0, tilt: 55 });
+const goal2D = () => ({ ...state.camera, zoom: Math.max(MIN_3D_ZOOM, state.camera.zoom / 2), yaw: 0, tilt: 0 });
+async function setMode(mode, { remember = true, animate = true, goal, centre = false, ms } = {}) {
   const seq = ++modeSeq,
     epoch = requests.epoch;
   stopMotion();
@@ -88,88 +92,49 @@ async function setMode(mode, { remember = true } = {}) {
     try {
       localStorage.setItem("atlas.view", mode);
     } catch {}
-  if (mode === "3d") {
-    const loading = ensureTerrain();
-    loading.catch(() => {}); // (awaited below)
-    // Too far out for 3D: in to its limit first, about the middle, while the terrain loads.
-    if (state.camera.zoom < MIN_3D_ZOOM) {
-      const landed = await new Promise((done) =>
-        flyTo(zoomGoal(W / 2, H / 2, MIN_3D_ZOOM), 450, done),
-      );
-      if (seq !== modeSeq || epoch !== requests.epoch) return;
-      if (!landed) {
-        state.desiredMode = state.mode;
-        return updateViewControls();
-      }
-    }
+  if (mode === "3d" && state.mode !== "3d") {
     terrainLoading = true;
     updateViewControls();
     notice("Loading terrain…");
     try {
-      await loading;
-      if (seq !== modeSeq || epoch !== requests.epoch) return;
-      state.mode = "3d";
-      notice("");
+      await ensureTerrain();
     } catch (e) {
       if (seq !== modeSeq || epoch !== requests.epoch) return;
-      state.mode = "2d";
+      terrainLoading = false;
+      state.desiredMode = "2d";
       notice(`${e.message} Using 2D.`);
+      return updateViewControls();
     }
-  } else {
+    if (seq !== modeSeq || epoch !== requests.epoch) return;
     terrainLoading = false;
-    state.mode = "2d";
     notice("");
-  }
-  terrainLoading = false;
+    if (animate) await flight(goal || goal3D(), "3d", { centre, ms });
+    else state.mode = "3d";
+  } else if (mode === "2d" && state.mode === "3d") {
+    terrainLoading = false;
+    if (animate) await flight(goal || goal2D(), "2d", { ms });
+    else state.mode = "2d";
+  } else if (goal) await flight(goal, mode, { centre, ms });
+  if (seq !== modeSeq || epoch !== requests.epoch) return;
+  state.desiredMode = state.mode; // (a flight stopped part way: where it got to)
   updateViewControls();
   draw();
   settled();
 }
-// Zoomed out past 3D's limit (out3D): level the view, then the 2D map under it.
+// Zoomed out past 3D's limit (out3D): level the view, north, and the 2D map under it, quickly.
 function leave3D() {
   out3D = false;
   if (state.mode !== "3d" || terrainLoading) return;
-  stopMotion();
-  const yaw = state.yaw,
-    tilt = state.tilt,
-    t0 = performance.now();
-  motionKind = "level";
-  const step = (now) => {
-    const t = Math.min(1, (now - t0) / 300),
-      e = 1 - (1 - t) ** 3;
-    state.yaw = yaw * (1 - e);
-    state.tilt = tilt * (1 - e);
-    updateViewControls();
-    draw();
-    if (t < 1) motion = requestAnimationFrame(step);
-    else {
-      motion = null;
-      motionKind = null;
-      setMode("2d").then(() => {
-        state.yaw = yaw; // as the 3D button leaves them, for coming back
-        state.tilt = tilt;
-        updateViewControls();
-        saveView();
-      });
-    }
-  };
-  motion = requestAnimationFrame(step);
+  setMode("2d", { goal: { ...state.camera, yaw: 0, tilt: 0 }, ms: 650 });
 }
-async function navigatePlace(uiMapID) {
-  stopMotion();
-  closeSheets();
-  const r = visibleMapRect();
-  const ticket = requests.ticket("fit"),
-    got = await get(`/api/fit?uiMapID=${uiMapID}&w=${Math.max(100, r.right-r.left)}&h=${Math.max(100, r.bottom-r.top)}`);
-  if (!requests.current(ticket)) return;
-  flyTo(centerFit(got.cam, r), 450);
-  $("zone").value = String(uiMapID);
-}
-// The first view: all the land, as close as the screen allows (a small margin; the top bar's height clear above it).
+// The first view: all the land, as close as the screen allows (a small margin; the controls' column clear at the right).
 function worldView() {
-  const m = 14, top = Math.max(m, ui.getBoundingClientRect().bottom + 4);
-  const rect = { left: m, top, right: W - m, bottom: H - m };
-  return centerFit(viewState.fitBounds(world.land || world.bounds, rect.right - rect.left, rect.bottom - rect.top, 1), rect, "2d");
+  const m = 14, right = Math.min(W - m, controls.getBoundingClientRect().left - 4);
+  const rect = { left: m, top: m, right, bottom: H - m };
+  const goal = viewState.fitBounds(world.land || world.bounds, rect.right - rect.left, rect.bottom - rect.top, 1);
+  goal.cx -= ((rect.left + rect.right) / 2 - W / 2) / goal.zoom;
+  goal.cy -= ((rect.top + rect.bottom) / 2 - H / 2) / goal.zoom;
+  return goal;
 }
 // The world's tiles, names and assets, afresh (a link's view restored: restoreView).
 async function loadWorld(camera) {
@@ -181,8 +146,6 @@ async function loadWorld(camera) {
   terrainLoading = false;
   clearTimeout(pinTimer);
   clearTimeout(walkTimer);
-  clearTimeout(hoverTimer);
-  clearTimeout(findTimer);
   if (camera && ![camera.cx, camera.cy, camera.zoom].every(Number.isFinite)) camera = null;
   state.camera = camera || worldView();
   state.mode = "2d";
@@ -193,16 +156,11 @@ async function loadWorld(camera) {
   labels = [];
   labelState.clear();
   walk = null;
-  marker = null;
   profilePoints = [];
-  highlight = null;
-  hl.hidden = true;
-  state.sources = [];
   closeSheets();
+  closePlace();
   MAP_NAME = m.name;
   bg = rgb(m.bg || [0.03, 0.06, 0.06]);
-  $("zone").replaceChildren(new Option("Choose", ""));
-  for (const z of m.zones) $("zone").add(new Option(z.name, z.uiMapID));
   updateViewControls();
   draw();
   notice(`Loading ${m.name}…`);
@@ -216,7 +174,7 @@ async function loadWorld(camera) {
   // Start drawing terrain as soon as its index arrives; labels can follow. A remembered 3D waits
   // for a view near enough for it (a link's 3D view always is).
   if (state.desiredMode === "3d" && !(state.camera.zoom >= MIN_3D_ZOOM)) state.desiredMode = "2d"; // (NaN too)
-  if (state.desiredMode === "3d") await setMode("3d", { remember: false });
+  if (state.desiredMode === "3d") await setMode("3d", { remember: false, animate: false });
   const outcomes = await metadata;
   if (epoch !== requests.epoch) return;
   const failed = outcomes.filter((r) => r.status === "rejected");
@@ -225,7 +183,7 @@ async function loadWorld(camera) {
       failed.length
         ? "Some map data could not load. Reload to try again."
         : !assets.tiles.length
-          ? "Map images are not installed here. Names, search and pins remain available."
+          ? "Map images are not installed here. Names and pins remain available."
           : "",
     );
   if (epoch !== requests.epoch) return;
@@ -243,6 +201,15 @@ async function loadWorld(camera) {
   settled();
   renderLayers();
 }
+async function showScenery(input) {
+  if (!assets?.objects.available) notice(assets?.objects.reason || "Scenery unavailable.");
+  else {
+    await ensureTerrain();
+    if (state.mode === "2d") notice("Buildings & scenery appear in 3D.");
+    else if (state.camera.zoom < 100) notice("Zoom in to see buildings & scenery.");
+  }
+  if (terrain) terrain.scenery = input.checked && !!assets?.objects.available;
+}
 function renderExtraLayers() {
   const box = $("baseLayers");
   box.replaceChildren();
@@ -252,24 +219,14 @@ function renderExtraLayers() {
   ]) {
     const input = h("input", { type: "checkbox", checked: layerOn.has(id) });
     input.dataset.layer = id;
-    input.onchange = run(async () => {
+    input.onchange = () => {
       input.checked ? layerOn.add(id) : layerOn.delete(id);
       if (id === "labels") $("labelSublayers").disabled = !input.checked;
-      if (id === "scenery") {
-        if (!assets?.objects.available)
-          notice(assets?.objects.reason || "Scenery unavailable.");
-        else {
-          await ensureTerrain();
-          if (state.mode === "2d") notice("Buildings & scenery appear in 3D.");
-          else if (state.camera.zoom < 100)
-            notice("Zoom in to see buildings & scenery.");
-        }
-        if (terrain)
-          terrain.scenery = input.checked && !!assets?.objects.available;
-      }
+      syncTop();
       saveView();
       draw();
-    });
+      if (id === "scenery") run(showScenery)(input);
+    };
     if (id === "scenery") input.dataset.bulk = "off"; // all on doesn't load the 3D terrain for it
     box.append(h("label", { className: "row" }, input, h("span", {}, text)));
     if (id === "labels") {
@@ -320,45 +277,19 @@ async function restoreView() {
   state.labelTiers = new Set(restored.labelTiers);
   layerOn.clear();
   restored.layers.forEach((l) => layerOn.add(l));
+  pinsOn = restored.pins;
   walkOn = state.tools.has("walk");
   state.desiredMode = restored.mode;
-  closeCard();
-  state.sources = [];
   const intro = restored.flyover && !restored.camera;
   let camera = restored.camera;
   if (!camera && (intro || !location.hash)) camera = worldView();
   await loadWorld(camera);
-  if (restored.selection) {
-    try {
-      if (restored.selection.kind === "poi") {
-        const found = await get(
-          `/api/pins?c0=0&r0=0&c1=128&r1=64&zoom=1024&layers=poi`,
-        );
-        const p = found.find((p) => p.id === restored.selection.id);
-        if (p) await openCard("poi", p.id, { data: p });
-      } else await openCard(restored.selection.kind, restored.selection.id);
-    } catch (e) {
-      notice(`The linked selection is unavailable: ${e.message}`);
-    }
-  }
-  if (restored.sources.length) {
-    const flights = restored.sources.filter((r) => r.kind === "flight");
-    if (flights.length && state.selection?.kind === "flight") {
-      const d = await entity("flight", state.selection.id);
-      setHighlight(
-        d.name,
-        d.destinations,
-        [d.col, d.row],
-      );
-    } else
-      await showSources(restored.sources, "Shared sources", { restore: true });
-  }
-  marker = restored.marker;
   renderExtraLayers();
   $("layers").replaceChildren();
   renderLayers();
-  for (const input of $("tools").querySelectorAll("input[data-tool]"))
+  for (const input of $("advanced").querySelectorAll("input[data-tool]"))
     input.checked = state.tools.has(input.dataset.tool);
+  syncHeads();
   restoring = false;
   if (
     restored.flyover &&
@@ -375,17 +306,12 @@ $("viewBtn").onclick = run(() => {
   return setMode(mode === "3d" ? "2d" : "3d");
 });
 $("zoomIn").onclick = () => {
+  closeSheets();
   if (state.camera) flyTo(zoomGoal(W / 2, H / 2, state.camera.zoom * 1.5), 200);
 };
 $("zoomOut").onclick = () => {
+  closeSheets();
   if (state.camera) flyTo(zoomGoal(W / 2, H / 2, state.camera.zoom / 1.5), 200);
-};
-$("compass").onclick = () => {
-  stopMotion();
-  state.yaw = 0;
-  updateViewControls();
-  draw();
-  settled();
 };
 $("tilt").oninput = (e) => {
   stopMotion();
@@ -414,13 +340,9 @@ $("rotateRight").onclick = () => {
   draw();
   settled();
 };
-$("toolsBtn").onclick = () => {
-  setSheet($("tools").hidden ? "tools" : null);
-  settleReadout();
-};
 $("share").onclick = run(async () => {
   clearTimeout(saveTimer);
-  hashWritten = viewState.writeView({ ...state, layers: layerOn, marker });
+  hashWritten = viewState.writeView({ ...state, layers: layerOn, pins: pinsOn });
   history.replaceState(null, "", hashWritten);
   try {
     await navigator.clipboard.writeText(location.href);
@@ -438,7 +360,7 @@ $("profile").onclick = run(async () => {
     : "";
   if (on) {
     closeSheets();
-    notice("Profile: tap two ground points; open Tools to see the chart.");
+    notice("Profile: tap two ground points; open Advanced to see the chart.");
     try {
       await ensureTerrain();
     } catch (e) {
@@ -447,7 +369,7 @@ $("profile").onclick = run(async () => {
   }
   draw();
 });
-for (const input of $("tools").querySelectorAll("input[data-tool]"))
+for (const input of $("advanced").querySelectorAll("input[data-tool]"))
   input.onchange = run(async () => {
     const id = input.dataset.tool;
     input.checked ? state.tools.add(id) : state.tools.delete(id);
@@ -487,8 +409,7 @@ addEventListener(
   }
   await restoreView();
   const observer = new ResizeObserver(placeSheets);
-  observer.observe(ui);
-  observer.observe(card);
+  observer.observe(place);
   window.visualViewport?.addEventListener("resize", resize);
   window.visualViewport?.addEventListener("scroll", placeSheets);
 })().catch(fail);

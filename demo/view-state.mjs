@@ -1,6 +1,7 @@
 // Serializable view state. No browser dependencies: also used by the integration tests.
-export const DEFAULT_LAYERS = ["flight", "poi", "dungeon", "service", "labels"];
-export const DEFAULT_LABEL_TIERS = ["zone", "town", "subzone"];
+// A fresh view shows flight points, dungeon entrances and zone names; the rest is in the menu's Advanced page.
+export const DEFAULT_LAYERS = ["flight", "dungeon", "labels"];
+export const DEFAULT_LABEL_TIERS = ["zone"];
 export const LABEL_TIERS = ["continent", "zone", "town", "subzone", "poi"];
 export const LAYER_IDS = [
   "flight",
@@ -31,14 +32,6 @@ export function readView(hash, preferred = "2d") {
   const p = new URLSearchParams(hash.replace(/^#/, ""));
   const cx = number(p, "x", null, -64, 128),
     cy = number(p, "y", null, -64, 128);
-  const refs = (key) =>
-    (p.get(key) || "")
-      .split(",")
-      .slice(0, 100)
-      .flatMap((s) => {
-        const m = /^(npc|object|quest|item|flight|dungeon|poi):(\d+)$/.exec(s);
-        return m ? [{ kind: m[1], id: Number(m[2]) }] : [];
-      });
   const mode = ["2d", "3d"].includes(p.get("view"))
     ? p.get("view")
     : preferred === "3d"
@@ -67,15 +60,10 @@ export function readView(hash, preferred = "2d") {
           .split(",")
           .filter((x) => LAYER_IDS.includes(x))
       : DEFAULT_LAYERS,
+    pins: p.get("pins") !== "0", // the menu's Map Pins: off keeps the layers picked
     tools: (p.get("tools") || "")
       .split(",")
       .filter((x) => TOOL_IDS.includes(x)),
-    selection: refs("select")[0] || null,
-    sources: refs("sources"),
-    marker:
-      p.has("mx") && p.has("my")
-        ? [number(p, "mx", 32, -64, 128), number(p, "my", 32, -64, 128)]
-        : null,
   };
 }
 export function writeView(s) {
@@ -92,15 +80,9 @@ export function writeView(s) {
   p.set("yaw", s.yaw.toFixed(5));
   p.set("tilt", s.tilt.toFixed(1));
   p.set("layers", [...s.layers].sort().join(","));
+  if (s.pins === false) p.set("pins", "0");
   if (s.tools.size || s.tools.length)
     p.set("tools", [...s.tools].sort().join(","));
-  if (s.selection) p.set("select", `${s.selection.kind}:${s.selection.id}`);
-  if (s.sources?.length)
-    p.set("sources", s.sources.map((r) => `${r.kind}:${r.id}`).join(","));
-  if (s.marker) {
-    p.set("mx", s.marker[0].toFixed(5));
-    p.set("my", s.marker[1].toFixed(5));
-  }
   return "#" + p.toString();
 }
 export function fitBounds([c0, r0, c1, r1], width, height, padding = 0.8) {

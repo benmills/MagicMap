@@ -1,8 +1,8 @@
-/* The page's chrome, quiet so the map is what you look at. The controls fixed on the map have no backdrop (text and
-   icons with a soft shadow). The menu is a small, plain pull-down from its button: search at its top, dense rows,
-   a checkmark on the left, a thin rule between sections; a row with › opens a page in its place. It opens at once
-   (no animation, no blur: cheap on a phone). The card is a panel (a bottom sheet on a phone). Tokens only here; the map's own drawing (labels, pins,
-   tiles) doesn't use them. */
+/* The page's chrome, quiet so the map is what you look at. The controls are one column in the bottom right, with no
+   backdrop (glyphs with a soft shadow), in reach of a thumb. The menu is a small, plain panel beside them, opening
+   upward: dense rows, a checkmark on the left, a little space between sections; a row with › opens a page in its
+   place. It opens at once (no animation, no blur: cheap on a phone). A tap on the map: a small popup at the point.
+   Tokens only here; the map's own drawing (labels, pins, tiles) doesn't use them. */
 :root {
   color-scheme: dark;
   --sheet: rgba(26, 28, 28, .96);
@@ -21,8 +21,8 @@
   --row: 28px;
   --r: 12px;
   --glow: 0 0 3px #000, 0 1px 2px #000;
-  --ctl: 40px;  /* the bottom row: a zoom button, and the readout's line, mirrored */
-  --inset: 12px; /* the bottom row's distance from the screen's edges */
+  --ctl: 40px;  /* a control in the column */
+  --inset: 12px; /* the column's distance from the screen's edges */
   --edge-top: calc(var(--viewport-top, 0px) + max(8px, env(safe-area-inset-top)));
   --edge-right: calc(var(--viewport-right, 0px) + max(8px, env(safe-area-inset-right)));
   --edge-bottom: calc(var(--viewport-bottom, 0px) + max(8px, env(safe-area-inset-bottom)));
@@ -86,7 +86,7 @@ button {
   cursor: pointer;
 }
 @media (hover: hover) {
-  .sheet button:not(:disabled):hover, #card button:not(:disabled):hover, .sheet label.row:hover {
+  .sheet button:not(:disabled):hover, #place button:hover, .sheet label.row:hover {
     background: var(--lift);
   }
 }
@@ -125,187 +125,101 @@ input[type="checkbox"]:indeterminate::after {
 input[type="checkbox"]:disabled {
   opacity: .4;
 }
-input[type="search"] {
-  -webkit-appearance: none;
-  appearance: none;
-  box-sizing: border-box;
-  width: 100%;
-  min-height: var(--row);
-  padding: 0 10px;
-  border: 0;
-  border-radius: 10px;
-  background: var(--group);
-  font-size: max(16px, var(--fs)); /* (iOS zooms into smaller fields) */
-  cursor: text;
-}
 #tilt {
   width: 100%;
   margin: 0;
   accent-color: var(--hi);
 }
 
-/* ---- the controls fixed on the map: no backdrop ---- */
-#ui, #viewControls, #readout {
+/* ---- the controls: one column in the bottom right, no backdrop ---- */
+#controls {
   position: fixed;
+  right: calc(var(--edge-right) + var(--inset) - 8px);
+  bottom: calc(var(--edge-bottom) + var(--inset) - 8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 3;
   text-shadow: var(--glow);
 }
-#ui {
-  top: var(--edge-top);
-  left: var(--edge-left);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  max-width: calc(100vw - var(--edge-left) - var(--edge-right));
-  z-index: 3;
-}
-#ui button {
+#controls button {
+  width: var(--ctl);
+  height: var(--ctl);
+  padding: 0;
+  font-size: calc(var(--ctl) * .45);
   font-weight: 600;
+  line-height: 1;
+  opacity: .8;
 }
-#ui button[aria-expanded="true"], #ui button[aria-pressed="true"] {
+#controls #zoomIn, #controls #zoomOut {
+  font-size: calc(var(--ctl) * .7);
+  font-weight: 400;
+}
+#controls button:active, #controls button[aria-expanded="true"], #controls button[aria-pressed="true"] {
   background: none;
   color: var(--hi);
+  opacity: 1;
 }
 @media (hover: hover) {
-  #ui button:not(:disabled):hover { color: var(--hi); }
+  #controls button:not(:disabled):hover { color: var(--hi); opacity: 1; }
 }
-#northControls {
-  display: flex;
+#controls svg, #place svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#controls svg {
+  filter: drop-shadow(0 0 2px #000);
 }
 #compass span {
   display: inline-block;
   color: var(--hi);
   transform: rotate(var(--yaw, 0rad));
 }
-/* Zoom: one stack in the bottom right corner; the readout mirrors it in the bottom left, on the zoom-out button's line. */
-#viewControls {
-  right: var(--controls-right, calc(var(--edge-right) + var(--inset) - 8px));
-  bottom: var(--controls-bottom, calc(var(--edge-bottom) + var(--inset) - 8px));
-  display: flex;
-  flex-direction: column;
-  z-index: 3;
-  opacity: .5;
-  transition: opacity .2s;
-}
-#viewControls button {
-  width: var(--ctl);
-  height: var(--ctl);
-  font-size: calc(var(--ctl) * .7);
-  font-weight: 400;
-  line-height: 1;
-  padding: 0;
-}
-#viewControls button:active {
-  color: var(--hi);
-}
-@media (hover: hover) {
-  #viewControls:hover { opacity: 1; }
-}
-#readout {
-  left: calc(var(--edge-left) + var(--inset) - 8px);
-  bottom: calc(var(--edge-bottom) + var(--inset) - 8px);
-  height: var(--ctl);
-  line-height: var(--ctl);
-  max-width: calc(100vw - 2 * var(--ctl) - 2 * var(--inset) - 16px);
-  font-size: 17px;
-  font-weight: 500;
-  white-space: pre;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
-  opacity: .6;
-}
-#readout:empty {
-  display: none;
-}
 #status {
   position: fixed;
-  bottom: var(--notice-bottom, calc(var(--edge-bottom) + var(--inset) + var(--ctl)));
+  bottom: calc(var(--edge-bottom) + var(--inset));
   left: 50%;
   transform: translateX(-50%);
   padding: 6px 12px;
   width: max-content;
-  max-width: min(480px, calc(100vw - 40px));
+  max-width: min(480px, calc(100vw - 2 * (var(--ctl) + var(--inset) + 8px)));
   z-index: 7;
   background: var(--sheet);
   border-radius: 999px;
   font-size: var(--fs-s);
 }
 
-/* ---- the menu (and its pages) and the card ---- */
-.sheet, #card {
+/* ---- the menu (and its page): beside the controls, from the bottom up ---- */
+.sheet {
   position: fixed;
   box-sizing: border-box;
+  right: calc(var(--edge-right) + var(--inset) - 8px + var(--ctl) + 4px);
+  bottom: calc(var(--edge-bottom) + var(--inset) - 8px);
+  width: 250px;
+  max-width: calc(100vw - var(--edge-left) - var(--edge-right) - var(--ctl) - var(--inset));
+  max-height: calc(var(--visible-height, 100dvh) - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)) - var(--inset));
+  padding: 4px 0;
   overflow: auto;
   overscroll-behavior: contain;
   background: var(--sheet);
   border-radius: 10px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, .4);
-}
-#card {
-  padding: 0 var(--u) var(--u);
-}
-.sheet {
-  top: var(--below, 56px);
-  left: var(--edge-left);
-  width: 236px;
-  max-width: calc(100vw - var(--edge-left) - var(--edge-right));
-  max-height: calc(var(--visible-bottom, 100dvh) - var(--below, 56px) - max(8px, env(safe-area-inset-bottom)));
   z-index: 5;
-}
-/* While there are results, they are the menu. */
-#settings:has(#results:not([hidden]):not(:empty)) {
-  width: 340px;
-}
-#settings:has(#results:not([hidden]):not(:empty)) > .group:not(.find), #settings:has(#results:not([hidden]):not(:empty)) > #hl {
-  display: none;
-}
-#card .bar {
-  display: flex;
-  align-items: center;
-  position: sticky;
-  top: 0;
-  min-height: 46px;
-  margin: 0 calc(-1 * var(--u)) var(--u);
-  padding: 0 4px;
-  background: var(--sheet);
-  z-index: 1;
 }
 h2, h3 {
   margin: 0;
   font: inherit;
 }
-#card .bar h2 {
-  flex: 1;
-  min-width: 0;
-  padding: 0 4px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.x {
-  flex: none;
-  color: var(--dim);
-}
-h3 {
-  margin: 14px 10px 6px;
-  font-size: var(--fs-s);
-  color: var(--dim);
-}
 /* Sections: no rules, a little space between them. */
-.sheet {
-  padding: 4px 0;
-}
-.sheet .group + .group, .sheet .back + .group, .sheet .group + #profileResult:not(:empty), .sheet .group + #results:not(:empty) {
+.sheet .group + .group, .sheet .back + .group, .sheet .back + #layerSheet, #layerSheet + .group, .sheet .group + #profileResult:not(:empty) {
   margin-top: 6px;
 }
-#card .group {
-  margin-bottom: var(--u);
-  border-radius: 10px;
-  background: var(--group);
-  overflow: hidden;
-}
-.row, .ref {
+.row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -331,30 +245,8 @@ h3 {
 .row.head > input {
   font-size: 13px;
 }
-/* The menu's icons: a row's, at its start; the search field's, inside it. */
-.ico {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  color: var(--dim);
-}
-.group.find {
-  position: relative;
-}
-.group.find .ico {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-.group.find input {
-  padding-left: 28px;
+div.row.head { /* a header with nothing to switch: lined up with the others */
+  padding-left: calc(14px + 18px + 10px);
 }
 .row.sub {
   padding-left: calc(14px + 18px);
@@ -362,14 +254,8 @@ h3 {
 .row > canvas { /* a pin layer's icon, at the row's end */
   margin-left: auto;
 }
-#results {
-  overflow: hidden;
-}
-.group > .row + .row, .group > .row + fieldset, .group > fieldset + .row, #results > .row + .row {
-  border-top: 0;
-}
-#card .group > .row + .row {
-  border-top: 1px solid var(--line);
+#layers.off .row { /* Map Pins off: the picks kept, shown faint */
+  color: var(--dim);
 }
 label.row {
   cursor: pointer;
@@ -390,87 +276,30 @@ label.row {
   font-size: 1.3em;
   text-align: right;
 }
-.row.nav > span {
-  flex: 1;
-}
-.group.find {
-  padding: 2px 6px;
-}
-.group.find input {
-  min-height: calc(var(--row) - 4px);
-  border-radius: 7px;
-}
-.row.pick select { /* the value at the row's end, the system's own picker */
-  -webkit-appearance: none;
-  appearance: none;
-  min-width: 0;
-  max-width: 55%;
-  margin-left: auto;
-  padding: 0 14px 0 0;
-  border: 0;
-  background: none;
-  color: var(--dim);
-  text-align: right;
-  text-overflow: ellipsis;
-  font-size: max(16px, var(--fs)); /* (iOS zooms into smaller fields) */
-  cursor: pointer;
-}
-.row.pick {
-  position: relative;
-}
-.row.pick::after {
-  content: "⌄";
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-65%);
-  color: var(--dim);
-  pointer-events: none;
-}
-.row > span:not(.tag) {
+.row > span {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tag {
-  min-width: 3.2em;
-}
-.row small, .ref small {
+.row small {
   margin-left: auto;
   white-space: nowrap;
 }
 .row span + small {
   flex: none;
 }
-.row small, .ref small, #card .sub, .sheet p, #tiltWrap small {
+.row small, .sheet p, #tiltWrap small {
   font-size: var(--fs-s);
   color: var(--dim);
 }
-p, #card .sub {
+p {
   margin: var(--u) 2px;
 }
 .sheet p {
   margin: 10px 14px;
 }
-.ref span:not(.tag), #hl span {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tag {
-  flex: none;
-  font-size: var(--fs-s);
-  color: var(--c, var(--dim));
-}
-.tag.npc { --c: #8fbf7f; }
-.tag.quest { --c: #d9bf6a; }
-.tag.object { --c: #7fb3bf; }
-.tag.item { --c: #b99fd0; }
-.tag.flight { --c: #8fa3d9; }
 .label-sublayers {
   margin: 0;
   padding: 0;
@@ -479,13 +308,6 @@ p, #card .sub {
 }
 .label-sublayers:disabled {
   color: var(--dim);
-}
-#hl {
-  display: flex;
-  align-items: center;
-  padding-left: 14px;
-  margin-top: 6px;
-  color: var(--hi);
 }
 .bearing {
   justify-content: space-between;
@@ -503,103 +325,78 @@ p, #card .sub {
 #profileResult:empty {
   display: none;
 }
-#results:empty {
-  display: none;
-}
 
-/* ---- card ---- */
-#card {
+/* ---- the place popup: at the point, its tail on it ---- */
+#place {
+  position: fixed;
   z-index: 4;
-  top: var(--edge-top);
-  right: var(--edge-right);
-  width: 330px;
-  max-height: calc(var(--visible-height, 100dvh) - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)));
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: min(300px, calc(100vw - 16px));
+  padding: 4px 4px 4px 12px;
+  background: var(--sheet);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .4);
 }
-#card .note {
-  color: var(--dim);
+#place::after {
+  content: "";
+  position: absolute;
+  left: var(--tail, 50%);
+  top: 100%;
+  margin-left: -6px;
+  border: 6px solid transparent;
+  border-top-color: var(--sheet);
 }
-.refs {
+#place.below::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: var(--sheet);
+}
+#place .names {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  margin-right: 6px;
 }
-.src {
-  display: flex;
+#place b, #place small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+#place b {
+  font-weight: 600;
 }
-.chips span {
-  padding: 0 6px;
-  border-radius: 6px;
-  background: var(--group);
+#place small {
+  font-size: var(--fs-s);
+  color: var(--dim);
 }
-body:has(#card:not([hidden])) #readout {
+#place small:empty {
   display: none;
 }
+#place button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--row);
+  height: var(--row);
+  padding: 0;
+  color: var(--hi);
+}
+#place svg {
+  width: 18px;
+  height: 18px;
+}
 
-/* ---- phones: the menu and the card are bottom sheets ---- */
+/* ---- phones ---- */
 @media (max-width: 767px) {
   .sheet {
-    width: min(280px, calc(100vw - var(--edge-left) - var(--edge-right)));
-  }
-  #settings:has(#results:not([hidden]):not(:empty)) {
-    width: calc(100vw - var(--edge-left) - var(--edge-right));
-  }
-  #card {
-    top: auto;
-    left: var(--viewport-left, 0px);
-    right: var(--viewport-right, 0px);
-    bottom: var(--viewport-bottom, 0px);
-    width: auto;
-    max-width: none;
-    border-radius: 16px 16px 0 0;
-    padding-bottom: calc(var(--u) + env(safe-area-inset-bottom));
-    padding-left: max(var(--u), env(safe-area-inset-left));
-    padding-right: max(var(--u), env(safe-area-inset-right));
-  }
-  #card {
-    max-height: calc(var(--visible-height, 100dvh) * 0.48);
-  }
-  #card .bar {
-    border-radius: 16px 16px 0 0;
-  }
-  #card .bar::before { /* the grabber */
-    content: "";
-    position: absolute;
-    top: 5px;
-    left: 50%;
-    width: 36px;
-    height: 4px;
-    margin-left: -18px;
-    border-radius: 2px;
-    background: rgba(255, 255, 255, .25);
+    width: min(270px, calc(100vw - var(--edge-left) - var(--edge-right) - var(--ctl) - var(--inset)));
   }
 }
-/* Short landscape screens keep a full-height, scrollable detail column. */
-@media (min-width: 768px) and (max-height: 500px) {
-  #card {
-    width: 300px;
-  }
-  .sheet {
-    max-width: calc(100vw - 328px - var(--edge-left));
-  }
-}
-@media (max-width: 767px) and (max-height: 500px) {
-  #viewControls {
-    flex-direction: row;
-  }
-}
-.group.find input:focus-visible { /* the caret is enough */
-  outline: none;
-}
-.row.pick > span { /* the row's name whole; the picked value takes what's left */
-  flex: none;
-}
-
 /* ---- the flyover: a clean frame for recording ---- */
-body.flying #ui, body.flying #viewControls, body.flying #readout, body.flying #status, body.flying #card, body.flying .sheet {
+body.flying #controls, body.flying #status, body.flying #place, body.flying .sheet {
   opacity: 0;
   pointer-events: none;
   transition: opacity .4s;
