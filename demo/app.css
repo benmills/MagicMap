@@ -18,7 +18,7 @@
   --fs: 14px;
   --fs-s: 12px;
   --u: 8px;
-  --row: 32px;
+  --row: 28px;
   --r: 12px;
   --glow: 0 0 3px #000, 0 1px 2px #000;
   --ctl: 40px;  /* the bottom row: a zoom button, and the readout's line, mirrored */
@@ -32,7 +32,7 @@
   :root { --inset: 18px; }
 }
 @media (pointer: coarse) {
-  :root { --row: 42px; --fs: 16px; --fs-s: 13px; --ctl: 48px; }
+  :root { --row: 38px; --fs: 16px; --fs-s: 13px; --ctl: 48px; }
 }
 html, body {
   margin: 0;
@@ -292,9 +292,12 @@ h3 {
   font-size: var(--fs-s);
   color: var(--dim);
 }
-/* A section; the next one starts below a thick rule. */
+/* Sections: no rules, a little space between them. */
+.sheet {
+  padding: 4px 0;
+}
 .sheet .group + .group, .sheet .back + .group, .sheet .group + #profileResult:not(:empty), .sheet .group + #results:not(:empty) {
-  border-top: 1px solid rgba(255, 255, 255, .16);
+  margin-top: 6px;
 }
 #card .group {
   margin-bottom: var(--u);
@@ -314,19 +317,44 @@ h3 {
   border-radius: 0;
   text-align: left;
 }
-/* A thin rule between the rows of a section. */
-.sheet .row {
-  box-shadow: inset 0 1px var(--line);
-}
-.sheet > .row:first-child, .sheet .group > .row:first-child, #results > .row:first-child {
-  box-shadow: none;
-}
 /* On a page with checkmarks, a row without one still starts where their text does. */
 .sheet:has(input[type="checkbox"]) button.row:not(.back) {
   padding-left: calc(14px + 18px + 10px);
 }
-.row.head > span { /* a section's header: it turns the whole section off or on */
+.row.head { /* a section's header, small: it turns the whole section off or on */
+  min-height: calc(var(--row) - 6px);
+  font-size: 11px;
+  letter-spacing: .03em;
+  text-transform: uppercase;
   color: var(--dim);
+}
+.row.head > input {
+  font-size: 13px;
+}
+/* The menu's icons: a row's, at its start; the search field's, inside it. */
+.ico {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--dim);
+}
+.group.find {
+  position: relative;
+}
+.group.find .ico {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.group.find input {
+  padding-left: 28px;
 }
 .row.sub {
   padding-left: calc(14px + 18px);
@@ -366,7 +394,7 @@ label.row {
   flex: 1;
 }
 .group.find {
-  padding: 6px;
+  padding: 2px 6px;
 }
 .group.find input {
   min-height: calc(var(--row) - 4px);
@@ -456,7 +484,7 @@ p, #card .sub {
   display: flex;
   align-items: center;
   padding-left: 14px;
-  border-top: 1px solid rgba(255, 255, 255, .16);
+  margin-top: 6px;
   color: var(--hi);
 }
 .bearing {
@@ -565,4 +593,7 @@ body:has(#card:not([hidden])) #readout {
 }
 .group.find input:focus-visible { /* the caret is enough */
   outline: none;
+}
+.row.pick > span { /* the row's name whole; the picked value takes what's left */
+  flex: none;
 }

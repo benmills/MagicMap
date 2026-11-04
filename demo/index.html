@@ -44,16 +44,17 @@
          place (its first row goes back). Tapping outside closes it. -->
     <section id="settings" class="panel sheet" aria-label="Menu" hidden>
       <div class="group find">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
         <input id="q" type="search" placeholder="Search"
           autocomplete="off" autocorrect="off" spellcheck="false"
           enterkeyhint="search" aria-label="Search maps and entities" />
       </div>
       <div id="results" role="region" aria-label="Search results"></div>
       <div class="group">
-        <label class="row pick"><span>Go to Zone</span><select id="zone" aria-label="Go to zone"><option value="">Choose</option></select></label>
-        <button id="layersBtn" class="row nav" aria-expanded="false" aria-controls="layerSheet"><span>Show on Map</span></button>
-        <button id="toolsBtn" class="row nav" aria-expanded="false" aria-controls="tools"><span>Terrain</span></button>
-        <button id="share" class="row" title="Copy a link to this view"><span>Share This View</span></button>
+        <label class="row pick"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg><span>Go to Zone</span><select id="zone" aria-label="Go to zone"><option value="">Choose</option></select></label>
+        <button id="layersBtn" class="row nav" aria-expanded="false" aria-controls="layerSheet"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg><span>Show on Map</span></button>
+        <button id="toolsBtn" class="row nav" aria-expanded="false" aria-controls="tools"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 19.5 9 9l3.5 5.5L15 11l6.5 8.5z"/></svg><span>Terrain</span></button>
+        <button id="share" class="row" title="Copy a link to this view"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M6 11H5v10h14V11h-1"/></svg><span>Share This View</span></button>
       </div>
       <div id="hl" hidden><span></span><button class="x" aria-label="Clear highlight">✕</button></div>
     </section>
