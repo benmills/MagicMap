@@ -8,8 +8,8 @@ to all of Kalimdor, see inside Undercity and Ironforge, and see your quests, her
 it. Press M and the same map grows into a big map.
 
 For **WoW Forever**. Free and open source (GPLv3). No other addon needed: the quest data is built in.
-[Download the latest release](https://github.com/benmills/MagicMap/releases/latest), or
-[try the map in your browser](https://magic-map-outdoor.exe.xyz) first.
+[Download the latest release](https://github.com/benmills/MagicMap/releases/latest) or get it on
+[CurseForge](https://www.curseforge.com/wow/addons/magic-map), or [try the map in your browser](https://magic-map-outdoor.exe.xyz) first.
 
 <!-- TODO(#9): refreshed hero, the minimap and the big map with no zone borders and the ocean -->
 ![The minimap at Red Cloud Mesa, and M grows it into the big map over Mulgore and the Barrens](docs/images/hero-minimap-and-big-map.jpg)
@@ -93,7 +93,8 @@ slices so the game stays smooth, and turning it off gives Blizzard's minimap bac
 
 ## Install
 
-1. Download `MagicMap-v2.1.0.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest).
+1. Download `MagicMap-v2.1.0.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest)
+   (or install it with the CurseForge app: [MagicMap on CurseForge](https://www.curseforge.com/wow/addons/magic-map)).
 2. Unzip it into `World of Warcraft/_forever_/Interface/AddOns/`, so you have
    `Interface/AddOns/MagicMap/MagicMap.toc`. Updating from 1.x: delete the old `MagicMap` folder first.
 3. Restart the game (a `/reload` isn't enough the first time) and tick MagicMap in the AddOns list.
