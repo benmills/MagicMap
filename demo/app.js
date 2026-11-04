@@ -247,8 +247,8 @@ function renderExtraLayers() {
   const box = $("baseLayers");
   box.replaceChildren();
   for (const [id, text] of [
-    ["labels", "Place names"],
-    ["scenery", "Buildings & scenery"],
+    ["labels", "Place Names"],
+    ["scenery", "Buildings & Scenery"],
   ]) {
     const input = h("input", { type: "checkbox", checked: layerOn.has(id) });
     input.dataset.layer = id;
@@ -270,7 +270,8 @@ function renderExtraLayers() {
       saveView();
       draw();
     });
-    box.append(h("label", { className: "row" }, h("span", {}, text), input));
+    if (id === "scenery") input.dataset.bulk = "off"; // all on doesn't load the 3D terrain for it
+    box.append(h("label", { className: "row" }, input, h("span", {}, text)));
     if (id === "labels") {
       const group = h("fieldset", {
         id: "labelSublayers",
@@ -280,7 +281,7 @@ function renderExtraLayers() {
       group.setAttribute("aria-label", "Place name sub-layers");
       for (const [tier, title] of [
         ["continent", "Continents"],
-        ["zone", "Major zones"],
+        ["zone", "Zones"],
         ["town", "Towns"],
         ["subzone", "Subzones"],
         ["poi", "Landmarks"],
@@ -297,7 +298,7 @@ function renderExtraLayers() {
           draw();
           saveView();
         };
-        group.append(h("label", { className: "row sub" }, h("span", {}, title), child));
+        group.append(h("label", { className: "row sub" }, child, h("span", {}, title)));
       }
       box.append(group);
     }

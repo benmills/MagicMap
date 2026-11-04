@@ -1,13 +1,15 @@
 /* The page's chrome, quiet so the map is what you look at. The controls fixed on the map have no backdrop (text and
-   icons with a soft shadow); the menu and the card are iOS-like sheets: a root list of grouped rows, pages it opens
-   with a way back, switches on the right; on a phone, bottom sheets. Tokens only here; the map's own drawing
-   (labels, pins, tiles) doesn't use them. */
+   icons with a soft shadow). The menu is a compact pull-down from its button, as Apple's menus are: dense rows,
+   a checkmark on the left, an icon on the right, sections split by a thick rule; a row with › opens a page in its
+   place. The card is a panel (a bottom sheet on a phone). Tokens only here; the map's own drawing (labels, pins,
+   tiles) doesn't use them. */
 :root {
   color-scheme: dark;
-  --sheet: rgba(22, 26, 25, .92);
+  --sheet: rgba(30, 32, 32, .9);
+  --gap: rgba(0, 0, 0, .3); /* the thick rule between a menu's sections */
   --bar: rgba(22, 26, 25, .98);
   --group: rgba(255, 255, 255, .06);
-  --line: rgba(255, 255, 255, .08);
+  --line: rgba(255, 255, 255, .1);
   --fg: #e8e8e4;
   --dim: #8e938f;
   --hi: #e2c383;
@@ -17,7 +19,7 @@
   --fs: 14px;
   --fs-s: 12px;
   --u: 8px;
-  --row: 38px;
+  --row: 36px;
   --r: 12px;
   --glow: 0 0 3px #000, 0 1px 2px #000;
   --ctl: 40px;  /* the bottom row: a zoom button, and the readout's line, mirrored */
@@ -31,7 +33,7 @@
   :root { --inset: 18px; }
 }
 @media (pointer: coarse) {
-  :root { --row: 44px; --fs: 16px; --fs-s: 13px; --ctl: 48px; }
+  :root { --row: 44px; --fs: 17px; --fs-s: 13px; --ctl: 48px; }
 }
 html, body {
   margin: 0;
@@ -100,36 +102,26 @@ button:disabled {
   outline: 2px solid var(--hi);
   outline-offset: -2px;
 }
-/* Switches, iOS-like: every checkbox. */
+/* A checkbox is a checkmark at the row's start (a row's space for it kept when it's off); a section's header
+   with some of its rows on shows a dash. */
 input[type="checkbox"] {
   -webkit-appearance: none;
   appearance: none;
   flex: none;
-  position: relative;
-  width: 40px;
-  height: 24px;
-  margin: 0 0 0 auto;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, .18);
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  background: none;
+  font-weight: 600;
   cursor: pointer;
-  transition: background .15s;
-}
-input[type="checkbox"]::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform .15s;
-}
-input[type="checkbox"]:checked {
-  background: #4cae6b;
 }
 input[type="checkbox"]:checked::after {
-  transform: translateX(16px);
+  content: "✓";
+}
+input[type="checkbox"]:indeterminate::after {
+  content: "–";
 }
 input[type="checkbox"]:disabled {
   opacity: .4;
@@ -140,7 +132,6 @@ input[type="search"] {
   box-sizing: border-box;
   width: 100%;
   min-height: var(--row);
-  margin-bottom: var(--u);
   padding: 0 10px;
   border: 0;
   border-radius: 10px;
@@ -152,9 +143,6 @@ input[type="search"] {
   width: 100%;
   margin: 0;
   accent-color: var(--hi);
-}
-@media (prefers-reduced-motion: reduce) {
-  input[type="checkbox"], input[type="checkbox"]::after { transition: none; }
 }
 
 /* ---- the controls fixed on the map: no backdrop ---- */
@@ -244,28 +232,41 @@ input[type="search"] {
   font-size: var(--fs-s);
 }
 
-/* ---- sheets (the menu and its pages) and the card ---- */
+/* ---- the menu (and its pages) and the card ---- */
 .sheet, #card {
   position: fixed;
   box-sizing: border-box;
-  padding: 0 var(--u) var(--u);
   overflow: auto;
   overscroll-behavior: contain;
   background: var(--sheet);
-  border-radius: var(--r);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, .45);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
+  border-radius: 14px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, .5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+}
+#card {
+  padding: 0 var(--u) var(--u);
 }
 .sheet {
   top: var(--below, 56px);
   left: var(--edge-left);
-  width: 320px;
+  width: 268px;
   max-width: calc(100vw - var(--edge-left) - var(--edge-right));
   max-height: calc(var(--visible-bottom, 100dvh) - var(--below, 56px) - max(8px, env(safe-area-inset-bottom)));
   z-index: 5;
+  transform-origin: top left;
+  animation: pull .14s ease-out;
 }
-.sheet-bar, #card .bar {
+@keyframes pull {
+  from { opacity: 0; transform: scale(.94); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet { animation: none; }
+}
+#searchSheet {
+  width: 340px;
+}
+#card .bar {
   display: flex;
   align-items: center;
   position: sticky;
@@ -273,14 +274,14 @@ input[type="search"] {
   min-height: 46px;
   margin: 0 calc(-1 * var(--u)) var(--u);
   padding: 0 4px;
-  background: var(--bar);
+  background: var(--sheet);
   z-index: 1;
 }
 h2, h3 {
   margin: 0;
   font: inherit;
 }
-.sheet-bar h2, #card .bar h2 {
+#card .bar h2 {
   flex: 1;
   min-width: 0;
   padding: 0 4px;
@@ -288,18 +289,6 @@ h2, h3 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.sheet-bar .back + h2 {
-  text-align: center;
-}
-.back {
-  color: var(--hi);
-  padding-left: 4px;
-}
-.back::before {
-  content: "‹ ";
-  font-size: 1.3em;
-  line-height: 0;
 }
 .x {
   flex: none;
@@ -310,7 +299,11 @@ h3 {
   font-size: var(--fs-s);
   color: var(--dim);
 }
-.group {
+/* A section; the next one starts below a thick rule. */
+.sheet .group + .group, .sheet .back + .group, .sheet .group + #profileResult:not(:empty), .sheet .group + #results:not(:empty) {
+  border-top: 8px solid var(--gap);
+}
+#card .group {
   margin-bottom: var(--u);
   border-radius: 10px;
   background: var(--group);
@@ -324,32 +317,81 @@ h3 {
   width: 100%;
   min-width: 0;
   min-height: var(--row);
-  padding: 0 10px;
+  padding: 0 14px;
   border-radius: 0;
   text-align: left;
 }
+/* A thin rule between the rows of a section. */
+.sheet .row {
+  box-shadow: inset 0 1px var(--line);
+}
+.sheet > .row:first-child, .sheet .group > .row:first-child, .sheet .group.pad + #results > .row:first-child {
+  box-shadow: none;
+}
+/* On a page with checkmarks, a row without one still starts where their text does. */
+.sheet:has(input[type="checkbox"]) button.row:not(.back) {
+  padding-left: calc(14px + 18px + 10px);
+}
+.row.head > span { /* a section's header: it turns the whole section off or on */
+  font-weight: 600;
+}
+.row.sub {
+  padding-left: calc(14px + 18px);
+}
+.ico {
+  flex: none;
+  width: 19px;
+  height: 19px;
+  margin-left: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.row > canvas { /* a pin layer's icon, at the row's end */
+  margin-left: auto;
+}
 #results {
-  border-radius: 10px;
-  background: var(--group);
   overflow: hidden;
 }
 .group > .row + .row, .group > .row + fieldset, .group > fieldset + .row, #results > .row + .row {
+  border-top: 0;
+}
+#card .group > .row + .row {
   border-top: 1px solid var(--line);
 }
 label.row {
   cursor: pointer;
 }
+.back { /* a page's first row: its name, and the way back */
+  font-weight: 600;
+}
+.back::before {
+  content: "‹";
+  width: 18px;
+  font-size: 1.5em;
+  line-height: 0;
+  color: var(--hi);
+}
 .row.nav::after { /* a row that opens a page */
   content: "›";
-  margin-left: auto;
+  width: 10px;
   color: var(--dim);
   font-size: 1.3em;
+  text-align: right;
+}
+.row.nav .ico {
+  margin-left: auto;
+}
+.group.pad {
+  padding: 8px;
 }
 .row.pick select { /* the value at the row's end, the system's own picker */
   -webkit-appearance: none;
   appearance: none;
   min-width: 0;
-  max-width: 60%;
+  max-width: 55%;
   margin-left: auto;
   padding: 0 14px 0 0;
   border: 0;
@@ -366,7 +408,7 @@ label.row {
 .row.pick::after {
   content: "⌄";
   position: absolute;
-  right: 10px;
+  right: 14px;
   top: 50%;
   transform: translateY(-65%);
   color: var(--dim);
@@ -382,9 +424,6 @@ label.row {
 .tag {
   min-width: 3.2em;
 }
-.row.sub {
-  padding-left: 26px;
-}
 .row small, .ref small {
   margin-left: auto;
   white-space: nowrap;
@@ -398,6 +437,9 @@ label.row {
 }
 p, #card .sub {
   margin: var(--u) 2px;
+}
+.sheet p {
+  margin: 10px 14px;
 }
 .ref span:not(.tag), #hl span {
   flex: 1;
@@ -428,9 +470,8 @@ p, #card .sub {
 #hl {
   display: flex;
   align-items: center;
-  padding-left: 10px;
-  border-radius: 10px;
-  background: var(--group);
+  padding-left: 14px;
+  border-top: 8px solid var(--gap);
   color: var(--hi);
 }
 .bearing {
@@ -441,7 +482,10 @@ p, #card .sub {
 }
 #tiltWrap small {
   display: block;
-  margin: 0 10px var(--u);
+  margin: 0 14px 8px;
+}
+#profileResult:not(:empty) {
+  padding: 0 14px 10px;
 }
 #profileResult:empty {
   display: none;
@@ -484,7 +528,13 @@ body:has(#card:not([hidden])) #readout {
 
 /* ---- phones: the menu and the card are bottom sheets ---- */
 @media (max-width: 767px) {
-  .sheet, #card {
+  .sheet {
+    width: min(300px, calc(100vw - var(--edge-left) - var(--edge-right)));
+  }
+  #searchSheet {
+    width: calc(100vw - var(--edge-left) - var(--edge-right));
+  }
+  #card {
     top: auto;
     left: var(--viewport-left, 0px);
     right: var(--viewport-right, 0px);
@@ -496,17 +546,13 @@ body:has(#card:not([hidden])) #readout {
     padding-left: max(var(--u), env(safe-area-inset-left));
     padding-right: max(var(--u), env(safe-area-inset-right));
   }
-  .sheet {
-    max-height: min(75vh, calc(var(--visible-height, 100dvh) - var(--below, 56px)));
-    z-index: 6;
-  }
   #card {
     max-height: calc(var(--visible-height, 100dvh) * 0.48);
   }
-  .sheet-bar, #card .bar {
+  #card .bar {
     border-radius: 16px 16px 0 0;
   }
-  .sheet-bar::before, #card .bar::before { /* the grabber */
+  #card .bar::before { /* the grabber */
     content: "";
     position: absolute;
     top: 5px;

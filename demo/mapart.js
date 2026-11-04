@@ -22,11 +22,17 @@ const MapArt = (() => {
   // The switches, as the addon's Feel "sea.on": in the menu's Show on Map page, kept for this viewer.
   const read = (k, dflt) => { try { const v = localStorage.getItem(`mm2.${k}`); return v ? v === "on" : dflt; } catch { return dflt; } };
   const on = { sea: read("sea", true), ai: read("ai", true) };
-  const heading = document.createElement("h3");
-  heading.textContent = "Map art";
-  const panel = document.createElement("div");
+  const section = document.createElement("div"), head = document.createElement("label"), all = document.createElement("input"),
+    title = document.createElement("span"), panel = document.createElement("div");
+  section.className = "group";
+  head.className = "row head";
+  all.type = "checkbox";
+  all.dataset.all = "mapArt"; // the section's header: all of it off or on (cards.js)
+  title.textContent = "Map Art";
+  head.append(all, title);
   panel.id = "mapArt";
-  panel.className = "group";
+  section.append(head, panel);
+  bindHead(all);
   const toggle = (key, label) => {
     const row = document.createElement("label"), text = document.createElement("span"), box = document.createElement("input");
     row.className = "row";
@@ -38,15 +44,15 @@ const MapArt = (() => {
       try { localStorage.setItem(`mm2.${key}`, on[key] ? "on" : "off"); } catch {}
       if (again) again();
     };
-    row.append(text, box);
+    row.append(box, text);
     return row;
   };
   const buttons = () => { // (a layer's switch once it's there)
-    if (over.ai && !shown.ai) { shown.ai = true; panel.append(toggle("ai", "Repaired map art")); }
+    if (over.ai && !shown.ai) { shown.ai = true; panel.append(toggle("ai", "Repaired Map Art")); }
   };
   const shown = {};
   panel.append(toggle("sea", "Ocean"));
-  const place = () => { const sheet = document.getElementById("layerSheet"); if (sheet) sheet.append(heading, panel); };
+  const place = () => { const sheet = document.getElementById("layerSheet"); if (sheet) sheet.append(section); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", place); else place();
 
   fetch("patches/patches.json").then((r) => (r.ok ? r.json() : null)).then((d) => { patches = d; if (again) again(); }).catch(() => {});

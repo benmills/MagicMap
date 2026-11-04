@@ -48,6 +48,9 @@ function setSheet(id = null) {
   for (const [button, sheet] of [["layersBtn", "layerSheet"], ["toolsBtn", "tools"]])
     $(button).setAttribute("aria-expanded", String(sheet === id));
   if (id && id !== "results") q.blur();
+  if (id === "layerSheet" || id === "tools") syncHeads();
+  if (id === "layerSheet") // the layer icons, drawn again: the first may have come before the icons loaded
+    for (const [layer, , , sample] of LAYERS) layersEl.querySelector(`[data-layer="${layer}"] canvas`)?.replaceWith(pinSwatch(layer, sample, 22));
   placeSheets();
 }
 function closeSheets() {
@@ -65,6 +68,40 @@ for (const button of document.querySelectorAll("[data-back]")) // a page's way b
 document.addEventListener("pointerdown", (e) => {
   if (!e.target.closest("#ui, .sheet")) closeSheets();
 });
+
+// Turning many off or on at once: a section's header (input[data-all], naming the box its switches are in)
+// sets them all, and "Hide All" / "Show All" every one on the page. A switch marked data-bulk="off" is only
+// ever turned off this way. The headers show all (✓), some (–) or none.
+const switchesIn = (el) => [...el.querySelectorAll('input[type="checkbox"]:not([data-all])')];
+function setSwitches(boxes, on) {
+  for (const box of boxes) {
+    if (box.checked === on || (on && box.dataset.bulk === "off")) continue;
+    box.checked = on;
+    box.onchange?.({ target: box });
+  }
+  syncHeads();
+}
+function syncHeads() {
+  for (const head of document.querySelectorAll("input[data-all]")) {
+    const boxes = switchesIn($(head.dataset.all) || document.createElement("div")), on = boxes.filter((b) => b.checked).length;
+    head.checked = boxes.length > 0 && on === boxes.length;
+    head.indeterminate = on > 0 && on < boxes.length;
+  }
+  const page = $("layerSheet"), any = switchesIn(page).some((b) => b.checked);
+  $("allLayers").firstChild.textContent = any ? "Hide All" : "Show All";
+}
+for (const head of document.querySelectorAll("input[data-all]")) bindHead(head);
+function bindHead(head) {
+  head.onchange = () => setSwitches(switchesIn($(head.dataset.all)), head.checked);
+}
+document.addEventListener("change", (e) => {
+  if (e.target.dataset?.all) return;
+  if (e.target.closest?.(".sheet")) syncHeads();
+});
+$("allLayers").onclick = () => {
+  const boxes = switchesIn($("layerSheet"));
+  setSwitches(boxes, !boxes.some((b) => b.checked));
+};
 
 // The layers sheet: a toggle per layer, each with its icon as the legend.
 function swatch(px, paint) {
@@ -92,10 +129,10 @@ function renderLayers() {
       const row = h(
         "label",
         { className: "row" },
-        pinSwatch(id, sample),
+        box,
         h("span", {}, name),
         h("small"),
-        box,
+        pinSwatch(id, sample, 22),
       );
       row.dataset.layer = id;
       layersEl.append(row);
@@ -103,7 +140,7 @@ function renderLayers() {
   }
   for (const [id, , minZoom] of LAYERS) {
     layersEl.querySelector(`[data-layer="${id}"] small`).textContent =
-      state.camera.zoom < minZoom ? "zoom in to see" : "";
+      state.camera.zoom < minZoom ? "zoom in" : "";
   }
 }
 
