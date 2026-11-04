@@ -255,6 +255,7 @@ let pinTimer,
   pinLimitMessage = "";
 function refreshPins() {
   clearTimeout(pinTimer);
+  if (state.mode === "3d") return; // none drawn there (core.js)
   const ticket = requests.ticket("pins");
   pinTimer = setTimeout(
     run(async () => {

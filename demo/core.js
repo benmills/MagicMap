@@ -217,7 +217,7 @@ function frame() {
   // where names win; pins a name covers aren't drawn.
   const quiet = pinQuiet(),
     onScreen = [];
-  for (const p of pins) {
+  for (const p of state.mode === "3d" ? [] : pins) { // (3D shows the land, and names: no pins)
     if (!pinVisible(p)) continue;
     const [x, y] = toScreen(p.col, p.row);
     if (x > -20 && x < W + 20 && y > -20 && y < H + 20)

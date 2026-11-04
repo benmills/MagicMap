@@ -597,3 +597,25 @@ body:has(#card:not([hidden])) #readout {
 .row.pick > span { /* the row's name whole; the picked value takes what's left */
   flex: none;
 }
+
+/* ---- the flyover: a clean frame for recording ---- */
+body.flying #ui, body.flying #viewControls, body.flying #readout, body.flying #status, body.flying #card, body.flying .sheet {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .4s;
+}
+body.flying #map {
+  cursor: none;
+}
+#fade { /* the cut between routes */
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .7s ease-in-out;
+}
+#fade.on {
+  opacity: 1;
+}
