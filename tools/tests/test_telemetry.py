@@ -17,7 +17,7 @@ FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "
 
 
 def client(tmp_path):
-    flavor = tmp_path / "_classic_beta_"
+    flavor = tmp_path / "_forever_"
     (flavor / "Screenshots").mkdir(parents=True)
     (flavor / "Logs").mkdir()
     (tmp_path / "refs").mkdir()

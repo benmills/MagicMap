@@ -14,7 +14,7 @@ The TOC is generated, first: HEADER, then each folder's files.txt in MANIFESTS
 order (docs/structure.md "Load order"). A new file goes in its folder's
 files.txt; tools/luacheck.py fails while the committed TOC differs.
 
-  python3 tools/install.py                    # _classic_beta_ (WoW Forever)
+  python3 tools/install.py                    # _forever_ (WoW Forever)
   python3 tools/install.py _classic_ptr_      # another flavor folder
   python3 tools/install.py --wow "D:/Games/World of Warcraft"
   python3 tools/install.py --toc              # only write MagicMap.toc
@@ -123,7 +123,7 @@ def title(toc: str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("flavor", nargs="?", default="_classic_beta_", help="flavor folder (default: _classic_beta_)")
+    parser.add_argument("flavor", nargs="?", default="_forever_", help="flavor folder (default: _forever_)")
     parser.add_argument("--wow", default=os.environ.get("MAGICMAP_WOW") or DEFAULT_WOW.get(sys.platform),
                         help="World of Warcraft folder (default: $MAGICMAP_WOW or the standard location)")
     parser.add_argument("--no-check", action="store_true", help="skip the Lua check before installing")

@@ -9,7 +9,7 @@
   .venv/bin/python tools/telemetry.py --budgets --trace  # ... and the perf, kept and marks they were judged from
   .venv/bin/python tools/telemetry.py --compare 3 5    # two sessions side by side (an id, or FILE:id for another SV file)
 
-The install is "/Applications/World of Warcraft" (MAGICMAP_WOW, --wow), flavor _classic_beta_
+The install is "/Applications/World of Warcraft" (MAGICMAP_WOW, --wow), flavor _forever_
 (--flavor); SavedVariables is the newest WTF/Account/*/SavedVariables/MagicMap.lua (--sv).
 Shot marks pair with reference shots docs/evidence/shots/ref-<id>.* (--refs; tools/refshots.py) by the note's first word.
 """
@@ -798,7 +798,7 @@ def session_arg(spec: str, sessions: list):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--wow", default=os.environ.get("MAGICMAP_WOW", "/Applications/World of Warcraft"))
-    ap.add_argument("--flavor", default="_classic_beta_")
+    ap.add_argument("--flavor", default="_forever_")
     ap.add_argument("--sv", help="SavedVariables file (default: the newest account's)")
     ap.add_argument("--refs", default=REFS, help="reference shots, ref-<id>.jpg|png (default docs/evidence/shots)")
     ap.add_argument("--since", type=since_arg, help="minutes ago, or an ISO time")

@@ -2,7 +2,7 @@
 
 ### Install
 1. Download `MagicMap-v2.1.0.zip` below.
-2. Unzip it into `World of Warcraft/_classic_beta_/Interface/AddOns/` (WoW Forever's folder), so you end up with `Interface/AddOns/MagicMap/MagicMap.toc` (not `MagicMap/MagicMap/...`). If you're updating, delete the old `MagicMap` folder first.
+2. Unzip it into `World of Warcraft/_forever_/Interface/AddOns/` (WoW Forever's folder), so you end up with `Interface/AddOns/MagicMap/MagicMap.toc` (not `MagicMap/MagicMap/...`). If you're updating, delete the old `MagicMap` folder first.
 3. Restart the game (a `/reload` isn't enough the first time) and make sure MagicMap is ticked in the AddOns list.
 4. **New players:** click the minimap button (or type `/mm`): a welcome asks what MagicMap should replace. **Updating from 2.0:** your setup is kept (both the minimap and the world map, as before) and there's no welcome; change it any time in Settings. `/mm help` lists the commands.
 
@@ -15,7 +15,7 @@ You don't need QuestieDB or any other addon: the quest facts MagicMap shows are 
 - **A clearer way to go.** The line is a thin, quiet gold dash (its style, colour, glow and outline in Settings), leaves your arrow smoothly and turns in rounder bends. A small pill at the top left of the map gives the yards to go and an estimated time.
 - **Tidier icons.** Crowded icons group into a pill of two icons and a "+N", the quest pill sits bottom left, the pills are smaller and quieter, and the zoom reset button sits above + and −. The minimap button takes the usual shape of other addons' buttons.
 - **Quests.** A compact tooltip (the level in its colour, a `?` for who takes it in), quest areas drawn as the game does with a gentler hover, and a quest-giver's `!` disappears as soon as you accept the quest.
-- **A steadier ground.** A flat picture of each continent lies under the map tiles, so a fast zoom out or a flick never shows bare backdrop. The sea is gone: the tiles sit on a dark backdrop.
+- **A steadier ground.** A flat picture of each continent lies under the map tiles, so a fast zoom out or a flick never shows bare backdrop. The ocean is our own: calm water round each continent that fades to the deep sea, in place of the game's near-black tiles. Zone borders are gone, so the land reads cleaner.
 - **Indoors.** Walking into a small building (a house, an inn) zooms the small map in, and out again when you leave. The big map has no veil over the terrain.
 - **Lighter.** Quest data takes less memory.
 - **Broken map art repaired.** Some clearly broken parts of the game's map art, flat unfinished blocks, are patched with repaints made using AI image generation from the surrounding game art. The rest of the terrain is the game's own textures. It's a setting, on by default ("Repair broken map art", under Map in the Settings window); off, or on a game build they weren't made for, you see Blizzard's map as it is.

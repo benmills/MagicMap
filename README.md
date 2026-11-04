@@ -2,60 +2,98 @@
 
 # MagicMap
 
-**One map for all of Azeroth, right where your minimap is.** Zoom out from the street you're on to the
-whole continent, see inside cities and caves, and always know where your next quest, herb or flight
-master is. Press M and the same map grows into a big map.
+**A minimap that zooms out to the whole continent.** The Classic minimap shows a few hundred yards and
+the world map covers your screen. MagicMap is one map in your minimap's spot: wheel out from your feet
+to all of Kalimdor, see inside Undercity and Ironforge, and see your quests, herbs and flight masters on
+it. Press M and the same map grows into a big map.
 
-For **WoW Forever**. Free and open source (GPLv3). [Download the latest release](https://github.com/benmills/MagicMap/releases/latest).
+For **WoW Forever**. Free and open source (GPLv3). No other addon needed: the quest data is built in.
+[Download the latest release](https://github.com/benmills/MagicMap/releases/latest).
 
+<!-- TODO(#9): refreshed hero, the minimap and the big map with no zone borders and the ocean -->
 ![The minimap at Red Cloud Mesa, and M grows it into the big map over Mulgore and the Barrens](docs/images/hero-minimap-and-big-map.jpg)
+
+<!-- TODO(#10): GIF, wheeling out from your feet to the whole continent, then M -->
+*Animation coming: one wheel from your feet to the whole of Kalimdor.*
 
 ## Why players use it
 
-**A minimap that zooms out.** Blizzard's minimap stops at a few hundred yards. MagicMap draws the game's
-own terrain at any zoom, from your feet to a whole continent, with zone names to find your
-way. Drag to look around; a moment later it glides back to you.
+**See the whole zone without opening a map.** Wheel out from the street you're on to a whole zone or
+the continent, right in your minimap's spot, with zone and subzone names to find your way. Drag to look
+around; a moment later it glides back to you. It's the game's own map art at every zoom (a few broken
+patches repaired: [see below](#ai-repainted-map-art)).
 
+<!-- TODO(#9): refreshed zoomed-out minimap (no zone borders) -->
 <img src="docs/images/minimap-zoomed-out.jpg" alt="The minimap zoomed out over Mulgore" width="400">
 
-**See inside cities, caves and buildings.** Indoors, the map shows Blizzard's own floor plans in place:
-the floor you're on in full, the levels above and below faded, so you never lose track in Undercity
-or Ironforge. On the big map, a capital shows all its buildings at once, with its districts named.
+**Never lost in Undercity or Ironforge.** Inside a city, cave or building that has Blizzard's indoor
+maps, the map shows those floor plans in place: your floor in full, the levels above and below faded. Small buildings zoom you in as you walk in.
+On the big map, a capital shows every building at once, its districts named.
 
 ![Undercity's Trade Quarter and Ironforge's Great Forge](docs/images/indoors-undercity-ironforge.jpg)
 
-**Quests at a glance.** Your quests with their progress, objective areas as the game draws them, quests
-to pick up, and a tooltip with the mobs, items and who to turn in to. Click a quest to follow it and a
-line walks you there, around cliffs, water and lava. Or click any icon on the map and choose
-Track: the line goes to it, with the distance and an estimated time in a small pill.
+**Your quests on the map, no alt-tab.** The quests in your log with their progress, their objective
+areas as the game draws them, quests to pick up nearby, and a tooltip with the mobs, items and who to
+turn in to. Click a quest to follow it and a line walks you there, around cliffs, water and lava.
 
+<!-- TODO(#12): refreshed followed-quest shot (no zone borders) -->
 ![A followed quest at Camp Narache: the line to its turn-in](docs/images/followed-quest-route.jpg)
 
-**Everything Blizzard's minimap tracks, at any zoom.** Herbs, ore, mailboxes, trainers and other
-services keep their icons and tooltips however far you zoom out, and the map remembers the ones you've
-passed. Rares you've seen are remembered for every character.
+**Click anything to go there.** A flight master, a mailbox, a rare, a quest giver: click it, choose
+Track, and the line takes you there, with the yards and the minutes left in a small pill.
+
+<!-- TODO(#11): screenshot, a tracked flight master: focus ring, line, the yards and time pill -->
+*Screenshot coming: tracking a flight master across town.*
+
+**Herbs and ore stay on the map when you zoom out.** Everything Blizzard's minimap tracks (herbs, ore,
+mailboxes, trainers and other services) keeps its icon and tooltip at any zoom. Mailboxes and services
+you've passed are remembered for when you're back in town, and rares you've seen are remembered for
+every character on your account.
 
 ![Peacebloom herbs in Tirisfal Glades with their tooltip](docs/images/herb-blips.jpg)
 
-**Tidy and familiar.** Blizzard's own art and icons, crowded icons grouped into a small pill you can
-open, flight points, dungeons and your party on the map, and pins from Questie, HandyNotes and
-GatherMate where you'd expect them. Layers switch on and off from the gear menu.
+**A tidy minimap.** Blizzard's own art and icons. Crowded icons group into a small pill you open with a
+click. Pins from Questie, HandyNotes and GatherMate show where you'd expect them, never twice. Every
+layer switches on and off from the gear menu.
 
-**Yours to set up.** The first time you open it, a short welcome asks what MagicMap should replace:
-your minimap, the world map (M), both, or neither (then the minimap button opens it as a window of its
-own). Change your mind any time in the Settings window, which also tunes the look: label and icon
-sizes, the tracking line's style and colour, the quest areas, the grouping of crowded icons. It's
-in the gear menu and under Options > AddOns.
+<!-- TODO(#14): screenshot, crowded icons in pills, one opened into its grid -->
+*Screenshot coming: a crowded town, its icons grouped, one pill opened.*
 
-**Light and safe.** The map does its work in small slices so the game stays smooth, catches its own
-errors without breaking, and gives Blizzard's minimap back exactly as it was when you turn it off.
+**Your map, your way.** The first time you open it, a short welcome asks what MagicMap should replace:
+your minimap, the world map (M), both, or neither (then the minimap button opens it as a window).
+Change your mind any time in the Settings window, which also tunes the look: label and icon sizes, the
+tracking line's style and colour, the quest areas, the grouping. It stays light: the map works in small
+slices so the game stays smooth, and turning it off gives Blizzard's minimap back as it was.
+
+<!-- TODO(#13): screenshots, the welcome's four cards and the Settings window -->
+*Screenshots coming: the welcome and the Settings window.*
+
+## Everything it does
+
+- **The map:** the game's minimap art from your feet to the whole continent; zone and subzone names; an
+  ocean round the land; a few broken patches of Blizzard's map art repaired ([below](#ai-repainted-map-art)).
+- **Small and big:** in your minimap's spot, movable and resizable; M grows it into a big map; click the
+  zone name to jump to another zone, continent or instance.
+- **Indoors:** Blizzard's floor plans where the game has them (buildings, caves, cities), your floor on top; auto-zoom in
+  small buildings; whole capitals on the big map, their districts named.
+- **Quests:** your log's quests with progress, objective areas, quests to pick up, a compact tooltip,
+  follow one with a click; the quest pill shows its progress.
+- **Getting there:** a walking line round cliffs, water and lava to the quest you follow, your corpse,
+  your waypoint or any icon you track; yards and minutes left; an arrow at the edge when it's off the map;
+  Ctrl-click for a waypoint, Shift-click for a `/way` line in chat.
+- **Around you:** herbs, ore, mailboxes, trainers and services from Blizzard's tracking; flight points,
+  dungeon entrances, points of interest and graveyards (off by default); party and raid in class
+  colours; rares and treasures, the ones you've seen remembered for every character; your corpse.
+- **Other addons:** Questie, HandyNotes and other HereBeDragons pins on the map; GatherMate's around you.
+- **Your choice:** a welcome that asks what it replaces; a Settings window (General, Map, Icons,
+  Tracking line, Quest areas, Grouping, Diagnostics), also under Options > AddOns; `/mm` commands.
 
 [Every feature in detail](docs/features.md).
 
 ## Install
 
 1. Download `MagicMap-v2.1.0.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest).
-2. Unzip it into `World of Warcraft/_classic_beta_/Interface/AddOns/`, so you have
+2. Unzip it into `World of Warcraft/_forever_/Interface/AddOns/`, so you have
    `Interface/AddOns/MagicMap/MagicMap.toc`. Updating from 1.x: delete the old `MagicMap` folder first.
 3. Restart the game (a `/reload` isn't enough the first time) and tick MagicMap in the AddOns list.
 4. Click the minimap button: the welcome asks what MagicMap replaces. (Updating from 2.0 keeps your setup.)
@@ -74,13 +112,14 @@ You don't need any other addon: the quest data is built in.
 | **Settings** | The gear by the zone name, then Settings; or Options > AddOns > MagicMap; or `/mm settings`. |
 | **Commands** | `/mm` swaps MagicMap and Blizzard's minimap; `/mm help` lists the rest. |
 
-**Limits:** WoW Forever only (English clients), on the game build it was made for. Instances hide your
-position, so they're shown without your arrow. Blizzard's blips are only seen within about 230 yards.
+**Limits:** WoW Forever only (English clients), on the game build it was made for (1.60.1.70707).
+Instances hide your position, so they're shown without your arrow. Blizzard's blips (herbs, ore) are only
+seen within about 230 yards, as on its minimap.
 Other minimap addons (SexyMap and the like) may conflict. [More](docs/features.md#limits-in-detail).
 
 **Found a problem?** Type `/mm mark <what you saw>` the moment it happens, then
 [open an issue](https://github.com/benmills/MagicMap/issues) with a screenshot. For a deeper look,
-attach `WTF/Account/<your account>/SavedVariables/MagicMap.lua` after a `/reload`. Nothing leaves
+attach `World of Warcraft/_forever_/WTF/Account/<your account>/SavedVariables/MagicMap.lua` after a `/reload`. Nothing leaves
 your computer otherwise.
 
 # How it works

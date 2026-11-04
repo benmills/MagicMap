@@ -22,7 +22,7 @@ First, and before the route: every shot below is paired with the spike's at the 
 
 - [ ] Quit the client. In a terminal:
 
-      cd "/Applications/World of Warcraft/_classic_beta_/Interface/AddOns"
+      cd "/Applications/World of Warcraft/_forever_/Interface/AddOns"
       mv MagicMap ~/.Trash/MagicMap-2.0.0 && mv MagicMap.spike-backup MagicMap
 
 - [ ] Start the client. AddOns: **MagicMap** (the spike, 1.0.0) and **QuestieDB** (the spike requires it) on, everything else off.
@@ -98,7 +98,7 @@ Before b13: mouse over, target or see the nameplate of a mob a kill quest needs,
 - [ ] Play on questing at the hub, the map shown, till 10 minutes since the login. Then **b19**: `/mm perf load poi`, `/mm perf load quest` → `/mm mark b19 poi <its calls>, <game.quests' calls> in <minutes>`
 - [ ] At the inn: **log out** (not `/reload`). At the character select, alt-tab, the checkpoint (the game keeps 64 marks):
 
-      cp "/Applications/World of Warcraft/_classic_beta_/WTF/Account/"*/SavedVariables/MagicMap.lua ~/mm-sv-after-b.lua
+      cp "/Applications/World of Warcraft/_forever_/WTF/Account/"*/SavedVariables/MagicMap.lua ~/mm-sv-after-b.lua
 
   Back to the client, log in.
 
@@ -149,7 +149,7 @@ Before b13: mouse over, target or see the nameplate of a mob a kill quest needs,
 
 - [ ] The client closed, in a terminal:
 
-      cd "/Applications/World of Warcraft/_classic_beta_"
+      cd "/Applications/World of Warcraft/_forever_"
       cp WTF/Account/*/SavedVariables/MagicMap.lua ~/mm-sv-after-e.lua
       mv Interface/AddOns/MagicMap ~/.Trash/MagicMap-route
       unzip -q ~/code/magic-map/dist/MagicMap-v2.0.0-no-questie-data.zip -d Interface/AddOns

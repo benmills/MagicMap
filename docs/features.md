@@ -28,6 +28,7 @@ and `/mm reset` puts it back. `/mm`, the rim button or the addon compartment swa
 Blizzard's minimap, and back (with the minimap replaced). The minimap button is drawn as other
 addons' buttons are (LibDBIcon's shape), draggable round the rim.
 
+<!-- TODO(#9): refreshed screenshot (2.1.0: no zone borders, current tooltip) -->
 <img src="images/minimap-zoomed-out.jpg" alt="The minimap zoomed out over Mulgore, with the gear, the big-map button and the zoom buttons" width="400">
 
 *The same minimap zoomed out to all of Mulgore, the hover buttons showing: the gear and the big-map
@@ -45,11 +46,13 @@ to fly there. `/mm map` and `/mm zone` do the same by name.
 counts, and the walking line up to a waypoint at Razor Hill.*
 
 **The ground.** The game's minimap tiles at any zoom, as Blizzard drew them, on each map's own dark
-backdrop (open sea isn't drawn); zone and subzone names; your arrow, with a denser shadow. Under the tiles, a one-picture stand-in for each continent
+backdrop; zone and subzone names (no zone borders: [ADR 0012](decisions/0012-no-borders.md)); your arrow, with a denser shadow. Under the tiles, a one-picture stand-in for each continent
 (Eastern Kingdoms, Kalimdor: zone colours, a crisp coast) shows through wherever the tiles aren't
 there yet, so a fast zoom out or a flick never shows bare backdrop. It's never switched over to:
-the tiles are the map at every zoom. **Map art repairs** (Settings > Map > Repair broken map art, on):
-13 places where Blizzard's art is broken, flat unfinished blocks and straight joins in shallow water, are
+the tiles are the map at every zoom. **The ocean** (Settings > Map > Ocean, on): a coloured sea round
+the Eastern Kingdoms, Kalimdor and Zephras Isle, where Blizzard's water is near-black, and the same deep
+colour past it. **Map art repairs** (Settings > Map > Repair broken map art, on):
+16 places where Blizzard's art is broken, flat unfinished blocks and straight joins in shallow water, are
 patched with repaints made with AI image generation from the art round them. Everything else in the tiles
 stays the game's own. Off, or on a game build they weren't made for, you see Blizzard's map as it is
 ([NOTICE.md](../NOTICE.md), [ADR 0011](decisions/0011-ai-map-art.md)).
@@ -70,8 +73,9 @@ Great Forge in Ironforge by the flight master.*
 
 **Blizzard's blips.** Outdoors Blizzard's Minimap stays out of sight and is read as a sensor:
 herbs, ore, the mailbox and tracked NPCs within about 230 yards get a pin with Blizzard's tracking
-icon and tooltip, at any zoom. Zoomed in to town scale, the town services you track show too, and
-blips seen before (up to 5000 a continent). Blizzard's own flight, quest and POI tracking is
+icon and tooltip, at any zoom. Herbs and ore show while they're in range, as on Blizzard's minimap.
+Zoomed in to town scale, the town services you track show too, and the mailboxes and services you've
+passed (remembered, up to 5000 a continent), each marked "Not in sight" while out of range. Blizzard's own flight, quest and POI tracking is
 switched off while MagicMap draws those itself, and put back when it stops, even after a crash.
 
 ![Peacebloom pins in Tirisfal Glades from Blizzard's herb tracking, with the tooltip](images/herb-blips.jpg)
@@ -89,6 +93,7 @@ pill at the bottom left shows the quest you follow and its progress, else how ma
 are in this zone. A sensed quest-giver's `!` (or `?`) shows only while you still have an offer (or a
 quest to hand in) there, so it goes as soon as you accept.
 
+<!-- TODO(#12): refreshed screenshot (2.1.0: no zone borders, current tooltip) -->
 <img src="images/quest-tooltip.jpg" alt="A quest pin's tooltip in the Valley of Trials: Cutting Teeth, 2/10 Mottled Boar slain, turn in to Gornek" width="480">
 
 *A quest's tooltip in the Valley of Trials: its level, the objective's count, who to turn it in to.
@@ -109,12 +114,14 @@ it), Shift-click opens chat with a `/way` line, and right-click off an icon offe
 target and a plain ETA at your pace. On the big map, right-click leads with what's there: zone, subzones, coordinates, level
 range against yours, distance, quests, explored or not, and the landmarks nearby.
 
+<!-- TODO(#12): refreshed screenshot (2.1.0: no zone borders, current tooltip) -->
 ![A followed quest at Camp Narache: the line to its turn-in and the quest pill saying it's ready](images/followed-quest-route.jpg)
 
 *Following The Adventurer at Camp Narache: the line to the turn-in's `?`,
 "ready to turn in" in the quest pill.*
 
-**Places and people.** Flight points, dungeon entrances, graveyards and points of interest; party and
+**Places and people.** Flight points, dungeon entrances, points of interest and graveyards (off until
+you turn them on in the gear menu); party and
 raid members in class colours; rares you've seen, remembered for every character on your account;
 the rares and treasures the game shows now; your corpse and waypoint.
 
@@ -141,7 +148,7 @@ Settings are account-wide.
 | Page | Settings (default) |
 | --- | --- |
 | General | Replace minimap, Replace world map (what the welcome chose); Follow you (on); Minimap button (on); Group icons (on); Reset window position |
-| Map | Label size (100%); Subzone size (100%); Subzone opacity (60%); Your arrow's size (100%); Info pill backing (25%); Indoor dimming (65%); Indoor auto-zoom (on); Repair broken map art (on) |
+| Map | Label size (100%); Subzone size (100%); Subzone opacity (60%); Your arrow's size (100%); Info pill backing (25%); Indoor dimming (65%); Indoor auto-zoom (on); Ocean (on); Repair broken map art (on) |
 | Icons | Icon size (120%); Quest icon size (100%); Focus ring size (145%); Focus ring opacity (25%); Focus ring colour (Gold) |
 | Tracking line | Style (dashed); Weight (1.0 px); Colour (Gold); Glow (off); Breathing (off); Opacity (55%); Outline (off); Outline colour (Dark) |
 | Quest areas | The followed quest's fill, edge and edge width; the others' fill, edge and edge width; the hover's fill and edge (as the game draws them, a quiet fill by default) |
@@ -158,6 +165,7 @@ Settings are account-wide.
 | `/mm reset` | Back onto the minimap's spot, at its size |
 | `/mm layers`, `/mm layer <name>` | What's drawn; show or hide one layer |
 | `/mm icon` | The minimap button |
+| `/mm minimap ours`, `/mm minimap blizzard` | Who has the minimap while our map is shown |
 | `/mm feel`, `/mm settings`, `/mm welcome` | The settings window; the first-run welcome again |
 | `/mm mark <note>` | Note something for the bug report (saved at `/reload` or logout) |
 | `/mm landmarks`, `/mm indoor`, `/mm blips` | Rares remembered; the building and room you're in; what the sensor knows |
@@ -166,7 +174,8 @@ Settings are account-wide.
 
 ## Limits in detail
 
-- **WoW Forever only**, the client build `Data/` was generated from (a patch means regenerating).
+- **WoW Forever only** (installed under `World of Warcraft/_forever_/`), the client build `Data/` was
+  generated from, 1.60.1.70707 (a patch means regenerating).
 - **Blizzard's blips** are sensed only within about 230 yards of you.
 - **Indoors** only buildings with Blizzard's indoor minimap pictures get them; elsewhere the terrain.
 - **Instances** that hide your position are shown whole, without the arrow, line or blips.

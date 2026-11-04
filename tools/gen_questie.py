@@ -7,7 +7,7 @@ QuestieDB's LICENSE.md (and Questie's, whose data it imported) allows copying un
 MagicMap is GPLv3 (LICENSE) and credits them (NOTICE.md); the files are committed and shipped.
 
   .venv/bin/python tools/gen_questie.py \\
-      "/Applications/World of Warcraft/_classic_beta_/Interface/AddOns/QuestieDB" [-o Data]
+      "/Applications/World of Warcraft/_forever_/Interface/AddOns/QuestieDB" [-o Data]
 
 The data diet (docs/v1-plan.md D3): Items only those quests reach, NPCs only those
 with an open-world spawn (a Data/Tiles.lua map without a kind) or that a quest, an

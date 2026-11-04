@@ -1,7 +1,18 @@
 # Play-testing 2.1: a beta-session checklist
 
 For the next session on WoW Forever with the 2.1.0 tree installed (`.venv/bin/python tools/install.py`, then
-restart the game: new files need it). Each line is an action and what should happen. Note anything else with
+restart the game: new files need it).
+
+## 0. Before anyone plays
+
+- Play in the **release client**, `World of Warcraft/_forever_/` (wowf 1.60.1.70707), not the old beta
+  (`_classic_beta_`, 70532): the data and the map-art repairs are built for 70707, and on another build the
+  repairs switch off. Run the Forever client once so it makes `_forever_/Interface/AddOns`, then
+  `tools/install.py` (its default is now `_forever_`) and restart the game.
+- AddOns list at the character screen: MagicMap is listed and **not** marked out of date (the TOC says
+  `## Interface: 16001`). If it is, note the client's interface number: the TOC needs it before release.
+- No chat line saying the game build differs (game/parts/Build.lua); Settings > Map shows "Repair broken map
+  art" on, and the repaints show (e.g. Stonetalon's dark square, Blasted Lands' south edge are filled in). Each line is an action and what should happen. Note anything else with
 `/mm mark <what you saw>` and a screenshot. Items tagged **[unverified]** have never been seen in the real
 client: they are the likeliest to be wrong.
 
@@ -33,7 +44,7 @@ client: they are the likeliest to be wrong.
 - Visit every page (General, Map, Icons, Tracking line, Quest areas, Grouping, Diagnostics). **[unverified]**
   Slider art: the track and thumb look like the client's, the value reads beside the label, the thumb follows
   the mouse and the value is right at both ends.
-- Drag a slider on each page with the map visible: it changes live (label size, border width, arrow size,
+- Drag a slider on each page with the map visible: it changes live (label size, arrow size,
   icon size, pill backing, indoor dimming; line weight and opacity; area fills; grouping distance).
 - Each page's Reset puts its own settings back; Reset all (bottom) puts everything back and the widgets follow.
   `/reload`: changed values persist.
@@ -79,9 +90,10 @@ client: they are the likeliest to be wrong.
   way out in Kalimdor and Eastern Kingdoms, and flick the wheel fast out and in: where tiles haven't drawn yet
   you see flat zone-coloured ground with a clean coast, not the dark backdrop or a broken/white texture.
   If it's missing, nothing breaks but gaps show backdrop: note it.
-- **[unverified]** No seam where the picture meets the open sea (the dark backdrop) at the coast, at any zoom
-  and when panning; no hairline between tiles on the big map.
-- The sea itself is not drawn: tiles over a dark backdrop. Zone borders and names are as before.
+- **[unverified]** The ocean: our own water round each continent and Zephras Isle (Textures/Sea*.tga), its dark
+  green edge by the land, fading into the deep backdrop farther out: no seam at the coast or where it meets the
+  backdrop, at any zoom and when panning; no hairline between tiles on the big map. No zone borders (gone in
+  2.1); names as before. Settings > Map > Ocean off: the near-black game water again.
 - Walk into a small building (an inn, a house): the small map zooms in by itself; walking out zooms back.
   Settings > Map > Indoor auto-zoom off stops it. Indoors the small map dims the terrain (Indoor dimming);
   on the big map there is no veil.

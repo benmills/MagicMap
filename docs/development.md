@@ -31,7 +31,7 @@ their GPLv3 terms (NOTICE.md); they're committed like the rest.
     .venv/bin/python tools/gen_walk.py      local "$W" wowf -o Data/Walk.lua
     .venv/bin/python tools/gen_areagrid.py  local "$W" wowf -o Data/AreaGrid.lua
     .venv/bin/python tools/gen_world.py     local "$W" wowf -o Data   # UiMaps, Areas, Places, ItemIcons
-    .venv/bin/python tools/gen_questie.py "$W/_classic_beta_/Interface/AddOns/QuestieDB"
+    .venv/bin/python tools/gen_questie.py "$W/_forever_/Interface/AddOns/QuestieDB"
     .venv/bin/python tools/gen_world.py     local "$W" wowf -o Data   # again: ItemIcons for the items kept
     .venv/bin/python tools/gen_labels.py    -o Data/Labels.lua
     .venv/bin/python tools/gen_interiors.py local "$W" wowf -o Data/Interiors.lua   # reads Data/Tiles.lua's maps
@@ -49,7 +49,7 @@ The demo's assets, after the above: [demo/README.md](../demo/README.md).
 
 ## Install and try it in game
 
-    .venv/bin/python tools/install.py      # into _classic_beta_ (WoW Forever); another flavor folder as argument
+    .venv/bin/python tools/install.py      # into _forever_ (WoW Forever); another flavor folder as argument
 
 It writes the TOC from the folders' `files.txt` (`--toc`: only that), then copies the TOC, its
 files and Textures/ into `Interface/AddOns/MagicMap`. That is 1.0's folder too: while 1.0 is there it stops,
@@ -99,7 +99,7 @@ that mention the addon, and other addons' errors while ours was loaded). The con
     .venv/bin/python tools/telemetry.py --errors --full  # one section: --errors --marks --shots --validation --logs
     .venv/bin/python tools/telemetry.py --since 30 --json   # last 30 minutes (or an ISO time), as JSON
 
-Options: `--wow` (or `MAGICMAP_WOW`), `--flavor` (default `_classic_beta_`), `--sv <file>`, `--trace N`.
+Options: `--wow` (or `MAGICMAP_WOW`), `--flavor` (default `_forever_`), `--sv <file>`, `--trace N`.
 
 ## Test and lint
 

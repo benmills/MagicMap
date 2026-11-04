@@ -9,7 +9,7 @@ WoWScrnShot_<stamp>.jpg became which id.
   .venv/bin/python tools/refshots.py small-seam          # a retake: the newest screenshot only
   .venv/bin/python tools/refshots.py --dry-run           # the pairing, nothing copied
 
-The install is "/Applications/World of Warcraft" (MAGICMAP_WOW, --wow), flavor _classic_beta_ (--flavor).
+The install is "/Applications/World of Warcraft" (MAGICMAP_WOW, --wow), flavor _forever_ (--flavor).
 """
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def main(argv=None) -> int:
     ap.add_argument("ids", nargs="*", help="only these, in this order (default: the README's list)")
     ap.add_argument("--skip", default="", help="ids not taken, comma-separated")
     ap.add_argument("--wow", default=os.environ.get("MAGICMAP_WOW", "/Applications/World of Warcraft"))
-    ap.add_argument("--flavor", default="_classic_beta_")
+    ap.add_argument("--flavor", default="_forever_")
     ap.add_argument("--dry-run", action="store_true", help="print the pairing, copy nothing")
     args = ap.parse_args(argv)
 

@@ -7,7 +7,7 @@ anything that looks odd, feels slow or confuses you is exactly what we want to h
 ## Before you start (2 minutes)
 
 1. Install it as the release page says: unzip so you have
-   `World of Warcraft/_classic_beta_/Interface/AddOns/MagicMap/MagicMap.toc`, then **restart the game**.
+   `World of Warcraft/_forever_/Interface/AddOns/MagicMap/MagicMap.toc`, then **restart the game**.
 2. At the character select, AddOns: tick **MagicMap**. Other addons can stay as you like them, but
    if something breaks, try once with MagicMap alone.
 3. Log in and wait a few seconds. The square map on your minimap's spot is MagicMap.
@@ -68,9 +68,9 @@ Visit **Ironforge** (Alliance) or **Orgrimmar** (Horde).
 1. Type `/reload` (or log out) so the game saves MagicMap's notes to disk.
 2. Send us this file:
 
-       World of Warcraft/_classic_beta_/WTF/Account/<your account name>/SavedVariables/MagicMap.lua
+       World of Warcraft/_forever_/WTF/Account/<your account name>/SavedVariables/MagicMap.lua
 
-   and any screenshots from `World of Warcraft/_classic_beta_/Screenshots/`.
+   and any screenshots from `World of Warcraft/_forever_/Screenshots/`.
 3. A few words on how it felt: what you liked, what got in the way, anything you'd turn off.
 
 The addon doesn't send anything anywhere: the file only holds what MagicMap noted on your computer.
