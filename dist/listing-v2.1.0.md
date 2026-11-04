@@ -8,7 +8,7 @@ changelog for either site is dist/RELEASE_NOTES-v2.1.0.md without its checklist 
 | Field | Value |
 | --- | --- |
 | Name | MagicMap |
-| Slug | `magicmap` (CurseForge) / `magicmap` (Wago), if free |
+| Slug | `magic-map` (CurseForge) / `magicmap` (Wago), if free |
 | Summary (≤ 140 characters) | Your minimap, zooming out to the whole world on the game's own terrain. Choose what it replaces; click any icon to track it. |
 | Game | World of Warcraft: WoW Forever (`_forever_`, client 1.60.1, `## Interface: 16001`). Check each site lists Forever; if not, say so in the description and pick the nearest Classic flavour only if the site requires one |
 | Category | Map & Minimap (the TOC's `## Category`); also Quests & Leveling |
