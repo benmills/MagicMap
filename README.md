@@ -8,7 +8,8 @@ to all of Kalimdor, see inside Undercity and Ironforge, and see your quests, her
 it. Press M and the same map grows into a big map.
 
 For **WoW Forever**. Free and open source (GPLv3). No other addon needed: the quest data is built in.
-[Download the latest release](https://github.com/benmills/MagicMap/releases/latest).
+[Download the latest release](https://github.com/benmills/MagicMap/releases/latest), or
+[try the map in your browser](https://magic-map-outdoor.exe.xyz) first.
 
 <!-- TODO(#9): refreshed hero, the minimap and the big map with no zone borders and the ocean -->
 ![The minimap at Red Cloud Mesa, and M grows it into the big map over Mulgore and the Barrens](docs/images/hero-minimap-and-big-map.jpg)
