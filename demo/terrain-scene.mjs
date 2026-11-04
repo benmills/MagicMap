@@ -1,5 +1,12 @@
 // Tile space is Atlas col/east, row/south; vertical units are game yards.
 export const TILE_YARDS = 1600 / 3;
+// A perspective camera, as a maps app's: it looks at (cx, cy, focus) from FOCAL screen heights away, so
+// near ground is bigger than far ground and pans faster under the finger (parallax). zoom is px a tile
+// at the focus. Points are rotated by yaw into (a: right, b: down the screen on the ground, z: up), the
+// view tilted about the focus; d is depth toward the eye and w (1 at the focus) the perspective divide.
+export const FOCAL = 1.8; // eye distance in screen heights: about a 31° vertical field of view
+export const NEAR = 0.02; // nothing nearer the eye than this share of its distance is drawn
+export const eyeDistance = (camera, heightPx) => (FOCAL * heightPx) / camera.zoom; // in tiles
 export function project(
   c,
   r,
@@ -17,13 +24,20 @@ export function project(
   const dx = c - camera.cx,
     dy = r - camera.cy,
     z = (height - focus) / TILE_YARDS;
+  const a = co * dx - si * dy,
+    b = si * dx + co * dy,
+    d = b * Math.sin(t) + z * Math.cos(t),
+    w = Math.max(NEAR, 1 - d / eyeDistance(camera, heightPx));
   return [
-    width / 2 + (co * dx - si * dy) * camera.zoom,
-    heightPx / 2 +
-      ((si * dx + co * dy) * Math.cos(t) - z * Math.sin(t)) * camera.zoom,
-    (si * dx + co * dy) * Math.sin(t) + z * Math.cos(t),
+    width / 2 + (a * camera.zoom) / w,
+    heightPx / 2 + ((b * Math.cos(t) - z * Math.sin(t)) * camera.zoom) / w,
+    d,
+    1 / w, // how much bigger than at the focus things are drawn here
   ];
 }
+// The ground point at height under screen (x, y): the eye's ray through it met at that height; a ray
+// above the horizon (or very far) is held FAR eye distances out.
+const FAR = 4;
 export function unproject(
   x,
   y,
@@ -37,12 +51,18 @@ export function unproject(
 ) {
   const t = (tilt * Math.PI) / 180,
     co = Math.cos(yaw),
-    si = Math.sin(yaw);
-  const a = (x - width / 2) / camera.zoom;
-  const b =
-    ((y - heightPx / 2) / camera.zoom +
-      ((height - focus) / TILE_YARDS) * Math.sin(t)) /
-    Math.cos(t);
+    si = Math.sin(yaw),
+    st = Math.sin(t),
+    ct = Math.cos(t);
+  const e = eyeDistance(camera, heightPx),
+    X = (x - width / 2) / camera.zoom,
+    Y = (y - heightPx / 2) / camera.zoom,
+    z = (height - focus) / TILE_YARDS;
+  const den = e * ct + Y * st;
+  let b = den > 1e-9 ? (Y * e - Y * z * ct + z * e * st) / den : -Infinity;
+  b = Math.max(b, -FAR * e);
+  const w = Math.max(NEAR, 1 - (b * st + z * ct) / e),
+    a = X * w;
   return [camera.cx + co * a + si * b, camera.cy - si * a + co * b];
 }
 export function visibleBounds(

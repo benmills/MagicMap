@@ -160,7 +160,9 @@ function finishGroundPan() {
   if (ground) {
     // Rebase onto the ground under the screen centre without moving any pixels.
     // Recomputing elevation mid-drag would make a tilted hillside slip under a finger.
-    state.camera = { ...state.camera, cx: center[0], cy: center[1] };
+    // The eye stays put, so the new focus, nearer or farther along the centre's ray, is that much bigger or smaller.
+    const near = terrain.point(center[0], center[1], ground.height)[3];
+    state.camera = { ...state.camera, cx: center[0], cy: center[1], zoom: state.camera.zoom * near };
     terrain.focus = ground.height;
   }
   terrain.focusLocked = false;

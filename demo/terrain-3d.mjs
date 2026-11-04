@@ -167,6 +167,10 @@ export class TerrainView {
       this.focus,
     );
   }
+  // How much bigger than at the screen's centre the ground at (c, r) is drawn: under 1 farther off.
+  scaleAt(c, r) {
+    return this.point(c, r, this.sample(c, r)?.height ?? this.focus)[3];
+  }
   project(c, r) {
     return this.point(c, r, this.sample(c, r)?.height ?? this.focus).slice(
       0,
@@ -391,12 +395,15 @@ export class TerrainView {
       const job = this.meshJob(t, lod, priority);
       if (job) meshJobs.push(job);
     };
+    const density = renderDensity(this.w, this.h, devicePixelRatio || 1);
     for (const t of this.visible) {
-      const priority = rank(t);
+      const priority = rank(t),
+        near = this.scaleAt(Math.floor(t.key / 64) + 0.5, (t.key % 64) + 0.5);
       if (!this.entry(t.key)) addMesh(t, "coarse", priority);
-      else if (!this.interacting && this.lod() !== "coarse")
+      // Far ground, drawn small under the perspective, keeps its coarse mesh and a smaller picture.
+      else if (!this.interacting && this.lod() !== "coarse" && near > 0.6)
         addMesh(t, t.lods[this.lod()] ? this.lod() : "native", priority + 4);
-      imageJobs.push({ key: t.key, size: textureSize, priority });
+      imageJobs.push({ key: t.key, size: Math.min(textureSize, textureResolution(this.camera.zoom * near, density)), priority });
     }
     const visibleKeys = new Set(this.visible.map((t) => t.key));
     const nearBounds = bounds.map((v, i) => v + (i < 2 ? -2 : 2));

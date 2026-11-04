@@ -2,7 +2,7 @@
 //
 // Atlas.Labels ranks every name (continent, zone, town, subzone, poi); this draws them as a
 // typographic hierarchy: each tier has a zoom band, a face, size, tracking, case, colour and a
-// soft drop shadow. Placement goes in rank order: a name that would touch a name already placed, or a pin
+// soft drop shadow (in 3D, far names are fainter and smaller: LABEL_STYLE.depth). Placement goes in rank order: a name that would touch a name already placed, or a pin
 // it doesn't win over (a tier's over / covers), is dropped; pins it wins over aren't drawn. Labels
 // fade in and out; both the bands and the collision test have hysteresis (a shown label keeps its
 // place a little longer than a new one would win it), so zooming doesn't flicker.
@@ -44,9 +44,9 @@ const LABEL_STYLE = {
   // clear of; fit: at most this share of the view's width (a phone); track: letter-spacing in em;
   // caps: "small" | null (mixed case; "small" sets lowercase as small caps).
   tiers: {
-    continent: { zoom: [0, 26], over: 26, fit: 0.8, font: TITLE_FONT, weight: 700, size: { k: 0.1, min: 15, max: 22 }, track: 0.28,
+    continent: { zoom: [0, 26], over: 26, fit: 0.8, font: TITLE_FONT, weight: 700, size: { k: 0.1, min: 10, max: 22 }, track: 0.28,
       caps: null, color: "#f2dfae", alpha: 0.92 },
-    zone: { zoom: [6, 450], over: 40, covers: ["rare", "quest", "mail", "herb", "ore"], font: TITLE_FONT, weight: 700, size: { k: 0.085, min: 11.5, max: 22 }, track: 0.12,
+    zone: { zoom: [6, 450], over: 40, covers: ["rare", "quest", "mail", "herb", "ore"], font: TITLE_FONT, weight: 700, size: { k: 0.085, min: 7.5, max: 22 }, track: 0.12,
       caps: null, color: "#ffe3a1", alpha: 0.95 },
     town: { zoom: [30, Infinity], covers: ["rare", "mail", "herb", "ore"], font: BODY_FONT, weight: 400, size: 12.5, track: 0,
       caps: null, color: "#fbf6ea", alpha: 0.9 },
@@ -61,6 +61,9 @@ const LABEL_STYLE = {
   // Pins at continent zoom: scaled and faded so the names carry the map, easing back to full
   // size and opacity between these zooms.
   pins: { quietZoom: [14, 48], scale: 0.62, alpha: 0.6 },
+  // In 3D, depth: a name on far ground (drawn at `scale` of the centre's size by the perspective) is
+  // fainter, down to `alpha` at `far`, and a little smaller (the square root of the scale, within `size`).
+  depth: { far: 0.4, alpha: 0.3, size: [0.7, 1.15] },
 };
 
 let labels = [];
@@ -142,8 +145,14 @@ function drawLabels(pinBoxes) {
     if (!s) { s = { a: 0, on: false, spot: 0 }; labelState.set(l.rank, s); }
     const [ax, ay] = toScreen(l.col, l.row);
     if (ax < -300 - m || ax > W + 300 + m || ay < -m - 60 || ay > H + m + 60) continue; // far off: keep its state
-    const text = l.text;
-    let size = labelSize(l, st), w = setFont(text, st, size);
+    const text = l.text, dp = LABEL_STYLE.depth;
+    let size = labelSize(l, st), depth = 1;
+    if (state.mode === "3d" && terrain) { // nearer bigger and clearer, farther smaller and fainter
+      const k = terrain.scaleAt(l.col, l.row);
+      depth = clamp(dp.alpha + ((1 - dp.alpha) * (k - dp.far)) / (1 - dp.far), dp.alpha, 1);
+      size = Math.round(size * clamp(Math.sqrt(k), ...dp.size) * 2) / 2;
+    }
+    let w = setFont(text, st, size);
     if (st.fit && w > W * st.fit) { size = Math.floor(size * W * st.fit / w); w = setFont(text, st, size); }
     const h = size * 1.15;
     let want = inBand(st, s.on, l), at = null;
@@ -166,7 +175,7 @@ function drawLabels(pinBoxes) {
     if (s.a !== (want ? 1 : 0)) fading = true;
     if (s.a === 0) continue;
     if (!at) { const c = spots(l, w, h)[s.spot]; at = [ax + c[0], ay + c[1]]; } // fading out where it was
-    drawLabel(text, at[0], at[1] + size * 0.04, st, size, s.a);
+    drawLabel(text, at[0], at[1] + size * 0.04, st, size, s.a * depth);
   }
   ctx.restore();
   if (fading) draw();

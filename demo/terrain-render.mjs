@@ -1,4 +1,4 @@
-import { meshNormals } from "./terrain-scene.mjs";
+import { meshNormals, eyeDistance } from "./terrain-scene.mjs";
 // WebGL resources shared by ground and optional scenery. Heights are in yards.
 export const vertexSource = `#version 300 es
 precision highp float;
@@ -12,6 +12,7 @@ uniform float zoom;
 uniform float yaw;
 uniform float tilt;
 uniform float focus;
+uniform float eye;
 uniform bool instanced;
 uniform vec2 tileOrigin;
 uniform vec2 textureScale;
@@ -20,6 +21,7 @@ out vec2 worldTile;
 out float altitude;
 out float slope;
 out float light;
+out float haze;
 void main() {
  vec3 p=position, n=normal;
  if(instanced) {
@@ -31,8 +33,11 @@ void main() {
  float a=cos(yaw)*d.x-sin(yaw)*d.y;
  float b=sin(yaw)*d.x+cos(yaw)*d.y;
  float z=(p.z-focus)/533.333333;
+ // Perspective (terrain-scene.mjs project): w, 1 at the focus, divides; depth is 1 - 2 NEAR / w.
+ float depth=b*sin(tilt)+z*cos(tilt), w=1.0-depth/eye;
  vec2 screen=vec2(a,b*cos(tilt)-z*sin(tilt))*zoom;
- gl_Position=vec4(screen.x*2.0/viewport.x,-screen.y*2.0/viewport.y,-(b*sin(tilt)+z*cos(tilt))/256.0,1.0);
+ gl_Position=vec4(screen.x*2.0/viewport.x,-screen.y*2.0/viewport.y,w-0.04,w);
+ haze=smoothstep(1.25,2.6,w);
  uv=(position.xy-tileOrigin)*textureScale; worldTile=position.xy; altitude=p.z;
  slope=degrees(acos(clamp(abs(n.z),0.0,1.0)));
  light=0.68+0.32*max(0.0,dot(normalize(n),normalize(vec3(-0.4,-0.6,1.0))));
@@ -44,6 +49,7 @@ in vec2 worldTile;
 in float altitude;
 in float slope;
 in float light;
+in float haze;
 uniform sampler2D image;
 uniform bool textured;
 uniform sampler2D previousImage;
@@ -67,7 +73,8 @@ void main() {
  if(analysis==2) base=mix(vec3(0.2,0.65,0.42),vec3(0.95,0.18,0.1),clamp(slope/60.0,0.0,1.0));
  float line=abs(fract(altitude/25.0-0.5)-0.5)/max(fwidth(altitude/25.0),0.0001);
  if(contours) base=mix(base,vec3(0.08,0.05,0.02),1.0-smoothstep(0.0,1.2,line));
- color=vec4(base*light,1.0);
+ // Far ground goes a little hazy, as air does: depth you can read at a glance.
+ color=vec4(mix(base*light,vec3(0.11,0.15,0.19),haze*0.45),1.0);
 }`;
 export function program(gl) {
   const compile = (type, source) => {
@@ -147,6 +154,7 @@ export function uniforms(gl, p, camera, w, h, yaw, tilt, focus) {
   gl.uniform1f(at("yaw"), yaw);
   gl.uniform1f(at("tilt"), (tilt * Math.PI) / 180);
   gl.uniform1f(at("focus"), focus);
+  gl.uniform1f(at("eye"), eyeDistance(camera, h));
   gl.uniform2f(at("textureScale"), 1, 1);
   gl.uniform1f(at("textureBlend"), 1);
   gl.uniform1i(at("previousImage"), 1);
