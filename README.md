@@ -61,7 +61,7 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 
 ## Limits
 
-- WoW Forever only, English client, build 1.60.1.70707.
+- WoW Forever only, English client, build 1.60.1.70790.
 - No arrow in dungeons and raids (the game hides your position there).
 - Herbs and ore show within about 230 yards, the same range as Blizzard's minimap.
 - May conflict with other minimap addons such as SexyMap. [More](docs/features.md#limits-in-detail).

@@ -175,7 +175,7 @@ Settings are account-wide.
 ## Limits in detail
 
 - **WoW Forever only** (installed under `World of Warcraft/_forever_/`), the client build `Data/` was
-  generated from, 1.60.1.70707 (a patch means regenerating).
+  generated from, 1.60.1.70790 (a patch means regenerating).
 - **Blizzard's blips** are sensed only within about 230 yards of you.
 - **Indoors** only buildings with Blizzard's indoor minimap pictures get them; elsewhere the terrain.
 - **Instances** that hide your position are shown whole, without the arrow, line or blips.
