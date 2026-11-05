@@ -55,6 +55,7 @@
 ---@class MM.SavedUI: MM.SavedPart
 ---@field _v 1
 ---@field window? MM.ScreenRect     the small window's rect; nil: on the Minimap's home spot
+---@field bigWindow? MM.ScreenRect  the big window's rect, once moved or resized; nil: EXPANDED_SIZE of the screen, centred
 ---@field shown boolean             the window was shown
 ---@field zoom number               the small window's pixels per tile
 ---@field follow boolean

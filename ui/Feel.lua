@@ -120,7 +120,7 @@ local KEYS = {
 		set = function(on) if (UI.saved.button == true) ~= on then UI.Icon() end end, tip = "The button on Blizzard's minimap, for when MagicMap is switched off." },
 	{ key = "general.cluster", section = "general", label = "Group icons", kind = "check", get = function() return UI.saved.cluster ~= false end,
 		set = function(on) UI.saved.cluster = on end,
-		tip = "Where icons crowd together, one small pill: click it to see them all. Its tunables are under Grouping." },
+		tip = "On the big map, where icons crowd together, one small pill: click it to see them all (never at the minimap's size). Its tunables are under Grouping." },
 	{ key = "general.resetpos", section = "general", label = "Reset window position", kind = "button", run = function() UI.BigMap.Reset() end,
 		tip = "Puts the map window back on the minimap's spot." },
 

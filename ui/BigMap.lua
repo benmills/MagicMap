@@ -11,9 +11,9 @@
 --   * Without the minimap replaced (ui/Replace.lua) it is never small: shown, it grows at once (the keys
 --     step), and M, the button or Escape close it (Close: hide) instead of shrinking it.
 -- The camera's flights and zoom are Motion's (ui/Motion.lua: FlyTo, SetZoom, SetFollow).
--- Only the small window's rect and zoom are saved (SavedUI.window, zoom): never the big one,
--- so hiding or logging out while big comes back small (spike-bugs L4); growing again while
--- shrinking keeps the small rect it had (L3).
+-- The small window's rect and zoom are saved (SavedUI.window, zoom), and the big one's rect once you move
+-- or resize it (SavedUI.bigWindow: M grows to it after); hiding or logging out while big comes back small
+-- (spike-bugs L4); growing again while shrinking keeps the small rect it had (L3).
 
 local _, ns = ...
 local UI = ns.UI
@@ -51,10 +51,26 @@ local function SetRect(left, top, w, h)
 	frame:SetSize(w, h)
 end
 
--- The small window's rect, kept (SavedUI.window); never the big one's.
+-- The window's rect, kept: the small one's (SavedUI.window), or, moved or resized while big, the big one's
+-- (SavedUI.bigWindow). Never mid-grow or mid-shrink.
 function BigMap.SaveLayout()
-	if small then return end
-	UI.saved.window = { left = frame:GetLeft(), top = frame:GetTop(), w = frame:GetWidth(), h = frame:GetHeight() }
+	local r = { left = frame:GetLeft(), top = frame:GetTop(), w = frame:GetWidth(), h = frame:GetHeight() }
+	if BigMap.big then
+		if not tween then UI.saved.bigWindow = r end
+	elseif not small then
+		UI.saved.window = r
+	end
+end
+
+-- The big window's rect: the one you left it at (kept on the screen), else EXPANDED_SIZE of it, centred.
+local function BigRect(sw, sh)
+	local r = UI.saved.bigWindow
+	if r and r.w and r.h then
+		local w, h = math.min(r.w, sw), math.min(r.h, sh)
+		return { left = math.max(0, math.min(r.left, sw - w)), top = math.min(sh, math.max(r.top, h)), w = w, h = h }
+	end
+	local w, h = sw * EXPANDED_SIZE, sh * EXPANDED_SIZE
+	return { left = (sw - w) / 2, top = (sh + h) / 2, w = w, h = h }
 end
 
 local function Follow() Motion.SetFollow(true) end
@@ -118,10 +134,11 @@ local function Grow()
 	end
 	local k = UIParent:GetEffectiveScale() / frame:GetEffectiveScale() -- /: never 0 (an effective scale is > 0)
 	local sw, sh = UIParent:GetWidth() * k, UIParent:GetHeight() * k
-	local w, h = sw * EXPANDED_SIZE, sh * EXPANDED_SIZE
+	local to = BigRect(sw, sh)
+	local w, h = to.w, to.h
 	frame:SetFrameStrata("HIGH")
 	frame:Raise()
-	TweenTo({ left = (sw - w) / 2, top = (sh + h) / 2, w = w, h = h }, EXPAND_TIME, nil, BigMap.homeAlpha, 0)
+	TweenTo(to, EXPAND_TIME, nil, BigMap.homeAlpha, 0)
 	-- Still on you, a little further out: the bigger window does the rest. Never further out
 	-- than your whole zone, the way the world map opens.
 	local zoom = Camera.cam.zoom / EXPAND_ZOOM_OUT
@@ -245,12 +262,13 @@ function BigMap.Load(saved)
 	loaded = true
 end
 
--- /mm reset: back onto the minimap's spot, at its size, following.
+-- /mm reset: back onto the minimap's spot, at its size, following; the big map back to its default rect.
 function BigMap.Reset()
 	if BigMap.big or tween then
 		UI.Print("reset: shrink the map back first (M)")
 		return
 	end
+	UI.saved.bigWindow = nil
 	Place()
 	Follow()
 	frame:Show()

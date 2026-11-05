@@ -428,7 +428,8 @@ def test_zoom_look():
         assert look.arrow < 1e-6 and all(r.off < 1e-6 for r in layers.values()), name
         assert layers["tiles"].tile <= 0.5 + 1e-6 and layers["tiles"].uncovered == 0, name
         assert all(r.uncovered <= 6 for k, r in layers.items() if k != "questAreas"), name
-        assert all(r.back == 0 for k, r in layers.items() if k != "questAreas"), name
+        # (the names leave as the map shrinks to the minimap's size, and come back as it grows)
+        assert all(r.back == 0 for k, r in layers.items() if k != "questAreas" and not (k == "labels" and "grow" in name)), name
         assert names.lag <= 2 and names.runMax <= 1 and (names.groundLag or 0) <= 4, name
         assert look.short == 0, f"{name}: {look.shortAt}"
         assert fs.max <= 8 and sum(v.over for v in perf.values()) == 0 and perf["map: draw"].max <= 2, name

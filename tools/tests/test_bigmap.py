@@ -5,7 +5,7 @@ home corner faded out (View.window.homeAlpha), on you 1.5 further out but never 
 is refused while big. A still press while it grows is a click. Spike-bugs L3: M again mid-shrink
 still comes back to the small rect. L4: logging out or hiding while big (moved meanwhile, or grown
 mid-chase) keeps the small rect and zoom; a moved and sized window stays put through hiding and a
-reload."""
+reload. The big one, moved, grows back there after a reload."""
 from test_addon import boot, errors
 from test_blips import lua_tools
 from test_chrome import SEP, fresh, rect
@@ -115,4 +115,7 @@ def test_bigmap():
     sim2.Run(0.2)
     f2 = ns2.UI.Window.frame
     assert f2.IsShown(f2) and rect(f2) == (600, 800, 240, 240) and abs(ns2.UI.Camera.cam.zoom - zoom) < 1e-9
+    sim2.Press("M")  # the big map where it was dragged to above (SavedUI.bigWindow), not centred
+    sim2.Run(0.4)
+    assert near(rect(f2), (300, 950, 1344, 756))
     assert not errors(sim2, ns2), "\n\n".join(errors(sim2, ns2))

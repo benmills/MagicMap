@@ -3,6 +3,8 @@
 -- step failing every frame takes one stack, not one per failure.
 local T = ...
 local sim, ns = T.Shown()
+sim.Press("M") -- (zone names show on the big map only)
+sim.Run(1)
 local m, labels = ns.UI.Camera, T.Layer(ns, "labels")
 local orig, failed = labels.build, nil
 labels.build = function(...)

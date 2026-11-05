@@ -172,7 +172,8 @@ def test_zone_hover():
         -- The zone names lit.
         function Lit()
             local lit = {}
-            local names = ns.UI.Labels.front.pools.label
+            local names = ns.UI.Labels.front and ns.UI.Labels.front.pools.label
+            if not names then return "" end -- (no names at the minimap's size)
             for i = 1, names.n do
                 if names[i].color[4] == 1 then lit[#lit + 1] = names[i].text end
             end

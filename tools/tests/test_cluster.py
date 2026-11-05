@@ -1,5 +1,5 @@
 """Overlapping pins grouped (ui/Cluster.lua): five pins at one spot draw as one pill, none of them alone; with
-"Group overlapping icons" off (UI.saved.cluster), all five draw and no pill does; the tracked one always draws alone.
+"Group overlapping icons" off (UI.saved.cluster) or at the minimap's size, all five draw and no pill does; the tracked one always draws alone.
 
 test_pill_members_new_tables: the same five, their entries made anew twice within the regroup's 0.5 s (as
 model/Blips.lua's Live() does each sensor change), with the harness's one-thing-one-pin check on every frame
@@ -41,6 +41,8 @@ def test_five_overlapping_pins_one_pill():
     ns.UI.saved.cluster = True  # (the tests' saved state has it off)
     sim.Slash("/mm toggle")
     sim.Run(1)
+    sim.Press("M")  # (grouped on the big map only)
+    sim.Run(1)
     cam = ns.UI.Camera.cam
     t = L.eval(LAYER)(ns.UI.Pins, 5, cam.cx, cam.cy)
     sim.Run(0.5)
@@ -60,6 +62,12 @@ def test_five_overlapping_pins_one_pill():
     t.rev = 2
     sim.Run(0.5)
     assert shown(t.layer, "pin") == 5 and shown(pills, "pill") == 0
+
+    ns.UI.saved.cluster = True  # on again, but the minimap's size: never grouped
+    sim.Press("M")
+    t.rev = 3
+    sim.Run(1)
+    assert shown(t.layer, "pin") == 5 and shown(pills, "pill") == 0
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
@@ -78,6 +86,8 @@ def test_pill_members_new_tables():
     L, sim, ns, T = simmod.checked()
     ns.UI.saved.cluster = True
     sim.Slash("/mm toggle")
+    sim.Run(1)
+    sim.Press("M")  # (grouped on the big map only)
     sim.Run(1)
     cam = ns.UI.Camera.cam
     t = L.eval(LAYER)(ns.UI.Pins, 5, cam.cx, cam.cy)
@@ -120,6 +130,8 @@ def test_grid_close_is_spent():
     UI = ns.UI
     UI.saved.cluster = True
     sim.Slash("/mm toggle")
+    sim.Run(1)
+    sim.Press("M")  # (grouped on the big map only)
     sim.Run(1)
     cam, view = UI.Camera.cam, UI.Window.view
     t = L.eval(LAYER)(UI.Pins, 5, cam.cx, cam.cy)

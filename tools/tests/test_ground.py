@@ -48,7 +48,7 @@ def placed(sim, front):
 
 
 def test_labels():
-    L, sim, ns = shown()
+    L, sim, ns = shown(big=True)  # (names on the big map only)
     labels, S = layer(ns, "labels"), sim.state
     font = L.globals().GameFontNormal.GetFont(None)[0]
     title = "Fonts\\MORPHEUS.TTF"

@@ -4,6 +4,8 @@
 -- is retried with a backoff (never per frame) while the tiles draw.
 local T = ...
 local sim, ns = T.Shown()
+sim.Press("M") -- (zone names show on the big map only)
+sim.Run(1)
 local leaked = {}
 for k in pairs(_G) do
 	if type(k) == "string" and k:find("^MagicMap_") and k ~= "MagicMap_OnAddonCompartmentClick" then leaked[#leaked + 1] = k end

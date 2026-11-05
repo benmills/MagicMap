@@ -20,7 +20,7 @@ def test_map():
     for layer in e.layers.values():  # (one off by default: none)
         assert (layer.front and not layer.busy) if layer.on else not layer.front, layer.name
     live, _ = stats(e)
-    assert live["tex"] > 10 and live["font"] > 0, live
+    assert live["tex"] > 10 and live["font"] == 0, live  # (no names at the minimap's size: ui/Labels.lua)
 
     # Wheel in about the cursor (following: about you; the zoom chases its target), drag pans and stops following.
     zoom = c.cam.zoom
@@ -40,8 +40,6 @@ def test_map():
         sim.Step()
     sim.Run(2)
     assert c.cam.zoom == 16
-    live, _ = stats(e)
-    assert live["font"] > 0, live
     sim.Click(w.view, "RightButton")  # the map's menu: Follow me glides back to you, then follows
     items = [e for e in sim.MenuItems("button").values() if e.text == "Follow me"]
     assert len(items) == 1

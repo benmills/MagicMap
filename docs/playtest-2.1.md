@@ -85,6 +85,8 @@ client: they are the likeliest to be wrong.
   or its pin: it lifts gently, not harshly. Settings > Quest areas sliders restyle live.
 - Accept a quest from an NPC you can sense on the map: the "!" over that NPC disappears as soon as the quest
   is in your log (no stale "!"). Hand it in: the "?" goes the same way.
+- At the minimap's size: no zone names and no grouped pills; M: both back. Move and resize the big map, close it,
+  press M (and after a /reload): it opens where you left it. `/mm reset` (while small) puts it back centred.
 - A quest giver with a quest for you shows "!" even when the world map lists none (Ukor in Sen'jin Village);
   one with nothing left for you (done, too high, wrong class) is a plain dot. Quest icons never group.
 

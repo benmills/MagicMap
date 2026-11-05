@@ -172,6 +172,7 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 	c.names, c.fading = c.names or {}, c.fading or {}
 	for k in pairs(c.names) do c.names[k] = nil end
 	c.nfading, c.fadeAt, nboxes = 0, nil, 0
+	if not UI.BigMap.big then return end -- (at the minimap's size, no names)
 	local list = List(inst)
 	if zoom <= MAX_ZOOM then
 		for i, l in ipairs(list.zones) do
@@ -204,11 +205,11 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 			if i % 16 == 0 then Yield() end
 		end
 	end
-end, (function() -- (a city map shown or gone, or the size or opacity: laid out again; one value, which Engine compares)
-	local city, seen, n = nil, nil, 0
+end, (function() -- (a city map shown or gone, the map grown or shrunk, or the size or opacity: laid out again; one value, which Engine compares)
+	local city, seen, big, n = nil, nil, nil, 0
 	return function()
 		local c = UI.Interiors.City() or false
-		if c ~= city or scaleRev ~= seen then city, seen, n = c, scaleRev, n + 1 end
+		if c ~= city or scaleRev ~= seen or UI.BigMap.big ~= big then city, seen, big, n = c, scaleRev, UI.BigMap.big, n + 1 end
 		return n
 	end
 end)(), "move")

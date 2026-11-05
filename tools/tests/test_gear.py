@@ -129,15 +129,13 @@ def test_gear():
     sim.Run(1)
     big, _ = gear(sim, ns)
     assert items(big) == items(root)
-    sim.Press("M")
-    sim.Run(1)
 
     # Tips: white title, gold body.
     assert tip(L, rows["Zone labels"]) == [("Zone labels",) + WHITE, ("Names of zones and sub-zones.",) + GOLD]
     assert tip(L, rows["Questie"]) == [("Questie",) + WHITE,
                                        ("Map pins Questie puts on the world map, shown here too.",) + GOLD]
 
-    # Each layer: on, its things drawn; off, gone from the next frame (the menu stays open); on, back.
+    # Each layer (on the big map: zone names show there only): on, its things drawn; off, gone from the next frame (the menu stays open); on, back.
     root, rows = gear(sim, ns)
     assert view.layers.blips and Game.minimap.sensor and view.layers["addon:Questie"] and hosted(L, pin, ns)
     for text, name in LAYERS.items():
@@ -188,6 +186,9 @@ def test_gear():
     assert items(sub(root, "Map"))[-1] == ("checkbox", "     Sub-option") and child.IsEnabled(child)
     rows["Zone labels"].onSelect()
     assert not child.IsEnabled(child)
+
+    sim.Press("M")  # (small again)
+    sim.Run(1)
 
     # Settings… (its page's rows: test_lookfeel.py). The minimap button and Reset window position, through the window:
     # Game's button hidden, and shown again; the window back on the minimap's spot, following.

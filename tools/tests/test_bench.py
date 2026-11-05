@@ -52,7 +52,9 @@ def test_check_art():
     art.fonts[len(art.fonts)] = None
     sim.Slash("/mm check art")
     assert len(traced()) == 4 and "art: all" in list(sim.prints.values())[-1]
-    sim.Slash("/mm toggle")  # the labels draw in the fonts checked
+    sim.Slash("/mm toggle")  # the labels draw in the fonts checked (on the big map)
+    sim.Run(1)
+    sim.Press("M")
     sim.Run(1)
     labels = ns.UI.Labels.front.pools.label
     drawn = {labels[i].GetFont(labels[i])[0] for i in range(1, labels.n + 1)}

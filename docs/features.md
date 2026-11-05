@@ -35,7 +35,8 @@ addons' buttons are (LibDBIcon's shape), draggable round the rim.
 button by the zone name, reset, + and − on the right.*
 
 **The big map (M).** M or the red button grows it into a big map, centred on you; M, the button
-or Escape shrinks it. The quest log (L) still opens Blizzard's map (so does M, with Replace world
+or Escape shrinks it. Move or resize the big map and it opens there next time, as the small one does
+(`/mm reset` puts both back). The quest log (L) still opens Blizzard's map (so does M, with Replace world
 map off in Settings). Click the zone name to pick a
 continent, another map or an instance; with several zones in view, hover one to light it and click
 to fly there. `/mm map` and `/mm zone` do the same by name.
@@ -46,7 +47,7 @@ to fly there. `/mm map` and `/mm zone` do the same by name.
 counts, and the walking line up to a waypoint at Razor Hill.*
 
 **The ground.** The game's minimap tiles at any zoom, as Blizzard drew them, on each map's own dark
-backdrop; zone and subzone names (no zone borders: [ADR 0012](decisions/0012-no-borders.md)); your arrow, with a denser shadow. Under the tiles, a one-picture stand-in for each continent
+backdrop; zone and subzone names on the big map (none at the minimap's size; no zone borders: [ADR 0012](decisions/0012-no-borders.md)); your arrow, with a denser shadow. Under the tiles, a one-picture stand-in for each continent
 (Eastern Kingdoms, Kalimdor: zone colours, a crisp coast) shows through wherever the tiles aren't
 there yet, so a fast zoom out or a flick never shows bare backdrop. It's never switched over to:
 the tiles are the map at every zoom. **The ocean** (Settings > Map > Ocean, on): a coloured sea round
@@ -128,7 +129,7 @@ the rares and treasures the game shows now; your corpse and waypoint.
 
 **Crowded icons.** Where icons overlap they group into a small pill of up to two icons (`+N` for
 the rest, sized to its digits); click it for a grid of them all, each with its own tooltip and click
-(Settings > General > Group icons; its tunables under Settings > Grouping). Quest icons are never grouped.
+(Settings > General > Group icons; its tunables under Settings > Grouping). Quest icons are never grouped, and nothing groups at the minimap's size.
 
 **Other addons.** World-map pins added through HereBeDragons (Questie, HandyNotes...) show on the
 map with their own icons, tooltips and clicks, each addon a row in the gear's Other addons; their

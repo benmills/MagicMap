@@ -67,13 +67,13 @@ local cache = { stamp = nil, inst = nil, byBand = {}, n = 0 }
 -- Membership
 ---------------------------------------------------------------------------
 
--- Moves when the setting, the tracked icon, a source's rev or its layer's toggle does (read once a frame).
+-- Moves when the setting (Group icons, and the map big: at the minimap's size nothing groups), the tracked icon, a source's rev or its layer's toggle does (read once a frame).
 local REGROUP, regrouped = 0.5, -math.huge
 local function Stamp()
 	local f = Runtime.frames
 	if f == stampFrame then return stamp end
 	stampFrame = f
-	local on = UI.saved.cluster ~= false
+	local on = UI.saved.cluster ~= false and UI.BigMap.big -- (at the minimap's size, never grouped)
 	local tr = UI.Track.Rev() -- (what you track leaves its pill at once)
 	local changed = on ~= setting or tuneV ~= tuneSeen or tr ~= trackSeen
 	setting, tuneSeen, trackSeen = on, tuneV, tr
