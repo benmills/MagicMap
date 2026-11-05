@@ -195,10 +195,28 @@ function drawTiles() {
   evict();
 }
 
+// The share of the drawable tiles in a world rect drawn sharp (their copy for this zoom, or at a block's zoom the
+// block): mapart.js shows a repaint as its tiles come, so it sharpens with them, not on its own.
+let tileByKey = new Map();
+function sharpShare(c0, r0, c1, r1) {
+  if (!assets) return 0;
+  const size = want();
+  let n = 0, ready = 0;
+  for (let c = Math.floor(c0); c < c1; c++)
+    for (let r = Math.floor(r0); r < r1; r++) {
+      const t = tileByKey.get(c * 64 + r);
+      if (!t || t.sea || !available?.has(t.key)) continue;
+      n++;
+      if (baked.has(`${t.key}@${size}`) || (size === SMALL && hasBlocks(t) && baked.has(blockOf(t).id))) ready++;
+    }
+  return n ? ready / n : 1;
+}
+
 async function loadTiles() {
   resetTileImages();
   const ticket = requests.ticket("tiles");
   const t = await get("/api/tiles");
   if (!requests.current(ticket)) return;
   tiles = t.tiles.map((x) => ({ ...x, col: Math.floor(x.key / 64), row: x.key % 64 }));
+  tileByKey = new Map(tiles.map((x) => [x.key, x]));
 }

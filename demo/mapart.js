@@ -17,7 +17,11 @@ const MapArt = (() => {
   let sea = null;
   const over = { ai: null };
   fetch("sea/sea.json").then((r) => (r.ok ? r.json() : null)).then((d) => { sea = d; if (again) again(); }).catch(() => {});
-  fetch("ai/ai.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).then((d) => { over.ai = d; if (d) buttons(); if (again) again(); }).catch(() => {});
+  fetch("ai/ai.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).then((d) => {
+    over.ai = d;
+    if (d) { buttons(); for (const fs of Object.values(d)) for (const f of fs) pic(`ai/${f.file}`); } // (all of them now: a few)
+    if (again) again();
+  }).catch(() => {});
 
   // The switches, as the addon's Feel "sea.on": in the menu's Show on Map page, kept for this viewer.
   const read = (k, dflt) => { try { const v = localStorage.getItem(`mm2.${k}`); return v ? v === "on" : dflt; } catch { return dflt; } };
@@ -87,9 +91,16 @@ const MapArt = (() => {
       }
       if (ocean) g.drawImage(ocean, x0, y0, w, h);
     }
+    // A repaint shows as much as the tiles under it are sharp (tiles.js sharpShare): over the stand-in (which has it baked
+    // in) it waits, and it sharpens with its neighbours, not on its own.
     if (on.ai) for (const [i, [dx, dy]] of Object.entries(OFFSET)) for (const f of (over.ai && over.ai[i]) || []) {
-      const p = pic(`ai/${f.file}`), [x, y] = toScreen(f.col + dx, f.row + dy);
-      if (p) g.drawImage(p, x, y, f.w * zoom, f.h * zoom);
+      const c = f.col + dx, r = f.row + dy, p = pic(`ai/${f.file}`), [x, y] = toScreen(c, r);
+      if (!p || x > g.canvas.width || y > g.canvas.height || x + f.w * zoom < 0 || y + f.h * zoom < 0) continue;
+      const a = typeof sharpShare === "function" ? sharpShare(c, r, c + f.w, r + f.h) : 1;
+      if (a <= 0) continue;
+      g.globalAlpha = a;
+      g.drawImage(p, x, y, f.w * zoom, f.h * zoom);
+      g.globalAlpha = 1;
     }
   }
   return { draw };
