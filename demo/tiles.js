@@ -46,12 +46,13 @@ async function loadTileOverview() {
   const epoch = requests.epoch;
   let image;
   try {
+    const t0 = performance.now();
     const response = await (early("sea/world.webp") || fetch("sea/world.webp", { signal: controller.signal, priority: "high" }));
     if (!response.ok) return;
     image = await createImageBitmap(await response.blob());
     if (controller.signal.aborted || epoch !== requests.epoch || image.width * image.height > 4e6) return;
     tileOverview.image = image;
-    tileOverview.at = performance.now();
+    tileOverview.at = performance.now() - t0 < CACHED_MS * 4 ? 0 : performance.now(); // (cached: at once)
     tileOverview.bounds = [0, 0, world.bounds[2], world.bounds[3]]; // (at 24 px a tile: demo/bake_world.py world)
     image = null;
     draw();
@@ -104,20 +105,27 @@ function tileRect(c, r) {
 
 const SMALL = SIZES[0], RING = 0.35; // the quick copy; tiles past the view fetched ahead, as a share of its width
 let available = null, availableOf = null; // assets.tiles as a Set
+// A picture that came this fast came from a cache (the browser's or sw.js): drawn at once, not faded in, so a
+// place you've been comes back whole instead of tile by tile.
+const CACHED_MS = 40;
 const fadeIn = (since, ms) => (tileReducedMotion.matches || !since ? 1 : Math.min(1, (performance.now() - since) / ms));
 
 // A fetch of one picture, baked under id when it comes.
 function job(id, path, priority, epoch) {
   return { key: id, priority,
     run: async (signal) => {
+      const t0 = performance.now();
       const response = await fetch(path, { signal, priority: priority < 2 ? "high" : "auto" });
       if (!response.ok) throw Error(`Tile ${response.status}`);
-      return createImageBitmap(await response.blob());
+      const image = await createImageBitmap(await response.blob());
+      image.cached = performance.now() - t0 < CACHED_MS;
+      return image;
     },
     apply: (image) => {
       try {
         if (epoch !== requests.epoch) return;
         const c = bake(image);
+        if (image.cached) c.bornAt = 0; // (fadeIn: at once)
         baked.set(id, c); bakedPx += c.width * c.height;
       } finally { image.close(); }
     },
@@ -154,7 +162,7 @@ function drawTiles() {
   quick(ring, 2 * n);
   if (size <= 256) sharp(ring, 3 * n);
   tileStream?.update([...jobs.values()]);
-  tileStream?.commit(6, 4);
+  tileStream?.commit(48, 6); // (as many as fit in 6 ms a frame: cached ones come all at once)
   loadTileOverview();
   ctx.imageSmoothingQuality = "high";
   if (tileOverview.image) { // the whole map at once (its ocean too), the part in view, under the tiles as they come
