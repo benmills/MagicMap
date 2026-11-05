@@ -73,7 +73,8 @@ Great Forge in Ironforge by the flight master.*
 
 **Blizzard's blips.** Outdoors Blizzard's Minimap stays out of sight and is read as a sensor:
 herbs, ore, the mailbox and tracked NPCs within about 230 yards get a pin with Blizzard's tracking
-icon and tooltip, at any zoom. Herbs and ore show while they're in range, as on Blizzard's minimap.
+icon and tooltip, at any zoom. Vendors get the icon of what they sell (food, reagents, poisons, ammunition,
+fishing; a gold coin for the rest). Herbs and ore show while they're in range, as on Blizzard's minimap.
 Zoomed in to town scale, the town services you track show too, and the mailboxes and services you've
 passed (remembered, up to 5000 a continent), each marked "Not in sight" while out of range. Blizzard's own flight, quest and POI tracking is
 switched off while MagicMap draws those itself, and put back when it stops, even after a crash.
@@ -127,7 +128,7 @@ the rares and treasures the game shows now; your corpse and waypoint.
 
 **Crowded icons.** Where icons overlap they group into a small pill of up to two icons (`+N` for
 the rest, sized to its digits); click it for a grid of them all, each with its own tooltip and click
-(Settings > General > Group icons; its tunables under Settings > Grouping).
+(Settings > General > Group icons; its tunables under Settings > Grouping). Quest icons are never grouped.
 
 **Other addons.** World-map pins added through HereBeDragons (Questie, HandyNotes...) show on the
 map with their own icons, tooltips and clicks, each addon a row in the gear's Other addons; their

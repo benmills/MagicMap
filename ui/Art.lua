@@ -16,6 +16,7 @@ local Art = {
 	atlases = {
 		"vignettekill",                                            -- ui/Menus.lua: the Rares & treasures row's icon
 		"Professions_Tracking_Herb", "Professions_Tracking_Ore",   -- ui/Blips.lua: gathering nodes (game/Blips.lua GATHER)
+		"food", "reagents", "poisons", "ammunition", "Professions_Tracking_Fish", "coin-gold-20x20", -- vendors (VENDOR)
 		"UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight", -- ui/Chrome.lua: the border
 		"_UI-Frame-Metal-EdgeBottom", "!UI-Frame-Metal-EdgeLeft", "!UI-Frame-Metal-EdgeRight",
 		-- ui/Controls.lua: the mode button, the spike's chains (Core.lua:282-286). Forever draws the

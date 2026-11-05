@@ -81,6 +81,9 @@ local SERVICE = { innkeeper = 136458, banker = 136453, auctioneer = 136452, stab
 	battlemaster = 136454, trainer = 136463, classtrainer = 136455, repair = 136465, mailbox = 136459,
 	flightmaster = 136456 }
 local GATHER = { herb = "Professions_Tracking_Herb", ore = "Professions_Tracking_Ore" }
+-- Vendors, by what they sell (Data's kind from the title): Blizzard's tracking art; a gold coin for the rest.
+local VENDOR = { food = "food", reagents = "reagents", poisons = "poisons", ammunition = "ammunition",
+	fishing = "Professions_Tracking_Fish", vendor = "coin-gold-20x20" }
 -- A name neither Atlas nor the tracking types know, and no NPC's Data has: a gathering node of what's tracked.
 -- Blizzard doesn't say what a blip is, only its name, but with Find Herbs on and Find Minerals off a node is a herb
 -- (and the other way round); with both on, a herb (ores are named to a pattern Atlas knows). Not while a creature
@@ -119,7 +122,7 @@ local function Icon(name)
 			if g then return nil, GATHER[g] end -- (not kept: what's tracked may change)
 		end
 		icon = icon or SERVICE[service] or false
-		icons[name], atlases[name] = icon, GATHER[service] or false
+		icons[name], atlases[name] = icon, GATHER[service] or VENDOR[service] or false
 	end
 	return icon or nil, atlases[name] or nil
 end

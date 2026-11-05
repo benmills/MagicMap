@@ -66,6 +66,14 @@ HORDE_RACES = 2 | 16 | 32 | 128 | (1 << 33)   # Orc, Undead, Tauren, Troll, Skyb
 BLIP_SERVICES = ((128, "innkeeper"), (256, "banker"), (4096, "auctioneer"), (8192, "stablemaster"),
                  (2048, "battlemaster"), (16, "trainer"), (16384, "repair"))
 FLIGHT_MASTER = 8
+VENDOR = 4
+# A vendor's kind by its title (subName), first match; any other vendor is "vendor" (General Goods, Trade
+# Supplies, ...). game/Blips.lua draws each with Blizzard's tracking atlas of the kind.
+VENDOR_KINDS = (("poisons", ("Poison",)), ("reagents", ("Reagent",)),
+                ("fishing", ("Fishing", "Fisherman", "Bait")),
+                ("ammunition", ("Bow", "Gun", "Ammo", "Arrow", "Bullet", "Quiver")),
+                ("food", ("Food", "Drink", "Butcher", "Baker", "Bartender", "Fruit", "Chef", "Meat", "Wine", "Brew",
+                          "Cheese", "Bread", "Mushroom", "Fishmonger", "Vintner", "Grocer")))
 SERVICE_FLAGS = FLIGHT_MASTER | sum(f for f, _ in BLIP_SERVICES)  # (distinct bits)
 RARE = (2, 4)  # rank: rare elite, rare
 CLASSES = ("Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "Mage", "Warlock", "Druid")  # Blips.lua:395
@@ -449,7 +457,7 @@ def diet(raw, drop, spawns, open_world):
 def blip_services(raw, drop):
     """Blip tooltip name -> (service, title) of the lowest NPC id of that name, as the spike's Kind() read
     LibQuestieDB's IdsByName(name)[1] (Blips.lua:408-436): its service (BLIP_SERVICES, else a quest giver's,
-    a quest ender's, a flight master's), its subName; and "Mailbox"."""
+    a quest ender's, a flight master's, a vendor's kind by its title), its subName; and "Mailbox"."""
     first, starts = {}, {}
     for i in sorted(raw["Npc"]):
         name = raw["Npc"][i].get(NPC["name"])
@@ -470,6 +478,8 @@ def blip_services(raw, drop):
         if not service and flags & FLIGHT_MASTER:
             service = "flightmaster"
         title = r.get(NPC["subName"]) or None
+        if not service and flags & VENDOR:
+            service = next((k for k, words in VENDOR_KINDS if any(w in (title or "") for w in words)), "vendor")
         if service == "questgiver":  # every quest an NPC of the name starts (Model works out which you can take)
             out[name] = (service, title, sorted(starts[name]))
         elif service or title:
