@@ -58,9 +58,10 @@ def py(v):
 WORLD, WORLD_NAME = 1, "Azeroth"
 # Each map's place on the world, in tiles (world = map + offset). The Eastern Kingdoms' is from Blizzard's own world map
 # (UiMap 947, Azeroth: UiMapAssignment places both continents on it at one scale): (+44.9..45.0, -9.3..-9.1) from
-# Kalimdor across the Eastern Kingdoms, rounded. Zephras Isle has no place there: ours, between them near the bottom.
+# Kalimdor across the Eastern Kingdoms, rounded. Zephras Isle has no place there: where Forever's own world map draws it,
+# between them just north of the Maelstrom (fitted to six zones' places on that map: within ~10 px of 1836 but one).
 # Rows stay in 0..63, so a world tile's key still reads col * 64 + row. The page reads these from /api/maps.
-OFFSET = {1: (0, 0), 0: (45, -9), 2991: (28, 24)}
+OFFSET = {1: (0, 0), 0: (45, -9), 2991: (29, -6)}
 BOUNDS = {i: tuple(v + OFFSET[i][k % 2] for k, v in enumerate(Atlas.TileBounds(i))) for i in OFFSET}  # world, c0 r0 c1 r1
 CITIES = {"Stormwind City": "Stormwind", "Stormwind": "Stormwind", "Ironforge": "Ironforge", "The Undercity": "Undercity",
           "Orgrimmar": "Orgrimmar", "Thunder Bluff": "Thunder Bluff", "Darnassus": "Darnassus"}
