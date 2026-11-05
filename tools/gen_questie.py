@@ -74,8 +74,12 @@ HERBS = {"Peacebloom", "Silverleaf", "Earthroot", "Mageroyal", "Briarthorn", "St
          "Wild Steelbloom", "Grave Moss", "Kingsblood", "Liferoot", "Fadeleaf", "Goldthorn", "Khadgar's Whisker",
          "Wintersbite", "Firebloom", "Purple Lotus", "Arthas' Tears", "Sungrass", "Blindweed", "Ghost Mushroom",
          "Gromsblood", "Golden Sansam", "Dreamfoil", "Mountain Silversage", "Plaguebloom", "Icecap", "Black Lotus",
-         "Swiftthistle", "Bloodthistle"}
+         "Swiftthistle", "Bloodthistle",
+         # Forever's own (as atlas/Entities.lua): its starter-zone nodes and its new herbs.
+         "Stunted Silverleaf", "Wilted Peacebloom", "Hive Thistle", "Demonsage", "Death Lotus", "Marefoil", "Stranglevine"}
 
+
+ORES = {"Chunk of Amber", "Large Chunk of Amber", "Small Obsidian Chunk", "Large Obsidian Chunk"}
 
 # --- QuestieDB baked store -------------------------------------------------------------------------------
 
@@ -352,7 +356,7 @@ def object_kind(name):
         return "mailbox"
     if name in HERBS:
         return "herb"
-    if name.endswith(" Vein") or name.endswith(" Deposit"):
+    if name in ORES or name.endswith(" Vein") or name.endswith(" Deposit"):
         return "ore"
     return None
 

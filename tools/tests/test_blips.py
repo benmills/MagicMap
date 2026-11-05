@@ -231,7 +231,9 @@ def test_blips_priced():
     sim.Price(True)
     # Two Peacebloom whose squares overlap (D3), an innkeeper by its service, and a vein
     # that comes into reach only on the walk east; you and a party member, never sensed.
-    here = BLIPS + [("Peacebloom", -52, 36), ("Innkeeper Belm", 70, -30)]
+    # Forever's: a starter herb by name, and one no one knows, a herb by what's tracked (Find Herbs alone).
+    here = BLIPS + [("Peacebloom", -52, 36), ("Innkeeper Belm", 70, -30), ("Wilted Peacebloom", 20, 60),
+                    ("Glimmerleaf", -20, -60)]
     vein = ("Copper Vein", 330, 10)
     sim.units.party1 = L.table_from({"name": "Friend", "class": "PRIEST"})
     sim.group = L.table_from(["party1"])
@@ -250,7 +252,8 @@ def test_blips_priced():
     got = sensed(ns)
     assert exact(got, here), got
     icons = {b["name"]: b["icon"] or b["atlas"] for b in got}
-    assert icons == {"Mailbox": MAILBOX, "Peacebloom": HERB, "Innkeeper Belm": 136458}, icons
+    assert icons == {"Mailbox": MAILBOX, "Peacebloom": HERB, "Innkeeper Belm": 136458, "Wilted Peacebloom": HERB,
+                     "Glimmerleaf": HERB}, icons
 
     # Walking east 10 s: what's known stays (once), the vein comes in rough, nothing doubles.
     counts = {}

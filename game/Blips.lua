@@ -75,31 +75,63 @@ local function Remove(i) blips[i].gone = true; table.remove(blips, i); Changed()
 
 -- What tracking icon a blip's name is: a tracking type of that name (Mailbox), or a
 -- service Atlas knows the name by (Data.BlipServices; a class trainer by its title: Blips.lua:375-403);
--- a gathering node's, an atlas (Blips.lua:423-426). nil, nil: none (a gold dot).
+-- a gathering node's, an atlas (Blips.lua:423-426), by name or, one no one knows, by what's tracked (Guess).
+-- nil, nil: none (a gold dot).
 local SERVICE = { innkeeper = 136458, banker = 136453, auctioneer = 136452, stablemaster = 136466,
-	battlemaster = 136454, trainer = 136463, classtrainer = 136455, repair = 136465, mailbox = 136459 }
+	battlemaster = 136454, trainer = 136463, classtrainer = 136455, repair = 136465, mailbox = 136459,
+	flightmaster = 136456 }
 local GATHER = { herb = "Professions_Tracking_Herb", ore = "Professions_Tracking_Ore" }
+-- A name neither Atlas nor the tracking types know, and no NPC's Data has: a gathering node of what's tracked.
+-- Blizzard doesn't say what a blip is, only its name, but with Find Herbs on and Find Minerals off a node is a herb
+-- (and the other way round); with both on, a herb (ores are named to a pattern Atlas knows). Not while a creature
+-- or other spell's tracking is on (a hunter's Track Beasts): its blips are unknown NPCs. Read on a tracking change.
+local FIND_HERBS, FIND_MINERALS, FIND_TREASURE = 2383, 2580, 2481
+local guess, guessDirty = false, true
+Runtime.On("MINIMAP_UPDATE_TRACKING", "game.blips tracking", function() guessDirty = true end)
+local function Guess()
+	if not guessDirty then return guess end
+	guessDirty = false
+	local herbs, minerals, other = false, false, false
+	for i = 1, C_Minimap.GetNumTrackingTypes() or 0 do
+		local info = C_Minimap.GetTrackingInfo(i)
+		local id = info and info.active and info.spellID -- (a spell's: the built-in types, Flight Master, have none)
+		if id and id > 0 then
+			if id == FIND_HERBS then herbs = true
+			elseif id == FIND_MINERALS then minerals = true
+			elseif id ~= FIND_TREASURE then other = true end
+		end
+	end
+	guess = not other and (herbs and "herb" or minerals and "ore") or false
+	return guess
+end
 local icons, atlases = {}, {}
 local function Icon(name)
 	local icon = icons[name]
 	if icon == nil then
+		local typed
 		for i = 1, C_Minimap.GetNumTrackingTypes() or 0 do
 			local info = C_Minimap.GetTrackingInfo(i)
-			if info and info.name == name then icon = info.texture end
+			if info and info.name == name then icon, typed = info.texture, true end
 		end
 		local service = Atlas.BlipService(name)
+		if not (service or typed or Atlas.BlipKnown(name)) then
+			local g = Guess()
+			if g then return nil, GATHER[g] end -- (not kept: what's tracked may change)
+		end
 		icon = icon or SERVICE[service] or false
 		icons[name], atlases[name] = icon, GATHER[service] or false
 	end
 	return icon or nil, atlases[name] or nil
 end
 
--- Names not sensed: you and your group, each look.
+-- Names not sensed: you, your pet and your group, each look.
 local skip = {}
 local function Skip()
 	wipe(skip)
 	local me = UnitName("player")
 	if me then skip[me] = true end
+	local pet = UnitName("pet") -- (an unknown name: Guess would make it a herb)
+	if pet and not issecretvalue(pet) then skip[pet] = true end
 	local unit = IsInRaid() and "raid" or "party"
 	for i = 1, GetNumGroupMembers() do
 		local n = UnitName(unit .. i)

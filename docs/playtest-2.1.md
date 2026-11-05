@@ -86,6 +86,10 @@ client: they are the likeliest to be wrong.
 - Accept a quest from an NPC you can sense on the map: the "!" over that NPC disappears as soon as the quest
   is in your log (no stale "!"). Hand it in: the "?" goes the same way.
 
+- Herbs and ore with Find Herbs (or Find Minerals) on: every node has its herb or ore icon, Forever's own too
+  (Wilted Peacebloom and Stunted Silverleaf in the starter zones, amber and obsidian chunks); a name MagicMap
+  doesn't know still gets the icon of what you track. Any gold dot left: hover it, `/mm mark dot <its name>`.
+
 ## 6. Ground, base picture and indoors
 
 - **[unverified]** The base pictures load (Textures/BaseEasternKingdoms.blp, BaseKalimdor.blp): zoom all the

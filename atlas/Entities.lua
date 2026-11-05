@@ -271,10 +271,22 @@ for _, n in ipairs({
 	"Wintersbite", "Firebloom", "Purple Lotus", "Arthas' Tears", "Sungrass", "Blindweed", "Ghost Mushroom",
 	"Gromsblood", "Golden Sansam", "Dreamfoil", "Mountain Silversage", "Plaguebloom", "Icecap", "Black Lotus",
 	"Swiftthistle", "Bloodthistle",
+	-- Forever's own: its starter-zone nodes (QuestieDB's Forever objects, hundreds of spawns) and its new herbs (the
+	-- client's Item table: Trade Goods, Herb).
+	"Stunted Silverleaf", "Wilted Peacebloom", "Hive Thistle", "Demonsage", "Death Lotus", "Marefoil", "Stranglevine",
 }) do HERBS[n] = true end
+-- A herb's name with a word before it ("Wilted Peacebloom"): one too.
+local function Herb(name)
+	if HERBS[name] then return true end
+	local last = name:match("^%a[%a']* (.+)$")
+	return last ~= nil and HERBS[last] == true
+end
+-- Mining nodes not named "... Vein" or "... Deposit".
+local ORES = { ["Chunk of Amber"] = true, ["Large Chunk of Amber"] = true, ["Small Obsidian Chunk"] = true,
+	["Large Obsidian Chunk"] = true }
 
 -- What a Minimap blip's tooltip name stands for: "herb" or "ore" (a gathering node, by name: no data
--- needed), else its service (Data/BlipServices.lua: "innkeeper", "banker", "auctioneer", "stablemaster",
+-- needed; a name it doesn't know is Game's to guess from what's tracked, game/Blips.lua), else its service (Data/BlipServices.lua: "innkeeper", "banker", "auctioneer", "stablemaster",
 -- "battlemaster", "trainer", "classtrainer", "repair", "questgiver", "questender", "flightmaster",
 -- "mailbox"), or nil.
 -- Data/BlipServices.lua's row for a name, decoded once.
@@ -291,8 +303,8 @@ end
 
 local CLASSES = { "Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "Mage", "Warlock", "Druid" }
 function Atlas.BlipService(name)
-	if HERBS[name] then return "herb" end
-	if name:find(" Vein$") or name:find(" Deposit$") then return "ore" end
+	if Herb(name) then return "herb" end
+	if ORES[name] or name:find(" Vein$") or name:find(" Deposit$") then return "ore" end
 	local r = Service(name)
 	if r then return r[1] end
 	-- A blip named by its title, not a name Data knows ("First Aid Trainer"): a trainer, a class's by its class.
@@ -303,6 +315,9 @@ function Atlas.BlipService(name)
 		return "trainer"
 	end
 end
+
+-- Whether Data knows the name as an NPC's (any row in Data/BlipServices.lua: a service, a title, or both).
+function Atlas.BlipKnown(name) return Service(name) ~= nil end
 
 -- The title of the NPC a blip's tooltip names (its subName: "Innkeeper"), or nil (Blips.lua:408-436).
 function Atlas.BlipTitle(name)
