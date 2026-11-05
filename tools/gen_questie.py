@@ -450,11 +450,12 @@ def blip_services(raw, drop):
     """Blip tooltip name -> (service, title) of the lowest NPC id of that name, as the spike's Kind() read
     LibQuestieDB's IdsByName(name)[1] (Blips.lua:408-436): its service (BLIP_SERVICES, else a quest giver's,
     a quest ender's, a flight master's), its subName; and "Mailbox"."""
-    first = {}
+    first, starts = {}, {}
     for i in sorted(raw["Npc"]):
         name = raw["Npc"][i].get(NPC["name"])
         if name and i not in drop["Npc"]:
             first.setdefault(name, i)
+            starts.setdefault(name, set()).update(ids(raw["Npc"][i].get(NPC["questStarts"]), drop["Quest"]) or ())
     out = {}
     for name, i in first.items():
         r = raw["Npc"][i]
@@ -469,7 +470,9 @@ def blip_services(raw, drop):
         if not service and flags & FLIGHT_MASTER:
             service = "flightmaster"
         title = r.get(NPC["subName"]) or None
-        if service or title:
+        if service == "questgiver":  # every quest an NPC of the name starts (Model works out which you can take)
+            out[name] = (service, title, sorted(starts[name]))
+        elif service or title:
             out[name] = (service, title)
     out["Mailbox"] = ("mailbox", None)
     return out
@@ -601,7 +604,8 @@ def main() -> None:
     write(out("BlipServices.lua"), "BlipServices", [
         "[blip tooltip name] = { service, title }: service innkeeper | banker | auctioneer | stablemaster",
         "  | battlemaster | trainer | classtrainer | repair | questgiver | questender | flightmaster | mailbox, or nil;",
-        "  title the NPC's subName, or nil. By the lowest NPC id of the name (before the diet).",
+        "  title the NPC's subName, or nil. By the lowest NPC id of the name (before the diet). A questgiver's third:",
+        "  the quests every NPC of the name starts.",
     ], sorted(services.items()), meta, packed=False)
 
     log(f"spawn points: {dict(project.stats)}; mailboxes with spawns: {mailboxes}")

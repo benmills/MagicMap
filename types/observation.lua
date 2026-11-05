@@ -45,6 +45,7 @@
 ---@field interior? MM.ObsInterior|false on change: the building you're in and its room (ADR 0008); false = in none
 ---@field addons? MM.ObsAddon[]      on change: other addons whose pins Game can borrow (View.layers "addon:<key>")
 ---@field build? string           on change: the client's build, GetBuildInfo's version.build ("1.60.1.70532"; game/parts/Build.lua)
+---@field done? table<integer, boolean> on change: the quests this character has handed in (game/parts/Done.lua)
 ---@field levels? table<MM.UiMapID, integer[]> on change: each map's level range as the client gives it,
 ---                                   { lo, hi } (C_Map.GetMapLevels), for the maps Atlas has; one it gives none is
 ---                                   missing. Read once.
@@ -61,6 +62,8 @@
 ---@field level? integer
 ---@field trivialRange? integer UnitQuestTrivialLevelRange("player"): a mob more than this many levels below you is grey (spike QuestInfo.lua:191); nil: 5
 ---@field faction? MM.Faction  "A" or "H"
+---@field race? integer        UnitRace's raceID (a quest's races mask: bit race - 1)
+---@field class? integer       UnitClass's classID (a quest's classes mask: bit class - 1)
 ---@field dead? boolean        dead or a ghost
 ---@field ghost? boolean       a ghost (released): your corpse becomes the target
 ---@field combat? boolean      InCombatLockdown(): what Game can't do now

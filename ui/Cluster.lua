@@ -1,5 +1,5 @@
--- Overlapping pins grouped (ui/Cluster.lua). Where two or more pins of the clustered layers (quests, offers,
--- places, rares, blips: opts.cluster in Pins.Layer) crowd together at the zoom (each within range px of
+-- Overlapping pins grouped (ui/Cluster.lua). Where two or more pins of the clustered layers (places, rares, blips:
+-- opts.cluster in Pins.Layer; never quests, quests to pick up, or a quest giver's blip) crowd together at the zoom (each within range px of
 -- another, at most reach ranges from the first: the greedy pass in Group), they draw as one pill at their
 -- centroid: up to two icons by default (the "slots" tunable) side by side, the last a "+N" when there are more, on a
 -- faint dark backing. Clicking the pill opens a grid of its members above it at their normal size; each
@@ -125,8 +125,12 @@ local inst_, zoom_, src_ -- the collection in hand
 local function want(minZoom) return Engine.From(zoom_, minZoom) end
 
 -- The collecting put a source's fill calls: the instance's entries, each once.
+-- A quest's look: a blip of a quest giver's "!" or "?" (ui/Blips.lua) is a quest too, never grouped.
+local QUEST = { questnormal = true, questturnin = true }
 local function put(e, l, minZoom)
-	if e.pos.inst == inst_ and (not minZoom or want(minZoom)) and not UI.Track.Focus(e) then -- (what you track stays on its own)
+	local art = l and l.icon
+	if e.pos.inst == inst_ and (not minZoom or want(minZoom)) and not UI.Track.Focus(e) -- (what you track stays on its own)
+		and not (art and QUEST[art.atlas]) then
 		n = n + 1
 		ent[n], look[n], minz[n], srcs[n], cols[n], rows[n] = e, l, minZoom, src_, e.pos.col, e.pos.row
 	end

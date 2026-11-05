@@ -1578,6 +1578,7 @@ function UnitClass(unit) local u = Sim.units[unit]; if u then return u.class, u.
 function UnitGUID(unit) local u = Sim.units[unit]; return u and (u.guid or "Player-1-00000001") end
 function UnitIsPlayer(unit) local u = Sim.units[unit]; return u ~= nil and u.npc == nil end
 function UnitClassification(unit) return Sim.units[unit] and Sim.units[unit].classification or "normal" end
+function UnitRace(unit) local u = Sim.units[unit]; if u then return "Human", "Human", u.raceID or 1 end end
 function UnitLevel(unit) local u = Sim.units[unit]; return u and (u.level or 1) or 0 end
 function UnitQuestTrivialLevelRange(unit) return 5 end
 -- A unit's portrait drawn into a texture (the unit's GUID, for tests).
@@ -1762,6 +1763,7 @@ local function Fresh(list)
 end
 local function ByQuest(a, b) return a.questID < b.questID end
 C_QuestLog = {
+	GetAllCompletedQuestIDs = function() return Sim.done or {} end, -- Sim.done: quest IDs handed in
 	GetQuestsOnMap = function(id)
 		local out = {}
 		for questID, q in pairs(Sim.quests) do

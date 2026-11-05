@@ -49,7 +49,7 @@ end, (function()
 end)(), {
 	tooltip = function(_, e) UI.QuestTooltip.Show(e) end,
 	hover = Areas.Hover,
-	cluster = true,
+	-- (never grouped: a quest always stands where it is)
 })
 
 -- Quests' icon size (a factor on every in-progress and turn-in icon): the looks made again.
@@ -73,7 +73,7 @@ UI.Offers = Pins.Layer("offers", 14, function(put)
 	end
 end, function() return select(2, Model.Known("offers")) end, {
 	lines = function(e) return e.name, e.line, DIM .. e.text .. "|r" end, -- Layers.lua:652-655
-	cluster = true,
+	-- (never grouped, as the quests)
 })
 
 UI.Menus.Layer({ key = "quests", label = "Quests", group = "quests", tip = "Quests in your log. Click one to track it." })

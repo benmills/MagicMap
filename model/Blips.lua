@@ -176,6 +176,7 @@ end
 local OURS = { quests = "quests", offers = "offers", rares = "rares", corpse = "corpse", waypoint = "waypoint" }
 local PLACES = { flight = "flight", dungeon = "dungeons" }
 local ours, oursRev, oursOff, oursTracked = {}, -1, nil, nil -- inst, col, row of each; the revs (summed), Focus.off and .tracked they're of
+local availSeen -- Model.availableRev at the last Live (what you could take changed: the "!"s again)
 local backs = {} -- inst, col, row, service of each offer ("questgiver") and quest ready to hand in ("questender"): whatever layers are on
 
 -- ours made again if any of those changed: whether it was.
@@ -238,6 +239,13 @@ local function Quest(e)
 			return Atlas(QUEST[q])
 		end
 	end
+	-- No offer of ours by it (the world map's offers are only quests in a quest line): a quest it starts you
+	-- could take now (model/Available.lua).
+	if q == "questgiver" then
+		for _, id in ipairs(ns.Atlas.BlipQuests(e.name)) do
+			if Model.CanTake(id) then return Atlas(QUEST[q]) end
+		end
+	end
 end
 
 -- Known("blips") anew: each live one but ours, under the key of a remembered one it stands for.
@@ -266,7 +274,9 @@ Model.Part(function(obs)
 		if live[1] then live = {}; Live() end
 		return
 	end
-	if Sync(b.list) then
+	local avail = Model.availableRev ~= availSeen
+	availSeen = Model.availableRev
+	if Sync(b.list) or avail then
 		Ours()
 		for _, e in ipairs(live) do
 			if e.icon and not e.rough and not NearOurs(e) then Remember(e, obs.epoch or 0) end

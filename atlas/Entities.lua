@@ -316,6 +316,12 @@ function Atlas.BlipService(name)
 	end
 end
 
+-- The quests NPCs of a quest giver's name start (Data/BlipServices.lua's third), or an empty list.
+function Atlas.BlipQuests(name)
+	local r = Service(name)
+	return r and r[3] or NONE
+end
+
 -- Whether Data knows the name as an NPC's (any row in Data/BlipServices.lua: a service, a title, or both).
 function Atlas.BlipKnown(name) return Service(name) ~= nil end
 

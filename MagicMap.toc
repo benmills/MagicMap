@@ -51,6 +51,7 @@ runtime\Runtime.lua
 # Model (before Game, which hands it observations and its saved part)
 model\Model.lua
 model\Services.lua
+model\Available.lua
 model\Blips.lua
 model\Rares.lua
 model\Quests.lua
@@ -102,6 +103,7 @@ game\parts\Interior.lua
 game\parts\Addons.lua
 game\parts\Quests.lua
 game\parts\Offers.lua
+game\parts\Done.lua
 game\parts\Waypoint.lua
 game\parts\Corpse.lua
 game\parts\Levels.lua
