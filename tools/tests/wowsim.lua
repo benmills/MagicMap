@@ -1725,6 +1725,7 @@ ATLASES["_UI-Frame-Metal-EdgeBottom"] = { 256, 200 }
 ATLASES["UI-QuestPoi-QuestNumber"], ATLASES["deathrecap-icon-tombstone"] = { 32, 32 }, { 15, 20 }
 ATLASES["poi-graveyard-neutral"] = { 12, 16 }
 ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
+ATLASES["levelup-dot-gold"] = { 21, 22 } -- the zoom reset's dot (Forever has no reset atlas)
 ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }
 ATLASES["!UI-Frame-Metal-EdgeRight"] = { 200, 256 }
 -- ui/Art.lua's (Forever's ObjectIconsAtlas, as tools/export_icons.py cuts them for the demo)

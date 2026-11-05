@@ -83,16 +83,27 @@ zoomIn:SetPoint("BOTTOM", zoomOut, "TOP", 0, 2)
 Controls.zoomIn, Controls.zoomOut = zoomIn, zoomOut
 
 -- Reset zoom: above the zoom in (the gap the + and - keep), shown only while the zoom isn't the default (UI.DefaultZoom,
--- ui/View.lua). An atlas if the client has one of these names; else a dark disc with a gold dot,
--- the highlight a glow as the zoom buttons' (no client here to check the atlas names against).
+-- ui/View.lua). The client's reset atlas if it has one (Forever has none); else Blizzard's small gold dot
+-- (levelup-dot-gold, the level-up toast's; its radio dot after it), the highlight the same, added; else, a client
+-- with neither, a gold dot of our own on a dark disc.
 local RESET_TOL = 1 -- px per tile: a zoom this close to the default is the default
 local resetAtlas = FirstAtlas("ui-hud-minimap-zoom-reset", "ui-hud-minimap-zoom-default")
+local dotAtlas = not resetAtlas and FirstAtlas("levelup-dot-gold", "common-radiobutton-dot")
 local zoomReset = CreateFrame("Button", nil, Chrome.controls)
 zoomReset:SetSize(16, 16)
 zoomReset:SetPoint("BOTTOM", zoomIn, "TOP", 0, 2)
 if resetAtlas then
 	zoomReset:SetNormalAtlas(resetAtlas)
 	zoomReset:SetHighlightAtlas(resetAtlas, "ADD")
+elseif dotAtlas then
+	local dot = zoomReset:CreateTexture(nil, "ARTWORK")
+	dot:SetAtlas(dotAtlas)
+	dot:SetSize(10, 10)
+	dot:SetPoint("CENTER")
+	local glow = zoomReset:CreateTexture(nil, "HIGHLIGHT")
+	glow:SetAtlas(dotAtlas)
+	glow:SetBlendMode("ADD")
+	glow:SetAllPoints(dot)
 else
 	local disc = zoomReset:CreateTexture(nil, "BACKGROUND")
 	disc:SetTexture(Chrome.CIRCLE)
