@@ -178,6 +178,13 @@ function Controls.SetPillAlpha(a)
 	end
 end
 Backing(line)
+
+-- The pills' look and behaviour (ui/Feel.lua's Info pills page, through Controls.SetPill): their size, what each
+-- says, whether each shows, fades until you point at the map, and the tracking pill's corner.
+local PILL = { scale = 1, questShow = "all", questProgress = true, questFade = true, trackShow = true,
+	trackWhat = "both", trackCorner = "left", trackFade = false }
+Controls.PILL_DEFAULTS = {}
+for k, v in pairs(PILL) do Controls.PILL_DEFAULTS[k] = v end
 local lineText = line:CreateFontString(nil, "OVERLAY")
 lineText:SetFont(FONT, 10, "")
 lineText:SetTextColor(0.95, 0.9, 0.8)
@@ -223,13 +230,15 @@ local function Words(list, here)
 			break
 		end
 	end
+	if PILL.questShow == "off" then return nil end
 	if followed then
+		if not PILL.questProgress then return "", followed.name, "", followed end
 		if followed.complete then return "", followed.name, "  ready to turn in", followed end
 		local have, need = Progress(followed)
 		if need > 0 then return "", followed.name, "  " .. have .. "/" .. need, followed end
 		return "", followed.name, "", followed
 	end
-	if not here then return nil end
+	if not here or PILL.questShow == "followed" then return nil end
 	local n = 0
 	for _, e in ipairs(list) do
 		if PinZone(e.pos) == here.mapID then n = n + 1 end
@@ -272,14 +281,15 @@ local function Show(pre, head, tail, followed)
 	tracked = followed ~= false
 	-- Capped so the line never reaches the zoom buttons (the map's width less the zoom column).
 	local textX = questAtlas and ICON_X + ICON + ICON_GAP or LINE_PAD
-	local w = overlay:GetWidth()
-	local avail = w > 0 and w - 2 * PAD - ZOOM_COL - textX - LINE_PAD or math.huge
+	-- In the pill's own units (SetScale).
+	local w = overlay:GetWidth() / PILL.scale -- /: never 0 (the scale's least is 0.8)
+	local avail = w > 0 and w - (2 * PAD + ZOOM_COL) / PILL.scale - textX - LINE_PAD or math.huge -- /: never 0 (as above)
 	lineText:SetPoint("LEFT", line, "LEFT", textX, 0)
 	lineText:SetText(Fit(pre, head, tail, avail))
 	line:SetWidth(textX + lineText:GetStringWidth() + LINE_PAD)
 	icon:SetDesaturated(not followed)
 	icon:SetAlpha(followed and 1 or 0.6)
-	line:SetAlpha(followed and 1 or hover)
+	line:SetAlpha((followed or not PILL.questFade) and 1 or hover)
 	line:Show()
 end
 
@@ -353,7 +363,7 @@ local function Track()
 	local speed = Model.you.speed
 	if speed and speed > 0 then pace = speed end
 	local _, yd = UI.You.Target()
-	if not yd then -- nothing tracked here (nil), or inside its area (false)
+	if not yd or not PILL.trackShow then -- nothing tracked here (nil), or inside its area (false)
 		if trackShown then
 			trackShown = false
 			track:Hide()
@@ -380,6 +390,11 @@ local function Track()
 		eta = string.format("%d h", math.floor(secs / 3600 + 0.5))
 	end
 	local words = string.format("%d yd  \194\183  %s", yd, eta)
+	if PILL.trackWhat == "yards" then
+		words = string.format("%d yd", yd)
+	elseif PILL.trackWhat == "time" then
+		words = eta
+	end
 	if words ~= trackWords then
 		trackWords = words
 		trackText:SetText(words)
@@ -389,6 +404,33 @@ local function Track()
 		trackShown = true
 		track:Show()
 	end
+end
+
+-- The tracking pill's corner and both pills' size (SetScale: its offsets are in its own units, so divided by it).
+local function Place()
+	local sc = PILL.scale
+	line:SetScale(sc)
+	line:ClearAllPoints()
+	line:SetPoint("BOTTOMLEFT", PAD / sc, BOTTOM_Y / sc) -- /: never 0 (the scale's least is 0.8)
+	track:SetScale(sc)
+	track:ClearAllPoints()
+	if PILL.trackCorner == "right" then
+		track:SetPoint("TOPRIGHT", -PAD / sc, -PAD / sc) -- /: never 0 (as above)
+	else
+		track:SetPoint("TOPLEFT", PAD / sc, -PAD / sc) -- /: never 0 (as above)
+	end
+end
+
+-- One of PILL's settings (ui/Feel.lua): applied at once, both pills worked out again.
+function Controls.SetPill(key, v)
+	if PILL[key] == v then return end
+	PILL[key] = v
+	Place()
+	lastRev, trackWords = nil, nil
+	Look()
+	Track()
+	line:SetAlpha((tracked or not PILL.questFade) and 1 or hover)
+	track:SetAlpha(PILL.trackFade and hover or 1)
 end
 
 ---------------------------------------------------------------------------
@@ -435,7 +477,8 @@ Runtime.Step("ui", "map: controls", function(elapsed)
 		gear:SetAlpha(hover)
 		mode:SetAlpha(hover)
 		Chrome.grip:SetAlpha(GRIP_ALPHA * hover)
-		line:SetAlpha(tracked and 1 or hover)
+		line:SetAlpha((tracked or not PILL.questFade) and 1 or hover)
+		track:SetAlpha(PILL.trackFade and hover or 1)
 	end
 	ResetLook()
 	if UI.Cluster then UI.Cluster.Watch() end

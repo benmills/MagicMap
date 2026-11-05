@@ -8,9 +8,11 @@
 --   General: Replace minimap / world map (UI.Replace, the other half of the contract: Get(key), Set(key, on)),
 --     Follow you (UI.Motion), Minimap button (UI.Icon), Group icons (UI.saved.cluster), Reset window position.
 --   Map: label size, subzone label size and opacity (ui/Labels.lua),
---     your arrow's size (ui/You.lua), the info pills' backing (ui/Controls.lua), the indoor veil's strength and whether
+--     your arrow's size (ui/You.lua), the indoor veil's strength and whether
 --     a small building zooms the map in (ui/Interiors.lua), the ocean (ui/Sea.lua) and the repaints (ui/Repaint.lua). Pushed to their setters on change, and again each time the
 --     map shows (the saved values, once loaded); each owner lays out anew by a rev of its own.
+--   Info pills (ui/Controls.lua: the quest pill, bottom left, and the distance pill, top): their backing, size, what each
+--     says, whether each shows or fades until you point at the map, and the distance pill's corner (Controls.SetPill).
 --   Icons: every pin's size, and the quests' (ui/Pins.lua, ui/Quests.lua; their revs move with it); the focus ring
 --     round what you track: its size, opacity and colour (Pins.SetGlow; "ring.color" a name of UI.Pins.GLOW_COLORS).
 --   Tracking line: style, weight, colour, glow, breathing, opacity, the outline and its colour. ui/Path.lua owns the values: it
@@ -71,12 +73,25 @@ local ColorOptions = Names(PathColors)
 local EdgeOptions = Names(function() return UI.Path and UI.Path.EDGE_COLORS or EDGE_COLORS end)
 local RingColors = function() return UI.Pins and UI.Pins.GLOW_COLORS or RING_COLORS end
 
+-- The pills' (ui/Controls.lua loads after this file: its defaults read when asked, these until then).
+local PILL_DEFAULTS = { scale = 1, questShow = "all", questProgress = true, questFade = true, trackShow = true,
+	trackWhat = "both", trackCorner = "left", trackFade = false }
+local function PillDefault(k)
+	return function()
+		local d = UI.Controls and UI.Controls.PILL_DEFAULTS
+		if d and d[k] ~= nil then return d[k] end
+		return PILL_DEFAULTS[k]
+	end
+end
+local function Pill(k) return function(v) UI.Controls.SetPill(k, v) end end
+
 local function AreaDefault(k) return function() return UI.Areas and UI.Areas.DEFAULTS[k] or AREA_DEFAULTS[k] end end
 
 local PAGES = {
 	{ key = "general", title = "General", icon = "Interface\\Icons\\Trade_Engineering" },
 	{ key = "map", title = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01" },
 	{ key = "icons", title = "Icons", icon = "Interface\\Icons\\Ability_Tracking" },
+	{ key = "pills", title = "Info pills", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01" },
 	{ key = "path", title = "Tracking line", icon = "Interface\\Icons\\Ability_Hunter_Pathfinding" },
 	{ key = "areas", title = "Quest areas", icon = "Interface\\Icons\\INV_Misc_Map02" },
 	{ key = "group", title = "Grouping", icon = "Interface\\Icons\\INV_Misc_Bag_08" },
@@ -117,9 +132,6 @@ local KEYS = {
 		default = 0.6, apply = function(v) UI.Labels.SetSubAlpha(v) end, tip = "How solid the subzone names are." },
 	{ key = "arrow.scale", section = "map", label = "Your arrow", kind = "slider", min = 0.6, max = 1.6, step = 0.1, pct = true,
 		default = 1, apply = function(v) UI.You.SetArrowScale(v) end, tip = "Your arrow's size." },
-	{ key = "pills.alpha", section = "map", label = "Info pill backing", kind = "slider", min = 0, max = 0.8, step = 0.05, pct = true,
-		default = 0.25, apply = function(v) UI.Controls.SetPillAlpha(v) end,
-		tip = "How dark the backing of the map's pills (the tracked distance, the quest) is." },
 	{ key = "interiors.dim", section = "map", label = "Indoor dimming", kind = "slider", min = 0.3, max = 0.9, step = 0.05, pct = true,
 		default = 0.65, apply = function(v) UI.Interiors.SetDim(v) end,
 		tip = "How dark the terrain is under a building's indoor map, while you're inside and the map is small." },
@@ -131,6 +143,31 @@ local KEYS = {
 	{ key = "repaint.on", section = "map", label = "Repair broken map art", kind = "check", default = true,
 		apply = function(v) UI.Repaint.Set(v) end,
 		tip = "Paints over the flat, unfinished blocks in Blizzard's map with AI-generated pictures. Only on the game build they were checked against: on another, the map stays as Blizzard's until MagicMap updates." },
+
+	{ key = "pills.alpha", section = "pills", label = "Backing", kind = "slider", min = 0, max = 0.8, step = 0.05, pct = true,
+		default = 0.25, apply = function(v) UI.Controls.SetPillAlpha(v) end,
+		tip = "How dark the pills' backing is: the quest pill (bottom left) and the distance pill (top)." },
+	{ key = "pills.scale", section = "pills", label = "Size", kind = "slider", min = 0.8, max = 1.6, step = 0.1, pct = true,
+		default = PillDefault("scale"), apply = Pill("scale"), tip = "Both pills' size, text and all." },
+	{ key = "pills.questShow", section = "pills", label = "Quest pill", kind = "pick", default = PillDefault("questShow"),
+		options = { { "Quest or zone count", "all" }, { "Followed quest only", "followed" }, { "Off", "off" } },
+		apply = Pill("questShow"),
+		tip = "Bottom left: the quest you follow, else how many of your quests are in this zone; or only a followed quest; or none." },
+	{ key = "pills.questProgress", section = "pills", label = "Quest progress", kind = "check", default = PillDefault("questProgress"),
+		apply = Pill("questProgress"), tip = "The followed quest's count (2/5) or \"ready to turn in\" after its name." },
+	{ key = "pills.questFade", section = "pills", label = "Fade quest pill", kind = "check", default = PillDefault("questFade"),
+		apply = Pill("questFade"),
+		tip = "The zone's quest count shows only while you point at the map. A followed quest always shows." },
+	{ key = "pills.trackShow", section = "pills", label = "Distance pill", kind = "check", default = PillDefault("trackShow"),
+		apply = Pill("trackShow"), tip = "The yards and time to what you track (a quest, an icon, your waypoint)." },
+	{ key = "pills.trackWhat", section = "pills", label = "Distance shows", kind = "pick", default = PillDefault("trackWhat"),
+		options = { { "Yards and time", "both" }, { "Yards", "yards" }, { "Time", "time" } }, apply = Pill("trackWhat"),
+		tip = "What the distance pill says. The time is at your pace (a run's, until you've moved)." },
+	{ key = "pills.trackCorner", section = "pills", label = "Distance corner", kind = "pick", default = PillDefault("trackCorner"),
+		options = { { "Top left", "left" }, { "Top right", "right" } }, apply = Pill("trackCorner"),
+		tip = "Which top corner of the map the distance pill sits in." },
+	{ key = "pills.trackFade", section = "pills", label = "Fade distance pill", kind = "check", default = PillDefault("trackFade"),
+		apply = Pill("trackFade"), tip = "The distance pill shows only while you point at the map." },
 
 	{ key = "icons.scale", section = "icons", label = "Icon size", kind = "slider", min = 0.6, max = 1.6, step = 0.1, pct = true,
 		default = 1.2, apply = function(v) UI.Pins.SetScale(v) end,

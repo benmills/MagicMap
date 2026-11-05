@@ -99,7 +99,7 @@ def test_settings_pages_apply_and_reset():
     UI, saved, Feel = ns.UI, L.globals().MagicMap2DB.UI, ns.UI.Feel
     sim.Slash("/mm toggle")
     sim.Run(1)
-    pages = ["general", "map", "icons", "path", "areas", "group", "diag"]
+    pages = ["general", "map", "icons", "pills", "path", "areas", "group", "diag"]
     for p in pages:
         Feel.Open(p)
     assert sorted(Feel.pages.keys()) == sorted(pages)

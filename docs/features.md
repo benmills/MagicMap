@@ -148,7 +148,8 @@ Settings are account-wide.
 | Page | Settings (default) |
 | --- | --- |
 | General | Replace minimap, Replace world map (what the welcome chose); Follow you (on); Minimap button (on); Group icons (on); Reset window position |
-| Map | Label size (100%); Subzone size (100%); Subzone opacity (60%); Your arrow's size (100%); Info pill backing (25%); Indoor dimming (65%); Indoor auto-zoom (on); Ocean (on); Repair broken map art (on) |
+| Map | Label size (100%); Subzone size (100%); Subzone opacity (60%); Your arrow's size (100%); Indoor dimming (65%); Indoor auto-zoom (on); Ocean (on); Repair broken map art (on) |
+| Info pills | Backing (25%); Size (100%); Quest pill (quest or zone count / followed quest only / off); Quest progress (on); Fade quest pill (on: the zone count only while you point at the map); Distance pill (on); Distance shows (yards and time / yards / time); Distance corner (top left / top right); Fade distance pill (off) |
 | Icons | Icon size (120%); Quest icon size (100%); Focus ring size (145%); Focus ring opacity (25%); Focus ring colour (Gold) |
 | Tracking line | Style (dashed); Weight (1.0 px); Colour (Gold); Glow (off); Breathing (off); Opacity (55%); Outline (off); Outline colour (Dark) |
 | Quest areas | The followed quest's fill, edge and edge width; the others' fill, edge and edge width; the hover's fill and edge (as the game draws them, a quiet fill by default) |

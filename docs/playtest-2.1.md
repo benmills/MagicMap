@@ -73,6 +73,8 @@ client: they are the likeliest to be wrong.
   Settings > General ungroups them.
 - The quest pill (bottom left) and tracking pill (top left) are small and quiet; Info pill backing changes
   how dark they are. Zoom reset above +/- appears only when off the default zoom.
+- Settings > Info pills: each row changes the pills live (size, backing, the quest pill off or followed-only, no
+  progress, no fade; the distance pill off, yards or time only, top right, fading until you point at the map).
 - Minimap button: round, with the ring and shape of other addons' buttons (LibDBIcon), dragging round the rim.
 
 ## 5. Quests
