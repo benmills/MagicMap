@@ -69,6 +69,9 @@ const LABEL_STYLE = {
 let labels = [];
 const labelState = new Map(); // rank -> { a: opacity 0..1, on, spot: candidate index }
 let labelClock = 0;
+// A new map's names wait for its first pins (at most until then: loadWorld sets it), so they're placed clear of
+// them once, fading in together, not placed and then pushed aside when the pins come.
+let namesAfter = 0;
 
 // Canvas text silently uses a fallback until a web font has loaded, so the map waits for both.
 async function loadLabels() {
@@ -129,6 +132,7 @@ const clear = (b, boxes, pad) => !boxes.some((o) => b[0] - pad < o[2] && b[2] + 
 // indices of those a name covers, for the caller not to draw.
 function drawLabels(pinBoxes) {
   const covered = new Set();
+  if (performance.now() < namesAfter) { setTimeout(draw, 120); return covered; }
   const now = performance.now(), step = labelClock ? Math.min(100, now - labelClock) / LABEL_STYLE.fadeMs : 1;
   labelClock = now;
   const boxes = [], blockers = {}, m = LABEL_STYLE.margin; // blockers: per tier, the pins it keeps clear of

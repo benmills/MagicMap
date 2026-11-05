@@ -228,6 +228,7 @@ function refreshPins() {
       renderLayers();
       if (!want.length) {
         pins = [];
+        namesAfter = 0;
         if (pinLimitMessage && $("status").textContent === pinLimitMessage) notice("");
         pinLimitMessage = "";
         draw();
@@ -239,6 +240,7 @@ function refreshPins() {
       );
       if (seq === pinSeq && requests.current(ticket)) {
         pins = Array.isArray(got) ? got : got.pins;
+        namesAfter = 0; // (labels.js: the names place themselves clear of these)
         if (pinLimitMessage && $("status").textContent === pinLimitMessage) notice("");
         pinLimitMessage = got.omitted ? `${got.omitted} more database locations in this view. Zoom in to see them.` : "";
         if (pinLimitMessage) notice(pinLimitMessage);

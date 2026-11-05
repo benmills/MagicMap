@@ -22,6 +22,7 @@ function stopMotion() {
   motion = null;
   if (motionKind === "glide" || motionKind === "cinema") finishGroundPan();
   motionKind = null;
+  wheelGoal = null;
   flown?.(false);
   flown = null;
   if (wheelTimer) {
@@ -31,6 +32,22 @@ function stopMotion() {
   }
 }
 let flown = null; // a flight's done(true) when it lands, done(false) if stopped
+// The mouse wheel's zoom: each notch moves a target, the camera glides to it (about 70 ms a step), so a notch is
+// a short flight about the cursor, not a jump. { x, y: the anchor; zoom: the target; last: the last frame's time }
+let wheelGoal = null;
+function wheelStep(now) {
+  const g = wheelGoal;
+  if (!g) return;
+  const dt = Math.min(50, now - g.last), z = state.camera.zoom;
+  g.last = now;
+  let done = Math.abs(Math.log(g.zoom / z)) < 0.003;
+  zoomAt(g.x, g.y, done ? g.zoom : z * (g.zoom / z) ** (1 - Math.exp(-dt / 70)));
+  if (state.camera.zoom === z) done = true; // (held at a limit)
+  draw();
+  if (!done) { motion = requestAnimationFrame(wheelStep); return; }
+  wheelGoal = null; motion = null; motionKind = null;
+  if (!wheelTimer) { finishGroundPan(); draw(); settled(); }
+}
 function flyTo(goal, ms = 350, done) {
   goal = { ...goal, zoom: clamp(goal.zoom, minZoom(), maxZoom()) };
   stopMotion();
@@ -269,7 +286,7 @@ canvas.addEventListener(
   (e) => {
     e.preventDefault();
     if (!state.camera || pts.size) return;
-    if (!wheelTimer) {
+    if (!wheelTimer && motionKind !== "wheel") { // (a notch mid-glide moves its target on)
       stopMotion();
       lockGround();
     }
@@ -283,16 +300,19 @@ canvas.addEventListener(
     else {
       const units = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? H : 1;
       const point = mapPoint(e.clientX, e.clientY);
-      zoomAt(
-        point.x,
-        point.y,
-        state.camera.zoom *
-          Math.exp(-e.deltaY * units * (e.ctrlKey ? 0.01 : 0.002)),
-      );
+      const k = Math.exp(-e.deltaY * units * (e.ctrlKey ? 0.01 : 0.002));
+      if (e.ctrlKey) zoomAt(point.x, point.y, state.camera.zoom * k); // (a pinch: continuous already)
+      else {
+        const from = wheelGoal ? wheelGoal.zoom : state.camera.zoom;
+        wheelGoal = { x: point.x, y: point.y, zoom: clamp(from * k, minZoom() * 0.8, maxZoom() * 1.25),
+          last: wheelGoal?.last ?? performance.now() };
+        if (motionKind !== "wheel") { motionKind = "wheel"; motion = requestAnimationFrame(wheelStep); }
+      }
     }
     draw();
     wheelTimer = setTimeout(() => {
       wheelTimer = null;
+      if (motionKind === "wheel") return; // (the glide settles when it lands)
       finishGroundPan();
       draw();
       settled();

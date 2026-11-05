@@ -403,12 +403,35 @@ def find(q):
     return out
 
 
+def stamp(inst):
+    """What the inventory of a map's assets depends on: its folders' and manifests' times (a file added or a manifest
+    restamped moves one)."""
+    out = []
+    for kind in ("tiles", "terrain", "objects"):
+        for p in (os.path.join(DEMO, kind, str(inst)), os.path.join(DEMO, kind, str(inst), "manifest.json")):
+            try:
+                out.append(os.stat(p).st_mtime_ns)
+            except OSError:
+                out.append(None)
+    return tuple(out)
+
+
+_assets = [None, None]  # the stamps it was worked out at, the answer
+
+
 def assets(q):
+    """Every map's assets on the world, kept until one of them changes (the 3D manifests are read and checked: a
+    quarter of a second)."""
     product, version = Atlas.Data.Tiles.product, Atlas.Data.Tiles.version
+    key = (tuple(stamp(i) for i in OFFSET), product, version)
+    if _assets[0] == key:
+        return _assets[1]
     each = {i: inventory(DEMO, i, product, version) for i in OFFSET}
-    out = dict(each[WORLD], tiles=sorted(world_key(i, k) for i in OFFSET for k in each[i]["tiles"]))
+    out = dict(each[WORLD], tiles=sorted(world_key(i, k) for i in OFFSET for k in each[i]["tiles"]),
+               blocks=[i for i in OFFSET if each[i]["blocks"]])  # the maps with blocks of quick copies
     for kind in ("terrain", "objects"):
         out[kind] = world_assets(kind, {i: m[kind] for i, m in each.items()})
+    _assets[:] = [key, out]
     return out
 
 
@@ -451,9 +474,12 @@ def maps(q):
     return dict(ms[WORLD], inst=WORLD, name=WORLD_NAME, bounds=bounds, land=LAND, zones=zones, parts=parts)
 
 
+TILES = {"tiles": [{"key": world_key(i, t["key"]), "sea": t["sea"], "inst": i, "src": t["key"]}
+                   for i in OFFSET for t in ({"key": k, "sea": not Atlas.Drawn(i, k)} for k in Atlas.Tiles(i).keys())]}
+
+
 def tiles(q):
-    return {"tiles": [{"key": world_key(i, t["key"]), "sea": t["sea"], "inst": i, "src": t["key"]}
-                      for i in OFFSET for t in ({"key": k, "sea": not Atlas.Drawn(i, k)} for k in Atlas.Tiles(i).keys())]}
+    return TILES  # (the data's: worked out once)
 
 
 def labels(q):
@@ -578,7 +604,9 @@ class Handler(SimpleHTTPRequestHandler):
         path = urlparse(self.path).path
         if os.path.splitext(path)[1] in COMPRESSIBLE or path.endswith('/'):
             self.send_header('Vary', 'Accept-Encoding')
-        if self.path.startswith(("/tiles/", "/terrain/", "/objects/")) and not self.path.endswith("manifest.json") and self.code == 200:
+        if self.path.startswith("/tiles/") and "?v=" in self.path and self.code == 200:  # (its build in the address)
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        elif self.path.startswith(("/tiles/", "/terrain/", "/objects/")) and not self.path.endswith("manifest.json") and self.code == 200:
             self.send_header("Cache-Control", "public, max-age=86400")
         else:  # the page and its scripts: always the current ones
             self.send_header("Cache-Control", "no-cache")
@@ -590,5 +618,10 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+    assets({}), labels({})  # (worked out before the first visitor asks: they're the first view's)
     print(f"Atlas demo on http://localhost:{port}")
+    # A screenful of tiles comes as a burst of new connections from the host's proxy: the stock backlog of 5 dropped
+    # the rest, each retried by TCP a second later (a 1.1 s tail on a third of the tiles).
+    ThreadingHTTPServer.request_queue_size = 512
+    ThreadingHTTPServer.daemon_threads = True
     ThreadingHTTPServer(("", port), Handler).serve_forever()

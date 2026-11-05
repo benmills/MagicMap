@@ -64,4 +64,5 @@ def inventory(root, inst, product, version):
             keys=[]
             tile_reason='Invalid image manifest; regenerate the tiles.'
     return {'product': product, 'version': version, 'tiles': keys, 'tileReason': tile_reason,
+            'blocks': bool(keys) and (tile_dir / 'b8').is_dir(),  # (demo/export_blocks.py's quick copies)
             **{kind: manifest(root, kind, inst, product, version) for kind in FORMATS}}

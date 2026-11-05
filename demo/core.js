@@ -43,8 +43,14 @@ const modulesReady = Promise.all([
   mapMotion = motion;
   requests = new m.Requests();
 });
+// A request the page made early (index.html's EARLY), else a fresh one.
+function early(path) {
+  const r = window.EARLY?.[path];
+  if (r) delete window.EARLY[path];
+  return r;
+}
 async function get(path, options = {}) {
-  const r = await fetch(path, options);
+  const r = await (early(path) || fetch(path, options));
   if (!r.ok) throw Error(`${path.split("?")[0]}: ${r.status}`);
   return r.json();
 }
@@ -184,7 +190,7 @@ function frame() {
       pts.size > 0 || motion !== null || wheelTimer !== null;
     terrain.render(state.tools);
     ctx.clearRect(0, 0, W, H);
-  } else if (!terrainLoading && assets) drawTiles();
+  } else if (!terrainLoading && world) drawTiles(); // (the stand-in before the assets are known)
   else {
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);

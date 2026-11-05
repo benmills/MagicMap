@@ -18,6 +18,16 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='2' y='25' font-size='30' fill='%23e2c383'%3E✦%3C/text%3E%3C/svg%3E"
     />
     <title>MagicMap · Addon demo</title>
+    <!-- The first view's data, asked for before any script runs (core.js get() and tiles.js take each once): the map, its
+         tiles and assets, its names, and the whole-map stand-in drawn first. Then the modules the scripts import. -->
+    <script>
+      window.EARLY = Object.fromEntries(["/api/maps", "/api/tiles", "/api/assets", "/api/labels"].map((p) => [p, fetch(p)]));
+      window.EARLY["sea/world.webp"] = fetch("sea/world.webp", { priority: "high" });
+    </script>
+    <link rel="modulepreload" href="view-state.mjs" />
+    <link rel="modulepreload" href="terrain-quality.mjs" />
+    <link rel="modulepreload" href="map-motion.mjs" />
+    <link rel="modulepreload" href="tile-stream.mjs" />
     <!-- Label faces (see labels.js): Cinzel for Morpheus's titles, Marcellus for Friz Quadrata. Alfa Slab One: the
          logo's wordmark, after the README banner's. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -132,5 +142,10 @@
     <script src="menu.js" defer></script>
     <script src="mapart.js" defer></script>
     <script src="app.js" defer></script>
+    <script>
+      // sw.js: tiles and icons kept for a repeat visit (registered once the page is up: never in its way).
+      if ("serviceWorker" in navigator)
+        addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+    </script>
   </body>
 </html>

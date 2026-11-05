@@ -151,6 +151,7 @@ async function loadWorld(camera) {
   drawnPins = [];
   labels = [];
   labelState.clear();
+  namesAfter = performance.now() + 1500; // (labels.js: until the first pins)
   walk = null;
   profilePoints = [];
   closeSheets();
