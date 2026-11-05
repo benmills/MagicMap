@@ -4,7 +4,7 @@
 local _, ns = ...
 local D = ns.Data or {}; ns.Data = D
 D.formats = D.formats or {}; D.formats.Sea = 1
-D.Sea = { deep = { 0.024, 0.102, 0.173 },
+D.Sea = { deep = { 0.021, 0.090, 0.152 },
   [0] = { file = "Textures\\SeaEasternKingdoms", c0 = 19, r0 = 17, c1 = 51, r1 = 64, px = 16, w = 512, h = 1024 },
   [1] = { file = "Textures\\SeaKalimdor", c0 = 18, r0 = 3, c1 = 54, r1 = 61, px = 16, w = 1024, h = 1024 },
   [2991] = { file = "Textures\\SeaZephrasIsle", c0 = 19, r0 = 16, c1 = 40, r1 = 36, px = 16, w = 512, h = 512 },

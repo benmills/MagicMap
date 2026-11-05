@@ -60,7 +60,12 @@ const MapArt = (() => {
   // Each layer's pieces at their map's place on the world (parts: /api/maps). The ocean: one picture over the whole world
   // (sea/world-sea.webp, in world tiles), and past it the far water's swell (sea/swell.webp, seamless, laid on the world from
   // tile 0, 0 as gen_sea.py made the picture's far water, so they meet pixel for pixel at any size).
-  let swell = null;
+  // (a pattern a frame: its transform follows the camera)
+  const pattern = (g, tex, tiles, zoom, toScreen) => {
+    const fill = g.createPattern(tex, "repeat"), [ox, oy] = toScreen(0, 0), k = (tiles * zoom) / tex.width;
+    fill.setTransform(new DOMMatrix([k, 0, 0, k, ox, oy]));
+    return fill;
+  };
   function draw(g, toScreen, zoom, parts, redraw) {
     again = redraw;
     const OFFSET = Object.fromEntries(parts.map((p) => [p.inst, p.offset]));
@@ -71,14 +76,15 @@ const MapArt = (() => {
     if (on.sea && sea) {
       const W = g.canvas.clientWidth || g.canvas.width, H = g.canvas.clientHeight || g.canvas.height;
       const ocean = pic(`sea/${sea.file}`), [x0, y0] = toScreen(sea.col, sea.row), w = sea.w * zoom, h = sea.h * zoom;
-      const tex = sea.swell && pic(`sea/${sea.swell.file}`);
-      if (tex && (!swell || swell.tex !== tex)) swell = { tex, fill: g.createPattern(tex, "repeat") };
-      if (tex) {
-        const [ox, oy] = toScreen(0, 0), k = (sea.swell.tiles * zoom) / tex.width;
-        swell.fill.setTransform(new DOMMatrix([k, 0, 0, k, ox, oy]));
-      }
+      // The fine swell, then the broad one over it at its alpha (the blend gen_sea.py baked into the picture's far water).
+      const tex = sea.swell && pic(`sea/${sea.swell.file}`), tex2 = sea.over && pic(`sea/${sea.over.file}`);
       g.beginPath(); g.rect(0, 0, W, H); g.rect(x0, y0, w, h);
-      g.fillStyle = tex ? swell.fill : `rgb(${sea.deep.join(",")})`; g.fill("evenodd");
+      g.fillStyle = tex ? pattern(g, tex, sea.swell.tiles, zoom, toScreen) : `rgb(${sea.deep.join(",")})`; g.fill("evenodd");
+      if (tex && tex2) {
+        g.save(); g.globalAlpha = sea.over.alpha;
+        g.fillStyle = pattern(g, tex2, sea.over.tiles, zoom, toScreen); g.fill("evenodd");
+        g.restore();
+      }
       if (ocean) g.drawImage(ocean, x0, y0, w, h);
     }
     if (on.ai) for (const [i, [dx, dy]] of Object.entries(OFFSET)) for (const f of (over.ai && over.ai[i]) || []) {
