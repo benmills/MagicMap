@@ -1316,6 +1316,7 @@ GameFontNormalLarge = { GetFont = function() return STANDARD_TEXT_FONT, 16, "" e
 NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR = CreateColor(1, 0.82, 0, 1), CreateColor(1, 1, 1, 1)
 GameTooltipText = { GetFont = function() return STANDARD_TEXT_FONT, 12, "" end }
 GameTooltipTextSmall = { GetFont = function() return STANDARD_TEXT_FONT, 10, "" end }
+GameTooltipHeaderText = { GetFont = function() return STANDARD_TEXT_FONT, 14, "" end }
 GameTooltip = CreateFrame("GameTooltip", "GameTooltip", UIParent, "GameTooltipTemplate")
 GameTooltip:Hide()
 

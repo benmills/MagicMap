@@ -15,6 +15,8 @@ _G assert collectgarbage coroutine date error getmetatable ipairs math next
 pairs pcall rawget rawset select setmetatable string strsplit strtrim table
 time tinsert tremove tonumber tostring type unpack wipe xpcall print loadstring
 debugprofilestop GetTime GetFramerate
+# 12.x secret values: a measure or value the client withholds (no arithmetic on it)
+issecretvalue
 
 [runtime]
 # Its driver/event frame, error stacks
@@ -25,7 +27,7 @@ CreateFrame debugstack geterrorhandler
 CreateFrame UIParent CreateColor CreateVector2D C_Texture GetFileIDFromPath
 ButtonFrameTemplate_HideButtonBar ButtonFrameTemplate_HidePortrait
 GameFontNormal GameFontNormalSmall GameFontNormalLarge GameFontHighlight GameFontHighlightSmall
-GameTooltip GameTooltipText GameTooltipTextSmall STANDARD_TEXT_FONT
+GameTooltip GameTooltipText GameTooltipTextSmall GameTooltipHeaderText STANDARD_TEXT_FONT
 MenuResponse MenuUtil LEVEL RAID_CLASS_COLORS
 # The client's colour picker (the settings window's Custom…: ui/Feel.lua)
 ColorPickerFrame

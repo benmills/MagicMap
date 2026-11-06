@@ -33,6 +33,7 @@ local DISC_DOWN, DISC_LIT = "UI-QuestPoi-QuestNumber-Pressed", "UI-QuestPoi-Inne
 local BTN, BTN_GAP, ICON = 24, 4, 0.55 -- the buttons: px tall, px apart; an icon's share of its disc
 local PILL_H, PILL_PAD, PILL_ALPHA = 14, 5, 0.22 -- px tall, px past the number each side; its tint's alpha
 local FIT = 260 -- px: the title and its pill fit on one line within this (a tooltip's usual widest), else the pill goes under
+local CURSOR_GAP = 16 -- px: the popup right of the cursor when the tooltip's place is secret
 local ROW_INSET = 6 -- px: the popup's buttons in from its edge
 local PAD = 10 -- px: a tooltip's text in from its left edge (GameTooltipTemplate)
 
@@ -89,10 +90,24 @@ local function Pill(tip)
 	return p
 end
 
--- The pill behind fs (its text the level), tinted c.
-local function ShowPill(tip, fs, c)
+-- Text widths measured on a font string of our own: a tooltip's own regions answer the client's measures secret
+-- (no arithmetic on them: 12.x), so nothing here measures a tooltip's.
+local ruler = CreateFrame("Frame", nil, UIParent):CreateFontString(nil, "ARTWORK")
+ruler:Hide()
+local function Width(font, text)
+	ruler:SetFontObject(font)
+	ruler:SetText(text)
+	return ruler:GetStringWidth()
+end
+-- A frame's measure, or nil where the client keeps it secret.
+local function Plain(v)
+	if v ~= nil and not issecretvalue(v) then return v end
+end
+
+-- The pill behind fs (its text the level, in font), tinted c.
+local function ShowPill(tip, fs, c, level)
 	local p = Pill(tip)
-	local w = fs:GetStringWidth() + 2 * PILL_PAD
+	local w = Width(GameTooltipTextSmall, level) + 2 * PILL_PAD
 	p[1]:ClearAllPoints()
 	p[1]:SetPoint("LEFT", fs, "CENTER", -w / 2, 0)
 	p[3]:ClearAllPoints()
@@ -144,11 +159,11 @@ local function Fill(tip, e)
 		tip:AddDoubleLine(e.name, level, c[1], c[2], c[3])
 		local title, right = Region(tip, "TextLeft1"), Region(tip, "TextRight1")
 		Small(right)
-		if title:GetStringWidth() + PILL_PAD * 4 + right:GetStringWidth() > FIT then
+		if Width(GameTooltipHeaderText, e.name) + PILL_PAD * 4 + Width(GameTooltipTextSmall, level) > FIT then
 			right:SetText("")
 			below = true
 		else
-			ShowPill(tip, right, c)
+			ShowPill(tip, right, c, level)
 		end
 	elseif c then
 		tip:AddLine(e.name, c[1], c[2], c[3])
@@ -159,7 +174,7 @@ local function Fill(tip, e)
 		tip:AddLine(level)
 		local fs = Region(tip, "TextLeft2")
 		Small(fs)
-		ShowPill(tip, fs, c)
+		ShowPill(tip, fs, c, level)
 	end
 
 	-- Facts: tag (Elite, Group (3), Dungeon), ready.
@@ -277,7 +292,13 @@ function QuestTooltip.Open(e)
 	if GameTooltip:IsShown() then
 		-- (its top left in screen px, then in the popup's units: UIParent's scale times its own, the tooltip's)
 		local gs, ps = GameTooltip:GetEffectiveScale(), UIParent:GetEffectiveScale() * GameTooltip:GetScale()
-		at.x, at.y = GameTooltip:GetLeft() * gs / ps, GameTooltip:GetTop() * gs / ps -- /: never 0 (a scale is > 0)
+		local l, t = Plain(GameTooltip:GetLeft()), Plain(GameTooltip:GetTop())
+		if l and t then
+			at.x, at.y = l * gs / ps, t * gs / ps -- /: never 0 (a scale is > 0)
+		else -- (secret: by the cursor, as the tooltip stood beside it)
+			local x, y = GetCursorPosition()
+			at.x, at.y = x / ps + CURSOR_GAP, y / ps -- /: never 0 (a scale is > 0)
+		end
 		at.scale = GameTooltip:GetScale()
 		GameTooltip:Hide()
 	end
@@ -289,12 +310,14 @@ function QuestTooltip.Open(e)
 	Fill(popup, e)
 	local gap = Region(popup, "TextLeft" .. popup:NumLines())
 	local list = UI.Track.QuestRows(e)
-	popup:AddLine(" ") -- (the buttons' line: grown to their height below)
-	popup:Show()
+	popup:AddLine(" ") -- (the buttons' lines: two, their height)
 	local line = Region(popup, "TextLeft" .. popup:NumLines())
+	popup:AddLine(" ")
+	popup:Show()
 	divider:ClearAllPoints()
 	divider:SetPoint("LEFT", gap, "LEFT", ROW_INSET - PAD, 0)
-	divider:SetWidth(popup:GetWidth() - 2 * ROW_INSET)
+	local w = Plain(popup:GetWidth())
+	if w then divider:SetWidth(w - 2 * ROW_INSET) end
 	local prev
 	for i, r in ipairs(list) do
 		local b = Row(i)
@@ -305,7 +328,6 @@ function QuestTooltip.Open(e)
 		b:Show()
 		prev = b
 	end
-	popup:SetHeight(popup:GetHeight() + BTN - line:GetHeight())
 	for i = #list + 1, #rows do rows[i]:Hide() end
 end
 

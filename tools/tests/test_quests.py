@@ -294,7 +294,7 @@ def test_quest_tooltip():
     assert QT.IsOpen() and not S[tip].shown and sim.menu is None
     assert (pop.GetLeft(pop), pop.GetTop(pop)) == top
     rows = ["Track quest", "Path to quest", "Open in quest log"]
-    assert lines(pop) == content + [(" ", False)]  # (the buttons' line)
+    assert lines(pop) == content + [(" ", False), (" ", False)]  # (the buttons' lines)
     shown = [b for b in QT.rows.values() if b.IsShown(b)]
     assert [b.label for b in shown] == rows
     # small buttons: the quest disc with Track's arrow and the footprints; the micro menu's quest log
