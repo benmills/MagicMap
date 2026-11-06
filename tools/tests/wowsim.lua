@@ -1948,6 +1948,7 @@ ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
 for _, a in ipairs({ "food", "reagents", "poisons", "ammunition", "Professions_Tracking_Fish" }) do ATLASES[a] = true end
 -- Blizzard's minimap art (Forever's Blizzard_Minimap: Diel.lua's day and night, the calendar button's)
 ATLASES["UI-HUD-Minimap-DayCycle"], ATLASES["UI-HUD-Minimap-NightCycle"] = { 36, 36 }, { 36, 36 }
+ATLASES["UI-HUD-Minimap-Frame-Cycle"] = { 42, 42 } -- (Diel.lua's ring round them)
 ATLASES["ui-hud-minimap-calendar-button"] = { 23, 23 }
 ATLASES["levelup-dot-gold"] = { 21, 22 } -- the zoom reset's dot (Forever has no reset atlas)
 ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }

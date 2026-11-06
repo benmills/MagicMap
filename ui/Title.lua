@@ -2,7 +2,7 @@
 -- (below it, when the map is at the top of the screen), the gear and mode buttons at its
 -- right end; no plate, like the minimap's own (Core.lua:177-226, 292-314). Clicking the title
 -- opens the map picker (Core.lua:200-223); dragging it moves the window. Its text (Core.lua:1240-1320), 20 times a
--- second while shown: the pieces its settings page (Title) chooses, in their order, at rest (the small map, the
+-- second while shown: the pieces its settings page (Frame title) chooses, in their order, at rest (the small map, the
 -- pointer off it) and on hover (the pointer over the map, and the big map); the first there is the title, the rest
 -- the subtitle. The pieces:
 --   Zone: the place it's about: hovering the map (big, or not on your map), the zone under the cursor (else the
@@ -13,7 +13,7 @@
 --   Tracked target: its name (ui/You.lua's Target), "here" inside its area; Distance to target: the yards to it,
 --     outside it; both only while it's about you
 --   Local time, Server time (Model.clock: Game reads them), as Blizzard's clock shows them (24 hours or 12) or as set
---   Day or night: the minimap's own picture of it (Blizzard_Minimap's Diel.lua), else the word
+--   Day or night: the minimap's own picture of it in its gold ring (Blizzard_Minimap's Diel.lua), else the word
 -- By default today's text: at rest the zone and subzone; on hover those, the coordinates and the target. Whatever is
 -- chosen, off your map on the big map the hint to follow you again leads the subtitle; and with /mm debug, last
 -- (Core.lua:1305-1313), grey: the tile under the cursor (else the view's centre), its FileDataID, the zoom and the
@@ -55,6 +55,17 @@ end
 local title = Text(14, COLOR[1], COLOR[2], COLOR[3])
 local subtitle = Text(11, 0.74, 0.68, 0.58)
 Title.title, Title.subtitle = title, subtitle
+
+-- The gold ring Blizzard_Minimap's Diel.lua puts round its day and night picture (UI-HUD-Minimap-Frame-Cycle: 42 px
+-- round a 33 px picture at 1x), at our picture's size: placed where the picture falls in its line (Show), shown
+-- while the picture is there and fits (Fit).
+local ICON, RING_SIZE = 14, 18
+local ring = band:CreateTexture(nil, "OVERLAY", nil, 7)
+ring:SetAtlas("UI-HUD-Minimap-Frame-Cycle")
+ring:SetSize(RING_SIZE, RING_SIZE)
+ring:Hide()
+Title.ring = ring
+local ringOn, ringX -- its line (title or subtitle) and the picture's x in it, while shown
 
 -- Over the title, padded: a click opens the map picker (ui/Menus.lua); dragging it moves the window,
 -- no pick after it.
@@ -104,6 +115,7 @@ local function Fit()
 	end
 	-- Share the title's baseline, nudged for the smaller descender.
 	subtitle:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 6, 1)
+	ring:SetShown(ringOn ~= nil and ringX + ICON <= ringOn:GetWidth())
 end
 Title.Fit = Fit
 frame:HookScript("OnSizeChanged", Runtime.Wrap("map: title fit", Fit))
@@ -123,12 +135,16 @@ local PIECES = {
 }
 local HINT_BIT, DEBUG_BIT = 2 ^ #PIECES, 2 ^ (#PIECES + 1)
 
--- The minimap's day and night pictures (Blizzard_Minimap's Diel.lua) inline; without them, words.
-local DAY, NIGHT
+-- The minimap's day and night pictures (Blizzard_Minimap's Diel.lua) inline; without them, words. Over the picture,
+-- the gold ring Diel.lua puts round it (ring, above).
+local DAY, NIGHT, RINGED
 local function DayNight(day)
 	if not DAY then
-		local function Inline(atlas, word) return C_Texture.GetAtlasInfo(atlas) and "|A:" .. atlas .. ":14:14|a" or word end
+		local function Inline(atlas, word)
+			return C_Texture.GetAtlasInfo(atlas) and "|A:" .. atlas .. ":" .. ICON .. ":" .. ICON .. "|a" or word
+		end
 		DAY, NIGHT = Inline("UI-HUD-Minimap-DayCycle", "Day"), Inline("UI-HUD-Minimap-NightCycle", "Night")
+		RINGED = DAY ~= "Day"
 	end
 	return day and DAY or NIGHT
 end
@@ -152,12 +168,21 @@ local function Form(list, key)
 	forms[list] = byKey
 	local f = byKey[key]
 	if f then return f end
-	f = { t = "", tn = 0 }
-	local parts = {}
+	f = { t = "", tn = 0 } -- (and with the day/night picture: ring, its line; pre, the subtitle's form before it, pn its values)
+	local parts, sn = {}, 0
 	if key % DEBUG_BIT >= HINT_BIT then parts[1] = HINT end
 	for i, p in ipairs(list) do
 		if key % 2 ^ i >= 2 ^ (i - 1) then
-			if f.t == "" then f.t, f.tn = FMT[p], N[p] else parts[#parts + 1] = FMT[p] end
+			if f.t == "" then
+				f.t, f.tn = FMT[p], N[p]
+				if p == "daynight" then f.ring = title end
+			else
+				if p == "daynight" then
+					f.ring, f.pre, f.pn = subtitle, table.concat(parts, SEP) .. (parts[1] and SEP or ""), sn
+				end
+				parts[#parts + 1] = FMT[p]
+				sn = sn + N[p]
+			end
 		end
 	end
 	if key >= DEBUG_BIT then parts[#parts + 1] = "%s" end
@@ -220,6 +245,16 @@ local function Show(list)
 	shownList, shownKey, shownN = list, key, n
 	cur, shown = shown, cur
 	local f = Form(list, key)
+	-- The ring's place: the width of the subtitle's text before the picture (the title's picture is its first).
+	ringOn, ringX = RINGED and f.ring or nil, 0
+	if ringOn and f.pre and f.pre ~= "" then
+		subtitle:SetFormattedText(f.pre, unpack(shown, f.tn + 1, f.tn + f.pn))
+		ringX = subtitle:GetUnboundedStringWidth()
+	end
+	if ringOn then
+		ring:ClearAllPoints()
+		ring:SetPoint("CENTER", ringOn, "LEFT", ringX + ICON / 2, 0)
+	end
 	if f.t == "" then title:SetText("") else title:SetFormattedText(f.t, unpack(shown, 1, f.tn)) end
 	if f.s == "" then subtitle:SetText("") else subtitle:SetFormattedText(f.s, unpack(shown, f.tn + 1, n)) end
 	Fit()
@@ -329,7 +364,7 @@ local function Timed()
 	local r, h = lists.rest.has, lists.hover.has
 	return (r.time or r.server or h.time or h.server) == true
 end
-Feel.Page({ key = "title", title = "Title", icon = "Interface\\Icons\\INV_Scroll_03", order = 25, sections = { "Format" },
+Feel.Page({ key = "title", title = "Frame title", icon = "Interface\\Icons\\INV_Scroll_03", order = 25, sections = { "Format" },
 	tip = "What the title above the map says: at rest, and with the pointer over the map." })
 Feel.Add("title", nil, {
 	{ key = "title.rest", kind = "list", ordered = true, label = "At rest", options = PIECES, default = "zone,subzone",

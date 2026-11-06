@@ -174,7 +174,7 @@ def test_settings_kinds_and_late_pages():
     h = Feel.frame.GetHeight(Feel.frame)
     L.execute(LATE, sim, ns)
     titles = [p.title for p in Feel.Pages().values()]
-    assert titles[:4] == ["General", "Map", "Title", "Order"] and titles[-1] == "Diagnostics" and len(titles) == 15
+    assert titles[:4] == ["General", "Map", "Frame title", "Order"] and titles[-1] == "Diagnostics" and len(titles) == 15
     assert Feel.frame.GetHeight(Feel.frame) == h + 28  # (room for 14: one more grows it)
     sim.Click(_tab(L, Feel, "Order"))
     w = Feel.widgets

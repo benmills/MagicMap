@@ -37,6 +37,8 @@ local Art = {
 		"poi-graveyard-neutral",                                   -- ui/Places.lua: graveyards
 		"vignetteloot",                                            -- ui/Places.lua: the vignettes' row (Settings > Pins)
 		"ui-hud-minimap-arrow-player",                             -- ui/You.lua: your arrow (the Minimap's)
+		"UI-HUD-Minimap-DayCycle", "UI-HUD-Minimap-NightCycle",    -- ui/Title.lua: day or night (the Minimap's Diel.lua)
+		"UI-HUD-Minimap-Frame-Cycle",                              -- ui/Title.lua: its gold ring
 		-- Settings > Pins' icons to choose (ui/PinTypes.lua): Blizzard's other art for a type
 		"innkeeper", "banker", "auctioneer", "stablemaster", "battlemaster", "profession", "class", "repair", "mailbox",
 		"flightmaster", "flightpath", "professions_tracking_herb_special", "professions_tracking_ore_special",

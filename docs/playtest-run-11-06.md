@@ -60,7 +60,7 @@ This covers the run's seven commits on main since v2.1.2, issues #15 to #21. Non
 
 ## Title and minimap buttons (#19)
 - [ ] **Title as before:** at rest it shows Zone · Subzone. Hovering adds coordinates and the target. The big map's Follow me hint and the `/mm debug` line are kept.
-- [ ] **New pieces:** in Settings > Title, add Day or night and Local time. The sun or moon picture shows, and the Clock row's 12/24 setting applies.
+- [ ] **New pieces:** in Settings > Frame title, add Day or night and Local time. The sun or moon picture shows, and the Clock row's 12/24 setting applies.
 - [ ] **Minimap buttons:**
   - Gear > Minimap buttons lists the LibDBIcon addons (Questie, DBM, Details…) with their icons.
   - Left- and right-clicks work, and their tooltips show.

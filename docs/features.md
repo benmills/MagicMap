@@ -37,9 +37,9 @@ button by the zone name, reset, + and − on the right.*
 **The big map (M).** M or the red button grows it into a big map, centred on you; M, the button
 or Escape shrinks it. Move or resize the big map and it opens there next time, as the small one does
 (`/mm reset` puts both back). The quest log (L) still opens Blizzard's map (so does M, with Replace world
-map off in Settings). The title over the map says what you choose (Settings > Title), at rest and with
+map off in Settings). The title over the map says what you choose (Settings > Frame title), at rest and with
 the pointer on the map, in your order: the zone, subzone, coordinates (the pointer's on the big map), the
-tracked target and its distance, the local or server time, and day or night (the minimap's own picture); by
+tracked target and its distance, the local or server time, and day or night (the minimap's own picture, in its gold ring); by
 default the zone and subzone, and on hover the coordinates and target too. Click the zone name to pick a
 continent, another map or an instance; with several zones in view, hover one to light it and click
 to fly there. `/mm map` and `/mm zone` do the same by name.
