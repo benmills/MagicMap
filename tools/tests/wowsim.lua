@@ -1446,8 +1446,17 @@ C_Minimap = {
 		local t = Sim.tracking[i]
 		return t and { filterID = t.filterID, spellID = t.spellID }
 	end,
+	-- A spell's turned on turns off the other spells' (classic's one tracking aura at a time: game/Keep.lua);
+	-- Sim.trackingRefused: the call does nothing (a cast the client turned down).
 	SetTracking = function(i, on)
 		assert(Sim.tracking[i] and type(on) == "boolean", "SetTracking: index, boolean expected")
+		Sim.trackingCalls = (Sim.trackingCalls or 0) + 1
+		if Sim.trackingRefused then return end
+		if on and Sim.tracking[i].spellID then
+			for _, t in ipairs(Sim.tracking) do
+				if t.spellID then t.active = false end
+			end
+		end
 		Sim.tracking[i].active = on
 		C_Timer.After(0, function() Sim.FireEvent("MINIMAP_UPDATE_TRACKING") end)
 	end,
@@ -1722,6 +1731,17 @@ function IsInRaid() return false end
 function UnitIsUnit(a, b) return a == b end
 function InCombatLockdown() return Sim.inCombat == true end
 function UnitIsDeadOrGhost(unit) local u = Sim.units[unit]; return u ~= nil and u.dead == true end
+-- Sim.casting: the player's cast's name (UnitCastingInfo's first), nil: none; no channels.
+function UnitCastingInfo(unit) if unit == "player" then return Sim.casting end end
+function UnitChannelInfo(unit) return nil end
+-- Professions (Sim.professions: { name, rank, line (the SkillLine id), bonus? }): GetProfessions' indices into it,
+-- the first two (prof1, prof2; nil: none), GetProfessionInfo's name, texture, rank, max, spells, offset, skill line, bonus.
+Sim.professions = {}
+function GetProfessions() local p = Sim.professions; return p[1] and 1 or nil, p[2] and 2 or nil end
+function GetProfessionInfo(i)
+	local p = Sim.professions[i]
+	if p then return p.name, 136246, p.rank, 300, 2, 0, p.line, p.bonus or 0 end
+end
 
 C_Map = {}
 function C_Map.GetMapInfo(id) return mapInfo(id) end

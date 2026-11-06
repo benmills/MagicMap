@@ -72,6 +72,7 @@ game\Oracles.lua
 game\Minimap.lua
 game\AddonPins.lua
 game\Tracking.lua
+game\Keep.lua
 game\Blips.lua
 game\Record.lua
 game\Validate.lua
@@ -113,6 +114,7 @@ game\parts\Group.lua
 game\parts\Vignettes.lua
 game\parts\Explored.lua
 game\parts\Tracking.lua
+game\parts\Skills.lua
 
 # UI
 ui\Camera.lua
@@ -136,6 +138,7 @@ ui\Interiors.lua
 ui\Labels.lua
 ui\Pins.lua
 ui\Cluster.lua
+ui\Resources.lua
 ui\Blips.lua
 ui\Rares.lua
 ui\Places.lua

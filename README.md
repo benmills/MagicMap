@@ -20,6 +20,8 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 - **Click any icon, choose Track.** A flight master, mailbox or rare: a line to it, with yards and minutes.
 - **Herbs, ore and trainers at any zoom**, with their tooltips. Rares you've seen stay on the map for all
   your characters.
+- **Gathering made easy.** Each herb and ore shows its first letter and how hard it is for you (red to grey),
+  and Find Herbs or Find Minerals turns itself back on after you die or log in.
 - **Works with Questie, HandyNotes and GatherMate.** Their pins show on the map, never twice. No other
   addon is needed: the quest data is built in.
 

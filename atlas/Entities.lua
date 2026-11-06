@@ -285,6 +285,39 @@ end
 local ORES = { ["Chunk of Amber"] = true, ["Large Chunk of Amber"] = true, ["Small Obsidian Chunk"] = true,
 	["Large Obsidian Chunk"] = true }
 
+-- The skill each node takes (Herbalism's or Mining's), classic's: every one is a Herbalism (lock type 2) or Mining
+-- (3) skill in the client's Lock table (Lock.db2, 1.60.1.70790). Not here (Forever's own herbs, its starter nodes,
+-- amber, Swiftthistle, Bloodthistle): not known, so no difficulty badge (ui/Blips.lua) rather than a guess.
+local SKILL = {
+	Peacebloom = 1, Silverleaf = 1, Earthroot = 15, Mageroyal = 50, Briarthorn = 70, Stranglekelp = 85,
+	Bruiseweed = 100, ["Wild Steelbloom"] = 115, ["Grave Moss"] = 120, Kingsblood = 125, Liferoot = 150,
+	Fadeleaf = 160, Goldthorn = 170, ["Khadgar's Whisker"] = 185, Wintersbite = 195, Firebloom = 205,
+	["Purple Lotus"] = 210, ["Arthas' Tears"] = 220, Sungrass = 230, Blindweed = 235, ["Ghost Mushroom"] = 245,
+	Gromsblood = 250, ["Golden Sansam"] = 260, Dreamfoil = 270, ["Mountain Silversage"] = 280, Plaguebloom = 285,
+	Icecap = 290, ["Black Lotus"] = 300,
+	["Copper Vein"] = 1, ["Tin Vein"] = 65, ["Incendicite Mineral Vein"] = 65, ["Silver Vein"] = 75,
+	["Ooze Covered Silver Vein"] = 75, ["Lesser Bloodstone Deposit"] = 75, ["Iron Deposit"] = 125,
+	["Indurium Mineral Vein"] = 150, ["Gold Vein"] = 155, ["Ooze Covered Gold Vein"] = 155, ["Mithril Deposit"] = 175,
+	["Ooze Covered Mithril Deposit"] = 175, ["Truesilver Deposit"] = 230, ["Ooze Covered Truesilver Deposit"] = 230,
+	["Dark Iron Deposit"] = 230, ["Small Thorium Vein"] = 245, ["Ooze Covered Thorium Vein"] = 245,
+	["Rich Thorium Vein"] = 275, ["Ooze Covered Rich Thorium Vein"] = 275, ["Hakkari Thorium Vein"] = 275,
+	["Small Obsidian Chunk"] = 305, ["Large Obsidian Chunk"] = 310,
+}
+-- The skill a gathering node of this name takes, or nil: not known.
+function Atlas.NodeSkill(name) return SKILL[name] end
+
+-- The letter a gathering node's badge shows (ui/Blips.lua): its name's first, past the words that only say which
+-- of a kind it is ("Rich Thorium Vein" and "Small Thorium Vein": T, the ore, as Thorium's other veins; "Wilted
+-- Peacebloom": P; "Chunk of Amber": A), so one letter stands for one herb or ore.
+local QUALIFIERS = { Rich = true, Small = true, Large = true, Lesser = true, Ooze = true, Covered = true,
+	Wilted = true, Stunted = true, Hakkari = true, Chunk = true, of = true }
+function Atlas.NodeLetter(name)
+	for word in name:gmatch("[%a']+") do
+		if not QUALIFIERS[word] then return word:sub(1, 1):upper() end
+	end
+	return name:sub(1, 1):upper()
+end
+
 -- What a Minimap blip's tooltip name stands for: "herb" or "ore" (a gathering node, by name: no data
 -- needed, and only by name: one it doesn't know is no node, game/Blips.lua's gold dot), else its service (Data/BlipServices.lua: "innkeeper", "banker", "auctioneer", "stablemaster",
 -- "battlemaster", "trainer", "classtrainer", "repair", "questgiver", "questender", "flightmaster",

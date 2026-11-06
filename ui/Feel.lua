@@ -47,6 +47,7 @@
 --     Indoor auto-zoom (ui/Interiors.lua); You: Your arrow (ui/You.lua).
 --   Icons (30), the icons' size and the ring round what you track. Size: Icon size (ui/Pins.lua), Quest icon size
 --     (ui/Quests.lua); Focus ring: Size, Opacity, Colour (ui/Pins.lua).
+--   Resources (35). Tracking: Keep tracking (ui/Resources.lua); Badges: Difficulty, Letter, Badge size (ui/Blips.lua).
 --   Info pills (40, ui/Controls.lua). Both pills: Backing, Size; Quest pill: Shows, Quest progress, Fade quest pill;
 --     Distance pill: Distance pill, Shows, Corner, Fade distance pill.
 --   Tracking line (50, ui/Path.lua). Line: Style, Weight, Colour, Opacity; Effects: Glow, Breathing, Breath pace;
@@ -57,7 +58,7 @@
 --     pill, Pill backing, Open group backing.
 --   Diagnostics (90, here). Debug info in title, Indoor maps report; Reports in chat: Record 10 seconds, Compare
 --     with other addons, Memory breakdown (each a /mm command too).
--- Pages to come take an order between these (Title, Pins, Resources, Tracking...). The sidebar has room for 14
+-- Pages to come take an order between these (Title, Pins, Tracking...). The sidebar has room for 14
 -- before the window grows; a page longer than the window scrolls.
 --
 -- The window: a movable dialog of the client's ButtonFrameTemplate (as the map window, ui/Window.lua, but kept as

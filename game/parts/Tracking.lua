@@ -1,7 +1,7 @@
 -- obs.tracking (types/observation.lua MM.ObsTracking[]), on change: Blizzard's minimap tracking types
 -- (C_Minimap), each by its filter (Enum.MinimapTrackingFilter) or, a spell's (Find Herbs), its spell's
--- ID. Those our layers draw the same as (flight masters, quest POIs, points of interest:
--- MinimapTakeover.lua:236-237) are "duplicate": kept off while ours draw them (game/Tracking.lua), not
+-- ID (`spell`: what View.keep may name, game/Keep.lua). Those our layers draw the same as (flight masters,
+-- quest POIs, points of interest: MinimapTakeover.lua:236-237) are "duplicate": kept off while ours draw them (game/Tracking.lua), not
 -- offered (GearMenu.lua:9-24). A type the client has no info for yet (at login) is left out till it has
 -- (MinimapTakeover.lua:255). Read again on MINIMAP_UPDATE_TRACKING and at once after a tracking Command
 -- (Game.TrackingChanged). Each compared with its last as it's read and kept if the same; a new list
@@ -41,9 +41,11 @@ Game.Part("tracking", function()
 		if info then
 			local f = C_Minimap.GetTrackingFilter(i)
 			local id, kind = ID(f), DUPLICATES[f.filterID] and "duplicate" or nil
+			local spell = id ~= f.filterID or nil
 			local t = last[id]
-			if not (t and t.name == info.name and t.texture == info.texture and t.active == info.active and t.kind == kind) then
-				t = { id = id, name = info.name, texture = info.texture, active = info.active, kind = kind }
+			if not (t and t.name == info.name and t.texture == info.texture and t.active == info.active and t.kind == kind
+				and t.spell == spell) then
+				t = { id = id, name = info.name, texture = info.texture, active = info.active, kind = kind, spell = spell }
 			end
 			n, seen[id] = n + 1, t
 			out[n] = t

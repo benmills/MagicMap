@@ -112,7 +112,8 @@ def test_gear():
     # The tree: a submenu per group with layers, a divider, Settings; small and big alike.
     root, rows = gear(sim, ns)
     assert items(root) == [("button", "Map"), ("button", "Quests"), ("button", "Places"), ("button", "Nearby"),
-                           ("button", "Other addons"), ("divider", None), ("button", "Use Blizzard's minimap"),
+                           ("button", "Other addons"), ("button", "Keep tracking: Find Herbs"), ("divider", None),
+                           ("button", "Use Blizzard's minimap"),
                            ("button", "Reset to defaults"), ("divider", None), ("button", SETTINGS)]
     assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"),
                                        ("checkbox", "City maps")]

@@ -3,7 +3,8 @@
 -- The gear menu (GearMenu.lua): what's drawn, a submenu per group of layers (Map, Quests, Places, Nearby,
 -- Other addons), each with an "All" box on top (the group on or off) and each row's icon beside its name;
 -- Nearby lists Blizzard's tracking types too (but those ours replace; one box for a name the client lists twice,
--- Banker); each group's row shows how many of its rows are on, n/total (Tally). Then quick actions (Use Blizzard's
+-- Banker); each group's row shows how many of its rows are on, n/total (Tally); then Keep tracking: <name>, the
+-- tracker kept on (ui/Resources.lua). Then quick actions (Use Blizzard's
 -- minimap, shown only while ours replaces it: UI.Replace.Get("minimap"); Reset to defaults: every layer as installed), then
 -- Settings…, one row that opens the settings window (ui/Feel.lua: General, Map, Icons, the tracking line, quest
 -- areas, grouping, Diagnostics: what the gear's Settings submenu held).
@@ -469,6 +470,7 @@ function Menus.Gear(owner)
 	want, was = {}, {}
 	Menus.Show(owner, function(_, root)
 		AddLayers(root)
+		UI.Resources.Menu(root) -- (Keep tracking: <name>, ui/Resources.lua)
 		root:CreateDivider()
 		if not UI.Replace or UI.Replace.Get("minimap") then -- (only while ours stands in for it: the contract's Get; shown if it's absent)
 			root:CreateButton(BLIZZARD_LOGO .. "Use Blizzard's minimap", function() Run(function() UI.Window.frame:Hide() end) end)

@@ -45,6 +45,8 @@
 ---@field interior? MM.ObsInterior|false on change: the building you're in and its room (ADR 0008); false = in none
 ---@field addons? MM.ObsAddon[]      on change: other addons whose pins Game can borrow (View.layers "addon:<key>")
 ---@field build? string           on change: the client's build, GetBuildInfo's version.build ("1.60.1.70532"; game/parts/Build.lua)
+---@field skills? { herb: integer, ore: integer } on change: Herbalism's and Mining's rank with its bonus, 0 for one not
+---                                   learnt (game/parts/Skills.lua): what a resource pin's difficulty badge reads
 ---@field done? table<integer, boolean> on change: the quests this character has handed in (game/parts/Done.lua)
 ---@field levels? table<MM.UiMapID, integer[]> on change: each map's level range as the client gives it,
 ---                                   { lo, hi } (C_Map.GetMapLevels), for the maps Atlas has; one it gives none is
@@ -141,6 +143,7 @@
 ---@field texture MM.FileID    its icon: also how a blip's kind is matched to "is this tracked"
 ---@field active boolean
 ---@field kind? "duplicate"    Game keeps it off while our layer draws the same (flight, quests, POIs): not offered to the user
+---@field spell? true          a spell's (Find Herbs, Find Minerals, Track Beasts: no filter), what Game can keep on (View.keep)
 
 ---@class MM.ObsMinimap
 ---@field engaged boolean      Game has taken the Minimap (View.minimap ~= "blizzard" and nothing blocks it)

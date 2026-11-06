@@ -4,7 +4,7 @@
 -- the focus (types/focus.lua) when it changes. UI's saved part (types/saved.lua
 -- MM.SavedUI) comes through a load Command: the window (ui/BigMap.lua), shown,
 -- zoom, follow, the map and centre when not following, the layer toggles, the
--- what MagicMap replaces (ui/Replace.lua), the minimap mode, the title's debug line and the minimap button (UI.saved, read where they're used;
+-- what MagicMap replaces (ui/Replace.lua), the minimap mode, the tracker kept on (View.keep: ui/Resources.lua), the title's debug line and the minimap button (UI.saved, read where they're used;
 -- the button a switch in Settings > General, ui/Feel.lua). The looks (UI.saved.feel) are checked by Feel.Loaded.
 
 local _, ns = ...
@@ -113,6 +113,7 @@ Runtime.Step("ui", "ui: view", function()
 	window.shown, window.place, window.still = shown, place, still
 	window.big, window.homeAlpha, window.strata, window.level = BigMap.big, BigMap.homeAlpha, strata, level
 	view.minimap, view.inst, view.button = mode, Camera.inst or 0, saved.button
+	view.keep = UI.Resources.Keep() -- (the tracker Game keeps on: ui/Resources.lua, game/Keep.lua)
 	replace.minimap, replace.worldmap = rmin, rworld -- (Game: M is ours only while worldmap; ui/Replace.lua)
 	view.layers.blips = layersOn or nil
 	if UI.Sockets.Update(view) then view.frame = Runtime.frames end -- (the world socket, an addon's layer)

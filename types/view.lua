@@ -37,6 +37,8 @@
 ---@field layers table<string, boolean> shown layers Game acts on (keys: MM.GameLayer); a missing key is off
 ---@field sockets MM.ViewSockets
 ---@field button boolean         Game's minimap button is shown
+---@field keep? integer|false   a spell's tracking type (MM.ObsTracking.id, `spell`) Game turns back on each time the game
+---                              may have dropped it (login, loading screens, death, resurrection: game/Keep.lua); false/nil: none
 ---@field replace? { minimap: boolean, worldmap: boolean }  what the user has MagicMap replace (ui/Replace.lua); nil: neither.
 ---                              worldmap: M is ours while the window is shown, or while minimap is off (it then opens the window big)
 ---@field diag? fun(): table      UI's state for telemetry marks (camera, layouts: docs/telemetry.md "State" `map`, `layers`).

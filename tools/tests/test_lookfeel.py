@@ -152,7 +152,7 @@ def test_lookfeel():
 # come from a function and carry icons; a row shown while a function says; a default another setting gives.
 LATE = """local Sim, ns = ...
 local Feel = ns.UI.Feel
-for i = 1, 6 do Feel.Page({ key = "late" .. i, title = "Late " .. i, icon = "Interface\\\\Icons\\\\INV_Misc_Map_01", order = 80 + i }) end
+for i = 1, 5 do Feel.Page({ key = "late" .. i, title = "Late " .. i, icon = "Interface\\\\Icons\\\\INV_Misc_Map_01", order = 80 + i }) end
 Feel.Page({ key = "order", title = "Order", icon = "Interface\\\\Icons\\\\INV_Misc_Map_01", order = 25, tip = "A test page." })
 Feel.Add("order", "Shown", {
 	{ key = "order.what", kind = "list", ordered = true, label = "Lines", default = "zone,quest", tip = "What shows, in order.",
@@ -229,7 +229,7 @@ def test_settings_pages_apply_and_reset():
         sim.atlases[a] = None
     Feel, saved = _open(sim, ns), L.globals().MagicMap2DB.UI
     pages = [p.key for p in Feel.Pages().values()]
-    assert pages == ["general", "map", "icons", "pills", "path", "areas", "group", "diag"]
+    assert pages == ["general", "map", "icons", "resources", "pills", "path", "areas", "group", "diag"]
     for p in pages:
         Feel.Open(p)
     assert sorted(Feel.pages.keys()) == sorted(pages)
@@ -237,7 +237,9 @@ def test_settings_pages_apply_and_reset():
         local v = Feel.Get(k.key)
         if k.kind == "toggle" then return not v end
         if k.kind == "slider" then return v ~= k.max and k.max or k.min end
-        for _, o in ipairs(k.options or k.colors) do if o[1] ~= v and o[2] ~= v then return k.colors and o[1] or o[2] end end
+        local list = k.options or k.colors
+        if type(list) == "function" then list = list() end
+        for _, o in ipairs(list) do if o[1] ~= v and o[2] ~= v then return k.colors and o[1] or o[2] end end
     end""")
     changed, defaults = [], {}
     for k in Feel.Entries().values():

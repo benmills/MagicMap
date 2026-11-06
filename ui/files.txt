@@ -19,6 +19,7 @@ ui/Interiors.lua
 ui/Labels.lua
 ui/Pins.lua
 ui/Cluster.lua
+ui/Resources.lua
 ui/Blips.lua
 ui/Rares.lua
 ui/Places.lua

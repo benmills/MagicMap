@@ -15,3 +15,4 @@ game/parts/Group.lua
 game/parts/Vignettes.lua
 game/parts/Explored.lua
 game/parts/Tracking.lua
+game/parts/Skills.lua

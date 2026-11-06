@@ -15,6 +15,7 @@
 -- the cursor off it or the view, the window hidden (ui/Window.lua). A click on a pin, left or right, is its
 -- layer's click, or else the track menu (ui/Track.lua: Track, Stop tracking); the tracked pin wears the glow whatever
 -- its look says (Set: Track.Is), and every pin layer's rev carries Track's, so a change lays them out again.
+-- A look may carry badges (look.badge, a resource pin's: ui/Blips.lua): a dot at its top left, a letter at its bottom left.
 
 local _, ns = ...
 local UI, Runtime = ns.UI, ns.Runtime
@@ -140,6 +141,22 @@ local function Count(pin)
 	return fs
 end
 
+-- A resource pin's badges (look.badge, ui/Blips.lua): its difficulty dot at the top left (the client's circle mask
+-- tinted, on a dark ring) and its letter at the bottom left (the game's font, outlined). Made the first time a look
+-- has one.
+local FONT = GameFontNormal:GetFont()
+local function Badges(pin)
+	if pin.dot then return pin end
+	pin.dotRing, pin.dot = Tex(pin, "OVERLAY", 0), Tex(pin, "OVERLAY", 1)
+	pin.dotRing:SetTexture(CIRCLE)
+	pin.dot:SetTexture(CIRCLE)
+	pin.dotRing:SetVertexColor(RING[1], RING[2], RING[3], RING[4])
+	local fs = pin:CreateFontString(nil, "OVERLAY")
+	fs.vis = true
+	pin.letter = fs
+	return pin
+end
+
 -- Setters calling the client only when the value changes: a pin kept as it was costs none.
 local WHOLE = { 0, 1, 0, 1 }
 local function File(t, file, coords) -- a whole file, or its part coords (left, right, top, bottom: a look's table)
@@ -191,7 +208,52 @@ local function Shown(r, on)
 	end
 end
 
--- look: { size? (14), fixed? (not scaled by the settings), icon? = { texture | atlas, alt?, coords?, under?, tint?, inner?, scale?, aspect?, color? }, glow?,
+-- badge = { color? = { r, g, b }, letter?, scale? }: the dot BADGE_DOT of the pin across, a little past its corner;
+-- the letter BADGE_TEXT of its height (BADGE_MIN px at least), its corner on the pin's. scale: both, a factor.
+local BADGE_DOT, BADGE_TEXT, BADGE_MIN = 0.4, 0.55, 7
+local function SetBadges(pin, b, size)
+	local s = b and b.scale or 1
+	if b and b.color then
+		Badges(pin)
+		local dot, r, c = pin.dot, pin.dotRing, b.color
+		local d = math.max(4, size * BADGE_DOT * s)
+		if dot.at ~= d then
+			dot.at = d
+			local o = d / 2 - 1
+			dot:ClearAllPoints()
+			dot:SetPoint("CENTER", pin, "TOPLEFT", o, -o)
+			r:ClearAllPoints()
+			r:SetPoint("CENTER", pin, "TOPLEFT", o, -o)
+		end
+		Size(dot, d, d)
+		Size(r, d + 2, d + 2)
+		Color(dot, c[1], c[2], c[3], 1)
+		Shown(dot, true)
+		Shown(r, true)
+	else
+		Shown(pin.dot, false)
+		Shown(pin.dotRing, false)
+	end
+	if b and b.letter then
+		local fs = Badges(pin).letter
+		local px = math.max(BADGE_MIN, math.floor(size * BADGE_TEXT * s + 0.5))
+		if fs.px ~= px then
+			fs.px = px
+			fs:SetFont(FONT, px, "OUTLINE")
+			fs:ClearAllPoints()
+			fs:SetPoint("BOTTOMLEFT", pin, "BOTTOMLEFT", -1, -1)
+		end
+		if fs.text ~= b.letter then
+			fs.text = b.letter
+			fs:SetText(b.letter)
+		end
+		Shown(fs, true)
+	else
+		Shown(pin.letter, false)
+	end
+end
+
+-- look: { size? (14), fixed? (not scaled by the settings), badge? (SetBadges), icon? = { texture | atlas, alt?, coords?, under?, tint?, inner?, scale?, aspect?, color? }, glow?,
 -- count? }: (a) a texture (coords: its part, a cell of a sheet), bare; (b) an atlas, at its own aspect
 -- (aspect: its width over height, else the client's); (c) an atlas over its under atlas tinted, the inner
 -- texture in it; (d) else (an atlas the client lacks too, and no alt: the look drawn instead when the atlas is
@@ -261,6 +323,7 @@ local function Style(pin, look, glow)
 		Size(i, size * DOT, size * DOT)
 	end
 	if not inner then Shown(pin.inner, false) end
+	if look.badge or pin.dot then SetBadges(pin, look.badge, size) end
 end
 Pins.Style = Style -- (ui/Cluster.lua's pills)
 

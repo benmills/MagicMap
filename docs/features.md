@@ -77,7 +77,16 @@ herbs, ore, the mailbox and tracked NPCs within about 230 yards get a pin with B
 icon and tooltip, at any zoom. Vendors get the icon of what they sell (food, reagents, poisons, ammunition,
 fishing; the vendor's sack for the rest). A name MagicMap doesn't know is a gold dot, never a guessed herb;
 you, your party and your pets never get one, dead or alive. Herbs and ore show while they're in range, as on
-Blizzard's minimap, and one gathered nearby goes within about a second, walking or not.
+Blizzard's minimap, and one gathered nearby goes within about a second, walking or not. Each herb and ore pin
+wears two small badges: top left a dot for how hard it is for you, by your Herbalism or Mining against the node's
+skill, in the game's skill-up colours (red: you can't gather it yet; orange under its skill + 25; yellow under + 50;
+green under + 100; grey past that), none on Forever's own herbs (their skill isn't known); bottom left the node's
+first letter (P for Peacebloom, C for Copper Vein, T for any Thorium vein: Rich and Small say which, not what).
+**Tracking that stays on**: your gathering tracker (Find Herbs, else Find Minerals, else Find Treasure) or the one
+you choose is turned back on after login, a /reload, a loading screen, death or resurrection, waiting out combat
+and casts. The game has one tracking spell on at a time, so it's one choice: the gear's Keep tracking row, or
+Settings > Resources. One you pick yourself in the tracking menu becomes the one kept; one you turn off stays off
+till the game next drops it.
 Zoomed in to town scale, the town services you track show too, and the mailboxes and services you've
 passed (remembered, up to 5000 a continent), each marked "Not in sight" while out of range. Blizzard's own flight, quest and POI tracking is
 switched off while MagicMap draws those itself, and put back when it stops, even after a crash.
@@ -139,7 +148,8 @@ minimap pins (GatherMate...) show around you. Nothing is drawn twice.
 
 **The gear menu** (by the zone name): the layers by group, each row with its icon, an "All" box
 on top and the n/total shown in the group's name: Map (zone labels, City maps), Quests,
-Places, Nearby (rares and treasures, party and raid, then Blizzard's tracking types, one box a name), Other addons.
+Places, Nearby (rares and treasures, party and raid, then Blizzard's tracking types, one box a name), Other addons;
+then Keep tracking: the tracker kept on (each tracking spell you know, or Off).
 Then Use Blizzard's minimap (while ours replaces it; Blizzard's logo on the row) and Reset to defaults,
 then Settings.
 
@@ -158,6 +168,7 @@ only then. Hover a row for what it does and its default. Settings are account-wi
 | General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to you (on: the small map glides back to you when left alone), Return after (6 s), Zoom per notch (+30%) |
 | Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (100%), Subzone opacity (60%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
 | Icons | Size: Icon size (120%), Quest icon size (100%). Focus ring: Size (145%), Opacity (25%), Colour (Gold) |
+| Resources | Tracking: Keep tracking (your gathering tracker: Find Herbs, else Find Minerals, else Find Treasure; or one you know, or Off). Badges: Difficulty (on), Letter (on), Badge size (100%) |
 | Info pills | Both pills: Backing (25%), Size (100%). Quest pill: Shows (quest or zone count / followed quest only / off), Quest progress (on), Fade quest pill (on: the zone count only while you point at the map). Distance pill: Distance pill (on), Shows (yards and time / yards / time), Corner (top left / top right), Fade distance pill (off) |
 | Tracking line | Line: Style (dashed), Weight (1.0 px), Colour (Gold), Opacity (55%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |
 | Quest areas | Followed quest, Other quests: Fill, Edge, Edge width. Under the cursor: Fill lift, Edge (as the game draws them, a quiet fill by default) |

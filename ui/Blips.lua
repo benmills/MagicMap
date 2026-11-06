@@ -9,6 +9,12 @@
 -- when either changes, or you cross a walk chunk while sensing. Tooltip: its name, then what it is (a
 -- gathering node's profession, Blips.lua:427-429; an NPC's title, :436), and a service's or remembered one's
 -- "Not in sight" (Blips.lua:642).
+-- A herb or ore pin (a name Atlas knows as one: #21) wears two badges (#18; Settings > Resources > Badges, each shown
+-- or not, and their size): at its top left its difficulty, by your skill (Model.skills: Herbalism's or Mining's) against
+-- the node's (Atlas.NodeSkill), the game's skill-up colours: red under it (you can't gather it yet), orange under it + 25,
+-- yellow under + 50, green under + 100, else grey (classic's gathering thresholds); none for a node whose skill isn't
+-- known (Forever's own herbs) or before your skills are; at its bottom left the node's letter (Atlas.NodeLetter: P for
+-- Peacebloom, T for Rich Thorium Vein).
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
@@ -23,20 +29,67 @@ local REMOTE_ZOOM = 60 -- px a tile: remembered ones from here (Blips.lua REMOTE
 local REACH = 220 / ns.Atlas.TILE_YARDS -- tiles: around you, the sensor's word (Blips.lua:480 LIVE_YARDS)
 local CHUNKS = ns.Atlas.Walk.CHUNKS
 
--- StylePin's looks, one an icon (Blips.lua:423-437).
+-- The badges (#18): the skill-up colours (the client's QuestDifficultyColors and trade skill colours) by how far your
+-- skill is past the node's; what's shown, and their size.
+local GATHER = { Professions_Tracking_Herb = "herb", Professions_Tracking_Ore = "ore" }
+local RED, ORANGE, YELLOW = { 1, 0.1, 0.1 }, { 1, 0.5, 0.25 }, { 1, 1, 0 }
+local GREEN, GREY = { 0.25, 0.75, 0.25 }, { 0.5, 0.5, 0.5 }
+local STEPS = { { 0, RED }, { 25, ORANGE }, { 50, YELLOW }, { 100, GREEN } } -- skill under the node's + n: this colour
+local function Difficulty(have, need)
+	for _, s in ipairs(STEPS) do
+		if have < need + s[1] then return s[2] end
+	end
+	return GREY
+end
+local badges = { difficulty = true, letter = true, size = 1 }
+local looks, badgeRev = {}, 0
+local function Badges(name)
+	return function(v)
+		if badges[name] == v then return end
+		badges[name], badgeRev = v, badgeRev + 1
+		looks = {} -- (each made again with them)
+	end
+end
+UI.Feel.Add("resources", "Badges", {
+	{ key = "resources.difficulty", kind = "toggle", label = "Difficulty", default = badges.difficulty,
+		apply = Badges("difficulty"), tip = "A dot at a herb's or ore's top left, by your skill against the node's: "
+			.. "red you can't gather it yet, then orange, yellow and green as it gets easier, grey when it no longer "
+			.. "raises your skill. None on a node whose skill isn't known." },
+	{ key = "resources.letter", kind = "toggle", label = "Letter", default = badges.letter, apply = Badges("letter"),
+		tip = "The node's first letter at its bottom left: P for Peacebloom, C for Copper Vein, T for any Thorium vein." },
+	{ key = "resources.badgeSize", kind = "slider", label = "Badge size", min = 0.6, max = 1.6, step = 0.1, pct = true,
+		default = badges.size, apply = Badges("size"), tip = "The size of the dot and the letter." },
+})
+
+-- StylePin's looks, one an icon (Blips.lua:423-437), a gathering node's one a letter and difficulty too.
 local DOT_LOOK = { size = DOT, icon = { color = GOLD } }
-local looks = {}
-local function Look(icon)
+local function Look(icon, name)
 	if not icon then return DOT_LOOK end
-	local k = icon.texture or icon.atlas
+	local k, badge = icon.texture or icon.atlas, nil
+	local kind = name and icon.atlas and GATHER[icon.atlas]
+	if kind then
+		local need, skills = ns.Atlas.NodeSkill(name), Model.skills
+		local color = badges.difficulty and need and skills and Difficulty(skills[kind], need) or nil
+		local letter = badges.letter and ns.Atlas.NodeLetter(name) or nil
+		if color or letter then
+			badge = { color = color, letter = letter, scale = badges.size }
+			k = k .. "|" .. (letter or "") .. "|" .. (color and table.concat(color, ",") or "")
+		end
+	end
 	local look = looks[k]
 	if not look then
 		local art = icon.texture and { texture = icon.texture } or UI.Art.Icon(icon.atlas)
 		art.color = icon.color or COLOR[icon.atlas]
-		look = { size = ICON, icon = art }
+		look = { size = ICON, icon = art, badge = badge }
 		looks[k] = look
 	end
 	return look
+end
+-- A rev that moves with the badges: their settings, your skills.
+local skills, skillsRev = nil, 0
+local function BadgeRev()
+	if Model.skills ~= skills then skills, skillsRev = Model.skills, skillsRev + 1 end
+	return badgeRev + skillsRev
 end
 
 -- A remembered one's "Not in sight" follows its line, as the spike read { sub, "Not in sight" } with
@@ -69,17 +122,17 @@ UI.Blips = UI.Pins.Layer("blips", 12, function(put, inst, _, want)
 	for k in pairs(carried) do carried[k] = nil end
 	for _, b in ipairs(live) do
 		carried[b.key] = true
-		put(b, Look(b.icon))
+		put(b, Look(b.icon, b.name))
 	end
 	if not want(REMOTE_ZOOM) then return end
 	local you = here and Model.you.inst == inst and Model.you
 	for _, b in ipairs(Model.Known("services")) do
-		if Away(b, you) then put(b, Look(b.icon), REMOTE_ZOOM) end
+		if Away(b, you) then put(b, Look(b.icon, b.name), REMOTE_ZOOM) end
 	end
 	for _, b in ipairs(seen) do
-		if not carried[b.key] and Away(b, you) then put(b, Look(b.icon), REMOTE_ZOOM) end
+		if not carried[b.key] and Away(b, you) then put(b, Look(b.icon, b.name), REMOTE_ZOOM) end
 	end
 end, function()
 	return select(2, Model.Known("blips")) + select(2, Model.Known("remembered")) + select(2, Model.Known("services"))
-		+ Here()
+		+ Here() + BadgeRev()
 end, { lines = Lines, cluster = true })

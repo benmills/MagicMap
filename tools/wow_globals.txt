@@ -51,6 +51,7 @@ InCombatLockdown UnitClass UnitRace GetQuestsCompleted UnitClassification UnitEx
 GetNumGroupMembers IsInRaid Minimap_OnUpdate UnitIsDeadOrGhost UnitIsUnit
 GetAddOnInfo GetAddOnMemoryUsage GetNumAddOns UpdateAddOnMemoryUsage
 UnitFactionGroup MagicMapLandmarks UnitGUID UnitIsGhost UnitIsPlayer UnitLevel UnitName UnitPosition
+UnitCastingInfo UnitChannelInfo GetProfessions GetProfessionInfo
 # Blizzard's frames and registries (Game owns the Minimap takeover, hooks, slash, Escape)
 ChatFrameUtil DEFAULT_CHAT_FRAME Minimap MinimapCluster SlashCmdList UISpecialFrames UiMapPoint
 WorldMapFrame Settings SettingsPanel QuestLogFrame
