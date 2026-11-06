@@ -36,33 +36,41 @@ local NONE = {}
 local Pins = {}
 UI.Pins = Pins
 
--- Every pin's size, a factor (Feel "icons.scale"): Style takes it on a look's size but for a fixed one (a group's
--- pill, whose slots are ICON px: ui/Cluster.lua); a pin layer's rev moves with it, so the pins are set again.
-local scale, scaleRev = 1.2, 0 -- (Feel's default)
-function Pins.SetScale(k)
-	if scale == k then return end
-	scale, scaleRev = k, scaleRev + 1
-end
+-- Every pin's size, a factor (Settings > Icons > Icon size): Style takes it on a look's size but for a fixed one (a
+-- group's pill, whose slots are ICON px: ui/Cluster.lua); a pin layer's rev moves with it, so the pins are set again.
+local scale, scaleRev = 1.2, 0
 
--- The focus ring's look (Feel "ring.<name>"): its size (a factor on the whole ring: 1 is GLOW_PAD past the icon), its
--- opacity and its colour (a preset's name; the first the default). A change moves scaleRev, so the pins are set again.
+-- The focus ring's look (Settings > Icons > Focus ring): its size (a factor on the whole ring: 1 is GLOW_PAD past the
+-- icon), its opacity and its colour (a preset's name, the first the default, or "#rrggbb"). A change moves scaleRev,
+-- so the pins are set again.
 local GLOW_COLORS = {
 	{ "Gold", { 1, 0.82, 0.3 } }, { "White", { 1, 1, 1 } }, { "Sky", { 0.55, 0.8, 1 } },
 	{ "Mint", { 0.6, 1, 0.75 } }, { "Rose", { 1, 0.6, 0.7 } }, { "Red", { 1, 0.3, 0.25 } },
 }
-Pins.GLOW_COLORS = GLOW_COLORS
 local ring = { size = 1.45, alpha = 0.25, color = GLOW_COLORS[1][1], rgb = GLOW_COLORS[1][2] }
-function Pins.SetGlow(name, v)
-	if ring[name] == v then return end
-	ring[name] = v
-	if name == "color" then
-		ring.rgb = GLOW_COLORS[1][2]
-		for _, c in ipairs(GLOW_COLORS) do
-			if c[1] == v then ring.rgb = c[2] end
-		end
+local function Glow(name)
+	return function(v)
+		if ring[name] == v then return end
+		ring[name] = v
+		if name == "color" then ring.rgb = select(2, UI.Feel.RGB(GLOW_COLORS, v)) end
+		scaleRev = scaleRev + 1
 	end
-	scaleRev = scaleRev + 1
 end
+UI.Feel.Add("icons", "Size", {
+	{ key = "icons.scale", kind = "slider", label = "Icon size", min = 0.6, max = 1.6, step = 0.1, pct = true, default = scale,
+		apply = function(k)
+			if scale == k then return end
+			scale, scaleRev = k, scaleRev + 1
+		end, tip = "Every icon on the map: quests, places, rares, the lot (a group's pill keeps its size)." },
+})
+UI.Feel.Add("icons", "Focus ring", {
+	{ key = "ring.size", kind = "slider", label = "Size", min = 0.8, max = 1.6, step = 0.05, pct = true, default = ring.size,
+		apply = Glow("size"), tip = "The ring round what you track (the quest you follow, a tracked pin)." },
+	{ key = "ring.alpha", kind = "slider", label = "Opacity", min = 0.1, max = 1, step = 0.05, pct = true, default = ring.alpha,
+		apply = Glow("alpha"), tip = "How solid the ring round what you track is." },
+	{ key = "ring.color", kind = "color", label = "Colour", colors = GLOW_COLORS, default = ring.color, apply = Glow("color"),
+		tip = "The ring's colour." },
+})
 
 ---------------------------------------------------------------------------
 -- StylePin (Layers.lua:304-400)
@@ -188,7 +196,7 @@ end
 -- (aspect: its width over height, else the client's); (c) an atlas over its under atlas tinted, the inner
 -- texture in it; (d) else (an atlas the client lacks too, and no alt: the look drawn instead when the atlas is
 -- missing) a dot of its colour on a dark ring. glow: a thin
--- ring (gold by default: Pins.SetGlow) hugging the icon (the quest you follow; or glow, the caller's: the tracked pin, whose look is
+-- ring (gold by default: Settings > Icons > Focus ring) hugging the icon (the quest you follow; or glow, the caller's: the tracked pin, whose look is
 -- shared with its kind's); count: a line under it.
 local function Style(pin, look, glow)
 	local size, icon = (look.size or SIZE) * (look.fixed and 1 or scale), look.icon or NONE

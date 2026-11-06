@@ -19,7 +19,7 @@ local Yield = Runtime.Yield
 
 local PILL_H, ICON, GAP, PAD, MORE_W, DIGIT_W = 14, 12, 0, 2, 9, 6 -- px: the pill's height, its icons, the gaps, its side padding, the "+" and each digit of the "+N" slot
 local CELL, COLS, PANEL_PAD, PANEL_GAP, PANEL_R = 24, 6, 6, 4, 6 -- px: the grid's cell, its columns, its padding, its gap above the pill, its corner radius
-local PANEL_ALPHA = 0.72 -- the grid's backing (the pill's: the "alpha" tunable)
+local PANEL_ALPHA = 0.72 -- the grid's backing, by default (Settings > Grouping; the pill's: the "alpha" tunable)
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- Pins.lua's disc
 local PILL_LEVEL, GRID_LEVEL = 16, 17 -- above the pins (11-15), the grid above the pills
 local DRIFT = 1.25 -- the zoom bands membership is worked out for (Engine's DRIFT); the grid closes this far from where it opened
@@ -31,7 +31,7 @@ local E, LOOK, MINZ, SRC, COL, ROW, PX, SMALL = 1, 2, 3, 4, 5, 6, 7, 8 -- the en
 local Cluster = {}
 UI.Cluster = Cluster
 
--- The tunables (Settings > Advanced > Grouping: ui/Menus.lua), UI.saved.clusterTune holding those changed:
+-- The tunables (Settings > Grouping: declared below, ui/Feel.lua), UI.saved.clusterTune holding those changed:
 -- range, px: pins whose centres are closer crowd each other; reach: a cluster grows from its first pin by
 -- neighbours of neighbours, up to this many ranges from it; min: pins that make one; slots: a pill's (every
 -- icon if they fit, else the first slots - 1 and "+N"); alpha: the pill's dark backing.
@@ -445,10 +445,11 @@ local function Build(c, inst, zoom, c0, r0, c1, r1)
 	if cl and Inside(cl, c0, r0, c1, r1) then
 		local dy, w, h = Panel(#cl.members)
 		local g = Engine.Get(c, "grid", "tex", MakeFrame)
-		if g.w ~= w or g.h ~= h then
-			g.w, g.h = w, h
+		local a = UI.Feel.Get("group.panelAlpha")
+		if g.w ~= w or g.h ~= h or g.a ~= a then
+			g.w, g.h, g.a = w, h, a
 			g:SetSize(w, h)
-			Backing(g, w, h, PANEL_R, PANEL_ALPHA)
+			Backing(g, w, h, PANEL_R, a)
 		end
 		Engine.At(c, g, "CENTER", cl.col, cl.row, 0, dy)
 	end
@@ -576,3 +577,28 @@ function Cluster.Watch()
 	local off = math.abs((open.col - cam.cx) * cam.zoom) > w / 2 or math.abs((open.row - cam.cy) * cam.zoom) > h / 2
 	if far or off or escape or not setting then Close() end
 end
+
+-- Settings > Grouping (ui/Feel.lua): the switch (UI.saved.cluster, kept by a reset), then the tunables, shown while it's on.
+local function Tune(key, t)
+	t.key, t.kind, t.when, t.default = "group." .. key, "slider", "general.cluster", Cluster.DEFAULTS[key]
+	t.get, t.set = function() return Cluster.Get(key) end, function(v) Cluster.Set(key, v) end
+	return t
+end
+UI.Feel.Add("group", nil, {
+	{ key = "general.cluster", kind = "toggle", label = "Group icons", default = true, keep = true,
+		get = function() return UI.saved.cluster ~= false end, set = function(on) UI.saved.cluster = on end,
+		tip = "On the big map, where icons crowd together, one small pill: click it to see them all (never at the minimap's size)." },
+})
+UI.Feel.Add("group", "How icons group", {
+	Tune("range", { label = "Distance", min = 16, max = 40, step = 4, fmt = "%d px", tip = "How close icons' centres must be to group." }),
+	Tune("reach", { label = "Reach", min = 1, max = 6, step = 1, fmt = "%dx",
+		tip = "How far a group grows from its first icon, by neighbours of neighbours, in distances." }),
+	Tune("min", { label = "Smallest group", min = 2, max = 5, step = 1, fmt = "%d icons", tip = "Fewer icons than this stay apart." }),
+})
+UI.Feel.Add("group", "Pills", {
+	Tune("slots", { label = "Icons in a pill", min = 2, max = 4, step = 1, fmt = "%d",
+		tip = "A pill's slots: every icon if they fit, else one fewer and \"+N\"." }),
+	Tune("alpha", { label = "Pill backing", min = 0, max = 0.7, step = 0.05, pct = true, tip = "How dark the pill behind grouped icons is." }),
+	{ key = "group.panelAlpha", kind = "slider", label = "Open group backing", min = 0.3, max = 1, step = 0.02, pct = true,
+		default = PANEL_ALPHA, when = "general.cluster", tip = "How dark the panel behind a group's icons is, once you click its pill." },
+})

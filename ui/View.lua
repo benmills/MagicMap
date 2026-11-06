@@ -4,7 +4,8 @@
 -- the focus (types/focus.lua) when it changes. UI's saved part (types/saved.lua
 -- MM.SavedUI) comes through a load Command: the window (ui/BigMap.lua), shown,
 -- zoom, follow, the map and centre when not following, the layer toggles, the
--- what MagicMap replaces (ui/Replace.lua), the minimap mode, the title's debug line and the minimap button (UI.saved, read where they're used).
+-- what MagicMap replaces (ui/Replace.lua), the minimap mode, the title's debug line and the minimap button (UI.saved, read where they're used;
+-- the button a switch in Settings > General, ui/Feel.lua). The looks (UI.saved.feel) are checked by Feel.Loaded.
 
 local _, ns = ...
 local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
@@ -155,6 +156,11 @@ function UI.Icon()
 	UI.Print("minimap button " .. (saved.button and "shown" or "hidden (/mm icon to show)"))
 end
 Command({ kind = "slash", name = "icon", help = "show or hide the minimap button", fn = UI.Icon })
+UI.Feel.Add("general", "Blizzard's maps", {
+	{ key = "general.button", kind = "toggle", label = "Minimap button", default = true, keep = true,
+		get = function() return saved.button == true end, set = function(on) if (saved.button == true) ~= on then UI.Icon() end end,
+		tip = "The button on Blizzard's minimap, for when MagicMap is switched off." },
+})
 -- /mm alone or /mm toggle (Core.lua:1700); /mm map <id|name> is the map picker's (M3.4).
 Command({ kind = "slash", name = "", help = "our map, or Blizzard's minimap (as toggle)", fn = Window.Toggle })
 Command({ kind = "slash", name = "toggle", help = "our map, or Blizzard's minimap", fn = Window.Toggle })

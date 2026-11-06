@@ -131,7 +131,7 @@ the rares and treasures the game shows now; your corpse and waypoint.
 
 **Crowded icons.** Where icons overlap they group into a small pill of up to two icons (`+N` for
 the rest, sized to its digits); click it for a grid of them all, each with its own tooltip and click
-(Settings > General > Group icons; its tunables under Settings > Grouping). Quest icons are never grouped, and nothing groups at the minimap's size.
+(Settings > Grouping > Group icons, with its tunables). Quest icons are never grouped, and nothing groups at the minimap's size.
 
 **Other addons.** World-map pins added through HereBeDragons (Questie, HandyNotes...) show on the
 map with their own icons, tooltips and clicks, each addon a row in the gear's Other addons; their
@@ -144,21 +144,25 @@ Then Use Blizzard's minimap (while ours replaces it; Blizzard's logo on the row)
 then Settings.
 
 **Settings.** A window of its own (the gear's Settings, `/mm feel` or `/mm settings`, or Game menu >
-Options > AddOns > MagicMap > Open MagicMap Settings), a sidebar of categories with the page of the
-chosen one beside it (the last is remembered). Every change applies at once; each page has its own
-Reset (General and Diagnostics are switches and actions, so none), and Reset all at the bottom.
-Settings are account-wide.
+Options > AddOns > MagicMap > Open MagicMap Settings), a sidebar of pages with the chosen one beside it (the last is
+remembered), each page's settings under small headers. The client's own controls: sliders with their value beside
+them and a step button either side, checkboxes, dropdowns, colour swatches with Custom… (the game's colour picker:
+any colour). Every change applies at once. A setting changed from its default shows an undo mark (a click puts it
+back), each page has its own Reset and there's Reset all at the bottom, each lit only while there's something to
+reset; the switches (what MagicMap replaces, Follow you, the minimap button, Group icons, the diagnostics) are left
+as they are. A row that only matters while another setting is on (the outline's colour, the breath's pace) shows
+only then. Hover a row for what it does and its default. Settings are account-wide.
 
 | Page | Settings (default) |
 | --- | --- |
-| General | Replace minimap, Replace world map (what the welcome chose); Follow you (on); Minimap button (on); Group icons (on); Reset window position |
-| Map | Label size (100%); Subzone size (100%); Subzone opacity (60%); Your arrow's size (100%); Indoor dimming (65%); Indoor auto-zoom (on); Ocean (on); Repair broken map art (on) |
-| Info pills | Backing (25%); Size (100%); Quest pill (quest or zone count / followed quest only / off); Quest progress (on); Fade quest pill (on: the zone count only while you point at the map); Distance pill (on); Distance shows (yards and time / yards / time); Distance corner (top left / top right); Fade distance pill (off) |
-| Icons | Icon size (120%); Quest icon size (100%); Focus ring size (145%); Focus ring opacity (25%); Focus ring colour (Gold) |
-| Tracking line | Style (dashed); Weight (1.0 px); Colour (Gold); Glow (off); Breathing (off); Opacity (55%); Outline (off); Outline colour (Dark) |
-| Quest areas | The followed quest's fill, edge and edge width; the others' fill, edge and edge width; the hover's fill and edge (as the game draws them, a quiet fill by default) |
-| Grouping | Distance (24 px); Reach (3x); Smallest group (2 icons); Icons in a pill (2); Group pill backing (35%) |
-| Diagnostics | Debug info in title; Indoor maps report; Record 10 seconds; Compare with other addons; Memory breakdown (each also a `/mm` command) |
+| General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to you (on: the small map glides back to you when left alone), Return after (6 s), Zoom per notch (+30%) |
+| Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (100%), Subzone opacity (60%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
+| Icons | Size: Icon size (120%), Quest icon size (100%). Focus ring: Size (145%), Opacity (25%), Colour (Gold) |
+| Info pills | Both pills: Backing (25%), Size (100%). Quest pill: Shows (quest or zone count / followed quest only / off), Quest progress (on), Fade quest pill (on: the zone count only while you point at the map). Distance pill: Distance pill (on), Shows (yards and time / yards / time), Corner (top left / top right), Fade distance pill (off) |
+| Tracking line | Line: Style (dashed), Weight (1.0 px), Colour (Gold), Opacity (55%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |
+| Quest areas | Followed quest, Other quests: Fill, Edge, Edge width. Under the cursor: Fill lift, Edge (as the game draws them, a quiet fill by default) |
+| Grouping | Group icons (on). How icons group: Distance (24 px), Reach (3x), Smallest group (2 icons). Pills: Icons in a pill (2), Pill backing (35%), Open group backing (72%) |
+| Diagnostics | Debug info in title; Indoor maps report. Reports in chat: Record 10 seconds; Compare with other addons; Memory breakdown (each also a `/mm` command) |
 
 ## Commands
 

@@ -7,7 +7,8 @@
 -- Flights (FlyTo) ease out, zoom in log space and, zooming in, keep the destination
 -- on a straight line toward the centre (it "comes to you"). A press moving under CLICK_SLOP px
 -- is a click; past it, a drag: it pans and stops following. Panned away and left alone, the
--- small map glides back to following you (MinimapMode.lua:244-249).
+-- small map glides back to following you (MinimapMode.lua:244-249). Its settings (General > Movement,
+-- ui/Feel.lua): Follow you (Camera.follow), Return to you and its wait (IDLE_FOLLOW), and the zoom a notch (WHEEL_STEP).
 -- Window routes the view's input here and calls Chase each frame (ui/Window.lua); what this
 -- marks on Camera (moving, zoomedAt, vx, vy) is what Camera.Settled and Camera.Velocity read;
 -- Rect is Focus's (ui/View.lua sends it). tools/tests/spike_camera.lua is the spike's camera
@@ -38,6 +39,7 @@ local goal, anchor = nil, { 0, 0, 0, 0 } -- the wheel's target zoom; { col, row,
 local flight -- { t, dur, fx, fy, fz, tx, ty, tz, onDone }
 local press -- the left button down: { x, y (the press), lx, ly (the last pan), t, moved }
 local touched = 0 -- the last press or zoom step (GetTime): the idle return's clock
+local wheelStep, idleOn, idleAfter = WHEEL_STEP, true, IDLE_FOLLOW -- (the settings', below)
 -- The wheel's events since Motion's last step (its `wheel` trace: what the device sends): how many, their
 -- deltas' sum, s from the event before them; at: the last event's GetTime.
 local wheel = { n = 0, delta = 0, dt = 0, at = 0 }
@@ -79,7 +81,7 @@ end
 
 -- A zoom of `ticks` steps, in (> 0) or out; ticks stack onto the target (Core.lua:1422-1441). See Aim.
 function Motion.ZoomStep(ticks, atCursor)
-	Aim((goal or Camera.cam.zoom) * WHEEL_STEP ^ ticks, atCursor)
+	Aim((goal or Camera.cam.zoom) * wheelStep ^ ticks, atCursor)
 	if not atCursor then Camera.Trace("wheel") end -- (the wheel's: Motion's step, a frame's events in one)
 end
 
@@ -263,8 +265,8 @@ end
 
 -- Left alone after you've panned away (small only, not hovered), glide back to following you.
 local function StepIdle()
-	if Camera.follow or press or Animating() or UI.View().window.big then return end
-	if Window.frame:IsMouseOver() or GetTime() - touched < IDLE_FOLLOW then return end
+	if Camera.follow or not idleOn or press or Animating() or UI.View().window.big then return end
+	if Window.frame:IsMouseOver() or GetTime() - touched < idleAfter then return end
 	Motion.SetFollow(true, true)
 end
 
@@ -313,3 +315,17 @@ function Motion.Rect()
 	end
 	return rect
 end
+
+UI.Feel.Add("general", "Movement", {
+	{ key = "general.follow", kind = "toggle", label = "Follow you", default = true, keep = true,
+		get = function() return Camera.follow == true end, set = function(on) Motion.SetFollow(on, true) end,
+		tip = "Keeps the map centred on you. Drag the map to look about; it glides back to you when left alone." },
+	{ key = "motion.idle", kind = "toggle", label = "Return to you", default = true, apply = function(v) idleOn = v end,
+		tip = "The small map, panned away and left alone, glides back to you. Off: it stays where you left it." },
+	{ key = "motion.idleTime", kind = "slider", label = "Return after", min = 2, max = 30, step = 1, fmt = "%d s",
+		default = IDLE_FOLLOW, when = "motion.idle", apply = function(v) idleAfter = v end,
+		tip = "How long the small map waits, untouched and not under the cursor, before it glides back to you." },
+	{ key = "motion.wheel", kind = "slider", label = "Zoom per notch", min = 1.1, max = 2, step = 0.05, default = WHEEL_STEP,
+		fmt = function(v) return "+" .. math.floor((v - 1) * 100 + 0.5) .. "%" end, apply = function(v) wheelStep = v end,
+		tip = "How far each notch of the mouse wheel (and each press of + or -) zooms." },
+})

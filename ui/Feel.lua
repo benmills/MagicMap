@@ -1,258 +1,144 @@
--- MagicMap's settings window (gear -> Settings…, /mm feel, /mm settings; Game menu -> Options -> AddOns -> MagicMap
--- opens it too): a small movable dialog of the client's ButtonFrameTemplate (as the map window, ui/Window.lua, but
--- kept as the client draws it: header bar, close button), DIALOG strata, clamped to the screen, dragged by its
--- header, Escape closes it (game/Hooks.lua names it in UISpecialFrames). A sidebar of categories (icon, name, the
--- chosen one lit) and the page of the chosen one on its right; each page built on its first showing, with its own
--- Reset (where its settings are looks: General's and Diagnostics' are switches and actions, nothing to reset), and
--- Reset all at the bottom. The last category is kept (UI.saved.feelPage). Every change applies live:
---   General: Replace minimap / world map (UI.Replace, the other half of the contract: Get(key), Set(key, on)),
---     Follow you (UI.Motion), Minimap button (UI.Icon), Group icons (UI.saved.cluster), Reset window position.
---   Map: label size, subzone label size and opacity (ui/Labels.lua),
---     your arrow's size (ui/You.lua), the indoor veil's strength and whether
---     a small building zooms the map in (ui/Interiors.lua), the ocean (ui/Sea.lua) and the repaints (ui/Repaint.lua). Pushed to their setters on change, and again each time the
---     map shows (the saved values, once loaded); each owner lays out anew by a rev of its own.
---   Info pills (ui/Controls.lua: the quest pill, bottom left, and the distance pill, top): their backing, size, what each
---     says, whether each shows or fades until you point at the map, and the distance pill's corner (Controls.SetPill).
---   Icons: every pin's size, and the quests' (ui/Pins.lua, ui/Quests.lua; their revs move with it); the focus ring
---     round what you track: its size, opacity and colour (Pins.SetGlow; "ring.color" a name of UI.Pins.GLOW_COLORS).
---   Tracking line: style, weight, colour, glow, breathing, opacity, the outline and its colour. ui/Path.lua owns the values: it
---     reads Feel.Get("path.<key>") and lays out again when Feel.rev moves; its UI.Path.DEFAULTS and
---     UI.Path.COLORS and EDGE_COLORS (ordered presets { name, { r, g, b } }, the first the default) are read when
---     asked, never at load (Path.lua loads after this file; fallbacks until it lands). "path.color" and
---     "path.edgeColor" are presets' names.
---   Quest areas: the fill, edge alpha and edge width of the followed quest's area and of the others', and the
---     hover's fill and edge alpha (alphas 0-255, shown as %): ui/Areas.lua reads Feel.Get("areas.<key>") and
---     styles its frames anew when Feel.rev moves (UI.Areas.DEFAULTS are the defaults, read when asked).
---   Grouping: ui/Cluster.lua's five tunables, through Cluster.Get/Set (saved as UI.saved.clusterTune, as before).
---   Diagnostics: the title's debug line, the indoor reports, and the recording, comparison and memory reports
---     (each the /mm command it was in the gear's Advanced; they stay slash commands too).
--- Every setting is declared once in KEYS ({ key, section, label, kind = "slider" | "check" | "pick" | "button", min,
--- max, step, default (a value, or a function), options (or a function), tip, apply? }): the dialog is built from
--- it; its widgets are refreshed from the values on open, on a page's showing and after a reset, each set only when
--- it differs. A look is saved in UI.saved.feel = { ["path.style"] = ... } (types/saved.lua), a key only while it
--- differs from its default, the table gone when none does. A key with get/set (ext) lives where its owner keeps it
--- (UI.saved, UI.Replace, Game's commands): Get/Set go there, no rev, no reset. Hidden almost always: no step, nothing a frame.
--- API: Feel.Get(key), Feel.Set(key, v), Feel.Reset(section), Feel.ResetAll(), Feel.Open(page?), Feel.Toggle(), Feel.rev,
--- Feel.OnLoad(fn) (fn runs once the saved part loads; Feel.Loaded() is View's).
--- Feel.Get is safe before the saved part loads (a layer's load-time Apply asks it). The client's own Settings
--- entry (Game menu -> Options -> AddOns -> MagicMap) is Game's (game/Options.lua): its button runs /mm feel open.
+-- MagicMap's settings: the values every part of the map reads, and the window that sets them (gear -> Settings…,
+-- /mm feel, /mm settings; Game menu -> Options -> AddOns -> MagicMap opens it too: game/Options.lua).
+--
+-- Each feature declares its own settings next to its code, and the window is built only from what's declared:
+--   Feel.Page({ key, title, icon, order, tip, sections = { "Header", ... } })  a page of the sidebar (by order)
+--   Feel.Add(page, section, { setting, ... })  settings on a page, under a section's header (nil: above them all)
+-- A setting is { key, kind, label, tip, default, ... }: its key is the name it's saved and read by ("<area>.<name>",
+-- never renamed: players' saved values are under it); default a value, or a function (read when asked: a value
+-- another setting gives, an inherited one; until it's set, its row and apply follow that setting); and by its kind:
+--   toggle  a checkbox: true or false
+--   slider  min, max, step (default on the grid); its live value beside it as pct (a share, as %), of (a part of
+--           of, as %), fmt (a string.format pattern, or a function of the value); steppers either side
+--   select  a dropdown, options = { { label, value, icon? } } (or a function giving them; an icon is a file, a
+--           FileDataID or "A:<atlas>")
+--   color   colors = { { name, { r, g, b } } } as swatches, the first the list's own; the value a preset's name
+--           or, through the client's colour picker (Custom…; custom = false: none), "#rrggbb" (Feel.RGB reads either)
+--   list    options as select's: choose several and, ordered = true, their order (arrows); the value the chosen
+--           values joined by commas, in order (Feel.List gives them)
+--   button  run(): an action, no value
+-- and, any kind: apply(v), its setter, called on a change and each time the map shows (the saved value, once
+-- loaded; only when it differs from what it last took; each wrapped: one failing can't stop the rest); get()/set(v):
+-- a value its owner keeps (UI.saved, UI.Replace...), not saved here; keep = true: a reset leaves it as it is (an
+-- owner's switch); when = a key (shown while that setting is on) or a function: a row shown only then (indented
+-- under the row it depends on, in its section; a header shown while a row under it is). Its row: its label, its
+-- control, and an undo mark while it differs from its default (a click puts the default back); its tooltip the
+-- label, the tip and the default. Rows made from a list are a loop of Feel.Add's entries (keys "<area>.<id>.<name>").
+-- The rule (tools/tests/test_lookfeel.py test_settings_declared holds it): every value the code reads or sets
+-- through Feel by name, and every key saved in UI.saved.feel, is declared; every declared setting has a page, a
+-- label, a tip and (but a button) a default its control offers. A new feature adds its settings with Feel.Add in its
+-- own file (docs/development.md "How to add a setting"), never a frame of its own here.
+--
+-- The values: Feel.Get(key) (safe before the saved part loads, and for a key not declared yet: the saved value,
+-- else nil), Feel.Set(key, v), Feel.Default(key), Feel.rev (moves on every change: a reader compares it to restyle),
+-- Feel.Reset(page), Feel.ResetAll(), Feel.List(key), Feel.RGB(colors, v, default), Feel.Entry(key), Feel.Entries()
+-- and Feel.Pages() (what's declared), Feel.OnLoad(fn) (fn runs once the saved part loads; Feel.Loaded() is View's:
+-- it drops a saved value of the wrong type, a slider's out of range, an option or colour no longer offered). A look
+-- is saved in UI.saved.feel = { ["path.style"] = ... } (types/saved.lua), a key only while it differs from its
+-- default, the table gone when none does. This file loads right after ui/Window.lua, so every other UI file may
+-- declare; the window is built on its first open, and a page or setting declared after that joins it.
+--
+-- The pages (order; who declares their settings), each with one job:
+--   General (10), what MagicMap replaces, its window, how the map moves. Blizzard's maps: Replace minimap, Replace
+--     world map (ui/Replace.lua), Minimap button (ui/View.lua); Map window: Buttons at rest (ui/Controls.lua), Reset
+--     window position (ui/BigMap.lua); Movement: Follow you, Return to you, Return after, Zoom per notch (ui/Motion.lua).
+--   Map (20), what the map shows. Names: Label size, Zone name opacity, Subzone size, Subzone opacity
+--     (ui/Labels.lua); Ground: Ocean (ui/Sea.lua), Repair broken map art (ui/Repaint.lua); Indoors: Indoor dimming,
+--     Indoor auto-zoom (ui/Interiors.lua); You: Your arrow (ui/You.lua).
+--   Icons (30), the icons' size and the ring round what you track. Size: Icon size (ui/Pins.lua), Quest icon size
+--     (ui/Quests.lua); Focus ring: Size, Opacity, Colour (ui/Pins.lua).
+--   Info pills (40, ui/Controls.lua). Both pills: Backing, Size; Quest pill: Shows, Quest progress, Fade quest pill;
+--     Distance pill: Distance pill, Shows, Corner, Fade distance pill.
+--   Tracking line (50, ui/Path.lua). Line: Style, Weight, Colour, Opacity; Effects: Glow, Breathing, Breath pace;
+--     Outline: Outline, Outline colour.
+--   Quest areas (60, ui/Areas.lua). Followed quest: Fill, Edge, Edge width; Other quests: the same; Under the
+--     cursor: Fill lift, Edge.
+--   Grouping (70, ui/Cluster.lua). Group icons; How icons group: Distance, Reach, Smallest group; Pills: Icons in a
+--     pill, Pill backing, Open group backing.
+--   Diagnostics (90, here). Debug info in title, Indoor maps report; Reports in chat: Record 10 seconds, Compare
+--     with other addons, Memory breakdown (each a /mm command too).
+-- Pages to come take an order between these (Title, Pins, Resources, Tracking...). The sidebar has room for 14
+-- before the window grows; a page longer than the window scrolls.
+--
+-- The window: a movable dialog of the client's ButtonFrameTemplate (as the map window, ui/Window.lua, but kept as
+-- the client draws it: header bar, close button), DIALOG strata, clamped to the screen, dragged by its header,
+-- Escape closes it (game/Hooks.lua names it in UISpecialFrames). The sidebar's pages (icon and title, the chosen
+-- one lit, its job as its tooltip) and the chosen page on the right: its title over the client's divider, its
+-- Reset, its rows under their sections' headers (made on its first showing, refreshed from the values on each),
+-- the wheel or its bar scrolling it. Reset all at the bottom; it, a page's Reset and a row's undo mark lit only
+-- while there's something to reset. The last page is kept (UI.saved.feelPage). Hidden almost always: no step,
+-- nothing a frame. Its controls are the client's own: the settings panel's checkbox and slider with steppers
+-- (checkbox-minimal, Minimal_SliderBar_*: the UI-CheckBox and slider-bar files where a client lacks them), its
+-- dropdown (WowStyle1DropdownTemplate, the client's menu), ColorSwatchTemplate and ColorPickerFrame, the undo icon,
+-- the minimal scroll bar's arrows.
 
 local _, ns = ...
 local UI, Runtime, Model = ns.UI, ns.Runtime, ns.Model
 local Command = ns.Game.Command
+local floor = math.floor
 
 local Feel = { rev = 0 }
 UI.Feel = Feel
 
--- Until ui/Path.lua exposes its own.
-local PATH_DEFAULTS = { style = "dashed", weight = 1, color = "Gold", glow = false, breath = false, opacity = 0.55,
-	edge = false, edgeColor = "Dark" }
-local PATH_COLORS = { { "Gold", { 1, 0.82, 0.3 } } }
-local EDGE_COLORS = { { "Dark", { 0.12, 0.08, 0.03 } } }
--- Until ui/Pins.lua (after this file) exposes its own.
-local RING_COLORS = { { "Gold", { 1, 0.82, 0.3 } } }
--- Until ui/Areas.lua (after this file) exposes its own.
-local AREA_DEFAULTS = { fFill = 32, fEdge = 120, fWidth = 0.8, oFill = 0, oEdge = 85, oWidth = 0.6, hFill = 45, hEdge = 150 }
-local function PathDefaults() return UI.Path and UI.Path.DEFAULTS or PATH_DEFAULTS end
-local function PathColors() return UI.Path and UI.Path.COLORS or PATH_COLORS end
-local function PathDefault(k) return function() return PathDefaults()[k] end end
--- The default colour: Path's, if it names a preset; else the first preset.
-local function ColorDefault()
-	local d = PathDefaults().color
-	return type(d) == "string" and d or PathColors()[1][1]
+---------------------------------------------------------------------------
+-- What's declared
+---------------------------------------------------------------------------
+
+local PAGES, BY_PAGE = {}, {} -- by order (then as declared)
+local KEYS, BY_KEY = {}, {} -- every setting, as declared
+local INHERIT = {} -- the settings whose default is a function: told when another changes
+local KINDS = { toggle = true, slider = true, select = true, color = true, list = true, button = true }
+local built -- the window, made on its first open
+local Sidebar, Grew -- (the window's, below: a page declared once it's built)
+
+local function ByOrder(a, b)
+	if a.order ~= b.order then return a.order < b.order end
+	return a.n < b.n
 end
--- A pick's options from presets { name, rgb } (a function: read when asked).
-local function Names(list)
-	return function()
-		local out = {}
-		for i, c in ipairs(list()) do out[i] = { c[1], c[1] } end
-		return out
+
+function Feel.Page(p)
+	assert(type(p.key) == "string" and p.title and not BY_PAGE[p.key], "Feel.Page: a new key and a title")
+	p.order, p.n, p.sections = p.order or 100, #PAGES + 1, p.sections or {}
+	PAGES[#PAGES + 1] = p
+	BY_PAGE[p.key] = p
+	table.sort(PAGES, ByOrder)
+	if built then Sidebar() end
+	return p
+end
+
+function Feel.Add(page, section, list)
+	for _, k in ipairs(list) do
+		assert(type(k.key) == "string" and not BY_KEY[k.key], "Feel.Add: a new key")
+		assert(KINDS[k.kind], "Feel.Add: unknown kind " .. tostring(k.kind) .. " (" .. k.key .. ")")
+		assert(k.kind ~= "slider" or k.min and k.max and k.step and k.step > 0, "Feel.Add: a slider's min, max, step")
+		k.page, k.section = page, section or false
+		if k.apply then k.apply = Runtime.Wrap("feel: " .. k.key, k.apply) end -- (one failing can't stop the rest)
+		KEYS[#KEYS + 1] = k
+		BY_KEY[k.key] = k
+		if type(k.default) == "function" then INHERIT[#INHERIT + 1] = k end
+		local p = BY_PAGE[page]
+		if p then p.items = nil end -- (its rows laid out again, the new one with them)
 	end
 end
-local ColorOptions = Names(PathColors)
-local EdgeOptions = Names(function() return UI.Path and UI.Path.EDGE_COLORS or EDGE_COLORS end)
-local RingColors = function() return UI.Pins and UI.Pins.GLOW_COLORS or RING_COLORS end
 
--- The pills' (ui/Controls.lua loads after this file: its defaults read when asked, these until then).
-local PILL_DEFAULTS = { scale = 1, questShow = "all", questProgress = true, questFade = true, trackShow = true,
-	trackWhat = "both", trackCorner = "left", trackFade = false }
-local function PillDefault(k)
-	return function()
-		local d = UI.Controls and UI.Controls.PILL_DEFAULTS
-		if d and d[k] ~= nil then return d[k] end
-		return PILL_DEFAULTS[k]
-	end
-end
-local function Pill(k) return function(v) UI.Controls.SetPill(k, v) end end
-
-local function AreaDefault(k) return function() return UI.Areas and UI.Areas.DEFAULTS[k] or AREA_DEFAULTS[k] end end
-
-local PAGES = {
-	{ key = "general", title = "General", icon = "Interface\\Icons\\Trade_Engineering" },
-	{ key = "map", title = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01" },
-	{ key = "icons", title = "Icons", icon = "Interface\\Icons\\Ability_Tracking" },
-	{ key = "pills", title = "Info pills", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01" },
-	{ key = "path", title = "Tracking line", icon = "Interface\\Icons\\Ability_Hunter_Pathfinding" },
-	{ key = "areas", title = "Quest areas", icon = "Interface\\Icons\\INV_Misc_Map02" },
-	{ key = "group", title = "Grouping", icon = "Interface\\Icons\\INV_Misc_Bag_08" },
-	{ key = "diag", title = "Diagnostics", icon = "Interface\\Icons\\INV_Gizmo_01" },
-}
-local BY_PAGE = {}
-for _, p in ipairs(PAGES) do BY_PAGE[p.key] = p end
-
--- /mm <line>, as typed (Game owns them): a diagnostics row runs the same code (the gear's Advanced did).
-local function Slash(line) return function() Command({ kind = "run", line = line }) end end
--- UI.Replace (the contract: Get(key), Set(key, on)), if it's loaded.
-local function Replaced(key) return UI.Replace ~= nil and UI.Replace.Get(key) == true end
-local function Replace(key) return function(on) if UI.Replace then UI.Replace.Set(key, on) end end end
-
--- pct: shown as a percentage; of: as a percentage of it (alphas 0-255; step 1: their defaults lie on the grid). cluster: ui/Cluster.lua's tunable it is (held there, not in saved.feel).
--- get/set: an ext key, kept by its owner. apply(v): its setter, called on change and each time the map shows. run: a button's.
-local KEYS = {
-	{ key = "replace.minimap", section = "general", label = "Replace minimap", kind = "check", get = function() return Replaced("minimap") end,
-		set = Replace("minimap"), tip = "Our map stands in for Blizzard's minimap. Off: Blizzard's minimap as usual." },
-	{ key = "replace.worldmap", section = "general", label = "Replace world map", kind = "check", get = function() return Replaced("worldmap") end,
-		set = Replace("worldmap"), tip = "M opens our map in place of Blizzard's world map. Off: M opens Blizzard's world map as usual." },
-	{ key = "general.follow", section = "general", label = "Follow you", kind = "check", get = function() return UI.Camera.follow == true end,
-		set = function(on) UI.Motion.SetFollow(on, true) end,
-		tip = "Keeps the map centred on you. Drag the map to look about; it glides back to you when left alone." },
-	{ key = "general.button", section = "general", label = "Minimap button", kind = "check", get = function() return UI.saved.button == true end,
-		set = function(on) if (UI.saved.button == true) ~= on then UI.Icon() end end, tip = "The button on Blizzard's minimap, for when MagicMap is switched off." },
-	{ key = "general.cluster", section = "general", label = "Group icons", kind = "check", get = function() return UI.saved.cluster ~= false end,
-		set = function(on) UI.saved.cluster = on end,
-		tip = "On the big map, where icons crowd together, one small pill: click it to see them all (never at the minimap's size). Its tunables are under Grouping." },
-	{ key = "general.resetpos", section = "general", label = "Reset window position", kind = "button", run = function() UI.BigMap.Reset() end,
-		tip = "Puts the map window back on the minimap's spot." },
-
-	{ key = "labels.scale", section = "map", label = "Label size", kind = "slider", min = 0.7, max = 1.5, step = 0.1, pct = true,
-		default = 1, apply = function(v) UI.Labels.SetScale(v) end, tip = "The zone and subzone names' size." },
-	{ key = "labels.subScale", section = "map", label = "Subzone size", kind = "slider", min = 0.7, max = 1.5, step = 0.1, pct = true,
-		default = 1, apply = function(v) UI.Labels.SetSubScale(v) end, tip = "The subzone names' size, on top of the label size." },
-	{ key = "labels.subAlpha", section = "map", label = "Subzone opacity", kind = "slider", min = 0.2, max = 1, step = 0.05, pct = true,
-		default = 0.6, apply = function(v) UI.Labels.SetSubAlpha(v) end, tip = "How solid the subzone names are." },
-	{ key = "arrow.scale", section = "map", label = "Your arrow", kind = "slider", min = 0.6, max = 1.6, step = 0.1, pct = true,
-		default = 1, apply = function(v) UI.You.SetArrowScale(v) end, tip = "Your arrow's size." },
-	{ key = "interiors.dim", section = "map", label = "Indoor dimming", kind = "slider", min = 0.3, max = 0.9, step = 0.05, pct = true,
-		default = 0.65, apply = function(v) UI.Interiors.SetDim(v) end,
-		tip = "How dark the terrain is under a building's indoor map, while you're inside and the map is small." },
-	{ key = "interiors.zoom", section = "map", label = "Indoor auto-zoom", kind = "check", default = true,
-		tip = "Walking into a small building (a house, an inn) zooms the small map in; leaving zooms back." },
-
-	{ key = "sea.on", section = "map", label = "Ocean", kind = "check", default = true,
-		apply = function(v) UI.Sea.Set(v) end, tip = "A coloured ocean round the land, where Blizzard's map is near-black." },
-	{ key = "repaint.on", section = "map", label = "Repair broken map art", kind = "check", default = true,
-		apply = function(v) UI.Repaint.Set(v) end,
-		tip = "Paints over the flat, unfinished blocks in Blizzard's map with AI-generated pictures. Only on the game build they were checked against: on another, the map stays as Blizzard's until MagicMap updates." },
-
-	{ key = "pills.alpha", section = "pills", label = "Backing", kind = "slider", min = 0, max = 0.8, step = 0.05, pct = true,
-		default = 0.25, apply = function(v) UI.Controls.SetPillAlpha(v) end,
-		tip = "How dark the pills' backing is: the quest pill (bottom left) and the distance pill (top)." },
-	{ key = "pills.scale", section = "pills", label = "Size", kind = "slider", min = 0.8, max = 1.6, step = 0.1, pct = true,
-		default = PillDefault("scale"), apply = Pill("scale"), tip = "Both pills' size, text and all." },
-	{ key = "pills.questShow", section = "pills", label = "Quest pill", kind = "pick", default = PillDefault("questShow"),
-		options = { { "Quest or zone count", "all" }, { "Followed quest only", "followed" }, { "Off", "off" } },
-		apply = Pill("questShow"),
-		tip = "Bottom left: the quest you follow, else how many of your quests are in this zone; or only a followed quest; or none." },
-	{ key = "pills.questProgress", section = "pills", label = "Quest progress", kind = "check", default = PillDefault("questProgress"),
-		apply = Pill("questProgress"), tip = "The followed quest's count (2/5) or \"ready to turn in\" after its name." },
-	{ key = "pills.questFade", section = "pills", label = "Fade quest pill", kind = "check", default = PillDefault("questFade"),
-		apply = Pill("questFade"),
-		tip = "The zone's quest count shows only while you point at the map. A followed quest always shows." },
-	{ key = "pills.trackShow", section = "pills", label = "Distance pill", kind = "check", default = PillDefault("trackShow"),
-		apply = Pill("trackShow"), tip = "The yards and time to what you track (a quest, an icon, your waypoint)." },
-	{ key = "pills.trackWhat", section = "pills", label = "Distance shows", kind = "pick", default = PillDefault("trackWhat"),
-		options = { { "Yards and time", "both" }, { "Yards", "yards" }, { "Time", "time" } }, apply = Pill("trackWhat"),
-		tip = "What the distance pill says. The time is at your pace (a run's, until you've moved)." },
-	{ key = "pills.trackCorner", section = "pills", label = "Distance corner", kind = "pick", default = PillDefault("trackCorner"),
-		options = { { "Top left", "left" }, { "Top right", "right" } }, apply = Pill("trackCorner"),
-		tip = "Which top corner of the map the distance pill sits in." },
-	{ key = "pills.trackFade", section = "pills", label = "Fade distance pill", kind = "check", default = PillDefault("trackFade"),
-		apply = Pill("trackFade"), tip = "The distance pill shows only while you point at the map." },
-
-	{ key = "icons.scale", section = "icons", label = "Icon size", kind = "slider", min = 0.6, max = 1.6, step = 0.1, pct = true,
-		default = 1.2, apply = function(v) UI.Pins.SetScale(v) end,
-		tip = "Every icon on the map: quests, places, rares, the lot (a group's pill keeps its size)." },
-	{ key = "quests.scale", section = "icons", label = "Quest icon size", kind = "slider", min = 0.7, max = 1.6, step = 0.1, pct = true,
-		default = 1, apply = function(v) UI.Quests.SetScale(v) end, tip = "The quests' icons, on top of the icon size." },
-	{ key = "ring.size", section = "icons", label = "Focus ring size", kind = "slider", min = 0.8, max = 1.6, step = 0.05, pct = true,
-		default = 1.45, apply = function(v) UI.Pins.SetGlow("size", v) end,
-		tip = "The ring round what you track (the quest you follow, a tracked pin)." },
-	{ key = "ring.alpha", section = "icons", label = "Focus ring opacity", kind = "slider", min = 0.1, max = 1, step = 0.05, pct = true,
-		default = 0.25, apply = function(v) UI.Pins.SetGlow("alpha", v) end, tip = "How solid the ring round what you track is." },
-	{ key = "ring.color", section = "icons", label = "Focus ring colour", kind = "pick", default = function() return RingColors()[1][1] end,
-		options = Names(RingColors), apply = function(v) UI.Pins.SetGlow("color", v) end, tip = "The ring's colour." },
-
-	{ key = "path.style", section = "path", label = "Style", kind = "pick", default = PathDefault("style"),
-		options = { { "Dotted", "dotted" }, { "Dashed", "dashed" }, { "Solid", "solid" } },
-		tip = "How the line to what you track is drawn." },
-	{ key = "path.weight", section = "path", label = "Weight", kind = "slider", min = 1, max = 4, step = 0.2, -- (Path's range; its default 1 lies on the grid: an open mustn't save a snap)
-		default = PathDefault("weight"), fmt = "%.1f px", tip = "How thick the line is." },
-	{ key = "path.color", section = "path", label = "Colour", kind = "pick", default = ColorDefault, options = ColorOptions,
-		tip = "The line's colour." },
-	{ key = "path.glow", section = "path", label = "Glow", kind = "check", default = PathDefault("glow"),
-		tip = "A soft glow along the line, so it reads on any map." },
-	{ key = "path.breath", section = "path", label = "Breathing", kind = "check", default = PathDefault("breath"),
-		tip = "The line slowly brightens and dims." },
-	{ key = "path.opacity", section = "path", label = "Opacity", kind = "slider", min = 0.2, max = 1, step = 0.05, pct = true,
-		default = PathDefault("opacity"), tip = "How solid the line is." },
-	{ key = "path.edge", section = "path", label = "Outline", kind = "check", default = PathDefault("edge"),
-		tip = "A darker edge under the line, so it reads on pale ground." },
-	{ key = "path.edgeColor", section = "path", label = "Outline colour", kind = "pick", default = PathDefault("edgeColor"),
-		options = EdgeOptions, tip = "The outline's colour." },
-
-	{ key = "areas.fFill", section = "areas", label = "Followed fill", kind = "slider", min = 0, max = 255, step = 1, of = 255,
-		default = AreaDefault("fFill"), tip = "How solid the fill of the quest you follow is." },
-	{ key = "areas.fEdge", section = "areas", label = "Followed edge", kind = "slider", min = 0, max = 255, step = 1, of = 255,
-		default = AreaDefault("fEdge"), tip = "How solid the edge of the quest you follow is." },
-	{ key = "areas.fWidth", section = "areas", label = "Followed width", kind = "slider", min = 0.2, max = 1.5, step = 0.1,
-		default = AreaDefault("fWidth"), fmt = "%.1f", tip = "How thick the edge of the quest you follow is." },
-	{ key = "areas.oFill", section = "areas", label = "Others' fill", kind = "slider", min = 0, max = 255, step = 1, of = 255,
-		default = AreaDefault("oFill"), tip = "How solid the fill of the other quests' areas is." },
-	{ key = "areas.oEdge", section = "areas", label = "Others' edge", kind = "slider", min = 0, max = 255, step = 1, of = 255,
-		default = AreaDefault("oEdge"), tip = "How solid the edge of the other quests' areas is (a gather area's a little less)." },
-	{ key = "areas.oWidth", section = "areas", label = "Others' width", kind = "slider", min = 0.2, max = 1.5, step = 0.1,
-		default = AreaDefault("oWidth"), fmt = "%.1f", tip = "How thick the edge of the other quests' areas is." },
-	{ key = "areas.hFill", section = "areas", label = "Hover fill", kind = "slider", min = 0, max = 255, step = 1, of = 255,
-		default = AreaDefault("hFill"), tip = "How much an area under the cursor (or its pin) lifts its fill." },
-	{ key = "areas.hEdge", section = "areas", label = "Hover edge", kind = "slider", min = 0, max = 255, step = 1, of = 255,
-		default = AreaDefault("hEdge"), tip = "How solid the edge of an area under the cursor (or its pin) is." },
-
-	{ key = "group.range", section = "group", label = "Distance", kind = "slider", min = 16, max = 40, step = 4, cluster = "range",
-		fmt = "%d px", tip = "How close icons' centres must be to group." },
-	{ key = "group.reach", section = "group", label = "Reach", kind = "slider", min = 1, max = 6, step = 1, cluster = "reach",
-		fmt = "%dx", tip = "How far a group grows from its first icon, by neighbours of neighbours, in distances." },
-	{ key = "group.min", section = "group", label = "Smallest group", kind = "slider", min = 2, max = 5, step = 1, cluster = "min",
-		fmt = "%d icons", tip = "Fewer icons than this stay apart." },
-	{ key = "group.slots", section = "group", label = "Icons in a pill", kind = "slider", min = 2, max = 4, step = 1, cluster = "slots",
-		fmt = "%d", tip = "A pill's slots: every icon if they fit, else one fewer and \"+N\"." },
-	{ key = "group.alpha", section = "group", label = "Group pill backing", kind = "slider", min = 0, max = 0.7, step = 0.05, pct = true,
-		cluster = "alpha", tip = "How dark the pill behind grouped icons is." },
-
-	{ key = "diag.debug", section = "diag", label = "Debug info in title", kind = "check", get = function() return UI.saved.debug == true end,
-		set = Slash("debug"), tip = "Tile, zoom and layout timings next to the zone name." },
-	{ key = "diag.indoor", section = "diag", label = "Indoor maps report", kind = "check",
-		get = function() return Model.minimap.indoorDebug == true end, set = Slash("indoor"),
-		tip = "Says in chat which building and room you're in, each time either changes." },
-	{ key = "diag.record", section = "diag", label = "Record 10 seconds", kind = "button", run = Slash("perf"),
-		tip = "Times every part of MagicMap while you play, then prints a summary in chat." },
-	{ key = "diag.top", section = "diag", label = "Compare with other addons", kind = "button", run = Slash("perf top"),
-		tip = "Prints in chat how MagicMap's cost compares with other addons'." },
-	{ key = "diag.mem", section = "diag", label = "Memory breakdown", kind = "button", run = Slash("perf mem"),
-		tip = "Prints in chat where MagicMap's memory is." },
-}
-local BY_KEY = {}
-for _, k in ipairs(KEYS) do BY_KEY[k.key] = k end
+function Feel.Entry(key) return BY_KEY[key] end
+function Feel.Entries() return KEYS end
+function Feel.Pages() return PAGES end
 
 local function Default(k)
 	local d = k.default
 	if type(d) == "function" then return d() end
 	return d
 end
+function Feel.Default(key)
+	local k = BY_KEY[key]
+	return k and Default(k)
+end
 
 local function Options(k)
-	local o = k.options
+	local o = k.options or k.colors
 	if type(o) == "function" then return o() end
-	return o
+	return o or {}
 end
 
 ---------------------------------------------------------------------------
@@ -260,12 +146,11 @@ end
 ---------------------------------------------------------------------------
 
 function Feel.Get(key)
-	local k = assert(BY_KEY[key], "Feel.Get: no setting " .. tostring(key))
-	if k.get then return k.get() end
-	if k.cluster then return UI.Cluster.Get(k.cluster) end
-	local t = UI.saved and UI.saved.feel -- (nil before ui/View.lua loads: Path.lua's first Apply at load)
+	local k = BY_KEY[key]
+	if k and k.get then return k.get() end
+	local t = UI.saved and UI.saved.feel -- (nil before ui/View.lua loads: a layer's load-time look)
 	local v = t and t[key]
-	if v == nil then v = Default(k) end
+	if v == nil and k then v = Default(k) end
 	return v
 end
 
@@ -276,11 +161,12 @@ local function Apply(k, v)
 	k.apply(v)
 end
 
+local Changed -- (the window's: a row and those that depend on it shown anew)
+
 function Feel.Set(key, v)
 	local k = assert(BY_KEY[key], "Feel.Set: no setting " .. tostring(key))
-	if k.set then return k.set(v) end -- (kept by its owner: no rev)
-	if k.cluster then
-		UI.Cluster.Set(k.cluster, v)
+	if k.set then
+		if k.get() ~= v then k.set(v) end -- (kept by its owner)
 	else
 		local saved = UI.saved
 		local t = saved.feel or {}
@@ -288,14 +174,83 @@ function Feel.Set(key, v)
 		saved.feel = next(t) and t or nil
 		Apply(k, v)
 	end
+	for _, d in ipairs(INHERIT) do -- (one following this one, not set itself, takes its new value)
+		if d ~= k and not d.get then Apply(d, Feel.Get(d.key)) end
+	end
 	Feel.rev = Feel.rev + 1
+	if built then Changed(k, v) end
 end
 
--- The saved part loaded (ui/View.lua's load, at login): rev moves, so what read the looks before it (the line, the
--- areas) reads them again, and each OnLoad fn runs then, in login's grace (the line's restyle: 640 regions).
+local function Resettable(k) return not k.keep and k.kind ~= "button" and k.default ~= nil end
+local function Differs(k) return Resettable(k) and Feel.Get(k.key) ~= Default(k) end
+
+function Feel.Reset(page)
+	for _, k in ipairs(KEYS) do
+		if k.page == page and Differs(k) then Feel.Set(k.key, Default(k)) end
+	end
+end
+
+function Feel.ResetAll()
+	for _, p in ipairs(PAGES) do Feel.Reset(p.key) end
+end
+
+-- A colour setting's value as { r, g, b }: a preset's name from colors, or "#rrggbb"; else the default's, else the
+-- first preset's. Returns the value it read (name or hex) and its colour.
+function Feel.RGB(colors, v, default)
+	if type(v) == "string" then
+		local r, g, b = v:match("^#(%x%x)(%x%x)(%x%x)$")
+		if r then return v, { tonumber(r, 16) / 255, tonumber(g, 16) / 255, tonumber(b, 16) / 255 } end
+		for _, c in ipairs(colors) do
+			if c[1] == v then return v, c[2] end
+		end
+	end
+	if default ~= nil and default ~= v then return Feel.RGB(colors, default) end
+	return colors[1][1], colors[1][2]
+end
+local function Hex(r, g, b)
+	return string.format("#%02x%02x%02x", floor(r * 255 + 0.5), floor(g * 255 + 0.5), floor(b * 255 + 0.5))
+end
+
+-- A list setting's chosen values, in order (those still offered).
+local function Offered(k)
+	local set = {}
+	for _, o in ipairs(Options(k)) do set[o[2]] = o end
+	return set
+end
+local function Split(k, v)
+	local out, set = {}, Offered(k)
+	for item in tostring(v or ""):gmatch("[^,]+") do
+		if set[item] then out[#out + 1] = item end
+	end
+	return out
+end
+function Feel.List(key)
+	local k = BY_KEY[key]
+	return k and Split(k, Feel.Get(key)) or {}
+end
+
+-- A saved value its setting can't take: dropped, so it's the default (a wrong type, a slider's out of range, an
+-- option or colour no longer offered).
+local function Valid(k, v)
+	local d = Default(k)
+	if d ~= nil and type(v) ~= type(d) then return false end
+	if k.kind == "slider" then return v >= k.min - 1e-9 and v <= k.max + 1e-9 end
+	if k.kind == "select" and type(k.options) == "table" then return Offered(k)[v] ~= nil end
+	if k.kind == "color" then return Feel.RGB(Options(k), v) == v end
+	return true
+end
+
+-- The saved part loaded (ui/View.lua's load, at login): what can't be is dropped; rev moves, so what read the looks
+-- before it (the line, the areas) reads them again, and each OnLoad fn runs then, in login's grace.
 local loaded = {}
 function Feel.OnLoad(fn) loaded[#loaded + 1] = fn end
 function Feel.Loaded()
+	local t = UI.saved.feel
+	for key, v in pairs(t or {}) do
+		local k = BY_KEY[key]
+		if k and (k.get or not Valid(k, v)) then t[key] = nil end
+	end
+	if t and not next(t) then UI.saved.feel = nil end
 	Feel.rev = Feel.rev + 1
 	for _, fn in ipairs(loaded) do fn() end
 end
@@ -309,91 +264,41 @@ UI.Window.frame:HookScript("OnShow", Runtime.Wrap("feel: shown", function()
 end))
 
 ---------------------------------------------------------------------------
--- The dialog
+-- The window
 ---------------------------------------------------------------------------
 
-local SIDE_W, SIDE_ROW = 132, 28 -- px: the sidebar's width, a category's row
-local PAD, HEADER, ROW, TITLE = 14, 26, 26, 24 -- px: the frame's margin, its header bar, a row, a page's title
-local PAGE_X = PAD + SIDE_W + 12 -- the page's left edge
-local WIDTH = PAGE_X + 340 + PAD
-local LABEL_W, SLIDER_W, PICK_W, RESET_W = 124, 120, 120, 64
+local SIDE_W, SIDE_ROW, TABS = 140, 28, 14 -- px: the sidebar's width, a page's row; the pages it has room for
+local PAD, HEADER, TITLE = 14, 26, 30 -- px: the frame's margin, its header bar, a page's title and divider
+local ROW, LINE, HEAD, GAP = 26, 20, 22, 6 -- px: a row, a list's line, a section's header, above a header
+local PAGE_X = PAD + SIDE_W + 10 -- the page's left edge
+local PAGE_W, BAR = 400, 16 -- the page; its scroll bar, at its right
+local CONTENT_W = PAGE_W - BAR - 4 -- the rows
+local FOOT = 22 + 8 -- Reset all, under the pages
+local HEIGHT = HEADER + 8 + TABS * SIDE_ROW + FOOT + PAD
+local CTRL_X, INDENT = 150, 14 -- a row's control, from its left; a dependent row's label, further in
+local LABEL_W = CTRL_X - 10
+local SLIDER_W, VALUE_W, DROP_W, SWATCH, CUSTOM_W = 120, 46, 176, 20, 60
+local UNDO = 14 -- the undo mark, at a row's right
+local GOLD, WHITE = { 1, 0.82, 0 }, { 1, 1, 1 }
 local THUMB = "Interface\\Buttons\\UI-SliderBar-Button-Horizontal"
 local BOX = "Interface\\Buttons\\UI-CheckBox-"
+local KNOB = "Interface\\Buttons\\UI-ScrollBar-Knob"
+local ELLIPSIS = "\226\128\166"
 
-Feel.widgets = {} -- key -> its row's widgets: { k, slider | check | button, value (what it shows), text? }
+Feel.widgets = {} -- key -> its row: { k, row, value (what it shows), undo, and its kind's: check | slider, text | drop | swatches | lines | button }
 Feel.resets = {} -- page -> its Reset button
 Feel.pages = {} -- page -> its frame, once built
-local frame, built, current
+local frame, current
+local headers = {} -- page -> section -> its header's frame
 
--- A value on its step, from its minimum (a slider lands between steps while dragged).
-local function Snap(k, v)
-	v = k.min + math.floor((v - k.min) / k.step + 0.5) * k.step -- /: never 0 (every slider in KEYS has a step)
-	return math.floor(v * 1000 + 0.5) / 1000
-end
-
-local function Shown(k, v)
-	if k.of then return math.floor(v * 100 / k.of + 0.5) .. "%" end -- /: never 0 (of is 255)
-	if k.pct then return math.floor(v * 100 + 0.5) .. "%" end
-	return string.format(k.fmt or "%s", v)
-end
-
-local function OptionLabel(k, v)
-	for _, o in ipairs(Options(k)) do
-		if o[2] == v then return o[1] end
-	end
-	return tostring(v)
-end
-
--- A row's widgets set from its value: only what differs from what they show.
-local function Refresh(w)
-	local k = w.k
-	if k.kind == "button" then return end
-	local v = Feel.Get(k.key)
-	if w.value == v then return end
-	w.value = v
-	if w.slider then
-		w.slider:SetValue(v) -- (OnValueChanged sets the text)
-	elseif w.check then
-		w.check:SetChecked(v)
-	else
-		w.button:SetText(OptionLabel(k, v))
-	end
-end
-
--- The widgets of the pages built (a page not built yet is made from the values).
-local function RefreshAll(section)
-	for _, k in ipairs(KEYS) do
-		local w = Feel.widgets[k.key]
-		if w and (not section or k.section == section) then Refresh(w) end
-	end
-end
-
-function Feel.Reset(section)
-	for _, k in ipairs(KEYS) do
-		if k.section == section and not k.get and k.kind ~= "button" then
-			Feel.Set(k.key, k.cluster and UI.Cluster.DEFAULTS[k.cluster] or Default(k))
-		end
-	end
-	if built then RefreshAll(section) end
-end
-
-function Feel.ResetAll()
-	for _, p in ipairs(PAGES) do Feel.Reset(p.key) end
+local has = {} -- atlas -> the client has it
+local function Has(atlas)
+	if has[atlas] == nil then has[atlas] = C_Texture.GetAtlasInfo(atlas) ~= nil end
+	return has[atlas]
 end
 
 -- Every script of ours is wrapped (timed per name, isolated: spike-bugs P6).
 local function Script(f, name, what, fn) f:SetScript(name, Runtime.Wrap(what, fn)) end
-
--- A row's tooltip: white title, gold body (as the gear's rows: ui/Menus.lua).
-local function Tipped(f, k)
-	Script(f, "OnEnter", "feel: tip", function()
-		GameTooltip:SetOwner(f, "ANCHOR_RIGHT")
-		GameTooltip:SetText(k.label, 1, 1, 1)
-		GameTooltip:AddLine(k.tip, 1, 0.82, 0, true)
-		GameTooltip:Show()
-	end)
-	Script(f, "OnLeave", "feel: tip", function() GameTooltip:Hide() end)
-end
 
 local function Text(parent, font, text)
 	local fs = parent:CreateFontString(nil, "OVERLAY")
@@ -409,28 +314,164 @@ local function PanelButton(parent, text, w)
 	return b
 end
 
+-- An option's label, with its icon before it: a file or FileDataID (its border cropped), or "A:<atlas>" (if this
+-- client has it).
+local function Icon(icon)
+	if not icon then return "" end
+	if type(icon) == "string" and icon:sub(1, 2) == "A:" then
+		return Has(icon:sub(3)) and "|A:" .. icon:sub(3) .. ":16:16|a " or ""
+	end
+	return "|T" .. icon .. ":16:16:0:0:64:64:5:59:5:59|t "
+end
+local function Label(o) return Icon(o[3]) .. o[1] end
+
+-- A value as a row shows it (a slider's beside it; the default in a tooltip).
+local function Shown(k, v)
+	local kind = k.kind
+	if kind == "slider" then
+		if type(k.fmt) == "function" then return k.fmt(v) end
+		if k.of then return floor(v * 100 / k.of + 0.5) .. "%" end -- /: never 0 (of: a slider's whole, > 0)
+		if k.pct then return floor(v * 100 + 0.5) .. "%" end
+		return string.format(k.fmt or "%s", v)
+	elseif kind == "toggle" then
+		return v and "on" or "off"
+	elseif kind == "color" then
+		return type(v) == "string" and v:sub(1, 1) == "#" and v:upper() or tostring(v)
+	elseif kind == "select" or kind == "list" then
+		local out = {}
+		for _, item in ipairs(kind == "list" and Split(k, v) or { v }) do
+			for _, o in ipairs(Options(k)) do
+				if o[2] == item then out[#out + 1] = o[1] end
+			end
+		end
+		return #out > 0 and table.concat(out, ", ") or kind == "list" and "none" or tostring(v)
+	end
+	return tostring(v)
+end
+
+-- A tooltip: white title, gold body (as the gear's rows: ui/Menus.lua), then the default in grey. Hooked, so a
+-- template's own hover (the dropdown's, a swatch's) stays.
+local function Tipped(f, k, title)
+	f:HookScript("OnEnter", Runtime.Wrap("feel: tip", function()
+		GameTooltip:SetOwner(f, "ANCHOR_RIGHT")
+		GameTooltip:SetText(title or k.label, 1, 1, 1)
+		GameTooltip:AddLine(k.tip, 1, 0.82, 0, true)
+		if Resettable(k) then GameTooltip:AddLine("Default: " .. Shown(k, Default(k)), 0.6, 0.6, 0.6) end
+		GameTooltip:Show()
+	end))
+	f:HookScript("OnLeave", Runtime.Wrap("feel: tip", function() GameTooltip:Hide() end))
+end
+
+-- A row's value set from its control (if it differs): Set shows it on the row (Changed).
 local function SetValue(w, v)
 	if Feel.Get(w.k.key) ~= v then Feel.Set(w.k.key, v) end
-	w.value = v
+end
+
+-- A value on its step, from its minimum (a slider lands between steps while dragged).
+local function Snap(k, v)
+	v = k.min + floor((v - k.min) / k.step + 0.5) * k.step -- /: never 0 (Feel.Add asserts a slider's step > 0)
+	return floor(v * 1000 + 0.5) / 1000
+end
+
+-- Toggle -------------------------------------------------------------------
+
+local function Check(parent, size)
+	local c = CreateFrame("CheckButton", nil, parent)
+	c:SetSize(size, size)
+	if Has("checkbox-minimal") and Has("checkmark-minimal") then -- (the client's settings panel's)
+		c:SetNormalAtlas("checkbox-minimal")
+		c:SetPushedAtlas("checkbox-minimal")
+		c:SetHighlightAtlas("checkbox-minimal", "ADD")
+		local mark = c:CreateTexture(nil, "OVERLAY")
+		mark:SetAtlas("checkmark-minimal")
+		mark:SetAllPoints(c)
+		c:SetCheckedTexture(mark)
+	else
+		c:SetNormalTexture(BOX .. "Up")
+		c:SetPushedTexture(BOX .. "Down")
+		c:SetHighlightTexture(BOX .. "Highlight")
+		c:SetCheckedTexture(BOX .. "Check")
+	end
+	return c
+end
+
+local function AddToggle(row, w, k)
+	local c = Check(row, 26)
+	c:SetPoint("LEFT", row, "TOPLEFT", CTRL_X - 4, -ROW / 2)
+	w.check = c
+	Script(c, "OnClick", "feel: check", function() SetValue(w, c:GetChecked()) end)
+	Tipped(c, k)
+end
+
+-- Slider -------------------------------------------------------------------
+
+local MINIMAL = { "Minimal_SliderBar_Left", "_Minimal_SliderBar_Middle", "Minimal_SliderBar_Right", "Minimal_SliderBar_Button",
+	"Minimal_SliderBar_Button_Left", "Minimal_SliderBar_Button_Right" }
+local function Minimal()
+	for _, a in ipairs(MINIMAL) do
+		if not Has(a) then return false end
+	end
+	return true
+end
+
+-- A stepper's look: dimmed at the end it can't pass.
+local function Steppers(w, v)
+	local k = w.k
+	for _, b in ipairs(w.steps) do
+		local on = b.dir < 0 and v > k.min + k.step / 2 or b.dir > 0 and v < k.max - k.step / 2
+		if b.on ~= on then
+			b.on = on
+			b:SetEnabled(on)
+			b:SetAlpha(on and 1 or 0.35)
+		end
+	end
 end
 
 local function AddSlider(row, w, k)
 	local s = CreateFrame("Slider", nil, row)
-	s:SetPoint("LEFT", row, "LEFT", LABEL_W, 0)
-	s:SetSize(SLIDER_W, 16)
+	s:SetPoint("LEFT", row, "TOPLEFT", CTRL_X + 15, -ROW / 2)
+	s:SetSize(SLIDER_W, 19)
 	s:SetOrientation("HORIZONTAL")
 	s:SetMinMaxValues(k.min, k.max)
 	s:SetValueStep(k.step)
 	s:SetObeyStepOnDrag(true)
-	s:SetThumbTexture(THUMB)
-	s:GetThumbTexture():SetSize(16, 16)
-	local track = s:CreateTexture(nil, "BACKGROUND")
-	track:SetColorTexture(0, 0, 0, 0.6)
-	track:SetPoint("LEFT", s, "LEFT", 0, 0)
-	track:SetPoint("RIGHT", s, "RIGHT", 0, 0)
-	track:SetHeight(6)
+	w.steps = {}
+	if Minimal() then -- the client's settings slider (MinimalSliderWithSteppersTemplate's art), its steppers either side
+		local thumb = s:CreateTexture(nil, "OVERLAY")
+		thumb:SetAtlas("Minimal_SliderBar_Button", true)
+		s:SetThumbTexture(thumb)
+		local l, m, r = s:CreateTexture(nil, "BACKGROUND"), s:CreateTexture(nil, "BACKGROUND"), s:CreateTexture(nil, "BACKGROUND")
+		l:SetAtlas("Minimal_SliderBar_Left", true)
+		l:SetPoint("LEFT", s, "LEFT", 0, 0)
+		r:SetAtlas("Minimal_SliderBar_Right", true)
+		r:SetPoint("RIGHT", s, "RIGHT", 0, 0)
+		m:SetAtlas("_Minimal_SliderBar_Middle", true)
+		m:SetPoint("TOPLEFT", l, "TOPRIGHT", 0, 0)
+		m:SetPoint("TOPRIGHT", r, "TOPLEFT", 0, 0)
+		for i, art in ipairs({ { "Minimal_SliderBar_Button_Left", -1, 11, 19 }, { "Minimal_SliderBar_Button_Right", 1, 9, 18 } }) do
+			local b = CreateFrame("Button", nil, row)
+			b:SetSize(art[3], art[4])
+			b:SetNormalAtlas(art[1])
+			b:SetHighlightAtlas(art[1], "ADD")
+			if art[2] < 0 then b:SetPoint("RIGHT", s, "LEFT", -4, 0) else b:SetPoint("LEFT", s, "RIGHT", 4, 0) end
+			b.dir = art[2]
+			Script(b, "OnClick", "feel: step", function() s:SetValue(Snap(k, Snap(k, s:GetValue()) + b.dir * k.step)) end)
+			Tipped(b, k)
+			w.steps[i] = b
+		end
+	else -- (today's: the classic thumb on a dark track)
+		s:SetThumbTexture(THUMB)
+		s:GetThumbTexture():SetSize(16, 16)
+		local track = s:CreateTexture(nil, "BACKGROUND")
+		track:SetColorTexture(0, 0, 0, 0.6)
+		track:SetPoint("LEFT", s, "LEFT", 0, 0)
+		track:SetPoint("RIGHT", s, "RIGHT", 0, 0)
+		track:SetHeight(6)
+	end
 	local text = Text(row, GameFontHighlightSmall, "")
-	text:SetPoint("LEFT", s, "RIGHT", 8, 0)
+	text:SetPoint("LEFT", row, "TOPLEFT", CTRL_X + 15 + SLIDER_W + 19, -ROW / 2)
+	text:SetWidth(VALUE_W)
+	text:SetJustifyH("LEFT")
 	w.slider, w.text = s, text
 	Script(s, "OnValueChanged", "feel: slide", function(_, v)
 		v = Snap(k, v)
@@ -439,90 +480,430 @@ local function AddSlider(row, w, k)
 			w.shown = shown
 			text:SetText(shown)
 		end
-		SetValue(w, v)
+		Steppers(w, v)
+		if not w.busy then SetValue(w, v) end
 	end)
 	Tipped(s, k)
 end
 
-local function AddCheck(row, w, k)
-	local c = CreateFrame("CheckButton", nil, row)
-	c:SetPoint("LEFT", row, "LEFT", LABEL_W - 2, 0)
-	c:SetSize(24, 24)
-	c:SetNormalTexture(BOX .. "Up")
-	c:SetPushedTexture(BOX .. "Down")
-	c:SetHighlightTexture(BOX .. "Highlight")
-	c:SetCheckedTexture(BOX .. "Check")
-	w.check = c
-	Script(c, "OnClick", "feel: check", function() SetValue(w, c:GetChecked()) end)
-	Tipped(c, k)
-end
+-- Select: the client's dropdown, a radio per option -------------------------
 
--- A dropdown: the client's menu (ui/Menus.lua's), a radio per option; its pick wrapped, as the gear's.
-local Pick = Runtime.Wrap("feel: pick", function(w, v)
-	SetValue(w, v)
-	w.button:SetText(OptionLabel(w.k, v))
-end)
-local function AddPick(row, w, k)
-	local b = PanelButton(row, "", PICK_W)
-	b:SetPoint("LEFT", row, "LEFT", LABEL_W, 0)
-	w.button = b
-	Script(b, "OnClick", "feel: menu", function()
-		UI.Menus.Show(b, function(_, root)
-			for _, o in ipairs(Options(k)) do
-				local v = o[2]
-				root:CreateRadio(o[1], function() return Feel.Get(k.key) == v end, function()
-					Pick(w, v)
-					return MenuResponse.Close
-				end)
-			end
-		end)
+local Picked = Runtime.Wrap("feel: pick", function(w, v) SetValue(w, v) end)
+local function AddSelect(row, w, k)
+	local d = CreateFrame("DropdownButton", nil, row, "WowStyle1DropdownTemplate")
+	d:SetPoint("LEFT", row, "TOPLEFT", CTRL_X + 4, -ROW / 2)
+	d:SetSize(DROP_W, 25)
+	w.drop = d
+	d:SetupMenu(function(_, root)
+		for _, o in ipairs(Options(k)) do
+			local v = o[2]
+			root:CreateRadio(Label(o), function() return Feel.Get(k.key) == v end, function()
+				Picked(w, v)
+				return MenuResponse.Close
+			end, v)
+		end
 	end)
-	Tipped(b, k)
+	Tipped(d, k)
 end
 
--- An action: a button of its label's text, at the row's left.
+-- Color: the presets as the client's swatches, the chosen one ringed gold; Custom… the client's colour picker ----
+
+local picking -- { w, before, start }: the colour picker's, while it's open for a row
+local function Picker()
+	local r, g, b = ColorPickerFrame:GetColorRGB()
+	local hex = Hex(r, g, b)
+	SetValue(picking.w, hex == picking.start and picking.before or hex) -- (it reports the colour it opens on too)
+end
+local PickerChanged = Runtime.Wrap("feel: colour", function() if picking then Picker() end end)
+local PickerCancelled = Runtime.Wrap("feel: colour", function() if picking then SetValue(picking.w, picking.before) end end)
+local function OpenPicker(w)
+	local k = w.k
+	local before = Feel.Get(k.key)
+	local _, rgb = Feel.RGB(Options(k), before, Default(k))
+	picking = { w = w, before = before, start = Hex(rgb[1], rgb[2], rgb[3]) }
+	ColorPickerFrame:SetupColorPickerAndShow({ r = rgb[1], g = rgb[2], b = rgb[3], hasOpacity = false,
+		swatchFunc = PickerChanged, cancelFunc = PickerCancelled })
+	ColorPickerFrame:Raise()
+end
+
+local function Swatch(row, w, x, rgb)
+	local sw = CreateFrame("Button", nil, row, "ColorSwatchTemplate")
+	sw:SetPoint("LEFT", row, "TOPLEFT", x, -ROW / 2)
+	sw.Color:SetVertexColor(rgb[1], rgb[2], rgb[3])
+	sw:HookScript("OnLeave", Runtime.Wrap("feel: swatch", function() -- (the template's hover whitens the ring)
+		local c = sw.ring
+		sw.SwatchBg:SetVertexColor(c[1], c[2], c[3])
+	end))
+	sw.ring = WHITE
+	return sw
+end
+local function Ring(sw, on)
+	local c = on and GOLD or WHITE
+	if sw.ring ~= c then
+		sw.ring = c
+		sw.SwatchBg:SetVertexColor(c[1], c[2], c[3])
+	end
+end
+
+local function AddColor(row, w, k)
+	w.swatches = {}
+	local x = CTRL_X + 2
+	for i, c in ipairs(Options(k)) do
+		local sw = Swatch(row, w, x, c[2])
+		sw.value = c[1]
+		Script(sw, "OnClick", "feel: colour", function() SetValue(w, c[1]) end)
+		Tipped(sw, k, k.label .. ": " .. c[1])
+		w.swatches[i] = sw
+		x = x + SWATCH
+	end
+	if k.custom ~= false and ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow then
+		local sw = Swatch(row, w, x, WHITE) -- the custom colour, shown while it's the one
+		Tipped(sw, k, k.label .. ": custom")
+		Script(sw, "OnClick", "feel: colour picker", function() OpenPicker(w) end)
+		local b = PanelButton(row, "Custom" .. ELLIPSIS, CUSTOM_W)
+		b:SetHeight(20)
+		b:SetPoint("LEFT", row, "TOPLEFT", x + SWATCH, -ROW / 2)
+		Script(b, "OnClick", "feel: colour picker", function() OpenPicker(w) end)
+		Tipped(b, k, k.label .. ": any colour")
+		w.custom, w.pick = sw, b
+	end
+end
+
+local function ShowColor(w, v)
+	local name = Feel.RGB(Options(w.k), v, Default(w.k))
+	for _, sw in ipairs(w.swatches) do Ring(sw, sw.value == name) end
+	local custom = w.custom
+	if custom then
+		local hex = name:sub(1, 1) == "#"
+		custom:SetShown(hex)
+		if hex then
+			local _, rgb = Feel.RGB(Options(w.k), name)
+			custom.Color:SetVertexColor(rgb[1], rgb[2], rgb[3])
+			Ring(custom, true)
+		end
+	end
+end
+
+-- List: a line an option (a box, its label; ordered: arrows to move a chosen one), the chosen first ---------
+
+local function Arrow(row, atlas)
+	local b = CreateFrame("Button", nil, row)
+	b:SetSize(17, 11)
+	b:SetNormalAtlas(atlas)
+	b:SetHighlightAtlas(Has(atlas .. "-over") and atlas .. "-over" or atlas, "ADD")
+	return b
+end
+
+local function Join(list) return table.concat(list, ",") end
+local function ListToggle(w, i, on)
+	local chosen, item = Split(w.k, w.value), w.lines[i].value
+	for j = #chosen, 1, -1 do
+		if chosen[j] == item then table.remove(chosen, j) end
+	end
+	if on then chosen[#chosen + 1] = item end
+	SetValue(w, Join(chosen))
+end
+local function ListMove(w, i, d)
+	local chosen = Split(w.k, w.value)
+	if chosen[i] and chosen[i + d] then
+		chosen[i], chosen[i + d] = chosen[i + d], chosen[i]
+		SetValue(w, Join(chosen))
+	end
+end
+
+local function AddList(row, w, k)
+	w.lines = {}
+	local arrows = k.ordered and Has("minimal-scrollbar-arrow-top") and Has("minimal-scrollbar-arrow-bottom")
+	for i = 1, #Options(k) do
+		local y = -(i - 1) * LINE - LINE / 2 - 3
+		local c = Check(row, 20)
+		c:SetPoint("LEFT", row, "TOPLEFT", CTRL_X - 1, y)
+		local text = Text(row, GameFontHighlightSmall, "")
+		text:SetPoint("LEFT", row, "TOPLEFT", CTRL_X + 22, y)
+		text:SetWidth(arrows and 126 or 170)
+		text:SetJustifyH("LEFT")
+		local line = { check = c, text = text }
+		Script(c, "OnClick", "feel: list", function() ListToggle(w, i, c:GetChecked()) end)
+		Tipped(c, k)
+		if arrows then
+			line.up, line.down = Arrow(row, "minimal-scrollbar-arrow-top"), Arrow(row, "minimal-scrollbar-arrow-bottom")
+			line.up:SetPoint("LEFT", row, "TOPLEFT", CTRL_X + 152, y)
+			line.down:SetPoint("LEFT", row, "TOPLEFT", CTRL_X + 172, y)
+			Script(line.up, "OnClick", "feel: list", function() ListMove(w, i, -1) end)
+			Script(line.down, "OnClick", "feel: list", function() ListMove(w, i, 1) end)
+		end
+		w.lines[i] = line
+	end
+	row:SetHeight(math.max(ROW, #w.lines * LINE + 6))
+end
+
+local function ShowList(w, v)
+	local chosen, rest, on = Split(w.k, v), {}, {}
+	for _, item in ipairs(chosen) do on[item] = true end
+	local label = {}
+	for _, o in ipairs(Options(w.k)) do
+		label[o[2]] = Label(o)
+		if not on[o[2]] then rest[#rest + 1] = o[2] end
+	end
+	for i, line in ipairs(w.lines) do
+		local item = chosen[i] or rest[i - #chosen]
+		line.value = item
+		line.text:SetText(item and label[item] or "")
+		line.check:SetChecked(i <= #chosen)
+		if line.up then
+			line.up:SetShown(i <= #chosen and i > 1)
+			line.down:SetShown(i < #chosen)
+		end
+	end
+end
+
+-- Button: an action, its label's text, at the row's left ---------------------
+
 local function AddButton(row, w, k)
 	local b = PanelButton(row, k.label, 190)
-	b:SetPoint("LEFT", row, "LEFT", 2, 0)
+	b:SetPoint("LEFT", row, "TOPLEFT", 4, -ROW / 2)
 	w.button = b
 	Script(b, "OnClick", "feel: action", k.run)
 	Tipped(b, k)
 end
 
--- A page's frame, made on its first showing: its title and Reset (where it has looks to reset), then its rows.
+local ADD = { toggle = AddToggle, slider = AddSlider, select = AddSelect, color = AddColor, list = AddList, button = AddButton }
+
+-- A row's control set to v: only what differs from what it shows. (While a menu is open the client sets its own text.)
+local function Show(w, v)
+	if w.value == v and w.shownOnce then return end
+	w.value, w.shownOnce = v, true
+	local kind = w.k.kind
+	if kind == "toggle" then
+		w.check:SetChecked(v == true)
+	elseif kind == "slider" then
+		w.busy = true
+		w.slider:SetValue(v)
+		w.busy = false
+		local shown = Shown(w.k, v)
+		if w.shown ~= shown then
+			w.shown = shown
+			w.text:SetText(shown)
+		end
+		Steppers(w, v)
+	elseif kind == "select" then
+		if not w.drop:IsMenuOpen() then w.drop:GenerateMenu() end
+	elseif kind == "color" then
+		ShowColor(w, v)
+	elseif kind == "list" then
+		ShowList(w, v)
+	end
+end
+
+local function Refresh(w)
+	if w.k.kind ~= "button" then Show(w, Feel.Get(w.k.key)) end
+end
+
+-- The undo mark: shown while the row's value differs from its default; a click puts the default back.
+local function Undo(row, w, k)
+	local atlas = Has("common-icon-undo") and "common-icon-undo" or Has("auctionhouse-ui-filter-redx") and "auctionhouse-ui-filter-redx"
+	if not atlas or not Resettable(k) then return end
+	local b = CreateFrame("Button", nil, row)
+	b:SetSize(UNDO, UNDO)
+	b:SetPoint("RIGHT", row, "TOPRIGHT", -2, -ROW / 2)
+	b:SetNormalAtlas(atlas)
+	b:SetHighlightAtlas(atlas, "ADD")
+	b:Hide()
+	Script(b, "OnClick", "feel: undo", function() Feel.Set(k.key, Default(k)) end)
+	b:HookScript("OnEnter", Runtime.Wrap("feel: tip", function()
+		GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Back to " .. Shown(k, Default(k)), 1, 1, 1)
+		GameTooltip:Show()
+	end))
+	b:HookScript("OnLeave", Runtime.Wrap("feel: tip", function() GameTooltip:Hide() end))
+	w.undo = b
+end
+
+-- A setting's row: its label (indented when it depends on another), its control, its undo mark.
+local function MakeRow(p, k)
+	local row = CreateFrame("Frame", nil, p.content)
+	row:SetSize(CONTENT_W, ROW)
+	row:EnableMouse(true)
+	Tipped(row, k)
+	local w = { k = k, row = row }
+	Feel.widgets[k.key] = w
+	if k.kind ~= "button" then
+		local on = type(k.when) == "string" and BY_KEY[k.when]
+		local indent = k.when and (not on or on.section == k.section) and INDENT or 0 -- (under the row it depends on)
+		local label = Text(row, GameFontHighlightSmall, k.label)
+		label:SetPoint("LEFT", row, "TOPLEFT", 4 + indent, -ROW / 2)
+		label:SetWidth(LABEL_W - indent)
+		label:SetJustifyH("LEFT")
+		label:SetWordWrap(false)
+		w.label = label
+	end
+	ADD[k.kind](row, w, k)
+	Undo(row, w, k)
+	return w
+end
+
+local function MakeHeader(p, name)
+	local f = CreateFrame("Frame", nil, p.content)
+	f:SetSize(CONTENT_W, HEAD)
+	Text(f, GameFontNormal, name):SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 2, 5)
+	return f
+end
+
+-- A page's items in order: the settings without a section first, then each section's header and settings (the
+-- page's sections in its order, then any other as first declared), each in the order declared. Made as needed.
+local function Items(p)
+	if p.items then return p.items end
+	local order, seen = { false }, { [false] = true }
+	for _, s in ipairs(p.sections) do
+		if not seen[s] then order[#order + 1], seen[s] = s, true end
+	end
+	for _, k in ipairs(KEYS) do
+		if k.page == p.key and not seen[k.section] then order[#order + 1], seen[k.section] = k.section, true end
+	end
+	local items, hs = {}, headers[p.key] or {}
+	headers[p.key] = hs
+	for _, s in ipairs(order) do
+		local any = false
+		for _, k in ipairs(KEYS) do
+			if k.page == p.key and k.section == s then
+				if s and not any then
+					hs[s] = hs[s] or MakeHeader(p, s)
+					items[#items + 1] = { header = s, f = hs[s] }
+				end
+				any = true
+				local w = Feel.widgets[k.key]
+				if not w then
+					w = MakeRow(p, k)
+					Refresh(w)
+				end
+				items[#items + 1] = { k = k, w = w, f = w.row }
+			end
+		end
+	end
+	p.items = items
+	return items
+end
+
+-- Whether a row shows: always, or while what it depends on is on.
+local function Visible(k)
+	local when = k.when
+	if when == nil then return true end
+	if type(when) == "function" then return when() and true or false end
+	local v = Feel.Get(when)
+	return v ~= nil and v ~= false
+end
+
+-- The page's rows placed, top down: those shown, each header while a row under it is; the scroll bar while
+-- they're longer than the page.
+local function Layout(p)
+	local items = Items(p)
+	local header
+	for _, it in ipairs(items) do
+		if it.header then
+			header, it.on = it, false
+		else
+			it.on = Visible(it.k)
+			if header and it.on then header.on = true end
+		end
+	end
+	local y = 0
+	for _, it in ipairs(items) do
+		local f = it.f
+		f:SetShown(it.on)
+		if it.on then
+			if it.header and y < 0 then y = y - GAP end
+			f:ClearAllPoints()
+			f:SetPoint("TOPLEFT", p.content, "TOPLEFT", 0, y)
+			y = y - f:GetHeight()
+		end
+	end
+	local h = -y + 4
+	p.content:SetHeight(h)
+	local range = math.max(0, h - p.scroll:GetHeight())
+	p.bar:SetMinMaxValues(0, range)
+	p.bar:SetShown(range > 0)
+	if p.bar:GetValue() > range then p.bar:SetValue(range) end
+	p.laid = true
+end
+
+-- The undo marks, the pages' Reset and Reset all: each lit while what it resets differs.
+local function Marks()
+	local any, page = false, {}
+	for _, k in ipairs(KEYS) do
+		local d = Differs(k)
+		local w = Feel.widgets[k.key]
+		if w and w.undo then w.undo:SetShown(d) end
+		if d then any, page[k.page] = true, true end
+	end
+	for key, b in pairs(Feel.resets) do b:SetEnabled(page[key] == true) end
+	Feel.resetAll:SetEnabled(any)
+end
+
+-- A setting changed (from its row, a reset, or anywhere): its control shows it, the rows that depend on it shown or
+-- hidden, the marks lit.
+Changed = function(k, v)
+	local w = Feel.widgets[k.key]
+	if w then Show(w, v) end
+	for _, d in ipairs(INHERIT) do
+		local dw = Feel.widgets[d.key]
+		if dw and dw ~= w then Show(dw, Feel.Get(d.key)) end
+	end
+	local p = BY_PAGE[k.page]
+	if p and p.laid then
+		for _, it in ipairs(Items(p)) do
+			if it.k and it.on ~= Visible(it.k) then
+				Layout(p)
+				break
+			end
+		end
+	end
+	Marks()
+end
+
+-- A page's frame, made on its first showing: its title and divider, its Reset (where it has looks to reset), and a
+-- scroll frame of its rows, the wheel and a bar to move them.
 local function BuildPage(p)
 	local page = CreateFrame("Frame", nil, frame)
 	page:SetPoint("TOPLEFT", frame, "TOPLEFT", PAGE_X, -HEADER - 6)
-	page:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -PAD, -HEADER - 6)
-	page:SetHeight(TITLE + ROW * 10)
+	page:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD, PAD + FOOT)
 	page:Hide()
-	Text(page, GameFontNormal, p.title):SetPoint("TOPLEFT", page, "TOPLEFT", 0, -4)
-	local y, resettable = -TITLE, false
-	for _, k in ipairs(KEYS) do
-		if k.section == p.key then
-			local row = CreateFrame("Frame", nil, page)
-			row:SetPoint("TOPLEFT", page, "TOPLEFT", 0, y)
-			row:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, y)
-			row:SetHeight(ROW)
-			row:EnableMouse(true)
-			Tipped(row, k)
-			local w = { k = k }
-			Feel.widgets[k.key] = w
-			if k.kind == "button" then
-				AddButton(row, w, k)
-			else
-				Text(row, GameFontHighlightSmall, k.label):SetPoint("LEFT", row, "LEFT", 4, 0)
-				if k.kind == "slider" then AddSlider(row, w, k)
-				elseif k.kind == "check" then AddCheck(row, w, k)
-				else AddPick(row, w, k) end
-				resettable = resettable or not k.get
-			end
-			y = y - ROW
-		end
+	Text(page, GameFontNormalLarge, p.title):SetPoint("TOPLEFT", page, "TOPLEFT", 2, -6)
+	if Has("Options_HorizontalDivider") then -- (the client's settings panel's, under its page title)
+		local rule = page:CreateTexture(nil, "ARTWORK")
+		rule:SetAtlas("Options_HorizontalDivider")
+		rule:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -TITLE + 3)
+		rule:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -TITLE + 3)
+		rule:SetHeight(1)
 	end
+	local scroll = CreateFrame("ScrollFrame", nil, page)
+	scroll:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -TITLE)
+	scroll:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -BAR - 4, 0)
+	local content = CreateFrame("Frame", nil, scroll)
+	content:SetSize(CONTENT_W, 1)
+	scroll:SetScrollChild(content)
+	local bar = CreateFrame("Slider", nil, page)
+	bar:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -TITLE)
+	bar:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", 0, 0)
+	bar:SetWidth(BAR)
+	bar:SetOrientation("VERTICAL")
+	bar:SetMinMaxValues(0, 0)
+	bar:SetValueStep(1)
+	bar:SetThumbTexture(KNOB)
+	bar:GetThumbTexture():SetSize(BAR, 24)
+	bar:GetThumbTexture():SetTexCoord(0.2, 0.8, 0.125, 0.875)
+	local track = bar:CreateTexture(nil, "BACKGROUND")
+	track:SetAllPoints(bar)
+	track:SetColorTexture(0, 0, 0, 0.3)
+	bar:Hide()
+	Script(bar, "OnValueChanged", "feel: scroll", function(_, v) scroll:SetVerticalScroll(v) end)
+	scroll:EnableMouseWheel(true)
+	Script(scroll, "OnMouseWheel", "feel: scroll", function(_, d) bar:SetValue(bar:GetValue() - d * ROW * 2) end)
+	p.scroll, p.content, p.bar = scroll, content, bar
+	local resettable = false
+	for _, k in ipairs(KEYS) do resettable = resettable or k.page == p.key and Resettable(k) end
 	if resettable then
-		local reset = PanelButton(page, "Reset", RESET_W)
-		reset:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, 0)
+		local reset = PanelButton(page, "Reset", 64)
+		reset:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -2)
 		Script(reset, "OnClick", "feel: reset", function() Feel.Reset(p.key) end)
 		Feel.resets[p.key] = reset
 	end
@@ -530,7 +911,7 @@ local function BuildPage(p)
 	return page
 end
 
--- The category chosen: its page shown (built if need be, set from the values), the last one's hidden, kept.
+-- The page chosen: shown (built if need be, its rows laid out and set from the values), the last one's hidden, kept.
 local function Select(key)
 	local p = BY_PAGE[key] or PAGES[1]
 	key = p.key
@@ -542,9 +923,11 @@ local function Select(key)
 	end
 	current = key
 	local page = Feel.pages[key] or BuildPage(p)
-	for _, k in ipairs(KEYS) do
-		if k.section == key then Refresh(Feel.widgets[k.key]) end
+	Layout(p)
+	for _, it in ipairs(Items(p)) do
+		if it.w then Refresh(it.w) end
 	end
+	Marks()
 	page:Show()
 	p.tab.sel:Show()
 	p.tab.text:SetFontObject(GameFontNormal)
@@ -552,10 +935,9 @@ local function Select(key)
 end
 Feel.Select = function(key) if not built then Feel.Open(key) else Select(key) end end
 
--- A category's row in the sidebar: its icon and name, lit while chosen, a highlight under the cursor.
-local function AddTab(p, y)
+-- A page's row in the sidebar: its icon and title, lit while chosen, a highlight under the cursor, its job as a tip.
+local function Tab(p)
 	local b = CreateFrame("Button", nil, frame)
-	b:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, y)
 	b:SetSize(SIDE_W, SIDE_ROW)
 	b:SetHighlightTexture("Interface\\Buttons\\UI-Listbox-Highlight2")
 	local sel = b:CreateTexture(nil, "BACKGROUND")
@@ -571,7 +953,30 @@ local function AddTab(p, y)
 	text:SetPoint("LEFT", icon, "RIGHT", 6, 0)
 	b.sel, b.text = sel, text
 	Script(b, "OnClick", "feel: page", function() Select(p.key) end)
+	if p.tip then
+		b:HookScript("OnEnter", Runtime.Wrap("feel: tip", function()
+			GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+			GameTooltip:SetText(p.title, 1, 1, 1)
+			GameTooltip:AddLine(p.tip, 1, 0.82, 0, true)
+			GameTooltip:Show()
+		end))
+		b:HookScript("OnLeave", Runtime.Wrap("feel: tip", function() GameTooltip:Hide() end))
+	end
 	p.tab = b
+end
+
+-- The sidebar in order (a page declared later takes its place); the window as tall as its pages need, 14 at least.
+Grew = function()
+	local h = math.max(HEIGHT, HEADER + 8 + #PAGES * SIDE_ROW + FOOT + PAD)
+	if frame:GetHeight() ~= h then frame:SetHeight(h) end
+end
+Sidebar = function()
+	for i, p in ipairs(PAGES) do
+		if not p.tab then Tab(p) end
+		p.tab:ClearAllPoints()
+		p.tab:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, -HEADER - 8 - (i - 1) * SIDE_ROW)
+	end
+	Grew()
 end
 
 local function Build()
@@ -582,7 +987,7 @@ local function Build()
 	frame:SetClampedToScreen(true)
 	frame:SetMovable(true)
 	frame:EnableMouse(true)
-	frame:SetWidth(WIDTH)
+	frame:SetSize(PAGE_X + PAGE_W + PAD, HEIGHT)
 	frame:SetPoint("CENTER", UIParent, "CENTER", 0, 60)
 	ButtonFrameTemplate_HidePortrait(frame)
 	ButtonFrameTemplate_HideButtonBar(frame)
@@ -608,28 +1013,15 @@ local function Build()
 	header:RegisterForDrag("LeftButton")
 	Script(header, "OnDragStart", "feel: move", function() frame:StartMoving() end)
 	Script(header, "OnDragStop", "feel: move", function() frame:StopMovingOrSizing() end)
-
-	-- As tall as the longest page (its title and rows), the footer's Reset all under it.
-	local most, count = 0, {}
-	for _, k in ipairs(KEYS) do
-		count[k.section] = (count[k.section] or 0) + 1
-		most = math.max(most, count[k.section])
-	end
-	local y = -HEADER - 10
-	for _, p in ipairs(PAGES) do
-		AddTab(p, y)
-		y = y - SIDE_ROW
-	end
-	local bottom = HEADER + 6 + TITLE + most * ROW + 12
 	local all = PanelButton(frame, "Reset all", 96)
 	all:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD, PAD)
 	Script(all, "OnClick", "feel: reset", Feel.ResetAll)
 	Feel.resetAll = all
-	frame:SetHeight(math.max(bottom + 22 + PAD, -y + 22 + PAD))
+	Sidebar()
 	frame:Hide()
 end
 
--- Opened on page (a category's key; else the last one's, or General's).
+-- Opened on page (a page's key; else the last one's, or General's).
 function Feel.Open(page)
 	if not built then Build() end
 	if not page then
@@ -637,7 +1029,6 @@ function Feel.Open(page)
 		page = BY_PAGE[last] and last or current or "general"
 	end
 	Select(page)
-	RefreshAll()
 	frame:Show()
 end
 
@@ -645,6 +1036,46 @@ function Feel.Toggle()
 	if built and frame:IsShown() then frame:Hide() else Feel.Open() end
 end
 
-Command({ kind = "slash", name = "feel", help = "[page]: the settings window, hidden again if shown (pages: general, map, icons, path, areas, group, diag)",
+---------------------------------------------------------------------------
+-- The pages, and Diagnostics' rows (Game's /mm commands)
+---------------------------------------------------------------------------
+
+Feel.Page({ key = "general", title = "General", icon = "Interface\\Icons\\Trade_Engineering", order = 10,
+	tip = "What MagicMap replaces, its window and how the map moves.", sections = { "Blizzard's maps", "Map window", "Movement" } })
+Feel.Page({ key = "map", title = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01", order = 20,
+	tip = "What the map shows: names, the ground, indoor maps and your arrow.", sections = { "Names", "Ground", "Indoors", "You" } })
+Feel.Page({ key = "icons", title = "Icons", icon = "Interface\\Icons\\Ability_Tracking", order = 30,
+	tip = "The icons' size, and the ring round what you track.", sections = { "Size", "Focus ring" } })
+Feel.Page({ key = "pills", title = "Info pills", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01", order = 40,
+	tip = "The quest pill (bottom left) and the distance pill (top).", sections = { "Both pills", "Quest pill", "Distance pill" } })
+Feel.Page({ key = "path", title = "Tracking line", icon = "Interface\\Icons\\Ability_Hunter_Pathfinding", order = 50,
+	tip = "The line to what you track.", sections = { "Line", "Effects", "Outline" } })
+Feel.Page({ key = "areas", title = "Quest areas", icon = "Interface\\Icons\\INV_Misc_Map02", order = 60,
+	tip = "How your quests' objective areas are drawn.", sections = { "Followed quest", "Other quests", "Under the cursor" } })
+Feel.Page({ key = "group", title = "Grouping", icon = "Interface\\Icons\\INV_Misc_Bag_08", order = 70,
+	tip = "Crowded icons grouped into a pill on the big map.", sections = { "How icons group", "Pills" } })
+Feel.Page({ key = "diag", title = "Diagnostics", icon = "Interface\\Icons\\INV_Gizmo_01", order = 90,
+	tip = "Reports for a bug report: what the map is doing and what it costs.", sections = { "Reports in chat" } })
+
+-- /mm <line>, as typed (Game owns them): a diagnostics row runs the same code (the gear's Advanced did).
+local function Slash(line) return function() Command({ kind = "run", line = line }) end end
+Feel.Add("diag", nil, {
+	{ key = "diag.debug", kind = "toggle", label = "Debug info in title", default = false, keep = true,
+		get = function() return UI.saved.debug == true end, set = Slash("debug"),
+		tip = "Tile, zoom and layout timings next to the zone name." },
+	{ key = "diag.indoor", kind = "toggle", label = "Indoor maps report", default = false, keep = true,
+		get = function() return Model.minimap.indoorDebug == true end, set = Slash("indoor"),
+		tip = "Says in chat which building and room you're in, each time either changes." },
+})
+Feel.Add("diag", "Reports in chat", {
+	{ key = "diag.record", kind = "button", label = "Record 10 seconds", run = Slash("perf"),
+		tip = "Times every part of MagicMap while you play, then prints a summary in chat." },
+	{ key = "diag.top", kind = "button", label = "Compare with other addons", run = Slash("perf top"),
+		tip = "Prints in chat how MagicMap's cost compares with other addons'." },
+	{ key = "diag.mem", kind = "button", label = "Memory breakdown", run = Slash("perf mem"),
+		tip = "Prints in chat where MagicMap's memory is." },
+})
+
+Command({ kind = "slash", name = "feel", help = "[page]: the settings window, hidden again if shown (a page by its key: general, map...)",
 	fn = function(arg) if built and frame:IsShown() and arg == "" then frame:Hide() else Feel.Open(BY_PAGE[arg:lower()] and arg:lower() or nil) end end })
 Command({ kind = "slash", name = "settings", help = "the settings window (as /mm feel)", fn = Feel.Toggle })

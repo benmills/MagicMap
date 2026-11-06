@@ -1,6 +1,9 @@
 # 0010 Settings: each owner declares its own
 
 Status: **proposed** (hardening pass, 2026-10-27). Ledger rows S1-S5, S8, C1 (docs/hardening-plan.md).
+Decision 1 is built (#15: `Feel.Add(page, section, { ... })` in each owner, the pages `Feel.Page`), and 2's
+checks at load (`Feel.Loaded`) with each apply wrapped; the OnShow push, `clusterTune` and the migrations (2-5)
+stay as they were.
 
 ## Context
 

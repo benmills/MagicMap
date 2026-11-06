@@ -7,7 +7,8 @@
 -- our big map as a window of its own. A fresh install is that until the welcome is answered. The Minimap
 -- is borrowed as the blips' sensor whenever our window is shown, whatever the mode (game/Minimap.lua).
 -- API: Replace.Get(key), Replace.Set(key, on) (live: shows or hides the window as the mode says; saves),
--- Replace.Chosen(); Replace.Load(saved, fresh) is View's, at load (migration).
+-- Replace.Chosen(); Replace.Load(saved, fresh) is View's, at load (migration). Both are switches in
+-- Settings > General > Blizzard's maps (ui/Feel.lua; kept here, so a reset leaves them).
 
 local _, ns = ...
 local UI = ns.UI
@@ -59,3 +60,13 @@ function Replace.Load(s, fresh)
 	if s.replace and not s.replace.minimap then s.minimap = "ours" end -- ("blizzard" is the quick hide while minimap is on)
 	s.worldmap = nil
 end
+
+local function Switch(key) return function(on) Replace.Set(key, on) end end
+UI.Feel.Add("general", "Blizzard's maps", {
+	{ key = "replace.minimap", kind = "toggle", label = "Replace minimap", default = false, keep = true,
+		get = function() return Replace.Get("minimap") end, set = Switch("minimap"),
+		tip = "Our map stands in for Blizzard's minimap. Off: Blizzard's minimap as usual." },
+	{ key = "replace.worldmap", kind = "toggle", label = "Replace world map", default = false, keep = true,
+		get = function() return Replace.Get("worldmap") end, set = Switch("worldmap"),
+		tip = "M opens our map in place of Blizzard's world map. Off: M opens Blizzard's world map as usual." },
+})

@@ -9,7 +9,8 @@
 -- near the view, around them, and again once it pans out of them (Layers.lua:1631-1673); moved with
 -- the zoom ("move"). A name the last layout didn't show fades in. While the big map shows a capital's city map
 -- (ui/Interiors.lua), the areas named on its rooms (Atlas.City's labels: The Great Forge, the Apothecarium...)
--- are subzones too, placed first, but for a name the terrain's subzones have.
+-- are subzones too, placed first, but for a name the terrain's subzones have. Settings > Map > Names (ui/Feel.lua,
+-- declared at the bottom): the label size, the zone names' opacity, the subzones' own size and opacity.
 
 local _, ns = ...
 local UI = ns.UI
@@ -27,11 +28,10 @@ local SHADOW = 0.85 -- the soft drop shadow's alpha, offset (1, -1)
 local PAD_X, PAD_Y, GAP = 4, 2, 3 -- a name's clearance, and its spots' gap above and below (Layers.lua:1447-1448)
 local FADE_S = 0.2 -- Layers.lua:1619
 
--- The settings window's label size (ui/Feel.lua: "labels.scale"), a factor on every name's size; the
--- layer's rev moves with it, so the names are laid out again at the new size (and, as the subzone names', at the
--- new size or opacity).
+-- The settings' label size ("labels.scale"), a factor on every name's size; the layer's rev moves with it, so the
+-- names are laid out again at the new size (and, as the names', at a new size or opacity).
 local scale, subScale, subSize, scaleRev = 1, 1, SUB_SIZE, 0
-local sub = SUB -- the subzone names' colour (its alpha is the settings': Feel "labels.subAlpha")
+local zone, sub = ZONE, SUB -- the names' colours (their alphas are the settings': "labels.alpha", "labels.subAlpha")
 
 local function MakeFont(c)
 	local fs = c:CreateFontString(nil, "OVERLAY")
@@ -180,7 +180,7 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 			local w, h = Measure(l, size)
 			local dy = Spot(c, l, zoom, w, h)
 			if dy and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-				Show(c, Font(c, l, TITLE, size, ZONE, Flags(size)), l, dy, shown)
+				Show(c, Font(c, l, TITLE, size, zone, Flags(size)), l, dy, shown)
 			end
 			if i % 16 == 0 then Yield() end
 		end
@@ -214,17 +214,20 @@ end, (function() -- (a city map shown or gone, the map grown or shrunk, or the s
 	end
 end)(), "move")
 
-function UI.Labels.SetScale(k)
+local function SetScale(k)
 	if scale == k then return end
 	scale, subSize, scaleRev = k, math.floor(SUB_SIZE * k * subScale + 0.5), scaleRev + 1
 end
-
--- The subzone names' own size (a factor on the label size's) and opacity (Feel "labels.subScale", "labels.subAlpha").
-function UI.Labels.SetSubScale(k)
+-- The zone names' opacity; the subzone names' own size (a factor on the label size's) and opacity.
+local function SetAlpha(a)
+	if zone[4] == a then return end
+	zone, scaleRev = { ZONE[1], ZONE[2], ZONE[3], a }, scaleRev + 1
+end
+local function SetSubScale(k)
 	if subScale == k then return end
 	subScale, subSize, scaleRev = k, math.floor(SUB_SIZE * scale * k + 0.5), scaleRev + 1
 end
-function UI.Labels.SetSubAlpha(a)
+local function SetSubAlpha(a)
 	if sub[4] == a then return end
 	sub, scaleRev = { SUB[1], SUB[2], SUB[3], a }, scaleRev + 1
 end
@@ -243,3 +246,14 @@ Runtime.Step("ui", "map: labels fade", function()
 	end
 	if a >= 1 then c.nfading = 0 end
 end, { shownOnly = UI.Window.frame })
+
+UI.Feel.Add("map", "Names", {
+	{ key = "labels.scale", kind = "slider", label = "Label size", min = 0.7, max = 1.5, step = 0.1, pct = true, default = scale,
+		apply = SetScale, tip = "The zone and subzone names' size." },
+	{ key = "labels.alpha", kind = "slider", label = "Zone name opacity", min = 0.3, max = 1, step = 0.05, pct = true, default = ZONE[4],
+		apply = SetAlpha, tip = "How solid the zone names are." },
+	{ key = "labels.subScale", kind = "slider", label = "Subzone size", min = 0.7, max = 1.5, step = 0.1, pct = true, default = subScale,
+		apply = SetSubScale, tip = "The subzone names' size, on top of the label size." },
+	{ key = "labels.subAlpha", kind = "slider", label = "Subzone opacity", min = 0.2, max = 1, step = 0.05, pct = true, default = SUB[4],
+		apply = SetSubAlpha, tip = "How solid the subzone names are." },
+})

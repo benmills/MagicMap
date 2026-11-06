@@ -34,13 +34,34 @@ local ART = { blue = "Interface\\WorldMap\\UI-QuestBlob-", green = "Interface\\W
 	rust = "Interface\\WorldMap\\UI-ArchaeologyBlob-" }
 -- Fill and edge alpha (0-255), edge width (Layers.lua:795-800), level over the canvas (Layers.lua:910);
 -- hover: lit, on top (Layers.lua:822, 853), a gentle lift over the area's own style (the world map's hover).
--- The look's numbers are the settings' (ui/Feel.lua's "areas.<name>", Settings > Quest areas): DEFAULTS
--- are the spike's. Restyle makes the style tables from them anew when they change (a frame's style is
--- the table, so a new one is applied again), and the layer's rev moves with that: every frame laid out
--- and drawn again.
+-- The look's numbers are the settings' ("areas.<name>", Settings > Quest areas, declared here: ui/Feel.lua): DEFAULTS
+-- are the spike's (alphas 0-255, shown as %). Restyle makes the style tables from them anew when they change (a
+-- frame's style is the table, so a new one is applied again), and the layer's rev moves with that: every frame
+-- laid out and drawn again.
 local DEFAULTS = { fFill = 32, fEdge = 120, fWidth = 0.8, oFill = 0, oEdge = 85, oWidth = 0.6, hFill = 45, hEdge = 150 }
-local Areas = { DEFAULTS = DEFAULTS }
+local Areas = {}
 UI.Areas = Areas
+local function Alpha(key, label, tip)
+	return { key = "areas." .. key, kind = "slider", label = label, min = 0, max = 255, step = 1, of = 255, default = DEFAULTS[key], tip = tip }
+end
+local function Width(key, tip)
+	return { key = "areas." .. key, kind = "slider", label = "Edge width", min = 0.2, max = 1.5, step = 0.1, fmt = "%.1f",
+		default = DEFAULTS[key], tip = tip }
+end
+UI.Feel.Add("areas", "Followed quest", {
+	Alpha("fFill", "Fill", "How solid the fill of the quest you follow is."),
+	Alpha("fEdge", "Edge", "How solid the edge of the quest you follow is."),
+	Width("fWidth", "How thick the edge of the quest you follow is."),
+})
+UI.Feel.Add("areas", "Other quests", {
+	Alpha("oFill", "Fill", "How solid the fill of the other quests' areas is."),
+	Alpha("oEdge", "Edge", "How solid the edge of the other quests' areas is (a gather area's a little less)."),
+	Width("oWidth", "How thick the edge of the other quests' areas is."),
+})
+UI.Feel.Add("areas", "Under the cursor", {
+	Alpha("hFill", "Fill lift", "How much an area under the cursor (or its pin) lifts its fill."),
+	Alpha("hEdge", "Edge", "How solid the edge of an area under the cursor (or its pin) is."),
+})
 local STATES = { -- art, level, key; the gather's edge is the quieter 55/85 of the others'
 	followed = { art = "blue", level = 2, key = 1 }, kill = { art = "rust", level = 1, key = 2 },
 	gather = { art = "green", level = 1, key = 3, quiet = 55 / 85 }, other = { art = "blue", level = 1, key = 4 },

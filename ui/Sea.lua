@@ -1,6 +1,6 @@
 -- The ocean (Data/Sea.lua, tools/gen_sea.py): one picture round the continent, over the tiles, where their water is near-black;
 -- past it, the same deep colour, the window's backdrop (ui/Window.lua). Placed for the camera each frame, as the base picture
--- (ui/Base.lua), nothing set if nothing moved. Switched by Feel's "sea.on".
+-- (ui/Base.lua), nothing set if nothing moved. Switched by Settings > Map > Ocean ("sea.on", declared below: ui/Feel.lua).
 
 local _, ns = ...
 local UI = ns.UI
@@ -66,3 +66,8 @@ end
 
 function Sea.Shown() return file ~= nil end -- (the tests)
 Sea.frame = frame
+
+UI.Feel.Add("map", "Ground", {
+	{ key = "sea.on", kind = "toggle", label = "Ocean", default = true, apply = Sea.Set,
+		tip = "A coloured ocean round the land, where Blizzard's map is near-black." },
+})

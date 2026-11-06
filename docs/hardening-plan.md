@@ -36,14 +36,14 @@ Status: `open`, `check` (a check exists and fails as it should), `fixed` (fixed,
 
 | id | problem | evidence | status |
 | --- | --- | --- | --- |
-| S1 | Defaults are defined twice and the winning copy differs by setting. | Feel.lua KEYS vs Pins, Controls, Labels, Interiors, Path, Areas. | open |
+| S1 | Defaults are defined twice and the winning copy differs by setting. | Feel.lua KEYS vs Pins, Controls, Labels, Interiors, Path, Areas. | fixed (#15: each owner declares its settings, Feel.Add, its default its own constant; Feel keeps none) |
 | S2 | Settings pushed on the window's OnShow aren't pushed again when saved data loads. | Feel.lua:266-270; safe only while the window shows after the load. | open |
-| S3 | One bad saved value (wrong type) stops the push for every setting after it; nothing is range-checked. | Feel.lua:266-270, Game.lua:55-59. | open |
+| S3 | One bad saved value (wrong type) stops the push for every setting after it; nothing is range-checked. | Feel.lua:266-270, Game.lua:55-59. | fixed (#15: Feel.Loaded drops a value of the wrong type, out of range or no longer offered; each apply wrapped on its own) |
 | S4 | Grouping's tunables have the latent reload bug the tracking line had. | Cluster.lua tuneV. | open |
 | S5 | `/mm layer rares` doesn't turn vignettes with it. | Engine.lua:808-811 vs Menus.lua:102. | fixed |
 | S6 | Tracking only ends while some pin layer asks for redraws (Watch inside Track.Rev). | ui/Track.lua:71-88. | open |
 | S7 | Reset and downgrade turn both replace options on (`fresh` false). | Game.lua:35, 44; Replace.lua:55-56. | open |
-| S9 | "Follow you" off doesn't hold: the idle return (ui/Motion.lua, as the MVP's) turns following back on after about 6 s, and it isn't kept across a reload. Is the setting meant to be "glide back when left alone" on/off? Ask the user. | found by T3, 2026-10-27 | open |
+| S9 | "Follow you" off doesn't hold: the idle return (ui/Motion.lua, as the MVP's) turns following back on after about 6 s, and it isn't kept across a reload. Is the setting meant to be "glide back when left alone" on/off? Ask the user. | found by T3, 2026-10-27 | open (#15 adds General > Return to you, on by default: off, the small map stays where you left it; whether Follow you should be kept across a reload is still the user's) |
 | S8 | The saved schema lives in three places and they disagree; migrations are done by hand outside `spec.migrate`. | types/saved.lua vs View.lua OPTIONAL; Replace.lua:51-61. | open |
 
 ### I: clicks, menus, tooltips

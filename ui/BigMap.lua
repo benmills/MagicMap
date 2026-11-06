@@ -1,6 +1,6 @@
 -- The window is the minimap: it takes the minimap's place (MinimapMode.lua:1-16).
 --   * It starts on the minimap's spot, square, SPAN yards across, and keeps that as you
---     resize it. /mm reset puts it back there.
+--     resize it. /mm reset (or Settings > General > Reset window position) puts it back there.
 --   * M (Model.hooked "worldmap": Game hid Blizzard's world map) or the red button grows it
 --     to most of the screen, in the same chrome; M, the button or Escape (hooked "escape":
 --     Game's catcher, shown while View.window.big) shrink it back. While big, the Minimap's
@@ -275,3 +275,7 @@ function BigMap.Reset()
 end
 
 ns.Game.Command({ kind = "slash", name = "reset", help = "put the map back on the minimap's spot", fn = BigMap.Reset })
+UI.Feel.Add("general", "Map window", {
+	{ key = "general.resetpos", kind = "button", label = "Reset window position", run = function() BigMap.Reset() end,
+		tip = "Puts the map window back on the minimap's spot." },
+})

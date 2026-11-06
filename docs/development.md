@@ -141,6 +141,35 @@ after every frame, and `T.strictPins = True` adds one pin per real thing across 
 
 CI (`.github/workflows/check.yml`) runs `tools/check.sh` on every push and PR.
 
+## How to add a setting
+
+A setting is declared once, in the file that uses it; the settings window (ui/Feel.lua) is built from what's
+declared, so a declared setting is in the window, resettable and saved, with nothing else to change:
+
+    UI.Feel.Add("map", "Names", {   -- its page's key and section (nil: above the page's sections)
+        { key = "labels.alpha", kind = "slider", label = "Zone name opacity", min = 0.3, max = 1, step = 0.05,
+          pct = true, default = ZONE[4], apply = SetAlpha, tip = "How solid the zone names are." },
+    })
+
+- **key**: `<area>.<name>`, the name it's saved by in `UI.saved.feel` (only while it differs from its default).
+  Never rename one: players' values are under it.
+- **default**: today's value, taken from the constant the code already has (one copy). A function is read when
+  asked: a value inherited from another setting (until it's set, its row and its `apply` follow that one).
+- **kind**: `toggle`; `slider` (`min`, `max`, `step`, the default on its step; shown as `pct`, `of`, or `fmt`);
+  `select` (`options = { { label, value, icon? } }`, or a function giving them); `color` (`colors = { { name,
+  { r, g, b } } }`; a custom `"#rrggbb"` through the client's colour picker; `Feel.RGB` reads either); `list`
+  (`options`, `ordered`; the value the chosen joined by commas: `Feel.List`); `button` (`run`).
+- **How the code gets it**: `apply(v)` (called on a change and as the map shows), or `Feel.Get(key)` where it's
+  used, with `Feel.rev` to notice a change. A value its owner keeps elsewhere: `get`/`set` (and `keep = true` for a
+  switch a reset mustn't touch).
+- **when**: a key or a function; the row shows only while it's on.
+- **A page of its own**: `UI.Feel.Page({ key, title, icon, order, tip, sections })`, its order between the others'
+  (General 10, Map 20, Icons 30, Info pills 40, Tracking line 50, Quest areas 60, Grouping 70, Diagnostics 90).
+
+Then list it in ui/Feel.lua's header (its page's line) and docs/features.md's settings table. test_lookfeel's
+`test_settings_declared` fails if the code reads a key by name that isn't declared, or a declared one lacks a page,
+label, tip or default its control offers; `test_settings_layout` if a row doesn't fit its page.
+
 ## Boundaries
 
 `tools/luacheck.py` enforces [architecture.md](../architecture.md)'s Rules per folder: the

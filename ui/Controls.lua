@@ -2,8 +2,10 @@
 -- the gear (the world map's) and the mode button (its red expand: ui/BigMap.lua); inside
 -- the map, top left the tracking pill (yards along the route and an ETA), bottom left the quest
 -- pill (the followed quest and its progress, else your quests in this zone), bottom right the
--- zoom buttons and, while the zoom isn't the default, the reset above them. They and the grip fade in while you hover (Core.lua:394-408), and each has a
--- tiny tip (Core.lua:1454-1497). Follow is a Settings row now (ui/Menus.lua).
+-- zoom buttons and, while the zoom isn't the default, the reset above them. They and the grip fade in while you hover
+-- (Core.lua:394-408; away from the map, as faint as Buttons at rest: hidden by default), and each has a tiny tip
+-- (Core.lua:1454-1497). Their settings (ui/Feel.lua): General > Map window > Buttons at rest, and the Info pills page
+-- (declared at the bottom: the pills' backing, size, what each says and shows, their fades, the distance pill's corner).
 
 local _, ns = ...
 local UI = ns.UI
@@ -156,7 +158,7 @@ icon:SetSize(ICON, ICON)
 icon:SetPoint("LEFT", line, "LEFT", ICON_X, 0)
 if questAtlas then icon:SetAtlas(questAtlas) else icon:Hide() end
 -- The pill: a half disc at each end (the circle mask's halves, so they don't overlap the middle).
-local PILL_A = 0.25 -- the backing's alpha: faint (ui/Feel.lua "pills.alpha" sets it live: SetPillAlpha)
+local PILL_A = 0.25 -- the backing's alpha: faint ("pills.alpha" sets it live: SetPillAlpha)
 local pills = {} -- every pill's backing textures (caps and middle)
 local function Backing(f)
 	local function Cap(left)
@@ -183,19 +185,17 @@ local function Backing(f)
 	pills[#pills + 1] = middle
 end
 -- The pills' backing alpha (a cap takes it through its vertex colour, the middle as its colour).
-function Controls.SetPillAlpha(a)
+local function SetPillAlpha(a)
 	for _, t in ipairs(pills) do
 		if t.cap then t:SetVertexColor(0, 0, 0, a) else t:SetColorTexture(0, 0, 0, a) end
 	end
 end
 Backing(line)
 
--- The pills' look and behaviour (ui/Feel.lua's Info pills page, through Controls.SetPill): their size, what each
+-- The pills' look and behaviour (the Info pills page, through SetPill; these its defaults): their size, what each
 -- says, whether each shows, fades until you point at the map, and the tracking pill's corner.
 local PILL = { scale = 1, questShow = "all", questProgress = true, questFade = true, trackShow = true,
 	trackWhat = "both", trackCorner = "left", trackFade = false }
-Controls.PILL_DEFAULTS = {}
-for k, v in pairs(PILL) do Controls.PILL_DEFAULTS[k] = v end
 local lineText = line:CreateFontString(nil, "OVERLAY")
 lineText:SetFont(FONT, 10, "")
 lineText:SetTextColor(0.95, 0.9, 0.8)
@@ -432,16 +432,27 @@ local function Place()
 	end
 end
 
--- One of PILL's settings (ui/Feel.lua): applied at once, both pills worked out again.
-function Controls.SetPill(key, v)
+-- The buttons' and the pills' alphas from the hover's fade: the buttons from Buttons at rest (away) to 1 (over).
+local rest = 0
+local function Reveal()
+	local a = rest + (1 - rest) * hover
+	Chrome.controls:SetAlpha(a)
+	gear:SetAlpha(a)
+	mode:SetAlpha(a)
+	Chrome.grip:SetAlpha(GRIP_ALPHA * a)
+	line:SetAlpha((tracked or not PILL.questFade) and 1 or hover)
+	track:SetAlpha(PILL.trackFade and hover or 1)
+end
+
+-- One of PILL's settings: applied at once, both pills worked out again.
+local function SetPill(key, v)
 	if PILL[key] == v then return end
 	PILL[key] = v
 	Place()
 	lastRev, trackWords = nil, nil
 	Look()
 	Track()
-	line:SetAlpha((tracked or not PILL.questFade) and 1 or hover)
-	track:SetAlpha(PILL.trackFade and hover or 1)
+	Reveal()
 end
 
 ---------------------------------------------------------------------------
@@ -467,7 +478,7 @@ zoomOut:SetScript("OnClick", Runtime.Wrap("map: zoom out", function() UI.Motion.
 -- budget.)
 gear:SetScript("OnClick", Runtime.Wrap("map: gear", function(self) Menus.Gear(self) end, Runtime.FRAME_MS))
 
--- Following you, or free: the slash command (and the Settings row, ui/Menus.lua). Back to you with a
+-- Following you, or free: the slash command (and the Settings row: ui/Motion.lua). Back to you with a
 -- glide (Core.lua:1081-1093, 1451, 1703).
 local function ToggleFollow() UI.Motion.SetFollow(not Camera.follow, true) end
 
@@ -484,12 +495,7 @@ Runtime.Step("ui", "map: controls", function(elapsed)
 	if hover ~= want then
 		local step = elapsed / FADE
 		hover = want > hover and math.min(want, hover + step) or math.max(want, hover - step)
-		Chrome.controls:SetAlpha(hover)
-		gear:SetAlpha(hover)
-		mode:SetAlpha(hover)
-		Chrome.grip:SetAlpha(GRIP_ALPHA * hover)
-		line:SetAlpha((tracked or not PILL.questFade) and 1 or hover)
-		track:SetAlpha(PILL.trackFade and hover or 1)
+		Reveal()
 	end
 	ResetLook()
 	if UI.Cluster then UI.Cluster.Watch() end
@@ -558,3 +564,42 @@ Controls.Tip(gear, function() return "Layers & settings" end)
 
 ns.Game.Command({ kind = "slash", name = "follow", help = "follow you on the map, or stop",
 	fn = ToggleFollow })
+
+---------------------------------------------------------------------------
+-- Settings (ui/Feel.lua): General > Map window, and the Info pills page
+---------------------------------------------------------------------------
+
+UI.Feel.Add("general", "Map window", {
+	{ key = "controls.rest", kind = "slider", label = "Buttons at rest", min = 0, max = 1, step = 0.05, pct = true, default = rest,
+		apply = function(v) rest = v; Reveal() end,
+		tip = "How much the map's buttons (gear, zoom, grow) and its resize grip show while you're not pointing at the map. 0%: hidden till you do." },
+})
+local function Pill(key) return function(v) SetPill(key, v) end end
+local function QuestPill() return UI.Feel.Get("pills.questShow") ~= "off" end
+UI.Feel.Add("pills", "Both pills", {
+	{ key = "pills.alpha", kind = "slider", label = "Backing", min = 0, max = 0.8, step = 0.05, pct = true, default = PILL_A,
+		apply = SetPillAlpha, tip = "How dark the pills' backing is: the quest pill (bottom left) and the distance pill (top)." },
+	{ key = "pills.scale", kind = "slider", label = "Size", min = 0.8, max = 1.6, step = 0.1, pct = true, default = PILL.scale,
+		apply = Pill("scale"), tip = "Both pills' size, text and all." },
+})
+UI.Feel.Add("pills", "Quest pill", {
+	{ key = "pills.questShow", kind = "select", label = "Shows", default = PILL.questShow, apply = Pill("questShow"),
+		options = { { "Quest or zone count", "all" }, { "Followed quest only", "followed" }, { "Off", "off" } },
+		tip = "Bottom left: the quest you follow, else how many of your quests are in this zone; or only a followed quest; or none." },
+	{ key = "pills.questProgress", kind = "toggle", label = "Quest progress", default = PILL.questProgress, when = QuestPill,
+		apply = Pill("questProgress"), tip = "The followed quest's count (2/5) or \"ready to turn in\" after its name." },
+	{ key = "pills.questFade", kind = "toggle", label = "Fade quest pill", default = PILL.questFade, when = QuestPill,
+		apply = Pill("questFade"), tip = "The zone's quest count shows only while you point at the map. A followed quest always shows." },
+})
+UI.Feel.Add("pills", "Distance pill", {
+	{ key = "pills.trackShow", kind = "toggle", label = "Distance pill", default = PILL.trackShow, apply = Pill("trackShow"),
+		tip = "The yards and time to what you track (a quest, an icon, your waypoint)." },
+	{ key = "pills.trackWhat", kind = "select", label = "Shows", default = PILL.trackWhat, when = "pills.trackShow",
+		options = { { "Yards and time", "both" }, { "Yards", "yards" }, { "Time", "time" } }, apply = Pill("trackWhat"),
+		tip = "What the distance pill says. The time is at your pace (a run's, until you've moved)." },
+	{ key = "pills.trackCorner", kind = "select", label = "Corner", default = PILL.trackCorner, when = "pills.trackShow",
+		options = { { "Top left", "left" }, { "Top right", "right" } }, apply = Pill("trackCorner"),
+		tip = "Which top corner of the map the distance pill sits in." },
+	{ key = "pills.trackFade", kind = "toggle", label = "Fade distance pill", default = PILL.trackFade, when = "pills.trackShow",
+		apply = Pill("trackFade"), tip = "The distance pill shows only while you point at the map." },
+})

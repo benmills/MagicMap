@@ -1,4 +1,4 @@
--- The AI repaints of the broken map art (Data/Repaint.lua, tools/ai_map.py ship; Feel's "repaint.on"): the flat, unfinished ground of
+-- The AI repaints of the broken map art (Data/Repaint.lua, tools/ai_map.py ship; Settings > Map > Repair broken map art, "repaint.on"): the flat, unfinished ground of
 -- Blizzard's tiles painted over, each picture a tile's size with its own soft alpha. Laid out with the tiles (Lay, at the end of ui/
 -- Tiles.lua's layout), on their canvas, so they move, scale and fade with them; on a frame of that canvas's own, over the ocean
 -- (ui/Sea.lua: it lies over the tiles and some repaints reach the coast) and under the layers above the ground. Places overlapping keep their order by sublevel.
@@ -105,3 +105,8 @@ function Repaint.Lay(c, inst, zoom, c0, r0, c1, r1)
 	end
 	if np > 0 then Runtime.Wake(job, BUDGET) end
 end
+
+UI.Feel.Add("map", "Ground", {
+	{ key = "repaint.on", kind = "toggle", label = "Repair broken map art", default = true, apply = Repaint.Set,
+		tip = "Paints over the flat, unfinished blocks in Blizzard's map with AI-generated pictures. Only on the game build they were checked against: on another, the map stays as Blizzard's until MagicMap updates." },
+})

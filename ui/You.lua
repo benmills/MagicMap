@@ -4,7 +4,7 @@
 -- withholds where you are (Model.you stale: an instance's), or without a facing. Your corpse and your
 -- waypoint as pins (Layers.lua:500-521, 625-634), the waypoint's left out while a tracked icon stands on it
 -- (ui/Track.lua: the icon is the target), and the title band's target (Core.lua:1294-1300), named for the
--- tracked icon then.
+-- tracked icon then. Its size: Settings > Map > Your arrow (ui/Feel.lua).
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
@@ -36,7 +36,10 @@ arrow:SetSnapToPixelGrid(false)
 arrow:SetTexelSnappingBias(0)
 arrow:Hide()
 You.arrow = arrow
-function You.SetArrowScale(k) arrow:SetSize(SIZE * k, SIZE * k) end -- (ui/Feel.lua "arrow.scale")
+UI.Feel.Add("map", "You", {
+	{ key = "arrow.scale", kind = "slider", label = "Your arrow", min = 0.6, max = 1.6, step = 0.1, pct = true, default = 1,
+		apply = function(k) arrow:SetSize(SIZE * k, SIZE * k) end, tip = "Your arrow's size." },
+})
 
 -- Each frame while shown, after the map's draw: only what changed is applied (an idle frame makes
 -- no widget calls for it).

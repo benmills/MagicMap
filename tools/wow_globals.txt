@@ -24,9 +24,11 @@ CreateFrame debugstack geterrorhandler
 # Widgets, templates, fonts, colours, texture atlases
 CreateFrame UIParent CreateColor CreateVector2D C_Texture GetFileIDFromPath
 ButtonFrameTemplate_HideButtonBar ButtonFrameTemplate_HidePortrait
-GameFontNormal GameFontNormalSmall GameFontHighlight GameFontHighlightSmall
+GameFontNormal GameFontNormalSmall GameFontNormalLarge GameFontHighlight GameFontHighlightSmall
 GameTooltip GameTooltipText GameTooltipTextSmall STANDARD_TEXT_FONT
 MenuResponse MenuUtil LEVEL RAID_CLASS_COLORS
+# The client's colour picker (the settings window's Custom…: ui/Feel.lua)
+ColorPickerFrame
 # Input state
 GetCursorPosition IsAltKeyDown IsControlKeyDown IsMouseButtonDown IsShiftKeyDown
 

@@ -9,9 +9,11 @@
 -- found again, only the pieces that meet the view (and a margin) shown (a line's ends stay within a few
 -- thousand px: docs/v1-plan.md §2); and as a pan takes the view past them, the pieces it brings in shown,
 -- the rest left as they stand.
--- Its look is the settings' (UI.Feel, when loaded; Path.DEFAULTS without it): the style (dotted, dashed
--- or solid: one line a leg), the weight (the stroke's px; its edge twice that), the colour (Path.COLORS),
--- the ADD glow, the breath, an opacity, and the dark edge (the outline: on or off, its colour from Path.EDGE_COLORS). A change (Feel.rev) restyles the pieces and lays the line out anew.
+-- Its look is the settings' (Settings > Tracking line, declared here: ui/Feel.lua; Path.DEFAULTS by default): the
+-- style (dotted, dashed or solid: one line a leg), the weight (the stroke's px; its edge twice that), the colour
+-- (Path.COLORS, or any: "#rrggbb"), the ADD glow, the breath and its pace, an opacity, and the dark edge (the
+-- outline: on or off, its colour from Path.EDGE_COLORS, or any). A change (Feel.rev) restyles the pieces and lays
+-- the line out anew.
 -- Off the view, the target gets a gold arrow on its edge, where the line toward it leaves (Path.lua:24-79).
 -- And your corpse becoming the target brings the view back to you (Core.lua:1095-1108), once a ghost.
 
@@ -24,8 +26,8 @@ local floor, sin = math.floor, math.sin
 local LEVEL = 8 -- over the quest areas (4), under the names (9): the spike's path frame (Core.lua:149)
 local CLEAR_YOU, CLEAR_TARGET = 12, 15 -- px left clear around your arrow and the target's pin (Path.lua:11)
 local FADE, FADE_YOU = 40, 10 -- px over which the line fades in at the target and out at you: short at you, so it leaves your arrow (Path.lua:12)
--- The look's settings (ui/Feel.lua's "path.<name>", read at use: it may load later or not at all) and
--- their defaults; the colours in the order a dialog lists them, the first the default. The spike's dashes
+-- The look's settings ("path.<name>", read at use) and their defaults; the colours in the order the settings
+-- list them, the first the list's own. The spike's dashes
 -- were 1.9 px over a 3.8 edge, 6 on and 4 off (Path.lua:13-16): by default now a 1 px gold dash at 55%, no
 -- edge, glow or breath: a quiet line.
 local COLORS = {
@@ -36,15 +38,15 @@ local EDGE_COLORS = {
 	{ "Dark", { 0.12, 0.08, 0.03 } }, { "Black", { 0, 0, 0 } }, { "Brown", { 0.3, 0.18, 0.07 } },
 	{ "Navy", { 0.04, 0.07, 0.2 } }, { "White", { 1, 1, 1 } },
 }
-local DEFAULTS = { style = "dashed", weight = 1, color = "Gold", glow = false, breath = false, opacity = 0.55,
-	edge = false, edgeColor = EDGE_COLORS[1][1] }
+local DEFAULTS = { style = "dashed", weight = 1, color = "Gold", glow = false, breath = false, breathTime = 1.8,
+	opacity = 0.55, edge = false, edgeColor = EDGE_COLORS[1][1] }
 local STYLES = { dotted = { 1, 1.5 }, dashed = { 6 / 1.9, 4 / 1.9 } } -- a piece and its gap, in strokes (solid: a leg a line)
-local WEIGHT_MIN, WEIGHT_MAX, OPACITY_MIN = 1, 4, 0.3
+local WEIGHT_MIN, WEIGHT_MAX, OPACITY_MIN = 1, 4, 0.2
 local STROKE_ALPHA, WASH_ALPHA = 0.92, 0.45 -- Path.lua:14-15 (more alpha: legible on snow; the casing darker)
 -- What makes it stand out, without being thicker: the dot is ADDed to the ground (it lights dark ground and
 -- whitens mid tones; over the dark edge it stays a light core on pale snow too), and the canvas breathes
 -- slowly (one Alpha animation, run in C: no Lua a frame, no widget call at rest).
-local PULSE_LOW, PULSE_S = 0.68, 1.8 -- the canvas's lowest alpha, and s each way
+local PULSE_LOW = 0.68 -- the canvas's lowest alpha (and DEFAULTS.breathTime s each way)
 -- As set (Apply): the stroke's and the edge's px, their colours (the edge's fixed, the stroke's chosen), their
 -- alphas in half hundredths, a piece's px on and off and their sum (longer, in proportion, when there'd be
 -- more than MAX_PIECES: Path.lua:16; a dot keeps its size, the gaps grow), and whether the line is solid, or dotted.
@@ -74,14 +76,12 @@ local canvas = CreateFrame("Frame", nil, frame)
 canvas:SetSize(1, 1)
 Path.canvas = canvas
 local breath = canvas:CreateAnimationGroup()
-do
-	breath:SetLooping("BOUNCE")
-	local a = breath:CreateAnimation("Alpha")
-	a:SetFromAlpha(1)
-	a:SetToAlpha(PULSE_LOW)
-	a:SetDuration(PULSE_S)
-	a:SetSmoothing("IN_OUT")
-end
+local breathA = breath:CreateAnimation("Alpha")
+breath:SetLooping("BOUNCE")
+breathA:SetFromAlpha(1)
+breathA:SetToAlpha(PULSE_LOW)
+breathA:SetDuration(DEFAULTS.breathTime)
+breathA:SetSmoothing("IN_OUT")
 
 local edge = UI.You.overlay:CreateTexture(nil, "OVERLAY", nil, 3)
 edge:SetTexture(EDGE_ART)
@@ -141,39 +141,34 @@ local function Off(l)
 	end
 end
 
--- A preset's colour by its name, from list (else the default's, else the first's); and the name it is.
-local function Preset(list, name, default)
-	for _, c in ipairs(list) do
-		if c[1] == name then return name, c[2] end
-	end
-	if default then return Preset(list, default) end
-	return list[1][1], list[1][2]
-end
+local RGB = UI.Feel.RGB -- a colour setting's value as { r, g, b } (a preset's name or "#rrggbb"; else the default's)
 
--- The settings as applied (Apply: the current ones, from Feel when loaded, else the defaults; a value
--- out of range is the default's, so a dialog's slip can't draw nothing). Whether any changed: then the
--- pool shown is emptied (the step lays the line out anew).
+-- The settings as applied (Apply: the current ones, else the defaults; a value out of range is the default's, so
+-- a slip can't draw nothing). Whether any changed: then the pool shown is emptied (the step lays the line out anew).
 local KEYS = { style = "path.style", weight = "path.weight", color = "path.color", glow = "path.glow",
-	breath = "path.breath", opacity = "path.opacity", edge = "path.edge", edgeColor = "path.edgeColor" }
+	breath = "path.breath", breathTime = "path.breathTime", opacity = "path.opacity", edge = "path.edge", edgeColor = "path.edgeColor" }
 local feel, feelRev = {}, nil
 local function Setting(name)
-	local F = UI.Feel
-	local v = F and F.Get(KEYS[name])
+	local v = UI.Feel.Get(KEYS[name])
 	if v == nil then v = DEFAULTS[name] end
 	return v
 end
 local function Apply()
-	local F = UI.Feel
-	feelRev = F and F.rev
+	feelRev = UI.Feel.rev
 	local style, weight, color, glow, pulse, opacity = Setting("style"), Setting("weight"), Setting("color"),
 		Setting("glow"), Setting("breath"), Setting("opacity")
-	local edge, edgeColor = Setting("edge") ~= false, Setting("edgeColor")
+	local edge, edgeColor, pace = Setting("edge") ~= false, Setting("edgeColor"), Setting("breathTime")
 	if not (STYLES[style] or style == "solid") then style = DEFAULTS.style end
 	if type(weight) ~= "number" or weight < WEIGHT_MIN or weight > WEIGHT_MAX then weight = DEFAULTS.weight end
 	if type(opacity) ~= "number" or opacity < OPACITY_MIN or opacity > 1 then opacity = DEFAULTS.opacity end
+	if type(pace) ~= "number" or pace <= 0 then pace = DEFAULTS.breathTime end
+	if feel.pace ~= pace then -- (the breath's pace: nothing to lay out again)
+		feel.pace = pace
+		breathA:SetDuration(pace)
+	end
 	local rgb, edgeRgb
-	color, rgb = Preset(COLORS, color, DEFAULTS.color)
-	edgeColor, edgeRgb = Preset(EDGE_COLORS, edgeColor, DEFAULTS.edgeColor)
+	color, rgb = RGB(COLORS, color, DEFAULTS.color)
+	edgeColor, edgeRgb = RGB(EDGE_COLORS, edgeColor, DEFAULTS.edgeColor)
 	if feel.style == style and feel.weight == weight and feel.color == color and feel.glow == glow
 		and feel.breath == pulse and feel.opacity == opacity and feel.edge == edge and feel.edgeColor == edgeColor then return false end
 	if feel.color ~= color or feel.opacity ~= opacity or feel.edgeColor ~= edgeColor then colourRev = colourRev + 1 end
@@ -210,8 +205,31 @@ local function Apply()
 	end
 	return true
 end
+local LINE = { { "Dotted", "dotted" }, { "Dashed", "dashed" }, { "Solid", "solid" } }
+UI.Feel.Add("path", "Line", {
+	{ key = "path.style", kind = "select", label = "Style", options = LINE, default = DEFAULTS.style,
+		tip = "How the line to what you track is drawn." },
+	{ key = "path.weight", kind = "slider", label = "Weight", min = WEIGHT_MIN, max = WEIGHT_MAX, step = 0.2, fmt = "%.1f px",
+		default = DEFAULTS.weight, tip = "How thick the line is." },
+	{ key = "path.color", kind = "color", label = "Colour", colors = COLORS, default = DEFAULTS.color, tip = "The line's colour." },
+	{ key = "path.opacity", kind = "slider", label = "Opacity", min = OPACITY_MIN, max = 1, step = 0.05, pct = true,
+		default = DEFAULTS.opacity, tip = "How solid the line is." },
+})
+UI.Feel.Add("path", "Effects", {
+	{ key = "path.glow", kind = "toggle", label = "Glow", default = DEFAULTS.glow,
+		tip = "A soft glow along the line, so it reads on any map." },
+	{ key = "path.breath", kind = "toggle", label = "Breathing", default = DEFAULTS.breath, tip = "The line slowly brightens and dims." },
+	{ key = "path.breathTime", kind = "slider", label = "Breath pace", min = 0.6, max = 4, step = 0.1, fmt = "%.1f s",
+		default = DEFAULTS.breathTime, when = "path.breath", tip = "How long the line takes to dim, and again to brighten." },
+})
+UI.Feel.Add("path", "Outline", {
+	{ key = "path.edge", kind = "toggle", label = "Outline", default = DEFAULTS.edge,
+		tip = "A darker edge under the line, so it reads on pale ground." },
+	{ key = "path.edgeColor", kind = "color", label = "Outline colour", colors = EDGE_COLORS, default = DEFAULTS.edgeColor,
+		when = "path.edge", tip = "The outline's colour." },
+})
 Apply()
-if UI.Feel then UI.Feel.OnLoad(Apply) end -- (the saved look, at login: not in the first frame shown)
+UI.Feel.OnLoad(Apply) -- (the saved look, at login: not in the first frame shown)
 for i = 1, MAX_PIECES do
 	lineW[i], lineS[i] = Make(false, 0, WASH, WASH_RGBA, false), Make(false, 1, STROKE, STROKE_RGBA, feel.glow)
 	dotW[i], dotS[i] = Make(true, 0, WASH, WASH_RGBA, false), Make(true, 1, STROKE, STROKE_RGBA, feel.glow)
@@ -659,8 +677,7 @@ end
 -- Each frame while shown, after the map's draw: the line and the arrow, for a target on the map shown
 -- while you're on it with a position, not yet arrived (inside its area: they step aside).
 Runtime.Step("ui", "map: path", function()
-	local F = UI.Feel -- a setting changed (one compare a frame): restyled, and laid out anew
-	if F and F.rev ~= feelRev and Apply() then
+	if UI.Feel.rev ~= feelRev and Apply() then -- a setting changed (one compare a frame): restyled, and laid out anew
 		drawn[1], last.z, lay.half = nil, nil, nil
 		wipe(kept)
 	end

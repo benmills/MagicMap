@@ -117,12 +117,12 @@ game\parts\Tracking.lua
 # UI
 ui\Camera.lua
 ui\Window.lua
+ui\Feel.lua
 ui\Chrome.lua
 ui\Engine.lua
 ui\Motion.lua
 ui\Replace.lua
 ui\Menus.lua
-ui\Feel.lua
 ui\Welcome.lua
 ui\Track.lua
 ui\Controls.lua

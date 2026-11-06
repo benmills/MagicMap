@@ -1,7 +1,8 @@
 -- A small simulation of the WoW client's UI and map API, enough to load
 -- MagicMap headlessly and drive it: frames and regions with anchor-based
 -- layout, show/hide propagation, scripts and hooks, events, timers, mouse
--- input, tooltips, the Minimap, menus, and a mock world for C_Map.
+-- input, tooltips, the Minimap, menus (and the client's dropdown, colour
+-- swatch and colour picker: Sim.Pick, Sim.PickColor), and a mock world for C_Map.
 --
 -- It isn't the real client: it catches errors (nil calls, typos, bad
 -- arithmetic, wrong assumptions about API shape) on the code paths a
@@ -481,7 +482,12 @@ function FontString:SetFont(path, size, flags)
 	S[self].font = { path, size, flags }
 	return true
 end
-function FontString:GetFont() local f = S[self].font or { "Fonts\\FRIZQT__.TTF", 12, "" }; return f[1], f[2], f[3] end
+function FontString:GetFont()
+	local f = S[self].font
+	if not f and S[self].fontObject then return S[self].fontObject:GetFont() end
+	f = f or { "Fonts\\FRIZQT__.TTF", 12, "" }
+	return f[1], f[2], f[3]
+end
 function FontString:SetFontObject(obj) S[self].fontObject = obj end
 function FontString:SetTextColor(r, g, b, a) assert(type(r) == "number", "SetTextColor: numbers expected") end
 function FontString:SetJustifyH(j) assert(j == "LEFT" or j == "CENTER" or j == "RIGHT", "SetJustifyH: bad value") end
@@ -799,16 +805,27 @@ C_TooltipInfo = {
 	end,
 }
 
--- ScrollFrame: its scroll child is reparented to it.
+-- ScrollFrame: its scroll child is reparented to it, and stands at its top left less the scroll (the client places
+-- it so, whatever anchors it has).
 local ScrollFrame = class("ScrollFrame", "Frame")
+local function placeChild(self)
+	local st = S[self]
+	local c = st.scrollChild
+	if c then
+		c:ClearAllPoints()
+		c:SetPoint("TOPLEFT", self, "TOPLEFT", -(st.hscroll or 0), st.vscroll or 0)
+	end
+end
 function ScrollFrame:SetScrollChild(child)
 	assert(child and S[child] and isFrame(child), "SetScrollChild: frame expected")
 	child:SetParent(self)
 	S[self].scrollChild = child
+	placeChild(self)
 end
 function ScrollFrame:GetScrollChild() return S[self].scrollChild end
-function ScrollFrame:SetHorizontalScroll(v) S[self].hscroll = v end
-function ScrollFrame:SetVerticalScroll(v) S[self].vscroll = v end
+function ScrollFrame:SetHorizontalScroll(v) S[self].hscroll = v; placeChild(self) end
+function ScrollFrame:SetVerticalScroll(v) S[self].vscroll = v; placeChild(self) end
+function ScrollFrame:GetVerticalScroll() return S[self].vscroll or 0 end
 
 -- QuestPOIFrame (retail): draws quest blobs for one uiMap. Its layout is a
 -- frame late (L1): a new size or anchor holds for DrawBlob and hit tests only
@@ -878,6 +895,8 @@ FRAME_TYPES.QuestPOIFrame = "QuestPOIFrame"
 
 local TEMPLATES = { UIPanelCloseButton = true, UIPanelButtonTemplate = true, GameTooltipTemplate = true, ButtonFrameTemplate = true,
 	BackdropTemplate = true }
+-- What a template or a frame type makes in a new frame (its regions, its intrinsic scripts): filled in below.
+local TEMPLATE_SETUP, TYPE_SETUP = {}, {}
 
 function CreateFrame(typ, name, parent, template)
 	local cls = FRAME_TYPES[typ]
@@ -905,6 +924,10 @@ function CreateFrame(typ, name, parent, template)
 		f.CloseButton:SetSize(24, 24)
 		f.CloseButton:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
 		f.Bg = f:CreateTexture(nil, "BACKGROUND")
+	end
+	if TYPE_SETUP[cls] then TYPE_SETUP[cls](f) end
+	for t in tostring(template or ""):gmatch("[^,%s]+") do
+		if TEMPLATE_SETUP[t] then TEMPLATE_SETUP[t](f) end
 	end
 	return f
 end
@@ -1184,7 +1207,7 @@ function GetFileIDFromPath(path) return FILES[(path:lower():gsub("/", "\\"))] en
 function HideUIPanel(frame) frame:Hide() end
 
 function CreateColor(r, g, b, a)
-	return { r = r, g = g, b = b, a = a or 1, GetRGBA = function(c) return c.r, c.g, c.b, c.a end }
+	return { r = r, g = g, b = b, a = a or 1, GetRGBA = function(c) return c.r, c.g, c.b, c.a end, GetRGB = function(c) return c.r, c.g, c.b end }
 end
 
 local Vector2D = {}
@@ -1254,10 +1277,42 @@ GameFontNormal = { GetFont = function() return STANDARD_TEXT_FONT, 12, "" end }
 GameFontNormalSmall = { GetFont = function() return STANDARD_TEXT_FONT, 10, "" end }
 GameFontHighlight = { GetFont = function() return STANDARD_TEXT_FONT, 12, "" end }
 GameFontHighlightSmall = { GetFont = function() return STANDARD_TEXT_FONT, 10, "" end }
+GameFontNormalLarge = { GetFont = function() return STANDARD_TEXT_FONT, 16, "" end }
+NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR = CreateColor(1, 0.82, 0, 1), CreateColor(1, 1, 1, 1)
 GameTooltipText = { GetFont = function() return STANDARD_TEXT_FONT, 12, "" end }
 GameTooltipTextSmall = { GetFont = function() return STANDARD_TEXT_FONT, 10, "" end }
 GameTooltip = CreateFrame("GameTooltip", "GameTooltip", UIParent, "GameTooltipTemplate")
 GameTooltip:Hide()
+
+-- ColorPickerFrame (Blizzard_ColorPickerFrame, Mainline): SetupColorPickerAndShow(info) shows it on info's colour,
+-- telling swatchFunc (its OnColorSelect fires as it's set); a scenario picks with Sim.PickColor(r, g, b) (swatchFunc),
+-- then Sim.ColorOkay() (swatchFunc again, hidden) or Sim.ColorCancel() (cancelFunc(previous values), hidden).
+ColorPickerFrame = CreateFrame("Frame", "ColorPickerFrame", UIParent)
+ColorPickerFrame:SetFrameStrata("DIALOG")
+ColorPickerFrame:Hide()
+function ColorPickerFrame:SetupColorPickerAndShow(info)
+	assert(type(info) == "table" and type(info.r) == "number" and type(info.swatchFunc) == "function", "SetupColorPickerAndShow: info expected")
+	local st = S[self]
+	st.info, st.rgb = info, { info.r, info.g, info.b }
+	self.previousValues = { r = info.r, g = info.g, b = info.b, a = info.opacity }
+	info.swatchFunc()
+	self:Show()
+end
+function ColorPickerFrame:GetColorRGB() local c = S[self].rgb or { 1, 1, 1 }; return c[1], c[2], c[3] end
+function ColorPickerFrame:GetPreviousValues() local p = self.previousValues; return p.r, p.g, p.b, p.a end
+function Sim.PickColor(r, g, b)
+	S[ColorPickerFrame].rgb = { r, g, b }
+	S[ColorPickerFrame].info.swatchFunc()
+end
+function Sim.ColorOkay()
+	S[ColorPickerFrame].info.swatchFunc()
+	ColorPickerFrame:Hide()
+end
+function Sim.ColorCancel()
+	local info = S[ColorPickerFrame].info
+	if info.cancelFunc then info.cancelFunc(ColorPickerFrame.previousValues) end
+	ColorPickerFrame:Hide()
+end
 
 MinimapCluster = CreateFrame("Frame", "MinimapCluster", UIParent)
 MinimapCluster:SetFrameStrata("LOW") -- (Blizzard's Minimap.xml)
@@ -1445,6 +1500,85 @@ function Sim.MenuItems(kind)
 	end
 	if Sim.menu then walk(Sim.menu) end
 	return out
+end
+
+-- DropdownButton (WowStyle1DropdownTemplate: Retail's, Forever's): SetupMenu(generator) as MenuUtil's; a press opens
+-- its menu (the intrinsic's OnMouseDown: Sim.menu, its owner the dropdown), a second closes it; its Text is the
+-- selected radio's (DropdownSelectionTextMixin), set as the menu is generated and after a pick.
+local Dropdown = class("DropdownButton", "Button")
+FRAME_TYPES.DropdownButton = "DropdownButton"
+local function dropdownMenu(self)
+	local root = description("root")
+	root.owner = self
+	if S[self].generator then S[self].generator(self, root) end
+	return root
+end
+local function dropdownText(self, root)
+	local text
+	local function walk(d)
+		for _, e in ipairs(d.items) do
+			if not text and e.kind == "radio" and e.isSelected and e.isSelected(e.data) then text = e.text end
+			walk(e)
+		end
+	end
+	walk(root)
+	if self.Text then self.Text:SetText(text or S[self].defaultText or "") end
+end
+function Dropdown:SetupMenu(generator)
+	assert(type(generator) == "function", "SetupMenu: function expected")
+	S[self].generator = generator
+	dropdownText(self, dropdownMenu(self))
+end
+function Dropdown:GenerateMenu()
+	local root = dropdownMenu(self)
+	if self:IsMenuOpen() then Sim.menu = root end
+	dropdownText(self, root)
+end
+Dropdown.SignalUpdate = Dropdown.GenerateMenu
+function Dropdown:IsMenuOpen() return Sim.menu ~= nil and Sim.menu.owner == self end
+function Dropdown:OpenMenu() Sim.menu = dropdownMenu(self) end
+function Dropdown:CloseMenu() if self:IsMenuOpen() then Sim.menu = nil end end
+function Dropdown:SetDefaultText(t) S[self].defaultText = t end
+TYPE_SETUP.DropdownButton = function(f)
+	f:SetScript("OnMouseDown", function(self) if self:IsMenuOpen() then self:CloseMenu() else self:OpenMenu() end end)
+end
+TEMPLATES.WowStyle1DropdownTemplate = true
+TEMPLATE_SETUP.WowStyle1DropdownTemplate = function(f)
+	f:SetSize(120, 25)
+	f.Background = f:CreateTexture(nil, "BACKGROUND")
+	f.Background:SetAtlas("common-dropdown-textholder")
+	f.Arrow = f:CreateTexture(nil, "ARTWORK")
+	f.Arrow:SetAtlas("common-dropdown-a-button")
+	f.Text = f:CreateFontString(nil, "ARTWORK")
+	f.Text:SetFontObject(GameFontHighlight)
+end
+
+-- A menu entry clicked: its onSelect, then the menu closes (unless it answers Refresh or Open), and a dropdown that
+-- owns it shows its choice.
+function Sim.Pick(e)
+	local menu = Sim.menu
+	local r = e.onSelect and e.onSelect(e.data, {}, menu)
+	if r ~= MenuResponse.Open and r ~= MenuResponse.Refresh then Sim.menu = nil end
+	if menu and menu.owner then dropdownText(menu.owner, dropdownMenu(menu.owner)) end
+	return r
+end
+
+-- ColorSwatchTemplate (Blizzard_SharedXMLBase/ColorSwatch.xml): a 16 px swatch, its border white, gold under the cursor.
+TEMPLATES.ColorSwatchTemplate = true
+TEMPLATE_SETUP.ColorSwatchTemplate = function(f)
+	f:SetSize(16, 16)
+	f.SwatchBg = f:CreateTexture(nil, "BACKGROUND", nil, -3)
+	f.SwatchBg:SetSize(14, 14)
+	f.SwatchBg:SetColorTexture(1, 1, 1)
+	f.InnerBorder = f:CreateTexture(nil, "BACKGROUND", nil, -2)
+	f.InnerBorder:SetSize(12, 12)
+	f.InnerBorder:SetColorTexture(0, 0, 0)
+	f.Color = f:CreateTexture(nil, "BACKGROUND", nil, -1)
+	f.Color:SetSize(10, 10)
+	f.Color:SetColorTexture(1, 1, 1)
+	function f:SetColorRGB(r, g, b) self.Color:SetVertexColor(r, g, b) end
+	f:SetScript("OnEnter", function(self) self.SwatchBg:SetVertexColor(NORMAL_FONT_COLOR:GetRGB()) end)
+	f:SetScript("OnLeave", function(self) self.SwatchBg:SetVertexColor(HIGHLIGHT_FONT_COLOR:GetRGB()) end)
 end
 
 ---------------------------------------------------------------------------
@@ -1728,6 +1862,19 @@ ATLASES["!UI-Frame-Metal-EdgeRight"] = { 200, 256 }
 for _, name in ipairs({ "taxinode_alliance", "taxinode_horde", "taxinode_neutral", "vignettekill",
 	"questnormal", "questturnin", "dungeon", "raid" }) do
 	ATLASES[name] = true
+end
+-- The settings window's controls (ui/Feel.lua): the client's settings panel's checkbox, slider and divider, its
+-- dropdown's, the undo icon and the minimal scroll bar's arrows (Forever's sizes).
+ATLASES["checkbox-minimal"], ATLASES["checkmark-minimal"] = { 30, 29 }, { 30, 29 }
+ATLASES["Minimal_SliderBar_Button"], ATLASES["Minimal_SliderBar_Left"] = { 20, 19 }, { 11, 17 }
+ATLASES["_Minimal_SliderBar_Middle"], ATLASES["Minimal_SliderBar_Right"] = { 1, 17 }, { 11, 17 }
+ATLASES["Minimal_SliderBar_Button_Left"], ATLASES["Minimal_SliderBar_Button_Right"] = { 11, 19 }, { 9, 18 }
+ATLASES["common-icon-undo"], ATLASES["auctionhouse-ui-filter-redx"] = { 256, 256 }, { 46, 46 }
+ATLASES["Options_HorizontalDivider"] = { 630, 1 }
+ATLASES["common-dropdown-textholder"], ATLASES["common-dropdown-a-button"] = { 54, 41 }, { 27, 27 }
+for _, name in ipairs({ "minimal-scrollbar-arrow-top", "minimal-scrollbar-arrow-bottom", "minimal-scrollbar-arrow-top-over",
+	"minimal-scrollbar-arrow-bottom-over" }) do
+	ATLASES[name] = { 17, 11 }
 end
 Sim.atlases = ATLASES -- [name] = true (16 px) or { w, h }: a scenario adds, resizes or removes one
 C_Texture = {

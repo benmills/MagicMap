@@ -17,13 +17,14 @@
 -- all the way in as you walk in (a glide), following you on your map; leaving glides back to the zoom you were
 -- headed for at the door, whatever you zoomed to meanwhile. Big at the door: nothing; grown while inside, left
 -- alone, and leaving sets the small rect's zoom, so shrinking lands there; hidden, the zoom set straight.
+-- Settings > Map > Indoors (ui/Feel.lua, declared at the bottom): the veil's strength, the small buildings' zoom.
 
 local _, ns = ...
 local UI, Model, Atlas, Runtime = ns.UI, ns.Model, ns.Atlas, ns.Runtime
 local Engine, Camera, Window, Motion = UI.Engine, UI.Camera, UI.Window, UI.Motion
 local Get, Keep, Yield = Engine.Get, Engine.Keep, Runtime.Yield
 
-local VEIL = 0.65 -- the terrain under a building (Test.lua's opt.dim, 0.35 left): a black veil of this alpha (the settings': Feel "interiors.dim")
+local VEIL = 0.65 -- the terrain under a building (Test.lua's opt.dim, 0.35 left): a black veil of this alpha (the settings': "interiors.dim")
 local SMALL = 60 -- yd: a building whose box is within this each way zooms the small map in
 local YD = Atlas.TILE_YARDS
 local LEVEL = 22 -- yd: a room's floor within this of yours is on your level (Test.lua's opt.cull, tuned in Ironforge)
@@ -247,8 +248,8 @@ end, (function() -- the scene, or the veil's strength: laid out again (one value
 		return n
 	end
 end)())
--- The veil's alpha (Feel "interiors.dim"); a building's pictures are laid out again.
-function layer.SetDim(a)
+-- The veil's alpha (the settings' "interiors.dim"); a building's pictures are laid out again.
+local function SetDim(a)
 	if veilA == a then return end
 	veilA, veilRev = a, veilRev + 1
 end
@@ -297,3 +298,10 @@ Runtime.Step("ui", "map: indoors zoom", function()
 	end
 	inside = key
 end)
+
+UI.Feel.Add("map", "Indoors", {
+	{ key = "interiors.dim", kind = "slider", label = "Indoor dimming", min = 0.3, max = 0.9, step = 0.05, pct = true, default = VEIL,
+		apply = SetDim, tip = "How dark the terrain is under a building's indoor map, while you're inside and the map is small." },
+	{ key = "interiors.zoom", kind = "toggle", label = "Indoor auto-zoom", default = true,
+		tip = "Walking into a small building (a house, an inn) zooms the small map in; leaving zooms back." },
+})

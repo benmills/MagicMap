@@ -7,6 +7,7 @@
 -- the track menu (ui/Track.lua), whose one row follows it ("Track quest"), again to stop ("Stop tracking").
 -- And quests to pick up (Layers.lua:636-664): Known("offers"), "questnormal"
 -- (the "!") at 18, their tooltip the quest, its line's name and "Quest to pick up". Over the other pins.
+-- Their size: Settings > Icons > Quest icon size (ui/Feel.lua).
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
@@ -52,12 +53,15 @@ end)(), {
 	-- (never grouped: a quest always stands where it is)
 })
 
--- Quests' icon size (a factor on every in-progress and turn-in icon): the looks made again.
-function UI.Quests.SetScale(k)
-	if scale == k then return end
-	scale, scaleRev = k, scaleRev + 1
-	looks = setmetatable({}, { __mode = "k" })
-end
+-- Quests' icon size (a factor on every in-progress and turn-in icon, on top of the icons'): the looks made again.
+UI.Feel.Add("icons", "Size", {
+	{ key = "quests.scale", kind = "slider", label = "Quest icon size", min = 0.7, max = 1.6, step = 0.1, pct = true, default = 1,
+		apply = function(k)
+			if scale == k then return end
+			scale, scaleRev = k, scaleRev + 1
+			looks = setmetatable({}, { __mode = "k" })
+		end, tip = "The quests' icons, on top of the icon size." },
+})
 
 local offers = {} -- an offer's icon -> its look
 UI.Offers = Pins.Layer("offers", 14, function(put)
