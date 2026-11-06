@@ -1,10 +1,10 @@
 """Quest pins on the simulated client (docs/v1-plan.md M2.4: ui/Quests.lua, ui/QuestTooltip.lua, the
 clicks in ui/Areas.lua), end to end from the sim's quest log through Game's parts and Model:
 
-  test_quest_pins: StylePin's quest forms (S46): in progress, the in-progress atlas over the number disc
-    tinted its difficulty, the objective's icon inside, its count; ready to turn in, the turn-in atlas;
-    24 px, the one you follow 28 (S43, S44); quests to pick up at 18, their tooltip (F40).
-  test_quest_follow: a click on a pin opens the track menu (ui/Track.lua): "Track quest" follows its quest
+  test_quest_pins: StylePin's quest forms: in progress, Blizzard's in-progress atlas alone (no disc behind it),
+    its count; ready to turn in, the turn-in atlas; 24 px, the one you follow 28 (S43, S44); quests to pick
+    up at 18, their tooltip (F40).
+  test_quest_follow: a click on a pin opens its popup (ui/QuestTooltip.lua, ui/Track.lua's rows): "Track quest" follows its quest
     (the follow Command, Blizzard's super-tracked quest back in the next observation, its pin 28), "Stop
     tracking" stops; "Path to quest" follows it with the line, "Track quest" then switches back, "Stop
     pathing" stops; a click on an area with no pin under it follows its quest; a pin over another quest's
@@ -12,10 +12,11 @@ clicks in ui/Areas.lua), end to end from the sim's quest log through Game's part
   test_quest_pins_each_frame: one pin a quest every frame (the harness's invariants, T.Invariants, after
     each step) through the wheel, drags, the big map, the follow moving, an offer taken into the log and
     the log abandoned (F26).
-  test_quest_tooltip: the tooltip's lines in QuestInfo.lua's order and type (S63): the tag and group
-    size on the facts line (the level bare in its colour), the object an item is in (never who drops
-    it), the turn-in "?" before who takes it in, the click hint; without QuestieDB's data, no source
-    or turn-in lines (F28).
+  test_quest_tooltip: the tooltip's lines in QuestInfo.lua's order and type (S63): the level in a pill beside
+    the title (under it for a long one), the tag and group size on the facts line, the object an item is in
+    (never who drops it), no line for who takes it in, the click hint; a click grows it into the popup in
+    its place: the same lines, the hint become the pin's rows; it stays till a row, a click off it or
+    Escape; without QuestieDB's data, no source lines (F28).
 """
 from test_addon import boot, errors
 
@@ -113,12 +114,10 @@ def test_quest_pins():
     S = sim.state
     vis = lambda r: r is not None and S[r].shown
     rgba = lambda r: list(S[r].vertex.values())
-    # In progress, followed: the disc tinted orange (level 11 at 8), the objective's icon in it, the atlas
-    # over it; 28; its count under it.
+    # In progress, followed: Blizzard's atlas alone, the pin's whole size, nothing behind it; 28; its count under it.
     p = pin(ns, G, "Quests", 52)
-    assert S[p].width == 28 and S[p.ring].atlas == "UI-QuestPoi-QuestNumber" and rgba(p.ring) == [1, 0.5, 0.25, 1]
-    assert S[p.inner].texture == 135274 and abs(S[p.inner].width - 28 * 0.56) < 1e-9 and vis(p.inner)
-    assert S[p.icon].atlas == "Quest-In-Progress-Icon-yellow" and abs(S[p.icon].width - 28 * 0.62) < 1e-9
+    assert S[p].width == 28 and S[p.icon].atlas == "Quest-In-Progress-Icon-yellow" and S[p.icon].width == 28
+    assert not vis(p.ring) and not vis(p.inner) and rgba(p.icon) == [1, 1, 1, 1]
     assert p.glow is None and S[p.count].text == "2/8"  # (no ring round it: Track and Path to show the way)
     # Ready to turn in: its atlas, 19, no halo, no count.
     p = pin(ns, G, "Quests", 106)
@@ -146,20 +145,23 @@ def test_quest_follow():
     def followed():
         return {e.quest for e in known(ns, "quests") if e.followed}
 
+    QT = ns.UI.QuestTooltip
+
     def click(col, row, row_text=None, button="LeftButton", rows=None):
-        """A click there (either button: the same); on a pin, the track menu opens: its row row_text picked (rows:
-        its first two, the quest's name over them, Open in quest log under them; default row_text, Path to quest)."""
+        """A click there (either button: the same); on a pin, its popup opens: its row row_text picked (rows:
+        its first two, Open in quest log under them; default row_text, Path to quest)."""
         G.Over(col, row)
         sim.Step()  # (the pin under it found)
         sim.menu = None
         sim.Click(view, button, sim.cursorX, sim.cursorY, "screen")
         if row_text:
-            items = [(e.kind, e.text) for e in sim.MenuItems().values()]
-            want = [("title", "Protect the Frontier")] + [("button", r) for r in rows or (row_text, "Path to quest")]
-            assert items[:4] == want + [("button", "Open in quest log")], items
-            next(e for e in sim.MenuItems("button").values() if e.text == row_text).onSelect()
+            shown = [b for b in QT.rows.values() if b.IsShown(b)]
+            assert QT.IsOpen() and [b.label for b in shown] == list(rows or (row_text, "Path to quest")) + ["Open in quest log"]
+            b = next(b for b in shown if b.label == row_text)
+            sim.FireScript(b, "OnClick", "LeftButton", False)
+            assert not QT.IsOpen()
         else:
-            assert sim.menu is None
+            assert sim.menu is None and not QT.IsOpen()
         sim.Run(0.2)
         # one pin a quest, on the one canvas shown
         lay = ns.UI.Quests
@@ -259,40 +261,63 @@ SEP = "  \u00b7  ".encode("utf-8").decode("latin-1")  # the facts line's joins, 
 
 def test_quest_tooltip():
     L, sim, ns, G = client([dict(CANDLES, tag="Group", group=3)])
-    tip, S, same = G.GameTooltip, sim.state, L.eval("rawequal")
+    tip, S, same, view = G.GameTooltip, sim.state, L.eval("rawequal"), ns.UI.Window.view
     G.Over(31.95, 49.6)
-    sim.FireScript(ns.UI.Window.view, "OnEnter", False)
+    sim.FireScript(view, "OnEnter", False)
     sim.Step()
     p = pin(ns, G, "Quests", 60)
-    assert S[tip].shown and same(tip.GetOwner(tip), p) and S[p.inner].texture == 133750  # (its item's icon)
+    assert S[tip].shown and same(tip.GetOwner(tip), p)
 
-    def lines():
-        return [(S[tip.GetLeftLine(tip, i)].text, same(S[tip.GetLeftLine(tip, i)].fontObject, G.GameTooltipTextSmall))
-                for i in range(1, tip.NumLines(tip) + 1)]
-    want = [
-        ("Kobold Candles", False),
-        ("|cffffd1007|r|cff9d9d9d" + SEP + "|r|cffff8040Group 3|r", True),  # its level, its tag (F28)
+    def lines(t):
+        return [(S[t.GetLeftLine(t, i)].text, same(S[t.GetLeftLine(t, i)].fontObject, G.GameTooltipTextSmall))
+                for i in range(1, t.NumLines(t) + 1)]
+    content = [
+        ("Kobold Candles", False),  # its level beside it, in a pill
+        ("|cffff8040Group 3|r", True),  # its tag (F28); no level here
         ("Large Candle: 3/8", False),
         ("    |cff9d9d9dFrom|r |cffffffffCandle Crate|r", True),  # where it's found; its droppers never named
-        (" ", True),
-        ("|A:questturnin:14:14|a Candle Taker", True),
-        ("|cff9d9d9dClick for options|r", True),
+        (" ", True),  # (and no line for who takes it in)
     ]
-    assert lines() == want
+    assert lines(tip) == content + [("|cff9d9d9dClick for options|r", True)]
+    level = tip.GetRightLine(tip, 1)
+    assert S[level].text == "|cffffd1007|r" and same(S[level].fontObject, G.GameTooltipTextSmall)
     assert list(S[tip.GetLeftLine(tip, 1)].textColor.values()) == [1, 0.82, 0]
-    assert list(S[tip.GetLeftLine(tip, 6)].textColor.values()) == [0.85, 0.85, 0.85]
+    pill = [r for r in tip.GetRegions(tip) if S[r].type == "Texture" and S[r].shown]
+    assert len(pill) == 3 and all(S[r].texture == "Interface\\CharacterFrame\\TempPortraitAlphaMask" for r in pill)
+
+    # A click: the tooltip grows into the popup where it stood, the same lines, then the pin's rows; the hover's
+    # tooltip gone (and kept away while the popup shows this quest).
+    QT = ns.UI.QuestTooltip
+    pop, top = QT.popup, (tip.GetLeft(tip), tip.GetTop(tip))
+    sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")
+    assert QT.IsOpen() and not S[tip].shown and sim.menu is None
+    assert (pop.GetLeft(pop), pop.GetTop(pop)) == top
+    rows = ["Track quest", "Path to quest", "Open in quest log"]
+    assert lines(pop) == content + [(r, False) for r in rows]
+    assert [b.label for b in QT.rows.values() if b.IsShown(b)] == rows
+    sim.Run(1)  # sticky: no hover takes it away
+    assert QT.IsOpen() and not S[tip].shown
+    assert sim.Press("ESCAPE") and not QT.IsOpen()
+    sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")  # again, where it last stood
+    assert QT.IsOpen() and (pop.GetLeft(pop), pop.GetTop(pop)) == top
+    G.Over(31.5, 49.9)
+    assert not pop.IsMouseOver(pop)
+    sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")  # a click off it
+    assert not QT.IsOpen()
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
-    # Booted without QuestieDB's files (Atlas's own empty indexes, as CI's checkout): the pin, its tooltip
-    # without sources or turn-in.
-    L, sim, ns, G = client([CANDLES], data=False)
+    # A long title: the pill under it. Booted without QuestieDB's files (Atlas's own empty indexes, as CI's
+    # checkout): no sources.
+    L, sim, ns, G = client([dict(CANDLES, title="The Unusually Long Name of the Kobold Candles of Elwynn Forest")], data=False)
     assert ns.Data.Quests is None and ns.Data.Npcs is None
     tip, S = G.GameTooltip, sim.state
     G.Over(31.95, 49.6)
     sim.FireScript(ns.UI.Window.view, "OnEnter", False)
     sim.Step()
     p = pin(ns, G, "Quests", 60)
-    assert S[p.inner].texture == 133633 and S[p.count].text == "3/8"  # an item QuestieDB doesn't know
+    assert S[p.count].text == "3/8"
     assert [S[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)] == [
-        "Kobold Candles", "|cffffd1007|r", "Large Candle: 3/8", " ", "|cff9d9d9dClick for options|r"]
+        "The Unusually Long Name of the Kobold Candles of Elwynn Forest", "|cffffd1007|r", "Large Candle: 3/8", " ",
+        "|cff9d9d9dClick for options|r"]
+    assert not S[tip.GetRightLine(tip, 1)].text
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

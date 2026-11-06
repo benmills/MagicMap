@@ -46,6 +46,8 @@ end))
 tinsert(UISpecialFrames, "MagicMapFeel")
 -- The first-run welcome (ui/Welcome.lua): Escape closes it with nothing chosen.
 tinsert(UISpecialFrames, "MagicMapWelcome")
+-- A quest pin's popup (ui/QuestTooltip.lua): Escape closes it.
+tinsert(UISpecialFrames, "MagicMapQuestPopup")
 
 Game.Apply("hooks", function(view)
 	local w = view.window

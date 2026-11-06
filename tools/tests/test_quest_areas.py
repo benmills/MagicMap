@@ -261,14 +261,16 @@ collectgarbage = function(opt, ...)
     if opt == "collect" then kb = 0 end
     return a, b
 end
+local function Done(k0, i0, ...) -- (every value, no table: GetRegions has many)
+    kb, depth = kb + gc("count") - k0 - (inner - i0), 0
+    return ...
+end
 local function Free(fn)
     return function(...)
         if depth > 0 then return fn(...) end
         depth = 1
         local k0, i0 = gc("count"), inner
-        local a, b, c, d, e, f, g, h = fn(...)
-        kb, depth = kb + gc("count") - k0 - (inner - i0), 0
-        return a, b, c, d, e, f, g, h
+        return Done(k0, i0, fn(...))
     end
 end
 local fire = sim.FireScript

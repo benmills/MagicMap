@@ -489,6 +489,7 @@ function FontString:GetFont()
 	return f[1], f[2], f[3]
 end
 function FontString:SetFontObject(obj) S[self].fontObject = obj end
+function FontString:GetFontObject() return S[self].fontObject end
 function FontString:SetTextColor(r, g, b, a) assert(type(r) == "number", "SetTextColor: numbers expected") end
 function FontString:SetJustifyH(j) assert(j == "LEFT" or j == "CENTER" or j == "RIGHT", "SetJustifyH: bad value") end
 function FontString:SetJustifyV(j) end
@@ -679,21 +680,48 @@ function Slider:GetValue() return S[self].value or S[self].lo or 0 end
 
 -- GameTooltip: lines are font strings named <name>TextLeft<i>, as in the game.
 local Tooltip = class("GameTooltip", "Frame")
-local function tooltipLine(self, i)
+local function tooltipLine(self, i, side)
 	local st = S[self]
-	st.lines = st.lines or {}
-	if not st.lines[i] then
-		local name = st.name and (st.name .. "TextLeft" .. i)
-		st.lines[i] = self:CreateFontString(name, "ARTWORK")
+	local key = side == "Right" and "rights" or "lines"
+	st[key] = st[key] or {}
+	if not st[key][i] then
+		local name = st.name and (st.name .. "Text" .. (side or "Left") .. i)
+		st[key][i] = self:CreateFontString(name, "ARTWORK")
+		if side ~= "Right" and i > 1 then st[key][i]:SetPoint("TOPLEFT", st[key][i - 1], "BOTTOMLEFT", 0, -2) end
 	end
-	return st.lines[i]
+	return st[key][i]
 end
-function Tooltip:SetOwner(owner, anchor) S[self].owner = owner; self:ClearLines() end
+-- ANCHOR_RIGHT: its bottom left on the owner's top right, as the client's; another anchor, none (the caller's).
+function Tooltip:SetOwner(owner, anchor)
+	S[self].owner = owner
+	if anchor == "ANCHOR_RIGHT" then
+		self:ClearAllPoints()
+		self:SetPoint("BOTTOMLEFT", owner, "TOPRIGHT")
+	elseif anchor == "ANCHOR_NONE" then
+		self:ClearAllPoints()
+	end
+	self:ClearLines()
+end
+-- Shown, sized to its lines as the client's (each 14 px under the first, 10 px padding), its first line at its top left.
+function Tooltip:Show()
+	local st, w = S[self], 0
+	for i = 1, st.numLines or 0 do
+		local l, r = st.lines[i], st.rights and st.rights[i]
+		w = math.max(w, l:GetStringWidth() + (r and r:GetText() and r:GetText() ~= "" and r:GetStringWidth() + 20 or 0))
+	end
+	setSize(self, w + 20, (st.numLines or 0) * 14 + 20)
+	if st.lines and st.lines[1] then
+		st.lines[1]:SetPoint("TOPLEFT", self, "TOPLEFT", 10, -10)
+		for i, r in pairs(st.rights or {}) do r:SetPoint("RIGHT", self, "RIGHT", -10, 0); r:SetPoint("TOP", st.lines[i], "TOP") end
+	end
+	Region.Show(self)
+end
 function Tooltip:GetOwner() return S[self].owner end
 function Tooltip:IsOwned(f) return S[self].owner == f end
 function Tooltip:ClearLines()
 	local st = S[self]
 	for _, fs in ipairs(st.lines or {}) do fs:SetText(nil) end
+	for _, fs in pairs(st.rights or {}) do fs:SetText(nil) end
 	st.numLines = 0
 	Sim.FireScript(self, "OnTooltipCleared")
 end
@@ -704,7 +732,11 @@ function Tooltip:AddLine(text, r, g, b, wrap)
 	fs:SetText(text)
 	S[fs].textColor = r and { r, g, b } or nil
 end
-function Tooltip:AddDoubleLine(left, right) self:AddLine(left) end
+function Tooltip:AddDoubleLine(left, right, lr, lg, lb)
+	self:AddLine(left, lr, lg, lb)
+	tooltipLine(self, S[self].numLines, "Right"):SetText(right)
+end
+function Tooltip:GetRightLine(i) return S[self].rights and S[self].rights[i] end
 function Tooltip:SetText(text, r, g, b, a, wrap) self:ClearLines(); self:AddLine(text) end
 function Tooltip:NumLines() return S[self].numLines or 0 end
 function Tooltip:GetLeftLine(i) return S[self].lines and S[self].lines[i] end
@@ -1202,7 +1234,8 @@ for i, path in ipairs({ "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up", "Inter
 	"Interface\\HUD\\UIMinimap2xC60", "Interface\\Icons\\INV_Misc_Map_01", "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",
 	"Interface\\Minimap\\PartyRaidBlipsV2", "Interface\\GossipFrame\\VendorGossipIcon", "Interface\\Icons\\Ability_Tracking",
 	"Interface\\Icons\\INV_Misc_EngGizmos_01", "Interface\\Buttons\\UI-PlusButton-Up", "Interface\\Buttons\\UI-MinusButton-Up",
-	"Interface\\Buttons\\UI-PlusButton-Hilight", "Interface\\Minimap\\MinimapArrow" }) do
+	"Interface\\Buttons\\UI-PlusButton-Hilight", "Interface\\Minimap\\MinimapArrow",
+	"Interface\\Common\\UI-TooltipDivider-Transparent", "Interface\\QuestFrame\\UI-QuestTitleHighlight" }) do
 	FILES[path:lower()] = 100000 + i
 end
 function GetFileIDFromPath(path) return FILES[(path:lower():gsub("/", "\\"))] end

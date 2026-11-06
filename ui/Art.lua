@@ -33,7 +33,7 @@ local Art = {
 		"deathrecap-icon-tombstone", "UI-QuestPoi-QuestNumber",       -- ui/You.lua: your corpse on the quest pins' disc
 		"Waypoint-MapPin-Tracked",                                 -- ui/You.lua: your waypoint
 		"questnormal", "questturnin",                              -- ui/Quests.lua, model/Blips.lua: quests to pick up ("!"), turn-ins ("?")
-		"Quest-In-Progress-Icon-yellow",                        -- ui/Quests.lua: a quest in progress, over the disc (model/Quests.lua)
+		"Quest-In-Progress-Icon-yellow",                        -- ui/Quests.lua: a quest in progress (model/Quests.lua)
 		"dungeon", "raid",                                         -- ui/Places.lua: dungeon and raid entrances
 		"taxinode_alliance", "taxinode_horde", "taxinode_neutral", -- ui/Places.lua: flight points
 		"poi-graveyard-neutral",                                   -- ui/Places.lua: graveyards
@@ -64,6 +64,8 @@ local Art = {
 		"Interface\\Icons\\Ability_Tracking", "Interface\\Icons\\INV_Misc_EngGizmos_01", -- Settings > Pins: rows' art
 		"Interface\\Buttons\\UI-PlusButton-Up", "Interface\\Buttons\\UI-MinusButton-Up", -- ui/Feel.lua: a row's open mark
 		"Interface\\Buttons\\UI-PlusButton-Hilight",
+		"Interface\\Common\\UI-TooltipDivider-Transparent",      -- ui/QuestTooltip.lua: the popup's divider, its rows' light
+		"Interface\\QuestFrame\\UI-QuestTitleHighlight",
 	},
 	fonts = { "Fonts\\FRIZQT__.TTF", "Fonts\\MORPHEUS.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS), and the zones' Morpheus
 }

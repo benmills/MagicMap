@@ -2,8 +2,8 @@
 -- the NPC services, item icons and quest objectives offline.
 -- Without the QuestieDB-derived data (a build missing them; parity F56) Atlas's indexes are
 -- empty and the map runs on (test_spike_bugs.py runs every replay so): one chat line says so
--- (QuestInfo.lua:71-75), quests, offers, blips and a seen rare are drawn, quest 60's tooltip has no
--- turn-in (with the data: its turn-in; never a dropper's line), and nothing errs.
+-- (QuestInfo.lua:71-75), quests, offers, blips and a seen rare are drawn, quest 60's tooltip its title
+-- (its level beside it), its objective, never a dropper's line, and nothing errs.
 local T = ...
 local NOTICE = "|cffffd100MagicMap|r: QuestieDB isn't loaded: quests show without their mobs and items."
 local sim, ns = T.Boot(T.TEST_UI .. "\nMagicMap2DB.Model = { _v = 1, blips = {}, rares = { [0] = { ['npc:471'] = "
@@ -55,13 +55,11 @@ local lines, has = {}, {}
 for i = 1, GameTooltip:NumLines() do
 	local text = S[GameTooltip:GetLeftLine(i)].text
 	lines[i] = text
-	-- (a dropper's line would carry its sword, 135274; the turn-in's the questturnin "?" or, where the
-	-- client lacks the atlas, the words: ui/QuestTooltip.lua)
+	-- (a dropper's line would carry its sword, 135274: ui/QuestTooltip.lua)
 	has.drops = has.drops or text:find("|T135274:", 1, true) ~= nil
-	has.turnIn = has.turnIn or text:find("questturnin", 1, true) ~= nil or text:find("Turn in to", 1, true) ~= nil
 end
-assert(S[GameTooltip].shown and lines[1] == "Kobold Candles" and lines[3] == "Large Candle: 3/8", table.concat(lines, " | "))
-assert(not has.drops and has.turnIn == data, table.concat(lines, " | "))
+assert(S[GameTooltip].shown and lines[1] == "Kobold Candles" and lines[2] == "Large Candle: 3/8", table.concat(lines, " | "))
+assert(not has.drops, table.concat(lines, " | "))
 
 local notices = 0
 for _, line in ipairs(sim.prints) do notices = notices + (line == NOTICE and 1 or 0) end

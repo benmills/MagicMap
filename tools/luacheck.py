@@ -103,7 +103,7 @@ HOOKS = {("Runtime", "onError"), ("Runtime", "onTrace")}
 # The only named frames (globals; docs/structure.md "Namespace"): the client keeps a moved frame's
 # place by its name; the Minimap's children wait on the stand-in, named as the spike's was;
 # Escape closes what UISpecialFrames names (game/Hooks.lua's catcher).
-FRAME_NAMES = {"MagicMapFrame", "MagicMapMinimapStandIn", "MagicMapWorldMapEscape", "MagicMapFeel", "MagicMapWelcome"}
+FRAME_NAMES = {"MagicMapFrame", "MagicMapMinimapStandIn", "MagicMapWorldMapEscape", "MagicMapFeel", "MagicMapWelcome", "MagicMapQuestPopup"}
 # The only files that make a QuestPOIFrame or call its DrawBlob, UpdateMouseOverTooltip (the client draws
 # and hit-tests its quest areas on one):
 # Game's sensor (Inside), and UI's quest areas, the one game read UI makes (architecture.md "Rules",

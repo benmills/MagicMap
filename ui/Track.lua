@@ -10,8 +10,9 @@
 -- Track.Covers); the title names the icon (You.Target). Your waypoint's own pin (set by Ctrl-click, the map's
 -- menu, /way) is tracked as it stands while no quest is followed: its rows switch the mode, or stop it.
 -- A quest pin's rows follow it, no waypoint (ui/Areas.lua's Follow): "Track quest", "Path to quest", and "Open in
--- quest log" (the questlog Command). The quest pill, while it shows the followed quest, is that quest's pin
--- (ui/Controls.lua).
+-- quest log" (the questlog Command): Track.QuestRows, in the popup its tooltip grows into (a click on the pin:
+-- ui/QuestTooltip.lua), and in the menu of the quest pill, which while it shows the followed quest is that
+-- quest's pin (ui/Controls.lua).
 -- The tracked icon is UI.saved.tracked = { key, name, inst, col, row } (types/saved.lua): its key, where it was;
 -- what's pathed is UI.saved.path = { quest } or { inst, col, row } (the waypoint's pos), with the framing's zoom
 -- once it has one (ui/Path.lua). Your corpse, while you're a ghost, always has the line (Track.Pathed).
@@ -178,17 +179,26 @@ local function Mode(e)
 	return p and p.inst and Near(e.pos, p) and "path" or "track"
 end
 
+-- Quest e's rows, { { label, fn } }: Track quest and Path to quest (following it: ui/Quests.lua), each its Stop
+-- while it's the mode, and Open in quest log.
+function Track.QuestRows(e)
+	local mode = Mode(e)
+	return {
+		{ mode == "track" and "Stop tracking" or "Track quest", function() Pick(Quest, e, false) end },
+		{ mode == "path" and "Stop pathing" or "Path to quest", function() Pick(Quest, e, true) end },
+		{ "Open in quest log", function() Pick(OpenLog, e) end },
+	}
+end
+
 -- Pin e's rows (a Known entry) in a menu being built (UI.Menus.Map's, under its title): Track and Path to,
--- each its Stop while it's the mode; a quest's quest log too.
+-- each its Stop while it's the mode; a quest's (Track.QuestRows).
 function Track.Items(root, e)
 	root:CreateTitle(e.name or "?")
-	local mode = Mode(e)
-	if e.kind == "quests" then -- (following it: ui/Quests.lua)
-		root:CreateButton(mode == "track" and "Stop tracking" or "Track quest", function() Pick(Quest, e, false) end)
-		root:CreateButton(mode == "path" and "Stop pathing" or "Path to quest", function() Pick(Quest, e, true) end)
-		root:CreateButton("Open in quest log", function() Pick(OpenLog, e) end)
+	if e.kind == "quests" then
+		for _, r in ipairs(Track.QuestRows(e)) do root:CreateButton(r[1], r[2]) end
 		return
 	end
+	local mode = Mode(e)
 	if mode == "track" then
 		root:CreateButton("Stop tracking", function() Pick(Track.Stop) end)
 	else

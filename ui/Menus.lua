@@ -25,7 +25,7 @@ UI.Menus = Menus
 local menu -- the last menu opened
 
 function Menus.IsOpen()
-	return menu ~= nil and menu:IsShown()
+	return menu ~= nil and menu:IsShown() or UI.QuestTooltip.IsOpen() -- (a quest pin's popup counts as one)
 end
 
 function Menus.Show(owner, generator)
