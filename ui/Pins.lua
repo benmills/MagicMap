@@ -400,6 +400,7 @@ local function Hover(pin, at)
 	if not pin then return end
 	local o, e = at.opts, pin.entry
 	if o.hover then o.hover(e) end
+	if UI.QuestTooltip.IsOpen() then return end -- (a quest's popup stands: no tooltip over or beside it)
 	GameTooltip:SetOwner(pin, "ANCHOR_RIGHT")
 	if o.tooltip then
 		o.tooltip(GameTooltip, e)
