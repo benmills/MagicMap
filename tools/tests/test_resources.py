@@ -6,8 +6,8 @@
   turns down is tried five times, then left.
 
   test_resource_badges: herb and ore icons are greyed and tinted their difficulty (by your skill against the node's:
-  red, orange, yellow, green, grey) and wear their letter top left, unoutlined; a node whose skill isn't known keeps
-  its colours; each off in Settings > Resources.
+  red, orange, yellow, green, grey), no letter on them; a node whose skill isn't known keeps its colours; off in
+  Settings > Resources.
 """
 from sim import TEST_UI, put_blips
 from test_addon import boot, errors
@@ -121,15 +121,11 @@ BADGES = """function(ns)
             for i = 1, p and p.n or 0 do
                 local o = p[i]
                 if o.entry and o:IsShown() then
-                    local i, fs = o.icon, o.letter
+                    local i = o.icon
                     local tint = i.desat and string.format("%.2f,%.2f,%.2f", i.r, i.g, i.b) or false
                     assert(i.desat or i.r == 1 and i.g == 1 and i.b == 1, "an untinted icon in its own colours")
-                    if fs and fs.vis then
-                        local _, _, flags = fs:GetFont()
-                        local point = fs:GetPoint()
-                        assert(point == "TOPLEFT" and flags == "", "the letter top left, unoutlined")
-                    end
-                    out[o.entry.name] = { tint = tint, letter = fs and fs.vis and fs.text or false }
+                    assert(not o.letter, "no letter")
+                    out[o.entry.name] = tint
                 end
             end
         end
@@ -148,25 +144,21 @@ def test_resource_badges():
                            ("Hive Thistle", -70, 0)])
     sim.Slash("/mm toggle")
     sim.Run(8)
-    got = {k: dict(v) for k, v in L.eval(BADGES)(ns).items()}
+    got = dict(L.eval(BADGES)(ns).items())
     assert got == {
-        "Peacebloom": {"tint": GREEN, "letter": "P"},  # 60: 1 + 50 or more, under 1 + 100
-        "Mageroyal": {"tint": ORANGE, "letter": "M"},  # 50 to 74
-        "Earthroot": {"tint": YELLOW, "letter": "E"},  # 15 + 25 to 15 + 49
-        "Kingsblood": {"tint": RED, "letter": "K"},  # under 125
-        "Copper Vein": {"tint": GREY, "letter": "C"},  # Mining 250 with its bonus: past 1 + 100
-        "Rich Thorium Vein": {"tint": RED, "letter": "T"},  # under 275
-        "Small Thorium Vein": {"tint": ORANGE, "letter": "T"},  # 245 to 269
-        "Hive Thistle": {"tint": False, "letter": "H"},  # Forever's own: its skill not known
+        "Peacebloom": GREEN,  # 60: 1 + 50 or more, under 1 + 100
+        "Mageroyal": ORANGE,  # 50 to 74
+        "Earthroot": YELLOW,  # 15 + 25 to 15 + 49
+        "Kingsblood": RED,  # under 125
+        "Copper Vein": GREY,  # Mining 250 with its bonus: past 1 + 100
+        "Rich Thorium Vein": RED,  # under 275
+        "Small Thorium Vein": ORANGE,  # 245 to 269
+        "Hive Thistle": False,  # Forever's own: its skill not known
     }, got
 
     Feel = ns.UI.Feel
     Feel.Set("resources.difficulty", False)
     sim.Run(1)
-    got = {k: dict(v) for k, v in L.eval(BADGES)(ns).items()}
-    assert all(v["tint"] is False for v in got.values()) and got["Peacebloom"]["letter"] == "P"
-    Feel.Set("resources.letter", False)
-    sim.Run(1)
-    got = {k: dict(v) for k, v in L.eval(BADGES)(ns).items()}
-    assert all(v == {"tint": False, "letter": False} for v in got.values()), got
+    got = dict(L.eval(BADGES)(ns).items())
+    assert all(v is False for v in got.values()), got
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

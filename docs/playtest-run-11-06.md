@@ -41,7 +41,7 @@ This covers the run's seven commits on main since v2.1.2, issues #15 to #21. Non
 - [ ] **Your own picks:**
   - Picking Find Minerals in Blizzard's menu makes gear > "Keep tracking: Find Minerals" the new choice, and it survives a death.
   - Off means nothing comes back.
-- [ ] **Badges:** herb and vein icons are tinted by difficulty (red, orange, yellow, green, grey) to match your skill, and still read as a leaf and a nugget; the letter sits top left (P, M, C, T) with no outline and stays legible on the map. Forever's own herbs keep their gold. Colour by difficulty, Letter and Letter size under Settings > Resources apply; a group's pill shows the tints too.
+- [ ] **Difficulty:** herb and vein icons are tinted by difficulty (red, orange, yellow, green, grey) to match your skill, and still read as a leaf and a nugget. No letter on them. Forever's own herbs keep their gold. Colour by difficulty under Settings > Resources applies; a group's pill shows the tints too.
 - [ ] **One tracker or several:** turn on Find Herbs and Find Minerals together in Blizzard's menu. If both stay on, this client allows several, and the setting could become a toggle per type.
 
 ## Track and Path to (#17)

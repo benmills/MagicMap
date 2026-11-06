@@ -306,18 +306,6 @@ local SKILL = {
 -- The skill a gathering node of this name takes, or nil: not known.
 function Atlas.NodeSkill(name) return SKILL[name] end
 
--- The letter a gathering node's badge shows (ui/Blips.lua): its name's first, past the words that only say which
--- of a kind it is ("Rich Thorium Vein" and "Small Thorium Vein": T, the ore, as Thorium's other veins; "Wilted
--- Peacebloom": P; "Chunk of Amber": A), so one letter stands for one herb or ore.
-local QUALIFIERS = { Rich = true, Small = true, Large = true, Lesser = true, Ooze = true, Covered = true,
-	Wilted = true, Stunted = true, Hakkari = true, Chunk = true, of = true }
-function Atlas.NodeLetter(name)
-	for word in name:gmatch("[%a']+") do
-		if not QUALIFIERS[word] then return word:sub(1, 1):upper() end
-	end
-	return name:sub(1, 1):upper()
-end
-
 -- What a Minimap blip's tooltip name stands for: "herb" or "ore" (a gathering node, by name: no data
 -- needed, and only by name: one it doesn't know is no node, game/Blips.lua's gold dot), else its service (Data/BlipServices.lua: "innkeeper", "banker", "auctioneer", "stablemaster",
 -- "battlemaster", "trainer", "classtrainer", "repair", "questgiver", "questender", "flightmaster",

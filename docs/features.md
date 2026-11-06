@@ -84,8 +84,7 @@ Blizzard's minimap, and one gathered nearby goes within about a second, walking 
 is coloured by how hard it is for you, by your Herbalism or Mining against the node's skill: its icon greyed, then
 tinted in the game's skill-up colours (red: you can't gather it yet; orange under its skill + 25; yellow under + 50;
 green under + 100; grey past that), in a group's pill too; Forever's own herbs keep their own colours (their skill
-isn't known). Its top left wears the node's first letter, unoutlined on a soft shadow (P for Peacebloom, C for
-Copper Vein, T for any Thorium vein: Rich and Small say which, not what).
+isn't known).
 **Tracking that stays on**: your gathering tracker (Find Herbs, else Find Minerals, else Find Treasure) or the one
 you choose is turned back on after login, a /reload, a loading screen, death or resurrection, waiting out combat
 and casts. The game has one tracking spell on at a time, so it's one choice: the gear's Keep tracking row, or
@@ -188,7 +187,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (100%), Subzone opacity (60%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
 | Title | At rest (Zone, Subzone), On hover (Zone, Subzone, Coordinates, Tracked target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time, Day or night. Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
 | Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Services, Vendors, Resources, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Each follows the level above until set; its undo hands it back |
-| Resources | Tracking: Keep tracking (your gathering tracker: Find Herbs, else Find Minerals, else Find Treasure; or one you know, or Off). Badges: Colour by difficulty (on), Letter (on), Letter size (100%) |
+| Resources | Tracking: Keep tracking (your gathering tracker: Find Herbs, else Find Minerals, else Find Treasure; or one you know, or Off). Difficulty: Colour by difficulty (on) |
 | Quest pill | Shows (target or zone count / target only / off), Says (Name, Objective progress, Distance; chosen and ordered from those and Time to arrive), Progress bar (on), Fade quest pill (on: the zone count only while you point at the map). Look: Backing (25%), Size (100%) |
 | Tracking | Arrow: Size (80%), Opacity (90%), Distance (48 px). Path to: Frame the way (on) |
 | Pathing | Line: Style (dashed), Weight (1.0 px), Colour (Gold), Opacity (55%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |

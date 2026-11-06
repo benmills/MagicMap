@@ -1,5 +1,5 @@
 -- Resources (#18): the tracker kept on, and the settings page of resource pins (Settings > Resources: Tracking, here;
--- Badges, ui/Blips.lua's).
+-- Difficulty, ui/Blips.lua's).
 -- Keep tracking: one of the spells' tracking types the character knows (Model.tracking's `spell`: Find Herbs, Find
 -- Minerals, a hunter's tracks), Game turning it back on whenever the game may have dropped it (View.keep:
 -- game/Keep.lua). One, not one a type: the client has one tracking spell on at a time (classic's rule: a second one
@@ -22,7 +22,7 @@ local KEY = "resources.keep"
 local GATHER = { 2383, 8387, 2580, 8388, 2481 } -- Find Herbs (two ranks), Find Minerals (two), Find Treasure (Minimap.lua:34-41)
 
 Feel.Page({ key = "resources", title = "Resources", icon = "Interface\\Icons\\INV_Misc_Flower_02", order = 35,
-	tip = "Herbs and ore: the tracker kept on, and the badges on their icons.", sections = { "Tracking", "Badges" } })
+	tip = "Herbs and ore: the tracker kept on, and their icons coloured by difficulty.", sections = { "Tracking", "Difficulty" } })
 
 -- The spells' tracking types the client lists now (what Game can keep on).
 local function Spells()
