@@ -1,6 +1,6 @@
 -- Your quests on the map (Layers.lua:579-621): Known("quests") as pins on the pin store (ui/Pins.lua),
--- Blizzard's atlases as Blizzard draws them (Pins' (b): the atlas alone, at its own proportions, nothing
--- behind it): in progress, the yellow progress atlas "Quest-In-Progress-Icon-yellow", its count under it;
+-- Blizzard's atlases as Blizzard's world map draws them: in progress, the yellow dots "Quest-In-Progress-Icon-yellow"
+-- at full size on the quest disc "UI-QuestPoi-QuestNumber" untinted (Pins' (c)), its count under it;
 -- ready to turn in, the "questturnin" "?" the atlas Model names; 24 px (the "?" 19), the one you follow a
 -- little bigger, 28 (23).
 -- Hovering one lights its area (ui/Areas.lua) and shows its tooltip (ui/QuestTooltip.lua); a click grows the
@@ -21,7 +21,8 @@ local SIZE, FOLLOWED = 24, 28 -- in progress (Layers.lua:611: 22, 26, a little b
 local TURN_IN, TURN_IN_FOLLOWED = 19, 23 -- ready to turn in: the "?" a little smaller
 local OFFER = 18 -- Layers.lua:657
 local DIM = "|cff9d9d9d" -- Layers.lua:652
-local ACTIVE = { atlas = "Quest-In-Progress-Icon-yellow" } -- (model/Quests.lua's, its page sample)
+local UNDER = "UI-QuestPoi-QuestNumber" -- the world map's quest disc: dark, its gold ring (untinted)
+local ACTIVE = { atlas = "Quest-In-Progress-Icon-yellow", under = UNDER, scale = 1 } -- (model/Quests.lua's, its page sample)
 local Types, Feel = UI.PinTypes, UI.Feel
 local TURN, OFFER_ART = ns.Atlas.BlipArt("questender"), ns.Atlas.BlipArt("questgiver")
 
@@ -58,6 +59,7 @@ local function Look(e)
 	if look then return look end
 	local icon = UI.Art.Icon(e.icon.atlas) -- (a missing atlas: no icon, a dot)
 	icon.color = e.icon.color
+	if not e.complete then icon.under, icon.scale = UNDER, 1 end -- (the world map's: its dots on the disc, full size)
 	local size = e.complete and (e.followed and TURN_IN_FOLLOWED or TURN_IN) or (e.followed and FOLLOWED or SIZE)
 	look = { size = size, count = e.count, icon = icon, type = e.complete and "turnin" or "quest" }
 	looks[e] = look

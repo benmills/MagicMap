@@ -15,7 +15,7 @@ clicks in ui/Areas.lua), end to end from the sim's quest log through Game's part
   test_quest_tooltip: the tooltip's lines in QuestInfo.lua's order and type (S63): the level in a pill beside
     the title (under it for a long one), the tag and group size on the facts line, the object an item is in
     (never who drops it), no line for who takes it in, the click hint; a click grows it into the popup in
-    its place: the same lines, the hint become the pin's rows; it stays till a row, a click off it or
+    its place: the same lines, the hint become the pin's buttons; it stays till a row, a click off it or
     Escape; without QuestieDB's data, no source lines (F28).
 """
 from test_addon import boot, errors
@@ -114,10 +114,11 @@ def test_quest_pins():
     S = sim.state
     vis = lambda r: r is not None and S[r].shown
     rgba = lambda r: list(S[r].vertex.values())
-    # In progress, followed: Blizzard's atlas alone, the pin's whole size, nothing behind it; 28; its count under it.
+    # In progress, followed: as the world map's: the dots at full size on the quest disc, untinted; 28; its count under it.
     p = pin(ns, G, "Quests", 52)
     assert S[p].width == 28 and S[p.icon].atlas == "Quest-In-Progress-Icon-yellow" and S[p.icon].width == 28
-    assert not vis(p.ring) and not vis(p.inner) and rgba(p.icon) == [1, 1, 1, 1]
+    assert vis(p.ring) and S[p.ring].atlas == "UI-QuestPoi-QuestNumber" and rgba(p.ring) == [1, 1, 1, 1]
+    assert not vis(p.inner) and rgba(p.icon) == [1, 1, 1, 1]
     assert p.glow is None and S[p.count].text == "2/8"  # (no ring round it: Track and Path to show the way)
     # Ready to turn in: its atlas, 19, no halo, no count.
     p = pin(ns, G, "Quests", 106)
@@ -293,8 +294,12 @@ def test_quest_tooltip():
     assert QT.IsOpen() and not S[tip].shown and sim.menu is None
     assert (pop.GetLeft(pop), pop.GetTop(pop)) == top
     rows = ["Track quest", "Path to quest", "Open in quest log"]
-    assert lines(pop) == content + [(r, False) for r in rows]
-    assert [b.label for b in QT.rows.values() if b.IsShown(b)] == rows
+    assert lines(pop) == content + [(" ", False)]  # (the buttons' line)
+    shown = [b for b in QT.rows.values() if b.IsShown(b)]
+    assert [b.label for b in shown] == rows
+    # small buttons: the quest disc with Track's arrow and the footprints; the micro menu's quest log
+    assert [S[S[b]["normal"]].atlas for b in shown] == [
+        "UI-QuestPoi-QuestNumber", "UI-QuestPoi-QuestNumber", "hud-microbutton-Quest-Up"]
     sim.Run(1)  # sticky: no hover takes it away
     assert QT.IsOpen() and not S[tip].shown
     assert sim.Press("ESCAPE") and not QT.IsOpen()

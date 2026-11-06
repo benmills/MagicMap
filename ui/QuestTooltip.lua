@@ -10,9 +10,10 @@
 -- too, a second GameTooltipTemplate frame (MagicMapQuestPopup), filled by the same code with the same
 -- lines in the same fonts, put where the hover's tooltip stood (its top left, its scale) as that one
 -- hides: the panel stays where it was, its lines where they were, and only grows, the click hint giving
--- way to a divider (the client menu's, MenuVariants.lua:26) and the pin's rows (ui/Track.lua's
--- Track.QuestRows: Track quest, Path to quest, Open in quest log), each a button over its line lit as a
--- menu row is (MenuVariants.lua:46). Unlike the tooltip it stays: until a row is picked, a click
+-- way to a divider (the client menu's, MenuVariants.lua:26) and a line of small buttons, the pin's rows
+-- (ui/Track.lua's Track.QuestRows): Track and Path to, each Blizzard's quest disc with its icon (the disc's
+-- supertracked look while it's what you do), and the micro menu's quest log button; each names itself in a
+-- tooltip on hover. Unlike the tooltip it stays: until a row is picked, a click
 -- anywhere off it (a button pressed, looked at once a frame), Escape (game/Hooks.lua names it in
 -- UISpecialFrames) or the map hidden. While it shows a quest, that quest's pin shows no hover tooltip;
 -- it counts as a menu open (ui/Menus.lua's IsOpen: the controls stay).
@@ -27,10 +28,12 @@ local SEP = DIM .. "  ·  |r"
 local HINT = DIM .. "Click for options|r" -- (the popup: below)
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- the pill's ends (ui/Pins.lua's dots)
 local DIVIDER = "Interface\\Common\\UI-TooltipDivider-Transparent" -- MenuVariants.lua:26
-local HIGHLIGHT = "Interface\\QuestFrame\\UI-QuestTitleHighlight" -- MenuVariants.lua:46
+local DISC, DISC_ON = "UI-QuestPoi-QuestNumber", "UI-QuestPoi-QuestNumber-SuperTracked" -- the buttons' (the world map's)
+local DISC_DOWN, DISC_LIT = "UI-QuestPoi-QuestNumber-Pressed", "UI-QuestPoi-InnerGlow"
+local BTN, BTN_GAP, ICON = 24, 4, 0.55 -- the buttons: px tall, px apart; an icon's share of its disc
 local PILL_H, PILL_PAD, PILL_ALPHA = 14, 5, 0.22 -- px tall, px past the number each side; its tint's alpha
 local FIT = 260 -- px: the title and its pill fit on one line within this (a tooltip's usual widest), else the pill goes under
-local ROW_H, ROW_INSET = 18, 4 -- the popup's rows: px tall, px in from its edges
+local ROW_INSET = 6 -- px: the popup's buttons in from its edge
 local PAD = 10 -- px: a tooltip's text in from its left edge (GameTooltipTemplate)
 
 local QuestTooltip = {}
@@ -193,27 +196,31 @@ local showing -- the quest the popup shows
 local divider = popup:CreateTexture(nil, "ARTWORK")
 divider:SetTexture(DIVIDER)
 divider:SetHeight(13)
-local lit = popup:CreateTexture(nil, "BORDER")
-lit:SetTexture(HIGHLIGHT)
-lit:SetBlendMode("ADD")
-lit:Hide()
 local rows = {} -- its buttons, made as needed
 QuestTooltip.rows = rows
 
+-- A row's button: a small round one, Blizzard's quest disc ("supertracked" while it's what you do) with its
+-- icon on it, or an atlas button's own art (the micro menu's quest log); its label in a tooltip on hover.
+local function Tip(b)
+	GameTooltip:SetOwner(b, "ANCHOR_BOTTOM")
+	GameTooltip:SetText(b.label, 1, 1, 1)
+	GameTooltip:Show()
+end
 local function Row(i)
 	local b = rows[i]
 	if b then return b end
 	b = CreateFrame("Button", nil, popup)
-	b:SetHeight(ROW_H)
 	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	b:SetScript("OnEnter", Runtime.Wrap("map: quest popup row", function()
-		lit:ClearAllPoints()
-		lit:SetAllPoints(b)
-		lit:Show()
-	end))
-	b:SetScript("OnLeave", Runtime.Wrap("map: quest popup row", function() lit:Hide() end))
+	b.icon = b:CreateTexture(nil, "ARTWORK")
+	b.icon:SetPoint("CENTER")
+	b.mask = b:CreateMaskTexture()
+	b.mask:SetTexture(CIRCLE, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+	b.mask:SetAllPoints(b.icon)
+	b:SetScript("OnEnter", Runtime.Wrap("map: quest popup button", function() Tip(b) end))
+	b:SetScript("OnLeave", Runtime.Wrap("map: quest popup button", function() GameTooltip:Hide() end))
 	b:SetScript("OnClick", Runtime.Wrap("map: quest popup pick", function()
 		local fn = b.fn
+		GameTooltip:Hide()
 		popup:Hide()
 		fn()
 	end))
@@ -221,9 +228,31 @@ local function Row(i)
 	return b
 end
 
+-- r: a QuestRows row { label, fn, icon = { texture | atlas, round?, up?, down?, lit? }, on? }.
+local function Dress(b, r)
+	local ic = r.icon
+	b.fn, b.label = r[2], r[1]
+	if ic.up then -- an atlas button (the micro menu's): its own art, its own proportions
+		b:SetSize(BTN * ic.aspect, BTN)
+		b:SetNormalAtlas(ic.up)
+		b:SetPushedAtlas(ic.down)
+		b:SetHighlightAtlas(ic.lit, "ADD")
+		b.icon:Hide()
+		return
+	end
+	b:SetSize(BTN, BTN)
+	b:SetNormalAtlas(r.on and DISC_ON or DISC)
+	b:SetPushedAtlas(DISC_DOWN)
+	b:SetHighlightAtlas(DISC_LIT, "ADD")
+	local t = b.icon
+	if ic.atlas then t:SetAtlas(ic.atlas) else t:SetTexture(ic.texture) end
+	t:SetSize(BTN * ICON, BTN * ICON)
+	if ic.round then t:AddMaskTexture(b.mask) else t:RemoveMaskTexture(b.mask) end
+	t:Show()
+end
+
 popup:HookScript("OnHide", Runtime.Wrap("map: quest popup hidden", function()
 	showing = nil
-	lit:Hide()
 end))
 
 -- The popup shows a quest (its pin's tooltip waits while it does).
@@ -260,20 +289,23 @@ function QuestTooltip.Open(e)
 	Fill(popup, e)
 	local gap = Region(popup, "TextLeft" .. popup:NumLines())
 	local list = UI.Track.QuestRows(e)
-	for _, r in ipairs(list) do popup:AddLine(r[1], 1, 1, 1) end
+	popup:AddLine(" ") -- (the buttons' line: grown to their height below)
 	popup:Show()
-	local w, first = popup:GetWidth() - 2 * ROW_INSET, popup:NumLines() - #list
+	local line = Region(popup, "TextLeft" .. popup:NumLines())
 	divider:ClearAllPoints()
 	divider:SetPoint("LEFT", gap, "LEFT", ROW_INSET - PAD, 0)
-	divider:SetWidth(w)
+	divider:SetWidth(popup:GetWidth() - 2 * ROW_INSET)
+	local prev
 	for i, r in ipairs(list) do
 		local b = Row(i)
-		b.fn, b.label = r[2], r[1]
+		Dress(b, r)
 		b:ClearAllPoints()
-		b:SetPoint("LEFT", Region(popup, "TextLeft" .. first + i), "LEFT", ROW_INSET - PAD, 0)
-		b:SetWidth(w)
+		if prev then b:SetPoint("LEFT", prev, "RIGHT", BTN_GAP, 0)
+		else b:SetPoint("TOPLEFT", line, "TOPLEFT", ROW_INSET - PAD, 0) end
 		b:Show()
+		prev = b
 	end
+	popup:SetHeight(popup:GetHeight() + BTN - line:GetHeight())
 	for i = #list + 1, #rows do rows[i]:Hide() end
 end
 
