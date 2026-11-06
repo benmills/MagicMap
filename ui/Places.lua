@@ -22,10 +22,10 @@ local VIGNETTE = { size = 20, color = { 1, 0.4, 0.3 }, line = "|cff808080Nearby 
 
 -- Each kind of place: its layer's key (the gear's, Layers.lua:48-53, Landmarks.lua:142), size and fallback
 -- colour (Layers.lua:470-534, Landmarks.lua:135), its tooltip's line (nil: the place's own text); its type's name and
--- the art its row shows (the client names each place's).
+-- the art its row shows (the client names each place's); big: on the big map always, zoomed out too (ui/PinTypes.lua).
 local KINDS = {
-	flight = { key = "flight", size = 18, line = "Flight point", name = "Flight point", sample = "taxinode_neutral" },
-	dungeon = { key = "dungeons", size = 20, color = { 0.7, 0.4, 1 }, name = "Dungeon & raid", sample = "dungeon" },
+	flight = { key = "flight", size = 18, line = "Flight point", name = "Flight point", sample = "taxinode_neutral", big = "always" },
+	dungeon = { key = "dungeons", size = 20, color = { 0.7, 0.4, 1 }, name = "Dungeon & raid", sample = "dungeon", big = "always" },
 	graveyard = { key = "graveyards", size = 16, color = { 0.7, 0.7, 0.7 }, line = "Graveyard", name = "Graveyard",
 		sample = "poi-graveyard-neutral" },
 	poi = { key = "areaPOIs", size = 18, color = { 0.6, 0.85, 1 }, name = "Landmark", sample = "poi-town" },
@@ -37,7 +37,7 @@ local TIPS = { flight = "A flight master you can fly to or from.", dungeon = "A 
 for _, place in ipairs(ORDER) do
 	local k = KINDS[place]
 	UI.PinTypes.Add({ id = place, family = "places", name = k.name, look = { size = k.size, icon = { atlas = k.sample, color = k.color } },
-		groups = true, tip = TIPS[place] })
+		groups = true, big = k.big, tip = TIPS[place] })
 end
 UI.PinTypes.Add({ id = "vignette", family = "rares", name = "Nearby now",
 	look = { size = VIGNETTE.size, icon = { atlas = VIGNETTE.sample, color = VIGNETTE.color } }, groups = true,

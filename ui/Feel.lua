@@ -50,9 +50,10 @@
 --     Indoor auto-zoom (ui/Interiors.lua); You: Your arrow (ui/You.lua).
 --   Title (25, ui/Title.lua). At rest, On hover (the pieces, chosen and ordered); Format: Clock (while a time is
 --     chosen).
---   Pins (30, ui/PinTypes.lua), every pin type the map draws. Show pins, Pin size, Pin opacity; By type: each
---     family's row (Quests, Services, Vendors, Resources, Rares & treasures, Party, Places, Addons, Other: Size,
---     Opacity), each type's under it (Size, Opacity, Icon, Group), declared by the files that draw them.
+--   Pins (30, ui/PinTypes.lua), every pin type the map draws. Show pins, Pin size, Pin opacity, On the big map,
+--     Zoomed in from; By type: each family's row (Quests, Services, Vendors, Resources, Rares & treasures, Party,
+--     Places, Addons, Other: Size, Opacity, On the big map), each type's under it (Size, Opacity, On the big map, Icon,
+--     Group), declared by the files that draw them.
 --   Resources (35). Tracking: Keep tracking (ui/Resources.lua); Badges: Colour by difficulty, Letter, Letter size (ui/Blips.lua).
 --   Info pills (40, ui/Controls.lua). Both pills: Backing, Size; Quest pill: Shows, Quest progress, Fade quest pill;
 --     Distance pill: Distance pill, Shows, Corner, Fade distance pill.

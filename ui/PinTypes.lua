@@ -4,8 +4,8 @@
 -- Pins built from them, so a new type is on the page by being declared. A type is { id, family, name, look (its
 -- look, StylePin's: the page draws it so), icons? (Blizzard's art for it, { label, value } each, the first today's: a
 -- value "A:<atlas>", a FileDataID or a path), groups? (it may stand in a pill: ui/Cluster.lua), size = false (no size:
--- other addons' pins, never scaled), tip }. Families, in the page's order: Quests, Services, Vendors, Resources,
--- Rares & treasures, Party, Places, Addons, Other.
+-- other addons' pins, never scaled), big? ("always": its big-map rule, not its family's), tip }. Families, in the
+-- page's order: Quests, Services, Vendors, Resources, Rares & treasures, Party, Places, Addons, Other.
 -- Three levels: All pins (Show pins, Pin size: "icons.scale", the Icons page's, Pin opacity), a family (its row: show,
 -- and under it its size and opacity), a type (its row: its art drawn as on the map and show; under it its size,
 -- opacity, icon and grouping). A type's value, until set, is its family's, and a family's All's (Feel's inherited
@@ -15,6 +15,13 @@
 -- art chosen, a look's icon: nil for today's), group }, resolved for every type at once when Feel.rev moves (not a pin
 -- at a time), and Types.Rev(), which moves when any type's resolved style does: each pin layer's rev carries it
 -- (ui/Pins.lua), as do the group dots', the sockets' and the grouping's.
+-- On the big map (#20) a type shows always, or only zoomed in: from the zoom at which the view spans "Zoomed in
+-- from" yards across or less (Types.Min: a pin layer's minimum zoom for it, ui/Pins.lua's put and ui/Cluster.lua's,
+-- faded in over Engine's FADE_IN past it); never held back on the minimap. Its rule ("big": "always" or "zoomed")
+-- inherits All's (zoomed), a family's, a type's like its size; by default quests, your party, flight points,
+-- dungeons and raids, your corpse and waypoint always, the rest zoomed in. The threshold moves Types.Rev (the big map
+-- opened or closed, the view resized, the setting), so the pins are laid out again for it. Other addons' pins draw
+-- by their own addons' rules: no rule for them.
 
 local _, ns = ...
 local UI = ns.UI
@@ -27,12 +34,17 @@ local ALL = 1.2 -- every pin's size, a factor: the Icons page's "Icon size" (its
 local SIZE = { min = 0.5, max = 2, step = 0.1 }
 local ALPHA = { min = 0.2, max = 1, step = 0.05 }
 local ART = 16 -- px: a row's art
+local ZOOM_IN = 3000 -- yards across the big map's view: "zoomed in" types show from there in (a whole zone is 3000-5000)
+local STEP = 1.1 -- the threshold's zoom, on a grid of this ratio: a resize moves it (a layout) only a step at a time
+local LOG_STEP = math.log(STEP)
+local BIG = { { "Always", "always" }, { "Zoomed in", "zoomed" } }
 
 local FAMILIES = {
-	{ key = "quests", name = "Quests" }, { key = "services", name = "Services" }, { key = "vendors", name = "Vendors" },
+	{ key = "quests", name = "Quests", big = "always" }, { key = "services", name = "Services" }, { key = "vendors", name = "Vendors" },
 	{ key = "resources", name = "Resources" }, { key = "rares", name = "Rares & treasures" },
-	{ key = "party", name = "Party", size = 1 }, -- (its dots kept their size whatever the icon size: 100% of their own)
-	{ key = "places", name = "Places" }, { key = "addons", name = "Addons", noSize = true }, { key = "other", name = "Other" },
+	{ key = "party", name = "Party", size = 1, big = "always" }, -- (its dots kept their size whatever the icon size: 100% of their own)
+	{ key = "places", name = "Places" }, { key = "addons", name = "Addons", noSize = true, noBig = true },
+	{ key = "other", name = "Other" },
 }
 local FAMILY = {}
 for _, f in ipairs(FAMILIES) do FAMILY[f.key] = f end
@@ -50,6 +62,7 @@ local function From(key) return function() return Feel.Get(key) end end -- an in
 
 local NEUTRAL = { show = true, size = 1, alpha = 1, group = true } -- a look of no type (a settings row's art)
 local styles, seen, rev = {}, nil, 0
+local bigMin -- the zoom "zoomed in" types show from: the big map's (nil on the minimap)
 
 -- A chosen icon's look icon: an atlas, a FileDataID or a path; its dot's colour today's.
 local function Decode(v, color)
@@ -70,6 +83,7 @@ local function Resolve()
 		local size = t.size == false and 1 or Get(p .. "size")
 		local alpha = Get(p .. "alpha")
 		local group = t.groups and Get(p .. "group") ~= false or false
+		local zoomed = not FAMILY[t.family].noBig and Get(p .. "big") == "zoomed"
 		local icon
 		if t.icons then
 			local v = Get(p .. "icon")
@@ -81,8 +95,9 @@ local function Resolve()
 				end
 			end
 		end
-		if s.show ~= show or s.size ~= size or s.alpha ~= alpha or s.group ~= group or s.icon ~= icon then
-			s.show, s.size, s.alpha, s.group, s.icon, changed = show, size, alpha, group, icon, true
+		if s.show ~= show or s.size ~= size or s.alpha ~= alpha or s.group ~= group or s.icon ~= icon
+			or s.zoomed ~= zoomed then
+			s.show, s.size, s.alpha, s.group, s.icon, s.zoomed, changed = show, size, alpha, group, icon, zoomed, true
 		end
 	end
 	if changed then rev = rev + 1 end
@@ -99,10 +114,31 @@ function Types.Of(id)
 	return NEUTRAL
 end
 
--- Moves when any type's style does.
+-- The zoom (px a tile) at which the big map's view spans "Zoomed in from" yards across, on STEP's grid; nil while
+-- the map is small.
+local function BigMin()
+	if not UI.BigMap.big then return nil end
+	local z = UI.Window.Size() * ns.Atlas.TILE_YARDS / Get("pins.zoomIn") -- /: never 0 (the slider's min)
+	return STEP ^ math.floor(math.log(z) / LOG_STEP + 0.5) -- (the view has a width: z > 0)
+end
+
+-- Moves when any type's style does, or the big map's threshold.
 function Types.Rev()
 	if Feel.rev ~= seen then Resolve() end
+	local m = BigMin()
+	if m ~= bigMin then
+		bigMin, rev = m, rev + 1
+		if m then UI.Engine.Fades(m) end -- (faded in past it, not popped: a few grid steps a session)
+	end
 	return rev
+end
+
+-- A pin's minimum zoom (minZoom: its layer's own, or nil) with its style's big-map rule: from the threshold, for a
+-- type shown zoomed in only, on the big map.
+function Types.Min(st, minZoom)
+	local m = st.zoomed and bigMin
+	if m and not (minZoom and minZoom >= m) then return m end
+	return minZoom
 end
 
 function Types.Get(id) return byId[id] end
@@ -117,11 +153,19 @@ Feel.Page({ key = "pins", title = "Pins", icon = "Interface\\Icons\\Ability_Trac
 
 Feel.Add("pins", nil, {
 	{ key = "pins.all.show", kind = "toggle", label = "Show pins", default = true,
-		tip = "Every pin on the map. A family or a type you set yourself stays as you set it." },
+		tip = "Every pin on the map. A family or a type you set yourself stays as you set it. Open it (+) for which "
+			.. "show on the big map zoomed out." },
 	{ key = "icons.scale", kind = "slider", label = "Pin size", min = SIZE.min, max = SIZE.max, step = SIZE.step, pct = true,
 		default = ALL, tip = "Every pin's size (a group's pill keeps its own). A family or a type you size yourself keeps its size." },
 	{ key = "pins.all.alpha", kind = "slider", label = "Pin opacity", min = ALPHA.min, max = ALPHA.max, step = ALPHA.step,
 		pct = true, default = 1, tip = "How solid every pin is. A family or a type you set yourself keeps its own." },
+	{ key = "pins.all.big", kind = "select", label = "On the big map", under = "pins.all.show", options = BIG, default = "zoomed",
+		tip = "Zoomed in: on the big map a pin shows only once you zoom in (it fades in), so the zoomed-out map stays "
+			.. "clear; quests, your party, flight points, dungeons and raids show always. A family or a type you set "
+			.. "yourself keeps its own. The minimap shows them all." },
+	{ key = "pins.zoomIn", kind = "slider", label = "Zoomed in from", under = "pins.all.show", min = 1000, max = 8000, step = 250, fmt = "%d yd",
+		default = ZOOM_IN, tip = "How close is zoomed in: the big map's view this many yards across or less. A whole "
+			.. "zone is about 3000 to 5000." },
 })
 
 -- A row's art: the type's look as the map draws it (its icon as chosen), at ART px; a family's its first type's.
@@ -158,6 +202,11 @@ for _, f in ipairs(FAMILIES) do
 	rows[#rows + 1] = { key = p .. "alpha", kind = "slider", label = "Opacity", under = p .. "show", min = ALPHA.min,
 		max = ALPHA.max, step = ALPHA.step, pct = true, default = From("pins.all.alpha"),
 		tip = f.name .. ": how solid they are, Pin opacity's until you set it." }
+	if not f.noBig then
+		rows[#rows + 1] = { key = p .. "big", kind = "select", label = "On the big map", under = p .. "show", options = BIG,
+			default = f.big or From("pins.all.big"), tip = f.name .. ": always on the big map, or only zoomed in"
+				.. (f.big and " (always, of their own)." or ", as On the big map is until you set it.") }
+	end
 	Feel.Add("pins", "By type", rows)
 end
 
@@ -183,6 +232,11 @@ function Types.Add(t)
 	rows[#rows + 1] = { key = p .. "alpha", kind = "slider", label = "Opacity", under = p .. "show", min = ALPHA.min,
 		max = ALPHA.max, step = ALPHA.step, pct = true, default = From(f .. "alpha"),
 		tip = "How solid it is: its family's until you set it." }
+	if not FAMILY[t.family].noBig then
+		rows[#rows + 1] = { key = p .. "big", kind = "select", label = "On the big map", under = p .. "show", options = BIG,
+			default = t.big or From(f .. "big"), tip = "Always on the big map, or only zoomed in: "
+				.. (t.big and "always by default." or "its family's until you set it.") }
+	end
 	if t.icons then
 		local options = {}
 		for i, o in ipairs(t.icons) do options[i] = { o[1], o[2], o[2] } end

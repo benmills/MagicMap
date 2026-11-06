@@ -38,9 +38,10 @@ UI.Pins = Pins
 
 -- A look's type (look.type: ui/PinTypes.lua) gives its style, Settings > Pins: whether it's drawn (put leaves it out),
 -- its size (a factor on the look's but for a fixed one: a group's pill, whose slots are ICON px, ui/Cluster.lua), its
--- opacity and its icon as chosen; a pin layer's rev moves with any type's (Types.Rev), so the pins are set again.
+-- opacity and its icon as chosen, and on the big map from which zoom it shows (Types.Min); a pin layer's rev moves
+-- with any type's (Types.Rev: the big map's threshold too), so the pins are set again.
 local Types = UI.PinTypes
-local Of = Types.Of
+local Of, Min = Types.Of, Types.Min
 
 ---------------------------------------------------------------------------
 -- StylePin (Layers.lua:304-400)
@@ -316,7 +317,9 @@ function Pins.Layer(name, level, fill, rev, opts)
 		return false
 	end
 	local function put(e, look, minZoom)
-		if not Of(look.type).show then return end -- (hidden: Settings > Pins)
+		local st = Of(look.type)
+		if not st.show then return end -- (hidden: Settings > Pins)
+		minZoom = Min(st, minZoom) -- (on the big map, zoomed in only: Settings > Pins)
 		local p = e.pos
 		if minZoom and Track.Focus(e) then minZoom = nil end -- (what you track: at any zoom)
 		if p.inst ~= inst or minZoom and not want(minZoom) then return end

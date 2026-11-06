@@ -38,6 +38,7 @@ local FRAME_TO, MIN_MS = 4.75, 1 -- with the rest of the frame, the layouts fill
 local CHAIN_MS, CHAIN_TO = 1, 3.5 -- a layout ending with this much left of the frame's budget, at most this, hands it on (Chain)
 local BAND_LO, BAND_HI = 0.7, 1.4 -- the camera's zoom over a layout's: outside, laid out again before it settles
 local DRIFT = 1.25 -- a "move" or "pin" layer's: its names and pins are chosen for a zoom (Layers.lua:2012 LABEL_DRIFT)
+local FADE_IN = 1.15 -- regions shown from a fading zoom (Engine.Fades) fade in from it to this times it, not pop
 local FADE_S = 0.12 -- a held layer's crossfade to a layout at another zoom (Layers.lua:1697 CROSSFADE)
 local SAME_ZOOM = 0.02 -- log: a held layer's layouts this close in zoom cut straight over; the camera this close to the goal's, a glide (Layers.lua:1698)
 local LN2 = math.log(2)
@@ -182,8 +183,8 @@ function Engine.Unget(canvas, kind)
 	p.n = p.n - 1
 end
 
--- The canvas's frame for regions shown from minZoom: its alpha, set as the zoom crosses it (Put), shows or
--- hides them all at once (a SetAlpha each was the draw's 3.1 ms priced for the big window's ~440 rares at
+-- The canvas's frame for regions shown from minZoom: its alpha, set as the zoom crosses it (Put; a fading one's faded
+-- in from minZoom to FADE_IN times it: Engine.Fades), shows or hides them all at once (a SetAlpha each was the draw's 3.1 ms priced for the big window's ~440 rares at
 -- 60, a crossing's frame twice another's: docs/runtime.md).
 local function Min(c, minZoom)
 	local f = c.mins[minZoom]
@@ -209,6 +210,11 @@ function Engine.At(c, o, point, col, row, dx, dy, minZoom)
 	o.home = on ~= c and on or nil -- (taken back from the park, onto it: Get)
 	o:SetPoint(point, c, "TOPLEFT", o.x, -o.y)
 end
+
+-- Regions shown from minZoom fade in past it (to FADE_IN times it) rather than show on the frame it's crossed: the big
+-- map's "zoomed in" threshold's (ui/PinTypes.lua); the rest (rares' 60, remembered blips') as the spike's, at once.
+local fades = {}
+function Engine.Fades(minZoom) fades[minZoom] = true end
 
 -- A layout at zoom draws what shows from minZoom (Engine.At's): the camera's zoom or the layout's from it,
 -- or from a drift below it unless the zoom is headed out, so the frame it crosses shows or hides it
@@ -342,7 +348,9 @@ local function Put(layer, c, cam, w, h)
 	if layer.moves then
 		if not Shown(c, cam, w, h) then return nil end
 		if c.moved ~= z or c.late then Move(c, cam, w, h) end
-		for m, f in pairs(c.mins) do Alpha(f, z < m and 0 or 1) end
+		for m, f in pairs(c.mins) do
+			Alpha(f, z < m and 0 or (not fades[m] or z >= m * FADE_IN) and 1 or (z / m - 1) / (FADE_IN - 1)) -- /: never 0 (m > 0, FADE_IN > 1)
+		end
 	else
 		s, k = z / c.zoom, c.zoom -- /: never 0 (a canvas's zoom: the camera's at layout)
 	end

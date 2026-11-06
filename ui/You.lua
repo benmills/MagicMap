@@ -22,11 +22,11 @@ local CORPSE = { size = 22, icon = { atlas = "deathrecap-icon-tombstone", under 
 local WAYPOINT = { size = 22, icon = { atlas = "Waypoint-MapPin-Tracked", color = { 0.2, 0.9, 1 } }, type = "waypoint" } -- Layers.lua:629-630
 UI.PinTypes.Add({ id = "corpse", family = "other", name = "Your corpse", look = CORPSE,
 	icons = { { "Tombstone on a disc", "A:deathrecap-icon-tombstone" }, { "Skull and cross", "A:playerdeadblip" } },
-	tip = "Where you died, while you're a ghost." })
+	big = "always", tip = "Where you died, while you're a ghost." })
 UI.PinTypes.Add({ id = "waypoint", family = "other", name = "Waypoint", look = WAYPOINT,
 	icons = { { "Map pin", "A:Waypoint-MapPin-Tracked" }, { "Small pin", "A:waypoint-mappin-minimap-tracked" },
 		{ "Red cross", "A:xmarksthespot" } },
-	tip = "The waypoint you set (Ctrl-right-click the map, or Track and Path to)." })
+	big = "always", tip = "The waypoint you set (Ctrl-right-click the map, or Track and Path to)." })
 local TARGET = "Target" -- an untitled target's (Core.lua:1297)
 
 local You = {}

@@ -129,6 +129,7 @@ local function want(minZoom) return Engine.From(zoom_, minZoom) end
 -- quest giver's "!" or "?", ui/Blips.lua's, is a quest's type: never grouped).
 local function put(e, l, minZoom)
 	local st = Types.Of(l.type)
+	minZoom = Types.Min(st, minZoom) -- (zoomed in only on the big map: no member till its pin would show)
 	if st.show and st.group and e.pos.inst == inst_ and (not minZoom or want(minZoom))
 		and not UI.Track.Focus(e) then -- (what you track stays on its own)
 		n = n + 1

@@ -336,6 +336,7 @@ def test_pin_types_apply():
     # A group's pill (test_cluster.py's five at one spot, rares).
     ns.UI.saved.cluster = True
     ns.UI.Cluster.Set("slots", 8)  # (every member's icon in the pill)
+    Feel.Set("pins.rare.big", "always")  # (at the big map's zone-wide view: else only zoomed in)
     sim.Press("M")
     sim.Run(1)
     cam = ns.UI.Camera.cam
@@ -387,4 +388,42 @@ def test_saved_sizes_kept():
     assert dict(ns.UI.saved.feel.items()) == {"icons.scale": 1.2, "pins.quest.size": 1.6, "pins.turnin.size": 1.6}
     assert Feel.Get("pins.offer.size") == 1.2 and Feel.Get("pins.quests.size") == 1.2
     assert ns.UI.PinTypes.Of("turnin").size == 1.6 and ns.UI.PinTypes.Of("offer").size == 1.2
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+
+def test_big_map_zoomed_in():
+    """On the big map, zoomed out, a vendor's pin is hidden and a flight point's and a quest's show; zoomed in, the
+    vendor's shows too (faded in past the threshold); the minimap shows it at any zoom."""
+    L, sim, ns = boot()
+    ns.UI.Feel.Set("pins.all.big", "zoomed")  # (the default: the tests' look has every pin always)
+    sim.Slash("/mm toggle")
+    sim.Run(1.5)
+    UI = ns.UI
+    cam = UI.Camera.cam
+    t = L.eval("""function(Pins, cx, cy)
+        local t = { list = {} }
+        for i, ty in ipairs({ "food", "flight", "quest" }) do
+            t.list[i] = { key = ty, name = ty, pos = { inst = 0, col = cx + i * 0.01, row = cy } }
+            t.list[i].look = { size = 15, icon = { texture = 137008 }, type = ty }
+        end
+        t.layer = Pins.Layer("bigtest", 7, function(put)
+            for _, e in ipairs(t.list) do put(e, e.look) end
+        end, function() return 1 end)
+        return t
+    end""")(UI.Pins, cam.cx, cam.cy)
+
+    def shown(zoom):  # the keys whose pins show at zoom: laid out, their frame (a zoom's own) not faded out
+        UI.Motion.SetZoom(zoom)
+        sim.Run(1)
+        c = t.layer.front
+        p = c.pools.pin
+        return {p[i].entry.key for i in range(1, p.n + 1) if c.alpha > 0 and p[i].on.alpha > 0}
+    assert shown(30) == {"food", "flight", "quest"}  # (the minimap: every pin)
+    sim.Press("M")
+    sim.Run(1.5)
+    w = UI.Window.Size()[0]
+    z = w * ns.Atlas.TILE_YARDS / UI.Feel.Get("pins.zoomIn")  # (the view this many yards across)
+    assert shown(z / 2) == {"flight", "quest"}
+    assert shown(z * 1.5) == {"food", "flight", "quest"}
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
