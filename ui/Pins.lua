@@ -15,7 +15,8 @@
 -- the cursor off it or the view, the window hidden (ui/Window.lua). A click on a pin, left or right, is its
 -- layer's click, or else the track menu (ui/Track.lua: Track, Path to, Stop); every pin layer's rev carries Track's
 -- (what you track is never held back to a closer zoom), so a change lays them out again.
--- A look may carry badges (look.badge, a resource pin's: ui/Blips.lua): a dot at its top left, a letter at its bottom left.
+-- A look may carry a tint (look.tint, a resource pin's difficulty: ui/Blips.lua): its icon desaturated, then that
+-- colour; and a badge (look.badge): a letter at its top left.
 
 local _, ns = ...
 local UI, Runtime = ns.UI, ns.Runtime
@@ -100,20 +101,18 @@ local function Count(pin)
 	return fs
 end
 
--- A resource pin's badges (look.badge, ui/Blips.lua): its difficulty dot at the top left (the client's circle mask
--- tinted, on a dark ring) and its letter at the bottom left (the game's font, outlined). Made the first time a look
--- has one.
+-- A resource pin's badge (look.badge, ui/Blips.lua): its letter at the top left, in the game's font with no outline,
+-- a soft dark shadow under it. Made the first time a look has one.
 local FONT = GameFontNormal:GetFont()
-local function Badges(pin)
-	if pin.dot then return pin end
-	pin.dotRing, pin.dot = Tex(pin, "OVERLAY", 0), Tex(pin, "OVERLAY", 1)
-	pin.dotRing:SetTexture(CIRCLE)
-	pin.dot:SetTexture(CIRCLE)
-	pin.dotRing:SetVertexColor(RING[1], RING[2], RING[3], RING[4])
-	local fs = pin:CreateFontString(nil, "OVERLAY")
+local function Letter(pin)
+	local fs = pin.letter
+	if fs then return fs end
+	fs = pin:CreateFontString(nil, "OVERLAY")
+	fs:SetShadowOffset(1, -1)
+	fs:SetShadowColor(0, 0, 0, 0.9)
 	fs.vis = true
 	pin.letter = fs
-	return pin
+	return fs
 end
 
 -- Setters calling the client only when the value changes: a pin kept as it was costs none.
@@ -166,41 +165,25 @@ local function Shown(r, on)
 		r:SetShown(on)
 	end
 end
-
--- badge = { color? = { r, g, b }, letter?, scale? }: the dot BADGE_DOT of the pin across, a little past its corner;
--- the letter BADGE_TEXT of its height (BADGE_MIN px at least), its corner on the pin's. scale: both, a factor.
-local BADGE_DOT, BADGE_TEXT, BADGE_MIN = 0.4, 0.55, 7
-local function SetBadges(pin, b, size)
-	local s = b and b.scale or 1
-	if b and b.color then
-		Badges(pin)
-		local dot, r, c = pin.dot, pin.dotRing, b.color
-		local d = math.max(4, size * BADGE_DOT * s)
-		if dot.at ~= d then
-			dot.at = d
-			local o = d / 2 - 1
-			dot:ClearAllPoints()
-			dot:SetPoint("CENTER", pin, "TOPLEFT", o, -o)
-			r:ClearAllPoints()
-			r:SetPoint("CENTER", pin, "TOPLEFT", o, -o)
-		end
-		Size(dot, d, d)
-		Size(r, d + 2, d + 2)
-		Color(dot, c[1], c[2], c[3], 1)
-		Shown(dot, true)
-		Shown(r, true)
-	else
-		Shown(pin.dot, false)
-		Shown(pin.dotRing, false)
+local function Desaturated(t, on)
+	if t.desat ~= on then
+		t.desat = on
+		t:SetDesaturated(on)
 	end
-	if b and b.letter then
-		local fs = Badges(pin).letter
-		local px = math.max(BADGE_MIN, math.floor(size * BADGE_TEXT * s + 0.5))
+end
+
+-- badge = { letter, scale? }: the letter BADGE_TEXT of the pin's height (BADGE_MIN px at least), its corner on the
+-- pin's top left; scale, a factor.
+local BADGE_TEXT, BADGE_MIN = 0.55, 7
+local function SetBadges(pin, b, size)
+	if b then
+		local fs = Letter(pin)
+		local px = math.max(BADGE_MIN, math.floor(size * BADGE_TEXT * (b.scale or 1) + 0.5))
 		if fs.px ~= px then
 			fs.px = px
-			fs:SetFont(FONT, px, "OUTLINE")
+			fs:SetFont(FONT, px, "")
 			fs:ClearAllPoints()
-			fs:SetPoint("BOTTOMLEFT", pin, "BOTTOMLEFT", -1, -1)
+			fs:SetPoint("TOPLEFT", pin, "TOPLEFT", -1, 1)
 		end
 		if fs.text ~= b.letter then
 			fs.text = b.letter
@@ -212,11 +195,13 @@ local function SetBadges(pin, b, size)
 	end
 end
 
--- look: { type? (its style's: ui/PinTypes.lua), size? (14), fixed? (not scaled by the settings), badge? (SetBadges), icon? = { texture | atlas, alt?, coords?, under?, tint?, inner?, scale?, aspect?, color? },
+-- look: { type? (its style's: ui/PinTypes.lua), size? (14), fixed? (not scaled by the settings), badge? (SetBadges),
+-- tint? = { r, g, b }, icon? = { texture | atlas, alt?, coords?, under?, tint?, inner?, scale?, aspect?, color? },
 -- count? }: (a) a texture (coords: its part, a cell of a sheet), bare; (b) an atlas, at its own aspect
 -- (aspect: its width over height, else the client's); (c) an atlas over its under atlas tinted, the inner
 -- texture in it; (d) else (an atlas the client lacks too, and no alt: the look drawn instead when the atlas is
--- missing) a dot of its colour on a dark ring; count: a line under it.
+-- missing) a dot of its colour on a dark ring; count: a line under it. tint: (a) and (b) desaturated then that
+-- colour (whichever icon its type chose; its opacity the pin's), (d) its dot that colour.
 local function Style(pin, look)
 	local st = Of(look.type)
 	local size, icon = (look.size or SIZE) * (look.fixed and 1 or st.size), st.icon or look.icon or NONE
@@ -234,10 +219,12 @@ local function Style(pin, look)
 			fs:SetText(look.count)
 		end
 	end
-	local i, inner = pin.icon, false
+	local i, inner, tint = pin.icon, false, look.tint
+	local t = tint or WHITE
+	Desaturated(i, tint ~= nil)
 	if icon.texture then -- (a)
 		File(i, icon.texture, icon.coords)
-		Color(i, 1, 1, 1, 1)
+		Color(i, t[1], t[2], t[3], 1)
 		Size(i, size, size)
 		Shown(pin.ring, false)
 	elseif icon.atlas and Has(icon.atlas) then
@@ -264,9 +251,9 @@ local function Style(pin, look)
 			Size(i, Fit(size, icon.aspect or Aspect(icon.atlas)))
 			Shown(pin.ring, false)
 		end
-		Color(i, 1, 1, 1, 1)
+		Color(i, t[1], t[2], t[3], 1)
 	else -- (d)
-		local r, c = Ring(pin), icon.color or WHITE
+		local r, c = Ring(pin), tint or icon.color or WHITE
 		File(r, CIRCLE)
 		File(i, CIRCLE)
 		Shown(r, true)
@@ -276,7 +263,7 @@ local function Style(pin, look)
 		Size(i, size * DOT, size * DOT)
 	end
 	if not inner then Shown(pin.inner, false) end
-	if look.badge or pin.dot then SetBadges(pin, look.badge, size) end
+	if look.badge or pin.letter then SetBadges(pin, look.badge, size) end
 end
 Pins.Style = Style -- (ui/Cluster.lua's pills)
 

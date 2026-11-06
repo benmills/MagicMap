@@ -53,7 +53,7 @@
 --   Pins (30, ui/PinTypes.lua), every pin type the map draws. Show pins, Pin size, Pin opacity; By type: each
 --     family's row (Quests, Services, Vendors, Resources, Rares & treasures, Party, Places, Addons, Other: Size,
 --     Opacity), each type's under it (Size, Opacity, Icon, Group), declared by the files that draw them.
---   Resources (35). Tracking: Keep tracking (ui/Resources.lua); Badges: Difficulty, Letter, Badge size (ui/Blips.lua).
+--   Resources (35). Tracking: Keep tracking (ui/Resources.lua); Badges: Colour by difficulty, Letter, Letter size (ui/Blips.lua).
 --   Info pills (40, ui/Controls.lua). Both pills: Backing, Size; Quest pill: Shows, Quest progress, Fade quest pill;
 --     Distance pill: Distance pill, Shows, Corner, Fade distance pill.
 --   Tracking (45), how the way is shown. Arrow (Track's): Size, Opacity, Distance (ui/Guide.lua); Path to: Frame the

@@ -9,12 +9,12 @@
 -- when either changes, or you cross a walk chunk while sensing. Tooltip: its name, then what it is (a
 -- gathering node's profession, Blips.lua:427-429; an NPC's title, :436), and a service's or remembered one's
 -- "Not in sight" (Blips.lua:642).
--- A herb or ore pin (a name Atlas knows as one: #21) wears two badges (#18; Settings > Resources > Badges, each shown
--- or not, and their size): at its top left its difficulty, by your skill (Model.skills: Herbalism's or Mining's) against
--- the node's (Atlas.NodeSkill), the game's skill-up colours: red under it (you can't gather it yet), orange under it + 25,
--- yellow under + 50, green under + 100, else grey (classic's gathering thresholds); none for a node whose skill isn't
--- known (Forever's own herbs) or before your skills are; at its bottom left the node's letter (Atlas.NodeLetter: P for
--- Peacebloom, T for Rich Thorium Vein).
+-- A herb or ore pin (a name Atlas knows as one: #21) shows its difficulty and its letter (#18; Settings > Resources >
+-- Badges, each shown or not, the letter's size): its icon coloured by your skill (Model.skills: Herbalism's or Mining's)
+-- against the node's (Atlas.NodeSkill), the game's skill-up colours: red under it (you can't gather it yet), orange under
+-- it + 25, yellow under + 50, green under + 100, else grey (classic's gathering thresholds); its natural colour for a node
+-- whose skill isn't known (Forever's own herbs) or before your skills are (look.tint: ui/Pins.lua); at its top left the
+-- node's letter (Atlas.NodeLetter: P for Peacebloom, T for Rich Thorium Vein).
 -- Their types (Settings > Pins, ui/PinTypes.lua), one a kind of Atlas.BLIP_ART: its services (Services), gathering nodes
 -- (Resources) and vendors (Vendors), each its icon's alternatives, Blizzard's (the map's HD art for a tracking texture,
 -- the classic tracking texture for a vendor's atlas); a quest giver's "!" and "?" are the quests' (ui/Quests.lua); the
@@ -34,7 +34,7 @@ local REACH = 220 / ns.Atlas.TILE_YARDS -- tiles: around you, the sensor's word 
 local CHUNKS = ns.Atlas.Walk.CHUNKS
 
 -- The badges (#18): the skill-up colours (the client's QuestDifficultyColors and trade skill colours) by how far your
--- skill is past the node's; what's shown, and their size.
+-- skill is past the node's; what's shown, and the letter's size.
 local GATHER = { [ns.Atlas.BlipArt("herb")] = "herb", [ns.Atlas.BlipArt("ore")] = "ore" }
 local RED, ORANGE, YELLOW = { 1, 0.1, 0.1 }, { 1, 0.5, 0.25 }, { 1, 1, 0 }
 local GREEN, GREY = { 0.25, 0.75, 0.25 }, { 0.5, 0.5, 0.5 }
@@ -55,14 +55,14 @@ local function Badges(name)
 	end
 end
 UI.Feel.Add("resources", "Badges", {
-	{ key = "resources.difficulty", kind = "toggle", label = "Difficulty", default = badges.difficulty,
-		apply = Badges("difficulty"), tip = "A dot at a herb's or ore's top left, by your skill against the node's: "
+	{ key = "resources.difficulty", kind = "toggle", label = "Colour by difficulty", default = badges.difficulty,
+		apply = Badges("difficulty"), tip = "A herb's or ore's icon in the colour of your skill against the node's: "
 			.. "red you can't gather it yet, then orange, yellow and green as it gets easier, grey when it no longer "
-			.. "raises your skill. None on a node whose skill isn't known." },
+			.. "raises your skill. Its own colours on a node whose skill isn't known." },
 	{ key = "resources.letter", kind = "toggle", label = "Letter", default = badges.letter, apply = Badges("letter"),
-		tip = "The node's first letter at its bottom left: P for Peacebloom, C for Copper Vein, T for any Thorium vein." },
-	{ key = "resources.badgeSize", kind = "slider", label = "Badge size", min = 0.6, max = 1.6, step = 0.1, pct = true,
-		default = badges.size, apply = Badges("size"), tip = "The size of the dot and the letter." },
+		tip = "The node's first letter at its top left: P for Peacebloom, C for Copper Vein, T for any Thorium vein." },
+	{ key = "resources.badgeSize", kind = "slider", label = "Letter size", min = 0.6, max = 1.6, step = 0.1, pct = true,
+		default = badges.size, apply = Badges("size"), tip = "The size of the letter." },
 })
 
 -- The pin types: a kind's art -> its type (Atlas.BLIP_ART's kind; a quest giver's the quests'); each kind's icons, the
@@ -103,26 +103,24 @@ UI.PinTypes.Add({ id = "tracking", family = "other", name = "Other tracking",
 	look = { size = ICON, icon = { texture = "Interface\\Icons\\Ability_Tracking" } },
 	groups = true, tip = "A blip Blizzard's tracking draws with an icon of a kind MagicMap doesn't list (its own art)." })
 
--- StylePin's looks, one an icon (Blips.lua:423-437), a gathering node's one a letter and difficulty too.
+-- StylePin's looks, one an icon (Blips.lua:423-437), a gathering node's one its difficulty's tint and a letter too.
 local DOT_LOOK = { size = DOT, icon = { color = GOLD }, type = "dot" }
 local function Look(icon, name)
 	if not icon then return DOT_LOOK end
-	local k, badge = icon.texture or icon.atlas, nil
+	local k, badge, tint = icon.texture or icon.atlas, nil, nil
 	local kind = name and icon.atlas and GATHER[icon.atlas]
 	if kind then
 		local need, skills = ns.Atlas.NodeSkill(name), Model.skills
-		local color = badges.difficulty and need and skills and Difficulty(skills[kind], need) or nil
+		tint = badges.difficulty and need and skills and Difficulty(skills[kind], need) or nil
 		local letter = badges.letter and ns.Atlas.NodeLetter(name) or nil
-		if color or letter then
-			badge = { color = color, letter = letter, scale = badges.size }
-			k = k .. "|" .. (letter or "") .. "|" .. (color and table.concat(color, ",") or "")
-		end
+		if letter then badge = { letter = letter, scale = badges.size } end
+		if tint or letter then k = k .. "|" .. (letter or "") .. "|" .. (tint and table.concat(tint, ",") or "") end
 	end
 	local look = looks[k]
 	if not look then
 		local art = icon.texture and { texture = icon.texture } or UI.Art.Icon(icon.atlas)
 		art.color = icon.color or COLOR[icon.atlas]
-		look = { size = ICON, icon = art, badge = badge, type = TYPE[icon.texture or icon.atlas] or "tracking" }
+		look = { size = ICON, icon = art, badge = badge, tint = tint, type = TYPE[icon.texture or icon.atlas] or "tracking" }
 		looks[k] = look
 	end
 	return look

@@ -349,7 +349,8 @@ end
 local function Small(m)
 	local s = m[SMALL]
 	if not s then
-		s = { size = ICON, fixed = true, icon = m[LOOK].icon, type = m[LOOK].type } -- (its type's icon and opacity)
+		local l = m[LOOK] -- (its type's icon and opacity, its difficulty's tint; no letter at a pill's size)
+		s = { size = ICON, fixed = true, icon = l.icon, tint = l.tint, type = l.type }
 		m[SMALL] = s
 	end
 	return s
