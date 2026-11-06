@@ -297,9 +297,9 @@ def test_quest_tooltip():
     assert lines(pop) == content + [(" ", False), (" ", False)]  # (the buttons' lines)
     shown = [b for b in QT.rows.values() if b.IsShown(b)]
     assert [b.label for b in shown] == rows
-    # small buttons: the quest disc with Track's arrow and the footprints; the micro menu's quest log
-    assert [S[S[b]["normal"]].atlas for b in shown] == [
-        "UI-QuestPoi-QuestNumber", "UI-QuestPoi-QuestNumber", "hud-microbutton-Quest-Up"]
+    # small buttons: Blizzard's red button with the tracked arrow and the boot; the micro menu's quest log
+    assert [S[b.glyph].atlas for b in shown[:2]] == ["Navigation-Tracked-Arrow", "flightpath"]
+    assert S[shown[0].l].texture == "atlas/128-redbutton-left" and S[S[shown[2]]["normal"]].atlas == "hud-microbutton-Quest-Up"
     sim.Run(1)  # sticky: no hover takes it away
     assert QT.IsOpen() and not S[tip].shown
     assert sim.Press("ESCAPE") and not QT.IsOpen()

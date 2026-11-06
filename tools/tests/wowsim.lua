@@ -1235,7 +1235,7 @@ for i, path in ipairs({ "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up", "Inter
 	"Interface\\Minimap\\PartyRaidBlipsV2", "Interface\\GossipFrame\\VendorGossipIcon", "Interface\\Icons\\Ability_Tracking",
 	"Interface\\Icons\\INV_Misc_EngGizmos_01", "Interface\\Buttons\\UI-PlusButton-Up", "Interface\\Buttons\\UI-MinusButton-Up",
 	"Interface\\Buttons\\UI-PlusButton-Hilight", "Interface\\Minimap\\MinimapArrow",
-	"Interface\\Common\\UI-TooltipDivider-Transparent", "Interface\\Icons\\Ability_Hunter_Pathfinding" }) do
+	"Interface\\Common\\UI-TooltipDivider-Transparent" }) do
 	FILES[path:lower()] = 100000 + i
 end
 function GetFileIDFromPath(path) return FILES[(path:lower():gsub("/", "\\"))] end
@@ -1981,9 +1981,10 @@ ATLASES["UI-QuestPoi-QuestNumber"], ATLASES["deathrecap-icon-tombstone"] = { 32,
 ATLASES["poi-graveyard-neutral"] = { 12, 16 }
 ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
 -- the quest popup's buttons (ui/QuestTooltip.lua): the world map's quest disc's looks, the micro menu's quest log
-for _, a in ipairs({ "UI-QuestPoi-QuestNumber-SuperTracked", "UI-QuestPoi-QuestNumber-Pressed", "UI-QuestPoi-InnerGlow" }) do
-	ATLASES[a] = { 32, 32 }
+for _, c in ipairs({ "128-redbutton", "128-goldredbutton" }) do
+	for _, k in ipairs({ "", "-pressed" }) do ATLASES[c .. "-left" .. k], ATLASES[c .. "-right" .. k] = { 114, 128 }, { 292, 128 } end
 end
+ATLASES["128-redbutton-highlight"], ATLASES["Navigation-Tracked-Arrow"], ATLASES["flightpath"] = { 441, 128 }, { 22, 18 }, { 32, 32 }
 for _, a in ipairs({ "hud-microbutton-Quest-Up", "hud-microbutton-Quest-Down", "hud-microbutton-highlight" }) do
 	ATLASES[a] = { 28, 36 }
 end

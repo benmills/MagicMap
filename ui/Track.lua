@@ -29,10 +29,10 @@ local Command = ns.Game.Command
 local NEAR = 0.01 -- tiles (~5 yards): the waypoint stands at the tracked pos (set through map coordinates and read back)
 local ARM = 2 -- frames after a Track before the waypoint must stand there (the Command's apply, the next observe)
 
--- QuestRows' icons (the popup's buttons, ui/QuestTooltip.lua): Track's own gold arrow (ui/Guide.lua), the
--- Pathing page's footprints, round; the micro menu's quest log button (28 x 36).
-local TRACK_ICON = { texture = "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW" }
-local PATH_ICON = { texture = "Interface\\Icons\\Ability_Hunter_Pathfinding", round = true }
+-- QuestRows' icons (the popup's buttons, ui/QuestTooltip.lua): the world map's gold tracked arrow; the travel boot
+-- (flightpath), made gold; the micro menu's quest log button (28 x 36).
+local TRACK_ICON = { atlas = "Navigation-Tracked-Arrow" }
+local PATH_ICON = { atlas = "flightpath", gold = true }
 local LOG_ICON = { up = "hud-microbutton-Quest-Up", down = "hud-microbutton-Quest-Down",
 	lit = "hud-microbutton-highlight", aspect = 28 / 36 }
 

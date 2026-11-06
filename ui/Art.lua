@@ -34,7 +34,9 @@ local Art = {
 		"Waypoint-MapPin-Tracked",                                 -- ui/You.lua: your waypoint
 		"questnormal", "questturnin",                              -- ui/Quests.lua, model/Blips.lua: quests to pick up ("!"), turn-ins ("?")
 		"Quest-In-Progress-Icon-yellow",                        -- ui/Quests.lua: a quest in progress, on the disc (model/Quests.lua)
-		"UI-QuestPoi-QuestNumber-SuperTracked", "UI-QuestPoi-QuestNumber-Pressed", "UI-QuestPoi-InnerGlow", -- the quest popup's buttons
+		"128-redbutton-left", "128-redbutton-right", "128-redbutton-left-pressed", "128-redbutton-right-pressed", -- the quest
+		"128-goldredbutton-left", "128-goldredbutton-right", "128-goldredbutton-left-pressed", -- popup's red buttons
+		"128-goldredbutton-right-pressed", "128-redbutton-highlight", "Navigation-Tracked-Arrow", "flightpath",
 		"hud-microbutton-Quest-Up", "hud-microbutton-Quest-Down", "hud-microbutton-highlight", -- its quest log (the micro menu's)
 		"dungeon", "raid",                                         -- ui/Places.lua: dungeon and raid entrances
 		"taxinode_alliance", "taxinode_horde", "taxinode_neutral", -- ui/Places.lua: flight points
@@ -67,7 +69,6 @@ local Art = {
 		"Interface\\Buttons\\UI-PlusButton-Up", "Interface\\Buttons\\UI-MinusButton-Up", -- ui/Feel.lua: a row's open mark
 		"Interface\\Buttons\\UI-PlusButton-Hilight",
 		"Interface\\Common\\UI-TooltipDivider-Transparent",      -- ui/QuestTooltip.lua: the popup's divider
-		"Interface\\Icons\\Ability_Hunter_Pathfinding",          -- ui/Track.lua: the popup's Path to
 	},
 	fonts = { "Fonts\\FRIZQT__.TTF", "Fonts\\MORPHEUS.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS), and the zones' Morpheus
 }

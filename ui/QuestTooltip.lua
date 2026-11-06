@@ -11,9 +11,8 @@
 -- lines in the same fonts, put where the hover's tooltip stood (its top left, its scale) as that one
 -- hides: the panel stays where it was, its lines where they were, and only grows, the click hint giving
 -- way to a divider (the client menu's, MenuVariants.lua:26) and a line of small buttons, the pin's rows
--- (ui/Track.lua's Track.QuestRows): Track and Path to, each Blizzard's quest disc with its icon (the disc's
--- supertracked look while it's what you do), and the micro menu's quest log button; each names itself in a
--- tooltip on hover. Unlike the tooltip it stays: until a row is picked, a click
+-- (ui/Track.lua's Track.QuestRows): Track and Path to, each Blizzard's small red button with a gold glyph (gold-
+-- trimmed while it's what you do), and the micro menu's quest log button; each names itself in a tooltip on hover. Unlike the tooltip it stays: until a row is picked, a click
 -- anywhere off it (a button pressed, looked at once a frame), Escape (game/Hooks.lua names it in
 -- UISpecialFrames) or the map hidden. While it shows a quest, that quest's pin shows no hover tooltip;
 -- it counts as a menu open (ui/Menus.lua's IsOpen: the controls stay).
@@ -28,9 +27,15 @@ local SEP = DIM .. "  ·  |r"
 local HINT = DIM .. "Click for options|r" -- (the popup: below)
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- the pill's ends (ui/Pins.lua's dots)
 local DIVIDER = "Interface\\Common\\UI-TooltipDivider-Transparent" -- MenuVariants.lua:26
-local DISC, DISC_ON = "UI-QuestPoi-QuestNumber", "UI-QuestPoi-QuestNumber-SuperTracked" -- the buttons' (the world map's)
-local DISC_DOWN, DISC_LIT = "UI-QuestPoi-QuestNumber-Pressed", "UI-QuestPoi-InnerGlow"
-local BTN, BTN_GAP, ICON = 24, 4, 0.55 -- the buttons: px tall, px apart; an icon's share of its disc
+local RED_BTN, GOLD_BTN = "128-redbutton", "128-goldredbutton" -- the buttons' art: Blizzard's red button, gold-trimmed
+local GOLD = { 1, 0.82, 0 } -- a glyph made gold (the red buttons' own glyphs' colour)
+local BTN, BTN_GAP, GLYPH = 22, 3, 0.6 -- the buttons: px square, px apart; a glyph's longer side, of the button
+-- w, h of a glyph whose longer side is n, at its atlas's proportions.
+local function Fit(n, info)
+	local w, h = info.width, info.height
+	if w >= h then return n, n * h / w end -- /: never 0 (w >= h > 0)
+	return n * w / h, n -- /: never 0 (h > w >= 0)
+end
 local PILL_H, PILL_PAD, PILL_ALPHA = 14, 5, 0.22 -- px tall, px past the number each side; its tint's alpha
 local FIT = 260 -- px: the title and its pill fit on one line within this (a tooltip's usual widest), else the pill goes under
 local CURSOR_GAP = 16 -- px: the popup right of the cursor when the tooltip's place is secret
@@ -214,23 +219,47 @@ divider:SetHeight(13)
 local rows = {} -- its buttons, made as needed
 QuestTooltip.rows = rows
 
--- A row's button: a small round one, Blizzard's quest disc ("supertracked" while it's what you do) with its
--- icon on it, or an atlas button's own art (the micro menu's quest log); its label in a tooltip on hover.
+-- A row's button: Blizzard's small red square button (its 128-redbutton art: the left end of the wide button's
+-- left piece and the right end of its right, a square together; gold-trimmed, 128-goldredbutton, while it's what you
+-- do) with a gold glyph, or an atlas button's own art (the micro menu's quest log); its label in a tooltip on hover.
 local function Tip(b)
 	GameTooltip:SetOwner(b, "ANCHOR_BOTTOM")
 	GameTooltip:SetText(b.label, 1, 1, 1)
 	GameTooltip:Show()
+end
+-- t shows the left (or right) square half of a wide atlas: its height over two, from that end.
+local function Half(t, atlas, right)
+	local info = C_Texture.GetAtlasInfo(atlas)
+	local l, r = info.leftTexCoord, info.rightTexCoord
+	local f = (r - l) * info.height / 2 / info.width -- /: never 0 (an atlas's width is > 0)
+	if right then l = r - f else r = l + f end
+	t:SetTexture(info.file)
+	t:SetTexCoord(l, r, info.topTexCoord, info.bottomTexCoord)
+end
+local function Face(b, kind) -- kind: "", "-pressed"
+	local base = b.on and GOLD_BTN or RED_BTN
+	Half(b.l, base .. "-left" .. kind)
+	Half(b.r, base .. "-right" .. kind, true)
+	b.glyph:SetPoint("CENTER", 0, kind == "" and 0 or -1)
 end
 local function Row(i)
 	local b = rows[i]
 	if b then return b end
 	b = CreateFrame("Button", nil, popup)
 	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	b.icon = b:CreateTexture(nil, "ARTWORK")
-	b.icon:SetPoint("CENTER")
-	b.mask = b:CreateMaskTexture()
-	b.mask:SetTexture(CIRCLE, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-	b.mask:SetAllPoints(b.icon)
+	b.l, b.r = b:CreateTexture(nil, "BACKGROUND"), b:CreateTexture(nil, "BACKGROUND")
+	b.l:SetPoint("TOPLEFT")
+	b.l:SetPoint("BOTTOMRIGHT", b, "BOTTOM")
+	b.r:SetPoint("TOPRIGHT")
+	b.r:SetPoint("BOTTOMLEFT", b, "BOTTOM")
+	b.hl, b.hr = b:CreateTexture(nil, "HIGHLIGHT"), b:CreateTexture(nil, "HIGHLIGHT")
+	b.hl:SetAllPoints(b.l)
+	b.hr:SetAllPoints(b.r)
+	b.hl:SetBlendMode("ADD")
+	b.hr:SetBlendMode("ADD")
+	b.glyph = b:CreateTexture(nil, "ARTWORK")
+	b:SetScript("OnMouseDown", Runtime.Wrap("map: quest popup button", function() if b.red then Face(b, "-pressed") end end))
+	b:SetScript("OnMouseUp", Runtime.Wrap("map: quest popup button", function() if b.red then Face(b, "") end end))
 	b:SetScript("OnEnter", Runtime.Wrap("map: quest popup button", function() Tip(b) end))
 	b:SetScript("OnLeave", Runtime.Wrap("map: quest popup button", function() GameTooltip:Hide() end))
 	b:SetScript("OnClick", Runtime.Wrap("map: quest popup pick", function()
@@ -243,27 +272,26 @@ local function Row(i)
 	return b
 end
 
--- r: a QuestRows row { label, fn, icon = { texture | atlas, round?, up?, down?, lit? }, on? }.
+-- r: a QuestRows row { label, fn, icon = { atlas, gold? } | { up, down, lit, aspect }, on? }.
 local function Dress(b, r)
 	local ic = r.icon
-	b.fn, b.label = r[2], r[1]
+	b.fn, b.label, b.on, b.red = r[2], r[1], r.on, not ic.up
 	if ic.up then -- an atlas button (the micro menu's): its own art, its own proportions
 		b:SetSize(BTN * ic.aspect, BTN)
 		b:SetNormalAtlas(ic.up)
 		b:SetPushedAtlas(ic.down)
 		b:SetHighlightAtlas(ic.lit, "ADD")
-		b.icon:Hide()
 		return
 	end
 	b:SetSize(BTN, BTN)
-	b:SetNormalAtlas(r.on and DISC_ON or DISC)
-	b:SetPushedAtlas(DISC_DOWN)
-	b:SetHighlightAtlas(DISC_LIT, "ADD")
-	local t = b.icon
-	if ic.atlas then t:SetAtlas(ic.atlas) else t:SetTexture(ic.texture) end
-	t:SetSize(BTN * ICON, BTN * ICON)
-	if ic.round then t:AddMaskTexture(b.mask) else t:RemoveMaskTexture(b.mask) end
-	t:Show()
+	Face(b, "")
+	Half(b.hl, RED_BTN .. "-highlight")
+	Half(b.hr, RED_BTN .. "-highlight", true)
+	local g = b.glyph
+	g:SetAtlas(ic.atlas)
+	g:SetSize(Fit(BTN * GLYPH, C_Texture.GetAtlasInfo(ic.atlas)))
+	g:SetDesaturated(ic.gold or false)
+	if ic.gold then g:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], 1) else g:SetVertexColor(1, 1, 1, 1) end
 end
 
 popup:HookScript("OnHide", Runtime.Wrap("map: quest popup hidden", function()
