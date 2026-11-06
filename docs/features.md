@@ -50,7 +50,7 @@ to fly there. `/mm map` and `/mm zone` do the same by name.
 counts, and the walking line up to a waypoint at Razor Hill.*
 
 **The ground.** The game's minimap tiles at any zoom, as Blizzard drew them, on each map's own dark
-backdrop; zone and subzone names on the big map (none at the minimap's size; no zone borders: [ADR 0012](decisions/0012-no-borders.md)); your arrow, with a denser shadow. Under the tiles, a one-picture stand-in for each continent
+backdrop; zone and subzone names on the big map (none at the minimap's size; no zone borders: [ADR 0012](decisions/0012-no-borders.md)); your arrow (the Minimap's own player arrow), with a denser shadow. Every pin is Blizzard's art (an atlas, a texture of the client's or its tinted circle); the addon's own files are the map art alone. Under the tiles, a one-picture stand-in for each continent
 (Eastern Kingdoms, Kalimdor: zone colours, a crisp coast) shows through wherever the tiles aren't
 there yet, so a fast zoom out or a flick never shows bare backdrop. It's never switched over to:
 the tiles are the map at every zoom. **The ocean** (Settings > Map > Ocean, on): a coloured sea round
@@ -176,14 +176,14 @@ any colour). Every change applies at once. A setting changed from its default sh
 back), each page has its own Reset and there's Reset all at the bottom, each lit only while there's something to
 reset; the switches (what MagicMap replaces, Follow you, the minimap button, Group icons, the diagnostics) are left
 as they are. A row that only matters while another setting is on (the outline's colour, the breath's pace) shows
-only then. Hover a row for what it does and its default. Settings are account-wide.
+only then; a row with more under it (Pins' families and types) has a plus that opens it. Hover a row for what it does and its default. Settings are account-wide.
 
 | Page | Settings (default) |
 | --- | --- |
 | General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to you (on: the small map glides back to you when left alone), Return after (6 s), Zoom per notch (+30%) |
 | Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (100%), Subzone opacity (60%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
 | Title | At rest (Zone, Subzone), On hover (Zone, Subzone, Coordinates, Tracked target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time, Day or night. Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
-| Icons | Size: Icon size (120%), Quest icon size (100%) |
+| Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Services, Vendors, Resources, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Each follows the level above until set; its undo hands it back |
 | Resources | Tracking: Keep tracking (your gathering tracker: Find Herbs, else Find Minerals, else Find Treasure; or one you know, or Off). Badges: Difficulty (on), Letter (on), Badge size (100%) |
 | Info pills | Both pills: Backing (25%), Size (100%). Quest pill: Shows (quest or zone count / followed quest only / off), Quest progress (on), Fade quest pill (on: the zone count only while you point at the map). Distance pill: Distance pill (on), Shows (yards and time / yards / time), Corner (top left / top right), Fade distance pill (off) |
 | Tracking | Arrow: Size (80%), Opacity (90%), Distance (48 px). Path to: Frame the way (on) |

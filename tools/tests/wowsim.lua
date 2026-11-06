@@ -1200,7 +1200,9 @@ local FILES = {}
 for i, path in ipairs({ "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up", "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight",
 	"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down", "Interface\\WorldMap\\Gear_64", "Interface\\CharacterFrame\\TempPortraitAlphaMask",
 	"Interface\\HUD\\UIMinimap2xC60", "Interface\\Icons\\INV_Misc_Map_01", "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",
-	"Interface\\Minimap\\PartyRaidBlipsV2", "Interface\\GossipFrame\\VendorGossipIcon" }) do
+	"Interface\\Minimap\\PartyRaidBlipsV2", "Interface\\GossipFrame\\VendorGossipIcon", "Interface\\Icons\\Ability_Tracking",
+	"Interface\\Icons\\INV_Misc_EngGizmos_01", "Interface\\Buttons\\UI-PlusButton-Up", "Interface\\Buttons\\UI-MinusButton-Up",
+	"Interface\\Buttons\\UI-PlusButton-Hilight", "Interface\\Minimap\\MinimapArrow" }) do
 	FILES[path:lower()] = 100000 + i
 end
 function GetFileIDFromPath(path) return FILES[(path:lower():gsub("/", "\\"))] end
@@ -1955,6 +1957,16 @@ for _, name in ipairs({ "taxinode_alliance", "taxinode_horde", "taxinode_neutral
 	"questnormal", "questturnin", "dungeon", "raid" }) do
 	ATLASES[name] = true
 end
+-- Settings > Pins' (ui/PinTypes.lua): the rows' art and Blizzard's other art for a type (ObjectIconsAtlas, Forever's
+-- sizes); your arrow (the Minimap's, 22 px).
+for _, name in ipairs({ "innkeeper", "banker", "auctioneer", "stablemaster", "battlemaster", "profession", "class",
+	"repair", "mailbox", "flightmaster", "flightpath", "questrepeatableturnin", "quest-campaign-turnin", "questdaily", "smallquestbang", "quest-campaign-available", "dungeonskull",
+	"playerdeadblip", "xmarksthespot" }) do
+	ATLASES[name] = { 32, 32 }
+end
+ATLASES["vignetteloot"], ATLASES["vignettekillelite"], ATLASES["waypoint-mappin-minimap-tracked"] = { 32, 32 }, { 64, 64 }, { 32, 32 }
+ATLASES["professions_tracking_herb_special"], ATLASES["professions_tracking_ore_special"] = { 44, 42 }, { 48, 42 }
+ATLASES["ui-hud-minimap-arrow-player"] = { 22, 22 }
 -- The settings window's controls (ui/Feel.lua): the client's settings panel's checkbox, slider and divider, its
 -- dropdown's, the undo icon and the minimal scroll bar's arrows (Forever's sizes).
 ATLASES["checkbox-minimal"], ATLASES["checkmark-minimal"] = { 30, 29 }, { 30, 29 }

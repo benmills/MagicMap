@@ -14,6 +14,8 @@
 -- every frame, its zoom the camera's, as the spike's host moved and sized with the view (MinimapTakeover.lua:
 -- 479-508): its pins (around you: Game sizes their host to the Minimap's view) over ours, under your arrow
 -- (MinimapTakeover.lua:325-331).
+-- Their type: Other addons' pins (Settings > Pins > Addons): hidden, every addon's layer off for Game; its opacity both
+-- sockets' (a frame's alpha: no cost a pin). No size: never scaled (above), nor an icon (theirs).
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
@@ -26,6 +28,11 @@ local MINI = 17 -- the minimap socket's pins: under your arrow's overlay (18: ui
 local Sockets = {}
 UI.Sockets = Sockets
 
+local Types = UI.PinTypes
+Types.Add({ id = "addon", family = "addons", name = "Other addons'", size = false,
+	look = { icon = { texture = "Interface\\Icons\\INV_Misc_EngGizmos_01" } }, -- (the gear's Other addons icon: theirs vary)
+	tip = "Pins other addons put on the world map, shown on ours (each addon's own row in the gear menu too)." })
+
 local view = Window.view
 local canvas = CreateFrame("Frame", nil, view)
 canvas:SetSize(1, 1)
@@ -37,7 +44,7 @@ around:SetFrameLevel(view:GetFrameLevel() + MINI - 1) -- (its pins a level over 
 local mini = { frame = around, inst = 0, zoom = 0, level = 0 }
 Sockets.world, Sockets.minimap = world, mini
 
-local held, placed, x, y = nil, true, nil, nil -- the zoom last frame; as applied
+local held, placed, x, y, alpha = nil, true, nil, nil, 1 -- the zoom last frame; as applied
 local ax, ay -- the minimap socket's, as applied
 local keys = {} -- an addon's key -> its layer's
 -- Each frame (ui/View.lua's step): View's chrome, the layers Game acts on and the sockets. True:
@@ -65,9 +72,11 @@ function Sockets.Update(v)
 	local moved = world.zoom ~= zoom or world.inst ~= inst
 	world.inst = inst
 	local at = world.zoom == cam.zoom -- the pins where they belong
-	if at ~= placed then
-		placed = at
-		canvas:SetAlpha(at and 1 or 0)
+	local st = Types.Of("addon")
+	if at ~= placed or st.alpha ~= alpha then
+		placed, alpha = at, st.alpha
+		canvas:SetAlpha(at and alpha or 0)
+		around:SetAlpha(alpha)
 	end
 	local nx, ny = w / 2 - cam.cx * cam.zoom, cam.cy * cam.zoom - h / 2
 	if at and (nx ~= x or ny ~= y) then
@@ -87,7 +96,7 @@ function Sockets.Update(v)
 		if a.world then
 			local key = keys[a.key]
 			if not key then key = "addon:" .. a.key; keys[a.key] = key end
-			local on = Engine.LayerOn(key) or nil
+			local on = st.show and Engine.LayerOn(key) or nil
 			if layers[key] ~= on then layers[key], changed = on, true end
 		end
 	end

@@ -35,17 +35,11 @@ local NONE = {}
 local Pins = {}
 UI.Pins = Pins
 
--- Every pin's size, a factor (Settings > Icons > Icon size): Style takes it on a look's size but for a fixed one (a
--- group's pill, whose slots are ICON px: ui/Cluster.lua); a pin layer's rev moves with it, so the pins are set again.
-local scale, scaleRev = 1.2, 0
-
-UI.Feel.Add("icons", "Size", {
-	{ key = "icons.scale", kind = "slider", label = "Icon size", min = 0.6, max = 1.6, step = 0.1, pct = true, default = scale,
-		apply = function(k)
-			if scale == k then return end
-			scale, scaleRev = k, scaleRev + 1
-		end, tip = "Every icon on the map: quests, places, rares, the lot (a group's pill keeps its size)." },
-})
+-- A look's type (look.type: ui/PinTypes.lua) gives its style, Settings > Pins: whether it's drawn (put leaves it out),
+-- its size (a factor on the look's but for a fixed one: a group's pill, whose slots are ICON px, ui/Cluster.lua), its
+-- opacity and its icon as chosen; a pin layer's rev moves with any type's (Types.Rev), so the pins are set again.
+local Types = UI.PinTypes
+local Of = Types.Of
 
 ---------------------------------------------------------------------------
 -- StylePin (Layers.lua:304-400)
@@ -218,13 +212,18 @@ local function SetBadges(pin, b, size)
 	end
 end
 
--- look: { size? (14), fixed? (not scaled by the settings), badge? (SetBadges), icon? = { texture | atlas, alt?, coords?, under?, tint?, inner?, scale?, aspect?, color? },
+-- look: { type? (its style's: ui/PinTypes.lua), size? (14), fixed? (not scaled by the settings), badge? (SetBadges), icon? = { texture | atlas, alt?, coords?, under?, tint?, inner?, scale?, aspect?, color? },
 -- count? }: (a) a texture (coords: its part, a cell of a sheet), bare; (b) an atlas, at its own aspect
 -- (aspect: its width over height, else the client's); (c) an atlas over its under atlas tinted, the inner
 -- texture in it; (d) else (an atlas the client lacks too, and no alt: the look drawn instead when the atlas is
 -- missing) a dot of its colour on a dark ring; count: a line under it.
 local function Style(pin, look)
-	local size, icon = (look.size or SIZE) * (look.fixed and 1 or scale), look.icon or NONE
+	local st = Of(look.type)
+	local size, icon = (look.size or SIZE) * (look.fixed and 1 or st.size), st.icon or look.icon or NONE
+	if pin.alpha ~= st.alpha then
+		pin.alpha = st.alpha
+		pin:SetAlpha(st.alpha)
+	end
 	if icon.alt and not icon.texture and not (icon.atlas and Has(icon.atlas)) then icon = icon.alt end -- (an atlas the client lacks: its alt)
 	pin.psize = size
 	Size(pin, size, size)
@@ -311,8 +310,8 @@ end
 local function WithTrack(rev)
 	local a, t, s, n = nil, nil, nil, 0
 	return function()
-		local r, tr = rev and rev(), Track.Rev()
-		if r ~= a or tr ~= t or scaleRev ~= s then a, t, s, n = r, tr, scaleRev, n + 1 end
+		local r, tr, st = rev and rev(), Track.Rev(), Types.Rev()
+		if r ~= a or tr ~= t or st ~= s then a, t, s, n = r, tr, st, n + 1 end
 		return n
 	end
 end
@@ -330,6 +329,7 @@ function Pins.Layer(name, level, fill, rev, opts)
 		return false
 	end
 	local function put(e, look, minZoom)
+		if not Of(look.type).show then return end -- (hidden: Settings > Pins)
 		local p = e.pos
 		if minZoom and Track.Focus(e) then minZoom = nil end -- (what you track: at any zoom)
 		if p.inst ~= inst or minZoom and not want(minZoom) then return end

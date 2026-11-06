@@ -88,14 +88,9 @@ local function Remove(i) blips[i].gone = true; table.remove(blips, i); Changed()
 -- the ore patterns: every node Data has). Blizzard says only a blip's name, so a name no one knows is a gold dot
 -- whatever is tracked: guessed from Find Herbs, a trainer, a chest or a corpse was drawn as a herb (#21).
 -- nil, nil: none (a gold dot). Kept by name, asked again when the tracking types change (they come after login).
-local SERVICE = { innkeeper = 136458, banker = 136453, auctioneer = 136452, stablemaster = 136466,
-	battlemaster = 136454, trainer = 136463, classtrainer = 136455, repair = 136465, mailbox = 136459,
-	flightmaster = 136456 }
-local GATHER = { herb = "Professions_Tracking_Herb", ore = "Professions_Tracking_Ore" }
--- Vendors, by what they sell (Data's kind from the title): Blizzard's tracking art; the rest the gossip window's
--- vendor sack (FileDataID 132060; the client has no coin-gold-20x20 atlas, #21), a path ui/Art.lua's Icon draws as a texture.
-local VENDOR = { food = "food", reagents = "reagents", poisons = "poisons", ammunition = "ammunition",
-	fishing = "Professions_Tracking_Fish", vendor = "Interface\\GossipFrame\\VendorGossipIcon" }
+-- The art: Atlas.BLIP_ART's (a service's tracking texture; a gathering node's or a vendor's atlas, or the gossip
+-- window's vendor sack, a path ui/Art.lua's Icon draws as a texture).
+local HERB, ORE = Atlas.BlipArt("herb"), Atlas.BlipArt("ore")
 local icons, atlases = {}, {}
 local function Icon(name)
 	local icon = icons[name]
@@ -105,12 +100,13 @@ local function Icon(name)
 			if info and info.name == name then icon = info.texture end
 		end
 		local service = Atlas.BlipService(name)
-		icon = icon or SERVICE[service] or false
-		icons[name], atlases[name] = icon, GATHER[service] or VENDOR[service] or false
+		local art, group = Atlas.BlipArt(service)
+		icon = icon or group == "service" and art or false
+		icons[name], atlases[name] = icon, (group == "gather" or group == "vendor") and art or false
 	end
 	return icon or nil, atlases[name] or nil
 end
-local function Gathered(b) return b.atlas == GATHER.herb or b.atlas == GATHER.ore end
+local function Gathered(b) return b.atlas == HERB or b.atlas == ORE end
 
 -- Names not sensed, each look: you, your pet, your group and their pets (as either: one an unknown name, a dot);
 -- and loosely (Skipped) a name holding one of theirs as a word ("Corpse of Friend") or any corpse's (the client's

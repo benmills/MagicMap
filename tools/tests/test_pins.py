@@ -1,8 +1,14 @@
 """The pin store (ui/Pins.lua) on the simulated client: one store diffed by id (200 pins, one changed:
 that pin alone re-set; the rev bumped with nothing changed, or left as it is: none); StylePin's forms
 (a)-(d) and count; a pin's tooltip (built once a hover, its lines small and grey, hidden off it with
-its fonts back), a click on it, and a drag over it panning the map."""
+its fonts back), a click on it, and a drag over it panning the map; the pin inventory (Settings > Pins: every type a
+row and Blizzard's art) and its choices on the map and in a group's pill."""
+import os
+
+from sim import TESTS
 from test_addon import boot, errors
+
+ROOT = os.path.join(TESTS, "..", "..")
 
 # A test kind's layer: n pins about the view's centre (Known-shaped), each its look; t.rev its rev.
 LAYER = """function(Pins, n, cx, cy, looks)
@@ -232,4 +238,153 @@ def test_track_icon():
     ns.Game.Command(L.table_from({"kind": "waypoint", "pos": False}))  # cleared elsewhere: the tracking ends
     sim.Run(1.5)  # (the arrow faded out)
     assert UI.saved.tracked is None and not S[arrow].shown
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+MAP_ART = ("Base", "Sea", "Repaint", "Patch")  # Textures/: the map art alone (the base, the sea, the repaints)
+
+
+def test_pin_inventory():
+    """#16: every pin type (ui/PinTypes.lua) has its row in Settings > Pins, in a family the page lists, and draws
+    with Blizzard's art (an atlas, a FileDataID or a client path: never the addon's own files), as does every icon it
+    offers; every pin the map draws has a type (Goldshire's quests, offers, places and vignette, blips of each kind,
+    your corpse); your arrow is the Minimap's own; the addon's Textures/ hold only the map art, and no ui/ or game/
+    file names one."""
+    from sim import put_blips
+    L, sim, ns = boot()
+    Types, Feel = ns.UI.PinTypes, ns.UI.Feel
+    families = {f.key for f in Types.FAMILIES.values()}
+
+    def blizzard(art):
+        if isinstance(art, (int, float)):
+            return True
+        return isinstance(art, str) and (art.startswith("A:") or art.isdigit()
+                                         or art.startswith("Interface\\") and not art.startswith("Interface\\AddOns"))
+
+    types = list(Types.list.values())
+    assert len(types) >= 30
+    for t in types:
+        assert t.family in families and Feel.Entry(f"pins.{t.id}.show").art is not None, t.id
+        icon = t.look.icon
+        art = icon.atlas and "A:" + icon.atlas or icon.texture
+        assert blizzard(art) or (art is None and icon.color is not None), (t.id, art)  # (a dot: the client's circle)
+        for o in (t.icons or L.table_from([])).values():
+            assert blizzard(o[2]), (t.id, o[2])
+    assert {f"pins.{f}.show" for f in families} <= {k.key for k in Feel.Entries().values()}
+
+    put_blips(L, sim, ns, [("Mailbox", 40, 20), ("Peacebloom", -40, 30), ("Innkeeper Belm", 60, -20),
+                           ("Hai'zan", -50, -30), ("K'waii", 30, -50), ("Glimmerleaf", -20, 50)])
+    sim.Slash("/mm toggle")
+    sim.Run(4)
+    sim.player.dead = True  # (a corpse)
+    sim.Run(2)
+    Types.untyped = 0
+    ns.UI.Feel.Set("pins.all.alpha", 0.95)  # (every layer laid out again)
+    sim.Run(2)
+    assert Types.untyped == 0, Types.untyped
+
+    st = sim.state[ns.UI.You.arrow]
+    assert st.atlas == "ui-hud-minimap-arrow-player" and st.texture is None
+    assert all(f.startswith(MAP_ART) for f in os.listdir(os.path.join(ROOT, "Textures")))
+    for folder in ("ui", "game"):
+        for name in os.listdir(os.path.join(ROOT, folder)):
+            if name.endswith(".lua"):
+                with open(os.path.join(ROOT, folder, name), encoding="utf-8") as fh:
+                    assert "Textures\\\\" not in fh.read(), name
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_pin_types_apply():
+    """Settings > Pins on the map: a type's icon (Blizzard's other art), its family's size (the type's own once set),
+    its opacity, hidden (a type, then all pins: a family and a type follow until set); back on Reset. In a group's
+    pill: its icon as chosen, kept apart once it may not group, none once hidden."""
+    from test_quests import FRONTIER, LOVERS, client
+    L, sim, ns, G = client([FRONTIER, LOVERS])
+
+    def pin(ns, G, layer, quest):  # (laid out this time: a parked one keeps its key)
+        p = getattr(ns.UI, layer).front.pools.pin
+        i = p.at[f"quest:{quest}"]
+        return p[i] if i is not None and i <= p.n else None
+    S, Feel = sim.state, ns.UI.Feel
+
+    def set_(key, v):
+        Feel.Set(key, v)
+        sim.Run(0.5)
+    p = pin(ns, G, "Quests", 106)
+    assert S[p].width == 19 and S[p.icon].atlas == "questturnin" and S[p].alpha == 1
+    set_("pins.turnin.icon", "A:questrepeatableturnin")
+    assert S[pin(ns, G, "Quests", 106).icon].atlas == "questrepeatableturnin"
+    set_("pins.quests.size", 2)  # (the tests' icon size is 100%)
+    assert S[pin(ns, G, "Quests", 52)].width == 48 and S[pin(ns, G, "Quests", 106)].width == 38
+    set_("pins.turnin.size", 1)
+    assert S[pin(ns, G, "Quests", 52)].width == 48 and S[pin(ns, G, "Quests", 106)].width == 19
+    set_("pins.turnin.alpha", 0.5)
+    assert S[pin(ns, G, "Quests", 106)].alpha == 0.5 and S[pin(ns, G, "Quests", 52)].alpha == 1
+    set_("pins.quest.show", False)
+    assert pin(ns, G, "Quests", 52) is None and pin(ns, G, "Quests", 106) is not None
+    set_("pins.all.show", False)
+    assert pin(ns, G, "Quests", 106) is None and pin(ns, G, "Offers", 70) is None
+    set_("pins.turnin.show", True)
+    assert pin(ns, G, "Quests", 106) is not None and pin(ns, G, "Offers", 70) is None
+    Feel.Reset("pins")
+    sim.Run(0.5)
+    p = pin(ns, G, "Quests", 106)
+    assert not [k for k, _ in (ns.UI.saved.feel or L.table_from({})).items() if k.startswith("pins.")]
+    assert abs(S[p].width - 19 * 1.2) < 1e-9 and S[p.icon].atlas == "questturnin" and S[p].alpha == 1  # (Pin size back to 120%)
+    assert pin(ns, G, "Quests", 52) is not None and pin(ns, G, "Offers", 70) is not None
+
+    # A group's pill (test_cluster.py's five at one spot, rares).
+    ns.UI.saved.cluster = True
+    ns.UI.Cluster.Set("slots", 8)  # (every member's icon in the pill)
+    sim.Press("M")
+    sim.Run(1)
+    cam = ns.UI.Camera.cam
+    t = L.eval("""function(Pins, cx, cy)
+        local t = { list = {} }
+        for i = 1, 5 do
+            t.list[i] = { key = "r" .. i, name = "Rare " .. i, pos = { inst = 0, col = cx, row = cy } }
+        end
+        local look = { size = 15, icon = { texture = 137008 }, type = "rare" }
+        t.layer = Pins.Layer("raretest", 7, function(put)
+            for _, e in ipairs(t.list) do put(e, look) end
+        end, function() return 1 end, { cluster = true })
+        return t
+    end""")(ns.UI.Pins, cam.cx, cam.cy)
+    sim.Run(0.5)
+    pills = next(lay for lay in ns.UI.Engine.layers.values() if lay.name == "clusters")
+
+    def ours():  # the pill holding them: its icons' art
+        pool = pills.front.pools.pill
+        for i in range(1, (pool.n if pool else 0) + 1):
+            o = pool[i]
+            ms = o.cluster and list(o.cluster.members.values())
+            if ms and any(m[1].key == "r1" for m in ms):  # (its icons in its members' order: ours alone)
+                ics = list(o.icons.values())
+                return {S[ics[i].icon].atlas or S[ics[i].icon].texture
+                        for i, m in enumerate(ms) if str(m[1].key).startswith("r") and i < len(ics)}
+
+    def alone():
+        c = t.layer.front
+        return c.pools.pin.n if c and c.alpha > 0 and c.pools.pin else 0
+    assert ours() == {137008} and alone() == 0
+    set_("pins.rare.icon", "A:vignettekill")
+    assert ours() == {"vignettekill"}
+    set_("pins.rare.group", False)
+    assert ours() is None and alone() == 5
+    set_("pins.rare.show", False)
+    assert ours() is None and alone() == 0
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_saved_sizes_kept():
+    """A player's sizes from before #16: Icon size (icons.scale) is Pin size, as it was; Quest icon size
+    (quests.scale, a factor on it) becomes In progress's and Ready to turn in's own size (snapped to the slider's
+    step), the old key gone; quests to pick up follow Pin size, as they did."""
+    L, sim, ns = boot()
+    Feel = ns.UI.Feel
+    ns.UI.saved.feel = L.table_from({"icons.scale": 1.2, "quests.scale": 1.3})
+    Feel.Loaded()
+    assert dict(ns.UI.saved.feel.items()) == {"icons.scale": 1.2, "pins.quest.size": 1.6, "pins.turnin.size": 1.6}
+    assert Feel.Get("pins.offer.size") == 1.2 and Feel.Get("pins.quests.size") == 1.2
+    assert ns.UI.PinTypes.Of("turnin").size == 1.6 and ns.UI.PinTypes.Of("offer").size == 1.2
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

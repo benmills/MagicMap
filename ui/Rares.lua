@@ -3,13 +3,19 @@
 -- none: a continent's ~700 cost a 13 ms swap): laid out from a drift below it but zooming out
 -- (Engine.From), shown from it as the zoom moves (Engine.At's minimum zoom). Laid out again when
 -- Model's list changes. Tooltip: its name, Model's line ("Rare") and when you saw it, "Seen here <Mon
--- DD>". Toggled like any layer (/mm layer rares).
+-- DD>". Toggled like any layer (/mm layer rares). Its type: Rare (Settings > Pins: Rares & treasures), the skull or
+-- Blizzard's vignette art.
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
 
 local MIN_ZOOM = 60 -- px a tile (Landmarks.lua:15 RARE_MIN_ZOOM)
-local LOOK = { size = 15, icon = { texture = 137008 } } -- Landmarks.lua:15, 60-63 (RARE_ICON)
+local LOOK = { size = 15, icon = { texture = 137008 }, type = "rare" } -- Landmarks.lua:15, 60-63 (RARE_ICON)
+
+UI.PinTypes.Add({ id = "rare", family = "rares", name = "Rare", look = LOOK, groups = true,
+	icons = { { "Skull", "137008" }, { "Rare", "A:vignettekill" }, { "Rare elite", "A:vignettekillelite" },
+		{ "Red-eyed skull", "A:dungeonskull" } },
+	tip = "A rare where you last saw it." })
 
 UI.Rares = UI.Pins.Layer("rares", 11, function(put, _, _, want)
 	local list = Model.Known("rares")

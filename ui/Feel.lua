@@ -21,7 +21,10 @@
 -- loaded; only when it differs from what it last took; each wrapped: one failing can't stop the rest); get()/set(v):
 -- a value its owner keeps (UI.saved, UI.Replace...), not saved here; keep = true: a reset leaves it as it is (an
 -- owner's switch); when = a key (shown while that setting is on) or a function: a row shown only then (indented
--- under the row it depends on, in its section; a header shown while a row under it is). Its row: its label, its
+-- under the row it depends on, in its section; a header shown while a row under it is); under = a key: the row stands
+-- under that one (listed right after it, a level in), shown while it's opened (its plus: closed at first, kept for the
+-- session); art = function(row, last): a region drawn at the label's left (given the one it made before; drawn again
+-- as the page refreshes and on a change on its page). Its row: its label, its
 -- control, and an undo mark while it differs from its default (a click puts the default back); its tooltip the
 -- label, the tip and the default. Rows made from a list are a loop of Feel.Add's entries (keys "<area>.<id>.<name>").
 -- The rule (tools/tests/test_lookfeel.py test_settings_declared holds it): every value the code reads or sets
@@ -47,7 +50,9 @@
 --     Indoor auto-zoom (ui/Interiors.lua); You: Your arrow (ui/You.lua).
 --   Title (25, ui/Title.lua). At rest, On hover (the pieces, chosen and ordered); Format: Clock (while a time is
 --     chosen).
---   Icons (30), the icons' size. Size: Icon size (ui/Pins.lua), Quest icon size (ui/Quests.lua).
+--   Pins (30, ui/PinTypes.lua), every pin type the map draws. Show pins, Pin size, Pin opacity; By type: each
+--     family's row (Quests, Services, Vendors, Resources, Rares & treasures, Party, Places, Addons, Other: Size,
+--     Opacity), each type's under it (Size, Opacity, Icon, Group), declared by the files that draw them.
 --   Resources (35). Tracking: Keep tracking (ui/Resources.lua); Badges: Difficulty, Letter, Badge size (ui/Blips.lua).
 --   Info pills (40, ui/Controls.lua). Both pills: Backing, Size; Quest pill: Shows, Quest progress, Fade quest pill;
 --     Distance pill: Distance pill, Shows, Corner, Fade distance pill.
@@ -61,7 +66,7 @@
 --     pill, Pill backing, Open group backing.
 --   Diagnostics (90, here). Debug info in title, Indoor maps report; Reports in chat: Record 10 seconds, Compare
 --     with other addons, Memory breakdown (each a /mm command too).
--- Pages to come take an order between these (Pins...). The sidebar has room for 14
+-- Pages to come take an order between these. The sidebar has room for 14
 -- before the window grows; a page longer than the window scrolls.
 --
 -- The window: a movable dialog of the client's ButtonFrameTemplate (as the map window, ui/Window.lua, but kept as
@@ -91,6 +96,7 @@ UI.Feel = Feel
 local PAGES, BY_PAGE = {}, {} -- by order (then as declared)
 local KEYS, BY_KEY = {}, {} -- every setting, as declared
 local INHERIT = {} -- the settings whose default is a function: told when another changes
+local OPENS, opened = {}, {} -- the rows others stand under (their key -> true); those open now (this session)
 local KINDS = { toggle = true, slider = true, select = true, color = true, list = true, button = true }
 local built -- the window, made on its first open
 local Sidebar, Grew -- (the window's, below: a page declared once it's built)
@@ -120,6 +126,7 @@ function Feel.Add(page, section, list)
 		KEYS[#KEYS + 1] = k
 		BY_KEY[k.key] = k
 		if type(k.default) == "function" then INHERIT[#INHERIT + 1] = k end
+		if k.under then OPENS[k.under] = true end
 		local p = BY_PAGE[page]
 		if p then p.items = nil end -- (its rows laid out again, the new one with them)
 	end
@@ -188,9 +195,11 @@ end
 local function Resettable(k) return not k.keep and k.kind ~= "button" and k.default ~= nil end
 local function Differs(k) return Resettable(k) and Feel.Get(k.key) ~= Default(k) end
 
+-- (A value saved that its inherited default has since come to equal is set too: back to inheriting.)
 function Feel.Reset(page)
+	local t = UI.saved and UI.saved.feel
 	for _, k in ipairs(KEYS) do
-		if k.page == page and Differs(k) then Feel.Set(k.key, Default(k)) end
+		if k.page == page and (Differs(k) or Resettable(k) and t and t[k.key] ~= nil) then Feel.Set(k.key, Default(k)) end
 	end
 end
 
@@ -280,6 +289,7 @@ local CONTENT_W = PAGE_W - BAR - 4 -- the rows
 local FOOT = 22 + 8 -- Reset all, under the pages
 local HEIGHT = HEADER + 8 + TABS * SIDE_ROW + FOOT + PAD
 local CTRL_X, INDENT = 150, 14 -- a row's control, from its left; a dependent row's label, further in
+local OPEN, ART = 12, 16 -- px: a row's open mark (rows stand under it), its art
 local LABEL_W = CTRL_X - 10
 local SLIDER_W, VALUE_W, DROP_W, SWATCH, CUSTOM_W = 120, 46, 176, 20, 60
 local UNDO = 14 -- the undo mark, at a row's right
@@ -699,8 +709,14 @@ local function Show(w, v)
 	end
 end
 
+-- Its art (k.art(row, last): the region it draws, given the one it made before), drawn again on each refresh.
+local function Draw(w)
+	if w.k.art then w.art = w.k.art(w.row, w.art) end
+end
+
 local function Refresh(w)
 	if w.k.kind ~= "button" then Show(w, Feel.Get(w.k.key)) end
+	if w.art then Draw(w) end
 end
 
 -- The undo mark: shown while the row's value differs from its default; a click puts the default back.
@@ -723,7 +739,40 @@ local function Undo(row, w, k)
 	w.undo = b
 end
 
--- A setting's row: its label (indented when it depends on another), its control, its undo mark.
+-- How deep a row stands under others (under: each a level).
+local function Depth(k)
+	local d, u = 0, k.under and BY_KEY[k.under]
+	while u do d, u = d + 1, u.under and BY_KEY[u.under] end
+	return d
+end
+
+-- Layout and Changed, below: a row opened or closed lays its page out again.
+local Layout
+
+-- The open mark of a row others stand under: the client's plus and minus; a click opens or closes it.
+local PLUS, MINUS = "Interface\\Buttons\\UI-PlusButton-Up", "Interface\\Buttons\\UI-MinusButton-Up"
+local function Opener(row, w, k, x)
+	local b = CreateFrame("Button", nil, row)
+	b:SetSize(OPEN, OPEN)
+	b:SetPoint("LEFT", row, "TOPLEFT", x, -ROW / 2)
+	b:SetNormalTexture(PLUS)
+	b:SetHighlightTexture("Interface\\Buttons\\UI-PlusButton-Hilight", "ADD")
+	Script(b, "OnClick", "feel: open", function()
+		opened[k.key] = not opened[k.key] or nil
+		b:SetNormalTexture(opened[k.key] and MINUS or PLUS)
+		Layout(BY_PAGE[k.page])
+	end)
+	b:HookScript("OnEnter", Runtime.Wrap("feel: tip", function()
+		GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+		GameTooltip:SetText(opened[k.key] and "Hide its settings" or "Show its settings", 1, 1, 1)
+		GameTooltip:Show()
+	end))
+	b:HookScript("OnLeave", Runtime.Wrap("feel: tip", function() GameTooltip:Hide() end))
+	w.opener = b
+end
+
+-- A setting's row: its label (indented when it depends on another, a level a row it stands under; after its open mark
+-- and its art), its control, its undo mark.
 local function MakeRow(p, k)
 	local row = CreateFrame("Frame", nil, p.content)
 	row:SetSize(CONTENT_W, ROW)
@@ -734,6 +783,17 @@ local function MakeRow(p, k)
 	if k.kind ~= "button" then
 		local on = type(k.when) == "string" and BY_KEY[k.when]
 		local indent = k.when and (not on or on.section == k.section) and INDENT or 0 -- (under the row it depends on)
+		indent = indent + Depth(k) * INDENT
+		if OPENS[k.key] then
+			Opener(row, w, k, 4 + indent)
+			indent = indent + OPEN + 2
+		end
+		Draw(w)
+		if w.art then
+			w.art:ClearAllPoints()
+			w.art:SetPoint("CENTER", row, "TOPLEFT", 4 + indent + ART / 2, -ROW / 2)
+			indent = indent + ART + 4
+		end
 		local label = Text(row, GameFontHighlightSmall, k.label)
 		label:SetPoint("LEFT", row, "TOPLEFT", 4 + indent, -ROW / 2)
 		label:SetWidth(LABEL_W - indent)
@@ -754,33 +814,47 @@ local function MakeHeader(p, name)
 end
 
 -- A page's items in order: the settings without a section first, then each section's header and settings (the
--- page's sections in its order, then any other as first declared), each in the order declared. Made as needed.
+-- page's sections in its order, then any other as first declared), each in the order declared, a row standing under
+-- another right after it (and those under it), whenever declared. Made as needed.
 local function Items(p)
 	if p.items then return p.items end
 	local order, seen = { false }, { [false] = true }
 	for _, s in ipairs(p.sections) do
 		if not seen[s] then order[#order + 1], seen[s] = s, true end
 	end
+	local kids = {} -- a row's key -> the rows under it
 	for _, k in ipairs(KEYS) do
-		if k.page == p.key and not seen[k.section] then order[#order + 1], seen[k.section] = k.section, true end
+		if k.page == p.key then
+			if not seen[k.section] then order[#order + 1], seen[k.section] = k.section, true end
+			local u = k.under and BY_KEY[k.under]
+			if u and u.page == p.key and u.section == k.section then
+				kids[u.key] = kids[u.key] or {}
+				table.insert(kids[u.key], k)
+			end
+		end
 	end
 	local items, hs = {}, headers[p.key] or {}
 	headers[p.key] = hs
+	local function Add(k)
+		local w = Feel.widgets[k.key]
+		if not w then
+			w = MakeRow(p, k)
+			Refresh(w)
+		end
+		items[#items + 1] = { k = k, w = w, f = w.row }
+		for _, c in ipairs(kids[k.key] or {}) do Add(c) end
+	end
 	for _, s in ipairs(order) do
 		local any = false
 		for _, k in ipairs(KEYS) do
-			if k.page == p.key and k.section == s then
+			local u = k.under and BY_KEY[k.under]
+			if k.page == p.key and k.section == s and not (u and u.page == p.key and u.section == s) then
 				if s and not any then
 					hs[s] = hs[s] or MakeHeader(p, s)
 					items[#items + 1] = { header = s, f = hs[s] }
 				end
 				any = true
-				local w = Feel.widgets[k.key]
-				if not w then
-					w = MakeRow(p, k)
-					Refresh(w)
-				end
-				items[#items + 1] = { k = k, w = w, f = w.row }
+				Add(k)
 			end
 		end
 	end
@@ -788,8 +862,11 @@ local function Items(p)
 	return items
 end
 
--- Whether a row shows: always, or while what it depends on is on.
+-- Whether a row shows: always, or while what it depends on is on; a row standing under another while that one is open
+-- and shown.
 local function Visible(k)
+	local under = k.under and BY_KEY[k.under]
+	if under and not (opened[under.key] and Visible(under)) then return false end
 	local when = k.when
 	if when == nil then return true end
 	if type(when) == "function" then return when() and true or false end
@@ -799,7 +876,7 @@ end
 
 -- The page's rows placed, top down: those shown, each header while a row under it is; the scroll bar while
 -- they're longer than the page.
-local function Layout(p)
+Layout = function(p)
 	local items = Items(p)
 	local header
 	for _, it in ipairs(items) do
@@ -854,6 +931,9 @@ Changed = function(k, v)
 	end
 	local p = BY_PAGE[k.page]
 	if p and p.laid then
+		for _, it in ipairs(Items(p)) do
+			if it.w and it.w.art then Draw(it.w) end -- (the art may show it)
+		end
 		for _, it in ipairs(Items(p)) do
 			if it.k and it.on ~= Visible(it.k) then
 				Layout(p)
@@ -1048,8 +1128,6 @@ Feel.Page({ key = "general", title = "General", icon = "Interface\\Icons\\Trade_
 	tip = "What MagicMap replaces, its window and how the map moves.", sections = { "Blizzard's maps", "Map window", "Movement" } })
 Feel.Page({ key = "map", title = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01", order = 20,
 	tip = "What the map shows: names, the ground, indoor maps and your arrow.", sections = { "Names", "Ground", "Indoors", "You" } })
-Feel.Page({ key = "icons", title = "Icons", icon = "Interface\\Icons\\Ability_Tracking", order = 30,
-	tip = "The icons' size.", sections = { "Size" } })
 Feel.Page({ key = "pills", title = "Info pills", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01", order = 40,
 	tip = "The quest pill (bottom left) and the distance pill (top).", sections = { "Both pills", "Quest pill", "Distance pill" } })
 Feel.Page({ key = "tracking", title = "Tracking", icon = "Interface\\Icons\\INV_Misc_Spyglass_03", order = 45,

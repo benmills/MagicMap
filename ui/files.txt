@@ -17,6 +17,7 @@ ui/Repaint.lua
 ui/Base.lua
 ui/Interiors.lua
 ui/Labels.lua
+ui/PinTypes.lua
 ui/Pins.lua
 ui/Cluster.lua
 ui/Resources.lua

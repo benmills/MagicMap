@@ -7,6 +7,8 @@
 -- rares and treasures, 20. One pin layer for them all, as the spike's one canvas (Layers.lua:418-430): a
 -- kind turned off is left out of its next layout. Tooltips: the name, then what it is (a flight point, a
 -- graveyard), its description (a dungeon, a point of interest), "Nearby now" (a vignette).
+-- Their types (Settings > Pins): each kind's (Places), and the vignettes' (Rares & treasures); the art is the client's
+-- for each place, so no icon to choose.
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
@@ -16,17 +18,30 @@ local LayerOn = Engine.LayerOn
 local LEVEL = 11 -- with the rares (the spike's landmarks): under the blips (12)
 local GOLD = { 1, 0.82, 0 } -- a flight point's, neutral (Layers.lua:459)
 local FACTION = { H = { 0.9, 0.2, 0.2 }, A = { 0.3, 0.5, 1 } } -- Layers.lua:459
-local VIGNETTE = { size = 20, color = { 1, 0.4, 0.3 }, line = "|cff808080Nearby now|r" } -- Landmarks.lua:94-95
+local VIGNETTE = { size = 20, color = { 1, 0.4, 0.3 }, line = "|cff808080Nearby now|r", sample = "vignetteloot" } -- Landmarks.lua:94-95
 
 -- Each kind of place: its layer's key (the gear's, Layers.lua:48-53, Landmarks.lua:142), size and fallback
--- colour (Layers.lua:470-534, Landmarks.lua:135), its tooltip's line (nil: the place's own text).
+-- colour (Layers.lua:470-534, Landmarks.lua:135), its tooltip's line (nil: the place's own text); its type's name and
+-- the art its row shows (the client names each place's).
 local KINDS = {
-	flight = { key = "flight", size = 18, line = "Flight point" },
-	dungeon = { key = "dungeons", size = 20, color = { 0.7, 0.4, 1 } },
-	graveyard = { key = "graveyards", size = 16, color = { 0.7, 0.7, 0.7 }, line = "Graveyard" },
-	poi = { key = "areaPOIs", size = 18, color = { 0.6, 0.85, 1 } },
+	flight = { key = "flight", size = 18, line = "Flight point", name = "Flight point", sample = "taxinode_neutral" },
+	dungeon = { key = "dungeons", size = 20, color = { 0.7, 0.4, 1 }, name = "Dungeon & raid", sample = "dungeon" },
+	graveyard = { key = "graveyards", size = 16, color = { 0.7, 0.7, 0.7 }, line = "Graveyard", name = "Graveyard",
+		sample = "poi-graveyard-neutral" },
+	poi = { key = "areaPOIs", size = 18, color = { 0.6, 0.85, 1 }, name = "Landmark", sample = "poi-town" },
 }
 local ORDER = { "flight", "dungeon", "graveyard", "poi" }
+local TIPS = { flight = "A flight master you can fly to or from.", dungeon = "A dungeon's or raid's entrance.",
+	graveyard = "Where your spirit goes when you release (its gear row is off until turned on).",
+	poi = "A place the game marks in its zone: a town, a camp, a landmark." }
+for _, place in ipairs(ORDER) do
+	local k = KINDS[place]
+	UI.PinTypes.Add({ id = place, family = "places", name = k.name, look = { size = k.size, icon = { atlas = k.sample, color = k.color } },
+		groups = true, tip = TIPS[place] })
+end
+UI.PinTypes.Add({ id = "vignette", family = "rares", name = "Nearby now",
+	look = { size = VIGNETTE.size, icon = { atlas = VIGNETTE.sample, color = VIGNETTE.color } }, groups = true,
+	tip = "A rare, treasure or event the game shows near you now, in its own art." })
 
 -- POIIcons: the art the client draws an area POI with when it names no atlas for it (its textureIndex):
 -- 14 cells of 18 px a row on a 256x512 sheet, as the game's GetPOITextureCoords cuts them (export_icons.py).
@@ -45,18 +60,20 @@ end
 -- StylePin's look for e's art at size, color its dot's: one table a look (by art and colour). The art: its
 -- atlas, which Pins uses if the client has it; else (icon.alt) a POI's cell, POIIcons; else a dot.
 local looks = {}
-local function Look(size, e, color)
+local function Look(kind, size, e, color)
 	local icon = e.icon or {}
 	local name = icon.atlas or (icon.cell and "cell:" .. icon.cell) or ""
-	local by = looks[size]
-	if not by then by = {}; looks[size] = by end
+	local of = looks[kind]
+	if not of then of = {}; looks[kind] = of end
+	local by = of[size]
+	if not by then by = {}; of[size] = by end
 	local at = by[name]
 	if not at then at = {}; by[name] = at end
 	local look = at[color]
 	if not look then
 		local art = { atlas = icon.atlas, color = color }
 		if icon.cell then art.alt = { texture = POI_SHEET, coords = Cell(icon.cell) } end
-		look = { size = size, icon = art }
+		look = { size = size, icon = art, type = kind }
 		at[color] = look
 	end
 	return look
@@ -86,10 +103,10 @@ end
 UI.Places = Pins.Layer("places", LEVEL, function(put)
 	for _, e in ipairs(Model.Known("places")) do
 		local k = KINDS[e.place]
-		if on[e.place] then put(e, Look(k.size, e, k.color or FACTION[e.faction] or GOLD)) end
+		if on[e.place] then put(e, Look(e.place, k.size, e, k.color or FACTION[e.faction] or GOLD)) end
 	end
 	if not on.vignettes then return end
-	for _, e in ipairs(Model.Known("vignettes")) do put(e, Look(VIGNETTE.size, e, VIGNETTE.color)) end
+	for _, e in ipairs(Model.Known("vignettes")) do put(e, Look("vignette", VIGNETTE.size, e, VIGNETTE.color)) end
 end, Rev, { lines = Lines, cluster = true })
 
 -- Their gear rows (Layers.lua:38-53; Landmarks.lua:110-111, 142-143).

@@ -141,8 +141,8 @@ def test_lookfeel():
     assert _shown(f) and same(UI.Feel.frame, f) and saved.feelPage == "map"
     sim.Slash("/mm feel")
     assert not _shown(f)
-    sim.Slash("/mm feel icons")
-    assert _shown(f) and saved.feelPage == "icons"
+    sim.Slash("/mm feel pins")
+    assert _shown(f) and saved.feelPage == "pins"
     sim.Run(1)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
@@ -229,7 +229,7 @@ def test_settings_pages_apply_and_reset():
         sim.atlases[a] = None
     Feel, saved = _open(sim, ns), L.globals().MagicMap2DB.UI
     pages = [p.key for p in Feel.Pages().values()]
-    assert pages == ["general", "map", "title", "icons", "resources", "pills", "tracking", "path", "areas", "group", "diag"]
+    assert pages == ["general", "map", "title", "pins", "resources", "pills", "tracking", "path", "areas", "group", "diag"]
     for p in pages:
         Feel.Open(p)
     assert sorted(Feel.pages.keys()) == sorted(pages)
@@ -241,11 +241,11 @@ def test_settings_pages_apply_and_reset():
         if type(list) == "function" then list = list() end
         for _, o in ipairs(list) do if o[1] ~= v and o[2] ~= v then return k.colors and o[1] or o[2] end end
     end""")
-    changed, defaults = [], {}
+    changed = []
+    defaults = {k.key: Feel.Get(k.key) for k in Feel.Entries().values()}  # (before any: an inherited one follows another)
     for k in Feel.Entries().values():
         if k.keep or k.kind == "button":
             continue
-        defaults[k.key] = Feel.Get(k.key)
         v = other(Feel, k)
         Feel.Set(k.key, v)
         assert Feel.Get(k.key) == v, k.key
@@ -268,19 +268,30 @@ def test_settings_pages_apply_and_reset():
 def test_settings_layout():
     """Each page as the client lays it out (the sim's anchors): every shown row inside the page's width, under the
     one before it; a row's label within its column (the sim's text widths) and its controls inside the row; the
-    sidebar's titles within it. The longest page fits without scrolling."""
+    sidebar's titles within it. The longest page fits without scrolling; Pins with every row opened (+) scrolls, its
+    rows within its width (#16: that page alone)."""
     L, sim, ns = boot(TEST_UI_DEFAULTS)
     Feel = _open(sim, ns)
-    for p in Feel.Pages().values():
+    pages = [(p, False) for p in Feel.Pages().values()]
+    pages.append((next(p for p in Feel.Pages().values() if p.key == "pins"), True))
+    for p, opened in pages:
         if p.key in ("path", "pills", "group"):  # (every row shown: their dependents' switches on)
             for k in Feel.Entries().values():
                 if k.page == p.key and k.kind == "toggle":
                     ns.UI.Feel.Set(k.key, True)
         Feel.Open(p.key)
-        bad = L.eval("""function(Feel, p, Rect)
+        if opened:  # Pins with every family and type opened (+): its rows fit, the page scrolls (#16: this page alone)
+            n = 0
+            for w in Feel.widgets.values():
+                if w.opener and w.k.page == "pins":
+                    w.opener.Click(w.opener)
+                    n += 1
+            assert n >= 40, n
+        bad = L.eval("""function(Feel, p, Rect, opened)
             local out = {}
             local page = Feel.pages[p.key]
             local pl, pb, pw, ph = Rect(page)
+            if opened then pb, ph = -1e9, 2e9 end -- (scrolled: the rows past its foot inside its width)
             local function inside(what, r, l, b, w, h)
                 local x, y, rw, rh = Rect(r)
                 if not x then out[#out + 1] = what .. ": no rect"; return end
@@ -303,12 +314,14 @@ def test_settings_layout():
                     if label and label:GetStringWidth() > label:GetWidth() then out[#out + 1] = name .. ": label too long" end
                 end
             end
-            if Feel.pages[p.key] and p.bar and p.bar:IsShown() then out[#out + 1] = p.key .. ": scrolls" end
+            local scrolls = Feel.pages[p.key] and p.bar and p.bar:IsShown()
+            if scrolls and not opened then out[#out + 1] = p.key .. ": scrolls" end
+            if opened and not scrolls then out[#out + 1] = p.key .. ": opened, yet no scroll" end
             local tw = p.tab.text:GetStringWidth() + 30
             if tw > p.tab:GetWidth() then out[#out + 1] = p.key .. ": tab title too long" end
             return out
-        end""")(Feel, p, sim.Rect)
-        assert not list(bad.values()), (p.key, list(bad.values()))
+        end""")(Feel, p, sim.Rect, opened)
+        assert not list(bad.values()), (p.key, opened, list(bad.values()))
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
@@ -405,12 +418,14 @@ def test_settings_declared():
 
 # Every setting but the actions, each to a valid value other than its own: (key, value) sorted.
 # But general.follow: the camera's state more than a setting (ui/Motion.lua's idle return follows you again 6 s
-# after the map is left alone, as the MVP's MinimapMode.lua:20), so it doesn't hold even within a session.
+# after the map is left alone, as the MVP's MinimapMode.lua:20), so it doesn't hold even within a session; and the
+# pins' show switches (Settings > Pins: every one flipped hides every pin, and the pins drawn are what's compared).
 CHANGED = """local SKIP = { ["general.follow"] = true }
 return function(Feel)
     local out = {}
     for _, k in ipairs(Feel.Entries()) do
         local key = k.key
+        if key:match("^pins%..*%.show$") then SKIP[key] = true end
         local v, new = Feel.Get(key), nil
         if k.kind == "toggle" then
             new = not v

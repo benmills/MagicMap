@@ -2,9 +2,9 @@
 -- chrome you see). Checked against the client once after login's grace and on /mm check
 -- art; each miss traces "art" (its name). Forever lacks some art other clients have, and a
 -- missing name draws nothing, silently (spike-bugs L2, L5). A name UI starts using goes here.
--- Not listed: data's art (tile FileDataIDs: generated, K4), our own
--- Textures\PlayerArrow (ui/You.lua: an addon's file, not the client's; L5's restart hazard) and
--- the client's own tracking icons (whatever C_Minimap names).
+-- Not listed: data's art (tile FileDataIDs: generated, K4), the map art's own files (Textures/: the base,
+-- the sea, the repaints) and the client's own tracking icons (whatever C_Minimap names). Every icon is the
+-- client's (#16): tools/tests/test_pins.py's test_pin_inventory holds it.
 
 local _, ns = ...
 local UI, Runtime = ns.UI, ns.Runtime
@@ -35,6 +35,13 @@ local Art = {
 		"dungeon", "raid",                                         -- ui/Places.lua: dungeon and raid entrances
 		"taxinode_alliance", "taxinode_horde", "taxinode_neutral", -- ui/Places.lua: flight points
 		"poi-graveyard-neutral",                                   -- ui/Places.lua: graveyards
+		"vignetteloot",                                            -- ui/Places.lua: the vignettes' row (Settings > Pins)
+		"ui-hud-minimap-arrow-player",                             -- ui/You.lua: your arrow (the Minimap's)
+		-- Settings > Pins' icons to choose (ui/PinTypes.lua): Blizzard's other art for a type
+		"innkeeper", "banker", "auctioneer", "stablemaster", "battlemaster", "profession", "class", "repair", "mailbox",
+		"flightmaster", "flightpath", "professions_tracking_herb_special", "professions_tracking_ore_special",
+		"questrepeatableturnin", "quest-campaign-turnin", "questdaily", "smallquestbang", "quest-campaign-available",
+		"vignettekillelite", "dungeonskull", "playerdeadblip", "waypoint-mappin-minimap-tracked", "xmarksthespot",
 	},
 	files = {
 		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",        -- ui/Chrome.lua: the grip
@@ -48,6 +55,11 @@ local Art = {
 		"Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",        -- ui/Path.lua: the edge arrow; ui/Guide.lua: Track's
 		"Interface\\Minimap\\PartyRaidBlipsV2",                  -- ui/Group.lua: party and raid members
 		136441,                                                  -- ui/Places.lua: POIIcons, the area POIs the client gives no atlas for
+		137008,                                                  -- ui/Rares.lua: the rare's skull
+		136457, 136464, 136462, 136451, 133939, 136025,          -- Settings > Pins' icons: vendors' tracking textures, Find Herbs, Find Minerals
+		"Interface\\Icons\\Ability_Tracking", "Interface\\Icons\\INV_Misc_EngGizmos_01", -- Settings > Pins: rows' art
+		"Interface\\Buttons\\UI-PlusButton-Up", "Interface\\Buttons\\UI-MinusButton-Up", -- ui/Feel.lua: a row's open mark
+		"Interface\\Buttons\\UI-PlusButton-Hilight",
 	},
 	fonts = { "Fonts\\FRIZQT__.TTF", "Fonts\\MORPHEUS.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS), and the zones' Morpheus
 }

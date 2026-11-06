@@ -13,11 +13,12 @@ local Model, Atlas = ns.Model, ns.Atlas
 
 local ZOOM = 60 -- px a tile (Blips.lua:479 REMOTE_MIN_ZOOM)
 local NEAR = 30 / Atlas.TILE_YARDS -- tiles (Blips.lua:487 NEAR_SAME)
-local TRAINER, CLASS_TRAINER = 136463, 136455 -- Blips.lua:389
+local Art = Atlas.BlipArt -- (a service's tracking icon: Atlas.BLIP_ART)
+local TRAINER, CLASS_TRAINER = Art("trainer"), Art("classtrainer") -- Blips.lua:389
 local SERVICES = { -- npcFlags bit, its tracking icon, Data/BlipServices' name for it (Blips.lua:377-385)
-	{ 128, 136458, "innkeeper" }, { 256, 136453, "banker" }, { 4096, 136452, "auctioneer" },
-	{ 8192, 136466, "stablemaster" }, { 2048, 136454, "battlemaster" }, { 16, TRAINER, "trainer" },
-	{ 16384, 136465, "repair" },
+	{ 128, Art("innkeeper"), "innkeeper" }, { 256, Art("banker"), "banker" }, { 4096, Art("auctioneer"), "auctioneer" },
+	{ 8192, Art("stablemaster"), "stablemaster" }, { 2048, Art("battlemaster"), "battlemaster" }, { 16, TRAINER, "trainer" },
+	{ 16384, Art("repair"), "repair" },
 }
 local CLASSES = { "Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "Mage", "Warlock", "Druid" } -- Blips.lua:390
 local NONE = {}

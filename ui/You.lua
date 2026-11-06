@@ -1,10 +1,11 @@
--- You on the map: your arrow (Core.lua:155-175, 795-819), the Minimap's own arrow art with its shadow
--- softened (Textures/PlayerArrow.tga: tools/gen_arrow.py), the size the Minimap draws it, unsnapped
--- so it turns smoothly, over every layer. None while the map shown isn't yours, while the client
+-- You on the map: your arrow (Core.lua:155-175, 795-819), the Minimap's own arrow (its atlas,
+-- ui-hud-minimap-arrow-player; the classic Interface\Minimap\MinimapArrow where a client lacks it), the size the
+-- Minimap draws it, unsnapped so it turns smoothly, over every layer. None while the map shown isn't yours, while the client
 -- withholds where you are (Model.you stale: an instance's), or without a facing. Your corpse and your
 -- waypoint as pins (Layers.lua:500-521, 625-634), the waypoint's left out while a tracked icon stands on it
 -- (ui/Track.lua: the icon is the target), and the title band's target (Core.lua:1294-1300), named for the
--- tracked icon then. Its size: Settings > Map > Your arrow (ui/Feel.lua).
+-- tracked icon then. Its size: Settings > Map > Your arrow (ui/Feel.lua). The corpse's and the waypoint's types:
+-- Settings > Pins > Other (ui/PinTypes.lua), Blizzard's other art for each to choose from.
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
@@ -12,12 +13,20 @@ local Atlas, Runtime = ns.Atlas, ns.Runtime
 local Camera, Window = UI.Camera, UI.Window
 local Maths = Atlas.Camera
 
-local SIZE = 22 * 64 / 45 -- the texture, for a 22-unit arrow (Core.lua:169)
+local SIZE = 22 -- a 22-unit arrow (Core.lua:169): the atlas's own size
+local ARROW, OLD_ARROW = "ui-hud-minimap-arrow-player", "Interface\\Minimap\\MinimapArrow" -- (the Minimap's)
 local PINS = 13 -- the corpse's and the waypoint's level: over the blips (12), under the offers (14)
 -- On the quest pins' disc, no halo (that's only the followed quest's): Layers.lua:512-516.
 local CORPSE = { size = 22, icon = { atlas = "deathrecap-icon-tombstone", under = "UI-QuestPoi-QuestNumber", scale = 0.6,
-	aspect = 15 / 20, color = { 0.85, 0.85, 0.85 } } }
-local WAYPOINT = { size = 22, icon = { atlas = "Waypoint-MapPin-Tracked", color = { 0.2, 0.9, 1 } } } -- Layers.lua:629-630
+	aspect = 15 / 20, color = { 0.85, 0.85, 0.85 } }, type = "corpse" }
+local WAYPOINT = { size = 22, icon = { atlas = "Waypoint-MapPin-Tracked", color = { 0.2, 0.9, 1 } }, type = "waypoint" } -- Layers.lua:629-630
+UI.PinTypes.Add({ id = "corpse", family = "other", name = "Your corpse", look = CORPSE,
+	icons = { { "Tombstone on a disc", "A:deathrecap-icon-tombstone" }, { "Skull and cross", "A:playerdeadblip" } },
+	tip = "Where you died, while you're a ghost." })
+UI.PinTypes.Add({ id = "waypoint", family = "other", name = "Waypoint", look = WAYPOINT,
+	icons = { { "Map pin", "A:Waypoint-MapPin-Tracked" }, { "Small pin", "A:waypoint-mappin-minimap-tracked" },
+		{ "Red cross", "A:xmarksthespot" } },
+	tip = "The waypoint you set (Ctrl-right-click the map, or Track and Path to)." })
 local TARGET = "Target" -- an untitled target's (Core.lua:1297)
 
 local You = {}
@@ -30,7 +39,7 @@ overlay:SetAllPoints()
 overlay:SetFrameLevel(Window.view:GetFrameLevel() + 18)
 You.overlay = overlay
 local arrow = overlay:CreateTexture(nil, "OVERLAY")
-arrow:SetTexture(Atlas.ROOT .. "Textures\\PlayerArrow")
+if C_Texture.GetAtlasInfo(ARROW) then arrow:SetAtlas(ARROW) else arrow:SetTexture(OLD_ARROW) end
 arrow:SetSize(SIZE, SIZE)
 arrow:SetSnapToPixelGrid(false)
 arrow:SetTexelSnappingBias(0)

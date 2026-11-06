@@ -163,12 +163,17 @@ declared, so a declared setting is in the window, resettable and saved, with not
   used, with `Feel.rev` to notice a change. A value its owner keeps elsewhere: `get`/`set` (and `keep = true` for a
   switch a reset mustn't touch).
 - **when**: a key or a function; the row shows only while it's on.
+- **under**: a key; the row stands under that one, shown once its plus is opened (Settings > Pins' families and
+  types). **art**: `function(row, last)`, a region drawn left of the label (a pin type's icon as the map draws it).
+- **A new kind of pin**: `UI.PinTypes.Add({ id, family, name, look, icons?, groups?, tip })` beside the look it
+  draws, and `type = id` on that look: its row on Settings > Pins comes with it (test_pins' `test_pin_inventory`
+  fails for a pin drawn without a type, or art that isn't Blizzard's).
 - **A page of its own**: `UI.Feel.Page({ key, title, icon, order, tip, sections })`, its order between the others'
-  (General 10, Map 20, Title 25, Icons 30, Resources 35, Info pills 40, Tracking 45, Pathing 50, Quest areas 60, Grouping 70, Diagnostics 90).
+  (General 10, Map 20, Title 25, Pins 30, Resources 35, Info pills 40, Tracking 45, Pathing 50, Quest areas 60, Grouping 70, Diagnostics 90).
 
 Then list it in ui/Feel.lua's header (its page's line) and docs/features.md's settings table. test_lookfeel's
 `test_settings_declared` fails if the code reads a key by name that isn't declared, or a declared one lacks a page,
-label, tip or default its control offers; `test_settings_layout` if a row doesn't fit its page.
+label, tip or default its control offers; `test_settings_layout` if a row doesn't fit its page (only Pins may scroll, with its rows opened).
 
 ## Boundaries
 

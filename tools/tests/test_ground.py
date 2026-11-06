@@ -213,15 +213,14 @@ def test_dxt5_round_trip():
 
 
 def test_arrow():
-    """Core.lua:155-175: the arrow 22 * 64 / 45 px (Textures/PlayerArrow.tga, 64 px around the
-    Minimap's 45 px art), over every layer, unsnapped; none while another map shows (and none while
-    your position is withheld: test_spike_bugs.py R-K5)."""
+    """Core.lua:155-175: the arrow 22 px, the Minimap's own (its atlas, ui-hud-minimap-arrow-player: #16), over every
+    layer, unsnapped; none while another map shows (and none while your position is withheld: test_spike_bugs.py R-K5)."""
     L, sim, ns = shown()
     arrow, view = ns.UI.You.arrow, ns.UI.Window.view
     S = sim.state
     st = S[arrow]
-    assert arrow.IsShown(arrow) and st.texture == "Interface\\AddOns\\MagicMap\\Textures\\PlayerArrow"
-    assert abs(st.width - 22 * 64 / 45) < 1e-9 and st.snap is False and st.bias == 0
+    assert arrow.IsShown(arrow) and st.atlas == "ui-hud-minimap-arrow-player"
+    assert st.width == 22 and st.snap is False and st.bias == 0
     overlay = arrow.GetParent(arrow)
     assert overlay.GetFrameLevel(overlay) - view.GetFrameLevel(view) == 18
     ns.UI.Motion.FitMap(1)  # Kalimdor: not where you are

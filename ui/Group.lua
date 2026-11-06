@@ -4,6 +4,7 @@
 -- game/parts/Group.lua) or the view moves, only what changed set; none while the layer's off (the gear's
 -- "Party & raid"). Under the cursor (no pin there: ui/Pins.lua's go first), a member's tooltip, Game's
 -- (the tooltip Command's member: its name in its class's colour, level and class, dead: Layers.lua:677-688).
+-- Its type: Party member (Settings > Pins: shown or not, its size, 100% of 12 px, and opacity), applied to the dots.
 
 local _, ns = ...
 local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
@@ -12,13 +13,19 @@ local Maths = ns.Atlas.Camera
 local Command = ns.Game.Command
 
 local LEVEL = 13 -- with your corpse and waypoint (ui/You.lua): over the blips (12), under the offers (14)
-local SIZE = 12 -- px (Layers.lua:666)
+local SIZE = 12 -- px (Layers.lua:666), at 100%
 local BLIP = "Interface\\Minimap\\PartyRaidBlipsV2" -- a filled dot, then a ring (Layers.lua:667)
 local DEAD = 0.5 -- grey (Layers.lua:739)
 local NONE = {}
 
 local Group = {}
 UI.Group = Group
+
+local Types = UI.PinTypes
+Types.Add({ id = "member", family = "party", name = "Party member",
+	look = { size = SIZE, icon = { texture = BLIP, coords = { 0, 0.5, 0, 1 } } },
+	tip = "A party or raid member, in their class's colour (grey when dead)." })
+local size = SIZE -- px: a dot's, as its type's size makes it
 
 local view = Window.view
 local frame = CreateFrame("Frame", nil, view)
@@ -57,16 +64,23 @@ local function Color(t, e)
 	end
 end
 
--- The dots as laid out last: Known's rev, the camera, the view's size, the map, on.
+-- The dots as laid out last: Known's rev, the camera, the view's size, the map, on, the types' styles.
 local at = { rev = -1 }
 local function Place(on)
 	local list, rev = Model.Known("group")
+	local st, srev = Types.Of("member"), Types.Rev()
+	on = on and st.show
 	if shown == 0 and not (on and list[1]) then return end
 	local cam, w, h = Camera.cam, Window.Size()
 	local inst = Camera.inst
 	if at.rev == rev and at.cx == cam.cx and at.cy == cam.cy and at.zoom == cam.zoom and at.w == w and at.h == h
-		and at.inst == inst and at.on == on then return end
-	at.rev, at.cx, at.cy, at.zoom, at.w, at.h, at.inst, at.on = rev, cam.cx, cam.cy, cam.zoom, w, h, inst, on
+		and at.inst == inst and at.on == on and at.style == srev then return end
+	at.rev, at.cx, at.cy, at.zoom, at.w, at.h, at.inst, at.on, at.style = rev, cam.cx, cam.cy, cam.zoom, w, h, inst, on, srev
+	size = SIZE * st.size
+	if frame.alpha ~= st.alpha then
+		frame.alpha = st.alpha
+		frame:SetAlpha(st.alpha)
+	end
 	local n = 0
 	for _, e in ipairs(on and list or NONE) do
 		local p = e.pos
@@ -75,8 +89,12 @@ local function Place(on)
 			local t = Dot(n)
 			t.entry = e
 			Color(t, e)
+			if t.size ~= size then
+				t.size = size
+				t:SetSize(size, size)
+			end
 			local x, y = Maths.TileToScreen(cam, w, h, p.col, p.row)
-			x, y = math.max(-SIZE, math.min(w + SIZE, x)), math.max(-SIZE, math.min(h + SIZE, y)) -- off the view: kept by it
+			x, y = math.max(-size, math.min(w + size, x)), math.max(-size, math.min(h + size, y)) -- off the view: kept by it
 			if t.x ~= x or t.y ~= y then
 				t.x, t.y = x, y
 				t:SetPoint("CENTER", frame, "TOPLEFT", x, -y)
@@ -103,7 +121,7 @@ local function Under()
 	for i = 1, shown do
 		local t = dots[i]
 		local dx, dy = t.x - x, t.y - y
-		if math.abs(dx) <= SIZE / 2 and math.abs(dy) <= SIZE / 2 and not (best and dx * dx + dy * dy >= d) then
+		if math.abs(dx) <= size / 2 and math.abs(dy) <= size / 2 and not (best and dx * dx + dy * dy >= d) then
 			best, d = t, dx * dx + dy * dy
 		end
 	end

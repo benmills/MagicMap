@@ -1,5 +1,6 @@
 -- Overlapping pins grouped (ui/Cluster.lua). Where two or more pins of the clustered layers (places, rares, blips:
--- opts.cluster in Pins.Layer; never quests, quests to pick up, or a quest giver's blip) crowd together at the zoom (each within range px of
+-- opts.cluster in Pins.Layer), of a type that may group (Settings > Pins: ui/PinTypes.lua; never quests, quests to pick
+-- up, or a quest giver's blip, and none hidden there) crowd together at the zoom (each within range px of
 -- another, at most reach ranges from the first: the greedy pass in Group), they draw as one pill at their
 -- centroid: up to two icons by default (the "slots" tunable) side by side, the last a "+N" when there are more, on a
 -- faint dark backing. Clicking the pill opens a grid of its members above it at their normal size; each
@@ -14,7 +15,7 @@
 
 local _, ns = ...
 local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
-local Engine, Pins, Window, Camera = UI.Engine, UI.Pins, UI.Window, UI.Camera
+local Engine, Pins, Window, Camera, Types = UI.Engine, UI.Pins, UI.Window, UI.Camera, UI.PinTypes
 local Yield = Runtime.Yield
 
 local PILL_H, ICON, GAP, PAD, MORE_W, DIGIT_W = 14, 12, 0, 2, 9, 6 -- px: the pill's height, its icons, the gaps, its side padding, the "+" and each digit of the "+N" slot
@@ -37,7 +38,7 @@ UI.Cluster = Cluster
 -- icon if they fit, else the first slots - 1 and "+N"); alpha: the pill's dark backing.
 Cluster.DEFAULTS = { range = 24, reach = 3, min = 2, slots = 2, alpha = 0.35 }
 local tuneV, tuneSeen = 0, 0 -- moves with each change (a regroup)
-local trackSeen -- Track.Rev at the last Stamp
+local trackSeen, typesSeen -- Track.Rev and PinTypes.Rev at the last Stamp
 function Cluster.Get(key)
 	local t = UI.saved and UI.saved.clusterTune
 	local v = t and t[key]
@@ -67,16 +68,16 @@ local cache = { stamp = nil, inst = nil, byBand = {}, n = 0 }
 -- Membership
 ---------------------------------------------------------------------------
 
--- Moves when the setting (Group icons, and the map big: at the minimap's size nothing groups), the tracked icon, a source's rev or its layer's toggle does (read once a frame).
+-- Moves when the setting (Group icons, and the map big: at the minimap's size nothing groups), the tracked icon, the pin types' styles, a source's rev or its layer's toggle does (read once a frame).
 local REGROUP, regrouped = 0.5, -math.huge
 local function Stamp()
 	local f = Runtime.frames
 	if f == stampFrame then return stamp end
 	stampFrame = f
 	local on = UI.saved.cluster ~= false and UI.BigMap.big -- (at the minimap's size, never grouped)
-	local tr = UI.Track.Rev() -- (what you track leaves its pill at once)
-	local changed = on ~= setting or tuneV ~= tuneSeen or tr ~= trackSeen
-	setting, tuneSeen, trackSeen = on, tuneV, tr
+	local tr, ty = UI.Track.Rev(), Types.Rev() -- (what you track leaves its pill at once; a type hidden or kept apart too)
+	local changed = on ~= setting or tuneV ~= tuneSeen or tr ~= trackSeen or ty ~= typesSeen
+	setting, tuneSeen, trackSeen, typesSeen = on, tuneV, tr, ty
 	local moved = false -- a source's own rev: grouped again REGROUP s at most after the last time
 	for _, s in ipairs(sources) do
 		local lo = Engine.LayerOn(s.name)
@@ -124,13 +125,12 @@ local inst_, zoom_, src_ -- the collection in hand
 
 local function want(minZoom) return Engine.From(zoom_, minZoom) end
 
--- The collecting put a source's fill calls: the instance's entries, each once.
--- A quest's look: a blip of a quest giver's "!" or "?" (ui/Blips.lua) is a quest too, never grouped.
-local QUEST = { questnormal = true, questturnin = true }
+-- The collecting put a source's fill calls: the instance's entries, each once, of a type shown that may group (a
+-- quest giver's "!" or "?", ui/Blips.lua's, is a quest's type: never grouped).
 local function put(e, l, minZoom)
-	local art = l and l.icon
-	if e.pos.inst == inst_ and (not minZoom or want(minZoom)) and not UI.Track.Focus(e) -- (what you track stays on its own)
-		and not (art and QUEST[art.atlas]) then
+	local st = Types.Of(l.type)
+	if st.show and st.group and e.pos.inst == inst_ and (not minZoom or want(minZoom))
+		and not UI.Track.Focus(e) then -- (what you track stays on its own)
 		n = n + 1
 		ent[n], look[n], minz[n], srcs[n], cols[n], rows[n] = e, l, minZoom, src_, e.pos.col, e.pos.row
 	end
@@ -349,7 +349,7 @@ end
 local function Small(m)
 	local s = m[SMALL]
 	if not s then
-		s = { size = ICON, fixed = true, icon = m[LOOK].icon }
+		s = { size = ICON, fixed = true, icon = m[LOOK].icon, type = m[LOOK].type } -- (its type's icon and opacity)
 		m[SMALL] = s
 	end
 	return s

@@ -349,6 +349,32 @@ function Atlas.BlipService(name)
 	end
 end
 
+-- The client's art for each kind of blip Atlas.BlipService names (#16: the one table game/Blips.lua, model/ and the
+-- settings' pin inventory, ui/PinTypes.lua, read): { kind, art, name, group }, in the order the settings list them.
+-- group: "service" (a tracking texture, its FileDataID), "gather" and "vendor" (Blizzard's tracking atlas; the
+-- other vendors the gossip window's sack, a path: the client has no coin-gold-20x20 atlas, #21), "quest" (the HD "!"
+-- and "?", Blips.lua:387-388: a quest giver's while the client still has its quest, model/Blips.lua).
+Atlas.BLIP_ART = {
+	{ "innkeeper", 136458, "Innkeeper", "service" }, { "banker", 136453, "Banker", "service" },
+	{ "auctioneer", 136452, "Auctioneer", "service" }, { "stablemaster", 136466, "Stable master", "service" },
+	{ "battlemaster", 136454, "Battlemaster", "service" }, { "trainer", 136463, "Trainer", "service" },
+	{ "classtrainer", 136455, "Class trainer", "service" }, { "repair", 136465, "Repair", "service" },
+	{ "mailbox", 136459, "Mailbox", "service" }, { "flightmaster", 136456, "Flight master", "service" },
+	{ "herb", "Professions_Tracking_Herb", "Herb", "gather" }, { "ore", "Professions_Tracking_Ore", "Ore", "gather" },
+	{ "food", "food", "Food & drink", "vendor" }, { "reagents", "reagents", "Reagents", "vendor" },
+	{ "poisons", "poisons", "Poisons", "vendor" }, { "ammunition", "ammunition", "Ammunition", "vendor" },
+	{ "fishing", "Professions_Tracking_Fish", "Fishing", "vendor" },
+	{ "vendor", "Interface\\GossipFrame\\VendorGossipIcon", "Other goods", "vendor" },
+	{ "questgiver", "questnormal", "Quest giver", "quest" }, { "questender", "questturnin", "Quest ender", "quest" },
+}
+local blipArt = {}
+for _, a in ipairs(Atlas.BLIP_ART) do blipArt[a[1]] = a end
+-- A blip kind's art and its group (nil: none).
+function Atlas.BlipArt(kind)
+	local a = kind and blipArt[kind]
+	if a then return a[2], a[4] end
+end
+
 -- The quests NPCs of a quest giver's name start (Data/BlipServices.lua's third), or an empty list.
 function Atlas.BlipQuests(name)
 	local r = Service(name)

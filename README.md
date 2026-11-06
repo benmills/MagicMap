@@ -26,6 +26,8 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
   and Find Herbs or Find Minerals turns itself back on after you die or log in.
 - **Your minimap's buttons, without the clutter.** Addon buttons, the calendar and the clock are in the gear
   menu, and the title shows what you pick: zone, coordinates, the time, day or night.
+- **Every kind of pin yours to tune.** Settings > Pins lists each one the map draws, with its icon: hide it,
+  size it, fade it or pick another of Blizzard's icons for it, for all pins, a family or one kind.
 - **Works with Questie, HandyNotes and GatherMate.** Their pins show on the map, never twice. No other
   addon is needed: the quest data is built in.
 
