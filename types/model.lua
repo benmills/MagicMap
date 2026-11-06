@@ -53,18 +53,8 @@
 ---@class MM.KnownObjective
 ---@field text string
 ---@field finished boolean
----@field drops? MM.KnownMob[]     who drops its item: at most 3, lowest level first
----@field more? integer            droppers past those
----@field from? string             no drops: the objects it's in ("A, B")
----@field sold? string             neither: who sells it
-
----@class MM.KnownMob
----@field npc MM.NpcID             its portrait once met (tooltip Command)
----@field name string
----@field lo? integer              levels
----@field hi? integer
----@field color? number[]          difficulty of `hi`
----@field rank? string             "Elite", "Rare", ...
+---@field from? string             the objects its item is in ("A, B"); never who drops it
+---@field sold? string             no objects: who sells it
 
 ---Known("offers"): quests to pick up (obs.offers), none in progress.
 ---@class MM.KnownOffer: MM.Known

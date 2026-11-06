@@ -379,52 +379,14 @@ def test_offers_round_trip():
 
 def test_tooltip_round_trip():
     L, sim, ns, G = client()
-    tip, state, same = G.GameTooltip, sim.state, L.eval("rawequal")
+    tip = G.GameTooltip
     owner = G.CreateFrame("Frame", None, G.UIParent)
     owner.SetSize(owner, 20, 20)
     owner.SetPoint(owner, "CENTER")
 
-    def portraits():
-        return {v.portrait for v in state.values() if v.portrait}
-
-    # Portraits drawn from the units met: mouseover, target, nameplates; creatures only, each once.
-    units = sim.units
-    units.mouseover = L.table_from({"name": "Kobold Vermin", "guid": "Creature-0-1-0-1-6-0000000001"})
-    units.target = L.table_from({"name": "Kobold Worker", "guid": "Creature-0-1-0-1-257-0000000002"})
-    units.nameplate1 = L.table_from({"name": "Ally", "guid": "Player-1-00000002"})
-    units.nameplate2 = L.table_from({"name": "Kobold Vermin", "guid": "Creature-0-1-0-1-6-0000000003"})
-    sim.FireEvent("UPDATE_MOUSEOVER_UNIT")
-    sim.FireEvent("PLAYER_TARGET_CHANGED")
-    sim.FireEvent("NAME_PLATE_UNIT_ADDED", "nameplate1")
-    sim.FireEvent("NAME_PLATE_UNIT_ADDED", "nameplate2")
-    assert portraits() == {"Creature-0-1-0-1-6-0000000001", "Creature-0-1-0-1-257-0000000002"}
-
-    # UI's tooltip, a mob line each: the met one's portrait over a dark disc in place of its icon.
-    sword = "|T135274:14:14:0:0:64:64:5:59:5:59|t"
-    tip.SetOwner(tip, owner, "ANCHOR_RIGHT")
-    for line in ("Kobold Candles", "    " + sword + " |cffffffffKobold Vermin|r 1-2", "    " + sword + " |cffffffffKobold Miner|r 3"):
-        tip.AddLine(tip, line)
-    tip.Show(tip)
-    for npc, line in ((6, 2), (475, 3)):
-        ns.Game.Command(L.table_from({"kind": "tooltip", "owner": owner, "npc": npc, "line": line}))
-    sim.Step()
-    vermin, miner = tip.GetLeftLine(tip, 2), tip.GetLeftLine(tip, 3)
-    assert vermin.GetText(vermin).startswith("    |TInterface\\CharacterFrame\\TempPortraitAlphaMask:14:14:")
-    assert vermin.GetText(vermin).endswith("|t |cffffffffKobold Vermin|r 1-2")
-    assert miner.GetText(miner) == "    " + sword + " |cffffffffKobold Miner|r 3"  # not met: UI's icon stays
-    tex = next(k for k, v in state.items() if v.portrait == "Creature-0-1-0-1-6-0000000001")
-    point = tex.GetPoint(tex, 1)
-    assert tex.IsVisible(tex) and same(tex.GetParent(tex), tip) and point[0] == "LEFT" and same(point[1], vermin)
-    probe = G.UIParent.CreateFontString(G.UIParent)
-    probe.SetFont(probe, *vermin.GetFont(vermin))
-    probe.SetText(probe, "    ")
-    assert point[3] == probe.GetStringWidth(probe)
-    tip.SetOwner(tip, owner, "ANCHOR_RIGHT")  # cleared: taken back
-    assert not tex.IsShown(tex)
-
     # A member's tooltip: name in its class colour, level and class, dead; owner false hides it.
     sim.group = L.table_from(["party1"])
-    units.party1 = L.table_from({"name": "Ally", "class": "PRIEST", "level": 12, "dead": True, "guid": "Player-1-00000002"})
+    sim.units.party1 = L.table_from({"name": "Ally", "class": "PRIEST", "level": 12, "dead": True, "guid": "Player-1-00000002"})
     ns.Game.Command(L.table_from({"kind": "tooltip", "owner": owner, "anchor": "ANCHOR_RIGHT", "member": "Player-1-00000002"}))
     sim.Step()
     lines = [tip.GetLeftLine(tip, i).GetText(tip.GetLeftLine(tip, i)) for i in range(1, tip.NumLines(tip) + 1)]
@@ -432,13 +394,6 @@ def test_tooltip_round_trip():
     ns.Game.Command(L.table_from({"kind": "tooltip", "owner": False}))
     sim.Step()
     assert not tip.IsShown(tip)
-
-    # At most 300 a session.
-    L.execute("""for i = 1, 310 do
-        Sim.units.nameplate3 = { guid = "Creature-0-1-0-1-" .. (1000 + i) .. "-0000000004" }
-        Sim.FireEvent("NAME_PLATE_UNIT_ADDED", "nameplate3")
-    end""")
-    assert len(portraits()) == 300
     assert not errors(sim, ns), errors(sim, ns)
 
 

@@ -20,6 +20,7 @@
 --   * HookedInput: what Game's hooks catch for UI, via Observation.hooked
 -- OPEN: new optional View fields, new command kinds, new hooked kinds.
 -- Removed (ADR 0008): `renderer`, which Game had stopped reading, so `v` stays 1.
+-- Removed (#20, the quest tooltip's droppers gone): CmdTooltip's `npc` and `line`, a dropper's portrait.
 
 ---@alias MM.ViewVersion 1
 
@@ -135,16 +136,12 @@ local SAFE_VIEW = {
 ---@field on boolean
 
 ---Show GameTooltip's own content for a game thing on owner (what UI can't
----write itself: a unit's tooltip, an NPC's portrait); owner false hides it if Game showed it.
----Portraits never cross as objects (ADR 0001): Game draws the NPC's portrait into the
----tooltip itself and takes it back when the tooltip hides.
+---write itself: a unit's tooltip); owner false hides it if Game showed it.
 ---@class MM.CmdTooltip
 ---@field kind "tooltip"
 ---@field owner table|false      a Frame (UI's)
 ---@field anchor? string         "ANCHOR_RIGHT" etc. (default ANCHOR_CURSOR)
 ---@field member? string         a group member's id (MM.ObsMember.id)
----@field npc? MM.NpcID          an NPC: Game adds its portrait (if it has captured one)
----@field line? integer         with npc: the line of the owner's tooltip (GameTooltip:GetLeftLine) whose icon (its first |T..|t) the portrait takes the place of, over a dark disc (QuestInfo.lua:270-296); not met yet: the line keeps UI's icon
 
 ---Register `/mm <name>` (Game owns slash commands): fn(args) runs wrapped when typed.
 ---Sending it again replaces fn. Added with the walking skeleton (open: new kinds).

@@ -1,7 +1,6 @@
 -- Commands (types/view.lua, ADR 0003): UI calls Game.Command(cmd) from anywhere;
 -- Game queues it and carries the queue out, in order, in its input step, and again
--- in its apply step, so one a ui step sends is carried out that frame (a quest
--- tooltip's portraits show with it: QuestInfo.lua:187, 365-368). Each is wrapped:
+-- in its apply step, so one a ui step sends is carried out that frame. Each is wrapped:
 -- one that fails is reported and dropped, never retried.
 -- Game.Handle(kind, fn): fn(cmd) carries out that kind; one file a kind in
 -- game/commands/ (slash: register /mm <name>; load: Game.Load on UI's behalf).

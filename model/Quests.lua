@@ -1,6 +1,6 @@
 -- Your log's quests on their maps (obs.quests) as Known("quests"), and what Atlas knows of
--- them (QuestieDB: who drops an objective's item, where else it comes from, who takes the quest
--- in), for their pins and tooltips (the spike's QuestInfo.lua, Layers.lua:544-621):
+-- them (QuestieDB: where an objective's item is found, who takes the quest in), for their pins
+-- and tooltips (the spike's QuestInfo.lua, Layers.lua:544-621):
 --   color     the quest log's difficulty colours, by its level minus yours
 --   count     the first unfinished objective that counts ("3/8"); inner, the first unfinished's icon
 --   need      what it still needs (kill, gather, other): its area's colour
@@ -16,13 +16,11 @@ local GREEN, GREY = { 0.25, 0.75, 0.25 }, { 0.5, 0.5, 0.5 }
 local TURN_IN = { atlas = "questturnin", color = { 0.2, 1, 0.2 } } -- Layers.lua:606-609 (the HD "?"; its dot's green)
 local ACTIVE = { atlas = "Quest-In-Progress-Icon-yellow", color = { 1, 0.82, 0 } }
 local KIND_ICONS = { monster = { texture = 135274 }, object = { texture = 134063 }, item = { texture = 133633 } } -- QuestInfo.lua:109-113
-local RANKS = { [1] = "Elite", [2] = "Rare Elite", [3] = "Boss", [4] = "Rare" } -- QuestInfo.lua:176
-local MAX_MOBS = 3 -- QuestInfo.lua:174
 local MAX_NAMES = 2 -- QuestInfo.lua:235, 240
 
 local quests = {}           -- [id] = { q (the obs quest it's built from), e (its entry) }
 local log, list, rev = nil, NONE, 0
-local level, range = nil, 5 -- yours, and how far below you a mob turns grey (obs.you.trivialRange, else 5: QuestInfo.lua:191)
+local level                 -- yours
 local icons = {}            -- an item's icon file -> its MM.Icon
 
 -- red at 5 or more over you, orange at 3, yellow down to -2, then green till trivial (QuestInfo.lua:22-28)
@@ -84,28 +82,6 @@ local function Inner(q)
 	end
 end
 
-local function MaxLevel(id)
-	local n = Atlas.Npc(id)
-	return n and n.maxLevel or 0
-end
-
-local function ByLevel(a, b)
-	local x, y = MaxLevel(a), MaxLevel(b)
-	if x ~= y then return x < y end
-	return a < b
-end
-
--- QuestInfo.lua:182-196
-local function Mob(id)
-	local n = Atlas.Npc(id)
-	if not n then return nil end
-	local m, lo, hi = { npc = id, name = n.name, rank = RANKS[n.rank or 0] }, n.minLevel, n.maxLevel
-	if hi and hi > 0 then
-		m.lo, m.hi, m.color = lo and lo > 0 and lo or hi, hi, Difficulty(hi, (level or hi) - hi > range)
-	end
-	return m
-end
-
 -- "A, B" (and "+2 more") (QuestInfo.lua:199-209).
 local function Names(get, ids)
 	local names = {}
@@ -120,23 +96,11 @@ local function Names(get, ids)
 	return table.concat(names, ", ")
 end
 
--- Who drops the item, lowest level first, else the objects it's in, else who sells it (QuestInfo.lua:213-242).
+-- The objects the item is in, else who sells it, a mob dropping it or not (QuestInfo.lua:213-242, less its droppers).
 local function Sources(k, itemID)
 	local item = Atlas.Item(itemID)
 	if not item then return end
-	if #item.npcDrops > 0 then
-		local sorted = {}
-		for i, id in ipairs(item.npcDrops) do sorted[i] = id end
-		table.sort(sorted, ByLevel)
-		k.drops = {}
-		for i, id in ipairs(sorted) do
-			if i > MAX_MOBS then
-				k.more = #sorted - MAX_MOBS
-				break
-			end
-			k.drops[#k.drops + 1] = Mob(id)
-		end
-	elseif #item.objectDrops > 0 then
+	if #item.objectDrops > 0 then
 		k.from = Names(Atlas.Object, item.objectDrops)
 	elseif #item.vendors > 0 then
 		k.sold = Names(Atlas.Npc, item.vendors)
@@ -195,9 +159,7 @@ local function Build()
 		local s = quests[x.id]
 		if s then
 			local q = s.q
-			if not (s.e and s.level == level and s.range == range) then
-				s.e, s.level, s.range = Entry(q), level, range
-			end
+			if not (s.e and s.level == level) then s.e, s.level = Entry(q), level end
 			out[#out + 1] = s.e
 		end
 	end
@@ -214,9 +176,9 @@ end
 Model.Part(function(obs)
 	local qs, you = obs.quests or log, obs.you
 	if not qs then return end
-	local lvl, rng = you.level or level, you.trivialRange or range
-	local dirty = qs ~= log or lvl ~= level or rng ~= range
-	level, range = lvl, rng
+	local lvl = you.level or level
+	local dirty = qs ~= log or lvl ~= level
+	level = lvl
 	if qs ~= log then
 		log = qs
 		Sync(qs)

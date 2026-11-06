@@ -50,7 +50,6 @@ Game.Part("you", function()
 	end
 	you.level, you.faction = UnitLevel("player"), FACTION[UnitFactionGroup("player")]
 	if not you.race then you.race, you.class = select(3, UnitRace("player")), select(3, UnitClass("player")) end
-	you.trivialRange = UnitQuestTrivialLevelRange("player") -- (by level: grey mobs, QuestInfo.lua:191)
 	you.dead, you.ghost, you.combat = UnitIsDeadOrGhost("player"), UnitIsGhost("player"), InCombatLockdown()
 	if (had == nil) ~= (you.col == nil) and Runtime.frames > 1 then Runtime.Trace("position", you.col and "back" or "lost") end
 	return you

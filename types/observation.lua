@@ -60,7 +60,6 @@
 ---@field zone? string         GetZoneText(): the client's name for your zone; nil: none
 ---@field subzone? string      GetSubZoneText(): its name for where you are in it (an inn, a keep); nil: none
 ---@field level? integer
----@field trivialRange? integer UnitQuestTrivialLevelRange("player"): a mob more than this many levels below you is grey (spike QuestInfo.lua:191); nil: 5
 ---@field faction? MM.Faction  "A" or "H"
 ---@field race? integer        UnitRace's raceID (a quest's races mask: bit race - 1)
 ---@field class? integer       UnitClass's classID (a quest's classes mask: bit class - 1)

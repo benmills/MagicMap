@@ -86,8 +86,8 @@ switched off while MagicMap draws those itself, and put back when it stops, even
 minimap.*
 
 **Quests.** The quests in your log in Blizzard's icons, with their objective icon and count, in
-their difficulty colour; quests to pick up; a tooltip with the quest's facts, mobs, items and who
-to turn it in to. Objective areas are drawn as the game draws them (its edges and fills); the quest you follow is filled, the rest a quiet edge; hovering an area lifts it gently.
+their difficulty colour; quests to pick up; a tooltip with the quest's facts, what's left to do (the
+objects an item is in, else who sells it; not the mobs that drop it) and who to turn it in to. Objective areas are drawn as the game draws them (its edges and fills); the quest you follow is filled, the rest a quiet edge; hovering an area lifts it gently.
 The fills, edges and hover are adjustable in Settings > Quest areas. The tooltip is compact: one row of
 facts with the level in its difficulty colour, a `?` icon before who takes the quest in.
 Click a quest (or its area, zoomed in) to follow it: it becomes the game's tracked quest. The quest

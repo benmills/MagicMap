@@ -85,6 +85,8 @@ command and hooked kinds, and everything inside UI (camera, layout, menus, chrom
   isn't idempotent: each one runs the line once, as a click on the spike's row did.
 - Change (ADR 0008, interiors): `renderer` removed. UI draws the indoor pictures itself and Game had
   already stopped reading the field, so nothing acts on it and `v` stays 1.
+- Change (#20, the quest tooltip names no droppers): CmdTooltip's `npc` and `line` removed, with Game's
+  portraits (met creatures' faces drawn on a dropper's line). The kind stays, for a member's tooltip.
 
 ## Revisit if
 

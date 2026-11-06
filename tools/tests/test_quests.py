@@ -12,10 +12,9 @@ clicks in ui/Areas.lua), end to end from the sim's quest log through Game's part
     each step) through the wheel, drags, the big map, the follow moving, an offer taken into the log and
     the log abandoned (F26).
   test_quest_tooltip: the tooltip's lines in QuestInfo.lua's order and type (S63): the tag and group
-    size on the facts line (the level bare in its colour), ≤3 droppers lowest first (no heading: their
-    swords say it) and how many more, the turn-in "?" before who takes it in, the click hint; a
-    met dropper's portrait (the tooltip Command) the frame the tooltip is built; without QuestieDB's
-    data, no dropper, source or turn-in lines (F28).
+    size on the facts line (the level bare in its colour), the object an item is in (never who drops
+    it), the turn-in "?" before who takes it in, the click hint; without QuestieDB's data, no source
+    or turn-in lines (F28).
 """
 from test_addon import boot, errors
 
@@ -57,17 +56,15 @@ function PinOf(layer, key)
 end
 -- QuestieDB's rows for the quests here, as Atlas has them (made up: CI has none).
 function Data()
-	local items = { [772] = { name = "Large Candle", icon = 133750, npcDrops = { 9001, 9002, 9003, 9004, 9005 },
-		objectDrops = {}, vendors = {} } }
-	local npcs = { [9001] = { name = "Candle Thief", minLevel = 6, maxLevel = 8 },
-		[9002] = { name = "Tunnel Rat", minLevel = 4, maxLevel = 5 }, [9003] = { name = "Wick Keeper", minLevel = 7, maxLevel = 7, rank = 1 },
-		[9004] = { name = "Old Mole", minLevel = 0, maxLevel = 0 }, [9005] = { name = "Deep Digger", minLevel = 12, maxLevel = 14, rank = 4 },
-		[9301] = { name = "Candle Taker" } }
+	local items = { [772] = { name = "Large Candle", icon = 133750, npcDrops = { 9001, 9002 }, objectDrops = { 9101 },
+		vendors = {} } }
+	local npcs = { [9001] = { name = "Candle Thief", minLevel = 6, maxLevel = 8 }, [9301] = { name = "Candle Taker" } }
+	local objects = { [9101] = { name = "Candle Crate" } }
 	local quests = { [60] = { objectives = { { kind = "item", id = 772 } }, finishedBy = { npcs = { 9301 }, objects = {} } } }
 	Atlas.Item = function(id) return items[id] end
 	local npc = Atlas.Npc -- (the rest Atlas's: SpawnsIn's, the town services' gathering)
 	Atlas.Npc = function(id) return npcs[id] or npc(id) end
-	Atlas.Object = function() return nil end
+	Atlas.Object = function(id) return objects[id] end
 	Atlas.Quest = function(id) return quests[id] end
 end
 """
@@ -247,15 +244,11 @@ def test_quest_pins_each_frame():
 
 
 SEP = "  \u00b7  ".encode("utf-8").decode("latin-1")  # the facts line's joins, as the sim's Lua (latin-1) reads them
-MOB = "|T135274:14:14:0:0:64:64:5:59:5:59|t"
-ELITE = "|TInterface\\TargetingFrame\\UI-TargetingFrame-Skull:14:14|t"
 
 
 def test_quest_tooltip():
     L, sim, ns, G = client([dict(CANDLES, tag="Group", group=3)])
     tip, S, same = G.GameTooltip, sim.state, L.eval("rawequal")
-    sim.units.mouseover = L.table_from({"name": "Tunnel Rat", "guid": "Creature-0-1-0-1-9002-0000000001"})
-    sim.FireEvent("UPDATE_MOUSEOVER_UNIT")  # met: Game draws its portrait from then on
     G.Over(31.95, 49.6)
     sim.FireScript(ns.UI.Window.view, "OnEnter", False)
     sim.Step()
@@ -265,28 +258,22 @@ def test_quest_tooltip():
     def lines():
         return [(S[tip.GetLeftLine(tip, i)].text, same(S[tip.GetLeftLine(tip, i)].fontObject, G.GameTooltipTextSmall))
                 for i in range(1, tip.NumLines(tip) + 1)]
-    disc = "|TInterface\\CharacterFrame\\TempPortraitAlphaMask:14:14:0:0:64:64:0:64:0:64:0:0:0|t"
     want = [
         ("Kobold Candles", False),
         ("|cffffd1007|r|cff9d9d9d" + SEP + "|r|cffff8040Group 3|r", True),  # its level, its tag (F28)
         ("Large Candle: 3/8", False),
-        ("    " + MOB + " |cffffffffOld Mole|r", True),  # not met: its sword
-        ("    " + disc + " |cffffffffTunnel Rat|r |cff3fbf3f4-5|r", True),  # met: its portrait over a dark disc
-        ("    " + ELITE + " |cffffffffWick Keeper|r |cffffd1007|r |cff9d9d9dElite|r", True),
-        ("    |cff9d9d9d(+2 more)|r", True),
+        ("    |cff9d9d9dFrom|r |cffffffffCandle Crate|r", True),  # where it's found; its droppers never named
         (" ", True),
         ("|A:questturnin:14:14|a Candle Taker", True),
         ("|cff9d9d9dClick for options|r", True),
     ]
-    # The frame the tooltip is built: the tooltip Commands carried out in Game's apply step, after UI's.
     assert lines() == want
-    assert any(v.portrait == "Creature-0-1-0-1-9002-0000000001" and v.shown for v in S.values())
     assert list(S[tip.GetLeftLine(tip, 1)].textColor.values()) == [1, 0.82, 0]
-    assert list(S[tip.GetLeftLine(tip, 9)].textColor.values()) == [0.85, 0.85, 0.85]
+    assert list(S[tip.GetLeftLine(tip, 6)].textColor.values()) == [0.85, 0.85, 0.85]
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
     # Booted without QuestieDB's files (Atlas's own empty indexes, as CI's checkout): the pin, its tooltip
-    # without droppers, sources or turn-in.
+    # without sources or turn-in.
     L, sim, ns, G = client([CANDLES], data=False)
     assert ns.Data.Quests is None and ns.Data.Npcs is None
     tip, S = G.GameTooltip, sim.state

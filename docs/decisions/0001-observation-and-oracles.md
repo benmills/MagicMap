@@ -113,6 +113,8 @@ unknown ones), and new oracles.
   zone's own wilderness has none). `explored` stays per area, true only for the areas the client names.
 - OPEN change (ADR 0008, interiors): the part `interior` (`MM.ObsInterior`, on change: the building
   and room you're in, false in none) replaces `indoorArt` (`MM.ObsArt`, gone).
+- OPEN change (#20, the quest tooltip names no droppers): `you.trivialRange` removed. It only greyed
+  a dropper's level; nothing else read it. Nor does UI ask Game for a dropper's portrait any more (ADR 0003).
 
 ## Revisit if
 

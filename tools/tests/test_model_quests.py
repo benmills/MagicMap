@@ -3,10 +3,10 @@ Known("offers") (docs/v1-plan.md M2.3).
 
   test_quests_model: the quests stream (fixtures/streams/quests.lua): each pin's kind (in progress,
     ready to turn in, followed), inner icon, count and need; what Atlas knows (DATA: made-up rows,
-    not QuestieDB's): at most 3 droppers lowest first and how many more, the objects it's in, who
-    sells it, who takes it in; an unchanged quest keeps its entry.
-  test_quests_model_colours: the quest log's difficulty colours (S47), quests' and droppers'.
-  test_quests_model_no_data: no QuestieDB data: the same pins, no droppers, sources or turn-in.
+    not QuestieDB's): the objects an item is in (a mob dropping it too), else who sells it, never who
+    drops it; who takes it in; an unchanged quest keeps its entry.
+  test_quests_model_colours: the quest log's difficulty colours (S47).
+  test_quests_model_no_data: no QuestieDB data: the same pins, no sources or turn-in.
   test_offers_model: the offers stream: one a quest, none in your log (F40).
 """
 from lupa import lua51
@@ -19,15 +19,11 @@ DATA = """return {
     ItemIcons = { [772] = 133750, [773] = 133848 },
     Items = { -- name, npcDrops, objectDrops, itemDrops, vendors
         [772] = { "Large Candle", { 9001, 9002, 9003, 9004, 9005 } },
-        [773] = { "Gold Dust", nil, { 9101, 9102, 9103 } },
+        [773] = { "Gold Dust", { 9001 }, { 9101, 9102, 9103 } },
         [1931] = { "Huge Gnoll Claw", nil, nil, nil, { 9201 } },
     },
     Npcs = { -- name, subName, minLevel, maxLevel, rank
         [9001] = { "Candle Thief", nil, 6, 8 },
-        [9002] = { "Tunnel Rat", nil, 4, 5 },
-        [9003] = { "Wick Keeper", nil, 7, 7, 1 },
-        [9004] = { "Old Mole", nil, 0, 0 },
-        [9005] = { "Deep Digger", nil, 12, 14, 4 },
         [9201] = { "Claw Trader" },
         [9301] = { "Candle Taker" },
     },
@@ -81,15 +77,12 @@ def test_quests_model():
         assert (e.icon.atlas, e.complete, e.count, e.inner, e.need, e.objectives) == (TURN_IN, True, None, None, None, None)
     assert rgb(q[CLEANUP]) == GREY
 
-    # Tooltip lines: droppers lowest level first, 3 and how many more; else objects; else vendors.
+    # Tooltip lines: the objects an item is in (a mob drops Gold Dust too), else who sells it; never droppers.
     o = c.objectives[1]
-    assert (o.text, o.finished, o.more) == ("Large Candle: 3/8", False, 2)
-    drops = [(m.npc, m.name, m.lo, m.hi, m.color and tuple(m.color.values()), m.rank) for m in o.drops.values()]
-    assert drops == [(9004, "Old Mole", None, None, None, None), (9002, "Tunnel Rat", 4, 5, GREEN, None),
-                     (9003, "Wick Keeper", 7, 7, YELLOW, "Elite")]
-    assert (q[GOLD].objectives[1]["from"], q[GOLD].objectives[1].drops) == ("Dusty Crate, Gold Chip (+1 more)", None)
+    assert (o.text, o.finished, o["from"], o.sold) == ("Large Candle: 3/8", False, None, None)  # mobs' alone
+    assert q[GOLD].objectives[1]["from"] == "Dusty Crate, Gold Chip (+1 more)"
     assert q[HOGGER].objectives[1].sold == "Claw Trader"
-    assert [(x.text, x.finished, x.drops) for x in q[FRONTIER].objectives.values()] == \
+    assert [(x.text, x.finished, x["from"]) for x in q[FRONTIER].objectives.values()] == \
         [("Prowler slain: 2/8", False, None), ("Young Forest Bear slain: 0/5", False, None)]
     assert (c.turnIn, q[HOGGER].turnIn, q[GOLD].turnIn) == ("Candle Taker", "Drop Box", None)  # an npc, else an object
 
@@ -135,8 +128,6 @@ def test_quests_model_colours():
     model.Observe(level(stream[1], 3, 13), oracles)
     q = known(model)[0]
     assert [rgb(q[k]) for k in (HOGGER, CANDLES, CLEANUP)] == [YELLOW, GREEN, GREY]  # -2, -6, -11 (trivial)
-    drops = {m.name: m.color and tuple(m.color.values()) for m in q[CANDLES].objectives[1].drops.values()}
-    assert drops == {"Old Mole": None, "Tunnel Rat": GREY, "Wick Keeper": GREY}  # 8, 6 below you: past 5 (3: green)
 
 
 def test_quests_model_no_data():
@@ -147,7 +138,7 @@ def test_quests_model_no_data():
     assert len(q) == 7
     assert (q[CANDLES].inner.texture, q[CANDLES].count) == (133633, "3/8")  # the bag: no item known
     o = q[CANDLES].objectives[1]
-    assert (o.text, o.drops, o.more, o["from"], o.sold) == ("Large Candle: 3/8", None, None, None, None)
+    assert (o.text, o["from"], o.sold) == ("Large Candle: 3/8", None, None)
     assert not any(e.turnIn for e in q.values())
 
 

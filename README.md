@@ -15,8 +15,8 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 
 - **Scroll out from your feet to all of Kalimdor**, in your minimap's spot. Press M to make it big.
 - **Floor plans indoors.** Undercity, Ironforge and caves show the floor you're on.
-- **Quests on the map.** Objective areas, quest givers nearby, and a tooltip with the mobs, items and
-  turn-in. Click a quest for a walking line to it, around cliffs and water.
+- **Quests on the map.** Objective areas, quest givers nearby, and a tooltip with what's left to do and
+  the turn-in. Click a quest for a walking line to it, around cliffs and water.
 - **Click any icon, choose Track.** A flight master, mailbox or rare: a line to it, with yards and minutes.
 - **Herbs, ore and trainers at any zoom**, with their tooltips. Rares you've seen stay on the map for all
   your characters.
