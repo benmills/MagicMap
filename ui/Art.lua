@@ -25,6 +25,8 @@ local Art = {
 		{ "redbutton-expand-c60", "redbutton-expand" },
 		{ "redbutton-expand-pressed-c60", "redbutton-expand-pressed" },
 		{ "redbutton-highlight-c60", "redbutton-highlight" },
+		"redbutton-condense", "redbutton-condense-pressed",        -- the mode button on the big map (the world map's pair)
+		"UI-RefreshButton",                                        -- ui/Controls.lua: the recenter (RefreshButtonTemplate's)
 		"ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-in-down", "ui-hud-minimap-zoom-in-mouseover", -- the zoom buttons
 		"ui-hud-minimap-zoom-out", "ui-hud-minimap-zoom-out-down", "ui-hud-minimap-zoom-out-mouseover",
 		{ "levelup-dot-gold", "common-radiobutton-dot" },           -- the zoom reset's dot (Forever has no reset atlas)

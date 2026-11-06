@@ -2,7 +2,7 @@
 -- takeover let the Minimap go whenever you were off the map shown (it read the camera, cam.onMap).
 -- MOVED: Game acts only on View (types/view.lua), which says nothing of the map shown but its
 -- instance; whether it takes the Minimap hangs on the window shown and View.minimap alone. Browsing
--- Kalimdor from Eastern Kingdoms (the picker, /mm map) and coming back (Follow me): the takeover held
+-- Kalimdor from Eastern Kingdoms (the picker, /mm map) and coming back (the recenter): the takeover held
 -- every frame, the Minimap still the sensor, its cluster hidden (T.Invariants), HereBeDragons' minimap
 -- pins on a host of Game's, out of sight but on the minimap socket (R-G6c).
 local T = ...
@@ -42,14 +42,8 @@ Held(1)
 sim.Slash("/mm map 36")
 Held(1)
 assert(UI.View().inst == 36)
--- Back: Follow me, from the map's menu.
-local view = UI.Window.view
-sim.Click(view, "RightButton")
-local follow
-for _, e in ipairs(sim.MenuItems("button")) do
-	if e.text == "Follow me" then follow = e end
-end
-follow.onSelect()
+-- Back: the recenter, by the zoom buttons.
+sim.Click(UI.Controls.recenter)
 Held(1)
 assert(UI.Camera.inst == 0 and UI.Camera.follow)
 T.Print("G2: %d frames browsing Kalimdor and Deadmines from Eastern Kingdoms and back: taken throughout", frames)

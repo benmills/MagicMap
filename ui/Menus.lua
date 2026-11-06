@@ -438,8 +438,8 @@ end })
 -- The map's right-click menu (Core.lua:1355-1385)
 ---------------------------------------------------------------------------
 
--- Only what makes sense where you clicked: Waypoint here (in a zone), Clear waypoint (one set), Follow me
--- (not following); the big map leads with what's there (ui/ZoneInfo.lua), at the minimap's size the
+-- Only what makes sense where you clicked: Waypoint here (in a zone), Clear waypoint (one set); back to you is
+-- the recenter button's (ui/Controls.lua); the big map leads with what's there (ui/ZoneInfo.lua), at the minimap's size the
 -- actions alone. On a pin (pin: its Known entry; either button, ui/Pins.lua's Tap) the pin's rows lead
 -- instead (UI.Track.Items: Track, Path to, their Stops, the quest's), then the map's but Waypoint here (its Track).
 function Menus.Map(owner, col, row, pin)
@@ -451,9 +451,6 @@ function Menus.Map(owner, col, row, pin)
 	end
 	if Model.waypointSet then -- (wherever it is: Layers.lua:2080-2081)
 		items[#items + 1] = { "Clear waypoint", function() Command({ kind = "waypoint", pos = false }) end }
-	end
-	if not UI.Camera.follow then
-		items[#items + 1] = { "Follow me", function() UI.Motion.SetFollow(true, true) end }
 	end
 	local info = not pin and UI.BigMap.big and UI.ZoneInfo.At(col, row) or nil
 	if not (items[1] or info or pin) then return end

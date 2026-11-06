@@ -13,7 +13,7 @@ input), as the spike's (Core.lua:1161-1240, 1247-1416, 1698-1735; Layers.lua:178
   test_modified_clicks: Ctrl-click a waypoint there, Ctrl-right-click none, Shift-click the /way line (the waypoint
     and way Commands, carried out by Game's handlers: M3.2's); none off the zones' maps, where the press is the
     map's (F35, F36).
-  test_inspector: the right-click menu: Waypoint here, Clear waypoint (one set, wherever), Follow me as they apply; big, it leads with the
+  test_inspector: the right-click menu: Waypoint here, Clear waypoint (one set, wherever) as they apply; big, it leads with the
     zone, its subzone and coordinates, its levels against yours, how far (5 yd steps close, 10 further, thousands
     with commas) and which way from you, at most 2 quests whose areas hold the spot (F37, F38, S62).
 """
@@ -321,10 +321,10 @@ def test_inspector():
     sim.Step()  # (carried out in Game's input step)
     w = obs.waypoint
     assert sim.waypoint.uiMapID == 1429 and near((w.col, w.row), (32.5, 49.6), 1e-3)
-    # A waypoint known (Model's): Clear waypoint; not following: Follow me, which flies back to you.
+    # A waypoint known (Model's): Clear waypoint.
     UI.Motion.SetFollow(False)
     lines = menu(32.5, 49.6)
-    assert lines[-3:] == [("button", "Waypoint here"), ("button", "Clear waypoint"), ("button", "Follow me")]
+    assert lines[-2:] == [("button", "Waypoint here"), ("button", "Clear waypoint")]
     sub(sim.menu, "Clear waypoint").onSelect()
     sim.Step()
     assert sim.waypoint is None and obs.waypoint is False and len(ns.Model.Known("waypoint")[0]) == 0
@@ -337,8 +337,4 @@ def test_inspector():
     sub(sim.menu, "Clear waypoint").onSelect()
     sim.Step()
     assert sim.waypoint is None and ("button", "Clear waypoint") not in menu(32.5, 49.6)
-    menu(32.5, 49.6)
-    sub(sim.menu, "Follow me").onSelect()
-    sim.Run(0.7)
-    assert UI.Camera.follow
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

@@ -40,13 +40,10 @@ def test_map():
         sim.Step()
     sim.Run(2)
     assert c.cam.zoom == 16
-    sim.Click(w.view, "RightButton")  # the map's menu: Follow me glides back to you, then follows
-    items = [e for e in sim.MenuItems("button").values() if e.text == "Follow me"]
-    assert len(items) == 1
-    items[0].onSelect()
+    sim.Click(ns.UI.Controls.recenter)  # the recenter glides back to you, then follows
     sim.Run(1)
     assert c.follow
-    sim.Click(w.view, "RightButton")  # following: no Follow me (small: no zone info; tools/tests/test_interact.py)
+    sim.Click(w.view, "RightButton")  # (small: no zone info; tools/tests/test_interact.py)
     assert [e.text for e in sim.MenuItems().values()] == ["Waypoint here"]
     sim.Slash("/mm mapstats")
     sim.Slash("/mm toggle")

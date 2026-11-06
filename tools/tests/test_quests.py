@@ -171,16 +171,16 @@ def test_quest_follow():
     sim.cursorX, sim.cursorY = 5, 5  # off the window: the tracked quest's pill stays, at full alpha
     sim.Run(1)
     assert ns.UI.Controls.questLine.IsShown(ns.UI.Controls.questLine) and ns.UI.Controls.questLine.GetAlpha(ns.UI.Controls.questLine) == 1
-    # The Info pills settings: the progress off, then the pill off, live; back on.
+    # The Quest pill settings: the name alone, then the pill off, live; back on.
     Feel, line = ns.UI.Feel, ns.UI.Controls.questLine
     text = lambda: sim.state[[r for r in line.GetRegions(line) if sim.state[r].text][0]].text
     assert "/" in text() or "ready" in text()
-    Feel.Set("pills.questProgress", False)
+    Feel.Set("pills.quest", "name")
     assert text() == "Protect the Frontier"
     Feel.Set("pills.questShow", "off")
     assert not line.IsShown(line)
     Feel.Set("pills.questShow", "all")
-    Feel.Set("pills.questProgress", True)
+    Feel.Set("pills.quest", Feel.Default("pills.quest"))
     assert line.IsShown(line)
     p = pin(ns, G, "Quests", 52)
     assert sim.state[p].width == 28

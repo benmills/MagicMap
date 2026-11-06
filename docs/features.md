@@ -106,8 +106,10 @@ objects an item is in, else who sells it; not the mobs that drop it) and who to 
 The fills, edges and hover are adjustable in Settings > Quest areas. The tooltip is compact: one row of
 facts with the level in its difficulty colour, a `?` icon before who takes the quest in.
 Click a quest (or its area, zoomed in) to follow it: it becomes the game's tracked quest. The quest
-pill at the bottom left shows the quest you follow and its progress, else how many of your quests
-are in this zone. A sensed quest-giver's `!` (or `?`) shows only while you still have an offer (or a
+pill at the bottom left is the one pill for what you track: the quest you follow (or your waypoint, the icon you
+track, your corpse), its progress and the yards to it by default (time to arrive on offer; the pieces and their
+order chosen on Settings > Quest pill), over a faint gold fill of how far you've come since you began going to it;
+else how many of your quests are in this zone. A sensed quest-giver's `!` (or `?`) shows only while you still have an offer (or a
 quest to hand in) there, so it goes as soon as you accept.
 
 <!-- TODO(#12): refreshed screenshot (2.1.0: no zone borders, current tooltip) -->
@@ -118,8 +120,8 @@ The quest pill at the bottom left counts the quests in Durotar.*
 
 **Where to go.** Your target is your corpse while you're a ghost, else the quest you follow, else
 your waypoint. **Click any icon** (left or right; your waypoint's own too) for its menu: Track and Path to (each Stop tracking or Stop
-pathing while it's what that icon has), then the map's rows (Clear waypoint, Follow me). Either sets the game's
-waypoint at the icon, and the title and the distance pill go to it; what you track is never grouped into a pill
+pathing while it's what that icon has), then the map's rows (Clear waypoint). Either sets the game's
+waypoint at the icon, and the title and the quest pill go to it; what you track is never grouped into a pill
 and shows at any zoom. A quest icon's rows are "Track quest" and "Path to quest" (each follows the quest) and
 "Open in quest log". The two are exclusive: choosing one replaces the other.
 **Track** shows the way with Blizzard's gold arrow alone, placed by the walk to the target (around cliffs, lava
@@ -137,8 +139,9 @@ and the view comes back to you.
 Both stay through a /reload. While you follow a quest, the quest pill is its icon: hover it for the quest's
 tooltip, click it for its menu (Stop tracking is one click away). Clicking a quest's area follows it (Track).
 Ctrl-click sets the game's waypoint (Ctrl-right-click clears
-it), Shift-click opens chat with a `/way` line, and right-click off an icon offers both. A tracking pill at the top left of the map gives the yards along the route to the
-target and a plain ETA at your pace. On the big map, right-click leads with what's there: zone, subzones, coordinates, level
+it), Shift-click opens chat with a `/way` line, and right-click off an icon offers both. While the map isn't following you (you dragged it, or flew to a zone),
+a round refresh button above the zoom buttons glides back to you. The mode button (Blizzard's red expand) turns to
+its condense on the big map. On the big map, right-click leads with what's there: zone, subzones, coordinates, level
 range against yours, distance, quests, explored or not, and the landmarks nearby.
 
 <!-- TODO(#12): refreshed screenshot (2.1.0: no zone borders, current tooltip) -->
@@ -186,7 +189,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | Title | At rest (Zone, Subzone), On hover (Zone, Subzone, Coordinates, Tracked target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time, Day or night. Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
 | Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Services, Vendors, Resources, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Each follows the level above until set; its undo hands it back |
 | Resources | Tracking: Keep tracking (your gathering tracker: Find Herbs, else Find Minerals, else Find Treasure; or one you know, or Off). Badges: Colour by difficulty (on), Letter (on), Letter size (100%) |
-| Info pills | Both pills: Backing (25%), Size (100%). Quest pill: Shows (quest or zone count / followed quest only / off), Quest progress (on), Fade quest pill (on: the zone count only while you point at the map). Distance pill: Distance pill (on), Shows (yards and time / yards / time), Corner (top left / top right), Fade distance pill (off) |
+| Quest pill | Shows (target or zone count / target only / off), Says (Name, Objective progress, Distance; chosen and ordered from those and Time to arrive), Progress bar (on), Fade quest pill (on: the zone count only while you point at the map). Look: Backing (25%), Size (100%) |
 | Tracking | Arrow: Size (80%), Opacity (90%), Distance (48 px). Path to: Frame the way (on) |
 | Pathing | Line: Style (dashed), Weight (1.0 px), Colour (Gold), Opacity (55%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |
 | Quest areas | Followed quest, Other quests: Fill, Edge, Edge width. Under the cursor: Fill lift, Edge (as the game draws them, a quiet fill by default) |

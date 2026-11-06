@@ -1934,7 +1934,8 @@ local ATLASES = { Professions_Tracking_Herb = true, Professions_Tracking_Ore = t
 for _, base in ipairs({ "ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-out" }) do
 	ATLASES[base], ATLASES[base .. "-mouseover"], ATLASES[base .. "-down"] = true, true, true
 end
-for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutton-highlight", "Quest-In-Progress-Icon-yellow" }) do
+for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutton-highlight", "redbutton-condense",
+	"redbutton-condense-pressed", "UI-RefreshButton", "Quest-In-Progress-Icon-yellow" }) do
 	ATLASES[name] = true
 end
 -- The metal frame's pieces, sized as Forever reports them: the edges far

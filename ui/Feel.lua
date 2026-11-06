@@ -55,8 +55,8 @@
 --     Places, Addons, Other: Size, Opacity, On the big map), each type's under it (Size, Opacity, On the big map, Icon,
 --     Group), declared by the files that draw them.
 --   Resources (35). Tracking: Keep tracking (ui/Resources.lua); Badges: Colour by difficulty, Letter, Letter size (ui/Blips.lua).
---   Info pills (40, ui/Controls.lua). Both pills: Backing, Size; Quest pill: Shows, Quest progress, Fade quest pill;
---     Distance pill: Distance pill, Shows, Corner, Fade distance pill.
+--   Quest pill (40, ui/Controls.lua). Shows, Says (the pieces, chosen and ordered), Progress bar, Fade quest pill;
+--     Look: Backing, Size.
 --   Tracking (45), how the way is shown. Arrow (Track's): Size, Opacity, Distance (ui/Guide.lua); Path to: Frame the
 --     way (ui/Path.lua).
 --   Pathing (50, ui/Path.lua), Path to's line. Line: Style, Weight, Colour, Opacity; Effects: Glow, Breathing, Breath
@@ -1129,8 +1129,8 @@ Feel.Page({ key = "general", title = "General", icon = "Interface\\Icons\\Trade_
 	tip = "What MagicMap replaces, its window and how the map moves.", sections = { "Blizzard's maps", "Map window", "Movement" } })
 Feel.Page({ key = "map", title = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01", order = 20,
 	tip = "What the map shows: names, the ground, indoor maps and your arrow.", sections = { "Names", "Ground", "Indoors", "You" } })
-Feel.Page({ key = "pills", title = "Info pills", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01", order = 40,
-	tip = "The quest pill (bottom left) and the distance pill (top).", sections = { "Both pills", "Quest pill", "Distance pill" } })
+Feel.Page({ key = "pills", title = "Quest pill", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01", order = 40,
+	tip = "The pill at the map's bottom left: what you track, how far, and how far you've come.", sections = { "Look" } })
 Feel.Page({ key = "tracking", title = "Tracking", icon = "Interface\\Icons\\INV_Misc_Spyglass_03", order = 45,
 	tip = "How the way is shown: Track's gold arrow, and Path to keeping the way in view (the line's look: Pathing).", sections = { "Arrow", "Path to" } })
 Feel.Page({ key = "path", title = "Pathing", icon = "Interface\\Icons\\Ability_Hunter_Pathfinding", order = 50,
