@@ -1,6 +1,6 @@
 """The pin store (ui/Pins.lua) on the simulated client: one store diffed by id (200 pins, one changed:
 that pin alone re-set; the rev bumped with nothing changed, or left as it is: none); StylePin's forms
-(a)-(d), glow and count; a pin's tooltip (built once a hover, its lines small and grey, hidden off it with
+(a)-(d) and count; a pin's tooltip (built once a hover, its lines small and grey, hidden off it with
 its fonts back), a click on it, and a drag over it panning the map."""
 from test_addon import boot, errors
 
@@ -25,7 +25,7 @@ CALLS = """function(layer)
         local p = c.pools.pin
         for i = 1, p and p.out or 0 do
             local o, n = p[i], 0
-            for _, r in ipairs({ o, o.icon, o.ring, o.inner, o.glow, o.count }) do n = n + (Sim.callsOn[r] or 0) end
+            for _, r in ipairs({ o, o.icon, o.ring, o.inner, o.count }) do n = n + (Sim.callsOn[r] or 0) end
             local k = p.keys[i]
             out[k] = (out[k] or 0) + n
         end
@@ -77,7 +77,7 @@ def test_stylepin():
     looks = [
         {"icon": L.table_from({"texture": 136459})},  # (a)
         {"icon": L.table_from({"atlas": "Professions_Tracking_Herb"})},  # (b)
-        {"size": 22, "icon": under, "glow": True, "count": "2/5"},  # (c), followed, its count
+        {"size": 22, "icon": under, "count": "2/5"},  # (c), its count
         {"size": 10, "icon": L.table_from({"color": L.table_from([1, 0.82, 0])})},  # (d)
         {"icon": L.table_from({"atlas": "no-such-atlas", "color": L.table_from([0.4, 0.9, 0.3])})},  # (d): no atlas
     ]
@@ -87,31 +87,21 @@ def test_stylepin():
     vis = lambda r: r is not None and S[r].shown
 
     a, b, c, d, e = (got["t%d" % i] for i in range(1, 6))
-    assert S[a.icon].texture == 136459 and S[a.icon].width == 14 and not vis(a.ring) and not vis(a.glow)
+    assert S[a.icon].texture == 136459 and S[a.icon].width == 14 and not vis(a.ring)
     assert S[b.icon].atlas == "Professions_Tracking_Herb" and S[b.icon].width == 14 and not vis(b.ring)
-    # (c): the disc tinted, the objective icon in it shaded, the atlas over it at 0.62; the halo, the count
+    # (c): the disc tinted, the objective icon in it shaded, the atlas over it at 0.62; the count
     assert S[c.ring].atlas == "UI-QuestPoi-QuestNumber" and list(S[c.ring].vertex.values()) == [1, 0.5, 0.25, 1]
     assert S[c.inner].texture == 133730 and abs(S[c.inner].width - 22 * 0.56) < 1e-9 and vis(c.inner)
     assert list(S[c.inner].vertex.values()) == [0.55, 0.55, 0.55, 1]
     assert S[c.icon].atlas == "Quest-In-Progress-Icon-yellow" and abs(S[c.icon].width - 22 * 0.62) < 1e-9
-    assert vis(c.glow) and S[c.glow].width == 26 and list(S[c.glow].vertex.values()) == [1, 0.82, 0.3, 0.9]
-    assert S[c.glow].texture.endswith("Textures\\GlowRing")  # a ring, no disc (Pins' RING_FILE)
-    # The focus ring's settings (Feel "ring.*"): its size, opacity and colour, on the next layout.
-    for name, v in (("size", 1.5), ("alpha", 0.5), ("color", "Sky")):
-        ns.UI.Feel.Set("ring." + name, v)
-    sim.Run(0.5)
-    pins = t.layer.front.pools.pin
-    g = {pins["keys"][i]: pins[i] for i in range(1, pins.n + 1)}["t3"].glow
-    assert S[g].width == 39 and list(S[g].vertex.values()) == [0.55, 0.8, 1, 0.5]
-    ns.UI.Feel.Reset("icons")
     assert S[c.count].text == "2/5" and S[c.count].points[1].point == "TOP" and S[c.count].points[1].y == 2
     # (d): a dot of its colour on a dark ring
     for p, size, col in ((d, 10, [1, 0.82, 0]), (e, 14, [0.4, 0.9, 0.3])):
         assert vis(p.ring) and list(S[p.ring].vertex.values()) == [0, 0, 0, 0.9] and S[p.ring].width == size * 0.6 + 3
         assert list(S[p.icon].vertex.values()) == col + [1] and S[p.icon].width == size * 0.6
 
-    # Restyled in place (rev 3: the first canvas's pins again): (c) unfollowed, its count done; (a) a dot.
-    t.looks[3].glow, t.looks[3].count = False, None
+    # Restyled in place (rev 3: the first canvas's pins again): (c) its count done; (a) a dot.
+    t.looks[3].count = None
     t.looks[1].icon = L.table_from({"color": L.table_from([1, 1, 1])})
     t.rev = 2
     sim.Run(0.5)
@@ -119,7 +109,7 @@ def test_stylepin():
     sim.Run(0.5)
     pins = t.layer.front.pools.pin
     got = {pins["keys"][i]: pins[i] for i in range(1, pins.n + 1)}
-    assert not vis(got["t3"].glow) and S[got["t3"].count].text is None
+    assert S[got["t3"].count].text is None
     assert vis(got["t1"].ring) and S[got["t1"].icon].texture == "Interface\\CharacterFrame\\TempPortraitAlphaMask"
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
@@ -181,44 +171,65 @@ end"""
 
 
 def test_track_icon():
-    """A click on a blip opens the track menu (ui/Track.lua): Track sets the user waypoint at it (the sim's
-    C_Map), the pin wears the glow, the waypoint's own pin stays away and the title's target is the icon;
-    Stop tracking clears both. The waypoint cleared elsewhere (the map's menu) ends the tracking too."""
+    """A click on a blip opens the track menu (ui/Track.lua): Track and Path to. Track sets the user waypoint at
+    it (the sim's C_Map), the gold arrow alone shows the way (ui/Guide.lua: no line), the waypoint's own pin stays
+    away and the title's target is the icon; Path to, from tracking, switches to the line (the waypoint kept, the
+    arrow gone), Track back again; Stop ends either. The mode survives a /reload (UI.saved.path, the game keeping
+    its waypoint). The waypoint cleared elsewhere (the map's menu) ends the tracking too."""
     from sim import put_blips
+    from test_blips import lua_tools
     L, sim, ns = boot()
     UI, S, view = ns.UI, sim.state, ns.UI.Window.view
-    put_blips(L, sim, ns, [("Mailbox", 40, 20)])
+    put_blips(L, sim, ns, [("Mailbox", 80, 40)])  # 89 yd: 16 px at 96, the arrow's ride in past the pin's
     sim.Slash("/mm toggle")
     sim.Run(3)
     b = next(e for e in ns.Model.Known("blips")[0].values() if e.name == "Mailbox")
-    pin_of = L.eval("function(layer, key) local p = layer.front.pools.pin; return p[p.at[key]] end")
+    arrow = UI.Guide.arrow
 
     def drawn(lay):
         c = lay.front
         return c is not None and c.alpha == 1 and c.pools.pin is not None and c.pools.pin.n or 0
 
-    def click(row_text, button="LeftButton"):
+    def click(rows, pick, button="LeftButton"):
         L.eval(OVER)(ns, b.pos.col, b.pos.row)
         sim.FireScript(view, "OnEnter", False)
         sim.Step()
         sim.menu = None
         sim.Click(view, button, sim.cursorX, sim.cursorY, "screen")
         items = [(e.kind, e.text) for e in sim.MenuItems().values()]
-        assert items[:2] == [("title", "Mailbox"), ("button", row_text)], items  # (then the map's rows)
+        assert items[:3] == [("title", "Mailbox")] + [("button", r) for r in rows], items  # (then the map's rows)
         assert ("button", "Waypoint here") not in items
-        sim.MenuItems("button")[1].onSelect()
-        sim.Run(0.5)
+        next(e for e in sim.MenuItems("button").values() if e.text == pick).onSelect()
+        sim.FireScript(view, "OnLeave", False)
+        sim.Run(1)
 
-    click("Track")
-    assert sim.waypoint is not None and UI.saved.tracked.key == b.key
-    pin = pin_of(UI.Blips, b.key)
-    assert S[pin.glow].shown and drawn(UI.Waypoint) == 0
-    assert UI.You.Target()[0] == "Mailbox"
-    click("Stop tracking", "RightButton")  # a right click: the same menu
-    assert sim.waypoint is None and UI.saved.tracked is None and not S[pin_of(UI.Blips, b.key).glow].shown
-    click("Track")
+    UI.Motion.SetZoom(400)  # (the icon 67 px off: the arrow in reach)
+    click(("Track", "Path to"), "Track")
+    assert sim.waypoint is not None and UI.saved.tracked.key == b.key and UI.saved.path is None
+    assert drawn(UI.Waypoint) == 0 and UI.You.Target()[0] == "Mailbox"
+    assert UI.Path.pieces == 0 and S[arrow].shown and S[arrow].alpha > 0.5
+    click(("Stop tracking", "Path to"), "Path to")
+    assert sim.waypoint is not None and UI.saved.tracked.key == b.key and UI.saved.path is not None
+    assert UI.Path.pieces > 0 and not S[arrow].shown
+    click(("Track", "Stop pathing"), "Track")
+    assert UI.saved.path is None and UI.Path.pieces == 0 and S[arrow].shown
+    click(("Stop tracking", "Path to"), "Path to")
+    # A /reload: the mode saved, the game's waypoint kept.
+    sim.FireEvent("PLAYER_LOGOUT")
+    wp = sim.waypoint
+    db = lua_tools(L).Dump(L.globals().MagicMap2DB)
+    L2, sim2, ns2 = boot(f"MagicMap2DB = {db}\nSim.waypoint = UiMapPoint.CreateFromCoordinates({wp.uiMapID}, "
+                         f"{wp.position.x}, {wp.position.y})", reload=True)
+    sim2.Slash("/mm toggle")
+    sim2.Run(3)
+    assert ns2.UI.saved.path is not None and ns2.UI.saved.tracked.key == b.key and ns2.UI.Path.pieces > 0
+    assert not sim2.state[ns2.UI.Guide.arrow].shown and not errors(sim2, ns2), errors(sim2, ns2)
+    click(("Track", "Stop pathing"), "Stop pathing", "RightButton")  # a right click: the same menu
+    assert sim.waypoint is None and UI.saved.tracked is None and UI.saved.path is None
+    assert UI.Path.pieces == 0 and not S[arrow].shown
+    click(("Track", "Path to"), "Track")
     assert sim.waypoint is not None and drawn(UI.Waypoint) == 0
     ns.Game.Command(L.table_from({"kind": "waypoint", "pos": False}))  # cleared elsewhere: the tracking ends
-    sim.Run(0.5)
-    assert UI.saved.tracked is None and not S[pin_of(UI.Blips, b.key).glow].shown
+    sim.Run(1.5)  # (the arrow faded out)
+    assert UI.saved.tracked is None and not S[arrow].shown
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

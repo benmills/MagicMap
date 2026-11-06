@@ -9,7 +9,7 @@
 -- divider), a row each, its icon and name; a click (either button) is the button Command, its tooltip the button's
 -- own (the tooltip Command); "None found" greyed when there are none. Then quick actions (Use Blizzard's
 -- minimap, shown only while ours replaces it: UI.Replace.Get("minimap"); Reset to defaults: every layer as installed), then
--- Settings…, one row that opens the settings window (ui/Feel.lua: General, Map, Title, Icons, the tracking line, quest
+-- Settings…, one row that opens the settings window (ui/Feel.lua: General, Map, Title, Icons, Tracking, Pathing, quest
 -- areas, grouping, Diagnostics: what the gear's Settings submenu held).
 -- /mm layers (Layers.lua:2196-2207).
 -- The map picker (the title's click: ui/ZoneInfo.lua) and /mm map; the map's right-click menu.
@@ -441,7 +441,7 @@ end })
 -- Only what makes sense where you clicked: Waypoint here (in a zone), Clear waypoint (one set), Follow me
 -- (not following); the big map leads with what's there (ui/ZoneInfo.lua), at the minimap's size the
 -- actions alone. On a pin (pin: its Known entry; either button, ui/Pins.lua's Tap) the pin's rows lead
--- instead (UI.Track.Items: Track, Stop tracking, the quest's), then the map's but Waypoint here (its Track).
+-- instead (UI.Track.Items: Track, Path to, their Stops, the quest's), then the map's but Waypoint here (its Track).
 function Menus.Map(owner, col, row, pin)
 	local inst, items = UI.Camera.inst, {}
 	if not pin and Atlas.ZoneMapAt(inst, col, row) then -- (where Game's waypoint can go)
@@ -514,6 +514,6 @@ function Menus.Gear(owner)
 			:SetTooltip(Tip("Reset to defaults", "Every layer back as it was installed."))
 		root:CreateDivider()
 		root:CreateButton(Mark("Interface\\Icons\\Trade_Engineering") .. "Settings…", function() Run(UI.Feel.Open) end)
-			:SetTooltip(Tip("Settings", "MagicMap's settings window: general, the map's looks, the title, icons, the tracking line, quest areas, grouping, diagnostics."))
+			:SetTooltip(Tip("Settings", "MagicMap's settings window: general, the map's looks, the title, icons, tracking, pathing, quest areas, grouping, diagnostics."))
 	end)
 end

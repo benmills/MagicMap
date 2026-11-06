@@ -15,6 +15,12 @@ waypoint pins and the title's target), Model.Target and Model.Route stubbed as t
     every piece within 4096 px of its canvas (S56; docs/v1-plan.md §2).
   test_edge_arrow: a target off the view gets the gold arrow 16 px inside the edge where the line toward it
     leaves (along the route's leg that does), pointing on; none on the view or inside (F34, S59).
+  test_guide_arrow: Track's gold arrow (ui/Guide.lua), no line: 48 px out along the way, pointing on; turning
+    doesn't move it; a route north first swings it round (eased) onto that leg; nearer, it rides in short of the
+    pin, dimmer, and goes once the pin is by your arrow; its distance and size settings; none pathed or arrived.
+  test_path_frame: Path to's framing at the minimap's size (ui/Motion.lua's StepFrame): zoomed out so you and the
+    target are in view, never in past the zoom it began at; a drag holds it (hovered, however long), back once
+    left alone as the idle return is; a zoom of yours too; none on the big map; arrived, the zoom back.
   test_corpse_forces_follow: your corpse becoming the target (a ghost) glides the view back to you; another
     target doesn't, nor the one you had when the map first looked, nor browsing away and back (F7, F42).
   test_title_target: the subtitle's "<title>" and "<title> here", big or small and hovered (S12).
@@ -53,11 +59,14 @@ ns.Model.Target = function() if ns.Model.focus then return Tgt end end -- (nil: 
 ns.Model.Route = function() return Way end
 ns.Atlas.Walk.Snap = function() end -- (Model's own route, unseen here, finds nowhere to stand: no search runs)
 Sim.player.facing = -math.pi / 2 -- east (the client's facing: counter-clockwise from north)
--- A target of kind at tile (col, row) on your map.
-function Target(kind, col, row, title)
-	Tgt = { kind = kind, key = kind .. ":" .. col .. "," .. row, pos = { inst = 0, col = col, row = row }, title = title }
+-- A target of kind at tile (col, row) on your map, pathed (Path to: the line; track: Track, the gold arrow alone).
+function Target(kind, col, row, title, track)
+	Tgt = { kind = kind, key = kind .. ":" .. col .. "," .. row, pos = { inst = 0, col = col, row = row }, title = title,
+		track = track }
 	return Tgt
 end
+UI.Track.Pathed = function(t) return t and (t.kind == "corpse" or not t.track) or false end -- (as Track's: the stub's mode)
+UI.Feel.Set("path.frame", false) -- (the line measured with the view on you: test_path_frame frames)
 -- A route: you, then each { col, row } given (the target last).
 function Route(pts)
 	local p = Sim.player
@@ -376,6 +385,123 @@ def test_edge_arrow():
     assert not errors(sim, ns), errors(sim, ns)
 
 
+def test_guide_arrow():
+    L, sim, ns, G = client()
+    UI, S, cam = ns.UI, sim.state, ns.UI.Camera.cam
+    a, D = UI.Guide.arrow, UI.Guide.DEFAULTS
+    w, h = UI.Window.Size()
+    z, you = cam.zoom, ns.Model.you
+
+    def at():  # the arrow's centre from yours, px
+        p = S[a].points[1]
+        return p.x - ((you.col - cam.cx) * z + w / 2), -p.y - ((you.row - cam.cy) * z + h / 2)
+
+    # Tracked far to the east: no line, no edge arrow; the gold arrow 48 px out along the way, pointing on.
+    G.Target("waypoint", 36.0, 49.75, None, True)
+    sim.Run(2)
+    assert UI.Path.pieces == 0 and not S[UI.Path.edge].shown
+    assert S[a].shown and S[a].texture == "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW" and S[a].width == 32 * D.size
+    dx, dy = at()
+    assert abs(dx - 48) < 0.2 and abs(dy) < 0.2 and abs(S[a].rotation + math.pi / 2) < 0.01 and abs(S[a].alpha - D.opacity) < 0.02
+    # Turning doesn't move it (your arrow shows which way you face): no call on it.
+    calls = sim.callsOn[a] or 0
+    sim.player.facing = 0
+    sim.Run(0.5)
+    assert (sim.callsOn[a] or 0) == calls
+    # A route north first: it swings round onto the route's first leg (eased: part way after a frame), then
+    # stands on it, pointing north.
+    G.Route(L.table_from([L.table_from(q) for q in [(31.95, 48.5), (36.0, 49.75)]]))
+    sim.Step()
+    dx, dy = at()
+    assert dx > 5 and dy > -40
+    sim.Run(2)
+    dx, dy = at()
+    assert abs(dx) < 0.2 and abs(dy + 48) < 0.2 and abs(S[a].rotation) < 0.01
+    # Nearer: it rides in short of the pin (16 px), dimmer; within reach of your arrow, the pin takes over: gone.
+    G.Way = None
+    G.Target("waypoint", 31.95 + 40 / z, 49.75, None, True)
+    sim.Run(2)
+    dx, dy = at()
+    assert abs(dx - 24) < 0.2 and 0 < S[a].alpha < D.opacity / 2
+    G.Target("waypoint", 31.95 + 30 / z, 49.75, None, True)
+    sim.Run(2)
+    assert not S[a].shown
+    # Its settings: further out, bigger.
+    G.Target("waypoint", 36.0, 49.75, None, True)
+    UI.Feel.Set("guide.reach", 80)
+    UI.Feel.Set("guide.size", 1.2)
+    sim.Run(2)
+    assert abs(at()[0] - 80) < 0.2 and abs(S[a].width - 32 * 1.2) < 1e-9
+    # Pathed: the line, not the arrow; arrived: neither.
+    G.Target("waypoint", 36.0, 49.75)
+    sim.Run(2)
+    assert UI.Path.pieces > 0 and not S[a].shown
+    G.Target("waypoint", 36.0, 49.75, None, True)
+    G.Tgt.inside = True
+    sim.Run(2)
+    assert UI.Path.pieces == 0 and not S[a].shown
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_path_frame():
+    L, sim, ns, G = client()
+    UI, cam, Atl = ns.UI, ns.UI.Camera.cam, ns.Atlas.Camera
+    UI.Feel.Set("path.frame", True)
+    UI.saved.path = L.table_from({})  # (Path to's: where its zoom is kept)
+    w, h = UI.Window.Size()
+    z0, you = cam.zoom, ns.Model.you
+
+    def framed(col, row, pad=26):
+        x, y = Atl.TileToScreen(cam, w, h, col, row)
+        return pad - 0.5 <= x <= w - pad + 0.5 and pad - 0.5 <= y <= h - pad + 0.5
+
+    # Eight tiles east (768 px at 96, past the view): zoomed out and centred so you and it are both in view.
+    G.Target("waypoint", 40.0, 49.0)
+    sim.MoveCursorTo(UI.Window.view)
+    sim.Run(3)
+    assert cam.zoom < z0 * 0.95 and framed(you.col, you.row) and framed(40.0, 49.0) and UI.Path.pieces > 0
+    assert UI.saved.path.zoom == z0 and UI.Camera.follow
+    zf, cx = cam.zoom, cam.cx
+    # Your drag holds it where you leave it, under the cursor however long; left alone 6 s, it comes back.
+    sim.Drag(UI.Window.view, -200, 0)
+    sim.Run(8)
+    assert not UI.Camera.follow and cam.cx > cx + 1
+    sim.cursorX, sim.cursorY = 5, 5
+    sim.Run(2)
+    assert UI.Camera.follow and abs(cam.cx - cx) < 0.01 and abs(cam.zoom - zf) < 0.5
+    sim.Drag(UI.Window.view, -200, 0)
+    sim.cursorX, sim.cursorY = 5, 5
+    sim.Run(5)
+    assert not UI.Camera.follow and cam.cx > cx + 1
+    sim.Run(3)
+    assert UI.Camera.follow and abs(cam.cx - cx) < 0.01
+    # Your zoom too: it stands, then the framing's comes back.
+    UI.Motion.ZoomStep(2)
+    sim.Run(2)
+    assert cam.zoom > zf * 1.5
+    sim.Run(6)
+    assert abs(cam.zoom - zf) < 0.5 and framed(40.0, 49.0)
+    # Near now: back in, never past the zoom it began at.
+    G.Target("waypoint", 32.2, 49.75)
+    sim.Run(4)
+    assert abs(cam.zoom - z0) < 0.5 and framed(32.2, 49.75)
+    # On the big map: the view's yours.
+    G.Target("waypoint", 40.0, 49.0)
+    UI.BigMap.Toggle()
+    sim.Run(2)
+    z1, cx1 = cam.zoom, cam.cx
+    sim.Run(2)
+    assert UI.View().window.big and cam.zoom == z1 and cam.cx == cx1 == you.col
+    UI.BigMap.Toggle()
+    sim.Run(3)
+    # Arrived: the framing ends, the zoom back to where it began.
+    assert cam.zoom < z0 * 0.95
+    G.Tgt.inside = True
+    sim.Run(3)
+    assert abs(cam.zoom - z0) < 0.5 and cam.cx == you.col
+    assert not errors(sim, ns), errors(sim, ns)
+
+
 def test_corpse_forces_follow():
     # Not following, saved; a ghost, your corpse already the target when the map first looks: your choice kept.
     L, sim, ns, G = client(saved=TEST_UI.replace("zoom = 96,", "zoom = 96, follow = false,"), shown=False)
@@ -608,7 +734,7 @@ def test_path_walk_big(lua):
     c.run(3)
     c.lua("ns.UI.Motion.SetZoom(400)")
     c.run(3)
-    c.lua("ns.Game.Command({ kind = 'waypoint', pos = { inst = 0, col = 36.09, row = 49.28 } })")
+    c.lua("ns.UI.Track.Start({ kind = 'place', key = 'lake', name = 'Lakeshire', pos = { inst = 0, col = 36.09, row = 49.28 } }, true)")
     c.run(3)
     P, ns = c.ns.UI.Path, c.ns
     draws = P.draws

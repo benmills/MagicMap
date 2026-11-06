@@ -134,7 +134,7 @@ scripts[2] = function() -- (b)
     Home()
 end
 scripts[3] = function() -- (c)
-    ns.Game.Command({ kind = "waypoint", pos = { inst = 0, col = HOME.col + 1, row = HOME.row } })
+    ns.UI.Track.Start({ kind = "place", key = "soak", name = "Soak", pos = { inst = 0, col = HOME.col + 1, row = HOME.row } }, true) -- (Path to: the line)
     sim.Run(3)
     Walk(10, EAST, 14); sim.Run(2); Walk(10, WEST, 14)
     ns.Game.Command({ kind = "waypoint", pos = false })

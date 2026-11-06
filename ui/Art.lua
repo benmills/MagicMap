@@ -45,7 +45,7 @@ local Art = {
 		"Interface\\HUD\\UIMinimap2xC60", "Interface\\Icons\\INV_Misc_Map_01", -- game/Button.lua: ring, icon
 		136458, 136453, 136452, 136466, 136454, 136463, 136455, 136465, 136459, -- ui/Blips.lua: services (game/Blips.lua SERVICE)
 		"Interface\\GossipFrame\\VendorGossipIcon",            -- ui/Blips.lua: the other vendors (VENDOR; 132060)
-		"Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",        -- ui/Path.lua: the edge arrow
+		"Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",        -- ui/Path.lua: the edge arrow; ui/Guide.lua: Track's
 		"Interface\\Minimap\\PartyRaidBlipsV2",                  -- ui/Group.lua: party and raid members
 		136441,                                                  -- ui/Places.lua: POIIcons, the area POIs the client gives no atlas for
 	},

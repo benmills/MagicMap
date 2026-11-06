@@ -2,9 +2,9 @@
 -- in the world map's art (S46), Blizzard's atlases (Pins' (c), (b)): in progress, the yellow progress
 -- atlas over the quest-number disc ("UI-QuestPoi-QuestNumber") tinted its difficulty (Model's colour),
 -- the first unfinished objective's icon inside, its count under it; ready to turn in, the "questturnin"
--- "?" the atlas Model names; 24 px (the "?" 19), the one you follow 28 (23) in a thin gold ring (Pins' glow).
+-- "?" the atlas Model names; 24 px (the "?" 19), the one you follow a little bigger, 28 (23).
 -- Hovering one lights its area (ui/Areas.lua) and shows its tooltip (ui/QuestTooltip.lua); a click opens
--- the track menu (ui/Track.lua), whose one row follows it ("Track quest"), again to stop ("Stop tracking").
+-- the track menu (ui/Track.lua), whose rows follow it ("Track quest", "Path to quest"), again to stop.
 -- And quests to pick up (Layers.lua:636-664): Known("offers"), "questnormal"
 -- (the "!") at 18, their tooltip the quest, its line's name and "Quest to pick up". Over the other pins.
 -- Their size: Settings > Icons > Quest icon size (ui/Feel.lua).
@@ -33,7 +33,7 @@ local function Look(e)
 		icon.color = e.icon.color
 	end
 	local size = e.complete and (e.followed and TURN_IN_FOLLOWED or TURN_IN) or (e.followed and FOLLOWED or SIZE)
-	look = { size = size * scale, glow = e.followed, count = e.count, icon = icon }
+	look = { size = size * scale, count = e.count, icon = icon }
 	looks[e] = look
 	return look
 end

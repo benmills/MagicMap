@@ -3,11 +3,12 @@ clicks in ui/Areas.lua), end to end from the sim's quest log through Game's part
 
   test_quest_pins: StylePin's quest forms (S46): in progress, the in-progress atlas over the number disc
     tinted its difficulty, the objective's icon inside, its count; ready to turn in, the turn-in atlas;
-    22 px, the one you follow 26 in its halo (S43, S44); quests to pick up at 18, their tooltip (F40).
-  test_quest_follow: a click on a pin opens the track menu (ui/Track.lua), its one row "Track quest"
-    follows its quest (the follow Command, Blizzard's super-tracked quest back in the next observation,
-    its pin 26 in the halo), "Stop tracking" stops; a click on an area with no pin under it follows its
-    quest; a pin over another quest's area wins (F31). Each frame one pin a quest.
+    24 px, the one you follow 28 (S43, S44); quests to pick up at 18, their tooltip (F40).
+  test_quest_follow: a click on a pin opens the track menu (ui/Track.lua): "Track quest" follows its quest
+    (the follow Command, Blizzard's super-tracked quest back in the next observation, its pin 28), "Stop
+    tracking" stops; "Path to quest" follows it with the line, "Track quest" then switches back, "Stop
+    pathing" stops; a click on an area with no pin under it follows its quest; a pin over another quest's
+    area wins (F31). Each frame one pin a quest.
   test_quest_pins_each_frame: one pin a quest every frame (the harness's invariants, T.Invariants, after
     each step) through the wheel, drags, the big map, the follow moving, an offer taken into the log and
     the log abandoned (F26).
@@ -113,16 +114,16 @@ def test_quest_pins():
     vis = lambda r: r is not None and S[r].shown
     rgba = lambda r: list(S[r].vertex.values())
     # In progress, followed: the disc tinted orange (level 11 at 8), the objective's icon in it, the atlas
-    # over it; 26 in its halo; its count under it.
+    # over it; 28; its count under it.
     p = pin(ns, G, "Quests", 52)
     assert S[p].width == 28 and S[p.ring].atlas == "UI-QuestPoi-QuestNumber" and rgba(p.ring) == [1, 0.5, 0.25, 1]
     assert S[p.inner].texture == 135274 and abs(S[p.inner].width - 28 * 0.56) < 1e-9 and vis(p.inner)
     assert S[p.icon].atlas == "Quest-In-Progress-Icon-yellow" and abs(S[p.icon].width - 28 * 0.62) < 1e-9
-    assert vis(p.glow) and S[p.glow].width == 32 and S[p.count].text == "2/8"  # the ring: 4 px past the icon
+    assert p.glow is None and S[p.count].text == "2/8"  # (no ring round it: Track and Path to show the way)
     # Ready to turn in: its atlas, 19, no halo, no count.
     p = pin(ns, G, "Quests", 106)
     assert S[p].width == 19 and S[p.icon].atlas == "questturnin" and S[p.icon].width == 19
-    assert not vis(p.ring) and not vis(p.glow) and p.count is None
+    assert not vis(p.ring) and p.count is None
     # To pick up (the sim's offer on Elwynn): 18; its tooltip, the quest and "Quest to pick up", small and grey.
     p, tip, view = pin(ns, G, "Offers", 70), G.GameTooltip, ns.UI.Window.view
     assert S[p].width == 18 and S[p.icon].atlas == "QuestNormal"
@@ -145,17 +146,18 @@ def test_quest_follow():
     def followed():
         return {e.quest for e in known(ns, "quests") if e.followed}
 
-    def click(col, row, row_text=None, button="LeftButton"):
-        """A click there (either button: the same); on a pin, the track menu opens: its first row (row_text, the
-        quest's name over it, Open in quest log under it) picked."""
+    def click(col, row, row_text=None, button="LeftButton", rows=None):
+        """A click there (either button: the same); on a pin, the track menu opens: its row row_text picked (rows:
+        its first two, the quest's name over them, Open in quest log under them; default row_text, Path to quest)."""
         G.Over(col, row)
         sim.Step()  # (the pin under it found)
         sim.menu = None
         sim.Click(view, button, sim.cursorX, sim.cursorY, "screen")
         if row_text:
             items = [(e.kind, e.text) for e in sim.MenuItems().values()]
-            assert items[:3] == [("title", "Protect the Frontier"), ("button", row_text), ("button", "Open in quest log")], items
-            sim.MenuItems("button")[1].onSelect()
+            want = [("title", "Protect the Frontier")] + [("button", r) for r in rows or (row_text, "Path to quest")]
+            assert items[:4] == want + [("button", "Open in quest log")], items
+            next(e for e in sim.MenuItems("button").values() if e.text == row_text).onSelect()
         else:
             assert sim.menu is None
         sim.Run(0.2)
@@ -181,15 +183,15 @@ def test_quest_follow():
     Feel.Set("pills.questProgress", True)
     assert line.IsShown(line)
     p = pin(ns, G, "Quests", 52)
-    assert sim.state[p].width == 28 and sim.state[p.glow].shown
+    assert sim.state[p].width == 28
     # The pill, while it shows the followed quest, is its pin: its tooltip on a hover, its menu on a click.
     pill, tip = ns.UI.Controls.questLine, G.GameTooltip
     sim.FireScript(pill, "OnEnter", False)
     assert sim.state[tip].shown and sim.state[tip.GetLeftLine(tip, 1)].text.endswith("Protect the Frontier")
     sim.menu = None
     sim.FireScript(pill, "OnMouseUp", "RightButton")
-    assert [e.text for e in sim.MenuItems("button").values()][:2] == ["Stop tracking", "Open in quest log"]
-    sim.MenuItems("button")[2].onSelect()  # Open in quest log: the client's (the sim's L opens the world map)
+    assert [e.text for e in sim.MenuItems("button").values()][:3] == ["Stop tracking", "Path to quest", "Open in quest log"]
+    sim.MenuItems("button")[3].onSelect()  # Open in quest log: the client's (the sim's L opens the world map)
     sim.Run(0.2)
     assert G.WorldMapFrame.IsShown(G.WorldMapFrame)
     G.ToggleQuestLog()
@@ -197,6 +199,15 @@ def test_quest_follow():
     sim.FireScript(view, "OnEnter", False)
     click(31.8, 49.7, "Stop tracking", "RightButton")  # again (a right click, the same menu): none
     assert sim.superTracked == 0 and followed() == set() and sim.state[pin(ns, G, "Quests", 52)].width == 24
+    # Path to it: followed, the line (ui/Path.lua) not the arrow; Track quest switches back (still followed), Path
+    # to quest again, then Stop pathing: none.
+    click(31.8, 49.7, "Path to quest", rows=("Track quest", "Path to quest"))
+    assert sim.superTracked == 52 and ns.UI.saved.path.quest == 52 and ns.UI.Track.Pathed(Model.Target())
+    click(31.8, 49.7, "Track quest", rows=("Track quest", "Stop pathing"))
+    assert sim.superTracked == 52 and ns.UI.saved.path is None and not ns.UI.Track.Pathed(Model.Target())
+    click(31.8, 49.7, "Path to quest", rows=("Stop tracking", "Path to quest"))
+    click(31.8, 49.7, "Stop pathing", rows=("Track quest", "Stop pathing"))
+    assert sim.superTracked == 0 and followed() == set() and ns.UI.saved.path is None
     click(32.15, 49.7)  # Gold Dust's area, no pin under it
     assert sim.superTracked == 47 and followed() == {47}
     click(32.15, 49.7)

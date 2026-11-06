@@ -116,16 +116,26 @@ quest to hand in) there, so it goes as soon as you accept.
 The quest pill at the bottom left counts the quests in Durotar.*
 
 **Where to go.** Your target is your corpse while you're a ghost, else the quest you follow, else
-your waypoint. A thin, quiet gold dashed line walks you to it around cliffs, lava
-and water, leaving your arrow on a lazy lead-in and turning corners in rounded bends, to a quest
-area's nearest edge; off the map, a gold arrow on the edge points the way. The line's style (dotted,
-dashed, solid), weight, colour, glow, breathing, opacity and outline are in Settings > Tracking line.
-**Click any icon to track it**: a click, left or right, opens the icon's menu: Track (Stop tracking while
-it's the tracked one), then the map's rows (Clear waypoint, Follow me). Track sets the game's waypoint at
-the icon, which wears the focus ring, and the line and the title go to it; what you track is never grouped
-into a pill and shows at any zoom. A quest icon's rows are "Track quest" (it follows the quest) and "Open in
-quest log". While you follow a quest, the quest pill is its icon: hover it for the quest's tooltip, click it
-for its menu (Stop tracking is one click away). Ctrl-click sets the game's waypoint (Ctrl-right-click clears
+your waypoint. **Click any icon** (left or right; your waypoint's own too) for its menu: Track and Path to (each Stop tracking or Stop
+pathing while it's what that icon has), then the map's rows (Clear waypoint, Follow me). Either sets the game's
+waypoint at the icon, and the title and the distance pill go to it; what you track is never grouped into a pill
+and shows at any zoom. A quest icon's rows are "Track quest" and "Path to quest" (each follows the quest) and
+"Open in quest log". The two are exclusive: choosing one replaces the other.
+**Track** shows the way with Blizzard's gold arrow alone, placed by the walk to the target (around cliffs, lava
+and water): it stands along that way a short distance from you (48 px by default), pointing along it, so a
+route that turns north first points north; it comes in as you near the target, settles beside its icon and fades
+as the icon takes over. It eases round as the way changes, and your turning doesn't move it. Its size, opacity
+and distance are in Settings > Tracking.
+**Path to** draws the walk as a thin, quiet gold dashed line, leaving your arrow on a lazy lead-in and turning
+corners in rounded bends, to a quest area's nearest edge; off the map, a gold arrow on the edge points the way.
+At the minimap's size the map pans and zooms out to keep you, the target and the way between in view (never in
+past the zoom you had); pan or zoom yourself and it comes back once left alone, as Return to you does (Settings >
+Tracking > Frame the way). The big map is left where you have it. The line's style (dotted, dashed, solid),
+weight, colour, glow, breathing, opacity and outline are in Settings > Pathing. Your corpse always gets the line,
+and the view comes back to you.
+Both stay through a /reload. While you follow a quest, the quest pill is its icon: hover it for the quest's
+tooltip, click it for its menu (Stop tracking is one click away). Clicking a quest's area follows it (Track).
+Ctrl-click sets the game's waypoint (Ctrl-right-click clears
 it), Shift-click opens chat with a `/way` line, and right-click off an icon offers both. A tracking pill at the top left of the map gives the yards along the route to the
 target and a plain ETA at your pace. On the big map, right-click leads with what's there: zone, subzones, coordinates, level
 range against yours, distance, quests, explored or not, and the landmarks nearby.
@@ -173,10 +183,11 @@ only then. Hover a row for what it does and its default. Settings are account-wi
 | General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to you (on: the small map glides back to you when left alone), Return after (6 s), Zoom per notch (+30%) |
 | Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (100%), Subzone opacity (60%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
 | Title | At rest (Zone, Subzone), On hover (Zone, Subzone, Coordinates, Tracked target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time, Day or night. Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
-| Icons | Size: Icon size (120%), Quest icon size (100%). Focus ring: Size (145%), Opacity (25%), Colour (Gold) |
+| Icons | Size: Icon size (120%), Quest icon size (100%) |
 | Resources | Tracking: Keep tracking (your gathering tracker: Find Herbs, else Find Minerals, else Find Treasure; or one you know, or Off). Badges: Difficulty (on), Letter (on), Badge size (100%) |
 | Info pills | Both pills: Backing (25%), Size (100%). Quest pill: Shows (quest or zone count / followed quest only / off), Quest progress (on), Fade quest pill (on: the zone count only while you point at the map). Distance pill: Distance pill (on), Shows (yards and time / yards / time), Corner (top left / top right), Fade distance pill (off) |
-| Tracking line | Line: Style (dashed), Weight (1.0 px), Colour (Gold), Opacity (55%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |
+| Tracking | Arrow: Size (80%), Opacity (90%), Distance (48 px). Path to: Frame the way (on) |
+| Pathing | Line: Style (dashed), Weight (1.0 px), Colour (Gold), Opacity (55%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |
 | Quest areas | Followed quest, Other quests: Fill, Edge, Edge width. Under the cursor: Fill lift, Edge (as the game draws them, a quiet fill by default) |
 | Grouping | Group icons (on). How icons group: Distance (24 px), Reach (3x), Smallest group (2 icons). Pills: Icons in a pill (2), Pill backing (35%), Open group backing (72%) |
 | Diagnostics | Debug info in title; Indoor maps report. Reports in chat: Record 10 seconds; Compare with other addons; Memory breakdown (each also a `/mm` command) |

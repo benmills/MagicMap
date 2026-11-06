@@ -182,7 +182,7 @@ end
 -- A waypoint near you, its route found: the line shown (R-P7 had no target till the M3 review: each reopen
 -- showed its 84-198 lines at once, 3.6-7.6 ms priced).
 local you = ns.Model.you
-ns.Game.Command({ kind = "waypoint", pos = { inst = you.inst, col = you.col + 2.5, row = you.row - 0.3 } })
+ns.UI.Track.Start({ kind = "place", key = "p7", name = "P7", pos = { inst = you.inst, col = you.col + 2.5, row = you.row - 0.3 } }, true) -- (Path to: the line)
 sim.Run(2)
 assert(PathShown() >= 16 and ns.Model.Route() and not ns.Model.Route().straight, "the line to the waypoint")
 Again("hidden", function() frame:Hide() end, function() frame:Show() end)

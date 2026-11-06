@@ -7,7 +7,9 @@
 -- Flights (FlyTo) ease out, zoom in log space and, zooming in, keep the destination
 -- on a straight line toward the centre (it "comes to you"). A press moving under CLICK_SLOP px
 -- is a click; past it, a drag: it pans and stops following. Panned away and left alone, the
--- small map glides back to following you (MinimapMode.lua:244-249). Its settings (General > Movement,
+-- small map glides back to following you (MinimapMode.lua:244-249). While you path to something (Path
+-- to, ui/Path.lua's Motion.Frame), the small map frames you and it instead of centring on you (StepFrame);
+-- your own pan or zoom holds that, and it comes back as the idle return does. Its settings (General > Movement,
 -- ui/Feel.lua): Follow you (Camera.follow), Return to you and its wait (IDLE_FOLLOW), and the zoom a notch (WHEEL_STEP).
 -- Window routes the view's input here and calls Chase each frame (ui/Window.lua); what this
 -- marks on Camera (moving, zoomedAt, vx, vy) is what Camera.Settled and Camera.Velocity read;
@@ -47,9 +49,19 @@ local wheel = { n = 0, delta = 0, dt = 0, at = 0 }
 Camera.moving, Camera.zoomedAt, Camera.vx, Camera.vy = false, 0, 0, 0
 local px, py, pinst -- the centre and map at the last draw; nil: none since the window showed
 
+-- The framing (Path to, ui/Path.lua): framer() -> c0, r0, c1, r1 (you and where you go, tiles) or nil; home(z) ->
+-- the zoom it never goes in past (the one you had: z, kept, the first time). framed: it had a box this frame;
+-- framing: it moved the camera (Chase leaves it); held: your own pan or zoom paused it, back as the idle return
+-- would be; fz: the zoom it glides to; back: the zoom to glide back to once it ends (home's).
+local FRAME_PAD = 26 -- px kept clear round the box (the pins at its corners, your arrow)
+local FRAME_OUT, FRAME_ROOM = 1.15, 1.4 -- out: past what fits by this (room to walk on); in: once this much room
+local FRAME_PAN, FRAME_ZOOM = 5, 3 -- per second: how quickly its centre and zoom close on theirs
+local framer, home
+local framed, framing, held, fz, back = false, false, false, nil, nil
+
 local function Clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
-local function Animating() return goal ~= nil or flight ~= nil end
+local function Animating() return goal ~= nil or flight ~= nil or fz ~= nil end
 
 -- The camera moved, in place (a table a zoom frame was `map: motion`'s 3.6-5.7 KB/s zooming: M1b).
 local function Set(cx, cy, zoom)
@@ -69,6 +81,7 @@ local function Aim(target, atCursor)
 	touched = GetTime()
 	goal = Clamp(target, MIN_ZOOM, MAX_ZOOM)
 	flight, Camera.moving = nil, true
+	if framed then held, fz = true, nil end -- (your zoom: the framing waits)
 	local x, y = w / 2, h / 2
 	if Camera.follow and you.col then
 		x, y = Maths.TileToScreen(cam, w, h, you.col, you.row)
@@ -111,6 +124,7 @@ end
 -- on your map (Core.lua:1080-1085).
 function Motion.SetFollow(on, glide)
 	local you = ns.Model.you
+	if on then held = false end
 	if on and glide and you.col then
 		Camera.inst = you.inst
 		Motion.FlyTo(you.col, you.row, Camera.cam.zoom, FLY_TIME, function() Motion.SetFollow(true) end)
@@ -158,7 +172,8 @@ end
 -- Where the camera is headed: the zoom and centre it will settle at (Core.lua:993-1005).
 function Motion.Goal()
 	local cam, you = Camera.cam, ns.Model.you
-	local zoom = goal or flight and flight.tz or cam.zoom
+	local zoom = goal or flight and flight.tz or fz or cam.zoom
+	if framing and not (flight or goal) then return zoom, cam.cx, cam.cy end -- (where the framing heads is where it is, near enough)
 	if Camera.follow and you.col then return zoom, you.col, you.row end
 	if flight then return zoom, flight.tx, flight.ty end
 	if goal then return zoom, anchor[1] - anchor[3] / goal, anchor[2] - anchor[4] / goal end -- /: never 0 (goal >= MIN_ZOOM)
@@ -169,7 +184,7 @@ end
 -- on a map that withholds where you are, the whole of it if we have its tiles, else the map
 -- you came from stays (Core.lua:1119, 1540-1542: K5).
 function Motion.Chase(you)
-	if not (Camera.follow and you) or flight then return end
+	if not (Camera.follow and you) or flight or framing then return end
 	if you.col then
 		local cam = Camera.cam
 		cam.cx, cam.cy = you.col, you.row
@@ -249,6 +264,7 @@ local function StepDrag()
 	if not press.moved and (math.abs(x - press.x) > CLICK_SLOP or math.abs(y - press.y) > CLICK_SLOP) then
 		press.moved, Camera.moving = true, true
 		Camera.follow = false
+		if framed then held, fz = true, nil end
 		Camera.Trace("drag start") -- follow's off now
 	end
 	if press.moved and (x ~= press.lx or y ~= press.ly) then
@@ -263,11 +279,71 @@ end
 -- Each frame while shown: the camera's flight, chase, drag and idle return; what Camera reports
 ---------------------------------------------------------------------------
 
--- Left alone after you've panned away (small only, not hovered), glide back to following you.
+-- Left alone after you've panned away (small only, not hovered), glide back to following you (framing: StepFrame's).
 local function StepIdle()
-	if Camera.follow or not idleOn or press or Animating() or UI.View().window.big then return end
+	if framed or Camera.follow or not idleOn or press or Animating() or UI.View().window.big then return end
 	if Window.frame:IsMouseOver() or GetTime() - touched < idleAfter then return end
 	Motion.SetFollow(true, true)
+end
+
+-- Path to's framing (Motion.Frame), the small map only: the view's centre and zoom ease so the box (you and
+-- where you go) fits inside FRAME_PAD, the zoom within MIN_ZOOM and home's. The zoom moves only once the box no
+-- longer fits (out, FRAME_OUT past it) or there's FRAME_ROOM to spare (in), a glide each time, not a zoom a frame
+-- as you walk (the layouts and the blip sensor wait for a settled zoom); the centre eases on to the box's, kept
+-- where you stay in view when the box can't fit. Your own drag or zoom holds it (as panning away holds the
+-- follow), back once left alone as the idle return is (Return to you, Return after, not under the cursor); with
+-- Return to you off, until you follow again (Follow me) or choose Path to again. Ended (arrived, stopped), the
+-- zoom glides back to home's.
+local function StepFrame(elapsed)
+	local big, was = UI.View().window.big, framed
+	framing = false
+	local c0, r0, c1, r1
+	if framer and not big then c0, r0, c1, r1 = framer() end
+	framed = c0 ~= nil
+	if not framed then
+		if was and back and not held and Camera.follow then Motion.ZoomTo(back) end
+		if not big then back = nil end
+		held, fz = false, nil
+		return
+	end
+	if held then
+		if not idleOn or press or goal or flight or Window.frame:IsMouseOver() or GetTime() - touched < idleAfter then return end
+		Motion.SetFollow(true) -- (held cleared)
+	end
+	if not Camera.follow then -- (Follow you off, a zone flown to: held as a pan is)
+		held = true
+		return
+	end
+	framing = true -- (Chase leaves the view where the framing has it: a press, a flight)
+	if press or goal or flight then return end
+	local cam, you, w, h = Camera.cam, ns.Model.you, Window.Size()
+	if w <= 0 or h <= 0 or not you.col then return end
+	local cap = Clamp(home(cam.zoom), MIN_ZOOM, MAX_ZOOM)
+	back = cap
+	local aw, ah = math.max(w - 2 * FRAME_PAD, w / 2), math.max(h - 2 * FRAME_PAD, h / 2)
+	local fit = math.min(aw / math.max(c1 - c0, 1 / CHUNKS), ah / math.max(r1 - r0, 1 / CHUNKS)) -- /: never 0 (at least a chunk)
+	local want = Clamp(fit / FRAME_OUT, MIN_ZOOM, cap)
+	local z = cam.zoom
+	if fit < z and z > MIN_ZOOM or want > z * FRAME_ROOM or want >= cap and z < cap * 0.98 or fz and fit < fz then fz = want end
+	if fz then
+		local lz, lg = math.log(z), math.log(fz)
+		z = math.exp(lz + (lg - lz) * (1 - math.exp(-FRAME_ZOOM * elapsed)))
+		if math.abs(lg - math.log(z)) < ZOOM_STOP then z, fz = fz, nil end
+	end
+	local hw, hh = math.max(w / 4, w / 2 - FRAME_PAD) / z, math.max(h / 4, h / 2 - FRAME_PAD) / z -- /: never 0 (z >= MIN_ZOOM)
+	local tx = Clamp((c0 + c1) / 2, you.col - hw, you.col + hw)
+	local ty = Clamp((r0 + r1) / 2, you.row - hh, you.row + hh)
+	local k = 1 - math.exp(-FRAME_PAN * elapsed)
+	Set(cam.cx + (tx - cam.cx) * k, cam.cy + (ty - cam.cy) * k, z)
+end
+
+-- Path to's framer and home (ui/Path.lua; StepFrame's): set once.
+function Motion.Frame(fn, homeFn) framer, home = fn, homeFn end
+
+-- A new Path to: a framing your pan or zoom held starts again at once (the small map following you again).
+function Motion.Reframe()
+	held, fz = false, nil
+	if not UI.View().window.big then Motion.SetFollow(true) end
 end
 
 local function R3(v) return math.floor(v * 1000 + 0.5) / 1000 end -- for traces
@@ -280,6 +356,7 @@ Runtime.Step("input", "map: motion", function(elapsed)
 	if flight then StepFlight(elapsed) end
 	if goal then StepZoom(elapsed) end
 	if press then StepDrag() end
+	StepFrame(elapsed)
 	StepIdle()
 	Camera.moving = Animating() or Motion.Dragging()
 end, { shownOnly = Window.frame })

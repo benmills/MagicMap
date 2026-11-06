@@ -69,6 +69,7 @@
 ---@field welcome? boolean          a new install, the welcome not yet answered: never migrated to "both" on a later login
 ---@field clusterTune? table<string, number> grouping's tunables changed from Cluster.DEFAULTS (range, reach, min, slots, alpha)
 ---@field tracked? { key: string|number, name?: string, inst: MM.Inst, col: MM.Col, row: MM.Row }  the icon tracked (ui/Track.lua): its Known key, its name, where it was (the waypoint's pos); nil: none
+---@field path? { quest?: number, inst?: MM.Inst, col?: MM.Col, row?: MM.Row, zoom?: number, seen?: true }  what's pathed (ui/Track.lua: Path to, not Track): the followed quest's id (seen: it's been seen followed since, so unfollowed ends it), or the waypoint's pos; zoom: the small map's when the framing began, the zoom it never goes in past (ui/Path.lua, ui/Motion.lua); nil: what you go to is tracked (the gold arrow alone), not pathed
 ---@field feel? table<string, number|string|boolean>  the settings changed from their defaults, by key ("path.style", "labels.scale"...: each declared by its owner, ui/Feel.lua Feel.Add; a colour a preset's name or "#rrggbb", a list its values joined by commas); one of the wrong type, out of its slider's range or no longer offered is dropped at load (Feel.Loaded), an unknown key kept; nil when none is
 ---@field feelPage? string        the settings window's last page (ui/Feel.lua Feel.Page: "general", "map"...); a page that's gone is ignored
 ---@field debug boolean             /mm debug's title line (Core.lua:1746-1748); default false

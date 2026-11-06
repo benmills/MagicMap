@@ -130,7 +130,7 @@ Controls.zoomReset = zoomReset
 -- (Known("quests") and its rev: a change to the log) and your zone's map, at most every EVERY s,
 -- and only when one of those changed. It fades with the other controls, but stays shown while a quest is tracked;
 -- then it is that quest's pin: hovering it shows the quest's tooltip and lights its area, a click (either button)
--- opens its menu (ui/Track.lua: Stop tracking, Open in quest log). Otherwise it takes no mouse.
+-- opens its menu (ui/Track.lua: Stop tracking or pathing, the other mode, Open in quest log). Otherwise it takes no mouse.
 ---------------------------------------------------------------------------
 
 local LINE_H, LINE_PAD = 15, 7

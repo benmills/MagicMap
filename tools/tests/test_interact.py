@@ -115,12 +115,18 @@ def test_map_and_zone():
     sim.Slash("/mm map kalimdor")
     sim.Run(1)
     assert UI.Window.frame.IsShown(UI.Window.frame) and UI.Camera.inst == 1 and not UI.Camera.follow
-    # Back on you, a waypoint at Lakeshire: the line to it, the edge arrow where it leaves the view.
+    # Back on you, Path to Lakeshire: the line to it, the view framing you and it (no edge arrow); not framed (the
+    # setting off), the view back on you and the edge arrow where the line leaves it.
     UI.Motion.SetFollow(True)
     UI.Motion.SetZoom(96)
-    L.execute("(...).Game.Command({ kind = 'waypoint', pos = { inst = 0, col = 36.09, row = 49.28 } })", ns)
+    L.execute("(...).UI.Track.Start({ kind = 'place', key = 'lake', name = 'Lakeshire', "
+              "pos = { inst = 0, col = 36.09, row = 49.28 } }, true)", ns)
     sim.Run(1)
-    assert UI.Path.pieces > 0 and sim.state[UI.Path.edge].shown
+    assert UI.Path.pieces > 0 and not sim.state[UI.Path.edge].shown and UI.Camera.cam.cx > 33
+    UI.Feel.Set("path.frame", False)
+    sim.Run(1)
+    assert UI.Path.pieces > 0 and sim.state[UI.Path.edge].shown and abs(UI.Camera.cam.cx - ns.Model.you.col) < 1e-6
+    UI.Feel.Set("path.frame", True)
     # An instance's map by id: its tiles whole; no arrow (you're not on it), line, blips or names.
     sim.Slash("/mm map 36")
     sim.Run(2)
@@ -225,7 +231,7 @@ def test_zone_hover():
     sim.Run(0.3)
     sim.menu = None
     sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")
-    assert [e.text for e in sim.MenuItems("button").values()][:2] == ["Track quest", "Open in quest log"]
+    assert [e.text for e in sim.MenuItems("button").values()][:3] == ["Track quest", "Path to quest", "Open in quest log"]
     sim.MenuItems("button")[1].onSelect()
     sim.Run(0.2)
     assert sim.superTracked == 47 and near(cam(ns), fit(L, ns, elwynn, 0.92))

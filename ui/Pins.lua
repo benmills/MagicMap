@@ -13,8 +13,8 @@
 -- the pin, its title, then grey 0.85 lines in GameTooltipTextSmall, restored when it hides or clears
 -- (Layers.lua:288-301, QuestInfo.lua:251-305); built once a hover, hidden on the one owner-checked path:
 -- the cursor off it or the view, the window hidden (ui/Window.lua). A click on a pin, left or right, is its
--- layer's click, or else the track menu (ui/Track.lua: Track, Stop tracking); the tracked pin wears the glow whatever
--- its look says (Set: Track.Is), and every pin layer's rev carries Track's, so a change lays them out again.
+-- layer's click, or else the track menu (ui/Track.lua: Track, Path to, Stop); every pin layer's rev carries Track's
+-- (what you track is never held back to a closer zoom), so a change lays them out again.
 -- A look may carry badges (look.badge, a resource pin's: ui/Blips.lua): a dot at its top left, a letter at its bottom left.
 
 local _, ns = ...
@@ -27,8 +27,6 @@ local INNER_SIZE, INNER_SHADE = 0.56, 0.55 -- (c)'s objective icon: share of its
 local SCALE = 0.62 -- (c)'s atlas over its disc (Layers.lua:379)
 local DOT, RING_PAD = 0.6, 3 -- (d): the dot's share of size, its ring's past it (Layers.lua:396-399)
 local RING = { 0, 0, 0, 0.9 } -- Layers.lua:396
-local GLOW_PAD = 4 -- the followed one's ring: 2 px out past its icon (Textures/GlowRing.tga), at size 1
-local RING_FILE = ns.Atlas.ROOT .. "Textures\\GlowRing" -- a thin white ring, tinted the ring's colour
 local WHITE = { 1, 1, 1 }
 local GREY = 0.85 -- a tooltip's lines under its title (Layers.lua:298)
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- UI.lua:6
@@ -41,36 +39,12 @@ UI.Pins = Pins
 -- group's pill, whose slots are ICON px: ui/Cluster.lua); a pin layer's rev moves with it, so the pins are set again.
 local scale, scaleRev = 1.2, 0
 
--- The focus ring's look (Settings > Icons > Focus ring): its size (a factor on the whole ring: 1 is GLOW_PAD past the
--- icon), its opacity and its colour (a preset's name, the first the default, or "#rrggbb"). A change moves scaleRev,
--- so the pins are set again.
-local GLOW_COLORS = {
-	{ "Gold", { 1, 0.82, 0.3 } }, { "White", { 1, 1, 1 } }, { "Sky", { 0.55, 0.8, 1 } },
-	{ "Mint", { 0.6, 1, 0.75 } }, { "Rose", { 1, 0.6, 0.7 } }, { "Red", { 1, 0.3, 0.25 } },
-}
-local ring = { size = 1.45, alpha = 0.25, color = GLOW_COLORS[1][1], rgb = GLOW_COLORS[1][2] }
-local function Glow(name)
-	return function(v)
-		if ring[name] == v then return end
-		ring[name] = v
-		if name == "color" then ring.rgb = select(2, UI.Feel.RGB(GLOW_COLORS, v)) end
-		scaleRev = scaleRev + 1
-	end
-end
 UI.Feel.Add("icons", "Size", {
 	{ key = "icons.scale", kind = "slider", label = "Icon size", min = 0.6, max = 1.6, step = 0.1, pct = true, default = scale,
 		apply = function(k)
 			if scale == k then return end
 			scale, scaleRev = k, scaleRev + 1
 		end, tip = "Every icon on the map: quests, places, rares, the lot (a group's pill keeps its size)." },
-})
-UI.Feel.Add("icons", "Focus ring", {
-	{ key = "ring.size", kind = "slider", label = "Size", min = 0.8, max = 1.6, step = 0.05, pct = true, default = ring.size,
-		apply = Glow("size"), tip = "The ring round what you track (the quest you follow, a tracked pin)." },
-	{ key = "ring.alpha", kind = "slider", label = "Opacity", min = 0.1, max = 1, step = 0.05, pct = true, default = ring.alpha,
-		apply = Glow("alpha"), tip = "How solid the ring round what you track is." },
-	{ key = "ring.color", kind = "color", label = "Colour", colors = GLOW_COLORS, default = ring.color, apply = Glow("color"),
-		tip = "The ring's colour." },
 })
 
 ---------------------------------------------------------------------------
@@ -101,7 +75,7 @@ end
 Pins.Make = MakePin -- (ui/Cluster.lua's pills)
 
 -- The rest made the first time a look needs them: a ring (or a disc under the icon), the objective icon
--- inside it, the halo, the count.
+-- inside it, the count.
 local function Ring(pin)
 	if not pin.ring then pin.ring = Tex(pin, "ARTWORK", 0) end
 	return pin.ring
@@ -120,15 +94,6 @@ local function Inner(pin)
 	mask:SetAllPoints(t)
 	t:AddMaskTexture(mask)
 	pin.inner = t
-	return t
-end
-
-local function Glow(pin)
-	local t = pin.glow
-	if t then return t end
-	t = Tex(pin, "BACKGROUND")
-	t:SetTexture(RING_FILE)
-	pin.glow = t
 	return t
 end
 
@@ -253,14 +218,12 @@ local function SetBadges(pin, b, size)
 	end
 end
 
--- look: { size? (14), fixed? (not scaled by the settings), badge? (SetBadges), icon? = { texture | atlas, alt?, coords?, under?, tint?, inner?, scale?, aspect?, color? }, glow?,
+-- look: { size? (14), fixed? (not scaled by the settings), badge? (SetBadges), icon? = { texture | atlas, alt?, coords?, under?, tint?, inner?, scale?, aspect?, color? },
 -- count? }: (a) a texture (coords: its part, a cell of a sheet), bare; (b) an atlas, at its own aspect
 -- (aspect: its width over height, else the client's); (c) an atlas over its under atlas tinted, the inner
 -- texture in it; (d) else (an atlas the client lacks too, and no alt: the look drawn instead when the atlas is
--- missing) a dot of its colour on a dark ring. glow: a thin
--- ring (gold by default: Settings > Icons > Focus ring) hugging the icon (the quest you follow; or glow, the caller's: the tracked pin, whose look is
--- shared with its kind's); count: a line under it.
-local function Style(pin, look, glow)
+-- missing) a dot of its colour on a dark ring; count: a line under it.
+local function Style(pin, look)
 	local size, icon = (look.size or SIZE) * (look.fixed and 1 or scale), look.icon or NONE
 	if icon.alt and not icon.texture and not (icon.atlas and Has(icon.atlas)) then icon = icon.alt end -- (an atlas the client lacks: its alt)
 	pin.psize = size
@@ -271,15 +234,6 @@ local function Style(pin, look, glow)
 			fs.text = look.count
 			fs:SetText(look.count)
 		end
-	end
-	if look.glow or glow then
-		local g, c = Glow(pin), ring.rgb
-		local d = (size + GLOW_PAD) * ring.size
-		Size(g, d, d)
-		Color(g, c[1], c[2], c[3], ring.alpha)
-		Shown(g, true)
-	else
-		Shown(pin.glow, false)
 	end
 	local i, inner = pin.icon, false
 	if icon.texture then -- (a)
@@ -333,11 +287,10 @@ Pins.Style = Style -- (ui/Cluster.lua's pills)
 
 local layers = {} -- Pins' own, the highest level first: { layer, opts }
 
--- A pin of e (its key's) on canvas c: its look (the glow forced on the tracked one), then its place where
--- that moved.
+-- A pin of e (its key's) on canvas c: its look, then its place where that moved.
 local function Set(c, o, e, look, minZoom)
 	o.entry = e
-	Style(o, look, Track.Is(e))
+	Style(o, look)
 	local p = e.pos
 	local x, y, on = (p.col - c.ox) * c.zoom, (p.row - c.oy) * c.zoom, c
 	if minZoom then on = c.mins[minZoom] end -- (its frame for that zoom: Engine.At's)

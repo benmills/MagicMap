@@ -1,4 +1,6 @@
--- The line to what you go to (Model.Target: your corpse, the quest you follow, your waypoint): a row of
+-- Pathing: the line to what you go to (Model.Target: your corpse, the quest you follow, your waypoint) while
+-- it's pathed (UI.Track.Pathed: Path to chosen for it, ui/Track.lua; your corpse always; Track instead has the
+-- gold arrow alone, ui/Guide.lua): a row of
 -- small dots like a route on a printed map (the spike's hand-inked dashes, Path.lua:1-6, now lighter and
 -- dotted), a little uneven, light on a faint dark edge so they read on pale ground: ADD-blended on a slowly
 -- breathing canvas. It follows the way you'd walk (Model.Route: you first, the target last) once that's
@@ -9,13 +11,17 @@
 -- found again, only the pieces that meet the view (and a margin) shown (a line's ends stay within a few
 -- thousand px: docs/v1-plan.md §2); and as a pan takes the view past them, the pieces it brings in shown,
 -- the rest left as they stand.
--- Its look is the settings' (Settings > Tracking line, declared here: ui/Feel.lua; Path.DEFAULTS by default): the
+-- Its look is the settings' (Settings > Pathing, declared here: ui/Feel.lua; Path.DEFAULTS by default): the
 -- style (dotted, dashed or solid: one line a leg), the weight (the stroke's px; its edge twice that), the colour
 -- (Path.COLORS, or any: "#rrggbb"), the ADD glow, the breath and its pace, an opacity, and the dark edge (the
 -- outline: on or off, its colour from Path.EDGE_COLORS, or any). A change (Feel.rev) restyles the pieces and lays
 -- the line out anew.
 -- Off the view, the target gets a gold arrow on its edge, where the line toward it leaves (Path.lua:24-79).
--- And your corpse becoming the target brings the view back to you (Core.lua:1095-1108), once a ghost.
+-- At the minimap's size the view frames you, the target and the way between (Motion.Frame: ui/Motion.lua pans and
+-- zooms, never in past the zoom you had when it began, kept as UI.saved.path.zoom; your own pan or zoom holds it
+-- till it returns as the idle return does); not on the big map, the view yours there; not for your corpse
+-- (Settings > Tracking > Path to: Frame the way). And your corpse becoming the target brings the view back to you
+-- (Core.lua:1095-1108), once a ghost.
 
 local _, ns = ...
 local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
@@ -205,6 +211,7 @@ local function Apply()
 	end
 	return true
 end
+local frameOn = true -- (the setting's: Frame the way)
 local LINE = { { "Dotted", "dotted" }, { "Dashed", "dashed" }, { "Solid", "solid" } }
 UI.Feel.Add("path", "Line", {
 	{ key = "path.style", kind = "select", label = "Style", options = LINE, default = DEFAULTS.style,
@@ -221,6 +228,10 @@ UI.Feel.Add("path", "Effects", {
 	{ key = "path.breath", kind = "toggle", label = "Breathing", default = DEFAULTS.breath, tip = "The line slowly brightens and dims." },
 	{ key = "path.breathTime", kind = "slider", label = "Breath pace", min = 0.6, max = 4, step = 0.1, fmt = "%.1f s",
 		default = DEFAULTS.breathTime, when = "path.breath", tip = "How long the line takes to dim, and again to brighten." },
+})
+UI.Feel.Add("tracking", "Path to", {
+	{ key = "path.frame", kind = "toggle", label = "Frame the way", default = true, apply = function(v) frameOn = v end,
+		tip = "At the minimap's size, the map pans and zooms to keep you and where you're going in view. Pan or zoom yourself and it comes back once left alone, as Return to you does." },
 })
 UI.Feel.Add("path", "Outline", {
 	{ key = "path.edge", kind = "toggle", label = "Outline", default = DEFAULTS.edge,
@@ -683,7 +694,7 @@ Runtime.Step("ui", "map: path", function()
 	end
 	local t, me, inst = Model.Target(), Model.you, Camera.inst
 	local n, arrow = 0, false
-	if t and not t.inside and me.col and not me.stale and me.inst == inst and t.pos.inst == inst then
+	if t and not t.inside and me.col and not me.stale and me.inst == inst and t.pos.inst == inst and UI.Track.Pathed(t) then
 		local cam, w, h = Camera.cam, Window.Size()
 		n = Line(t, me, cam, w, h)
 		arrow = Arrow(t, me, cam, w, h)
@@ -713,6 +724,35 @@ Window.frame:HookScript("OnHide", Runtime.Wrap("map: path hidden", function()
 	edge.on = false
 	edge:Hide()
 end))
+
+---------------------------------------------------------------------------
+-- The framing (ui/Motion.lua's StepFrame): you, the target and the way between
+---------------------------------------------------------------------------
+
+-- The box to keep in view: a pathed target (not your corpse) on your map, not yet arrived, with the route's
+-- points, or nil.
+Motion.Frame(function()
+	if not frameOn then return nil end
+	local t, me = Model.Target(), Model.you
+	if not (t and t.kind ~= "corpse" and not t.inside and me.col and not me.stale and t.pos.inst == me.inst
+		and UI.Track.Pathed(t)) then return nil end
+	local p = t.pos
+	local c0, r0, c1, r1 = math.min(me.col, p.col), math.min(me.row, p.row), math.max(me.col, p.col), math.max(me.row, p.row)
+	local route = Model.Route()
+	if route and not route.straight then
+		for i = 2, #route - 1 do
+			local q = route[i]
+			if q.col < c0 then c0 = q.col elseif q.col > c1 then c1 = q.col end
+			if q.row < r0 then r0 = q.row elseif q.row > r1 then r1 = q.row end
+		end
+	end
+	return c0, r0, c1, r1
+end, function(z) -- (the zoom it never goes in past: the one you had, saved with the pathing)
+	local p = UI.saved.path
+	if not p then return z end
+	if not p.zoom then p.zoom = z end
+	return p.zoom
+end)
 
 ---------------------------------------------------------------------------
 -- Your corpse as the target brings the view back to you (Core.lua:1095-1108)

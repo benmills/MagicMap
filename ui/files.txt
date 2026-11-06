@@ -31,5 +31,6 @@ ui/Sockets.lua
 ui/You.lua
 ui/Group.lua
 ui/Path.lua
+ui/Guide.lua
 ui/View.lua
 ui/Art.lua

@@ -47,20 +47,21 @@
 --     Indoor auto-zoom (ui/Interiors.lua); You: Your arrow (ui/You.lua).
 --   Title (25, ui/Title.lua). At rest, On hover (the pieces, chosen and ordered); Format: Clock (while a time is
 --     chosen).
---   Icons (30), the icons' size and the ring round what you track. Size: Icon size (ui/Pins.lua), Quest icon size
---     (ui/Quests.lua); Focus ring: Size, Opacity, Colour (ui/Pins.lua).
+--   Icons (30), the icons' size. Size: Icon size (ui/Pins.lua), Quest icon size (ui/Quests.lua).
 --   Resources (35). Tracking: Keep tracking (ui/Resources.lua); Badges: Difficulty, Letter, Badge size (ui/Blips.lua).
 --   Info pills (40, ui/Controls.lua). Both pills: Backing, Size; Quest pill: Shows, Quest progress, Fade quest pill;
 --     Distance pill: Distance pill, Shows, Corner, Fade distance pill.
---   Tracking line (50, ui/Path.lua). Line: Style, Weight, Colour, Opacity; Effects: Glow, Breathing, Breath pace;
---     Outline: Outline, Outline colour.
+--   Tracking (45), how the way is shown. Arrow (Track's): Size, Opacity, Distance (ui/Guide.lua); Path to: Frame the
+--     way (ui/Path.lua).
+--   Pathing (50, ui/Path.lua), Path to's line. Line: Style, Weight, Colour, Opacity; Effects: Glow, Breathing, Breath
+--     pace; Outline: Outline, Outline colour.
 --   Quest areas (60, ui/Areas.lua). Followed quest: Fill, Edge, Edge width; Other quests: the same; Under the
 --     cursor: Fill lift, Edge.
 --   Grouping (70, ui/Cluster.lua). Group icons; How icons group: Distance, Reach, Smallest group; Pills: Icons in a
 --     pill, Pill backing, Open group backing.
 --   Diagnostics (90, here). Debug info in title, Indoor maps report; Reports in chat: Record 10 seconds, Compare
 --     with other addons, Memory breakdown (each a /mm command too).
--- Pages to come take an order between these (Pins, Tracking...). The sidebar has room for 14
+-- Pages to come take an order between these (Pins...). The sidebar has room for 14
 -- before the window grows; a page longer than the window scrolls.
 --
 -- The window: a movable dialog of the client's ButtonFrameTemplate (as the map window, ui/Window.lua, but kept as
@@ -1048,11 +1049,13 @@ Feel.Page({ key = "general", title = "General", icon = "Interface\\Icons\\Trade_
 Feel.Page({ key = "map", title = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01", order = 20,
 	tip = "What the map shows: names, the ground, indoor maps and your arrow.", sections = { "Names", "Ground", "Indoors", "You" } })
 Feel.Page({ key = "icons", title = "Icons", icon = "Interface\\Icons\\Ability_Tracking", order = 30,
-	tip = "The icons' size, and the ring round what you track.", sections = { "Size", "Focus ring" } })
+	tip = "The icons' size.", sections = { "Size" } })
 Feel.Page({ key = "pills", title = "Info pills", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01", order = 40,
 	tip = "The quest pill (bottom left) and the distance pill (top).", sections = { "Both pills", "Quest pill", "Distance pill" } })
-Feel.Page({ key = "path", title = "Tracking line", icon = "Interface\\Icons\\Ability_Hunter_Pathfinding", order = 50,
-	tip = "The line to what you track.", sections = { "Line", "Effects", "Outline" } })
+Feel.Page({ key = "tracking", title = "Tracking", icon = "Interface\\Icons\\INV_Misc_Spyglass_03", order = 45,
+	tip = "How the way is shown: Track's gold arrow, and Path to keeping the way in view (the line's look: Pathing).", sections = { "Arrow", "Path to" } })
+Feel.Page({ key = "path", title = "Pathing", icon = "Interface\\Icons\\Ability_Hunter_Pathfinding", order = 50,
+	tip = "The line to what you path to.", sections = { "Line", "Effects", "Outline" } })
 Feel.Page({ key = "areas", title = "Quest areas", icon = "Interface\\Icons\\INV_Misc_Map02", order = 60,
 	tip = "How your quests' objective areas are drawn.", sections = { "Followed quest", "Other quests", "Under the cursor" } })
 Feel.Page({ key = "group", title = "Grouping", icon = "Interface\\Icons\\INV_Misc_Bag_08", order = 70,

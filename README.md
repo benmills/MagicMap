@@ -16,8 +16,10 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 - **Scroll out from your feet to all of Kalimdor**, in your minimap's spot. Press M to make it big.
 - **Floor plans indoors.** Undercity, Ironforge and caves show the floor you're on.
 - **Quests on the map.** Objective areas, quest givers nearby, and a tooltip with what's left to do and
-  the turn-in. Click a quest for a walking line to it, around cliffs and water.
-- **Click any icon, choose Track.** A flight master, mailbox or rare: a line to it, with yards and minutes.
+  the turn-in. Follow a quest and a gold arrow shows the way.
+- **Click any icon: Track or Path to.** A flight master, mailbox or rare: Track points Blizzard's gold arrow
+  along the way you'd walk; Path to draws that walk around cliffs and water and keeps you both in view. Yards
+  and minutes either way.
 - **Herbs, ore and trainers at any zoom**, with their tooltips. Rares you've seen stay on the map for all
   your characters.
 - **Gathering made easy.** Each herb and ore shows its first letter and how hard it is for you (red to grey),
@@ -35,7 +37,7 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 <!-- TODO(#12): refreshed followed-quest shot (no zone borders) -->
 ![A followed quest at Camp Narache: the line to its turn-in](docs/images/followed-quest-route.jpg)
 
-<!-- TODO(#11): screenshot, a tracked flight master: focus ring, line, the yards and time pill -->
+<!-- TODO(#11): screenshot, a flight master pathed to: the line framed, the yards and time pill -->
 <!-- TODO(#14): screenshot, crowded icons in pills, one opened into its grid -->
 <!-- TODO(#13): screenshots, the welcome's four cards and the Settings window -->
 <!-- TODO(#10): GIF, wheeling out from your feet to the whole continent, then M -->
@@ -58,7 +60,7 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 | Zoom, pan | Mouse wheel or + / −; drag |
 | Big map | M |
 | Follow a quest | Click its pin |
-| Track an icon | Click it, then Track |
+| Track an icon | Click it, then Track (or Path to, for the line) |
 | Waypoint | Ctrl-click; right-click for more |
 | Settings | The gear, or `/mm settings` |
 | Back to Blizzard's minimap | `/mm` (again to switch back); `/mm help` for the rest |
