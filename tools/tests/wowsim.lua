@@ -1177,7 +1177,7 @@ local FILES = {}
 for i, path in ipairs({ "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up", "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight",
 	"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down", "Interface\\WorldMap\\Gear_64", "Interface\\CharacterFrame\\TempPortraitAlphaMask",
 	"Interface\\HUD\\UIMinimap2xC60", "Interface\\Icons\\INV_Misc_Map_01", "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",
-	"Interface\\Minimap\\PartyRaidBlipsV2" }) do
+	"Interface\\Minimap\\PartyRaidBlipsV2", "Interface\\GossipFrame\\VendorGossipIcon" }) do
 	FILES[path:lower()] = 100000 + i
 end
 function GetFileIDFromPath(path) return FILES[(path:lower():gsub("/", "\\"))] end
@@ -1721,7 +1721,6 @@ ATLASES["UI-QuestPoi-QuestNumber"], ATLASES["deathrecap-icon-tombstone"] = { 32,
 ATLASES["poi-graveyard-neutral"] = { 12, 16 }
 ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
 for _, a in ipairs({ "food", "reagents", "poisons", "ammunition", "Professions_Tracking_Fish" }) do ATLASES[a] = true end
-ATLASES["coin-gold-20x20"] = { 20, 20 } -- vendors (game/Blips.lua VENDOR)
 ATLASES["levelup-dot-gold"] = { 21, 22 } -- the zoom reset's dot (Forever has no reset atlas)
 ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }
 ATLASES["!UI-Frame-Metal-EdgeRight"] = { 200, 256 }

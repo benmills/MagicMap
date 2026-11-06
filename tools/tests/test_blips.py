@@ -20,6 +20,10 @@
   login, small on the minimap's spot), standing and walking; test_default_ui_alloc_priced,
   its allocation (every probe ~0.35 KB, as in game: the sensor probes little, M1.5b).
 
+  #21: test_gathered_node_goes (a gathered herb's pin gone within ~1 s, standing or walking),
+  test_no_ghost_dots (you, your party, your pets, dead or alive: never a pin; a dot shown only
+  while dead gone once you're back), test_unknown_names_are_dots (no herb guessed from tracking).
+
   .venv/bin/python tools/tests/test_blips.py   # records the scenario again into the fixture
 """
 import functools
@@ -43,6 +47,7 @@ FIXTURE = os.path.join(TESTS, "fixtures", "blips_stream.lua")
 BLIPS = [("Mailbox", 40, 20), ("Mailbox", -50, -70), ("Peacebloom", -60, 30)]
 MAILBOX = 136459  # the sim's Mailbox tracking texture
 HERB = "Professions_Tracking_Herb"  # a herb's (Atlas.BlipService: "herb")
+VENDOR = "Interface\\GossipFrame\\VendorGossipIcon"  # a vendor's that sells none of Blizzard's kinds (a file: 132060)
 FACING_EAST = 3 * math.pi / 2  # the client's facing (counter-clockwise from north)
 # Atlas.BlipService (M1.2's accessor of Data.BlipServices), stubbed: the names these scenarios use.
 SERVICES = {"Innkeeper Belm": "innkeeper"}
@@ -231,8 +236,8 @@ def test_blips_priced():
     sim.Price(True)
     # Two Peacebloom whose squares overlap (D3), an innkeeper by its service, and a vein
     # that comes into reach only on the walk east; you and a party member, never sensed.
-    # Forever's: a starter herb by name, and one no one knows, a herb by what's tracked (Find Herbs alone).
-    # Sen'jin's vendors, by their titles: a butcher's food, General Goods' coin.
+    # Forever's: a starter herb by name, and one no one knows: a dot, whatever is tracked (Find Herbs alone).
+    # Sen'jin's vendors, by their titles: a butcher's food, General Goods' sack.
     here = BLIPS + [("Peacebloom", -52, 36), ("Innkeeper Belm", 70, -30), ("Wilted Peacebloom", 20, 60),
                     ("Glimmerleaf", -20, -60), ("Hai'zan", 60, 50), ("K'waii", -60, -10)]
     vein = ("Copper Vein", 330, 10)
@@ -254,7 +259,7 @@ def test_blips_priced():
     assert exact(got, here), got
     icons = {b["name"]: b["icon"] or b["atlas"] for b in got}
     assert icons == {"Mailbox": MAILBOX, "Peacebloom": HERB, "Innkeeper Belm": 136458, "Wilted Peacebloom": HERB,
-                     "Glimmerleaf": HERB, "Hai'zan": "food", "K'waii": "coin-gold-20x20"}, icons
+                     "Glimmerleaf": None, "Hai'zan": "food", "K'waii": VENDOR}, icons
 
     # Walking east 10 s: what's known stays (once), the vein comes in rough, nothing doubles.
     counts = {}
@@ -443,3 +448,82 @@ def test_blips_walk_into_remembered(variant):
             bad.append((frame, round((sim.player.col - START[0]) / YD), got))
     assert not errors(sim, ns), errors(sim, ns)
     assert not bad, f"{len(bad)} frames not drawn once each (frame, yd east of the start, counts): {bad[:3]} ... {bad[-3:]}"
+
+
+# #21: what the sensor drops and never draws. OTHERS: blips all round (yd east, north of the start), so a known one
+# waits its turn to be looked at again.
+OTHERS = [(f"Npc{i}", (i * 37) % 300 - 150, (i * 53) % 300 - 150) for i in range(60)]
+
+
+def known(ns):
+    return sorted(b.name for b in ns.Model.Known("blips")[0].values() if not b.name.startswith("Npc"))
+
+
+def gone_after(sim, ns, name, limit=10):
+    """Seconds until no blip of `name` is known."""
+    t = 0
+    while name in known(ns) and t < limit:
+        sim.Run(0.05)
+        t += 0.05
+    return t
+
+
+@pytest.mark.parametrize("speed", [0, 7])
+def test_gathered_node_goes(speed):
+    """A herb you gather, among 60 other blips, standing or walking on (7 yd/s), goes within about a second: it
+    lingered ~4 s standing (each known blip looked at again in turn), ~36 s walking (till out of reach). One still
+    there (walked past, the client's blips lagging you) stays."""
+    L, sim, ns = boot("MagicMap2DB = { UI = { _v = 1 } }")
+    herb, vein = ("Peacebloom", 8, 5), ("Copper Vein", 25, -10)
+    put_blips(L, sim, ns, OTHERS + [herb, vein])
+    sim.Slash("/mm toggle")
+    sim.Run(15)
+    assert known(ns) == ["Copper Vein", "Peacebloom"], known(ns)
+    sim.player.facing, sim.player.speed = FACING_EAST, speed
+    sim.Run(0.4)
+    put_blips(L, sim, ns, OTHERS + [vein])  # gathered
+    t = gone_after(sim, ns, "Peacebloom")
+    assert t <= 1.5, t
+    sim.Run(3)  # (walking: past the vein)
+    assert known(ns) == ["Copper Vein"], known(ns)
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_no_ghost_dots():
+    """You, your pet, your party and theirs never get a pin, nor what the client calls you or them dead (a corpse,
+    a name in the newer colour markup); and a dot the client shows only while you're dead (a spirit healer) goes
+    within about a second of your coming back to life, walking away (it stayed till out of reach)."""
+    L, sim, ns = boot("MagicMap2DB = { UI = { _v = 1 } }")
+    sim.units.pet = L.table_from({"name": "Fluffy"})
+    sim.units.party1 = L.table_from({"name": "Friend", "class": "PRIEST"})
+    sim.units.partypet1 = L.table_from({"name": "Wolfie"})
+    sim.group = L.table_from(["party1"])
+    alive = [("Mailbox", 40, 20), ("Fluffy", 2, 3), ("Friend", -18, -32), ("Wolfie", -20, -35)]
+    dead = [("Corpse of Tester", 0, 0), ("Corpse", 5, 5), ("|cnGRAY_FONT_COLOR:Friend|r", -18, -32),
+            ("Spirit Healer", 30, -10)]
+    put_blips(L, sim, ns, OTHERS + alive + dead)
+    sim.units.player.dead, sim.units.party1.dead = True, True
+    sim.Slash("/mm toggle")
+    sim.Run(15)
+    assert known(ns) == ["Mailbox", "Spirit Healer"], known(ns)
+    sim.units.player.dead = False  # back to life (PLAYER_UNGHOST): the spirit healer gone
+    put_blips(L, sim, ns, OTHERS + alive)
+    sim.player.facing, sim.player.speed = FACING_EAST, 7
+    t = gone_after(sim, ns, "Spirit Healer")
+    assert t <= 1.5 and known(ns) == ["Mailbox"], (t, known(ns))
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_unknown_names_are_dots():
+    """No guessing from what's tracked: with Find Herbs on, a name Atlas doesn't know as a herb or ore (a chest,
+    one of Forever's herbs it doesn't list) is a gold dot, never a herb; a name in the newer colour markup is read
+    without it (Swart, Razor Hill's shaman trainer: the class trainer's book, not a herb)."""
+    L, sim, ns = boot("MagicMap2DB = { UI = { _v = 1 } }")
+    put_blips(L, sim, ns, [("|cnNORMAL_FONT_COLOR:Swart|r", 10, 10), ("Battered Chest", 40, 40),
+                           ("Glimmerleaf", -30, -30), ("Peacebloom", -40, 20), ("Copper Vein", 30, -40)])
+    sim.Slash("/mm toggle")
+    sim.Run(8)
+    icons = {b["name"]: b["icon"] or b["atlas"] for b in sensed(ns)}
+    assert icons == {"Swart": 136455, "Battered Chest": None, "Glimmerleaf": None, "Peacebloom": HERB,
+                     "Copper Vein": "Professions_Tracking_Ore"}, icons
+    assert not errors(sim, ns), errors(sim, ns)

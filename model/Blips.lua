@@ -110,7 +110,8 @@ local function Sync(l)
 	local same = #l == #live
 	for i = 1, same and #l or 0 do
 		local x, y = l[i], live[i]
-		if x.name ~= y.name or x.pos.col ~= y.col or x.pos.row ~= y.row or x.pos.inst ~= y.inst or x.rough ~= y.rough then
+		if x.name ~= y.name or x.pos.col ~= y.col or x.pos.row ~= y.row or x.pos.inst ~= y.inst or x.rough ~= y.rough
+			or x.icon ~= y.icon or x.atlas ~= y.atlas then -- (its icon: asked again when tracking changes)
 			same = false
 			break
 		end

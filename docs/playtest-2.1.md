@@ -92,8 +92,8 @@ client: they are the likeliest to be wrong.
 
 - Herbs and ore with Find Herbs (or Find Minerals) on: every node has its herb or ore icon, Forever's own too
   (Wilted Peacebloom and Stunted Silverleaf in the starter zones, amber and obsidian chunks); a name MagicMap
-  doesn't know still gets the icon of what you track.
-- Sen'jin Village's vendors: Hai'zan food, Zansoa a fish, K'waii and Tai'tasi a gold coin, Trayexir repair. Any gold dot left: hover it, `/mm mark dot <its name>`.
+  doesn't know is a gold dot, never a herb (Swart, Razor Hill's shaman trainer, isn't one).
+- Sen'jin Village's vendors: Hai'zan food, Zansoa a fish, K'waii and Tai'tasi the vendor's sack, Trayexir repair. Any gold dot left: hover it, `/mm mark dot <its name>`.
 
 ## 6. Ground, base picture and indoors
 

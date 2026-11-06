@@ -4,7 +4,7 @@
 -- zoom moves: Engine.At's minimum zoom) as the spike's pins (Blips.lua:423-437,
 -- 641-661), on the pin store (ui/Pins.lua): an icon, the game's tracking texture or an atlas (a gathering
 -- node's, Blizzard's HD one; else the classic Minimap\Tracking icon; else a dot of its colour, StylePin's
--- form (d)), at 14 px; else a gold dot (d) at 10. A remembered one a sensed one stands for (its
+-- form (d); a vendor's, its kind's art or a file, the gossip sack: UI.Art.Icon), at 14 px; else a gold dot (d) at 10. A remembered one a sensed one stands for (its
 -- key) is drawn once; while the sensor runs, none within its word around you (LIVE_YARDS: only what it sees now, Blips.lua:628-650). Laid out again
 -- when either changes, or you cross a walk chunk while sensing. Tooltip: its name, then what it is (a
 -- gathering node's profession, Blips.lua:427-429; an NPC's title, :436), and a service's or remembered one's

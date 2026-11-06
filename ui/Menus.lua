@@ -2,8 +2,8 @@
 -- as open for the controls that opened them, so those don't fade out under them.
 -- The gear menu (GearMenu.lua): what's drawn, a submenu per group of layers (Map, Quests, Places, Nearby,
 -- Other addons), each with an "All" box on top (the group on or off) and each row's icon beside its name;
--- Nearby lists Blizzard's tracking types too (but those ours replace); each group's row shows how many of its
--- rows are on, n/total (Tally). Then quick actions (Use Blizzard's
+-- Nearby lists Blizzard's tracking types too (but those ours replace; one box for a name the client lists twice,
+-- Banker); each group's row shows how many of its rows are on, n/total (Tally). Then quick actions (Use Blizzard's
 -- minimap, shown only while ours replaces it: UI.Replace.Get("minimap"); Reset to defaults: every layer as installed), then
 -- Settings…, one row that opens the settings window (ui/Feel.lua: General, Map, Icons, the tracking line, quest
 -- areas, grouping, Diagnostics: what the gear's Settings submenu held).
@@ -253,23 +253,45 @@ local function Track(id)
 	Command({ kind = "tracking", id = id, on = Ask(id, Active(id)) })
 end
 
--- The types listed (Blizzard's but those ours replace: kind "duplicate").
+-- The types listed (Blizzard's but those ours replace: kind "duplicate"), one row a name and icon: the client
+-- lists some twice (Banker, #21), one box for both. fn(t, ids): the row's first type, the ids of every one behind it.
 local function Listed(fn)
+	local rows, ids = {}, {}
 	for _, t in ipairs(Model.tracking) do
-		if t.kind ~= "duplicate" then fn(t) end
+		if t.kind ~= "duplicate" then
+			local key = t.name .. "|" .. tostring(t.texture)
+			if ids[key] then
+				table.insert(ids[key], t.id)
+			else
+				ids[key], rows[#rows + 1] = { t.id }, t
+			end
+		end
+	end
+	for _, t in ipairs(rows) do fn(t, ids[t.name .. "|" .. tostring(t.texture)]) end
+end
+
+-- A row is on while every type behind it is (as its box shows it: Shown); set, each that isn't set.
+local function RowOn(ids)
+	for _, id in ipairs(ids) do
+		if not Shown(id, Active(id)) then return false end
+	end
+	return true
+end
+local function SetRow(ids, on)
+	for _, id in ipairs(ids) do
+		if Shown(id, Active(id)) ~= on then Track(id) end
 	end
 end
+local function FlipRow(ids) SetRow(ids, not RowOn(ids)) end
 
 function TrackingOn()
 	local all = true
-	Listed(function(t) all = all and Shown(t.id, Active(t.id)) end)
+	Listed(function(_, ids) all = all and RowOn(ids) end)
 	return all
 end
 
 function SetTracking(on)
-	Listed(function(t)
-		if Shown(t.id, Active(t.id)) ~= on then Track(t.id) end
-	end)
+	Listed(function(_, ids) SetRow(ids, on) end)
 end
 
 -- Under Nearby's rows, a divider and each type with its icon (as Blizzard's menu has it): what it finds is
@@ -277,11 +299,10 @@ end
 function AddTrackingRows(sub)
 	if not Model.tracking[1] then return end
 	sub:CreateDivider()
-	Listed(function(t)
-		local id = t.id
+	Listed(function(t, ids)
 		local mark = t.texture and "|T" .. t.texture .. ":16:16|t  " or ""
-		sub:CreateCheckbox(mark .. t.name, function() return Shown(id, Active(id)) end, function()
-			Run(Track, id)
+		sub:CreateCheckbox(mark .. t.name, function() return RowOn(ids) end, function()
+			Run(FlipRow, ids)
 			return MenuResponse.Refresh
 		end)
 	end)
@@ -294,9 +315,10 @@ function Tally(sec)
 		if Engine.LayerOn(row.key) then on = on + 1 end
 	end
 	if sec.key == "nearby" then
-		Listed(function(t)
-			total = total + 1
-			if Peek(t.id, Active(t.id)) then on = on + 1 end
+		Listed(function(_, ids)
+			local all = true
+			for _, id in ipairs(ids) do all = all and Peek(id, Active(id)) end
+			total, on = total + 1, all and on + 1 or on
 		end)
 	end
 	return "  |cff888888" .. on .. "/" .. total .. "|r"

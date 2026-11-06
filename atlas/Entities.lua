@@ -286,7 +286,7 @@ local ORES = { ["Chunk of Amber"] = true, ["Large Chunk of Amber"] = true, ["Sma
 	["Large Obsidian Chunk"] = true }
 
 -- What a Minimap blip's tooltip name stands for: "herb" or "ore" (a gathering node, by name: no data
--- needed; a name it doesn't know is Game's to guess from what's tracked, game/Blips.lua), else its service (Data/BlipServices.lua: "innkeeper", "banker", "auctioneer", "stablemaster",
+-- needed, and only by name: one it doesn't know is no node, game/Blips.lua's gold dot), else its service (Data/BlipServices.lua: "innkeeper", "banker", "auctioneer", "stablemaster",
 -- "battlemaster", "trainer", "classtrainer", "repair", "questgiver", "questender", "flightmaster",
 -- "mailbox"), or nil.
 -- Data/BlipServices.lua's row for a name, decoded once.
@@ -321,9 +321,6 @@ function Atlas.BlipQuests(name)
 	local r = Service(name)
 	return r and r[3] or NONE
 end
-
--- Whether Data knows the name as an NPC's (any row in Data/BlipServices.lua: a service, a title, or both).
-function Atlas.BlipKnown(name) return Service(name) ~= nil end
 
 -- The title of the NPC a blip's tooltip names (its subName: "Innkeeper"), or nil (Blips.lua:408-436).
 function Atlas.BlipTitle(name)

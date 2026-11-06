@@ -10,12 +10,18 @@
 -- lattice fixed in the world, a little under a square's width apart (no blip fits between
 -- them), within the Minimap's reach:
 --   new       the points that came into reach since the last look (after a restart, all);
+--   watched   known blips no point named, where they are, moving too: gathering nodes within
+--             WATCH and suspects (dots, once who of your group is in it or dead changed); moving,
+--             one is gone only the second look in a row its spot and the points around it don't
+--             name it (the client's lag), that look RECHECK s on: a gathered node goes within ~1 s;
 --   standing  those looked at while you moved since you last stood (the client's blips lag
 --             you as you move), the slow pass's next (STALE a look, all of them in ~40 s: what
 --             spawns), and known blips no point named, where they are (every rough one, CONFIRM
---             measured ones in turn): still there, measured, found around it (moved a little), or gone.
--- So ~6 probes a second walking, at most STALE + CONFIRM (16) standing, and ~50 a blip measured:
--- R-P3's 0.1 KB a frame (~17 a second), not only the 50 KB/s budget (~140).
+--             measured ones in turn; watched ones, then the nearest, first): still there, measured,
+--             found around it (moved a little), or gone.
+-- So ~6 probes a second walking (and one a watched node), at most STALE + CONFIRM (16) standing
+-- with the watched, and ~50 a blip measured: R-P3's 0.1 KB a frame (~17 a second), not only the
+-- 50 KB/s budget (~140).
 -- A frame probes until BUDGET ms are spent and the look (a coroutine) goes on the next.
 -- A point naming something no known blip explains (as often as the answer names it: one a
 -- blip) gets that blip's middle from its square's edges, halved in on, standing still (a
@@ -35,8 +41,9 @@
 -- makes ours its size and the four one, traced { e = "square", px, n = 4 } (docs/telemetry.md).
 -- Game.Blips() runs one slice and returns obs.blips (types/observation.lua
 -- MM.ObsBlips), or nil while it doesn't run: the blips part (game/parts/Blips.lua).
--- Each sweep traces "blips" (docs/telemetry.md: counted in session stats). You and your group
--- aren't sensed (their own dots: the spike's Blips.lua:449-458, 653-657): not measured as they move.
+-- Each sweep traces "blips" (docs/telemetry.md: counted in session stats). You, your group and your
+-- pets aren't sensed (their own dots: the spike's Blips.lua:449-458, 653-657): not measured as they
+-- move, nor what the client calls the dead (Skip).
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
@@ -54,6 +61,8 @@ local SETTLE = 0.5   -- s still before measuring (the client moves blips in step
 local BLIND = 1      -- s unable to read before it's traced
 local YD = 1 / Atlas.TILE_YARDS
 local SAME, LAG = 6 * YD, 8 * YD -- a measure this close to a known one of its name is that one; the client's lag moving
+local WATCH = 40 * YD -- a gathering node this close is looked at where it is every look, moving too (Confirm)
+local RECHECK = 0.3  -- s to the next look after one missed moving (its second miss in a row drops it)
 
 local blips = {}     -- { name, pos = { inst, col, row }, rough, icon, seen, gone }
 local center = {}
@@ -75,83 +84,105 @@ local function Remove(i) blips[i].gone = true; table.remove(blips, i); Changed()
 
 -- What tracking icon a blip's name is: a tracking type of that name (Mailbox), or a
 -- service Atlas knows the name by (Data.BlipServices; a class trainer by its title: Blips.lua:375-403);
--- a gathering node's, an atlas (Blips.lua:423-426), by name or, one no one knows, by what's tracked (Guess).
--- nil, nil: none (a gold dot).
+-- a gathering node's, an atlas (Blips.lua:423-426), only for a name Atlas knows as a herb or ore (its herbs and
+-- the ore patterns: every node Data has). Blizzard says only a blip's name, so a name no one knows is a gold dot
+-- whatever is tracked: guessed from Find Herbs, a trainer, a chest or a corpse was drawn as a herb (#21).
+-- nil, nil: none (a gold dot). Kept by name, asked again when the tracking types change (they come after login).
 local SERVICE = { innkeeper = 136458, banker = 136453, auctioneer = 136452, stablemaster = 136466,
 	battlemaster = 136454, trainer = 136463, classtrainer = 136455, repair = 136465, mailbox = 136459,
 	flightmaster = 136456 }
 local GATHER = { herb = "Professions_Tracking_Herb", ore = "Professions_Tracking_Ore" }
--- Vendors, by what they sell (Data's kind from the title): Blizzard's tracking art; a gold coin for the rest.
+-- Vendors, by what they sell (Data's kind from the title): Blizzard's tracking art; the rest the gossip window's
+-- vendor sack (FileDataID 132060; the client has no coin-gold-20x20 atlas, #21), a path ui/Art.lua's Icon draws as a texture.
 local VENDOR = { food = "food", reagents = "reagents", poisons = "poisons", ammunition = "ammunition",
-	fishing = "Professions_Tracking_Fish", vendor = "coin-gold-20x20" }
--- A name neither Atlas nor the tracking types know, and no NPC's Data has: a gathering node of what's tracked.
--- Blizzard doesn't say what a blip is, only its name, but with Find Herbs on and Find Minerals off a node is a herb
--- (and the other way round); with both on, a herb (ores are named to a pattern Atlas knows). Not while a creature
--- or other spell's tracking is on (a hunter's Track Beasts): its blips are unknown NPCs. Read on a tracking change.
-local FIND_HERBS, FIND_MINERALS, FIND_TREASURE = 2383, 2580, 2481
-local guess, guessDirty = false, true
-Runtime.On("MINIMAP_UPDATE_TRACKING", "game.blips tracking", function() guessDirty = true end)
-local function Guess()
-	if not guessDirty then return guess end
-	guessDirty = false
-	local herbs, minerals, other = false, false, false
-	for i = 1, C_Minimap.GetNumTrackingTypes() or 0 do
-		local info = C_Minimap.GetTrackingInfo(i)
-		local id = info and info.active and info.spellID -- (a spell's: the built-in types, Flight Master, have none)
-		if id and id > 0 then
-			if id == FIND_HERBS then herbs = true
-			elseif id == FIND_MINERALS then minerals = true
-			elseif id ~= FIND_TREASURE then other = true end
-		end
-	end
-	guess = not other and (herbs and "herb" or minerals and "ore") or false
-	return guess
-end
+	fishing = "Professions_Tracking_Fish", vendor = "Interface\\GossipFrame\\VendorGossipIcon" }
 local icons, atlases = {}, {}
 local function Icon(name)
 	local icon = icons[name]
 	if icon == nil then
-		local typed
 		for i = 1, C_Minimap.GetNumTrackingTypes() or 0 do
 			local info = C_Minimap.GetTrackingInfo(i)
-			if info and info.name == name then icon, typed = info.texture, true end
+			if info and info.name == name then icon = info.texture end
 		end
 		local service = Atlas.BlipService(name)
-		if not (service or typed or Atlas.BlipKnown(name)) then
-			local g = Guess()
-			if g then return nil, GATHER[g] end -- (not kept: what's tracked may change)
-		end
 		icon = icon or SERVICE[service] or false
 		icons[name], atlases[name] = icon, GATHER[service] or VENDOR[service] or false
 	end
 	return icon or nil, atlases[name] or nil
 end
+local function Gathered(b) return b.atlas == GATHER.herb or b.atlas == GATHER.ore end
 
--- Names not sensed: you, your pet and your group, each look.
-local skip = {}
+-- Names not sensed, each look: you, your pet, your group and their pets (as either: one an unknown name, a dot);
+-- and loosely (Skipped) a name holding one of theirs as a word ("Corpse of Friend") or any corpse's (the client's
+-- "Corpse", "Corpse of %s"): dead or just back, the client names you and your group otherwise (#21's ghost dots).
+local PARTY, RAID = { "player", "pet" }, { "player", "pet" }
+for i = 1, 40 do
+	if i <= 4 then
+		PARTY[#PARTY + 1] = "party" .. i
+		PARTY[#PARTY + 1] = "partypet" .. i
+	end
+	RAID[#RAID + 1] = "raid" .. i
+	RAID[#RAID + 1] = "raidpet" .. i
+end
+local skip, was, loose = {}, {}, {} -- this look's names (true, or "dead"), the last look's; Skipped's answers
+local WORD = "[%w\128-\255]" -- a name's letter (a UTF-8 one's bytes too)
+
+-- Whether s holds n as a word: not inside a longer one.
+local function Within(s, n)
+	local i, j = s:find(n, 1, true)
+	while i do
+		if not s:sub(i - 1, i - 1):find(WORD) and not s:sub(j + 1, j + 1):find(WORD) then return true end
+		i, j = s:find(n, i + 1, true)
+	end
+	return false
+end
+
+local function Skipped(name)
+	if skip[name] then return true end
+	local s = loose[name]
+	if s == nil then
+		s = name:find("[Cc]orpse") ~= nil
+		for n in pairs(skip) do s = s or Within(name, n) end
+		loose[name] = s
+	end
+	return s
+end
+
+-- Who's in your group, or who of it (you too) is dead, changed (you rezzed: PLAYER_ALIVE, PLAYER_UNGHOST; a member
+-- joined or left, died or is back): every dot is a suspect, looked at again wherever it is (Confirm), so one the
+-- client stopped showing (a name it gave the dead) goes; and every known blip now skipped goes.
 local function Skip()
+	skip, was = was, skip
 	wipe(skip)
-	local me = UnitName("player")
-	if me then skip[me] = true end
-	local pet = UnitName("pet") -- (an unknown name: Guess would make it a herb)
-	if pet and not issecretvalue(pet) then skip[pet] = true end
-	local unit = IsInRaid() and "raid" or "party"
-	for i = 1, GetNumGroupMembers() do
-		local n = UnitName(unit .. i)
-		if n and not issecretvalue(n) then skip[n] = true end
+	wipe(loose)
+	for _, unit in ipairs(IsInRaid() and RAID or PARTY) do
+		local n = UnitName(unit)
+		if n and not issecretvalue(n) then
+			local dead = UnitIsDeadOrGhost(unit)
+			skip[n] = not issecretvalue(dead) and dead and "dead" or true
+		end
+	end
+	local changed = false
+	for n, v in pairs(skip) do changed = changed or was[n] ~= v end
+	for n in pairs(was) do changed = changed or skip[n] == nil end
+	for i = #blips, 1, -1 do
+		local b = blips[i]
+		if Skipped(b.name) then Remove(i) elseif changed and not (b.icon or b.atlas) then b.suspect = true end
 	end
 end
 
 -- Probing ----------------------------------------------------------------------
 
--- A tooltip line's names (one a row, markup stripped), each text parsed once: the same few come back.
+-- A tooltip line's names (one a row, markup stripped: atlases, textures, colours, the newer named ones too,
+-- |cnGRAY_FONT_COLOR:...|r), each text parsed once: the same few come back.
 local parsed, nParsed = {}, 0
 local function Names(text)
 	local list = parsed[text]
 	if list then return list end
 	list = {}
 	for part in text:gmatch("[^\n]+") do
-		part = strtrim((part:gsub("|A.-|a", ""):gsub("|T.-|t", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")))
+		part = strtrim((part:gsub("|A.-|a", ""):gsub("|T.-|t", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[%w_]*:", "")
+			:gsub("|r", "")))
 		if part ~= "" then list[#list + 1] = part end
 	end
 	if nParsed >= 200 then wipe(parsed); nParsed = 0 end
@@ -345,7 +376,7 @@ local function Visit(x, y)
 		for j, n in ipairs(found) do
 			if n == name then k, first = k + 1, first and j >= i end
 		end
-		if first and not skip[name] and not Explain(name, x, y, k) then
+		if first and not Skipped(name) and not Explain(name, x, y, k) then
 			if g.moving then
 				Rough(name, x, y)
 			else
@@ -423,37 +454,70 @@ local function Drop(b)
 	end
 end
 
--- Standing: known blips no point named this look, looked at where they are (every rough one,
--- CONFIRM measured ones in turn): a measured one still there (its middle answers), a rough
--- one measured; else looked for around it (moved a little: found anew), or gone.
+-- Known blip b no point named this look, looked at where it is. Standing: a measured one still there (its middle
+-- answers), a rough one measured; else looked for around it (moved a little: found anew), or gone. Moving (the
+-- client's blips lag you): there if its spot or a point around it names it (Visit: within Holds's slack), else gone
+-- the second look in a row it isn't (the next look comes RECHECK s on).
 local NEAR = { -1, 0, 1, 0, 0, -1, 0, 1, -1, -1, 1, -1, -1, 1, 1, 1 } -- around a point, in squares' halves
+local again = false -- one missed moving this look
+local function Check(b)
+	local x, y = Local(b.pos.col, b.pos.row)
+	if g.moving then
+		if Answers(x, y, b.name) then b.seen = look end -- (a rough one's spot named it too)
+		for k = 1, #NEAR, 2 do
+			if b.seen == look then break end
+			Visit(x + NEAR[k] * g.half, y + NEAR[k + 1] * g.half)
+		end
+		if b.seen == look then
+			b.suspect = nil
+		elseif b.missed == look - 1 then
+			Drop(b)
+		else
+			b.missed, again = look, true
+		end
+		return
+	end
+	if not b.rough and Answers(x, y, b.name) then
+		b.seen, b.suspect = look, nil
+		return
+	end
+	if b.rough then Visit(x, y) else Drop(b) end
+	for k = 1, #NEAR, 2 do
+		if b.seen == look or b.gone and b.rough then break end
+		Visit(x + NEAR[k] * g.half, y + NEAR[k + 1] * g.half)
+	end
+	if not b.gone and b.seen ~= look then Drop(b) end
+end
+
+-- Known blips no point named this look, checked where they are (Check): watched ones each look, moving too (a
+-- gathering node within WATCH: a gathered one goes within a second, not once out of reach; a suspect: Skip);
+-- standing, every rough one and CONFIRM measured ones in turn too. Watched ones first, then the nearest.
 local todo, turn = {}, 0
-local function Confirm()
+local function First(a, b)
+	if a.watch ~= b.watch then return a.watch end
+	return a.d < b.d
+end
+local function Confirm(standing)
 	wipe(todo)
 	local n, exact = #blips, 0
 	for k = 1, n do
 		local b = blips[(turn + k) % n + 1]
-		if b.seen ~= look and (b.rough or exact < CONFIRM) then
-			todo[#todo + 1] = b
-			exact = exact + (b.rough and 0 or 1)
-		end
-	end
-	turn = turn + CONFIRM
-	for _, b in ipairs(todo) do
-		if g.moving then return end
-		if not b.gone and b.seen ~= look then
-			local x, y = Local(b.pos.col, b.pos.row)
-			if not b.rough and Answers(x, y, b.name) then
-				b.seen = look
-			else
-				if b.rough then Visit(x, y) else Drop(b) end
-				for k = 1, #NEAR, 2 do
-					if b.seen == look or b.gone and b.rough then break end
-					Visit(x + NEAR[k] * g.half, y + NEAR[k + 1] * g.half)
-				end
-				if not b.gone and b.seen ~= look then Drop(b) end
+		if b.seen == look then
+			b.suspect = nil
+		else
+			local p = b.pos
+			b.d = (p.col - g.col) ^ 2 + (p.row - g.row) ^ 2
+			b.watch = b.suspect or Gathered(b) and b.d <= WATCH * WATCH
+			if b.watch or standing and (b.rough or exact < CONFIRM) then
+				todo[#todo + 1] = b
+				if standing and not (b.watch or b.rough) then exact = exact + 1 end
 			end
 		end
+	end
+	if standing then turn = turn + CONFIRM end
+	table.sort(todo, First)
+	for _, b in ipairs(todo) do
+		if not b.gone and b.seen ~= look and (b.watch or not g.moving) then Check(b) end
 	end
 end
 
@@ -474,11 +538,12 @@ local function Run()
 		Skip()
 		Lattice()
 		local standing, movedAt = not g.moving, g.movedAt
+		again = false
 		Look(standing)
 		Beyond()
-		if standing then Confirm() end
+		Confirm(standing)
 		if standing and movedAt == g.movedAt then EndSweep() end
-		busy, rest = false, GetTime() + REST
+		busy, rest = false, GetTime() + (again and RECHECK or REST)
 		coroutine.yield()
 	end
 end
@@ -555,10 +620,15 @@ function Game.Blips()
 	return out
 end
 
--- What the Minimap tracks changed (herbs on, say): every point looked at again.
+-- What the Minimap tracks changed (herbs on, say): every point looked at again, and each known blip's icon asked
+-- again (a tracking type's: the types come in after login).
 Runtime.On("MINIMAP_UPDATE_TRACKING", "game.blips tracking", function()
 	if lat.cc then Runtime.Trace("restart", { why = "tracking", probes = probes }) end
 	lat.cc, lat.sc = nil, nil
+	wipe(icons)
+	wipe(atlases)
+	for _, b in ipairs(blips) do b.icon, b.atlas = Icon(b.name) end
+	Changed()
 end)
 
 -- /mm blips (Blips.lua:677-683): what the sensor knows, each in yards east and north of you (Blips.lua:210-212).

@@ -16,7 +16,7 @@ local Art = {
 	atlases = {
 		"vignettekill",                                            -- ui/Menus.lua: the Rares & treasures row's icon
 		"Professions_Tracking_Herb", "Professions_Tracking_Ore",   -- ui/Blips.lua: gathering nodes (game/Blips.lua GATHER)
-		"food", "reagents", "poisons", "ammunition", "Professions_Tracking_Fish", "coin-gold-20x20", -- vendors (VENDOR)
+		"food", "reagents", "poisons", "ammunition", "Professions_Tracking_Fish", -- vendors (VENDOR)
 		"UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight", -- ui/Chrome.lua: the border
 		"_UI-Frame-Metal-EdgeBottom", "!UI-Frame-Metal-EdgeLeft", "!UI-Frame-Metal-EdgeRight",
 		-- ui/Controls.lua: the mode button, the spike's chains (Core.lua:282-286). Forever draws the
@@ -44,6 +44,7 @@ local Art = {
 		"Interface\\CharacterFrame\\TempPortraitAlphaMask",       -- CIRCLE: ui/Chrome.lua, ui/Blips.lua (dots); game/Button.lua
 		"Interface\\HUD\\UIMinimap2xC60", "Interface\\Icons\\INV_Misc_Map_01", -- game/Button.lua: ring, icon
 		136458, 136453, 136452, 136466, 136454, 136463, 136455, 136465, 136459, -- ui/Blips.lua: services (game/Blips.lua SERVICE)
+		"Interface\\GossipFrame\\VendorGossipIcon",            -- ui/Blips.lua: the other vendors (VENDOR; 132060)
 		"Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",        -- ui/Path.lua: the edge arrow
 		"Interface\\Minimap\\PartyRaidBlipsV2",                  -- ui/Group.lua: party and raid members
 		136441,                                                  -- ui/Places.lua: POIIcons, the area POIs the client gives no atlas for

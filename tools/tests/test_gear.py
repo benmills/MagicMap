@@ -255,6 +255,8 @@ STUBS = """function(ns, sent, ran)
         { id = 8192, name = "Points of Interest", texture = 136456, active = false, kind = "duplicate" },
         { id = 64, name = "Mailbox", texture = 136459, active = true },
         { id = 128, name = "Innkeeper", texture = 136458, active = true },
+        { id = 2, name = "Banker", texture = 136453, active = true },
+        { id = 4194304, name = "Banker", texture = 136453, active = false }, -- (the client lists two: #21)
     }
     ns.Game.Part("tracking", function() return cur end)
     ns.Game.Handle("tracking", function(c)
@@ -278,7 +280,7 @@ end"""
 
 def test_gear_tracking():
     """Tracking (GearMenu.lua:9-26), in Nearby: Blizzard's types but those ours replace, each a box that sends Game the
-    tracking Command and shows the click till Game's next Observation says so. The Diagnostics page's rows run
+    tracking Command and shows the click till Game's next Observation says so; two of one name and icon one box (#21). The Diagnostics page's rows run
     their /mm command, a box showing its command's state. /mm layers
     (Layers.lua:2196-2207): each group's layers, on green, off grey, a sub-option grey while its parent's off."""
     L, sim, ns = boot()
@@ -287,10 +289,11 @@ def test_gear_tracking():
     sim.Slash("/mm toggle")
     sim.Run(1)
 
-    # Tracking, under Nearby's rows: the client's order, the duplicates (flight, quest POIs, POIs) left out.
+    # Tracking, under Nearby's rows: the client's order, the duplicates (flight, quest POIs, POIs) left out, a name
+    # and icon the client lists twice one box.
     root, rows = gear(sim, ns)
-    assert items(sub(root, "Nearby"))[-4:] == [("divider", None), ("checkbox", "Find Herbs"), ("checkbox", "Mailbox"),
-                                               ("checkbox", "Innkeeper")]
+    assert items(sub(root, "Nearby"))[-5:] == [("divider", None), ("checkbox", "Find Herbs"), ("checkbox", "Mailbox"),
+                                               ("checkbox", "Innkeeper"), ("checkbox", "Banker")]
     mail = rows["Mailbox"]
     assert mail.isSelected() is True and mail.onSelect() == refresh
     assert mail.isSelected() is False and len(sent) == 0  # the click shown; Game's in its next input step
@@ -303,6 +306,16 @@ def test_gear_tracking():
     sim.Step()
     assert [c.on for c in sent.values()] == [False, True, False] and mail.isSelected() is False
     assert rows["Find Herbs"].isSelected() is True and rows["Innkeeper"].isSelected() is True
+
+    # The one Banker box: on only while both are; a click sets both (the one that's off), the next clears both.
+    bank = rows["Banker"]
+    assert bank.isSelected() is False
+    bank.onSelect()
+    sim.Step()
+    assert [(c.id, c.on) for c in sent.values()][3:] == [(4194304, True)] and bank.isSelected() is True
+    bank.onSelect()
+    sim.Step()
+    assert [(c.id, c.on) for c in sent.values()][4:] == [(2, False), (4194304, False)] and bank.isSelected() is False
 
     # Diagnostics (the settings window's page, once the gear's Advanced): each row its /mm command; a box shows the
     # click, then its state.
