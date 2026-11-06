@@ -2,7 +2,8 @@
 2154-2207): a submenu per group of layers with any (Map, Quests, Places, Nearby, Other addons), each layer
 a checkbox with its tip (white title, gold body) that keeps the menu open, its icon beside it, a sub-option indented and
 greyed while its parent is off, each group's row with its n/total; Nearby's Blizzard tracking types; then Use Blizzard's
-minimap (while ours replaces it) and Reset to defaults; then one row, Settings…, which opens the settings window
+minimap (while ours replaces it) and Reset to defaults, after Minimap buttons (the buttons the takeover hides, a row
+each that clicks it: test_gear_minimap_buttons); then one row, Settings…, which opens the settings window
 (ui/Feel.lua: test_lookfeel.py holds what was the Settings submenu), the same small and big. Every row works: a layer's toggle empties and redraws what it draws (and View.layers, for Game's: the
 blip sensor, Questie's borrowed pins) and is saved, the changed keys only, across a /reload; a layer off by
 default stays so until turned on; rows in the spike's order whenever added; each setting does what it says;
@@ -113,6 +114,7 @@ def test_gear():
     root, rows = gear(sim, ns)
     assert items(root) == [("button", "Map"), ("button", "Quests"), ("button", "Places"), ("button", "Nearby"),
                            ("button", "Other addons"), ("button", "Keep tracking: Find Herbs"), ("divider", None),
+                           ("button", "Minimap buttons"),
                            ("button", "Use Blizzard's minimap"),
                            ("button", "Reset to defaults"), ("divider", None), ("button", SETTINGS)]
     assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"),
@@ -348,6 +350,71 @@ def test_gear_tracking():
         f"|cffffd100Places:|r {off('flight')}, {on('dungeons')}, {off('graveyards')}, {on('areaPOIs')}; "
         f"|cffffd100Nearby:|r {off('rares')}, {on('group')}. Toggle them from the gear. "
         "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it.")
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+COMPARTMENT = """local G, got = ...
+local reg = G.AddonCompartmentFrame.registeredAddons
+reg[#reg + 1] = { text = "Details", icon = "Interface\\\\Icons\\\\INV_Misc_Book_09",
+    func = function(_, input) got[#got + 1] = input.buttonName end }
+reg[#reg + 1] = { text = "SomeAddon", func = function() got[#got + 1] = "copy" end } -- (LibDBIcon's copy of its own)
+"""
+
+
+def test_gear_minimap_buttons():
+    """Minimap buttons (#19): the buttons the takeover hides with the Minimap, a row each, its icon and name: LibDBIcon's
+    launchers, the addon compartment's (not MagicMap's own, nor a launcher's copy), another addon's named button on its
+    rim; Blizzard's calendar and clock after a divider. A click (left or right) does what the button's does, from Game's
+    next step (the button Command); hovering one shows its own tooltip, leaving hides it. With none, "None found", greyed."""
+    L, sim, ns, pin = shown()
+    G = L.globals()
+    assert ns.Game.minimap.engaged  # (the Minimap and its cluster hidden: these with them)
+    sim.LoadLibDBIcon()
+    rim = sim.RimButton("AtlasLootMinimapButton", "AtlasLoot", "Interface\\Icons\\INV_Box_01")
+    got = L.table()
+    L.execute(COMPARTMENT, G, got)
+    sim.Run(3.5)  # (looked for again every 3 s)
+    root, rows = gear(sim, ns)
+    assert items(sub(root, "Minimap buttons")) == [("button", "AtlasLoot"), ("button", "Details"), ("button", "Some Addon"),
+                                                   ("divider", None), ("button", "Calendar"), ("button", "Clock")]
+    assert rows["Some Addon"].text.startswith("|TInterface\\Icons\\INV_Misc_Bag_08:16:16|t")
+    assert rows["Calendar"].text.startswith("|A:ui-hud-minimap-calendar-button:16:16|a")
+
+    rows["Some Addon"].onSelect()
+    assert len(sim.ldb.clicks) == 0  # Game's, in its next step
+    sim.Step()
+    c = sim.ldb.clicks[1]
+    same = L.eval("function(a, b) return a == b end")
+    assert same(c.frame, sim.minimapButton) and c.button == "LeftButton"  # (its own LibDBIcon button, as LibDBIcon calls it)
+    rows["Details"].onSelect(None, L.table_from({"buttonName": "RightButton"}))
+    rows["AtlasLoot"].onSelect()
+    rows["Calendar"].onSelect()
+    rows["Clock"].onSelect()
+    sim.Step()
+    assert list(got.values()) == ["RightButton"] and list(rim.clicks.values()) == ["LeftButton"]
+    assert sim.opened.calendar == 1 and sim.opened.clock == 1
+
+    # Its tooltip: the launcher's OnTooltipShow on GameTooltip, at the row; gone as the pointer leaves.
+    row, tt = rows["Some Addon"], G.GameTooltip
+    owner = L.eval("CreateFrame('Button', nil, UIParent)")
+    row.onEnter(owner)
+    sim.Step()
+    assert tt.IsShown(tt) and tt.IsOwned(tt, owner) and sim.ldb.tips == 1
+    row.onLeave(owner)
+    sim.Step()
+    assert not tt.IsShown(tt)
+
+    # None: a greyed row.
+    G.GameTimeFrame.Disable(G.GameTimeFrame)
+    G.TimeManagerClockButton = None
+    G.LibStub.libs["LibDBIcon-1.0"] = None  # (its button, still on the rim, is then another addon's: hidden too)
+    for b in (rim, sim.minimapButton):
+        b.Hide(b)
+    G.AddonCompartmentFrame.registeredAddons = L.table()
+    sim.Run(3.5)
+    root, rows = gear(sim, ns)
+    none = rows["None found"]
+    assert items(sub(root, "Minimap buttons")) == [("button", "None found")] and not none.IsEnabled(none)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

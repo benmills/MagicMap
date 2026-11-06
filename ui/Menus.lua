@@ -4,9 +4,12 @@
 -- Other addons), each with an "All" box on top (the group on or off) and each row's icon beside its name;
 -- Nearby lists Blizzard's tracking types too (but those ours replace; one box for a name the client lists twice,
 -- Banker); each group's row shows how many of its rows are on, n/total (Tally); then Keep tracking: <name>, the
--- tracker kept on (ui/Resources.lua). Then quick actions (Use Blizzard's
+-- tracker kept on (ui/Resources.lua). Then Minimap buttons: the buttons the takeover hides with the Minimap
+-- (Model.buttons: LibDBIcon's, the addon compartment's, others on its rim, Blizzard's calendar and clock after a
+-- divider), a row each, its icon and name; a click (either button) is the button Command, its tooltip the button's
+-- own (the tooltip Command); "None found" greyed when there are none. Then quick actions (Use Blizzard's
 -- minimap, shown only while ours replaces it: UI.Replace.Get("minimap"); Reset to defaults: every layer as installed), then
--- Settings…, one row that opens the settings window (ui/Feel.lua: General, Map, Icons, the tracking line, quest
+-- Settings…, one row that opens the settings window (ui/Feel.lua: General, Map, Title, Icons, the tracking line, quest
 -- areas, grouping, Diagnostics: what the gear's Settings submenu held).
 -- /mm layers (Layers.lua:2196-2207).
 -- The map picker (the title's click: ui/ZoneInfo.lua) and /mm map; the map's right-click menu.
@@ -466,12 +469,44 @@ function Menus.Map(owner, col, row, pin)
 	end)
 end
 
+---------------------------------------------------------------------------
+-- Minimap buttons: what the takeover hides with the Minimap (game/MinimapButtons.lua), one row each
+---------------------------------------------------------------------------
+
+local BUTTONS_ICON = "Interface\\Icons\\INV_Gizmo_02"
+
+-- A button's icon whole (other addons' art isn't Interface\Icons' alone): a file, a FileDataID or an atlas.
+local function ButtonMark(icon)
+	if type(icon) == "string" and icon:sub(1, 2) == "A:" then
+		return C_Texture.GetAtlasInfo(icon:sub(3)) and "|A:" .. icon:sub(3) .. ":16:16|a  " or ""
+	end
+	return icon and "|T" .. tostring(icon) .. ":16:16|t  " or ""
+end
+
+local function AddButtons(root)
+	local sub = root:CreateButton(Mark(BUTTONS_ICON) .. "Minimap buttons")
+	sub:SetTooltip(Tip("Minimap buttons", "The buttons Blizzard's minimap holds, hidden with it: other addons', the calendar, the clock. A click here is a click on the button."))
+	local blizzard = false
+	for _, b in ipairs(Model.buttons) do
+		if b.blizzard and not blizzard and Model.buttons[1] ~= b then sub:CreateDivider() end
+		blizzard = blizzard or b.blizzard
+		local row = sub:CreateButton(ButtonMark(b.icon) .. b.name, function(_, input)
+			Run(Command, { kind = "button", id = b.id, button = input and input.buttonName })
+		end)
+		row:AddInitializer(function(f) f:RegisterForClicks("AnyUp") end) -- (a right-click is the button's right-click)
+		row:SetOnEnter(function(f) Run(Command, { kind = "tooltip", owner = f, anchor = "ANCHOR_RIGHT", button = b.id }) end)
+		row:SetOnLeave(function() Run(Command, { kind = "tooltip", owner = false }) end)
+	end
+	if not Model.buttons[1] then sub:CreateButton("None found"):SetEnabled(false) end
+end
+
 function Menus.Gear(owner)
 	want, was = {}, {}
 	Menus.Show(owner, function(_, root)
 		AddLayers(root)
 		UI.Resources.Menu(root) -- (Keep tracking: <name>, ui/Resources.lua)
 		root:CreateDivider()
+		AddButtons(root)
 		if not UI.Replace or UI.Replace.Get("minimap") then -- (only while ours stands in for it: the contract's Get; shown if it's absent)
 			root:CreateButton(BLIZZARD_LOGO .. "Use Blizzard's minimap", function() Run(function() UI.Window.frame:Hide() end) end)
 		end
@@ -479,6 +514,6 @@ function Menus.Gear(owner)
 			:SetTooltip(Tip("Reset to defaults", "Every layer back as it was installed."))
 		root:CreateDivider()
 		root:CreateButton(Mark("Interface\\Icons\\Trade_Engineering") .. "Settings…", function() Run(UI.Feel.Open) end)
-			:SetTooltip(Tip("Settings", "MagicMap's settings window: general, the map's looks, icons, the tracking line, quest areas, grouping, diagnostics."))
+			:SetTooltip(Tip("Settings", "MagicMap's settings window: general, the map's looks, the title, icons, the tracking line, quest areas, grouping, diagnostics."))
 	end)
 end

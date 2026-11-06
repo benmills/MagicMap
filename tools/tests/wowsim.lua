@@ -1367,6 +1367,71 @@ LibStub = setmetatable({ libs = Sim.libs, minors = {} }, {
 })
 function LibStub:IterateLibraries() return pairs(self.libs) end
 
+-- Global names and who made them (issecurevariable): Blizzard's (none listed) are secure; Sim.taint[name] = the
+-- addon whose name it is.
+Sim.taint = {}
+function issecurevariable(t, name)
+	if name == nil then name = t end
+	local addon = Sim.taint[name]
+	return addon == nil, addon
+end
+
+-- Blizzard's around the Minimap the takeover hides with the cluster (Forever's Blizzard_Minimap, Blizzard_TimeManager):
+-- the calendar button (GameTimeFrame: a click opens the calendar), the clock (TimeManagerClockButton: its options) and
+-- the addon compartment (AddonCompartmentFrame.registeredAddons: MagicMap's from its TOC, as the client registers it).
+Sim.opened = {} -- what Blizzard's buttons opened: "calendar", "clock", each a count
+local function Opened(what) Sim.opened[what] = (Sim.opened[what] or 0) + 1 end
+GameTimeFrame = CreateFrame("Button", "GameTimeFrame", MinimapCluster)
+GameTimeFrame:SetSize(23, 23)
+GameTimeFrame:SetPoint("TOPRIGHT", MinimapCluster, "TOPRIGHT", -10, -10)
+GameTimeFrame.StateTexture = GameTimeFrame:CreateTexture(nil, "ARTWORK")
+GameTimeFrame.StateTexture:SetAtlas("ui-hud-minimap-calendar-button")
+GameTimeFrame:SetScript("OnClick", function() Opened("calendar") end)
+TimeManagerClockButton = CreateFrame("Button", "TimeManagerClockButton", MinimapCluster)
+TimeManagerClockButton:SetSize(60, 16)
+TimeManagerClockButton:SetPoint("TOP", MinimapCluster, "TOP", 0, -4)
+TimeManagerClockButton:SetScript("OnClick", function() Opened("clock") end)
+AddonCompartmentFrame = CreateFrame("Frame", "AddonCompartmentFrame", MinimapCluster)
+AddonCompartmentFrame.registeredAddons = { { text = "MagicMap", icon = "Interface\\Icons\\INV_Misc_Map_01",
+	func = function(_, input) MagicMap_OnAddonCompartmentClick("MagicMap", input.buttonName) end } }
+
+-- The server's time (GetGameTime: Sim.gameTime, hour and minute) and whether it's day (Forever's C_DateAndTime).
+Sim.gameTime = { 14, 5 }
+function GetGameTime() return Sim.gameTime[1], Sim.gameTime[2] end
+C_DateAndTime = { IsDayTime = function() return Sim.gameTime[1] >= 6 and Sim.gameTime[1] < 18 end }
+
+-- LibDBIcon-1.0 (Sim.LoadLibDBIcon(), as if an addon brought it): the button already on the Minimap
+-- (LibDBIcon10_SomeAddon) its object, a launcher whose clicks and tooltips are counted in Sim.ldb.
+function Sim.LoadLibDBIcon()
+	local ldb = { clicks = {}, tips = 0 }
+	Sim.ldb = ldb
+	local obj = { type = "launcher", label = "Some Addon", icon = "Interface\\Icons\\INV_Misc_Bag_08" }
+	function obj.OnClick(frame, button) ldb.clicks[#ldb.clicks + 1] = { frame = frame, button = button } end
+	function obj.OnTooltipShow(tip)
+		ldb.tips = ldb.tips + 1
+		tip:AddLine("Some Addon")
+		tip:AddLine("Click to open", 1, 1, 1)
+	end
+	Sim.minimapButton.dataObject = obj
+	Sim.taint[Sim.minimapButton:GetName()] = "SomeAddon"
+	Sim.libs["LibDBIcon-1.0"] = { objects = { SomeAddon = Sim.minimapButton } }
+	return obj
+end
+
+-- Another addon's button on the Minimap, not LibDBIcon's: Sim.RimButton(name, addon, icon), its clicks in .clicks.
+function Sim.RimButton(name, addon, icon)
+	local b = CreateFrame("Button", name, Minimap)
+	b:SetSize(31, 31)
+	b.clicks = {}
+	if icon then
+		b.icon = b:CreateTexture(nil, "ARTWORK")
+		b.icon:SetTexture(icon)
+	end
+	b:SetScript("OnClick", function(self, button) self.clicks[#self.clicks + 1] = button end)
+	Sim.taint[name] = addon
+	return b
+end
+
 -- Retail-engine frames can pin their frame level (Questie does on its map
 -- icons): a fixed frame ignores SetFrameLevel until unfixed.
 local methods = classes.Frame.methods
@@ -1487,6 +1552,10 @@ local function description(kind, text, isSelected, onSelect, data)
 		return self.enabled ~= false
 	end
 	function d:SetTooltip(fn) assert(type(fn) == "function", "SetTooltip: function expected"); self.tooltip = fn end
+	-- A row's frame's setup, hover and leave (Blizzard_Menu's ElementDescription): kept for a scenario to call.
+	function d:AddInitializer(fn) self.initializers = self.initializers or {}; table.insert(self.initializers, fn) end
+	function d:SetOnEnter(fn) self.onEnter = fn end
+	function d:SetOnLeave(fn) self.onLeave = fn end
 	return d
 end
 MenuResponse = { Open = 1, Refresh = 2, Close = 3, CloseAll = 4 }
@@ -1875,6 +1944,9 @@ ATLASES["UI-QuestPoi-QuestNumber"], ATLASES["deathrecap-icon-tombstone"] = { 32,
 ATLASES["poi-graveyard-neutral"] = { 12, 16 }
 ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
 for _, a in ipairs({ "food", "reagents", "poisons", "ammunition", "Professions_Tracking_Fish" }) do ATLASES[a] = true end
+-- Blizzard's minimap art (Forever's Blizzard_Minimap: Diel.lua's day and night, the calendar button's)
+ATLASES["UI-HUD-Minimap-DayCycle"], ATLASES["UI-HUD-Minimap-NightCycle"] = { 36, 36 }, { 36, 36 }
+ATLASES["ui-hud-minimap-calendar-button"] = { 23, 23 }
 ATLASES["levelup-dot-gold"] = { 21, 22 } -- the zoom reset's dot (Forever has no reset atlas)
 ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }
 ATLASES["!UI-Frame-Metal-EdgeRight"] = { 200, 256 }

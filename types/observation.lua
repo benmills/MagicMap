@@ -42,6 +42,8 @@
 ---                                   names an explored area at the cell's centre, false where it names none (the
 ---                                   inspector's Unexplored), missing where no zone is (sea). A row changed is a new table.
 ---@field tracking? MM.ObsTracking[] on change: Blizzard's minimap tracking types
+---@field buttons? MM.ObsButton[]    on change: the Minimap's buttons, addons' and Blizzard's (game/MinimapButtons.lua)
+---@field clock? MM.ObsClock         on change: the time and whether it's day (game/parts/Clock.lua)
 ---@field interior? MM.ObsInterior|false on change: the building you're in and its room (ADR 0008); false = in none
 ---@field addons? MM.ObsAddon[]      on change: other addons whose pins Game can borrow (View.layers "addon:<key>")
 ---@field build? string           on change: the client's build, GetBuildInfo's version.build ("1.60.1.70532"; game/parts/Build.lua)
@@ -144,6 +146,21 @@
 ---@field active boolean
 ---@field kind? "duplicate"    Game keeps it off while our layer draws the same (flight, quests, POIs): not offered to the user
 ---@field spell? true          a spell's (Find Herbs, Find Minerals, Track Beasts: no filter), what Game can keep on (View.keep)
+
+---A button on the Minimap's rim (or in the addon compartment) the takeover hides: the gear's Minimap buttons row.
+---@class MM.ObsButton
+---@field id string            "ldb:<name>" (LibDBIcon), "cmp:<text>" (the compartment), "btn:<frame name>", "blz:clock" | "blz:calendar"
+---@field name string          what the row says (may hold colour codes)
+---@field icon? string|MM.FileID  a file, a FileDataID or "A:<atlas>"
+---@field blizzard? boolean    Blizzard's own (listed after the addons')
+
+---@class MM.ObsClock
+---@field h integer            local time (date): hour, 0-23
+---@field m integer            and minute
+---@field sh integer           the server's (GetGameTime)
+---@field sm integer
+---@field day boolean          day, as the minimap's day and night picture shows it (C_DateAndTime.IsDayTime)
+---@field military boolean     Blizzard's clock shows 24 hours (CVar timeMgrUseMilitaryTime)
 
 ---@class MM.ObsMinimap
 ---@field engaged boolean      Game has taken the Minimap (View.minimap ~= "blizzard" and nothing blocks it)

@@ -109,7 +109,7 @@ local SAFE_VIEW = {
 -- shows in the next Observation (the same frame for one carried out in Input).
 -- One that fails is reported (Runtime) and dropped, never retried.
 
----@alias MM.Command MM.CmdFollow|MM.CmdQuestLog|MM.CmdWaypoint|MM.CmdWay|MM.CmdTracking|MM.CmdTooltip|MM.CmdSlash|MM.CmdLoad|MM.CmdRun
+---@alias MM.Command MM.CmdFollow|MM.CmdQuestLog|MM.CmdWaypoint|MM.CmdWay|MM.CmdTracking|MM.CmdTooltip|MM.CmdSlash|MM.CmdLoad|MM.CmdRun|MM.CmdButton
 
 ---Follow a quest: the game's super-tracked quest (and watched); false: follow none.
 ---@class MM.CmdFollow
@@ -144,6 +144,7 @@ local SAFE_VIEW = {
 ---@field owner table|false      a Frame (UI's)
 ---@field anchor? string         "ANCHOR_RIGHT" etc. (default ANCHOR_CURSOR)
 ---@field member? string         a group member's id (MM.ObsMember.id)
+---@field button? string         a Minimap button's (MM.ObsButton.id): its own tooltip
 
 ---Register `/mm <name>` (Game owns slash commands): fn(args) runs wrapped when typed.
 ---Sending it again replaces fn. Added with the walking skeleton (open: new kinds).
@@ -166,6 +167,12 @@ local SAFE_VIEW = {
 ---@class MM.CmdRun
 ---@field kind "run"
 ---@field line string
+
+---Click one of the Minimap's buttons (MM.ObsButton.id) as its own click does. Not idempotent: each clicks once.
+---@class MM.CmdButton
+---@field kind "button"
+---@field id string
+---@field button? string         "LeftButton" (default), "RightButton"...
 
 ---@class MM.GameEntry
 local Game = {}

@@ -1,14 +1,23 @@
--- The title band: the zone, then a subtitle, left-aligned on one line just above the map
+-- The title band: a title, then a subtitle, left-aligned on one line just above the map
 -- (below it, when the map is at the top of the screen), the gear and mode buttons at its
 -- right end; no plate, like the minimap's own (Core.lua:177-226, 292-314). Clicking the title
--- opens the map picker (Core.lua:200-223); dragging it moves the window. Its text (Core.lua:1240-1320), 20 times a second while shown:
---   hovering the map (big, or not on your map): the zone under the cursor and its coordinates
---   on your map: your zone (your uiMap's name, else the client's), the client's subzone (the
---     inn, inside it); coordinates and the target (ui/You.lua) while big or hovered
---   otherwise: the zone last flown to on this map (a zone's click, /mm zone), else the map's name; big:
---     the hint to follow you again
--- and with /mm debug, last (Core.lua:1305-1313), grey: the tile under the cursor (else the view's centre),
--- its FileDataID, the zoom and the tile set's build.
+-- opens the map picker (Core.lua:200-223); dragging it moves the window. Its text (Core.lua:1240-1320), 20 times a
+-- second while shown: the pieces its settings page (Title) chooses, in their order, at rest (the small map, the
+-- pointer off it) and on hover (the pointer over the map, and the big map); the first there is the title, the rest
+-- the subtitle. The pieces:
+--   Zone: the place it's about: hovering the map (big, or not on your map), the zone under the cursor (else the
+--     map's name); on your map, your zone (your uiMap's name, else the client's); otherwise the zone last flown to on
+--     this map (a zone's click, /mm zone), else the map's name
+--   Subzone: the client's (the inn, inside it), on your map, while it isn't the zone's name
+--   Coordinates: that zone's, the cursor's or yours
+--   Tracked target: its name (ui/You.lua's Target), "here" inside its area; Distance to target: the yards to it,
+--     outside it; both only while it's about you
+--   Local time, Server time (Model.clock: Game reads them), as Blizzard's clock shows them (24 hours or 12) or as set
+--   Day or night: the minimap's own picture of it (Blizzard_Minimap's Diel.lua), else the word
+-- By default today's text: at rest the zone and subzone; on hover those, the coordinates and the target. Whatever is
+-- chosen, off your map on the big map the hint to follow you again leads the subtitle; and with /mm debug, last
+-- (Core.lua:1305-1313), grey: the tile under the cursor (else the view's centre), its FileDataID, the zoom and the
+-- tile set's build.
 
 local _, ns = ...
 local UI = ns.UI
@@ -99,57 +108,120 @@ end
 Title.Fit = Fit
 frame:HookScript("OnSizeChanged", Runtime.Wrap("map: title fit", Fit))
 
--- The subtitle's forms: a subzone (or the hint), coordinates ("x, y" at a tenth of a percent), the target
--- ("<title>", "<title> here": Core.lua:1294-1300), the debug line, each there or not, joined.
--- Coordinates and yards go through SetFormattedText: the client formats them without a Lua string (hovering
--- the big map, they change every update: a string and its join each, 20 times a second).
-local COORDS = "%.1f, %.1f"
-local TARGET, HERE = "|cffffd27f%s|r", "|cffffd27f%s|r here" -- Core.lua:1295-1299; the yards are the tracking pill's (ui/Controls.lua)
-local forms, args = {}, {} -- a form by its parts (a subzone 1, coordinates 2, a target 4, here 8, debug 16), made once
-local function Form(k)
-	local f = forms[k]
-	if not f then
-		local parts = {}
-		if k % 2 == 1 then parts[#parts + 1] = "%s" end
-		if k % 4 >= 2 then parts[#parts + 1] = COORDS end
-		if k % 16 >= 8 then parts[#parts + 1] = HERE elseif k % 8 >= 4 then parts[#parts + 1] = TARGET end
-		if k >= 16 then parts[#parts + 1] = "%s" end
-		f = table.concat(parts, SEP)
-		forms[k] = f
+-- The pieces (the settings' lists' options), each with its format and how many values it takes. They go through
+-- SetFormattedText: the client formats numbers without a Lua string (hovering the big map, coordinates change every
+-- update: a string and its join each, 20 times a second). A form for each list and set of pieces there, made once.
+local COORDS = "%.1f, %.1f" -- a tenth of a percent
+local CLOCK = "%d:%02d%s"
+local FMT = { zone = "%s", subzone = "%s", coords = COORDS, target = "|cffffd27f%s|r%s", -- Core.lua:1295-1299
+	distance = "%d yd", time = CLOCK, server = CLOCK, daynight = "%s" }
+local N = { zone = 1, subzone = 1, coords = 2, target = 2, distance = 1, time = 3, server = 3, daynight = 1 }
+local PIECES = {
+	{ "Zone", "zone" }, { "Subzone", "subzone" }, { "Coordinates", "coords" }, { "Tracked target", "target" },
+	{ "Distance to target", "distance" }, { "Local time", "time" }, { "Server time", "server" },
+	{ "Day or night", "daynight" },
+}
+local HINT_BIT, DEBUG_BIT = 2 ^ #PIECES, 2 ^ (#PIECES + 1)
+
+-- The minimap's day and night pictures (Blizzard_Minimap's Diel.lua) inline; without them, words.
+local DAY, NIGHT
+local function DayNight(day)
+	if not DAY then
+		local function Inline(atlas, word) return C_Texture.GetAtlasInfo(atlas) and "|A:" .. atlas .. ":14:14|a" or word end
+		DAY, NIGHT = Inline("UI-HUD-Minimap-DayCycle", "Day"), Inline("UI-HUD-Minimap-NightCycle", "Night")
 	end
+	return day and DAY or NIGHT
+end
+
+-- The two lists, each with which pieces it has, read again when a setting changes (Feel.rev).
+local Feel = UI.Feel
+local lists = { rev = -1 }
+local forms = {} -- list -> its forms by key (bit i: its i-th piece is there; then the hint, the debug line)
+local function Lists()
+	if lists.rev == Feel.rev then return end
+	lists.rev, forms = Feel.rev, {}
+	for _, k in ipairs({ "rest", "hover" }) do
+		local l = Feel.List("title." .. k)
+		l.has = {}
+		for _, p in ipairs(l) do l.has[p] = true end
+		lists[k] = l
+	end
+end
+local function Form(list, key)
+	local byKey = forms[list] or {}
+	forms[list] = byKey
+	local f = byKey[key]
+	if f then return f end
+	f = { t = "", tn = 0 }
+	local parts = {}
+	if key % DEBUG_BIT >= HINT_BIT then parts[1] = HINT end
+	for i, p in ipairs(list) do
+		if key % 2 ^ i >= 2 ^ (i - 1) then
+			if f.t == "" then f.t, f.tn = FMT[p], N[p] else parts[#parts + 1] = FMT[p] end
+		end
+	end
+	if key >= DEBUG_BIT then parts[#parts + 1] = "%s" end
+	f.s = table.concat(parts, SEP)
+	byKey[key] = f
 	return f
 end
-local shown = {} -- what it shows: name, sub, nx, ny (tenths of a percent: nil, none), hint, the target's tt, yd (false: here), debug
-local function Show(name, sub, x, y, hint, tt, yd, debug)
-	local nx, ny = x and math.floor(x * 1000 + 0.5), y and math.floor(y * 1000 + 0.5)
-	local s = shown
-	if name == s.name and sub == s.sub and nx == s.nx and ny == s.ny and hint == s.hint and tt == s.tt
-		and yd == s.yd and debug == s.debug then return end
-	if name ~= s.name then title:SetText(name) end
-	s.name, s.sub, s.nx, s.ny, s.hint, s.tt, s.yd, s.debug = name, sub, nx, ny, hint, tt, yd, debug
-	sub = hint and HINT or sub
-	if nx or tt or debug then
-		local k, n = 0, 0
-		if sub then
-			k, n = 1, 1
-			args[1] = sub
-		end
-		if nx then
-			args[n + 1], args[n + 2] = nx / 10, ny / 10
-			k, n = k + 2, n + 2
-		end
-		if tt then
-			args[n + 1] = tt
-			k, n = k + (yd and 4 or 8), n + 1
-		end
-		if debug then
-			args[n + 1] = debug
-			k, n = k + 16, n + 1
-		end
-		subtitle:SetFormattedText(Form(k), unpack(args, 1, n))
+
+-- A clock's three values from n + 1: hour, minute, and "" or " AM" / " PM" (12 at noon and midnight).
+local function Clock(out, n, h, m, military)
+	local form = Feel.Get("title.clock")
+	if form == "24" or form == "game" and military then
+		out[n + 1], out[n + 2], out[n + 3] = h, m, ""
 	else
-		subtitle:SetText(sub or "")
+		out[n + 1], out[n + 2], out[n + 3] = (h % 12 == 0) and 12 or h % 12, m, h < 12 and " AM" or " PM"
 	end
+end
+
+-- Shown from v, this update's values (zone, subzone, nx, ny: tenths of a percent, tt, here, yd, clock, hint,
+-- debug), in the list's order: set only when they differ from what's shown (compared value by value, no table made).
+local v, cur, shown = {}, {}, {}
+local shownList, shownKey, shownN
+local function Present(p)
+	if p == "zone" then return v.zone elseif p == "subzone" then return v.subzone elseif p == "coords" then return v.nx
+	elseif p == "target" then return v.tt elseif p == "distance" then return v.yd else return v.clock end
+end
+local function Put(p, n)
+	if p == "coords" then
+		cur[n + 1], cur[n + 2] = v.nx / 10, v.ny / 10
+	elseif p == "target" then
+		cur[n + 1], cur[n + 2] = v.tt, v.here and " here" or ""
+	elseif p == "time" then
+		Clock(cur, n, v.clock.h, v.clock.m, v.clock.military)
+	elseif p == "server" then
+		Clock(cur, n, v.clock.sh, v.clock.sm, v.clock.military)
+	elseif p == "daynight" then
+		cur[n + 1] = DayNight(v.clock.day)
+	else
+		cur[n + 1] = p == "zone" and v.zone or p == "subzone" and v.subzone or v.yd
+	end
+	return n + N[p]
+end
+local function Show(list)
+	local key, n = 0, 0
+	for i, p in ipairs(list) do
+		if Present(p) then key, n = key + 2 ^ (i - 1), Put(p, n) end
+	end
+	if v.hint then key = key + HINT_BIT end
+	if v.debug then
+		key, n = key + DEBUG_BIT, n + 1
+		cur[n] = v.debug
+	end
+	if list == shownList and key == shownKey and n == shownN then
+		local same = true
+		for i = 1, n do
+			if cur[i] ~= shown[i] then same = false end
+		end
+		if same then return end
+	end
+	shownList, shownKey, shownN = list, key, n
+	cur, shown = shown, cur
+	local f = Form(list, key)
+	if f.t == "" then title:SetText("") else title:SetFormattedText(f.t, unpack(shown, 1, f.tn)) end
+	if f.s == "" then subtitle:SetText("") else subtitle:SetFormattedText(f.s, unpack(shown, f.tn + 1, n)) end
 	Fit()
 end
 
@@ -203,6 +275,9 @@ local function Update()
 	local hovering = Window.view:IsMouseOver()
 	local onMap = you.inst == inst
 	local here = onMap and not big -- small, on your map: always where you are
+	Lists()
+	local list = (hovering or big) and lists.hover or lists.rest
+	local has = list.has
 	local a, b -- the tile it names: under the cursor, or yours
 	if hovering and not here then
 		local w, h = Window.Size()
@@ -210,23 +285,27 @@ local function Update()
 	elseif onMap then
 		a, b = you.col, you.row
 	end
-	local tt, yd -- the target: big, or small and hovered (Core.lua:1294)
-	if onMap and (big and not hovering or hovering and not big) then
+	local tt, yd -- the target, while it's about you (Core.lua:1294)
+	if onMap and not (hovering and big) and (has.target or has.distance) then
 		tt, yd = UI.You.Target()
-		yd = yd and true -- not how far: just whether you're outside its area (no yards to redraw for)
+		if not has.distance then yd = yd and true end -- (no yards shown: none to redraw for)
 	end
+	local clock = (has.time or has.server or has.daynight) and Model.clock or nil
 	local l = last
 	if not debug and not l.debug and l.inst == inst and l.big == big and l.hovering == hovering and l.a == a
 		and l.b == b and l.uiMap == you.uiMap and l.subzone == you.subzone and l.tt == tt and l.yd == yd
-		and l.zone == Camera.zone then return end
+		and l.zone == Camera.zone and l.list == list and l.clock == clock and l.rev == Feel.rev then return end
 	l.inst, l.big, l.hovering, l.a, l.b, l.uiMap, l.subzone, l.tt, l.yd, l.zone, l.debug = inst, big, hovering, a, b,
 		you.uiMap, you.subzone, tt, yd, Camera.zone, debug
-	local dbg = debug and Debug(inst, hovering) or nil
+	l.list, l.clock, l.rev = list, clock, Feel.rev
+	v.debug = debug and Debug(inst, hovering) or nil
+	v.tt, v.here, v.yd, v.clock = tt, tt and not yd, type(yd) == "number" and yd or nil, clock
+	v.subzone, v.hint = nil, nil
+	local x, y
 	if hovering and not here then
 		local z = ZoneAt(inst, a, b)
-		local x, y
 		if z then x, y = Atlas.TileToMap(z.mapID, a, b) end
-		if x then Show(z.name, nil, x, y, nil, nil, nil, dbg) else Show(MapName(inst), nil, nil, nil, nil, nil, nil, dbg) end
+		v.zone = x and z.name or MapName(inst)
 	elseif onMap then
 		-- Your uiMap's name (the client's best map for you), else the client's zone, else the
 		-- zone you're in (Core.lua:1278-1291).
@@ -234,13 +313,36 @@ local function Update()
 		local zone = not map and a and ZoneAt(inst, a, b)
 		local mapID = map and map.id or zone and zone.mapID
 		local name = map and map.name or you.zone or zone and zone.name or MapName(inst)
-		local x, y
-		if a and mapID and (big or hovering) then x, y = Atlas.TileToMap(mapID, a, b) end
-		Show(name, you.subzone ~= name and you.subzone or nil, x, y, nil, tt, yd, dbg)
+		if a and mapID and has.coords then x, y = Atlas.TileToMap(mapID, a, b) end
+		v.zone, v.subzone = name, you.subzone ~= name and you.subzone or nil
 	else
-		Show(Camera.zone or MapName(inst), nil, nil, nil, big, nil, nil, dbg)
+		v.zone, v.hint = Camera.zone or MapName(inst), big
 	end
+	v.nx, v.ny = x and math.floor(x * 1000 + 0.5), y and math.floor(y * 1000 + 0.5)
+	Show(list)
 end
+
+-- Its page in the settings (ui/Feel.lua): what it says at rest and on hover, each the pieces chosen, in order (the
+-- first the title); the clock's form while a time is chosen.
+local function Timed()
+	Lists()
+	local r, h = lists.rest.has, lists.hover.has
+	return (r.time or r.server or h.time or h.server) == true
+end
+Feel.Page({ key = "title", title = "Title", icon = "Interface\\Icons\\INV_Scroll_03", order = 25, sections = { "Format" },
+	tip = "What the title above the map says: at rest, and with the pointer over the map." })
+Feel.Add("title", nil, {
+	{ key = "title.rest", kind = "list", ordered = true, label = "At rest", options = PIECES, default = "zone,subzone",
+		tip = "What the title says while the pointer isn't over the small map, in this order: the first is the title, the rest follow it, smaller." },
+	{ key = "title.hover", kind = "list", ordered = true, label = "On hover", options = PIECES,
+		default = "zone,subzone,coords,target",
+		tip = "What it says with the pointer over the map, and on the big map. Over the big map, or a map you're not on, the zone and coordinates are the ones under the pointer." },
+})
+Feel.Add("title", "Format", {
+	{ key = "title.clock", kind = "select", label = "Clock", default = "game", when = Timed,
+		options = { { "As Blizzard's clock", "game" }, { "24-hour", "24" }, { "12-hour", "12" } },
+		tip = "How the times show: as Blizzard's clock is set (its 24-hour box), or always 24-hour or 12-hour." },
+})
 
 -- /mm debug (Core.lua:1746-1748): the gear's Advanced runs it (GearMenu.lua:35).
 function Title.Debug()

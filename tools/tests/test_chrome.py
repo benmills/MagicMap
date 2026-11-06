@@ -4,6 +4,8 @@ strata; Forever's oversized edge atlases (spike-bugs L2) leave the view's inset 
 zoom buttons clear of the grip; the template's own parts are hidden; the controls fade in and out
 over 0.15 s (kept while a menu is open); the tips; the title; resizing keeps the yards across (the
 gear's rows: test_gear.py)."""
+import time
+
 from test_addon import boot, errors
 
 SPAN_TILES = 200 / (1600 / 3)  # 200 yd across the small window (MinimapMode.lua:25)
@@ -120,4 +122,43 @@ def test_chrome():
     f.SetSize(f, 280, 210)
     assert abs(UI.Camera.cam.zoom - zoom * 210 / 140) < 1e-9
     assert t.title.GetPoint(t.title)[2] == "TOPLEFT" and ctl.mode.GetPoint(ctl.mode)[2] == "TOPRIGHT"
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_title_pieces():
+    """The title's pieces (#19), as its settings page (Title) chooses and orders them, at rest and on hover, the first the
+    title: the local and the server's time (Game's: Model.clock) as Blizzard's clock shows them (its 24-hour box) or as
+    set; day or night, the minimap's own picture; coordinates first. The defaults are today's text (test_chrome)."""
+    L, sim, ns = boot()
+    G, UI = L.globals(), ns.UI
+    t, Feel, view = UI.Title, UI.Feel, UI.Window.view
+    text = lambda: (t.title.GetText(t.title), t.subtitle.GetText(t.subtitle))  # noqa: E731
+    now = 1792077412
+    G.time = L.eval("function() return %d end" % now)
+    sim.gameTime[1], sim.gameTime[2] = 20, 7  # (night)
+    sim.Slash("/mm toggle")
+    sim.cursorX, sim.cursorY = 1, 1
+    sim.Run(1.5)
+    assert text() == ("Elwynn Forest", "Goldshire")
+
+    lt = time.localtime(now)
+    h12 = "%d:%02d %s" % (lt.tm_hour % 12 or 12, lt.tm_min, "AM" if lt.tm_hour < 12 else "PM")
+    Feel.Set("title.rest", "daynight,zone,server,time")
+    sim.Run(1.5)
+    assert text() == ("|A:UI-HUD-Minimap-NightCycle:14:14|a", "Elwynn Forest" + SEP + "8:07 PM" + SEP + h12)
+    sim.cvars.timeMgrUseMilitaryTime = "1"  # Blizzard's clock at 24 hours
+    sim.gameTime[1] = 9
+    sim.Run(1.5)
+    h24 = "%d:%02d" % (lt.tm_hour, lt.tm_min)
+    assert text() == ("|A:UI-HUD-Minimap-DayCycle:14:14|a", "Elwynn Forest" + SEP + "9:07" + SEP + h24)
+    Feel.Set("title.clock", "12")
+    sim.Run(0.1)
+    assert text()[1] == "Elwynn Forest" + SEP + "9:07 AM" + SEP + h12
+
+    # On hover: coordinates first, then the zone.
+    Feel.Set("title.hover", "coords,zone")
+    sim.MoveCursorTo(view)
+    sim.Run(0.1)
+    x, y = ns.Atlas.TileToMap(1429, ns.Model.you.col, ns.Model.you.row)
+    assert text() == ("%.1f, %.1f" % (x * 100, y * 100), "Elwynn Forest")
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

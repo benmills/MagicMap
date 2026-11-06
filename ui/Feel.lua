@@ -45,6 +45,8 @@
 --   Map (20), what the map shows. Names: Label size, Zone name opacity, Subzone size, Subzone opacity
 --     (ui/Labels.lua); Ground: Ocean (ui/Sea.lua), Repair broken map art (ui/Repaint.lua); Indoors: Indoor dimming,
 --     Indoor auto-zoom (ui/Interiors.lua); You: Your arrow (ui/You.lua).
+--   Title (25, ui/Title.lua). At rest, On hover (the pieces, chosen and ordered); Format: Clock (while a time is
+--     chosen).
 --   Icons (30), the icons' size and the ring round what you track. Size: Icon size (ui/Pins.lua), Quest icon size
 --     (ui/Quests.lua); Focus ring: Size, Opacity, Colour (ui/Pins.lua).
 --   Resources (35). Tracking: Keep tracking (ui/Resources.lua); Badges: Difficulty, Letter, Badge size (ui/Blips.lua).
@@ -58,7 +60,7 @@
 --     pill, Pill backing, Open group backing.
 --   Diagnostics (90, here). Debug info in title, Indoor maps report; Reports in chat: Record 10 seconds, Compare
 --     with other addons, Memory breakdown (each a /mm command too).
--- Pages to come take an order between these (Title, Pins, Tracking...). The sidebar has room for 14
+-- Pages to come take an order between these (Pins, Tracking...). The sidebar has room for 14
 -- before the window grows; a page longer than the window scrolls.
 --
 -- The window: a movable dialog of the client's ButtonFrameTemplate (as the map window, ui/Window.lua, but kept as

@@ -42,7 +42,7 @@ LibQuestieDB
 C_VignetteInfo Enum
 # Functions
 AddQuestWatch ChatFrame_OpenChat
-GetBuildInfo GetCVar GetInstanceInfo Screenshot
+GetBuildInfo GetCVar GetInstanceInfo Screenshot GetGameTime C_DateAndTime issecurevariable
 GetPlayerFacing GetUnitSpeed GetRealZoneText GetSubZoneText GetZoneText
 IsFalling IsFlying IsSwimming UnitOnTaxi
 HideUIPanel ShowUIPanel ToggleWorldMap ToggleQuestLog IsIndoors
@@ -57,5 +57,7 @@ ChatFrameUtil DEFAULT_CHAT_FRAME Minimap MinimapCluster SlashCmdList UISpecialFr
 WorldMapFrame Settings SettingsPanel QuestLogFrame
 # Our named frames, made in one game/ file and read in another (docs/structure.md "Namespace")
 MagicMapMinimapStandIn
+# The Minimap's buttons the takeover hides (game/MinimapButtons.lua: the gear's Minimap buttons)
+MinimapBackdrop AddonCompartmentFrame GameTimeFrame TimeManagerClockButton
 # Other addons (always checked for before use)
 FarmHud LibStub

@@ -152,7 +152,7 @@ def test_lookfeel():
 # come from a function and carry icons; a row shown while a function says; a default another setting gives.
 LATE = """local Sim, ns = ...
 local Feel = ns.UI.Feel
-for i = 1, 5 do Feel.Page({ key = "late" .. i, title = "Late " .. i, icon = "Interface\\\\Icons\\\\INV_Misc_Map_01", order = 80 + i }) end
+for i = 1, 4 do Feel.Page({ key = "late" .. i, title = "Late " .. i, icon = "Interface\\\\Icons\\\\INV_Misc_Map_01", order = 80 + i }) end
 Feel.Page({ key = "order", title = "Order", icon = "Interface\\\\Icons\\\\INV_Misc_Map_01", order = 25, tip = "A test page." })
 Feel.Add("order", "Shown", {
 	{ key = "order.what", kind = "list", ordered = true, label = "Lines", default = "zone,quest", tip = "What shows, in order.",
@@ -174,7 +174,7 @@ def test_settings_kinds_and_late_pages():
     h = Feel.frame.GetHeight(Feel.frame)
     L.execute(LATE, sim, ns)
     titles = [p.title for p in Feel.Pages().values()]
-    assert titles[:3] == ["General", "Map", "Order"] and titles[-1] == "Diagnostics" and len(titles) == 15
+    assert titles[:4] == ["General", "Map", "Title", "Order"] and titles[-1] == "Diagnostics" and len(titles) == 15
     assert Feel.frame.GetHeight(Feel.frame) == h + 28  # (room for 14: one more grows it)
     sim.Click(_tab(L, Feel, "Order"))
     w = Feel.widgets
@@ -229,7 +229,7 @@ def test_settings_pages_apply_and_reset():
         sim.atlases[a] = None
     Feel, saved = _open(sim, ns), L.globals().MagicMap2DB.UI
     pages = [p.key for p in Feel.Pages().values()]
-    assert pages == ["general", "map", "icons", "resources", "pills", "path", "areas", "group", "diag"]
+    assert pages == ["general", "map", "title", "icons", "resources", "pills", "path", "areas", "group", "diag"]
     for p in pages:
         Feel.Open(p)
     assert sorted(Feel.pages.keys()) == sorted(pages)

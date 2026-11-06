@@ -22,6 +22,8 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
   your characters.
 - **Gathering made easy.** Each herb and ore shows its first letter and how hard it is for you (red to grey),
   and Find Herbs or Find Minerals turns itself back on after you die or log in.
+- **Your minimap's buttons, without the clutter.** Addon buttons, the calendar and the clock are in the gear
+  menu, and the title shows what you pick: zone, coordinates, the time, day or night.
 - **Works with Questie, HandyNotes and GatherMate.** Their pins show on the map, never twice. No other
   addon is needed: the quest data is built in.
 

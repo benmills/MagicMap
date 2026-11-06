@@ -37,7 +37,10 @@ button by the zone name, reset, + and − on the right.*
 **The big map (M).** M or the red button grows it into a big map, centred on you; M, the button
 or Escape shrinks it. Move or resize the big map and it opens there next time, as the small one does
 (`/mm reset` puts both back). The quest log (L) still opens Blizzard's map (so does M, with Replace world
-map off in Settings). Click the zone name to pick a
+map off in Settings). The title over the map says what you choose (Settings > Title), at rest and with
+the pointer on the map, in your order: the zone, subzone, coordinates (the pointer's on the big map), the
+tracked target and its distance, the local or server time, and day or night (the minimap's own picture); by
+default the zone and subzone, and on hover the coordinates and target too. Click the zone name to pick a
 continent, another map or an instance; with several zones in view, hover one to light it and click
 to fly there. `/mm map` and `/mm zone` do the same by name.
 
@@ -150,8 +153,10 @@ minimap pins (GatherMate...) show around you. Nothing is drawn twice.
 on top and the n/total shown in the group's name: Map (zone labels, City maps), Quests,
 Places, Nearby (rares and treasures, party and raid, then Blizzard's tracking types, one box a name), Other addons;
 then Keep tracking: the tracker kept on (each tracking spell you know, or Off).
-Then Use Blizzard's minimap (while ours replaces it; Blizzard's logo on the row) and Reset to defaults,
-then Settings.
+Then Minimap buttons: the buttons the minimap's rim would hold, hidden with Blizzard's minimap (LibDBIcon's
+addon buttons, the addon compartment's, other addons' rim buttons, then Blizzard's calendar and clock), each a
+row with its icon that clicks it (right-click too) and shows its tooltip; no buttons on the map's edge. Then Use
+Blizzard's minimap (while ours replaces it; Blizzard's logo on the row) and Reset to defaults, then Settings.
 
 **Settings.** A window of its own (the gear's Settings, `/mm feel` or `/mm settings`, or Game menu >
 Options > AddOns > MagicMap > Open MagicMap Settings), a sidebar of pages with the chosen one beside it (the last is
@@ -167,6 +172,7 @@ only then. Hover a row for what it does and its default. Settings are account-wi
 | --- | --- |
 | General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to you (on: the small map glides back to you when left alone), Return after (6 s), Zoom per notch (+30%) |
 | Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (100%), Subzone opacity (60%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
+| Title | At rest (Zone, Subzone), On hover (Zone, Subzone, Coordinates, Tracked target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time, Day or night. Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
 | Icons | Size: Icon size (120%), Quest icon size (100%). Focus ring: Size (145%), Opacity (25%), Colour (Gold) |
 | Resources | Tracking: Keep tracking (your gathering tracker: Find Herbs, else Find Minerals, else Find Treasure; or one you know, or Off). Badges: Difficulty (on), Letter (on), Badge size (100%) |
 | Info pills | Both pills: Backing (25%), Size (100%). Quest pill: Shows (quest or zone count / followed quest only / off), Quest progress (on), Fade quest pill (on: the zone count only while you point at the map). Distance pill: Distance pill (on), Shows (yards and time / yards / time), Corner (top left / top right), Fade distance pill (off) |

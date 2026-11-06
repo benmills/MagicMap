@@ -1,6 +1,7 @@
 -- tooltip (types/view.lua MM.CmdTooltip): GameTooltip's own content for a game thing, on UI's owner.
 -- member: a group member's tooltip, its name in its class's colour, level and class, dead
--- (Layers.lua:677-688); owner false hides it again.
+-- (Layers.lua:677-688); button: a Minimap button's own (game/MinimapButtons.lua Game.ButtonTooltip: the gear's Minimap
+-- buttons rows); owner false hides it again.
 
 local _, ns = ...
 local Game = ns.Game
@@ -33,7 +34,10 @@ end
 Game.Handle("tooltip", function(c)
 	if c.owner == false then
 		if shown then Game.HideTooltip(shown) end
+		Game.ButtonTooltip(false)
 	elseif c.member then
 		Member(c.owner, c.anchor, c.member)
+	elseif c.button then
+		Game.ButtonTooltip(c.owner, c.anchor, c.button)
 	end
 end)

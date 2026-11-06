@@ -164,7 +164,7 @@ declared, so a declared setting is in the window, resettable and saved, with not
   switch a reset mustn't touch).
 - **when**: a key or a function; the row shows only while it's on.
 - **A page of its own**: `UI.Feel.Page({ key, title, icon, order, tip, sections })`, its order between the others'
-  (General 10, Map 20, Icons 30, Resources 35, Info pills 40, Tracking line 50, Quest areas 60, Grouping 70, Diagnostics 90).
+  (General 10, Map 20, Title 25, Icons 30, Resources 35, Info pills 40, Tracking line 50, Quest areas 60, Grouping 70, Diagnostics 90).
 
 Then list it in ui/Feel.lua's header (its page's line) and docs/features.md's settings table. test_lookfeel's
 `test_settings_declared` fails if the code reads a key by name that isn't declared, or a declared one lacks a page,

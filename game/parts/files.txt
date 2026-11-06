@@ -16,3 +16,5 @@ game/parts/Vignettes.lua
 game/parts/Explored.lua
 game/parts/Tracking.lua
 game/parts/Skills.lua
+game/parts/Buttons.lua
+game/parts/Clock.lua

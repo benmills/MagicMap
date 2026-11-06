@@ -81,6 +81,7 @@ game\Home.lua
 game\Chrome.lua
 game\Hooks.lua
 game\Button.lua
+game\MinimapButtons.lua
 game\Options.lua
 game\Tooltip.lua
 game\NoData.lua
@@ -95,6 +96,7 @@ game\commands\waypoint.lua
 game\commands\way.lua
 game\commands\tracking.lua
 game\commands\run.lua
+game\commands\button.lua
 
 # Game: observation parts (Game.Part)
 game\parts\You.lua
@@ -115,6 +117,8 @@ game\parts\Vignettes.lua
 game\parts\Explored.lua
 game\parts\Tracking.lua
 game\parts\Skills.lua
+game\parts\Buttons.lua
+game\parts\Clock.lua
 
 # UI
 ui\Camera.lua

@@ -151,6 +151,8 @@
 ---@field interior? MM.ObsInterior|false  obs.interior, the last handed (nil until known; false: in no building):
 ---                                the building's rooms UI draws (ADR 0008)
 ---@field tracking MM.ObsTracking[]  obs.tracking, the last handed ({} until known): the gear's Tracking submenu
+---@field buttons MM.ObsButton[]   obs.buttons, the last handed ({} until known): the gear's Minimap buttons submenu
+---@field clock? MM.ObsClock       obs.clock, the last handed (nil until known): the title's time and day or night
 ---@field SAVED MM.SavedSpec       Model's saved part's spec (types/saved.lua MM.SavedModel)
 local Model = {}
 
