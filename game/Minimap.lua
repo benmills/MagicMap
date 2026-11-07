@@ -137,6 +137,7 @@ local function Engage()
 	local scale, strata, level, zoom, alpha = mm:GetScale(), mm:GetFrameStrata(), mm:GetFrameLevel(), mm:GetZoom(), mm:GetAlpha()
 	local ground, unrotated = C_Minimap.GetDrawGroundTextures(), C_Minimap.IsRotateMinimapIgnored()
 	local mouse, wheel, shown = mm:IsMouseEnabled(), mm:IsMouseWheelEnabled(), mm:IsShown()
+	local clamped = mm:IsClampedToScreen()
 	-- The stand-in takes the Minimap's place exactly (hidden: it only holds things).
 	standIn:SetParent(parent)
 	standIn:SetScale(scale)
@@ -160,6 +161,7 @@ local function Engage()
 		mm:SetFrameLevel(level)
 		mm:EnableMouse(mouse)
 		mm:EnableMouseWheel(wheel)
+		mm:SetClampedToScreen(clamped)
 		mm:SetAlpha(alpha)
 		mm:SetIconScale(1) -- (the client's own; it can't be read back)
 		C_Minimap.SetDrawGroundTextures(ground)
@@ -286,10 +288,20 @@ local function Overlay(w, here, inst)
 	if mm:GetAlpha() ~= 1 then mm:SetAlpha(1) end
 	mm:SetFrameStrata(w.strata)
 	mm:SetFrameLevel(w.level + OVER)
+	if placed and placed.overlay and not placed.checked then -- where the client put it, last frame: said once if it moved it
+		placed.checked = true
+		local cx, cy = mm:GetCenter()
+		if cx and (math.abs(cx - placed.x) > 1 or math.abs(cy - placed.y) > 1) and not m.moved then
+			m.moved = true
+			Game.Say(("overlay: the client moved the minimap %d, %d from where it was put (size %d, clamped %s)"):format(
+				cx - placed.x, cy - placed.y, placed.half * 2, tostring(mm:IsClampedToScreen())))
+		end
+	end
 	if placed and placed.overlay and math.abs(placed.x - x) < 0.05 and math.abs(placed.y - y) < 0.05
 		and math.abs(placed.half - half) < 0.05 then return end
 	placed = { overlay = true, x = x, y = y, half = half }
 	mm:SetIconScale(1)
+	if mm:IsClampedToScreen() then mm:SetClampedToScreen(false) end
 	mm:SetSize(half * 2, half * 2)
 	mm:ClearAllPoints()
 	mm:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
@@ -297,7 +309,7 @@ end
 
 Game.Slash("overlay", "spike: Blizzard's Minimap seen over the map, its live blips (the sensor can't aim since 70862)", function()
 	m.overlay = not m.overlay
-	placed, m.zoom = nil, nil
+	placed, m.zoom, m.moved = nil, nil, nil
 	if not m.overlay and m.engaged then Sensor() end
 	Game.Say("overlay " .. (m.overlay and "on" or "off"))
 end)
