@@ -48,7 +48,7 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 
 ## Install
 
-1. Get `MagicMap-v2.1.2.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest),
+1. Get `MagicMap-v2.2.0.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest),
    or install from [CurseForge](https://www.curseforge.com/wow/addons/magic-map).
 2. Unzip it into `World of Warcraft/_forever_/Interface/AddOns/`. Updating from 1.x? Delete the old
    `MagicMap` folder first.
