@@ -18,6 +18,9 @@ local DIVIDER = "Interface\\Common\\UI-TooltipDivider-Transparent" -- MenuVarian
 local GOLD = { 1, 0.82, 0 } -- a glyph made gold (the panel buttons' text's colour)
 local BTN, BTN_GAP, GLYPH = 22, 4, 0.55 -- the buttons: px tall, px apart; a glyph's longer side, of the button
 local PANEL_PAD, GLYPH_GAP = 9, 3 -- px: a panel button's ends to its glyph and word; its glyph to its word
+-- The buttons come in as the panel grows: each fades and scales up from APPEAR_FROM, quick and eased out, one after
+-- another (APPEAR_STEP apart); the divider fades in with the first.
+local APPEAR_FROM, APPEAR_TIME, APPEAR_STEP = 0.85, 0.12, 0.03
 local CURSOR_GAP = 16 -- px: the popup right of the cursor when the tooltip's place is secret
 local ROW_INSET = 6 -- px: the popup's buttons in from its edge
 local PAD = 10 -- px: a tooltip's text in from its left edge (GameTooltipTemplate)
@@ -63,6 +66,15 @@ Tip.Watch(popup)
 local divider = popup:CreateTexture(nil, "ARTWORK")
 divider:SetTexture(DIVIDER)
 divider:SetHeight(13)
+local dividerIn = divider:CreateAnimationGroup()
+do
+	local a = dividerIn:CreateAnimation("Alpha")
+	a:SetFromAlpha(0)
+	a:SetToAlpha(1)
+	a:SetDuration(APPEAR_TIME)
+	a:SetSmoothing("OUT")
+	dividerIn:SetToFinalAlpha(true)
+end
 local pools = { panel = {}, art = {} } -- its buttons by kind, made as needed
 Popup.buttons = {} -- those it shows, in order
 
@@ -96,8 +108,29 @@ local function Button(kind, i)
 		popup:Hide()
 		fn()
 	end))
+	local g = b:CreateAnimationGroup()
+	local fade, grow = g:CreateAnimation("Alpha"), g:CreateAnimation("Scale")
+	fade:SetFromAlpha(0)
+	fade:SetToAlpha(1)
+	grow:SetScaleFrom(APPEAR_FROM, APPEAR_FROM)
+	grow:SetScaleTo(1, 1)
+	for _, a in ipairs({ fade, grow }) do
+		a:SetDuration(APPEAR_TIME)
+		a:SetSmoothing("OUT")
+	end
+	g:SetToFinalAlpha(true)
+	b.appear, b.fade, b.grow = g, fade, grow
 	pool[i] = b
 	return b
+end
+
+-- b comes in, its delay d s.
+local function Appear(b, d)
+	b:SetAlpha(0)
+	b.fade:SetStartDelay(d)
+	b.grow:SetStartDelay(d)
+	b.appear:Stop()
+	b.appear:Play()
 end
 
 -- a: an action { label, fn, word, icon = { atlas?, gold? } | { up, down, lit, aspect, blend? }, on? }, dressed on its
@@ -186,11 +219,15 @@ function Popup.Open(fill, actions)
 	divider:SetPoint("LEFT", gap, "LEFT", ROW_INSET - PAD, 0)
 	local pw = Plain(popup:GetWidth())
 	if pw then divider:SetWidth(pw - 2 * ROW_INSET) end
+	divider:SetAlpha(0)
+	dividerIn:Stop()
+	dividerIn:Play()
 	for i, b in ipairs(list) do
 		b:ClearAllPoints()
 		if i > 1 then b:SetPoint("LEFT", list[i - 1], "RIGHT", BTN_GAP, 0)
 		else b:SetPoint("TOPLEFT", line, "TOPLEFT", ROW_INSET - PAD, 0) end
 		b:Show()
+		Appear(b, (i - 1) * APPEAR_STEP)
 	end
 	for kind, pool in pairs(pools) do
 		for i = used[kind] + 1, #pool do pool[i]:Hide() end

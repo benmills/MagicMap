@@ -381,12 +381,49 @@ local function Under(x, y)
 	end
 end
 
+-- The pin under the cursor grows a little (HOVER, eased out, quick), and settles back when the cursor leaves it:
+-- the client's animations, a pin's made the first time it's hovered. The grown scale is held by a long end delay
+-- (an animation's last state lasts only while it plays).
+local HOVER, GROW_TIME, SETTLE_TIME, HOLD = 1.2, 0.08, 0.12, 3600
+local function Grows(pin)
+	if pin.grow then return end
+	local g = pin:CreateAnimationGroup()
+	local a = g:CreateAnimation("Scale")
+	a:SetScaleFrom(1, 1)
+	a:SetScaleTo(HOVER, HOVER)
+	a:SetDuration(GROW_TIME)
+	a:SetSmoothing("OUT")
+	a:SetEndDelay(HOLD)
+	pin.grow = g
+	g = pin:CreateAnimationGroup()
+	a = g:CreateAnimation("Scale")
+	a:SetScaleFrom(HOVER, HOVER)
+	a:SetScaleTo(1, 1)
+	a:SetDuration(SETTLE_TIME)
+	a:SetSmoothing("OUT")
+	pin.settle = g
+end
+local function Settle(pin)
+	if pin and pin.grow and pin.grow:IsPlaying() then
+		pin.grow:Stop()
+		pin.settle:Play()
+	end
+end
+
 local hovered, hoveredAt, showing -- the pin under the cursor, its layer's, the entry its tooltip shows
 local waiting = false -- its tooltip waits for the popup to close
 
 -- The cursor onto pin (nil: off any): the last one's tooltip hidden if it still has it, the new one's built.
 local function Hover(pin, at)
 	if hovered and GameTooltip:IsOwned(hovered) then GameTooltip:Hide() end
+	if hovered ~= pin then
+		Settle(hovered)
+		if pin then
+			Grows(pin)
+			pin.settle:Stop()
+			pin.grow:Play()
+		end
+	end
 	local was = hoveredAt
 	hovered, hoveredAt, showing = pin, at, pin and pin.entry
 	if was and was.opts.hover and was ~= at then was.opts.hover(nil) end

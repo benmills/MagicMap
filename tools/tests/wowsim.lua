@@ -531,6 +531,7 @@ function Frame:CreateLine(name, layer, template, sublevel) return newRegion(self
 -- Animations run in the client, in C: the sim only takes the calls (a group and its animations answer any).
 local Anim = setmetatable({}, { __index = function(t, k) return function() return t end end })
 function Frame:CreateAnimationGroup() return Anim end
+function Texture:CreateAnimationGroup() return Anim end -- (a region has its own, as a frame)
 function Frame:CreateFontString(name, layer, template) return newRegion(self, "FontString", name, layer, template) end
 
 local SCRIPTS = {
