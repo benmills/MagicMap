@@ -201,10 +201,11 @@ end
 -- What other client code turns back (HybridMinimap turns its ground and rotation on as it
 -- hides: spike-bugs G3), or anyone zooms, hides or shows it, put right every apply. True if it held.
 local function Hold(mm)
-	local held = mm:IsShown() and mm:GetZoom() == 0 and C_Minimap.IsRotateMinimapIgnored()
+	local zoom = m.overlay and m.zoom or 0
+	local held = mm:IsShown() and mm:GetZoom() == zoom and C_Minimap.IsRotateMinimapIgnored()
 	if not mm:IsShown() then mm:Show() end
 	if not m.overlay and mm:GetAlpha() ~= 0 then mm:SetAlpha(0) end
-	if mm:GetZoom() ~= 0 then mm:SetZoom(0) end
+	if mm:GetZoom() ~= zoom then mm:SetZoom(zoom) end
 	if C_Minimap.GetDrawGroundTextures() then C_Minimap.SetDrawGroundTextures(false) end
 	if not C_Minimap.IsRotateMinimapIgnored() then C_Minimap.SetIgnoreRotateMinimap(true) end
 	return held
@@ -245,23 +246,48 @@ end
 
 -- The overlay spike (/mm overlay): since 1.60.1.70862 the sensor can't aim (UpdateMouseoverAtPoint is ignored for
 -- addon code), so Blizzard's Minimap itself, seen: over our tiles, centred on you, sized so its view radius is as many
--- yards as ours, no ground, its own icons. Off the view (or no radius yet): unseen.
-local function Overlay(w, here)
+-- yards as ours, no ground, its own icons. The client caps its size near the screen's (past it, it stretches and its
+-- blips go astray), so its zoom is chosen (0 widest .. 5) to keep it at most CAP of the screen: a closer one as ours
+-- zooms in, back out once the wider one fits under SLACK of it. Off the view, or its radius not yet applied: unseen.
+local CAP, SLACK, ZOOMS = 0.9, 0.75, 5
+local radii = {} -- the view radius seen at each zoom (this map kind); else guessed from zoom 0's: r0 * (7 - z) / 7
+local function Radius(z)
+	if radii[z] then return radii[z] end
+	local r0 = radii[0] or (radii[m.zoom or 0] and radii[m.zoom or 0] * 7 / (7 - (m.zoom or 0))) -- /: never 0 (a zoom is 0..5)
+	return r0 and r0 * (7 - z) / 7
+end
+local function Hide(mm)
+	if mm:GetAlpha() ~= 0 then mm:SetAlpha(0) end
+	placed = nil
+end
+local function Overlay(w, here, inst)
 	local mm = Minimap
 	local r, p = C_Minimap.GetViewRadius(), w.place
-	if not (here and r) or issecretvalue(r) or r <= 0 or here.w <= 0 then
-		if mm:GetAlpha() ~= 0 then mm:SetAlpha(0) end
-		placed = nil
-		return
+	if not here or here.w <= 0 or not r or issecretvalue(r) then return Hide(mm) end
+	local z = mm:GetZoom()
+	if r > 0 and z == (m.zoom or 0) then
+		if radii.inst ~= inst then radii = { inst = inst } end
+		radii[z] = r
 	end
 	local k = p.w / here.w -- /: never 0 (checked above)
-	local half = r * YD * here.zoom * k
+	local perYd = YD * here.zoom * k -- screen units a yard
+	local cap = CAP * math.min(UIParent:GetWidth(), UIParent:GetHeight())
+	-- The zoom: the current one while it's under the cap and the wider one wouldn't fit under SLACK of it.
+	local want = m.zoom or 0
+	local cur = Radius(want)
+	if cur then
+		while want < ZOOMS and 2 * Radius(want) * perYd > cap do want = want + 1 end
+		while want > 0 and 2 * Radius(want - 1) * perYd <= cap * SLACK do want = want - 1 end
+	end
+	if want ~= (m.zoom or 0) then m.zoom = want; mm:SetZoom(want); return Hide(mm) end
+	if r <= 0 or z ~= want then return Hide(mm) end -- (a new zoom applies a frame or two late)
+	local half = r * perYd
 	local x, y = p.left + here.x * k, p.top - here.y * k
 	if mm:GetAlpha() ~= 1 then mm:SetAlpha(1) end
 	mm:SetFrameStrata(w.strata)
 	mm:SetFrameLevel(w.level + OVER)
-	if placed and placed.overlay and math.abs(placed.x - x) < 0.5 and math.abs(placed.y - y) < 0.5
-		and math.abs(placed.half - half) < 0.5 then return end
+	if placed and placed.overlay and math.abs(placed.x - x) < 0.05 and math.abs(placed.y - y) < 0.05
+		and math.abs(placed.half - half) < 0.05 then return end
 	placed = { overlay = true, x = x, y = y, half = half }
 	mm:SetIconScale(1)
 	mm:SetSize(half * 2, half * 2)
@@ -271,7 +297,7 @@ end
 
 Game.Slash("overlay", "spike: Blizzard's Minimap seen over the map, its live blips (the sensor can't aim since 70862)", function()
 	m.overlay = not m.overlay
-	placed = nil
+	placed, m.zoom = nil, nil
 	if not m.overlay and m.engaged then Sensor() end
 	Game.Say("overlay " .. (m.overlay and "on" or "off"))
 end)
@@ -285,7 +311,7 @@ Game.Apply("minimap", function(view)
 		if not m.engaged then Engage() end
 		m.sensor = view.layers.blips == true and not m.overlay
 		local held = Hold(Minimap)
-		if m.overlay then Overlay(w, view.here) else Place(w, held) end
+		if m.overlay then Overlay(w, view.here, view.inst) else Place(w, held) end
 	end
 	Cluster()
 end)
