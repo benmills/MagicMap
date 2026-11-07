@@ -139,14 +139,14 @@ def test_pin_tooltip_click_drag():
     line = S[tip].lines
     same = L.eval("function(a, b) return a == b end")
     assert S[tip].shown and same(S[tip].owner, pin) and Pins.Hovered()[0].key == "t1" and Pins.Hovered()[1] == "test"
-    assert S[line[1]].text == "Pin 1" and S[line[2]].text == "Line 1"
+    assert S[line[1]].text == "|T136459:16:16|t  Pin 1" and S[line[2]].text == "Line 1"
     assert list(S[line[2]].textColor.values()) == [0x9d / 255] * 3  # (ui/Tip.lua's DIM)
     assert same(S[line[2]].fontObject, G.GameTooltipTextSmall)
     assert sim.calls.SetOwner - owners == 1  # built once a hover, not each frame
 
     sim.Click(view, "LeftButton")  # a click on the view (ui/Window.lua's release): the pin under it, its popup
     pop = ns.UI.Popup
-    assert pop.IsOpen() and not S[tip].shown and S[S[pop.frame].lines[1]].text == "Pin 1"
+    assert pop.IsOpen() and not S[tip].shown and S[S[pop.frame].lines[1]].text.endswith("Pin 1")
     assert [b.label for b in pop.buttons.values()] == ["Track", "Path to"]
 
     cx = cam.cx
@@ -204,7 +204,7 @@ def test_track_icon():
         sim.menu = None
         sim.Click(view, button, sim.cursorX, sim.cursorY, "screen")
         pop = UI.Popup
-        assert pop.IsOpen() and sim.menu is None and S[S[pop.frame].lines[1]].text == "Mailbox"
+        assert pop.IsOpen() and sim.menu is None and S[S[pop.frame].lines[1]].text.endswith("  Mailbox")
         assert [b.label for b in pop.buttons.values()] == list(rows)
         sim.FireScript(next(b for b in pop.buttons.values() if b.label == pick), "OnClick", "LeftButton", False)
         assert not pop.IsOpen()

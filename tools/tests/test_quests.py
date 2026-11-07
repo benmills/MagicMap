@@ -132,7 +132,7 @@ def test_quest_pins():
     sim.FireScript(view, "OnEnter", False)
     sim.Step()
     lines = [S[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)]
-    assert S[tip].shown and lines == ["Wolves Across the Border", "Quest to pick up"]
+    assert S[tip].shown and lines == ["|A:QuestNormal:16:16|a  Wolves Across the Border", "Quest to pick up"]
     assert L.eval("rawequal")(S[tip.GetLeftLine(tip, 2)].fontObject, G.GameTooltipTextSmall)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
@@ -300,9 +300,10 @@ def test_quest_tooltip():
     assert got[-2][0].strip() == "" and len(got[-2][0]) >= 4  # (the buttons' line: as wide as they are)
     shown = list(QT.buttons.values())
     assert all(b.IsShown(b) for b in shown) and [b.label for b in shown] == rows
-    # small buttons: Blizzard's red button with the tracked arrow and the boot; the micro menu's quest log
+    # small buttons: Blizzard's red panel buttons, the tracked arrow and the boot before Track and Path; the micro menu's quest log
     assert [S[b.glyph].atlas for b in shown[:2]] == ["Navigation-Tracked-Arrow", "flightpath"]
-    assert S[shown[0].l].texture == "atlas/128-redbutton-left" and S[S[shown[2]]["normal"]].atlas == "hud-microbutton-Quest-Up"
+    assert [S[b.word].text for b in shown[:2]] == ["Track", "Path"]  # Blizzard's red panel buttons, a word each
+    assert S[S[shown[2]]["normal"]].atlas == "hud-microbutton-Quest-Up"
     sim.Run(1)  # sticky: no hover takes it away
     assert QT.IsOpen() and not S[tip].shown
     assert sim.Press("ESCAPE") and not QT.IsOpen()

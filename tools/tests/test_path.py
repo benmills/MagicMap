@@ -582,10 +582,10 @@ def test_corpse_waypoint_pins():
     sim.FireScript(view, "OnEnter", False)
     sim.Run(0.2)
     lines = S[tip].lines
-    assert S[tip].shown and S[lines[1]].text == "Your corpse" and tip.NumLines(tip) == 1
+    assert S[tip].shown and S[lines[1]].text.endswith("Your corpse") and tip.NumLines(tip) == 1
     sim.cursorX += 0.3 * UI.Camera.cam.zoom * view.GetEffectiveScale(view)
     sim.Run(0.2)
-    assert tip.NumLines(tip) == 1 and S[lines[1]].text == "Waypoint"  # (no hint: its popup clears it)
+    assert tip.NumLines(tip) == 1 and S[lines[1]].text.endswith("  Waypoint")  # (no hint: its popup clears it)
 
     sim.Slash("/mm layer corpse")  # turned off (the gear's You: Corpse, Waypoint): gone
     sim.Run(0.5)

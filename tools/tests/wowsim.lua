@@ -644,6 +644,10 @@ function Button:SetEnabled(on) S[self].disabled = not on end
 function Button:IsEnabled() return not S[self].disabled end
 function Button:Click(button) Sim.FireScript(self, "OnClick", button or "LeftButton", false) end
 function Button:SetText(t) S[self].text = t end
+function Button:SetNormalFontObject(f) S[self].normalFont = f end
+function Button:SetHighlightFontObject(f) S[self].highlightFont = f end
+function Button:LockHighlight() S[self].lit = true end
+function Button:UnlockHighlight() S[self].lit = false end
 function Button:GetText() return S[self].text end
 
 -- CheckButton: a click flips it before OnClick, as the client does (Sim.Click too).
@@ -1981,16 +1985,10 @@ ATLASES["_UI-Frame-Metal-EdgeBottom"] = { 256, 200 }
 ATLASES["UI-QuestPoi-QuestNumber"], ATLASES["deathrecap-icon-tombstone"] = { 32, 32 }, { 15, 20 }
 ATLASES["poi-graveyard-neutral"] = { 12, 16 }
 ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
--- the popup's buttons (ui/Popup.lua): Blizzard's red button, the micro menu's quest log, the red delete
-for _, c in ipairs({ "128-redbutton", "128-goldredbutton" }) do
-	for _, k in ipairs({ "", "-pressed" }) do ATLASES[c .. "-left" .. k], ATLASES[c .. "-right" .. k] = { 114, 128 }, { 292, 128 } end
-end
-ATLASES["128-redbutton-highlight"], ATLASES["Navigation-Tracked-Arrow"], ATLASES["flightpath"] = { 441, 128 }, { 22, 18 }, { 32, 32 }
+-- the popup's buttons (ui/Popup.lua): their glyphs, the micro menu's quest log
+ATLASES["Navigation-Tracked-Arrow"], ATLASES["flightpath"] = { 22, 18 }, { 32, 32 }
 for _, a in ipairs({ "hud-microbutton-Quest-Up", "hud-microbutton-Quest-Down", "hud-microbutton-highlight" }) do
 	ATLASES[a] = { 28, 36 }
-end
-for _, a in ipairs({ "128-redbutton-delete", "128-redbutton-delete-pressed", "128-redbutton-delete-highlight" }) do
-	ATLASES[a] = { 128, 128 }
 end
 for _, a in ipairs({ "food", "reagents", "poisons", "ammunition", "Professions_Tracking_Fish" }) do ATLASES[a] = true end
 -- Blizzard's minimap art (Forever's Blizzard_Minimap: Diel.lua's day and night, the calendar button's)

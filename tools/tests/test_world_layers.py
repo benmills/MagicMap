@@ -11,6 +11,7 @@ M4.1 and M4.3 hand them over (types/model.lua, types/observation.lua), drawn as 
   test_inspector_lines: the right-click menu's place line from the spot's cell and the explored areas (Unexplored,
     near ...: by the cell; a city's coordinates alone) and at most 2 landmarks within 900 yd, its layer on or off (F38, S62).
 """
+import re
 from test_addon import boot, errors
 
 SETUP = """
@@ -85,8 +86,10 @@ def rgb(sim, region):
 
 
 def tooltip(sim, G):
+    """Its lines, the title's icon markup (its pin's art: ui/Pins.lua's Mark) taken off."""
     tip = G.GameTooltip
-    return [sim.state[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)] if sim.state[tip].shown else []
+    text = [sim.state[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)] if sim.state[tip].shown else []
+    return [re.sub(r"^\|[TA][^|]*\|[ta]  ", "", t) for t in text]
 
 
 def test_places():

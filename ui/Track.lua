@@ -29,14 +29,13 @@ local NEAR = 0.01 -- tiles (~5 yards): the waypoint stands at the tracked pos (s
 local ARM = 2 -- frames after a Track before the waypoint must stand there (the Command's apply, the next observe)
 
 -- The actions' icons (the popup's buttons, ui/Popup.lua): the world map's gold tracked arrow; the travel boot
--- (flightpath), made gold; the micro menu's quest log button (28 x 36); Blizzard's red delete button, its own glyph
--- (128-redbutton-delete, as UIButtonTemplate's art kits: -pressed, -highlight).
+-- (flightpath), made gold, each before its word on a red panel button; the micro menu's quest log button (28 x 36);
+-- Clear, its word alone.
 local TRACK_ICON = { atlas = "Navigation-Tracked-Arrow" }
 local PATH_ICON = { atlas = "flightpath", gold = true }
 local LOG_ICON = { up = "hud-microbutton-Quest-Up", down = "hud-microbutton-Quest-Down",
 	lit = "hud-microbutton-highlight", aspect = 28 / 36, blend = "ADD" }
-local CLEAR_ICON = { up = "128-redbutton-delete", down = "128-redbutton-delete-pressed",
-	lit = "128-redbutton-delete-highlight", aspect = 1 }
+local CLEAR_ICON = {} -- (a word alone)
 
 local Track = {}
 UI.Track = Track
@@ -196,12 +195,12 @@ function Track.Actions(e)
 	local list = {
 		{ mode == "track" and "Stop tracking" or "Track", function()
 			if quest then Pick(Quest, e, false) elseif mode == "track" then Pick(Track.Stop) else Pick(Track.Start, e, false) end
-		end, icon = TRACK_ICON, on = mode == "track" },
+		end, word = "Track", icon = TRACK_ICON, on = mode == "track" },
 		{ mode == "path" and "Stop pathing" or "Path to", function()
 			if quest then Pick(Quest, e, true) elseif mode == "path" then Pick(Track.Stop) else Pick(Track.Start, e, true) end
-		end, icon = PATH_ICON, on = mode == "path" },
+		end, word = "Path", icon = PATH_ICON, on = mode == "path" },
 	}
 	if quest then list[3] = { "Open in quest log", function() Pick(OpenLog, e) end, icon = LOG_ICON } end
-	if e.kind == "waypoint" then list[3] = { "Clear waypoint", function() Pick(Track.Stop) end, icon = CLEAR_ICON } end
+	if e.kind == "waypoint" then list[3] = { "Clear waypoint", function() Pick(Track.Stop) end, word = "Clear", icon = CLEAR_ICON } end
 	return list
 end

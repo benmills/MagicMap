@@ -165,6 +165,28 @@ end
 -- texture in it; (d) else (an atlas the client lacks too, and no alt: the look drawn instead when the atlas is
 -- missing) a dot of its colour on a dark ring; count: a line under it. tint: (a) and (b) desaturated then that
 -- colour (whichever icon its type chose; its opacity the pin's), (d) its dot that colour.
+-- The pin's icon as inline markup before its tooltip's title (16 px, its own proportions, two spaces after): a
+-- texture whole, an atlas the client has; none for a sheet's cell, a disc's atlas (a quest's: its tooltip has its
+-- own look) or a dot. One string an icon.
+local MARK = 16
+local marks = {} -- its art (a file or an atlas) -> its markup, or false
+local function Mark(icon)
+	if icon.coords or icon.under then return false end
+	local k = icon.texture or icon.atlas
+	if not k then return false end
+	local m = marks[k]
+	if m ~= nil then return m end
+	m = false
+	if icon.texture then
+		m = "|T" .. icon.texture .. ":" .. MARK .. ":" .. MARK .. "|t  "
+	elseif Has(icon.atlas) then
+		local w, h = Fit(MARK, icon.aspect or Aspect(icon.atlas))
+		m = string.format("|A:%s:%d:%d|a  ", icon.atlas, h + 0.5, w + 0.5)
+	end
+	marks[k] = m
+	return m
+end
+
 local function Style(pin, look)
 	local st = Of(look.type)
 	local size, icon = (look.size or SIZE) * (look.fixed and 1 or st.size), st.icon or look.icon or NONE
@@ -174,6 +196,7 @@ local function Style(pin, look)
 	end
 	if icon.alt and not icon.texture and not (icon.atlas and Has(icon.atlas)) then icon = icon.alt end -- (an atlas the client lacks: its alt)
 	pin.psize = size
+	pin.mark, pin.markColor = Mark(icon), look.tint -- (its tooltip's title: Fill)
 	Size(pin, size, size)
 	if look.count or pin.count then
 		local fs = Count(pin)
@@ -321,8 +344,9 @@ end
 local function Lines(e) return e.name, e.text end
 
 -- The title, then each line a fact: small, DIM, wrapping (ui/Tip.lua's look).
-local function Fill(tip, title, ...)
-	tip:AddLine(title or "?", 1, 1, 1)
+local function Fill(tip, pin, title, ...)
+	local c = pin and pin.markColor or WHITE -- (a resource's title in its difficulty's colour, as its icon)
+	tip:AddLine((pin and pin.mark or "") .. (title or "?"), c[1], c[2], c[3])
 	for i = 1, select("#", ...) do
 		local line = select(i, ...)
 		if line then Tip.Fact(tip, line) end
@@ -330,8 +354,8 @@ local function Fill(tip, title, ...)
 end
 
 -- A layer's tooltip for e on tip (its own filler, else its lines).
-local function Tooltip(o, tip, e)
-	if o.tooltip then o.tooltip(tip, e) else Fill(tip, (o.lines or Lines)(e)) end
+local function Tooltip(o, tip, e, pin)
+	if o.tooltip then o.tooltip(tip, e) else Fill(tip, pin, (o.lines or Lines)(e)) end
 end
 
 -- The pin under the view's point (x, y) px from its centre, y down: on the topmost pin layer shown, the
@@ -372,7 +396,7 @@ local function Hover(pin, at)
 	waiting = UI.Popup.IsOpen()
 	if waiting then return end -- (a popup stands: no tooltip over or beside it, till it closes)
 	GameTooltip:SetOwner(pin, "ANCHOR_RIGHT")
-	Tooltip(o, GameTooltip, e)
+	Tooltip(o, GameTooltip, e, pin)
 	GameTooltip:Show()
 end
 
@@ -406,8 +430,8 @@ end
 function Pins.Tap(button)
 	if UI.Cluster.Tap(button) then return true end
 	if not hovered then return false end
-	local e, o = hovered.entry, hoveredAt.opts
-	UI.Popup.Open(function(tip) Tooltip(o, tip, e) end, Track.Actions(rawget(e, "real") or e))
+	local e, o, pin = hovered.entry, hoveredAt.opts, hovered
+	UI.Popup.Open(function(tip) Tooltip(o, tip, e, pin) end, Track.Actions(rawget(e, "real") or e))
 	waiting = true -- (its tooltip again once the popup closes)
 	return true
 end
