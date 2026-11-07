@@ -54,14 +54,16 @@ local px, py, pinst -- the centre and map at the last draw; nil: none since the 
 -- framing: it moved the camera (Chase leaves it); held: your own pan or zoom paused it, back as the idle return
 -- would be; fz: the zoom it glides to; back: the zoom to glide back to once it ends (home's).
 local FRAME_PAD = 26 -- px kept clear round the box (the pins at its corners, your arrow)
-local FRAME_OUT, FRAME_ROOM = 1.15, 1.4 -- out: past what fits by this (room to walk on); in: once this much room
+local FRAME_OUT = 1.15 -- the zoom's past what fits by this (room to walk on)
+local FRAME_STEP = 1.1 -- the framing's zooms, each this past the last
+local LOG_STEP = math.log(FRAME_STEP)
 local FRAME_PAN, FRAME_ZOOM = 5, 3 -- per second: how quickly its centre and zoom close on theirs
 local framer, home
 local framed, framing, held, fz, back = false, false, false, nil, nil
 
 local function Clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
-local function Animating() return goal ~= nil or flight ~= nil or fz ~= nil end
+local function Animating() return goal ~= nil or flight ~= nil or fz ~= nil and Camera.cam.zoom ~= fz end -- (fz: settled once there)
 
 -- The camera moved, in place (a table a zoom frame was `map: motion`'s 3.6-5.7 KB/s zooming: M1b).
 local function Set(cx, cy, zoom)
@@ -286,11 +288,9 @@ local function StepIdle()
 	Motion.SetFollow(true, true)
 end
 
--- Path to's framing (Motion.Frame), the small map only: the view's centre and zoom ease so the box (you and
--- where you go) fits inside FRAME_PAD, the zoom within MIN_ZOOM and MAX_ZOOM: in as you near it, as far as the map
--- goes. The zoom moves only once the box no
--- longer fits (out, FRAME_OUT past it) or there's FRAME_ROOM to spare (in), a glide each time, not a zoom a frame
--- as you walk (the layouts and the blip sensor wait for a settled zoom); the centre eases on to the box's, kept
+-- Path to's framing (Motion.Frame), the small map only: the view's centre and zoom ease, every frame, as following pans,
+-- so the box (you and where you go) fits inside FRAME_PAD (FRAME_OUT past it), the zoom within MIN_ZOOM and
+-- MAX_ZOOM: in as you near it, as far as the map goes; the centre eases on to the box's, kept
 -- where you stay in view when the box can't fit. Your own drag or zoom holds it (as panning away holds the
 -- follow), back once left alone as the idle return is (Return to you, Return after, not under the cursor); with
 -- Return to you off, until you follow again (Follow me) or choose Path to again. Ended (arrived, stopped), the
@@ -324,12 +324,14 @@ local function StepFrame(elapsed)
 	local aw, ah = math.max(w - 2 * FRAME_PAD, w / 2), math.max(h - 2 * FRAME_PAD, h / 2)
 	local fit = math.min(aw / math.max(c1 - c0, 1 / CHUNKS), ah / math.max(r1 - r0, 1 / CHUNKS)) -- /: never 0 (at least a chunk)
 	local want = Clamp(fit / FRAME_OUT, MIN_ZOOM, cap)
-	local z = cam.zoom
-	if fit < z and z > MIN_ZOOM or want > z * FRAME_ROOM or want >= cap and z < cap * 0.98 or fz and fit < fz then fz = want end
-	if fz then
-		local lz, lg = math.log(z), math.log(fz)
-		z = math.exp(lz + (lg - lz) * (1 - math.exp(-FRAME_ZOOM * elapsed)))
-		if math.abs(lg - math.log(z)) < ZOOM_STOP then z, fz = fz, nil end
+	-- Progressively, as following pans: every frame a share of the way to the zoom that frames it (fz), which moves
+	-- once it's a FRAME_STEP off (settled between: the layouts and the blip sensor redo their work only while the
+	-- zoom moves; no flicker across a step as you walk to and fro).
+	if not fz or want >= cap and fz < cap or math.abs(math.log(want) - math.log(fz)) >= LOG_STEP then fz = want end
+	local z, lg = cam.zoom, math.log(fz)
+	if z ~= fz then
+		z = math.exp(math.log(z) + (lg - math.log(z)) * (1 - math.exp(-FRAME_ZOOM * elapsed)))
+		if math.abs(lg - math.log(z)) < ZOOM_STOP then z = fz end
 	end
 	local hw, hh = math.max(w / 4, w / 2 - FRAME_PAD) / z, math.max(h / 4, h / 2 - FRAME_PAD) / z -- /: never 0 (z >= MIN_ZOOM)
 	local tx = Clamp((c0 + c1) / 2, you.col - hw, you.col + hw)

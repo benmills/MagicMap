@@ -131,9 +131,9 @@ as the icon takes over. It eases round as the way changes, and your turning does
 and distance are in Settings > Tracking.
 **Path to** draws the walk as a thin, quiet gold dashed line, leaving your arrow on a lazy lead-in and turning
 corners in rounded bends, to a quest area's nearest edge; off the map, a gold arrow on the edge points the way.
-At the minimap's size the map pans and zooms to keep you, the target and the way between in view, zooming in as
-you near it, as far as the map goes; pan or zoom yourself and it comes back once left alone, as Return to you does (Settings >
-Tracking > Frame the way). The big map is left where you have it. The line's style (dotted, dashed, solid),
+At the minimap's size the map pans and zooms to keep you, the target and the way between in view, zooming in
+steadily as you near it, as far as the map goes (the big map is left where you have it); pan or zoom yourself and it comes back once left alone, as Return to you does (Settings >
+Tracking > Frame the way). The line's style (dotted, dashed, solid),
 weight, colour, glow, breathing, opacity and outline are in Settings > Pathing. Your corpse always gets the line,
 and the view comes back to you.
 **Arriving** finishes it: within 5 yards of the target (or inside a quest's area), the arrow and the line go,

@@ -735,6 +735,7 @@ def test_path_walk_big(lua):
     c.press("M")
     c.run(3)
     c.lua("ns.UI.Motion.SetZoom(400)")
+    c.lua("ns.UI.Feel.Set('path.frame', false)")  # (the line's cost at zoom 400: no framing to zoom out to Lakeshire)
     c.run(3)
     c.lua("ns.UI.Track.Start({ kind = 'place', key = 'lake', name = 'Lakeshire', pos = { inst = 0, col = 36.09, row = 49.28 } }, true)")
     c.run(3)
