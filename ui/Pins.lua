@@ -168,7 +168,7 @@ end
 -- The pin's icon as inline markup before its tooltip's title (16 px, its own proportions, two spaces after): a
 -- texture whole, an atlas the client has; none for a sheet's cell, a disc's atlas (a quest's: its tooltip has its
 -- own look) or a dot. One string an icon.
-local MARK = 16
+local MARK, ITEM_MARK = 16, 18
 local marks = {} -- its art (a file or an atlas) -> its markup, or false
 local function Mark(icon)
 	if icon.coords or icon.under then return false end
@@ -187,6 +187,12 @@ local function Mark(icon)
 	return m
 end
 
+-- An item's icon as that markup (its border cropped, as the bags show it): a resource's tooltip leads with what it
+-- gives (ui/Blips.lua).
+function Pins.ItemMark(fileID)
+	return "|T" .. fileID .. ":" .. ITEM_MARK .. ":" .. ITEM_MARK .. ":0:0:64:64:5:59:5:59|t  "
+end
+
 local function Style(pin, look)
 	local st = Of(look.type)
 	local size, icon = (look.size or SIZE) * (look.fixed and 1 or st.size), st.icon or look.icon or NONE
@@ -196,7 +202,7 @@ local function Style(pin, look)
 	end
 	if icon.alt and not icon.texture and not (icon.atlas and Has(icon.atlas)) then icon = icon.alt end -- (an atlas the client lacks: its alt)
 	pin.psize = size
-	pin.mark, pin.markColor = Mark(icon), look.tint -- (its tooltip's title: Fill)
+	pin.mark, pin.markColor = look.mark or Mark(icon), look.tint -- (its tooltip's title: Fill)
 	Size(pin, size, size)
 	if look.count or pin.count then
 		local fs = Count(pin)
@@ -347,6 +353,7 @@ local function Lines(e) return e.name, e.text end
 local function Fill(tip, pin, title, ...)
 	local c = pin and pin.markColor or WHITE -- (a resource's title in its difficulty's colour, as its icon)
 	tip:AddLine((pin and pin.mark or "") .. (title or "?"), c[1], c[2], c[3])
+	Tip.Title(Tip.Last(tip))
 	for i = 1, select("#", ...) do
 		local line = select(i, ...)
 		if line then Tip.Fact(tip, line) end

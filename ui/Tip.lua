@@ -1,5 +1,5 @@
 -- One look for every tip the map shows (GameTooltip's, the popup's: ui/Popup.lua).
--- A hover tip: the thing's name as the title (the client's white, but where colour means something: a quest's
+-- A hover tip: the thing's name as the title (in the tooltip's text size, not its header's: compact; its icon before it) (the client's white, but where colour means something: a quest's
 -- difficulty, a member's class), then its facts in small type, wrapping, in one grey (DIM), what matters in
 -- white, parts of a line apart by SEP; the first says what it is ("Herbalism", "Flight point", "Rare"), a status
 -- ("Not in sight", "Nearby now") a line of its own. No hint lines. A control's: its title alone (Label). A
@@ -41,10 +41,13 @@ function Tip.Last(tip) return Tip.Region(tip, "TextLeft" .. tip:NumLines()) end
 
 -- fs in small type, its font back when its tooltip hides or clears.
 local styled = {} -- fs -> its font object before
-function Tip.Small(fs)
+local function Font(fs, font)
 	if not styled[fs] then styled[fs] = fs:GetFontObject() end
-	fs:SetFontObject(GameTooltipTextSmall)
+	fs:SetFontObject(font)
 end
+function Tip.Small(fs) Font(fs, GameTooltipTextSmall) end
+-- A title in the tooltip's text size rather than its header's: a compact tip (its font back as Small's).
+function Tip.Title(fs) Font(fs, GameTooltipText) end
 
 -- A fact under the title: small, wrapping, DIM (a part coloured itself keeps its colour).
 function Tip.Fact(tip, text)

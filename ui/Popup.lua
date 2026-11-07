@@ -16,7 +16,7 @@ local Tip = UI.Tip
 
 local DIVIDER = "Interface\\Common\\UI-TooltipDivider-Transparent" -- MenuVariants.lua:26
 local GOLD = { 1, 0.82, 0 } -- a glyph made gold (the panel buttons' text's colour)
-local BTN, BTN_GAP, GLYPH = 22, 4, 0.55 -- the buttons: px tall, px apart; a glyph's longer side, of the button
+local BTN, BTN_GAP, GLYPH = 22, 2, 0.55 -- the buttons: px tall, px apart; a glyph's longer side, of the button
 local PANEL_PAD, GLYPH_GAP = 9, 3 -- px: a panel button's ends to its glyph and word; its glyph to its word
 -- The buttons come in as the panel grows: each fades and scales up from APPEAR_FROM, quick and eased out, one after
 -- another (APPEAR_STEP apart); the divider fades in with the first.
@@ -211,8 +211,10 @@ function Popup.Open(fill, actions)
 		list[i] = b
 		w = w + bw + (i > 1 and BTN_GAP or 0)
 	end
-	popup:AddLine(Spaces(w + 2 * ROW_INSET - 2 * PAD)) -- (the buttons' lines: two, their height; as wide as they are)
-	local line = Tip.Last(popup)
+	-- The buttons' lines: two, their height; as wide as they are. Its right text, a space, stands at the popup's right
+	-- edge on that line: the buttons line up there, right-aligned.
+	popup:AddDoubleLine(Spaces(w + 2 * ROW_INSET - 2 * PAD), " ")
+	local right = Tip.Region(popup, "TextRight" .. popup:NumLines())
 	popup:AddLine(" ")
 	popup:Show()
 	divider:ClearAllPoints()
@@ -222,10 +224,11 @@ function Popup.Open(fill, actions)
 	divider:SetAlpha(0)
 	dividerIn:Stop()
 	dividerIn:Play()
-	for i, b in ipairs(list) do
+	for i = #list, 1, -1 do
+		local b = list[i]
 		b:ClearAllPoints()
-		if i > 1 then b:SetPoint("LEFT", list[i - 1], "RIGHT", BTN_GAP, 0)
-		else b:SetPoint("TOPLEFT", line, "TOPLEFT", ROW_INSET - PAD, 0) end
+		if i < #list then b:SetPoint("RIGHT", list[i + 1], "LEFT", -BTN_GAP, 0)
+		else b:SetPoint("TOPRIGHT", right, "TOPRIGHT", PAD - ROW_INSET, 0) end
 		b:Show()
 		Appear(b, (i - 1) * APPEAR_STEP)
 	end

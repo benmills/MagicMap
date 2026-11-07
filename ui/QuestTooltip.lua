@@ -1,6 +1,6 @@
 -- A quest's tooltip (QuestInfo.lua:244-369), from its Known("quests") entry, in the map's one tip look (ui/Tip.lua):
 -- the title in its difficulty colour, its level in a subtle pill beside it (the number in that colour on a faint
--- disc-ended bar of it: the client's circle mask, as the dots are) where the two fit on one line, else just under it;
+-- disc-ended bar of it: the client's circle mask, as the dots are) on its line, a little room past it;
 -- one compact line of facts in DIM (its tag: Elite, Group N, Dungeon; ready to turn in, in white); what's left to do
 -- in small white (done, grey), an item with where it's found in small type (the objects it's in, else who sells it;
 -- never who drops it). No hint: a click grows it into the popup (ui/Popup.lua: the pin's actions, ui/Track.lua).
@@ -16,7 +16,7 @@ local INDENT = "    " -- QuestInfo.lua:175
 local DIM, WHITE, SEP = Tip.DIM, Tip.WHITE, Tip.SEP
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- the pill's ends (ui/Pins.lua's dots)
 local PILL_H, PILL_PAD, PILL_ALPHA = 14, 5, 0.22 -- px tall, px past the number each side; its tint's alpha
-local FIT = 260 -- px: the title and its pill fit on one line within this (a tooltip's usual widest), else the pill goes under
+local TRAIL = "  " -- after the level: the pill's room from the tooltip's right edge, as from its top
 
 local QuestTooltip = {}
 UI.QuestTooltip = QuestTooltip
@@ -61,14 +61,13 @@ local function Width(font, text)
 	return ruler:GetStringWidth()
 end
 
--- The pill behind fs (its text the level, in font), tinted c.
+-- The pill behind fs's level (its text starts with it), tinted c.
 local function ShowPill(tip, fs, c, level)
 	local p = Pill(tip)
-	local w = Width(GameTooltipTextSmall, level) + 2 * PILL_PAD
 	p[1]:ClearAllPoints()
-	p[1]:SetPoint("LEFT", fs, "CENTER", -w / 2, 0)
+	p[1]:SetPoint("LEFT", fs, "LEFT", -PILL_PAD, 0)
 	p[3]:ClearAllPoints()
-	p[3]:SetPoint("RIGHT", fs, "CENTER", w / 2, 0)
+	p[3]:SetPoint("RIGHT", fs, "LEFT", Width(GameTooltipTextSmall, tostring(level)) + PILL_PAD, 0)
 	for _, t in ipairs(p) do
 		t:SetVertexColor(c[1], c[2], c[3], PILL_ALPHA)
 		t:Show()
@@ -94,29 +93,18 @@ local facts = {}
 function QuestTooltip.Fill(tip, e)
 	local c = e.color
 	local level = e.level and c and Hex(c) .. e.level .. "|r"
-	-- The title, its level's pill beside it where both fit, else just under it.
-	local below = false
+	-- The title, its level's pill beside it, on its line; past the pill, a little room before the edge (TRAIL).
 	if level then
-		tip:AddDoubleLine(e.name, level, c[1], c[2], c[3])
+		tip:AddDoubleLine(e.name, level .. TRAIL, c[1], c[2], c[3])
 		local right = Region(tip, "TextRight1")
 		Small(right)
-		if Width(GameTooltipHeaderText, e.name) + PILL_PAD * 4 + Width(GameTooltipTextSmall, level) > FIT then
-			right:SetText("")
-			below = true
-		else
-			ShowPill(tip, right, c, level)
-		end
+		ShowPill(tip, right, c, e.level)
 	elseif c then
 		tip:AddLine(e.name, c[1], c[2], c[3])
 	else
 		tip:AddLine(e.name, 1, 1, 1)
 	end
-	if below then
-		tip:AddLine(level)
-		local fs = Region(tip, "TextLeft2")
-		Small(fs)
-		ShowPill(tip, fs, c, level)
-	end
+	Tip.Title(Region(tip, "TextLeft1"))
 
 	-- Facts: tag (Elite, Group 3, Dungeon), ready.
 	local f = facts

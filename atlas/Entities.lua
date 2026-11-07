@@ -306,6 +306,39 @@ local SKILL = {
 -- The skill a gathering node of this name takes, or nil: not known.
 function Atlas.NodeSkill(name) return SKILL[name] end
 
+-- The icon of what a node gives (the herb, the ore: the item's icon, Item.db2's IconFileDataID, 1.60.1.70790), the
+-- icon players know it by; a herb's by its own name or its last words ("Wilted Peacebloom": Peacebloom's), an ore
+-- node's by its own. Not here (Forever's own herbs, amber): none.
+local ORE = { copper = 134566, tin = 134579, iron = 134572, silver = 135242, gold = 134571, mithril = 134576,
+	truesilver = 134580, thorium = 134578, darkIron = 134575, incendicite = 134577, bloodstone = 134577,
+	indurium = 134575 }
+local ICON = {
+	Peacebloom = 133939, Silverleaf = 134190, Earthroot = 134187, Mageroyal = 133436, Briarthorn = 134412,
+	Stranglekelp = 134191, Bruiseweed = 134181, ["Wild Steelbloom"] = 133938, ["Grave Moss"] = 133849,
+	Kingsblood = 134183, Liferoot = 134413, Fadeleaf = 134193, Goldthorn = 134196, ["Khadgar's Whisker"] = 134188,
+	Wintersbite = 133940, Firebloom = 134200, ["Purple Lotus"] = 134198, ["Arthas' Tears"] = 134194,
+	Sungrass = 134199, Blindweed = 134195, ["Ghost Mushroom"] = 134529, Gromsblood = 134197,
+	["Golden Sansam"] = 134221, Dreamfoil = 134204, ["Mountain Silversage"] = 134215, Plaguebloom = 134219,
+	Icecap = 134212, ["Black Lotus"] = 134202,
+	["Copper Vein"] = ORE.copper, ["Tin Vein"] = ORE.tin, ["Incendicite Mineral Vein"] = ORE.incendicite,
+	["Silver Vein"] = ORE.silver, ["Ooze Covered Silver Vein"] = ORE.silver,
+	["Lesser Bloodstone Deposit"] = ORE.bloodstone, ["Iron Deposit"] = ORE.iron,
+	["Indurium Mineral Vein"] = ORE.indurium, ["Gold Vein"] = ORE.gold, ["Ooze Covered Gold Vein"] = ORE.gold,
+	["Mithril Deposit"] = ORE.mithril, ["Ooze Covered Mithril Deposit"] = ORE.mithril,
+	["Truesilver Deposit"] = ORE.truesilver, ["Ooze Covered Truesilver Deposit"] = ORE.truesilver,
+	["Dark Iron Deposit"] = ORE.darkIron, ["Small Thorium Vein"] = ORE.thorium,
+	["Ooze Covered Thorium Vein"] = ORE.thorium, ["Rich Thorium Vein"] = ORE.thorium,
+	["Ooze Covered Rich Thorium Vein"] = ORE.thorium, ["Hakkari Thorium Vein"] = ORE.thorium,
+	["Small Obsidian Chunk"] = 134455, ["Large Obsidian Chunk"] = 135241,
+}
+-- The file ID of the icon a gathering node of this name gives, or nil.
+function Atlas.NodeIcon(name)
+	local i = ICON[name]
+	if i then return i end
+	local last = name:match("^%a[%a']* (.+)$")
+	return last and ICON[last]
+end
+
 -- What a Minimap blip's tooltip name stands for: "herb" or "ore" (a gathering node, by name: no data
 -- needed, and only by name: one it doesn't know is no node, game/Blips.lua's gold dot), else its service (Data/BlipServices.lua: "innkeeper", "banker", "auctioneer", "stablemaster",
 -- "battlemaster", "trainer", "classtrainer", "repair", "questgiver", "questender", "flightmaster",

@@ -282,7 +282,7 @@ def test_quest_tooltip():
     ]  # (and no line for who takes it in, no hint)
     assert lines(tip) == content
     level = tip.GetRightLine(tip, 1)
-    assert S[level].text == "|cffffd1007|r" and same(S[level].fontObject, G.GameTooltipTextSmall)
+    assert S[level].text == "|cffffd1007|r  " and same(S[level].fontObject, G.GameTooltipTextSmall)
     assert list(S[tip.GetLeftLine(tip, 1)].textColor.values()) == [1, 0.82, 0]
     pill = [r for r in tip.GetRegions(tip) if S[r].type == "Texture" and S[r].shown]
     assert len(pill) == 3 and all(S[r].texture == "Interface\\CharacterFrame\\TempPortraitAlphaMask" for r in pill)
@@ -315,7 +315,7 @@ def test_quest_tooltip():
     assert not QT.IsOpen()
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
-    # A long title: the pill under it. Booted without QuestieDB's files (Atlas's own empty indexes, as CI's
+    # A long title: the pill still beside it, on its line. Booted without QuestieDB's files (Atlas's own empty indexes, as CI's
     # checkout): no sources.
     L, sim, ns, G = client([dict(CANDLES, title="The Unusually Long Name of the Kobold Candles of Elwynn Forest")], data=False)
     assert ns.Data.Quests is None and ns.Data.Npcs is None
@@ -326,6 +326,6 @@ def test_quest_tooltip():
     p = pin(ns, G, "Quests", 60)
     assert S[p.count].text == "3/8"
     assert [S[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)] == [
-        "The Unusually Long Name of the Kobold Candles of Elwynn Forest", "|cffffd1007|r", "Large Candle: 3/8"]
-    assert not S[tip.GetRightLine(tip, 1)].text
+        "The Unusually Long Name of the Kobold Candles of Elwynn Forest", "Large Candle: 3/8"]
+    assert S[tip.GetRightLine(tip, 1)].text == "|cffffd1007|r  "
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

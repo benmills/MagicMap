@@ -102,18 +102,20 @@ UI.PinTypes.Add({ id = "tracking", family = "other", name = "Other tracking",
 local DOT_LOOK = { size = DOT, icon = { color = GOLD }, type = "dot" }
 local function Look(icon, name)
 	if not icon then return DOT_LOOK end
-	local k, tint = icon.texture or icon.atlas, nil
+	local k, tint, item = icon.texture or icon.atlas, nil, nil
 	local kind = name and icon.atlas and GATHER[icon.atlas]
 	if kind then
 		local need, skills = ns.Atlas.NodeSkill(name), Model.skills
 		tint = badges.difficulty and need and skills and Difficulty(skills[kind], need) or nil
-		if tint then k = k .. "|" .. table.concat(tint, ",") end
+		item = ns.Atlas.NodeIcon(name)
+		if tint or item then k = k .. "|" .. (item or "") .. "|" .. (tint and table.concat(tint, ",") or "") end
 	end
 	local look = looks[k]
 	if not look then
 		local art = icon.texture and { texture = icon.texture } or UI.Art.Icon(icon.atlas)
 		art.color = icon.color or COLOR[icon.atlas]
-		look = { size = ICON, icon = art, tint = tint, type = TYPE[icon.texture or icon.atlas] or "tracking" }
+		look = { size = ICON, icon = art, tint = tint, type = TYPE[icon.texture or icon.atlas] or "tracking",
+			mark = item and UI.Pins.ItemMark(item) } -- (its tooltip leads with what it gives: the herb's, the ore's icon)
 		looks[k] = look
 	end
 	return look
