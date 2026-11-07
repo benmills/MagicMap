@@ -22,6 +22,7 @@ for k, v in pairs(DEFAULTS) do saved[k] = v end
 UI.saved = saved
 local window = { shown = false, big = false, still = false, strata = "LOW", level = 0, homeAlpha = 1 }
 local camera = { cx = 0, cy = 0, zoom = 0, w = 0, h = 0 } -- the map's, each frame (telemetry's motion ring, shot stamps)
+local here = { x = 0, y = 0, zoom = 0, w = 0 } -- View.here: you on the view (the overlay spike), or false
 local view = { v = 1, frame = 0, minimap = "ours", inst = 0, window = window,
 	layers = {}, sockets = {}, button = true, replace = { minimap = false, worldmap = false }, camera = camera }
 local focus = { inst = 0, shown = false, follow = true }
@@ -119,6 +120,14 @@ Runtime.Step("ui", "ui: view", function()
 	if UI.Sockets.Update(view) then view.frame = Runtime.frames end -- (the world socket, an addon's layer)
 	local cam = Camera.cam
 	camera.cx, camera.cy, camera.zoom, camera.w, camera.h = cam.cx, cam.cy, cam.zoom, Window.Size()
+	local you = Model.you
+	if you and you.col and not you.stale and you.inst == Camera.inst and camera.w > 0 then
+		here.x, here.y = ns.Atlas.Camera.TileToScreen(cam, camera.w, camera.h, you.col, you.row)
+		here.zoom, here.w = cam.zoom, camera.w
+		view.here = here
+	else
+		view.here = false
+	end
 	-- Saved as it goes (the client writes it at logout): the small window's zoom only, while big the
 	-- one it goes back to (MinimapMode.lua:252-260).
 	saved.shown, saved.follow = shown, Camera.follow

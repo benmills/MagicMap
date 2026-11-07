@@ -18,14 +18,16 @@
 -- sensor (the blips layer is on), still (the last Apply didn't move it, and its zoom has applied).
 
 local _, ns = ...
-local Game, Runtime = ns.Game, ns.Runtime
+local Game, Runtime, Atlas = ns.Game, ns.Runtime, ns.Atlas
 
 local SENSOR_PX = 300   -- its side in screen units (a blip's square is ~16 of them)
 local MARGIN = 2        -- screen units it keeps inside the screen's edge
 local ICONS = 0.05      -- its own icons' scale: out of sight (alpha alone doesn't hide them)
 local STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP" }
 
-local m = { engaged = false, sensor = false, still = false, fade = false } -- blocker: why it isn't taken
+local OVER = 30         -- the overlay's frame level above the window's (over the tiles, under the chrome)
+local YD = 1 / Atlas.TILE_YARDS
+local m = { engaged = false, sensor = false, still = false, fade = false, overlay = false } -- blocker: why it isn't taken
 Game.minimap = m
 local undo, placed = {}, nil
 local clusterShown -- the cluster's own shown state, from an engage until it's back
@@ -201,7 +203,7 @@ end
 local function Hold(mm)
 	local held = mm:IsShown() and mm:GetZoom() == 0 and C_Minimap.IsRotateMinimapIgnored()
 	if not mm:IsShown() then mm:Show() end
-	if mm:GetAlpha() ~= 0 then mm:SetAlpha(0) end
+	if not m.overlay and mm:GetAlpha() ~= 0 then mm:SetAlpha(0) end
 	if mm:GetZoom() ~= 0 then mm:SetZoom(0) end
 	if C_Minimap.GetDrawGroundTextures() then C_Minimap.SetDrawGroundTextures(false) end
 	if not C_Minimap.IsRotateMinimapIgnored() then C_Minimap.SetIgnoreRotateMinimap(true) end
@@ -241,6 +243,39 @@ local function Place(w, held)
 	m.left, m.bottom, m.size, m.scale = cx - d / 2, cy - d / 2, d, ms
 end
 
+-- The overlay spike (/mm overlay): since 1.60.1.70862 the sensor can't aim (UpdateMouseoverAtPoint is ignored for
+-- addon code), so Blizzard's Minimap itself, seen: over our tiles, centred on you, sized so its view radius is as many
+-- yards as ours, no ground, its own icons. Off the view (or no radius yet): unseen.
+local function Overlay(w, here)
+	local mm = Minimap
+	local r, p = C_Minimap.GetViewRadius(), w.place
+	if not (here and r) or issecretvalue(r) or r <= 0 or here.w <= 0 then
+		if mm:GetAlpha() ~= 0 then mm:SetAlpha(0) end
+		placed = nil
+		return
+	end
+	local k = p.w / here.w -- /: never 0 (checked above)
+	local half = r * YD * here.zoom * k
+	local x, y = p.left + here.x * k, p.top - here.y * k
+	if mm:GetAlpha() ~= 1 then mm:SetAlpha(1) end
+	mm:SetFrameStrata(w.strata)
+	mm:SetFrameLevel(w.level + OVER)
+	if placed and placed.overlay and math.abs(placed.x - x) < 0.5 and math.abs(placed.y - y) < 0.5
+		and math.abs(placed.half - half) < 0.5 then return end
+	placed = { overlay = true, x = x, y = y, half = half }
+	mm:SetIconScale(1)
+	mm:SetSize(half * 2, half * 2)
+	mm:ClearAllPoints()
+	mm:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
+end
+
+Game.Slash("overlay", "spike: Blizzard's Minimap seen over the map, its live blips (the sensor can't aim since 70862)", function()
+	m.overlay = not m.overlay
+	placed = nil
+	if not m.overlay and m.engaged then Sensor() end
+	Game.Say("overlay " .. (m.overlay and "on" or "off"))
+end)
+
 Game.Apply("minimap", function(view)
 	local w = view.window
 	m.blocker = FarmHud and FarmHud.IsShown and FarmHud:IsShown() and "FarmHud has the minimap" or nil
@@ -248,8 +283,9 @@ Game.Apply("minimap", function(view)
 		Release()
 	else
 		if not m.engaged then Engage() end
-		m.sensor = view.layers.blips == true
-		Place(w, Hold(Minimap))
+		m.sensor = view.layers.blips == true and not m.overlay
+		local held = Hold(Minimap)
+		if m.overlay then Overlay(w, view.here) else Place(w, held) end
 	end
 	Cluster()
 end)

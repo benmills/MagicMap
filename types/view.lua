@@ -44,6 +44,8 @@
 ---@field diag? fun(): table      UI's state for telemetry marks (camera, layouts: docs/telemetry.md "State" `map`, `layers`).
 ---                              Game calls it only when taking a mark and stores the result; it never acts on it. Its shape is UI's (OPEN).
 ---@field chrome? MM.ViewChrome  Blizzard's Minimap rim parts while the Minimap is ours; nil: left as Blizzard has them
+---@field here? { x: number, y: number, zoom: number, w: number }|false  you on the view (its pixels from TOPLEFT), its zoom
+---                              (pixels per tile) and width: where the overlay spike lays Blizzard's Minimap; false: not on it
 ---@field camera? MM.ViewCamera  where the map looks now, for telemetry's motion ring (docs/telemetry.md); Game copies it
 ---                              in its apply step, never acts on it. Its shape is UI's (OPEN).
 
