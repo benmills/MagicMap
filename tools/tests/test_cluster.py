@@ -44,7 +44,7 @@ def test_five_overlapping_pins_one_pill():
     sim.Press("M")  # (grouped on the big map only)
     sim.Run(1)
     cam = ns.UI.Camera.cam
-    t = L.eval(LAYER)(ns.UI.Pins, 5, cam.cx, cam.cy)
+    t = L.eval(LAYER)(ns.UI.Pins, 5, cam.cx + 0.05, cam.cy)  # (~27 yd off you: tracking one isn't arriving)
     sim.Run(0.5)
     shown, layers = L.eval(SHOWN), ns.UI.Engine.layers
     pills = next(lay for lay in layers.values() if lay.name == "clusters")

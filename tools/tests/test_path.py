@@ -481,10 +481,10 @@ def test_path_frame():
     assert cam.zoom > zf * 1.5
     sim.Run(6)
     assert abs(cam.zoom - zf) < 0.5 and framed(40.0, 49.0)
-    # Near now: back in, never past the zoom it began at.
+    # Near now: in, as far as the map goes (still framed).
     G.Target("waypoint", 32.2, 49.75)
     sim.Run(4)
-    assert abs(cam.zoom - z0) < 0.5 and framed(32.2, 49.75)
+    assert cam.zoom > z0 and abs(cam.zoom - UI.Motion.MAX_ZOOM) < 0.5 and framed(32.2, 49.75)
     # On the big map: the view's yours.
     G.Target("waypoint", 40.0, 49.0)
     UI.BigMap.Toggle()
@@ -746,3 +746,22 @@ def test_path_walk_big(lua):
     # (1.1 with our Lua: the rounder route (5 chunks a corner) re-spaces a little more of it: 1.05 priced)
     assert fs.byState.big.p95 <= (1.1 if lua else 1) and "map: path" not in slow(fs) and fs.max <= 8
     assert not c.errors(), c.errors()
+
+
+def test_arrived_finishes():
+    """Within 5 yards of what you track or path to, it's finished: the tracking, the pathing and the waypoint gone."""
+    L, sim, ns = boot()
+    sim.Slash("/mm toggle")
+    sim.Run(1)
+    UI, you = ns.UI, ns.Model.you
+    away = L.table_from({"key": "t:1", "name": "Spot", "pos": L.table_from(
+        {"inst": you.inst, "col": you.col + 0.05, "row": you.row})})  # ~27 yd east
+    UI.Track.Start(away, True)
+    sim.Run(1)
+    assert UI.saved.tracked is not None and UI.saved.path is not None
+    near = L.table_from({"key": "t:2", "name": "Here", "pos": L.table_from(
+        {"inst": you.inst, "col": you.col + 0.005, "row": you.row})})  # ~3 yd
+    UI.Track.Start(near, True)
+    sim.Run(1)
+    assert UI.saved.tracked is None and UI.saved.path is None and not ns.Model.Target()
+    assert not errors(sim, ns), errors(sim, ns)

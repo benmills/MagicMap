@@ -287,7 +287,8 @@ local function StepIdle()
 end
 
 -- Path to's framing (Motion.Frame), the small map only: the view's centre and zoom ease so the box (you and
--- where you go) fits inside FRAME_PAD, the zoom within MIN_ZOOM and home's. The zoom moves only once the box no
+-- where you go) fits inside FRAME_PAD, the zoom within MIN_ZOOM and MAX_ZOOM: in as you near it, as far as the map
+-- goes. The zoom moves only once the box no
 -- longer fits (out, FRAME_OUT past it) or there's FRAME_ROOM to spare (in), a glide each time, not a zoom a frame
 -- as you walk (the layouts and the blip sensor wait for a settled zoom); the centre eases on to the box's, kept
 -- where you stay in view when the box can't fit. Your own drag or zoom holds it (as panning away holds the
@@ -318,8 +319,8 @@ local function StepFrame(elapsed)
 	if press or goal or flight then return end
 	local cam, you, w, h = Camera.cam, ns.Model.you, Window.Size()
 	if w <= 0 or h <= 0 or not you.col then return end
-	local cap = Clamp(home(cam.zoom), MIN_ZOOM, MAX_ZOOM)
-	back = cap
+	back = Clamp(home(cam.zoom), MIN_ZOOM, MAX_ZOOM) -- (the zoom it glides back to once ended)
+	local cap = MAX_ZOOM -- (in as far as the map goes as you near it)
 	local aw, ah = math.max(w - 2 * FRAME_PAD, w / 2), math.max(h - 2 * FRAME_PAD, h / 2)
 	local fit = math.min(aw / math.max(c1 - c0, 1 / CHUNKS), ah / math.max(r1 - r0, 1 / CHUNKS)) -- /: never 0 (at least a chunk)
 	local want = Clamp(fit / FRAME_OUT, MIN_ZOOM, cap)

@@ -214,6 +214,7 @@ def test_quest_follow():
     click(31.8, 49.7, "Path to", rows=("Stop tracking", "Path to"))
     click(31.8, 49.7, "Stop pathing", rows=("Track", "Stop pathing"))
     assert sim.superTracked == 0 and followed() == set() and ns.UI.saved.path is None
+    sim.Run(2)  # (the framing, in close by the quest, glides back out)
     click(32.15, 49.7)  # Gold Dust's area, no pin under it
     assert sim.superTracked == 47 and followed() == {47}
     click(32.15, 49.7)

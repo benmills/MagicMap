@@ -13,7 +13,7 @@
 -- Eased (RATE a second) as a distance and an angle about you, and its rotation, so a route found again, a corner
 -- turned or a zoom swings it round instead of making it jump; only a move past a tenth of a px or a fifth of a
 -- degree is set (no widget call at rest). It fades in and out. None while you're off the view (panned away), not
--- on the target's map, or inside its area. Its look: Settings > Tracking (Size, Opacity, Distance).
+-- on the target's map, or once you've arrived (UI.Track.Arrived: inside its area, or within 5 yards). Its look: Settings > Tracking (Size, Opacity, Distance).
 
 local _, ns = ...
 local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
@@ -137,7 +137,7 @@ end
 Runtime.Step("ui", "map: guide", function(elapsed)
 	local t, me, inst = Model.Target(), Model.you, Camera.inst
 	local cam, w, h = Camera.cam, Window.Size()
-	if t and not t.inside and me.col and not me.stale and me.inst == inst and t.pos.inst == inst and w > 0 and h > 0
+	if t and not UI.Track.Arrived(t) and me.col and not me.stale and me.inst == inst and t.pos.inst == inst and w > 0 and h > 0
 		and not UI.Track.Pathed(t) then
 		Want(t, me, cam, w, h)
 	else

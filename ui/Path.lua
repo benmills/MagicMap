@@ -18,7 +18,8 @@
 -- the line out anew.
 -- Off the view, the target gets a gold arrow on its edge, where the line toward it leaves (Path.lua:24-79).
 -- At the minimap's size the view frames you, the target and the way between (Motion.Frame: ui/Motion.lua pans and
--- zooms, never in past the zoom you had when it began, kept as UI.saved.path.zoom; your own pan or zoom holds it
+-- zooms, in as you near it as far as the map goes, gliding back to the zoom you had when it began (kept as
+-- UI.saved.path.zoom) once it ends; your own pan or zoom holds it
 -- till it returns as the idle return does); not on the big map, the view yours there; not for your corpse
 -- (Settings > Tracking > Path to: Frame the way). And your corpse becoming the target brings the view back to you
 -- (Core.lua:1095-1108), once a ghost.

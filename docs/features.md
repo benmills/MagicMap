@@ -107,7 +107,7 @@ facts with the level in its difficulty colour, a `?` icon before who takes the q
 Click a quest (or its area, zoomed in) to follow it: it becomes the game's tracked quest. The quest
 pill at the bottom left is the one pill for what you track: the quest you follow (or your waypoint, the icon you
 track, your corpse), its progress and the yards to it by default (time to arrive on offer; the pieces and their
-order chosen on Settings > Quest pill), over a faint gold fill of how far you've come since you began going to it;
+order chosen on Settings > Quest pill), over a faint fill (gold by default; Settings > Quest pill > Bar colour) of how far you've come since you began going to it;
 else how many of your quests are in this zone. A sensed quest-giver's `!` (or `?`) shows only while you still have an offer (or a
 quest to hand in) there, so it goes as soon as you accept.
 
@@ -131,12 +131,13 @@ as the icon takes over. It eases round as the way changes, and your turning does
 and distance are in Settings > Tracking.
 **Path to** draws the walk as a thin, quiet gold dashed line, leaving your arrow on a lazy lead-in and turning
 corners in rounded bends, to a quest area's nearest edge; off the map, a gold arrow on the edge points the way.
-At the minimap's size the map pans and zooms out to keep you, the target and the way between in view (never in
-past the zoom you had); pan or zoom yourself and it comes back once left alone, as Return to you does (Settings >
+At the minimap's size the map pans and zooms to keep you, the target and the way between in view, zooming in as
+you near it, as far as the map goes; pan or zoom yourself and it comes back once left alone, as Return to you does (Settings >
 Tracking > Frame the way). The big map is left where you have it. The line's style (dotted, dashed, solid),
 weight, colour, glow, breathing, opacity and outline are in Settings > Pathing. Your corpse always gets the line,
 and the view comes back to you.
-Both stay through a /reload. While you follow a quest, the quest pill is its icon: hover it for the quest's
+**Arriving** finishes it: within 5 yards of the target (or inside a quest's area), the arrow and the line go,
+and a waypoint (or the icon tracked on it) is cleared; a quest stays followed. Both stay through a /reload. While you follow a quest, the quest pill is its icon: hover it for the quest's
 tooltip, click it for its popup (Stop tracking is one click away). Clicking a quest's area follows it (Track).
 Ctrl-click sets the game's waypoint (Ctrl-right-click clears
 it), Shift-click opens chat with a `/way` line, and right-click off an icon offers both. While the map isn't following you (you dragged it, or flew to a zone),
@@ -189,7 +190,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | Title | At rest (Zone, Subzone), On hover (Zone, Subzone, Coordinates, Tracked target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time, Day or night. Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
 | Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Services, Vendors, Resources, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Each follows the level above until set; its undo hands it back |
 | Resources | Tracking: Keep tracking (your gathering tracker: Find Herbs, else Find Minerals, else Find Treasure; or one you know, or Off). Difficulty: Colour by difficulty (on) |
-| Quest pill | Shows (target or zone count / target only / off), Says (Name, Objective progress, Distance; chosen and ordered from those and Time to arrive), Progress bar (on), Fade quest pill (on: the zone count only while you point at the map). Look: Backing (25%), Size (100%) |
+| Quest pill | Shows (target or zone count / target only / off), Says (Name, Objective progress, Distance; chosen and ordered from those and Time to arrive), Progress bar (on), Bar colour (Gold), Fade quest pill (on: the zone count only while you point at the map). Look: Backing (25%), Size (100%) |
 | Tracking | Arrow: Size (80%), Opacity (90%), Distance (48 px). Path to: Frame the way (on) |
 | Pathing | Line: Style (dashed), Weight (1.0 px), Colour (Gold), Opacity (55%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |
 | Quest areas | Followed quest, Other quests: Fill, Edge, Edge width. Under the cursor: Fill lift, Edge (as the game draws them, a quiet fill by default) |

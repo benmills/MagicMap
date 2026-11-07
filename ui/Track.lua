@@ -15,6 +15,9 @@
 -- The tracked icon is UI.saved.tracked = { key, name, inst, col, row } (types/saved.lua): its key, where it was;
 -- what's pathed is UI.saved.path = { quest } or { inst, col, row } (the waypoint's pos), with the framing's zoom
 -- once it has one (ui/Path.lua). Your corpse, while you're a ghost, always has the line (Track.Pathed).
+-- Arriving finishes it (Track.Arrived: within ARRIVE yards, or inside a quest's area): a waypoint's tracking or
+-- pathing ends, the waypoint cleared; a quest's pathing ends, the quest still followed (its arrow steps aside
+-- while you're there).
 -- The tracking ends when the waypoint goes or moves elsewhere (Ctrl-right-click, the map's menu, /way, the
 -- game's own), a waypoint's pathing too, and a quest's pathing once that quest is no longer followed; watched
 -- once a frame from the pin layers' revs (Track.Rev: a change lays them out again) once Model has seen the
@@ -22,10 +25,11 @@
 -- followed quest, so both stay as they were.
 
 local _, ns = ...
-local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
+local UI, Model, Runtime, Atlas = ns.UI, ns.Model, ns.Runtime, ns.Atlas
 local Command = ns.Game.Command
 
 local NEAR = 0.01 -- tiles (~5 yards): the waypoint stands at the tracked pos (set through map coordinates and read back)
+local ARRIVE = 5 -- yards: within this of the target (or inside its quest's area) you've arrived
 local ARM = 2 -- frames after a Track before the waypoint must stand there (the Command's apply, the next observe)
 
 -- The actions' icons (the popup's buttons, ui/Popup.lua): the world map's gold tracked arrow; the travel boot
@@ -93,6 +97,17 @@ function Track.Pathed(t)
 	return t.kind == "waypoint" and p.inst ~= nil and Near(t.pos, p)
 end
 
+-- You've arrived at target t (Model.Target's): inside its quest's area, else within ARRIVE yards of it, on its
+-- map. Not your corpse (the game ends that).
+function Track.Arrived(t)
+	if not t or t.kind == "corpse" then return false end
+	if t.inside then return true end
+	local you = Model.you
+	if not (you and you.col and not you.stale and you.inst == t.pos.inst) then return false end
+	local yd = math.sqrt((t.pos.col - you.col) ^ 2 + (t.pos.row - you.row) ^ 2) * Atlas.TILE_YARDS
+	return yd <= ARRIVE
+end
+
 local function Set(t)
 	UI.saved.tracked = t
 	rev = rev + 1
@@ -110,7 +125,21 @@ end
 local function Watch()
 	local t, p = Saved(), Path()
 	if t ~= last then last, rev = t, rev + 1 end
-	if not (t or p) or Runtime.frames < armed then return end
+	if Runtime.frames < armed then return end
+	-- Arrived: finished. A waypoint's (or the icon tracked on it) tracking or pathing ends, the waypoint cleared;
+	-- a quest's pathing ends (still followed: its arrow steps aside while you're there, ui/Guide.lua).
+	local g = Model.Target()
+	if g and Track.Arrived(g) then
+		if g.kind == "waypoint" and (t or p and p.inst) then
+			Track.Stop()
+			return
+		end
+		if g.kind == "quest" and p and p.quest == g.quest then
+			UI.saved.path = nil
+			p = nil
+		end
+	end
+	if not (t or p) then return end
 	local list, r = Model.Known("waypoint")
 	if r == 0 then return end
 	local w = list[1]
