@@ -264,10 +264,54 @@ Pins.Style = Style -- (ui/Cluster.lua's pills)
 
 local layers = {} -- Pins' own, the highest level first: { layer, opts }
 
+-- What you track (Track.Focus: the tracked icon, the followed quest) wears a soft gold glow behind it, its size kept:
+-- the world map's super-tracked quest glow (UI-QuestPoi-OuterGlow, added), toned down; Settings > Tracking > Tracked
+-- icon: shown or not, its size (of the pin's), its opacity.
+local GLOW_ART = "UI-QuestPoi-OuterGlow"
+local glow = { on = true, size = 1.7, alpha = 0.45 }
+local glowRev = 0 -- moves with the glow's settings (WithTrack: the layers lay out again)
+local function Glow(pin, on)
+	on = on and glow.on and Has(GLOW_ART)
+	local g = pin.glow
+	if not on then
+		Shown(g, false)
+		return
+	end
+	if not g then
+		g = Tex(pin, "BACKGROUND", -8)
+		g:SetAtlas(GLOW_ART)
+		g:SetBlendMode("ADD")
+		pin.glow = g
+	end
+	Size(g, pin.psize * glow.size, pin.psize * glow.size)
+	if g.a ~= glow.alpha then
+		g.a = glow.alpha
+		g:SetAlpha(glow.alpha)
+	end
+	Shown(g, true)
+end
+local function Glows(key)
+	return function(v)
+		if glow[key] == v then return end
+		glow[key], glowRev = v, glowRev + 1
+	end
+end
+UI.Feel.Add("tracking", "Tracked icon", {
+	{ key = "glow.on", kind = "toggle", label = "Glow", default = glow.on, apply = Glows("on"),
+		tip = "A soft gold glow behind what you track or follow, as the world map marks its tracked quest." },
+	{ key = "glow.size", kind = "slider", label = "Glow size", min = 1.2, max = 2.6, step = 0.1, pct = true,
+		default = glow.size, apply = Glows("size"), when = function() return glow.on end,
+		tip = "How far the glow reaches past the icon." },
+	{ key = "glow.opacity", kind = "slider", label = "Glow opacity", min = 0.1, max = 1, step = 0.05, pct = true,
+		default = glow.alpha, apply = Glows("alpha"), when = function() return glow.on end,
+		tip = "How bright the glow is." },
+})
+
 -- A pin of e (its key's) on canvas c: its look, then its place where that moved.
 local function Set(c, o, e, look, minZoom)
 	o.entry = e
 	Style(o, look)
+	Glow(o, Track.Focus(e))
 	local p = e.pos
 	local x, y, on = (p.col - c.ox) * c.zoom, (p.row - c.oy) * c.zoom, c
 	if minZoom then on = c.mins[minZoom] end -- (its frame for that zoom: Engine.At's)
@@ -286,10 +330,10 @@ end
 -- tip itself (GameTooltip owned by the pin, or the popup; shown by the caller); hover(e): the cursor on its pin e,
 -- or (nil) off it.
 local function WithTrack(rev)
-	local a, t, s, n = nil, nil, nil, 0
+	local a, t, s, g, n = nil, nil, nil, nil, 0
 	return function()
 		local r, tr, st = rev and rev(), Track.Rev(), Types.Rev()
-		if r ~= a or tr ~= t or st ~= s then a, t, s, n = r, tr, st, n + 1 end
+		if r ~= a or tr ~= t or st ~= s or glowRev ~= g then a, t, s, g, n = r, tr, st, glowRev, n + 1 end
 		return n
 	end
 end

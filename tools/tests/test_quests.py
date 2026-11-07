@@ -2,10 +2,10 @@
 clicks in ui/Areas.lua), end to end from the sim's quest log through Game's parts and Model:
 
   test_quest_pins: StylePin's quest forms: in progress, Blizzard's in-progress atlas alone (no disc behind it),
-    its count; ready to turn in, the turn-in atlas; 24 px, the one you follow 28 (S43, S44); quests to pick
+    its count; ready to turn in, the turn-in atlas; 24 px, the one you follow the same, glowing; quests to pick
     up at 18, their tooltip (F40).
   test_quest_follow: a click on a pin opens its popup (ui/Popup.lua, ui/Track.lua's Actions): "Track" follows its quest
-    (the follow Command, Blizzard's super-tracked quest back in the next observation, its pin 28), "Stop
+    (the follow Command, Blizzard's super-tracked quest back in the next observation, its pin glowing), "Stop
     tracking" stops; "Path to" follows it with the line, "Track" then switches back, "Stop
     pathing" stops; a click on an area with no pin under it follows its quest; a pin over another quest's
     area wins (F31). Each frame one pin a quest.
@@ -114,12 +114,13 @@ def test_quest_pins():
     S = sim.state
     vis = lambda r: r is not None and S[r].shown
     rgba = lambda r: list(S[r].vertex.values())
-    # In progress, followed: as the world map's: the dots at full size on the quest disc, untinted; 28; its count under it.
+    # In progress, followed: as the world map's: the dots at full size on the quest disc, untinted; 24, glowing; its count under it.
     p = pin(ns, G, "Quests", 52)
-    assert S[p].width == 28 and S[p.icon].atlas == "Quest-In-Progress-Icon-yellow" and S[p.icon].width == 28
+    assert S[p].width == 24 and S[p.icon].atlas == "Quest-In-Progress-Icon-yellow" and S[p.icon].width == 24
+    assert vis(p.glow) and S[p.glow].atlas == "UI-QuestPoi-OuterGlow"  # (what you follow: its glow, not a size)
     assert vis(p.ring) and S[p.ring].atlas == "UI-QuestPoi-QuestNumber" and rgba(p.ring) == [1, 1, 1, 1]
     assert not vis(p.inner) and rgba(p.icon) == [1, 1, 1, 1]
-    assert p.glow is None and S[p.count].text == "2/8"  # (no ring round it: Track and Path to show the way)
+    assert S[p.count].text == "2/8"
     # Ready to turn in: its atlas, 19, no halo, no count.
     p = pin(ns, G, "Quests", 106)
     assert S[p].width == 19 and S[p.icon].atlas == "questturnin" and S[p.icon].width == 19
@@ -187,7 +188,7 @@ def test_quest_follow():
     Feel.Set("pills.quest", Feel.Default("pills.quest"))
     assert line.IsShown(line)
     p = pin(ns, G, "Quests", 52)
-    assert sim.state[p].width == 28
+    assert sim.state[p].width == 24 and sim.state[p.glow].shown
     # The pill, while it shows the followed quest, is its pin: its tooltip on a hover, its popup on a click.
     pill, tip = ns.UI.Controls.questLine, G.GameTooltip
     sim.FireScript(pill, "OnEnter", False)

@@ -34,6 +34,7 @@ local Art = {
 		"Waypoint-MapPin-Tracked",                                 -- ui/You.lua: your waypoint
 		"questnormal", "questturnin",                              -- ui/Quests.lua, model/Blips.lua: quests to pick up ("!"), turn-ins ("?")
 		"Quest-In-Progress-Icon-yellow",                        -- ui/Quests.lua: a quest in progress, on the disc (model/Quests.lua)
+		"UI-QuestPoi-OuterGlow",                                   -- ui/Pins.lua: what you track glows
 		"Navigation-Tracked-Arrow", "flightpath",                  -- ui/Popup.lua: the popup's Track and Path glyphs
 		"hud-microbutton-Quest-Up", "hud-microbutton-Quest-Down", "hud-microbutton-highlight", -- its quest log (the micro menu's)
 		"dungeon", "raid",                                         -- ui/Places.lua: dungeon and raid entrances

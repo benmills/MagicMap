@@ -1988,6 +1988,7 @@ ATLASES["poi-graveyard-neutral"] = { 12, 16 }
 ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
 -- the popup's buttons (ui/Popup.lua): their glyphs, the micro menu's quest log
 ATLASES["Navigation-Tracked-Arrow"], ATLASES["flightpath"] = { 22, 18 }, { 32, 32 }
+ATLASES["UI-QuestPoi-OuterGlow"] = { 64, 64 } -- (what you track: ui/Pins.lua)
 for _, a in ipairs({ "hud-microbutton-Quest-Up", "hud-microbutton-Quest-Down", "hud-microbutton-highlight" }) do
 	ATLASES[a] = { 28, 36 }
 end
