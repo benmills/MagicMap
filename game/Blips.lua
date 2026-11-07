@@ -637,38 +637,89 @@ Game.Slash("blips", "what the blip sensor knows, and where from you", function()
 	end
 end)
 
--- /mm probe: why the sensor reads nothing. A 15 x 15 sweep of the Minimap as the sensor probes it, each answer
--- counted by kind (a name, no lines, nil, secret data or lines, a secret line); then, 3 s later, the answer
--- for the real mouse (hover a blip on the Minimap meanwhile).
-local function Kind(data)
+-- /mm probe: why the sensor reads nothing. A 15 x 15 sweep of the Minimap as the sensor probes it, each point read
+-- three ways and counted by what came back: C_TooltipInfo's data (api), a hidden tooltip of our own filled by
+-- SetMinimapMouseover (own), GameTooltip filled so (game); then, 3 s later, the same for the real mouse plus what
+-- Blizzard's own tooltip shows (shown: GameTooltip's first line, as its Minimap_OnUpdate set it).
+local scan -- our hidden tooltip
+local function Text(fs)
+	local t = fs and fs:GetText()
+	if t == nil then return "nil" end
+	if issecretvalue(t) then return "secret" end
+	return t == "" and "empty" or "name"
+end
+local function Api()
+	local data = C_TooltipInfo.GetMinimapMouseover()
 	if not data then return "nil" end
 	if issecretvalue(data) or issecretvalue(data.lines) then return "secret" end
 	local line = data.lines and data.lines[1]
 	if not line then return "empty" end
 	if issecretvalue(line.leftText) then return "secret text" end
-	return "name"
+	return "name", line.leftText
+end
+-- A tooltip's first line with text (its regions' first font string that has any), else its first.
+local function Line(tip)
+	local any
+	for _, r in ipairs({ tip:GetRegions() }) do
+		if r:GetObjectType() == "FontString" then
+			any = any or r
+			local t = r:GetText()
+			if t ~= nil and (issecretvalue(t) or t ~= "") then return r end
+		end
+	end
+	return any
+end
+local function Filled(tip)
+	tip:SetOwner(UIParent, "ANCHOR_NONE")
+	local ok = pcall(tip.SetMinimapMouseover, tip)
+	if not ok then return "error" end
+	local fs = Line(tip)
+	local k = Text(fs)
+	local t = k == "name" and fs:GetText() or nil
+	tip:Hide()
+	return k, t
+end
+local function Read(counts, firsts)
+	for _, way in ipairs({ "api", "own", "game" }) do
+		local k, t
+		if way == "api" then k, t = Api()
+		elseif way == "own" then k, t = Filled(scan)
+		else k, t = Filled(GameTooltip) end
+		local c = counts[way] or {}
+		counts[way] = c
+		c[k] = (c[k] or 0) + 1
+		if t and not firsts[way] then firsts[way] = t end
+	end
+end
+local function Report(prefix, counts, firsts)
+	for _, way in ipairs({ "api", "own", "game" }) do
+		local parts = {}
+		for k, n in pairs(counts[way] or {}) do parts[#parts + 1] = k .. " " .. n end
+		Game.Say(("%s %s: %s%s"):format(prefix, way, table.concat(parts, ", "), firsts[way] and (" (" .. firsts[way] .. ")") or ""))
+	end
 end
 Game.Slash("probe", "why the blip sensor reads nothing: a sweep of the minimap's answers, then the mouse's", function()
+	scan = scan or CreateFrame("GameTooltip", nil, UIParent, "GameTooltipTemplate")
 	local l, b, w, h = Minimap:GetRect()
 	if not l then return Game.Say("probe: the Minimap has no place") end
-	local s, counts, first = Minimap:GetEffectiveScale(), {}, nil
+	local s, counts, firsts = Minimap:GetEffectiveScale(), {}, {}
 	for i = 1, 15 do
 		for j = 1, 15 do
 			Minimap:UpdateMouseoverAtPoint((l + w * i / 16) * s, (b + h * j / 16) * s)
-			local data = C_TooltipInfo.GetMinimapMouseover()
-			local k = Kind(data)
-			counts[k] = (counts[k] or 0) + 1
-			if k == "name" and not first then first = data.lines[1].leftText end
+			Read(counts, firsts)
 		end
 	end
-	local parts = {}
-	for k, n in pairs(counts) do parts[#parts + 1] = k .. " " .. n end
-	Game.Say(("probe: shown %s, scale %.2f; %s%s"):format(tostring(Minimap:IsVisible()), s, table.concat(parts, ", "),
-		first and (" (first: " .. first .. ")") or ""))
-	Game.Say("probe: hover a blip on the minimap; its answer in 3 s")
-	Runtime.After(3, "game: probe", function()
-		local data = C_TooltipInfo.GetMinimapMouseover()
-		local k = Kind(data)
-		Game.Say("probe: the mouse's answer: " .. k .. (k == "name" and (": " .. data.lines[1].leftText) or ""))
+	Report("probe sweep", counts, firsts)
+	Game.Say("probe: hover a blip on Blizzard's minimap now; read in 4 s")
+	Runtime.After(4, "game: probe", function()
+		local fs = Line(GameTooltip)
+		local shown = Text(fs)
+		local data = GameTooltip:IsShown() and GameTooltip.GetTooltipData and GameTooltip:GetTooltipData()
+		Game.Say(("probe mouse shown: %s%s; its data %s"):format(shown,
+			shown == "name" and (" (" .. fs:GetText() .. ")") or "",
+			data == nil and "nil" or issecretvalue(data) and "secret" or "readable"))
+		local c, f = {}, {}
+		Read(c, f)
+		Report("probe mouse", c, f)
 	end)
 end)
