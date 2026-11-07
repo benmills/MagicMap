@@ -687,6 +687,7 @@ local function tooltipLine(self, i, side)
 	if not st[key][i] then
 		local name = st.name and (st.name .. "Text" .. (side or "Left") .. i)
 		st[key][i] = self:CreateFontString(name, "ARTWORK")
+		st[key][i]:SetFontObject(i == 1 and GameTooltipHeaderText or GameTooltipText) -- (GameTooltipTemplate's)
 		if side ~= "Right" and i > 1 then st[key][i]:SetPoint("TOPLEFT", st[key][i - 1], "BOTTOMLEFT", 0, -2) end
 	end
 	return st[key][i]
@@ -1980,13 +1981,16 @@ ATLASES["_UI-Frame-Metal-EdgeBottom"] = { 256, 200 }
 ATLASES["UI-QuestPoi-QuestNumber"], ATLASES["deathrecap-icon-tombstone"] = { 32, 32 }, { 15, 20 }
 ATLASES["poi-graveyard-neutral"] = { 12, 16 }
 ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
--- the quest popup's buttons (ui/QuestTooltip.lua): the world map's quest disc's looks, the micro menu's quest log
+-- the popup's buttons (ui/Popup.lua): Blizzard's red button, the micro menu's quest log, the red delete
 for _, c in ipairs({ "128-redbutton", "128-goldredbutton" }) do
 	for _, k in ipairs({ "", "-pressed" }) do ATLASES[c .. "-left" .. k], ATLASES[c .. "-right" .. k] = { 114, 128 }, { 292, 128 } end
 end
 ATLASES["128-redbutton-highlight"], ATLASES["Navigation-Tracked-Arrow"], ATLASES["flightpath"] = { 441, 128 }, { 22, 18 }, { 32, 32 }
 for _, a in ipairs({ "hud-microbutton-Quest-Up", "hud-microbutton-Quest-Down", "hud-microbutton-highlight" }) do
 	ATLASES[a] = { 28, 36 }
+end
+for _, a in ipairs({ "128-redbutton-delete", "128-redbutton-delete-pressed", "128-redbutton-delete-highlight" }) do
+	ATLASES[a] = { 128, 128 }
 end
 for _, a in ipairs({ "food", "reagents", "poisons", "ammunition", "Professions_Tracking_Fish" }) do ATLASES[a] = true end
 -- Blizzard's minimap art (Forever's Blizzard_Minimap: Diel.lua's day and night, the calendar button's)

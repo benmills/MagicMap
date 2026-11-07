@@ -384,13 +384,15 @@ def test_tooltip_round_trip():
     owner.SetSize(owner, 20, 20)
     owner.SetPoint(owner, "CENTER")
 
-    # A member's tooltip: name in its class colour, level and class, dead; owner false hides it.
+    # A member's tooltip: name in its class colour, then level and class, dead, small; owner false hides it.
     sim.group = L.table_from(["party1"])
     sim.units.party1 = L.table_from({"name": "Ally", "class": "PRIEST", "level": 12, "dead": True, "guid": "Player-1-00000002"})
     ns.Game.Command(L.table_from({"kind": "tooltip", "owner": owner, "anchor": "ANCHOR_RIGHT", "member": "Player-1-00000002"}))
     sim.Step()
     lines = [tip.GetLeftLine(tip, i).GetText(tip.GetLeftLine(tip, i)) for i in range(1, tip.NumLines(tip) + 1)]
-    assert tip.IsShown(tip) and tip.IsOwned(tip, owner) and lines == ["Ally", "Level 12 PRIEST", "|cff808080Dead|r"]
+    assert tip.IsShown(tip) and tip.IsOwned(tip, owner) and lines == ["Ally", "Level 12 PRIEST", "Dead"]
+    small = L.eval("function(fs) return fs:GetFontObject() == GameTooltipTextSmall end")
+    assert [small(tip.GetLeftLine(tip, i)) for i in (1, 2, 3)] == [False, True, True]
     ns.Game.Command(L.table_from({"kind": "tooltip", "owner": False}))
     sim.Step()
     assert not tip.IsShown(tip)

@@ -1,13 +1,12 @@
 -- tooltip (types/view.lua MM.CmdTooltip): GameTooltip's own content for a game thing, on UI's owner.
--- member: a group member's tooltip, its name in its class's colour, level and class, dead
--- (Layers.lua:677-688); button: a Minimap button's own (game/MinimapButtons.lua Game.ButtonTooltip: the gear's Minimap
--- buttons rows); owner false hides it again.
+-- member: a group member's tooltip, its name in its class's colour, then its level and class, dead, small and grey
+-- (Game.TooltipFact: ui/Tip.lua's look; Layers.lua:677-688); button: a Minimap button's own (game/MinimapButtons.lua
+-- Game.ButtonTooltip: the gear's Minimap buttons rows); owner false hides it again.
 
 local _, ns = ...
 local Game = ns.Game
 
-local DEAD = "|cff808080Dead|r"
-
+local DEAD = "Dead"
 local shown -- the owner a member's tooltip was shown on
 
 local function Unit(id)
@@ -26,8 +25,8 @@ local function Member(owner, anchor, id)
 	local className, class = UnitClass(unit)
 	local c, level = RAID_CLASS_COLORS[class], UnitLevel(unit)
 	GameTooltip:AddLine(UnitName(unit), c.r, c.g, c.b)
-	if level > 0 then GameTooltip:AddLine(LEVEL .. " " .. level .. " " .. className, 1, 1, 1) end -- (-1: too high to tell)
-	if UnitIsDeadOrGhost(unit) then GameTooltip:AddLine(DEAD) end
+	if level > 0 then Game.TooltipFact(LEVEL .. " " .. level .. " " .. className) end -- (-1: too high to tell)
+	if UnitIsDeadOrGhost(unit) then Game.TooltipFact(DEAD) end
 	GameTooltip:Show()
 end
 

@@ -10,17 +10,17 @@
 -- alpha 0 with the pins it showed, which would catch it; so while the view has the mouse (nothing over
 -- it took it), each frame Pins finds the pin under the cursor on the canvases shown (the topmost layer's,
 -- the nearest centre), and every click and drag is the view's. Its tooltip: GameTooltip ANCHOR_RIGHT on
--- the pin, its title, then grey 0.85 lines in GameTooltipTextSmall, restored when it hides or clears
--- (Layers.lua:288-301, QuestInfo.lua:251-305); built once a hover, hidden on the one owner-checked path:
--- the cursor off it or the view, the window hidden (ui/Window.lua). A click on a pin, left or right, is its
--- layer's click, or else the track menu (ui/Track.lua: Track, Path to, Stop); every pin layer's rev carries Track's
+-- the pin, its title, then its facts small and DIM (ui/Tip.lua's look: Layers.lua:288-301, QuestInfo.lua:251-305);
+-- built once a hover, hidden on the one owner-checked path: the cursor off it or the view, the window hidden
+-- (ui/Window.lua); none while the popup stands. A click on a pin, left or right, grows its tooltip into the popup
+-- (ui/Popup.lua), its buttons the pin's actions (ui/Track.lua: Track, Path to, their Stops); every pin layer's rev carries Track's
 -- (what you track is never held back to a closer zoom), so a change lays them out again.
 -- A look may carry a tint (look.tint, a resource pin's difficulty: ui/Blips.lua): its icon desaturated, then that
 -- colour.
 
 local _, ns = ...
 local UI, Runtime = ns.UI, ns.Runtime
-local Engine, Window, Camera, Track = UI.Engine, UI.Window, UI.Camera, UI.Track
+local Engine, Window, Camera, Track, Tip = UI.Engine, UI.Window, UI.Camera, UI.Track, UI.Tip
 local Get, Keep, At, Yield = Engine.Get, Engine.Keep, Engine.At, Runtime.Yield
 
 local SIZE = 14 -- px: a pin's (StylePin's default, Layers.lua:344)
@@ -29,7 +29,6 @@ local SCALE = 0.62 -- (c)'s atlas over its disc (Layers.lua:379)
 local DOT, RING_PAD = 0.6, 3 -- (d): the dot's share of size, its ring's past it (Layers.lua:396-399)
 local RING = { 0, 0, 0, 0.9 } -- Layers.lua:396
 local WHITE = { 1, 1, 1 }
-local GREY = 0.85 -- a tooltip's lines under its title (Layers.lua:298)
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- UI.lua:6
 local NONE = {}
 
@@ -254,9 +253,9 @@ end
 -- (optional), shown from that zoom only (Engine.At's). want(minZoom): whether pins from that zoom draw in
 -- this layout (false: they're left out, and shown once a layout would draw them: Engine.From), for fill
 -- to skip a whole kind. rev: Engine.Layer's (Model.Known's revs); the tracked key's goes with it (Track.Rev).
--- opts (optional): lines(e) -> title, lines... for its tooltip (default e.name, e.text); tooltip(GameTooltip,
--- e): fills it itself, owned by the pin (and Shows it); hover(e): the cursor on its pin e, or (nil) off it;
--- click(e, button): a click on it (Pins.Tap), in place of the track menu.
+-- opts (optional): lines(e) -> title, lines... for its tooltip (default e.name, e.text); tooltip(tip, e): fills
+-- tip itself (GameTooltip owned by the pin, or the popup; shown by the caller); hover(e): the cursor on its pin e,
+-- or (nil) off it.
 local function WithTrack(rev)
 	local a, t, s, n = nil, nil, nil, 0
 	return function()
@@ -319,51 +318,20 @@ end
 -- Hover, tooltips, clicks
 ---------------------------------------------------------------------------
 
--- GameTooltip's lines in small type (the facts under a pin's name), each its font back when the tooltip
--- hides or clears (QuestInfo.lua:251-305). Its lines' font strings by name, found once each.
-local left, styled, nstyled = {}, {}, 0
-local function Line(i)
-	if not left[i] then
-		local name = GameTooltip:GetName() .. "TextLeft" .. i
-		for _, r in ipairs({ GameTooltip:GetRegions() }) do
-			if r:GetName() == name then left[i] = r end
-		end
-	end
-	return left[i]
-end
-
--- Lines first + 1 .. last of the shown GameTooltip in small type, then shown again (resized to them).
-function Pins.Small(first, last)
-	for i = first + 1, last do
-		local fs = Line(i)
-		fs:SetFontObject(GameTooltipTextSmall)
-		nstyled = nstyled + 1
-		styled[nstyled] = fs
-	end
-	GameTooltip:Show()
-end
-
-local Restore = Runtime.Wrap("map: tip fonts", function()
-	for i = 1, nstyled do
-		styled[i]:SetFontObject(GameTooltipText)
-		styled[i] = nil
-	end
-	nstyled = 0
-end)
-GameTooltip:HookScript("OnHide", Restore)
-GameTooltip:HookScript("OnTooltipCleared", Restore)
-
 local function Lines(e) return e.name, e.text end
 
--- The title, then each line given grey and small (Layers.lua:288-301).
-local function Fill(title, ...)
-	GameTooltip:AddLine(title or "?")
+-- The title, then each line a fact: small, DIM, wrapping (ui/Tip.lua's look).
+local function Fill(tip, title, ...)
+	tip:AddLine(title or "?", 1, 1, 1)
 	for i = 1, select("#", ...) do
 		local line = select(i, ...)
-		if line then GameTooltip:AddLine(line, GREY, GREY, GREY, true) end
+		if line then Tip.Fact(tip, line) end
 	end
-	GameTooltip:Show()
-	Pins.Small(1, GameTooltip:NumLines())
+end
+
+-- A layer's tooltip for e on tip (its own filler, else its lines).
+local function Tooltip(o, tip, e)
+	if o.tooltip then o.tooltip(tip, e) else Fill(tip, (o.lines or Lines)(e)) end
 end
 
 -- The pin under the view's point (x, y) px from its centre, y down: on the topmost pin layer shown, the
@@ -390,6 +358,7 @@ local function Under(x, y)
 end
 
 local hovered, hoveredAt, showing -- the pin under the cursor, its layer's, the entry its tooltip shows
+local waiting = false -- its tooltip waits for the popup to close
 
 -- The cursor onto pin (nil: off any): the last one's tooltip hidden if it still has it, the new one's built.
 local function Hover(pin, at)
@@ -400,13 +369,11 @@ local function Hover(pin, at)
 	if not pin then return end
 	local o, e = at.opts, pin.entry
 	if o.hover then o.hover(e) end
-	if UI.QuestTooltip.IsOpen() then return end -- (a quest's popup stands: no tooltip over or beside it)
+	waiting = UI.Popup.IsOpen()
+	if waiting then return end -- (a popup stands: no tooltip over or beside it, till it closes)
 	GameTooltip:SetOwner(pin, "ANCHOR_RIGHT")
-	if o.tooltip then
-		o.tooltip(GameTooltip, e)
-	else
-		Fill((o.lines or Lines)(e))
-	end
+	Tooltip(o, GameTooltip, e)
+	GameTooltip:Show()
 end
 
 -- The view has the mouse: nothing over it took it (a button, another addon's pin, a menu), as the spike's
@@ -425,7 +392,7 @@ Runtime.Step("ui", "map: pins", function()
 		local w, h = Window.Size()
 		pin, at = Under(x - w / 2, y - h / 2)
 	end
-	if pin ~= hovered or pin and pin.entry ~= showing then Hover(pin, at) end
+	if pin ~= hovered or pin and (pin.entry ~= showing or waiting and not UI.Popup.IsOpen()) then Hover(pin, at) end
 end, { shownOnly = Window.frame })
 
 -- The pin under the cursor: its MM.Known entry and its layer's name; nil: none.
@@ -433,17 +400,14 @@ function Pins.Hovered()
 	if hovered then return hovered.entry, hoveredAt.layer.name end
 end
 
--- A click on the map (button: "LeftButton" or "RightButton", the same either way): the pin under the cursor's:
--- its layer's click, else the track menu on it (a grid pin's: the entry it stands for; ui/Cluster.lua's Wrap
--- gives a click that too). True when a pin took it.
+-- A click on the map (button: "LeftButton" or "RightButton", the same either way): the pin under the cursor's
+-- popup, its tooltip grown into it with its actions (ui/Popup.lua, ui/Track.lua's Actions; a grid pin's: the entry
+-- it stands for). True when a pin took it.
 function Pins.Tap(button)
 	if UI.Cluster.Tap(button) then return true end
 	if not hovered then return false end
-	local e, click = hovered.entry, hoveredAt.opts.click
-	if click then
-		click(e, button)
-	else
-		Track.Menu(hovered, rawget(e, "real") or e)
-	end
+	local e, o = hovered.entry, hoveredAt.opts
+	UI.Popup.Open(function(tip) Tooltip(o, tip, e) end, Track.Actions(rawget(e, "real") or e))
+	waiting = true -- (its tooltip again once the popup closes)
 	return true
 end

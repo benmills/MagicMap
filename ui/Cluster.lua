@@ -489,7 +489,8 @@ local function GridFill(s)
 	end
 end
 
--- A source's opts for its grid layer: the same tooltip, hover and click, given the entry it stands for.
+-- A source's opts for its grid layer: the same tooltip and hover, given the entry it stands for (a click's popup:
+-- the real one's actions, ui/Pins.lua's Tap).
 local function Wrap(o)
 	local w = {
 		lines = function(p)
@@ -499,7 +500,6 @@ local function Wrap(o)
 	}
 	if o.tooltip then w.tooltip = function(tip, p) o.tooltip(tip, p.real) end end
 	if o.hover then w.hover = function(p) o.hover(p and p.real) end end
-	if o.click then w.click = function(p, button) o.click(p.real, button) end end
 	return w
 end
 

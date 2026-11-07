@@ -34,10 +34,11 @@ local Art = {
 		"Waypoint-MapPin-Tracked",                                 -- ui/You.lua: your waypoint
 		"questnormal", "questturnin",                              -- ui/Quests.lua, model/Blips.lua: quests to pick up ("!"), turn-ins ("?")
 		"Quest-In-Progress-Icon-yellow",                        -- ui/Quests.lua: a quest in progress, on the disc (model/Quests.lua)
-		"128-redbutton-left", "128-redbutton-right", "128-redbutton-left-pressed", "128-redbutton-right-pressed", -- the quest
-		"128-goldredbutton-left", "128-goldredbutton-right", "128-goldredbutton-left-pressed", -- popup's red buttons
+		"128-redbutton-left", "128-redbutton-right", "128-redbutton-left-pressed", "128-redbutton-right-pressed", -- ui/Popup.lua:
+		"128-goldredbutton-left", "128-goldredbutton-right", "128-goldredbutton-left-pressed", -- the popup's red buttons
 		"128-goldredbutton-right-pressed", "128-redbutton-highlight", "Navigation-Tracked-Arrow", "flightpath",
 		"hud-microbutton-Quest-Up", "hud-microbutton-Quest-Down", "hud-microbutton-highlight", -- its quest log (the micro menu's)
+		"128-redbutton-delete", "128-redbutton-delete-pressed", "128-redbutton-delete-highlight", -- its Clear waypoint
 		"dungeon", "raid",                                         -- ui/Places.lua: dungeon and raid entrances
 		"taxinode_alliance", "taxinode_horde", "taxinode_neutral", -- ui/Places.lua: flight points
 		"poi-graveyard-neutral",                                   -- ui/Places.lua: graveyards
@@ -68,7 +69,7 @@ local Art = {
 		"Interface\\Icons\\Ability_Tracking", "Interface\\Icons\\INV_Misc_EngGizmos_01", -- Settings > Pins: rows' art
 		"Interface\\Buttons\\UI-PlusButton-Up", "Interface\\Buttons\\UI-MinusButton-Up", -- ui/Feel.lua: a row's open mark
 		"Interface\\Buttons\\UI-PlusButton-Hilight",
-		"Interface\\Common\\UI-TooltipDivider-Transparent",      -- ui/QuestTooltip.lua: the popup's divider
+		"Interface\\Common\\UI-TooltipDivider-Transparent",      -- ui/Popup.lua: the popup's divider
 	},
 	fonts = { "Fonts\\FRIZQT__.TTF", "Fonts\\MORPHEUS.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS), and the zones' Morpheus
 }

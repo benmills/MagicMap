@@ -329,16 +329,9 @@ local function PanelButton(parent, text, w)
 	return b
 end
 
--- An option's label, with its icon before it: a file or FileDataID (its border cropped), or "A:<atlas>" (if this
--- client has it).
-local function Icon(icon)
-	if not icon then return "" end
-	if type(icon) == "string" and icon:sub(1, 2) == "A:" then
-		return Has(icon:sub(3)) and "|A:" .. icon:sub(3) .. ":16:16|a " or ""
-	end
-	return "|T" .. icon .. ":16:16:0:0:64:64:5:59:5:59|t "
-end
-local function Label(o) return Icon(o[3]) .. o[1] end
+-- An option's label, with its icon before it (ui/Tip.lua's Mark: a file or FileDataID, its border cropped, or
+-- "A:<atlas>" if this client has it).
+local function Label(o) return UI.Tip.Mark(o[3]) .. o[1] end
 
 -- A value as a row shows it (a slider's beside it; the default in a tooltip).
 local function Shown(k, v)
@@ -364,14 +357,12 @@ local function Shown(k, v)
 	return tostring(v)
 end
 
--- A tooltip: white title, gold body (as the gear's rows: ui/Menus.lua), then the default in grey. Hooked, so a
--- template's own hover (the dropdown's, a swatch's) stays.
+-- A tooltip: a description, white title, gold body, then the default in DIM (ui/Tip.lua's Describe, as the gear's
+-- rows: ui/Menus.lua). Hooked, so a template's own hover (the dropdown's, a swatch's) stays.
 local function Tipped(f, k, title)
 	f:HookScript("OnEnter", Runtime.Wrap("feel: tip", function()
 		GameTooltip:SetOwner(f, "ANCHOR_RIGHT")
-		GameTooltip:SetText(title or k.label, 1, 1, 1)
-		GameTooltip:AddLine(k.tip, 1, 0.82, 0, true)
-		if Resettable(k) then GameTooltip:AddLine("Default: " .. Shown(k, Default(k)), 0.6, 0.6, 0.6) end
+		UI.Tip.Describe(GameTooltip, title or k.label, k.tip, Resettable(k) and "Default: " .. Shown(k, Default(k)) or nil)
 		GameTooltip:Show()
 	end))
 	f:HookScript("OnLeave", Runtime.Wrap("feel: tip", function() GameTooltip:Hide() end))
@@ -732,9 +723,7 @@ local function Undo(row, w, k)
 	b:Hide()
 	Script(b, "OnClick", "feel: undo", function() Feel.Set(k.key, Default(k)) end)
 	b:HookScript("OnEnter", Runtime.Wrap("feel: tip", function()
-		GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
-		GameTooltip:SetText("Back to " .. Shown(k, Default(k)), 1, 1, 1)
-		GameTooltip:Show()
+		UI.Tip.Label(b, "Back to " .. Shown(k, Default(k)), "ANCHOR_RIGHT")
 	end))
 	b:HookScript("OnLeave", Runtime.Wrap("feel: tip", function() GameTooltip:Hide() end))
 	w.undo = b
@@ -764,9 +753,7 @@ local function Opener(row, w, k, x)
 		Layout(BY_PAGE[k.page])
 	end)
 	b:HookScript("OnEnter", Runtime.Wrap("feel: tip", function()
-		GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
-		GameTooltip:SetText(opened[k.key] and "Hide its settings" or "Show its settings", 1, 1, 1)
-		GameTooltip:Show()
+		UI.Tip.Label(b, opened[k.key] and "Hide its settings" or "Show its settings", "ANCHOR_RIGHT")
 	end))
 	b:HookScript("OnLeave", Runtime.Wrap("feel: tip", function() GameTooltip:Hide() end))
 	w.opener = b
@@ -1041,8 +1028,7 @@ local function Tab(p)
 	if p.tip then
 		b:HookScript("OnEnter", Runtime.Wrap("feel: tip", function()
 			GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
-			GameTooltip:SetText(p.title, 1, 1, 1)
-			GameTooltip:AddLine(p.tip, 1, 0.82, 0, true)
+			UI.Tip.Describe(GameTooltip, p.title, p.tip)
 			GameTooltip:Show()
 		end))
 		b:HookScript("OnLeave", Runtime.Wrap("feel: tip", function() GameTooltip:Hide() end))

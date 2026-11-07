@@ -118,11 +118,12 @@ quest to hand in) there, so it goes as soon as you accept.
 The quest pill at the bottom left counts the quests in Durotar.*
 
 **Where to go.** Your target is your corpse while you're a ghost, else the quest you follow, else
-your waypoint. **Click any icon** (left or right; your waypoint's own too) for its menu: Track and Path to (each Stop tracking or Stop
-pathing while it's what that icon has), then the map's rows (Clear waypoint). Either sets the game's
-waypoint at the icon, and the title and the quest pill go to it; what you track is never grouped into a pill
-and shows at any zoom. A quest icon's rows are "Track quest" and "Path to quest" (each follows the quest) and
-"Open in quest log". The two are exclusive: choosing one replaces the other.
+your waypoint. **Click any icon** (left or right; your waypoint's own too): its tooltip grows into a small popup
+with a row of buttons, Track and Path to (each Stop tracking or Stop pathing while it's what that icon has; each
+names itself on hover). Either sets the game's waypoint at the icon, and the title and the quest pill go to it;
+what you track is never grouped into a pill and shows at any zoom. A quest icon's Track and Path to follow the
+quest, and a third button opens it in the quest log; your waypoint's own has Clear waypoint. The two are exclusive:
+choosing one replaces the other. The popup stays till you pick, click off it or press Escape.
 **Track** shows the way with Blizzard's gold arrow alone, placed by the walk to the target (around cliffs, lava
 and water): it stands along that way a short distance from you (48 px by default), pointing along it, so a
 route that turns north first points north; it comes in as you near the target, settles beside its icon and fades
@@ -136,7 +137,7 @@ Tracking > Frame the way). The big map is left where you have it. The line's sty
 weight, colour, glow, breathing, opacity and outline are in Settings > Pathing. Your corpse always gets the line,
 and the view comes back to you.
 Both stay through a /reload. While you follow a quest, the quest pill is its icon: hover it for the quest's
-tooltip, click it for its menu (Stop tracking is one click away). Clicking a quest's area follows it (Track).
+tooltip, click it for its popup (Stop tracking is one click away). Clicking a quest's area follows it (Track).
 Ctrl-click sets the game's waypoint (Ctrl-right-click clears
 it), Shift-click opens chat with a `/way` line, and right-click off an icon offers both. While the map isn't following you (you dragged it, or flew to a zone),
 a round refresh button above the zoom buttons glides back to you. The mode button (Blizzard's red expand) turns to

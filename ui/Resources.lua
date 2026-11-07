@@ -92,7 +92,7 @@ end)
 -- The gear's row (ui/Menus.lua's Gear): "Keep tracking: <name>", a radio a tracker and Off; none while the character
 -- knows no tracking spell.
 local Run = Runtime.Wrap("map: keep pick", function(fn, arg) fn(arg) end)
-local function Mark(texture) return texture and "|T" .. texture .. ":16:16|t  " or "" end
+local Mark = UI.Tip.Mark -- (a spell's icon, an Interface\Icons one: cropped)
 function Resources.Menu(root)
 	local spells = Spells()
 	if not spells[1] then return end

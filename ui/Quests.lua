@@ -4,10 +4,10 @@
 -- ready to turn in, the "questturnin" "?" the atlas Model names; 24 px (the "?" 19), the one you follow a
 -- little bigger, 28 (23).
 -- Hovering one lights its area (ui/Areas.lua) and shows its tooltip (ui/QuestTooltip.lua); a click grows the
--- tooltip into its popup (QuestTooltip.Open), whose rows (ui/Track.lua's QuestRows) follow it ("Track quest",
--- "Path to quest"), again to stop, or open it in the quest log.
+-- tooltip into the popup (ui/Popup.lua), whose buttons (ui/Track.lua's Actions) follow it (Track, Path to), again
+-- to stop, or open it in the quest log.
 -- And quests to pick up (Layers.lua:636-664): Known("offers"), "questnormal"
--- (the "!") at 18, their tooltip the quest, its line's name and "Quest to pick up". Over the other pins.
+-- (the "!") at 18, their tooltip the quest, then "Quest to pick up" and its line's name. Over the other pins.
 -- Their types (Settings > Pins, ui/PinTypes.lua): In progress, To turn in (a quest ender's blip's "?" too) and To pick
 -- up (a quest giver's "!"), never grouped; the "?" and "!" with Blizzard's other quest art to choose from. 2.1's
 -- "Quest icon size" (quests.scale, a factor on top of the icon size) is moved, once, onto In progress's and To turn
@@ -20,7 +20,7 @@ local Pins, Areas = UI.Pins, UI.Areas
 local SIZE, FOLLOWED = 24, 28 -- in progress (Layers.lua:611: 22, 26, a little bigger)
 local TURN_IN, TURN_IN_FOLLOWED = 19, 23 -- ready to turn in: the "?" a little smaller
 local OFFER = 18 -- Layers.lua:657
-local DIM = "|cff9d9d9d" -- Layers.lua:652
+local SEP = UI.Tip.SEP
 local UNDER = "UI-QuestPoi-QuestNumber" -- the world map's quest disc: dark, its gold ring (untinted)
 local ACTIVE = { atlas = "Quest-In-Progress-Icon-yellow", under = UNDER, scale = 1 } -- (model/Quests.lua's, its page sample)
 local Types, Feel = UI.PinTypes, UI.Feel
@@ -69,8 +69,7 @@ end
 UI.Quests = Pins.Layer("quests", 15, function(put)
 	for _, e in ipairs(Model.Known("quests")) do put(e, Look(e)) end
 end, function() return select(2, Model.Known("quests")) end, {
-	tooltip = function(_, e) UI.QuestTooltip.Show(e) end,
-	click = function(e) UI.QuestTooltip.Open(e) end, -- (the tooltip grows into its popup)
+	tooltip = UI.QuestTooltip.Fill, -- (a click grows it into the popup: ui/Pins.lua's Tap)
 	hover = Areas.Hover,
 	-- (never grouped: a quest always stands where it is)
 })
@@ -88,7 +87,7 @@ UI.Offers = Pins.Layer("offers", 14, function(put)
 		put(e, look)
 	end
 end, function() return select(2, Model.Known("offers")) end, {
-	lines = function(e) return e.name, e.line, DIM .. e.text .. "|r" end, -- Layers.lua:652-655
+	lines = function(e) return e.name, e.text .. (e.line and SEP .. e.line or "") end, -- Layers.lua:652-655: "Quest to pick up"
 	-- (never grouped, as the quests)
 })
 

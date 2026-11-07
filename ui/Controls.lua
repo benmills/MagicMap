@@ -4,7 +4,7 @@
 -- fill of how far you've come; else your quests in this zone), bottom right the zoom buttons, above them the
 -- recenter while the map isn't following you, and, while the zoom isn't the default, the reset above those. They and
 -- the grip fade in while you hover (Core.lua:394-408; away from the map, as faint as Buttons at rest: hidden by
--- default), and each has a tiny tip (Core.lua:1454-1497). Their settings (ui/Feel.lua): General > Map window >
+-- default), and each has a tip, its name (Core.lua:1454-1497). Their settings (ui/Feel.lua): General > Map window >
 -- Buttons at rest, and the Quest pill page (declared at the bottom: what it shows and says, its fill, its fade, its
 -- backing and size).
 
@@ -18,7 +18,7 @@ local PAD = 12 -- from the map's edges (Core.lua:341)
 local FADE = 0.15 -- s, hover reveal (Core.lua:402)
 local REACH = HEADER_ICON + 12 -- the title's line counts as over the map (Core.lua:399)
 local GRIP_ALPHA = 0.8 -- Core.lua:320
-local TIP_DELAY, TIP_LIFE, TIP_FADE = 0.35, 2.5, 0.12 -- s (Core.lua:1457)
+local TIP_DELAY = 0.35 -- s (Core.lua:1457)
 local FONT = GameFontNormal:GetFont()
 
 local Controls = {}
@@ -137,8 +137,9 @@ Controls.zoomReset = zoomReset
 -- past empty, and a target picked from across the zone starts empty however far it is), full on arriving (inside
 -- its area). Worked out every EVERY s from Model's quest list, your zone and the target; its text fitted again only
 -- when it changes. It fades with the other controls, but stays shown while it shows a target; on the followed quest
--- it is that quest's pin: hovering it shows the quest's tooltip and lights its area, a click (either button) opens
--- its menu (ui/Track.lua: Stop tracking or pathing, the other mode, Open in quest log). Otherwise it takes no mouse.
+-- it is that quest's pin: hovering it shows the quest's tooltip and lights its area, a click (either button) grows it
+-- into the popup (ui/Popup.lua; ui/Track.lua's Actions: Stop tracking or pathing, the other mode, Open in quest log).
+-- Otherwise it takes no mouse.
 ---------------------------------------------------------------------------
 
 local LINE_H, LINE_PAD = 15, 7
@@ -431,13 +432,15 @@ local function YourZone()
 	return here
 end
 
--- The followed quest's pin, in the pill: its tooltip and area under the cursor, its menu on a click.
+-- The followed quest's pin, in the pill: its tooltip and area under the cursor, its popup on a click.
 line:SetScript("OnEnter", Runtime.Wrap("map: quest pill", function()
 	local e = followedQuest
 	if not e then return end
 	UI.Areas.Hover(e)
-	GameTooltip:SetOwner(line, "ANCHOR_TOPRIGHT")
-	UI.QuestTooltip.Show(e)
+	if UI.Popup.IsOpen() then return end
+	GameTooltip:SetOwner(line, "ANCHOR_RIGHT")
+	UI.QuestTooltip.Fill(GameTooltip, e)
+	GameTooltip:Show()
 end))
 line:SetScript("OnLeave", Runtime.Wrap("map: quest pill", function()
 	UI.Areas.Hover(nil)
@@ -446,9 +449,8 @@ end))
 line:SetScript("OnMouseUp", Runtime.Wrap("map: quest pill", function()
 	local e = followedQuest
 	if not e then return end
-	if GameTooltip:IsOwned(line) then GameTooltip:Hide() end
-	UI.Track.Menu(line, e)
-end, Runtime.FRAME_MS))
+	UI.Popup.Open(function(tip) UI.QuestTooltip.Fill(tip, e) end, UI.Track.Actions(e))
+end))
 
 -- What the line last said (and the map's width: its cap), so it's fitted again only on a change; the fill each look.
 local lastPre, lastHead, lastTail, lastW, lastKind, lastFrac, lastFillW
@@ -605,47 +607,32 @@ Runtime.Step("ui", "map: controls", function(elapsed)
 end, { shownOnly = Window.frame })
 
 ---------------------------------------------------------------------------
--- Tips: a word or two in small type just above a button, after a moment's hover, gone when
--- you leave, click, open a menu, or after a couple of seconds anyway
+-- Tips: a button's name, a GameTooltip title alone right of it (ui/Tip.lua's Label), after a moment's hover; gone
+-- when you leave, click or open a menu
 ---------------------------------------------------------------------------
 
-local tip = CreateFrame("Frame", nil, UIParent)
-tip:SetFrameStrata("TOOLTIP")
-tip:Hide()
-local plate = tip:CreateTexture(nil, "BACKGROUND")
-plate:SetAllPoints()
-plate:SetColorTexture(0, 0, 0, 0.6)
-local text = tip:CreateFontString(nil, "OVERLAY")
-text:SetFont(FONT, 11, "")
-text:SetTextColor(0.95, 0.9, 0.8)
-text:SetPoint("CENTER")
-Controls.tip, Controls.tipText = tip, text
-
+local wait = CreateFrame("Frame", nil, UIParent) -- shown while a tip waits for its moment
+wait:Hide()
 Runtime.Step("ui", "map: tip", function(elapsed)
-	tip.t = tip.t + elapsed
-	if tip.t > TIP_DELAY + TIP_LIFE or Menus.IsOpen() or not tip.owner:IsMouseOver() then
-		tip:Hide()
-		return
+	wait.t = wait.t + elapsed
+	if Menus.IsOpen() or not wait.owner:IsMouseOver() then
+		wait:Hide()
+	elseif wait.t >= TIP_DELAY then
+		wait:Hide()
+		UI.Tip.Label(wait.owner, wait.fn())
 	end
-	if tip.t >= TIP_DELAY then
-		if not tip.placed then
-			tip.placed = true
-			text:SetText(tip.fn())
-			tip:SetSize(text:GetStringWidth() + 10, text:GetStringHeight() + 6)
-			tip:ClearAllPoints()
-			tip:SetPoint("BOTTOM", tip.owner, "TOP", 0, 3)
-		end
-		tip:SetAlpha(math.min(1, (tip.t - TIP_DELAY) / TIP_FADE))
-	end
-end, { shownOnly = tip })
+end, { shownOnly = wait })
 
-local Hide = Runtime.Wrap("map: tip hide", function() tip:Hide() end)
+local function Hide(self)
+	wait:Hide()
+	if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
+end
+Hide = Runtime.Wrap("map: tip hide", Hide)
 
 function Controls.Tip(button, fn)
 	button:HookScript("OnEnter", Runtime.Wrap("map: tip show", function(self)
-		tip.owner, tip.fn, tip.t, tip.placed = self, fn, 0, false
-		tip:SetAlpha(0)
-		tip:Show()
+		wait.owner, wait.fn, wait.t = self, fn, 0
+		wait:Show()
 	end))
 	button:HookScript("OnLeave", Hide)
 	button:HookScript("OnMouseDown", Hide)
@@ -654,7 +641,7 @@ Controls.Tip(zoomIn, function() return "Zoom in" end)
 Controls.Tip(zoomOut, function() return "Zoom out" end)
 Controls.Tip(zoomReset, function() return "Reset zoom" end)
 Controls.Tip(recenter, function() return "Back to you" end)
-Controls.Tip(gear, function() return "Layers & settings" end)
+Controls.Tip(gear, function() return "Settings" end)
 
 ns.Game.Command({ kind = "slash", name = "follow", help = "follow you on the map, or stop",
 	fn = ToggleFollow })

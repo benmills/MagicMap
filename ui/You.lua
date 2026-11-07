@@ -98,6 +98,6 @@ UI.Waypoint = UI.Pins.Layer("waypoint", PINS, function(put)
 		if not UI.Track.Covers(e.pos) then put(e, WAYPOINT) end -- (a tracked icon stands on it: that reads as the target)
 	end
 end, function() return select(2, Model.Known("waypoint")) end, {
-	lines = function() return "Waypoint", "Ctrl-right-click the map to clear" end, -- Layers.lua:629
+	lines = function() return "Waypoint" end, -- Layers.lua:629 (its popup clears it: ui/Track.lua's Actions)
 })
 -- (no gear rows: the corpse and the waypoint are always drawn while there's one)

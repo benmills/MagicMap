@@ -6,7 +6,7 @@
 -- where the client has neither (StylePin's (d)). And what the game shows near you now (Landmarks.lua:73-108): Known("vignettes"),
 -- rares and treasures, 20. One pin layer for them all, as the spike's one canvas (Layers.lua:418-430): a
 -- kind turned off is left out of its next layout. Tooltips: the name, then what it is (a flight point, a
--- graveyard), its description (a dungeon, a point of interest), "Nearby now" (a vignette).
+-- graveyard, a dungeon or raid), its description (a dungeon's, a point of interest's), "Nearby now" (a vignette).
 -- Their types (Settings > Pins): each kind's (Places), and the vignettes' (Rares & treasures); the art is the client's
 -- for each place, so no icon to choose.
 
@@ -18,7 +18,7 @@ local LayerOn = Engine.LayerOn
 local LEVEL = 11 -- with the rares (the spike's landmarks): under the blips (12)
 local GOLD = { 1, 0.82, 0 } -- a flight point's, neutral (Layers.lua:459)
 local FACTION = { H = { 0.9, 0.2, 0.2 }, A = { 0.3, 0.5, 1 } } -- Layers.lua:459
-local VIGNETTE = { size = 20, color = { 1, 0.4, 0.3 }, line = "|cff808080Nearby now|r", sample = "vignetteloot" } -- Landmarks.lua:94-95
+local VIGNETTE = { size = 20, color = { 1, 0.4, 0.3 }, line = "Nearby now", sample = "vignetteloot" } -- Landmarks.lua:94-95
 
 -- Each kind of place: its layer's key (the gear's, Layers.lua:48-53, Landmarks.lua:142), size and fallback
 -- colour (Layers.lua:470-534, Landmarks.lua:135), its tooltip's line (nil: the place's own text); its type's name and
@@ -97,6 +97,7 @@ end
 
 local function Lines(e)
 	if e.kind == "vignettes" then return e.name, VIGNETTE.line end
+	if e.place == "dungeon" then return e.name, e.icon.atlas == "raid" and "Raid" or "Dungeon", e.text end
 	return e.name, KINDS[e.place].line or e.text
 end
 

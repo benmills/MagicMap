@@ -4,9 +4,9 @@ clicks in ui/Areas.lua), end to end from the sim's quest log through Game's part
   test_quest_pins: StylePin's quest forms: in progress, Blizzard's in-progress atlas alone (no disc behind it),
     its count; ready to turn in, the turn-in atlas; 24 px, the one you follow 28 (S43, S44); quests to pick
     up at 18, their tooltip (F40).
-  test_quest_follow: a click on a pin opens its popup (ui/QuestTooltip.lua, ui/Track.lua's rows): "Track quest" follows its quest
+  test_quest_follow: a click on a pin opens its popup (ui/Popup.lua, ui/Track.lua's Actions): "Track" follows its quest
     (the follow Command, Blizzard's super-tracked quest back in the next observation, its pin 28), "Stop
-    tracking" stops; "Path to quest" follows it with the line, "Track quest" then switches back, "Stop
+    tracking" stops; "Path to" follows it with the line, "Track" then switches back, "Stop
     pathing" stops; a click on an area with no pin under it follows its quest; a pin over another quest's
     area wins (F31). Each frame one pin a quest.
   test_quest_pins_each_frame: one pin a quest every frame (the harness's invariants, T.Invariants, after
@@ -14,9 +14,9 @@ clicks in ui/Areas.lua), end to end from the sim's quest log through Game's part
     the log abandoned (F26).
   test_quest_tooltip: the tooltip's lines in QuestInfo.lua's order and type (S63): the level in a pill beside
     the title (under it for a long one), the tag and group size on the facts line, the object an item is in
-    (never who drops it), no line for who takes it in, the click hint; a click grows it into the popup in
-    its place: the same lines, the hint become the pin's buttons; it stays till a row, a click off it or
-    Escape; without QuestieDB's data, no source lines (F28).
+    (never who drops it), no line for who takes it in, no hint; a click grows it into the popup in its place:
+    the same lines, then a divider and the pin's buttons; it stays till a button, a click off it or Escape;
+    without QuestieDB's data, no source lines (F28).
 """
 from test_addon import boot, errors
 
@@ -132,7 +132,7 @@ def test_quest_pins():
     sim.FireScript(view, "OnEnter", False)
     sim.Step()
     lines = [S[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)]
-    assert S[tip].shown and lines == ["Wolves Across the Border", "|cff9d9d9dQuest to pick up|r"]
+    assert S[tip].shown and lines == ["Wolves Across the Border", "Quest to pick up"]
     assert L.eval("rawequal")(S[tip.GetLeftLine(tip, 2)].fontObject, G.GameTooltipTextSmall)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
@@ -146,18 +146,19 @@ def test_quest_follow():
     def followed():
         return {e.quest for e in known(ns, "quests") if e.followed}
 
-    QT = ns.UI.QuestTooltip
+    QT = ns.UI.Popup
 
     def click(col, row, row_text=None, button="LeftButton", rows=None):
-        """A click there (either button: the same); on a pin, its popup opens: its row row_text picked (rows:
-        its first two, Open in quest log under them; default row_text, Path to quest)."""
+        """A click there (either button: the same); on a pin, its popup opens: its button row_text picked (rows:
+        its first two, Open in quest log after them; default row_text, Path to)."""
         G.Over(col, row)
         sim.Step()  # (the pin under it found)
         sim.menu = None
         sim.Click(view, button, sim.cursorX, sim.cursorY, "screen")
         if row_text:
-            shown = [b for b in QT.rows.values() if b.IsShown(b)]
-            assert QT.IsOpen() and [b.label for b in shown] == list(rows or (row_text, "Path to quest")) + ["Open in quest log"]
+            shown = list(QT.buttons.values())
+            assert all(b.IsShown(b) for b in shown)
+            assert QT.IsOpen() and [b.label for b in shown] == list(rows or (row_text, "Path to")) + ["Open in quest log"]
             b = next(b for b in shown if b.label == row_text)
             sim.FireScript(b, "OnClick", "LeftButton", False)
             assert not QT.IsOpen()
@@ -169,7 +170,7 @@ def test_quest_follow():
         keys = [lay.front.pools.pin["keys"][i] for i in range(1, lay.front.pools.pin.n + 1)]
         assert sorted(keys) == ["quest:47", "quest:52"] and sum(c.alpha > 0 for c in lay.canvases.values()) == 1
 
-    click(31.8, 49.7, "Track quest")  # Frontier's pin, in Gold Dust's area: the pin wins
+    click(31.8, 49.7, "Track")  # Frontier's pin, in Gold Dust's area: the pin wins
     assert sim.superTracked == 52 and sim.watched == 52 and followed() == {52}
     sim.cursorX, sim.cursorY = 5, 5  # off the window: the tracked quest's pill stays, at full alpha
     sim.Run(1)
@@ -187,29 +188,30 @@ def test_quest_follow():
     assert line.IsShown(line)
     p = pin(ns, G, "Quests", 52)
     assert sim.state[p].width == 28
-    # The pill, while it shows the followed quest, is its pin: its tooltip on a hover, its menu on a click.
+    # The pill, while it shows the followed quest, is its pin: its tooltip on a hover, its popup on a click.
     pill, tip = ns.UI.Controls.questLine, G.GameTooltip
     sim.FireScript(pill, "OnEnter", False)
     assert sim.state[tip].shown and sim.state[tip.GetLeftLine(tip, 1)].text.endswith("Protect the Frontier")
     sim.menu = None
     sim.FireScript(pill, "OnMouseUp", "RightButton")
-    assert [e.text for e in sim.MenuItems("button").values()][:3] == ["Stop tracking", "Path to quest", "Open in quest log"]
-    sim.MenuItems("button")[3].onSelect()  # Open in quest log: the client's (the sim's L opens the world map)
+    assert sim.menu is None and QT.IsOpen() and not sim.state[tip].shown
+    assert [b.label for b in QT.buttons.values()] == ["Stop tracking", "Path to", "Open in quest log"]
+    sim.FireScript(QT.buttons[3], "OnClick", "LeftButton", False)  # Open in quest log: the client's (the sim's L opens the world map)
     sim.Run(0.2)
     assert G.WorldMapFrame.IsShown(G.WorldMapFrame)
     G.ToggleQuestLog()
     sim.FireScript(pill, "OnLeave", False)
     sim.FireScript(view, "OnEnter", False)
-    click(31.8, 49.7, "Stop tracking", "RightButton")  # again (a right click, the same menu): none
+    click(31.8, 49.7, "Stop tracking", "RightButton")  # again (a right click, the same popup): none
     assert sim.superTracked == 0 and followed() == set() and sim.state[pin(ns, G, "Quests", 52)].width == 24
-    # Path to it: followed, the line (ui/Path.lua) not the arrow; Track quest switches back (still followed), Path
-    # to quest again, then Stop pathing: none.
-    click(31.8, 49.7, "Path to quest", rows=("Track quest", "Path to quest"))
+    # Path to it: followed, the line (ui/Path.lua) not the arrow; Track switches back (still followed), Path
+    # to again, then Stop pathing: none.
+    click(31.8, 49.7, "Path to", rows=("Track", "Path to"))
     assert sim.superTracked == 52 and ns.UI.saved.path.quest == 52 and ns.UI.Track.Pathed(Model.Target())
-    click(31.8, 49.7, "Track quest", rows=("Track quest", "Stop pathing"))
+    click(31.8, 49.7, "Track", rows=("Track", "Stop pathing"))
     assert sim.superTracked == 52 and ns.UI.saved.path is None and not ns.UI.Track.Pathed(Model.Target())
-    click(31.8, 49.7, "Path to quest", rows=("Stop tracking", "Path to quest"))
-    click(31.8, 49.7, "Stop pathing", rows=("Track quest", "Stop pathing"))
+    click(31.8, 49.7, "Path to", rows=("Stop tracking", "Path to"))
+    click(31.8, 49.7, "Stop pathing", rows=("Track", "Stop pathing"))
     assert sim.superTracked == 0 and followed() == set() and ns.UI.saved.path is None
     click(32.15, 49.7)  # Gold Dust's area, no pin under it
     assert sim.superTracked == 47 and followed() == {47}
@@ -274,29 +276,30 @@ def test_quest_tooltip():
                 for i in range(1, t.NumLines(t) + 1)]
     content = [
         ("Kobold Candles", False),  # its level beside it, in a pill
-        ("|cffff8040Group 3|r", True),  # its tag (F28); no level here
-        ("Large Candle: 3/8", False),
+        ("|cff9d9d9dGroup 3|r", True),  # its tag (F28), a fact; no level here
+        ("Large Candle: 3/8", True),
         ("    |cff9d9d9dFrom|r |cffffffffCandle Crate|r", True),  # where it's found; its droppers never named
-        (" ", True),  # (and no line for who takes it in)
-    ]
-    assert lines(tip) == content + [("|cff9d9d9dClick for options|r", True)]
+    ]  # (and no line for who takes it in, no hint)
+    assert lines(tip) == content
     level = tip.GetRightLine(tip, 1)
     assert S[level].text == "|cffffd1007|r" and same(S[level].fontObject, G.GameTooltipTextSmall)
     assert list(S[tip.GetLeftLine(tip, 1)].textColor.values()) == [1, 0.82, 0]
     pill = [r for r in tip.GetRegions(tip) if S[r].type == "Texture" and S[r].shown]
     assert len(pill) == 3 and all(S[r].texture == "Interface\\CharacterFrame\\TempPortraitAlphaMask" for r in pill)
 
-    # A click: the tooltip grows into the popup where it stood, the same lines, then the pin's rows; the hover's
-    # tooltip gone (and kept away while the popup shows this quest).
-    QT = ns.UI.QuestTooltip
-    pop, top = QT.popup, (tip.GetLeft(tip), tip.GetTop(tip))
+    # A click: the tooltip grows into the popup where it stood, the same lines, then the pin's buttons; the hover's
+    # tooltip gone (and kept away while the popup stands).
+    QT = ns.UI.Popup
+    pop, top = QT.frame, (tip.GetLeft(tip), tip.GetTop(tip))
     sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")
     assert QT.IsOpen() and not S[tip].shown and sim.menu is None
     assert (pop.GetLeft(pop), pop.GetTop(pop)) == top
-    rows = ["Track quest", "Path to quest", "Open in quest log"]
-    assert lines(pop) == content + [(" ", False), (" ", False)]  # (the buttons' lines)
-    shown = [b for b in QT.rows.values() if b.IsShown(b)]
-    assert [b.label for b in shown] == rows
+    rows = ["Track", "Path to", "Open in quest log"]
+    got = lines(pop)
+    assert got[:-3] == content and got[-3] == (" ", True) and got[-1] == (" ", False)  # (the divider's, the buttons')
+    assert got[-2][0].strip() == "" and len(got[-2][0]) >= 4  # (the buttons' line: as wide as they are)
+    shown = list(QT.buttons.values())
+    assert all(b.IsShown(b) for b in shown) and [b.label for b in shown] == rows
     # small buttons: Blizzard's red button with the tracked arrow and the boot; the micro menu's quest log
     assert [S[b.glyph].atlas for b in shown[:2]] == ["Navigation-Tracked-Arrow", "flightpath"]
     assert S[shown[0].l].texture == "atlas/128-redbutton-left" and S[S[shown[2]]["normal"]].atlas == "hud-microbutton-Quest-Up"
@@ -322,7 +325,6 @@ def test_quest_tooltip():
     p = pin(ns, G, "Quests", 60)
     assert S[p.count].text == "3/8"
     assert [S[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)] == [
-        "The Unusually Long Name of the Kobold Candles of Elwynn Forest", "|cffffd1007|r", "Large Candle: 3/8", " ",
-        "|cff9d9d9dClick for options|r"]
+        "The Unusually Long Name of the Kobold Candles of Elwynn Forest", "|cffffd1007|r", "Large Candle: 3/8"]
     assert not S[tip.GetRightLine(tip, 1)].text
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

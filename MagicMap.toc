@@ -122,7 +122,9 @@ game\parts\Clock.lua
 
 # UI
 ui\Camera.lua
+ui\Tip.lua
 ui\Window.lua
+ui\Popup.lua
 ui\Feel.lua
 ui\Chrome.lua
 ui\Engine.lua

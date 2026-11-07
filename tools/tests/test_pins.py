@@ -1,7 +1,7 @@
 """The pin store (ui/Pins.lua) on the simulated client: one store diffed by id (200 pins, one changed:
 that pin alone re-set; the rev bumped with nothing changed, or left as it is: none); StylePin's forms
 (a)-(d) and count; a pin's tooltip (built once a hover, its lines small and grey, hidden off it with
-its fonts back), a click on it, and a drag over it panning the map; the pin inventory (Settings > Pins: every type a
+its fonts back), a click on it (its popup), and a drag over it panning the map; the pin inventory (Settings > Pins: every type a
 row and Blizzard's art) and its choices on the map and in a group's pill."""
 import os
 
@@ -12,15 +12,14 @@ ROOT = os.path.join(TESTS, "..", "..")
 
 # A test kind's layer: n pins about the view's centre (Known-shaped), each its look; t.rev its rev.
 LAYER = """function(Pins, n, cx, cy, looks)
-    local t = { rev = 1, list = {}, looks = looks, clicks = {} }
+    local t = { rev = 1, list = {}, looks = looks }
     for i = 1, n do
         t.list[i] = { key = "t" .. i, kind = "test", name = "Pin " .. i, text = "Line " .. i, live = true,
             pos = { inst = 0, col = cx + (i % 20 - 10) * 0.01, row = cy + (math.floor(i / 20) - 5) * 0.01 } }
     end
     t.layer = Pins.Layer("test", 7, function(put)
         for i, e in ipairs(t.list) do put(e, t.looks[(i - 1) % #t.looks + 1]) end
-    end, function() return t.rev end,
-        { click = function(e, button) t.clicks[#t.clicks + 1] = e.key .. " " .. button end })
+    end, function() return t.rev end)
     return t
 end"""
 
@@ -141,12 +140,14 @@ def test_pin_tooltip_click_drag():
     same = L.eval("function(a, b) return a == b end")
     assert S[tip].shown and same(S[tip].owner, pin) and Pins.Hovered()[0].key == "t1" and Pins.Hovered()[1] == "test"
     assert S[line[1]].text == "Pin 1" and S[line[2]].text == "Line 1"
-    assert list(S[line[2]].textColor.values()) == [0.85] * 3
+    assert list(S[line[2]].textColor.values()) == [0x9d / 255] * 3  # (ui/Tip.lua's DIM)
     assert same(S[line[2]].fontObject, G.GameTooltipTextSmall)
     assert sim.calls.SetOwner - owners == 1  # built once a hover, not each frame
 
-    sim.Click(view, "LeftButton")  # a click on the view (ui/Window.lua's release): the pin under it
-    assert list(t.clicks.values()) == ["t1 LeftButton"]
+    sim.Click(view, "LeftButton")  # a click on the view (ui/Window.lua's release): the pin under it, its popup
+    pop = ns.UI.Popup
+    assert pop.IsOpen() and not S[tip].shown and S[S[pop.frame].lines[1]].text == "Pin 1"
+    assert [b.label for b in pop.buttons.values()] == ["Track", "Path to"]
 
     cx = cam.cx
     sim.Drag(view, 80, 0)  # the map moves with the cursor: the pin with it
@@ -177,7 +178,7 @@ end"""
 
 
 def test_track_icon():
-    """A click on a blip opens the track menu (ui/Track.lua): Track and Path to. Track sets the user waypoint at
+    """A click on a blip opens its popup (ui/Popup.lua, ui/Track.lua's Actions): Track and Path to. Track sets the user waypoint at
     it (the sim's C_Map), the gold arrow alone shows the way (ui/Guide.lua: no line), the waypoint's own pin stays
     away and the title's target is the icon; Path to, from tracking, switches to the line (the waypoint kept, the
     arrow gone), Track back again; Stop ends either. The mode survives a /reload (UI.saved.path, the game keeping
@@ -202,10 +203,11 @@ def test_track_icon():
         sim.Step()
         sim.menu = None
         sim.Click(view, button, sim.cursorX, sim.cursorY, "screen")
-        items = [(e.kind, e.text) for e in sim.MenuItems().values()]
-        assert items[:3] == [("title", "Mailbox")] + [("button", r) for r in rows], items  # (then the map's rows)
-        assert ("button", "Waypoint here") not in items
-        next(e for e in sim.MenuItems("button").values() if e.text == pick).onSelect()
+        pop = UI.Popup
+        assert pop.IsOpen() and sim.menu is None and S[S[pop.frame].lines[1]].text == "Mailbox"
+        assert [b.label for b in pop.buttons.values()] == list(rows)
+        sim.FireScript(next(b for b in pop.buttons.values() if b.label == pick), "OnClick", "LeftButton", False)
+        assert not pop.IsOpen()
         sim.FireScript(view, "OnLeave", False)
         sim.Run(1)
 
@@ -230,7 +232,7 @@ def test_track_icon():
     sim2.Run(3)
     assert ns2.UI.saved.path is not None and ns2.UI.saved.tracked.key == b.key and ns2.UI.Path.pieces > 0
     assert not sim2.state[ns2.UI.Guide.arrow].shown and not errors(sim2, ns2), errors(sim2, ns2)
-    click(("Track", "Stop pathing"), "Stop pathing", "RightButton")  # a right click: the same menu
+    click(("Track", "Stop pathing"), "Stop pathing", "RightButton")  # a right click: the same popup
     assert sim.waypoint is None and UI.saved.tracked is None and UI.saved.path is None
     assert UI.Path.pieces == 0 and not S[arrow].shown
     click(("Track", "Path to"), "Track")

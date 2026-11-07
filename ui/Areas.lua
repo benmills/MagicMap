@@ -385,10 +385,11 @@ Runtime.Step("ui", "map: quest areas", function()
 	if e then
 		local o = tip:GetOwner()
 		if o and o ~= owner and tip:IsShown() then return end
-		if e ~= showing or o ~= owner or not tip:IsShown() then
+		if (e ~= showing or o ~= owner or not tip:IsShown()) and not UI.Popup.IsOpen() then
 			showing = e
 			tip:SetOwner(owner, "ANCHOR_CURSOR_RIGHT", 12, 0)
-			UI.QuestTooltip.Show(e)
+			UI.QuestTooltip.Fill(tip, e)
+			tip:Show()
 		end
 	elseif showing and tip:IsOwned(owner) then
 		showing = nil

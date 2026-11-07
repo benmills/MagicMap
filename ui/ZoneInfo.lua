@@ -34,8 +34,8 @@ local NOTABLE = { { place = "flight", label = "Flight point" }, { place = "dunge
 -- C_Map.IsCityMap's (ZoneInfo.lua:79): no fog of war to lift (Stormwind City, Orgrimmar, Ironforge, Thunder
 -- Bluff, Darnassus, Undercity).
 local CITY = { [1453] = true, [1454] = true, [1455] = true, [1456] = true, [1457] = true, [1458] = true }
-local GOLD, WHITE, GREY, DIM = "|cffffd100", "|cffffffff", "|cffa8a8a8", "|cff808080" -- ZoneInfo.lua:16
-local SEP = DIM .. "  ·  |r"
+local GOLD, WHITE = "|cffffd100", "|cffffffff" -- ZoneInfo.lua:16
+local DIM, SEP = UI.Tip.DIM, UI.Tip.SEP -- the map's one grey for facts (ui/Tip.lua)
 local COMPASS = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" }
 local OCTANT = math.pi / 4
 local NONE = {}
@@ -202,8 +202,8 @@ local function LevelLine(zone)
 	if not l then return nil end
 	local lo, hi = l[1], l[2]
 	local mine, color = Model.you.level, WHITE
-	if mine and mine > 0 then color = mine < lo and "|cffff6040" or mine > hi and GREY or "|cff40c040" end
-	return GREY .. "Level|r " .. color .. (lo == hi and tostring(lo) or (lo .. "-" .. hi)) .. "|r"
+	if mine and mine > 0 then color = mine < lo and "|cffff6040" or mine > hi and DIM or "|cff40c040" end
+	return DIM .. "Level|r " .. color .. (lo == hi and tostring(lo) or (lo .. "-" .. hi)) .. "|r"
 end
 
 -- The areas explored at the spot (ZoneInfo.lua:71-89): false if the client names none at its cell (Game's
@@ -251,7 +251,7 @@ end
 -- The areas explored and coordinates: "Goldshire  ·  42.1, 65.8"; none explored, "Unexplored, near Goldshire  ·
 -- 42.1, 65.8"; Game can't say, or only the zone's explored, the coordinates (ZoneInfo.lua:91-109).
 local function PlaceLine(zone, inst, col, row)
-	local coords = GREY .. string.format("%.1f, %.1f", zone.x * 100, zone.y * 100) .. "|r"
+	local coords = DIM .. string.format("%.1f, %.1f", zone.x * 100, zone.y * 100) .. "|r"
 	local names, place = Explored(zone, inst, col, row), nil
 	if names and names[1] then
 		place = WHITE .. table.concat(names, " / ", 1, math.min(#names, 2)) .. "|r"
@@ -267,16 +267,16 @@ local function YouLine(inst, col, row)
 	local you = Model.you
 	if not (you.col and not you.stale and you.inst == inst) then return nil end
 	local d = Dist(you.col, you.row, col, row)
-	if d * TILE_YARDS < HERE_YD then return GREY .. "You're here|r" end
-	return WHITE .. Yards(d) .. "|r " .. GREY .. Direction(you.col, you.row, col, row) .. " of you|r"
+	if d * TILE_YARDS < HERE_YD then return DIM .. "You're here|r" end
+	return WHITE .. Yards(d) .. "|r " .. DIM .. Direction(you.col, you.row, col, row) .. " of you|r"
 end
 
 local function Hex(c) return string.format("|cff%02x%02x%02x", c[1] * 255, c[2] * 255, c[3] * 255) end
 
--- "[12] Title" in its difficulty's colour (QuestInfo.lua:40-53).
+-- The title in its difficulty's colour, its level after it in DIM (as its tooltip: ui/QuestTooltip.lua).
 local function Title(e)
 	if not e.level then return e.name end
-	return Hex(e.color) .. string.format("[%d] %s", e.level, e.name) .. "|r"
+	return Hex(e.color) .. e.name .. "|r " .. DIM .. e.level .. "|r"
 end
 
 -- Your quests whose area holds (col, row) (Layers.lua:2282-2306): those the game draws (ui/Areas.lua's
@@ -311,7 +311,7 @@ local function QuestLines(inst, col, row, out)
 		if e.followed then
 			out[#out + 1] = GOLD .. "Quest|r " .. Title(e) .. " " .. DIM .. "(following)|r"
 		else
-			out[#out + 1] = GREY .. "Quest|r " .. Title(e)
+			out[#out + 1] = DIM .. "Quest|r " .. Title(e)
 		end
 	end
 end
@@ -343,7 +343,7 @@ local function NearbyLines(inst, col, row, out)
 		local p = f.e.pos
 		local where = f.d * TILE_YARDS < HERE_YD and "here" or (Yards(f.d) .. " " .. Direction(col, row, p.col, p.row))
 		local title = f.e.name ~= f.label and (WHITE .. f.e.name .. "|r" .. SEP) or ""
-		out[#out + 1] = GREY .. f.label .. "|r " .. title .. GREY .. where .. "|r"
+		out[#out + 1] = DIM .. f.label .. "|r " .. title .. DIM .. where .. "|r"
 	end
 end
 

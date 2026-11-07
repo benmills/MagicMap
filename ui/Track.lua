@@ -1,6 +1,6 @@
 -- Track or path to any icon. A click, left or right, on a pin of any pin layer (ui/Pins.lua's Pins.Tap; a pill's
--- grid pins too, ui/Cluster.lua) opens its menu, the map's (UI.Menus.Map: the pin's rows, then the map's): the
--- pin's name, then Track and Path to, each Stop tracking (Stop pathing) while it's what you do to that pin. Either
+-- grid pins too, ui/Cluster.lua) grows its tooltip into the popup (ui/Popup.lua), its buttons the pin's actions
+-- (Track.Actions): Track and Path to, each Stop tracking (Stop pathing) while it's what you do to that pin. Either
 -- sets the user waypoint the map already follows (the waypoint Command, game/commands/waypoint.lua: C_Map's,
 -- super-tracked) at the icon's pos, and stops following a followed quest (Model's target is corpse, then the
 -- followed quest, then the waypoint: model/Target.lua), so the title band's target goes to the icon. Track shows
@@ -8,11 +8,10 @@
 -- the small map framing you and it (ui/Path.lua, ui/Motion.lua). The two are exclusive: choosing one replaces the
 -- other, Stop ends either. The waypoint's own pin steps aside while it stands under the icon (ui/You.lua:
 -- Track.Covers); the title names the icon (You.Target). Your waypoint's own pin (set by Ctrl-click, the map's
--- menu, /way) is tracked as it stands while no quest is followed: its rows switch the mode, or stop it.
--- A quest pin's rows follow it, no waypoint (ui/Areas.lua's Follow): "Track quest", "Path to quest", and "Open in
--- quest log" (the questlog Command): Track.QuestRows, in the popup its tooltip grows into (a click on the pin:
--- ui/QuestTooltip.lua), and in the menu of the quest pill, which while it shows the followed quest is that
--- quest's pin (ui/Controls.lua).
+-- menu, /way) is tracked as it stands while no quest is followed: its actions switch the mode, or stop it, and
+-- Clear waypoint. A quest pin's follow it, no waypoint (ui/Areas.lua's Follow): Track, Path to, and Open in quest
+-- log (the questlog Command); the quest pill's too, which while it shows the followed quest is that quest's pin
+-- (ui/Controls.lua).
 -- The tracked icon is UI.saved.tracked = { key, name, inst, col, row } (types/saved.lua): its key, where it was;
 -- what's pathed is UI.saved.path = { quest } or { inst, col, row } (the waypoint's pos), with the framing's zoom
 -- once it has one (ui/Path.lua). Your corpse, while you're a ghost, always has the line (Track.Pathed).
@@ -29,12 +28,15 @@ local Command = ns.Game.Command
 local NEAR = 0.01 -- tiles (~5 yards): the waypoint stands at the tracked pos (set through map coordinates and read back)
 local ARM = 2 -- frames after a Track before the waypoint must stand there (the Command's apply, the next observe)
 
--- QuestRows' icons (the popup's buttons, ui/QuestTooltip.lua): the world map's gold tracked arrow; the travel boot
--- (flightpath), made gold; the micro menu's quest log button (28 x 36).
+-- The actions' icons (the popup's buttons, ui/Popup.lua): the world map's gold tracked arrow; the travel boot
+-- (flightpath), made gold; the micro menu's quest log button (28 x 36); Blizzard's red delete button, its own glyph
+-- (128-redbutton-delete, as UIButtonTemplate's art kits: -pressed, -highlight).
 local TRACK_ICON = { atlas = "Navigation-Tracked-Arrow" }
 local PATH_ICON = { atlas = "flightpath", gold = true }
 local LOG_ICON = { up = "hud-microbutton-Quest-Up", down = "hud-microbutton-Quest-Down",
-	lit = "hud-microbutton-highlight", aspect = 28 / 36 }
+	lit = "hud-microbutton-highlight", aspect = 28 / 36, blend = "ADD" }
+local CLEAR_ICON = { up = "128-redbutton-delete", down = "128-redbutton-delete-pressed",
+	lit = "128-redbutton-delete-highlight", aspect = 1 }
 
 local Track = {}
 UI.Track = Track
@@ -186,41 +188,20 @@ local function Mode(e)
 	return p and p.inst and Near(e.pos, p) and "path" or "track"
 end
 
--- Quest e's rows, { { label, fn } }: Track quest and Path to quest (following it: ui/Quests.lua), each its Stop
--- while it's the mode, and Open in quest log.
-function Track.QuestRows(e)
-	local mode = Mode(e)
-	return {
-		{ mode == "track" and "Stop tracking" or "Track quest", function() Pick(Quest, e, false) end,
-			icon = TRACK_ICON, on = mode == "track" },
-		{ mode == "path" and "Stop pathing" or "Path to quest", function() Pick(Quest, e, true) end,
-			icon = PATH_ICON, on = mode == "path" },
-		{ "Open in quest log", function() Pick(OpenLog, e) end, icon = LOG_ICON },
+-- Pin e's actions, the popup's buttons (ui/Popup.lua), { label, fn, icon, on? }: Track and Path to, each "Stop
+-- tracking" ("Stop pathing") while it's the mode (its button gold-trimmed); a quest's follow it, and Open in quest log;
+-- your waypoint's own pin, Clear waypoint too.
+function Track.Actions(e)
+	local mode, quest = Mode(e), e.kind == "quests"
+	local list = {
+		{ mode == "track" and "Stop tracking" or "Track", function()
+			if quest then Pick(Quest, e, false) elseif mode == "track" then Pick(Track.Stop) else Pick(Track.Start, e, false) end
+		end, icon = TRACK_ICON, on = mode == "track" },
+		{ mode == "path" and "Stop pathing" or "Path to", function()
+			if quest then Pick(Quest, e, true) elseif mode == "path" then Pick(Track.Stop) else Pick(Track.Start, e, true) end
+		end, icon = PATH_ICON, on = mode == "path" },
 	}
-end
-
--- Pin e's rows (a Known entry) in a menu being built (UI.Menus.Map's, under its title): Track and Path to,
--- each its Stop while it's the mode; a quest's (Track.QuestRows).
-function Track.Items(root, e)
-	root:CreateTitle(e.name or "?")
-	if e.kind == "quests" then
-		for _, r in ipairs(Track.QuestRows(e)) do root:CreateButton(r[1], r[2]) end
-		return
-	end
-	local mode = Mode(e)
-	if mode == "track" then
-		root:CreateButton("Stop tracking", function() Pick(Track.Stop) end)
-	else
-		root:CreateButton("Track", function() Pick(Track.Start, e, false) end)
-	end
-	if mode == "path" then
-		root:CreateButton("Stop pathing", function() Pick(Track.Stop) end)
-	else
-		root:CreateButton("Path to", function() Pick(Track.Start, e, true) end)
-	end
-end
-
--- The menu for pin e, anchored on owner (its frame): the map's, led by the pin's rows.
-function Track.Menu(owner, e)
-	UI.Menus.Map(owner, e.pos.col, e.pos.row, e)
+	if quest then list[3] = { "Open in quest log", function() Pick(OpenLog, e) end, icon = LOG_ICON } end
+	if e.kind == "waypoint" then list[3] = { "Clear waypoint", function() Pick(Track.Stop) end, icon = CLEAR_ICON } end
+	return list
 end

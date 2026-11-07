@@ -27,7 +27,7 @@ local GOLD = { 1, 0.82, 0 } -- Blips.lua:373
 -- A gathering node's colour (its dot, when the client lacks its atlas) and its line (Blips.lua:427-429).
 local COLOR = { Professions_Tracking_Ore = { 0.8, 0.6, 0.4 }, Professions_Tracking_Herb = { 0.4, 0.9, 0.3 } }
 local LINE = { Professions_Tracking_Ore = "Mining", Professions_Tracking_Herb = "Herbalism" }
-local AWAY = "|cff808080Not in sight|r" -- Blips.lua:642
+local AWAY = "Not in sight" -- Blips.lua:642
 local REMOTE_ZOOM = 60 -- px a tile: remembered ones from here (Blips.lua REMOTE_MIN_ZOOM)
 local REACH = 220 / ns.Atlas.TILE_YARDS -- tiles: around you, the sensor's word (Blips.lua:480 LIVE_YARDS)
 local CHUNKS = ns.Atlas.Walk.CHUNKS

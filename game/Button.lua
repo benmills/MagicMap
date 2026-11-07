@@ -17,7 +17,8 @@ local RING = "Interface\\Minimap\\MiniMap-TrackingBorder"
 local BACK = "Interface\\Minimap\\UI-Minimap-Background"
 local HIGHLIGHT = "Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight"
 local ICON = "Interface\\Icons\\INV_Misc_Map_01"                  -- MinimapButton.lua:8
-local TIP = "|cffffd100MagicMap|r\n|cffffffffClick|r to open the map\n|cffffffffDrag|r to move this button" -- MinimapButton.lua:10
+-- Its tip (MinimapButton.lua:10, in the map's tips' look: ui/Tip.lua): its name; a click's plain, a drag isn't.
+local TITLE, DRAG = "MagicMap", "Drag to move"
 
 local button = CreateFrame("Button", nil, Minimap)
 button:SetSize(SIZE, SIZE)
@@ -66,8 +67,9 @@ end)
 
 button:SetScript("OnClick", Runtime.Wrap("game: button", function() Game.Hooked("toggle") end))
 button:SetScript("OnEnter", Runtime.Wrap("game: button tip", function(self)
-	Game.Tooltip(self, "ANCHOR_TOP")
-	GameTooltip:SetText(TIP, 1, 1, 1, 1, true)
+	Game.Tooltip(self, "ANCHOR_RIGHT")
+	GameTooltip:SetText(TITLE, 1, 1, 1)
+	Game.TooltipFact(DRAG)
 	GameTooltip:Show()
 end))
 button:SetScript("OnLeave", Runtime.Wrap("game: button left", function(self) Game.HideTooltip(self) end))

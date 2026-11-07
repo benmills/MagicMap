@@ -585,7 +585,7 @@ def test_corpse_waypoint_pins():
     assert S[tip].shown and S[lines[1]].text == "Your corpse" and tip.NumLines(tip) == 1
     sim.cursorX += 0.3 * UI.Camera.cam.zoom * view.GetEffectiveScale(view)
     sim.Run(0.2)
-    assert tip.NumLines(tip) == 2 and S[lines[1]].text == "Waypoint" and S[lines[2]].text == "Ctrl-right-click the map to clear"
+    assert tip.NumLines(tip) == 1 and S[lines[1]].text == "Waypoint"  # (no hint: its popup clears it)
 
     sim.Slash("/mm layer corpse")  # turned off (the gear's You: Corpse, Waypoint): gone
     sim.Run(0.5)

@@ -102,7 +102,7 @@ def test_rares():
     sim.Step()
     tip = L.globals().GameTooltip
     lines = [sim.state[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)]
-    assert lines == ["Rare 1", "Rare", "|cff808080Seen here Oct 15|r"], lines
+    assert lines == ["Rare 1", "Rare", "Seen here Oct 15"], lines
     sim.Slash("/mm layer rares")
     assert e.LayerOn("rares") is False and e.toggles.rares is False
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

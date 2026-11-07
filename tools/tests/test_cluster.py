@@ -159,9 +159,8 @@ def test_grid_close_is_spent():
     L.eval(RENEW)(t)
     sim.Run(0.7)
     assert L.eval(SHOWN)(grid, "pin") == 5
-    sim.menu = None
-    click(*at(UI, grid.front.pools.pin[1]))
-    assert sim.menu is not None and L.eval(SHOWN)(grid, "pin") == 5 and ran.n == 1
+    click(*at(UI, grid.front.pools.pin[1]))  # its popup (ui/Popup.lua)
+    assert ns.UI.Popup.IsOpen() and L.eval(SHOWN)(grid, "pin") == 5 and ran.n == 1
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

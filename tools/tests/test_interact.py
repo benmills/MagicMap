@@ -21,7 +21,7 @@ from test_addon import errors
 from test_quest_areas import CANDLES_NEAR, HOGGER
 from test_quests import FRONTIER, GOLD, client
 
-SEP = "|cff808080  ·  |r".encode("utf-8").decode("latin-1")  # the inspector's (the sim's Lua strings: latin-1)
+SEP = "|cff9d9d9d  ·  |r".encode("utf-8").decode("latin-1")  # the inspector's (the sim's Lua strings: latin-1)
 
 
 def items(d):
@@ -226,12 +226,12 @@ def test_zone_hover():
     assert not UI.Camera.follow and not near(cam(ns), fit(L, ns, elwynn, 0.92))
     sim.Run(0.2)
     assert near(cam(ns), fit(L, ns, elwynn, 0.92)) and sim.superTracked == 0
-    # Its pin is still its quest's: its popup (ui/QuestTooltip.lua), no flight; its row follows the quest.
+    # Its pin is still its quest's: its popup (ui/Popup.lua), no flight; its Track follows the quest.
     G.Over(GOLD["col"], GOLD["row"])
     sim.Run(0.3)
     sim.Click(view, "LeftButton", sim.cursorX, sim.cursorY, "screen")
-    rows = UI.QuestTooltip.rows
-    assert [rows[i].label for i in (1, 2, 3)] == ["Track quest", "Path to quest", "Open in quest log"]
+    rows = UI.Popup.buttons
+    assert [rows[i].label for i in (1, 2, 3)] == ["Track", "Path to", "Open in quest log"]
     sim.FireScript(rows[1], "OnClick", "LeftButton", False)
     sim.Run(0.2)
     assert sim.superTracked == 47 and near(cam(ns), fit(L, ns, elwynn, 0.92))
@@ -291,14 +291,14 @@ def test_inspector():
     assert menu(32.28, 49.65) == [("button", "Waypoint here")]
     sim.Press("M")
     sim.Run(1)
-    gold, grey, white, dim = "|cffffd100", "|cffa8a8a8", "|cffffffff", "|cff808080"
+    gold, grey, white = "|cffffd100", "|cff9d9d9d", "|cffffffff"  # (ui/Tip.lua's one DIM)
     # In Gold Dust's area alone: Hogger's pin is in none (you follow Hogger; it isn't listed).
     lines = menu(32.28, 49.65)
     assert lines == [
         ("title", gold + "Elwynn Forest|r"),
         ("title", white + "Crystal Lake|r" + SEP + grey + "48.5, 63.7|r"),
         ("title", grey + "Level|r |cff40c0401-10|r" + SEP + white + "185 yd|r " + grey + "E of you|r"),
-        ("title", grey + "Quest|r |cffffd100[7] Gold Dust Exchange|r"),
+        ("title", grey + "Quest|r |cffffd100Gold Dust Exchange|r " + grey + "7|r"),
         ("title", grey + "Graveyard|r " + white + "Goldshire|r" + SEP + grey + "310 yd W|r"),  # (M4.1's places)
         ("divider", None), ("button", "Waypoint here")]
     # Quest areas off: no area drawn there (its parent off: Layers.lua:82-87, 2297).

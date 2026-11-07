@@ -443,7 +443,7 @@ def test_gear_settings():
     L, sim, ns, pin = shown()
     root, _ = gear(sim, ns)
     row = sub(root, SETTINGS)
-    assert tip(L, row)[0] == ("Settings",) + WHITE and tip(L, row)[1][0].startswith("MagicMap's settings window")
+    assert tip(L, row)[0] == (SETTINGS,) + WHITE and tip(L, row)[1][0].startswith("MagicMap's settings window")
     assert row.onSelect() is None
     f = ns.UI.Feel.frame
     assert f.IsShown(f) and f.GetFrameStrata(f) == "DIALOG"

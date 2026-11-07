@@ -179,7 +179,7 @@ def test_settings_kinds_and_late_pages():
     sim.Click(_tab(L, Feel, "Order"))
     w = Feel.widgets
     lst, more = w["order.what"], w["order.more"].row
-    lines = lambda: [(re.sub(r"\|[AT].*?\|[at] ", "", ln.text.GetText(ln.text)), ln.check.GetChecked(ln.check))  # noqa: E731
+    lines = lambda: [(re.sub(r"\|[AT].*?\|[at]  ", "", ln.text.GetText(ln.text)), ln.check.GetChecked(ln.check))  # noqa: E731
                      for ln in lst.lines.values()]
     assert lines() == [("Zone", True), ("Quest", True), ("Coords", False)] and not _shown(more)
     sim.Click(lst.lines[3].check)  # Coords chosen: last; the row that waits on it shown
@@ -194,7 +194,7 @@ def test_settings_kinds_and_late_pages():
     icon = w["order.icon"].drop
     sim.Click(icon)
     radios = list(sim.MenuItems("radio").values())
-    assert [r.text for r in radios] == ["|T134400:16:16:0:0:64:64:5:59:5:59|t First", "|A:checkmark-minimal:16:16|a Second"]
+    assert [r.text for r in radios] == ["|T134400:16:16:0:0:64:64:5:59:5:59|t  First", "|A:checkmark-minimal:16:16|a  Second"]
     sim.Pick(radios[1])
     assert Feel.Get("order.icon") == "b" and icon.Text.GetText(icon.Text).endswith("Second")
     sim.Click(Feel.resets.order)

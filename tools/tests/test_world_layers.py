@@ -128,14 +128,14 @@ def test_places():
     sim.FireScript(UI.Window.view, "OnEnter", False)
     sim.Step()
     assert tooltip(sim, G) == ["Stormwind, Elwynn", "Flight point"]
-    for at, lines in (((31.2, 50.4), ["Deadmines", "A dungeon"]), ((31.881, 49.775), ["Goldshire", "A town"])):
+    for at, lines in (((31.2, 50.4), ["Deadmines", "Dungeon", "A dungeon"]), ((31.881, 49.775), ["Goldshire", "A town"])):
         G.Over(*at)
         sim.Step()
         assert tooltip(sim, G) == lines, lines
     v = ns.Model.Known("vignettes")[0][1]
     G.Over(v.pos.col, v.pos.row)
     sim.Step()
-    assert tooltip(sim, G) == ["Mother Fang", "|cff808080Nearby now|r"]
+    assert tooltip(sim, G) == ["Mother Fang", "Nearby now"]
 
     # Each toggle hides its kind alone; the graveyards turned on: their art at 16.
     E.SetLayer("graveyards", True)
@@ -264,8 +264,8 @@ def test_view():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
-SEP = "|cff808080  ·  |r".encode("utf-8").decode("latin-1")  # (the sim's Lua strings: latin-1)
-GREY, WHITE, DIM = "|cffa8a8a8", "|cffffffff", "|cff808080"
+SEP = "|cff9d9d9d  ·  |r".encode("utf-8").decode("latin-1")  # (the sim's Lua strings: latin-1)
+GREY, WHITE, DIM = "|cff9d9d9d", "|cffffffff", "|cff9d9d9d"  # (ui/Tip.lua's one DIM)
 
 
 def test_inspector_lines():

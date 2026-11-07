@@ -25,7 +25,7 @@ UI.Menus = Menus
 local menu -- the last menu opened
 
 function Menus.IsOpen()
-	return menu ~= nil and menu:IsShown() or UI.QuestTooltip.IsOpen() -- (a quest pin's popup counts as one)
+	return menu ~= nil and menu:IsShown() or UI.Popup.IsOpen() -- (a pin's popup counts as one)
 end
 
 function Menus.Show(owner, generator)
@@ -37,26 +37,15 @@ end
 local Run = Runtime.Wrap("map: gear pick", function(fn, arg) fn(arg) end)
 local Pick = Runtime.Wrap("map: menu pick", function(fn, arg) fn(arg) end) -- the picker's, the map menu's
 
--- A row's tooltip: white title, gold body (GearMenu.lua:69-72, Layers.lua:2171-2176).
+-- A row's tooltip: a description, white title, gold body (GearMenu.lua:69-72, Layers.lua:2171-2176: ui/Tip.lua's).
 local function Tip(label, tip)
-	return function(tooltip)
-		tooltip:SetText(label, 1, 1, 1)
-		tooltip:AddLine(tip, 1, 0.82, 0, true)
-	end
+	return function(tooltip) UI.Tip.Describe(tooltip, label, tip) end
 end
 
--- A row's icon beside its name: 16 px, a file's border cropped; an atlas as it is, if this client has it.
--- "" for none, so a row with no icon reads as it always did.
+-- A row's icon beside its name (ui/Tip.lua's Mark): "" for none, so a row with no icon reads as it always did.
 -- The login screen's Blizzard logo (Blizzard_GlueXML/Classic/AccountLogin.xml), whole: twice as wide as tall.
 local BLIZZARD_LOGO = "|TInterface\\Glues\\Mainmenu\\Glues-BlizzardLogo:16:32|t  "
-
-local function Mark(icon)
-	if not icon then return "" end
-	if icon:sub(1, 2) == "A:" then
-		return C_Texture.GetAtlasInfo(icon:sub(3)) and "|A:" .. icon:sub(3) .. ":16:16|a  " or ""
-	end
-	return "|T" .. icon .. ":16:16:0:0:64:64:5:59:5:59|t  "
-end
+local Mark = UI.Tip.Mark
 
 ---------------------------------------------------------------------------
 -- Layers: a submenu per group, of checkboxes that keep the menu open
@@ -325,7 +314,7 @@ function Tally(sec)
 			total, on = total + 1, all and on + 1 or on
 		end)
 	end
-	return "  |cff888888" .. on .. "/" .. total .. "|r"
+	return "  " .. UI.Tip.DIM .. on .. "/" .. total .. "|r"
 end
 
 ---------------------------------------------------------------------------
@@ -440,11 +429,10 @@ end })
 
 -- Only what makes sense where you clicked: Waypoint here (in a zone), Clear waypoint (one set); back to you is
 -- the recenter button's (ui/Controls.lua); the big map leads with what's there (ui/ZoneInfo.lua), at the minimap's size the
--- actions alone. On a pin (pin: its Known entry; either button, ui/Pins.lua's Tap) the pin's rows lead
--- instead (UI.Track.Items: Track, Path to, their Stops, the quest's), then the map's but Waypoint here (its Track).
-function Menus.Map(owner, col, row, pin)
+-- actions alone. (On a pin a click is its popup: ui/Pins.lua's Tap.)
+function Menus.Map(owner, col, row)
 	local inst, items = UI.Camera.inst, {}
-	if not pin and Atlas.ZoneMapAt(inst, col, row) then -- (where Game's waypoint can go)
+	if Atlas.ZoneMapAt(inst, col, row) then -- (where Game's waypoint can go)
 		items[#items + 1] = { "Waypoint here", function()
 			Command({ kind = "waypoint", pos = { inst = inst, col = col, row = row } })
 		end }
@@ -452,13 +440,10 @@ function Menus.Map(owner, col, row, pin)
 	if Model.waypointSet then -- (wherever it is: Layers.lua:2080-2081)
 		items[#items + 1] = { "Clear waypoint", function() Command({ kind = "waypoint", pos = false }) end }
 	end
-	local info = not pin and UI.BigMap.big and UI.ZoneInfo.At(col, row) or nil
-	if not (items[1] or info or pin) then return end
+	local info = UI.BigMap.big and UI.ZoneInfo.At(col, row) or nil
+	if not (items[1] or info) then return end
 	Menus.Show(owner, function(_, root)
-		if pin then
-			UI.Track.Items(root, pin)
-			if items[1] then root:CreateDivider() end
-		elseif info then
+		if info then
 			for _, line in ipairs(info) do root:CreateTitle(line) end
 			if items[1] then root:CreateDivider() end
 		end
@@ -511,6 +496,6 @@ function Menus.Gear(owner)
 			:SetTooltip(Tip("Reset to defaults", "Every layer back as it was installed."))
 		root:CreateDivider()
 		root:CreateButton(Mark("Interface\\Icons\\Trade_Engineering") .. "Settings…", function() Run(UI.Feel.Open) end)
-			:SetTooltip(Tip("Settings", "MagicMap's settings window: general, the map's looks, the title, icons, tracking, pathing, quest areas, grouping, diagnostics."))
+			:SetTooltip(Tip("Settings…", "MagicMap's settings window: general, the map's looks, the title, icons, tracking, pathing, quest areas, grouping, diagnostics."))
 	end)
 end

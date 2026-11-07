@@ -7,7 +7,9 @@
 -- with the window: ui/Window.lua).
 
 local _, ns = ...
-local Game = ns.Game
+local Game, Runtime = ns.Game, ns.Runtime
+
+local GREY = 0x9d / 255 -- the map's tips' one grey for facts (ui/Tip.lua's DIM)
 
 local ours = setmetatable({}, { __mode = "k" }) -- the owners Game showed it on
 
@@ -25,3 +27,25 @@ Game.Apply("tooltip", function()
 	local owner = GameTooltip:GetOwner()
 	if owner and ours[owner] and not owner:IsVisible() then GameTooltip:Hide() end
 end)
+
+-- A fact under a Game tip's title, in the map's tips' look (ui/Tip.lua's Fact): small, grey; its font back when the
+-- tooltip hides or clears.
+local small = {} -- fs -> its font before
+local Restore = Runtime.Wrap("game: tip fonts", function()
+	for fs, font in pairs(small) do
+		fs:SetFontObject(font)
+		small[fs] = nil
+	end
+end)
+GameTooltip:HookScript("OnHide", Restore)
+GameTooltip:HookScript("OnTooltipCleared", Restore)
+function Game.TooltipFact(text)
+	GameTooltip:AddLine(text, GREY, GREY, GREY)
+	local name = GameTooltip:GetName() .. "TextLeft" .. GameTooltip:NumLines()
+	for _, r in ipairs({ GameTooltip:GetRegions() }) do
+		if r:GetName() == name then
+			if not small[r] then small[r] = r:GetFontObject() end
+			r:SetFontObject(GameTooltipTextSmall)
+		end
+	end
+end
