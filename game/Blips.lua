@@ -636,3 +636,39 @@ Game.Slash("blips", "what the blip sensor knows, and where from you", function()
 			b.rough and " (rough)" or ""))
 	end
 end)
+
+-- /mm probe: why the sensor reads nothing. A 15 x 15 sweep of the Minimap as the sensor probes it, each answer
+-- counted by kind (a name, no lines, nil, secret data or lines, a secret line); then, 3 s later, the answer
+-- for the real mouse (hover a blip on the Minimap meanwhile).
+local function Kind(data)
+	if not data then return "nil" end
+	if issecretvalue(data) or issecretvalue(data.lines) then return "secret" end
+	local line = data.lines and data.lines[1]
+	if not line then return "empty" end
+	if issecretvalue(line.leftText) then return "secret text" end
+	return "name"
+end
+Game.Slash("probe", "why the blip sensor reads nothing: a sweep of the minimap's answers, then the mouse's", function()
+	local l, b, w, h = Minimap:GetRect()
+	if not l then return Game.Say("probe: the Minimap has no place") end
+	local s, counts, first = Minimap:GetEffectiveScale(), {}, nil
+	for i = 1, 15 do
+		for j = 1, 15 do
+			Minimap:UpdateMouseoverAtPoint((l + w * i / 16) * s, (b + h * j / 16) * s)
+			local data = C_TooltipInfo.GetMinimapMouseover()
+			local k = Kind(data)
+			counts[k] = (counts[k] or 0) + 1
+			if k == "name" and not first then first = data.lines[1].leftText end
+		end
+	end
+	local parts = {}
+	for k, n in pairs(counts) do parts[#parts + 1] = k .. " " .. n end
+	Game.Say(("probe: shown %s, scale %.2f; %s%s"):format(tostring(Minimap:IsVisible()), s, table.concat(parts, ", "),
+		first and (" (first: " .. first .. ")") or ""))
+	Game.Say("probe: hover a blip on the minimap; its answer in 3 s")
+	Runtime.After(3, "game: probe", function()
+		local data = C_TooltipInfo.GetMinimapMouseover()
+		local k = Kind(data)
+		Game.Say("probe: the mouse's answer: " .. k .. (k == "name" and (": " .. data.lines[1].leftText) or ""))
+	end)
+end)
