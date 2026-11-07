@@ -637,89 +637,73 @@ Game.Slash("blips", "what the blip sensor knows, and where from you", function()
 	end
 end)
 
--- /mm probe: why the sensor reads nothing. A 15 x 15 sweep of the Minimap as the sensor probes it, each point read
--- three ways and counted by what came back: C_TooltipInfo's data (api), a hidden tooltip of our own filled by
--- SetMinimapMouseover (own), GameTooltip filled so (game); then, 3 s later, the same for the real mouse plus what
--- Blizzard's own tooltip shows (shown: GameTooltip's first line, as its Minimap_OnUpdate set it).
-local scan -- our hidden tooltip
-local function Text(fs)
-	local t = fs and fs:GetText()
-	if t == nil then return "nil" end
-	if issecretvalue(t) then return "secret" end
-	return t == "" and "empty" or "name"
-end
-local function Api()
+-- /mm probe: why the sensor reads nothing. Since 1.60.1.70862 GetMinimapMouseover answers only what the real mouse
+-- last hovered, as if UpdateMouseoverAtPoint no longer moves the point: ignored for us, or its units changed. So a
+-- 15 x 15 sweep of the Minimap in each of several units, read at once (now) and the frame after (next), each counted
+-- by the distinct names it answered (the soft cursor off, then on as the sensor runs). One that answers several names is the units the call takes now.
+local function Name()
 	local data = C_TooltipInfo.GetMinimapMouseover()
 	if not data then return "nil" end
 	if issecretvalue(data) or issecretvalue(data.lines) then return "secret" end
 	local line = data.lines and data.lines[1]
 	if not line then return "empty" end
 	if issecretvalue(line.leftText) then return "secret text" end
-	return "name", line.leftText
+	return line.leftText or "empty"
 end
--- A tooltip's first line with text (its regions' first font string that has any), else its first.
-local function Line(tip)
-	local any
-	for _, r in ipairs({ tip:GetRegions() }) do
-		if r:GetObjectType() == "FontString" then
-			any = any or r
-			local t = r:GetText()
-			if t ~= nil and (issecretvalue(t) or t ~= "") then return r end
-		end
-	end
-	return any
+local UNITS = { -- name, function(fx, fy, l, b, w, h, s) -> x, y
+	{ "pixels", function(fx, fy, l, b, w, h, s) return (l + w * fx) * s, (b + h * fy) * s end },
+	{ "ui", function(fx, fy, l, b, w, h) return l + w * fx, b + h * fy end },
+	{ "local", function(fx, fy, l, b, w, h) return w * fx, h * fy end },
+	{ "localpx", function(fx, fy, l, b, w, h, s) return w * fx * s, h * fy * s end },
+	{ "centred", function(fx, fy, l, b, w, h) return w * (fx - 0.5), h * (fy - 0.5) end },
+	{ "unit", function(fx, fy) return fx, fy end },
+	{ "unitc", function(fx, fy) return fx - 0.5, fy - 0.5 end },
+}
+local function Tally(t, n)
+	t.n = (t.n or 0) + 1
+	if not t[n] then t[n] = 0; t.k = (t.k or 0) + 1 end
+	t[n] = t[n] + 1
 end
-local function Filled(tip)
-	tip:SetOwner(UIParent, "ANCHOR_NONE")
-	local ok = pcall(tip.SetMinimapMouseover, tip)
-	if not ok then return "error" end
-	local fs = Line(tip)
-	local k = Text(fs)
-	local t = k == "name" and fs:GetText() or nil
-	tip:Hide()
-	return k, t
+local function Say(prefix, t)
+	local parts = {}
+	for n, c in pairs(t) do if n ~= "n" and n ~= "k" and #parts < 3 then parts[#parts + 1] = n .. " " .. c end end
+	Game.Say(("%s: %d distinct of %d; %s"):format(prefix, t.k or 0, t.n or 0, table.concat(parts, ", ")))
 end
-local function Read(counts, firsts)
-	for _, way in ipairs({ "api", "own", "game" }) do
-		local k, t
-		if way == "api" then k, t = Api()
-		elseif way == "own" then k, t = Filled(scan)
-		else k, t = Filled(GameTooltip) end
-		local c = counts[way] or {}
-		counts[way] = c
-		c[k] = (c[k] or 0) + 1
-		if t and not firsts[way] then firsts[way] = t end
-	end
-end
-local function Report(prefix, counts, firsts)
-	for _, way in ipairs({ "api", "own", "game" }) do
-		local parts = {}
-		for k, n in pairs(counts[way] or {}) do parts[#parts + 1] = k .. " " .. n end
-		Game.Say(("%s %s: %s%s"):format(prefix, way, table.concat(parts, ", "), firsts[way] and (" (" .. firsts[way] .. ")") or ""))
-	end
-end
-Game.Slash("probe", "why the blip sensor reads nothing: a sweep of the minimap's answers, then the mouse's", function()
-	scan = scan or CreateFrame("GameTooltip", nil, UIParent, "GameTooltipTemplate")
+local prober
+Game.Slash("probe", "why the blip sensor reads nothing: sweeps of the minimap in several units, read now and next frame", function()
 	local l, b, w, h = Minimap:GetRect()
 	if not l then return Game.Say("probe: the Minimap has no place") end
-	local s, counts, firsts = Minimap:GetEffectiveScale(), {}, {}
-	for i = 1, 15 do
-		for j = 1, 15 do
-			Minimap:UpdateMouseoverAtPoint((l + w * i / 16) * s, (b + h * j / 16) * s)
-			Read(counts, firsts)
+	local s = Minimap:GetEffectiveScale()
+	Game.Say(("probe: minimap shown %s, visible %s, rect %d %d %d %d, scale %.2f, before: %s"):format(
+		tostring(Minimap:IsShown()), tostring(Minimap:IsVisible()), l, b, w, h, s, Name()))
+	for pass = 1, 2 do -- the soft cursor off, then on (as the sensor runs)
+		Minimap:SetUsingSoftCursor(pass == 2)
+		for _, u in ipairs(UNITS) do
+			if pass == 2 or u[1] == "pixels" then
+				local t = {}
+				for i = 1, 15 do for j = 1, 15 do
+					Minimap:UpdateMouseoverAtPoint(u[2](i / 16, j / 16, l, b, w, h, s))
+					Tally(t, Name())
+				end end
+				Say(("probe now %s soft %s"):format(u[1], pass == 2 and "on" or "off"), t)
+			end
 		end
 	end
-	Report("probe sweep", counts, firsts)
-	Game.Say("probe: hover a blip on Blizzard's minimap now; read in 4 s")
-	Runtime.After(4, "game: probe", function()
-		local fs = Line(GameTooltip)
-		local shown = Text(fs)
-		local data = GameTooltip:IsShown() and GameTooltip.GetTooltipData and GameTooltip:GetTooltipData()
-		Game.Say(("probe mouse shown: %s%s; its data %s"):format(shown,
-			shown == "name" and (" (" .. fs:GetText() .. ")") or "",
-			data == nil and "nil" or issecretvalue(data) and "secret" or "readable"))
-		local c, f = {}, {}
-		Read(c, f)
-		Report("probe mouse", c, f)
-	end)
+	Minimap:SetUsingSoftCursor(false)
+	-- next frame: one point a frame, read the frame after; pixels and ui only (~450 frames)
+	prober = prober or CreateFrame("Frame")
+	local ui, k, t, pending = 1, 0, {}, false
+	prober:SetScript("OnUpdate", Runtime.Wrap("game: probe", function(self)
+		if pending then Tally(t, Name()); pending = false end
+		if k == 225 then
+			Say("probe next " .. UNITS[ui][1], t)
+			ui, k, t = ui + 1, 0, {}
+			if ui > 2 then Minimap:SetUsingSoftCursor(false); self:SetScript("OnUpdate", nil); return end
+		end
+		k = k + 1
+		local u = UNITS[ui]
+		Minimap:SetUsingSoftCursor(true)
+		Minimap:UpdateMouseoverAtPoint(u[2](((k - 1) % 15 + 1) / 16, (math.floor((k - 1) / 15) + 1) / 16, l, b, w, h, s))
+		pending = true
+	end))
 end)
