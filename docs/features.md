@@ -166,9 +166,9 @@ minimap pins (GatherMate...) show around you. Nothing is drawn twice.
 
 **The gear menu** (by the zone name): the layers by group, each row with its icon, an "All" box
 on top and the n/total shown in the group's name: Map (zone labels, City maps), Quests,
-Places, Nearby (rares and treasures, party and raid, then Blizzard's tracking types, one box a name), Other addons;
-then Keep tracking: the tracker kept on (each tracking spell you know, or Off).
-Then Minimap buttons: the buttons the minimap's rim would hold, hidden with Blizzard's minimap (LibDBIcon's
+Places, Tracking (rares and treasures, party and raid, then Blizzard's tracking types, one box a name, Keep tracking
+right after the gathering ones: the tracker kept on, each tracking spell you know, or Off), Other addons.
+Then AddOns: the buttons the minimap's rim would hold, hidden with Blizzard's minimap (LibDBIcon's
 addon buttons, the addon compartment's, other addons' rim buttons, then Blizzard's calendar and clock), each a
 row with its icon that clicks it (right-click too) and shows its tooltip; no buttons on the map's edge. Then Use
 Blizzard's minimap (while ours replaces it; Blizzard's logo on the row) and Reset to defaults, then Settings.
@@ -190,7 +190,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | Title | At rest (Zone, Local time), On hover (Zone, Subzone, Tracked target, Distance to target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time (each time led by the day or night picture). Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
 | Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Services, Vendors, Resources, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Each follows the level above until set; its undo hands it back |
 | Resources | Tracking: Keep tracking (your gathering tracker: Find Herbs, else Find Minerals, else Find Treasure; or one you know, or Off). Difficulty: Colour by difficulty (on) |
-| Quest pill | Shows (target or zone count / target only / off), Says (Name, Objective progress, Distance; chosen and ordered from those and Time to arrive), Progress bar (on), Bar colour (Gold), Fade quest pill (on: the zone count only while you point at the map). Look: Backing (60%), Size (100%) |
+| Quest pill | Shows (target or zone count / target only / off), Says (Name, Objective progress, Distance; chosen and ordered from those and Time to arrive), Progress bar (on), Bar opacity (20%), Bar colour (Gold), Fade quest pill (on: the zone count only while you point at the map). Look: Backing (60%), Size (100%) |
 | Tracking | Arrow: Size (105%), Opacity (100%), Distance (96 px). Path to: Frame the way (on). Tracked icon: Glow (on), Glow size (200%), Glow opacity (100%) |
 | Pathing | Line: Style (dashed), Weight (1.4 px), Colour (Gold), Opacity (65%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |
 | Quest areas | Followed quest, Other quests: Fill, Edge, Edge width. Under the cursor: Fill lift, Edge (as the game draws them, a quiet fill by default) |

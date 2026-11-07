@@ -1,10 +1,10 @@
 -- Menus are the client's own (MenuUtil), no skin (Menu.lua). Opened through here, they count
 -- as open for the controls that opened them, so those don't fade out under them.
--- The gear menu (GearMenu.lua): what's drawn, a submenu per group of layers (Map, Quests, Places, Nearby,
+-- The gear menu (GearMenu.lua): what's drawn, a submenu per group of layers (Map, Quests, Places, Tracking,
 -- Other addons), each with an "All" box on top (the group on or off) and each row's icon beside its name;
--- Nearby lists Blizzard's tracking types too (but those ours replace; one box for a name the client lists twice,
--- Banker); each group's row shows how many of its rows are on, n/total (Tally); then Keep tracking: <name>, the
--- tracker kept on (ui/Resources.lua). Then Minimap buttons: the buttons the takeover hides with the Minimap
+-- Tracking lists Blizzard's tracking types too, Keep tracking: <name> (the tracker kept on, ui/Resources.lua) right
+-- after its gathering spells' rows (but those ours replace; one box for a name the client lists twice,
+-- Banker); each group's row shows how many of its rows are on, n/total (Tally). Then AddOns: the buttons the takeover hides with the Minimap
 -- (Model.buttons: LibDBIcon's, the addon compartment's, others on its rim, Blizzard's calendar and clock after a
 -- divider), a row each, its icon and name; a click (either button) is the button Command, its tooltip the button's
 -- own (the tooltip Command); "None found" greyed when there are none. Then quick actions (Use Blizzard's
@@ -56,7 +56,7 @@ local GROUPS = {
 	{ key = "map", title = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01" },
 	{ key = "quests", title = "Quests", icon = "A:Quest-In-Progress-Icon-yellow" },
 	{ key = "places", title = "Places", icon = "A:dungeon" },
-	{ key = "nearby", title = "Nearby", icon = "Interface\\Icons\\Ability_Tracking" }, -- then Blizzard's tracking types (AddLayers)
+	{ key = "nearby", title = "Tracking", icon = "Interface\\Icons\\Ability_Tracking" }, -- then Blizzard's tracking types (AddLayers)
 	{ key = "addons", title = "Other addons", icon = "Interface\\Icons\\INV_Misc_EngGizmos_01" },
 }
 
@@ -292,12 +292,15 @@ end
 function AddTrackingRows(sub)
 	if not Model.tracking[1] then return end
 	sub:CreateDivider()
+	local last -- the last gathering spell's row: Keep tracking follows it (ui/Resources.lua)
+	Listed(function(t) if t.spell then last = t end end)
 	Listed(function(t, ids)
 		local mark = t.texture and "|T" .. t.texture .. ":16:16|t  " or ""
 		sub:CreateCheckbox(mark .. t.name, function() return RowOn(ids) end, function()
 			Run(FlipRow, ids)
 			return MenuResponse.Refresh
 		end)
+		if t == last then UI.Resources.Menu(sub) end
 	end)
 end
 
@@ -466,8 +469,8 @@ local function ButtonMark(icon)
 end
 
 local function AddButtons(root)
-	local sub = root:CreateButton(Mark(BUTTONS_ICON) .. "Minimap buttons")
-	sub:SetTooltip(Tip("Minimap buttons", "The buttons Blizzard's minimap holds, hidden with it: other addons', the calendar, the clock. A click here is a click on the button."))
+	local sub = root:CreateButton(Mark(BUTTONS_ICON) .. "AddOns")
+	sub:SetTooltip(Tip("AddOns", "The buttons Blizzard's minimap holds, hidden with it: other addons', the calendar, the clock. A click here is a click on the button."))
 	local blizzard = false
 	for _, b in ipairs(Model.buttons) do
 		if b.blizzard and not blizzard and Model.buttons[1] ~= b then sub:CreateDivider() end
@@ -486,7 +489,6 @@ function Menus.Gear(owner)
 	want, was = {}, {}
 	Menus.Show(owner, function(_, root)
 		AddLayers(root)
-		UI.Resources.Menu(root) -- (Keep tracking: <name>, ui/Resources.lua)
 		root:CreateDivider()
 		AddButtons(root)
 		if not UI.Replace or UI.Replace.Get("minimap") then -- (only while ours stands in for it: the contract's Get; shown if it's absent)

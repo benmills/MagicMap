@@ -81,7 +81,7 @@ def test_keep_tracking():
 
     # The gear's row: the one kept, a radio each tracker and Off.
     root, _ = gear(sim, ns)
-    keep = sub(root, "Keep tracking: Find Minerals")
+    keep = sub(sub(root, "Tracking"), "Keep tracking: Find Minerals")  # (right after the gathering spells)
     assert items(keep) == [("radio", "Find Herbs"), ("radio", "Find Minerals"), ("radio", "Off")]
     radios = list(keep["items"].values())
     assert [r.isSelected() for r in radios] == [False, True, False]

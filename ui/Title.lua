@@ -60,13 +60,21 @@ Title.title, Title.subtitle = title, subtitle
 -- The gold ring Blizzard_Minimap's Diel.lua puts round its day and night picture (UI-HUD-Minimap-Frame-Cycle: 42 px
 -- round a 33 px picture at 1x), at our picture's size, one for each time shown (local, server): placed where its
 -- picture falls in its line (Show), shown while the picture is there and fits (Fit).
-local ICON, RING_SIZE = 14, 18
+-- Made prominent: a touch larger, and lit by a copy of itself added over it (RING_LIT).
+local ICON, RING_SIZE, RING_LIT = 14, 19, 0.6
 local rings, ringOn, ringX = {}, {}, {} -- the rings; each one's line (title or subtitle) and its picture's x there
 for i = 1, 2 do
-	local ring = band:CreateTexture(nil, "OVERLAY", nil, 7)
+	local ring = band:CreateTexture(nil, "OVERLAY", nil, 6)
 	ring:SetAtlas("UI-HUD-Minimap-Frame-Cycle")
 	ring:SetSize(RING_SIZE, RING_SIZE)
 	ring:Hide()
+	local lit = band:CreateTexture(nil, "OVERLAY", nil, 7)
+	lit:SetAtlas("UI-HUD-Minimap-Frame-Cycle")
+	lit:SetBlendMode("ADD")
+	lit:SetAlpha(RING_LIT)
+	lit:SetAllPoints(ring)
+	lit:Hide()
+	ring.lit = lit
 	rings[i] = ring
 end
 Title.rings = rings
@@ -119,7 +127,10 @@ local function Fit()
 	end
 	-- Share the title's baseline, nudged for the smaller descender.
 	subtitle:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 6, 1)
-	for i, ring in ipairs(rings) do ring:SetShown(ringOn[i] ~= nil and ringX[i] + ICON <= ringOn[i]:GetWidth()) end
+	for i, ring in ipairs(rings) do
+		ring:SetShown(ringOn[i] ~= nil and ringX[i] + ICON <= ringOn[i]:GetWidth())
+		ring.lit:SetShown(ring:IsShown())
+	end
 end
 Title.Fit = Fit
 frame:HookScript("OnSizeChanged", Runtime.Wrap("map: title fit", Fit))
@@ -139,12 +150,12 @@ local PIECES = {
 local HINT_BIT, DEBUG_BIT = 2 ^ #PIECES, 2 ^ (#PIECES + 1)
 
 -- The minimap's day and night pictures (Blizzard_Minimap's Diel.lua) inline before a time, a space after (the
--- ring's room past it); none without them. Over the picture, the gold ring Diel.lua puts round it (rings, above).
+-- ring's edge just past it); none without them. Over the picture, the gold ring Diel.lua puts round it (rings, above).
 local DAY, NIGHT, RINGED
 local function DayNight(day)
 	if RINGED == nil then
 		local function Inline(atlas)
-			return C_Texture.GetAtlasInfo(atlas) and "|A:" .. atlas .. ":" .. ICON .. ":" .. ICON .. "|a  " or nil
+			return C_Texture.GetAtlasInfo(atlas) and "|A:" .. atlas .. ":" .. ICON .. ":" .. ICON .. "|a " or nil
 		end
 		DAY, NIGHT = Inline("UI-HUD-Minimap-DayCycle"), Inline("UI-HUD-Minimap-NightCycle")
 		RINGED = DAY ~= nil and NIGHT ~= nil

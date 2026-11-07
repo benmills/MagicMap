@@ -140,7 +140,7 @@ def test_title_pieces():
 
     lt = time.localtime(now)
     h12 = "%d:%02d" % (lt.tm_hour % 12 or 12, lt.tm_min)
-    NIGHT, DAY = "|A:UI-HUD-Minimap-NightCycle:14:14|a  ", "|A:UI-HUD-Minimap-DayCycle:14:14|a  "
+    NIGHT, DAY = "|A:UI-HUD-Minimap-NightCycle:14:14|a ", "|A:UI-HUD-Minimap-DayCycle:14:14|a "
     Feel.Set("title.rest", "time,zone,server")  # each time led by day or night's picture, no AM or PM
     sim.Run(1.5)
     assert text() == (NIGHT + h12, "Elwynn Forest" + SEP + NIGHT + "8:07")

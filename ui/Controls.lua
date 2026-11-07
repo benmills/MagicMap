@@ -150,7 +150,7 @@ local RUN = 7 -- yd/s, a run
 local YARDS_STEP = 10 -- yards are rounded to this from 100 up: no flicker while you walk
 local SEP, NEAR = "  \194\183  ", "  " -- between pieces; between the name and its progress, as before
 local ELLIPSIS = "\226\128\166" -- "…" in UTF-8
-local BAR = { 1, 0.82, 0.25, 0.22 } -- the fill: the title's gold, faint (its colour Settings > Quest pill > Bar colour)
+local BAR = { 1, 0.82, 0.25, 0.2 } -- the fill: the title's gold, faint (its colour Settings > Quest pill > Bar colour)
 local BAR_COLORS = {
 	{ "Gold", { 1, 0.82, 0.25 } }, { "Parchment", { 1, 0.93, 0.76 } }, { "White", { 1, 1, 1 } },
 	{ "Green", { 0.35, 0.9, 0.35 } }, { "Sky", { 0.45, 0.75, 1 } }, { "Rose", { 1, 0.5, 0.6 } },
@@ -223,6 +223,10 @@ local function SetBarColor(v)
 	BAR[1], BAR[2], BAR[3] = c[1], c[2], c[3]
 	fillM:SetColorTexture(BAR[1], BAR[2], BAR[3], BAR[4])
 	for _, t in ipairs({ fillL, fillR }) do t:SetVertexColor(BAR[1], BAR[2], BAR[3], BAR[4]) end
+end
+local function SetBarAlpha(v)
+	BAR[4] = v
+	SetBarColor(UI.Feel.Get("pills.barColor"))
 end
 local function Fill(frac, w)
 	local r = LINE_H / 2
@@ -679,6 +683,9 @@ UI.Feel.Add("pills", nil, {
 		tip = "What the pill says about what you track, in this order: its name, the quest's progress (2/5, or ready to turn in), the yards to it along the way, and the time to get there at your pace." },
 	{ key = "pills.questBar", kind = "toggle", label = "Progress bar", default = PILL.bar, when = QuestPill, apply = Pill("bar"),
 		tip = "A faint fill behind the pill's text, how far you've come: empty at the farthest you've been from it since you began tracking it, full once you're there." },
+	{ key = "pills.barAlpha", kind = "slider", label = "Bar opacity", min = 0.05, max = 1, step = 0.05, pct = true,
+		default = BAR[4], when = function() return QuestPill() and UI.Feel.Get("pills.questBar") ~= false end,
+		apply = SetBarAlpha, tip = "How solid the progress bar is behind the text." },
 	{ key = "pills.barColor", kind = "color", label = "Bar colour", colors = BAR_COLORS, default = BAR_COLORS[1][1],
 		when = function() return QuestPill() and UI.Feel.Get("pills.questBar") ~= false end, apply = SetBarColor,
 		tip = "The progress bar's colour (it stays faint behind the text)." },

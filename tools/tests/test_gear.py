@@ -112,9 +112,9 @@ def test_gear():
 
     # The tree: a submenu per group with layers, a divider, Settings; small and big alike.
     root, rows = gear(sim, ns)
-    assert items(root) == [("button", "Map"), ("button", "Quests"), ("button", "Places"), ("button", "Nearby"),
-                           ("button", "Other addons"), ("button", "Keep tracking: Find Herbs"), ("divider", None),
-                           ("button", "Minimap buttons"),
+    assert items(root) == [("button", "Map"), ("button", "Quests"), ("button", "Places"), ("button", "Tracking"),
+                           ("button", "Other addons"), ("divider", None),
+                           ("button", "AddOns"),
                            ("button", "Use Blizzard's minimap"),
                            ("button", "Reset to defaults"), ("divider", None), ("button", SETTINGS)]
     assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"),
@@ -124,7 +124,7 @@ def test_gear():
     assert items(sub(root, "Places")) == [("checkbox", "All places"), ("divider", None), ("checkbox", "Flight points"),
                                           ("checkbox", "Dungeons & raids"), ("checkbox", "Graveyards"),
                                           ("checkbox", "Points of interest")]
-    assert items(sub(root, "Nearby"))[:4] == [("checkbox", "All nearby"), ("divider", None),
+    assert items(sub(root, "Tracking"))[:4] == [("checkbox", "All tracking"), ("divider", None),
                                               ("checkbox", "Rares & treasures"), ("checkbox", "Party & raid")]
     assert items(sub(root, "Other addons")) == [("checkbox", "All other addons"), ("divider", None), ("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
     assert plain(sub(root, "Map").text) == "Map  2/2" and plain(sub(root, "Quests").text) == "Quests  3/3"
@@ -292,10 +292,10 @@ def test_gear_tracking():
     sim.Slash("/mm toggle")
     sim.Run(1)
 
-    # Tracking, under Nearby's rows: the client's order, the duplicates (flight, quest POIs, POIs) left out, a name
+    # Tracking, under the Tracking group's rows: the client's order, the duplicates (flight, quest POIs, POIs) left out, a name
     # and icon the client lists twice one box.
     root, rows = gear(sim, ns)
-    assert items(sub(root, "Nearby"))[-5:] == [("divider", None), ("checkbox", "Find Herbs"), ("checkbox", "Mailbox"),
+    assert items(sub(root, "Tracking"))[-5:] == [("divider", None), ("checkbox", "Find Herbs"), ("checkbox", "Mailbox"),
                                                ("checkbox", "Innkeeper"), ("checkbox", "Banker")]
     mail = rows["Mailbox"]
     assert mail.isSelected() is True and mail.onSelect() == refresh
@@ -348,7 +348,7 @@ def test_gear_tracking():
         f"|cffffd100Map:|r {on('zoneLabels')}, {on('cities')}; "
         f"|cffffd100Quests:|r {on('quests')}, {off('questAreas')}, {on('offers')}; "
         f"|cffffd100Places:|r {off('flight')}, {on('dungeons')}, {off('graveyards')}, {on('areaPOIs')}; "
-        f"|cffffd100Nearby:|r {off('rares')}, {on('group')}. Toggle them from the gear. "
+        f"|cffffd100Tracking:|r {off('rares')}, {on('group')}. Toggle them from the gear. "
         "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it.")
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
@@ -375,7 +375,7 @@ def test_gear_minimap_buttons():
     L.execute(COMPARTMENT, G, got)
     sim.Run(3.5)  # (looked for again every 3 s)
     root, rows = gear(sim, ns)
-    assert items(sub(root, "Minimap buttons")) == [("button", "AtlasLoot"), ("button", "Details"), ("button", "Some Addon"),
+    assert items(sub(root, "AddOns")) == [("button", "AtlasLoot"), ("button", "Details"), ("button", "Some Addon"),
                                                    ("divider", None), ("button", "Calendar"), ("button", "Clock")]
     assert rows["Some Addon"].text.startswith("|TInterface\\Icons\\INV_Misc_Bag_08:16:16|t")
     assert rows["Calendar"].text.startswith("|A:ui-hud-minimap-calendar-button:16:16|a")
@@ -414,7 +414,7 @@ def test_gear_minimap_buttons():
     sim.Run(3.5)
     root, rows = gear(sim, ns)
     none = rows["None found"]
-    assert items(sub(root, "Minimap buttons")) == [("button", "None found")] and not none.IsEnabled(none)
+    assert items(sub(root, "AddOns")) == [("button", "None found")] and not none.IsEnabled(none)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
