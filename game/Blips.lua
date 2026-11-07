@@ -662,6 +662,7 @@ local UNITS = {
 	{ "ui", function(fx, fy, l, b, w, h) return l + w * fx, b + h * fy end },
 }
 local N = 40
+local CELL = 1 / 41 -- (N + 1 cells)
 Game.Slash("probe", "why the blip sensor reads nothing: a dense sweep of the minimap and the answers' shape", function()
 	local l, b, w, h = Minimap:GetRect()
 	if not l then return Game.Say("probe: the Minimap has no place") end
@@ -671,7 +672,7 @@ Game.Slash("probe", "why the blip sensor reads nothing: a dense sweep of the min
 	for _, u in ipairs(UNITS) do
 		local t, k, n, first, named = {}, 0, 0, nil, nil
 		for i = 1, N do for j = 1, N do
-			Minimap:UpdateMouseoverAtPoint(u[2](i / (N + 1), j / (N + 1), l, b, w, h, s))
+			Minimap:UpdateMouseoverAtPoint(u[2](i * CELL, j * CELL, l, b, w, h, s))
 			local name, data = Name()
 			n = n + 1
 			if not t[name] then t[name] = 0; k = k + 1 end
