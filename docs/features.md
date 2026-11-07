@@ -39,8 +39,8 @@ or Escape shrinks it. Move or resize the big map and it opens there next time, a
 (`/mm reset` puts both back). The quest log (L) still opens Blizzard's map (so does M, with Replace world
 map off in Settings). The title over the map says what you choose (Settings > Frame title), at rest and with
 the pointer on the map, in your order: the zone, subzone, coordinates (the pointer's on the big map), the
-tracked target and its distance, the local or server time, and day or night (the minimap's own picture, in its gold ring); by
-default the zone and subzone, and on hover the coordinates and target too. Click the zone name to pick a
+tracked target and its distance, the local or server time, each time led by the minimap's own day or night picture in its gold ring (no AM or PM); by
+default the zone and the local time, and on hover the zone, subzone, target and its distance. Click the zone name to pick a
 continent, another map or an instance; with several zones in view, hover one to light it and click
 to fly there. `/mm map` and `/mm zone` do the same by name.
 
@@ -125,7 +125,7 @@ what you track is never grouped into a pill and shows at any zoom. A quest icon'
 quest, and a third button opens it in the quest log; your waypoint's own has Clear waypoint. The two are exclusive:
 choosing one replaces the other. The popup stays till you pick, click off it or press Escape.
 **Track** shows the way with Blizzard's gold arrow alone, placed by the walk to the target (around cliffs, lava
-and water): it stands along that way a short distance from you (48 px by default), pointing along it, so a
+and water): it stands along that way a short distance from you (96 px by default), pointing along it, so a
 route that turns north first points north; it comes in as you near the target, settles beside its icon and fades
 as the icon takes over. It eases round as the way changes, and your turning doesn't move it. Its size, opacity
 and distance are in Settings > Tracking.
@@ -187,12 +187,12 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | --- | --- |
 | General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to you (on: the small map glides back to you when left alone), Return after (6 s), Zoom per notch (+30%) |
 | Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (100%), Subzone opacity (60%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
-| Title | At rest (Zone, Subzone), On hover (Zone, Subzone, Coordinates, Tracked target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time, Day or night. Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
+| Title | At rest (Zone, Local time), On hover (Zone, Subzone, Tracked target, Distance to target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time (each time led by the day or night picture). Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
 | Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Services, Vendors, Resources, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Each follows the level above until set; its undo hands it back |
 | Resources | Tracking: Keep tracking (your gathering tracker: Find Herbs, else Find Minerals, else Find Treasure; or one you know, or Off). Difficulty: Colour by difficulty (on) |
-| Quest pill | Shows (target or zone count / target only / off), Says (Name, Objective progress, Distance; chosen and ordered from those and Time to arrive), Progress bar (on), Bar colour (Gold), Fade quest pill (on: the zone count only while you point at the map). Look: Backing (25%), Size (100%) |
-| Tracking | Arrow: Size (80%), Opacity (90%), Distance (48 px). Path to: Frame the way (on) |
-| Pathing | Line: Style (dashed), Weight (1.0 px), Colour (Gold), Opacity (55%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |
+| Quest pill | Shows (target or zone count / target only / off), Says (Name, Objective progress, Distance; chosen and ordered from those and Time to arrive), Progress bar (on), Bar colour (Gold), Fade quest pill (on: the zone count only while you point at the map). Look: Backing (60%), Size (100%) |
+| Tracking | Arrow: Size (105%), Opacity (100%), Distance (96 px). Path to: Frame the way (on). Tracked icon: Glow (on), Glow size (200%), Glow opacity (100%) |
+| Pathing | Line: Style (dashed), Weight (1.4 px), Colour (Gold), Opacity (65%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |
 | Quest areas | Followed quest, Other quests: Fill, Edge, Edge width. Under the cursor: Fill lift, Edge (as the game draws them, a quiet fill by default) |
 | Grouping | Group icons (on). How icons group: Distance (24 px), Reach (3x), Smallest group (2 icons). Pills: Icons in a pill (2), Pill backing (35%), Open group backing (72%) |
 | Diagnostics | Debug info in title; Indoor maps report. Reports in chat: Record 10 seconds; Compare with other addons; Memory breakdown (each also a `/mm` command) |

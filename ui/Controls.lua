@@ -177,7 +177,7 @@ icon:SetPoint("LEFT", line, "LEFT", ICON_X, 0)
 if questAtlas then icon:SetAtlas(questAtlas) else icon:Hide() end
 local iconKind = "quest"
 -- The pill: a half disc at each end (the circle mask's halves, so they don't overlap the middle).
-local PILL_A = 0.25 -- the backing's alpha: faint ("pills.alpha" sets it live: SetPillAlpha)
+local PILL_A = 0.6 -- the backing's alpha: faint ("pills.alpha" sets it live: SetPillAlpha)
 local backing = {} -- the backing's textures (caps and middle)
 local function Cap(left, layer, sub)
 	local t = line:CreateTexture(nil, layer, nil, sub)

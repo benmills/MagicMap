@@ -268,7 +268,7 @@ local layers = {} -- Pins' own, the highest level first: { layer, opts }
 -- the world map's super-tracked quest glow (UI-QuestPoi-OuterGlow, added), toned down; Settings > Tracking > Tracked
 -- icon: shown or not, its size (of the pin's), its opacity.
 local GLOW_ART = "UI-QuestPoi-OuterGlow"
-local glow = { on = true, size = 1.7, alpha = 0.45 }
+local glow = { on = true, size = 2, alpha = 1 }
 local glowRev = 0 -- moves with the glow's settings (WithTrack: the layers lay out again)
 local function Glow(pin, on)
 	on = on and glow.on and Has(GLOW_ART)

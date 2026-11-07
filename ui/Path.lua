@@ -45,8 +45,8 @@ local EDGE_COLORS = {
 	{ "Dark", { 0.12, 0.08, 0.03 } }, { "Black", { 0, 0, 0 } }, { "Brown", { 0.3, 0.18, 0.07 } },
 	{ "Navy", { 0.04, 0.07, 0.2 } }, { "White", { 1, 1, 1 } },
 }
-local DEFAULTS = { style = "dashed", weight = 1, color = "Gold", glow = false, breath = false, breathTime = 1.8,
-	opacity = 0.55, edge = false, edgeColor = EDGE_COLORS[1][1] }
+local DEFAULTS = { style = "dashed", weight = 1.4, color = "Gold", glow = false, breath = false, breathTime = 1.8,
+	opacity = 0.65, edge = false, edgeColor = EDGE_COLORS[1][1] }
 local STYLES = { dotted = { 1, 1.5 }, dashed = { 6 / 1.9, 4 / 1.9 } } -- a piece and its gap, in strokes (solid: a leg a line)
 local WEIGHT_MIN, WEIGHT_MAX, OPACITY_MIN = 1, 4, 0.2
 local STROKE_ALPHA, WASH_ALPHA = 0.92, 0.45 -- Path.lua:14-15 (more alpha: legible on snow; the casing darker)

@@ -21,6 +21,7 @@ def test_bigmap():
     f, big, view, cam = UI.Window.frame, UI.BigMap, UI.View(), lambda: UI.Camera.cam  # noqa: E731
     saved = G.MagicMap2DB.UI
     t = UI.Title
+    UI.Feel.Set("title.rest", "zone,subzone"); UI.Feel.Set("title.hover", "zone,subzone,coords,target")  # (the title as it was)
     sim.Run(0.5)
     small, zoom = rect(f), cam().zoom
 

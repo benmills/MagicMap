@@ -12,8 +12,9 @@
 --   Coordinates: that zone's, the cursor's or yours
 --   Tracked target: its name (ui/You.lua's Target), "here" inside its area; Distance to target: the yards to it,
 --     outside it; both only while it's about you
---   Local time, Server time (Model.clock: Game reads them), as Blizzard's clock shows them (24 hours or 12) or as set
---   Day or night: the minimap's own picture of it in its gold ring (Blizzard_Minimap's Diel.lua), else the word
+--   Local time, Server time (Model.clock: Game reads them), as Blizzard's clock shows them (24 hours or 12) or as set,
+--     led by the minimap's own day or night picture in its gold ring (Blizzard_Minimap's Diel.lua) rather than an
+--     AM or PM (without the pictures, the AM or PM)
 -- By default today's text: at rest the zone and subzone; on hover those, the coordinates and the target. Whatever is
 -- chosen, off your map on the big map the hint to follow you again leads the subtitle; and with /mm debug, last
 -- (Core.lua:1305-1313), grey: the tile under the cursor (else the view's centre), its FileDataID, the zoom and the
@@ -57,15 +58,18 @@ local subtitle = Text(11, 0.74, 0.68, 0.58)
 Title.title, Title.subtitle = title, subtitle
 
 -- The gold ring Blizzard_Minimap's Diel.lua puts round its day and night picture (UI-HUD-Minimap-Frame-Cycle: 42 px
--- round a 33 px picture at 1x), at our picture's size: placed where the picture falls in its line (Show), shown
--- while the picture is there and fits (Fit).
+-- round a 33 px picture at 1x), at our picture's size, one for each time shown (local, server): placed where its
+-- picture falls in its line (Show), shown while the picture is there and fits (Fit).
 local ICON, RING_SIZE = 14, 18
-local ring = band:CreateTexture(nil, "OVERLAY", nil, 7)
-ring:SetAtlas("UI-HUD-Minimap-Frame-Cycle")
-ring:SetSize(RING_SIZE, RING_SIZE)
-ring:Hide()
-Title.ring = ring
-local ringOn, ringX -- its line (title or subtitle) and the picture's x in it, while shown
+local rings, ringOn, ringX = {}, {}, {} -- the rings; each one's line (title or subtitle) and its picture's x there
+for i = 1, 2 do
+	local ring = band:CreateTexture(nil, "OVERLAY", nil, 7)
+	ring:SetAtlas("UI-HUD-Minimap-Frame-Cycle")
+	ring:SetSize(RING_SIZE, RING_SIZE)
+	ring:Hide()
+	rings[i] = ring
+end
+Title.rings = rings
 
 -- Over the title, padded: a click opens the map picker (ui/Menus.lua); dragging it moves the window,
 -- no pick after it.
@@ -115,7 +119,7 @@ local function Fit()
 	end
 	-- Share the title's baseline, nudged for the smaller descender.
 	subtitle:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 6, 1)
-	ring:SetShown(ringOn ~= nil and ringX + ICON <= ringOn:GetWidth())
+	for i, ring in ipairs(rings) do ring:SetShown(ringOn[i] ~= nil and ringX[i] + ICON <= ringOn[i]:GetWidth()) end
 end
 Title.Fit = Fit
 frame:HookScript("OnSizeChanged", Runtime.Wrap("map: title fit", Fit))
@@ -124,28 +128,28 @@ frame:HookScript("OnSizeChanged", Runtime.Wrap("map: title fit", Fit))
 -- SetFormattedText: the client formats numbers without a Lua string (hovering the big map, coordinates change every
 -- update: a string and its join each, 20 times a second). A form for each list and set of pieces there, made once.
 local COORDS = "%.1f, %.1f" -- a tenth of a percent
-local CLOCK = "%d:%02d%s"
+local CLOCK = "%s%d:%02d%s" -- the day or night picture (and its room), hour, minute, AM or PM
 local FMT = { zone = "%s", subzone = "%s", coords = COORDS, target = "|cffffd27f%s|r%s", -- Core.lua:1295-1299
-	distance = "%d yd", time = CLOCK, server = CLOCK, daynight = "%s" }
-local N = { zone = 1, subzone = 1, coords = 2, target = 2, distance = 1, time = 3, server = 3, daynight = 1 }
+	distance = "%d yd", time = CLOCK, server = CLOCK }
+local N = { zone = 1, subzone = 1, coords = 2, target = 2, distance = 1, time = 4, server = 4 }
 local PIECES = {
 	{ "Zone", "zone" }, { "Subzone", "subzone" }, { "Coordinates", "coords" }, { "Tracked target", "target" },
 	{ "Distance to target", "distance" }, { "Local time", "time" }, { "Server time", "server" },
-	{ "Day or night", "daynight" },
 }
 local HINT_BIT, DEBUG_BIT = 2 ^ #PIECES, 2 ^ (#PIECES + 1)
 
--- The minimap's day and night pictures (Blizzard_Minimap's Diel.lua) inline; without them, words. Over the picture,
--- the gold ring Diel.lua puts round it (ring, above).
+-- The minimap's day and night pictures (Blizzard_Minimap's Diel.lua) inline before a time, a space after (the
+-- ring's room past it); none without them. Over the picture, the gold ring Diel.lua puts round it (rings, above).
 local DAY, NIGHT, RINGED
 local function DayNight(day)
-	if not DAY then
-		local function Inline(atlas, word)
-			return C_Texture.GetAtlasInfo(atlas) and "|A:" .. atlas .. ":" .. ICON .. ":" .. ICON .. "|a" or word
+	if RINGED == nil then
+		local function Inline(atlas)
+			return C_Texture.GetAtlasInfo(atlas) and "|A:" .. atlas .. ":" .. ICON .. ":" .. ICON .. "|a  " or nil
 		end
-		DAY, NIGHT = Inline("UI-HUD-Minimap-DayCycle", "Day"), Inline("UI-HUD-Minimap-NightCycle", "Night")
-		RINGED = DAY ~= "Day"
+		DAY, NIGHT = Inline("UI-HUD-Minimap-DayCycle"), Inline("UI-HUD-Minimap-NightCycle")
+		RINGED = DAY ~= nil and NIGHT ~= nil
 	end
+	if not RINGED then return nil end
 	return day and DAY or NIGHT
 end
 
@@ -168,17 +172,18 @@ local function Form(list, key)
 	forms[list] = byKey
 	local f = byKey[key]
 	if f then return f end
-	f = { t = "", tn = 0 } -- (and with the day/night picture: ring, its line; pre, the subtitle's form before it, pn its values)
+	f = { t = "", tn = 0, rings = {} } -- (a time's picture each: line, its line; pre, the subtitle's form before it, pn its values)
 	local parts, sn = {}, 0
 	if key % DEBUG_BIT >= HINT_BIT then parts[1] = HINT end
 	for i, p in ipairs(list) do
 		if key % 2 ^ i >= 2 ^ (i - 1) then
+			local timed = p == "time" or p == "server"
 			if f.t == "" then
 				f.t, f.tn = FMT[p], N[p]
-				if p == "daynight" then f.ring = title end
+				if timed then f.rings[#f.rings + 1] = { line = title } end
 			else
-				if p == "daynight" then
-					f.ring, f.pre, f.pn = subtitle, table.concat(parts, SEP) .. (parts[1] and SEP or ""), sn
+				if timed then
+					f.rings[#f.rings + 1] = { line = subtitle, pre = table.concat(parts, SEP) .. (parts[1] and SEP or ""), pn = sn }
 				end
 				parts[#parts + 1] = FMT[p]
 				sn = sn + N[p]
@@ -191,14 +196,13 @@ local function Form(list, key)
 	return f
 end
 
--- A clock's three values from n + 1: hour, minute, and "" or " AM" / " PM" (12 at noon and midnight).
-local function Clock(out, n, h, m, military)
-	local form = Feel.Get("title.clock")
-	if form == "24" or form == "game" and military then
-		out[n + 1], out[n + 2], out[n + 3] = h, m, ""
-	else
-		out[n + 1], out[n + 2], out[n + 3] = (h % 12 == 0) and 12 or h % 12, m, h < 12 and " AM" or " PM"
-	end
+-- A clock's four values from n + 1: the day or night picture ("" without it), hour, minute, and "" (the picture says
+-- it) or, without the picture, " AM" / " PM" at 12 hours (12 at noon and midnight).
+local function Clock(out, n, h, m, military, day)
+	local form, pic = Feel.Get("title.clock"), DayNight(day)
+	local twelve = not (form == "24" or form == "game" and military)
+	out[n + 1], out[n + 2], out[n + 3] = pic or "", twelve and ((h % 12 == 0) and 12 or h % 12) or h, m
+	out[n + 4] = (twelve and not pic) and (h < 12 and " AM" or " PM") or ""
 end
 
 -- Shown from v, this update's values (zone, subzone, nx, ny: tenths of a percent, tt, here, yd, clock, hint,
@@ -215,11 +219,9 @@ local function Put(p, n)
 	elseif p == "target" then
 		cur[n + 1], cur[n + 2] = v.tt, v.here and " here" or ""
 	elseif p == "time" then
-		Clock(cur, n, v.clock.h, v.clock.m, v.clock.military)
+		Clock(cur, n, v.clock.h, v.clock.m, v.clock.military, v.clock.day)
 	elseif p == "server" then
-		Clock(cur, n, v.clock.sh, v.clock.sm, v.clock.military)
-	elseif p == "daynight" then
-		cur[n + 1] = DayNight(v.clock.day)
+		Clock(cur, n, v.clock.sh, v.clock.sm, v.clock.military, v.clock.day)
 	else
 		cur[n + 1] = p == "zone" and v.zone or p == "subzone" and v.subzone or v.yd
 	end
@@ -245,15 +247,18 @@ local function Show(list)
 	shownList, shownKey, shownN = list, key, n
 	cur, shown = shown, cur
 	local f = Form(list, key)
-	-- The ring's place: the width of the subtitle's text before the picture (the title's picture is its first).
-	ringOn, ringX = RINGED and f.ring or nil, 0
-	if ringOn and f.pre and f.pre ~= "" then
-		subtitle:SetFormattedText(f.pre, unpack(shown, f.tn + 1, f.tn + f.pn))
-		ringX = subtitle:GetUnboundedStringWidth()
-	end
-	if ringOn then
-		ring:ClearAllPoints()
-		ring:SetPoint("CENTER", ringOn, "LEFT", ringX + ICON / 2, 0)
+	-- Each ring's place: the width of the subtitle's text before its picture (the title's picture is its first).
+	for i, ring in ipairs(rings) do
+		local fr = RINGED and f.rings[i]
+		ringOn[i], ringX[i] = fr and fr.line or nil, 0
+		if fr and fr.pre and fr.pre ~= "" then
+			subtitle:SetFormattedText(fr.pre, unpack(shown, f.tn + 1, f.tn + fr.pn))
+			ringX[i] = subtitle:GetUnboundedStringWidth()
+		end
+		if fr then
+			ring:ClearAllPoints()
+			ring:SetPoint("CENTER", fr.line, "LEFT", ringX[i] + ICON / 2, 0)
+		end
 	end
 	if f.t == "" then title:SetText("") else title:SetFormattedText(f.t, unpack(shown, 1, f.tn)) end
 	if f.s == "" then subtitle:SetText("") else subtitle:SetFormattedText(f.s, unpack(shown, f.tn + 1, n)) end
@@ -325,7 +330,7 @@ local function Update()
 		tt, yd = UI.You.Target()
 		if not has.distance then yd = yd and true end -- (no yards shown: none to redraw for)
 	end
-	local clock = (has.time or has.server or has.daynight) and Model.clock or nil
+	local clock = (has.time or has.server) and Model.clock or nil
 	local l = last
 	if not debug and not l.debug and l.inst == inst and l.big == big and l.hovering == hovering and l.a == a
 		and l.b == b and l.uiMap == you.uiMap and l.subzone == you.subzone and l.tt == tt and l.yd == yd
@@ -367,10 +372,10 @@ end
 Feel.Page({ key = "title", title = "Frame title", icon = "Interface\\Icons\\INV_Scroll_03", order = 25, sections = { "Format" },
 	tip = "What the title above the map says: at rest, and with the pointer over the map." })
 Feel.Add("title", nil, {
-	{ key = "title.rest", kind = "list", ordered = true, label = "At rest", options = PIECES, default = "zone,subzone",
+	{ key = "title.rest", kind = "list", ordered = true, label = "At rest", options = PIECES, default = "zone,time",
 		tip = "What the title says while the pointer isn't over the small map, in this order: the first is the title, the rest follow it, smaller." },
 	{ key = "title.hover", kind = "list", ordered = true, label = "On hover", options = PIECES,
-		default = "zone,subzone,coords,target",
+		default = "zone,subzone,target,distance",
 		tip = "What it says with the pointer over the map, and on the big map. Over the big map, or a map you're not on, the zone and coordinates are the ones under the pointer." },
 })
 Feel.Add("title", "Format", {

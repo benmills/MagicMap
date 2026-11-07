@@ -29,7 +29,7 @@ local FADE = 12 -- px the target comes in over while it fades
 local LOOK = 10 -- px either side of where it stands: the chord its way is
 local RATE = 5 -- per second: the share of the way to where it should be it closes (1 - e^-RATE)
 local MOVE, TURN, DIM = 0.1, math.rad(0.2), 0.01 -- px, radians, alpha: less isn't set
-local DEFAULTS = { size = 0.8, opacity = 0.9, reach = 48 }
+local DEFAULTS = { size = 1.05, opacity = 1, reach = 96 }
 
 local Guide = { DEFAULTS = DEFAULTS }
 UI.Guide = Guide

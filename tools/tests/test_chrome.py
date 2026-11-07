@@ -38,6 +38,7 @@ def test_chrome():
     UI, G = ns.UI, L.globals()
     f, view, c, ctl = UI.Window.frame, UI.Window.view, UI.Chrome, UI.Controls
     saved = G.MagicMap2DB.UI
+    UI.Feel.Set("title.rest", "zone,subzone"); UI.Feel.Set("title.hover", "zone,subzone,coords,target")  # (the title as it was)
 
     # On the minimap's spot (the sim's: 140 square at the screen's top right), its strata, saved.
     spot = UI.BigMap.home
@@ -123,7 +124,7 @@ def test_chrome():
 def test_title_pieces():
     """The title's pieces (#19), as its settings page (Frame title) chooses and orders them, at rest and on hover, the first the
     title: the local and the server's time (Game's: Model.clock) as Blizzard's clock shows them (its 24-hour box) or as
-    set; day or night, the minimap's own picture; coordinates first. The defaults are today's text (test_chrome)."""
+    set, led by day or night's picture (the minimap's own); coordinates first. The defaults are today's text (test_chrome)."""
     L, sim, ns = boot()
     G, UI = L.globals(), ns.UI
     t, Feel, view = UI.Title, UI.Feel, UI.Window.view
@@ -133,33 +134,33 @@ def test_title_pieces():
     sim.gameTime[1], sim.gameTime[2] = 20, 7  # (night)
     sim.Slash("/mm toggle")
     sim.cursorX, sim.cursorY = 1, 1
+    Feel.Set("title.rest", "zone,subzone")
     sim.Run(1.5)
     assert text() == ("Elwynn Forest", "Goldshire")
 
     lt = time.localtime(now)
-    h12 = "%d:%02d %s" % (lt.tm_hour % 12 or 12, lt.tm_min, "AM" if lt.tm_hour < 12 else "PM")
-    Feel.Set("title.rest", "daynight,zone,server,time")
+    h12 = "%d:%02d" % (lt.tm_hour % 12 or 12, lt.tm_min)
+    NIGHT, DAY = "|A:UI-HUD-Minimap-NightCycle:14:14|a  ", "|A:UI-HUD-Minimap-DayCycle:14:14|a  "
+    Feel.Set("title.rest", "time,zone,server")  # each time led by day or night's picture, no AM or PM
     sim.Run(1.5)
-    assert text() == ("|A:UI-HUD-Minimap-NightCycle:14:14|a", "Elwynn Forest" + SEP + "8:07 PM" + SEP + h12)
-    ring, same = t.ring, L.eval("rawequal")  # Diel.lua's gold ring round the picture: the title's first, at its left
-    p = ring.GetPoint(ring, 1)
-    assert ring.IsShown(ring) and ring.GetAtlas(ring) == "UI-HUD-Minimap-Frame-Cycle"
-    assert same(p[1], t.title) and (p[0], p[2], p[3], p[4]) == ("CENTER", "LEFT", 7, 0)
+    assert text() == (NIGHT + h12, "Elwynn Forest" + SEP + NIGHT + "8:07")
+    same = L.eval("rawequal")  # Diel.lua's gold ring round each picture: the title's at its left, the server's after
+    r1, r2 = t.rings[1], t.rings[2]
+    p1, p2 = r1.GetPoint(r1, 1), r2.GetPoint(r2, 1)
+    assert r1.IsShown(r1) and r1.GetAtlas(r1) == "UI-HUD-Minimap-Frame-Cycle" and r2.IsShown(r2)
+    assert same(p1[1], t.title) and (p1[0], p1[2], p1[3], p1[4]) == ("CENTER", "LEFT", 7, 0)
+    assert same(p2[1], t.subtitle) and p2[3] > 7
     sim.cvars.timeMgrUseMilitaryTime = "1"  # Blizzard's clock at 24 hours
     sim.gameTime[1] = 9
     sim.Run(1.5)
     h24 = "%d:%02d" % (lt.tm_hour, lt.tm_min)
-    assert text() == ("|A:UI-HUD-Minimap-DayCycle:14:14|a", "Elwynn Forest" + SEP + "9:07" + SEP + h24)
+    assert text() == (DAY + h24, "Elwynn Forest" + SEP + DAY + "9:07")
     Feel.Set("title.clock", "12")
     sim.Run(0.1)
-    assert text()[1] == "Elwynn Forest" + SEP + "9:07 AM" + SEP + h12
-    Feel.Set("title.rest", "zone,subzone,daynight")  # in the subtitle: the ring follows the picture there
-    sim.Run(0.1)
-    p = ring.GetPoint(ring, 1)
-    assert ring.IsShown(ring) and same(p[1], t.subtitle) and p[3] > 7
+    assert text()[1] == "Elwynn Forest" + SEP + DAY + "9:07"
     Feel.Set("title.rest", "zone,subzone")
     sim.Run(0.1)
-    assert not ring.IsShown(ring)
+    assert not r1.IsShown(r1) and not r2.IsShown(r2)
 
     # On hover: coordinates first, then the zone.
     Feel.Set("title.hover", "coords,zone")

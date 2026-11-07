@@ -163,8 +163,8 @@ def off_line(pts, x, y):
 def test_path_line():
     L, sim, ns, G = client()
     P, S, z = ns.UI.Path, sim.state, ns.UI.Camera.cam.zoom
-    assert P.DEFAULTS.style == "dashed" and P.DEFAULTS.weight == 1 and P.DEFAULTS.color == "Gold" and P.COLORS[1][1] == "Parchment"
-    assert not P.DEFAULTS.glow and not P.DEFAULTS.breath and P.DEFAULTS.opacity == 0.55 and not P.DEFAULTS.edge and len(P.COLORS) == 6
+    assert P.DEFAULTS.style == "dashed" and P.DEFAULTS.weight == 1.4 and P.DEFAULTS.color == "Gold" and P.COLORS[1][1] == "Parchment"
+    assert not P.DEFAULTS.glow and not P.DEFAULTS.breath and P.DEFAULTS.opacity == 0.65 and not P.DEFAULTS.edge and len(P.COLORS) == 6
     # (the line measured below is the tests' look, sim.TEST_LOOK: dotted parchment, its edge on)
     G.Target("waypoint", 33.0, 49.75, "Waypoint")  # 1.05 tiles east of you: 100.8 px at 96
     sim.Run(0.2)
@@ -262,18 +262,18 @@ def test_path_feel():
     assert P.pieces == len(dashes(G, 3.8)) > 15 and all(0 < d[2] - d[0] <= 6 or 0 < abs(d[3] - d[1]) <= 6 for d in strokes)
     assert set(G.Looks().keys()) == {"1.9 BLEND 0.55 0.8 1", "3.8 BLEND 0.12 0.08 0.03"}
 
-    G.Feel("path.weight", 40)  # out of range: the default's (1 px, gold)
+    G.Feel("path.weight", 40)  # out of range: the default's (1.4 px, gold)
     G.Feel("path.color", "Plaid")
     sim.Run(0.2)
-    assert P.pieces == len(dashes(G, 1)) > 15 and set(G.Looks().keys()) == {"1 BLEND 1 0.82 0.3", "2 BLEND 0.12 0.08 0.03"}
+    assert P.pieces == len(dashes(G, 1.4)) > 15 and set(G.Looks().keys()) == {"1.4 BLEND 1 0.82 0.3", "2.8 BLEND 0.12 0.08 0.03"}
 
     G.Feel("path.edge", False)  # the outline off: the strokes alone; its colour, once on again
     sim.Run(0.2)
-    assert P.pieces == len(dashes(G, 1)) > 15 and dashes(G, 2) == []
+    assert P.pieces == len(dashes(G, 1.4)) > 15 and dashes(G, 2.8) == []
     G.Feel("path.edge", True)
     G.Feel("path.edgeColor", "White")
     sim.Run(0.2)
-    assert set(G.Looks().keys()) == {"1 BLEND 1 0.82 0.3", "2 BLEND 1 1 1"} and len(dashes(G, 2)) == P.pieces
+    assert set(G.Looks().keys()) == {"1.4 BLEND 1 0.82 0.3", "2.8 BLEND 1 1 1"} and len(dashes(G, 2.8)) == P.pieces
     assert not errors(sim, ns), errors(sim, ns)
 
 
@@ -402,7 +402,7 @@ def test_guide_arrow():
     assert UI.Path.pieces == 0 and not S[UI.Path.edge].shown
     assert S[a].shown and S[a].texture == "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW" and S[a].width == 32 * D.size
     dx, dy = at()
-    assert abs(dx - 48) < 0.2 and abs(dy) < 0.2 and abs(S[a].rotation + math.pi / 2) < 0.01 and abs(S[a].alpha - D.opacity) < 0.02
+    assert abs(dx - D.reach) < 0.2 and abs(dy) < 0.2 and abs(S[a].rotation + math.pi / 2) < 0.01 and abs(S[a].alpha - D.opacity) < 0.02
     # Turning doesn't move it (your arrow shows which way you face): no call on it.
     calls = sim.callsOn[a] or 0
     sim.player.facing = 0
@@ -416,7 +416,7 @@ def test_guide_arrow():
     assert dx > 5 and dy > -40
     sim.Run(2)
     dx, dy = at()
-    assert abs(dx) < 0.2 and abs(dy + 48) < 0.2 and abs(S[a].rotation) < 0.01
+    assert abs(dx) < 0.2 and abs(dy + D.reach) < 0.2 and abs(S[a].rotation) < 0.01
     # Nearer: it rides in short of the pin (16 px), dimmer; within reach of your arrow, the pin takes over: gone.
     G.Way = None
     G.Target("waypoint", 31.95 + 40 / z, 49.75, None, True)
@@ -535,6 +535,8 @@ def test_corpse_forces_follow():
 
 def test_title_target():
     L, sim, ns, G = client()
+    UI = ns.UI
+    UI.Feel.Set("title.rest", "zone,subzone"); UI.Feel.Set("title.hover", "zone,subzone,coords,target")  # (the title as it was)
     sub = ns.UI.Title.subtitle
     text = lambda: sub.GetText(sub)  # noqa: E731
     G.Target("waypoint", 33.0, 49.75, "Waypoint")
