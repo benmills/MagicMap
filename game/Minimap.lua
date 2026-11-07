@@ -304,7 +304,9 @@ local function Overlay(w, here, inst)
 	if mm:IsClampedToScreen() then mm:SetClampedToScreen(false) end
 	mm:SetSize(half * 2, half * 2)
 	mm:ClearAllPoints()
-	mm:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
+	-- By its corner: anchored by its CENTER, the client drew its map as if that point were the corner (its centre, you
+	-- and every blip half its size up and right: the overlay test's video, 70862).
+	mm:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x - half, y - half)
 end
 
 Game.Slash("overlay", "spike: Blizzard's Minimap seen over the map, its live blips (the sensor can't aim since 70862)", function()
