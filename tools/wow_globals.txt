@@ -43,6 +43,7 @@ C_Minimap C_QuestLine C_TooltipInfo C_QuestLog C_SuperTrack C_TaxiMap C_Timer
 LibQuestieDB
 C_VignetteInfo Enum
 # Functions
+GetPhysicalScreenSize
 AddQuestWatch ChatFrame_OpenChat
 GetBuildInfo GetCVar GetInstanceInfo Screenshot GetGameTime C_DateAndTime issecurevariable
 GetPlayerFacing GetUnitSpeed GetRealZoneText GetSubZoneText GetZoneText
