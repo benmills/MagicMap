@@ -177,9 +177,11 @@ local function Engage()
 	Runtime.Trace("minimap", "engaged")
 end
 
+local Unoverlay -- (the overlay's, below)
 local function Release()
 	if not m.engaged then return end
 	m.engaged, m.sensor, m.still, placed = false, false, false, nil
+	Unoverlay()
 	local failure
 	for i = #undo, 1, -1 do -- every step runs; the first failure is raised after
 		local ok, err = pcall(undo[i])
@@ -247,28 +249,88 @@ local function Place(w, held)
 end
 
 -- The overlay spike (/mm overlay): since 1.60.1.70862 the sensor can't aim (UpdateMouseoverAtPoint is ignored for
--- addon code), so Blizzard's Minimap itself, seen: over our tiles, centred on you, sized so its view radius is as many
--- yards as ours, no ground, its own icons. The client draws it only whole on the screen: a part off it, it draws the
--- map shifted back on (you and every blip off by as much: /mm overlay info, 70862), clamped to the screen or not. So
--- its zoom (0 widest .. 5) is the widest whose square fits between you and the screen's nearest edge (and under CAP
--- of the screen); none does (you by an edge): unseen. Back out a zoom only once it fits under SLACK of the room (no
--- flicker at the line). Off the view, or a new zoom's radius not yet applied: unseen.
-local CAP, SLACK, ZOOMS, EDGE = 0.9, 0.85, 5, 2
+-- addon code), so Blizzard's Minimap itself, seen, drives the blips: over our tiles, centred on you, sized so its view
+-- radius (read each frame) is as many yards as ours, no ground, its own icons and arrow (ours hides: obs.minimap.overlaid).
+-- Its square must cover the window around you (half >= need: you to the window's furthest edge) and be whole on the
+-- screen (half <= room: you to the screen's nearest edge; a part off it, the client draws its map shifted back on). Its
+-- zoom (0 widest .. 5) is the one whose square covers the window the tightest and fits; none covers: the widest that
+-- fits, while it covers COVER of the need (else it fades out: zoomed or panned too far out); none fits (too far in, by
+-- a screen edge): unseen at once. A square past the window is clipped to it (a clipping frame) and masked square.
+-- A new zoom's radius applies a frame or two late: unseen SETTLE frames, then it fades in.
+local ZOOMS, EDGE, COVER, STICK = 5, 2, 0.75, 0.98
+local FADE_IN, FADE_OUT = 0.15, 0.12 -- s
+-- (ROUND: the client's round alpha mask, as its own Minimap's, when nothing else set one)
+local SQUARE, ROUND = "Interface\\ChatFrame\\ChatFrameBackground", "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 local radii = {} -- the view radius seen at each zoom (this map kind); else guessed from zoom 0's: r0 * (7 - z) / 7
 local function Radius(z)
 	if radii[z] then return radii[z] end
 	local r0 = radii[0] or (radii[m.zoom or 0] and radii[m.zoom or 0] * 7 / (7 - (m.zoom or 0))) -- /: never 0 (a zoom is 0..5)
 	return r0 and r0 * (7 - z) / 7
 end
+-- The mask others set (Leatrix's square, say), put back once the overlay lets go.
+local mask, masked = nil, false
+if Minimap.SetMaskTexture then
+	hooksecurefunc(Minimap, "SetMaskTexture", function(_, t) if not masked then mask = t end end)
+end
+local function Mask(on)
+	local mm = Minimap
+	if on == masked or not mm.SetMaskTexture then return end
+	masked = on
+	if on then mm:SetMaskTexture(SQUARE) else mm:SetMaskTexture(mask or ROUND) end
+end
+-- The clipping frame: the window's view, the Minimap inside it while the overlay is seen.
+local clip = CreateFrame("Frame", nil, UIParent)
+clip:SetClipsChildren(true)
+local clipAt
+local function Clip(mm, p, w)
+	if clipAt ~= p then
+		clipAt = p
+		clip:ClearAllPoints()
+		clip:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", p.left, p.top)
+		clip:SetSize(p.w, p.h)
+	end
+	clip:SetFrameStrata(w.strata)
+	clip:SetFrameLevel(w.level + OVER - 1)
+	if mm:GetParent() ~= clip then mm:SetParent(clip) end
+end
+local function Unclip(mm)
+	if mm:GetParent() == clip then mm:SetParent(UIParent) end
+	clipAt = nil
+end
 local Mouse
+local SETTLE = 3 -- frames unseen after a new zoom (GetZoom has it at once; its radius, a frame or two later)
+local alpha, lastT = 0, nil
+local function SetAlpha(mm, a)
+	alpha = a
+	if mm:GetAlpha() ~= a then mm:SetAlpha(a) end
+	m.overlaid = a >= 0.5
+	Mouse(a > 0)
+end
 local function Hide(mm)
-	if mm:GetAlpha() ~= 0 then mm:SetAlpha(0) end
-	Mouse(false)
+	SetAlpha(mm, 0)
 	placed = nil
 end
-local SETTLE = 3 -- frames unseen after a new zoom (GetZoom has it at once; its radius, a frame or two later)
+-- The zoom whose square covers the window tightest and fits (the current one while it does, near enough); none covers:
+-- the widest that fits, and whether it covers COVER of the need. nil: none fits.
+local function Choose(perYd, need, room)
+	local cur = m.zoom or 0
+	local hc = Radius(cur) * perYd
+	if hc <= room and hc >= need * STICK then return cur, true end
+	for z = ZOOMS, 0, -1 do
+		local h = Radius(z) * perYd
+		if h <= room and h >= need then return z, true end
+	end
+	for z = 0, ZOOMS do
+		local h = Radius(z) * perYd
+		if h <= room then return z, h >= need * COVER end
+	end
+	return nil
+end
 local function Overlay(w, here, inst)
 	local mm = Minimap
+	local now = GetTime()
+	local dt = lastT and math.min(now - lastT, 0.1) or 0
+	lastT = now
 	local r, p = C_Minimap.GetViewRadius(), w.place
 	m.maxZoom = nil
 	if not here or here.w <= 0 or not r or issecretvalue(r) then return Hide(mm) end
@@ -277,28 +339,32 @@ local function Overlay(w, here, inst)
 		if radii.inst ~= inst then radii = { inst = inst } end
 		radii[z] = r
 	end
+	if not Radius(0) then -- (nothing seen yet: its radius first)
+		if r <= 0 then return Hide(mm) end
+		radii = { inst = inst, [z] = r }
+	end
 	local k = p.w / here.w -- /: never 0 (checked above)
 	local perYd = YD * here.zoom * k -- screen units a yard
 	local x, y = p.left + here.x * k, p.top - here.y * k
 	local sw, sh = UIParent:GetWidth(), UIParent:GetHeight()
-	local room = math.min(x, y, sw - x, sh - y, CAP * math.min(sw, sh) / 2) - EDGE -- the half it may have
+	local room = math.min(x, y, sw - x, sh - y) - EDGE -- the most half it may have
+	local need = math.max(x - p.left, p.left + p.w - x, p.top - y, y - (p.top - p.h)) -- the half that covers the window
 	-- The map's zoom (view pixels a tile) at which its closest zoom just fits: Path to zooms in no further (ui/Motion.lua).
-	local r5 = Radius(ZOOMS)
-	if r5 and room > 0 then m.maxZoom = room / (r5 * YD * k) end -- /: never 0 (a radius > 0, YD, k > 0)
-	-- The zoom: the current one while it fits and the wider one wouldn't fit under SLACK of the room.
-	local want = m.zoom or 0
-	if Radius(want) then
-		while want < ZOOMS and Radius(want) * perYd > room do want = want + 1 end
-		while want > 0 and Radius(want - 1) * perYd <= room * SLACK do want = want - 1 end
-		if Radius(want) * perYd > room then return Hide(mm) end -- (by an edge: none fits)
-	end
+	if room > 0 then m.maxZoom = room / (Radius(ZOOMS) * YD * k) end -- /: never 0 (a radius > 0, YD, k > 0)
+	m.need, m.room = need, room
+	local want, good = Choose(perYd, need, room)
+	if not want then return Hide(mm) end -- (too far in, or by a screen edge)
 	if want ~= (m.zoom or 0) then m.zoom, m.settle = want, SETTLE; mm:SetZoom(want); return Hide(mm) end
 	if r <= 0 or z ~= want then return Hide(mm) end -- (a new zoom applies a frame or two late)
 	if (m.settle or 0) > 0 then m.settle = m.settle - 1; return Hide(mm) end
 	local half = r * perYd
-	if half > room + EDGE then return Hide(mm) end -- (its radius not the guess: the next frame's zoom sees to it)
-	if mm:GetAlpha() ~= 1 then mm:SetAlpha(1) end
-	Mouse(true)
+	if half > room + EDGE then return Hide(mm) end -- (its radius not the guess: the next frame's choice sees to it)
+	-- Seen: fading in, or out (too little of the window covered: still placed, so it fades where it is).
+	local a = good and math.min(1, alpha + dt / FADE_IN) or math.max(0, alpha - dt / FADE_OUT) -- /: never 0 (constants)
+	SetAlpha(mm, a)
+	if a <= 0 then placed = nil; return end
+	Mask(true)
+	Clip(mm, p, w)
 	mm:SetFrameStrata(w.strata)
 	mm:SetFrameLevel(w.level + OVER)
 	if placed and placed.overlay and math.abs(placed.x - x) < 0.05 and math.abs(placed.y - y) < 0.05
@@ -308,6 +374,13 @@ local function Overlay(w, here, inst)
 	mm:SetSize(half * 2, half * 2)
 	mm:ClearAllPoints()
 	mm:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
+end
+-- Off (the overlay, or the takeover): out of the clip, its mask back.
+function Unoverlay()
+	local mm = Minimap
+	Unclip(mm)
+	Mask(false)
+	alpha, lastT, m.overlaid = 0, nil, false
 end
 
 -- Its blips' tooltips: seen, it takes the mouse's motion (not clicks or the wheel: those go through to our map), and
@@ -360,11 +433,14 @@ Game.Slash("overlay", "spike: Blizzard's Minimap seen over the map (the sensor c
 			tostring(m.overlay), tostring(l and math.floor(l)), tostring(b and math.floor(b)), tostring(w and math.floor(w)),
 			tostring(h and math.floor(h)), UIParent:GetWidth(), UIParent:GetHeight(), mm:GetZoom(),
 			tostring(C_Minimap.GetViewRadius()),
-			placed and placed.overlay and ("centre %d, %d, half %d"):format(placed.x, placed.y, placed.half) or "-"))
+			(placed and placed.overlay and ("centre %d, %d, half %d"):format(placed.x, placed.y, placed.half) or "-")
+				.. (", need %s, room %s, alpha %.2f"):format(tostring(m.need and math.floor(m.need)),
+				tostring(m.room and math.floor(m.room)), mm:GetAlpha())))
 		return
 	end
 	m.overlay = not m.overlay
 	placed, m.zoom, m.maxZoom = nil, nil, nil
+	if not m.overlay then Unoverlay() end
 	if not m.overlay and m.engaged then Sensor(); Mouse(false) end
 	Game.Say("overlay " .. (m.overlay and "on" or "off"))
 end)

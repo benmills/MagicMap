@@ -174,6 +174,7 @@
 ---@field mouse? boolean       the overlay (/mm overlay) has the mouse over our view: UI's pins hover through it
 ---@field maxZoom? number      the overlay on: the map's zoom (view px a tile) past which it can't fit around you (hides
 ---                           its blips); Path to zooms in no further. nil: no limit
+---@field overlaid? boolean    the overlay is seen (half faded in or more): its arrow is yours, UI's hides
 ---@field blip? boolean        a blip of the overlay's is under the cursor, its tooltip Blizzard's: UI's hovers give way
 
 ---A rect in UIParent units from its bottom-left (what SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT") takes).

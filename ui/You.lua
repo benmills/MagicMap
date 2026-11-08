@@ -1,7 +1,8 @@
 -- You on the map: your arrow (Core.lua:155-175, 795-819), the Minimap's own arrow (its atlas,
 -- ui-hud-minimap-arrow-player; the classic Interface\Minimap\MinimapArrow where a client lacks it), the size the
 -- Minimap draws it, unsnapped so it turns smoothly, over every layer. None while the map shown isn't yours, while the client
--- withholds where you are (Model.you stale: an instance's), or without a facing. Your corpse and your
+-- withholds where you are (Model.you stale: an instance's), without a facing, or while Blizzard's Minimap is seen over the
+-- map (obs.minimap.overlaid, /mm overlay: its own arrow is there, and can't be hidden). Your corpse and your
 -- waypoint as pins (Layers.lua:500-521, 625-634), the waypoint's left out while a tracked icon stands on it
 -- (ui/Track.lua: the icon is the target), and the title band's target (Core.lua:1294-1300), named for the
 -- tracked icon then. Its size: Settings > Map > Your arrow (ui/Feel.lua). The corpse's and the waypoint's types:
@@ -54,7 +55,8 @@ UI.Feel.Add("map", "You", {
 -- no widget calls for it).
 Runtime.Step("ui", "map: you", function()
 	local you = ns.Model.you
-	if you and you.col and not you.stale and you.facing and you.inst == Camera.inst then
+	local mm = Model.minimap
+	if you and you.col and not you.stale and you.facing and you.inst == Camera.inst and not (mm and mm.overlaid) then
 		local w, h = Window.Size()
 		local x, y = Maths.TileToScreen(Camera.cam, w, h, you.col, you.row)
 		x, y = math.max(-SIZE, math.min(w + SIZE, x)), math.max(-SIZE, math.min(h + SIZE, y)) -- off the view: kept by it (no offset grows)
