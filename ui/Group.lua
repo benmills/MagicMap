@@ -115,7 +115,8 @@ view:HookScript("OnEnter", Runtime.Wrap("map: group entered", function() inside 
 view:HookScript("OnLeave", Runtime.Wrap("map: group left", function() inside = false end))
 
 local function Under()
-	if not inside or Pins.Hovered() then return nil end
+	local mm = Model.minimap
+	if not (inside or mm and mm.mouse) or mm and mm.blip or Pins.Hovered() then return nil end
 	local x, y = Window.Cursor()
 	local best, d
 	for i = 1, shown do

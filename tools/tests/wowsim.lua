@@ -588,6 +588,8 @@ function Frame:EnableMouseWheel(on) S[self].wheel = not not on end
 function Frame:IsMouseWheelEnabled() return S[self].wheel == true end
 function Frame:SetMouseClickEnabled(on) S[self].mouseClick = not not on end
 function Frame:SetMouseMotionEnabled(on) S[self].mouseMotion = not not on end
+function Frame:IsMouseClickEnabled() return S[self].mouseClick == true end
+function Frame:IsMouseMotionEnabled() return S[self].mouseMotion == true end
 function Frame:SetPropagateMouseClicks(on) end
 function Frame:SetPropagateMouseMotion(on) end
 function Frame:RegisterForDrag(...) S[self].drag = { ... } end

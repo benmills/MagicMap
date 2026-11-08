@@ -260,8 +260,10 @@ local function Radius(z)
 	local r0 = radii[0] or (radii[m.zoom or 0] and radii[m.zoom or 0] * 7 / (7 - (m.zoom or 0))) -- /: never 0 (a zoom is 0..5)
 	return r0 and r0 * (7 - z) / 7
 end
+local Mouse
 local function Hide(mm)
 	if mm:GetAlpha() ~= 0 then mm:SetAlpha(0) end
+	Mouse(false)
 	placed = nil
 end
 local function Overlay(w, here, inst)
@@ -290,6 +292,7 @@ local function Overlay(w, here, inst)
 	local half = r * perYd
 	if half > room + EDGE then return Hide(mm) end -- (its radius not the guess: the next frame's zoom sees to it)
 	if mm:GetAlpha() ~= 1 then mm:SetAlpha(1) end
+	Mouse(true)
 	mm:SetFrameStrata(w.strata)
 	mm:SetFrameLevel(w.level + OVER)
 	if placed and placed.overlay and math.abs(placed.x - x) < 0.05 and math.abs(placed.y - y) < 0.05
@@ -299,6 +302,48 @@ local function Overlay(w, here, inst)
 	mm:SetSize(half * 2, half * 2)
 	mm:ClearAllPoints()
 	mm:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
+end
+
+-- Its blips' tooltips: seen, it takes the mouse's motion (not clicks or the wheel: those go through to our map), and
+-- while it has it our OnUpdate stands for Blizzard's (Minimap_OnUpdate filled GameTooltip every frame, blip or not,
+-- over our pins' and areas' tooltips): Blizzard's tooltip only while a blip is under the cursor (m.blip), hidden as it
+-- leaves one. Game.minimap.mouse / blip go to UI (obs.minimap): our pins hover through it and give way to a blip.
+local function Named()
+	local data = C_TooltipInfo.GetMinimapMouseover()
+	if not data or issecretvalue(data) or issecretvalue(data.lines) then return false end
+	local line = data.lines and data.lines[1]
+	local t = line and line.leftText
+	return t ~= nil and (issecretvalue(t) or t ~= "")
+end
+local BlipTip = Runtime.Wrap("game: overlay tooltip", function()
+	if Named() then
+		m.blip = true
+		GameTooltip:SetOwner(UIParent, "ANCHOR_CURSOR")
+		GameTooltip:SetMinimapMouseover()
+	elseif m.blip then
+		m.blip = false
+		if GameTooltip:GetOwner() == UIParent then GameTooltip:Hide() end
+	end
+end)
+Minimap:HookScript("OnEnter", Runtime.Wrap("game: overlay entered", function(self)
+	if not m.overlay then return end
+	m.mouse = true
+	self:SetScript("OnUpdate", BlipTip) -- (after Blizzard's OnEnter set its own)
+end))
+Minimap:HookScript("OnLeave", Runtime.Wrap("game: overlay left", function()
+	m.mouse, m.blip = false, false
+end))
+function Mouse(on)
+	local mm = Minimap
+	if on then
+		if not mm:IsMouseMotionEnabled() then mm:SetMouseMotionEnabled(true) end
+		if mm:IsMouseClickEnabled() then mm:SetMouseClickEnabled(false) end
+		if mm:IsMouseWheelEnabled() then mm:EnableMouseWheel(false) end
+	elseif mm:IsMouseEnabled() or mm:IsMouseMotionEnabled() then
+		mm:EnableMouse(false)
+		mm:SetScript("OnUpdate", nil)
+		m.mouse, m.blip = false, false
+	end
 end
 
 Game.Slash("overlay", "spike: Blizzard's Minimap seen over the map (the sensor can't aim since 70862): on/off; info", function(args)
@@ -314,7 +359,7 @@ Game.Slash("overlay", "spike: Blizzard's Minimap seen over the map (the sensor c
 	end
 	m.overlay = not m.overlay
 	placed, m.zoom = nil, nil
-	if not m.overlay and m.engaged then Sensor() end
+	if not m.overlay and m.engaged then Sensor(); Mouse(false) end
 	Game.Say("overlay " .. (m.overlay and "on" or "off"))
 end)
 

@@ -19,7 +19,7 @@
 -- colour.
 
 local _, ns = ...
-local UI, Runtime = ns.UI, ns.Runtime
+local UI, Runtime, Model = ns.UI, ns.Runtime, ns.Model
 local Engine, Window, Camera, Track, Tip = UI.Engine, UI.Window, UI.Camera, UI.Track, UI.Tip
 local Get, Keep, At, Yield = Engine.Get, Engine.Keep, Engine.At, Runtime.Yield
 
@@ -499,7 +499,8 @@ end))
 
 Runtime.Step("ui", "map: pins", function()
 	local pin, at
-	if inside then
+	local mm = Model.minimap
+	if (inside or mm and mm.mouse) and not (mm and mm.blip) then -- (through the overlay; a blip's tooltip first)
 		local x, y = Window.Cursor()
 		local w, h = Window.Size()
 		pin, at = Under(x - w / 2, y - h / 2)

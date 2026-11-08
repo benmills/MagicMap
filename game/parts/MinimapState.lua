@@ -26,5 +26,6 @@ Game.Part("minimap", function(obs)
 	minimap.engaged, minimap.blocker, minimap.sensing = m.engaged, m.blocker, obs.blips ~= nil and m.still
 	minimap.indoors, minimap.indoorDebug = Game.Indoors(), Game.saved.indoorDebug or false
 	minimap.home, minimap.homeStrata = Game.Home()
+	minimap.mouse, minimap.blip = m.mouse == true, m.blip == true
 	return minimap
 end)

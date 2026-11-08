@@ -377,7 +377,8 @@ Runtime.Step("ui", "map: quest areas", function()
 	-- The cursor in the view's rect, over what stands on it too (a control, another addon's pin), as the
 	-- spike's viewport:IsMouseOver() (Core.lua:1264, 1325): the area stays lit, its tooltip up but for one
 	-- shown already (that pin's).
-	local q = held and Window.view:IsMouseOver() and Under(held) or nil
+	local mm = Model.minimap
+	local q = held and not (mm and mm.blip) and Window.view:IsMouseOver() and Under(held) or nil -- (a blip's tooltip first)
 	hover.area = q
 	Light(c)
 	-- Who has GameTooltip over an area: one shown already (a pin's), else the area's (Layers.lua:1012-1025).
