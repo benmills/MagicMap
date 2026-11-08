@@ -27,5 +27,6 @@ Game.Part("minimap", function(obs)
 	minimap.indoors, minimap.indoorDebug = Game.Indoors(), Game.saved.indoorDebug or false
 	minimap.home, minimap.homeStrata = Game.Home()
 	minimap.mouse, minimap.blip = m.mouse == true, m.blip == true
+	minimap.maxZoom = m.overlay and m.engaged and m.maxZoom or nil
 	return minimap
 end)

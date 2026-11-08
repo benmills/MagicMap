@@ -172,6 +172,8 @@
 ---                           (kept: Game reads it each frame and hands a new table only when the spot moved, so UI may hold it)
 ---@field homeStrata? string   the cluster's frame strata: UI's small window sits in it (spike MinimapMode.lua:46-49)
 ---@field mouse? boolean       the overlay (/mm overlay) has the mouse over our view: UI's pins hover through it
+---@field maxZoom? number      the overlay on: the map's zoom (view px a tile) past which it can't fit around you (hides
+---                           its blips); Path to zooms in no further. nil: no limit
 ---@field blip? boolean        a blip of the overlay's is under the cursor, its tooltip Blizzard's: UI's hovers give way
 
 ---A rect in UIParent units from its bottom-left (what SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT") takes).

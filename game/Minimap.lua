@@ -266,9 +266,11 @@ local function Hide(mm)
 	Mouse(false)
 	placed = nil
 end
+local SETTLE = 3 -- frames unseen after a new zoom (GetZoom has it at once; its radius, a frame or two later)
 local function Overlay(w, here, inst)
 	local mm = Minimap
 	local r, p = C_Minimap.GetViewRadius(), w.place
+	m.maxZoom = nil
 	if not here or here.w <= 0 or not r or issecretvalue(r) then return Hide(mm) end
 	local z = mm:GetZoom()
 	if r > 0 and z == (m.zoom or 0) then
@@ -280,6 +282,9 @@ local function Overlay(w, here, inst)
 	local x, y = p.left + here.x * k, p.top - here.y * k
 	local sw, sh = UIParent:GetWidth(), UIParent:GetHeight()
 	local room = math.min(x, y, sw - x, sh - y, CAP * math.min(sw, sh) / 2) - EDGE -- the half it may have
+	-- The map's zoom (view pixels a tile) at which its closest zoom just fits: Path to zooms in no further (ui/Motion.lua).
+	local r5 = Radius(ZOOMS)
+	if r5 and room > 0 then m.maxZoom = room / (r5 * YD * k) end -- /: never 0 (a radius > 0, YD, k > 0)
 	-- The zoom: the current one while it fits and the wider one wouldn't fit under SLACK of the room.
 	local want = m.zoom or 0
 	if Radius(want) then
@@ -287,8 +292,9 @@ local function Overlay(w, here, inst)
 		while want > 0 and Radius(want - 1) * perYd <= room * SLACK do want = want - 1 end
 		if Radius(want) * perYd > room then return Hide(mm) end -- (by an edge: none fits)
 	end
-	if want ~= (m.zoom or 0) then m.zoom = want; mm:SetZoom(want); return Hide(mm) end
+	if want ~= (m.zoom or 0) then m.zoom, m.settle = want, SETTLE; mm:SetZoom(want); return Hide(mm) end
 	if r <= 0 or z ~= want then return Hide(mm) end -- (a new zoom applies a frame or two late)
+	if (m.settle or 0) > 0 then m.settle = m.settle - 1; return Hide(mm) end
 	local half = r * perYd
 	if half > room + EDGE then return Hide(mm) end -- (its radius not the guess: the next frame's zoom sees to it)
 	if mm:GetAlpha() ~= 1 then mm:SetAlpha(1) end
@@ -358,7 +364,7 @@ Game.Slash("overlay", "spike: Blizzard's Minimap seen over the map (the sensor c
 		return
 	end
 	m.overlay = not m.overlay
-	placed, m.zoom = nil, nil
+	placed, m.zoom, m.maxZoom = nil, nil, nil
 	if not m.overlay and m.engaged then Sensor(); Mouse(false) end
 	Game.Say("overlay " .. (m.overlay and "on" or "off"))
 end)

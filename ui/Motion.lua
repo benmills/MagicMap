@@ -320,7 +320,10 @@ local function StepFrame(elapsed)
 	local cam, you, w, h = Camera.cam, ns.Model.you, Window.Size()
 	if w <= 0 or h <= 0 or not you.col then return end
 	back = Clamp(home(cam.zoom), MIN_ZOOM, MAX_ZOOM) -- (the zoom it glides back to once ended)
-	local cap = MAX_ZOOM -- (in as far as the map goes as you near it)
+	-- In as far as the map goes as you near it, but for the blips' overlay: no further than its closest zoom fits on the
+	-- screen around you (obs.minimap.maxZoom: past it, the overlay hides its blips).
+	local mz = ns.Model.minimap and ns.Model.minimap.maxZoom
+	local cap = mz and Clamp(mz, MIN_ZOOM, MAX_ZOOM) or MAX_ZOOM
 	local aw, ah = math.max(w - 2 * FRAME_PAD, w / 2), math.max(h - 2 * FRAME_PAD, h / 2)
 	local fit = math.min(aw / math.max(c1 - c0, 1 / CHUNKS), ah / math.max(r1 - r0, 1 / CHUNKS)) -- /: never 0 (at least a chunk)
 	local want = Clamp(fit / FRAME_OUT, MIN_ZOOM, cap)
