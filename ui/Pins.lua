@@ -497,10 +497,17 @@ Window.view:HookScript("OnLeave", Runtime.Wrap("map: pins left", function()
 	Hover(nil)
 end))
 
+-- TEMPORARY (/mm overlay): every pin layer hidden, no pin hovers: Blizzard's blips alone.
+local blanked = false
 Runtime.Step("ui", "map: pins", function()
 	local pin, at
 	local mm = Model.minimap
-	if (inside or mm and mm.mouse) and not (mm and mm.blip) then -- (through the overlay; a blip's tooltip first)
+	local blank = mm and mm.overlay == true
+	if blank ~= blanked then
+		blanked = blank
+		for _, l in ipairs(layers) do l.layer.frame:SetAlpha(blank and 0 or 1) end
+	end
+	if not blank and (inside or mm and mm.mouse) and not (mm and mm.blip) then -- (through the overlay; a blip's tooltip first)
 		local x, y = Window.Cursor()
 		local w, h = Window.Size()
 		pin, at = Under(x - w / 2, y - h / 2)

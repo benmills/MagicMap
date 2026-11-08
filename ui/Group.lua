@@ -139,6 +139,9 @@ local function Hover(t)
 end
 
 Runtime.Step("ui", "map: group", function()
+	local mm = Model.minimap -- TEMPORARY (/mm overlay): the dots hidden, Blizzard's alone
+	local ga = mm and mm.overlay and 0 or 1
+	if frame:GetAlpha() ~= ga then frame:SetAlpha(ga) end
 	Place(Engine.LayerOn("group"))
 	Hover(Under())
 end, { shownOnly = Window.frame })

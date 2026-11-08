@@ -56,7 +56,7 @@ UI.Feel.Add("map", "You", {
 Runtime.Step("ui", "map: you", function()
 	local you = ns.Model.you
 	local mm = Model.minimap
-	if you and you.col and not you.stale and you.facing and you.inst == Camera.inst and not (mm and mm.overlaid) then
+	if you and you.col and not you.stale and you.facing and you.inst == Camera.inst and not (mm and (mm.overlaid or mm.overlay)) then
 		local w, h = Window.Size()
 		local x, y = Maths.TileToScreen(Camera.cam, w, h, you.col, you.row)
 		x, y = math.max(-SIZE, math.min(w + SIZE, x)), math.max(-SIZE, math.min(h + SIZE, y)) -- off the view: kept by it (no offset grows)
