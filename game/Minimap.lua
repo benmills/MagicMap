@@ -248,11 +248,12 @@ end
 
 -- The overlay spike (/mm overlay): since 1.60.1.70862 the sensor can't aim (UpdateMouseoverAtPoint is ignored for
 -- addon code), so Blizzard's Minimap itself, seen: over our tiles, centred on you, sized so its view radius is as many
--- yards as ours, no ground, its own icons. The client caps its size near the screen's (past it, it stretches and its
--- blips go astray), so its zoom is chosen (0 widest .. 5) to keep it at most CAP of the screen: a closer one as ours
--- zooms in, back out once the wider one fits under SLACK of it. Off the view, or its radius not yet applied: unseen.
-local CAP, SLACK, ZOOMS = 0.9, 0.75, 5
-local BASE = 256 -- the scale way's fixed size (its own units)
+-- yards as ours, no ground, its own icons. The client draws it only whole on the screen: a part off it, it draws the
+-- map shifted back on (you and every blip off by as much: /mm overlay info, 70862), clamped to the screen or not. So
+-- its zoom (0 widest .. 5) is the widest whose square fits between you and the screen's nearest edge (and under CAP
+-- of the screen); none does (you by an edge): unseen. Back out a zoom only once it fits under SLACK of the room (no
+-- flicker at the line). Off the view, or a new zoom's radius not yet applied: unseen.
+local CAP, SLACK, ZOOMS, EDGE = 0.9, 0.85, 5, 2
 local radii = {} -- the view radius seen at each zoom (this map kind); else guessed from zoom 0's: r0 * (7 - z) / 7
 local function Radius(z)
 	if radii[z] then return radii[z] end
@@ -274,70 +275,47 @@ local function Overlay(w, here, inst)
 	end
 	local k = p.w / here.w -- /: never 0 (checked above)
 	local perYd = YD * here.zoom * k -- screen units a yard
-	local cap = CAP * math.min(UIParent:GetWidth(), UIParent:GetHeight())
-	-- The zoom: the current one while it's under the cap and the wider one wouldn't fit under SLACK of it.
+	local x, y = p.left + here.x * k, p.top - here.y * k
+	local sw, sh = UIParent:GetWidth(), UIParent:GetHeight()
+	local room = math.min(x, y, sw - x, sh - y, CAP * math.min(sw, sh) / 2) - EDGE -- the half it may have
+	-- The zoom: the current one while it fits and the wider one wouldn't fit under SLACK of the room.
 	local want = m.zoom or 0
-	local cur = Radius(want)
-	if cur then
-		while want < ZOOMS and 2 * Radius(want) * perYd > cap do want = want + 1 end
-		while want > 0 and 2 * Radius(want - 1) * perYd <= cap * SLACK do want = want - 1 end
+	if Radius(want) then
+		while want < ZOOMS and Radius(want) * perYd > room do want = want + 1 end
+		while want > 0 and Radius(want - 1) * perYd <= room * SLACK do want = want - 1 end
+		if Radius(want) * perYd > room then return Hide(mm) end -- (by an edge: none fits)
 	end
 	if want ~= (m.zoom or 0) then m.zoom = want; mm:SetZoom(want); return Hide(mm) end
 	if r <= 0 or z ~= want then return Hide(mm) end -- (a new zoom applies a frame or two late)
 	local half = r * perYd
-	local x, y = p.left + here.x * k, p.top - here.y * k
+	if half > room + EDGE then return Hide(mm) end -- (its radius not the guess: the next frame's zoom sees to it)
 	if mm:GetAlpha() ~= 1 then mm:SetAlpha(1) end
 	mm:SetFrameStrata(w.strata)
 	mm:SetFrameLevel(w.level + OVER)
-	if placed and placed.overlay and not placed.checked then -- where the client put it, last frame: said once if it moved it
-		placed.checked = true
-		local cx, cy = mm:GetCenter()
-		if cx and (math.abs(cx - placed.x) > 1 or math.abs(cy - placed.y) > 1) and not m.moved then
-			m.moved = true
-			Game.Say(("overlay: the client moved the minimap %d, %d from where it was put (size %d, clamped %s)"):format(
-				cx - placed.x, cy - placed.y, placed.half * 2, tostring(mm:IsClampedToScreen())))
-		end
-	end
 	if placed and placed.overlay and math.abs(placed.x - x) < 0.05 and math.abs(placed.y - y) < 0.05
 		and math.abs(placed.half - half) < 0.05 then return end
 	placed = { overlay = true, x = x, y = y, half = half }
-	if mm:IsClampedToScreen() then mm:SetClampedToScreen(false) end
-	mm:ClearAllPoints()
-	if m.overlay == "scale" then -- a fixed size, scaled (as Blizzard's own is: the UI scale)
-		local sc = half * 2 / BASE -- /: never 0 (a literal)
-		mm:SetIconScale(math.min(4, 1 / sc)) -- /: never 0 (half > 0: r > 0 and here.zoom > 0)
-		mm:SetScale(sc)
-		mm:SetSize(BASE, BASE)
-		mm:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x - half) / sc, (y - half) / sc) -- /: never 0 (as above)
-		return
-	end
 	mm:SetIconScale(1)
-	mm:SetScale(1)
 	mm:SetSize(half * 2, half * 2)
-	-- By its corner: anchored by its CENTER, the client drew its map as if that point were the corner (its centre, you
-	-- and every blip half its size up and right: the overlay test's video, 70862).
-	mm:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x - half, y - half)
+	mm:ClearAllPoints()
+	mm:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
 end
 
-Game.Slash("overlay", "spike: Blizzard's Minimap seen over the map (the sensor can't aim since 70862): on/off; scale: the scale way; info", function(args)
+Game.Slash("overlay", "spike: Blizzard's Minimap seen over the map (the sensor can't aim since 70862): on/off; info", function(args)
 	local mm = Minimap
 	if args == "info" then
 		local l, b, w, h = mm:GetRect()
-		local pw, ph = GetPhysicalScreenSize()
-		Game.Say(("overlay %s: rect %s %s %s %s, scale %.3f, eff %.3f, UI eff %.3f, UI %dx%d, screen %dx%d px, zoom %d, radius %s, put %s"):format(
+		Game.Say(("overlay %s: rect %s %s %s %s, UI %dx%d, zoom %d, radius %s, put %s"):format(
 			tostring(m.overlay), tostring(l and math.floor(l)), tostring(b and math.floor(b)), tostring(w and math.floor(w)),
-			tostring(h and math.floor(h)), mm:GetScale(), mm:GetEffectiveScale(), UIParent:GetEffectiveScale(),
-			UIParent:GetWidth(), UIParent:GetHeight(), pw, ph, mm:GetZoom(), tostring(C_Minimap.GetViewRadius()),
+			tostring(h and math.floor(h)), UIParent:GetWidth(), UIParent:GetHeight(), mm:GetZoom(),
+			tostring(C_Minimap.GetViewRadius()),
 			placed and placed.overlay and ("centre %d, %d, half %d"):format(placed.x, placed.y, placed.half) or "-"))
 		return
 	end
-	local want = args == "scale" and "scale" or not m.overlay and "size" or false
-	if args == "scale" and m.overlay == "scale" then want = false end
-	m.overlay = want
-	placed, m.zoom, m.moved = nil, nil, nil
-	if m.engaged then mm:SetScale(1) end
+	m.overlay = not m.overlay
+	placed, m.zoom = nil, nil
 	if not m.overlay and m.engaged then Sensor() end
-	Game.Say("overlay " .. (m.overlay or "off"))
+	Game.Say("overlay " .. (m.overlay and "on" or "off"))
 end)
 
 Game.Apply("minimap", function(view)
