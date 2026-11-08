@@ -175,6 +175,8 @@
 ---@field maxZoom? number      the overlay on: the map's zoom (view px a tile) past which it can't fit around you (hides
 ---                           its blips); Path to zooms in no further. nil: no limit
 ---@field overlay? boolean     /mm overlay is on (TEMPORARY: our pins, party dots and arrow hide, Blizzard's alone)
+---@field steps? number[]     the overlay on: the map's zoom (view px a tile) at which each of the Minimap's zooms 0..5
+---                           (1..6, rising) covers the window around you just so; while followed the wheel steps through them
 ---@field overlaid? boolean    the overlay is seen (half faded in or more): its arrow is yours, UI's hides
 ---@field blip? boolean        a blip of the overlay's is under the cursor, its tooltip Blizzard's: UI's hovers give way
 

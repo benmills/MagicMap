@@ -27,7 +27,7 @@ local STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", 
 
 local OVER = 30         -- the overlay's frame level above the window's (over the tiles, under the chrome)
 local YD = 1 / Atlas.TILE_YARDS
-local m = { engaged = false, sensor = false, still = false, fade = false, overlay = false } -- blocker: why it isn't taken
+local m = { engaged = false, sensor = false, still = false, fade = false, overlay = false, steps = {} } -- blocker: why it isn't taken
 Game.minimap = m
 local undo, placed = {}, nil
 local clusterShown -- the cluster's own shown state, from an engage until it's back
@@ -261,11 +261,11 @@ local ZOOMS, EDGE, COVER, STICK = 5, 2, 0.75, 0.98
 local FADE_IN, FADE_OUT = 0.15, 0.12 -- s
 -- (ROUND: the client's round alpha mask, as its own Minimap's, when nothing else set one)
 local SQUARE, ROUND = "Interface\\ChatFrame\\ChatFrameBackground", "Interface\\CharacterFrame\\TempPortraitAlphaMask"
-local radii = {} -- the view radius seen at each zoom (this map kind); else guessed from zoom 0's: r0 * (7 - z) / 7
+local radii = {} -- the view radius seen at each zoom (this map kind); else half the yards across it has (Game.MinimapYards)
 local function Radius(z)
 	if radii[z] then return radii[z] end
-	local r0 = radii[0] or (radii[m.zoom or 0] and radii[m.zoom or 0] * 7 / (7 - (m.zoom or 0))) -- /: never 0 (a zoom is 0..5)
-	return r0 and r0 * (7 - z) / 7
+	local yd = Game.MinimapYards(Game.Indoors())
+	return yd[z] / 2
 end
 -- The mask others set (Leatrix's square, say), put back once the overlay lets go.
 local mask, masked = nil, false
@@ -310,15 +310,12 @@ local function Hide(mm)
 	SetAlpha(mm, 0)
 	placed = nil
 end
--- The zoom whose square covers the window tightest and fits (the current one while it does, near enough); none covers:
+-- The zoom whose square covers the window tightest (near enough: STICK) and fits; none covers:
 -- the widest that fits, and whether it covers COVER of the need. nil: none fits.
 local function Choose(perYd, need, room)
-	local cur = m.zoom or 0
-	local hc = Radius(cur) * perYd
-	if hc <= room and hc >= need * STICK then return cur, true end
-	for z = ZOOMS, 0, -1 do
+	for z = ZOOMS, 0, -1 do -- (near enough: a step's zoom covers just so, give or take a little)
 		local h = Radius(z) * perYd
-		if h <= room and h >= need then return z, true end
+		if h <= room and h >= need * STICK then return z, true end
 	end
 	for z = 0, ZOOMS do
 		local h = Radius(z) * perYd
@@ -332,16 +329,13 @@ local function Overlay(w, here, inst)
 	local dt = lastT and math.min(now - lastT, 0.1) or 0
 	lastT = now
 	local r, p = C_Minimap.GetViewRadius(), w.place
-	m.maxZoom = nil
+	m.maxZoom, m.stepsOn = nil, false
 	if not here or here.w <= 0 or not r or issecretvalue(r) then return Hide(mm) end
 	local z = mm:GetZoom()
 	if r > 0 and z == (m.zoom or 0) then
-		if radii.inst ~= inst then radii = { inst = inst } end
+		local key = inst .. (Game.Indoors() and "i" or "o") -- (indoors, its zooms see less)
+		if radii.key ~= key then radii = { key = key } end
 		radii[z] = r
-	end
-	if not Radius(0) then -- (nothing seen yet: its radius first)
-		if r <= 0 then return Hide(mm) end
-		radii = { inst = inst, [z] = r }
 	end
 	local k = p.w / here.w -- /: never 0 (checked above)
 	local perYd = YD * here.zoom * k -- screen units a yard
@@ -352,15 +346,26 @@ local function Overlay(w, here, inst)
 	-- The map's zoom (view pixels a tile) at which its closest zoom just fits: Path to zooms in no further (ui/Motion.lua).
 	if room > 0 then m.maxZoom = room / (Radius(ZOOMS) * YD * k) end -- /: never 0 (a radius > 0, YD, k > 0)
 	m.need, m.room = need, room
+	-- The steps: the map's zoom at which each of its zooms covers the window just so (Motion zooms by them while you're
+	-- followed, as Blizzard's Minimap zooms: ui/Motion.lua); none while no square that covers fits.
+	local steps = m.steps
+	if need <= room then
+		for i = 0, ZOOMS do steps[i + 1] = need / (Radius(i) * YD * k) end -- /: never 0 (a radius > 0, YD, k > 0)
+		m.stepsOn = true
+	else
+		m.stepsOn = false
+	end
 	local want, good = Choose(perYd, need, room)
 	if not want then return Hide(mm) end -- (too far in, or by a screen edge)
-	if want ~= (m.zoom or 0) then m.zoom, m.settle = want, SETTLE; mm:SetZoom(want); return Hide(mm) end
+	if want ~= (m.zoom or 0) then m.zoom, m.settle, m.snap = want, SETTLE, true; mm:SetZoom(want); return Hide(mm) end
 	if r <= 0 or z ~= want then return Hide(mm) end -- (a new zoom applies a frame or two late)
 	if (m.settle or 0) > 0 then m.settle = m.settle - 1; return Hide(mm) end
 	local half = r * perYd
 	if half > room + EDGE then return Hide(mm) end -- (its radius not the guess: the next frame's choice sees to it)
 	-- Seen: fading in, or out (too little of the window covered: still placed, so it fades where it is).
 	local a = good and math.min(1, alpha + dt / FADE_IN) or math.max(0, alpha - dt / FADE_OUT) -- /: never 0 (constants)
+	if good and m.snap then a = 1 end -- (a new zoom of its own, as Blizzard's: at once, no fade)
+	m.snap = false
 	SetAlpha(mm, a)
 	if a <= 0 then placed = nil; return end
 	Mask(true)

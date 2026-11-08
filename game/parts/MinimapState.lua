@@ -12,6 +12,9 @@ local Game = ns.Game
 local OUTDOOR = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 } -- yd across, by zoom (:52)
 local INDOOR = { [0] = 300, 240, 180, 120, 80, 50 } -- (:54)
 
+-- The yards across the Minimap shows at each zoom (0..5), indoors or out.
+function Game.MinimapYards(indoors) return indoors and INDOOR or OUTDOOR end
+
 function Game.Indoors()
 	local r = C_Minimap.GetViewRadius()
 	if issecretvalue(r) or r <= 0 then return IsIndoors() end
@@ -29,6 +32,7 @@ Game.Part("minimap", function(obs)
 	minimap.mouse, minimap.blip = m.mouse == true, m.blip == true
 	minimap.overlaid = m.overlay and m.engaged and m.overlaid == true or nil
 	minimap.overlay = m.overlay and m.engaged or nil
+	minimap.steps = minimap.overlay and m.stepsOn and m.steps or nil
 	minimap.maxZoom = m.overlay and m.engaged and m.maxZoom or nil
 	return minimap
 end)

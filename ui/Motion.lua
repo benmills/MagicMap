@@ -61,6 +61,7 @@ local FRAME_PAN, FRAME_ZOOM = 5, 3 -- per second: how quickly its centre and zoo
 local framer, home
 local framed, framing, held, fz, back = false, false, false, nil, nil
 
+local step -- (the overlay's steps, below: the one the camera is on)
 local function Clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
 local function Animating() return goal ~= nil or flight ~= nil or fz ~= nil and Camera.cam.zoom ~= fz end -- (fz: settled once there)
@@ -80,7 +81,7 @@ end
 -- under the cursor (atCursor: the wheel) or the view's centre (the buttons).
 local function Aim(target, atCursor)
 	local cam, you, w, h = Camera.cam, ns.Model.you, Window.Size()
-	touched = GetTime()
+	touched, step = GetTime(), nil
 	goal = Clamp(target, MIN_ZOOM, MAX_ZOOM)
 	flight, Camera.moving = nil, true
 	if framed then held, fz = true, nil end -- (your zoom: the framing waits)
@@ -94,8 +95,46 @@ local function Aim(target, atCursor)
 	anchor[3], anchor[4] = x - w / 2, y - h / 2
 end
 
+-- The overlay spike's steps (/mm overlay: obs.minimap.steps, game/Minimap.lua): while you're followed, the zooms at which
+-- each of Blizzard's Minimap's zooms covers the view, rising. A tick inside them goes to the next one at once, as
+-- Blizzard's Minimap zooms; past the last either way, the wheel's own glide (its blips fade out); coming back in from
+-- past them, it glides to the end one and steps from there. step: the one the camera is on (kept on it as they move).
+local STEP_TOL = 0.01 -- of a zoom: on a step
+local function Steps()
+	local mm = ns.Model.minimap
+	local s = Camera.follow and not framed and mm and mm.steps
+	if not s then step = nil; return nil end
+	return s
+end
+local function Stepped(ticks)
+	local s = Steps()
+	if not s then return false end
+	local z = goal or Camera.cam.zoom
+	local lo, hi = s[1], s[#s]
+	local dir = ticks > 0 and 1 or -1
+	if z < lo * (1 - STEP_TOL) then -- out past them: in, the glide to the widest (else the wheel's)
+		if dir > 0 and z * wheelStep ^ ticks >= lo then Aim(lo); step = 1; return true end
+		return false
+	end
+	if z > hi * (1 + STEP_TOL) then -- in past them: out, the glide to the closest
+		if dir < 0 and z * wheelStep ^ ticks <= hi then Aim(hi); step = #s; return true end
+		return false
+	end
+	local i = 1 -- the step it's on, or the nearest
+	for j = 2, #s do if math.abs(math.log(s[j] / z)) < math.abs(math.log(s[i] / z)) then i = j end end -- /: never 0 (zooms > 0)
+	local on = math.abs(s[i] - z) <= s[i] * STEP_TOL
+	local n = on and i + dir or (s[i] > z) == (dir > 0) and i or i + dir
+	if n < 1 or n > #s then return false end -- (past the end: the wheel's own)
+	if s[n] > MAX_ZOOM or s[n] < MIN_ZOOM then return false end
+	touched, goal, flight, step = GetTime(), nil, nil, n
+	Set(Camera.cam.cx, Camera.cam.cy, s[n]) -- at once (Chase keeps you in the middle)
+	return true
+end
+
 -- A zoom of `ticks` steps, in (> 0) or out; ticks stack onto the target (Core.lua:1422-1441). See Aim.
 function Motion.ZoomStep(ticks, atCursor)
+	if Stepped(ticks) then Camera.Trace("wheel"); return end
+	step = nil
 	Aim((goal or Camera.cam.zoom) * wheelStep ^ ticks, atCursor)
 	if not atCursor then Camera.Trace("wheel") end -- (the wheel's: Motion's step, a frame's events in one)
 end
@@ -117,7 +156,7 @@ end
 -- Fly to (cx, cy) at zoom over duration s (default FLY_TIME); onDone() when there.
 function Motion.FlyTo(cx, cy, zoom, duration, onDone)
 	local cam = Camera.cam
-	goal, Camera.moving = nil, true
+	goal, Camera.moving, step = nil, true, nil
 	flight = { t = 0, dur = duration or FLY_TIME, fx = cam.cx, fy = cam.cy, fz = cam.zoom,
 		tx = cx, ty = cy, tz = Clamp(zoom, MIN_ZOOM, MAX_ZOOM), onDone = onDone }
 end
@@ -150,7 +189,7 @@ end
 -- A whole map at once, ending any chase or flight: its continent's rect, else its tiles'
 -- (Core.lua:1133-1152, FitMap).
 function Motion.FitMap(inst)
-	goal, flight = nil, nil
+	goal, flight, step = nil, nil, nil
 	Camera.inst = inst
 	local cont = Atlas.Continent(inst)
 	local r = cont and Atlas.MapRect(cont)
@@ -167,7 +206,7 @@ end
 -- Straight to a zoom, about the view's centre, ending any chase or flight.
 function Motion.SetZoom(zoom)
 	local cam = Camera.cam
-	goal, flight = nil, nil
+	goal, flight, step = nil, nil, nil
 	Set(cam.cx, cam.cy, Clamp(zoom, MIN_ZOOM, MAX_ZOOM))
 end
 
@@ -265,7 +304,7 @@ local function StepDrag()
 	local x, y = Screen()
 	if not press.moved and (math.abs(x - press.x) > CLICK_SLOP or math.abs(y - press.y) > CLICK_SLOP) then
 		press.moved, Camera.moving = true, true
-		Camera.follow = false
+		Camera.follow, step = false, nil
 		if framed then held, fz = true, nil end
 		Camera.Trace("drag start") -- follow's off now
 	end
@@ -363,6 +402,13 @@ Runtime.Step("input", "map: motion", function(elapsed)
 	if goal then StepZoom(elapsed) end
 	if press then StepDrag() end
 	StepFrame(elapsed)
+	if step and not (goal or flight) then
+		local s = Steps()
+		local want = s and s[step]
+		if want and want <= MAX_ZOOM and want >= MIN_ZOOM and math.abs(want - Camera.cam.zoom) > 1e-6 then
+			Set(Camera.cam.cx, Camera.cam.cy, want)
+		end
+	end
 	StepIdle()
 	Camera.moving = Animating() or Motion.Dragging()
 end, { shownOnly = Window.frame })
