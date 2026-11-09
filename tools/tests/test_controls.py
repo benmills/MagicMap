@@ -2,7 +2,7 @@
 
   test_pill_and_recenter: the quest pill says the followed quest's pieces in the order chosen on its page (by
     default its name, its progress and the yards to it; the time to arrive on offer), over a faint fill of how far
-    you've come since you began going to it (off on its page); the recenter shows while the map isn't following
+    you've come since you began going to it (off on its page); the reset shows while the map isn't following
     you, and its click glides back and follows; the mode button is Blizzard's expand small, its condense big.
 """
 import re
@@ -15,7 +15,7 @@ def test_pill_and_recenter():
     L, sim, ns, G = client([CANDLES], followed=60)
     UI = ns.UI
     ctl, Feel = UI.Controls, UI.Feel
-    line, fill, recenter = ctl.questLine, ctl.questFill, ctl.recenter
+    line, fill, recenter = ctl.questLine, ctl.questFill, ctl.zoomReset
 
     def text():
         s = sim.state[[r for r in line.GetRegions(line) if sim.state[r].text][0]].text
@@ -41,7 +41,9 @@ def test_pill_and_recenter():
     assert not fill.IsShown(fill)
     Feel.Set("pills.questBar", True)
 
-    # The recenter: shown only while not following; its click back to you.
+    # The reset: shown while not following; its click back to you.
+    UI.Motion.SetZoom(UI.DefaultZoom())
+    sim.Step()
     assert UI.Camera.follow and not recenter.IsShown(recenter)
     UI.Motion.SetFollow(False)
     sim.Step()

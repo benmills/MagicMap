@@ -40,7 +40,7 @@ def test_map():
         sim.Step()
     sim.Run(2)
     assert c.cam.zoom == 16
-    sim.Click(ns.UI.Controls.recenter)  # the recenter glides back to you, then follows
+    sim.Click(ns.UI.Controls.zoomReset)  # the reset flies back to you, then follows
     sim.Run(1)
     assert c.follow
     sim.Click(w.view, "RightButton")  # (small: no zone info; tools/tests/test_interact.py)

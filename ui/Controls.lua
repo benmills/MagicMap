@@ -2,7 +2,7 @@
 -- the gear (the world map's) and the mode button (its red expand, and on the big map its condense: ui/BigMap.lua);
 -- inside the map, bottom left the quest pill (what you track: its name, progress, yards and time to it over a faint
 -- fill of how far you've come; else your quests in this zone), bottom right the zoom buttons, above them the
--- recenter while the map isn't following you, and, while the zoom isn't the default, the reset above those. They and
+-- reset while the map is off its default (not following you, or not at the default zoom). They and
 -- the grip fade in while you hover (Core.lua:394-408; away from the map, as faint as Buttons at rest: hidden by
 -- default), and each has a tip, its name (Core.lua:1454-1497). Their settings (ui/Feel.lua): General > Map window >
 -- Buttons at rest, and the Quest pill page (declared at the bottom: what it shows and says, its fill, its fade, its
@@ -85,8 +85,8 @@ local zoomIn = ArtButton(Chrome.controls, 20, 20, ZoomArt("ui-hud-minimap-zoom-i
 zoomIn:SetPoint("BOTTOM", zoomOut, "TOP", 0, 2)
 Controls.zoomIn, Controls.zoomOut = zoomIn, zoomOut
 
--- Reset zoom: above the zoom in (the gap the + and - keep), shown only while the zoom isn't the default (UI.DefaultZoom,
--- ui/View.lua). The client's reset atlas if it has one (Forever has none); else Blizzard's small gold dot
+-- Reset: above the zoom in (the gap the + and - keep), shown only while the map is off its default: not following you,
+-- or the zoom isn't the default (UI.DefaultZoom(), ui/View.lua); a click flies back to you at that zoom (Motion.Reset). The client's reset atlas if it has one (Forever has none); else Blizzard's small gold dot
 -- (levelup-dot-gold, the level-up toast's; its radio dot after it), the highlight the same, added; else, a client
 -- with neither, a gold dot of our own on a dark disc.
 local RESET_TOL = 1 -- px per tile: a zoom this close to the default is the default
@@ -514,44 +514,6 @@ local function SetPill(key, v)
 	Reveal()
 end
 
----------------------------------------------------------------------------
--- Recenter: in the zoom buttons' column, shown while the map isn't following you (you panned away, a zone or map
--- flown to); a click glides back to you and follows again (Motion.SetFollow, as /mm follow). Blizzard's refresh
--- arrows (the client's RefreshButtonTemplate's UI-RefreshButton, else its file) on a dark disc, as the zoom reset's.
----------------------------------------------------------------------------
-
-local recenter = CreateFrame("Button", nil, Chrome.controls)
-recenter:SetSize(18, 18)
-recenter:SetPoint("BOTTOM", zoomIn, "TOP", 0, 2)
-do
-	local disc = recenter:CreateTexture(nil, "BACKGROUND")
-	disc:SetTexture(Chrome.CIRCLE)
-	disc:SetVertexColor(0, 0, 0, 0.65)
-	disc:SetAllPoints()
-	local refreshAtlas = FirstAtlas("UI-RefreshButton")
-	for _, layer in ipairs({ "ARTWORK", "HIGHLIGHT" }) do
-		local arrows = recenter:CreateTexture(nil, layer)
-		if refreshAtlas then arrows:SetAtlas(refreshAtlas) else arrows:SetTexture("Interface\\Buttons\\UI-RefreshButton") end
-		arrows:SetSize(12, 12)
-		arrows:SetPoint("CENTER")
-		if layer == "HIGHLIGHT" then arrows:SetBlendMode("ADD") end
-	end
-end
-recenter:Hide()
-Controls.recenter = recenter
-recenter:SetScript("OnClick", Runtime.Wrap("map: recenter", function() UI.Motion.SetFollow(true, true) end))
-
--- The column above the zoom in: the recenter (while shown), then the zoom reset (while shown) above it.
-local recenterShown = false
-local function RecenterLook()
-	local off = not Camera.follow
-	if off == recenterShown then return end
-	recenterShown = off
-	recenter:SetShown(off)
-	zoomReset:ClearAllPoints()
-	zoomReset:SetPoint("BOTTOM", off and recenter or zoomIn, "TOP", 0, 2)
-end
-
 -- The mode button points the way it goes: Blizzard's expand on the small map, its condense on the big one (the
 -- world map's own pair: MaximizeMinimizeButtonFrameTemplate).
 local EXPAND = { atlas = { "redbutton-expand-c60", "redbutton-expand" },
@@ -569,20 +531,29 @@ local function ModeLook()
 end
 
 ---------------------------------------------------------------------------
--- Zoom reset: the button shows while the zoom is off the default; a click glides back to it
--- (Motion.ZoomTo: the zoom buttons' own chase)
+-- Reset: the button shows while the map is off its default (following you, at the default zoom); a click flies back.
+-- The zoom buttons tinted while the zoom is past Blizzard's Minimap's (Motion.PastBlips: its blips not shown).
 ---------------------------------------------------------------------------
 
-local resetShown = false
+local resetShown, past = false, nil
+local PAST = { 0.45, 0.75, 1 } -- the zoom buttons' tint past Blizzard's Minimap's zooms (its blips not shown)
 local function ResetLook()
-	local off = math.abs(Camera.cam.zoom - UI.DefaultZoom) > RESET_TOL
+	local off = not Camera.follow or math.abs(Camera.cam.zoom - UI.DefaultZoom()) > RESET_TOL
 	if off ~= resetShown then
 		resetShown = off
 		zoomReset:SetShown(off)
 	end
+	local p = UI.Motion.PastBlips()
+	if p ~= past then
+		past = p
+		for _, b in ipairs({ zoomIn, zoomOut }) do
+			local t = b:GetNormalTexture()
+			if t then t:SetVertexColor(p and PAST[1] or 1, p and PAST[2] or 1, p and PAST[3] or 1) end
+		end
+	end
 end
 
-zoomReset:SetScript("OnClick", Runtime.Wrap("map: zoom reset", function() UI.Motion.ZoomTo(UI.DefaultZoom) end))
+zoomReset:SetScript("OnClick", Runtime.Wrap("map: zoom reset", function() UI.Motion.Reset() end))
 
 -- The buttons zoom held on you while following, else on the view's centre (Core.lua:1420-1443).
 zoomIn:SetScript("OnClick", Runtime.Wrap("map: zoom in", function() UI.Motion.ZoomStep(1) end))
@@ -600,7 +571,7 @@ local function ToggleFollow() UI.Motion.SetFollow(not Camera.follow, true) end
 ---------------------------------------------------------------------------
 
 -- One step for the map's controls: the fade (the quest pill's too, unless it shows a target), the zoom reset's,
--- the recenter's and the mode button's looks (each frame: a cheap compare), and the pill's (EVERY s: a step's
+-- the zoom buttons' tint and the mode button's looks (each frame: a cheap compare), and the pill's (EVERY s: a step's
 -- probes cost each frame, so these share one).
 local since = EVERY
 Runtime.Step("ui", "map: controls", function(elapsed)
@@ -611,7 +582,6 @@ Runtime.Step("ui", "map: controls", function(elapsed)
 		Reveal()
 	end
 	ResetLook()
-	RecenterLook()
 	ModeLook()
 	if UI.Cluster then UI.Cluster.Watch() end
 	since = since + elapsed
@@ -654,8 +624,7 @@ function Controls.Tip(button, fn)
 end
 Controls.Tip(zoomIn, function() return "Zoom in" end)
 Controls.Tip(zoomOut, function() return "Zoom out" end)
-Controls.Tip(zoomReset, function() return "Reset zoom" end)
-Controls.Tip(recenter, function() return "Back to you" end)
+Controls.Tip(zoomReset, function() return Camera.follow and "Reset zoom" or "Back to you" end)
 Controls.Tip(gear, function() return "Settings" end)
 
 ns.Game.Command({ kind = "slash", name = "follow", help = "follow you on the map, or stop",

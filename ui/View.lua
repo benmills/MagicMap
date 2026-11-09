@@ -14,7 +14,23 @@ local Command = ns.Game.Command
 -- Core.lua:19-29: shown, zoom 384, following, no debug line in the title, the button shown.
 local DEFAULTS = { layers = {}, minimap = "ours", shown = true, zoom = 384, follow = true, debug = false, button = true }
 
-UI.DefaultZoom = DEFAULTS.zoom -- the zoom the reset button goes back to (ui/Controls.lua)
+-- The zoom the reset button goes back to (ui/Controls.lua): with Blizzard's Minimap's zooms over the small map
+-- (obs.minimap.steps), the one before its closest the map reaches; else DEFAULTS.zoom.
+function UI.DefaultZoom()
+	local mm = Model.minimap
+	local s = mm and mm.steps
+	if s and not UI.BigMap.big then
+		local top, next
+		for i = #s, 1, -1 do
+			if s[i] <= UI.Motion.MAX_ZOOM then
+				if top then next = i; break end
+				top = i
+			end
+		end
+		if next or top then return s[next or top] end
+	end
+	return DEFAULTS.zoom
+end
 
 local saved = {} -- until loaded: the defaults
 for k, v in pairs(DEFAULTS) do saved[k] = v end

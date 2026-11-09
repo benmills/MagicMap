@@ -202,11 +202,11 @@ end
 -- radius (read each frame) is as many yards as ours, no ground, its own icons and arrow (ours hides: obs.minimap.overlaid).
 -- Its square must cover the window around you (half >= need: you to the window's furthest edge) and be whole on the
 -- screen (half <= room: you to the screen's nearest edge; a part off it, the client draws its map shifted back on). Its
--- zoom (0 widest .. 5) is the one whose square covers the window the tightest and fits; none covers: the widest that
--- fits, while it covers COVER of the need (else it fades out: zoomed or panned too far out); none fits (too far in, by
+-- zoom (0 widest .. 5) is the one whose square covers the window the tightest and fits; none covers (zoomed or panned
+-- too far out): it fades out; none fits (too far in, by
 -- a screen edge): unseen at once. A square past the window is clipped to it (a clipping frame) and masked square.
 -- A new zoom's radius applies a frame or two late: unseen SETTLE frames, then it fades in.
-local ZOOMS, EDGE, COVER, STICK = 5, 2, 0.75, 0.98
+local ZOOMS, EDGE, STICK = 5, 2, 0.98
 local FADE_IN, FADE_OUT = 0.15, 0.12 -- s
 -- (ROUND: the client's round alpha mask, as its own Minimap's, when nothing else set one)
 local SQUARE, ROUND = "Interface\\ChatFrame\\ChatFrameBackground", "Interface\\CharacterFrame\\TempPortraitAlphaMask"
@@ -267,16 +267,15 @@ local function Hide(mm)
 	SetAlpha(mm, 0)
 	placed = nil
 end
--- The zoom whose square covers the window tightest (near enough: STICK) and fits; none covers:
--- the widest that fits, and whether it covers COVER of the need. nil: none fits.
+-- The zoom whose square covers the window tightest (near enough: STICK) and fits, true; none covers:
+-- the widest that fits, false (it fades out). nil: none fits.
 local function Choose(perYd, need, room)
 	for z = ZOOMS, 0, -1 do -- (near enough: a step's zoom covers just so, give or take a little)
 		local h = Radius(z) * perYd
 		if h <= room and h >= need * STICK then return z, true end
 	end
-	for z = 0, ZOOMS do
-		local h = Radius(z) * perYd
-		if h <= room then return z, h >= need * COVER end
+	for z = 0, ZOOMS do -- (past its widest: fading out)
+		if Radius(z) * perYd <= room then return z, false end
 	end
 	return nil
 end
@@ -308,9 +307,12 @@ local function Overlay(w, here, inst)
 	m.need, m.room = need, room
 	-- The steps: the map's zoom at which each of its zooms covers the window just so (Motion zooms by them while you're
 	-- followed, as Blizzard's Minimap zooms: ui/Motion.lua); none while no square that covers fits.
+	-- (as if you were in the window's middle, as following has you: they hold still while it's panned)
 	local steps = m.steps
-	if need <= room then
-		for i = 0, ZOOMS do steps[i + 1] = need / (Radius(i) * YD * k) end -- /: never 0 (a radius > 0, YD, k > 0)
+	local cx, cy = p.left + p.w / 2, p.top - p.h / 2
+	local cneed, croom = math.max(p.w, p.h) / 2, math.min(cx, cy, sw - cx, sh - cy) - EDGE
+	if cneed <= croom then
+		for i = 0, ZOOMS do steps[i + 1] = cneed / (Radius(i) * YD * k) end -- /: never 0 (a radius > 0, YD, k > 0)
 		m.stepsOn = true
 	else
 		m.stepsOn = false

@@ -131,6 +131,30 @@ local function Stepped(ticks)
 	return true
 end
 
+-- Past Blizzard's Minimap's zooms (obs.minimap.steps: out past its widest, or in past where its closest fits), its
+-- blips not shown: the zoom buttons say so (ui/Controls.lua). False without them (the big map, no overlay).
+function Motion.PastBlips()
+	local mm = ns.Model.minimap
+	local s = mm and mm.steps
+	if not s then return false end
+	local z = Camera.cam.zoom
+	return z < s[1] * (1 - STEP_TOL) or mm.maxZoom ~= nil and z > mm.maxZoom
+end
+
+-- The reset (ui/Controls.lua): back to you, at the default zoom (UI.DefaultZoom), following; without where you are,
+-- the zoom alone.
+function Motion.Reset()
+	local you, zoom = ns.Model.you, UI.DefaultZoom()
+	held = false
+	if you.col then
+		Camera.inst = you.inst
+		Motion.FlyTo(you.col, you.row, zoom, FLY_TIME, function() Motion.SetFollow(true) end)
+	else
+		Motion.ZoomTo(zoom)
+		Motion.SetFollow(true)
+	end
+end
+
 -- A zoom of `ticks` steps, in (> 0) or out; ticks stack onto the target (Core.lua:1422-1441). See Aim.
 function Motion.ZoomStep(ticks, atCursor)
 	if Stepped(ticks) then Camera.Trace("wheel"); return end
