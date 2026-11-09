@@ -73,7 +73,35 @@ local gear = ArtButton(Chrome.band, HEADER_ICON + 4, HEADER_ICON + 4, {
 	file = "Interface\\WorldMap\\Gear_64", coords = { 0, 0.5, 0, 0.5 }, pushedCoords = { 0, 0.5, 0.5, 1 },
 })
 gear:SetPoint("RIGHT", mode, "LEFT", -6, 0)
-Controls.mode, Controls.gear = mode, gear
+-- The AddOns button, left of the gear: the minimap's buttons the takeover hides (ui/Menus.lua's AddOns), in the
+-- round gold-ringed look of an addon's minimap button (LibDBIcon's: its 31 px button's ring and icon, scaled to
+-- this size). Shown only while you point at the map (Reveal), whatever Buttons at rest.
+local ADDONS = HEADER_ICON + 2
+local addons = CreateFrame("Button", nil, Chrome.band)
+addons:SetSize(ADDONS, ADDONS)
+addons:SetPoint("RIGHT", gear, "LEFT", -4, 0)
+do
+	local k = ADDONS / 31 -- /: a named constant (LibDBIcon's button size)
+	local bg = addons:CreateTexture(nil, "BACKGROUND")
+	bg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+	bg:SetSize(20 * k, 20 * k)
+	bg:SetPoint("TOPLEFT", 7 * k, -5 * k)
+	local icon = addons:CreateTexture(nil, "ARTWORK")
+	icon:SetTexture("Interface\\Icons\\INV_Gizmo_02")
+	icon:SetSize(17 * k, 17 * k)
+	icon:SetPoint("TOPLEFT", 7 * k, -6 * k)
+	icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+	local mask = addons:CreateMaskTexture()
+	mask:SetTexture(Chrome.CIRCLE, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+	mask:SetAllPoints(icon)
+	icon:AddMaskTexture(mask)
+	local ring = addons:CreateTexture(nil, "OVERLAY")
+	ring:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+	ring:SetSize(53 * k, 53 * k)
+	ring:SetPoint("TOPLEFT")
+	addons:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight", "ADD")
+end
+Controls.mode, Controls.gear, Controls.addons = mode, gear, addons
 
 local zoomOut = ArtButton(Chrome.controls, 20, 11, ZoomArt("ui-hud-minimap-zoom-out"))
 -- The quest pill's gap from the window's left and bottom borders is one: the border's insets differ, so its
@@ -134,12 +162,13 @@ Controls.zoomReset = zoomReset
 ---------------------------------------------------------------------------
 
 local LINE_H, LINE_PAD = 16, 7
-local ICON, ICON_X, ICON_GAP = 10, 7, 2 -- the icon: its size, its left, the gap to the text
+local ICON, ICON_X, ICON_GAP = 10, 4, 2 -- the icon: its size, its left, the gap to the text
 local ZOOM_COL = 30 -- px at the map's right kept clear of the line: the zoom buttons' column and a gap
 local EVERY = 0.3 -- s between looks: three or so a second (the yards change as you walk)
 local RUN = 7 -- yd/s, a run
 local YARDS_STEP = 10 -- yards are rounded to this from 100 up: no flicker while you walk
-local SEP, NEAR = "  \194\183  ", "  " -- between pieces; between the name and its progress, as before
+local SEP = "  \194\183  " -- between the secondary pieces
+local GAP = 5 -- px between the first piece and the rest
 local ELLIPSIS = "\226\128\166" -- "…" in UTF-8
 local BAR = { 1, 0.82, 0.25, 0.6 } -- the fill: the title's gold (its colour Settings > Quest pill > Bar colour)
 local BAR_COLORS = {
@@ -185,8 +214,8 @@ local FRAME = Info("legacy-progressbar-frame-c60", "legacy-progressbar-frame")
 local TRACK_END, FRAME_END = 4, 12 -- the art's px of each end kept whole (its rounding)
 -- The frame drawn at FRAME_K of its art (a thin border: its art is 131 x 26 round a 117 x 12 track, 7 px out), so it
 -- reaches FRAME_OUT px past the track; its alpha.
-local FRAME_K, FRAME_OUT, FRAME_A = 0.6, 4, 0.85
-local PILL_A = 0.25 -- the track's alpha: faint ("pills.alpha" sets it live: SetPillAlpha)
+local FRAME_K, FRAME_OUT, FRAME_A = 0.45, 3, 0.85
+local PILL_A = 0.35 -- the track's alpha: faint ("pills.alpha" sets it live: SetPillAlpha)
 
 -- A strip of three textures on line, out px past its edges: info's file (its ends: ends px of the art each, drawn
 -- at k), else a plain colour.
@@ -275,10 +304,15 @@ Controls.questClose = close
 
 -- The pill's look and behaviour (its page, through SetPill; these its defaults): its size, whether it shows, what it
 -- says (the pieces, in order), its fill, and whether it fades until you point at the map.
-local PILL = { scale = 0.9, questShow = "followed", pieces = { "progress" }, bar = true }
+local PILL = { scale = 0.9, questShow = "followed", pieces = { "progress", "distance" }, bar = true }
+-- The first piece in the pill's text; the rest secondary, smaller and muted, after it.
 local lineText = line:CreateFontString(nil, "OVERLAY")
 lineText:SetFont(FONT, 9, "")
 lineText:SetTextColor(0.95, 0.9, 0.8)
+local restText = line:CreateFontString(nil, "OVERLAY")
+restText:SetFont(FONT, 8, "")
+restText:SetTextColor(0.72, 0.67, 0.58)
+restText:SetPoint("LEFT", lineText, "RIGHT", GAP, 0)
 Controls.questLine, Controls.questFill = line, fillM
 
 local NONE = {}
@@ -348,7 +382,8 @@ local function Share(t, yd)
 	return far > 0 and 1 - yd / far or 1 -- /: never 0 (far > 0 checked)
 end
 
--- What the line says, as pre (kept), head (the name: cut first when long) and tail (kept), or nil for nothing; and
+-- What the line says, its pieces in order (the first primary, the rest secondary) and which is the name (cut
+-- first when long), or nil for nothing; and
 -- what it's about: followedQuest, tracked, iconKind and the fill's share (frac; nil: none) set.
 local frac
 local function Words(list)
@@ -371,22 +406,16 @@ local function Words(list)
 		if type(yd) == "number" then yd = Yards(yd) end -- (no target here, the followed quest elsewhere: none)
 		frac = PILL.bar and t and Share(t, yd) or nil
 		local name = quest and quest.name or title
-		local pre, head, tail, prev = "", nil, "", nil
+		local out, at = {}, nil
 		for _, p in ipairs(PILL.pieces) do
 			local w = Piece(p, name, quest, yd)
 			if w then
-				local sep = prev and (p == "progress" and prev == "name" and NEAR or SEP) or ""
-				if p == "name" then
-					pre, head = pre .. sep, w
-				elseif head then
-					tail = tail .. sep .. w
-				else
-					pre = pre .. sep .. w
-				end
-				prev = p
+				out[#out + 1] = w
+				if p == "name" then at = #out end
 			end
 		end
-		return pre, head or "", tail
+		if not out[1] then out[1] = name end
+		return out, at
 	end
 	iconKind = "quest"
 	return nil
@@ -402,24 +431,40 @@ local function Cut(s, i)
 	return i
 end
 
--- pre .. head .. tail in the line's text, the head cut with an ellipsis until it is at most avail px.
-local function Fit(pre, head, tail, avail)
-	lineText:SetText(pre .. head .. tail)
-	if lineText:GetStringWidth() <= avail then return pre .. head .. tail end
-	local lo, hi = 0, #head
-	while lo < hi do
-		local mid = math.floor((lo + hi + 1) / 2)
-		lineText:SetText(pre .. head:sub(1, Cut(head, mid)) .. ELLIPSIS .. tail)
-		if lineText:GetStringWidth() <= avail then lo = mid else hi = mid - 1 end
+-- The pieces in the two texts, the name (piece at) cut to n bytes with an ellipsis (nil: whole); their width.
+local function Put(pieces, at, n)
+	local first, rest = pieces[1], ""
+	if at and n then
+		local name = pieces[at]
+		local cut = name:sub(1, Cut(name, n)) .. ELLIPSIS
+		if at == 1 then first = cut end
+		for i = 2, #pieces do rest = rest .. (i > 2 and SEP or "") .. (i == at and cut or pieces[i]) end
+	else
+		for i = 2, #pieces do rest = rest .. (i > 2 and SEP or "") .. pieces[i] end
 	end
-	return pre .. head:sub(1, Cut(head, lo)) .. ELLIPSIS .. tail
+	lineText:SetText(first)
+	restText:SetText(rest)
+	local w = lineText:GetStringWidth()
+	return rest ~= "" and w + GAP + restText:GetStringWidth() or w
 end
 
-local function Show(pre, head, tail)
+-- The pieces put so they're at most avail px: the name cut with an ellipsis as far as it takes; their width.
+local function Fit(pieces, at, avail)
+	local w = Put(pieces, at)
+	if w <= avail or not at then return w end
+	local lo, hi = 0, #pieces[at]
+	while lo < hi do
+		local mid = math.floor((lo + hi + 1) / 2)
+		if Put(pieces, at, mid) <= avail then lo = mid else hi = mid - 1 end
+	end
+	return Put(pieces, at, lo)
+end
+
+local function Show(pieces, at)
 	line:EnableMouse(followedQuest ~= nil)
-	local x = pre ~= nil and tracked and iconKind ~= "corpse"
+	local x = pieces ~= nil and tracked and iconKind ~= "corpse"
 	close:SetShown(x)
-	if not pre then
+	if not pieces then
 		line:Hide()
 		return
 	end
@@ -430,8 +475,7 @@ local function Show(pre, head, tail)
 	local w = overlay:GetWidth() / PILL.scale -- /: never 0 (the scale's least is 0.8)
 	local avail = w > 0 and w - (2 * PAD + ZOOM_COL) / PILL.scale - textX - LINE_PAD - xw or math.huge -- /: never 0 (as above)
 	lineText:SetPoint("LEFT", line, "LEFT", textX, 0)
-	lineText:SetText(Fit(pre, head, tail, avail))
-	line:SetWidth(textX + lineText:GetStringWidth() + LINE_PAD + xw)
+	line:SetWidth(textX + Fit(pieces, at, avail) + LINE_PAD + xw)
 	local atlas = ICONS[iconKind] or questAtlas
 	if atlas and icon:GetAtlas() ~= atlas then icon:SetAtlas(atlas) end
 	icon:SetDesaturated(not tracked)
@@ -460,18 +504,19 @@ line:SetScript("OnMouseUp", Runtime.Wrap("map: quest pill", function()
 end))
 
 -- What the line last said (and the map's width: its cap), so it's fitted again only on a change; the fill each look.
-local lastPre, lastHead, lastTail, lastW, lastKind, lastFrac, lastFillW
+local lastSaid, lastW, lastKind, lastFrac, lastFillW
 local function Look()
 	local speed = Model.you.speed
 	if speed and speed > 0 then pace = speed end
-	local pre, head, tail = Words(Model.Known("quests"))
+	local pieces, at = Words(Model.Known("quests"))
+	local said = pieces and table.concat(pieces, "\n") .. "\n" .. tostring(at) or nil
 	local w = overlay:GetWidth()
-	if pre ~= lastPre or head ~= lastHead or tail ~= lastTail or w ~= lastW or iconKind ~= lastKind then
-		lastPre, lastHead, lastTail, lastW, lastKind = pre, head, tail, w, iconKind
-		Show(pre, head, tail)
+	if said ~= lastSaid or w ~= lastW or iconKind ~= lastKind then
+		lastSaid, lastW, lastKind = said, w, iconKind
+		Show(pieces, at)
 	end
-	local lw = pre and line:GetWidth()
-	if pre and (frac ~= lastFrac or lw ~= lastFillW) then
+	local lw = pieces and line:GetWidth()
+	if pieces and (frac ~= lastFrac or lw ~= lastFillW) then
 		lastFrac, lastFillW = frac, lw
 		Fill(frac, lw)
 	end
@@ -492,6 +537,8 @@ local function Reveal()
 	Chrome.controls:SetAlpha(a)
 	gear:SetAlpha(a)
 	mode:SetAlpha(a)
+	addons:SetAlpha(hover)
+	addons:EnableMouse(hover > 0)
 	Chrome.grip:SetAlpha(GRIP_ALPHA * a)
 end
 
@@ -500,7 +547,7 @@ local function SetPill(key, v)
 	if PILL[key] == v then return end
 	PILL[key] = v
 	Place()
-	lastPre, lastFrac = nil, -1
+	lastSaid, lastFrac = false, -1 -- (false: not nil, which is "nothing to say")
 	Look()
 	Reveal()
 end
@@ -552,6 +599,7 @@ zoomOut:SetScript("OnClick", Runtime.Wrap("map: zoom out", function() UI.Motion.
 -- (The gear's click builds the client's own menu, MenuUtil: ~3 ms in the client, once a click, the frame's
 -- budget.)
 gear:SetScript("OnClick", Runtime.Wrap("map: gear", function(self) Menus.Gear(self) end, Runtime.FRAME_MS))
+addons:SetScript("OnClick", Runtime.Wrap("map: addons", function(self) Menus.AddOns(self) end, Runtime.FRAME_MS))
 
 -- Following you, or free: the slash command (and the Settings row: ui/Motion.lua). Back to you with a
 -- glide (Core.lua:1081-1093, 1451, 1703).
@@ -617,6 +665,7 @@ Controls.Tip(zoomIn, function() return "Zoom in" end)
 Controls.Tip(zoomOut, function() return "Zoom out" end)
 Controls.Tip(zoomReset, function() return Camera.follow and "Reset zoom" or "Back to you" end)
 Controls.Tip(gear, function() return "Settings" end)
+Controls.Tip(addons, function() return "AddOns" end)
 close:SetScript("OnClick", Runtime.Wrap("map: pill close", function() UI.Track.Clear() end))
 Controls.Tip(close, function() return UI.Track.ClearLabel() end)
 

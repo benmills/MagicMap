@@ -246,7 +246,7 @@ function Types.Add(t)
 	end
 	if t.groups then
 		rows[#rows + 1] = { key = p .. "group", kind = "toggle", label = "Group", under = p .. "show", default = true,
-			tip = "On the big map, where it crowds others, it may stand in a group's pill (Settings > Grouping)." }
+			tip = "On the big map, where it crowds others, it may stand in a group's pill." }
 	end
 	Feel.Add("pins", "By type", rows)
 	return t

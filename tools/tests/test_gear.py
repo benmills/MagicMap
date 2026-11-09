@@ -1,9 +1,10 @@
 """The gear menu on the simulated client (ui/Menus.lua), as the spike's (GearMenu.lua, Layers.lua:30-71,
-2154-2207): a submenu per group of layers with any (Map, Quests, Places, Nearby, Other addons), each layer
-a checkbox with its tip (white title, gold body) that keeps the menu open, its icon beside it, a sub-option indented and
-greyed while its parent is off, each group's row with its n/total; Nearby's Blizzard tracking types; then Use Blizzard's
-minimap (while ours replaces it) and Reset to defaults, after Minimap buttons (the buttons the takeover hides, a row
-each that clicks it: test_gear_minimap_buttons); then one row, Settings…, which opens the settings window
+2154-2207): Map (the names, quests, places, rares and party, a
+divider between) and Other addons, each layer a checkbox with its tip (white title, gold body) that keeps the menu
+open, its icon beside it, a sub-option indented and greyed while its parent is off, each group's row with its n/total;
+Tracking, Blizzard's tracking types alone, and Keep tracking; then Use Blizzard's minimap (while ours replaces it) and
+Reset to defaults; the minimap's buttons are the AddOns button's (a row each that clicks it:
+test_gear_minimap_buttons); then one row, Settings…, which opens the settings window
 (ui/Feel.lua: test_lookfeel.py holds what was the Settings submenu), the same small and big. Every row works: a layer's toggle empties and redraws what it draws (and View.layers, for Game's:
 Questie's borrowed pins) and is saved, the changed keys only, across a /reload; a layer off by
 default stays so until turned on; rows in the spike's order whenever added; each setting does what it says;
@@ -50,6 +51,13 @@ def drawn(lay):
 def gear(sim, ns):
     """Click the gear: the menu's root, and its rows by text."""
     sim.Click(ns.UI.Controls.gear)
+    return sim.menu, {plain(e.text): e for e in sim.MenuItems().values() if e.text}
+
+
+def addons(sim, ns):
+    """Open the AddOns button's menu (the minimap's buttons): its root, and its rows by text."""
+    ns.UI.Menus.AddOns(ns.UI.Controls.addons)
+    sim.Step()
     return sim.menu, {plain(e.text): e for e in sim.MenuItems().values() if e.text}
 
 
@@ -110,22 +118,18 @@ def test_gear():
 
     # The tree: a submenu per group with layers, a divider, Settings; small and big alike.
     root, rows = gear(sim, ns)
-    assert items(root) == [("button", "Map"), ("button", "Quests"), ("button", "Places"), ("button", "Tracking"),
+    assert items(root) == [("button", "Map"), ("button", "Tracking"), ("button", "Keep tracking: Find Herbs"),
                            ("button", "Other addons"), ("divider", None),
-                           ("button", "AddOns"),
                            ("button", "Use Blizzard's minimap"),
                            ("button", "Reset to defaults"), ("divider", None), ("button", SETTINGS)]
     assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"),
-                                       ("checkbox", "City maps")]
-    assert items(sub(root, "Quests")) == [("checkbox", "All quests"), ("divider", None), ("checkbox", "Quests"),
-                                          ("checkbox", "Quest areas")]
-    assert items(sub(root, "Places")) == [("checkbox", "All places"), ("divider", None), ("checkbox", "Flight points"),
-                                          ("checkbox", "Dungeons & raids"), ("checkbox", "Graveyards"),
-                                          ("checkbox", "Points of interest")]
-    assert items(sub(root, "Tracking"))[:4] == [("checkbox", "All tracking"), ("divider", None),
-                                              ("checkbox", "Rares & treasures"), ("checkbox", "Party & raid")]
+                                       ("divider", None), ("checkbox", "Quests"), ("checkbox", "Quest areas"),
+                                       ("divider", None), ("checkbox", "Flight points"), ("checkbox", "Dungeons & raids"),
+                                       ("checkbox", "Graveyards"), ("checkbox", "Points of interest"),
+                                       ("divider", None), ("checkbox", "Rares & treasures"), ("checkbox", "Party & raid")]
+    assert items(sub(root, "Tracking")) == [("checkbox", "Find Herbs"), ("checkbox", "Mailbox"), ("checkbox", "Innkeeper")]
     assert items(sub(root, "Other addons")) == [("checkbox", "All other addons"), ("divider", None), ("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
-    assert plain(sub(root, "Map").text) == "Map  2/2" and plain(sub(root, "Quests").text) == "Quests  2/2"
+    assert plain(sub(root, "Map").text) == "Map  8/9"  # (graveyards off till turned on)
     sim.Press("M")
     sim.Run(1)
     big, _ = gear(sim, ns)
@@ -182,7 +186,8 @@ def test_gear():
                                  "tip": "A sub-option."}))
     root, rows = gear(sim, ns)
     child = rows["     Sub-option"]
-    assert items(sub(root, "Map"))[-1] == ("checkbox", "     Sub-option") and child.IsEnabled(child)
+    rows_ = items(sub(root, "Map"))
+    assert rows_[rows_.index(("checkbox", "Zone labels")) + 1] == ("checkbox", "     Sub-option") and child.IsEnabled(child)
     rows["Zone labels"].onSelect()
     assert not child.IsEnabled(child)
 
@@ -291,8 +296,8 @@ def test_gear_tracking():
     # Tracking, under the Tracking group's rows: the client's order, the duplicates (flight, quest POIs, POIs) left out, a name
     # and icon the client lists twice one box.
     root, rows = gear(sim, ns)
-    assert items(sub(root, "Tracking"))[-5:] == [("divider", None), ("checkbox", "Find Herbs"), ("checkbox", "Mailbox"),
-                                               ("checkbox", "Innkeeper"), ("checkbox", "Banker")]
+    assert items(sub(root, "Tracking")) == [("checkbox", "Find Herbs"), ("checkbox", "Mailbox"),
+                                            ("checkbox", "Innkeeper"), ("checkbox", "Banker")]
     mail = rows["Mailbox"]
     assert mail.isSelected() is True and mail.onSelect() == refresh
     assert mail.isSelected() is False and len(sent) == 0  # the click shown; Game's in its next input step
@@ -322,15 +327,16 @@ def test_gear_tracking():
     UI.Feel.Open("diag")
     w = UI.Feel.widgets
     checked = lambda k: w[k].check.GetChecked(w[k].check)  # noqa: E731
-    for key in ("diag.debug", "diag.indoor"):
-        assert not checked(key)
-        sim.Click(w[key].check)
-        sim.Step()
+    assert not checked("diag.debug") and "diag.indoor" not in w  # (indoor reports: /mm indoor alone)
+    sim.Click(w["diag.debug"].check)
+    sim.Step()
+    sim.Slash("/mm indoor")
+    sim.Step()
     assert ns.UI.saved.debug and ns.Model.minimap.indoorDebug
     for key in ("diag.record", "diag.top", "diag.mem"):
         sim.Click(w[key].button)
         sim.Step()
-    assert list(ran.values()) == ["debug", "indoor", "perf", "perf top", "perf mem"]
+    assert list(ran.values()) == ["debug", "perf", "perf top", "perf mem"]
     ns.Runtime.recording = False
 
     # /mm layers.
@@ -341,10 +347,8 @@ def test_gear_tracking():
     on, off = "|cff33ff33%s|r".__mod__, "|cff888888%s|r".__mod__
     assert sim.prints[len(sim.prints)] == (
         "|cffffd100MagicMap|r: layers: "
-        f"|cffffd100Map:|r {on('zoneLabels')}, {on('cities')}; "
-        f"|cffffd100Quests:|r {on('quests')}, {off('questAreas')}; "
-        f"|cffffd100Places:|r {off('flight')}, {on('dungeons')}, {off('graveyards')}, {on('areaPOIs')}; "
-        f"|cffffd100Tracking:|r {off('rares')}, {on('group')}. Toggle them from the gear. "
+        f"|cffffd100Map:|r {on('zoneLabels')}, {on('quests')}, {off('questAreas')}, {off('flight')}, {on('dungeons')}, "
+        f"{off('graveyards')}, {on('areaPOIs')}, {off('rares')}, {on('group')}. Toggle them from the gear. "
         "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it.")
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
@@ -370,8 +374,8 @@ def test_gear_minimap_buttons():
     got = L.table()
     L.execute(COMPARTMENT, G, got)
     sim.Run(3.5)  # (looked for again every 3 s)
-    root, rows = gear(sim, ns)
-    assert items(sub(root, "AddOns")) == [("button", "AtlasLoot"), ("button", "Details"), ("button", "Some Addon"),
+    root, rows = addons(sim, ns)
+    assert items(root) == [("title", "AddOns"), ("button", "AtlasLoot"), ("button", "Details"), ("button", "Some Addon"),
                                                    ("divider", None), ("button", "Calendar"), ("button", "Clock")]
     assert rows["Some Addon"].text.startswith("|TInterface\\Icons\\INV_Misc_Bag_08:16:16|t")
     assert rows["Calendar"].text.startswith("|A:ui-hud-minimap-calendar-button:16:16|a")
@@ -408,9 +412,9 @@ def test_gear_minimap_buttons():
         b.Hide(b)
     G.AddonCompartmentFrame.registeredAddons = L.table()
     sim.Run(3.5)
-    root, rows = gear(sim, ns)
+    root, rows = addons(sim, ns)
     none = rows["None found"]
-    assert items(sub(root, "AddOns")) == [("button", "None found")] and not none.IsEnabled(none)
+    assert items(root) == [("title", "AddOns"), ("button", "None found")] and not none.IsEnabled(none)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
@@ -419,18 +423,16 @@ def test_gear_groups_and_reset():
     L, sim, ns, pin = shown()
     E = ns.UI.Engine
     root, rows = gear(sim, ns)
-    assert count(sim, ns, "Places") == "Places  3/4"  # (Graveyards are off by default)
-    rows["All places"].onSelect()  # (Graveyards are off by default: not all on, so all on)
-    assert E.LayerOn("flight") and E.LayerOn("graveyards")
-    assert count(sim, ns, "Places") == "Places  4/4"
-    rows["All places"].onSelect()
-    assert not E.LayerOn("flight") and not E.LayerOn("graveyards")
-    assert count(sim, ns, "Places") == "Places  0/4"
-    rows["All quests"].onSelect()
-    assert not E.LayerOn("quests") and count(sim, ns, "Quests") == "Quests  0/2"
+    assert count(sim, ns, "Map") == "Map  8/9"  # (Graveyards are off by default)
+    rows["All map"].onSelect()  # (not all on, so all on)
+    assert E.LayerOn("flight") and E.LayerOn("graveyards") and E.LayerOn("quests")
+    assert count(sim, ns, "Map") == "Map  9/9"
+    rows["All map"].onSelect()
+    assert not E.LayerOn("flight") and not E.LayerOn("quests")
+    assert count(sim, ns, "Map") == "Map  0/9"
     rows["Reset to defaults"].onSelect()
     assert E.LayerOn("quests") and E.LayerOn("flight") and not E.LayerOn("graveyards")  # (off by default)
-    assert count(sim, ns, "Places") == "Places  3/4" and count(sim, ns, "Quests") == "Quests  2/2"
+    assert count(sim, ns, "Map") == "Map  8/9"
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

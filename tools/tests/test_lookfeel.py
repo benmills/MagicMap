@@ -54,26 +54,26 @@ def test_lookfeel():
     assert w["general.follow"].check.GetChecked(w["general.follow"].check) is True
     assert not Feel.resets.general.IsEnabled(Feel.resets.general) and not Feel.resetAll.IsEnabled(Feel.resetAll)
 
-    # A page's row: its page shown and built, the last one's hidden, kept. Group icons off (the tests'): the
-    # tunables' rows hidden, and their headers; on, shown.
-    sim.Click(_tab(L, Feel, "Grouping"))
-    assert saved.feelPage == "group" and not _shown(Feel.pages["general"]) and _shown(Feel.pages["group"])
-    r = w["group.range"]
-    assert not _shown(r.row) and not _shown(w["group.alpha"].row)
-    sim.Click(w["general.cluster"].check)
-    assert saved.cluster is True and _shown(r.row) and _shown(w["group.alpha"].row)
-    # A grouping slider: UI.Cluster's tunable, saved as clusterTune (as before), nothing in saved.feel; its value
-    # beside it; the undo mark and Reset lit.
+    # A page's row: its page shown and built, the last one's hidden, kept. The progress bar off: its opacity's and
+    # colour's rows hidden; on, shown.
+    sim.Click(_tab(L, Feel, "Quest pill"))
+    assert saved.feelPage == "pills" and not _shown(Feel.pages["general"]) and _shown(Feel.pages["pills"])
+    Feel.Set("pills.questBar", False)
+    r = w["pills.barAlpha"]
+    assert not _shown(r.row) and not _shown(w["pills.barColor"].row)
+    sim.Click(w["pills.questBar"].check)
+    assert Feel.Get("pills.questBar") is True and _shown(r.row) and _shown(w["pills.barColor"].row)
+    # A slider: its value beside it; the undo mark and Reset lit.
+    r = w["pills.alpha"]
     s, text = r.slider, r.text
-    assert s.GetValue(s) == 24 and text.GetText(text) == "24 px" and not _shown(r.undo)
-    s.SetValue(s, 33)  # (snapped to its step)
-    assert UI.Cluster.Get("range") == 32 and saved.clusterTune.range == 32 and saved.feel is None
-    assert Feel.Get("group.range") == 32 and text.GetText(text) == "32 px" and _shown(r.undo)
-    assert Feel.resets.group.IsEnabled(Feel.resets.group) and Feel.resetAll.IsEnabled(Feel.resetAll)
+    assert abs(s.GetValue(s) - 0.35) < 1e-9 and text.GetText(text) == "35%" and not _shown(r.undo)
+    s.SetValue(s, 0.52)  # (snapped to its step)
+    assert abs(Feel.Get("pills.alpha") - 0.5) < 1e-9 and text.GetText(text) == "50%" and _shown(r.undo)
+    assert Feel.resets.pills.IsEnabled(Feel.resets.pills) and Feel.resetAll.IsEnabled(Feel.resetAll)
     sim.Click(r.steps[2])  # the forward stepper: a step on
-    assert UI.Cluster.Get("range") == 36 and text.GetText(text) == "36 px"
+    assert abs(Feel.Get("pills.alpha") - 0.55) < 1e-9 and text.GetText(text) == "55%"
     sim.Click(r.undo)  # back to its default
-    assert UI.Cluster.Get("range") == 24 and saved.clusterTune is None and not _shown(r.undo) and s.GetValue(s) == 24
+    assert abs(Feel.Get("pills.alpha") - 0.35) < 1e-9 and not _shown(r.undo) and abs(s.GetValue(s) - 0.35) < 1e-9
     rev = Feel.rev
 
     # The tracking line's style: the client's dropdown, a radio per style; saved in feel, Get returns it, rev moved.
@@ -174,8 +174,8 @@ def test_settings_kinds_and_late_pages():
     h = Feel.frame.GetHeight(Feel.frame)
     L.execute(LATE, sim, ns)
     titles = [p.title for p in Feel.Pages().values()]
-    assert titles[:4] == ["General", "Map", "Frame title", "Order"] and titles[-1] == "Diagnostics" and len(titles) == 15
-    assert Feel.frame.GetHeight(Feel.frame) == h + 28  # (room for 14: one more grows it)
+    assert titles[:4] == ["General", "Map", "Frame title", "Order"] and titles[-1] == "Diagnostics" and len(titles) == 13
+    assert Feel.frame.GetHeight(Feel.frame) == h  # (room for 14 in the sidebar: 13 fit as it is)
     sim.Click(_tab(L, Feel, "Order"))
     w = Feel.widgets
     lst, more = w["order.what"], w["order.more"].row
@@ -229,7 +229,7 @@ def test_settings_pages_apply_and_reset():
         sim.atlases[a] = None
     Feel, saved = _open(sim, ns), L.globals().MagicMap2DB.UI
     pages = [p.key for p in Feel.Pages().values()]
-    assert pages == ["general", "map", "title", "pins", "resources", "pills", "tracking", "path", "areas", "group", "diag"]
+    assert pages == ["general", "map", "title", "pins", "pills", "tracking", "path", "areas", "diag"]
     for p in pages:
         Feel.Open(p)
     assert sorted(Feel.pages.keys()) == sorted(pages)
@@ -244,24 +244,24 @@ def test_settings_pages_apply_and_reset():
     changed = []
     defaults = {k.key: Feel.Get(k.key) for k in Feel.Entries().values()}  # (before any: an inherited one follows another)
     for k in Feel.Entries().values():
-        if k.keep or k.kind == "button":
+        if k.keep or k.kind == "button" or k.page is False:  # (no page: no page's Reset)
             continue
         v = other(Feel, k)
         Feel.Set(k.key, v)
         assert Feel.Get(k.key) == v, k.key
         changed.append(k.key)
-    assert len(changed) > 40 and saved.feel is not None and saved.clusterTune is not None
+    assert len(changed) > 40 and saved.feel is not None
     switch = saved.cluster
     sim.Run(1)
     for p in pages:
         Feel.Reset(p)
-    assert saved.feel is None and saved.clusterTune is None and saved.cluster == switch
+    assert saved.feel is None and saved.cluster == switch
     for key in changed:
         assert Feel.Get(key) == defaults[key], key
     for key in changed:  # the same by Reset all
         Feel.Set(key, other(Feel, Feel.Entry(key)))
     Feel.ResetAll()
-    assert saved.feel is None and saved.clusterTune is None
+    assert saved.feel is None
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
@@ -275,7 +275,7 @@ def test_settings_layout():
     pages = [(p, False) for p in Feel.Pages().values()]
     pages.append((next(p for p in Feel.Pages().values() if p.key == "pins"), True))
     for p, opened in pages:
-        if p.key in ("path", "pills", "group"):  # (every row shown: their dependents' switches on)
+        if p.key in ("path", "pills"):  # (every row shown: their dependents' switches on)
             for k in Feel.Entries().values():
                 if k.page == p.key and k.kind == "toggle":
                     ns.UI.Feel.Set(k.key, True)
@@ -395,7 +395,7 @@ def test_settings_declared():
         for _, k in ipairs(Feel.Entries()) do
             local d = Feel.Default(k.key)
             local function no(why) out[#out + 1] = k.key .. ": " .. why end
-            if not pages[k.page] then no("no page " .. tostring(k.page)) end
+            if k.page ~= false and not pages[k.page] then no("no page " .. tostring(k.page)) end
             if type(k.tip) ~= "string" or #k.tip < 8 then no("no tip") end
             if type(k.label) ~= "string" or k.label == "" then no("no label") end
             if k.kind ~= "button" and d == nil then no("no default") end

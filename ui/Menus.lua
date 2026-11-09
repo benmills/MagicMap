@@ -1,10 +1,11 @@
 -- Menus are the client's own (MenuUtil), no skin (Menu.lua). Opened through here, they count
 -- as open for the controls that opened them, so those don't fade out under them.
--- The gear menu (GearMenu.lua): what's drawn, a submenu per group of layers (Map, Quests, Places, Tracking,
--- Other addons), each with an "All" box on top (the group on or off) and each row's icon beside its name;
--- Tracking lists Blizzard's tracking types too, Keep tracking: <name> (the tracker kept on, ui/Resources.lua) right
--- after its gathering spells' rows (but those ours replace; one box for a name the client lists twice,
--- Banker); each group's row shows how many of its rows are on, n/total (Tally). Then AddOns: the buttons the takeover hides with the Minimap
+-- The gear menu (GearMenu.lua): what's drawn, a submenu per group of layers (Map: the map's names, quests, places,
+-- rares and party, a divider between those parts; Other addons), each with an "All" box on top (the group on or off)
+-- and each row's icon beside its name, its row showing how many of its rows are on, n/total (Tally). Then Tracking:
+-- Blizzard's tracking types as Blizzard's own menu has them (but those ours replace; one box for a name the client
+-- lists twice, Banker), and Keep tracking: <name> (the tracker kept on, ui/Resources.lua). The AddOns menu is its own
+-- button's (Menus.AddOns, ui/Controls.lua): the buttons the takeover hides with the Minimap
 -- (Model.buttons: LibDBIcon's, the addon compartment's, others on its rim, Blizzard's calendar and clock after a
 -- divider), a row each, its icon and name; a click (either button) is the button Command, its tooltip the button's
 -- own (the tooltip Command); "None found" greyed when there are none. Then quick actions (Use Blizzard's
@@ -52,12 +53,10 @@ local Mark = UI.Tip.Mark
 ---------------------------------------------------------------------------
 
 -- The groups, in order (Layers.lua:63-70); one with no layer is left out.
+-- parts: the rows' groups it lists, in order, a divider between.
 local GROUPS = {
-	{ key = "map", title = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01" },
-	{ key = "quests", title = "Quests", icon = "A:Quest-In-Progress-Icon-yellow" },
-	{ key = "places", title = "Places", icon = "A:dungeon" },
-	{ key = "nearby", title = "Tracking", icon = "Interface\\Icons\\Ability_Tracking" }, -- then Blizzard's tracking types (AddLayers)
-	{ key = "addons", title = "Other addons", icon = "Interface\\Icons\\INV_Misc_EngGizmos_01" },
+	{ key = "map", title = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01", parts = { "map", "quests", "places", "nearby" } },
+	{ key = "addons", title = "Other addons", icon = "Interface\\Icons\\INV_Misc_EngGizmos_01", parts = { "addons" } },
 }
 
 -- The layers' rows: { key, label, group, tip, default?, parent?, onToggle? } (Layers.lua:30-61,
@@ -85,9 +84,6 @@ end
 
 -- Drawn so far (Layers.lua:34-37, Blips.lua:671-672, Landmarks.lua:70-71).
 Menus.Layer({ key = "labels", label = "Zone labels", group = "map", tip = "Names of zones and sub-zones." })
--- Not a layer of its own: the interiors layer draws a capital's every building while it's on (ui/Interiors.lua).
-Menus.Layer({ key = "cities", label = "City maps", group = "map",
-	tip = "In the capital cities, every city building's indoor map, what's under the ground faded." })
 -- Rares you've seen and the live ones (vignettes: rares, treasures, events the game shows near you): one row.
 Menus.Layer({ key = "rares", label = "Rares & treasures", group = "nearby",
 	tip = "Rares where you last saw them, and the rares, treasures and events the game shows near you now.",
@@ -106,8 +102,10 @@ local function Sections()
 	local out = {}
 	for _, g in ipairs(GROUPS) do
 		local rows = {}
-		for _, row in ipairs(LAYERS) do
-			if row.group == g.key then rows[#rows + 1] = row end
+		for _, part in ipairs(g.parts) do
+			for _, row in ipairs(LAYERS) do
+				if row.group == part then rows[#rows + 1] = row end
+			end
 		end
 		if g.key == "addons" then
 			for _, a in ipairs(Model.addons) do
@@ -144,22 +142,21 @@ local function Set(row, on)
 	if Engine.LayerOn(row.key) ~= on then Flip(row) end
 end
 
--- Nearby's tracking rows (Blizzard's types, below): set later in this file. Tally: a group's "n/total" (below).
-local TrackingOn, SetTracking, AddTrackingRows, Tally
+-- The Tracking submenu (Blizzard's types, below): set later in this file. Tally: a group's "n/total" (below).
+local AddTracking, Tally
 
--- A group's rows all on (Nearby: its tracking types too).
+-- A group's rows all on.
 local function AllOn(sec)
 	for _, row in ipairs(sec.rows) do
 		if not Engine.LayerOn(row.key) then return false end
 	end
-	return sec.key ~= "nearby" or TrackingOn()
+	return true
 end
 
 -- A group toggled whole: all on, or all off when they all were.
 local function SetGroup(sec)
 	local on = not AllOn(sec)
 	for _, row in ipairs(sec.rows) do Set(row, on) end
-	if sec.key == "nearby" then SetTracking(on) end
 end
 
 -- Every layer back to its default (on, but those off until turned on).
@@ -169,27 +166,34 @@ local function Reset()
 	end
 end
 
-local function AddLayers(root)
-	for _, sec in ipairs(Sections()) do
-		-- The group's row: its icon, its title, then how many of its rows are on, dimmed (Tally).
-		local sub = root:CreateButton(Mark(sec.icon) .. sec.title .. Tally(sec))
-		local rows = sec.rows
-		sub:CreateCheckbox("All " .. sec.title:lower(), function() return AllOn(sec) end, function()
-			Run(SetGroup, sec)
-			return MenuResponse.Refresh
-		end)
-		sub:CreateDivider()
-		for _, row in ipairs(rows) do
-			local cb = sub:CreateCheckbox(Label(row),
-				function() return Engine.LayerOn(row.key) end,
-				function()
-					Run(Flip, row)
-					return MenuResponse.Refresh
-				end)
-			if row.parent then cb:SetEnabled(function() return Engine.LayerOn(row.parent) end) end
-			cb:SetTooltip(Tip(row.label, row.tip))
+local function AddSection(root, sec)
+	-- The group's row: its icon, its title, then how many of its rows are on, dimmed (Tally).
+	local sub = root:CreateButton(Mark(sec.icon) .. sec.title .. Tally(sec))
+	sub:CreateCheckbox("All " .. sec.title:lower(), function() return AllOn(sec) end, function()
+		Run(SetGroup, sec)
+		return MenuResponse.Refresh
+	end)
+	local part
+	for _, row in ipairs(sec.rows) do
+		if row.group ~= part then
+			sub:CreateDivider()
+			part = row.group
 		end
-		if sec.key == "nearby" then AddTrackingRows(sub) end
+		local cb = sub:CreateCheckbox(Label(row),
+			function() return Engine.LayerOn(row.key) end,
+			function()
+				Run(Flip, row)
+				return MenuResponse.Refresh
+			end)
+		if row.parent then cb:SetEnabled(function() return Engine.LayerOn(row.parent) end) end
+		cb:SetTooltip(Tip(row.label, row.tip))
+	end
+end
+
+-- The group only's submenu (none if it has no rows).
+local function AddLayers(root, only)
+	for _, sec in ipairs(Sections()) do
+		if sec.key == only then AddSection(root, sec) end
 	end
 end
 
@@ -221,11 +225,6 @@ local want, was = {}, {} -- a box's key -> what was asked, its state then
 local function Shown(key, on)
 	if was[key] == on then return want[key] end
 	was[key] = nil
-	return on
-end
--- Shown's answer, without the update (a count reads the boxes as they are drawn, and must not clear them).
-local function Peek(key, on)
-	if was[key] == on then return want[key] end
 	return on
 end
 local function Ask(key, on)
@@ -277,45 +276,25 @@ local function SetRow(ids, on)
 end
 local function FlipRow(ids) SetRow(ids, not RowOn(ids)) end
 
-function TrackingOn()
-	local all = true
-	Listed(function(_, ids) all = all and RowOn(ids) end)
-	return all
-end
-
-function SetTracking(on)
-	Listed(function(_, ids) SetRow(ids, on) end)
-end
-
--- Under Nearby's rows, a divider and each type with its icon (as Blizzard's menu has it): what it finds is
--- drawn over the map (the overlay's blips: game/Minimap.lua).
-function AddTrackingRows(sub)
+-- Tracking: each type with its icon, as Blizzard's own menu has it: what it finds is drawn over the map (the
+-- overlay's blips: game/Minimap.lua).
+function AddTracking(root)
 	if not Model.tracking[1] then return end
-	sub:CreateDivider()
-	local last -- the last gathering spell's row: Keep tracking follows it (ui/Resources.lua)
-	Listed(function(t) if t.spell then last = t end end)
+	local sub = root:CreateButton(Mark("Interface\\Icons\\Ability_Tracking") .. "Tracking")
 	Listed(function(t, ids)
 		local mark = t.texture and "|T" .. t.texture .. ":16:16|t  " or ""
 		sub:CreateCheckbox(mark .. t.name, function() return RowOn(ids) end, function()
 			Run(FlipRow, ids)
 			return MenuResponse.Refresh
 		end)
-		if t == last then UI.Resources.Menu(sub) end
 	end)
 end
 
--- A group's count for its row: "  n/total" dimmed, its rows on out of its rows (Nearby's tracking types too).
+-- A group's count for its row: "  n/total" dimmed, its rows on out of its rows.
 function Tally(sec)
 	local on, total = 0, #sec.rows
 	for _, row in ipairs(sec.rows) do
 		if Engine.LayerOn(row.key) then on = on + 1 end
-	end
-	if sec.key == "nearby" then
-		Listed(function(_, ids)
-			local all = true
-			for _, id in ipairs(ids) do all = all and Peek(id, Active(id)) end
-			total, on = total + 1, all and on + 1 or on
-		end)
 	end
 	return "  " .. UI.Tip.DIM .. on .. "/" .. total .. "|r"
 end
@@ -458,8 +437,6 @@ end
 -- Minimap buttons: what the takeover hides with the Minimap (game/MinimapButtons.lua), one row each
 ---------------------------------------------------------------------------
 
-local BUTTONS_ICON = "Interface\\Icons\\INV_Gizmo_02"
-
 -- A button's icon whole (other addons' art isn't Interface\Icons' alone): a file, a FileDataID or an atlas.
 local function ButtonMark(icon)
 	if type(icon) == "string" and icon:sub(1, 2) == "A:" then
@@ -468,9 +445,8 @@ local function ButtonMark(icon)
 	return icon and "|T" .. tostring(icon) .. ":16:16|t  " or ""
 end
 
-local function AddButtons(root)
-	local sub = root:CreateButton(Mark(BUTTONS_ICON) .. "AddOns")
-	sub:SetTooltip(Tip("AddOns", "The buttons Blizzard's minimap holds, hidden with it: other addons', the calendar, the clock. A click here is a click on the button."))
+local function AddButtons(sub)
+	sub:CreateTitle("AddOns")
 	local blizzard = false
 	for _, b in ipairs(Model.buttons) do
 		if b.blizzard and not blizzard and Model.buttons[1] ~= b then sub:CreateDivider() end
@@ -485,12 +461,19 @@ local function AddButtons(root)
 	if not Model.buttons[1] then sub:CreateButton("None found"):SetEnabled(false) end
 end
 
+-- The AddOns button's menu (ui/Controls.lua): the minimap's buttons, a row each.
+function Menus.AddOns(owner)
+	Menus.Show(owner, function(_, root) AddButtons(root) end)
+end
+
 function Menus.Gear(owner)
 	want, was = {}, {}
 	Menus.Show(owner, function(_, root)
-		AddLayers(root)
+		AddLayers(root, "map")
+		AddTracking(root)
+		UI.Resources.Menu(root)
+		AddLayers(root, "addons")
 		root:CreateDivider()
-		AddButtons(root)
 		if not UI.Replace or UI.Replace.Get("minimap") then -- (only while ours stands in for it: the contract's Get; shown if it's absent)
 			root:CreateButton(BLIZZARD_LOGO .. "Use Blizzard's minimap", function() Run(function() UI.Window.frame:Hide() end) end)
 		end

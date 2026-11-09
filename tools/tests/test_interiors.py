@@ -126,13 +126,11 @@ def test_ironforge_drawn():
     sim.player.col = 33.6  # out of the building, still in the city: undimmed; its rooms, all underground, whole
     veil, rooms, top, _ = at("", 3)
     assert ns.Model.interior is False and not veil and not top and set(rooms.values()) == {1}
-    ns.UI.Engine.SetLayer("cities", False)
-    assert at("") is None
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
 def test_city_maps():
-    """Orgrimmar outdoors (no building: the Minimap's outdoor view), the map big: with City maps on, the city's
+    """Orgrimmar outdoors (no building: the Minimap's outdoor view), the map big: the city's
     buildings drawn over undimmed tiles, the Cleft of Shadow's rooms among them, a room under the ground faded
     where it's under one above it, the rest whole; looked at from away, every room whole; small or off,
     nothing drawn. Entering is within the frame budget, priced."""
@@ -188,9 +186,6 @@ def test_city_maps():
     assert ns.Model.you.uiMap == 1420
     uc = {r: a for (k, r), a in drawn()[1].items() if k == 239598}
     assert uc and 0.35 in uc.values()
-    ns.UI.Engine.SetLayer("cities", False)
-    sim.Run(1)
-    assert drawn() is None
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

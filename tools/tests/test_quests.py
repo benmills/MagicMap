@@ -175,7 +175,7 @@ def test_quest_follow():
     assert ns.UI.Controls.questLine.IsShown(ns.UI.Controls.questLine) and ns.UI.Controls.questLine.GetAlpha(ns.UI.Controls.questLine) == 1
     # The Quest pill settings: the name alone, then the pill off, live; back on.
     Feel, line = ns.UI.Feel, ns.UI.Controls.questLine
-    text = lambda: sim.state[[r for r in line.GetRegions(line) if sim.state[r].text][0]].text
+    text = lambda: " ".join(sim.state[r].text for r in line.GetRegions(line) if sim.state[r].text)
     assert "/" in text() or "ready" in text()
     Feel.Set("pills.quest", "name")
     assert text() == "Protect the Frontier"

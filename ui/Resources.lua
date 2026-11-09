@@ -1,4 +1,4 @@
--- Resources (#18): the tracker kept on (Settings > Resources: Tracking).
+-- Resources (#18): the tracker kept on (the gear's Keep tracking row; its setting has no page).
 -- Keep tracking: one of the spells' tracking types the character knows (Model.tracking's `spell`: Find Herbs, Find
 -- Minerals, a hunter's tracks), Game turning it back on whenever the game may have dropped it (View.keep:
 -- game/Keep.lua). One, not one a type: the client has one tracking spell on at a time (classic's rule: a second one
@@ -8,7 +8,7 @@
 -- account-wide as every setting is. One you pick yourself, in Blizzard's tracking menu or Nearby's rows, is the new
 -- choice (its spell turned on, while the setting isn't off); one you turn off stays off till the game next drops it.
 -- Reachable from the gear's own menu (Menus.Gear: Resources.Menu, a row "Keep tracking: <name>" and a radio a
--- tracker, Off last) and from the page.
+-- tracker, Off last).
 
 local _, ns = ...
 local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
@@ -20,8 +20,6 @@ UI.Resources = Resources
 local KEY = "resources.keep"
 local GATHER = { 2383, 8387, 2580, 8388, 2481 } -- Find Herbs (two ranks), Find Minerals (two), Find Treasure (Minimap.lua:34-41)
 
-Feel.Page({ key = "resources", title = "Resources", icon = "Interface\\Icons\\INV_Misc_Flower_02", order = 35,
-	tip = "Herbs and ore: the tracker kept on.", sections = { "Tracking" } })
 
 -- The spells' tracking types the client lists now (what Game can keep on).
 local function Spells()
@@ -63,7 +61,7 @@ local function Options()
 	out[#out + 1] = { "Off", "off" }
 	return out
 end
-Feel.Add("resources", "Tracking", {
+Feel.Add(false, nil, { -- (no page: the gear's Keep tracking row)
 	{ key = KEY, kind = "select", label = "Keep tracking", default = "auto", options = Options,
 		tip = "Turned back on whenever the game drops it: at login, after a loading screen, death or resurrection. "
 			.. "Your gathering tracker is the first you know of Find Herbs, Find Minerals and Find Treasure. One you pick "

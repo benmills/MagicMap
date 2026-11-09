@@ -1,7 +1,7 @@
 """The map's controls (ui/Controls.lua) on the simulated client:
 
   test_pill_and_recenter: the quest pill says the followed quest's pieces in the order chosen on its page (by
-    default its progress alone; its name, the yards to it and the time to arrive on offer), over a fill of how far
+    default its progress, then the yards to it, smaller; its name, the yards to it and the time to arrive on offer), over a fill of how far
     you've come since you began going to it (off on its page); its x lets go of what it shows; the reset shows while the map isn't following
     you, and its click glides back and follows; the mode button is Blizzard's expand small, its condense big.
 """
@@ -17,15 +17,19 @@ def test_pill_and_recenter():
     ctl, Feel = UI.Controls, UI.Feel
     line, fill, recenter = ctl.questLine, ctl.questFill, ctl.zoomReset
 
+    def parts():
+        """The pill's texts, the first piece's then the rest's (smaller, muted)."""
+        return [sim.state[r].text.encode("latin-1").decode("utf-8")  # (the Lua string's bytes are UTF-8)
+                for r in line.GetRegions(line) if sim.state[r].text]
+
     def text():
-        s = sim.state[[r for r in line.GetRegions(line) if sim.state[r].text][0]].text
-        return s.encode("latin-1").decode("utf-8")  # (the Lua string's bytes are UTF-8)
+        return "  ·  ".join(parts())
 
     sim.Run(1)
-    assert text() == "3/8"  # (by default its progress alone)
+    assert re.fullmatch(r"3/8  ·  \d+ yd", text()), text()  # (by default its progress, then the yards to it)
     Feel.Set("pills.quest", "name,progress,distance")
     sim.Run(0.5)
-    assert re.fullmatch(r"Kobold Candles  3/8  ·  \d+ yd", text()), text()
+    assert re.fullmatch(r"Kobold Candles  ·  3/8  ·  \d+ yd", text()), text()
     Feel.Set("pills.quest", "distance,name,time")
     sim.Run(0.5)
     assert re.fullmatch(r"\d+ yd  ·  Kobold Candles  ·  (<1 min|\d+ min)", text()), text()

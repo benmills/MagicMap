@@ -28,7 +28,7 @@ local Camera, Window, Chrome, Controls = UI.Camera, UI.Window, UI.Chrome, UI.Con
 local Maths = Atlas.Camera
 
 local HEADER_ICON = 20 -- Core.lua:281
-local ROOM = 2 * HEADER_ICON + 4 + 6 + 8 -- the buttons' share of the line (Core.lua:300)
+local ROOM = 3 * HEADER_ICON + 4 + 2 + 6 + 4 + 8 -- the buttons' share of the line (Core.lua:300): mode, gear, AddOns
 local TOP_ROOM = 24 -- closer to the screen's top: the line goes below (Core.lua:305)
 local EVERY = 0.05 -- s (Core.lua:1563)
 local SEP = "  ·  " -- Core.lua:1244

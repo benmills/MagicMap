@@ -1,7 +1,7 @@
 -- Interiors (docs/decisions/0008-interiors.md): buildings' indoor minimap pictures over the terrain tiles,
 -- under quest areas and pins: an Engine layer at level 4 (over the tiles' 1, the ocean's 3 and the repaints' frame, view + 4; under the areas' 4 pieces, a level or more over their canvas), "scale" like
 -- the tiles, so a zoom or pan moves its canvas. Which buildings: the one you're in on the map shown
--- (Model.interior, Game's); with City maps on (gear -> Map) and the map big, every building of the capital
+-- (Model.interior, Game's); with the map big, every building of the capital
 -- you're in, or else of the one at the view's centre (Atlas.City), indoors or out. The terrain dimmed x0.35 only
 -- while you're in a building and the map is small (big, its outdoors stay bright, indoors or in a city). The prototype's
 -- drawing (docs/evidence/indoors/addon/Test.lua): each picture a parallelogram drawn as the axis-aligned box
@@ -41,10 +41,10 @@ local function In(id, inst, col, row)
 	return r.inst == inst and col >= r.col0 and col <= r.col1 and row >= r.row0 and row <= r.row1
 end
 
--- With City maps on and the map big (Atlas.City): the capital you're in on the map shown, here true; else
+-- With the map big (Atlas.City): the capital you're in on the map shown, here true; else
 -- the one at the view's centre, here false (looked at from away). Else nil.
 local function City()
-	if not (UI.BigMap.big and Engine.LayerOn("cities")) then return end
+	if not UI.BigMap.big then return end
 	local y, inst, cam = Model.you, Camera.inst, Camera.cam
 	for _, id in ipairs(CAPITALS) do
 		if y.col and y.inst == inst and In(id, inst, y.col, y.row) then return Atlas.City(inst, id), true end

@@ -585,18 +585,18 @@ local function Tune(key, t)
 	t.get, t.set = function() return Cluster.Get(key) end, function(v) Cluster.Set(key, v) end
 	return t
 end
-UI.Feel.Add("group", nil, {
+UI.Feel.Add(false, nil, { -- (no page since 3.0: their defaults; /mm feel)
 	{ key = "general.cluster", kind = "toggle", label = "Group icons", default = true, keep = true,
 		get = function() return UI.saved.cluster ~= false end, set = function(on) UI.saved.cluster = on end,
 		tip = "On the big map, where icons crowd together, one small pill: click it to see them all (never at the minimap's size)." },
 })
-UI.Feel.Add("group", "How icons group", {
+UI.Feel.Add(false, nil, {
 	Tune("range", { label = "Distance", min = 16, max = 40, step = 4, fmt = "%d px", tip = "How close icons' centres must be to group." }),
 	Tune("reach", { label = "Reach", min = 1, max = 6, step = 1, fmt = "%dx",
 		tip = "How far a group grows from its first icon, by neighbours of neighbours, in distances." }),
 	Tune("min", { label = "Smallest group", min = 2, max = 5, step = 1, fmt = "%d icons", tip = "Fewer icons than this stay apart." }),
 })
-UI.Feel.Add("group", "Pills", {
+UI.Feel.Add(false, nil, {
 	Tune("slots", { label = "Icons in a pill", min = 2, max = 4, step = 1, fmt = "%d",
 		tip = "A pill's slots: every icon if they fit, else one fewer and \"+N\"." }),
 	Tune("alpha", { label = "Pill backing", min = 0, max = 0.7, step = 0.05, pct = true, tip = "How dark the pill behind grouped icons is." }),

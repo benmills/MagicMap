@@ -63,8 +63,8 @@
 --     pace; Outline: Outline, Outline colour.
 --   Quest areas (60, ui/Areas.lua). Followed quest: Fill, Edge, Edge width; Other quests: the same; Under the
 --     cursor: Fill lift, Edge.
---   Grouping (70, ui/Cluster.lua). Group icons; How icons group: Distance, Reach, Smallest group; Pills: Icons in a
---     pill, Pill backing, Open group backing.
+--   (Grouping's settings, ui/Cluster.lua, and Keep tracking's, ui/Resources.lua, have no page: their defaults, the
+--     gear's Keep tracking row, and /mm feel's key.)
 --   Diagnostics (90, here). Debug info in title, Indoor maps report; Reports in chat: Record 10 seconds, Compare
 --     with other addons, Memory breakdown (each a /mm command too).
 -- Pages to come take an order between these. The sidebar has room for 14
@@ -117,6 +117,7 @@ function Feel.Page(p)
 	return p
 end
 
+-- page false: a setting with no page (kept, with its default; Reset all resets it).
 function Feel.Add(page, section, list)
 	for _, k in ipairs(list) do
 		assert(type(k.key) == "string" and not BY_KEY[k.key], "Feel.Add: a new key")
@@ -1123,8 +1124,6 @@ Feel.Page({ key = "path", title = "Pathing", icon = "Interface\\Icons\\Ability_H
 	tip = "The line to what you path to.", sections = { "Line", "Effects", "Outline" } })
 Feel.Page({ key = "areas", title = "Quest areas", icon = "Interface\\Icons\\INV_Misc_Map02", order = 60,
 	tip = "How your quests' objective areas are drawn.", sections = { "Followed quest", "Other quests", "Under the cursor" } })
-Feel.Page({ key = "group", title = "Grouping", icon = "Interface\\Icons\\INV_Misc_Bag_08", order = 70,
-	tip = "Crowded icons grouped into a pill on the big map.", sections = { "How icons group", "Pills" } })
 Feel.Page({ key = "diag", title = "Diagnostics", icon = "Interface\\Icons\\INV_Gizmo_01", order = 90,
 	tip = "Reports for a bug report: what the map is doing and what it costs.", sections = { "Reports in chat" } })
 
@@ -1134,9 +1133,6 @@ Feel.Add("diag", nil, {
 	{ key = "diag.debug", kind = "toggle", label = "Debug info in title", default = false, keep = true,
 		get = function() return UI.saved.debug == true end, set = Slash("debug"),
 		tip = "Tile, zoom and layout timings next to the zone name." },
-	{ key = "diag.indoor", kind = "toggle", label = "Indoor maps report", default = false, keep = true,
-		get = function() return Model.minimap.indoorDebug == true end, set = Slash("indoor"),
-		tip = "Says in chat which building and room you're in, each time either changes." },
 })
 Feel.Add("diag", "Reports in chat", {
 	{ key = "diag.record", kind = "button", label = "Record 10 seconds", run = Slash("perf"),

@@ -480,5 +480,5 @@ UI.Feel.Add("general", "Movement", {
 		tip = "How long the small map waits, untouched and not under the cursor, before it glides back to you." },
 	{ key = "motion.wheel", kind = "slider", label = "Zoom per notch", min = 1.1, max = 2, step = 0.05, default = WHEEL_STEP,
 		fmt = function(v) return "+" .. math.floor((v - 1) * 100 + 0.5) .. "%" end, apply = function(v) wheelStep = v end,
-		tip = "How far each notch of the mouse wheel (and each press of + or -) zooms." },
+		tip = "How far each notch of the mouse wheel (and each press of + or -) zooms where Blizzard's minimap has no zoom of its own: zoomed out past its widest, in past its closest, on the big map, or while you've panned away. Following you, each notch is its next zoom." },
 })
