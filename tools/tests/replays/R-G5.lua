@@ -2,7 +2,7 @@
 -- the NPC services, item icons and quest objectives offline.
 -- Without the QuestieDB-derived data (a build missing them; parity F56) Atlas's indexes are
 -- empty and the map runs on (test_spike_bugs.py runs every replay so): one chat line says so
--- (QuestInfo.lua:71-75), quests, offers and a seen rare are drawn, quest 60's tooltip its title
+-- (QuestInfo.lua:71-75), quests and a seen rare are drawn, quest 60's tooltip its title
 -- (its level beside it), its objective, never a dropper's line, and nothing errs.
 local T = ...
 local NOTICE = "|cffffd100MagicMap|r: QuestieDB isn't loaded: quests show without their mobs and items."
@@ -36,7 +36,7 @@ local function Pins(name)
 	return n
 end
 local drawn = {}
-for _, name in ipairs({ "quests", "offers", "rares" }) do
+for _, name in ipairs({ "quests", "rares" }) do
 	drawn[#drawn + 1] = name .. " " .. Pins(name)
 	assert(Pins(name) > 0, name .. ": none drawn")
 end

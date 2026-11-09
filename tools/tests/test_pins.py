@@ -251,7 +251,7 @@ MAP_ART = ("Base", "Sea", "Repaint", "Patch")  # Textures/: the map art alone (t
 def test_pin_inventory():
     """#16: every pin type (ui/PinTypes.lua) has its row in Settings > Pins, in a family the page lists, and draws
     with Blizzard's art (an atlas, a FileDataID or a client path: never the addon's own files), as does every icon it
-    offers; every pin the map draws has a type (Goldshire's quests, offers, places and vignette, your corpse); your arrow is the Minimap's own; the addon's Textures/ hold only the map art, and no ui/ or game/
+    offers; every pin the map draws has a type (Goldshire's quests, places and vignette, your corpse); your arrow is the Minimap's own; the addon's Textures/ hold only the map art, and no ui/ or game/
     file names one."""
     L, sim, ns = boot()
     Types, Feel = ns.UI.PinTypes, ns.UI.Feel
@@ -264,7 +264,7 @@ def test_pin_inventory():
                                          or art.startswith("Interface\\") and not art.startswith("Interface\\AddOns"))
 
     types = list(Types.list.values())
-    assert len(types) >= 12
+    assert len(types) >= 11
     for t in types:
         assert t.family in families and Feel.Entry(f"pins.{t.id}.show").art is not None, t.id
         icon = t.look.icon
@@ -310,28 +310,29 @@ def test_pin_types_apply():
     def set_(key, v):
         Feel.Set(key, v)
         sim.Run(0.5)
-    p = pin(ns, G, "Quests", 106)
-    assert S[p].width == 19 and S[p.icon].atlas == "questturnin" and S[p].alpha == 1
-    set_("pins.turnin.icon", "A:questrepeatableturnin")
-    assert S[pin(ns, G, "Quests", 106).icon].atlas == "questrepeatableturnin"
+    ACTIVE = "Quest-In-Progress-Icon-yellow"
+    p = pin(ns, G, "Quests", 52)
+    assert S[p].width == 24 and S[p.icon].atlas == ACTIVE and S[p].alpha == 1
+    assert pin(ns, G, "Quests", 106) is None  # (ready to turn in: Blizzard's blip, not ours)
     set_("pins.quests.size", 2)  # (the tests' icon size is 100%)
-    assert S[pin(ns, G, "Quests", 52)].width == 48 and S[pin(ns, G, "Quests", 106)].width == 38
-    set_("pins.turnin.size", 1)
-    assert S[pin(ns, G, "Quests", 52)].width == 48 and S[pin(ns, G, "Quests", 106)].width == 19
-    set_("pins.turnin.alpha", 0.5)
-    assert S[pin(ns, G, "Quests", 106)].alpha == 0.5 and S[pin(ns, G, "Quests", 52)].alpha == 1
-    set_("pins.quest.show", False)
-    assert pin(ns, G, "Quests", 52) is None and pin(ns, G, "Quests", 106) is not None
+    assert S[pin(ns, G, "Quests", 52)].width == 48
+    set_("pins.quest.size", 1)
+    assert S[pin(ns, G, "Quests", 52)].width == 24
+    set_("pins.quest.alpha", 0.5)
+    assert S[pin(ns, G, "Quests", 52)].alpha == 0.5
     set_("pins.all.show", False)
-    assert pin(ns, G, "Quests", 106) is None and pin(ns, G, "Offers", 70) is None
-    set_("pins.turnin.show", True)
-    assert pin(ns, G, "Quests", 106) is not None and pin(ns, G, "Offers", 70) is None
+    assert pin(ns, G, "Quests", 52) is None  # (unset: its family's, All's)
+    set_("pins.quest.show", True)
+    assert pin(ns, G, "Quests", 52) is not None  # (set: its own)
     Feel.Reset("pins")
     sim.Run(0.5)
-    p = pin(ns, G, "Quests", 106)
+    set_("pins.quest.show", False)
+    assert pin(ns, G, "Quests", 52) is None
+    Feel.Reset("pins")
+    sim.Run(0.5)
+    p = pin(ns, G, "Quests", 52)
     assert not [k for k, _ in (ns.UI.saved.feel or L.table_from({})).items() if k.startswith("pins.")]
-    assert abs(S[p].width - 19 * 1.2) < 1e-9 and S[p.icon].atlas == "questturnin" and S[p].alpha == 1  # (Pin size back to 120%)
-    assert pin(ns, G, "Quests", 52) is not None and pin(ns, G, "Offers", 70) is not None
+    assert abs(S[p].width - 24 * 1.2) < 1e-9 and S[p.icon].atlas == ACTIVE and S[p].alpha == 1  # (Pin size back to 120%)
 
     # A group's pill (test_cluster.py's five at one spot, rares).
     ns.UI.saved.cluster = True
@@ -379,15 +380,14 @@ def test_pin_types_apply():
 
 def test_saved_sizes_kept():
     """A player's sizes from before #16: Icon size (icons.scale) is Pin size, as it was; Quest icon size
-    (quests.scale, a factor on it) becomes In progress's and Ready to turn in's own size (snapped to the slider's
-    step), the old key gone; quests to pick up follow Pin size, as they did."""
+    (quests.scale, a factor on it) becomes In progress's own size (snapped to the slider's step), the old key gone;
+    the quests family follows Pin size."""
     L, sim, ns = boot()
     Feel = ns.UI.Feel
     ns.UI.saved.feel = L.table_from({"icons.scale": 1.2, "quests.scale": 1.3})
     Feel.Loaded()
-    assert dict(ns.UI.saved.feel.items()) == {"icons.scale": 1.2, "pins.quest.size": 1.6, "pins.turnin.size": 1.6}
-    assert Feel.Get("pins.offer.size") == 1.2 and Feel.Get("pins.quests.size") == 1.2
-    assert ns.UI.PinTypes.Of("turnin").size == 1.6 and ns.UI.PinTypes.Of("offer").size == 1.2
+    assert dict(ns.UI.saved.feel.items()) == {"icons.scale": 1.2, "pins.quest.size": 1.6}
+    assert Feel.Get("pins.quests.size") == 1.2 and ns.UI.PinTypes.Of("quest").size == 1.6
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

@@ -11,9 +11,8 @@
 -- left be. The show rules (AddonPins.lua:18-22): the library shows a pin on its own zone map, and on
 -- parent, continent or world maps per its flag; ours is a zone map close up and a continent's zoomed
 -- out, so past CONTINENT_ZOOM only pins flagged for continents come. Pins drawn for its own zone map
--- alone (Questie's -1, its route lines) and frames bigger than pins never do, nor Questie's turn-in
--- ("complete") of a quest whose turn-in our quests layer shows (the same "?" at the same quest giver,
--- twice: AddonPins.lua:212-220; obs.quests' complete ones on the map). A Questie log is thousands of
+-- alone (Questie's -1, its route lines) and frames bigger than pins never do (Questie's turn-ins stand:
+-- our quests layer draws none since Blizzard's blips do; its turnIns rule, AddonPins.lua:212-220, holds none). A Questie log is thousands of
 -- pins, so borrowing and giving back is a Runtime.Job: NEWS_MS a frame for one with something to show
 -- soon (opened, a new socket or map, an addon's layer toggled, the library changed, given back, the
 -- zoom across CONTINENT_ZOOM), JOB_MS for the regular one every SYNC_EVERY (pins the library took
@@ -318,12 +317,7 @@ local function WorldPins(view)
 		for k, v in pairs(view.layers) do
 			if v and k:find("^addon:") then on[k] = true end
 		end
-		wipe(turnIns)
-		if view.layers.quests then
-			for _, q in ipairs(Game.obs.quests or NONE) do
-				if q.complete and q.pin.inst == inst then turnIns[q.id] = true end
-			end
-		end
+		wipe(turnIns) -- (none now: our quests layer draws no turn-in, Blizzard's blip does: Questie's "?" stands)
 		local level, continent = s.level or s.frame:GetFrameLevel() + 1, zoom < CONTINENT_ZOOM
 		if Any() then Pass("borrow", function() Sync(level, continent) end, ms) end
 	end

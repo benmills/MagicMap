@@ -16,7 +16,7 @@ local Maths = Atlas.Camera
 
 local SIZE = 22 -- a 22-unit arrow (Core.lua:169): the atlas's own size
 local ARROW, OLD_ARROW = "ui-hud-minimap-arrow-player", "Interface\\Minimap\\MinimapArrow" -- (the Minimap's)
-local PINS = 13 -- the corpse's and the waypoint's level: over the places and rares (11), under the offers (14)
+local PINS = 13 -- the corpse's and the waypoint's level: over the places and rares (11), under the quests (15)
 -- On the quest pins' disc, no halo (that's only the followed quest's): Layers.lua:512-516.
 local CORPSE = { size = 22, icon = { atlas = "deathrecap-icon-tombstone", under = "UI-QuestPoi-QuestNumber", scale = 0.6,
 	aspect = 15 / 20, color = { 0.85, 0.85, 0.85 } }, type = "corpse" }

@@ -1,5 +1,5 @@
 -- The one pin store (spike-bugs D1: every pin drawn from one store, diffed by id). Each kind of pin
--- (rares, places, quests, offers, ...) is an Engine "pin" layer made with Pins.Layer,
+-- (rares, places, quests, ...) is an Engine "pin" layer made with Pins.Layer,
 -- its Model.Known entries put by key: a layout keeps the pin its canvas showed for that key
 -- (Engine.Keep) and sets only what changed, its look (StylePin, Layers.lua:343-400: each setter
 -- called only when its value differs) and its place (Engine.At, when its tile, the canvas's zoom or

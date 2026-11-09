@@ -68,7 +68,7 @@ local GROUPS = {
 -- theirs with their layers; each group's rows in the spike's order (ORDER: its keys, Layers.lua:30-61,
 -- then Landmarks.lua:70, 110, 142 and Blips.lua:671 as its TOC loads them), a key not in it last.
 local ORDER = {}
-for i, key in ipairs({ "labels", "quests", "questAreas", "offers",
+for i, key in ipairs({ "labels", "quests", "questAreas",
 	"flight", "dungeons", "graveyards", "areaPOIs", "rares", "group" }) do
 	ORDER[key] = i
 end
@@ -130,7 +130,7 @@ end
 local ICON = {
 	labels = "Interface\\Icons\\INV_Misc_Note_01",
 	questAreas = "Interface\\Icons\\INV_Misc_Map02",
-	quests = "A:Quest-In-Progress-Icon-yellow", offers = "A:QuestNormal", flight = "A:taxinode_neutral",
+	quests = "A:Quest-In-Progress-Icon-yellow", flight = "A:taxinode_neutral",
 	dungeons = "A:dungeon", graveyards = "A:poi-graveyard-neutral",
 	group = "Interface\\Icons\\Spell_Holy_PrayerOfFortitude",
 	rares = "A:vignettekill", areaPOIs = "Interface\\Icons\\INV_Misc_Map_01",

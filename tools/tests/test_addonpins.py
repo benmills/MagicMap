@@ -1,6 +1,6 @@
 """Other addons' HereBeDragons pins on our map, on the sim (docs/v1-plan.md M4.2, game/AddonPins.lua):
 world pins past 48 px a tile only those flagged for continents, none drawn for the library's own map
-alone (-1) or bigger than 128 px, none of Questie's turn-ins our quests layer shows; minimap pins on a
+alone (-1) or bigger than 128 px; Questie's turn-ins too (ours are Blizzard's blips: our quests layer draws none); minimap pins on a
 host of Game's on the minimap socket, centred on you at the Minimap's view, each where the library
 puts it, so on its spot on our map, out of sight under Rotate Minimap, off your map and for a renamed
 copy whose world pins we host, back on the Minimap at release.
@@ -31,9 +31,9 @@ def hosted(L, icons, canvas):
 
 
 def test_world_pins():
-    """The show rules: at 96 px a tile all but the library's own map's, the frame bigger than a pin and
-    the turn-in our quests layer shows; zoomed out past 48, the continent's alone; the quests layer off,
-    Questie's turn-in again."""
+    """The show rules: at 96 px a tile all but the library's own map's and the frame bigger than a pin (a
+    turn-in too, with our quests layer on: it draws none); zoomed out past 48, the continent's alone; the
+    quests layer off, Questie's turn-in still."""
     L, sim, ns = boot()
     sim.Slash("/mm toggle")
     sim.Run(3)
@@ -44,19 +44,19 @@ def test_world_pins():
     canvas = view.sockets.world.frame
     sim.Run(0.5)
     assert ns.Game.obs.quests[2].id == 62 and ns.Game.obs.quests[2].complete
-    assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "parent", "world", "zone"]
+    assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "parent", "turnIn", "world", "zone"]
 
     ns.UI.Motion.SetZoom(40)  # a continent's
     sim.Step()
     sim.Step()
     assert view.sockets.world.zoom == 40
     sim.Run(0.5)
-    assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "world"]
+    assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "turnIn", "world"]
     ns.UI.Motion.SetZoom(48)
     sim.Run(0.5)
-    assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "parent", "world", "zone"]
+    assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "parent", "turnIn", "world", "zone"]
 
-    ns.UI.Engine.SetLayer("quests", False)  # ours off: Questie's turn-in is the one shown, by the next regular pass
+    ns.UI.Engine.SetLayer("quests", False)  # ours off: Questie's turn-in still shown, by the next regular pass
     sim.Run(1.1)
     assert "turnIn" in hosted(L, icons, canvas)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

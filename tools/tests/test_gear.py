@@ -15,7 +15,7 @@ from fixtures import lua_tools
 from sim import TEST_UI
 
 LAYERS = {"Zone labels": "labels", "Quests": "quests", "Quest areas": "questAreas",
-          "Quests to pick up": "offers", "Rares & treasures": "rares"}
+          "Rares & treasures": "rares"}
 SETTINGS = "Settings\u2026".encode("utf-8").decode("latin-1")  # the row's label, as the sim's Lua (latin-1) reads it
 WHITE, GOLD = (1, 1, 1), (1, 0.82, 0)
 SEEN = ("MagicMap2DB.Model = MagicMap2DB.Model or { _v = 1, rares = { [0] = { ['npc:1'] = "
@@ -118,14 +118,14 @@ def test_gear():
     assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"),
                                        ("checkbox", "City maps")]
     assert items(sub(root, "Quests")) == [("checkbox", "All quests"), ("divider", None), ("checkbox", "Quests"),
-                                          ("checkbox", "Quest areas"), ("checkbox", "Quests to pick up")]
+                                          ("checkbox", "Quest areas")]
     assert items(sub(root, "Places")) == [("checkbox", "All places"), ("divider", None), ("checkbox", "Flight points"),
                                           ("checkbox", "Dungeons & raids"), ("checkbox", "Graveyards"),
                                           ("checkbox", "Points of interest")]
     assert items(sub(root, "Tracking"))[:4] == [("checkbox", "All tracking"), ("divider", None),
                                               ("checkbox", "Rares & treasures"), ("checkbox", "Party & raid")]
     assert items(sub(root, "Other addons")) == [("checkbox", "All other addons"), ("divider", None), ("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
-    assert plain(sub(root, "Map").text) == "Map  2/2" and plain(sub(root, "Quests").text) == "Quests  3/3"
+    assert plain(sub(root, "Map").text) == "Map  2/2" and plain(sub(root, "Quests").text) == "Quests  2/2"
     sim.Press("M")
     sim.Run(1)
     big, _ = gear(sim, ns)
@@ -222,7 +222,7 @@ def test_gear():
     sim.Slash("/mm toggle")
     sim.Step()
     perf = ns.Runtime.Perf()[0]["map: gear pick"]
-    assert perf.n == 15 and perf.over == 0, (perf.n, perf.max)
+    assert perf.n == 13 and perf.over == 0, (perf.n, perf.max)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
     # /reload: the changed keys only (quest areas and the rest went off and on again, from the gear or
@@ -342,7 +342,7 @@ def test_gear_tracking():
     assert sim.prints[len(sim.prints)] == (
         "|cffffd100MagicMap|r: layers: "
         f"|cffffd100Map:|r {on('zoneLabels')}, {on('cities')}; "
-        f"|cffffd100Quests:|r {on('quests')}, {off('questAreas')}, {on('offers')}; "
+        f"|cffffd100Quests:|r {on('quests')}, {off('questAreas')}; "
         f"|cffffd100Places:|r {off('flight')}, {on('dungeons')}, {off('graveyards')}, {on('areaPOIs')}; "
         f"|cffffd100Tracking:|r {off('rares')}, {on('group')}. Toggle them from the gear. "
         "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it.")
@@ -427,10 +427,10 @@ def test_gear_groups_and_reset():
     assert not E.LayerOn("flight") and not E.LayerOn("graveyards")
     assert count(sim, ns, "Places") == "Places  0/4"
     rows["All quests"].onSelect()
-    assert not E.LayerOn("quests") and count(sim, ns, "Quests") == "Quests  0/3"
+    assert not E.LayerOn("quests") and count(sim, ns, "Quests") == "Quests  0/2"
     rows["Reset to defaults"].onSelect()
     assert E.LayerOn("quests") and E.LayerOn("flight") and not E.LayerOn("graveyards")  # (off by default)
-    assert count(sim, ns, "Places") == "Places  3/4" and count(sim, ns, "Quests") == "Quests  3/3"
+    assert count(sim, ns, "Places") == "Places  3/4" and count(sim, ns, "Quests") == "Quests  2/2"
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
