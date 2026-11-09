@@ -482,7 +482,7 @@ end))
 Runtime.Step("ui", "map: pins", function()
 	local pin, at
 	local mm = Model.minimap
-	if (inside or mm and mm.mouse) and not (mm and mm.blip) then -- (through the overlay; a blip's tooltip first)
+	if (inside or mm and mm.mouse) and not (mm and mm.blip) and not Window.Blank() then -- (through the overlay; a blip's tooltip first)
 		local x, y = Window.Cursor()
 		local w, h = Window.Size()
 		pin, at = Under(x - w / 2, y - h / 2)

@@ -158,7 +158,22 @@ local function SetInst(inst)
 	Window.Backdrop()
 end
 
+-- In an instance (obs.minimap.instance: the client withholds where you are), the map blanked under a black curtain:
+-- Blizzard's own Minimap shows over it (game/Minimap.lua, its level the window's + 29), the chrome over both.
+local curtain = CreateFrame("Frame", nil, view)
+curtain:SetAllPoints()
+curtain:SetFrameLevel(frame:GetFrameLevel() + 28)
+curtain:CreateTexture(nil, "BACKGROUND"):SetColorTexture(0, 0, 0, 1)
+curtain:GetRegions():SetAllPoints()
+curtain:Hide()
+function Window.Blank()
+	local mm = ns.Model.minimap
+	return mm ~= nil and mm.instance == true
+end
+
 Runtime.Step("ui", "map: draw", function(elapsed)
+	local blank = Window.Blank()
+	if curtain:IsShown() ~= blank then curtain:SetShown(blank) end
 	UI.BigMap.Step(elapsed)
 	local you, Motion = You(), UI.Motion
 	Motion.Chase(you) -- (a map that withholds where you are: the whole of it)

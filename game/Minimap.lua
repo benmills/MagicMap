@@ -172,7 +172,7 @@ end
 local Unoverlay -- (the overlay's, below)
 local function Release()
 	if not m.engaged then return end
-	m.engaged, placed = false, nil
+	m.engaged, m.instance, placed = false, false, nil
 	Unoverlay()
 	local failure
 	for i = #undo, 1, -1 do -- every step runs; the first failure is raised after
@@ -192,7 +192,7 @@ local function Hold(mm)
 	local held = mm:IsShown() and mm:GetZoom() == zoom and C_Minimap.IsRotateMinimapIgnored()
 	if not mm:IsShown() then mm:Show() end
 	if mm:GetZoom() ~= zoom then mm:SetZoom(zoom) end
-	if C_Minimap.GetDrawGroundTextures() then C_Minimap.SetDrawGroundTextures(false) end
+	if C_Minimap.GetDrawGroundTextures() ~= (m.instance == true) then C_Minimap.SetDrawGroundTextures(m.instance == true) end
 	if not C_Minimap.IsRotateMinimapIgnored() then C_Minimap.SetIgnoreRotateMinimap(true) end
 	return held
 end
@@ -247,6 +247,14 @@ local function Unclip(mm)
 	clipAt = nil
 end
 local Mouse
+-- A radius one of its zooms has (indoors or out: Game.MinimapYards), within ODD of it.
+local ODD = 0.05
+local function Plausible(z, r)
+	local out, inside = Game.MinimapYards(false)[z], Game.MinimapYards(true)[z]
+	return out ~= nil and (math.abs(r - out / 2) <= ODD * out / 2 or math.abs(r - inside / 2) <= ODD * inside / 2)
+end
+local CALM = 2 -- frames our zoom and its radius stay still before it's seen
+local Put -- (below)
 local SETTLE = 3 -- frames unseen after a new zoom (GetZoom has it at once; its radius, a frame or two later)
 local alpha, lastT = 0, nil
 local function SetAlpha(mm, a)
@@ -281,6 +289,9 @@ local function Overlay(w, here, inst)
 	m.maxZoom, m.stepsOn = nil, false
 	if not here or here.w <= 0 or not r or issecretvalue(r) then return Hide(mm) end
 	local z = mm:GetZoom()
+	-- A radius none of its zooms has (seen once over a zone change: its blips drawn far apart, the overlay sized for
+	-- another): unseen, and not learnt, till it's one again. m.odd: the last such, for /mm overlay.
+	if r > 0 and not Plausible(z, r) then m.odd = r; return Hide(mm) end
 	if r > 0 and z == (m.zoom or 0) then
 		local key = inst .. (Game.Indoors() and "i" or "o") -- (indoors, its zooms see less)
 		if radii.key ~= key then radii = { key = key } end
@@ -309,14 +320,24 @@ local function Overlay(w, here, inst)
 	if want ~= (m.zoom or 0) then m.zoom, m.settle, m.snap = want, SETTLE, true; mm:SetZoom(want); return Hide(mm) end
 	if r <= 0 or z ~= want then return Hide(mm) end -- (a new zoom applies a frame or two late)
 	if (m.settle or 0) > 0 then m.settle = m.settle - 1; return Hide(mm) end
+	-- Unseen while our zoom moves (a glide resizes it every frame; the client draws a size a frame late: its blips
+	-- swam) or its radius does (a new zoom's lands over a frame or two), till both are CALM frames still.
+	if here.zoom ~= m.lastZoom or r ~= m.lastR then m.calm = 0 else m.calm = (m.calm or 0) + 1 end
+	m.lastZoom, m.lastR = here.zoom, r
+	if m.calm < CALM then return Hide(mm) end
 	local half = r * perYd
 	if half > room + EDGE then return Hide(mm) end -- (its radius not the guess: the next frame's choice sees to it)
 	-- Seen: fading in, or out (too little of the window covered: still placed, so it fades where it is).
 	local a = good and math.min(1, alpha + dt / FADE_IN) or math.max(0, alpha - dt / FADE_OUT) -- /: never 0 (constants)
 	if good and m.snap then a = 1 end -- (a new zoom of its own, as Blizzard's: at once, no fade)
 	m.snap = false
+	Put(mm, w, x, y, half, a)
+end
+-- Seen at alpha a (none: unseen), square, clipped to the window, centred at (x, y), half on a side.
+function Put(mm, w, x, y, half, a)
 	SetAlpha(mm, a)
 	if a <= 0 then placed = nil; return end
+	local p = w.place
 	Mask(true)
 	Clip(mm, p, w)
 	mm:SetFrameStrata(w.strata)
@@ -331,6 +352,33 @@ local function Overlay(w, here, inst)
 	mm:ClearAllPoints()
 	mm:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
 end
+-- In an instance (the client withholds where you are: our map has nothing to show), Blizzard's Minimap as it is, ground
+-- and all, over the map UI blanks (obs.minimap.instance): centred, covering the window (as much as fits on the screen).
+-- Its zoom the step nearest the map's zoom (obs.minimap.steps as outdoors, so the wheel steps through them).
+local function Instance(w, view)
+	local mm = Minimap
+	local r, p, cam = C_Minimap.GetViewRadius(), w.place, view.camera
+	m.maxZoom, m.stepsOn = nil, false
+	if not cam or cam.w <= 0 then return Hide(mm) end
+	local x, y = p.left + p.w / 2, p.top - p.h / 2
+	local sw, sh = UIParent:GetWidth(), UIParent:GetHeight()
+	local room = math.min(x, y, sw - x, sh - y) - EDGE
+	local need = math.max(p.w, p.h) / 2
+	if room <= 0 then return Hide(mm) end
+	local k = p.w / cam.w -- /: never 0 (checked above)
+	local steps, want, best = m.steps, 0, nil
+	for i = 0, ZOOMS do
+		steps[i + 1] = need / (Radius(i) * YD * k) -- /: never 0 (a radius > 0, YD, k > 0)
+		local d = math.abs(math.log(steps[i + 1] / cam.zoom)) -- /: never 0 (a zoom > 0)
+		if not best or d < best then want, best = i, d end
+	end
+	m.stepsOn, m.need, m.room = true, need, room
+	if want ~= (m.zoom or 0) then m.zoom, m.settle = want, SETTLE; mm:SetZoom(want); return Hide(mm) end
+	if (m.settle or 0) > 0 then m.settle = m.settle - 1; return Hide(mm) end
+	if not r or issecretvalue(r) or r <= 0 then return Hide(mm) end
+	Put(mm, w, x, y, math.min(need, room), 1)
+end
+
 -- Off (the overlay, or the takeover): out of the clip, its mask back.
 function Unoverlay()
 	local mm = Minimap
@@ -388,8 +436,8 @@ Game.Slash("overlay", "the blips' overlay (Blizzard's Minimap over the map): whe
 			tostring(h and math.floor(h)), UIParent:GetWidth(), UIParent:GetHeight(), mm:GetZoom(),
 			tostring(C_Minimap.GetViewRadius()),
 			(placed and placed.overlay and ("centre %d, %d, half %d"):format(placed.x, placed.y, placed.half) or "-")
-				.. (", need %s, room %s, alpha %.2f"):format(tostring(m.need and math.floor(m.need)),
-				tostring(m.room and math.floor(m.room)), mm:GetAlpha())))
+				.. (", need %s, room %s, alpha %.2f, odd radius %s, instance %s"):format(tostring(m.need and math.floor(m.need)),
+				tostring(m.room and math.floor(m.room)), mm:GetAlpha(), tostring(m.odd), tostring(m.instance))))
 end)
 
 Game.Apply("minimap", function(view)
@@ -399,8 +447,17 @@ Game.Apply("minimap", function(view)
 		Release()
 	else
 		if not m.engaged then Engage() end
+		local _, kind = GetInstanceInfo()
+		m.instance = kind ~= nil and kind ~= "none" and not view.here -- (where it keeps where you are, the overlay)
 		Hold(Minimap)
-		Overlay(w, view.here, view.inst)
+		if m.instance then
+			Instance(w, view)
+		elseif w.big then -- (the big map: no blips over it, your arrow ours)
+			m.maxZoom, m.stepsOn = nil, false
+			Hide(Minimap)
+		else
+			Overlay(w, view.here, view.inst)
+		end
 	end
 	Cluster()
 end)
