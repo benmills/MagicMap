@@ -24,9 +24,9 @@ local Art = {
 		{ "redbutton-expand-pressed-c60", "redbutton-expand-pressed" },
 		{ "redbutton-highlight-c60", "redbutton-highlight" },
 		"redbutton-condense", "redbutton-condense-pressed",        -- the mode button on the big map (the world map's pair)
+		"UI-RefreshButton",                                        -- ui/Controls.lua: the reset (RefreshButtonTemplate's)
 		"ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-in-down", "ui-hud-minimap-zoom-in-mouseover", -- the zoom buttons
 		"ui-hud-minimap-zoom-out", "ui-hud-minimap-zoom-out-down", "ui-hud-minimap-zoom-out-mouseover",
-		{ "levelup-dot-gold", "common-radiobutton-dot" },           -- the zoom reset's dot (Forever has no reset atlas)
 		"deathrecap-icon-tombstone", "UI-QuestPoi-QuestNumber",       -- ui/You.lua: your corpse on the quest pins' disc
 		"Waypoint-MapPin-Tracked",                                 -- ui/You.lua: your waypoint
 		"questnormal", "questturnin",                              -- ui/Quests.lua: quests to pick up ("!"), turn-ins ("?")

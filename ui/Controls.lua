@@ -86,41 +86,25 @@ zoomIn:SetPoint("BOTTOM", zoomOut, "TOP", 0, 2)
 Controls.zoomIn, Controls.zoomOut = zoomIn, zoomOut
 
 -- Reset: above the zoom in (the gap the + and - keep), shown only while the map is off its default: not following you,
--- or the zoom isn't the default (UI.DefaultZoom(), ui/View.lua); a click flies back to you at that zoom (Motion.Reset). The client's reset atlas if it has one (Forever has none); else Blizzard's small gold dot
--- (levelup-dot-gold, the level-up toast's; its radio dot after it), the highlight the same, added; else, a client
--- with neither, a gold dot of our own on a dark disc.
+-- or the zoom isn't the default (UI.DefaultZoom(), ui/View.lua); a click flies back to you at that zoom (Motion.Reset).
+-- Blizzard's refresh arrows (the client's RefreshButtonTemplate's UI-RefreshButton, else its file) on a dark disc.
 local RESET_TOL = 1 -- px per tile: a zoom this close to the default is the default
-local resetAtlas = FirstAtlas("ui-hud-minimap-zoom-reset", "ui-hud-minimap-zoom-default")
-local dotAtlas = not resetAtlas and FirstAtlas("levelup-dot-gold", "common-radiobutton-dot")
 local zoomReset = CreateFrame("Button", nil, Chrome.controls)
-zoomReset:SetSize(16, 16)
+zoomReset:SetSize(18, 18)
 zoomReset:SetPoint("BOTTOM", zoomIn, "TOP", 0, 2)
-if resetAtlas then
-	zoomReset:SetNormalAtlas(resetAtlas)
-	zoomReset:SetHighlightAtlas(resetAtlas, "ADD")
-elseif dotAtlas then
-	local dot = zoomReset:CreateTexture(nil, "ARTWORK")
-	dot:SetAtlas(dotAtlas)
-	dot:SetSize(10, 10)
-	dot:SetPoint("CENTER")
-	local glow = zoomReset:CreateTexture(nil, "HIGHLIGHT")
-	glow:SetAtlas(dotAtlas)
-	glow:SetBlendMode("ADD")
-	glow:SetAllPoints(dot)
-else
+do
 	local disc = zoomReset:CreateTexture(nil, "BACKGROUND")
 	disc:SetTexture(Chrome.CIRCLE)
 	disc:SetVertexColor(0, 0, 0, 0.65)
 	disc:SetAllPoints()
-	local dot = zoomReset:CreateTexture(nil, "ARTWORK")
-	dot:SetTexture(Chrome.CIRCLE)
-	dot:SetVertexColor(1, 0.82, 0.3, 0.9)
-	dot:SetSize(6, 6)
-	dot:SetPoint("CENTER")
-	local glow = zoomReset:CreateTexture(nil, "HIGHLIGHT")
-	glow:SetTexture(Chrome.CIRCLE)
-	glow:SetVertexColor(1, 1, 1, 0.15)
-	glow:SetAllPoints(disc)
+	local refreshAtlas = FirstAtlas("UI-RefreshButton")
+	for _, layer in ipairs({ "ARTWORK", "HIGHLIGHT" }) do
+		local arrows = zoomReset:CreateTexture(nil, layer)
+		if refreshAtlas then arrows:SetAtlas(refreshAtlas) else arrows:SetTexture("Interface\\Buttons\\UI-RefreshButton") end
+		arrows:SetSize(12, 12)
+		arrows:SetPoint("CENTER")
+		if layer == "HIGHLIGHT" then arrows:SetBlendMode("ADD") end
+	end
 end
 zoomReset:Hide()
 Controls.zoomReset = zoomReset
