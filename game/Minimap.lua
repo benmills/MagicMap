@@ -361,22 +361,52 @@ end
 
 -- Its blips' tooltips: seen, it takes the mouse's motion (not clicks or the wheel: those go through to our map), and
 -- while it has it our OnUpdate stands for Blizzard's (Minimap_OnUpdate filled GameTooltip every frame, blip or not,
--- over our pins' and areas' tooltips): Blizzard's tooltip only while a blip is under the cursor (m.blip), hidden as it
--- leaves one. Game.minimap.mouse / blip go to UI (obs.minimap): our pins hover through it and give way to a blip.
-local function Named()
+-- over our pins' and areas' tooltips). On a blip (m.blip), the names under the cursor (stacked blips each: the
+-- tooltip's lines, split at line breaks, their colours dropped) go to UI as m.names (obs.minimap.names), which draws
+-- them our way (ui/BlipTip.lua); one the client keeps secret: Blizzard's own tooltip, as it was. Off a blip, the
+-- tooltip hidden. Game.minimap.mouse / blip go to UI too: our pins hover through it and give way to a blip.
+local names, shown = {}, {}
+-- The names under the cursor into `names` (their count), or false: secret (Blizzard's tooltip then), nil: none.
+local function Names()
 	local data = C_TooltipInfo.GetMinimapMouseover()
-	if not data or issecretvalue(data) or issecretvalue(data.lines) then return false end
-	local line = data.lines and data.lines[1]
-	local t = line and line.leftText
-	return t ~= nil and (issecretvalue(t) or t ~= "")
+	if not data or issecretvalue(data) or issecretvalue(data.lines) or not data.lines then return nil end
+	local n = 0
+	for _, line in ipairs(data.lines) do
+		local t = line.leftText
+		if t ~= nil then
+			if issecretvalue(t) then return false end
+			for part in t:gmatch("[^\n]+") do
+				part = part:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):match("^%s*(.-)%s*$")
+				if part ~= "" then n = n + 1; names[n] = part end
+			end
+		end
+	end
+	for i = #names, n + 1, -1 do names[i] = nil end
+	return n > 0 and n or nil
+end
+-- m.names a new table only when they changed (UI rebuilds its tooltip then).
+local function Publish(n)
+	local same = m.names ~= nil and #shown == n
+	for i = 1, n do
+		if shown[i] ~= names[i] then same = false end
+	end
+	if same then return end
+	shown = {}
+	for i = 1, n do shown[i] = names[i] end
+	m.names = shown
 end
 local BlipTip = Runtime.Wrap("game: overlay tooltip", function()
-	if Named() then
-		m.blip = true
+	local n = Names()
+	if n == false then
+		m.blip, m.names = true, nil
 		GameTooltip:SetOwner(UIParent, "ANCHOR_CURSOR")
 		GameTooltip:SetMinimapMouseover()
+	elseif n then
+		if m.blip and not m.names and GameTooltip:GetOwner() == UIParent then GameTooltip:Hide() end -- (Blizzard's, before)
+		m.blip = true
+		Publish(n)
 	elseif m.blip then
-		m.blip = false
+		m.blip, m.names = false, nil
 		if GameTooltip:GetOwner() == UIParent then GameTooltip:Hide() end
 	end
 end)
@@ -385,7 +415,7 @@ Minimap:HookScript("OnEnter", Runtime.Wrap("game: overlay entered", function(sel
 	self:SetScript("OnUpdate", BlipTip) -- (after Blizzard's OnEnter set its own)
 end))
 Minimap:HookScript("OnLeave", Runtime.Wrap("game: overlay left", function()
-	m.mouse, m.blip = false, false
+	m.mouse, m.blip, m.names = false, false, nil
 end))
 function Mouse(on)
 	local mm = Minimap
@@ -396,7 +426,7 @@ function Mouse(on)
 	elseif mm:IsMouseEnabled() or mm:IsMouseMotionEnabled() then
 		mm:EnableMouse(false)
 		mm:SetScript("OnUpdate", nil)
-		m.mouse, m.blip = false, false
+		m.mouse, m.blip, m.names = false, false, nil
 	end
 end
 

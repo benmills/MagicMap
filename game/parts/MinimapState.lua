@@ -30,6 +30,7 @@ Game.Part("minimap", function()
 	minimap.indoors, minimap.indoorDebug = Game.Indoors(), Game.saved.indoorDebug or false
 	minimap.home, minimap.homeStrata = Game.Home()
 	minimap.mouse, minimap.blip = m.mouse == true, m.blip == true
+	minimap.names = m.blip and m.names or nil
 	minimap.overlaid = m.engaged and m.overlaid == true or nil
 	minimap.instance = m.engaged and m.instance == true or nil
 	minimap.steps = m.engaged and m.stepsOn and m.steps or nil

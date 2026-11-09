@@ -21,6 +21,7 @@ ui/Interiors.lua
 ui/Labels.lua
 ui/PinTypes.lua
 ui/Pins.lua
+ui/BlipTip.lua
 ui/Cluster.lua
 ui/Resources.lua
 ui/Rares.lua

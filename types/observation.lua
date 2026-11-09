@@ -41,6 +41,8 @@
 ---                                   names an explored area at the cell's centre, false where it names none (the
 ---                                   inspector's Unexplored), missing where no zone is (sea). A row changed is a new table.
 ---@field tracking? MM.ObsTracking[] on change: Blizzard's minimap tracking types
+---@field skills? { herb: integer, ore: integer } on change: Herbalism's and Mining's rank with its bonus, 0 for one not
+---                                   learnt (game/parts/Skills.lua): a blip's tooltip colours a node by it (ui/BlipTip.lua)
 ---@field buttons? MM.ObsButton[]    on change: the Minimap's buttons, addons' and Blizzard's (game/MinimapButtons.lua)
 ---@field clock? MM.ObsClock         on change: the time and whether it's day (game/parts/Clock.lua)
 ---@field interior? MM.ObsInterior|false on change: the building you're in and its room (ADR 0008); false = in none
@@ -174,6 +176,8 @@
 ---@field instance? boolean    in an instance where the client withholds where you are: Blizzard's own Minimap (its ground
 ---                           too) fills the window, over the map UI blanks (ui/Window.lua's curtain)
 ---@field minZoom? number     with steps: the map's zoom further out than which its blips aren't shown (its widest too small)
+---@field names? string[]      a blip's under the cursor (the overlay's): the names its tooltip lists, stacked ones each; UI
+---                           draws them (ui/BlipTip.lua). nil: none, or Blizzard's own tooltip shows (a name it keeps secret)
 ---@field overlaid? boolean    the overlay is seen (half faded in or more): its arrow is yours, UI's hides
 ---@field blip? boolean        a blip of the overlay's is under the cursor, its tooltip Blizzard's: UI's hovers give way
 

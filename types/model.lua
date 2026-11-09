@@ -124,6 +124,7 @@
 ---@class MM.ModelRead
 ---@field you MM.ModelYou
 ---@field hooked MM.HookedInput[]  this frame's hooked keys, handed on from obs.hooked unchanged (ADR 0003)
+---@field skills? { herb: integer, ore: integer }  obs.skills, the last handed (nil until known): a blip tooltip's node colour
 ---@field minimap? MM.ObsMinimap  this frame's obs.minimap, handed on unchanged like hooked (UI places its small window on home)
 ---@field addons MM.ObsAddon[]     other addons whose pins Game can borrow, handed on from obs.addons (the "Other addons"
 ---                                layers: View.layers "addon:<key>"); {} until known
