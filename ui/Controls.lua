@@ -87,14 +87,14 @@ Controls.zoomIn, Controls.zoomOut = zoomIn, zoomOut
 
 -- Reset: above the zoom in (the gap the + and - keep), shown only while the map is off its default: not following you,
 -- or the zoom isn't the default (UI.DefaultZoom(), ui/View.lua); a click flies back to you at that zoom (Motion.Reset).
--- A gold circular arrow as the + and - are gold glyphs: the first of Blizzard's the client has (a white one tinted the
--- zoom buttons' gold), else its refresh button's arrows (RefreshButtonTemplate's UI-RefreshButton, else its file).
+-- A gold circular arrow as the + and - are gold glyphs: the first of Blizzard's the client has (greyed and tinted the
+-- zoom buttons' gold: Forever's revert arrow is orange), else its refresh button's arrows (RefreshButtonTemplate's UI-RefreshButton, else its file).
 local RESET_TOL = 1 -- px per tile: a zoom this close to the default is the default
 local GOLD_ARROWS = { "transmog-icon-revert", "talents-button-undo" }
 local WHITE_ARROWS = { "common-icon-undo", "uitools-icon-refresh" }
-local ZOOM_GOLD = { 1, 0.82, 0 }
+local ZOOM_GOLD = { 1, 0.86, 0.25 }
 local zoomReset = CreateFrame("Button", nil, Chrome.controls)
-zoomReset:SetSize(18, 18)
+zoomReset:SetSize(20, 20) -- (the + and -'s)
 zoomReset:SetPoint("BOTTOM", zoomIn, "TOP", 0, 2)
 do
 	local gold, white = FirstAtlas(unpack(GOLD_ARROWS)), FirstAtlas(unpack(WHITE_ARROWS))
@@ -103,9 +103,12 @@ do
 		local arrows = zoomReset:CreateTexture(nil, layer)
 		local atlas = gold or white or refresh
 		if atlas then arrows:SetAtlas(atlas) else arrows:SetTexture("Interface\\Buttons\\UI-RefreshButton") end
-		if white then arrows:SetVertexColor(unpack(ZOOM_GOLD)) end
-		arrows:SetSize(16, 16)
-		arrows:SetPoint("CENTER")
+		if gold or white then -- (orange or white: greyed, then the + and -'s gold)
+			arrows:SetDesaturated(true)
+			arrows:SetVertexColor(unpack(ZOOM_GOLD))
+		end
+		arrows:SetSize(18, 18)
+		arrows:SetPoint("CENTER", zoomIn, "CENTER", 0, 22) -- (the + and -'s centre line, a step above the +)
 		if layer == "HIGHLIGHT" then arrows:SetBlendMode("ADD") end
 	end
 end
