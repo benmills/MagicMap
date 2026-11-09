@@ -161,14 +161,18 @@ Controls.zoomReset = zoomReset
 -- end lets it go (Track.Clear). Its look is Forever's progress bar (below).
 ---------------------------------------------------------------------------
 
-local LINE_H, LINE_PAD = 20, 7
-local ICON, ICON_X, ICON_GAP = 10, 4, 2.3 -- the icon: its size, its left, the gap to the text
+-- The pill's layout (Settings > Quest pill > Layout; these its defaults, px in the pill's own units): its height;
+-- the padding at its ends (the icon's left, the x glyph's right; without the x, PAD_PLAIN more); the icon's size
+-- and its gap to the text; the text's size (the rest's a point smaller) and the gap before the rest; the gap
+-- left of the x and its alpha at rest; the border's size (its art's scale: FRAME_BORDER px of it) and alpha.
+local LOOK = { height = 20, pad = 4, icon = 10, iconGap = 2.3, text = 9, textGap = 5, xGap = 5.4, xAlpha = 0.35,
+	border = 0.45, borderAlpha = 0.85 }
+local PAD_PLAIN = 3
 local ZOOM_COL = 30 -- px at the map's right kept clear of the line: the zoom buttons' column and a gap
 local EVERY = 0.3 -- s between looks: three or so a second (the yards change as you walk)
 local RUN = 7 -- yd/s, a run
 local YARDS_STEP = 10 -- yards are rounded to this from 100 up: no flicker while you walk
 local SEP = "  \194\183  " -- between the secondary pieces
-local GAP = 5 -- px between the first piece and the rest
 local ELLIPSIS = "\226\128\166" -- "…" in UTF-8
 local BAR = { 1, 0.82, 0.25, 0.6 } -- the fill: the title's gold (its colour Settings > Quest pill > Bar colour)
 local BAR_COLORS = {
@@ -181,7 +185,7 @@ local BAR_COLORS = {
 local overlay = Chrome.overlay
 local line = CreateFrame("Frame", nil, overlay)
 line:SetPoint("BOTTOMLEFT", PAD, BOTTOM_Y)
-line:SetHeight(LINE_H)
+line:SetHeight(LOOK.height)
 line:Hide()
 local tracked = false -- the line shows a target (or the followed quest)
 local followedQuest -- the followed quest's Known entry, while the line shows it
@@ -192,8 +196,6 @@ local hover = 1 -- the controls' fade (the step below)
 local questAtlas = FirstAtlas("questlog-tab-icon-quest", "QuestNormal")
 local ICONS = { quest = questAtlas, corpse = "deathrecap-icon-tombstone", waypoint = "Waypoint-MapPin-Tracked" }
 local icon = line:CreateTexture(nil, "ARTWORK")
-icon:SetSize(ICON, ICON)
-icon:SetPoint("LEFT", line, "LEFT", ICON_X, 0)
 if questAtlas then icon:SetAtlas(questAtlas) else icon:Hide() end
 local iconKind = "quest"
 -- The pill's art: Forever's own progress bar (its legacy bar, the c60 art: GetAtlasInfo takes the first name the
@@ -214,10 +216,9 @@ local FRAME = Info("legacy-progressbar-frame-c60", "legacy-progressbar-frame")
 local TRACK_END = 4 -- the track art's px of each end kept whole (its rounding)
 -- The frame: of its 131 x 26 art only the border's box (FRAME_BOX: px 4..126 across, 3..21 down; past it the art's
 -- drop shadow, below and right, left out), its border 5 px of it each side round the opening, nine-sliced (FRAME_END
--- px of each edge kept, the border and its soft inner shade) at FRAME_K: the border FRAME_BORDER * FRAME_K px, all
+-- px of each edge kept, the border and its soft inner shade) at LOOK.border: the border FRAME_BORDER times it px, all
 -- round the pill's edge, outside it. Its alpha.
 local FRAME_BOX, FRAME_BORDER, FRAME_END = { 4, 3, 126, 21 }, 5, 8
-local FRAME_K, FRAME_A = 0.45, 0.85
 local TRACK_OUT = 1 -- px the track reaches past the pill's edge: under the border, inside its outer edge
 local PILL_A = 0.35 -- the track's alpha: faint ("pills.alpha" sets it live: SetPillAlpha)
 
@@ -252,15 +253,15 @@ local function Tint(parts, c, a)
 	for _, t in ipairs(parts) do t:SetVertexColor(c[1], c[2], c[3], a) end
 end
 
--- The frame nine-sliced: box (art px) of info, its edges ends px each kept at k, out px past the pill's edges; its
--- middle (the art's clear opening) not drawn.
-local function Frame(layer, sub, info, box, ends, out, k)
+-- The frame nine-sliced: box (art px) of info, its edges ends px each kept at k, its border FRAME_BORDER * k px
+-- past the pill's edges; its middle (the art's clear opening) not drawn. Its textures, and its Place(k).
+local function Frame(layer, sub, info, box, ends, k)
 	local l, r, top, bottom = info.leftTexCoord, info.rightTexCoord, info.topTexCoord, info.bottomTexCoord
 	local function U(x) return l + (r - l) * x / info.width end -- /: never 0 (an atlas's width > 0)
 	local function V(y) return top + (bottom - top) * y / info.height end -- /: never 0 (as above)
 	local us = { U(box[1]), U(box[1] + ends), U(box[3] - ends), U(box[3]) }
 	local vs = { V(box[2]), V(box[2] + ends), V(box[4] - ends), V(box[4]) }
-	local e, parts, at = ends * k, {}, { "TOP", "", "BOTTOM" }
+	local parts, at = {}, { "TOP", "", "BOTTOM" }
 	local side = { "LEFT", "", "RIGHT" }
 	local grid = {}
 	for row = 1, 3 do
@@ -275,13 +276,19 @@ local function Frame(layer, sub, info, box, ends, out, k)
 		end
 	end
 	local function P(row, col) return grid[(row - 1) * 3 + col] end
-	for row = 1, 3, 2 do
-		for col = 1, 3, 2 do
-			local corner = at[row] .. side[col]
-			P(row, col):SetPoint(corner, line, corner, col == 1 and -out or out, row == 1 and out or -out)
-			P(row, col):SetSize(e, e)
+	-- Its corners at k (the edges between them follow): again whenever the border's size changes.
+	local function Place(k)
+		local e, out = ends * k, FRAME_BORDER * k
+		for row = 1, 3, 2 do
+			for col = 1, 3, 2 do
+				local corner, t = at[row] .. side[col], P(row, col)
+				t:ClearAllPoints()
+				t:SetPoint(corner, line, corner, col == 1 and -out or out, row == 1 and out or -out)
+				t:SetSize(e, e)
+			end
 		end
 	end
+	Place(k)
 	-- The edges between the corners.
 	for row = 1, 3 do
 		for col = 1, 3 do
@@ -293,15 +300,14 @@ local function Frame(layer, sub, info, box, ends, out, k)
 			end
 		end
 	end
-	return parts
+	return parts, Place
 end
 
 local backing = Strip("BACKGROUND", 0, TRACK, TRACK_END, TRACK_OUT)
 local function SetPillAlpha(a) Tint(backing, { 0, 0, 0 }, a) end
 SetPillAlpha(PILL_A)
-if FRAME then
-	Tint(Frame("ARTWORK", -1, FRAME, FRAME_BOX, FRAME_END, FRAME_BORDER * FRAME_K, FRAME_K), { 1, 1, 1 }, FRAME_A)
-end
+local frame, PlaceFrame
+if FRAME then frame, PlaceFrame = Frame("ARTWORK", -1, FRAME, FRAME_BOX, FRAME_END, LOOK.border) end
 
 -- The fill: one texture, the bar's art cut at its share of the width (its left end kept, cut on the right).
 local fillM = line:CreateTexture(nil, "BORDER")
@@ -337,22 +343,19 @@ end
 -- The x: what the pill shows (a followed quest, a tracked or pathed icon, your waypoint) let go (Track.Clear); not
 -- your corpse (the game ends that). Minimal: a thin x glyph (the client's, else a drawn one) in the text's colour,
 -- soft at rest, full on hover, in a small square at the pill's right end.
--- Its glyph's right edge as far in as the icon's left (ICON_X); X_GAP px between the text and its square.
-local X_GLYPH, X_REST = 11, 0.35 -- its glyph (px), its alpha at rest
+-- Its glyph's right edge as far in as the icon's left (LOOK.pad); LOOK.xGap px between the text and its square.
+local X_GLYPH = 11 -- its glyph (px)
 local X = X_GLYPH + 3 -- its square
-local X_RIGHT = ICON_X - (X - X_GLYPH) / 2
-local X_GAP = 5.4 -- (the glyph 6.9 px from the text)
+local function XRight() return LOOK.pad - (X - X_GLYPH) / 2 end
 local close = CreateFrame("Button", nil, line)
 close:SetSize(X, X)
-close:SetPoint("RIGHT", line, "RIGHT", -X_RIGHT, 0)
 local glyph = close:CreateTexture(nil, "OVERLAY")
 glyph:SetSize(X_GLYPH, X_GLYPH)
 glyph:SetPoint("CENTER")
 local xAtlas = FirstAtlas("uitools-icon-close")
 if xAtlas then glyph:SetAtlas(xAtlas) else glyph:SetTexture("Interface\\Buttons\\UI-StopButton") end
-glyph:SetVertexColor(0.95, 0.9, 0.8, X_REST)
 close:SetScript("OnEnter", Runtime.Wrap("map: pill x", function() glyph:SetVertexColor(1, 1, 1, 1) end))
-close:SetScript("OnLeave", Runtime.Wrap("map: pill x", function() glyph:SetVertexColor(0.95, 0.9, 0.8, X_REST) end))
+close:SetScript("OnLeave", Runtime.Wrap("map: pill x", function() glyph:SetVertexColor(0.95, 0.9, 0.8, LOOK.xAlpha) end))
 close:Hide()
 Controls.questClose = close
 
@@ -361,13 +364,30 @@ Controls.questClose = close
 local PILL = { scale = 0.9, questShow = "followed", pieces = { "progress", "distance" }, bar = true }
 -- The first piece in the pill's text; the rest secondary, smaller and muted, after it.
 local lineText = line:CreateFontString(nil, "OVERLAY")
-lineText:SetFont(FONT, 9, "")
 lineText:SetTextColor(0.95, 0.9, 0.8)
 local restText = line:CreateFontString(nil, "OVERLAY")
-restText:SetFont(FONT, 8, "")
 restText:SetTextColor(0.72, 0.67, 0.58)
-restText:SetPoint("LEFT", lineText, "RIGHT", GAP, 0)
 Controls.questLine, Controls.questFill = line, fillM
+
+-- LOOK applied: the height, the icon, the text, the x and the frame (the width: Show's, next look).
+local function Layout()
+	line:SetHeight(LOOK.height)
+	icon:SetSize(LOOK.icon, LOOK.icon)
+	icon:ClearAllPoints()
+	icon:SetPoint("LEFT", line, "LEFT", LOOK.pad, 0)
+	lineText:SetFont(FONT, LOOK.text, "")
+	restText:SetFont(FONT, LOOK.text - 1, "")
+	restText:ClearAllPoints()
+	restText:SetPoint("LEFT", lineText, "RIGHT", LOOK.textGap, 0)
+	close:ClearAllPoints()
+	close:SetPoint("RIGHT", line, "RIGHT", -XRight(), 0)
+	glyph:SetVertexColor(0.95, 0.9, 0.8, LOOK.xAlpha)
+	if frame then
+		PlaceFrame(LOOK.border)
+		Tint(frame, { 1, 1, 1 }, LOOK.borderAlpha)
+	end
+end
+Layout()
 
 local NONE = {}
 
@@ -499,7 +519,7 @@ local function Put(pieces, at, n)
 	lineText:SetText(first)
 	restText:SetText(rest)
 	local w = lineText:GetStringWidth()
-	return rest ~= "" and w + GAP + restText:GetStringWidth() or w
+	return rest ~= "" and w + LOOK.textGap + restText:GetStringWidth() or w
 end
 
 -- The pieces put so they're at most avail px: the name cut with an ellipsis as far as it takes; their width.
@@ -522,9 +542,9 @@ local function Show(pieces, at)
 		line:Hide()
 		return
 	end
-	local xw = x and X_GAP + X + X_RIGHT or LINE_PAD
+	local xw = x and LOOK.xGap + X + XRight() or LOOK.pad + PAD_PLAIN
 	-- Capped so the line never reaches the zoom buttons (the map's width less the zoom column).
-	local textX = questAtlas and ICON_X + ICON + ICON_GAP or LINE_PAD
+	local textX = questAtlas and LOOK.pad + LOOK.icon + LOOK.iconGap or LOOK.pad + PAD_PLAIN
 	-- In the pill's own units (SetScale).
 	local w = overlay:GetWidth() / PILL.scale -- /: never 0 (the scale's least is 0.8)
 	local avail = w > 0 and w - (2 * PAD + ZOOM_COL) / PILL.scale - textX - xw or math.huge -- /: never 0 (as above)
@@ -764,4 +784,35 @@ UI.Feel.Add("pills", "Look", {
 		apply = SetPillAlpha, tip = "How dark the pill's track is, behind the progress bar." },
 	{ key = "pills.scale", kind = "slider", label = "Size", min = 0.8, max = 1.6, step = 0.1, pct = true, default = PILL.scale,
 		apply = Pill("scale"), tip = "The pill's size, text and all." },
+})
+-- Layout: LOOK's, live (Layout, then the pill fitted again).
+local function Px(v) return (math.floor(v * 10 + 0.5) / 10) .. " px" end
+local function Lay(key)
+	return function(v)
+		if LOOK[key] == v then return end
+		LOOK[key] = v
+		Layout()
+		lastSaid, lastFrac = false, -1
+		Look()
+	end
+end
+local function Slider(key, label, min, max, step, tip, pct)
+	return { key = "pills." .. key, kind = "slider", label = label, min = min, max = max, step = step, default = LOOK[key],
+		pct = pct, fmt = not pct and Px or nil, apply = Lay(key), tip = tip }
+end
+UI.Feel.Add("pillLayout", "Pill", {
+	Slider("height", "Height", 14, 32, 1, "The pill's height, inside its border."),
+	Slider("pad", "Padding", 0, 12, 0.5, "The space inside the pill's ends: before the icon, after the x."),
+	Slider("icon", "Icon size", 6, 18, 1, "The icon at the pill's left."),
+	Slider("iconGap", "Icon spacing", 0, 12, 0.1, "The space between the icon and the text."),
+})
+UI.Feel.Add("pillLayout", "Text and close", {
+	Slider("text", "Text size", 6, 16, 1, "The first piece's size; the rest are a point smaller."),
+	Slider("textGap", "Text spacing", 0, 16, 0.5, "The space between the first piece and the rest."),
+	Slider("xGap", "Close spacing", 0, 16, 0.1, "The space between the text and the x."),
+	Slider("xAlpha", "Close opacity", 0.1, 1, 0.05, "The x's opacity until you point at it.", true),
+})
+UI.Feel.Add("pillLayout", "Border", {
+	Slider("border", "Border size", 0.25, 1, 0.05, "The bronze border's size (100%: its art's own, about 5 px).", true),
+	Slider("borderAlpha", "Border opacity", 0, 1, 0.05, "The bronze border's opacity. 0%: none.", true),
 })

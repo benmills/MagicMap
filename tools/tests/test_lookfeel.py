@@ -174,8 +174,8 @@ def test_settings_kinds_and_late_pages():
     h = Feel.frame.GetHeight(Feel.frame)
     L.execute(LATE, sim, ns)
     titles = [p.title for p in Feel.Pages().values()]
-    assert titles[:4] == ["General", "Map", "Frame title", "Order"] and titles[-1] == "Diagnostics" and len(titles) == 13
-    assert Feel.frame.GetHeight(Feel.frame) == h  # (room for 14 in the sidebar: 13 fit as it is)
+    assert titles[:4] == ["General", "Map", "Frame title", "Order"] and titles[-1] == "Diagnostics" and len(titles) == 14
+    assert Feel.frame.GetHeight(Feel.frame) == h  # (room for 14 in the sidebar: 14 fit as it is)
     sim.Click(_tab(L, Feel, "Order"))
     w = Feel.widgets
     lst, more = w["order.what"], w["order.more"].row
@@ -229,7 +229,7 @@ def test_settings_pages_apply_and_reset():
         sim.atlases[a] = None
     Feel, saved = _open(sim, ns), L.globals().MagicMap2DB.UI
     pages = [p.key for p in Feel.Pages().values()]
-    assert pages == ["general", "map", "title", "pins", "pills", "tracking", "path", "areas", "diag"]
+    assert pages == ["general", "map", "title", "pins", "pills", "pillLayout", "tracking", "path", "areas", "diag"]
     for p in pages:
         Feel.Open(p)
     assert sorted(Feel.pages.keys()) == sorted(pages)

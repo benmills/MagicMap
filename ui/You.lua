@@ -95,11 +95,17 @@ UI.Corpse = UI.Pins.Layer("corpse", PINS, function(put)
 end, function() return select(2, Model.Known("corpse")) end, {
 	lines = function() return "Your corpse" end, -- Layers.lua:514
 })
+-- None while Blizzard's Minimap is seen over the small map (obs.minimap.overlaid): its own waypoint pin is there.
+local function Blips()
+	local mm = Model.minimap
+	return mm and mm.overlaid or false
+end
 UI.Waypoint = UI.Pins.Layer("waypoint", PINS, function(put)
+	if Blips() then return end
 	for _, e in ipairs(Model.Known("waypoint")) do
 		if not UI.Track.Covers(e.pos) then put(e, WAYPOINT) end -- (a tracked icon stands on it: that reads as the target)
 	end
-end, function() return select(2, Model.Known("waypoint")) end, {
+end, function() return select(2, Model.Known("waypoint")) * 2 + (Blips() and 1 or 0) end, {
 	lines = function() return "Waypoint" end, -- Layers.lua:629 (its popup clears it: ui/Track.lua's Actions)
 })
 -- (no gear rows: the corpse and the waypoint are always drawn while there's one)

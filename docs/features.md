@@ -79,7 +79,8 @@ Great Forge in Ironforge by the flight master.*
 `!` and `?`) over our map: no ground, north up, centred on you and sized to our zoom, with Blizzard's own arrow.
 While the map follows you the wheel and the zoom buttons step through Blizzard's Minimap zooms; zoomed out past
 its widest, or in past its closest, the blips hide and the zoom glides. They hide on the big map and while a
-path's line is drawn (our arrow and our smooth zoom then). In an instance that hides where you are, Blizzard's
+path's line is drawn (our arrow and our smooth zoom then). While they show, our flight point and waypoint pins step aside
+(Blizzard's own are there). In an instance that hides where you are, Blizzard's
 own minimap shows, ground and all. (Since game build 1.60.1.70862 addons can't read the blips, so MagicMap draws
 none of its own.) Their tooltips are ours, in our pins' look: a herb or ore led by the icon of what it gives, in
 the colour of your skill against it (red, orange, yellow, green, grey) with the skill it needs in a pill beside
@@ -186,6 +187,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | Title | At rest (Zone, Local time), On hover (Zone, Subzone, Tracked target, Distance to target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time (each time led by the day or night picture). Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
 | Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Each follows the level above until set; its undo hands it back |
 | Quest pill | Shows (what you track / off), Says (Objective progress, Distance; chosen and ordered from those, Name and Time to arrive), Progress bar (on), Bar opacity (60%), Bar colour (Gold). Look: Backing (35%), Size (90%) |
+| Pill layout | Pill: Height (20 px), Padding (4 px), Icon size (10 px), Icon spacing (2.3 px). Text and close: Text size (9), Text spacing (5 px), Close spacing (5.4 px), Close opacity (35%). Border: Border size (45%), Border opacity (85%) |
 | Tracking | Arrow: Size (105%), Opacity (100%), Distance (96 px). Path to: Frame the way (on). Tracked icon: Glow (on), Glow size (200%), Glow opacity (100%) |
 | Pathing | Line: Style (dashed), Weight (1.4 px), Colour (Gold), Opacity (65%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |
 | Quest areas | Followed quest, Other quests: Fill, Edge, Edge width. Under the cursor: Fill lift, Edge (as the game draws them, a quiet fill by default) |

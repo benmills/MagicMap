@@ -1118,6 +1118,8 @@ Feel.Page({ key = "map", title = "Map", icon = "Interface\\Icons\\INV_Misc_Map_0
 	tip = "What the map shows: names, the ground, indoor maps and your arrow.", sections = { "Names", "Ground", "Indoors", "You" } })
 Feel.Page({ key = "pills", title = "Quest pill", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01", order = 40,
 	tip = "The pill at the map's bottom left: what you track, how far, and how far you've come.", sections = { "Look" } })
+Feel.Page({ key = "pillLayout", title = "Pill layout", icon = "Interface\\Icons\\INV_Misc_Gear_01", order = 42,
+	tip = "The quest pill's spacing, sizes and border.", sections = { "Pill", "Text and close", "Border" } })
 Feel.Page({ key = "tracking", title = "Tracking", icon = "Interface\\Icons\\INV_Misc_Spyglass_03", order = 45,
 	tip = "How the way is shown: Track's gold arrow, and Path to keeping the way in view (the line's look: Pathing).", sections = { "Arrow", "Path to" } })
 Feel.Page({ key = "path", title = "Pathing", icon = "Interface\\Icons\\Ability_Hunter_Pathfinding", order = 50,

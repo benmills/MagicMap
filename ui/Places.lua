@@ -80,9 +80,14 @@ local function Look(kind, size, e, color)
 end
 
 -- Which kinds are on, and the lists' revs: the layer's rev moves with any.
+-- While Blizzard's Minimap is seen over the small map (obs.minimap.overlaid: at one of its zooms) its own flight
+-- masters are there: ours step aside.
 local on, last, rev = {}, {}, 0
 local function Rev()
-	local changed = false
+	local mm = Model.minimap
+	local blips = mm and mm.overlaid or false
+	local changed = on.blips ~= blips
+	on.blips = blips
 	for _, place in ipairs(ORDER) do
 		local v = LayerOn(KINDS[place].key)
 		if on[place] ~= v then on[place], changed = v, true end
@@ -104,7 +109,7 @@ end
 UI.Places = Pins.Layer("places", LEVEL, function(put)
 	for _, e in ipairs(Model.Known("places")) do
 		local k = KINDS[e.place]
-		if on[e.place] then put(e, Look(e.place, k.size, e, k.color or FACTION[e.faction] or GOLD)) end
+		if on[e.place] and not (e.place == "flight" and on.blips) then put(e, Look(e.place, k.size, e, k.color or FACTION[e.faction] or GOLD)) end
 	end
 	if not on.vignettes then return end
 	for _, e in ipairs(Model.Known("vignettes")) do put(e, Look("vignette", VIGNETTE.size, e, VIGNETTE.color)) end
