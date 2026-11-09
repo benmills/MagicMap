@@ -138,7 +138,7 @@ function Motion.PastBlips()
 	local s = mm and mm.steps
 	if not s then return false end
 	local z = Camera.cam.zoom
-	return z < s[1] * (1 - STEP_TOL) or mm.maxZoom ~= nil and z > mm.maxZoom
+	return mm.minZoom ~= nil and z < mm.minZoom or mm.maxZoom ~= nil and z > mm.maxZoom
 end
 
 -- The reset (ui/Controls.lua): back to you, at the default zoom (UI.DefaultZoom), following; without where you are,

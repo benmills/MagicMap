@@ -33,6 +33,7 @@ Game.Part("minimap", function()
 	minimap.overlaid = m.engaged and m.overlaid == true or nil
 	minimap.instance = m.engaged and m.instance == true or nil
 	minimap.steps = m.engaged and m.stepsOn and m.steps or nil
+	minimap.minZoom = minimap.steps and m.minZoom or nil
 	minimap.maxZoom = m.engaged and m.maxZoom or nil
 	return minimap
 end)

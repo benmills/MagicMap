@@ -173,6 +173,7 @@
 ---                           (1..6, rising) covers the window around you just so; while followed the wheel steps through them
 ---@field instance? boolean    in an instance where the client withholds where you are: Blizzard's own Minimap (its ground
 ---                           too) fills the window, over the map UI blanks (ui/Window.lua's curtain)
+---@field minZoom? number     with steps: the map's zoom further out than which its blips aren't shown (its widest too small)
 ---@field overlaid? boolean    the overlay is seen (half faded in or more): its arrow is yours, UI's hides
 ---@field blip? boolean        a blip of the overlay's is under the cursor, its tooltip Blizzard's: UI's hovers give way
 
