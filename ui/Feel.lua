@@ -55,7 +55,7 @@
 --     Opacity, On the big map), each type's under it (Size, Opacity, On the big map, Icon,
 --     Group), declared by the files that draw them.
 --   Resources (35). Tracking: Keep tracking (ui/Resources.lua).
---   Quest pill (40, ui/Controls.lua). Shows, Says (the pieces, chosen and ordered), Progress bar, Fade quest pill;
+--   Quest pill (40, ui/Controls.lua). Shows, Says (the pieces, chosen and ordered), Progress bar;
 --     Look: Backing, Size.
 --   Tracking (45), how the way is shown. Arrow (Track's): Size, Opacity, Distance (ui/Guide.lua); Path to: Frame the
 --     way (ui/Path.lua).

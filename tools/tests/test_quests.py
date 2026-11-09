@@ -181,7 +181,7 @@ def test_quest_follow():
     assert text() == "Protect the Frontier"
     Feel.Set("pills.questShow", "off")
     assert not line.IsShown(line)
-    Feel.Set("pills.questShow", "all")
+    Feel.Set("pills.questShow", "followed")
     Feel.Set("pills.quest", Feel.Default("pills.quest"))
     assert line.IsShown(line)
     p = pin(ns, G, "Quests", 52)

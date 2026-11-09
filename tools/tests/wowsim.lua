@@ -1991,7 +1991,7 @@ ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
 -- the popup's buttons (ui/Popup.lua): their glyphs, the micro menu's quest log
 ATLASES["Navigation-Tracked-Arrow"], ATLASES["flightpath"] = { 22, 18 }, { 32, 32 }
 -- Forever's progress bar (the quest pill: ui/Controls.lua), as its c60 art's sizes
-ATLASES["legacy-progressbar-bg-c60"], ATLASES["legacy-progressbar-fill-c60"] = { 117, 12 }, { 117, 12 }
+ATLASES["legacy-progressbar-bg-c60"], ATLASES["widgetstatusbar-fill-white"] = { 117, 12 }, { 256, 15 }
 ATLASES["legacy-progressbar-frame-c60"] = { 131, 26 }
 ATLASES["UI-QuestPoi-OuterGlow"] = { 64, 64 } -- (what you track: ui/Pins.lua)
 for _, a in ipairs({ "hud-microbutton-Quest-Up", "hud-microbutton-Quest-Down", "hud-microbutton-highlight" }) do

@@ -1,7 +1,7 @@
 -- The window's buttons (Core.lua:235-381): on the band, right-aligned on the title's line,
 -- the gear (the world map's) and the mode button (its red expand, and on the big map its condense: ui/BigMap.lua);
 -- inside the map, bottom left the quest pill (what you track: its name, progress, yards and time to it over a faint
--- fill of how far you've come; else your quests in this zone), bottom right the zoom buttons, above them the
+-- fill of how far you've come), bottom right the zoom buttons, above them the
 -- reset while the map is off its default (not following you, or not at the default zoom). They and
 -- the grip fade in while you hover (Core.lua:394-408; away from the map, as faint as Buttons at rest: hidden by
 -- default), and each has a tip, its name (Core.lua:1454-1497). Their settings (ui/Feel.lua): General > Map window >
@@ -118,15 +118,15 @@ Controls.zoomReset = zoomReset
 ---------------------------------------------------------------------------
 -- The quest pill (bottom left): the one pill for what you go to. With a target on this map (Model.Target: your
 -- corpse, the quest you follow, your waypoint or the icon you track; UI.You.Target names it), that; else the quest
--- you follow (on another map: no distance); else how many of your quests are in this zone. On a small dark pill
+-- you follow (on another map: no distance); else nothing. On a small dark pill
 -- that reads on any map. What it says is the pieces chosen on its page, in their order (as the title's,
 -- ui/Title.lua): the name, the quest's progress, the yards to it (along the way, Model.Route, else straight) and
 -- the time to arrive at your pace (now if you're moving, else the last pace you were seen at, else a run's: RUN).
 -- Behind its text a faint gold fill, how far you've come: empty at the farthest you've been from this target since
 -- you began going to it (where you started, unless you've wandered further off since: so it never runs backwards
 -- past empty, and a target picked from across the zone starts empty however far it is), full on arriving (inside
--- its area). Worked out every EVERY s from Model's quest list, your zone and the target; its text fitted again only
--- when it changes. It fades with the other controls, but stays shown while it shows a target; on the followed quest
+-- its area). Worked out every EVERY s from Model's quest list and the target; its text fitted again only
+-- when it changes. Always at full alpha (it shows only what you go to); on the followed quest
 -- it is that quest's pin: hovering it shows the quest's tooltip and lights its area, a click (either button) grows it
 -- into the popup (ui/Popup.lua; ui/Track.lua's Actions: Stop tracking or pathing, the other mode, Open in quest log).
 -- Otherwise it takes no mouse. While it shows what you track or path to (not your corpse), a small x at its right
@@ -134,7 +134,7 @@ Controls.zoomReset = zoomReset
 ---------------------------------------------------------------------------
 
 local LINE_H, LINE_PAD = 16, 7
-local ICON, ICON_X, ICON_GAP = 12, 7, 4 -- the icon: its size, its left, the gap to the text
+local ICON, ICON_X, ICON_GAP = 10, 7, 2 -- the icon: its size, its left, the gap to the text
 local ZOOM_COL = 30 -- px at the map's right kept clear of the line: the zoom buttons' column and a gap
 local EVERY = 0.3 -- s between looks: three or so a second (the yards change as you walk)
 local RUN = 7 -- yd/s, a run
@@ -168,8 +168,8 @@ icon:SetPoint("LEFT", line, "LEFT", ICON_X, 0)
 if questAtlas then icon:SetAtlas(questAtlas) else icon:Hide() end
 local iconKind = "quest"
 -- The pill's art: Forever's own progress bar (its legacy bar, the c60 art: GetAtlasInfo takes the first name the
--- client has), a dark rounded track, the fill over it (the bar's green, greyed and tinted: Bar colour, Bar
--- opacity), a thin bronze frame round both; on a client without it, plain rectangles and no frame. Each a strip
+-- client has), a dark rounded track, the fill over it (Bar colour, Bar
+-- opacity; Blizzard's white status bar tinted), a thin bronze frame round both; on a client without it, plain rectangles and no frame. Each a strip
 -- of three (its ends kept, its middle stretched), file and coords set here (not SetAtlas) so the fill can be cut
 -- at its share.
 local function Info(...)
@@ -179,7 +179,8 @@ local function Info(...)
 	end
 end
 local TRACK = Info("legacy-progressbar-bg-c60", "legacy-progressbar-bg")
-local FILL = Info("legacy-progressbar-fill-c60", "legacy-progressbar-fill")
+-- (the fill: Blizzard's white status bar, tinted; the legacy bar's own green, greyed and tinted, read too dark)
+local FILL = Info("widgetstatusbar-fill-white", "ui-frame-bar-fill-white")
 local FRAME = Info("legacy-progressbar-frame-c60", "legacy-progressbar-frame")
 local TRACK_END, FRAME_END = 4, 12 -- the art's px of each end kept whole (its rounding)
 -- The frame drawn at FRAME_K of its art (a thin border: its art is 131 x 26 round a 117 x 12 track, 7 px out), so it
@@ -227,7 +228,6 @@ if FRAME then Tint(Strip("ARTWORK", -1, FRAME, FRAME_END, FRAME_OUT, FRAME_K), {
 local fillM = line:CreateTexture(nil, "BORDER")
 if FILL then
 	fillM:SetTexture(FILL.file)
-	fillM:SetDesaturated(true) -- (its green greyed: the tint is its colour)
 else
 	fillM:SetColorTexture(1, 1, 1)
 end
@@ -258,7 +258,7 @@ end
 -- The x: what the pill shows (a followed quest, a tracked or pathed icon, your waypoint) let go (Track.Clear); not
 -- your corpse (the game ends that). Minimal: a thin x glyph (the client's, else a drawn one) in the text's colour,
 -- soft at rest, full on hover, in a small square at the pill's right end.
-local X, X_GLYPH, X_REST = LINE_H - 2, 8, 0.6 -- its square, its glyph (px), its alpha at rest
+local X, X_GLYPH, X_REST = LINE_H - 2, 11, 0.7 -- its square, its glyph (px), its alpha at rest
 local close = CreateFrame("Button", nil, line)
 close:SetSize(X, X)
 close:SetPoint("RIGHT", line, "RIGHT", -3, 0)
@@ -275,9 +275,9 @@ Controls.questClose = close
 
 -- The pill's look and behaviour (its page, through SetPill; these its defaults): its size, whether it shows, what it
 -- says (the pieces, in order), its fill, and whether it fades until you point at the map.
-local PILL = { scale = 0.9, questShow = "all", pieces = { "progress" }, bar = true, questFade = true }
+local PILL = { scale = 0.9, questShow = "followed", pieces = { "progress" }, bar = true }
 local lineText = line:CreateFontString(nil, "OVERLAY")
-lineText:SetFont(FONT, 10, "")
+lineText:SetFont(FONT, 9, "")
 lineText:SetTextColor(0.95, 0.9, 0.8)
 Controls.questLine, Controls.questFill = line, fillM
 
@@ -296,19 +296,6 @@ local function Progress(e)
 	end
 	if counted then return have, need end
 	return done, #(e.objectives or NONE)
-end
-
--- A quest pin's zone map (false: none), kept per pin table: the list is rebuilt often, its pins rarely.
-local pinZones = setmetatable({}, { __mode = "k" })
-local function PinZone(p)
-	if not p then return false end
-	local z = pinZones[p]
-	if z == nil then
-		local zone = Atlas.ZoneAt(p.inst, p.col, p.row)
-		z = zone and zone.mapID or false
-		pinZones[p] = z
-	end
-	return z
 end
 
 -- The yards to the target: along the way if there's one (tiles to yards), else straight (yd); rounded to
@@ -364,7 +351,7 @@ end
 -- What the line says, as pre (kept), head (the name: cut first when long) and tail (kept), or nil for nothing; and
 -- what it's about: followedQuest, tracked, iconKind and the fill's share (frac; nil: none) set.
 local frac
-local function Words(list, here)
+local function Words(list)
 	followedQuest, tracked, frac = nil, false, nil
 	if PILL.questShow == "off" then return nil end
 	local title, yd = UI.You.Target()
@@ -402,13 +389,7 @@ local function Words(list, here)
 		return pre, head or "", tail
 	end
 	iconKind = "quest"
-	if not here or PILL.questShow == "followed" then return nil end
-	local n = 0
-	for _, e in ipairs(list) do
-		if PinZone(e.pos) == here.mapID then n = n + 1 end
-	end
-	if n == 0 then return nil end
-	return string.format("%d %s in ", n, n == 1 and "quest" or "quests"), here.name, ""
+	return nil
 end
 
 -- The byte count of the first i bytes of s, backed off to a UTF-8 character's start.
@@ -436,12 +417,12 @@ end
 
 local function Show(pre, head, tail)
 	line:EnableMouse(followedQuest ~= nil)
+	local x = pre ~= nil and tracked and iconKind ~= "corpse"
+	close:SetShown(x)
 	if not pre then
 		line:Hide()
 		return
 	end
-	local x = tracked and iconKind ~= "corpse"
-	close:SetShown(x)
 	local xw = x and X or 0
 	-- Capped so the line never reaches the zoom buttons (the map's width less the zoom column).
 	local textX = questAtlas and ICON_X + ICON + ICON_GAP or LINE_PAD
@@ -455,21 +436,7 @@ local function Show(pre, head, tail)
 	if atlas and icon:GetAtlas() ~= atlas then icon:SetAtlas(atlas) end
 	icon:SetDesaturated(not tracked)
 	icon:SetAlpha(tracked and 1 or 0.6)
-	line:SetAlpha((tracked or not PILL.questFade) and 1 or hover)
 	line:Show()
-end
-
--- Your zone (the Atlas zone at you): worked out again only when your area (a chunk's id) changes.
-local areaId, areaInst, here -- the last area seen, its map, and its zone (nil: none)
-local function YourZone()
-	local you = Model.you
-	if not (you.inst and you.col and not you.stale) then return nil end
-	local id = Atlas.AreaAt(you.inst, you.col, you.row)
-	if id ~= areaId or you.inst ~= areaInst then
-		areaId, areaInst = id, you.inst
-		here = id and Atlas.ZoneAt(you.inst, you.col, you.row) or nil
-	end
-	return here
 end
 
 -- The followed quest's pin, in the pill: its tooltip and area under the cursor, its popup on a click.
@@ -497,7 +464,7 @@ local lastPre, lastHead, lastTail, lastW, lastKind, lastFrac, lastFillW
 local function Look()
 	local speed = Model.you.speed
 	if speed and speed > 0 then pace = speed end
-	local pre, head, tail = Words(Model.Known("quests"), YourZone())
+	local pre, head, tail = Words(Model.Known("quests"))
 	local w = overlay:GetWidth()
 	if pre ~= lastPre or head ~= lastHead or tail ~= lastTail or w ~= lastW or iconKind ~= lastKind then
 		lastPre, lastHead, lastTail, lastW, lastKind = pre, head, tail, w, iconKind
@@ -526,7 +493,6 @@ local function Reveal()
 	gear:SetAlpha(a)
 	mode:SetAlpha(a)
 	Chrome.grip:SetAlpha(GRIP_ALPHA * a)
-	line:SetAlpha((tracked or not PILL.questFade) and 1 or hover)
 end
 
 -- One of PILL's settings: applied at once, the pill worked out again.
@@ -670,10 +636,14 @@ local function Pill(key) return function(v) SetPill(key, v) end end
 local function QuestPill() return UI.Feel.Get("pills.questShow") ~= "off" end
 local PIECES = { { "Name", "name" }, { "Objective progress", "progress" }, { "Distance", "distance" },
 	{ "Time to arrive", "time" } }
+-- 2.x's "Target or zone count" (the zone's count is gone): what you track.
+UI.Feel.OnLoad(function()
+	if UI.Feel.Get("pills.questShow") == "all" then UI.Feel.Set("pills.questShow", "followed") end
+end)
 UI.Feel.Add("pills", nil, {
 	{ key = "pills.questShow", kind = "select", label = "Shows", default = PILL.questShow, apply = Pill("questShow"),
-		options = { { "Target or zone count", "all" }, { "Target only", "followed" }, { "Off", "off" } },
-		tip = "Bottom left: what you track (a quest, an icon, your waypoint, your corpse), else how many of your quests are in this zone; or only what you track; or nothing." },
+		options = { { "What you track", "followed" }, { "Off", "off" } },
+		tip = "Bottom left: what you track (a quest, an icon, your waypoint, your corpse), or nothing." },
 	{ key = "pills.quest", kind = "list", ordered = true, label = "Says", options = PIECES, when = QuestPill,
 		default = table.concat(PILL.pieces, ","), apply = function() SetPill("pieces", UI.Feel.List("pills.quest")) end,
 		tip = "What the pill says about what you track, in this order: its name, the quest's progress (2/5, or ready to turn in), the yards to it along the way, and the time to get there at your pace." },
@@ -685,8 +655,6 @@ UI.Feel.Add("pills", nil, {
 	{ key = "pills.barColor", kind = "color", label = "Bar colour", colors = BAR_COLORS, default = BAR_COLORS[1][1],
 		when = function() return QuestPill() and UI.Feel.Get("pills.questBar") ~= false end, apply = SetBarColor,
 		tip = "The progress bar's colour." },
-	{ key = "pills.questFade", kind = "toggle", label = "Fade quest pill", default = PILL.questFade, when = QuestPill,
-		apply = Pill("questFade"), tip = "The zone's quest count shows only while you point at the map. What you track always shows." },
 })
 UI.Feel.Add("pills", "Look", {
 	{ key = "pills.alpha", kind = "slider", label = "Backing", min = 0, max = 0.8, step = 0.05, pct = true, default = PILL_A,

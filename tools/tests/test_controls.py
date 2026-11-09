@@ -49,7 +49,7 @@ def test_pill_and_recenter():
     assert close.IsShown(close) and UI.Track.ClearLabel() == "Stop following"
     sim.Click(close)
     sim.Run(1)
-    assert sim.superTracked in (0, None) and not close.IsShown(close)
+    assert sim.superTracked in (0, None) and not close.IsShown(close) and not line.IsShown(line)  # (nothing to show)
 
     # The reset: shown while not following; its click back to you.
     UI.Motion.SetZoom(UI.DefaultZoom())
