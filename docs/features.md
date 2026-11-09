@@ -46,8 +46,8 @@ to fly there. `/mm map` and `/mm zone` do the same by name.
 
 ![The big map over Durotar: subzone names, quest areas and pins, and the line to a waypoint](images/big-map-durotar-route.jpg)
 
-*Durotar on the big map: the subzone names, the Valley of Trials' quest areas and pins with their
-counts, and the walking line up to a waypoint at Razor Hill.*
+*Durotar on the big map: the subzone names, the Valley of Trials' quest areas and pins, and the
+walking line up to a waypoint at Razor Hill.*
 
 **The ground.** The game's minimap tiles at any zoom, as Blizzard drew them, on each map's own dark
 backdrop; zone and subzone names on the big map (none at the minimap's size; no zone borders: [ADR 0012](decisions/0012-no-borders.md)); your arrow (the Minimap's own player arrow), with a denser shadow. Every pin is Blizzard's art (an atlas, a texture of the client's or its tinted circle); the addon's own files are the map art alone. Under the tiles, a one-picture stand-in for each continent
@@ -66,7 +66,7 @@ terrain (dimmed on the small map): the rooms on your floor whole, the floors bel
 ghosted where they overlap yours, the room you're in on top. Your pins, zoom and pan work as outdoors; a
 small building (a house, an inn) zooms the small map all the way in as you walk in, and back out as you
 leave (Settings > Map > Indoor auto-zoom). The big map has no dimming veil over the terrain. **City
-maps** (gear → Map, on): on the big map in a capital (Ironforge, Orgrimmar, Undercity...), every
+maps**: on the big map in a capital (Ironforge, Orgrimmar, Undercity...), every
 building of the city at once, indoors or out, what's underground faded, with the city's own area
 names (The Great Forge, the Cleft of Shadow...) among the subzone names.
 
@@ -75,36 +75,40 @@ names (The Great Forge, the Cleft of Shadow...) among the subzone names.
 *Indoors: Undercity's Trade Quarter with its services (grouped into `+2` and `+6` pills), and the
 Great Forge in Ironforge by the flight master.*
 
-**Blizzard's blips.** Blizzard's own Minimap draws its blips (herbs, ore, the mailbox, tracked NPCs) over our
-map: no ground, north up, centred on you and sized to our zoom, with Blizzard's own tooltips and arrow. While the
-map follows you the wheel and the zoom buttons step through Blizzard's Minimap zooms; zoomed out past its widest,
-or in past its closest, the blips fade out. (Since game build 1.60.1.70862 addons can't read the blips, so
-MagicMap draws none of its own.)
+**Blizzard's blips.** Blizzard's own Minimap draws its blips (herbs, ore, the mailbox, trainers, quest givers'
+`!` and `?`) over our map: no ground, north up, centred on you and sized to our zoom, with Blizzard's own arrow.
+While the map follows you the wheel and the zoom buttons step through Blizzard's Minimap zooms; zoomed out past
+its widest, or in past its closest, the blips hide and the zoom glides. They hide on the big map and while a
+path's line is drawn (our arrow and our smooth zoom then). In an instance that hides where you are, Blizzard's
+own minimap shows, ground and all. (Since game build 1.60.1.70862 addons can't read the blips, so MagicMap draws
+none of its own.) Their tooltips are ours, in our pins' look: a herb or ore led by the icon of what it gives, in
+the colour of your skill against it (red, orange, yellow, green, grey) with the skill it needs in a pill beside
+it, its profession under it; an NPC's title under its name ("General Goods"), then its quests for you, each in
+its difficulty's colour: `!` one to pick up, `?` one of yours to hand in.
 **Tracking that stays on**: your gathering tracker (Find Herbs, else Find Minerals, else Find Treasure) or the one
 you choose is turned back on after login, a /reload, a loading screen, death or resurrection, waiting out combat
-and casts. The game has one tracking spell on at a time, so it's one choice: the gear's Keep tracking row, or
-Settings > Resources. One you pick yourself in the tracking menu becomes the one kept; one you turn off stays off
-till the game next drops it.
+and casts. The game has one tracking spell on at a time, so it's one choice: the gear's Keep tracking. One you
+pick yourself in the tracking menu becomes the one kept; one you turn off stays off till the game next drops it.
 Blizzard's own flight, quest and POI tracking is
 switched off while MagicMap draws those itself, and put back when it stops, even after a crash.
 
-**Quests.** The quests in your log in Blizzard's icons, with their objective icon and count, in
-their difficulty colour; quests to pick up; a tooltip with the quest's facts, what's left to do (the
-objects an item is in, else who sells it; not the mobs that drop it) and who to turn it in to. Objective areas are drawn as the game draws them (its edges and fills); the quest you follow is filled, the rest a quiet edge; hovering an area lifts it gently.
-The fills, edges and hover are adjustable in Settings > Quest areas. The tooltip is compact: one row of
+**Quests.** The quests you're on, in Blizzard's icons, with their objective icon, in their difficulty colour;
+on the big map each one's name under its pin, in that colour. Quests to pick up and to hand in are Blizzard's own
+`!` and `?` blips (above). A quest's tooltip has its facts, what's left to do (the objects an item is in, else
+who sells it; not the mobs that drop it) and who to turn it in to. Objective areas are drawn as the game draws
+them (its edges and fills); the quest you follow is filled, the rest a quiet edge; hovering an area lifts it
+gently. The fills, edges and hover are adjustable in Settings > Quest areas. The tooltip is compact: one row of
 facts with the level in its difficulty colour, a `?` icon before who takes the quest in.
-Click a quest (or its area, zoomed in) to follow it: it becomes the game's tracked quest. The quest
-pill at the bottom left is the one pill for what you track: the quest you follow (or your waypoint, the icon you
-track, your corpse), its progress and the yards to it by default (time to arrive on offer; the pieces and their
-order chosen on Settings > Quest pill), over a faint fill (gold by default; Settings > Quest pill > Bar colour) of how far you've come since you began going to it;
-else how many of your quests are in this zone. A sensed quest-giver's `!` (or `?`) shows only while you still have an offer (or a
-quest to hand in) there, so it goes as soon as you accept.
+**The quest pill** at the bottom left shows what you track: the quest you follow (or your waypoint, the icon you
+track, your corpse). By default it says the quest's progress, then the yards to it, smaller and muted (its name
+and the time to arrive on offer; the pieces and their order on Settings > Quest pill), on a dark rounded track
+in a thin bronze frame, filled (gold by default) by how far you've come since you began going to it. The `×` at
+its end stops it: unfollows the quest, or stops tracking or pathing. With nothing tracked it's hidden.
 
 <!-- TODO(#12): refreshed screenshot (2.1.0: no zone borders, current tooltip) -->
 <img src="images/quest-tooltip.jpg" alt="A quest pin's tooltip in the Valley of Trials: Cutting Teeth, 2/10 Mottled Boar slain, turn in to Gornek" width="480">
 
-*A quest's tooltip in the Valley of Trials: its level, the objective's count, who to turn it in to.
-The quest pill at the bottom left counts the quests in Durotar.*
+*A quest's tooltip in the Valley of Trials: its level, the objective's count, who to turn it in to.*
 
 **Where to go.** Your target is your corpse while you're a ghost, else the quest you follow, else
 your waypoint. **Click any icon** (left or right; your waypoint's own too): its tooltip grows into a small popup
@@ -127,10 +131,10 @@ weight, colour, glow, breathing, opacity and outline are in Settings > Pathing. 
 and the view comes back to you.
 **Arriving** finishes it: within 5 yards of the target (or inside a quest's area), the arrow and the line go,
 and a waypoint (or the icon tracked on it) is cleared; a quest stays followed. Both stay through a /reload. While you follow a quest, the quest pill is its icon: hover it for the quest's
-tooltip, click it for its popup (Stop tracking is one click away). Clicking a quest's area follows it (Track).
+tooltip, click it for its popup; its `×` stops it. Clicking a quest's area follows it (Track).
 Ctrl-click sets the game's waypoint (Ctrl-right-click clears
-it), Shift-click opens chat with a `/way` line, and right-click off an icon offers both. While the map isn't following you (you dragged it, or flew to a zone),
-a round refresh button above the zoom buttons glides back to you. The mode button (Blizzard's red expand) turns to
+it), Shift-click opens chat with a `/way` line, and right-click off an icon offers both. While the map is off its default (you dragged it, flew to a zone or zoomed),
+the gold reset arrow above the zoom buttons glides back to you. The mode button (Blizzard's red expand) turns to
 its condense on the big map. On the big map, right-click leads with what's there: zone, subzones, coordinates, level
 range against yours, distance, quests, explored or not, and the landmarks nearby.
 
@@ -147,20 +151,23 @@ the rares and treasures the game shows now; your corpse and waypoint.
 
 **Crowded icons.** Where icons overlap they group into a small pill of up to two icons (`+N` for
 the rest, sized to its digits); click it for a grid of them all, each with its own tooltip and click
-(Settings > Grouping > Group icons, with its tunables). Quest icons are never grouped, and nothing groups at the minimap's size.
+Quest icons are never grouped, and nothing groups at the minimap's size.
 
 **Other addons.** World-map pins added through HereBeDragons (Questie, HandyNotes...) show on the
-map with their own icons, tooltips and clicks, each addon a row in the gear's Other addons; their
+map with their own icons, tooltips and clicks, each addon a row in the gear's Other addons, over
+Blizzard's blips so their tooltips work; on the big map only zoomed in to about two zones across. Their
 minimap pins (GatherMate...) show around you. Nothing is drawn twice.
 
-**The gear menu** (by the zone name): the layers by group, each row with its icon, an "All" box
-on top and the n/total shown in the group's name: Map (zone labels, City maps), Quests,
-Places, Tracking (rares and treasures, party and raid, then Blizzard's tracking types, one box a name, Keep tracking
-right after the gathering ones: the tracker kept on, each tracking spell you know, or Off), Other addons.
-Then AddOns: the buttons the minimap's rim would hold, hidden with Blizzard's minimap (LibDBIcon's
-addon buttons, the addon compartment's, other addons' rim buttons, then Blizzard's calendar and clock), each a
-row with its icon that clicks it (right-click too) and shows its tooltip; no buttons on the map's edge. Then Use
-Blizzard's minimap (while ours replaces it; Blizzard's logo on the row) and Reset to defaults, then Settings.
+**The gear menu** (by the zone name): **Map**, the layers in one list with an "All" box on top and its n/total
+in its name: zone labels; quests and quest areas; flight points, dungeons and raids, graveyards (off until you
+turn them on) and points of interest; rares and treasures, and party and raid. **Tracking**: Blizzard's tracking
+types, as Blizzard's own menu has them. **Keep tracking**: the tracker kept on (each tracking spell you know, or
+Off). **Other addons**: a row each for the addons whose pins show. Then Use Blizzard's minimap (while ours replaces
+it) and Reset to defaults, then Settings.
+**The AddOns button** (left of the gear, shown while you point at the map, in the look of an addon's minimap
+button): the buttons the minimap's rim would hold, hidden with Blizzard's minimap (LibDBIcon's addon buttons, the
+addon compartment's, other addons' rim buttons, then Blizzard's calendar and clock), each a row with its icon that
+clicks it (right-click too) and shows its tooltip.
 
 **Settings.** A window of its own (the gear's Settings, `/mm feel` or `/mm settings`, or Game menu >
 Options > AddOns > MagicMap > Open MagicMap Settings), a sidebar of pages with the chosen one beside it (the last is
@@ -168,23 +175,21 @@ remembered), each page's settings under small headers. The client's own controls
 them and a step button either side, checkboxes, dropdowns, colour swatches with Custom… (the game's colour picker:
 any colour). Every change applies at once. A setting changed from its default shows an undo mark (a click puts it
 back), each page has its own Reset and there's Reset all at the bottom, each lit only while there's something to
-reset; the switches (what MagicMap replaces, Follow you, the minimap button, Group icons, the diagnostics) are left
+reset; the switches (what MagicMap replaces, Follow you, the minimap button, the diagnostics) are left
 as they are. A row that only matters while another setting is on (the outline's colour, the breath's pace) shows
 only then; a row with more under it (Pins' families and types) has a plus that opens it. Hover a row for what it does and its default. Settings are account-wide.
 
 | Page | Settings (default) |
 | --- | --- |
-| General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to you (on: the small map glides back to you when left alone), Return after (6 s), Zoom per notch (+30%) |
-| Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (100%), Subzone opacity (60%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
+| General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to you (on: the small map glides back to you when left alone), Return after (6 s), Zoom per notch (+30%: where Blizzard's minimap has no zoom of its own) |
+| Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (100%), Subzone opacity (55%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
 | Title | At rest (Zone, Local time), On hover (Zone, Subzone, Tracked target, Distance to target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time (each time led by the day or night picture). Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
 | Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Each follows the level above until set; its undo hands it back |
-| Resources | Tracking: Keep tracking (your gathering tracker: Find Herbs, else Find Minerals, else Find Treasure; or one you know, or Off) |
-| Quest pill | Shows (target or zone count / target only / off), Says (Name, Objective progress, Distance; chosen and ordered from those and Time to arrive), Progress bar (on), Bar opacity (20%), Bar colour (Gold), Fade quest pill (on: the zone count only while you point at the map). Look: Backing (60%), Size (100%) |
+| Quest pill | Shows (what you track / off), Says (Objective progress, Distance; chosen and ordered from those, Name and Time to arrive), Progress bar (on), Bar opacity (60%), Bar colour (Gold). Look: Backing (35%), Size (90%) |
 | Tracking | Arrow: Size (105%), Opacity (100%), Distance (96 px). Path to: Frame the way (on). Tracked icon: Glow (on), Glow size (200%), Glow opacity (100%) |
 | Pathing | Line: Style (dashed), Weight (1.4 px), Colour (Gold), Opacity (65%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |
 | Quest areas | Followed quest, Other quests: Fill, Edge, Edge width. Under the cursor: Fill lift, Edge (as the game draws them, a quiet fill by default) |
-| Grouping | Group icons (on). How icons group: Distance (24 px), Reach (3x), Smallest group (2 icons). Pills: Icons in a pill (2), Pill backing (35%), Open group backing (72%) |
-| Diagnostics | Debug info in title; Indoor maps report. Reports in chat: Record 10 seconds; Compare with other addons; Memory breakdown (each also a `/mm` command) |
+| Diagnostics | Debug info in title. Reports in chat: Record 10 seconds; Compare with other addons; Memory breakdown (each also a `/mm` command) |
 
 ## Commands
 
@@ -199,7 +204,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | `/mm minimap ours`, `/mm minimap blizzard` | Who has the minimap while our map is shown |
 | `/mm feel`, `/mm settings`, `/mm welcome` | The settings window; the first-run welcome again |
 | `/mm mark <note>` | Note something for the bug report (saved at `/reload` or logout) |
-| `/mm landmarks`, `/mm indoor`, `/mm overlay` | Rares remembered; the building and room you're in; where Blizzard's Minimap sits over the map |
+| `/mm landmarks`, `/mm indoor`, `/mm overlay` | Rares remembered; the building and room you're in, as you move (again: off); where Blizzard's Minimap sits over the map |
 | `/mm help` | Every command, the diagnostics too (`perf`, `errors`, `check`...) |
 
 
@@ -207,9 +212,10 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 
 - **WoW Forever only** (installed under `World of Warcraft/_forever_/`), the client build `Data/` was
   generated from, 1.60.1.70862 (a patch means regenerating).
-- **Blizzard's blips** show only around you, as far as Blizzard's Minimap sees (about 230 yards at its widest).
+- **Blizzard's blips** show only around you, as far as Blizzard's Minimap sees (about 230 yards at its widest),
+  and not on the big map or while a path's line is drawn.
 - **Indoors** only buildings with Blizzard's indoor minimap pictures get them; elsewhere the terrain.
-- **Instances** that hide your position are shown whole, without the arrow, line or blips.
+- **Instances** that hide your position show Blizzard's own minimap, ground and all.
 - **Rotate Minimap**: MagicMap stays north up, and other addons' minimap pins hide while it's on.
 - **Other minimap addons** (SexyMap, square-minimap addons) may conflict. While FarmHud has the
   minimap, MagicMap leaves it to FarmHud.

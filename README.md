@@ -15,16 +15,18 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 
 - **Scroll out from your feet to all of Kalimdor**, in your minimap's spot. Press M to make it big.
 - **Floor plans indoors.** Undercity, Ironforge and caves show the floor you're on.
-- **Quests on the map.** Objective areas, quest givers nearby, and a tooltip with what's left to do and
-  the turn-in. Follow a quest and a gold arrow shows the way.
+- **Quests on the map.** The quests you're on with their objective areas, and a tooltip with what's left
+  to do and the turn-in; on the big map each quest's name under its pin. Track one and a gold arrow shows
+  the way; the quest pill at the bottom says how far along you are and how far away.
 - **Click any icon: Track or Path to.** A flight master, quest giver or rare: Track points Blizzard's gold arrow
   along the way you'd walk; Path to draws that walk around cliffs and water and keeps you both in view. Yards
   and minutes either way.
-- **Blizzard's own blips over the map**: herbs, ore, mailboxes and trainers as Blizzard's minimap draws them,
-  with their tooltips. Rares you've seen stay on the map for all your characters.
+- **Blizzard's own blips over the map**: herbs, ore, mailboxes, trainers and quest givers as Blizzard's
+  minimap draws them, with richer tooltips: a herb's or ore's skill in your skill-up colour, an NPC's title,
+  and the quests they have for you. Rares you've seen stay on the map for all your characters.
 - **Gathering made easy.** Find Herbs or Find Minerals turns itself back on after you die or log in.
-- **Your minimap's buttons, without the clutter.** Addon buttons, the calendar and the clock are in the gear
-  menu, and the title shows what you pick: zone, coordinates, the time, day or night.
+- **Your minimap's buttons, without the clutter.** Addon buttons, the calendar and the clock are behind
+  one AddOns button by the gear, and the title shows what you pick: zone, coordinates, the time, day or night.
 - **Every kind of pin yours to tune.** Settings > Pins lists each one the map draws, with its icon: hide it,
   size it, fade it or pick another of Blizzard's icons for it, for all pins, a family or one kind.
 - **Works with Questie, HandyNotes and GatherMate.** Their pins show on the map, never twice. No other
@@ -47,7 +49,7 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 
 ## Install
 
-1. Get `MagicMap-v2.2.1.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest),
+1. Get `MagicMap-v3.0.0.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest),
    or install from [CurseForge](https://www.curseforge.com/wow/addons/magic-map).
 2. Unzip it into `World of Warcraft/_forever_/Interface/AddOns/`. Updating from 1.x? Delete the old
    `MagicMap` folder first.
@@ -60,8 +62,7 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 | --- | --- |
 | Zoom, pan | Mouse wheel or + / −; drag |
 | Big map | M |
-| Follow a quest | Click its pin |
-| Track an icon | Click it, then Track (or Path to, for the line) |
+| Track a quest or icon | Click it, then Track (or Path to, for the line); the pill's × stops |
 | Waypoint | Ctrl-click; right-click for more |
 | Settings | The gear, or `/mm settings` |
 | Back to Blizzard's minimap | `/mm` (again to switch back); `/mm help` for the rest |
@@ -70,8 +71,8 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 
 - WoW Forever only, English client, build 1.60.1.70862.
 - No arrow in dungeons and raids (the game hides your position there).
-- Blizzard's blips (herbs, ore, mailboxes...) show only around you, as on Blizzard's minimap, and fade out
-  zoomed out past its widest.
+- Blizzard's blips (herbs, ore, mailboxes...) show only around you, as on Blizzard's minimap: not on the
+  big map, not while a path's line is drawn, and not zoomed out past its widest.
 - May conflict with other minimap addons such as SexyMap. [More](docs/features.md#limits-in-detail).
 
 **Found a bug?** Type `/mm mark <what you saw>` when it happens, then
