@@ -32,6 +32,13 @@ local function Difficulty(lvl, trivial)
 	return trivial and GREY or GREEN
 end
 
+-- A quest's colour by its level against yours (the log's: Difficulty), for a quest not in the log (a giver's, in
+-- ui/BlipTip.lua): trivial where the log would grey it, about (TRIVIAL levels under yours).
+local TRIVIAL = 8
+function Model.QuestColor(lvl)
+	return Difficulty(lvl, level ~= nil and lvl <= level - TRIVIAL)
+end
+
 local function Same(a, b)
 	if a == b then return true end
 	local p, x = a.pin, b.pin
