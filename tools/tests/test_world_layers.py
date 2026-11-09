@@ -233,7 +233,7 @@ def test_view():
     assert chrome() == (False, False) and not view.window.big
     assert [view.layers[k] for k in ("flight", "quests", "pois")] == [True] * 3
     assert same(view.sockets.world, world) and same(view.sockets.minimap, mini) and not same(mini.frame, world.frame)
-    assert mini.level == UI.Window.view.GetFrameLevel(UI.Window.view) + 17  # under your arrow's overlay (18)
+    assert mini.level == UI.Window.view.GetFrameLevel(UI.Window.view) + 42  # over Blizzard's blips' overlay (the window's + 30): theirs keep the mouse
 
     def at_camera():
         cam, (w, h) = UI.Camera.cam, UI.Window.Size()

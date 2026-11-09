@@ -129,6 +129,7 @@ Runtime.Step("ui", "ui: view", function()
 	window.shown, window.place = shown, place
 	window.big, window.homeAlpha, window.strata, window.level = BigMap.big, BigMap.homeAlpha, strata, level
 	view.minimap, view.inst, view.button = mode, Camera.inst or 0, saved.button
+	view.pathing = UI.Path and UI.Path.drawing or false -- (the line laid out this frame or the last)
 	view.keep = UI.Resources.Keep() -- (the tracker Game keeps on: ui/Resources.lua, game/Keep.lua)
 	replace.minimap, replace.worldmap = rmin, rworld -- (Game: M is ours only while worldmap; ui/Replace.lua)
 	if UI.Sockets.Update(view) then view.frame = Runtime.frames end -- (the world socket, an addon's layer)

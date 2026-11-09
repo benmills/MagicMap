@@ -16,6 +16,8 @@
 -- (Path.COLORS, or any: "#rrggbb"), the ADD glow, the breath and its pace, an opacity, and the dark edge (the
 -- outline: on or off, its colour from Path.EDGE_COLORS, or any). A change (Feel.rev) restyles the pieces and lays
 -- the line out anew.
+-- While it's drawn (Path.drawing; View.pathing) Blizzard's blips step aside (game/Minimap.lua): the map zooms ours,
+-- smooth, no minimap steps to flicker against while the framing moves it.
 -- Off the view, the target gets a gold arrow on its edge, where the line toward it leaves (Path.lua:24-79).
 -- At the minimap's size the view frames you, the target and the way between (Motion.Frame: ui/Motion.lua pans and
 -- zooms, in as you near it as far as the map goes, gliding back to the zoom you had when it began (kept as
@@ -695,7 +697,9 @@ Runtime.Step("ui", "map: path", function()
 	end
 	local t, me, inst = Model.Target(), Model.you, Camera.inst
 	local n, arrow = 0, false
-	if t and not t.inside and me.col and not me.stale and me.inst == inst and t.pos.inst == inst and UI.Track.Pathed(t) then
+	Path.drawing = t and not t.inside and me.col and not me.stale and me.inst == inst and t.pos.inst == inst
+		and UI.Track.Pathed(t) or false
+	if Path.drawing then
 		local cam, w, h = Camera.cam, Window.Size()
 		n = Line(t, me, cam, w, h)
 		arrow = Arrow(t, me, cam, w, h)
@@ -722,6 +726,7 @@ Window.frame:HookScript("OnHide", Runtime.Wrap("map: path hidden", function()
 		Off(washes[i])
 	end
 	used, Path.pieces, drawn[1], shownWay, last.z, lay.half = 0, 0, nil, nil, nil, nil
+	Path.drawing = false
 	edge.on = false
 	edge:Hide()
 end))

@@ -454,7 +454,7 @@ Game.Apply("minimap", function(view)
 		Hold(Minimap)
 		if m.instance then
 			Instance(w, view)
-		elseif w.big then -- (the big map: no blips over it, your arrow ours)
+		elseif w.big or view.pathing then -- (the big map, or a path's line: no blips over it, your arrow and zoom ours)
 			m.maxZoom, m.stepsOn = nil, false
 			Hide(Minimap, w)
 		else

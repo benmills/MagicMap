@@ -23,7 +23,9 @@ local Camera, Window, Engine = UI.Camera, UI.Window, UI.Engine
 
 local CHROME = { rimArrows = false, questRing = false }
 local GAME = { flight = "flight", quests = "quests", pois = "areaPOIs" } -- View.layers' key -> our layer's
-local MINI = 17 -- the minimap socket's pins: under your arrow's overlay (18: ui/You.lua), over our pins
+-- Other addons' pins over everything on the map but the chrome: over our pins and arrow, and over Blizzard's blips
+-- (the overlay, game/Minimap.lua: the window's + 30, which takes the mouse for its tooltips) so theirs keep the mouse.
+local WORLD, MINI = 40, 42 -- the world socket's (its pins a level over it); the minimap socket's pins
 
 local Sockets = {}
 UI.Sockets = Sockets
@@ -36,7 +38,7 @@ Types.Add({ id = "addon", family = "addons", name = "Other addons'", size = fals
 local view = Window.view
 local canvas = CreateFrame("Frame", nil, view)
 canvas:SetSize(1, 1)
-canvas:SetFrameLevel(view:GetFrameLevel() + 10) -- over the names (9), under our pins (11 on), as AddonPins.lua:139
+canvas:SetFrameLevel(view:GetFrameLevel() + WORLD)
 local world = { frame = canvas, inst = 0, zoom = 0 }
 local around = CreateFrame("Frame", nil, view)
 around:SetSize(1, 1)

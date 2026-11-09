@@ -461,6 +461,8 @@ def test_path_frame():
     sim.Run(3)
     assert cam.zoom < z0 * 0.95 and framed(you.col, you.row) and framed(40.0, 49.0) and UI.Path.pieces > 0
     assert UI.saved.path.zoom == z0 and UI.Camera.follow
+    mm = ns.Model.minimap  # while the line's drawn Blizzard's blips step aside: our zoom, no steps (game/Minimap.lua)
+    assert mm.overlaid is None and mm.steps is None and ns.Game.minimap.engaged
     zf, cx = cam.zoom, cam.cx
     # Your drag holds it where you leave it, under the cursor however long; left alone 6 s, it comes back.
     sim.Drag(UI.Window.view, -200, 0)
