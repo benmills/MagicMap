@@ -376,13 +376,18 @@ end
 
 local function Lines(e) return e.name, e.text end
 
--- The title, then each line a fact: small, DIM, wrapping (ui/Tip.lua's look).
+-- The title, then the first line what it is (Tip.Sub: muted gold), the rest facts: small, DIM, wrapping (ui/Tip.lua's
+-- look).
 local function Fill(tip, pin, title, ...)
 	tip:AddLine((pin and pin.mark or "") .. (title or "?"), 1, 1, 1)
 	Tip.Title(Tip.Last(tip))
+	local first = true
 	for i = 1, select("#", ...) do
 		local line = select(i, ...)
-		if line then Tip.Fact(tip, line) end
+		if line then
+			if first then Tip.Sub(tip, line) else Tip.Fact(tip, line) end
+			first = false
+		end
 	end
 end
 

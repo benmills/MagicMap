@@ -140,7 +140,7 @@ def test_pin_tooltip_click_drag():
     same = L.eval("function(a, b) return a == b end")
     assert S[tip].shown and same(S[tip].owner, pin) and Pins.Hovered()[0].key == "t1" and Pins.Hovered()[1] == "test"
     assert S[line[1]].text == "|T136459:16:16|t  Pin 1" and S[line[2]].text == "Line 1"
-    assert list(S[line[2]].textColor.values()) == [0x9d / 255] * 3  # (ui/Tip.lua's DIM)
+    assert list(S[line[2]].textColor.values()) == list(ns.UI.Tip.SUB.values())  # what it is: ui/Tip.lua's SUB
     assert same(S[line[2]].fontObject, G.GameTooltipTextSmall)
     assert sim.calls.SetOwner - owners == 1  # built once a hover, not each frame
 

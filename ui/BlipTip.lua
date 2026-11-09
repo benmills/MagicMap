@@ -1,10 +1,11 @@
 -- Blizzard's blips' tooltips, ours (the overlay: game/Minimap.lua). While a blip is under the cursor, the names Game
 -- read there (obs.minimap.names: stacked blips each) in our pins' look (ui/Pins.lua's Fill): each a title, then what it
--- is in a muted gold (SUB), then its quests.
+-- is in a muted gold (Tip.Sub), then its quests.
 --   A gathering node's (Atlas.NodeKind: a herb or an ore, by name): led by the icon of what it gives (Atlas.NodeIcon), in
 --     the colour of your skill against it (Model.skills, Atlas.NodeSkill: the client's skill-up colours, red you can't
 --     gather it yet, then orange, yellow, green, grey when it no longer raises your skill; white where either isn't
---     known); its profession under it.
+--     known), the skill it needs in a pill of that colour beside it (Tip.Pilled, as a quest's level); its profession
+--     under it.
 --   An npc's (Atlas: the one of that name, exactly, that gives or takes a quest of yours, else one with a title): white,
 --     its title (subName: "General Goods") under it, then the quests it has for you, each in its difficulty's colour
 --     (Model.QuestColor) after its mark: "!" one to pick up (Known("offers")), "?" one of yours done to turn in.
@@ -19,7 +20,6 @@ local Tip, Window = UI.Tip, UI.Window
 local MARK = 18 -- px: the item icon before a node's name (its border cropped, as the bags show it)
 local QMARK = 14 -- px: a quest's "!" or "?"
 local LINE = { herb = "Herbalism", ore = "Mining" }
-local SUB = { 0.8, 0.7, 0.45 } -- what it is, under the title: a muted gold, between the title's white and DIM facts
 local WHITE = { 1, 1, 1 }
 local RED, ORANGE, YELLOW = { 1, 0.1, 0.1 }, { 1, 0.5, 0.25 }, { 1, 1, 0 }
 local GREEN, GREY = { 0.25, 0.75, 0.25 }, { 0.5, 0.5, 0.5 }
@@ -34,15 +34,17 @@ local function Difficulty(have, need)
 	return GREY
 end
 
-local function Sub(tip, text) tip:AddLine(text, SUB[1], SUB[2], SUB[3], true) end
-
 local function Node(tip, name, kind)
 	local icon, need, skills = Atlas.NodeIcon(name), Atlas.NodeSkill(name), Model.skills
 	local c = need and skills and Difficulty(skills[kind], need) or WHITE
 	local mark = icon and ("|T" .. icon .. ":" .. MARK .. ":" .. MARK .. ":0:0:64:64:5:59:5:59|t  ") or ""
-	tip:AddLine(mark .. name, c[1], c[2], c[3])
-	Tip.Title(Tip.Last(tip))
-	Sub(tip, LINE[kind])
+	if need then
+		Tip.Pilled(tip, mark .. name, need, c)
+	else
+		tip:AddLine(mark .. name, c[1], c[2], c[3])
+		Tip.Title(Tip.Last(tip))
+	end
+	Tip.Sub(tip, LINE[kind])
 end
 
 -- The quests to pick up (by id: its name) and of yours done (by id: true), from Known.
@@ -99,7 +101,7 @@ end
 local function Npc(tip, name, npc)
 	tip:AddLine(name, 1, 1, 1)
 	Tip.Title(Tip.Last(tip))
-	if npc.subName and npc.subName ~= "" then Sub(tip, npc.subName) end
+	if npc.subName and npc.subName ~= "" then Tip.Sub(tip, npc.subName) end
 	for _, id in ipairs(npc.questEnds or NONE) do
 		if done[id] then Line(tip, id, done[id], TURN_IN) end
 	end
