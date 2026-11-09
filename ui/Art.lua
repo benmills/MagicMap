@@ -24,7 +24,7 @@ local Art = {
 		{ "redbutton-expand-pressed-c60", "redbutton-expand-pressed" },
 		{ "redbutton-highlight-c60", "redbutton-highlight" },
 		"redbutton-condense", "redbutton-condense-pressed",        -- the mode button on the big map (the world map's pair)
-		"UI-RefreshButton",                                        -- ui/Controls.lua: the reset (RefreshButtonTemplate's)
+		{ "transmog-icon-revert", "talents-button-undo", "common-icon-undo", "uitools-icon-refresh", "UI-RefreshButton" }, -- the reset
 		"ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-in-down", "ui-hud-minimap-zoom-in-mouseover", -- the zoom buttons
 		"ui-hud-minimap-zoom-out", "ui-hud-minimap-zoom-out-down", "ui-hud-minimap-zoom-out-mouseover",
 		"deathrecap-icon-tombstone", "UI-QuestPoi-QuestNumber",       -- ui/You.lua: your corpse on the quest pins' disc

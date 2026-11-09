@@ -87,21 +87,24 @@ Controls.zoomIn, Controls.zoomOut = zoomIn, zoomOut
 
 -- Reset: above the zoom in (the gap the + and - keep), shown only while the map is off its default: not following you,
 -- or the zoom isn't the default (UI.DefaultZoom(), ui/View.lua); a click flies back to you at that zoom (Motion.Reset).
--- Blizzard's refresh arrows (the client's RefreshButtonTemplate's UI-RefreshButton, else its file) on a dark disc.
+-- A gold circular arrow as the + and - are gold glyphs: the first of Blizzard's the client has (a white one tinted the
+-- zoom buttons' gold), else its refresh button's arrows (RefreshButtonTemplate's UI-RefreshButton, else its file).
 local RESET_TOL = 1 -- px per tile: a zoom this close to the default is the default
+local GOLD_ARROWS = { "transmog-icon-revert", "talents-button-undo" }
+local WHITE_ARROWS = { "common-icon-undo", "uitools-icon-refresh" }
+local ZOOM_GOLD = { 1, 0.82, 0 }
 local zoomReset = CreateFrame("Button", nil, Chrome.controls)
 zoomReset:SetSize(18, 18)
 zoomReset:SetPoint("BOTTOM", zoomIn, "TOP", 0, 2)
 do
-	local disc = zoomReset:CreateTexture(nil, "BACKGROUND")
-	disc:SetTexture(Chrome.CIRCLE)
-	disc:SetVertexColor(0, 0, 0, 0.65)
-	disc:SetAllPoints()
-	local refreshAtlas = FirstAtlas("UI-RefreshButton")
+	local gold, white = FirstAtlas(unpack(GOLD_ARROWS)), FirstAtlas(unpack(WHITE_ARROWS))
+	local refresh = not (gold or white) and FirstAtlas("UI-RefreshButton")
 	for _, layer in ipairs({ "ARTWORK", "HIGHLIGHT" }) do
 		local arrows = zoomReset:CreateTexture(nil, layer)
-		if refreshAtlas then arrows:SetAtlas(refreshAtlas) else arrows:SetTexture("Interface\\Buttons\\UI-RefreshButton") end
-		arrows:SetSize(12, 12)
+		local atlas = gold or white or refresh
+		if atlas then arrows:SetAtlas(atlas) else arrows:SetTexture("Interface\\Buttons\\UI-RefreshButton") end
+		if white then arrows:SetVertexColor(unpack(ZOOM_GOLD)) end
+		arrows:SetSize(16, 16)
 		arrows:SetPoint("CENTER")
 		if layer == "HIGHLIGHT" then arrows:SetBlendMode("ADD") end
 	end

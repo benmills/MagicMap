@@ -232,6 +232,10 @@ local clip = CreateFrame("Frame", nil, UIParent)
 clip:SetClipsChildren(true)
 local clipAt
 local function Clip(mm, p, w)
+	if m.noclip then -- (/mm overlay clip: off, to see whether the clip shifts its drawing)
+		if mm:GetParent() == clip then mm:SetParent(UIParent); clipAt = nil end
+		return
+	end
 	if clipAt ~= p then
 		clipAt = p
 		clip:ClearAllPoints()
@@ -430,16 +434,22 @@ function Mouse(on)
 	end
 end
 
-Game.Slash("overlay", "the blips' overlay (Blizzard's Minimap over the map): where it is, why it hides", function()
+Game.Slash("overlay", "the blips' overlay (Blizzard's Minimap over the map): where it is, why it hides; clip: its clipping off/on", function(args)
 	local mm = Minimap
+	if args == "clip" then
+		m.noclip, placed = not m.noclip, nil
+		Game.Say("overlay clipping " .. (m.noclip and "off" or "on"))
+		return
+	end
 	local l, b, w, h = mm:GetRect()
 	Game.Say(("overlay: rect %s %s %s %s, UI %dx%d, zoom %d, radius %s, put %s"):format(
 			tostring(l and math.floor(l)), tostring(b and math.floor(b)), tostring(w and math.floor(w)),
 			tostring(h and math.floor(h)), UIParent:GetWidth(), UIParent:GetHeight(), mm:GetZoom(),
 			tostring(C_Minimap.GetViewRadius()),
 			(placed and placed.overlay and ("centre %d, %d, half %d"):format(placed.x, placed.y, placed.half) or "-")
-				.. (", need %s, room %s, alpha %.2f, odd radius %s, instance %s"):format(tostring(m.need and math.floor(m.need)),
-				tostring(m.room and math.floor(m.room)), mm:GetAlpha(), tostring(m.odd), tostring(m.instance))))
+				.. (", need %s, room %s, alpha %.2f, odd radius %s, instance %s, clipped %s, window %dx%d"):format(tostring(m.need and math.floor(m.need)),
+				tostring(m.room and math.floor(m.room)), mm:GetAlpha(), tostring(m.odd), tostring(m.instance),
+				tostring(mm:GetParent() == clip), clipAt and clipAt.w or 0, clipAt and clipAt.h or 0)))
 end)
 
 Game.Apply("minimap", function(view)
