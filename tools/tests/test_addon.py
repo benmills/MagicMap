@@ -62,14 +62,14 @@ def test_spike_saved():
     MagicMapLandmarks with 300 blips and 25 rares on two maps) before ours loads. Nothing reads it: MagicMap2DB starts
     fresh, the spike's rares aren't ours; our heap after a full collect stays under 64 MB, and /mm and /magicmap work.
     The client writes back only MagicMap2DB, so after a /reload the spike's data is gone."""
-    from test_blips import lua_tools
+    from fixtures import lua_tools
     with open(SPIKE_SV, encoding="utf-8") as f:
         L, sim, ns = boot(f.read())
     G = L.globals()
     spike = L.eval("function() local n = 0; for _ in pairs(MagicMapLandmarks[0]) do n = n + 1 end; return n end")
     assert len(G.MagicMapDB.blipLog) == 600 and spike() == 325
     db = G.MagicMap2DB
-    assert set(db.keys()) == {"Game", "UI", "Model", "telemetry", "validation", "recording"}
+    assert set(db.keys()) == {"Game", "UI", "Model", "telemetry", "validation"}
     assert all(db[k]._v == 1 for k in db.keys()) and not next(iter(db.Model.rares.keys()), None)
     sim.Slash("/mm toggle")  # a new install: the welcome first, nothing replaced yet
     assert ns.UI.Welcome.frame.IsShown(ns.UI.Welcome.frame) and not ns.UI.Replace.Chosen()
@@ -107,7 +107,7 @@ def test_boundaries(capsys):
     # fields, named frames (a comment's isn't one), a QuestPOIFrame made or asked outside POI_FILES
     poi = 'CreateFrame("QuestPOIFrame", nil, c)\nlocal q = f:UpdateMouseOverTooltip(x, y)\n'
     ui = luacheck.ns_problems("ui/X.lua", 'local R = ns.Runtime\nR.On("PLAYER_LOGIN", "x", f)\nns.Runtime.Trace = f\n'
-                              'ns.Model.Observe({}, {})\nns.Model.Known("blips")\n'
+                              'ns.Model.Observe({}, {})\nns.Model.Known("rares")\n'
                               'CreateFrame("Frame", "Foo", UIParent) -- CreateFrame("Frame", "Bar")\n' + poi, set())
     assert [p.split(": ", 1)[0] for p in ui] == ["ui/X.lua:2", "ui/X.lua:4", "ui/X.lua:3", "ui/X.lua:6", "ui/X.lua:7",
                                               "ui/X.lua:8"], ui
@@ -148,7 +148,7 @@ def test_open_fields_nil():
     assert ns.Game.minimap.engaged
     marks = L.globals().MagicMap2DB.telemetry.marks
     assert marks[len(marks)].note == "bare" and marks[len(marks)].state.map is None  # no diag
-    kinds = ["blips", "rares", "quests", "offers", "places", "group", "corpse", "waypoint", "vignettes", "services"]
+    kinds = ["rares", "quests", "offers", "places", "group", "corpse", "waypoint", "vignettes"]
     for kind in kinds:
         items, rev = ns.Model.Known(kind)
         assert isinstance(rev, (int, float)), kind

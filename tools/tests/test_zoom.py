@@ -13,7 +13,7 @@ import pytest
 
 from test_addon import boot, errors
 
-LAYERS = ("map: tiles", "map: labels", "map: blips", "map: rares")
+LAYERS = ("map: tiles", "map: labels", "map: rares")
 
 
 def shown():

@@ -5,7 +5,7 @@
 --   worldmap M opens our big map (Game hears it: game/Hooks.lua reads View.replace). Off: M is Blizzard's.
 -- Neither: nothing of Blizzard's is touched; the minimap button, the addon compartment and /mm open and close
 -- our big map as a window of its own. A fresh install is that until the welcome is answered. The Minimap
--- is borrowed as the blips' sensor whenever our window is shown, whatever the mode (game/Minimap.lua).
+-- is borrowed as the blips' overlay whenever our window is shown, whatever the mode (game/Minimap.lua).
 -- API: Replace.Get(key), Replace.Set(key, on) (live: shows or hides the window as the mode says; saves),
 -- Replace.Chosen(); Replace.Load(saved, fresh) is View's, at load (migration). Both are switches in
 -- Settings > General > Blizzard's maps (ui/Feel.lua; kept here, so a reset leaves them).

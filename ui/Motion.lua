@@ -367,7 +367,7 @@ local function StepFrame(elapsed)
 	local fit = math.min(aw / math.max(c1 - c0, 1 / CHUNKS), ah / math.max(r1 - r0, 1 / CHUNKS)) -- /: never 0 (at least a chunk)
 	local want = Clamp(fit / FRAME_OUT, MIN_ZOOM, cap)
 	-- Progressively, as following pans: every frame a share of the way to the zoom that frames it (fz), which moves
-	-- once it's a FRAME_STEP off (settled between: the layouts and the blip sensor redo their work only while the
+	-- once it's a FRAME_STEP off (settled between: the layouts redo their work only while the
 	-- zoom moves; no flicker across a step as you walk to and fro).
 	if not fz or want >= cap and fz < cap or math.abs(math.log(want) - math.log(fz)) >= LOG_STEP then fz = want end
 	local z, lg = cam.zoom, math.log(fz)

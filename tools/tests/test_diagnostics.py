@@ -1,5 +1,5 @@
-"""The spike's diagnostics (M4.6, parity F54): /mm blips, tiles, landmarks, debug, perf, perf top, perf mem
-print as the spike's do (Core.lua, Blips.lua, Landmarks.lua, Perf.lua); an unknown name or zone alone
+"""The spike's diagnostics (M4.6, parity F54): /mm tiles, landmarks, debug, perf, perf top, perf mem
+print as the spike's do (Core.lua, Landmarks.lua, Perf.lua; not /mm blips: the sensor's, gone); an unknown name or zone alone
 answers with its one usage line; the gear's Advanced runs the same code (the `run` Command); the title's
 debug line (Core.lua:1305-1313)."""
 import os
@@ -13,7 +13,7 @@ with open(os.path.join(S.TESTS, "..", "..", "Data", "Tiles.lua")) as f:
 
 SAY = "|cffffd100MagicMap|r: "
 USAGE = SAY + ("/mm [toggle] | follow | map <id|name> | zone <name> | icon | tiles | layers | landmarks"
-               " | blips | indoor | perf | debug | reset")
+               " | indoor | perf | debug | reset")
 DEBUG = re.compile(r"\|cff777777(\d+)_(\d+)  (\d+|-)  zoom (\d+)  " + re.escape(BUILD) + r"\|r$")
 
 
@@ -27,12 +27,8 @@ def said(s, line):
 
 def test_commands():
     s = S.boot()
-    s.blips([("Mailbox", 40, 20)])
     s.slash("/mm toggle")
     s.run(6)
-    blips = said(s, "/mm blips")  # (the square as the sensor refined it, from 8)
-    assert re.fullmatch(re.escape(SAY) + r"blips: 1 known, answer square \d\.\d\d screen units each way", blips[0])
-    assert blips[1:] == [SAY + "  Mailbox +40.0E +20.0N"]
     tiles = said(s, "/mm tiles")
     assert len(tiles) == 1 and tiles[0].startswith(SAY + "tile set: " + PRODUCT + " " + BUILD + ". Maps: Eastern "
                                                    "Kingdoms (736), Kalimdor (987), Shadowfang Keep (25),")

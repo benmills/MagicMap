@@ -1,11 +1,11 @@
 -- The pin inventory (#16): every kind of pin the map draws, each declared by the file that draws it, next to the look
--- it draws (Types.Add: ui/Blips.lua's from Atlas.BLIP_ART, ui/Quests.lua's, ui/Rares.lua's, ui/Places.lua's from its
+-- it draws (Types.Add: ui/Quests.lua's, ui/Rares.lua's, ui/Places.lua's from its
 -- KINDS, ui/You.lua's corpse and waypoint, ui/Group.lua's party dot, ui/Sockets.lua's other addons'), and Settings >
 -- Pins built from them, so a new type is on the page by being declared. A type is { id, family, name, look (its
 -- look, StylePin's: the page draws it so), icons? (Blizzard's art for it, { label, value } each, the first today's: a
 -- value "A:<atlas>", a FileDataID or a path), groups? (it may stand in a pill: ui/Cluster.lua), size = false (no size:
 -- other addons' pins, never scaled), big? ("always": its big-map rule, not its family's), tip }. Families, in the
--- page's order: Quests, Services, Vendors, Resources, Rares & treasures, Party, Places, Addons, Other.
+-- page's order: Quests, Rares & treasures, Party, Places, Addons, Other.
 -- Three levels: All pins (Show pins, Pin size: "icons.scale", the Icons page's, Pin opacity), a family (its row: show,
 -- and under it its size and opacity), a type (its row: its art drawn as on the map and show; under it its size,
 -- opacity, icon and grouping). A type's value, until set, is its family's, and a family's All's (Feel's inherited
@@ -40,8 +40,7 @@ local LOG_STEP = math.log(STEP)
 local BIG = { { "Always", "always" }, { "Zoomed in", "zoomed" } }
 
 local FAMILIES = {
-	{ key = "quests", name = "Quests", big = "always" }, { key = "services", name = "Services" }, { key = "vendors", name = "Vendors" },
-	{ key = "resources", name = "Resources" }, { key = "rares", name = "Rares & treasures" },
+	{ key = "quests", name = "Quests", big = "always" }, { key = "rares", name = "Rares & treasures" },
 	{ key = "party", name = "Party", size = 1, big = "always" }, -- (its dots kept their size whatever the icon size: 100% of their own)
 	{ key = "places", name = "Places" }, { key = "addons", name = "Addons", noSize = true, noBig = true },
 	{ key = "other", name = "Other" },

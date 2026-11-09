@@ -1,5 +1,5 @@
 -- The one pin store (spike-bugs D1: every pin drawn from one store, diffed by id). Each kind of pin
--- (blips, rares; quests, offers and the rest to come) is an Engine "pin" layer made with Pins.Layer,
+-- (rares, places, quests, offers, ...) is an Engine "pin" layer made with Pins.Layer,
 -- its Model.Known entries put by key: a layout keeps the pin its canvas showed for that key
 -- (Engine.Keep) and sets only what changed, its look (StylePin, Layers.lua:343-400: each setter
 -- called only when its value differs) and its place (Engine.At, when its tile, the canvas's zoom or
@@ -15,8 +15,6 @@
 -- (ui/Window.lua); none while the popup stands. A click on a pin, left or right, grows its tooltip into the popup
 -- (ui/Popup.lua), its buttons the pin's actions (ui/Track.lua: Track, Path to, their Stops); every pin layer's rev carries Track's
 -- (what you track is never held back to a closer zoom), so a change lays them out again.
--- A look may carry a tint (look.tint, a resource pin's difficulty: ui/Blips.lua): its icon desaturated, then that
--- colour.
 
 local _, ns = ...
 local UI, Runtime, Model = ns.UI, ns.Runtime, ns.Model
@@ -151,24 +149,17 @@ local function Shown(r, on)
 		r:SetShown(on)
 	end
 end
-local function Desaturated(t, on)
-	if t.desat ~= on then
-		t.desat = on
-		t:SetDesaturated(on)
-	end
-end
 
 -- look: { type? (its style's: ui/PinTypes.lua), size? (14), fixed? (not scaled by the settings),
--- tint? = { r, g, b }, icon? = { texture | atlas, alt?, coords?, under?, tint?, inner?, scale?, aspect?, color? },
+-- icon? = { texture | atlas, alt?, coords?, under?, tint?, inner?, scale?, aspect?, color? },
 -- count? }: (a) a texture (coords: its part, a cell of a sheet), bare; (b) an atlas, at its own aspect
 -- (aspect: its width over height, else the client's); (c) an atlas over its under atlas tinted, the inner
 -- texture in it; (d) else (an atlas the client lacks too, and no alt: the look drawn instead when the atlas is
--- missing) a dot of its colour on a dark ring; count: a line under it. tint: (a) and (b) desaturated then that
--- colour (whichever icon its type chose; its opacity the pin's), (d) its dot that colour.
+-- missing) a dot of its colour on a dark ring; count: a line under it.
 -- The pin's icon as inline markup before its tooltip's title (16 px, its own proportions, two spaces after): a
 -- texture whole, an atlas the client has; none for a sheet's cell, a disc's atlas (a quest's: its tooltip has its
 -- own look) or a dot. One string an icon.
-local MARK, ITEM_MARK = 16, 18
+local MARK = 16
 local marks = {} -- its art (a file or an atlas) -> its markup, or false
 local function Mark(icon)
 	if icon.coords or icon.under then return false end
@@ -187,12 +178,6 @@ local function Mark(icon)
 	return m
 end
 
--- An item's icon as that markup (its border cropped, as the bags show it): a resource's tooltip leads with what it
--- gives (ui/Blips.lua).
-function Pins.ItemMark(fileID)
-	return "|T" .. fileID .. ":" .. ITEM_MARK .. ":" .. ITEM_MARK .. ":0:0:64:64:5:59:5:59|t  "
-end
-
 local function Style(pin, look)
 	local st = Of(look.type)
 	local size, icon = (look.size or SIZE) * (look.fixed and 1 or st.size), st.icon or look.icon or NONE
@@ -202,7 +187,7 @@ local function Style(pin, look)
 	end
 	if icon.alt and not icon.texture and not (icon.atlas and Has(icon.atlas)) then icon = icon.alt end -- (an atlas the client lacks: its alt)
 	pin.psize = size
-	pin.mark, pin.markColor = look.mark or Mark(icon), look.tint -- (its tooltip's title: Fill)
+	pin.mark = Mark(icon) -- (its tooltip's title: Fill)
 	Size(pin, size, size)
 	if look.count or pin.count then
 		local fs = Count(pin)
@@ -211,12 +196,10 @@ local function Style(pin, look)
 			fs:SetText(look.count)
 		end
 	end
-	local i, inner, tint = pin.icon, false, look.tint
-	local t = tint or WHITE
-	Desaturated(i, tint ~= nil)
+	local i, inner = pin.icon, false
 	if icon.texture then -- (a)
 		File(i, icon.texture, icon.coords)
-		Color(i, t[1], t[2], t[3], 1)
+		Color(i, 1, 1, 1, 1)
 		Size(i, size, size)
 		Shown(pin.ring, false)
 	elseif icon.atlas and Has(icon.atlas) then
@@ -243,9 +226,9 @@ local function Style(pin, look)
 			Size(i, Fit(size, icon.aspect or Aspect(icon.atlas)))
 			Shown(pin.ring, false)
 		end
-		Color(i, t[1], t[2], t[3], 1)
+		Color(i, 1, 1, 1, 1)
 	else -- (d)
-		local r, c = Ring(pin), tint or icon.color or WHITE
+		local r, c = Ring(pin), icon.color or WHITE
 		File(r, CIRCLE)
 		File(i, CIRCLE)
 		Shown(r, true)
@@ -395,8 +378,7 @@ local function Lines(e) return e.name, e.text end
 
 -- The title, then each line a fact: small, DIM, wrapping (ui/Tip.lua's look).
 local function Fill(tip, pin, title, ...)
-	local c = pin and pin.markColor or WHITE -- (a resource's title in its difficulty's colour, as its icon)
-	tip:AddLine((pin and pin.mark or "") .. (title or "?"), c[1], c[2], c[3])
+	tip:AddLine((pin and pin.mark or "") .. (title or "?"), 1, 1, 1)
 	Tip.Title(Tip.Last(tip))
 	for i = 1, select("#", ...) do
 		local line = select(i, ...)
@@ -497,17 +479,10 @@ Window.view:HookScript("OnLeave", Runtime.Wrap("map: pins left", function()
 	Hover(nil)
 end))
 
--- TEMPORARY (/mm overlay): every pin layer hidden, no pin hovers: Blizzard's blips alone.
-local blanked = false
 Runtime.Step("ui", "map: pins", function()
 	local pin, at
 	local mm = Model.minimap
-	local blank = mm and mm.overlay == true
-	if blank ~= blanked then
-		blanked = blank
-		for _, l in ipairs(layers) do l.layer.frame:SetAlpha(blank and 0 or 1) end
-	end
-	if not blank and (inside or mm and mm.mouse) and not (mm and mm.blip) then -- (through the overlay; a blip's tooltip first)
+	if (inside or mm and mm.mouse) and not (mm and mm.blip) then -- (through the overlay; a blip's tooltip first)
 		local x, y = Window.Cursor()
 		local w, h = Window.Size()
 		pin, at = Under(x - w / 2, y - h / 2)

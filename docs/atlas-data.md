@@ -49,7 +49,7 @@ D.Tiles = { ... }
 - **ID lists** are plain arrays `{ id, id, ... }`; omitted when empty.
 - **Faction** is `"A"`, `"H"`, `"AH"` (both) or nil (neither / not set).
 - **Names** are enUS for now.
-- QuestieDB-derived files (`Npcs`, `Objects`, `Items`, `Quests`, `BlipServices`) are generated
+- QuestieDB-derived files (`Npcs`, `Objects`, `Items`, `Quests`) are generated
   from the user's installed QuestieDB and committed: QuestieDB's data comes from Questie, and both
   allow copying under GPLv3, MagicMap's licence (NOTICE.md; D1). QuestieDB's test and placeholder
   entities ("TEST WOLF (ALPHA FIRST)", "[PH] ...", "... UNUSED", "<NYI> ...") are dropped, and every
@@ -192,7 +192,7 @@ its length in memory, a table of tables about four times its text (the four file
 7.2 MB as strings, measured in Lua 5.1). Atlas decodes a row (`loadstring`) the first time it's asked
 for (`Atlas.Npc`, `Atlas.Quest`, ...) and keeps it. The scans that would decode every row use
 `D.NpcLists` (in Data/Npcs.lua): `rare[inst]` the rank 2 or 4 NPCs spawning there (`Atlas.Rares`),
-`flagged[inst]` those with npcFlags (`Atlas.ServiceSpawns`); `Atlas.Find` reads a row's name off its
+`flagged[inst]` those with npcFlags (no reader since the town services' pins went); `Atlas.Find` reads a row's name off its
 string. The layouts below are the decoded tables.
 
 ### Data/Npcs.lua — `ns.Data.Npcs` (QuestieDB, GPLv3: NOTICE.md)
@@ -206,7 +206,7 @@ string. The layouts below are the decoded tables.
 - Diet: an NPC is kept when it has a spawn on an open-world map (Data/Tiles.lua: no kind; not a
   battleground), or a kept quest names it (startedBy, finishedBy, objectives, its own questStarts /
   questEnds), or a kept item does (npcDrops, vendors), or it is rare (rank 2, 4) or has a service
-  flag (BlipServices'). About 9,600 of 13,200.
+  or flight master flag. About 9,600 of 13,200.
 
 ### Data/Objects.lua — `ns.Data.Objects` (QuestieDB, GPLv3: NOTICE.md)
 `[objectID] = { name, kind, questStarts, questEnds, spawns, instances }`
@@ -232,31 +232,13 @@ string. The layouts below are the decoded tables.
 - zone: areaID (QuestieDB zoneOrSort > 0); sort: QuestSort (zoneOrSort < 0, negated).
 - triggerEnd = `{ text, spawns }` (spawns as point lists per inst).
 
-### Data/BlipServices.lua — `ns.Data.BlipServices` (QuestieDB, GPLv3: NOTICE.md)
-`[name] = { service, title }`: what a Minimap blip whose tooltip says `name` is (format 2).
-- service: `"innkeeper"`, `"banker"`, `"auctioneer"`, `"stablemaster"`, `"battlemaster"`, `"trainer"`,
-  `"classtrainer"`, `"repair"`, `"questgiver"`, `"questender"`, `"flightmaster"` or `"mailbox"`; nil: none.
-- As the spike's Blips.lua Kind(): the NPC of that name with the lowest id (LibQuestieDB's
-  `IdsByName(name)[1]`), its first service flag in the spike's order
-  (128 innkeeper, 256 banker, 4096 auctioneer, 8192 stable master, 2048 battlemaster, 16 trainer,
-  16384 repair), else `"questgiver"` if it starts a quest, else `"questender"` if it ends one (the "?",
-  Blips.lua:435), else `"flightmaster"` (flag 8); and `Mailbox` = `"mailbox"`. A trainer whose subName holds
-  a class name is `"classtrainer"` (the spike's CLASS_TRAINER icon, Blips.lua:395-403).
-- title: that NPC's subName (`"Innkeeper"`, `"General Supplies"`), the sensed blip's tooltip line
-  (Blips.lua:436); nil: none. Names with neither aren't listed.
-- `Atlas.BlipTitle(name)` → title or nil.
-- `Atlas.BlipService(name)` → service or nil; without any data, `"herb"` and `"ore"` for gathering
-  nodes by name (the spike's HERBS list, ` Vein` / ` Deposit`: enUS, Blips.lua:364-371, 423-426).
-
 The QuestieDB-derived files are read through `Atlas.Npc(id)` (+ `services` from flags),
-`Atlas.Object(id)`, `Atlas.Item(id)`, `Atlas.Quest(id)`, `Atlas.BlipService(name)`, `Atlas.BlipTitle(name)`,
+`Atlas.Object(id)`, `Atlas.Item(id)`, `Atlas.Quest(id)`,
 `Atlas.Find(kind, text, limit, step)`, `Atlas.SpawnsIn(kind, inst, c0, r0, c1, r1, filter, step)`,
-`Atlas.ServiceSpawns(inst, step)` (the town services' spawns only, as `[tile key] = { id, col, row, ... }`:
-model/Services.lua's index, built once per inst),
 `Atlas.Rares(inst, step)` and `Atlas.QuestSources(questID)` (a quest Atlas lacks: no objectives).
-Those that walk every row (Find's names and its scan, SpawnsIn's, ServiceSpawns' and Rares' first use per
+Those that walk every row (Find's names and its scan, SpawnsIn's and Rares' first use per
 inst) call `step` every 128 rows, for a `Runtime.Job` (docs/structure.md "Atlas first use");
-there is no name → NPC index at runtime (BlipServices is that answer, offline).
+there is no name → NPC index at runtime.
 
 ### Data/Interiors.lua — `ns.Data.Interiors` (obj0 MODF, root ADT MCVT, WMO roots and rooms, WMOMinimapTexture, WMOAreaTable)
 The buildings with indoor minimap pictures on the open-world maps Data/Tiles.lua lists (ADR 0008),

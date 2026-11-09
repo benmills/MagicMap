@@ -9,8 +9,6 @@ game/Minimap.lua
 game/AddonPins.lua
 game/Tracking.lua
 game/Keep.lua
-game/Blips.lua
-game/Record.lua
 game/Validate.lua
 game/Bench.lua
 game/Home.lua

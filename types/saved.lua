@@ -37,7 +37,6 @@
 ---@field Model? MM.SavedModel
 ---@field telemetry? MM.SavedTelemetry
 ---@field validation? MM.SavedValidation
----@field recording? MM.SavedRecording
 
 ---@class MM.SavedPart
 ---@field _v integer
@@ -79,7 +78,6 @@
 ---@class MM.SavedModel: MM.SavedPart
 ---@field _v 1
 ---@field rares table<MM.Inst, table<string, MM.SavedRare>>  key "npc:<id>", else "at:<col*64 rounded>:<row*64 rounded>"
----@field blips table<MM.Inst, table<string, MM.SavedBlip>>  key "<name>:<col*64 rounded>:<row*64 rounded>"; at most 5000 an instance (D6: ADR 0004 amendment), the oldest dropped
 
 ---@class MM.SavedRare
 ---@field name string
@@ -87,14 +85,6 @@
 ---@field col MM.Col
 ---@field row MM.Row
 ---@field t MM.Epoch   last seen
-
----A blip seen (a mailbox, a town service), for when you're away.
----@class MM.SavedBlip
----@field name string
----@field icon MM.FileID   the tracking icon it was matched to: shown only while that tracking is on
----@field col MM.Col
----@field row MM.Row
----@field t MM.Epoch       last seen
 
 -- telemetry (docs/telemetry.md is the full contract; tools/telemetry.py reads it) ---
 
@@ -114,10 +104,3 @@
 ---@field counts table<string, integer>
 ---@field log table[]
 ---@field dropped integer
-
--- recording (game/Record.lua: /mm record, a dev tool for replaying Model) ----------
-
----@class MM.SavedRecording: MM.SavedPart
----@field _v 1
----@field on boolean
----@field obs table[]   observations as handed to Model (you, blips, frame, t, epoch), one per change in what the sensor knows; capped

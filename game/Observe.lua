@@ -3,7 +3,7 @@
 -- in registration order (game/parts/files.txt: you first), so a part may
 -- read those before it; false comes through (known none), nil is keep. Each part and
 -- Model.Observe is its own wrapped call ("game.part <name>", "model.observe"): timed and
--- its KB counted apart (perf.alloc tells the sensor from Model), and isolated (a failing
+-- its KB counted apart (perf.alloc tells the parts from Model), and isolated (a failing
 -- part leaves its field nil this frame, or keep: the table a per-frame part refills, so
 -- `you` is always there; the rest and Model still run). game.observe only calls them.
 -- Events are only buffered by their handlers; parts read here, so Model sees one

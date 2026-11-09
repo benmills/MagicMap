@@ -13,7 +13,7 @@ from lupa import lua51
 
 import fixtures
 from test_addon import TESTS, boot, errors
-from test_blips import ROOT, lua_tools
+from fixtures import ROOT, lua_tools
 
 
 def test_fidelity():

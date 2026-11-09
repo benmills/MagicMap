@@ -15,7 +15,7 @@ local UI, Model = ns.UI, ns.Model
 local Pins, Menus, Engine = UI.Pins, UI.Menus, UI.Engine
 local LayerOn = Engine.LayerOn
 
-local LEVEL = 11 -- with the rares (the spike's landmarks): under the blips (12)
+local LEVEL = 11 -- with the rares (the spike's landmarks)
 local GOLD = { 1, 0.82, 0 } -- a flight point's, neutral (Layers.lua:459)
 local FACTION = { H = { 0.9, 0.2, 0.2 }, A = { 0.3, 0.5, 1 } } -- Layers.lua:459
 local VIGNETTE = { size = 20, color = { 1, 0.4, 0.3 }, line = "Nearby now", sample = "vignetteloot" } -- Landmarks.lua:94-95

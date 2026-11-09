@@ -7,7 +7,7 @@ still comes back to the small rect. L4: logging out or hiding while big (moved m
 mid-chase) keeps the small rect and zoom; a moved and sized window stays put through hiding and a
 reload. The big one, moved, grows back there after a reload."""
 from test_addon import boot, errors
-from test_blips import lua_tools
+from fixtures import lua_tools
 from test_chrome import SEP, fresh, rect
 
 
@@ -85,6 +85,8 @@ def test_bigmap():
     # the big window was dragged; hidden while big, it comes back small.
     sim.Wheel(UI.Window.view, -1)
     sim.Step()
+    goal = UI.Motion.Goal()[0]  # (followed: the overlay's next step out, at once; else the wheel's glide, 1.3 a notch)
+    assert goal < 150
     sim.Press("M")
     sim.Run(0.4)
     sim.FireScript(f, "OnDragStart", "LeftButton")
@@ -92,7 +94,6 @@ def test_bigmap():
     f.SetPoint(f, "TOPLEFT", G.UIParent, "BOTTOMLEFT", 300, 950)
     sim.FireScript(f, "OnDragStop")
     sim.FireEvent("PLAYER_LOGOUT")
-    goal = 150 / 1.3
     assert near(tuple(saved.window[k] for k in ("left", "top", "w", "h")), small) and abs(saved.zoom - goal) < 1e-9
     sim.Slash("/mm toggle")
     assert not f.IsShown(f) and not big.big and near(rect(f), small) and abs(cam().zoom - goal) < 1e-9

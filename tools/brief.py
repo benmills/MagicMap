@@ -248,7 +248,7 @@ def type_blocks() -> list[dict]:
             while j < len(lines) and lines[j].startswith("---"):
                 j += 1
             names = re.findall(r"^---@(?:class|alias)\s+([\w.]+)", "\n".join(lines[i:j]), re.M)
-            if not names:  # a kind told in words only: ---Known("blips"): ...
+            if not names:  # a kind told in words only: ---Known("rares"): ...
                 names = ["MM.Known" + k.capitalize() for k in re.findall(r'Known\("(\w+)"\)', "\n".join(lines[i:j]))]
             if j < len(lines):
                 fn = re.match(r"function\s+([\w.]+)", lines[j])

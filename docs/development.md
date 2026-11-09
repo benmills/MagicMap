@@ -21,7 +21,7 @@ in its output's header. Run them in this order: gen_tilecolor and gen_interiors 
 reads Data/UiMaps.lua from gen_world and gen_world's ItemIcons reads gen_questie's
 Data/Items.lua (the data diet), so gen_world runs again after it; gen_labels reads Anchors,
 Places, Areas, UiMaps, Tiles and Walk, so it runs last. The rest are independent. gen_questie's
-five files (Npcs, Objects, Items, Quests, BlipServices) come from QuestieDB and Questie, used under
+four files (Npcs, Objects, Items, Quests) come from QuestieDB and Questie, used under
 their GPLv3 terms (NOTICE.md); they're committed like the rest.
 
     W="/Applications/World of Warcraft"
@@ -62,10 +62,9 @@ restart it, not `/reload`), then:
   with the minimap replaced the map sits on the Minimap's spot from login (`/mm` or the minimap button hides and
   shows it, M grows it into the big map, `/mm reset` puts it back); the settings are the gear's Settings, `/mm feel`,
   or Game menu -> Options -> AddOns -> MagicMap
-- with the map shown, Blizzard's Minimap becomes an unseen sensor and its blips (mailboxes,
-  herbs, services) are drawn on the map; `/mm minimap blizzard` gives it back, `/mm layer <name>`
-  toggles a layer, `/mm record on|off` keeps the observations for Model replay tests
-  (flow: docs/structure.md "One flow end to end")
+- with the map shown, Blizzard's Minimap draws its blips over the map (the overlay: `/mm overlay` says
+  where it sits and why it hides); `/mm minimap blizzard` gives it back, `/mm layer <name>`
+  toggles a layer (flow: docs/structure.md "One flow end to end")
 - `/mm perf load`: Atlas's load cost (ms, KB) and time per step / event / timer / job
 - `/mm errors`: errors caught so far (each is also printed once when it happens)
 

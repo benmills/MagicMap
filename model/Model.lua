@@ -10,8 +10,8 @@
 -- this frame's, as handed (nil: the client gave nothing).
 -- Model.hooked, Model.minimap: this frame's obs.hooked and obs.minimap, handed on unchanged
 -- (UI reads them the same frame). Model.addons: obs.addons, the last handed ({} until then); Model.levels,
--- Model.tracking, Model.build, Model.skills, Model.buttons, Model.clock: obs.levels, obs.tracking, obs.build, obs.skills,
--- obs.buttons, obs.clock so (build, skills, clock: nil until then). Model.explored, Model.exploredCells, Model.interior:
+-- Model.tracking, Model.build, Model.buttons, Model.clock: obs.levels, obs.tracking, obs.build, obs.buttons,
+-- obs.clock so (build, clock: nil until then). Model.explored, Model.exploredCells, Model.interior:
 -- obs.explored, obs.exploredCells, obs.interior, the last handed (nil until then; interior false: in no
 -- building): UI's inspector and the building's rooms.
 --
@@ -23,7 +23,7 @@ local Model = ns.Model or {}; ns.Model = Model
 
 local NONE = {}
 Model.you, Model.hooked, Model.addons, Model.levels, Model.tracking, Model.buttons = {}, NONE, NONE, NONE, NONE, NONE
-Model.SAVED = { version = 1, defaults = { rares = {}, blips = {} } } -- types/saved.lua MM.SavedModel
+Model.SAVED = { version = 1, defaults = { rares = {} } } -- types/saved.lua MM.SavedModel
 
 local parts, kinds = {}, {}
 
@@ -37,6 +37,7 @@ function Model.Known(kind)
 end
 
 function Model.Load(saved)
+	saved.blips = nil -- (the blip pins' store, kept till 2.2.1: MagicMap draws no blips of its own now)
 	Model.saved = saved
 	for _, p in ipairs(parts) do
 		if p.load then p.load(saved) end
@@ -51,7 +52,6 @@ function Model.Observe(obs, oracles)
 	Model.levels, Model.tracking, Model.build = obs.levels or Model.levels, obs.tracking or Model.tracking, obs.build or Model.build
 	Model.buttons, Model.clock = obs.buttons or Model.buttons, obs.clock or Model.clock
 	Model.explored, Model.exploredCells = obs.explored or Model.explored, obs.exploredCells or Model.exploredCells
-	Model.skills = obs.skills or Model.skills
 	if obs.interior ~= nil then Model.interior = obs.interior end
 	if o.col then
 		you.inst, you.col, you.row, you.stale = o.inst, o.col, o.row, false

@@ -14,7 +14,7 @@ Players who had 2.0 keep their setup (migrated to both, no welcome).
 
 - *Minimap replaced:* our small map sits on the minimap's spot from login.
 - *Minimap not replaced:* Blizzard's minimap stays, and our map is never small: it opens big, and
-  closing it hides it. Blizzard's Minimap is still read, unseen, as the blips' sensor while our map is shown.
+  closing it hides it. Blizzard's Minimap still draws its blips over our map while it's shown.
 - *World map replaced:* M opens our big map. Not replaced: M is Blizzard's world map, as always.
 - *Neither:* nothing of Blizzard's is touched; the minimap button, the addon compartment and `/mm`
   open and close our big map as a window of its own.
@@ -75,29 +75,18 @@ names (The Great Forge, the Cleft of Shadow...) among the subzone names.
 *Indoors: Undercity's Trade Quarter with its services (grouped into `+2` and `+6` pills), and the
 Great Forge in Ironforge by the flight master.*
 
-**Blizzard's blips.** Outdoors Blizzard's Minimap stays out of sight and is read as a sensor:
-herbs, ore, the mailbox and tracked NPCs within about 230 yards get a pin with Blizzard's tracking
-icon and tooltip, at any zoom. Vendors get the icon of what they sell (food, reagents, poisons, ammunition,
-fishing; the vendor's sack for the rest). A name MagicMap doesn't know is a gold dot, never a guessed herb;
-you, your party and your pets never get one, dead or alive. Herbs and ore show while they're in range, as on
-Blizzard's minimap, and one gathered nearby goes within about a second, walking or not. Each herb and ore pin
-is coloured by how hard it is for you, by your Herbalism or Mining against the node's skill: its icon greyed, then
-tinted in the game's skill-up colours (red: you can't gather it yet; orange under its skill + 25; yellow under + 50;
-green under + 100; grey past that), in a group's pill too; Forever's own herbs keep their own colours (their skill
-isn't known).
+**Blizzard's blips.** Blizzard's own Minimap draws its blips (herbs, ore, the mailbox, tracked NPCs) over our
+map: no ground, north up, centred on you and sized to our zoom, with Blizzard's own tooltips and arrow. While the
+map follows you the wheel and the zoom buttons step through Blizzard's Minimap zooms; zoomed out past its widest,
+or in past its closest, the blips fade out. (Since game build 1.60.1.70862 addons can't read the blips, so
+MagicMap draws none of its own.)
 **Tracking that stays on**: your gathering tracker (Find Herbs, else Find Minerals, else Find Treasure) or the one
 you choose is turned back on after login, a /reload, a loading screen, death or resurrection, waiting out combat
 and casts. The game has one tracking spell on at a time, so it's one choice: the gear's Keep tracking row, or
 Settings > Resources. One you pick yourself in the tracking menu becomes the one kept; one you turn off stays off
 till the game next drops it.
-Zoomed in to town scale, the town services you track show too, and the mailboxes and services you've
-passed (remembered, up to 5000 a continent), each marked "Not in sight" while out of range. Blizzard's own flight, quest and POI tracking is
+Blizzard's own flight, quest and POI tracking is
 switched off while MagicMap draws those itself, and put back when it stops, even after a crash.
-
-![Peacebloom pins in Tirisfal Glades from Blizzard's herb tracking, with the tooltip](images/herb-blips.jpg)
-
-*Herbs in Tirisfal Glades: Blizzard's Peacebloom blips as pins, with their tooltip, in a wide
-minimap.*
 
 **Quests.** The quests in your log in Blizzard's icons, with their objective icon and count, in
 their difficulty colour; quests to pick up; a tooltip with the quest's facts, what's left to do (the
@@ -188,8 +177,8 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to you (on: the small map glides back to you when left alone), Return after (6 s), Zoom per notch (+30%) |
 | Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (100%), Subzone opacity (60%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
 | Title | At rest (Zone, Local time), On hover (Zone, Subzone, Tracked target, Distance to target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time (each time led by the day or night picture). Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
-| Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Services, Vendors, Resources, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Each follows the level above until set; its undo hands it back |
-| Resources | Tracking: Keep tracking (your gathering tracker: Find Herbs, else Find Minerals, else Find Treasure; or one you know, or Off). Difficulty: Colour by difficulty (on) |
+| Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Each follows the level above until set; its undo hands it back |
+| Resources | Tracking: Keep tracking (your gathering tracker: Find Herbs, else Find Minerals, else Find Treasure; or one you know, or Off) |
 | Quest pill | Shows (target or zone count / target only / off), Says (Name, Objective progress, Distance; chosen and ordered from those and Time to arrive), Progress bar (on), Bar opacity (20%), Bar colour (Gold), Fade quest pill (on: the zone count only while you point at the map). Look: Backing (60%), Size (100%) |
 | Tracking | Arrow: Size (105%), Opacity (100%), Distance (96 px). Path to: Frame the way (on). Tracked icon: Glow (on), Glow size (200%), Glow opacity (100%) |
 | Pathing | Line: Style (dashed), Weight (1.4 px), Colour (Gold), Opacity (65%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |
@@ -210,7 +199,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | `/mm minimap ours`, `/mm minimap blizzard` | Who has the minimap while our map is shown |
 | `/mm feel`, `/mm settings`, `/mm welcome` | The settings window; the first-run welcome again |
 | `/mm mark <note>` | Note something for the bug report (saved at `/reload` or logout) |
-| `/mm landmarks`, `/mm indoor`, `/mm blips` | Rares remembered; the building and room you're in; what the sensor knows |
+| `/mm landmarks`, `/mm indoor`, `/mm overlay` | Rares remembered; the building and room you're in; where Blizzard's Minimap sits over the map |
 | `/mm help` | Every command, the diagnostics too (`perf`, `errors`, `check`...) |
 
 
@@ -218,7 +207,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 
 - **WoW Forever only** (installed under `World of Warcraft/_forever_/`), the client build `Data/` was
   generated from, 1.60.1.70862 (a patch means regenerating).
-- **Blizzard's blips** are sensed only within about 230 yards of you.
+- **Blizzard's blips** show only around you, as far as Blizzard's Minimap sees (about 230 yards at its widest).
 - **Indoors** only buildings with Blizzard's indoor minimap pictures get them; elsewhere the terrain.
 - **Instances** that hide your position are shown whole, without the arrow, line or blips.
 - **Rotate Minimap**: MagicMap stays north up, and other addons' minimap pins hide while it's on.

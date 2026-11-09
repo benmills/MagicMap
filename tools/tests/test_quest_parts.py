@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(TESTS))  # (run as a script)
 
 from sim import py  # noqa: E402
 from test_addon import boot, errors  # noqa: E402
-from test_blips import lua_tools  # noqa: E402
+from fixtures import lua_tools  # noqa: E402
 
 STREAMS = os.path.join(TESTS, "fixtures", "streams")
 ELWYNN, WESTFALL, DUROTAR, STORMWIND = 1429, 1436, 1411, 1453

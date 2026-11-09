@@ -16,7 +16,7 @@
 -- more of the Observation handed on unchanged (minimap, addons, levels, waypointSet, explored, exploredCells,
 -- interior, tracking).
 
----@alias MM.KnownKind "blips"|"remembered"|"rares"|"quests"|"offers"|"places"|"group"|"corpse"|"waypoint"|"vignettes"|"services"|string
+---@alias MM.KnownKind "rares"|"quests"|"offers"|"places"|"group"|"corpse"|"waypoint"|"vignettes"|string
 
 ---One thing Model knows, of any kind.
 ---@class MM.Known
@@ -86,19 +86,8 @@
 ---@field rare? boolean            a rare or elite
 ---@field npc? MM.NpcID
 
----Known("blips"): the Minimap's blips sensed now (obs.blips), live; icon the tracking texture or a
----gathering atlas (nil: a dot). One a remembered blip stands for carries that one's key, so a layer
----drawing both skips the remembered of that key.
----Known("remembered"): blips seen before (saved.blips), Focus's instance (else yours); live false, t last seen;
----listed while tracking shows its icon (obs.tracking; not yet known: all), none within 30 yd of a service of its name.
 ---Known("rares"): the rares you've seen (saved.rares), Focus's instance (else yours), but one a live rare vignette
 ---of its name stands for while the vignettes layer is on (Focus.off); live false, t last seen, text "Rare".
-
----Known("services"): town services (Atlas BlipServices), Focus's instance, while their tracking is on; gathered
----for Focus's rect once asked for at zoom 60 or more (a job); text the NPC's title.
----@class MM.KnownService: MM.Known
----@field service? string          its BlipServices value
----@field npc? MM.NpcID
 
 ---@class MM.ModelYou
 ---@field inst? MM.Inst
@@ -139,7 +128,6 @@
 ---@field addons MM.ObsAddon[]     other addons whose pins Game can borrow, handed on from obs.addons (the "Other addons"
 ---                                layers: View.layers "addon:<key>"); {} until known
 ---@field build? string             the client's build, handed on from obs.build (ui/Repaint.lua: whether the repaints fit); nil until the first observe
----@field skills? { herb: integer, ore: integer }  obs.skills, the last handed (nil until known): resource pins' difficulty badges
 ---@field levels table<MM.UiMapID, integer[]> each map's level range, { lo, hi }, handed on from obs.levels (the
 ---                                inspector's level line); {} until known
 ---@field waypointSet? boolean     obs.waypointSet, the last handed: a user waypoint is set, wherever (the menu's Clear

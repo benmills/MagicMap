@@ -212,7 +212,7 @@ function Engine.At(c, o, point, col, row, dx, dy, minZoom)
 end
 
 -- Regions shown from minZoom fade in past it (to FADE_IN times it) rather than show on the frame it's crossed: the big
--- map's "zoomed in" threshold's (ui/PinTypes.lua); the rest (rares' 60, remembered blips') as the spike's, at once.
+-- map's "zoomed in" threshold's (ui/PinTypes.lua); the rest (rares' 60) as the spike's, at once.
 local fades = {}
 function Engine.Fades(minZoom) fades[minZoom] = true end
 

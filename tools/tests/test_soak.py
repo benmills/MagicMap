@@ -20,7 +20,6 @@ Minimap's spot, 384 px a tile), every layer on (those off by default too), scrip
 """
 import telemetry
 from test_addon import boot, errors
-from test_blips import put_blips, stub_services
 from test_quest_areas import FREE, OFFERS, stretch
 from test_quests import SETUP
 
@@ -180,8 +179,6 @@ def soak():
     G = L.globals()
     L.execute(FREE, sim)
     L.execute(SETUP, sim, ns)
-    stub_services(L, ns)
-    put_blips(L, sim, ns, [("Mailbox", 40, 20), ("Mailbox", -50, -70), ("Peacebloom", -60, 30), ("Innkeeper Belm", 10, -5)])
     kinds = [["monster", "Kobold slain: 1/8", 1, 8, False], ["item", "Candle: 2/8", 2, 8, False],
              ["event", "Scout the mine", 0, 1, False]]
     quests = [{"id": 1000 + i, "title": f"Quest {i}", "level": 6 + i % 5, "col": 31.95 + (i % 5 - 2) * 0.35,

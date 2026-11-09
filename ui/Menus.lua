@@ -288,7 +288,7 @@ function SetTracking(on)
 end
 
 -- Under Nearby's rows, a divider and each type with its icon (as Blizzard's menu has it): what it finds is
--- drawn on the map (the blips layer).
+-- drawn over the map (the overlay's blips: game/Minimap.lua).
 function AddTrackingRows(sub)
 	if not Model.tracking[1] then return end
 	sub:CreateDivider()

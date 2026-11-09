@@ -17,13 +17,12 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 - **Floor plans indoors.** Undercity, Ironforge and caves show the floor you're on.
 - **Quests on the map.** Objective areas, quest givers nearby, and a tooltip with what's left to do and
   the turn-in. Follow a quest and a gold arrow shows the way.
-- **Click any icon: Track or Path to.** A flight master, mailbox or rare: Track points Blizzard's gold arrow
+- **Click any icon: Track or Path to.** A flight master, quest giver or rare: Track points Blizzard's gold arrow
   along the way you'd walk; Path to draws that walk around cliffs and water and keeps you both in view. Yards
   and minutes either way.
-- **Herbs, ore and trainers at any zoom**, with their tooltips. Rares you've seen stay on the map for all
-  your characters.
-- **Gathering made easy.** Each herb and ore shows its first letter and how hard it is for you (red to grey),
-  and Find Herbs or Find Minerals turns itself back on after you die or log in.
+- **Blizzard's own blips over the map**: herbs, ore, mailboxes and trainers as Blizzard's minimap draws them,
+  with their tooltips. Rares you've seen stay on the map for all your characters.
+- **Gathering made easy.** Find Herbs or Find Minerals turns itself back on after you die or log in.
 - **Your minimap's buttons, without the clutter.** Addon buttons, the calendar and the clock are in the gear
   menu, and the title shows what you pick: zone, coordinates, the time, day or night.
 - **Every kind of pin yours to tune.** Settings > Pins lists each one the map draws, with its icon: hide it,
@@ -71,7 +70,8 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 
 - WoW Forever only, English client, build 1.60.1.70862.
 - No arrow in dungeons and raids (the game hides your position there).
-- Herbs and ore show within about 230 yards, the same range as Blizzard's minimap.
+- Blizzard's blips (herbs, ore, mailboxes...) show only around you, as on Blizzard's minimap, and fade out
+  zoomed out past its widest.
 - May conflict with other minimap addons such as SexyMap. [More](docs/features.md#limits-in-detail).
 
 **Found a bug?** Type `/mm mark <what you saw>` when it happens, then

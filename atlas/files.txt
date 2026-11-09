@@ -16,7 +16,6 @@ Data/Npcs.lua
 Data/Objects.lua
 Data/Items.lua
 Data/Quests.lua
-Data/BlipServices.lua
 Data/Interiors.lua
 atlas/Coords.lua
 atlas/Tiles.lua

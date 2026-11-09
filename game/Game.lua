@@ -80,6 +80,7 @@ Runtime.On("ADDON_LOADED", "game.loaded", function(_, name)
 	if name ~= ADDON then return end
 	if type(MagicMap2DB) ~= "table" then MagicMap2DB = {} end -- absent, or not ours
 	Game.db = MagicMap2DB
+	MagicMap2DB.recording = nil -- (/mm record's, till 2.2.1: gone with the blip sensor)
 	for _, l in ipairs(loaders) do l[2](Open(l[1], l[3])) end
 	loaders = nil
 end)

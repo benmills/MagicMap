@@ -253,7 +253,7 @@ function T.Invariants(sim, ns)
 	local engaged = m.engaged
 	assert(not (engaged and MinimapCluster:IsVisible() and MinimapCluster:GetEffectiveAlpha() > 0),
 		"Blizzard's minimap cluster showing while engaged")
-	assert(not (engaged and (Minimap:GetEffectiveAlpha() > 0 and not m.overlay or C_Minimap.GetDrawGroundTextures())),
+	assert(not (engaged and C_Minimap.GetDrawGroundTextures()),
 		"Blizzard's minimap showing while engaged")
 	local E, S = ns.UI.Engine, sim.state
 	local rest = not E.pending and S[ns.UI.Window.frame].shown

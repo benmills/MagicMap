@@ -62,7 +62,7 @@ def test_migration():
     assert ns.UI.Replace.Get("minimap") and ns.UI.Replace.Get("worldmap")
     L, sim, ns = boot("MagicMap2DB = nil")
     sim.Run(1)
-    from test_blips import lua_tools
+    from fixtures import lua_tools
     L2, sim2, ns2 = boot("MagicMap2DB = " + lua_tools(L).Dump(L.globals().MagicMap2DB))
     assert not ns2.UI.Replace.Chosen()
 

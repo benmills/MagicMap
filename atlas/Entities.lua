@@ -1,4 +1,4 @@
--- NPCs, objects, items and quests (Data/Npcs, Objects, Items, Quests, BlipServices:
+-- NPCs, objects, items and quests (Data/Npcs, Objects, Items, Quests:
 -- from QuestieDB: NOTICE.md; Data/ItemIcons from the Item DB2), and the static
 -- joins between them. No player state here. Without a Data file: as if it were empty.
 
@@ -159,43 +159,6 @@ function Atlas.SpawnsIn(kind, inst, c0, r0, c1, r1, filter, step)
 	return out
 end
 
--- Town services' spawns on inst: [tile key] = { id, col, row, id, col, row, ... }, of the NPCs whose npcFlags
--- (row field 7) have a service bit (model/Services.lua's SERVICES). Built once per inst, then cached: step(), if
--- given, is called every 128 rows, as SpawnsIn's first use.
-local SERVICE_BITS = { 16, 128, 256, 2048, 4096, 8192, 16384 }
-local serviceIndex = {} -- [inst] = index
-local function HasService(flags)
-	for _, bit in ipairs(SERVICE_BITS) do
-		if flags % (bit * 2) >= bit then return true end
-	end
-	return false
-end
-function Atlas.ServiceSpawns(inst, step)
-	local index = serviceIndex[inst]
-	if index then return index end
-	index = {}
-	local lists = Data.Npcs and Data.NpcLists
-	for n, id in ipairs(lists and lists.flagged[inst] or NONE) do -- (those with npcFlags: Data/Npcs.lua's NpcLists)
-		if step and n % 32 == 0 then step() end
-		local r = Decode(Data.Npcs[id]) -- (not kept: Atlas.Npc keeps the rows it's asked for)
-		local pts = r[10] and r[10][inst]
-		if pts and HasService(r[7] or 0) then
-			for i = 1, #pts, 2 do
-				local col, row = pts[i], pts[i + 1]
-				local key = math.floor(col) * 64 + math.floor(row)
-				local b = index[key]
-				if not b then
-					b = {}
-					index[key] = b
-				end
-				b[#b + 1], b[#b + 2], b[#b + 3] = id, col, row
-			end
-		end
-	end
-	serviceIndex[inst] = index
-	return index
-end
-
 -- Rare (rank 4) and rare-elite (rank 2) NPCs' spawn points on inst, as
 -- { id, name, rank, minLevel, maxLevel, col, row }, in a stable order (npc id, then spawn).
 -- A full pass over the NPCs the first time per inst (then cached): step(), if
@@ -263,129 +226,9 @@ function Atlas.Find(kind, text, limit, step)
 	return exact
 end
 
--- Gathering nodes by name, enUS (the spike's Blips.lua:364-371, 423-426; docs/v1-non-goals.md: enUS only).
-local HERBS = {}
-for _, n in ipairs({
-	"Peacebloom", "Silverleaf", "Earthroot", "Mageroyal", "Briarthorn", "Stranglekelp", "Bruiseweed",
-	"Wild Steelbloom", "Grave Moss", "Kingsblood", "Liferoot", "Fadeleaf", "Goldthorn", "Khadgar's Whisker",
-	"Wintersbite", "Firebloom", "Purple Lotus", "Arthas' Tears", "Sungrass", "Blindweed", "Ghost Mushroom",
-	"Gromsblood", "Golden Sansam", "Dreamfoil", "Mountain Silversage", "Plaguebloom", "Icecap", "Black Lotus",
-	"Swiftthistle", "Bloodthistle",
-	-- Forever's own: its starter-zone nodes (QuestieDB's Forever objects, hundreds of spawns) and its new herbs (the
-	-- client's Item table: Trade Goods, Herb).
-	"Stunted Silverleaf", "Wilted Peacebloom", "Hive Thistle", "Demonsage", "Death Lotus", "Marefoil", "Stranglevine",
-}) do HERBS[n] = true end
--- A herb's name with a word before it ("Wilted Peacebloom"): one too.
-local function Herb(name)
-	if HERBS[name] then return true end
-	local last = name:match("^%a[%a']* (.+)$")
-	return last ~= nil and HERBS[last] == true
-end
--- Mining nodes not named "... Vein" or "... Deposit".
-local ORES = { ["Chunk of Amber"] = true, ["Large Chunk of Amber"] = true, ["Small Obsidian Chunk"] = true,
-	["Large Obsidian Chunk"] = true }
-
--- The skill each node takes (Herbalism's or Mining's), classic's: every one is a Herbalism (lock type 2) or Mining
--- (3) skill in the client's Lock table (Lock.db2, 1.60.1.70790). Not here (Forever's own herbs, its starter nodes,
--- amber, Swiftthistle, Bloodthistle): not known, so no difficulty badge (ui/Blips.lua) rather than a guess.
-local SKILL = {
-	Peacebloom = 1, Silverleaf = 1, Earthroot = 15, Mageroyal = 50, Briarthorn = 70, Stranglekelp = 85,
-	Bruiseweed = 100, ["Wild Steelbloom"] = 115, ["Grave Moss"] = 120, Kingsblood = 125, Liferoot = 150,
-	Fadeleaf = 160, Goldthorn = 170, ["Khadgar's Whisker"] = 185, Wintersbite = 195, Firebloom = 205,
-	["Purple Lotus"] = 210, ["Arthas' Tears"] = 220, Sungrass = 230, Blindweed = 235, ["Ghost Mushroom"] = 245,
-	Gromsblood = 250, ["Golden Sansam"] = 260, Dreamfoil = 270, ["Mountain Silversage"] = 280, Plaguebloom = 285,
-	Icecap = 290, ["Black Lotus"] = 300,
-	["Copper Vein"] = 1, ["Tin Vein"] = 65, ["Incendicite Mineral Vein"] = 65, ["Silver Vein"] = 75,
-	["Ooze Covered Silver Vein"] = 75, ["Lesser Bloodstone Deposit"] = 75, ["Iron Deposit"] = 125,
-	["Indurium Mineral Vein"] = 150, ["Gold Vein"] = 155, ["Ooze Covered Gold Vein"] = 155, ["Mithril Deposit"] = 175,
-	["Ooze Covered Mithril Deposit"] = 175, ["Truesilver Deposit"] = 230, ["Ooze Covered Truesilver Deposit"] = 230,
-	["Dark Iron Deposit"] = 230, ["Small Thorium Vein"] = 245, ["Ooze Covered Thorium Vein"] = 245,
-	["Rich Thorium Vein"] = 275, ["Ooze Covered Rich Thorium Vein"] = 275, ["Hakkari Thorium Vein"] = 275,
-	["Small Obsidian Chunk"] = 305, ["Large Obsidian Chunk"] = 310,
-}
--- The skill a gathering node of this name takes, or nil: not known.
-function Atlas.NodeSkill(name) return SKILL[name] end
-
--- The icon of what a node gives (the herb, the ore: the item's icon, Item.db2's IconFileDataID, 1.60.1.70790), the
--- icon players know it by; a herb's by its own name or its last words ("Wilted Peacebloom": Peacebloom's), an ore
--- node's by its own. Not here (Forever's own herbs, amber): none.
-local ORE = { copper = 134566, tin = 134579, iron = 134572, silver = 135242, gold = 134571, mithril = 134576,
-	truesilver = 134580, thorium = 134578, darkIron = 134575, incendicite = 134577, bloodstone = 134577,
-	indurium = 134575 }
-local ICON = {
-	Peacebloom = 133939, Silverleaf = 134190, Earthroot = 134187, Mageroyal = 133436, Briarthorn = 134412,
-	Stranglekelp = 134191, Bruiseweed = 134181, ["Wild Steelbloom"] = 133938, ["Grave Moss"] = 133849,
-	Kingsblood = 134183, Liferoot = 134413, Fadeleaf = 134193, Goldthorn = 134196, ["Khadgar's Whisker"] = 134188,
-	Wintersbite = 133940, Firebloom = 134200, ["Purple Lotus"] = 134198, ["Arthas' Tears"] = 134194,
-	Sungrass = 134199, Blindweed = 134195, ["Ghost Mushroom"] = 134529, Gromsblood = 134197,
-	["Golden Sansam"] = 134221, Dreamfoil = 134204, ["Mountain Silversage"] = 134215, Plaguebloom = 134219,
-	Icecap = 134212, ["Black Lotus"] = 134202,
-	["Copper Vein"] = ORE.copper, ["Tin Vein"] = ORE.tin, ["Incendicite Mineral Vein"] = ORE.incendicite,
-	["Silver Vein"] = ORE.silver, ["Ooze Covered Silver Vein"] = ORE.silver,
-	["Lesser Bloodstone Deposit"] = ORE.bloodstone, ["Iron Deposit"] = ORE.iron,
-	["Indurium Mineral Vein"] = ORE.indurium, ["Gold Vein"] = ORE.gold, ["Ooze Covered Gold Vein"] = ORE.gold,
-	["Mithril Deposit"] = ORE.mithril, ["Ooze Covered Mithril Deposit"] = ORE.mithril,
-	["Truesilver Deposit"] = ORE.truesilver, ["Ooze Covered Truesilver Deposit"] = ORE.truesilver,
-	["Dark Iron Deposit"] = ORE.darkIron, ["Small Thorium Vein"] = ORE.thorium,
-	["Ooze Covered Thorium Vein"] = ORE.thorium, ["Rich Thorium Vein"] = ORE.thorium,
-	["Ooze Covered Rich Thorium Vein"] = ORE.thorium, ["Hakkari Thorium Vein"] = ORE.thorium,
-	["Small Obsidian Chunk"] = 134455, ["Large Obsidian Chunk"] = 135241,
-}
--- The file ID of the icon a gathering node of this name gives, or nil.
-function Atlas.NodeIcon(name)
-	local i = ICON[name]
-	if i then return i end
-	local last = name:match("^%a[%a']* (.+)$")
-	return last and ICON[last]
-end
-
--- What a Minimap blip's tooltip name stands for: "herb" or "ore" (a gathering node, by name: no data
--- needed, and only by name: one it doesn't know is no node, game/Blips.lua's gold dot), else its service (Data/BlipServices.lua: "innkeeper", "banker", "auctioneer", "stablemaster",
--- "battlemaster", "trainer", "classtrainer", "repair", "questgiver", "questender", "flightmaster",
--- "mailbox"), or nil.
--- Data/BlipServices.lua's row for a name, decoded once.
-local services = {}
-local function Service(name)
-	local r = services[name]
-	if r == nil then
-		r = (Data.BlipServices or NONE)[name]
-		r = r and Decode(r) or false
-		services[name] = r
-	end
-	return r or nil
-end
-
-local CLASSES = { "Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "Mage", "Warlock", "Druid" }
-function Atlas.BlipService(name)
-	if Herb(name) then return "herb" end
-	if ORES[name] or name:find(" Vein$") or name:find(" Deposit$") then return "ore" end
-	local r = Service(name)
-	if r then return r[1] end
-	-- A blip named by its title, not a name Data knows ("First Aid Trainer"): a trainer, a class's by its class.
-	if name:find(" Trainer$") then
-		for _, c in ipairs(CLASSES) do
-			if name:find(c, 1, true) then return "classtrainer" end
-		end
-		return "trainer"
-	end
-end
-
--- The client's art for each kind of blip Atlas.BlipService names (#16: the one table game/Blips.lua, model/ and the
--- settings' pin inventory, ui/PinTypes.lua, read): { kind, art, name, group }, in the order the settings list them.
--- group: "service" (a tracking texture, its FileDataID), "gather" and "vendor" (Blizzard's tracking atlas; the
--- other vendors the gossip window's sack, a path: the client has no coin-gold-20x20 atlas, #21), "quest" (the HD "!"
--- and "?", Blips.lua:387-388: a quest giver's while the client still has its quest, model/Blips.lua).
+-- The client's art for the quest blips' kinds, as the Minimap draws them: { kind, art, name, group }, the HD "!" and
+-- "?" (Blips.lua:387-388): ui/Quests.lua's quests to pick up and to turn in.
 Atlas.BLIP_ART = {
-	{ "innkeeper", 136458, "Innkeeper", "service" }, { "banker", 136453, "Banker", "service" },
-	{ "auctioneer", 136452, "Auctioneer", "service" }, { "stablemaster", 136466, "Stable master", "service" },
-	{ "battlemaster", 136454, "Battlemaster", "service" }, { "trainer", 136463, "Trainer", "service" },
-	{ "classtrainer", 136455, "Class trainer", "service" }, { "repair", 136465, "Repair", "service" },
-	{ "mailbox", 136459, "Mailbox", "service" }, { "flightmaster", 136456, "Flight master", "service" },
-	{ "herb", "Professions_Tracking_Herb", "Herb", "gather" }, { "ore", "Professions_Tracking_Ore", "Ore", "gather" },
-	{ "food", "food", "Food & drink", "vendor" }, { "reagents", "reagents", "Reagents", "vendor" },
-	{ "poisons", "poisons", "Poisons", "vendor" }, { "ammunition", "ammunition", "Ammunition", "vendor" },
-	{ "fishing", "Professions_Tracking_Fish", "Fishing", "vendor" },
-	{ "vendor", "Interface\\GossipFrame\\VendorGossipIcon", "Other goods", "vendor" },
 	{ "questgiver", "questnormal", "Quest giver", "quest" }, { "questender", "questturnin", "Quest ender", "quest" },
 }
 local blipArt = {}
@@ -394,16 +237,4 @@ for _, a in ipairs(Atlas.BLIP_ART) do blipArt[a[1]] = a end
 function Atlas.BlipArt(kind)
 	local a = kind and blipArt[kind]
 	if a then return a[2], a[4] end
-end
-
--- The quests NPCs of a quest giver's name start (Data/BlipServices.lua's third), or an empty list.
-function Atlas.BlipQuests(name)
-	local r = Service(name)
-	return r and r[3] or NONE
-end
-
--- The title of the NPC a blip's tooltip names (its subName: "Innkeeper"), or nil (Blips.lua:408-436).
-function Atlas.BlipTitle(name)
-	local r = Service(name)
-	return r and r[2]
 end

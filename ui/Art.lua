@@ -15,8 +15,6 @@ local Art = {
 	-- only when none of it is there, named by its first.
 	atlases = {
 		"vignettekill",                                            -- ui/Menus.lua: the Rares & treasures row's icon
-		"Professions_Tracking_Herb", "Professions_Tracking_Ore",   -- ui/Blips.lua: gathering nodes (game/Blips.lua GATHER)
-		"food", "reagents", "poisons", "ammunition", "Professions_Tracking_Fish", -- vendors (VENDOR)
 		"UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight", -- ui/Chrome.lua: the border
 		"_UI-Frame-Metal-EdgeBottom", "!UI-Frame-Metal-EdgeLeft", "!UI-Frame-Metal-EdgeRight",
 		-- ui/Controls.lua: the mode button, the spike's chains (Core.lua:282-286). Forever draws the
@@ -32,7 +30,7 @@ local Art = {
 		{ "levelup-dot-gold", "common-radiobutton-dot" },           -- the zoom reset's dot (Forever has no reset atlas)
 		"deathrecap-icon-tombstone", "UI-QuestPoi-QuestNumber",       -- ui/You.lua: your corpse on the quest pins' disc
 		"Waypoint-MapPin-Tracked",                                 -- ui/You.lua: your waypoint
-		"questnormal", "questturnin",                              -- ui/Quests.lua, model/Blips.lua: quests to pick up ("!"), turn-ins ("?")
+		"questnormal", "questturnin",                              -- ui/Quests.lua: quests to pick up ("!"), turn-ins ("?")
 		"Quest-In-Progress-Icon-yellow",                        -- ui/Quests.lua: a quest in progress, on the disc (model/Quests.lua)
 		"UI-QuestPoi-OuterGlow",                                   -- ui/Pins.lua: what you track glows
 		"Navigation-Tracked-Arrow", "flightpath",                  -- ui/Popup.lua: the popup's Track and Path glyphs
@@ -45,8 +43,6 @@ local Art = {
 		"UI-HUD-Minimap-DayCycle", "UI-HUD-Minimap-NightCycle",    -- ui/Title.lua: day or night (the Minimap's Diel.lua)
 		"UI-HUD-Minimap-Frame-Cycle",                              -- ui/Title.lua: its gold ring
 		-- Settings > Pins' icons to choose (ui/PinTypes.lua): Blizzard's other art for a type
-		"innkeeper", "banker", "auctioneer", "stablemaster", "battlemaster", "profession", "class", "repair", "mailbox",
-		"flightmaster", "flightpath", "professions_tracking_herb_special", "professions_tracking_ore_special",
 		"questrepeatableturnin", "quest-campaign-turnin", "questdaily", "smallquestbang", "quest-campaign-available",
 		"vignettekillelite", "dungeonskull", "playerdeadblip", "waypoint-mappin-minimap-tracked", "xmarksthespot",
 	},
@@ -55,15 +51,12 @@ local Art = {
 		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight",
 		"Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down",
 		"Interface\\WorldMap\\Gear_64",                           -- ui/Controls.lua: the gear
-		"Interface\\CharacterFrame\\TempPortraitAlphaMask",       -- CIRCLE: ui/Chrome.lua, ui/Blips.lua (dots); game/Button.lua
+		"Interface\\CharacterFrame\\TempPortraitAlphaMask",       -- CIRCLE: ui/Chrome.lua, ui/Pins.lua (dots); game/Button.lua
 		"Interface\\HUD\\UIMinimap2xC60", "Interface\\Icons\\INV_Misc_Map_01", -- game/Button.lua: ring, icon
-		136458, 136453, 136452, 136466, 136454, 136463, 136455, 136465, 136459, -- ui/Blips.lua: services (game/Blips.lua SERVICE)
-		"Interface\\GossipFrame\\VendorGossipIcon",            -- ui/Blips.lua: the other vendors (VENDOR; 132060)
 		"Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",        -- ui/Path.lua: the edge arrow; ui/Guide.lua: Track's
 		"Interface\\Minimap\\PartyRaidBlipsV2",                  -- ui/Group.lua: party and raid members
 		136441,                                                  -- ui/Places.lua: POIIcons, the area POIs the client gives no atlas for
 		137008,                                                  -- ui/Rares.lua: the rare's skull
-		136457, 136464, 136462, 136451, 133939, 136025,          -- Settings > Pins' icons: vendors' tracking textures, Find Herbs, Find Minerals
 		"Interface\\Icons\\Ability_Tracking", "Interface\\Icons\\INV_Misc_EngGizmos_01", -- Settings > Pins: rows' art
 		"Interface\\Buttons\\UI-PlusButton-Up", "Interface\\Buttons\\UI-MinusButton-Up", -- ui/Feel.lua: a row's open mark
 		"Interface\\Buttons\\UI-PlusButton-Hilight",

@@ -4,7 +4,7 @@
 -- obs.minimap.indoors from the Minimap's view radius (not IsIndoors(): Undercity and Ironforge are
 -- mountable; Orgrimmar too, no exception), and obs.interior, the building and room you're in where
 -- some building's floor mask covers you (game/parts/Interior.lua): no world map art, no whole Minimap.
--- Game keeps the sensor: unseen, its blips read. Each change of either leaves one "indoor" trace; /mm
+-- Game keeps the Minimap: no ground, its blips over the map (the overlay). Each change of either leaves one "indoor" trace; /mm
 -- indoor prints it. UI: in a building, its rooms' pictures over the tiles veiled (ui/Interiors.lua);
 -- elsewhere the layer draws nothing.
 local T = ...
@@ -46,7 +46,7 @@ for i, p in ipairs(PLACES) do
 		tostring(Model.minimap.indoors), o and tostring(o.building) or "none", o and tostring(o.room) or "-", pics, #traces - n)
 	assert(Model.minimap.indoors == p[8] and (o and o.room or false) == p[9], what)
 	assert((pics > 0) == (p[9] ~= false), what .. ": the pictures")
-	assert(m.engaged and m.sensor and Minimap:GetAlpha() == 0 and not C_Minimap.GetDrawGroundTextures(), what .. ": the sensor's")
+	assert(m.engaged and not C_Minimap.GetDrawGroundTextures(), what .. ": the overlay's")
 	local changes = (i > 1 and PLACES[i - 1][8] ~= p[8] and 1 or 0) + ((i > 1 and PLACES[i - 1][9] or false) ~= p[9] and 1 or 0)
 	assert(#traces - n == changes or i == 1, what .. ": one trace a change")
 	assert(sim.prints[#sim.prints]:find(p[9] and "indoor: building %d+, room " .. p[9] .. " %(.*%), candidates {" .. p[9] .. "}"

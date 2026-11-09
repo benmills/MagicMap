@@ -32,22 +32,23 @@ Three systems: Game, Model, UI. Two libraries under them: Atlas and Runtime.
 
 Each step is isolated: one failing doesn't stop the rest.
 Drawing runs while shown. Input, learning and saving always run.
-The blip sensor reads where the last Apply placed the Minimap, and waits until that placement holds still.
+Blizzard's Minimap draws its own blips over the map (the overlay, placed by Apply): addon code can't read them
+since 1.60.1.70862, so MagicMap draws none of its own.
 
 ## Systems
 
 **Game**
   reads   location · quest log · places · group · corpse · waypoint · vignettes
-          · offers · exploration · tracking state · gathering skills · the time · the Minimap's buttons
-  senses  Minimap blips · quest areas (Inside(quest, col, row)) · Minimap indoors
+          · offers · exploration · tracking state · the time · the Minimap's buttons
+  senses  quest areas (Inside(quest, col, row)) · Minimap indoors
   adapts  HBD world + minimap pins
-  owns    Minimap takeover (undo list) · hooks (M, Escape, GameTooltip's hide path)
+  owns    Minimap takeover (undo list; the blips' overlay) · hooks (M, Escape, GameTooltip's hide path)
           · minimap button · SavedVariables load/save
   takes   commands: Follow, Waypoint, Way, Tracking, Button (a Minimap button's click) · View
 
 **Model**
-  holds   per continent: you · quests · places · blips · services
-          · rares + seen blips (saved)
+  holds   per continent: you · quests · places
+          · rares (saved)
   gives   Known(kind) · Target · Route
   decides dedup and merge · what to forget
   takes   observations · oracles · focus (the map shown)

@@ -2,8 +2,7 @@
 -- Replay.Model(root, data) loads model/*.lua in TOC order with Atlas's coordinates and
 -- entities and places (atlas/Coords.lua, Entities.lua, Places.lua) over data (ns.Data; nil: none, as
 -- without QuestieDB's) and returns ns.Model, ready for Model.Load(saved) and
--- Model.Observe(obs, oracles) fed from a recorded stream (/mm record:
--- tools/tests/fixtures/blips_stream.lua) or a fixture stream per part
+-- Model.Observe(obs, oracles) fed from a fixture stream per part
 -- (Replay.Stream(root, name): tools/tests/fixtures/streams/<name>.lua, what Game's
 -- part would hand over). Replay.Oracles(stream) backs the Oracles interface with the
 -- stream's `areas` ([questID] = { inst, col, row, r }: circles in tile space): Inside

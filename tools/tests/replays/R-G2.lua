@@ -3,7 +3,7 @@
 -- MOVED: Game acts only on View (types/view.lua), which says nothing of the map shown but its
 -- instance; whether it takes the Minimap hangs on the window shown and View.minimap alone. Browsing
 -- Kalimdor from Eastern Kingdoms (the picker, /mm map) and coming back (the recenter): the takeover held
--- every frame, the Minimap still the sensor, its cluster hidden (T.Invariants), HereBeDragons' minimap
+-- every frame, the Minimap still the overlay, its cluster hidden (T.Invariants), HereBeDragons' minimap
 -- pins on a host of Game's, out of sight but on the minimap socket (R-G6c).
 local T = ...
 local sim, ns = T.Boot("MagicMap2DB = { UI = { _v = 1 } }") -- a 2.0 player's default (migrated to both): shown, small, on the minimap's spot
@@ -11,19 +11,19 @@ sim.Run(3)
 local Game, UI = ns.Game, ns.UI
 local m, gather = Game.minimap, sim.gatherPin
 local host = gather:GetParent()
--- Not the sensor's; seen only around you on the minimap socket.
+-- Not the overlay's; seen only around you on the minimap socket.
 local function Ours()
 	local s = UI.View().sockets.minimap
 	return host ~= Minimap and gather:GetParent() == host and (not gather:IsVisible() or s and host:GetParent() == s.frame)
 end
-assert(m.engaged and m.sensor and Ours(), "taken")
+assert(m.engaged and Ours(), "taken")
 
 local frames = 0
 local function Held(seconds)
 	for _ = 1, math.ceil(seconds * 60) do
 		sim.Step()
 		frames = frames + 1
-		assert(m.engaged and m.sensor and Ours(), "let go off the map shown")
+		assert(m.engaged and Ours(), "let go off the map shown")
 	end
 end
 

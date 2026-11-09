@@ -31,7 +31,6 @@ Data\Npcs.lua
 Data\Objects.lua
 Data\Items.lua
 Data\Quests.lua
-Data\BlipServices.lua
 Data\Interiors.lua
 atlas\Coords.lua
 atlas\Tiles.lua
@@ -50,9 +49,6 @@ runtime\Runtime.lua
 
 # Model (before Game, which hands it observations and its saved part)
 model\Model.lua
-model\Services.lua
-model\Available.lua
-model\Blips.lua
 model\Rares.lua
 model\Quests.lua
 model\Offers.lua
@@ -73,8 +69,6 @@ game\Minimap.lua
 game\AddonPins.lua
 game\Tracking.lua
 game\Keep.lua
-game\Blips.lua
-game\Record.lua
 game\Validate.lua
 game\Bench.lua
 game\Home.lua
@@ -100,13 +94,11 @@ game\commands\button.lua
 
 # Game: observation parts (Game.Part)
 game\parts\You.lua
-game\parts\Blips.lua
 game\parts\MinimapState.lua
 game\parts\Interior.lua
 game\parts\Addons.lua
 game\parts\Quests.lua
 game\parts\Offers.lua
-game\parts\Done.lua
 game\parts\Waypoint.lua
 game\parts\Corpse.lua
 game\parts\Levels.lua
@@ -116,7 +108,6 @@ game\parts\Group.lua
 game\parts\Vignettes.lua
 game\parts\Explored.lua
 game\parts\Tracking.lua
-game\parts\Skills.lua
 game\parts\Buttons.lua
 game\parts\Clock.lua
 
@@ -146,7 +137,6 @@ ui\PinTypes.lua
 ui\Pins.lua
 ui\Cluster.lua
 ui\Resources.lua
-ui\Blips.lua
 ui\Rares.lua
 ui\Places.lua
 ui\QuestTooltip.lua

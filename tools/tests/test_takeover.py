@@ -9,7 +9,7 @@ Tooltips: replays/R-G7.lua; combat: replays/R-K2.lua."""
 import math
 
 from test_addon import boot, errors
-from test_blips import lua_tools
+from fixtures import lua_tools
 
 ICON = "Interface\\Icons\\INV_Misc_Map_01"
 

@@ -8,8 +8,8 @@
 -- to stop, or open it in the quest log.
 -- And quests to pick up (Layers.lua:636-664): Known("offers"), "questnormal"
 -- (the "!") at 18, their tooltip the quest, then "Quest to pick up" and its line's name. Over the other pins.
--- Their types (Settings > Pins, ui/PinTypes.lua): In progress, To turn in (a quest ender's blip's "?" too) and To pick
--- up (a quest giver's "!"), never grouped; the "?" and "!" with Blizzard's other quest art to choose from. 2.1's
+-- Their types (Settings > Pins, ui/PinTypes.lua): In progress, To turn in (the "?") and To pick
+-- up (the "!"), never grouped; the "?" and "!" with Blizzard's other quest art to choose from. 2.1's
 -- "Quest icon size" (quests.scale, a factor on top of the icon size) is moved, once, onto In progress's and To turn
 -- in's own size at load.
 
@@ -30,11 +30,11 @@ Types.Add({ id = "quest", family = "quests", name = "In progress", look = { size
 	tip = "A quest in your log not yet done, its progress under it." })
 Types.Add({ id = "turnin", family = "quests", name = "To turn in", look = { size = TURN_IN, icon = { atlas = TURN } },
 	icons = { { "Turn in", "A:" .. TURN }, { "Repeatable", "A:questrepeatableturnin" }, { "Campaign", "A:quest-campaign-turnin" } },
-	tip = "A quest ready to hand in, and the quest ender's blip." })
+	tip = "A quest ready to hand in." })
 Types.Add({ id = "offer", family = "quests", name = "To pick up", look = { size = OFFER, icon = { atlas = OFFER_ART } },
 	icons = { { "Available", "A:" .. OFFER_ART }, { "Daily", "A:questdaily" }, { "Small", "A:smallquestbang" },
 		{ "Campaign", "A:quest-campaign-available" } },
-	tip = "A quest you could start nearby, and the quest giver's blip." })
+	tip = "A quest you could start nearby." })
 
 -- 2.1's Quest icon size: its saved factor times the icon size's, onto the two quest types' own size (on its step, in
 -- range), and gone.

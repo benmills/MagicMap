@@ -5,12 +5,11 @@
 -- Errors come from Runtime.onError (every Wrap) and the global error handler
 -- (anything else whose stack is in our folder). An error's first occurrence
 -- in a session traces "error" and takes an "error" mark; a taint's
--- (ADDON_ACTION_BLOCKED/FORBIDDEN naming us) traces "taint" and takes a "taint" mark,
--- and the sensor's first "sensor" trace of each kind (game/Blips.lua) a "sensor" mark.
+-- (ADDON_ACTION_BLOCKED/FORBIDDEN naming us) traces "taint" and takes a "taint" mark.
 -- Each session's perf (Runtime.FrameStats, errors, load, memory after a full
 -- collect: docs/runtime.md) is written at logout and with each mark, with the
 -- bench (game/Bench.lua) if one ran. Every trace passes here too (Runtime.onTrace): the
--- kinds that must stay empty are kept past the ring, layouts, swaps and sweeps counted.
+-- kinds that must stay empty are kept past the ring, layouts and swaps counted.
 
 local ADDON, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
@@ -19,8 +18,8 @@ local SESSIONS, ERRORS, MARKS, ZONES, KEPT = 10, 50, 64, 30, 50 -- (MARKS: a scr
 local MSG, STACK = 300, 2000 -- chars kept
 local MOTION = 120 -- frames of camera and you in each mark
 local LOAD_KB_AT = 10 -- s after login: past its grace (5 s, game/Game.lua) and the world streaming in
-local KEEP = { taint = true, art = true, sensor = true } -- trace kinds kept for the session (each a bug)
-local STATS = { layout = true, swap = true, blips = true, restart = true } -- counted per layer (or why): n and each number's max
+local KEEP = { taint = true, art = true } -- trace kinds kept for the session (each a bug)
+local STATS = { layout = true, swap = true } -- counted per layer (or why): n and each number's max
 local OURS = "AddOns[/\\]" .. ADDON .. "[/\\]"
 
 local version = C_AddOns.GetAddOnMetadata(ADDON, "Version")
@@ -166,15 +165,10 @@ end)
 -- session.kept (the ring forgets them), STATS kinds to session.stats["<kind> <layer or why>"] =
 -- { n, <field> = max |value| }, a swap's `lag` being frames since its layer's last layout end.
 local ends = {} -- [layer] = Runtime.frames at its last layout end
-local sensed = {} -- sensor events marked this session: the first of each kind (as a taint's per function)
 local Keep = Runtime.Wrap("telemetry: trace", function(kind, d)
 	if KEEP[kind] then
 		local kept = session.kept
 		if #kept < KEPT then kept[#kept + 1] = { f = Runtime.frames, ms = Ms(), k = kind, d = d } end
-		if kind == "sensor" and not sensed[d.e] then
-			sensed[d.e] = true
-			Mark("sensor", d.e .. " " .. (d.why or d.px))
-		end
 	end
 	if not (STATS[kind] and type(d) == "table") or (kind == "layout" and d.e ~= "end") then return end
 	local by = d.layer or d.why

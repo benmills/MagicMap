@@ -2,7 +2,7 @@
 "Group overlapping icons" off (UI.saved.cluster) or at the minimap's size, all five draw and no pill does; the tracked one always draws alone.
 
 test_pill_members_new_tables: the same five, their entries made anew twice within the regroup's 0.5 s (as
-model/Blips.lua's Live() does each sensor change), with the harness's one-thing-one-pin check on every frame
+a Known kind may on each change), with the harness's one-thing-one-pin check on every frame
 (T.strictPins: docs/hardening-plan.md T1): none draws alone beside the pill holding it (P1).
 
 test_grid_close_is_spent: the click that closes a pill's grid does nothing else (I2); a click on a grid pin is still
@@ -71,7 +71,7 @@ def test_five_overlapping_pins_one_pill():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
-# The entries made anew, the same keys (model/Blips.lua's Live(): new tables each sensor change).
+# The entries made anew, the same keys (a Known kind's new tables on each change).
 RENEW = """function(t)
     local new = {}
     for i, e in ipairs(t.list) do

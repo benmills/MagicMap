@@ -1,7 +1,6 @@
 -- P3: per-frame garbage and idle work. CONTAINED (measured and budgeted): our frame's Lua allocation and widget
 -- calls, idle, walking (following you, the title and arrow with you) and dragging, inside
--- Runtime's frame; walking again with the sensor and 10 blips about, on the priced clock (M1's
--- exit: <= 0.5 KB a frame); and Runtime's frame stats report it.
+-- Runtime's frame; and Runtime's frame stats report it.
 local T = ...
 local sim, ns = T.Shown(nil, 10) -- past telemetry's one full collect (ourKBLoad, 10 s after login)
 local read = T.Ours(sim)
@@ -57,36 +56,11 @@ assert(ns.UI.Motion.Dragging())
 local drag = { Run(120, function() sim.cursorX = sim.cursorX + 1 end) }
 sim.buttonsDown.LeftButton = nil; sim.FireScript(view, "OnMouseUp", "LeftButton")
 T.Print("P3: our frame idle %.0f B, %.1f setter calls on the map's widgets (%.1f widget calls in all, getters and "
-	.. "the Minimap sensor's included); walking %.0f B; dragging %.0f B, %.1f widget calls", idle[1] * 1024, idle[2],
+	.. "the overlay's included); walking %.0f B; dragging %.0f B, %.1f widget calls", idle[1] * 1024, idle[2],
 	idle[3], walk * 1024, drag[1] * 1024, drag[3])
--- KB a frame: no table a frame (the drag step's camera was ~0.2; the title's zone walking, ~0.13; what's
--- left is the sensor: every probe ~0.35 KB of the client's garbage, so it probes little, a look a
--- second, and the sweep's trace).
+-- KB a frame: no table a frame (the drag step's camera was ~0.2; the title's zone walking, ~0.13).
 assert(idle[1] <= 0.1 and walk <= 0.1 and drag[1] <= 0.1)
 assert(idle[2] == 0) -- standing still: the arrow and the canvases are left alone
-
--- Walking among 10 blips (M1's exit), the sensor probing as the client charges: each answer a new
--- table (its parse cached per text).
-ns.UI.Motion.SetFollow(true)
-local Atlas, list = ns.Atlas, {}
-local NAMES = { "Mailbox", "Peacebloom", "Silverleaf", "Copper Vein", "Innkeeper Farley" }
-for i = 1, 10 do
-	local a, d = i * 0.63, (30 + i * 12) / Atlas.TILE_YARDS
-	local north, west = Atlas.TileToWorld(sim.player.col + math.cos(a) * d, sim.player.row - math.sin(a) * d)
-	list[i] = { NAMES[(i - 1) % #NAMES + 1], north, west }
-end
-sim.minimapBlips = list
-sim.FireEvent("MINIMAP_UPDATE_TRACKING") -- (they show: tracking on, so the sensor looks again at once)
-sim.Price(true)
-sim.Run(5)
-sim.player.speed = 7
-local blips, _, _, kbs = Run(600)
-sim.player.speed = 0
-sim.Price(false)
-table.sort(kbs)
-T.Print("P3: walking among 10 blips, priced: %.0f B a frame, p95 %.0f B, max %.0f B (%d blips known)", blips * 1024,
-	kbs[math.floor(#kbs * 0.95)] * 1024, kbs[#kbs] * 1024, #ns.Model.Known("blips"))
-assert(blips <= 0.5 and #ns.Model.Known("blips") > 0)
 
 local stats = ns.Runtime.FrameStats()
 T.Print("P3: FrameStats: %d frames measured, p95 %s KB/frame, max %s KB/frame, %s KB/s",

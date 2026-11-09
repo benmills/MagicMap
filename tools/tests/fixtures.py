@@ -2,7 +2,7 @@
 writers for WDC5 tables, WDT / ADT / BLP files, and a minimal local CASC
 install holding them, plus a small seeded world built from all of those.
 And the fixture observation streams' names (fixtures/streams/<name>.lua: what
-each Game part hands Model, for replays through Model alone, tools/tests/replay.lua).
+each Game part hands Model, for replays through Model alone, tools/tests/replay.lua: lua_tools).
 """
 from __future__ import annotations
 
@@ -13,7 +13,14 @@ import random
 import struct
 import zlib
 
-STREAMS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "streams")
+TESTS = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(TESTS))
+STREAMS = os.path.join(TESTS, "fixtures", "streams")
+
+
+def lua_tools(L):
+    """tools/tests/replay.lua in L: Model alone, the fixture streams."""
+    return L.eval("function(path) return assert(loadfile(path))() end")(os.path.join(TESTS, "replay.lua"))
 
 
 def streams() -> list[str]:

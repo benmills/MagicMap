@@ -1,33 +1,26 @@
 -- The Minimap takeover (the spike's MinimapTakeover.lua), in the apply phase (Game.Apply),
 -- from View (types/view.lua):
 --   View.minimap "ours" and the window shown (nothing blocking): Blizzard's
---     Minimap becomes an unseen sensor, SENSOR_PX square, centred under the
---     window's view (kept on the screen: off it the client stops updating its
---     blips), just beneath the window's strata, at its widest zoom, north up, no
---     ground, no mouse (each put right every apply: other client code turns them
---     back). What hung on it waits on a stand-in at its home spot; the cluster hides.
---     HereBeDragons' minimap pins go to hosts of Game's (game/AddonPins.lua): on the unseen
---     sensor they'd still take the mouse, over our map.
+--     Minimap becomes the overlay (below): its blips over our map, north up, no ground, its
+--     clicks and wheel ours (each put right every apply: other client code turns them back).
+--     What hung on it waits on a stand-in at its home spot; the cluster hides.
+--     HereBeDragons' minimap pins go to hosts of Game's (game/AddonPins.lua): on the Minimap
+--     they'd take the mouse, over our map.
 --   otherwise (or a View Game can't use: SAFE, game/Apply.lua): released, every change undone.
 -- Every change Engage makes is paired with its undo on a list; Release runs it
 -- backwards, so what comes back is exactly what was taken. But the cluster: its Show and
 -- Hide are refused in combat (it's protected: spike-bugs K2), so each apply puts it right
 -- once they aren't, hidden while engaged and as it was otherwise; meanwhile, engaged, it's
 -- faded (Game.minimap.fade: game/Home.lua; alpha isn't refused).
--- Game.minimap tells the sensor (game/Blips.lua) where things stand: engaged,
--- sensor (the blips layer is on), still (the last Apply didn't move it, and its zoom has applied).
+-- Game.minimap (obs.minimap: game/parts/MinimapState.lua) tells UI where things stand.
 
 local _, ns = ...
 local Game, Runtime, Atlas = ns.Game, ns.Runtime, ns.Atlas
 
-local SENSOR_PX = 300   -- its side in screen units (a blip's square is ~16 of them)
-local MARGIN = 2        -- screen units it keeps inside the screen's edge
-local ICONS = 0.05      -- its own icons' scale: out of sight (alpha alone doesn't hide them)
-local STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP" }
 
 local OVER = 30         -- the overlay's frame level above the window's (over the tiles, under the chrome)
 local YD = 1 / Atlas.TILE_YARDS
-local m = { engaged = false, sensor = false, still = false, fade = false, overlay = false, steps = {} } -- blocker: why it isn't taken
+local m = { engaged = false, fade = false, steps = {} } -- blocker: why it isn't taken
 Game.minimap = m
 local undo, placed = {}, nil
 local clusterShown -- the cluster's own shown state, from an engage until it's back
@@ -113,12 +106,11 @@ local function Cluster()
 	if not m.engaged and c:IsShown() == clusterShown then clusterShown = nil end
 end
 
--- The sensor's own settings (MinimapTakeover.lua:434-443): unseen, its icons out of sight, no mouse;
--- Hold and Place see to the rest. Placed afresh.
-local function Sensor()
+-- Taken (MinimapTakeover.lua:434-443): unseen till the overlay places it, no mouse, no ground.
+local function Init()
 	local mm = Minimap
 	mm:SetAlpha(0)
-	mm:SetIconScale(ICONS)
+	mm:SetIconScale(1)
 	mm:EnableMouse(false)
 	mm:EnableMouseWheel(false)
 	C_Minimap.SetDrawGroundTextures(false)
@@ -171,7 +163,7 @@ local function Engage()
 	end)
 	mm:SetParent(UIParent)
 	mm:SetScale(1)
-	Sensor()
+	Init()
 	C_Minimap.SetIgnoreRotateMinimap(true)
 	mm:Show()
 	Runtime.Trace("minimap", "engaged")
@@ -180,7 +172,7 @@ end
 local Unoverlay -- (the overlay's, below)
 local function Release()
 	if not m.engaged then return end
-	m.engaged, m.sensor, m.still, placed = false, false, false, nil
+	m.engaged, placed = false, nil
 	Unoverlay()
 	local failure
 	for i = #undo, 1, -1 do -- every step runs; the first failure is raised after
@@ -193,63 +185,20 @@ local function Release()
 	if failure then error(failure, 0) end
 end
 
--- Just beneath (strata, level).
-local function Beneath(strata, level)
-	if level > 0 then return strata, level - 1 end
-	for i = 2, #STRATA do
-		if STRATA[i] == strata then return STRATA[i - 1], 100 end
-	end
-	return strata, 0
-end
-
 -- What other client code turns back (HybridMinimap turns its ground and rotation on as it
 -- hides: spike-bugs G3), or anyone zooms, hides or shows it, put right every apply. True if it held.
 local function Hold(mm)
-	local zoom = m.overlay and m.zoom or 0
+	local zoom = m.zoom or 0
 	local held = mm:IsShown() and mm:GetZoom() == zoom and C_Minimap.IsRotateMinimapIgnored()
 	if not mm:IsShown() then mm:Show() end
-	if not m.overlay and mm:GetAlpha() ~= 0 then mm:SetAlpha(0) end
 	if mm:GetZoom() ~= zoom then mm:SetZoom(zoom) end
 	if C_Minimap.GetDrawGroundTextures() then C_Minimap.SetDrawGroundTextures(false) end
 	if not C_Minimap.IsRotateMinimapIgnored() then C_Minimap.SetIgnoreRotateMinimap(true) end
 	return held
 end
 
--- Under the window's view, all of it on the screen; still: placed as last frame (View's
--- place is the same table while it doesn't move), where it was put, held, and its zoom
--- applied (a new one applies a frame or two late, its view radius 0 meanwhile: D5a, E6).
--- Where it went is kept in Game.minimap (left, bottom, size in its own units; scale) for
--- the sensor to read; moved by anyone else (or a new UI scale), it's put back.
-local function Place(w, held)
-	local mm = Minimap
-	local r, l, b, size = C_Minimap.GetViewRadius(), mm:GetRect()
-	local ready = held and not issecretvalue(r) and r > 0
-	local there = placed and l and mm:GetEffectiveScale() == m.scale and math.abs(l - m.left) < 1
-		and math.abs(b - m.bottom) < 1 and math.abs(size - m.size) < 1
-	if there and placed.place == w.place and placed.strata == w.strata and placed.level == w.level then
-		m.still = w.still and ready
-		return
-	end
-	local s, p = UIParent:GetEffectiveScale(), w.place
-	local sw, sh, half = UIParent:GetWidth() * s, UIParent:GetHeight() * s, SENSOR_PX / 2 + MARGIN
-	local x = math.max(half, math.min(sw - half, (p.left + p.w / 2) * s))
-	local y = math.max(half, math.min(sh - half, (p.top - p.h / 2) * s))
-	local moved = not there or placed.x ~= x or placed.y ~= y
-	placed, m.still = { place = w.place, strata = w.strata, level = w.level, x = x, y = y }, not moved and w.still and ready
-	local strata, level = Beneath(w.strata, w.level)
-	mm:SetFrameStrata(strata)
-	mm:SetFrameLevel(level)
-	if not moved then return end
-	local ms = mm:GetEffectiveScale()
-	local d, cx, cy = SENSOR_PX / ms, x / ms, y / ms -- /: never 0 (an effective scale is > 0)
-	mm:SetSize(d, d)
-	mm:ClearAllPoints()
-	mm:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx, cy)
-	m.left, m.bottom, m.size, m.scale = cx - d / 2, cy - d / 2, d, ms
-end
-
--- The overlay spike (/mm overlay): since 1.60.1.70862 the sensor can't aim (UpdateMouseoverAtPoint is ignored for
--- addon code), so Blizzard's Minimap itself, seen, drives the blips: over our tiles, centred on you, sized so its view
+-- The overlay: Blizzard's Minimap itself, seen, draws the blips (since 1.60.1.70862 addon code can't read them:
+-- UpdateMouseoverAtPoint is ignored for it, so MagicMap draws no blips of its own): over our tiles, centred on you, sized so its view
 -- radius (read each frame) is as many yards as ours, no ground, its own icons and arrow (ours hides: obs.minimap.overlaid).
 -- Its square must cover the window around you (half >= need: you to the window's furthest edge) and be whole on the
 -- screen (half <= room: you to the screen's nearest edge; a part off it, the client draws its map shifted back on). Its
@@ -372,8 +321,10 @@ local function Overlay(w, here, inst)
 	Clip(mm, p, w)
 	mm:SetFrameStrata(w.strata)
 	mm:SetFrameLevel(w.level + OVER)
+	local cx, cy = mm:GetCenter() -- (moved or sized by anyone else: put back, spike-bugs G3)
 	if placed and placed.overlay and math.abs(placed.x - x) < 0.05 and math.abs(placed.y - y) < 0.05
-		and math.abs(placed.half - half) < 0.05 then return end
+		and math.abs(placed.half - half) < 0.05 and cx and math.abs(cx - x) < 0.5 and math.abs(cy - y) < 0.5
+		and math.abs(mm:GetWidth() - half * 2) < 0.5 then return end
 	placed = { overlay = true, x = x, y = y, half = half }
 	mm:SetIconScale(1)
 	mm:SetSize(half * 2, half * 2)
@@ -410,7 +361,6 @@ local BlipTip = Runtime.Wrap("game: overlay tooltip", function()
 	end
 end)
 Minimap:HookScript("OnEnter", Runtime.Wrap("game: overlay entered", function(self)
-	if not m.overlay then return end
 	m.mouse = true
 	self:SetScript("OnUpdate", BlipTip) -- (after Blizzard's OnEnter set its own)
 end))
@@ -430,24 +380,16 @@ function Mouse(on)
 	end
 end
 
-Game.Slash("overlay", "spike: Blizzard's Minimap seen over the map (the sensor can't aim since 70862): on/off; info", function(args)
+Game.Slash("overlay", "the blips' overlay (Blizzard's Minimap over the map): where it is, why it hides", function()
 	local mm = Minimap
-	if args == "info" then
-		local l, b, w, h = mm:GetRect()
-		Game.Say(("overlay %s: rect %s %s %s %s, UI %dx%d, zoom %d, radius %s, put %s"):format(
-			tostring(m.overlay), tostring(l and math.floor(l)), tostring(b and math.floor(b)), tostring(w and math.floor(w)),
+	local l, b, w, h = mm:GetRect()
+	Game.Say(("overlay: rect %s %s %s %s, UI %dx%d, zoom %d, radius %s, put %s"):format(
+			tostring(l and math.floor(l)), tostring(b and math.floor(b)), tostring(w and math.floor(w)),
 			tostring(h and math.floor(h)), UIParent:GetWidth(), UIParent:GetHeight(), mm:GetZoom(),
 			tostring(C_Minimap.GetViewRadius()),
 			(placed and placed.overlay and ("centre %d, %d, half %d"):format(placed.x, placed.y, placed.half) or "-")
 				.. (", need %s, room %s, alpha %.2f"):format(tostring(m.need and math.floor(m.need)),
 				tostring(m.room and math.floor(m.room)), mm:GetAlpha())))
-		return
-	end
-	m.overlay = not m.overlay
-	placed, m.zoom, m.maxZoom = nil, nil, nil
-	if not m.overlay then Unoverlay() end
-	if not m.overlay and m.engaged then Sensor(); Mouse(false) end
-	Game.Say("overlay " .. (m.overlay and "on" or "off"))
 end)
 
 Game.Apply("minimap", function(view)
@@ -457,9 +399,8 @@ Game.Apply("minimap", function(view)
 		Release()
 	else
 		if not m.engaged then Engage() end
-		m.sensor = view.layers.blips == true and not m.overlay
-		local held = Hold(Minimap)
-		if m.overlay then Overlay(w, view.here, view.inst) else Place(w, held) end
+		Hold(Minimap)
+		Overlay(w, view.here, view.inst)
 	end
 	Cluster()
 end)

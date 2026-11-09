@@ -121,8 +121,8 @@ regions and where it was placed), `error`, `taint`, `mark`, `shot`; and Runtime'
 `slow` (a call over its budget), `spike` (a frame over its budget), `gap` (a job between
 Yields over its budget), `throttled`, `job` (cancelled), `enter` (PLAYER_ENTERING_WORLD),
 `position` (lost or back), `saved`; Game's `minimap` (the takeover engaged or released),
-`blips` (a sensor sweep ended), `art` (`/mm check art`: a name ui/Art.lua lists that the
-client lacks), `sensor` (the sensor blind, or its square off the client's: game/Blips.lua).
+`art` (`/mm check art`: a name ui/Art.lua lists that the client lacks). Sessions till 2.2.1 also hold the
+blip sensor's `blips`, `restart` and `sensor` (game/Blips.lua, gone: Blizzard's overlay draws the blips).
 
 Their `d`:
 

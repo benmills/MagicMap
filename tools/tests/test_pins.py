@@ -178,19 +178,21 @@ end"""
 
 
 def test_track_icon():
-    """A click on a blip opens its popup (ui/Popup.lua, ui/Track.lua's Actions): Track and Path to. Track sets the user waypoint at
+    """A click on a pin (a rare you've seen) opens its popup (ui/Popup.lua, ui/Track.lua's Actions): Track and Path to. Track sets the user waypoint at
     it (the sim's C_Map), the gold arrow alone shows the way (ui/Guide.lua: no line), the waypoint's own pin stays
     away and the title's target is the icon; Path to, from tracking, switches to the line (the waypoint kept, the
     arrow gone), Track back again; Stop ends either. The mode survives a /reload (UI.saved.path, the game keeping
     its waypoint). The waypoint cleared elsewhere (the map's menu) ends the tracking too."""
-    from sim import put_blips
-    from test_blips import lua_tools
-    L, sim, ns = boot()
+    from sim import START, TEST_UI, YD
+    from fixtures import lua_tools
+    # 80 yd east, 40 north (89 yd: 16 px at 96, the arrow's ride in past the pin's)
+    L, sim, ns = boot(TEST_UI + "\nMagicMap2DB.Model = { _v = 1, rares = { [0] = { ['npc:471'] = { name = 'Mother Fang', npcID = 471, "
+                      f"col = {START[0] + 80 * YD}, row = {START[1] - 40 * YD}, t = 1792000000 }} }} }} }}")
     UI, S, view = ns.UI, sim.state, ns.UI.Window.view
-    put_blips(L, sim, ns, [("Mailbox", 80, 40)])  # 89 yd: 16 px at 96, the arrow's ride in past the pin's
+    sim.noVignettes = True
     sim.Slash("/mm toggle")
     sim.Run(3)
-    b = next(e for e in ns.Model.Known("blips")[0].values() if e.name == "Mailbox")
+    b = next(e for e in ns.Model.Known("rares")[0].values() if e.name == "Mother Fang")
     arrow = UI.Guide.arrow
 
     def drawn(lay):
@@ -204,7 +206,7 @@ def test_track_icon():
         sim.menu = None
         sim.Click(view, button, sim.cursorX, sim.cursorY, "screen")
         pop = UI.Popup
-        assert pop.IsOpen() and sim.menu is None and S[S[pop.frame].lines[1]].text.endswith("  Mailbox")
+        assert pop.IsOpen() and sim.menu is None and S[S[pop.frame].lines[1]].text.endswith("  Mother Fang")
         assert [b.label for b in pop.buttons.values()] == list(rows)
         sim.FireScript(next(b for b in pop.buttons.values() if b.label == pick), "OnClick", "LeftButton", False)
         assert not pop.IsOpen()
@@ -214,7 +216,7 @@ def test_track_icon():
     UI.Motion.SetZoom(400)  # (the icon 67 px off: the arrow in reach)
     click(("Track", "Path to"), "Track")
     assert sim.waypoint is not None and UI.saved.tracked.key == b.key and UI.saved.path is None
-    assert drawn(UI.Waypoint) == 0 and UI.You.Target()[0] == "Mailbox"
+    assert drawn(UI.Waypoint) == 0 and UI.You.Target()[0] == "Mother Fang"
     assert UI.Path.pieces == 0 and S[arrow].shown and S[arrow].alpha > 0.5
     click(("Stop tracking", "Path to"), "Path to")
     assert sim.waypoint is not None and UI.saved.tracked.key == b.key and UI.saved.path is not None
@@ -249,10 +251,8 @@ MAP_ART = ("Base", "Sea", "Repaint", "Patch")  # Textures/: the map art alone (t
 def test_pin_inventory():
     """#16: every pin type (ui/PinTypes.lua) has its row in Settings > Pins, in a family the page lists, and draws
     with Blizzard's art (an atlas, a FileDataID or a client path: never the addon's own files), as does every icon it
-    offers; every pin the map draws has a type (Goldshire's quests, offers, places and vignette, blips of each kind,
-    your corpse); your arrow is the Minimap's own; the addon's Textures/ hold only the map art, and no ui/ or game/
+    offers; every pin the map draws has a type (Goldshire's quests, offers, places and vignette, your corpse); your arrow is the Minimap's own; the addon's Textures/ hold only the map art, and no ui/ or game/
     file names one."""
-    from sim import put_blips
     L, sim, ns = boot()
     Types, Feel = ns.UI.PinTypes, ns.UI.Feel
     families = {f.key for f in Types.FAMILIES.values()}
@@ -264,7 +264,7 @@ def test_pin_inventory():
                                          or art.startswith("Interface\\") and not art.startswith("Interface\\AddOns"))
 
     types = list(Types.list.values())
-    assert len(types) >= 30
+    assert len(types) >= 12
     for t in types:
         assert t.family in families and Feel.Entry(f"pins.{t.id}.show").art is not None, t.id
         icon = t.look.icon
@@ -274,8 +274,6 @@ def test_pin_inventory():
             assert blizzard(o[2]), (t.id, o[2])
     assert {f"pins.{f}.show" for f in families} <= {k.key for k in Feel.Entries().values()}
 
-    put_blips(L, sim, ns, [("Mailbox", 40, 20), ("Peacebloom", -40, 30), ("Innkeeper Belm", 60, -20),
-                           ("Hai'zan", -50, -30), ("K'waii", 30, -50), ("Glimmerleaf", -20, 50)])
     sim.Slash("/mm toggle")
     sim.Run(4)
     sim.player.dead = True  # (a corpse)
@@ -395,8 +393,8 @@ def test_saved_sizes_kept():
 
 
 def test_big_map_zoomed_in():
-    """On the big map, zoomed out, a vendor's pin is hidden and a flight point's and a quest's show; zoomed in, the
-    vendor's shows too (faded in past the threshold); the minimap shows it at any zoom."""
+    """On the big map, zoomed out, a rare's pin is hidden and a flight point's and a quest's show; zoomed in, the
+    rare's shows too (faded in past the threshold); the minimap shows it at any zoom."""
     L, sim, ns = boot()
     ns.UI.Feel.Set("pins.all.big", "zoomed")  # (the default: the tests' look has every pin always)
     sim.Slash("/mm toggle")
@@ -405,7 +403,7 @@ def test_big_map_zoomed_in():
     cam = UI.Camera.cam
     t = L.eval("""function(Pins, cx, cy)
         local t = { list = {} }
-        for i, ty in ipairs({ "food", "flight", "quest" }) do
+        for i, ty in ipairs({ "rare", "flight", "quest" }) do
             t.list[i] = { key = ty, name = ty, pos = { inst = 0, col = cx + i * 0.01, row = cy } }
             t.list[i].look = { size = 15, icon = { texture = 137008 }, type = ty }
         end
@@ -421,11 +419,11 @@ def test_big_map_zoomed_in():
         c = t.layer.front
         p = c.pools.pin
         return {p[i].entry.key for i in range(1, p.n + 1) if c.alpha > 0 and p[i].on.alpha > 0}
-    assert shown(30) == {"food", "flight", "quest"}  # (the minimap: every pin)
+    assert shown(30) == {"rare", "flight", "quest"}  # (the minimap: every pin)
     sim.Press("M")
     sim.Run(1.5)
     w = UI.Window.Size()[0]
     z = w * ns.Atlas.TILE_YARDS / UI.Feel.Get("pins.zoomIn")  # (the view this many yards across)
     assert shown(z / 2) == {"flight", "quest"}
-    assert shown(z * 1.5) == {"food", "flight", "quest"}
+    assert shown(z * 1.5) == {"rare", "flight", "quest"}
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

@@ -51,7 +51,7 @@ YD = 3 / 1600  # a yard in tiles
 
 
 # The QuestieDB-derived Data files (NOTICE.md): a build without them must work (Atlas's indexes empty).
-QUESTIE = {"Data/Npcs.lua", "Data/Objects.lua", "Data/Items.lua", "Data/Quests.lua", "Data/BlipServices.lua"}
+QUESTIE = {"Data/Npcs.lua", "Data/Objects.lua", "Data/Items.lua", "Data/Quests.lua"}
 
 
 def files(data=True):

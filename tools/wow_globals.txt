@@ -49,11 +49,11 @@ GetPlayerFacing GetUnitSpeed GetRealZoneText GetSubZoneText GetZoneText
 IsFalling IsFlying IsSwimming UnitOnTaxi
 HideUIPanel ShowUIPanel ToggleWorldMap ToggleQuestLog IsIndoors
 QuestMapFrame_OpenToQuestDetails GetQuestLogIndexByID QuestLog_SetSelection QuestLog_Update
-InCombatLockdown UnitClass UnitRace GetQuestsCompleted UnitClassification UnitExists
+InCombatLockdown UnitClass UnitRace UnitClassification UnitExists
 GetNumGroupMembers IsInRaid Minimap_OnUpdate UnitIsDeadOrGhost UnitIsUnit
 GetAddOnInfo GetAddOnMemoryUsage GetNumAddOns UpdateAddOnMemoryUsage
 UnitFactionGroup MagicMapLandmarks UnitGUID UnitIsGhost UnitIsPlayer UnitLevel UnitName UnitPosition
-UnitCastingInfo UnitChannelInfo GetProfessions GetProfessionInfo
+UnitCastingInfo UnitChannelInfo
 # Blizzard's frames and registries (Game owns the Minimap takeover, hooks, slash, Escape)
 ChatFrameUtil DEFAULT_CHAT_FRAME Minimap MinimapCluster SlashCmdList UISpecialFrames UiMapPoint
 WorldMapFrame Settings SettingsPanel QuestLogFrame

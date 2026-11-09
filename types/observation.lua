@@ -8,7 +8,7 @@
 --   * the delivery: one call a frame, in the observe phase, obs and oracles
 --   * positions in tile space (MM.Pos), the nil / false rule (types/core.lua)
 --   * the two cadences and the identity rule:
---       per frame  `you`, `group`, `minimap`, `blips`, `hooked`: Game may reuse
+--       per frame  `you`, `group`, `minimap`, `hooked`: Game may reuse
 --                  and mutate these tables next frame; Model copies what it keeps.
 --       on change  every other part: a snapshot never mutated after handover.
 --                  A new table (by identity) means it changed; the same table
@@ -26,7 +26,6 @@
 ---@field you MM.ObsYou              per frame; always present (fields may be nil)
 ---@field group? MM.ObsMember[]      per frame (Game may throttle to ~20 Hz); you are not in it
 ---@field minimap? MM.ObsMinimap     per frame
----@field blips? MM.ObsBlips         per frame while the sensor runs; nil while it doesn't
 ---@field hooked MM.HookedInput[]    per frame; usually empty (see types/view.lua)
 ---@field quests? MM.ObsQuests      on change: your quest log
 ---@field places? MM.ObsPlace[]      on change: live places the game marks (Atlas has the static ones)
@@ -47,9 +46,6 @@
 ---@field interior? MM.ObsInterior|false on change: the building you're in and its room (ADR 0008); false = in none
 ---@field addons? MM.ObsAddon[]      on change: other addons whose pins Game can borrow (View.layers "addon:<key>")
 ---@field build? string           on change: the client's build, GetBuildInfo's version.build ("1.60.1.70532"; game/parts/Build.lua)
----@field skills? { herb: integer, ore: integer } on change: Herbalism's and Mining's rank with its bonus, 0 for one not
----                                   learnt (game/parts/Skills.lua): what a resource pin's difficulty badge reads
----@field done? table<integer, boolean> on change: the quests this character has handed in (game/parts/Done.lua)
 ---@field levels? table<MM.UiMapID, integer[]> on change: each map's level range as the client gives it,
 ---                                   { lo, hi } (C_Map.GetMapLevels), for the maps Atlas has; one it gives none is
 ---                                   missing. Read once.
@@ -167,14 +163,12 @@
 ---@field blocker? string      why it isn't, in words ("FarmHud has the minimap")
 ---@field indoors? boolean     the Minimap draws its indoor floor plan here (its view radius tells)
 ---@field indoorDebug? boolean /mm indoor is reporting (SavedGame.indoorDebug): the gear's Indoor maps box
----@field sensing boolean      the blip sensor ran this frame
 ---@field home? MM.ScreenRect  the Minimap's home spot (its cluster), for placing our window there
 ---                           (kept: Game reads it each frame and hands a new table only when the spot moved, so UI may hold it)
 ---@field homeStrata? string   the cluster's frame strata: UI's small window sits in it (spike MinimapMode.lua:46-49)
 ---@field mouse? boolean       the overlay (/mm overlay) has the mouse over our view: UI's pins hover through it
 ---@field maxZoom? number      the overlay on: the map's zoom (view px a tile) past which it can't fit around you (hides
 ---                           its blips); Path to zooms in no further. nil: no limit
----@field overlay? boolean     /mm overlay is on (TEMPORARY: our pins, party dots and arrow hide, Blizzard's alone)
 ---@field steps? number[]     the overlay on: the map's zoom (view px a tile) at which each of the Minimap's zooms 0..5
 ---                           (1..6, rising) covers the window around you just so; while followed the wheel steps through them
 ---@field overlaid? boolean    the overlay is seen (half faded in or more): its arrow is yours, UI's hides
@@ -186,22 +180,6 @@
 ---@field top number
 ---@field w number
 ---@field h number
-
----@class MM.ObsBlip
----@field name string          what the Minimap's tooltip calls it
----@field pos MM.Pos
----@field rough boolean        its position wasn't measured (met while moving): don't keep it or merge on it;
----                           measured once you stand still. (How far off is the sensor's, not this contract's:
----                           today where a sweep point hit it, up to a square, ~12 yd at the widest zoom, plus lag.)
----@field icon? MM.FileID      the tracking icon Game matched it to, if any
----@field atlas? string        else a gathering node's tracking atlas (Professions_Tracking_Herb, _Ore) or a vendor's
----                           (an atlas, or a client file's path: ui/Art.lua Icon), if any
-
----@class MM.ObsBlips
----@field list MM.ObsBlip[]    what the sensor knows now
----@field sweep integer        completed sweeps; goes up by one when a sweep ends
----@field center? MM.Pos       where the last completed sweep was centred
----@field reach number         its radius in tiles: a blip inside it that the sweep didn't see is gone
 
 ---In a building (docs/decisions/0008-interiors.md): only while the Minimap draws its indoor map and some
 ---building's floor mask covers you (game/parts/Interior.lua).

@@ -286,7 +286,7 @@ def test_settings_layout():
                 if w.opener and w.k.page == "pins":
                     w.opener.Click(w.opener)
                     n += 1
-            assert n >= 40, n
+            assert n >= 20, n
         bad = L.eval("""function(Feel, p, Rect, opened)
             local out = {}
             local page = Feel.pages[p.key]

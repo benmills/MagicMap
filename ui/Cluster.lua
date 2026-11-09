@@ -1,6 +1,6 @@
--- Overlapping pins grouped (ui/Cluster.lua). Where two or more pins of the clustered layers (places, rares, blips:
+-- Overlapping pins grouped (ui/Cluster.lua). Where two or more pins of the clustered layers (places, rares:
 -- opts.cluster in Pins.Layer), of a type that may group (Settings > Pins: ui/PinTypes.lua; never quests, quests to pick
--- up, or a quest giver's blip, and none hidden there) crowd together at the zoom (each within range px of
+-- up, and none hidden there) crowd together at the zoom (each within range px of
 -- another, at most reach ranges from the first: the greedy pass in Group), they draw as one pill at their
 -- centroid: up to two icons by default (the "slots" tunable) side by side, the last a "+N" when there are more, on a
 -- faint dark backing. Clicking the pill opens a grid of its members above it at their normal size; each
@@ -125,8 +125,7 @@ local inst_, zoom_, src_ -- the collection in hand
 
 local function want(minZoom) return Engine.From(zoom_, minZoom) end
 
--- The collecting put a source's fill calls: the instance's entries, each once, of a type shown that may group (a
--- quest giver's "!" or "?", ui/Blips.lua's, is a quest's type: never grouped).
+-- The collecting put a source's fill calls: the instance's entries, each once, of a type shown that may group.
 local function put(e, l, minZoom)
 	local st = Types.Of(l.type)
 	minZoom = Types.Min(st, minZoom) -- (zoomed in only on the big map: no member till its pin would show)
@@ -350,8 +349,8 @@ end
 local function Small(m)
 	local s = m[SMALL]
 	if not s then
-		local l = m[LOOK] -- (its type's icon and opacity, its difficulty's tint)
-		s = { size = ICON, fixed = true, icon = l.icon, tint = l.tint, type = l.type }
+		local l = m[LOOK] -- (its type's icon and opacity)
+		s = { size = ICON, fixed = true, icon = l.icon, type = l.type }
 		m[SMALL] = s
 	end
 	return s

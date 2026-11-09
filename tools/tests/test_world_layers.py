@@ -231,7 +231,7 @@ def test_view():
     # Small, outdoors: Blizzard's rim stands down; the layers Game acts on; both sockets: the minimap
     # one at the camera's zoom every frame (tile (col, row) at (col * zoom, -row * zoom) from its TOPLEFT).
     assert chrome() == (False, False) and not view.window.big
-    assert [view.layers[k] for k in ("blips", "flight", "quests", "pois")] == [True] * 4
+    assert [view.layers[k] for k in ("flight", "quests", "pois")] == [True] * 3
     assert same(view.sockets.world, world) and same(view.sockets.minimap, mini) and not same(mini.frame, world.frame)
     assert mini.level == UI.Window.view.GetFrameLevel(UI.Window.view) + 17  # under your arrow's overlay (18)
 

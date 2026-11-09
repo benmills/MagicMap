@@ -7,7 +7,7 @@ art" below is not covered by this licence.
 
 ## Quest, NPC, object and item data
 
-`Data/Npcs.lua`, `Data/Objects.lua`, `Data/Items.lua`, `Data/Quests.lua` and `Data/BlipServices.lua` are
+`Data/Npcs.lua`, `Data/Objects.lua`, `Data/Items.lua` and `Data/Quests.lua` are
 derived by `tools/gen_questie.py` from **QuestieDB** (https://github.com/Questie/QuestieDB), whose data,
 schema and corrections were imported from **Questie** (https://github.com/Questie/Questie). They are
 used, modified (filtered, projected onto MagicMap's map coordinates and repacked) and redistributed

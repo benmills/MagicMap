@@ -51,10 +51,10 @@
 --   Title (25, ui/Title.lua). At rest, On hover (the pieces, chosen and ordered); Format: Clock (while a time is
 --     chosen).
 --   Pins (30, ui/PinTypes.lua), every pin type the map draws. Show pins, Pin size, Pin opacity, On the big map,
---     Zoomed in from; By type: each family's row (Quests, Services, Vendors, Resources, Rares & treasures, Party,
---     Places, Addons, Other: Size, Opacity, On the big map), each type's under it (Size, Opacity, On the big map, Icon,
+--     Zoomed in from; By type: each family's row (Quests, Rares & treasures, Party, Places, Addons, Other: Size,
+--     Opacity, On the big map), each type's under it (Size, Opacity, On the big map, Icon,
 --     Group), declared by the files that draw them.
---   Resources (35). Tracking: Keep tracking (ui/Resources.lua); Difficulty: Colour by difficulty (ui/Blips.lua).
+--   Resources (35). Tracking: Keep tracking (ui/Resources.lua).
 --   Quest pill (40, ui/Controls.lua). Shows, Says (the pieces, chosen and ordered), Progress bar, Fade quest pill;
 --     Look: Backing, Size.
 --   Tracking (45), how the way is shown. Arrow (Track's): Size, Opacity, Distance (ui/Guide.lua); Path to: Frame the

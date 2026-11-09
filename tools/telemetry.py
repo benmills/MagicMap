@@ -35,7 +35,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REFS = os.path.join(ROOT, "docs", "evidence", "shots")
 SECTIONS = ("perf", "kept", "errors", "marks", "shots", "validation", "logs")
 MARKS = 64  # marks kept (game/Telemetry.lua MARKS): at that, older ones were dropped
-KEPT = ("taint", "art", "sensor")  # game/Telemetry.lua KEEP: each one a bug, kept past the ring
+KEPT = ("taint", "art", "sensor")  # game/Telemetry.lua KEEP: each one a bug, kept past the ring (sensor: the blip sensor's, sessions till 2.2.1)
 BENCH = "bench: regions"  # game/Bench.lua's job: a timed call can't be split, so its overruns and gaps aren't bugs
 
 

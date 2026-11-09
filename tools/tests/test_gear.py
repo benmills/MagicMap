@@ -4,32 +4,30 @@ a checkbox with its tip (white title, gold body) that keeps the menu open, its i
 greyed while its parent is off, each group's row with its n/total; Nearby's Blizzard tracking types; then Use Blizzard's
 minimap (while ours replaces it) and Reset to defaults, after Minimap buttons (the buttons the takeover hides, a row
 each that clicks it: test_gear_minimap_buttons); then one row, Settings…, which opens the settings window
-(ui/Feel.lua: test_lookfeel.py holds what was the Settings submenu), the same small and big. Every row works: a layer's toggle empties and redraws what it draws (and View.layers, for Game's: the
-blip sensor, Questie's borrowed pins) and is saved, the changed keys only, across a /reload; a layer off by
+(ui/Feel.lua: test_lookfeel.py holds what was the Settings submenu), the same small and big. Every row works: a layer's toggle empties and redraws what it draws (and View.layers, for Game's:
+Questie's borrowed pins) and is saved, the changed keys only, across a /reload; a layer off by
 default stays so until turned on; rows in the spike's order whenever added; each setting does what it says;
 a tracking type's box sends Game its Command (test_gear_tracking); /mm layers."""
 import re
 
 from test_addon import boot, errors
-from test_blips import lua_tools, put_blips, stub_services
+from fixtures import lua_tools
 from sim import TEST_UI
 
 LAYERS = {"Zone labels": "labels", "Quests": "quests", "Quest areas": "questAreas",
           "Quests to pick up": "offers", "Rares & treasures": "rares"}
 SETTINGS = "Settings\u2026".encode("utf-8").decode("latin-1")  # the row's label, as the sim's Lua (latin-1) reads it
 WHITE, GOLD = (1, 1, 1), (1, 0.82, 0)
-SEEN = ("MagicMap2DB.Model = MagicMap2DB.Model or { _v = 1, blips = {}, rares = { [0] = { ['npc:1'] = "
+SEEN = ("MagicMap2DB.Model = MagicMap2DB.Model or { _v = 1, rares = { [0] = { ['npc:1'] = "
         "{ name = 'Rare', npcID = 1, col = 31.97, row = 49.74, t = 1792077412 } } } }")  # a rare you've seen
 ICON = "Interface\\Icons\\INV_Misc_Map_01"  # Game's minimap button (game/Button.lua)
 
 
 def shown(saved=None):
-    """The map shown over one of each layer's things near you: a mailbox blip, a rare you've seen (Model's
+    """The map shown over one of each layer's things near you: a rare you've seen (Model's
     saved part), Questie's pin in Elwynn. (L, sim, ns, the pin)."""
     L, sim, ns = boot((saved or TEST_UI) + "\n" + SEEN)
     G = L.globals()
-    stub_services(L, ns)
-    put_blips(L, sim, ns, [("Mailbox", 40, 20)])
     q = sim.LoadQuestie()
     sim.FireEvent("ADDON_LOADED", "Questie")
     pin = sim.QuestieIcon()
@@ -140,7 +138,7 @@ def test_gear():
 
     # Each layer (on the big map: zone names show there only): on, its things drawn; off, gone from the next frame (the menu stays open); on, back.
     root, rows = gear(sim, ns)
-    assert view.layers.blips and Game.minimap.sensor and view.layers["addon:Questie"] and hosted(L, pin, ns)
+    assert Game.minimap.engaged and view.layers["addon:Questie"] and hosted(L, pin, ns)
     for text, name in LAYERS.items():
         lay, row = layer(ns, name), rows[text]
         assert row.isSelected() is True and drawn(lay) > 0, name
@@ -152,7 +150,7 @@ def test_gear():
         assert row.onSelect() == refresh
         sim.Run(1)
         assert row.isSelected() is True and drawn(lay) > 0 and saved.layers[name] is None, name
-    assert view.layers.blips and Game.minimap.sensor
+    assert Game.minimap.engaged
 
     # Questie's pins: given back while its layer's off, borrowed again when on.
     row, frame = rows["Questie"], view.frame
@@ -160,7 +158,7 @@ def test_gear():
     sim.Step()  # View.layers from the next frame, View.frame with it (types/view.lua)
     assert view.layers["addon:Questie"] is None and view.frame > frame
     # The world socket's zoom, set in place: View.frame stamped the frame it lands (Game re-places its pins
-    # then); and the window's `still` (the blip sensor's) the frame it flips.
+    # then); and the window's place the frame it moves.
     world, zoom = view.sockets.world, view.sockets.world.zoom
     ns.UI.Motion.ZoomStep(1)
     while world.zoom == zoom:
@@ -170,11 +168,9 @@ def test_gear():
     sim.Run(0.5)
     UI.Window.frame.ClearAllPoints(UI.Window.frame)
     UI.Window.frame.SetPoint(UI.Window.frame, "TOPLEFT", G.UIParent, "TOPLEFT", 50, -50)
-    sim.Step()
-    assert not view.window.still
     frame = view.frame
     sim.Step()
-    assert view.window.still and view.frame > frame
+    assert view.frame == ns.Runtime.frames and view.frame > frame
     sim.Run(1.1)
     assert not hosted(L, pin, ns) and row.isSelected() is False
     row.onSelect()

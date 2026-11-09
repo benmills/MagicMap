@@ -151,7 +151,7 @@ def test_telemetry_sim(tmp_path, capsys):
     sim.Slash("/mm shot kharanos-1024-small tear")
     sim.Step()
     sim.player.speed = 0
-    sim.Run(2)  # standing: the sensor's looks are sweeps (game/Blips.lua)
+    sim.Run(2)
     sim.FireEvent("PLAYER_LOGOUT")
     tel = L.globals().MagicMap2DB.telemetry
     s = tel.sessions[1]
@@ -178,7 +178,6 @@ def test_telemetry_sim(tmp_path, capsys):
     assert s.stats["layout tiles"].n >= 1 and s.stats["layout tiles"].regions > 0 and s.stats["swap tiles"].lag == 0
     swap = s.stats["swap places"]  # each swap's own cost and what it shows (M1.3: parked)
     assert swap.ms is not None and swap.live > 0 and swap.parked == 0
-    assert s.stats["blips"].n >= 1 and s.stats["blips"].sweep >= 1  # the sensor's sweeps (game/Blips.lua: standing)
     assert s.bench["1.60.1.70009"].ops.CreateLine.us == 21
     assert not errors(sim, ns), errors(sim, ns)
 
@@ -195,7 +194,7 @@ def test_telemetry_sim(tmp_path, capsys):
     telemetry.main(base + ["--budgets"])
     out = capsys.readouterr().out
     assert "our memory at logout, after GC" in out and "FAIL  taint      2" in out and "FAIL  art        1" in out
-    assert "PASS  sensor     0" in out  # (game/Blips.lua traces it: M1.5)
+    assert "PASS  sensor     0" in out  # (none since the blip sensor went: older sessions' only)
     # 64 marks kept (a script's ~30 marks and shots, twice); at that, the reader says older ones were dropped.
     for i in range(70):
         sim.Slash(f"/mm mark pad {i}")

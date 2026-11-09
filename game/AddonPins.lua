@@ -28,7 +28,7 @@
 -- drawing on it draws instead on a host of Game's answering what the library asks a minimap: the
 -- Minimap's view around you on View.sockets.minimap (centred on you, its diameter in yards at the
 -- socket's zoom; hidden while you're off the map it shows), the library placing them on it as on the
--- Minimap; out of sight (a hidden host) without that socket (on the unseen sensor they'd still take
+-- Minimap; out of sight (a hidden host) without that socket (on the overlay they'd take
 -- the mouse, over our map: spike-bugs G6), under Rotate Minimap (the library turns them with your
 -- facing, our map stays north up), and for a renamed copy whose world pins we host (they'd only repeat
 -- those). Released: back on the Minimap, last (Game.MinimapPinsHome, game/Minimap.lua's undo).

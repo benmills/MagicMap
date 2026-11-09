@@ -12,7 +12,7 @@ local Camera, Window, Engine, Pins = UI.Camera, UI.Window, UI.Engine, UI.Pins
 local Maths = ns.Atlas.Camera
 local Command = ns.Game.Command
 
-local LEVEL = 13 -- with your corpse and waypoint (ui/You.lua): over the blips (12), under the offers (14)
+local LEVEL = 13 -- with your corpse and waypoint (ui/You.lua): over the places and rares (11), under the offers (14)
 local SIZE = 12 -- px (Layers.lua:666), at 100%
 local BLIP = "Interface\\Minimap\\PartyRaidBlipsV2" -- a filled dot, then a ring (Layers.lua:667)
 local DEAD = 0.5 -- grey (Layers.lua:739)
@@ -139,9 +139,6 @@ local function Hover(t)
 end
 
 Runtime.Step("ui", "map: group", function()
-	local mm = Model.minimap -- TEMPORARY (/mm overlay): the dots hidden, Blizzard's alone
-	local ga = mm and mm.overlay and 0 or 1
-	if frame:GetAlpha() ~= ga then frame:SetAlpha(ga) end
 	Place(Engine.LayerOn("group"))
 	Hover(Under())
 end, { shownOnly = Window.frame })

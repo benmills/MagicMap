@@ -11,7 +11,7 @@ Known("offers") (docs/v1-plan.md M2.3).
 """
 from lupa import lua51
 
-from test_blips import ROOT, lua_tools
+from fixtures import ROOT, lua_tools
 
 # Made-up rows in Data's formats (docs/atlas-data.md), for the quests in the stream.
 DATA = """return {

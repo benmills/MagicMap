@@ -66,16 +66,14 @@
 ---@field shown boolean
 ---@field big boolean            grown to the big map: Game shows its Escape catcher
 ---@field place? MM.ScreenRect   the map's view (where tiles are drawn), screen units; nil while hidden
----@field still boolean          `place` hasn't changed since the last frame: the blip sensor may read
----@field strata string          the window's frame strata: the Minimap goes just beneath it (sensor) or in it (whole)
+---@field strata string          the window's frame strata: the Minimap's overlay goes in it
 ---@field level integer          the window's frame level
 ---@field homeAlpha number       0..1: the Minimap's home corner (cluster), faded out while big
 
 ---Layers Game acts on:
----  "blips"   run the blip sensor
 ---  "flight", "quests", "pois"  ours are drawn: Game turns Blizzard's tracking of the same off (and back on when not)
 ---  "addon:" .. MM.ObsAddon.key  borrow that addon's pins onto the sockets
----@alias MM.GameLayer "blips"|"flight"|"quests"|"pois"|string
+---@alias MM.GameLayer "flight"|"quests"|"pois"|string
 
 ---Frames UI owns and Game places other addons' pins on. Game hosts the pins on a 1x1
 ---frame of its own at the socket frame's TOPLEFT (the same coordinates), which it may fade
