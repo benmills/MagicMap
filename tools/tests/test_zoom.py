@@ -231,3 +231,17 @@ def test_zoom_reset():
     sim.Run(2)
     assert abs(c.cam.zoom - ns.UI.DefaultZoom()) <= 1 and not ctl.zoomReset.IsShown(ctl.zoomReset)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_load_default_zoom():
+    """Every load starts at the default zoom (ui/View.lua), though the window's saved size rescales the zoom as it's
+    applied: held there till Blizzard's zooms are known, so its blips show at once. (No saved zoom here: with one the
+    simulator starts a test there, UI.StartAt.)"""
+    saved = ("MagicMap2DB = { UI = { _v = 1, shown = true, follow = true, cluster = false,"
+             " window = { left = 20, top = 300, w = 360, h = 150 } } }")
+    L, sim, ns = boot(saved)
+    ns.UI.Motion.SetZoom(200)  # (in the game the saved size lands a frame or two late, rescaling the zoom: as here)
+    sim.Run(3)
+    UI, mm = ns.UI, ns.Model.minimap
+    assert mm.steps and abs(UI.Camera.cam.zoom - UI.DefaultZoom()) < 0.01 and mm.overlaid
+    assert not errors(sim, ns), errors(sim, ns)

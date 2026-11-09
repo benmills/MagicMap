@@ -8,7 +8,6 @@ import time
 
 from test_addon import boot, errors
 
-SPAN_TILES = 200 / (1600 / 3)  # 200 yd across the small window (MinimapMode.lua:25)
 SEP = "  \u00b7  ".encode("utf-8").decode("latin-1")  # the title's joins, as the sim's Lua (latin-1) reads them
 
 
@@ -44,7 +43,7 @@ def test_chrome():
     spot = UI.BigMap.home
     home = (spot.left, spot.top, 140, 140)
     assert f.IsShown(f) and rect(f) == home and f.GetFrameStrata(f) == "LOW"
-    assert abs(UI.Camera.cam.zoom - 140 / SPAN_TILES) < 1e-9 and UI.Camera.follow
+    assert abs(UI.Camera.cam.zoom - UI.DefaultZoom()) < 0.01 and UI.Camera.follow  # (every load: the default zoom)
     sim.Step()
     assert tuple(saved.window[k] for k in ("left", "top", "w", "h")) == home and saved.zoom == UI.Camera.cam.zoom
     assert ns.Game.minimap.engaged  # (Game takes the Minimap under it)

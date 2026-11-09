@@ -75,7 +75,11 @@ end
 -- UI's chat line (Core.lua:45-46).
 function UI.Print(msg) print("|cffffd100MagicMap|r: " .. msg) end
 
-local settle -- the zoom the map loaded at, till Blizzard's zooms are known and it's moved to the default among them
+-- After a load, the map held at the default zoom (UI.DefaultZoom: Blizzard's zooms' once known, guessed at first and
+-- the window's saved size, applied a frame or two late, rescaling the zoom) till it's stood there SETTLED frames,
+-- or you zoom (Motion.zooms), or the map's grown, or SETTLE_MAX s pass. settle: { zooms, still, at }, or nil.
+local SETTLED, SETTLE_MAX = 30, 10
+local settle
 local OPTIONAL = { window = "table", bigWindow = "table", inst = "number", center = "table", clusterTune = "table", replace = "table", welcome = "boolean",
 	tracked = "table", path = "table", feel = "table", feelPage = "string" } -- types/saved.lua MM.SavedUI
 Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS, optional = OPTIONAL }, fn = function(s, fresh)
@@ -89,7 +93,7 @@ Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS
 	-- Every login and /reload starts at the default zoom (not the last session's: zoomed off Blizzard's zooms its
 	-- blips stay hidden). Its zooms aren't known yet: the default's stand-in till they are.
 	s.zoom = DEFAULTS.zoom
-	settle = DEFAULTS.zoom
+	settle = { zooms = UI.Motion.zooms, still = 0, at = GetTime() }
 	BigMap.Load(s)
 	showing = s.shown and UI.Replace.Get("minimap") -- (without the minimap, a big map is never reopened at login)
 end })
@@ -145,10 +149,17 @@ Runtime.Step("ui", "ui: view", function()
 	replace.minimap, replace.worldmap = rmin, rworld -- (Game: M is ours only while worldmap; ui/Replace.lua)
 	if UI.Sockets.Update(view) then view.frame = Runtime.frames end -- (the world socket, an addon's layer)
 	local cam = Camera.cam
-	-- Once Blizzard's zooms are known, the loaded zoom becomes the default among them (unless you've zoomed since).
-	if settle and Model.minimap and Model.minimap.steps then
-		if cam.zoom == settle and not BigMap.big then UI.Motion.SetZoom(UI.DefaultZoom()) end
-		settle = nil
+	if settle then
+		local z = UI.DefaultZoom()
+		if UI.Motion.zooms ~= settle.zooms or BigMap.big or GetTime() - settle.at > SETTLE_MAX then
+			settle = nil
+		elseif math.abs(cam.zoom - z) > 0.01 then
+			UI.Motion.SetZoom(z)
+			settle.still = 0
+		elseif Model.minimap and Model.minimap.steps then
+			settle.still = settle.still + 1
+			if settle.still >= SETTLED then settle = nil end
+		end
 	end
 	camera.cx, camera.cy, camera.zoom, camera.w, camera.h = cam.cx, cam.cy, cam.zoom, Window.Size()
 	local you = Model.you

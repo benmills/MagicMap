@@ -156,7 +156,9 @@ function Motion.Reset()
 end
 
 -- A zoom of `ticks` steps, in (> 0) or out; ticks stack onto the target (Core.lua:1422-1441). See Aim.
+Motion.zooms = 0 -- zooms asked for (the wheel, the buttons, the reset): ui/View.lua's load settling stops at one
 function Motion.ZoomStep(ticks, atCursor)
+	Motion.zooms = Motion.zooms + 1
 	if Stepped(ticks) then Camera.Trace("wheel"); return end
 	step = nil
 	Aim((goal or Camera.cam.zoom) * wheelStep ^ ticks, atCursor)
@@ -165,6 +167,7 @@ end
 
 -- Glide to a zoom (the reset button, ui/Controls.lua): the buttons' chase, to `zoom` about the view's centre.
 function Motion.ZoomTo(zoom)
+	Motion.zooms = Motion.zooms + 1
 	Aim(zoom)
 	Camera.Trace("wheel")
 end
