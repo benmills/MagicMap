@@ -175,7 +175,7 @@ local function Again(name, hide, show)
 	local cost, worst = Priced(show)
 	T.Print("P7: shown again (%s): %d regions on the canvases, %d of the path's %d lines shown; the Show %.2f ms"
 		.. " priced; the slowest frame after it %.2f ms", name, held, lines, before, cost, worst)
-	assert(held == 0 and lines == 0 and cost <= 1 and worst <= 8, name)
+	assert(held == 0 and lines == 0 and cost <= 1.1 and worst <= 8, name) -- (1.1: the pill frame's 8 textures, 3.0.0)
 	for _, l in ipairs(E.layers) do assert(not l.on or T.Fresh(ns, l), name .. ": " .. l.name) end
 	assert((PathShown() > 0) == (before > 0), name .. ": the line laid out again") -- (Alt-Z: back small)
 end

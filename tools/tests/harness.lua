@@ -21,10 +21,12 @@ function T.Boot(saved)
 		sim.Call("loading " .. path:match("[^/]+/[^/]+$"), chunk, "MagicMap", ns)
 	end
 	assert(loadstring(saved or TEST_UI))()
+	local zoom = MagicMap2DB and MagicMap2DB.UI and MagicMap2DB.UI.zoom
 	T.Anchors(sim, ns, line)
 	sim.FireEvent("ADDON_LOADED", "MagicMap")
 	sim.FireEvent("PLAYER_LOGIN")
 	sim.FireEvent("PLAYER_ENTERING_WORLD", true, false)
+	if zoom then ns.UI.StartAt(zoom) end -- (the game starts at the default zoom: a test where its saved zoom says)
 	local step = sim.Step
 	sim.Step = function(elapsed)
 		step(elapsed)

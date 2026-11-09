@@ -121,9 +121,12 @@ def load(saved=None, data=True, lua=False, reload=False):
     for path in files(data):
         run(path, ns)
     L.execute(saved or TEST_UI)
+    zoom = L.eval("MagicMap2DB and MagicMap2DB.UI and MagicMap2DB.UI.zoom")
     sim.FireEvent("ADDON_LOADED", "MagicMap")
     sim.FireEvent("PLAYER_LOGIN")
     sim.FireEvent("PLAYER_ENTERING_WORLD", not reload, reload)
+    if zoom:
+        ns.UI.StartAt(zoom)  # (the game always starts at the default zoom: ui/View.lua; a test where its saved zoom says)
     return L, sim, ns
 
 

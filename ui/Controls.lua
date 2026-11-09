@@ -161,8 +161,8 @@ Controls.zoomReset = zoomReset
 -- end lets it go (Track.Clear). Its look is Forever's progress bar (below).
 ---------------------------------------------------------------------------
 
-local LINE_H, LINE_PAD = 16, 7
-local ICON, ICON_X, ICON_GAP = 10, 4, 2 -- the icon: its size, its left, the gap to the text
+local LINE_H, LINE_PAD = 20, 7
+local ICON, ICON_X, ICON_GAP = 10, 4, 2.3 -- the icon: its size, its left, the gap to the text
 local ZOOM_COL = 30 -- px at the map's right kept clear of the line: the zoom buttons' column and a gap
 local EVERY = 0.3 -- s between looks: three or so a second (the yards change as you walk)
 local RUN = 7 -- yd/s, a run
@@ -211,10 +211,14 @@ local TRACK = Info("legacy-progressbar-bg-c60", "legacy-progressbar-bg")
 -- (the fill: Blizzard's white status bar, tinted; the legacy bar's own green, greyed and tinted, read too dark)
 local FILL = Info("widgetstatusbar-fill-white", "ui-frame-bar-fill-white")
 local FRAME = Info("legacy-progressbar-frame-c60", "legacy-progressbar-frame")
-local TRACK_END, FRAME_END = 4, 12 -- the art's px of each end kept whole (its rounding)
--- The frame drawn at FRAME_K of its art (a thin border: its art is 131 x 26 round a 117 x 12 track, 7 px out), so it
--- reaches FRAME_OUT px past the track; its alpha.
-local FRAME_K, FRAME_OUT, FRAME_A = 0.45, 3, 0.85
+local TRACK_END = 4 -- the track art's px of each end kept whole (its rounding)
+-- The frame: of its 131 x 26 art only the border's box (FRAME_BOX: px 4..126 across, 3..21 down; past it the art's
+-- drop shadow, below and right, left out), its border 5 px of it each side round the opening, nine-sliced (FRAME_END
+-- px of each edge kept, the border and its soft inner shade) at FRAME_K: the border FRAME_BORDER * FRAME_K px, all
+-- round the pill's edge, outside it. Its alpha.
+local FRAME_BOX, FRAME_BORDER, FRAME_END = { 4, 3, 126, 21 }, 5, 8
+local FRAME_K, FRAME_A = 0.45, 0.85
+local TRACK_OUT = 1 -- px the track reaches past the pill's edge: under the border, inside its outer edge
 local PILL_A = 0.35 -- the track's alpha: faint ("pills.alpha" sets it live: SetPillAlpha)
 
 -- A strip of three textures on line, out px past its edges: info's file (its ends: ends px of the art each, drawn
@@ -248,10 +252,56 @@ local function Tint(parts, c, a)
 	for _, t in ipairs(parts) do t:SetVertexColor(c[1], c[2], c[3], a) end
 end
 
-local backing = Strip("BACKGROUND", 0, TRACK, TRACK_END, 0)
+-- The frame nine-sliced: box (art px) of info, its edges ends px each kept at k, out px past the pill's edges; its
+-- middle (the art's clear opening) not drawn.
+local function Frame(layer, sub, info, box, ends, out, k)
+	local l, r, top, bottom = info.leftTexCoord, info.rightTexCoord, info.topTexCoord, info.bottomTexCoord
+	local function U(x) return l + (r - l) * x / info.width end -- /: never 0 (an atlas's width > 0)
+	local function V(y) return top + (bottom - top) * y / info.height end -- /: never 0 (as above)
+	local us = { U(box[1]), U(box[1] + ends), U(box[3] - ends), U(box[3]) }
+	local vs = { V(box[2]), V(box[2] + ends), V(box[4] - ends), V(box[4]) }
+	local e, parts, at = ends * k, {}, { "TOP", "", "BOTTOM" }
+	local side = { "LEFT", "", "RIGHT" }
+	local grid = {}
+	for row = 1, 3 do
+		for col = 1, 3 do
+			if row ~= 2 or col ~= 2 then
+				local t = line:CreateTexture(nil, layer, nil, sub)
+				t:SetTexture(info.file)
+				t:SetTexCoord(us[col], us[col + 1], vs[row], vs[row + 1])
+				parts[#parts + 1] = t
+				grid[(row - 1) * 3 + col] = t
+			end
+		end
+	end
+	local function P(row, col) return grid[(row - 1) * 3 + col] end
+	for row = 1, 3, 2 do
+		for col = 1, 3, 2 do
+			local corner = at[row] .. side[col]
+			P(row, col):SetPoint(corner, line, corner, col == 1 and -out or out, row == 1 and out or -out)
+			P(row, col):SetSize(e, e)
+		end
+	end
+	-- The edges between the corners.
+	for row = 1, 3 do
+		for col = 1, 3 do
+			if (row == 2) ~= (col == 2) then
+				local tl = P(row == 2 and 1 or row, col == 2 and 1 or col)
+				local br = P(row == 2 and 3 or row, col == 2 and 3 or col)
+				P(row, col):SetPoint("TOPLEFT", tl, row == 2 and "BOTTOMLEFT" or "TOPRIGHT")
+				P(row, col):SetPoint("BOTTOMRIGHT", br, row == 2 and "TOPRIGHT" or "BOTTOMLEFT")
+			end
+		end
+	end
+	return parts
+end
+
+local backing = Strip("BACKGROUND", 0, TRACK, TRACK_END, TRACK_OUT)
 local function SetPillAlpha(a) Tint(backing, { 0, 0, 0 }, a) end
 SetPillAlpha(PILL_A)
-if FRAME then Tint(Strip("ARTWORK", -1, FRAME, FRAME_END, FRAME_OUT, FRAME_K), { 1, 1, 1 }, FRAME_A) end
+if FRAME then
+	Tint(Frame("ARTWORK", -1, FRAME, FRAME_BOX, FRAME_END, FRAME_BORDER * FRAME_K, FRAME_K), { 1, 1, 1 }, FRAME_A)
+end
 
 -- The fill: one texture, the bar's art cut at its share of the width (its left end kept, cut on the right).
 local fillM = line:CreateTexture(nil, "BORDER")
@@ -287,10 +337,14 @@ end
 -- The x: what the pill shows (a followed quest, a tracked or pathed icon, your waypoint) let go (Track.Clear); not
 -- your corpse (the game ends that). Minimal: a thin x glyph (the client's, else a drawn one) in the text's colour,
 -- soft at rest, full on hover, in a small square at the pill's right end.
-local X, X_GLYPH, X_REST = LINE_H - 2, 11, 0.7 -- its square, its glyph (px), its alpha at rest
+-- Its glyph's right edge as far in as the icon's left (ICON_X); X_GAP px between the text and its square.
+local X_GLYPH, X_REST = 11, 0.35 -- its glyph (px), its alpha at rest
+local X = X_GLYPH + 3 -- its square
+local X_RIGHT = ICON_X - (X - X_GLYPH) / 2
+local X_GAP = 5.4 -- (the glyph 6.9 px from the text)
 local close = CreateFrame("Button", nil, line)
 close:SetSize(X, X)
-close:SetPoint("RIGHT", line, "RIGHT", -3, 0)
+close:SetPoint("RIGHT", line, "RIGHT", -X_RIGHT, 0)
 local glyph = close:CreateTexture(nil, "OVERLAY")
 glyph:SetSize(X_GLYPH, X_GLYPH)
 glyph:SetPoint("CENTER")
@@ -468,14 +522,14 @@ local function Show(pieces, at)
 		line:Hide()
 		return
 	end
-	local xw = x and X or 0
+	local xw = x and X_GAP + X + X_RIGHT or LINE_PAD
 	-- Capped so the line never reaches the zoom buttons (the map's width less the zoom column).
 	local textX = questAtlas and ICON_X + ICON + ICON_GAP or LINE_PAD
 	-- In the pill's own units (SetScale).
 	local w = overlay:GetWidth() / PILL.scale -- /: never 0 (the scale's least is 0.8)
-	local avail = w > 0 and w - (2 * PAD + ZOOM_COL) / PILL.scale - textX - LINE_PAD - xw or math.huge -- /: never 0 (as above)
+	local avail = w > 0 and w - (2 * PAD + ZOOM_COL) / PILL.scale - textX - xw or math.huge -- /: never 0 (as above)
 	lineText:SetPoint("LEFT", line, "LEFT", textX, 0)
-	line:SetWidth(textX + Fit(pieces, at, avail) + LINE_PAD + xw)
+	line:SetWidth(textX + Fit(pieces, at, avail) + xw)
 	local atlas = ICONS[iconKind] or questAtlas
 	if atlas and icon:GetAtlas() ~= atlas then icon:SetAtlas(atlas) end
 	icon:SetDesaturated(not tracked)
