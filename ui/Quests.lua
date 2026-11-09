@@ -1,8 +1,10 @@
 -- Your quests in progress on the map (Layers.lua:579-621): Known("quests") as pins on the pin store (ui/Pins.lua),
 -- Blizzard's atlases as Blizzard's world map draws them: the yellow dots "Quest-In-Progress-Icon-yellow" at full size
--- on the quest disc "UI-QuestPoi-QuestNumber" untinted (Pins' (c)), its count under it; 24 px, the one you follow
+-- on the quest disc "UI-QuestPoi-QuestNumber" untinted (Pins' (c)); 24 px, the one you follow
 -- the same size, its glow saying it (ui/Pins.lua's Glow). Ready to turn in, and quests to pick up: none of ours, the
 -- "?" and "!" are Blizzard's blips (the overlay: game/Minimap.lua).
+-- Under it: on the small map nothing (its progress is in its tooltip and the quest pill), on the big map its name in
+-- the subzone names' size and font (UI.LabelsSub), solid, in its difficulty's colour.
 -- Hovering one lights its area (ui/Areas.lua) and shows its tooltip (ui/QuestTooltip.lua); a click grows the
 -- tooltip into the popup (ui/Popup.lua), whose buttons (ui/Track.lua's Actions) follow it (Track, Path to), again
 -- to stop, or open it in the quest log.
@@ -19,7 +21,7 @@ local ACTIVE = { atlas = "Quest-In-Progress-Icon-yellow", under = UNDER, scale =
 local Types, Feel = UI.PinTypes, UI.Feel
 
 Types.Add({ id = "quest", family = "quests", name = "In progress", look = { size = SIZE, icon = ACTIVE },
-	tip = "A quest in your log not yet done, its progress under it." })
+	tip = "A quest in your log not yet done; on the big map its name under it, in its difficulty's colour." })
 -- 2.1's Quest icon size: its saved factor times the icon size's, onto In progress's own size (on its step, in
 -- range), and gone.
 local OLD = "quests.scale"
@@ -35,16 +37,31 @@ Feel.OnLoad(function()
 	Feel.Set("pins.quest.size", v)
 end)
 
--- StylePin's look, one an entry (Model makes a new one when it changes): (b), in progress.
-local looks = setmetatable({}, { __mode = "k" })
+-- StylePin's look, one an entry (Model makes a new one when it changes) and map size: (b), in progress.
+local small, big = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
+local WHITE = { 1, 1, 1 }
+local styles, styleRev = {}, nil -- the name's { font, size, colour } by colour, for the labels' rev
+local function Style(c)
+	local font, size, rev = UI.LabelsSub()
+	if rev ~= styleRev then styles, styleRev = {}, rev end
+	local s = styles[c]
+	if not s then
+		s = { font, size, c }
+		styles[c] = s
+	end
+	return s
+end
 local function Look(e)
+	local isBig = UI.BigMap.big == true
+	local looks = isBig and big or small
 	local look = looks[e]
-	if look then return look end
+	if look and (not isBig or look.countStyle == Style(e.color or WHITE)) then return look end
 	local icon = UI.Art.Icon(e.icon.atlas) -- (a missing atlas: no icon, a dot)
 	icon.color = e.icon.color
 	icon.under, icon.scale = UNDER, 1 -- (the world map's: its dots on the disc, full size)
 	-- (the one you follow its size too: it glows, ui/Pins.lua)
-	look = { size = SIZE, count = e.count, icon = icon, type = "quest" }
+	look = { size = SIZE, icon = icon, type = "quest" }
+	if isBig then look.count, look.countStyle = e.name, Style(e.color or WHITE) end
 	looks[e] = look
 	return look
 end
@@ -53,7 +70,10 @@ UI.Quests = Pins.Layer("quests", 15, function(put)
 	for _, e in ipairs(Model.Known("quests")) do
 		if not e.complete then put(e, Look(e)) end -- (ready to turn in: Blizzard's "?" blip, the overlay's)
 	end
-end, function() return select(2, Model.Known("quests")) end, {
+end, function()
+	local _, _, labels = UI.LabelsSub()
+	return select(2, Model.Known("quests")) * 2 + (UI.BigMap.big and 1 or 0) + labels * 1e7
+end, {
 	tooltip = UI.QuestTooltip.Fill, -- (a click grows it into the popup: ui/Pins.lua's Tap)
 	hover = Areas.Hover,
 	-- (never grouped: a quest always stands where it is)

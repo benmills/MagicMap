@@ -183,6 +183,25 @@ function Track.Stop()
 	Command({ kind = "waypoint", pos = false })
 end
 
+-- What the quest pill shows let go (its x: ui/Controls.lua): the followed quest unfollowed (its pathing with it), else
+-- the icon or waypoint tracked or pathed stopped, the waypoint cleared.
+function Track.Clear()
+	armed = Runtime.frames + ARM
+	local q = Followed()
+	if q then
+		UI.saved.path = nil
+		UI.Areas.Follow(q)
+	else
+		Track.Stop()
+	end
+end
+-- The x's tip: what it stops.
+function Track.ClearLabel()
+	local p = Path()
+	if Followed() then return p and p.quest and "Stop pathing" or "Stop following" end
+	return p and "Stop pathing" or "Stop tracking"
+end
+
 -- Follow quest e, or (path) Path to it; the mode it has already, again: stopped (unfollowed).
 local function Quest(e, path)
 	armed = Runtime.frames + ARM

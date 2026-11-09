@@ -191,6 +191,20 @@ local function Style(pin, look)
 	Size(pin, size, size)
 	if look.count or pin.count then
 		local fs = Count(pin)
+		local style = look.countStyle -- (nil: the small outlined white; else { font, size, color }: a quest's name)
+		if fs.style ~= style then
+			fs.style = style
+			if style then
+				fs:SetFont(style[1], style[2], "")
+				fs:SetShadowOffset(1, -1)
+				fs:SetShadowColor(0, 0, 0, 0.85)
+				fs:SetTextColor(style[3][1], style[3][2], style[3][3], 1)
+			else
+				fs:SetFontObject("GameFontHighlightSmallOutline")
+				fs:SetShadowOffset(0, 0)
+				fs:SetTextColor(1, 1, 1, 1)
+			end
+		end
 		if fs.text ~= look.count then
 			fs.text = look.count
 			fs:SetText(look.count)

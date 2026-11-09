@@ -18,7 +18,7 @@ local Atlas, Runtime, Engine = ns.Atlas, ns.Runtime, ns.UI.Engine
 local Get, Unget, At, Yield = Engine.Get, Engine.Unget, Engine.At, Runtime.Yield
 
 local TITLE, BODY = "Fonts\\MORPHEUS.TTF", GameFontNormal:GetFont() -- Morpheus for zones; Friz Quadrata (Layers.lua:1417)
-local ZONE, SUB = { 1, 0.89, 0.63, 0.95 }, { 0.91, 0.86, 0.77, 0.6 } -- the MVP's (672d8b2^:ui/Labels.lua); subzones quieter
+local ZONE, SUB = { 1, 0.89, 0.63, 0.95 }, { 0.91, 0.86, 0.77, 0.55 } -- the MVP's (672d8b2^:ui/Labels.lua); subzones quieter
 local ZONE_K, ZONE_MIN, ZONE_MAX = 0.085, 11.5, 22 -- a zone's size: k * its land's side * zoom, clamped
 local SUB_SIZE = 9 -- a subzone's, one size and look at every zoom: shadow only, no outline (quiet over legible)
 local OUTLINE_MAX = 12 -- a zone name at or below this size gets an outline (the font's OUTLINE flag) with the shadow
@@ -165,6 +165,9 @@ local function Measure(l, size)
 	end
 	return l.w * size + PAD_X, l.h * size
 end
+
+-- A quest's name on the big map (ui/Quests.lua) in the subzone names' size and font, and a rev that moves with it.
+function UI.LabelsSub() return BODY, subSize, scaleRev end
 
 UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 	local front = UI.Labels.front -- what shows now: its names don't fade in again

@@ -32,10 +32,11 @@ def hosted(L, icons, canvas):
 
 def test_world_pins():
     """The show rules: at 96 px a tile all but the library's own map's and the frame bigger than a pin (a
-    turn-in too, with our quests layer on: it draws none); zoomed out past 48, the continent's alone; the
-    quests layer off, Questie's turn-in still."""
+    turn-in too, with our quests layer on: it draws none); zoomed out past 48, the continent's alone; past
+    about two zones across the view, none; the quests layer off, Questie's turn-in still."""
     L, sim, ns = boot()
     sim.Slash("/mm toggle")
+    ns.UI.Window.frame.SetSize(ns.UI.Window.frame, 300, 300)  # (8 tiles across at 40: within two zones)
     sim.Run(3)
     q = sim.LoadQuestie()
     sim.FireEvent("ADDON_LOADED", "Questie")
@@ -55,6 +56,13 @@ def test_world_pins():
     ns.UI.Motion.SetZoom(48)
     sim.Run(0.5)
     assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "parent", "turnIn", "world", "zone"]
+    # Wider than about two zones across (13 tiles: 300 px at 20 is 15): no world socket, every pin given back.
+    ns.UI.Motion.SetZoom(20)
+    sim.Run(0.5)
+    assert view.sockets.world is None and hosted(L, icons, canvas) == []
+    ns.UI.Motion.SetZoom(48)
+    sim.Run(0.5)
+    assert len(hosted(L, icons, canvas)) == 8
 
     ns.UI.Engine.SetLayer("quests", False)  # ours off: Questie's turn-in still shown, by the next regular pass
     sim.Run(1.1)

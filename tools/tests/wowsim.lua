@@ -1977,7 +1977,7 @@ for _, base in ipairs({ "ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-out" }) d
 	ATLASES[base], ATLASES[base .. "-mouseover"], ATLASES[base .. "-down"] = true, true, true
 end
 for _, name in ipairs({ "redbutton-expand", "redbutton-expand-pressed", "redbutton-highlight", "redbutton-condense",
-	"redbutton-condense-pressed", "UI-RefreshButton", "Quest-In-Progress-Icon-yellow" }) do
+	"redbutton-condense-pressed", "uitools-icon-close", "UI-RefreshButton", "Quest-In-Progress-Icon-yellow" }) do
 	ATLASES[name] = true
 end
 -- The metal frame's pieces, sized as Forever reports them: the edges far
@@ -1990,6 +1990,9 @@ ATLASES["poi-graveyard-neutral"] = { 12, 16 }
 ATLASES["Waypoint-MapPin-Tracked"] = { 30, 30 }
 -- the popup's buttons (ui/Popup.lua): their glyphs, the micro menu's quest log
 ATLASES["Navigation-Tracked-Arrow"], ATLASES["flightpath"] = { 22, 18 }, { 32, 32 }
+-- Forever's progress bar (the quest pill: ui/Controls.lua), as its c60 art's sizes
+ATLASES["legacy-progressbar-bg-c60"], ATLASES["legacy-progressbar-fill-c60"] = { 117, 12 }, { 117, 12 }
+ATLASES["legacy-progressbar-frame-c60"] = { 131, 26 }
 ATLASES["UI-QuestPoi-OuterGlow"] = { 64, 64 } -- (what you track: ui/Pins.lua)
 for _, a in ipairs({ "hud-microbutton-Quest-Up", "hud-microbutton-Quest-Down", "hud-microbutton-highlight" }) do
 	ATLASES[a] = { 28, 36 }

@@ -24,6 +24,9 @@ local Art = {
 		{ "redbutton-expand-pressed-c60", "redbutton-expand-pressed" },
 		{ "redbutton-highlight-c60", "redbutton-highlight" },
 		"redbutton-condense", "redbutton-condense-pressed",        -- the mode button on the big map (the world map's pair)
+		"uitools-icon-close",                                      -- the quest pill's x
+		{ "legacy-progressbar-bg-c60", "legacy-progressbar-bg" }, { "legacy-progressbar-fill-c60", "legacy-progressbar-fill" },
+		{ "legacy-progressbar-frame-c60", "legacy-progressbar-frame" }, -- the quest pill: Forever's progress bar
 		{ "transmog-icon-revert", "talents-button-undo", "common-icon-undo", "uitools-icon-refresh", "UI-RefreshButton" }, -- the reset
 		"ui-hud-minimap-zoom-in", "ui-hud-minimap-zoom-in-down", "ui-hud-minimap-zoom-in-mouseover", -- the zoom buttons
 		"ui-hud-minimap-zoom-out", "ui-hud-minimap-zoom-out-down", "ui-hud-minimap-zoom-out-mouseover",

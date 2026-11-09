@@ -1,8 +1,8 @@
 """The map's controls (ui/Controls.lua) on the simulated client:
 
   test_pill_and_recenter: the quest pill says the followed quest's pieces in the order chosen on its page (by
-    default its name, its progress and the yards to it; the time to arrive on offer), over a faint fill of how far
-    you've come since you began going to it (off on its page); the reset shows while the map isn't following
+    default its progress alone; its name, the yards to it and the time to arrive on offer), over a fill of how far
+    you've come since you began going to it (off on its page); its x lets go of what it shows; the reset shows while the map isn't following
     you, and its click glides back and follows; the mode button is Blizzard's expand small, its condense big.
 """
 import re
@@ -22,11 +22,14 @@ def test_pill_and_recenter():
         return s.encode("latin-1").decode("utf-8")  # (the Lua string's bytes are UTF-8)
 
     sim.Run(1)
+    assert text() == "3/8"  # (by default its progress alone)
+    Feel.Set("pills.quest", "name,progress,distance")
+    sim.Run(0.5)
     assert re.fullmatch(r"Kobold Candles  3/8  ·  \d+ yd", text()), text()
     Feel.Set("pills.quest", "distance,name,time")
     sim.Run(0.5)
     assert re.fullmatch(r"\d+ yd  ·  Kobold Candles  ·  (<1 min|\d+ min)", text()), text()
-    Feel.Set("pills.quest", Feel.Default("pills.quest"))
+    Feel.Set("pills.quest", "name,progress,distance")
 
     # The fill: empty where you began, about half once you've come half the way; off on its page.
     assert not fill.IsShown(fill)
@@ -34,12 +37,19 @@ def test_pill_and_recenter():
     sim.player.row = (sim.player.row + CANDLES["row"]) / 2
     sim.Run(1)
     assert int(text().split()[-2]) < yd and fill.IsShown(fill)
-    share = (sim.state[fill].width + 15) / line.GetWidth(line)  # (the middle's width, and the caps' 15 px)
+    share = sim.state[fill].width / line.GetWidth(line)  # (the fill: one texture cut at its share)
     assert 0.3 < share < 0.7, share
     Feel.Set("pills.questBar", False)
     sim.Run(0.5)
     assert not fill.IsShown(fill)
     Feel.Set("pills.questBar", True)
+
+    # The x: shown while it shows what you follow; its click lets the quest go (the follow Command, unfollowing).
+    close = ctl.questClose
+    assert close.IsShown(close) and UI.Track.ClearLabel() == "Stop following"
+    sim.Click(close)
+    sim.Run(1)
+    assert sim.superTracked in (0, None) and not close.IsShown(close)
 
     # The reset: shown while not following; its click back to you.
     UI.Motion.SetZoom(UI.DefaultZoom())

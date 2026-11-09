@@ -129,10 +129,11 @@ Controls.zoomReset = zoomReset
 -- when it changes. It fades with the other controls, but stays shown while it shows a target; on the followed quest
 -- it is that quest's pin: hovering it shows the quest's tooltip and lights its area, a click (either button) grows it
 -- into the popup (ui/Popup.lua; ui/Track.lua's Actions: Stop tracking or pathing, the other mode, Open in quest log).
--- Otherwise it takes no mouse.
+-- Otherwise it takes no mouse. While it shows what you track or path to (not your corpse), a small x at its right
+-- end lets it go (Track.Clear). Its look is Forever's progress bar (below).
 ---------------------------------------------------------------------------
 
-local LINE_H, LINE_PAD = 15, 7
+local LINE_H, LINE_PAD = 16, 7
 local ICON, ICON_X, ICON_GAP = 12, 7, 4 -- the icon: its size, its left, the gap to the text
 local ZOOM_COL = 30 -- px at the map's right kept clear of the line: the zoom buttons' column and a gap
 local EVERY = 0.3 -- s between looks: three or so a second (the yards change as you walk)
@@ -140,7 +141,7 @@ local RUN = 7 -- yd/s, a run
 local YARDS_STEP = 10 -- yards are rounded to this from 100 up: no flicker while you walk
 local SEP, NEAR = "  \194\183  ", "  " -- between pieces; between the name and its progress, as before
 local ELLIPSIS = "\226\128\166" -- "…" in UTF-8
-local BAR = { 1, 0.82, 0.25, 0.2 } -- the fill: the title's gold, faint (its colour Settings > Quest pill > Bar colour)
+local BAR = { 1, 0.82, 0.25, 0.6 } -- the fill: the title's gold (its colour Settings > Quest pill > Bar colour)
 local BAR_COLORS = {
 	{ "Gold", { 1, 0.82, 0.25 } }, { "Parchment", { 1, 0.93, 0.76 } }, { "White", { 1, 1, 1 } },
 	{ "Green", { 0.35, 0.9, 0.35 } }, { "Sky", { 0.45, 0.75, 1 } }, { "Rose", { 1, 0.5, 0.6 } },
@@ -166,84 +167,115 @@ icon:SetSize(ICON, ICON)
 icon:SetPoint("LEFT", line, "LEFT", ICON_X, 0)
 if questAtlas then icon:SetAtlas(questAtlas) else icon:Hide() end
 local iconKind = "quest"
--- The pill: a half disc at each end (the circle mask's halves, so they don't overlap the middle).
-local PILL_A = 0.6 -- the backing's alpha: faint ("pills.alpha" sets it live: SetPillAlpha)
-local backing = {} -- the backing's textures (caps and middle)
-local function Cap(left, layer, sub)
-	local t = line:CreateTexture(nil, layer, nil, sub)
-	t:SetTexture(Chrome.CIRCLE)
-	t:SetSize(LINE_H / 2, LINE_H)
-	t:SetTexCoord(left and 0 or 0.5, left and 0.5 or 1, 0, 1)
-	t:SetPoint(left and "TOPLEFT" or "TOPRIGHT")
-	return t
-end
-local function Backing()
-	for _, left in ipairs({ true, false }) do
-		local t = Cap(left, "BACKGROUND")
-		t:SetVertexColor(0, 0, 0, PILL_A)
-		t.cap = true
-		backing[#backing + 1] = t
-	end
-	local middle = line:CreateTexture(nil, "BACKGROUND")
-	middle:SetColorTexture(0, 0, 0, PILL_A)
-	middle:SetPoint("TOPLEFT", line, "TOPLEFT", LINE_H / 2, 0)
-	middle:SetPoint("BOTTOMRIGHT", line, "BOTTOMRIGHT", -LINE_H / 2, 0)
-	backing[#backing + 1] = middle
-end
--- The backing's alpha (a cap takes it through its vertex colour, the middle as its colour).
-local function SetPillAlpha(a)
-	for _, t in ipairs(backing) do
-		if t.cap then t:SetVertexColor(0, 0, 0, a) else t:SetColorTexture(0, 0, 0, a) end
+-- The pill's art: Forever's own progress bar (its legacy bar, the c60 art: GetAtlasInfo takes the first name the
+-- client has), a dark rounded track, the fill over it (the bar's green, greyed and tinted: Bar colour, Bar
+-- opacity), a thin bronze frame round both; on a client without it, plain rectangles and no frame. Each a strip
+-- of three (its ends kept, its middle stretched), file and coords set here (not SetAtlas) so the fill can be cut
+-- at its share.
+local function Info(...)
+	for i = 1, select("#", ...) do
+		local info = C_Texture.GetAtlasInfo(select(i, ...))
+		if info then return info end
 	end
 end
-Backing()
+local TRACK = Info("legacy-progressbar-bg-c60", "legacy-progressbar-bg")
+local FILL = Info("legacy-progressbar-fill-c60", "legacy-progressbar-fill")
+local FRAME = Info("legacy-progressbar-frame-c60", "legacy-progressbar-frame")
+local TRACK_END, FRAME_END = 4, 12 -- the art's px of each end kept whole (its rounding)
+-- The frame drawn at FRAME_K of its art (a thin border: its art is 131 x 26 round a 117 x 12 track, 7 px out), so it
+-- reaches FRAME_OUT px past the track; its alpha.
+local FRAME_K, FRAME_OUT, FRAME_A = 0.6, 4, 0.85
+local PILL_A = 0.25 -- the track's alpha: faint ("pills.alpha" sets it live: SetPillAlpha)
 
--- The fill, over the backing: the pill's shape cut at its share of the width (the caps' circle cut there too).
-local fillL, fillR = Cap(true, "BACKGROUND", 1), Cap(false, "BACKGROUND", 1)
-local fillM = line:CreateTexture(nil, "BACKGROUND", nil, 1)
-fillM:SetColorTexture(BAR[1], BAR[2], BAR[3], BAR[4])
-fillM:SetHeight(LINE_H)
-for _, t in ipairs({ fillL, fillR }) do
-	t:SetVertexColor(BAR[1], BAR[2], BAR[3], BAR[4])
-	t:ClearAllPoints()
+-- A strip of three textures on line, out px past its edges: info's file (its ends: ends px of the art each, drawn
+-- at k), else a plain colour.
+local function Strip(layer, sub, info, ends, out, k)
+	local parts = {}
+	for i = 1, 3 do
+		local t = line:CreateTexture(nil, layer, nil, sub)
+		if info then t:SetTexture(info.file) else t:SetColorTexture(1, 1, 1) end
+		parts[i] = t
+	end
+	local l, r, top, bottom = 0, 1, 0, 1
+	if info then l, r, top, bottom = info.leftTexCoord, info.rightTexCoord, info.topTexCoord, info.bottomTexCoord end
+	local e = info and ends or 0
+	local u = info and e * (r - l) / info.width or 0 -- /: never 0 (an atlas's width > 0)
+	parts[1]:SetTexCoord(l, l + u, top, bottom)
+	parts[2]:SetTexCoord(l + u, r - u, top, bottom)
+	parts[3]:SetTexCoord(r - u, r, top, bottom)
+	parts[1]:SetPoint("TOPLEFT", -out, out)
+	parts[1]:SetPoint("BOTTOMLEFT", -out, -out)
+	parts[1]:SetWidth(e * (k or 1))
+	parts[3]:SetPoint("TOPRIGHT", out, out)
+	parts[3]:SetPoint("BOTTOMRIGHT", out, -out)
+	parts[3]:SetWidth(e * (k or 1))
+	parts[2]:SetPoint("TOPLEFT", parts[1], "TOPRIGHT")
+	parts[2]:SetPoint("BOTTOMRIGHT", parts[3], "BOTTOMLEFT")
+	if e == 0 then parts[1]:Hide(); parts[3]:Hide() end
+	return parts
 end
--- The fill's colour (a preset's name or "#rrggbb"), its faintness kept.
+local function Tint(parts, c, a)
+	for _, t in ipairs(parts) do t:SetVertexColor(c[1], c[2], c[3], a) end
+end
+
+local backing = Strip("BACKGROUND", 0, TRACK, TRACK_END, 0)
+local function SetPillAlpha(a) Tint(backing, { 0, 0, 0 }, a) end
+SetPillAlpha(PILL_A)
+if FRAME then Tint(Strip("ARTWORK", -1, FRAME, FRAME_END, FRAME_OUT, FRAME_K), { 1, 1, 1 }, FRAME_A) end
+
+-- The fill: one texture, the bar's art cut at its share of the width (its left end kept, cut on the right).
+local fillM = line:CreateTexture(nil, "BORDER")
+if FILL then
+	fillM:SetTexture(FILL.file)
+	fillM:SetDesaturated(true) -- (its green greyed: the tint is its colour)
+else
+	fillM:SetColorTexture(1, 1, 1)
+end
+fillM:SetPoint("TOPLEFT")
+fillM:SetPoint("BOTTOMLEFT")
+-- The fill's colour (a preset's name or "#rrggbb") and its opacity.
 local function SetBarColor(v)
 	local _, c = UI.Feel.RGB(BAR_COLORS, v, BAR_COLORS[1][1])
 	BAR[1], BAR[2], BAR[3] = c[1], c[2], c[3]
-	fillM:SetColorTexture(BAR[1], BAR[2], BAR[3], BAR[4])
-	for _, t in ipairs({ fillL, fillR }) do t:SetVertexColor(BAR[1], BAR[2], BAR[3], BAR[4]) end
+	fillM:SetVertexColor(BAR[1], BAR[2], BAR[3], BAR[4])
 end
 local function SetBarAlpha(v)
 	BAR[4] = v
 	SetBarColor(UI.Feel.Get("pills.barColor"))
 end
+SetBarColor(BAR_COLORS[1][1])
 local function Fill(frac, w)
-	local r = LINE_H / 2
-	local f = (frac or 0) * w
-	local lw, mw, rw = math.min(f, r), math.min(f, w - r) - r, f - (w - r)
-	fillL:SetShown(lw > 0)
-	fillM:SetShown(mw > 0)
-	fillR:SetShown(rw > 0)
-	if lw > 0 then
-		fillL:SetWidth(lw)
-		fillL:SetTexCoord(0, 0.5 * lw / r, 0, 1) -- /: never 0 (LINE_H)
-		fillL:SetPoint("TOPLEFT", line, "TOPLEFT", 0, 0)
-	end
-	if mw > 0 then
-		fillM:SetWidth(mw)
-		fillM:SetPoint("TOPLEFT", line, "TOPLEFT", r, 0)
-	end
-	if rw > 0 then
-		fillR:SetWidth(rw)
-		fillR:SetTexCoord(0.5, 0.5 + 0.5 * rw / r, 0, 1) -- /: never 0 (as above)
-		fillR:SetPoint("TOPLEFT", line, "TOPLEFT", w - r, 0)
+	local f = math.min(1, frac or 0)
+	fillM:SetShown(f > 0)
+	if f <= 0 then return end
+	fillM:SetWidth(f * w)
+	if FILL then
+		local l, r = FILL.leftTexCoord, FILL.rightTexCoord
+		fillM:SetTexCoord(l, l + (r - l) * f, FILL.topTexCoord, FILL.bottomTexCoord)
 	end
 end
 
+-- The x: what the pill shows (a followed quest, a tracked or pathed icon, your waypoint) let go (Track.Clear); not
+-- your corpse (the game ends that). Minimal: a thin x glyph (the client's, else a drawn one) in the text's colour,
+-- soft at rest, full on hover, in a small square at the pill's right end.
+local X, X_GLYPH, X_REST = LINE_H - 2, 8, 0.6 -- its square, its glyph (px), its alpha at rest
+local close = CreateFrame("Button", nil, line)
+close:SetSize(X, X)
+close:SetPoint("RIGHT", line, "RIGHT", -3, 0)
+local glyph = close:CreateTexture(nil, "OVERLAY")
+glyph:SetSize(X_GLYPH, X_GLYPH)
+glyph:SetPoint("CENTER")
+local xAtlas = FirstAtlas("uitools-icon-close")
+if xAtlas then glyph:SetAtlas(xAtlas) else glyph:SetTexture("Interface\\Buttons\\UI-StopButton") end
+glyph:SetVertexColor(0.95, 0.9, 0.8, X_REST)
+close:SetScript("OnEnter", Runtime.Wrap("map: pill x", function() glyph:SetVertexColor(1, 1, 1, 1) end))
+close:SetScript("OnLeave", Runtime.Wrap("map: pill x", function() glyph:SetVertexColor(0.95, 0.9, 0.8, X_REST) end))
+close:Hide()
+Controls.questClose = close
+
 -- The pill's look and behaviour (its page, through SetPill; these its defaults): its size, whether it shows, what it
 -- says (the pieces, in order), its fill, and whether it fades until you point at the map.
-local PILL = { scale = 1, questShow = "all", pieces = { "name", "progress", "distance" }, bar = true, questFade = true }
+local PILL = { scale = 0.9, questShow = "all", pieces = { "progress" }, bar = true, questFade = true }
 local lineText = line:CreateFontString(nil, "OVERLAY")
 lineText:SetFont(FONT, 10, "")
 lineText:SetTextColor(0.95, 0.9, 0.8)
@@ -408,14 +440,17 @@ local function Show(pre, head, tail)
 		line:Hide()
 		return
 	end
+	local x = tracked and iconKind ~= "corpse"
+	close:SetShown(x)
+	local xw = x and X or 0
 	-- Capped so the line never reaches the zoom buttons (the map's width less the zoom column).
 	local textX = questAtlas and ICON_X + ICON + ICON_GAP or LINE_PAD
 	-- In the pill's own units (SetScale).
 	local w = overlay:GetWidth() / PILL.scale -- /: never 0 (the scale's least is 0.8)
-	local avail = w > 0 and w - (2 * PAD + ZOOM_COL) / PILL.scale - textX - LINE_PAD or math.huge -- /: never 0 (as above)
+	local avail = w > 0 and w - (2 * PAD + ZOOM_COL) / PILL.scale - textX - LINE_PAD - xw or math.huge -- /: never 0 (as above)
 	lineText:SetPoint("LEFT", line, "LEFT", textX, 0)
 	lineText:SetText(Fit(pre, head, tail, avail))
-	line:SetWidth(textX + lineText:GetStringWidth() + LINE_PAD)
+	line:SetWidth(textX + lineText:GetStringWidth() + LINE_PAD + xw)
 	local atlas = ICONS[iconKind] or questAtlas
 	if atlas and icon:GetAtlas() ~= atlas then icon:SetAtlas(atlas) end
 	icon:SetDesaturated(not tracked)
@@ -616,6 +651,8 @@ Controls.Tip(zoomIn, function() return "Zoom in" end)
 Controls.Tip(zoomOut, function() return "Zoom out" end)
 Controls.Tip(zoomReset, function() return Camera.follow and "Reset zoom" or "Back to you" end)
 Controls.Tip(gear, function() return "Settings" end)
+close:SetScript("OnClick", Runtime.Wrap("map: pill close", function() UI.Track.Clear() end))
+Controls.Tip(close, function() return UI.Track.ClearLabel() end)
 
 ns.Game.Command({ kind = "slash", name = "follow", help = "follow you on the map, or stop",
 	fn = ToggleFollow })
@@ -641,19 +678,19 @@ UI.Feel.Add("pills", nil, {
 		default = table.concat(PILL.pieces, ","), apply = function() SetPill("pieces", UI.Feel.List("pills.quest")) end,
 		tip = "What the pill says about what you track, in this order: its name, the quest's progress (2/5, or ready to turn in), the yards to it along the way, and the time to get there at your pace." },
 	{ key = "pills.questBar", kind = "toggle", label = "Progress bar", default = PILL.bar, when = QuestPill, apply = Pill("bar"),
-		tip = "A faint fill behind the pill's text, how far you've come: empty at the farthest you've been from it since you began tracking it, full once you're there." },
+		tip = "A fill behind the pill's text, how far you've come: empty at the farthest you've been from it since you began tracking it, full once you're there." },
 	{ key = "pills.barAlpha", kind = "slider", label = "Bar opacity", min = 0.05, max = 1, step = 0.05, pct = true,
 		default = BAR[4], when = function() return QuestPill() and UI.Feel.Get("pills.questBar") ~= false end,
 		apply = SetBarAlpha, tip = "How solid the progress bar is behind the text." },
 	{ key = "pills.barColor", kind = "color", label = "Bar colour", colors = BAR_COLORS, default = BAR_COLORS[1][1],
 		when = function() return QuestPill() and UI.Feel.Get("pills.questBar") ~= false end, apply = SetBarColor,
-		tip = "The progress bar's colour (it stays faint behind the text)." },
+		tip = "The progress bar's colour." },
 	{ key = "pills.questFade", kind = "toggle", label = "Fade quest pill", default = PILL.questFade, when = QuestPill,
 		apply = Pill("questFade"), tip = "The zone's quest count shows only while you point at the map. What you track always shows." },
 })
 UI.Feel.Add("pills", "Look", {
 	{ key = "pills.alpha", kind = "slider", label = "Backing", min = 0, max = 0.8, step = 0.05, pct = true, default = PILL_A,
-		apply = SetPillAlpha, tip = "How dark the pill's backing is." },
+		apply = SetPillAlpha, tip = "How dark the pill's track is, behind the progress bar." },
 	{ key = "pills.scale", kind = "slider", label = "Size", min = 0.8, max = 1.6, step = 0.1, pct = true, default = PILL.scale,
 		apply = Pill("scale"), tip = "The pill's size, text and all." },
 })

@@ -120,7 +120,16 @@ def test_quest_pins():
     assert vis(p.glow) and S[p.glow].atlas == "UI-QuestPoi-OuterGlow"  # (what you follow: its glow, not a size)
     assert vis(p.ring) and S[p.ring].atlas == "UI-QuestPoi-QuestNumber" and rgba(p.ring) == [1, 1, 1, 1]
     assert not vis(p.inner) and rgba(p.icon) == [1, 1, 1, 1]
-    assert S[p.count].text == "2/8"
+    assert p.count is None  # (small: no count under it; its progress is in the pill and its tooltip)
+    # Big: its name under it, in the subzone names' size, solid, in its difficulty's colour (its entry's).
+    ns.UI.BigMap.Toggle()
+    sim.Run(1.5)
+    p = pin(ns, G, "Quests", 52)
+    font, size, _ = ns.UI.LabelsSub()
+    assert S[p.count].shown and S[p.count].text == "Protect the Frontier" and S[p.count].font[1] == font
+    c = p.count.style[3]  # (the colour it was set to: the sim keeps no text colour)
+    e = p.entry.color
+    assert S[p.count].font[2] == size and [c[1], c[2], c[3]] == [e[1], e[2], e[3]] and (c[2], c[3]) != (1, 1)  # (not white)
     # Ready to turn in, and quests to pick up: none of ours (Blizzard's "?" and "!" blips draw them).
     assert pin(ns, G, "Quests", 106) is None and ns.UI.Offers is None
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
@@ -314,7 +323,7 @@ def test_quest_tooltip():
     sim.FireScript(ns.UI.Window.view, "OnEnter", False)
     sim.Step()
     p = pin(ns, G, "Quests", 60)
-    assert S[p.count].text == "3/8"
+    assert p.count is None
     assert [S[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)] == [
         "The Unusually Long Name of the Kobold Candles of Elwynn Forest", "Large Candle: 3/8"]
     assert S[tip.GetRightLine(tip, 1)].text == "|cffffd1007|r  "
