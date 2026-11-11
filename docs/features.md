@@ -217,7 +217,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 ## Limits in detail
 
 - **WoW Forever only** (installed under `World of Warcraft/_forever_/`), the client build `Data/` was
-  generated from, 1.60.1.70862 (a patch means regenerating).
+  generated from, 1.60.1.70888 (a patch means regenerating).
 - **Blizzard's blips** show only around you, as far as Blizzard's Minimap sees (about 230 yards at its widest),
   and not on the big map or while a path's line is drawn. If a game update changes the minimap's zoom sizes, or
   putting the blips over the map fails, MagicMap says so once in chat and leaves Blizzard's minimap as it was

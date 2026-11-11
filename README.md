@@ -50,7 +50,7 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 
 ## Install
 
-1. Get `MagicMap-v3.0.0.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest),
+1. Get `MagicMap-v3.0.1.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest),
    or install from [CurseForge](https://www.curseforge.com/wow/addons/magic-map).
 2. Unzip it into `World of Warcraft/_forever_/Interface/AddOns/`. Updating from 1.x? Delete the old
    `MagicMap` folder first.
@@ -71,7 +71,7 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 
 ## Limits
 
-- WoW Forever only, English client, build 1.60.1.70862.
+- WoW Forever only, English client, build 1.60.1.70888.
 - No arrow in dungeons and raids (the game hides your position there).
 - Blizzard's blips (herbs, ore, mailboxes...) show only around you, as on Blizzard's minimap: not on the
   big map, not while a path's line is drawn, and not zoomed out past its widest.
