@@ -132,7 +132,9 @@ Runtime.Step("ui", "ui: view", function()
 	end
 	local strata, level = frame:GetFrameStrata(), frame:GetFrameLevel()
 	local rmin, rworld = UI.Replace.Get("minimap"), UI.Replace.Get("worldmap")
-	local mode = rmin and saved.minimap or "ours" -- (the Minimap is ours whenever the window is shown, but Blizzard's quick hide while minimap mode is on)
+	-- The Minimap is ours only while MagicMap replaces it (and not swapped back: /mm); else Blizzard's minimap is left
+	-- as it is (the window's then always big, where the overlay never shows anyway).
+	local mode = rmin and saved.minimap or "blizzard"
 	local replace = view.replace
 	if shown ~= window.shown or place ~= window.place or mode ~= view.minimap
 		or rmin ~= replace.minimap or rworld ~= replace.worldmap

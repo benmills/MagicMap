@@ -169,7 +169,7 @@ local function Engage()
 	Runtime.Trace("minimap", "engaged")
 end
 
-local Unoverlay -- (the overlay's, below)
+local Unoverlay, Untip -- (the overlay's and its tooltips', below)
 local function Release()
 	if not m.engaged then return end
 	m.engaged, m.instance, placed = false, false, nil
@@ -181,6 +181,7 @@ local function Release()
 		undo[i] = nil
 	end
 	Cluster()
+	Untip()
 	Runtime.Trace("minimap", "released")
 	if failure then error(failure, 0) end
 end
@@ -335,7 +336,7 @@ end
 -- nearest the map's zoom (obs.minimap.steps as outdoors, so the wheel steps through them).
 local function Instance(w, view)
 	local mm = Minimap
-	local r, p, cam = C_Minimap.GetViewRadius(), w.place, view.camera
+	local p, cam = w.place, view.camera
 	m.maxZoom, m.stepsOn = nil, false
 	if not cam or cam.w <= 0 then return Hide(mm, w) end
 	local k = p.w / cam.w -- /: never 0 (checked above)
@@ -346,9 +347,9 @@ local function Instance(w, view)
 		local d = math.abs(math.log(m.steps[i + 1] / cam.zoom)) -- /: never 0 (a zoom > 0)
 		if not best or d < best then want, best = i, d end
 	end
-	if want ~= (m.zoom or 0) then m.zoom, m.settle = want, SETTLE; mm:SetZoom(want); return Hide(mm, w) end
-	if (m.settle or 0) > 0 then m.settle = m.settle - 1; return Hide(mm, w) end
-	if not r or issecretvalue(r) or r <= 0 then return Hide(mm, w) end
+	-- A new zoom applied as it stays shown: its square the same size at every zoom (the steps fit it so), no tiles of
+	-- ours under it to line up with, so nothing to wait for (hidden, the black curtain showed while you zoomed).
+	if want ~= (m.zoom or 0) then m.zoom = want; mm:SetZoom(want) end
 	local x, y = p.left + p.w / 2, p.top - p.h / 2
 	Put(mm, w, x, y, m.steps[want + 1] * Radius(want) * YD * k)
 end
@@ -410,13 +411,25 @@ local BlipTip = Runtime.Wrap("game: overlay tooltip", function()
 		if GameTooltip:GetOwner() == UIParent then GameTooltip:Hide() end
 	end
 end)
+-- (A hook can't be undone: released, these leave Blizzard's Minimap to itself, its own tooltips.)
 Minimap:HookScript("OnEnter", Runtime.Wrap("game: overlay entered", function(self)
+	if not m.engaged then return end
 	m.mouse = true
 	self:SetScript("OnUpdate", BlipTip) -- (after Blizzard's OnEnter set its own)
 end))
 Minimap:HookScript("OnLeave", Runtime.Wrap("game: overlay left", function()
 	m.mouse, m.blip, m.names = false, false, nil
 end))
+-- Released: our tooltip handler off the Minimap and its state cleared; under the cursor, Blizzard's OnEnter again
+-- (its own OnUpdate, its tooltips).
+function Untip()
+	local mm = Minimap
+	m.mouse, m.blip, m.names = false, false, nil
+	if mm:GetScript("OnUpdate") == BlipTip then mm:SetScript("OnUpdate", nil) end
+	if GameTooltip:GetOwner() == UIParent and not mm:IsMouseOver() then GameTooltip:Hide() end
+	local enter = mm:GetScript("OnEnter")
+	if enter and mm:IsShown() and mm:IsMouseOver() then enter(mm) end
+end
 function Mouse(on)
 	local mm = Minimap
 	if on then

@@ -240,3 +240,24 @@ def test_farmhud():
     sim.Run(0.5)
     assert Game.minimap.engaged and Game.obs.minimap.blocker is None
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_tooltips_after_release():
+    """Released, Blizzard's Minimap has its own tooltips again: our hover hook (it can't be undone) leaves it be, and
+    our tooltip handler is off it (it drew nothing outside our window: Blizzard's tooltips were dead)."""
+    L, sim, ns = boot()
+    G = L.globals()
+    sim.Slash("/mm toggle")
+    sim.Run(1)
+    assert ns.Game.minimap.engaged
+    sim.Slash("/mm toggle")
+    sim.Run(1)
+    assert not ns.Game.minimap.engaged
+    sim.blip = "Peacebloom"  # (the blip under the cursor)
+    mm = G.Minimap
+    sim.MoveCursorTo(mm)
+    sim.FireScript(mm, "OnEnter", False)
+    sim.Run(0.5)
+    same = L.eval("function(a, b) return a == b end")
+    assert same(mm.GetScript(mm, "OnUpdate"), G.Minimap_OnUpdate) and G.GameTooltip.IsShown(G.GameTooltip)
+    assert not errors(sim, ns), errors(sim, ns)

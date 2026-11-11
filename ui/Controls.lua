@@ -611,8 +611,11 @@ local function Reveal()
 	Chrome.controls:SetAlpha(a)
 	gear:SetAlpha(a)
 	mode:SetAlpha(a)
+	-- (only while ours replaces the minimap: else its buttons are on Blizzard's, where they were)
+	local own = UI.Replace.Get("minimap")
+	addons:SetShown(own)
 	addons:SetAlpha(hover)
-	addons:EnableMouse(hover > 0)
+	addons:EnableMouse(own and hover > 0)
 	Chrome.grip:SetAlpha(GRIP_ALPHA * a)
 end
 

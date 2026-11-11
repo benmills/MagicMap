@@ -1,8 +1,8 @@
 """What MagicMap replaces (ui/Replace.lua, ui/Welcome.lua): the minimap and the world map, each on or off.
 A new install replaces nothing and the first click on the button shows the welcome (Escape: nothing chosen,
 it asks again; Continue: the recommended both, the small map on the Minimap's spot); an existing player is
-migrated to what they had; each mode engages what it says: our small map shown from login (minimap), M ours
-(worldmap), the button opening our big map as a window of its own (neither), the Minimap cluster back exactly
+migrated to what they had; each mode engages what it says: our small map shown from login (minimap: Blizzard's Minimap
+ours only then), M ours (worldmap), the button opening our big map as a window of its own (neither), the Minimap cluster back exactly
 when ours closes."""
 from test_addon import boot, errors
 
@@ -97,7 +97,8 @@ def test_modes():
     assert not win.IsShown(win) and cluster() and not ns.Game.minimap.engaged
     sim.Press("M")
     sim.Run(1)
-    assert not world() and win.IsShown(win) and big.big and ns.Game.minimap.engaged and not cluster()
+    # (Blizzard's minimap left as it is: not replaced, ours never takes it)
+    assert not world() and win.IsShown(win) and big.big and not ns.Game.minimap.engaged and cluster()
     assert sim.Escape()[0]
     sim.Run(1)
     assert not win.IsShown(win) and not big.big and cluster() and not ns.Game.minimap.engaged
@@ -124,7 +125,7 @@ def test_modes():
     sim.Press("M")
     ns.Game.Hooked("toggle")
     sim.Run(1)
-    assert win.IsShown(win) and big.big and not world() and ns.Game.minimap.engaged
+    assert win.IsShown(win) and big.big and not world() and not ns.Game.minimap.engaged and cluster()
     ns.Game.Hooked("toggle")
     sim.Run(1)
     assert not win.IsShown(win) and cluster() and not ns.Game.minimap.engaged
