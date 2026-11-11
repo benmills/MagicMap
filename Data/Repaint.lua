@@ -4,7 +4,7 @@
 local _, ns = ...
 local D = ns.Data or {}; ns.Data = D
 D.formats = D.formats or {}; D.formats.Repaint = 1
-D.Repaint = { build = "1.60.1.70862", maps = {
+D.Repaint = { build = "1.60.1.70888", maps = {
   [0] = {
     38, 23, "Textures\\Repaintek1a_38_23", 0,
     38, 24, "Textures\\Repaintek1a_38_24", 0,
