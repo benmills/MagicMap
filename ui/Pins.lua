@@ -155,7 +155,7 @@ end
 -- count? }: (a) a texture (coords: its part, a cell of a sheet), bare; (b) an atlas, at its own aspect
 -- (aspect: its width over height, else the client's); (c) an atlas over its under atlas tinted, the inner
 -- texture in it; (d) else (an atlas the client lacks too, and no alt: the look drawn instead when the atlas is
--- missing) a dot of its colour on a dark ring; count: a line under it.
+-- missing) a dot of its colour on a dark ring; count: a line under it; sub (with subStyle): a second, under that.
 -- The pin's icon as inline markup before its tooltip's title (16 px, its own proportions, two spaces after): a
 -- texture whole, an atlas the client has; none for a sheet's cell, a disc's atlas (a quest's: its tooltip has its
 -- own look) or a dot. One string an icon.
@@ -208,6 +208,27 @@ local function Style(pin, look)
 		if fs.text ~= look.count then
 			fs.text = look.count
 			fs:SetText(look.count)
+		end
+	end
+	-- A second line under the count (a quest's progress under its name), secondary: look.sub in look.subStyle.
+	if look.sub or pin.sub then
+		local fs = pin.sub
+		if not fs then
+			fs = pin:CreateFontString(nil, "OVERLAY")
+			fs:SetPoint("TOP", Count(pin), "BOTTOM", 0, -1)
+			fs:SetShadowOffset(1, -1)
+			fs:SetShadowColor(0, 0, 0, 0.85)
+			pin.sub = fs
+		end
+		local style = look.subStyle
+		if style and fs.style ~= style then
+			fs.style = style
+			fs:SetFont(style[1], style[2], "")
+			fs:SetTextColor(style[3][1], style[3][2], style[3][3], 1)
+		end
+		if fs.text ~= (look.sub or "") then
+			fs.text = look.sub or ""
+			fs:SetText(fs.text)
 		end
 	end
 	local i, inner = pin.icon, false

@@ -51,17 +51,31 @@ local function Style(c)
 	end
 	return s
 end
+-- The progress under the name: a size smaller, muted (secondary).
+local MUTED = { 0.8, 0.76, 0.68 }
+local subs, subRev = {}, nil
+local function SubStyle()
+	local font, size, rev = UI.LabelsSub()
+	if rev ~= subRev then subs, subRev = { font, math.max(6, size - 2), MUTED }, rev end
+	return subs
+end
+-- On the big map, each quest's name under its pin and its progress under that (Settings > Pins > Quest: off by
+-- default); the small map, neither.
+local bigText = false
 local function Look(e)
-	local isBig = UI.BigMap.big == true
+	local isBig = UI.BigMap.big == true and bigText
 	local looks = isBig and big or small
 	local look = looks[e]
-	if look and (not isBig or look.countStyle == Style(e.color or WHITE)) then return look end
+	if look and (not isBig or look.countStyle == Style(e.color or WHITE) and look.subStyle == SubStyle()) then return look end
 	local icon = UI.Art.Icon(e.icon.atlas) -- (a missing atlas: no icon, a dot)
 	icon.color = e.icon.color
 	icon.under, icon.scale = UNDER, 1 -- (the world map's: its dots on the disc, full size)
 	-- (the one you follow its size too: it glows, ui/Pins.lua)
 	look = { size = SIZE, icon = icon, type = "quest" }
-	if isBig then look.count, look.countStyle = e.name, Style(e.color or WHITE) end
+	if isBig then
+		look.count, look.countStyle = e.name, Style(e.color or WHITE)
+		if e.count and e.count ~= "" then look.sub, look.subStyle = e.count, SubStyle() end
+	end
 	looks[e] = look
 	return look
 end
@@ -72,7 +86,7 @@ UI.Quests = Pins.Layer("quests", 15, function(put)
 	end
 end, function()
 	local _, _, labels = UI.LabelsSub()
-	return select(2, Model.Known("quests")) * 2 + (UI.BigMap.big and 1 or 0) + labels * 1e7
+	return select(2, Model.Known("quests")) * 4 + (UI.BigMap.big and 1 or 0) + (bigText and 2 or 0) + labels * 1e7
 end, {
 	tooltip = UI.QuestTooltip.Fill, -- (a click grows it into the popup: ui/Pins.lua's Tap)
 	hover = Areas.Hover,
@@ -80,3 +94,9 @@ end, {
 })
 
 UI.Menus.Layer({ key = "quests", label = "Quests", group = "quests", tip = "Quests in your log. Click one to track it." })
+
+Feel.Add("pins", "By type", {
+	{ key = "quests.bigText", kind = "toggle", label = "Names on the big map", under = "pins.quest.show", default = false,
+		apply = function(v) bigText = v end,
+		tip = "On the big map, each quest's name under its pin, in its difficulty's colour, and its progress under that." },
+})

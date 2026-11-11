@@ -16,6 +16,8 @@ def test_pill_and_recenter():
     UI = ns.UI
     ctl, Feel = UI.Controls, UI.Feel
     line, fill, recenter = ctl.questLine, ctl.questFill, ctl.zoomReset
+    assert not line.IsShown(line)  # (off by default)
+    Feel.Set("pills.questShow", "followed")
 
     def parts():
         """The pill's texts, the first piece's then the rest's (smaller, muted)."""

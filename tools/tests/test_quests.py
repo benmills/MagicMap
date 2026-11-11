@@ -121,11 +121,17 @@ def test_quest_pins():
     assert vis(p.ring) and S[p.ring].atlas == "UI-QuestPoi-QuestNumber" and rgba(p.ring) == [1, 1, 1, 1]
     assert not vis(p.inner) and rgba(p.icon) == [1, 1, 1, 1]
     assert p.count is None  # (small: no count under it; its progress is in the pill and its tooltip)
-    # Big: its name under it, in the subzone names' size, solid, in its difficulty's colour (its entry's).
+    # Big: nothing under it by default; Names on the big map on, its name under it, in the subzone names' size, solid,
+    # in its difficulty's colour (its entry's), and its progress under that, smaller and muted.
     ns.UI.BigMap.Toggle()
     sim.Run(1.5)
     p = pin(ns, G, "Quests", 52)
+    assert p.count is None or not S[p.count].text
+    ns.UI.Feel.Set("quests.bigText", True)
+    sim.Run(0.5)
+    p = pin(ns, G, "Quests", 52)
     font, size, _ = ns.UI.LabelsSub()
+    assert S[p.sub].shown and S[p.sub].text == p.entry.count and S[p.sub].font[2] == size - 2
     assert S[p.count].shown and S[p.count].text == "Protect the Frontier" and S[p.count].font[1] == font
     c = p.count.style[3]  # (the colour it was set to: the sim keeps no text colour)
     e = p.entry.color
@@ -139,6 +145,7 @@ def test_quest_follow():
     # Grouping off (ui/Cluster.lua): the quests' own pins are what these clicks are on, not a pill of them.
     L, sim, ns, G = client([FRONTIER, GOLD], before="local _, ns = ...\nns.UI.saved.cluster = false")
     view, Model = ns.UI.Window.view, ns.Model
+    ns.UI.Feel.Set("pills.questShow", "followed")  # (the pill: off by default)
     sim.FireScript(view, "OnEnter", False)
 
     def followed():

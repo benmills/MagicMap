@@ -361,7 +361,7 @@ Controls.questClose = close
 
 -- The pill's look and behaviour (its page, through SetPill; these its defaults): its size, whether it shows, what it
 -- says (the pieces, in order), its fill, and whether it fades until you point at the map.
-local PILL = { scale = 0.9, questShow = "followed", pieces = { "progress", "distance" }, bar = true }
+local PILL = { scale = 0.9, questShow = "off", pieces = { "progress", "distance" }, bar = true }
 -- The first piece in the pill's text; the rest secondary, smaller and muted, after it.
 local lineText = line:CreateFontString(nil, "OVERLAY")
 lineText:SetTextColor(0.95, 0.9, 0.8)

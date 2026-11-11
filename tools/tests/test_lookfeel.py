@@ -56,6 +56,7 @@ def test_lookfeel():
 
     # A page's row: its page shown and built, the last one's hidden, kept. The progress bar off: its opacity's and
     # colour's rows hidden; on, shown.
+    Feel.Set("pills.questShow", "followed")  # (off by default: its other rows hidden)
     sim.Click(_tab(L, Feel, "Quest pill"))
     assert saved.feelPage == "pills" and not _shown(Feel.pages["general"]) and _shown(Feel.pages["pills"])
     Feel.Set("pills.questBar", False)
@@ -86,6 +87,7 @@ def test_lookfeel():
     sim.Pick(styles["Dotted"])
     assert sim.menu is None and Feel.Get("path.style") == "dotted" and saved.feel["path.style"] == "dotted" and Feel.rev > rev
     assert style.Text.GetText(style.Text) == "Dotted" and _shown(w["path.style"].undo)
+    Feel.Set("pills.questShow", "off")  # (the pill's, above: back to its default)
     Feel.Set("path.style", "dashed")  # back to the default: its key gone, the table with it, the dropdown back
     assert saved.feel is None and style.Text.GetText(style.Text) == "Dashed"
 
