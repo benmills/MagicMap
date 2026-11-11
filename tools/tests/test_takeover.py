@@ -261,3 +261,25 @@ def test_tooltips_after_release():
     same = L.eval("function(a, b) return a == b end")
     assert same(mm.GetScript(mm, "OnUpdate"), G.Minimap_OnUpdate) and G.GameTooltip.IsShown(G.GameTooltip)
     assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_blip_above_or_below():
+    """A blip above or below you (the client's arrow, a texture escape, in its name): the tooltip as any other's, the
+    herb its icon, colour and skill pill, the arrow a badge over the icon's corner (ui/BlipTip.lua, Tip.Badge)."""
+    L, sim, ns = boot()
+    G = L.globals()
+    sim.Slash("/mm toggle")
+    sim.Run(2)
+    m = ns.Game.minimap
+    m.blip = True
+    m.names = L.table_from(["Peacebloom"])
+    m.marks = L.table_from(["|Tinterface\\minimap\\minimap-arrow-up:0|t"])
+    sim.Run(0.5)
+    tt = G.GameTooltip
+    lines = [sim.state[r].text for r in tt.GetRegions(tt) if sim.state[r].text]
+    assert tt.IsShown(tt) and any("Peacebloom" in t and "|T" in t for t in lines), lines  # (the icon kept)
+    assert not any("arrow" in t for t in lines), lines  # (not in the text: a badge)
+    badges = [r for r in tt.GetRegions(tt) if sim.state[r].shown and sim.state[r].texture
+              and "arrow" in str(sim.state[r].texture)]
+    assert len(badges) == 1, lines
+    assert not errors(sim, ns), errors(sim, ns)

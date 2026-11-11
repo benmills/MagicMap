@@ -178,6 +178,8 @@
 ---@field minZoom? number     with steps: the map's zoom further out than which its blips aren't shown (its widest too small)
 ---@field names? string[]      a blip's under the cursor (the overlay's): the names its tooltip lists, stacked ones each; UI
 ---                           draws them (ui/BlipTip.lua). nil: none, or Blizzard's own tooltip shows (a name it keeps secret)
+---@field marks? string[]      beside names, each one's arrow if the blip is above or below you (the client's texture
+---                           escape, as it wrote it), "" if not
 ---@field overlaid? boolean    the overlay is seen (half faded in or more): its arrow is yours, UI's hides
 ---@field blip? boolean        a blip of the overlay's is under the cursor, its tooltip Blizzard's: UI's hovers give way
 

@@ -19,6 +19,7 @@ local Tip, Window = UI.Tip, UI.Window
 
 local MARK = 18 -- px: the item icon before a node's name (its border cropped, as the bags show it)
 local QMARK = 14 -- px: a quest's "!" or "?"
+local ARROW = 11 -- px: a blip above or below you, its arrow over the icon's bottom right (after the name if none)
 local LINE = { herb = "Herbalism", ore = "Mining" }
 local WHITE = { 1, 1, 1 }
 local RED, ORANGE, YELLOW = { 1, 0.1, 0.1 }, { 1, 0.5, 0.25 }, { 1, 1, 0 }
@@ -34,7 +35,15 @@ local function Difficulty(have, need)
 	return GREY
 end
 
-local function Node(tip, name, kind)
+-- The arrow (mark: a blip above or below you) on the title just added: over its icon's bottom right, else after it.
+local function Arrow(tip, mark, iconed)
+	if mark == "" then return end
+	local fs = Tip.Region(tip, "TextLeft" .. tip:NumLines())
+	if iconed and fs and Tip.Badge(tip, mark, fs, MARK - ARROW / 2 + 1, -MARK / 2 + ARROW / 2 - 1, ARROW) then return end
+	if fs then fs:SetText(fs:GetText() .. " " .. mark) end
+end
+
+local function Node(tip, name, kind, arrow)
 	local icon, need, skills = Atlas.NodeIcon(name), Atlas.NodeSkill(name), Model.skills
 	local c = need and skills and Difficulty(skills[kind], need) or WHITE
 	local mark = icon and ("|T" .. icon .. ":" .. MARK .. ":" .. MARK .. ":0:0:64:64:5:59:5:59|t  ") or ""
@@ -44,6 +53,7 @@ local function Node(tip, name, kind)
 		tip:AddLine(mark .. name, c[1], c[2], c[3])
 		Tip.Title(Tip.Last(tip))
 	end
+	Arrow(tip, arrow, icon ~= nil)
 	Tip.Sub(tip, LINE[kind])
 end
 
@@ -98,9 +108,10 @@ local function Line(tip, id, title, atlas)
 	tip:AddLine("|A:" .. atlas .. ":" .. QMARK .. ":" .. QMARK .. "|a " .. title, c[1], c[2], c[3])
 end
 
-local function Npc(tip, name, npc)
+local function Npc(tip, name, npc, arrow)
 	tip:AddLine(name, 1, 1, 1)
 	Tip.Title(Tip.Last(tip))
+	Arrow(tip, arrow, false)
 	if npc.subName and npc.subName ~= "" then Tip.Sub(tip, npc.subName) end
 	for _, id in ipairs(npc.questEnds or NONE) do
 		if done[id] then Line(tip, id, done[id], TURN_IN) end
@@ -110,13 +121,14 @@ local function Npc(tip, name, npc)
 	end
 end
 
-local function Fill(tip, name)
+local function Fill(tip, name, arrow)
 	local kind = Atlas.NodeKind(name)
-	if kind then return Node(tip, name, kind) end
+	if kind then return Node(tip, name, kind, arrow) end
 	local npc = Pick(name)
-	if npc then return Npc(tip, name, npc) end
+	if npc then return Npc(tip, name, npc, arrow) end
 	tip:AddLine(name, 1, 1, 1)
 	Tip.Title(Tip.Last(tip))
+	Arrow(tip, arrow, false)
 end
 
 local shown, skills, revs -- the names, skills and quests drawn (nil: none of ours up)
@@ -134,6 +146,7 @@ Runtime.Step("ui", "map: blip tooltip", function()
 	end
 	Quests()
 	GameTooltip:SetOwner(Window.view, "ANCHOR_CURSOR")
-	for _, name in ipairs(names) do Fill(GameTooltip, name) end
+	local marks = mm.marks or NONE
+	for i, name in ipairs(names) do Fill(GameTooltip, name, marks[i] or "") end
 	GameTooltip:Show()
 end, { shownOnly = Window.frame })

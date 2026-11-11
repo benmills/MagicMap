@@ -366,8 +366,16 @@ end
 -- tooltip's lines, split at line breaks, their colours dropped) go to UI as m.names (obs.minimap.names), which draws
 -- them our way (ui/BlipTip.lua); one the client keeps secret: Blizzard's own tooltip, as it was. Off a blip, the
 -- tooltip hidden. Game.minimap.mouse / blip go to UI too: our pins hover through it and give way to a blip.
-local names, shown = {}, {}
--- The names under the cursor into `names` (their count), or false: secret (Blizzard's tooltip then), nil: none.
+local names, marks, shown, shownMarks = {}, {}, {}, {}
+-- A blip above or below you: the client's arrow, a texture escape in its name (|T...|t or |A...|a), split off it: the
+-- name alone (what Atlas knows), the escape kept beside it (marks[i], "" for none) for UI to draw.
+local function Split(part)
+	local mark = part:match("|T.-|t") or part:match("|A.-|a") or ""
+	if mark ~= "" then part = part:gsub("|T.-|t", ""):gsub("|A.-|a", "") end
+	return part:match("^%s*(.-)%s*$"), mark
+end
+-- The names under the cursor into `names` (their count; their marks into `marks`), or false: secret (Blizzard's
+-- tooltip then), nil: none.
 local function Names()
 	local data = C_TooltipInfo.GetMinimapMouseover()
 	if not data or issecretvalue(data) or issecretvalue(data.lines) or not data.lines then return nil end
@@ -377,24 +385,24 @@ local function Names()
 		if t ~= nil then
 			if issecretvalue(t) then return false end
 			for part in t:gmatch("[^\n]+") do
-				part = part:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):match("^%s*(.-)%s*$")
-				if part ~= "" then n = n + 1; names[n] = part end
+				local name, mark = Split(part:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+				if name ~= "" then n = n + 1; names[n], marks[n] = name, mark end
 			end
 		end
 	end
-	for i = #names, n + 1, -1 do names[i] = nil end
+	for i = #names, n + 1, -1 do names[i], marks[i] = nil, nil end
 	return n > 0 and n or nil
 end
--- m.names a new table only when they changed (UI rebuilds its tooltip then).
+-- m.names (and m.marks) new tables only when they changed (UI rebuilds its tooltip then).
 local function Publish(n)
 	local same = m.names ~= nil and #shown == n
 	for i = 1, n do
-		if shown[i] ~= names[i] then same = false end
+		if shown[i] ~= names[i] or shownMarks[i] ~= marks[i] then same = false end
 	end
 	if same then return end
-	shown = {}
-	for i = 1, n do shown[i] = names[i] end
-	m.names = shown
+	shown, shownMarks = {}, {}
+	for i = 1, n do shown[i], shownMarks[i] = names[i], marks[i] end
+	m.names, m.marks = shown, shownMarks
 end
 local BlipTip = Runtime.Wrap("game: overlay tooltip", function()
 	local n = Names()

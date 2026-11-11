@@ -151,6 +151,39 @@ function Tip.Pilled(tip, title, n, c)
 	end
 end
 
+-- A small picture over a line (a blip's above-or-below arrow on its icon): mark, a texture escape as the client writes
+-- it (|Tfile:...|t or |Aatlas:...|a), size px square, its centre x, y px from fs's left middle. Pooled per tip, gone as
+-- it clears. False if mark isn't one.
+local badges = {}
+function Tip.Badge(tip, mark, fs, x, y, size)
+	local file = mark:match("^|T([^:|]+)")
+	local atlas = not file and mark:match("^|A([^:|]+)")
+	if not (file or atlas) then return false end
+	local all = badges[tip]
+	if not all then
+		all = { used = 0 }
+		badges[tip] = all
+	end
+	all.used = all.used + 1
+	local t = all[all.used]
+	if not t then
+		t = tip:CreateTexture(nil, "OVERLAY", nil, 7)
+		all[all.used] = t
+	end
+	if atlas then t:SetAtlas(atlas) else t:SetTexture(file); t:SetTexCoord(0, 1, 0, 1) end
+	t:SetSize(size, size)
+	t:ClearAllPoints()
+	t:SetPoint("CENTER", fs, "LEFT", x, y)
+	t:Show()
+	return true
+end
+Tip.OnClear(function(tip)
+	local all = badges[tip]
+	if not all then return end
+	for _, t in ipairs(all) do t:Hide() end
+	all.used = 0
+end)
+
 -- A description on tooltip (shown by the caller, or a menu's): white title, gold body, then extra (its default) in DIM.
 function Tip.Describe(tooltip, title, body, extra)
 	tooltip:SetText(title, 1, 1, 1)
