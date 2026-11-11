@@ -13,11 +13,12 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 
 ## What you get
 
-- **Scroll out from your feet to all of Kalimdor**, in your minimap's spot. Press M to make it big.
+- **Scroll out from your feet to all of Kalimdor**, in your minimap's spot. Press M to make it big. Left
+  alone, the small map goes back to you at your default zoom (the gear's Default zoom); pin it to keep a view.
 - **Floor plans indoors.** Undercity, Ironforge and caves show the floor you're on.
 - **Quests on the map.** The quests you're on with their objective areas, and a tooltip with what's left
-  to do and the turn-in; on the big map each quest's name under its pin. Track one and a gold arrow shows
-  the way; the quest pill at the bottom says how far along you are and how far away.
+  to do and the turn-in. Track one and a gold arrow shows the way. On offer in Settings: each quest's name
+  and progress under its pin on the big map, and a quest pill saying how far along you are and how far away.
 - **Click any icon: Track or Path to.** A flight master, quest giver or rare: Track points Blizzard's gold arrow
   along the way you'd walk; Path to draws that walk around cliffs and water and keeps you both in view. Yards
   and minutes either way.
@@ -62,7 +63,8 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 | --- | --- |
 | Zoom, pan | Mouse wheel or + / −; drag |
 | Big map | M |
-| Track a quest or icon | Click it, then Track (or Path to, for the line); the pill's × stops |
+| Track a quest or icon | Click it, then Track (or Path to, for the line); click it again for Stop tracking |
+| Keep a view | The pin above the reset arrow (till you click it again, Track or reload) |
 | Waypoint | Ctrl-click; right-click for more |
 | Settings | The gear, or `/mm settings` |
 | Back to Blizzard's minimap | `/mm` (again to switch back); `/mm help` for the rest |
@@ -73,6 +75,7 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 - No arrow in dungeons and raids (the game hides your position there).
 - Blizzard's blips (herbs, ore, mailboxes...) show only around you, as on Blizzard's minimap: not on the
   big map, not while a path's line is drawn, and not zoomed out past its widest.
+- M in combat opens Blizzard's world map (ours can't open then).
 - May conflict with other minimap addons such as SexyMap. [More](docs/features.md#limits-in-detail).
 
 **Found a bug?** Type `/mm mark <what you saw>` when it happens, then

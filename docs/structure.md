@@ -179,8 +179,8 @@ ui/Replace.lua (what MagicMap replaces, the minimap and the world map: `Replace.
 it migrates 2.0's `saved.worldmap` ("Override world map", retired) and `saved.minimap` to it at load: an existing player keeps
 both on), ui/Welcome.lua (the first-run welcome, `MagicMapWelcome`: four cards, one chosen, Continue saves it through Replace;
 shown on the first open while nothing is chosen, and by `/mm welcome`), ui/Feel.lua (the settings window, `MagicMapFeel`: the gear's
-Settings, `/mm feel`, `/mm settings`, and Options -> AddOns; a sidebar of pages, General, Map, Title, Pins, Resources, Quest pill, Tracking, Pathing, Quest
-areas, Grouping, Diagnostics, each built from the settings its owners declare next to their code, `UI.Feel.Add` (loaded right after
+Settings, `/mm feel`, `/mm settings`, and Options -> AddOns; a sidebar of pages, General, Map, Title, Pins, Quest pill, Pill layout, Tracking, Pathing, Quest
+areas, Diagnostics, each built from the settings its owners declare next to their code, `UI.Feel.Add` (loaded right after
 ui/Window.lua, so every UI file can: docs/development.md "How to add a setting"); `UI.Feel.Get/Set/rev`, saved as UI.saved.feel, the
 last page as UI.saved.feelPage), game/Options.lua (the client's own Options -> AddOns -> MagicMap entry: a button that opens the settings
 window; nothing is made without the client's Settings API), ui/Base.lua (the base picture: one stylised texture a continent from

@@ -511,6 +511,6 @@ function Menus.Gear(owner)
 			:SetTooltip(Tip("Reset to defaults", "Every layer back as it was installed."))
 		root:CreateDivider()
 		root:CreateButton(Mark("Interface\\Icons\\Trade_Engineering") .. "Settings…", function() Run(UI.Feel.Open) end)
-			:SetTooltip(Tip("Settings…", "MagicMap's settings window: general, the map's looks, the title, icons, tracking, pathing, quest areas, grouping, diagnostics."))
+			:SetTooltip(Tip("Settings…", "MagicMap's settings window: general, the map's looks, the title, pins, the quest pill, tracking, pathing, quest areas, diagnostics."))
 	end)
 end

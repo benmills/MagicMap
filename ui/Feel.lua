@@ -44,7 +44,7 @@
 -- The pages (order; who declares their settings), each with one job:
 --   General (10), what MagicMap replaces, its window, how the map moves. Blizzard's maps: Replace minimap, Replace
 --     world map (ui/Replace.lua), Minimap button (ui/View.lua); Map window: Buttons at rest (ui/Controls.lua), Reset
---     window position (ui/BigMap.lua); Movement: Follow you, Return to you, Return after, Zoom per notch (ui/Motion.lua).
+--     window position (ui/BigMap.lua); Movement: Follow you, Return to default, Return after, Zoom per notch (ui/Motion.lua).
 --   Map (20), what the map shows. Names: Label size, Zone name opacity, Subzone size, Subzone opacity
 --     (ui/Labels.lua); Ground: Ocean (ui/Sea.lua), Repair broken map art (ui/Repaint.lua); Indoors: Indoor dimming,
 --     Indoor auto-zoom (ui/Interiors.lua); You: Your arrow (ui/You.lua).
@@ -54,18 +54,17 @@
 --     Zoomed in from; By type: each family's row (Quests, Rares & treasures, Party, Places, Addons, Other: Size,
 --     Opacity, On the big map), each type's under it (Size, Opacity, On the big map, Icon,
 --     Group), declared by the files that draw them.
---   Resources (35). Tracking: Keep tracking (ui/Resources.lua).
---   Quest pill (40, ui/Controls.lua). Shows, Says (the pieces, chosen and ordered), Progress bar;
---     Look: Backing, Size.
+--   Quest pill (40, ui/Controls.lua). Shows (off by default), Says (the pieces, chosen and ordered), Progress bar;
+--     Look: Backing, Size. Pill layout (42, ui/Controls.lua): Pill, Text and close, Border (its LOOK table).
 --   Tracking (45), how the way is shown. Arrow (Track's): Size, Opacity, Distance (ui/Guide.lua); Path to: Frame the
 --     way (ui/Path.lua).
 --   Pathing (50, ui/Path.lua), Path to's line. Line: Style, Weight, Colour, Opacity; Effects: Glow, Breathing, Breath
 --     pace; Outline: Outline, Outline colour.
 --   Quest areas (60, ui/Areas.lua). Followed quest: Fill, Edge, Edge width; Other quests: the same; Under the
 --     cursor: Fill lift, Edge.
---   (Grouping's settings, ui/Cluster.lua, and Keep tracking's, ui/Resources.lua, have no page: their defaults, the
---     gear's Keep tracking row, and /mm feel's key.)
---   Diagnostics (90, here). Debug info in title, Indoor maps report; Reports in chat: Record 10 seconds, Compare
+--   (No page: Grouping's settings, ui/Cluster.lua, their defaults; Keep tracking's, ui/Resources.lua, and the
+--     Default zoom, ui/View.lua, each the gear's row.)
+--   Diagnostics (90, here). Debug info in title; Reports in chat: Record 10 seconds, Compare
 --     with other addons, Memory breakdown (each a /mm command too).
 -- Pages to come take an order between these. The sidebar has room for 14
 -- before the window grows; a page longer than the window scrolls.

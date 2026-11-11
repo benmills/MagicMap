@@ -22,8 +22,8 @@ One sitting before tagging 3.0.0 (about 40 minutes), on the installed build (`.v
 
 ## B. Quests and the quest pill (~10 min)
 
-- [ ] **b1** Small map: quest pins with no counts. Big map: each pin's quest name under it, in its difficulty colour, at the subzone names' size.
-- [ ] **b2** Click a quest, then Track: the pill bottom left shows the quest's icon and progress (`3/8`), then the distance, smaller and muted. The bar fills as you get closer. → `/mm shot pill`
+- [ ] **b1** Small map: quest pins with no names or counts. Big map: none either. Settings → Pins → Quest → Names on the big map on: each pin's quest name under it, in its difficulty colour, its progress under that, smaller and muted; the small map still shows neither.
+- [ ] **b2** The pill is off by default. Settings → Quest pill → Shows: what you track. Click a quest, then Track: the pill bottom left shows the quest's icon and progress (`3/8`), then the distance, smaller and muted. The bar fills as you get closer. → `/mm shot pill`
 - [ ] **b3** Hover the pill: the quest's tooltip. Click it: its popup. The `×` stops following; the pill hides.
 - [ ] **b4** Track any other icon, then Path to one: the pill shows it, and its `×` stops tracking or pathing. As a ghost: your corpse, with no `×`.
 - [ ] **b5** Settings → Quest pill: Shows Off hides the pill at once; back on. Change Says: the pill follows your order.
@@ -31,9 +31,11 @@ One sitting before tagging 3.0.0 (about 40 minutes), on the installed build (`.v
 ## C. Menus and settings (~10 min)
 
 - [ ] **c1** Gear: Map, Tracking, Keep tracking, Other addons, then Use Blizzard's minimap, Reset to defaults, Settings. Map lists every layer, with dividers and an "All" box. Tracking matches Blizzard's own tracking menu.
-- [ ] **c2** Point at the map: the AddOns button appears left of the gear. Click it: your addon buttons, then the calendar and clock. Each row works, and its tooltip shows. → `/mm shot addons`
+- [ ] **c2** Point at the map (with MagicMap replacing the minimap; not replacing, there's none and Blizzard's minimap is untouched): the AddOns button appears left of the gear. Click it: your addon buttons, then the calendar and clock. Each row works, and its tooltip shows. → `/mm shot addons`
 - [ ] **c3** In a capital, big map: the city's buildings and area names drawn, with no option to turn them off.
 - [ ] **c4** Settings: no Resources or Grouping page. Diagnostics has no Indoor row. `/mm indoor` still reports rooms (again: off).
+- [ ] **c5a** Pan or zoom the small map and move the cursor off: 3 s later it glides back to you at the default zoom. Again, then click the pin above the reset arrow (yellow): it holds; click again and it returns. Pinned, Track something: unpinned.
+- [ ] **c5b** Gear → Default zoom (small map only): Auto and each of Blizzard's zooms in yards across; a pick goes there and is where the reset and the return go.
 - [ ] **c5** Settings → General → Zoom per notch: hover for its tip. It changes zoom steps only past Blizzard's zooms or on the big map.
 
 ## D. Other addons (~5 min)
