@@ -187,6 +187,17 @@ def test_repaint_other_build():
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
+def test_repaint_later_build():
+    """A later build of the version they were stamped on keeps them (its tiles checked unchanged so far); an earlier
+    one doesn't (Atlas.RepaintFits)."""
+    L, sim, ns = boot()
+    v, b = ns.Data.Repaint.build.rsplit(".", 1)
+    fits = ns.Atlas.RepaintFits
+    assert fits(f"{v}.{int(b) + 26}") and fits(f"{v}.{b}") and not fits(f"{v}.{int(b) - 1}") and not fits(f"9.9.9.{b}")
+    L, sim, ns = repaint_shown(f"{v}.{int(b) + 26}")
+    assert repaints(ns) and not [p for p in sim.prints.values() if "art repairs are off" in str(p)]
+
+
 def test_dxt5_round_trip():
     """DXT5 keeps a soft edge and its colours, through what the map tools read a BLP with; a mip for each halving."""
     import struct

@@ -11,7 +11,7 @@ Game.Part("build", function()
 	local v, b = GetBuildInfo()
 	build = v .. "." .. b
 	local want = Atlas.RepaintBuild()
-	if want and want ~= build then
+	if want and not Atlas.RepaintFits(build) then
 		Game.Say("the map's art repairs are off: they were checked on game build " .. want .. ", this is " .. build .. ". An update of MagicMap brings them back.")
 		Runtime.Trace("repaint", { e = "off", want = want, have = build })
 	end

@@ -83,6 +83,21 @@ function Atlas.RepaintBuild()
 	local r = Data.Repaint
 	return r and r.build
 end
+-- Whether the repaints fit a client build ("1.60.1.70888"): the one they're stamped for, or a later build of the same
+-- version. A build within a version has left the tiles under them alone (70707, 70862, 70888: tools/ai_map.py check
+-- found all unchanged each time), so only a new version (or an older build) turns them off; ai_map.py check is still
+-- run on each new build, and a place whose tiles changed is repainted or dropped.
+local function Split(b)
+	local v, n = tostring(b):match("^(.*)%.(%d+)$")
+	return v, tonumber(n)
+end
+function Atlas.RepaintFits(build)
+	local want = Atlas.RepaintBuild()
+	if not (want and build) then return false end
+	local wv, wn = Split(want)
+	local hv, hn = Split(build)
+	return wv ~= nil and wv == hv and hn >= wn
+end
 
 -- What a drawn tile shows: its patch, or Blizzard's tile (a FileDataID).
 function Atlas.TileArt(inst, key)

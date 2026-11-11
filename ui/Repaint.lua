@@ -2,8 +2,9 @@
 -- Blizzard's tiles painted over, each picture a tile's size with its own soft alpha. Laid out with the tiles (Lay, at the end of ui/
 -- Tiles.lua's layout), on their canvas, so they move, scale and fade with them; on a frame of that canvas's own, over the ocean
 -- (ui/Sea.lua: it lies over the tiles and some repaints reach the coast) and under the layers above the ground. Places overlapping keep their order by sublevel.
--- They're painted for one set of tiles, so they're drawn only on the game build Data/Repaint.lua names (tools/ai_map.py check and stamp
--- move it on, when the tiles under them haven't changed): on any other, or with no data, the raw map, whatever the setting.
+-- They're painted for one set of tiles, so they're drawn only on the game build Data/Repaint.lua names or a later build of its version
+-- (Atlas.RepaintFits; tools/ai_map.py check and stamp move it on, when the tiles under them haven't changed): on any other, or with
+-- no data, the raw map, whatever the setting.
 
 local _, ns = ...
 local UI = ns.UI
@@ -22,8 +23,9 @@ function Repaint.Set(v)
 	if v ~= on then on, rev = v, rev + 1 end
 end
 
--- This client is the build they're for (Model.build: game/parts/Build.lua, which says so in chat if not; not known yet: not yet).
-local function Fits() return Model.build ~= nil and Model.build == Atlas.RepaintBuild() end
+-- This client is a build they fit (Model.build: game/parts/Build.lua, which says so in chat if not; not known yet: not yet):
+-- Atlas.RepaintFits, theirs or a later one of its version.
+local function Fits() return Model.build ~= nil and Atlas.RepaintFits(Model.build) end
 
 local function Tex(c)
 	local frame = c.repaint
@@ -108,5 +110,5 @@ end
 
 UI.Feel.Add("map", "Ground", {
 	{ key = "repaint.on", kind = "toggle", label = "Repair broken map art", default = true, apply = Repaint.Set,
-		tip = "Paints over the flat, unfinished blocks in Blizzard's map with AI-generated pictures. Only on the game build they were checked against: on another, the map stays as Blizzard's until MagicMap updates." },
+		tip = "Paints over the flat, unfinished blocks in Blizzard's map with AI-generated pictures. Only on the game version they were checked against (its later builds too): on another, the map stays as Blizzard's until MagicMap updates." },
 })

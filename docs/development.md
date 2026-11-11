@@ -42,7 +42,9 @@ The map art repairs aren't regenerated with the rest: a new run gives new pictur
 (OpenAI's image edits; the key is `OPENAI_API_KEY` or the repo's `.env`). `tools/ai_regions.json` holds the
 places and which candidate was picked; `tools/ai_fix.py` makes candidates for one place, under `demo/aifix/`
 (gitignored); `tools/ai_map.py` runs it for the listed places and bakes the picks. After a game patch that
-changes tiles under a place, repaint it or the setting's build check keeps the patches off. See
+changes tiles under a place, repaint it or the setting's build check keeps the patches off. The addon draws them on
+the stamped build and later builds of the same version (Atlas.RepaintFits: builds within a version haven't touched
+their tiles so far); still run `tools/ai_map.py check` on each new build, and `stamp` once it's clean. See
 [ai-map-art.md](ai-map-art.md).
 
 The demo's assets, after the above: [demo/README.md](../demo/README.md).
