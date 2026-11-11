@@ -14,3 +14,6 @@ demo/sea/
 demo/ai/
 /demo/terrain/
 /demo/objects/
+
+# Promo videos: game footage (Blizzard art), never committed
+promo/
