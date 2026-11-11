@@ -464,7 +464,7 @@ def test_path_frame():
     mm = ns.Model.minimap  # while the line's drawn Blizzard's blips step aside: our zoom, no steps (game/Minimap.lua)
     assert mm.overlaid is None and mm.steps is None and ns.Game.minimap.engaged
     zf, cx = cam.zoom, cam.cx
-    # Your drag holds it where you leave it, under the cursor however long; left alone 6 s, it comes back.
+    # Your drag holds it where you leave it, under the cursor however long; left alone 3 s, it comes back.
     sim.Drag(UI.Window.view, -200, 0)
     sim.Run(8)
     assert not UI.Camera.follow and cam.cx > cx + 1
@@ -473,15 +473,15 @@ def test_path_frame():
     assert UI.Camera.follow and abs(cam.cx - cx) < 0.01 and abs(cam.zoom - zf) < 0.5
     sim.Drag(UI.Window.view, -200, 0)
     sim.cursorX, sim.cursorY = 5, 5
-    sim.Run(5)
+    sim.Run(2.5)
     assert not UI.Camera.follow and cam.cx > cx + 1
-    sim.Run(3)
+    sim.Run(2)
     assert UI.Camera.follow and abs(cam.cx - cx) < 0.01
     # Your zoom too: it stands, then the framing's comes back.
     UI.Motion.ZoomStep(2)
-    sim.Run(2)
+    sim.Run(1.5)
     assert cam.zoom > zf * 1.5
-    sim.Run(6)
+    sim.Run(4)
     assert abs(cam.zoom - zf) < 0.5 and framed(40.0, 49.0)
     # Near now: in, as far as the map goes (still framed).
     G.Target("waypoint", 32.2, 49.75)

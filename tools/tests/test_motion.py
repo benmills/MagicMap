@@ -1,6 +1,6 @@
 """Camera feel (ui/Motion.lua) on the simulated client, the spike's values: a press moving
 under 5 px and up within 0.35 s is a click, past 5 px a drag (it pans and stops following);
-left alone 6 s after a pan, unhovered and small, the map glides back to following you; a
+left alone 3 s after a pan or zoom (unless pinned), unhovered and small, the map glides back to following you; a
 flight (0.55 s, EaseOutCubic, log-space zoom) zooming in keeps its target on a line toward the
 centre and ends exactly there; Focus carries the rect in view."""
 from test_addon import boot, errors
@@ -55,19 +55,46 @@ def test_click_drag_idle():
     sim.Run(8)
     assert not c.follow and c.cam.cx == cx - 6 / zoom
 
-    # Left alone (cursor off the window) 6 s after the last touch: it glides back, then follows.
-    sim.cursorX, sim.cursorY = 5, 5
-    press(sim, w.view)
-    sim.cursorX = sim.cursorX + 6
-    sim.Step()
-    release(sim, m)
-    sim.cursorX, sim.cursorY = 5, 5
-    sim.Run(5.8)
+    # Left alone (cursor off the window) 3 s after the last touch: it glides back, then follows.
+    def pan():
+        sim.cursorX, sim.cursorY = 5, 5
+        press(sim, w.view)
+        sim.cursorX = sim.cursorX + 6
+        sim.Step()
+        release(sim, m)
+        sim.cursorX, sim.cursorY = 5, 5
+    pan()
+    sim.Run(2.8)
     assert not c.follow and not c.moving
     sim.Run(0.3)
     assert not c.follow and c.moving and m.Goal()[1:] == (cx, cy)  # flying back to you
     sim.Run(0.6)
     assert c.follow and (c.cam.cx, c.cam.cy) == (cx, cy)
+
+    # A zoom too: following, off the default zoom, it goes back to it.
+    home = ns.UI.DefaultZoom()
+    m.ZoomStep(1)
+    sim.Run(4.5)
+    assert c.follow and abs(c.cam.zoom - home) < 0.01
+
+    # Pinned: it stays, the pin shown lit, till you unpin it; Track (or Path to) unpins it.
+    pin = ns.UI.Controls.zoomPin
+    pan()
+    sim.Run(0.5)
+    assert pin.IsShown(pin)
+    sim.Click(pin)
+    sim.Run(8)
+    assert m.pinned and not c.follow and pin.IsShown(pin)
+    sim.Click(pin)
+    sim.cursorX, sim.cursorY = 5, 5
+    sim.Run(4)
+    assert not m.pinned and c.follow and not pin.IsShown(pin)
+    pan()
+    m.Pin(True)
+    L.execute("(...).UI.Track.Start({ kind = 'place', key = 'lake', name = 'Lakeshire', "
+              "pos = { inst = 0, col = 36.09, row = 49.28 } })", ns)
+    ns.UI.Track.Clear()
+    assert not m.pinned
 
     # Not while big (grown as M does: ui/BigMap.lua).
     ns.UI.BigMap.Toggle()

@@ -169,6 +169,7 @@ function Track.Start(e, path)
 	local p = e.pos
 	armed = Runtime.frames + ARM
 	UI.saved.path = path and { inst = p.inst, col = p.col, row = p.row } or nil
+	UI.Motion.Pin(false) -- (tracking or pathing ends a pinned view)
 	if path then UI.Motion.Reframe() end
 	if Followed() then Command({ kind = "follow", quest = false }) end
 	if e.kind == "waypoint" then return end
@@ -211,6 +212,7 @@ local function Quest(e, path)
 		return
 	end
 	UI.saved.path = path and { quest = e.quest } or nil
+	UI.Motion.Pin(false)
 	if path then UI.Motion.Reframe() end
 	if not e.followed then UI.Areas.Follow(e) end
 end

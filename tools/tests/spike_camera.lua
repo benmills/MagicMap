@@ -243,9 +243,20 @@ function S.Update(elapsed)
 		local cx, cy = FollowCenter()
 		if state.cx ~= cx or state.cy ~= cy then state.cx, state.cy = cx, cy end
 	end
-	if not (expanded or state.follow or state.dragging or S.IsAnimating())
-		and not (env.Over() or GetTime() - (state.lastInteract or 0) < IDLE_FOLLOW) then
-		S.SetFollow(true, true)
+	-- (Ours since 3.0.1, asked for: after env.IdleAfter() s, 3, and the zoom too, back to env.DefaultZoom(), a
+	-- flight's: so a zoom off it while following goes back as well.)
+	local home = env.DefaultZoom and env.DefaultZoom()
+	local off = not state.follow or (home and math.abs(state.zoom - home) > 1)
+	local after = env.IdleAfter and env.IdleAfter() or IDLE_FOLLOW
+	if off and not (expanded or state.dragging or S.IsAnimating())
+		and not (env.Over() or GetTime() - (state.lastInteract or 0) < after) then
+		if home and state.playerCol then
+			local cx, cy = FollowCenter()
+			state.lastInteract = GetTime()
+			AnimateTo(cx, cy, home, FLY_TIME, { onDone = function() S.SetFollow(true) end })
+		else
+			S.SetFollow(true, true)
+		end
 	end
 	if tween then
 		tween.t = tween.t + elapsed

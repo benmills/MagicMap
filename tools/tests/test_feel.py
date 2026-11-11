@@ -32,6 +32,8 @@ function env.Screen()
 end
 function env.Down() return IsMouseButtonDown("LeftButton") end
 function env.Over() return frame:IsMouseOver() end
+function env.IdleAfter() return UI.Feel.Get("motion.idleTime") end
+function env.DefaultZoom() return UI.DefaultZoom() end
 function env.Player()
 	local north, west, _, inst = UnitPosition("player")
 	if not north then return nil end
@@ -427,7 +429,11 @@ def test_zoom_look():
                           f"{r.uncovered} ({r.worst:.2f})" for k, r in layers.items()))
         assert look.arrow < 1e-6 and all(r.off < 1e-6 for r in layers.values()), name
         assert layers["tiles"].tile <= 0.5 + 1e-6 and layers["tiles"].uncovered == 0, name
-        assert all(r.uncovered <= 6 for k, r in layers.items() if k != "questAreas"), name
+        # (the long drag's return flies back across it and in from the test window's zoom, 96, to the default, 580:
+        # the pins are laid out where it lands, so a part of its way, 0.3 s, lacks some)
+        most = 20 if name == "a long drag, then the idle return" else 6
+        assert all(r.uncovered <= (6 if k == "tiles" or k == "labels" else most)
+                   for k, r in layers.items() if k != "questAreas"), name
         # (the names leave as the map shrinks to the minimap's size, and come back as it grows)
         assert all(r.back == 0 for k, r in layers.items() if k != "questAreas" and not (k == "labels" and "grow" in name)), name
         assert names.lag <= 2 and names.runMax <= 1 and (names.groundLag or 0) <= 4, name

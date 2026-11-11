@@ -119,7 +119,7 @@ def test_gear():
     # The tree: a submenu per group with layers, a divider, Settings; small and big alike.
     root, rows = gear(sim, ns)
     assert items(root) == [("button", "Map"), ("button", "Tracking"), ("button", "Keep tracking: Find Herbs"),
-                           ("button", "Other addons"), ("divider", None),
+                           ("button", "Default zoom"), ("button", "Other addons"), ("divider", None),
                            ("button", "Use Blizzard's minimap"),
                            ("button", "Reset to defaults"), ("divider", None), ("button", SETTINGS)]
     assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"),
@@ -130,10 +130,25 @@ def test_gear():
     assert items(sub(root, "Tracking")) == [("checkbox", "Find Herbs"), ("checkbox", "Mailbox"), ("checkbox", "Innkeeper")]
     assert items(sub(root, "Other addons")) == [("checkbox", "All other addons"), ("divider", None), ("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
     assert plain(sub(root, "Map").text) == "Map  8/9"  # (graveyards off till turned on)
+    # Default zoom (the small map's alone): Auto, then a radio a Blizzard zoom it reaches; a pick goes there.
+    zooms = sub(root, "Default zoom")
+    radios = [r for r in zooms["items"].values() if r.kind == "radio"]
+    auto = UI.DefaultZoom()
+    assert plain(radios[0].text).startswith("Auto (") and radios[0].isSelected() and len(radios) > 2
+    n = len(radios) - 1  # (the closest it reaches; Auto's the one before)
+    assert radios[n].onSelect() == refresh
+    sim.Run(2)
+    steps = ns.Model.minimap.steps
+    assert UI.Feel.Get("zoom.default") == n and UI.DefaultZoom() == steps[n] != auto
+    assert abs(UI.Camera.cam.zoom - steps[n]) < 0.01 and radios[n].isSelected() and not radios[0].isSelected()
+    assert radios[0].onSelect() == refresh
+    sim.Run(2)
+    assert UI.Feel.Get("zoom.default") == 0 and UI.DefaultZoom() == auto
+
     sim.Press("M")
     sim.Run(1)
     big, _ = gear(sim, ns)
-    assert items(big) == items(root)
+    assert items(big) == [i for i in items(root) if i != ("button", "Default zoom")]
 
     # Tips: white title, gold body.
     assert tip(L, rows["Zone labels"]) == [("Zone labels",) + WHITE, ("Names of zones and sub-zones.",) + GOLD]
@@ -227,7 +242,7 @@ def test_gear():
     sim.Slash("/mm toggle")
     sim.Step()
     perf = ns.Runtime.Perf()[0]["map: gear pick"]
-    assert perf.n == 13 and perf.over == 0, (perf.n, perf.max)
+    assert perf.n == 15 and perf.over == 0, (perf.n, perf.max)  # (two of them the Default zoom picks)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
     # /reload: the changed keys only (quest areas and the rest went off and on again, from the gear or

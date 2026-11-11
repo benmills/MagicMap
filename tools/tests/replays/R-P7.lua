@@ -111,8 +111,8 @@ Drag(-120)
 sim.Run(1)
 Flight("the follow glide", 1, function() M.SetFollow(true, true) end)
 Drag(-120)
-sim.cursorX, sim.cursorY = 5, 5 -- off the window: left alone, it glides back after 6 s
-sim.Run(5.8)
+sim.cursorX, sim.cursorY = 5, 5 -- off the window: left alone, it glides back after 3 s
+sim.Run(2.8)
 assert(not Cam.follow)
 Flight("the idle return", 1)
 assert(Cam.follow)

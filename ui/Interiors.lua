@@ -287,7 +287,8 @@ Runtime.Step("ui", "map: indoors zoom", function()
 	local key = i and i.building or nil
 	if key == inside then return end
 	if key and not inside then
-		if not UI.BigMap.big and Camera.follow and Model.you.inst == i.inst and Small(i) and UI.Feel.Get("interiors.zoom") then
+		if not UI.BigMap.big and Camera.follow and not Motion.pinned and Model.you.inst == i.inst and Small(i)
+			and UI.Feel.Get("interiors.zoom") then
 			back = (Motion.Goal())
 			To(Motion.MAX_ZOOM)
 		end
@@ -298,6 +299,8 @@ Runtime.Step("ui", "map: indoors zoom", function()
 	end
 	inside = key
 end)
+-- While a small building's auto-zoom holds the map in (UI.DefaultZoom: the default meanwhile, so nothing reverts it).
+function layer.Holding() return back ~= nil end
 
 UI.Feel.Add("map", "Indoors", {
 	{ key = "interiors.dim", kind = "slider", label = "Indoor dimming", min = 0.3, max = 0.9, step = 0.05, pct = true, default = VEIL,

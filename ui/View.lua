@@ -14,23 +14,38 @@ local Command = ns.Game.Command
 -- Core.lua:19-29: shown, zoom 384, following, no debug line in the title, the button shown.
 local DEFAULTS = { layers = {}, minimap = "ours", shown = true, zoom = 384, follow = true, debug = false, button = true }
 
--- The zoom the reset button goes back to (ui/Controls.lua): with Blizzard's Minimap's zooms over the small map
--- (obs.minimap.steps), the one before its closest the map reaches; else DEFAULTS.zoom.
-function UI.DefaultZoom()
+-- The small map's default zoom (the reset button, the idle return, every load): with Blizzard's Minimap's zooms over
+-- it (obs.minimap.steps), the one chosen in the gear's Default zoom ("zoom.default": its index, widest 1; 0, the
+-- default: the one before its closest the map reaches), no closer than the map goes; else DEFAULTS.zoom. While a small
+-- building's auto-zoom holds the map in (ui/Interiors.lua), that.
+local function Reachable(s)
+	local n = 0
+	for i = 1, #s do
+		if s[i] <= UI.Motion.MAX_ZOOM then n = i end
+	end
+	return n
+end
+function UI.DefaultZoomIndex()
 	local mm = Model.minimap
 	local s = mm and mm.steps
-	if s and not UI.BigMap.big then
-		local top, next
-		for i = #s, 1, -1 do
-			if s[i] <= UI.Motion.MAX_ZOOM then
-				if top then next = i; break end
-				top = i
-			end
-		end
-		if next or top then return s[next or top] end
-	end
+	if not s or UI.BigMap.big then return nil end
+	local n = Reachable(s)
+	if n == 0 then return nil end
+	local chosen = UI.Feel.Get("zoom.default") or 0
+	if chosen > 0 then return math.min(chosen, n), s end
+	return math.max(1, n - 1), s
+end
+function UI.DefaultZoom()
+	if not UI.BigMap.big and UI.Interiors.Holding() then return UI.Motion.MAX_ZOOM end
+	local i, s = UI.DefaultZoomIndex()
+	if i then return s[i] end
 	return DEFAULTS.zoom
 end
+UI.Feel.Add(false, nil, {
+	{ key = "zoom.default", kind = "select", label = "Default zoom", default = 0,
+		options = { { "Auto", 0 }, { "1", 1 }, { "2", 2 }, { "3", 3 }, { "4", 4 }, { "5", 5 }, { "6", 6 } },
+		tip = "The small map's zoom on login, on the reset arrow and when it goes back by itself: one of Blizzard's minimap zooms (the gear's Default zoom)." },
+})
 
 local saved = {} -- until loaded: the defaults
 for k, v in pairs(DEFAULTS) do saved[k] = v end
