@@ -105,16 +105,21 @@ def test_minimap_pins():
     assert abs(x - col * z) < 0.6 and abs(y + row * z) < 0.6
     assert host.GetZoom(host) == G.Minimap.GetZoom(G.Minimap) and herb.GetFrameLevel(herb) > host.GetFrameLevel(host)
 
-    # Questie's: its world pins hosted, they'd repeat them; its layer off, around you too.
+    # Questie's: its world pins hosted, they'd repeat them; its layer off, none of its pins (the switch hides them all).
     assert not same(quest.GetParent(quest), host) and not quest.IsVisible(quest)
     ns.UI.Engine.SetLayer("addon:Questie", False)
     sim.Step()
-    assert same(quest.GetParent(quest), host) and quest.IsVisible(quest)
+    assert not quest.IsVisible(quest)
+    # GatherMate's herb (minimap pins alone: no row to turn it off) stays; Questie back on, still none (hosted).
+    assert herb.IsVisible(herb)
+    ns.UI.Engine.SetLayer("addon:Questie", True)
+    sim.Step()
+    assert same(herb.GetParent(herb), host) and herb.IsVisible(herb) and not quest.IsVisible(quest)
 
     # Rotate Minimap: the library turns them with your facing, our map doesn't: out of sight.
     sim.cvars.rotateMinimap = "1"
     sim.Step()
-    assert not herb.IsVisible(herb) and not quest.IsVisible(quest)
+    assert not herb.IsVisible(herb)
     sim.cvars.rotateMinimap = "0"
     sim.Step()
     assert same(herb.GetParent(herb), host) and herb.IsVisible(herb)

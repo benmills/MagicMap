@@ -29,8 +29,8 @@
 -- socket's zoom; hidden while you're off the map it shows), the library placing them on it as on the
 -- Minimap; out of sight (a hidden host) without that socket (on the overlay they'd take
 -- the mouse, over our map: spike-bugs G6), under Rotate Minimap (the library turns them with your
--- facing, our map stays north up), and for a renamed copy whose world pins we host (they'd only repeat
--- those). Released: back on the Minimap, last (Game.MinimapPinsHome, game/Minimap.lua's undo).
+-- facing, our map stays north up), with the addon's layer off (the gear's Other addons row hides all its
+-- pins), and for a renamed copy whose world pins we host (they'd only repeat those). Released: back on the Minimap, last (Game.MinimapPinsHome, game/Minimap.lua's undo).
 -- Game.Addons(): obs.addons (game/parts/Addons.lua), a new list only when it changed.
 
 local _, ns = ...
@@ -376,8 +376,25 @@ local function Around(s, you)
 	return true
 end
 
+-- Whether an addon drawing minimap pins through this copy is on: its layer on (the gear's Other addons), or no
+-- row to turn it off (an addon with no world pins: GatherMate's minimap pins alone). A renamed copy's one addon,
+-- else any of those its registry holds.
+local function On(key, layers)
+	local e = byKey[key]
+	return not (e and e.world) or layers["addon:" .. key] ~= nil
+end
+local function AnyOn(copy, layers)
+	Game.Addons() -- (byKey up to date: a new list only when it changed)
+	if copy.tag ~= "" then return On(copy.tag, layers) end
+	for ref, icons in pairs(copy.lib.minimapPinRegistry) do
+		if next(icons) and On(Key(copy, ref), layers) then return true end
+	end
+	return false
+end
+
 -- Each frame while engaged: each copy drawing on the Minimap or ours on the host it should be on
--- (MinimapTakeover.lua:132-162).
+-- (MinimapTakeover.lua:132-162): out of sight with its layer off (a switch off hides all of an addon's pins), or
+-- its world pins hosted instead.
 local function MinimapPins(view)
 	local m = Game.minimap
 	if not m.engaged then return end
@@ -393,7 +410,7 @@ local function MinimapPins(view)
 		local lib = copy.lib
 		if lib.Minimap == Minimap or ours[lib.Minimap] then -- (not FarmHud's)
 			local to = host
-			if rotated or copy.tag ~= "" and open and view.layers["addon:" .. copy.tag] then
+			if rotated or not AnyOn(copy, view.layers) or copy.tag ~= "" and open and view.layers["addon:" .. copy.tag] then
 				to = hidden
 			end
 			if lib.Minimap ~= to or (again and to == host) then
