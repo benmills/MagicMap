@@ -283,3 +283,35 @@ def test_blip_above_or_below():
               and "arrow" in str(sim.state[r].texture)]
     assert len(badges) == 1, lines
     assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_engage_fails_loudly():
+    """A takeover that fails part way (a frame on the Minimap that won't move) gives back what it took at once, isn't
+    tried again this session (the blocker) and says so once in chat; the error is recorded. A radius that stays odd
+    (zooms not the sizes known: a game update) hides the blips and says so once too."""
+    L, sim, ns = boot()
+    Game, H = ns.Game, L.execute(HELPERS, sim)
+    sim.Run(1)
+    before = H.Snapshot()
+    L.execute("local bad = CreateFrame('Frame', 'MagicMapTestStubborn', Minimap)\n"
+              "bad.SetParent = function() error('stubborn') end")
+    n = len(sim.prints)
+    sim.Slash("/mm toggle")
+    sim.Run(1)
+    said = [sim.prints[i] for i in range(n + 1, len(sim.prints) + 1)]
+    assert not Game.minimap.engaged and Game.minimap.failed and Game.obs.minimap.blocker.startswith("couldn't take")
+    assert H.Snapshot().replace("MagicMapTestStubborn", "") == before.replace("MagicMapTestStubborn", ""), (before, H.Snapshot())
+    assert sum("couldn't put Blizzard's minimap blips" in p for p in said) == 1, said
+    assert any("stubborn" in e for e in errors(sim, ns))
+
+    L, sim, ns = boot("MagicMap2DB = { UI = { _v = 1, shown = true, follow = true, cluster = false,"
+                      " window = { left = 20, top = 300, w = 360, h = 150 } } }")
+    sim.Run(3)
+    assert ns.Game.minimap.engaged and ns.Game.minimap.overlaid
+    L.execute("local get = C_Minimap.GetViewRadius\n"
+              "C_Minimap.GetViewRadius = function() local r = get(); return r > 0 and r * 1.3 or r end")
+    n = len(sim.prints)
+    sim.Run(7)
+    said = [sim.prints[i] for i in range(n + 1, len(sim.prints) + 1)]
+    assert not ns.Game.minimap.overlaid and sum("aren't the sizes MagicMap knows" in p for p in said) == 1, said
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

@@ -29,6 +29,14 @@ local standIn = CreateFrame("Frame", "MagicMapMinimapStandIn", UIParent)
 standIn:Hide()
 
 local function OnRelease(fn) undo[#undo + 1] = fn end
+local ZOOMS = 5 -- Blizzard's Minimap's zooms: 0 (widest) .. ZOOMS (game/parts/MinimapState.lua's yards)
+-- A line in chat once a session (key: which).
+local said = {} -- the chat lines said this session, by key
+local function SayOnce(key, msg)
+	if said[key] then return end
+	said[key] = true
+	Game.Say(msg)
+end
 
 -- A pin travels with the Minimap: a copy's that stayed there, or GatherMate's (MinimapTakeover.lua:124-129).
 local function IsPin(obj)
@@ -119,6 +127,11 @@ end
 
 local function Engage()
 	m.engaged = true
+	local levels = Minimap.GetZoomLevels and Minimap:GetZoomLevels()
+	if levels and levels ~= ZOOMS + 1 then
+		SayOnce("zooms", ("Blizzard's minimap has %d zooms, not the %d MagicMap knows (a game update?): its blips "
+			.. "may not line up with the map. /mm overlay for details."):format(levels, ZOOMS + 1))
+	end
 	Game.PinLibs(true) -- any copy loaded since (its pins travel with the Minimap: IsPin)
 	-- Undone last: the pins back on the Minimap once it's back at its own size (MinimapTakeover.lua:338-344).
 	OnRelease(Game.MinimapPinsHome)
@@ -167,10 +180,24 @@ local function Engage()
 	C_Minimap.SetIgnoreRotateMinimap(true)
 	mm:Show()
 	Runtime.Trace("minimap", "engaged")
+	return true
 end
 
 local Unoverlay, Untip -- (the overlay's and its tooltips', below)
-local function Release()
+local Release
+-- Engage all or nothing: one that fails part way (another addon's frame on the Minimap that won't move, say) is
+-- recorded as any error (Runtime: /mm errors), what it had taken given back at once (Release), and not tried again
+-- this session (m.failed: the blocker), with one line in chat. Blizzard's minimap stays as it was meanwhile.
+local TryEngage = Runtime.Wrap("game: minimap engage", Engage, false)
+local function Take()
+	if TryEngage() then return true end
+	m.failed = true
+	pcall(Release)
+	SayOnce("failed", "couldn't put Blizzard's minimap blips over the map (/mm errors has why), so they're off this "
+		.. "session: Blizzard's minimap is as it was. /reload to try again.")
+	return false
+end
+function Release()
 	if not m.engaged then return end
 	m.engaged, m.instance, placed = false, false, nil
 	Unoverlay()
@@ -207,7 +234,7 @@ end
 -- COVER of that (else zoomed too far out: unseen); none fits (too far in): unseen. Unseen is out of sight, not alpha 0
 -- (its icons and arrow ignore alpha): its icons a speck, beneath the window. A new zoom's radius applies a frame or two
 -- late: unseen SETTLE frames, then till our zoom and its radius are CALM frames still.
-local ZOOMS, EDGE, STICK, COVER = 5, 2, 1.02, 0.75
+local EDGE, STICK, COVER = 2, 1.02, 0.75
 local SPECK = 0.05 -- its icons' scale unseen (alpha alone doesn't hide them: the sensor's ICONS)
 -- (ROUND: the client's round alpha mask, as its own Minimap's, when nothing else set one)
 local SQUARE, ROUND = "Interface\\ChatFrame\\ChatFrameBackground", "Interface\\CharacterFrame\\TempPortraitAlphaMask"
@@ -231,6 +258,7 @@ end
 local Mouse
 -- A radius one of its zooms has (indoors or out: Game.MinimapYards), within ODD of it.
 local ODD = 0.05
+local ODD_FOR = 5 -- s a radius stays odd before it's said in chat (a zone change's is gone in a frame or two)
 local function Plausible(z, r)
 	local out, inside = Game.MinimapYards(false)[z], Game.MinimapYards(true)[z]
 	return out ~= nil and (math.abs(r - out / 2) <= ODD * out / 2 or math.abs(r - inside / 2) <= ODD * inside / 2)
@@ -299,7 +327,16 @@ local function Overlay(w, here, inst)
 	local z = mm:GetZoom()
 	-- A radius none of its zooms has (seen once over a zone change: its blips drawn far apart, the overlay sized for
 	-- another): unseen, and not learnt, till it's one again. m.odd: the last such, for /mm overlay.
-	if r > 0 and not Plausible(z, r) then m.odd = r; return Hide(mm, w) end
+	if r > 0 and not Plausible(z, r) then
+		m.odd = r
+		m.oddSince = m.oddSince or GetTime()
+		if GetTime() - m.oddSince >= ODD_FOR then
+			SayOnce("odd", ("Blizzard's minimap zooms aren't the sizes MagicMap knows (radius %.0f yd at zoom %d: a game "
+				.. "update?), so its blips are hidden over the map. /mm overlay for details."):format(r, z))
+		end
+		return Hide(mm, w)
+	end
+	m.oddSince = nil
 	if r > 0 and z == (m.zoom or 0) then
 		local key = inst .. (Game.Indoors() and "i" or "o") -- (indoors, its zooms see less)
 		if radii.key ~= key then radii = { key = key } end
@@ -459,17 +496,17 @@ Game.Slash("overlay", "the blips' overlay (Blizzard's Minimap over the map): whe
 			tostring(h and math.floor(h)), UIParent:GetWidth(), UIParent:GetHeight(), mm:GetZoom(),
 			tostring(C_Minimap.GetViewRadius()),
 			(placed and ("centre %d, %d, half %d"):format(placed.x, placed.y, placed.half) or "-")
-				.. (", need %s, room %s, alpha %.2f, seen %s, odd radius %s, instance %s"):format(tostring(m.need and math.floor(m.need)),
-				tostring(m.room and math.floor(m.room)), mm:GetAlpha(), tostring(seen), tostring(m.odd), tostring(m.instance))))
+				.. (", need %s, room %s, alpha %.2f, seen %s, odd radius %s, instance %s, blocked %s"):format(tostring(m.need and math.floor(m.need)),
+				tostring(m.room and math.floor(m.room)), mm:GetAlpha(), tostring(seen), tostring(m.odd), tostring(m.instance), tostring(m.blocker))))
 end)
 
 Game.Apply("minimap", function(view)
 	local w = view.window
-	m.blocker = FarmHud and FarmHud.IsShown and FarmHud:IsShown() and "FarmHud has the minimap" or nil
+	m.blocker = m.failed and "couldn't take the minimap (/mm errors)"
+		or FarmHud and FarmHud.IsShown and FarmHud:IsShown() and "FarmHud has the minimap" or nil
 	if view.minimap ~= "ours" or not (w.shown and w.place) or m.blocker then
 		Release()
-	else
-		if not m.engaged then Engage() end
+	elseif m.engaged or Take() then
 		local _, kind = GetInstanceInfo()
 		m.instance = kind ~= nil and kind ~= "none" and not view.here -- (where it keeps where you are, the overlay)
 		Hold(Minimap)
