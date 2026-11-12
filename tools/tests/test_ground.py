@@ -90,9 +90,15 @@ def test_labels():
     pool = labels.front.pools.label
     alphas = {S[pool[i]].text: S[pool[i]].alpha for i in range(1, pool.n + 1)}
     fresh = [t for t in alphas if t not in before]
-    assert fresh and all(alphas[t] < 1 for t in fresh) and all(alphas[t] == 1 for t in alphas if t in before)
+    # (at 500 every name is a subzone: its opacity, Subzone opacity's 55%, is the name's own alpha, the fade's end)
+    near = lambda a, b: abs(a - b) < 1e-6
+    assert fresh and all(alphas[t] < 0.55 for t in fresh) and all(near(alphas[t], 0.55) for t in alphas if t in before)
     sim.Run(0.25)
-    assert all(S[pool[i]].alpha == 1 for i in range(1, pool.n + 1))
+    assert all(near(S[pool[i]].alpha, 0.55) for i in range(1, pool.n + 1))
+    ns.UI.Feel.Set("labels.subAlpha", 0.3)  # (laid out again: the names at their new opacity)
+    sim.Run(0.5)
+    pool = labels.front.pools.label
+    assert pool.n and all(near(S[pool[i]].alpha, 0.3) for i in range(1, pool.n + 1) if S[pool[i]].shown)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
