@@ -1,5 +1,5 @@
 """The ground layers at the spike's look and cost (docs/v1-plan.md M1.4: ui/Labels.lua, Tiles.lua, You.lua) on the
-simulated client. Labels: zones in capitals, 10 pt, up to zoom 450; subzones 9 pt, by size from 120, 220 and 400;
+simulated client. Labels: zones in capitals, 10 pt, up to zoom 450; subzones 7 pt (9 at Subzone size 80%), by size from 120, 220 and 400;
 none touching another; a name new to the view fades in. Tiles: an open-sea tile isn't drawn (the backdrop shows).
 You: the arrow, on your map only.
 """
@@ -62,9 +62,9 @@ def test_labels():
         zones = [t for (t, *_), z in zip(got, zone) if z]
         subs = [w for (_, _, w, *_), z in zip(got, zone) if not z]
         assert len(zones) + len(subs) == len(got)
-        # Zones in Morpheus, mixed case, 11.5 to 22 pt, an outline at 12 or less; subzones in the body face, 9 pt, no outline.
+        # Zones in Morpheus, mixed case, 11.5 to 22 pt, an outline at 12 or less; subzones in the body face, 7 pt, no outline.
         assert all(t != t.upper() for t in zones) and all(11.5 <= f[2] <= 22 for f, z in zip(faces, zone) if z)
-        assert all(f[1] == font and f[2] == 9 and f[3] == "" for f, z in zip(faces, zone) if not z)
+        assert all(f[1] == font and f[2] == 7 and f[3] == "" for f, z in zip(faces, zone) if not z)  # (9 pt at Subzone size 80%)
         assert all(f[3] == ("OUTLINE" if f[2] <= 12 else "") for f, z in zip(faces, zone) if z)
         if zoom == 100:  # zones, no subzone yet (from 120)
             assert zones and not subs
@@ -90,11 +90,11 @@ def test_labels():
     pool = labels.front.pools.label
     alphas = {S[pool[i]].text: S[pool[i]].alpha for i in range(1, pool.n + 1)}
     fresh = [t for t in alphas if t not in before]
-    # (at 500 every name is a subzone: its opacity, Subzone opacity's 55%, is the name's own alpha, the fade's end)
+    # (at 500 every name is a subzone: its opacity, Subzone opacity's 45%, is the name's own alpha, the fade's end)
     near = lambda a, b: abs(a - b) < 1e-6
-    assert fresh and all(alphas[t] < 0.55 for t in fresh) and all(near(alphas[t], 0.55) for t in alphas if t in before)
+    assert fresh and all(alphas[t] < 0.45 for t in fresh) and all(near(alphas[t], 0.45) for t in alphas if t in before)
     sim.Run(0.25)
-    assert all(near(S[pool[i]].alpha, 0.55) for i in range(1, pool.n + 1))
+    assert all(near(S[pool[i]].alpha, 0.45) for i in range(1, pool.n + 1))
     ns.UI.Feel.Set("labels.subAlpha", 0.3)  # (laid out again: the names at their new opacity)
     sim.Run(0.5)
     pool = labels.front.pools.label

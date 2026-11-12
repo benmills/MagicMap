@@ -120,5 +120,5 @@ Menus.Layer({ key = "flight", label = "Flight points", group = "places", tip = "
 Menus.Layer({ key = "dungeons", label = "Dungeons & raids", group = "places", tip = "Dungeon and raid entrances." })
 Menus.Layer({ key = "graveyards", label = "Graveyards", group = "places", default = false,
 	tip = "Where your spirit goes when you release." })
-Menus.Layer({ key = "areaPOIs", label = "Points of interest", group = "places", tip = "Places the game marks in each zone." })
+Menus.Layer({ key = "areaPOIs", label = "Points of interest", group = "places", default = false, tip = "Places the game marks in each zone." })
 -- (vignettes: the gear's "Rares & treasures" row turns them with the rares, ui/Menus.lua)

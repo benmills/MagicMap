@@ -147,6 +147,7 @@ def test_map_and_zone():
     # Off your map, not hovering: the title names the zone flown to, big too, till another map's shown
     # (Core.lua:1071, 1125, 1302).
     title = lambda: UI.Title.title.GetText(UI.Title.title)  # noqa: E731
+    UI.Feel.Set("title.rest", "zone,time")  # (the zone first: by default the time is)
     sim.cursorX, sim.cursorY = 100, 100
     sim.Slash("/mm map 0")
     sim.Slash("/mm map kalimdor")

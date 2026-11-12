@@ -12,14 +12,14 @@ time. Until you answer, nothing of Blizzard's is touched. The choice is two swit
 General (Replace minimap, Replace world map), live, any time; `/mm welcome` shows the welcome again.
 Players who had 2.0 keep their setup (migrated to both, no welcome).
 
-- *Minimap replaced:* our small map sits on the minimap's spot from login.
+- *Minimap replaced:* our small map sits at the screen's top right from login.
 - *Minimap not replaced:* Blizzard's minimap stays, and our map is never small: it opens big, and
   closing it hides it. Blizzard's minimap is left as it is: no blips over our map, no AddOns button.
 - *World map replaced:* M opens our big map. Not replaced: M is Blizzard's world map, as always.
 - *Neither:* nothing of Blizzard's is touched; the minimap button, the addon compartment and `/mm`
   open and close our big map as a window of its own.
 
-**The minimap.** It sits square on your minimap's spot, about 200 yards across, in a metal frame
+**The minimap.** It sits at the screen's top right (234 by 219, until you move or size it), about 200 yards across, in a metal frame
 whose buttons show while you hover. The wheel or + / − zoom it, every notch a step, and the reset
 button above + (shown while you're off the default zoom) glides back to it; drag to pan, and left
 alone for 3 seconds after a pan or zoom it glides back to you at the default zoom (Return to default, in
@@ -188,8 +188,8 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | Page | Settings (default) |
 | --- | --- |
 | General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to default (on: the small map glides back to you at the default zoom when left alone), Return after (3 s), Zoom per notch (+30%: where Blizzard's minimap has no zoom of its own) |
-| Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (100%), Subzone opacity (55%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
-| Title | At rest (Zone, Local time), On hover (Zone, Subzone, Tracked target, Distance to target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time (each time led by the day or night picture). Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
+| Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (80%), Subzone opacity (45%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
+| Title | At rest (Local time, Zone), On hover (Coordinates, Zone), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time (each time led by the day or night picture). Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
 | Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Quest's: Names on big map (off), Names on small map (off). Each follows the level above until set; its undo hands it back |
 | Quest pill | Shows (off / what you track), Says (Objective progress, Distance; chosen and ordered from those, Name and Time to arrive), Progress bar (on), Bar opacity (60%), Bar colour (Gold). Look: Backing (35%), Size (90%) |
 | Pill layout | Pill: Height (20 px), Padding (4 px), Icon size (10 px), Icon spacing (2.3 px). Text and close: Text size (9), Text spacing (5 px), Close spacing (5.4 px), Close opacity (35%). Border: Border size (45%), Border opacity (85%) |
@@ -205,7 +205,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | `/mm` | MagicMap or Blizzard's minimap |
 | `/mm follow` | Follow you, or stop |
 | `/mm map <name or id>`, `/mm zone <name>` | Show a map (alone: list them); fly to a zone |
-| `/mm reset` | Back onto the minimap's spot, at its size |
+| `/mm reset` | Back to its default spot and size, at the screen's top right |
 | `/mm layers`, `/mm layer <name>` | What's drawn; show or hide one layer |
 | `/mm icon` | The minimap button |
 | `/mm minimap ours`, `/mm minimap blizzard` | Who has the minimap while our map is shown |

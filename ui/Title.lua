@@ -383,10 +383,10 @@ end
 Feel.Page({ key = "title", title = "Frame title", icon = "Interface\\Icons\\INV_Scroll_03", order = 25, sections = { "Format" },
 	tip = "What the title above the map says: at rest, and with the pointer over the map." })
 Feel.Add("title", nil, {
-	{ key = "title.rest", kind = "list", ordered = true, label = "At rest", options = PIECES, default = "zone,time",
+	{ key = "title.rest", kind = "list", ordered = true, label = "At rest", options = PIECES, default = "time,zone",
 		tip = "What the title says while the pointer isn't over the small map, in this order: the first is the title, the rest follow it, smaller." },
 	{ key = "title.hover", kind = "list", ordered = true, label = "On hover", options = PIECES,
-		default = "zone,subzone,target,distance",
+		default = "coords,zone",
 		tip = "What it says with the pointer over the map, and on the big map. Over the big map, or a map you're not on, the zone and coordinates are the ones under the pointer." },
 })
 Feel.Add("title", "Format", {

@@ -18,7 +18,7 @@ local Atlas, Runtime, Engine = ns.Atlas, ns.Runtime, ns.UI.Engine
 local Get, Unget, At, Yield = Engine.Get, Engine.Unget, Engine.At, Runtime.Yield
 
 local TITLE, BODY = "Fonts\\MORPHEUS.TTF", GameFontNormal:GetFont() -- Morpheus for zones; Friz Quadrata (Layers.lua:1417)
-local ZONE, SUB = { 1, 0.89, 0.63, 0.95 }, { 0.91, 0.86, 0.77, 0.55 } -- the MVP's (672d8b2^:ui/Labels.lua); subzones quieter
+local ZONE, SUB = { 1, 0.89, 0.63, 0.95 }, { 0.91, 0.86, 0.77, 0.45 } -- the MVP's (672d8b2^:ui/Labels.lua); subzones quieter (3.0.2: 45%)
 local ZONE_K, ZONE_MIN, ZONE_MAX = 0.085, 11.5, 22 -- a zone's size: k * its land's side * zoom, clamped
 local SUB_SIZE = 9 -- a subzone's, one size and look at every zoom: shadow only, no outline (quiet over legible)
 local OUTLINE_MAX = 12 -- a zone name at or below this size gets an outline (the font's OUTLINE flag) with the shadow
@@ -30,7 +30,7 @@ local FADE_S = 0.2 -- Layers.lua:1619
 
 -- The settings' label size ("labels.scale"), a factor on every name's size; the layer's rev moves with it, so the
 -- names are laid out again at the new size (and, as the names', at a new size or opacity).
-local scale, subScale, subSize, scaleRev = 1, 1, SUB_SIZE, 0
+local scale, subScale, subSize, scaleRev = 1, 0.8, math.floor(SUB_SIZE * 0.8 + 0.5), 0 -- (Subzone size: 80% by default)
 local zone, sub = ZONE, SUB -- the names' colours (their alphas, the settings' "labels.alpha" and "labels.subAlpha", are each
 -- name's own alpha: Font's fs.base)
 

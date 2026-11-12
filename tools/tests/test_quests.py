@@ -131,7 +131,7 @@ def test_quest_pins():
     sim.Run(0.5)
     p = pin(ns, G, "Quests", 52)
     font, size, _ = ns.UI.LabelsSub()
-    assert S[p.sub].shown and S[p.sub].text == p.entry.count and S[p.sub].font[2] == size - 2
+    assert S[p.sub].shown and S[p.sub].text == p.entry.count and S[p.sub].font[2] == max(6, size - 2)
     assert S[p.count].shown and S[p.count].text == "Protect the Frontier" and S[p.count].font[1] == font
     c = p.count.style[3]  # (the colour it was set to: the sim keeps no text colour)
     e = p.entry.color

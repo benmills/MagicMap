@@ -129,7 +129,7 @@ def test_gear():
                                        ("divider", None), ("checkbox", "Rares & treasures"), ("checkbox", "Party & raid")]
     assert items(sub(root, "Tracking")) == [("checkbox", "Find Herbs"), ("checkbox", "Mailbox"), ("checkbox", "Innkeeper")]
     assert items(sub(root, "Other addons")) == [("checkbox", "All other addons"), ("divider", None), ("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
-    assert plain(sub(root, "Map").text) == "Map  8/9"  # (graveyards off till turned on)
+    assert plain(sub(root, "Map").text) == "Map  7/9"  # (graveyards and points of interest off till turned on)
     # Default zoom (the small map's alone): Auto, then a radio a Blizzard zoom it reaches; a pick goes there.
     zooms = sub(root, "Default zoom")
     radios = [r for r in zooms["items"].values() if r.kind == "radio"]
@@ -220,13 +220,16 @@ def test_gear():
     sim.Step()
     assert saved.button and button.IsShown(button)
     UI.Motion.SetFollow(False)
-    home = UI.BigMap.home
-    assert (f.GetLeft(f), f.GetTop(f)) != (home.left, home.top)
+    P = L.globals().UIParent  # (its default spot: 234 by 219 at the screen's top right, 15 in, 73 down)
+    home = {"left": P.GetWidth(P) - 15 - 234, "top": P.GetHeight(P) - 73, "w": 234, "h": 219}
+    f.ClearAllPoints(f)
+    f.SetPoint(f, "TOPLEFT", P, "BOTTOMLEFT", 600, 800)
+    assert (f.GetLeft(f), f.GetTop(f)) != (home["left"], home["top"])
     UI.Feel.Open("general")
     w = UI.Feel.widgets["general.resetpos"].button
     sim.Click(w)
     sim.Step()
-    assert (f.GetLeft(f), f.GetTop(f), f.GetWidth(f), f.GetHeight(f)) == (home.left, home.top, home.w, home.h)
+    assert (f.GetLeft(f), f.GetTop(f), f.GetWidth(f), f.GetHeight(f)) == (home["left"], home["top"], home["w"], home["h"])
     assert UI.Camera.follow
     UI.Feel.frame.Hide(UI.Feel.frame)
     # Use Blizzard's minimap: ours hidden, the Minimap Blizzard's again, the button on it.
@@ -363,7 +366,7 @@ def test_gear_tracking():
     assert sim.prints[len(sim.prints)] == (
         "|cffffd100MagicMap|r: layers: "
         f"|cffffd100Map:|r {on('zoneLabels')}, {on('quests')}, {off('questAreas')}, {off('flight')}, {on('dungeons')}, "
-        f"{off('graveyards')}, {on('areaPOIs')}, {off('rares')}, {on('group')}. Toggle them from the gear. "
+        f"{off('graveyards')}, {off('areaPOIs')}, {off('rares')}, {on('group')}. Toggle them from the gear. "
         "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it.")
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
@@ -438,7 +441,7 @@ def test_gear_groups_and_reset():
     L, sim, ns, pin = shown()
     E = ns.UI.Engine
     root, rows = gear(sim, ns)
-    assert count(sim, ns, "Map") == "Map  8/9"  # (Graveyards are off by default)
+    assert count(sim, ns, "Map") == "Map  7/9"  # (Graveyards and points of interest are off by default)
     rows["All map"].onSelect()  # (not all on, so all on)
     assert E.LayerOn("flight") and E.LayerOn("graveyards") and E.LayerOn("quests")
     assert count(sim, ns, "Map") == "Map  9/9"
@@ -447,7 +450,7 @@ def test_gear_groups_and_reset():
     assert count(sim, ns, "Map") == "Map  0/9"
     rows["Reset to defaults"].onSelect()
     assert E.LayerOn("quests") and E.LayerOn("flight") and not E.LayerOn("graveyards")  # (off by default)
-    assert count(sim, ns, "Map") == "Map  8/9"
+    assert count(sim, ns, "Map") == "Map  7/9"
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

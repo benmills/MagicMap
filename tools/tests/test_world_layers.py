@@ -70,6 +70,7 @@ CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 def client(big=False, zoom=None):
     L, sim, ns = boot()
     L.execute(SETUP, sim, ns)
+    ns.UI.Engine.SetLayer("areaPOIs", True)  # (off by default: these read every layer)
     sim.Slash("/mm toggle")
     sim.Run(1.5)
     if big:

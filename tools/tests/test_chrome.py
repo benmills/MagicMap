@@ -39,9 +39,9 @@ def test_chrome():
     saved = G.MagicMap2DB.UI
     UI.Feel.Set("title.rest", "zone,subzone"); UI.Feel.Set("title.hover", "zone,subzone,coords,target")  # (the title as it was)
 
-    # On the minimap's spot (the sim's: 140 square at the screen's top right), its strata, saved.
-    spot = UI.BigMap.home
-    home = (spot.left, spot.top, 140, 140)
+    # Its default spot: 234 by 219 at the screen's top right, 15 in and 73 down; the minimap's strata, saved.
+    P = G.UIParent
+    home = (P.GetWidth(P) - 15 - 234, P.GetHeight(P) - 73, 234, 219)
     assert f.IsShown(f) and rect(f) == home and f.GetFrameStrata(f) == "LOW"
     assert abs(UI.Camera.cam.zoom - UI.DefaultZoom()) < 0.01 and UI.Camera.follow  # (every load: the default zoom)
     sim.Step()
@@ -61,10 +61,10 @@ def test_chrome():
     assert not f.NineSlice.IsShown(f.NineSlice) and not f.CloseButton.IsShown(f.CloseButton)
     assert all(x.IsShown(x) for x in (view, c.border, c.band, c.controls, c.grip))
 
-    # Title: at the screen's top, below the map; where you are, coordinates only while hovered.
+    # Title: above the map (its default spot leaves room); where you are, coordinates only while hovered.
     t = UI.Title
     text = lambda: (t.title.GetText(t.title), t.subtitle.GetText(t.subtitle))  # noqa: E731
-    assert text() == ("Elwynn Forest", "Goldshire") and t.title.GetPoint(t.title)[2] == "BOTTOMLEFT"
+    assert text() == ("Elwynn Forest", "Goldshire") and t.title.GetPoint(t.title)[2] == "TOPLEFT"
     sim.MoveCursorTo(view)
     sim.Run(0.1)
     x, y = ns.Atlas.TileToMap(1429, ns.Model.you.col, ns.Model.you.row)
@@ -115,7 +115,7 @@ def test_chrome():
     f.ClearAllPoints(f)
     f.SetPoint(f, "TOPLEFT", G.UIParent, "BOTTOMLEFT", 600, 800)
     f.SetSize(f, 280, 210)
-    assert abs(UI.Camera.cam.zoom - zoom * 210 / 140) < 1e-9
+    assert abs(UI.Camera.cam.zoom - zoom * 210 / 219) < 1e-9  # (the zoom scales with the shorter side: 219 by default)
     assert t.title.GetPoint(t.title)[2] == "TOPLEFT" and ctl.mode.GetPoint(ctl.mode)[2] == "TOPRIGHT"
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 

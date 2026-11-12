@@ -108,15 +108,19 @@ local function StepTween(elapsed)
 	end
 end
 
--- The minimap's spot, as a square SPAN yards across (MinimapMode.lua:99-114).
+-- Its default spot: at the screen's top right, HOME_W by HOME_H, HOME_RIGHT in from its right and HOME_TOP down
+-- from its top (the window's units), SPAN yards across (MinimapMode.lua:99-114 had the minimap's spot, square: the
+-- 3.0.2 default is the spot and size play-tested at the top right). Once the minimap's spot is known (the screen
+-- is laid out by then).
+local HOME_W, HOME_H, HOME_RIGHT, HOME_TOP = 234, 219, 15, 73
 local function Place()
-	local home = BigMap.home
-	if not home then return end
+	if not BigMap.home then return end
 	local k = UIParent:GetEffectiveScale() / frame:GetEffectiveScale() -- /: never 0 (an effective scale is > 0)
-	local side = math.max(home.w, home.h) * k
-	SetRect(home.left * k, home.top * k, side, side)
+	local sw, sh = UIParent:GetWidth() * k, UIParent:GetHeight() * k
+	local w, h = math.min(HOME_W, sw), math.min(HOME_H, sh)
+	SetRect(math.max(0, sw - HOME_RIGHT - w), math.max(h, sh - HOME_TOP), w, h)
 	BigMap.SaveLayout()
-	Motion.SetZoom(side / SPAN_TILES)
+	Motion.SetZoom(w / SPAN_TILES)
 end
 
 ---------------------------------------------------------------------------

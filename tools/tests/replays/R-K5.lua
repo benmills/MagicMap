@@ -5,6 +5,7 @@
 -- dungeons) leaves the map you came from, titled with its name (Core.lua:1119, 1302).
 local T = ...
 local sim, ns = T.Shown()
+ns.UI.Feel.Set("title.rest", "zone,time") -- (the zone first: by default the time is)
 local arrow = ns.UI.You.arrow
 assert(ns.Model.you.col ~= nil and arrow:IsShown())
 sim.restricted = true
