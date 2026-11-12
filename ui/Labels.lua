@@ -125,6 +125,7 @@ local function Font(c, l, font, size, color, flags)
 	end
 	if fs.color ~= color then
 		fs:SetTextColor(color[1], color[2], color[3], color[4])
+		fs:SetShadowColor(0, 0, 0, SHADOW * color[4]) -- (the shadow fades with the name: else the opacity barely shows)
 		fs.color = color
 	end
 	if fs.text ~= l.text then

@@ -22,7 +22,7 @@ One sitting before tagging 3.0.0 (about 40 minutes), on the installed build (`.v
 
 ## B. Quests and the quest pill (~10 min)
 
-- [ ] **b1** Small map: quest pins with no names or counts. Big map: none either. Settings → Pins → Quest → Names on the big map on: each pin's quest name under it, in its difficulty colour, its progress under that, smaller and muted; the small map still shows neither.
+- [ ] **b1** Small map: quest pins with no names or counts. Big map: none either. Settings → Pins → Quest → Names on big map on: each pin's quest name under it, in its difficulty colour, its progress under that, smaller and muted; the small map still shows neither until Names on small map is on.
 - [ ] **b2** The pill is off by default. Settings → Quest pill → Shows: what you track. Click a quest, then Track: the pill bottom left shows the quest's icon and progress (`3/8`), then the distance, smaller and muted. The bar fills as you get closer. → `/mm shot pill`
 - [ ] **b3** Hover the pill: the quest's tooltip. Click it: its popup. The `×` stops following; the pill hides.
 - [ ] **b4** Track any other icon, then Path to one: the pill shows it, and its `×` stops tracking or pathing. As a ghost: your corpse, with no `×`.

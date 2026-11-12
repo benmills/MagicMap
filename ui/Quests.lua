@@ -3,8 +3,9 @@
 -- on the quest disc "UI-QuestPoi-QuestNumber" untinted (Pins' (c)); 24 px, the one you follow
 -- the same size, its glow saying it (ui/Pins.lua's Glow). Ready to turn in, and quests to pick up: none of ours, the
 -- "?" and "!" are Blizzard's blips (the overlay: game/Minimap.lua).
--- Under it: on the small map nothing (its progress is in its tooltip and the quest pill), on the big map its name in
--- the subzone names' size and font (UI.LabelsSub), solid, in its difficulty's colour.
+-- Under it, each behind its own switch (both off by default): its name in the subzone names' size and font
+-- (UI.LabelsSub), solid, in its difficulty's colour, and its progress under that; on the big map (Names on big
+-- map) and on the small map (Names on small map: for those without Questie, whose own pins say it).
 -- Hovering one lights its area (ui/Areas.lua) and shows its tooltip (ui/QuestTooltip.lua); a click grows the
 -- tooltip into the popup (ui/Popup.lua), whose buttons (ui/Track.lua's Actions) follow it (Track, Path to), again
 -- to stop, or open it in the quest log.
@@ -59,11 +60,11 @@ local function SubStyle()
 	if rev ~= subRev then subs, subRev = { font, math.max(6, size - 2), MUTED }, rev end
 	return subs
 end
--- On the big map, each quest's name under its pin and its progress under that (Settings > Pins > Quest: off by
--- default); the small map, neither.
-local bigText = false
+-- Each quest's name under its pin and its progress under that (Settings > Pins > Quest: off by default), on the
+-- big map and the small map apart.
+local bigText, smallText = false, false
 local function Look(e)
-	local isBig = UI.BigMap.big == true and bigText
+	local isBig = UI.BigMap.big == true and bigText or UI.BigMap.big ~= true and smallText
 	local looks = isBig and big or small
 	local look = looks[e]
 	if look and (not isBig or look.countStyle == Style(e.color or WHITE) and look.subStyle == SubStyle()) then return look end
@@ -86,7 +87,7 @@ UI.Quests = Pins.Layer("quests", 15, function(put)
 	end
 end, function()
 	local _, _, labels = UI.LabelsSub()
-	return select(2, Model.Known("quests")) * 4 + (UI.BigMap.big and 1 or 0) + (bigText and 2 or 0) + labels * 1e7
+	return select(2, Model.Known("quests")) * 8 + (UI.BigMap.big and 1 or 0) + (bigText and 2 or 0) + (smallText and 4 or 0) + labels * 1e7
 end, {
 	tooltip = UI.QuestTooltip.Fill, -- (a click grows it into the popup: ui/Pins.lua's Tap)
 	hover = Areas.Hover,
@@ -96,7 +97,10 @@ end, {
 UI.Menus.Layer({ key = "quests", label = "Quests", group = "quests", tip = "Quests in your log. Click one to track it." })
 
 Feel.Add("pins", "By type", {
-	{ key = "quests.bigText", kind = "toggle", label = "Names on the big map", under = "pins.quest.show", default = false,
+	{ key = "quests.bigText", kind = "toggle", label = "Names on big map", under = "pins.quest.show", default = false,
 		apply = function(v) bigText = v end,
 		tip = "On the big map, each quest's name under its pin, in its difficulty's colour, and its progress under that." },
+	{ key = "quests.smallText", kind = "toggle", label = "Names on small map", under = "pins.quest.show", default = false,
+		apply = function(v) smallText = v end,
+		tip = "On the small map, each quest's name under its pin, in its difficulty's colour, and its progress under that." },
 })

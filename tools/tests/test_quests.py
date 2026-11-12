@@ -136,6 +136,16 @@ def test_quest_pins():
     c = p.count.style[3]  # (the colour it was set to: the sim keeps no text colour)
     e = p.entry.color
     assert S[p.count].font[2] == size and [c[1], c[2], c[3]] == [e[1], e[2], e[3]] and (c[2], c[3]) != (1, 1)  # (not white)
+    # Small again: the big map's switch alone puts nothing under it; Names on the small map does, the same look.
+    ns.UI.BigMap.Toggle()
+    sim.Run(1.5)
+    p = pin(ns, G, "Quests", 52)
+    assert p.count is None or not S[p.count].shown or not S[p.count].text
+    ns.UI.Feel.Set("quests.smallText", True)
+    sim.Run(0.5)
+    p = pin(ns, G, "Quests", 52)
+    assert S[p.count].shown and S[p.count].text == "Protect the Frontier" and S[p.count].font[2] == size
+    assert S[p.sub].shown and S[p.sub].text == p.entry.count
     # Ready to turn in, and quests to pick up: none of ours (Blizzard's "?" and "!" blips draw them).
     assert pin(ns, G, "Quests", 106) is None and ns.UI.Offers is None
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

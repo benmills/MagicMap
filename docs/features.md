@@ -97,8 +97,9 @@ Blizzard's own flight, quest and POI tracking is
 switched off while MagicMap draws those itself, and put back when it stops, even after a crash.
 
 **Quests.** The quests you're on, in Blizzard's icons, with their objective icon, in their difficulty colour;
-on the big map, with Settings > Pins > Quest > Names on the big map (off by default), each one's name under its pin,
-in that colour, and its progress under that, smaller and muted. The small map shows neither. Quests to pick up and to hand in are Blizzard's own
+with Settings > Pins > Quest > Names on big map and Names on small map (each off by default), each one's name under
+its pin on that map, in that colour, and its progress under that, smaller and muted (the small map's switch is for
+playing without Questie, whose own minimap pins say it). Quests to pick up and to hand in are Blizzard's own
 `!` and `?` blips (above). A quest's tooltip has its facts, what's left to do (the objects an item is in, else
 who sells it; not the mobs that drop it) and who to turn it in to. Objective areas are drawn as the game draws
 them (its edges and fills); the quest you follow is filled, the rest a quiet edge; hovering an area lifts it
@@ -189,7 +190,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to default (on: the small map glides back to you at the default zoom when left alone), Return after (3 s), Zoom per notch (+30%: where Blizzard's minimap has no zoom of its own) |
 | Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (100%), Subzone opacity (55%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
 | Title | At rest (Zone, Local time), On hover (Zone, Subzone, Tracked target, Distance to target), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time (each time led by the day or night picture). Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
-| Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Quest's: Names on the big map (off). Each follows the level above until set; its undo hands it back |
+| Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Quest's: Names on big map (off), Names on small map (off). Each follows the level above until set; its undo hands it back |
 | Quest pill | Shows (off / what you track), Says (Objective progress, Distance; chosen and ordered from those, Name and Time to arrive), Progress bar (on), Bar opacity (60%), Bar colour (Gold). Look: Backing (35%), Size (90%) |
 | Pill layout | Pill: Height (20 px), Padding (4 px), Icon size (10 px), Icon spacing (2.3 px). Text and close: Text size (9), Text spacing (5 px), Close spacing (5.4 px), Close opacity (35%). Border: Border size (45%), Border opacity (85%) |
 | Tracking | Arrow: Size (105%), Opacity (100%), Distance (96 px). Path to: Frame the way (on). Tracked icon: Glow (on), Glow size (200%), Glow opacity (100%) |
