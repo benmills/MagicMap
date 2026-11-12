@@ -8,13 +8,13 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 **[CurseForge](https://www.curseforge.com/wow/addons/magic-map)** ·
 **[Try it in your browser](https://magic-map-outdoor.exe.xyz)**
 
-<!-- TODO(#9): refreshed hero, the minimap and the big map with no zone borders and the ocean -->
-![The minimap at Red Cloud Mesa, and M grows it into the big map over Mulgore and the Barrens](docs/images/hero-minimap-and-big-map.jpg)
+![The small map in its corner at Grom'gol Base Camp, and the big map showing all of Kalimdor](docs/images/hero-minimap-and-big-map.jpg)
 
 ## What you get
 
-- **Scroll out from your feet to all of Kalimdor**, in your minimap's spot. Press M to make it big. Left
+- **Scroll out from your feet to all of Kalimdor**, in your minimap's corner. Press M to make it big. Left
   alone, the small map goes back to you at your default zoom (the gear's Default zoom); pin it to keep a view.
+- **Any size, any shape.** Drag its corner: a tall tower, a strip across the top of the screen, or tiny.
 - **Floor plans indoors.** Undercity, Ironforge and caves show the floor you're on.
 - **Quests on the map.** The quests you're on with their objective areas, and a tooltip with what's left
   to do and the turn-in. Track one and a gold arrow shows the way. On offer in Settings: each quest's name
@@ -33,13 +33,13 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 - **Works with Questie, HandyNotes and GatherMate.** Their pins show on the map, never twice. No other
   addon is needed: the quest data is built in.
 
-<!-- TODO(#9): refreshed zoomed-out minimap (no zone borders) -->
-<img src="docs/images/minimap-zoomed-out.jpg" alt="The minimap zoomed out over Mulgore" width="400">
+<img src="docs/images/minimap-zoomed-out.jpg" alt="The minimap zoomed out over the Barrens and Durotar" width="400">
 
-![Undercity's Trade Quarter and Ironforge's Great Forge](docs/images/indoors-undercity-ironforge.jpg)
+![Undercity: the floor plan on the small map as you walk, and the whole city on the big map](docs/images/indoors-undercity.jpg)
 
-<!-- TODO(#12): refreshed followed-quest shot (no zone borders) -->
-![A followed quest at Camp Narache: the line to its turn-in](docs/images/followed-quest-route.jpg)
+![A quest pathed to in Silverpine Forest: the dotted line on the small map from you to its pin](docs/images/followed-quest-route.jpg)
+
+<img src="docs/images/herb-blips.jpg" alt="An Earthroot blip's tooltip on the small map, with its Herbalism skill pill" width="600">
 
 <!-- TODO(#11): screenshot, a flight master pathed to: the line framed, the yards and time pill -->
 <!-- TODO(#14): screenshot, crowded icons in pills, one opened into its grid -->

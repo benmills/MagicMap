@@ -31,11 +31,10 @@ and `/mm reset` puts it back. `/mm`, the rim button or the addon compartment swa
 Blizzard's minimap, and back (with the minimap replaced). The minimap button is drawn as other
 addons' buttons are (LibDBIcon's shape), draggable round the rim.
 
-<!-- TODO(#9): refreshed screenshot (2.1.0: no zone borders, current tooltip) -->
-<img src="images/minimap-zoomed-out.jpg" alt="The minimap zoomed out over Mulgore, with the gear, the big-map button and the zoom buttons" width="400">
+<img src="images/minimap-zoomed-out.jpg" alt="The minimap zoomed out over the Barrens and Durotar, with the gear, the big-map button and the zoom buttons" width="400">
 
-*The same minimap zoomed out to all of Mulgore, the hover buttons showing: the gear and the big-map
-button by the zone name, reset, + and − on the right.*
+*The minimap zoomed out over the Barrens and Durotar, the hover buttons showing: the gear and the
+big-map button by the zone name, reset, + and − on the right.*
 
 **The big map (M).** M or the red button grows it into a big map, centred on you; M, the button
 or Escape shrinks it. Move or resize the big map and it opens there next time, as the small one does
@@ -47,10 +46,10 @@ default the zone and the local time, and on hover the zone, subzone, target and 
 continent, another map or an instance; with several zones in view, hover one to light it and click
 to fly there. `/mm map` and `/mm zone` do the same by name.
 
-![The big map over Durotar: subzone names, quest areas and pins, and the line to a waypoint](images/big-map-durotar-route.jpg)
+![The big map over the Barrens: subzone names, a quest's area and pins, and the line to it from the Crossroads](images/big-map-barrens-route.jpg)
 
-*Durotar on the big map: the subzone names, the Valley of Trials' quest areas and pins, and the
-walking line up to a waypoint at Razor Hill.*
+*The Barrens on the big map: the subzone names, a quest's objective area and pins, and the walking line
+to it from the Crossroads.*
 
 **The ground.** The game's minimap tiles at any zoom, as Blizzard drew them, on each map's own dark
 backdrop; zone and subzone names on the big map (none at the minimap's size; no zone borders: [ADR 0012](decisions/0012-no-borders.md)); your arrow (the Minimap's own player arrow), with a denser shadow. Every pin is Blizzard's art (an atlas, a texture of the client's or its tinted circle); the addon's own files are the map art alone. Under the tiles, a one-picture stand-in for each continent
@@ -73,10 +72,10 @@ maps**: on the big map in a capital (Ironforge, Orgrimmar, Undercity...), every
 building of the city at once, indoors or out, what's underground faded, with the city's own area
 names (The Great Forge, the Cleft of Shadow...) among the subzone names.
 
-![Indoors: Undercity's Trade Quarter and Ironforge's Great Forge from Blizzard's indoor minimap pictures](images/indoors-undercity-ironforge.jpg)
+![Undercity: the floor plan on the small map as you walk, and the whole city on the big map](images/indoors-undercity.jpg)
 
-*Indoors: Undercity's Trade Quarter with its services (grouped into `+2` and `+6` pills), and the
-Great Forge in Ironforge by the flight master.*
+*Undercity from Blizzard's indoor minimap pictures: the floor you're on, on the small map as you walk,
+and every building of the city at once on the big map.*
 
 **Blizzard's blips.** Blizzard's own Minimap draws its blips (herbs, ore, the mailbox, trainers, quest givers'
 `!` and `?`) over our map: no ground, north up, centred on you and sized to our zoom, with Blizzard's own arrow.
@@ -111,10 +110,9 @@ and the time to arrive on offer; the pieces and their order on Settings > Quest 
 in a thin bronze frame, filled (gold by default) by how far you've come since you began going to it. The `×` at
 its end stops it: unfollows the quest, or stops tracking or pathing. With nothing tracked it's hidden. Off by default (Settings > Quest pill > Shows).
 
-<!-- TODO(#12): refreshed screenshot (2.1.0: no zone borders, current tooltip) -->
-<img src="images/quest-tooltip.jpg" alt="A quest pin's tooltip in the Valley of Trials: Cutting Teeth, 2/10 Mottled Boar slain, turn in to Gornek" width="480">
+<img src="images/quest-tooltip.jpg" alt="A quest pin's tooltip in the Barrens: Miner's Fortune, 0/1 Cats Eye Emerald, with its objective area outlined" width="480">
 
-*A quest's tooltip in the Valley of Trials: its level, the objective's count, who to turn it in to.*
+*Hovering a quest in the Barrens: its name and level, what's left to do, and its objective area lit.*
 
 **Where to go.** Your target is your corpse while you're a ghost, else the quest you follow, else
 your waypoint. **Click any icon** (left or right; your waypoint's own too): its tooltip grows into a small popup
@@ -144,11 +142,12 @@ the gold reset arrow above the zoom buttons glides back to you. The mode button 
 its condense on the big map. On the big map, right-click leads with what's there: zone, subzones, coordinates, level
 range against yours, distance, quests, explored or not, and the landmarks nearby.
 
-<!-- TODO(#12): refreshed screenshot (2.1.0: no zone borders, current tooltip) -->
-![A followed quest at Camp Narache: the line to its turn-in and the quest pill saying it's ready](images/followed-quest-route.jpg)
+![A quest pathed to in Silverpine Forest: the dotted line on the small map from you to its pin](images/followed-quest-route.jpg)
 
-*Following The Adventurer at Camp Narache: the line to the turn-in's `?`,
-"ready to turn in" in the quest pill.*
+*Path to a quest in Silverpine Forest: the dotted line on the small map, from you to the quest's
+glowing pin.*
+
+<img src="images/small-map-path.jpg" alt="The small map in Silverpine Forest with a dotted line from the player to a quest pin" width="500">
 
 **Places and people.** Flight points, dungeon entrances, points of interest and graveyards (off until
 you turn them on in the gear menu); party and
