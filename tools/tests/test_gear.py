@@ -130,20 +130,28 @@ def test_gear():
     assert items(sub(root, "Tracking")) == [("checkbox", "Find Herbs"), ("checkbox", "Mailbox"), ("checkbox", "Innkeeper")]
     assert items(sub(root, "Other addons")) == [("checkbox", "All other addons"), ("divider", None), ("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
     assert plain(sub(root, "Map").text) == "Map  7/9"  # (graveyards and points of interest off till turned on)
-    # Default zoom (the small map's alone): Auto, then a radio a Blizzard zoom it reaches; a pick goes there.
+    # Default zoom (the small map's alone): Auto, then a radio a notch of the wheel's, past Blizzard's zooms both ways
+    # too (UI.ZoomNotches, as Settings' slider); a pick goes there.
     zooms = sub(root, "Default zoom")
     radios = [r for r in zooms["items"].values() if r.kind == "radio"]
     auto = UI.DefaultZoom()
-    assert plain(radios[0].text).startswith("Auto (") and radios[0].isSelected() and len(radios) > 2
-    n = len(radios) - 1  # (the closest it reaches; Auto's the one before)
-    assert radios[n].onSelect() == refresh
-    sim.Run(2)
+    notches, ai, _ = UI.ZoomNotches()
+    notches = [notches[i] for i in range(1, len(notches) + 1)]
     steps = ns.Model.minimap.steps
-    assert UI.Feel.Get("zoom.default") == n and UI.DefaultZoom() == steps[n] != auto
-    assert abs(UI.Camera.cam.zoom - steps[n]) < 0.01 and radios[n].isSelected() and not radios[0].isSelected()
+    assert plain(radios[0].text).startswith("Auto (") and radios[0].isSelected() and len(radios) == len(notches)
+    assert notches[0] == ns.UI.Motion.MAX_ZOOM / 50 and notches[-1] == ns.UI.Motion.MAX_ZOOM  # (16 to 800 px a tile)
+    assert len(notches) > len(steps) and notches[ai - 1] == auto
+    assert radios[1].onSelect() == refresh  # the widest
+    sim.Run(2)
+    assert UI.Feel.Get("zoom.notch") == 1 - ai and UI.DefaultZoom() == notches[0]
+    assert abs(UI.Camera.cam.zoom - notches[0]) < 0.01 and radios[1].isSelected() and not radios[0].isSelected()
     assert radios[0].onSelect() == refresh
     sim.Run(2)
-    assert UI.Feel.Get("zoom.default") == 0 and UI.DefaultZoom() == auto
+    assert UI.Feel.Get("zoom.notch") == 0 and UI.DefaultZoom() == auto
+    # Settings' slider: its range every notch, Auto at 0.
+    k = UI.Feel.Entry("zoom.notch")
+    lo, hi = k.range()
+    assert (lo, hi) == (1 - ai, len(notches) - ai) and k.fmt(0).startswith("Auto, ")
 
     sim.Press("M")
     sim.Run(1)

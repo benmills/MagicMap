@@ -1,6 +1,7 @@
 -- Pathing: the line to what you go to (Model.Target: your corpse, the quest you follow, your waypoint) while
--- it's pathed (UI.Track.Pathed: Path to chosen for it, ui/Track.lua; your corpse always; Track instead has the
--- gold arrow alone, ui/Guide.lua): a row of
+-- it's pathed (UI.Track.Pathed: Path to chosen for it, ui/Track.lua; your corpse always), or tracked with the line
+-- shown (UI.Track.Line: Settings > Tracking > Track: Shows; by default Track has the gold arrow alone, ui/Guide.lua;
+-- only Path to frames the way): a row of
 -- small dots like a route on a printed map (the spike's hand-inked dashes, Path.lua:1-6, now lighter and
 -- dotted), a little uneven, light on a faint dark edge so they read on pale ground: ADD-blended on a slowly
 -- breathing canvas. It follows the way you'd walk (Model.Route: you first, the target last) once that's
@@ -16,7 +17,7 @@
 -- (Path.COLORS, or any: "#rrggbb"), the ADD glow, the breath and its pace, an opacity, and the dark edge (the
 -- outline: on or off, its colour from Path.EDGE_COLORS, or any). A change (Feel.rev) restyles the pieces and lays
 -- the line out anew.
--- While it's drawn (Path.drawing; View.pathing) Blizzard's blips step aside (game/Minimap.lua): the map zooms ours,
+-- While it's drawn for Path to (Path.pathed; View.pathing) Blizzard's blips step aside (game/Minimap.lua): the map zooms ours,
 -- smooth, no minimap steps to flicker against while the framing moves it.
 -- Off the view, the target gets a gold arrow on its edge, where the line toward it leaves (Path.lua:24-79).
 -- At the minimap's size the view frames you, the target and the way between (Motion.Frame: ui/Motion.lua pans and
@@ -698,7 +699,8 @@ Runtime.Step("ui", "map: path", function()
 	local t, me, inst = Model.Target(), Model.you, Camera.inst
 	local n, arrow = 0, false
 	Path.drawing = t and not t.inside and me.col and not me.stale and me.inst == inst and t.pos.inst == inst
-		and UI.Track.Pathed(t) or false
+		and UI.Track.Line(t) or false
+	Path.pathed = Path.drawing and UI.Track.Pathed(t) or false -- (Path to's: the blips step aside, game/Minimap.lua)
 	if Path.drawing then
 		local cam, w, h = Camera.cam, Window.Size()
 		n = Line(t, me, cam, w, h)
@@ -726,7 +728,7 @@ Window.frame:HookScript("OnHide", Runtime.Wrap("map: path hidden", function()
 		Off(washes[i])
 	end
 	used, Path.pieces, drawn[1], shownWay, last.z, lay.half = 0, 0, nil, nil, nil, nil
-	Path.drawing = false
+	Path.drawing, Path.pathed = false, false
 	edge.on = false
 	edge:Hide()
 end))

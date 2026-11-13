@@ -8,7 +8,8 @@
 -- never renamed: players' saved values are under it); default a value, or a function (read when asked: a value
 -- another setting gives, an inherited one; until it's set, its row and apply follow that setting); and by its kind:
 --   toggle  a checkbox: true or false
---   slider  min, max, step (default on the grid); its live value beside it as pct (a share, as %), of (a part of
+--   slider  min, max, step (default on the grid); range = function() -> lo, hi: the part of min..max it offers now
+--           (asked each time it shows); its live value beside it as pct (a share, as %), of (a part of
 --           of, as %), fmt (a string.format pattern, or a function of the value); steppers either side
 --   select  a dropdown, options = { { label, value, icon? } } (or a function giving them; an icon is a file, a
 --           FileDataID or "A:<atlas>")
@@ -283,7 +284,7 @@ end))
 
 local SIDE_W, SIDE_ROW, TABS = 140, 28, 14 -- px: the sidebar's width, a page's row; the pages it has room for
 local PAD, HEADER, TITLE = 14, 26, 30 -- px: the frame's margin, its header bar, a page's title and divider
-local ROW, LINE, HEAD, GAP = 26, 20, 22, 6 -- px: a row, a list's line, a section's header, above a header
+local ROW, LINE, HEAD, GAP = 26, 20, 22, 4 -- px: a row, a list's line, a section's header, above a header
 local PAGE_X = PAD + SIDE_W + 10 -- the page's left edge
 local PAGE_W, BAR = 400, 16 -- the page; its scroll bar, at its right
 local CONTENT_W = PAGE_W - BAR - 4 -- the rows
@@ -420,11 +421,20 @@ local function Minimal()
 	return true
 end
 
+-- A slider's ends as it offers them now (its range, within min..max).
+local function Range(k)
+	if not k.range then return k.min, k.max end
+	local lo, hi = k.range()
+	lo, hi = math.max(k.min, lo or k.min), math.min(k.max, hi or k.max)
+	return lo, math.max(lo, hi)
+end
+
 -- A stepper's look: dimmed at the end it can't pass.
 local function Steppers(w, v)
 	local k = w.k
+	local lo, hi = Range(k)
 	for _, b in ipairs(w.steps) do
-		local on = b.dir < 0 and v > k.min + k.step / 2 or b.dir > 0 and v < k.max - k.step / 2
+		local on = b.dir < 0 and v > lo + k.step / 2 or b.dir > 0 and v < hi - k.step / 2
 		if b.on ~= on then
 			b.on = on
 			b:SetEnabled(on)
@@ -438,7 +448,7 @@ local function AddSlider(row, w, k)
 	s:SetPoint("LEFT", row, "TOPLEFT", CTRL_X + 15, -ROW / 2)
 	s:SetSize(SLIDER_W, 19)
 	s:SetOrientation("HORIZONTAL")
-	s:SetMinMaxValues(k.min, k.max)
+	s:SetMinMaxValues(Range(k))
 	s:SetValueStep(k.step)
 	s:SetObeyStepOnDrag(true)
 	w.steps = {}
@@ -677,13 +687,14 @@ local ADD = { toggle = AddToggle, slider = AddSlider, select = AddSelect, color 
 
 -- A row's control set to v: only what differs from what it shows. (While a menu is open the client sets its own text.)
 local function Show(w, v)
-	if w.value == v and w.shownOnce then return end
+	if w.value == v and w.shownOnce and not w.k.range then return end
 	w.value, w.shownOnce = v, true
 	local kind = w.k.kind
 	if kind == "toggle" then
 		w.check:SetChecked(v == true)
 	elseif kind == "slider" then
 		w.busy = true
+		if w.k.range then w.slider:SetMinMaxValues(Range(w.k)) end
 		w.slider:SetValue(v)
 		w.busy = false
 		local shown = Shown(w.k, v)

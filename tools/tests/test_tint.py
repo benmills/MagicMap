@@ -1,5 +1,5 @@
 """The time-of-day tint (ui/Tint.lua, Data/Light.lua): at Honor's Stand in the Barrens at dawn a warm multiply over
-the ground, at night a cool one; off on the big map and with /mm tint off."""
+the ground, at night a cool one; on the big map too; off with Settings > Map > Ground: Time of day (or /mm tint off)."""
 from test_quests import client
 
 
@@ -26,4 +26,7 @@ def test_tint():
     assert ns.UI.Tint.Shown()
     ns.UI.BigMap.Toggle()
     sim.Run(1.5)
-    assert ns.UI.BigMap.big and not ns.UI.Tint.Shown()  # the small map's only
+    assert ns.UI.BigMap.big and ns.UI.Tint.Shown()  # both sizes
+    ns.UI.Feel.Set("tint.on", False)
+    sim.Run(1.5)
+    assert not ns.UI.Tint.Shown()

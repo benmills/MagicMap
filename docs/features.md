@@ -24,8 +24,9 @@ whose buttons show while you hover. The wheel or + / − zoom it, every notch a 
 button above + (shown while you're off the default zoom) glides back to it; drag to pan, and left
 alone for 3 seconds after a pan or zoom it glides back to you at the default zoom (Return to default, in
 Settings). The pin above the reset arrow holds the view you've made till you click it again, Track or Path to
-something, or reload. The default zoom is the gear's Default zoom: Auto (the one before the closest of
-Blizzard's minimap zooms the map reaches) or any of those zooms, named by the yards across the window. Move it by the
+something, or reload. The default zoom is Settings > General > Default zoom (a slider; the gear's Default zoom
+too): Auto (the one before the closest of Blizzard's minimap zooms the map reaches) or any notch of the wheel, from
+the widest the map goes to the closest, named by the yards across the window. Move it by the
 zone name or the border (or Alt-drag the map), resize it by the corner (it keeps the yards across),
 and `/mm reset` puts it back. `/mm`, the rim button or the addon compartment swaps it for
 Blizzard's minimap, and back (with the minimap replaced). The minimap button is drawn as other
@@ -57,7 +58,10 @@ backdrop; zone and subzone names on the big map (none at the minimap's size; no 
 there yet, so a fast zoom out or a flick never shows bare backdrop. It's never switched over to:
 the tiles are the map at every zoom. **The ocean** (Settings > Map > Ocean, on): a coloured sea round
 the Eastern Kingdoms, Kalimdor and Zephras Isle, where Blizzard's water is near-black, and the same deep
-colour past it. **Map art repairs** (Settings > Map > Repair broken map art, on):
+colour past it. **Time of day** (Settings > Map > Time of day, on): the map takes on the game's own outdoor
+light where you are, as WoW Forever's minimap does, on both map sizes: warm at dawn and dusk, cool and dimmer at
+night, from the lights the game places round you (Light.db2, blended by their reach) at the server's time. Its
+Strength (30%) and Night darkening (25%) are under it (+); not indoors. `/mm tint` says what it is here and now. **Map art repairs** (Settings > Map > Repair broken map art, on):
 16 places where Blizzard's art is broken, flat unfinished blocks and straight joins in shallow water, are
 patched with repaints made with AI image generation from the art round them. Everything else in the tiles
 stays the game's own. Off, or on a game build they weren't made for, you see Blizzard's map as it is
@@ -121,7 +125,8 @@ names itself on hover). Either sets the game's waypoint at the icon, and the tit
 what you track is never grouped into a pill and shows at any zoom. A quest icon's Track and Path to follow the
 quest, and a third button opens it in the quest log; your waypoint's own has Clear waypoint. The two are exclusive:
 choosing one replaces the other. The popup stays till you pick, click off it or press Escape.
-**Track** shows the way with Blizzard's gold arrow alone, placed by the walk to the target (around cliffs, lava
+**Track** shows the way with Blizzard's gold arrow (Settings > Tracking > Track: Shows the arrow by default, or the
+line Path to draws, without moving the map, or both), placed by the walk to the target (around cliffs, lava
 and water): it stands along that way a short distance from you (96 px by default), pointing along it, so a
 route that turns north first points north; it comes in as you near the target, settles beside its icon and fades
 as the icon takes over. It eases round as the way changes, and your turning doesn't move it. Its size, opacity
@@ -167,7 +172,7 @@ minimap pins (GatherMate...) show around you. Nothing is drawn twice.
 in its name: zone labels; quests and quest areas; flight points, dungeons and raids, graveyards (off until you
 turn them on) and points of interest; rares and treasures, and party and raid. **Tracking**: Blizzard's tracking
 types, as Blizzard's own menu has them. **Keep tracking**: the tracker kept on (each tracking spell you know, or
-Off). **Default zoom** (the small map only): Auto or one of Blizzard's minimap zooms. **Other addons**: a row each for the addons whose pins show. Then Use Blizzard's minimap (while ours replaces
+Off). **Default zoom** (the small map only): Auto or any notch of the wheel, by the yards across. **Other addons**: a row each for the addons whose pins show. Then Use Blizzard's minimap (while ours replaces
 it) and Reset to defaults, then Settings.
 **The AddOns button** (left of the gear, while MagicMap replaces the minimap, shown while you point at the map, in the look of an addon's minimap
 button): the buttons the minimap's rim would hold, hidden with Blizzard's minimap (LibDBIcon's addon buttons, the
@@ -186,13 +191,13 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 
 | Page | Settings (default) |
 | --- | --- |
-| General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to default (on: the small map glides back to you at the default zoom when left alone), Return after (3 s), Zoom per notch (+30%: where Blizzard's minimap has no zoom of its own) |
-| Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (80%), Subzone opacity (45%). Ground: Ocean (on), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
+| General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to default (on: the small map glides back to you at the default zoom when left alone), Return after (3 s), Zoom per notch (+30%: where Blizzard's minimap has no zoom of its own), Default zoom (Auto: any notch, by the yards across) |
+| Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (80%), Subzone opacity (45%). Ground: Ocean (on), Time of day (on; under it Strength 30%, Night darkening 25%), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
 | Title | At rest (Local time, Zone), On hover (Coordinates, Zone), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time (each time led by the day or night picture). Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
 | Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Quest's: Names on big map (off), Names on small map (off). Each follows the level above until set; its undo hands it back |
 | Quest pill | Shows (off / what you track), Says (Objective progress, Distance; chosen and ordered from those, Name and Time to arrive), Progress bar (on), Bar opacity (60%), Bar colour (Gold). Look: Backing (35%), Size (90%) |
 | Pill layout | Pill: Height (20 px), Padding (4 px), Icon size (10 px), Icon spacing (2.3 px). Text and close: Text size (9), Text spacing (5 px), Close spacing (5.4 px), Close opacity (35%). Border: Border size (45%), Border opacity (85%) |
-| Tracking | Arrow: Size (105%), Opacity (100%), Distance (96 px). Path to: Frame the way (on). Tracked icon: Glow (on), Glow size (200%), Glow opacity (100%) |
+| Tracking | Track: Shows (Arrow; or Line, Arrow and line). Arrow: Size (105%), Opacity (100%), Distance (96 px). Path to: Frame the way (on). Tracked icon: Glow (on), Glow size (200%), Glow opacity (100%) |
 | Pathing | Line: Style (dashed), Weight (1.4 px), Colour (Gold), Opacity (65%). Effects: Glow (off), Breathing (off), Breath pace (1.8 s). Outline: Outline (off), Outline colour (Dark) |
 | Quest areas | Followed quest, Other quests: Fill, Edge, Edge width. Under the cursor: Fill lift, Edge (as the game draws them, a quiet fill by default) |
 | Diagnostics | Debug info in title. Reports in chat: Record 10 seconds; Compare with other addons; Memory breakdown (each also a `/mm` command) |
@@ -205,6 +210,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | `/mm follow` | Follow you, or stop |
 | `/mm map <name or id>`, `/mm zone <name>` | Show a map (alone: list them); fly to a zone |
 | `/mm reset` | Back to its default spot and size, at the screen's top right |
+| `/mm tint` | The time-of-day light here and now; `tint time 22:30` shows another hour's |
 | `/mm layers`, `/mm layer <name>` | What's drawn; show or hide one layer |
 | `/mm icon` | The minimap button |
 | `/mm minimap ours`, `/mm minimap blizzard` | Who has the minimap while our map is shown |

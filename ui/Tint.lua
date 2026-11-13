@@ -1,10 +1,12 @@
--- The time-of-day tint (a prototype): WoW Forever tints its minimap with the game's outdoor light; so do we.
+-- The time-of-day tint: WoW Forever tints its minimap with the game's outdoor light; so do we.
 -- Where you stand, the lights around you (Data/Light.lua: Light.db2's, blended by their falloff over the map's
 -- default) give a colour through the day (LightData.db2's direct, ambient and Forever's own); at the server's time
 -- it makes a multiply over the ground (the tiles, repaints and ocean), under the buildings and the pins:
 --   tint = ((1 - mix) + mix * hue / max(hue)) * (1 - dark * (1 - lum(bright) / its day's brightest))
--- Only on the small map, on your map, outdoors. /mm tint [on | off | hue <src> | mix <k> | dark <d> |
--- bright <src> | time <HH:MM | off> | big | reset], src: direct, ambient or forever; the knobs kept in UI.saved.tint.
+-- On either map size, while it shows your map, outdoors (indoors the building's pictures stand in). Settings > Map >
+-- Ground: Time of day (on), its Strength (mix) and Night darkening (dark), declared below (ui/Feel.lua). /mm tint
+-- says what it is here and now; its knobs past those: hue <src>, bright <src> (direct, ambient or forever), time
+-- <HH:MM | off> (light as at that time), reset; kept in UI.saved.tint.
 
 local _, ns = ...
 local UI, Atlas, Runtime, Model = ns.UI, ns.Atlas, ns.Runtime, ns.Model
@@ -12,7 +14,8 @@ local UI, Atlas, Runtime, Model = ns.UI, ns.Atlas, ns.Runtime, ns.Model
 local Tint = {}
 UI.Tint = Tint
 
-local DEFAULTS = { on = true, hue = "direct", mix = 0.3, dark = 0.25, bright = "direct", big = false }
+local DEFAULTS = { on = true, hue = "direct", mix = 0.3, dark = 0.25, bright = "direct" }
+local feel = { on = DEFAULTS.on, mix = DEFAULTS.mix, dark = DEFAULTS.dark } -- (the settings')
 local SRC = { direct = 2, ambient = 3, forever = 4 } -- a key's fields after its time
 
 local tex = UI.Sea.frame:CreateTexture(nil, "OVERLAY") -- over the ocean (its ARTWORK), its frame over the tiles
@@ -22,6 +25,7 @@ tex:SetBlendMode("MOD")
 tex:Hide()
 
 local function Knob(k)
+	if feel[k] ~= nil then return feel[k] end
 	local t = UI.saved and UI.saved.tint
 	local v = t and t[k]
 	if v == nil then v = DEFAULTS[k] end
@@ -129,8 +133,8 @@ end
 local shown
 local function Update()
 	local you, cam = Model.you, UI.Camera
-	local ok = Knob("on") and you and you.col and not you.stale and cam.inst == you.inst and not Model.interior
-		and (Knob("big") or UI.BigMap.big ~= true) and not UI.Window.Blank()
+	local ok = feel.on and you and you.col and not you.stale and cam.inst == you.inst and not Model.interior
+		and not UI.Window.Blank()
 	local r, g, b
 	if ok then r, g, b = Tint.Compute(you.inst, you.col, you.row, Now()) end
 	if not r then
@@ -151,9 +155,8 @@ Tint.tex = tex
 local function Say(msg) print("|cffffd100MagicMap|r: " .. msg) end
 local function Clock(t) return string.format("%02d:%02d", math.floor(t / 120), math.floor(t % 120 / 2)) end
 local function Report()
-	Say(string.format("tint %s: hue %s, mix %.2f, dark %.2f, bright %s%s%s", Knob("on") and "on" or "off", Knob("hue"),
-		Knob("mix"), Knob("dark"), Knob("bright"), Knob("time") and ", time " .. Clock(Knob("time")) or "",
-		Knob("big") and ", big map too" or ""))
+	Say(string.format("tint %s: hue %s, mix %.2f, dark %.2f, bright %s%s", Knob("on") and "on" or "off", Knob("hue"),
+		Knob("mix"), Knob("dark"), Knob("bright"), Knob("time") and ", time " .. Clock(Knob("time")) or ""))
 	if not last then return Say("no light here yet (indoors, another map, or no data)") end
 	local ids = {}
 	for _, p in ipairs(last.lights) do ids[#ids + 1] = string.format("%s x%.2f", tostring(p[1]), p[2]) end
@@ -165,21 +168,32 @@ end
 
 function Tint.Command(args)
 	local k, v = strtrim(args or ""):lower():match("^(%S*)%s*(.-)$")
-	if k == "on" or k == "off" then SetKnob("on", k == "on")
+	if k == "on" or k == "off" then UI.Feel.Set("tint.on", k == "on")
 	elseif (k == "hue" or k == "bright") and SRC[v] then SetKnob(k, v)
-	elseif (k == "mix" or k == "dark") and tonumber(v) then SetKnob(k, math.max(0, math.min(1, tonumber(v))))
+	elseif (k == "mix" or k == "dark") and tonumber(v) then UI.Feel.Set("tint." .. k, math.max(0, math.min(0.6, tonumber(v))))
 	elseif k == "time" and v == "off" then SetKnob("time", nil)
 	elseif k == "time" and v:match("^%d+:%d+$") then
 		local h, m = v:match("^(%d+):(%d+)$")
 		SetKnob("time", (tonumber(h) % 24 * 60 + tonumber(m) % 60) * 2)
-	elseif k == "big" then SetKnob("big", not Knob("big"))
-	elseif k == "reset" then UI.saved.tint = nil
+	elseif k == "reset" then
+		UI.saved.tint = nil
+		for _, key in ipairs({ "on", "mix", "dark" }) do UI.Feel.Set("tint." .. key, DEFAULTS[key]) end
 	elseif k ~= "" then
-		return Say("/mm tint [on | off | hue direct|ambient|forever | mix 0-1 | dark 0-1 | bright direct|ambient|forever | time HH:MM|off | big | reset]")
+		return Say("/mm tint [on | off | hue direct|ambient|forever | mix 0-1 | dark 0-1 | bright direct|ambient|forever | time HH:MM|off | reset]")
 	end
 	Update()
 	Report()
 end
+
+local function Feel(key) return function(v) feel[key] = v; if UI.saved then Update() end end end
+UI.Feel.Add("map", "Ground", {
+	{ key = "tint.on", kind = "toggle", label = "Time of day", default = DEFAULTS.on, apply = Feel("on"),
+		tip = "The map takes on the game's light where you are, as Blizzard's own minimap does: warm at dawn and dusk, cool and dimmer at night." },
+	{ key = "tint.mix", kind = "slider", label = "Strength", min = 0, max = 0.6, step = 0.05, pct = true, default = DEFAULTS.mix,
+		under = "tint.on", when = "tint.on", apply = Feel("mix"), tip = "How much of the light's colour the map takes." },
+	{ key = "tint.dark", kind = "slider", label = "Night darkening", min = 0, max = 0.6, step = 0.05, pct = true,
+		default = DEFAULTS.dark, under = "tint.on", when = "tint.on", apply = Feel("dark"), tip = "How much darker the map gets as the light fades." },
+})
 
 ns.Game.Command({ kind = "slash", name = "tint", help = "the time-of-day tint: what it is here and now, and its knobs (tint help)",
 	fn = Tint.Command })

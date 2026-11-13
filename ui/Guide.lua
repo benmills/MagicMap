@@ -138,7 +138,7 @@ Runtime.Step("ui", "map: guide", function(elapsed)
 	local t, me, inst = Model.Target(), Model.you, Camera.inst
 	local cam, w, h = Camera.cam, Window.Size()
 	if t and not UI.Track.Arrived(t) and me.col and not me.stale and me.inst == inst and t.pos.inst == inst and w > 0 and h > 0
-		and not UI.Track.Pathed(t) then
+		and UI.Track.Arrow(t) then
 		Want(t, me, cam, w, h)
 	else
 		seen[1], want.a = nil, 0

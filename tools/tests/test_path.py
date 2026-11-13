@@ -15,6 +15,7 @@ waypoint pins and the title's target), Model.Target and Model.Route stubbed as t
     every piece within 4096 px of its canvas (S56; docs/v1-plan.md §2).
   test_edge_arrow: a target off the view gets the gold arrow 16 px inside the edge where the line toward it
     leaves (along the route's leg that does), pointing on; none on the view or inside (F34, S59).
+  test_track_shows: Track shows the arrow, the line or both (Settings > Tracking > Track: Shows).
   test_guide_arrow: Track's gold arrow (ui/Guide.lua), no line: 48 px out along the way, pointing on; turning
     doesn't move it; a route north first swings it round (eased) onto that leg; nearer, it rides in short of the
     pin, dimmer, and goes once the pin is by your arrow; its distance and size settings; none pathed or arrived.
@@ -769,4 +770,22 @@ def test_arrived_finishes():
     UI.Track.Start(near, True)
     sim.Run(1)
     assert UI.saved.tracked is None and UI.saved.path is None and not ns.Model.Target()
+    assert not errors(sim, ns), errors(sim, ns)
+
+
+def test_track_shows():
+    """Settings > Tracking > Track: Shows: the arrow (the default), the line (Path to's, without its framing; the
+    blips stay), or both."""
+    L, sim, ns, G = client()
+    UI, S = ns.UI, sim.state
+    a = UI.Guide.arrow
+    G.Target("waypoint", 36.0, 49.75, None, True)
+    sim.Run(2)
+    assert S[a].shown and UI.Path.pieces == 0
+    UI.Feel.Set("track.shows", "line")
+    sim.Run(2)
+    assert not S[a].shown and UI.Path.pieces > 0 and not UI.Path.pathed and not ns.UI.View().pathing
+    UI.Feel.Set("track.shows", "both")
+    sim.Run(2)
+    assert S[a].shown and UI.Path.pieces > 0
     assert not errors(sim, ns), errors(sim, ns)

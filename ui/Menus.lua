@@ -461,32 +461,28 @@ local function AddButtons(sub)
 	if not Model.buttons[1] then sub:CreateButton("None found"):SetEnabled(false) end
 end
 
--- Default zoom (the small map's alone: Blizzard's Minimap's zooms are known only there): a radio a zoom that it reaches,
--- named by the yards across the window it shows, the widest first; the chosen one gone to at once (Motion.Reset).
+-- Default zoom (the small map's alone: Blizzard's Minimap's zooms are known only there): Auto, then a radio a notch of
+-- the wheel's (UI.ZoomNotches, as Settings > General > Default zoom), named by the yards across the window it shows,
+-- the widest first; the chosen one gone to at once (Motion.Reset).
 local function AddDefaultZoom(root)
-	local now, s = UI.DefaultZoomIndex()
-	if not now then return end
-	local w, h = UI.Window.Size()
-	local side = math.min(w, h)
-	local function Across(i) return math.floor(side / s[i] * ns.Atlas.TILE_YARDS / 10 + 0.5) * 10 .. " yd across" end -- /: never 0 (a step > 0)
+	local notches, auto = UI.ZoomNotches()
+	if not notches then return end
 	local function Pick(v)
 		return function()
 			Run(function()
-				UI.Feel.Set("zoom.default", v)
+				UI.Feel.Set("zoom.notch", v)
 				UI.Motion.Reset()
 			end)
 			return MenuResponse.Refresh
 		end
 	end
-	local chosen = function() return UI.Feel.Get("zoom.default") or 0 end
+	local chosen = function() return UI.Feel.Get("zoom.notch") or 0 end
 	local sub = root:CreateButton(Mark("Interface\\Icons\\INV_Misc_Spyglass_02") .. "Default zoom")
-	local n = 0
-	for i = 1, #s do
-		if s[i] <= UI.Motion.MAX_ZOOM then n = i end
-	end
-	sub:CreateRadio("Auto (" .. Across(math.max(1, n - 1)) .. ")", function() return chosen() == 0 end, Pick(0))
-	for i = 1, n do
-		sub:CreateRadio(Across(i), function() return chosen() == i end, Pick(i))
+	sub:CreateRadio("Auto (" .. UI.Across(notches[auto]) .. " yd across)", function() return chosen() == 0 end, Pick(0))
+	for i = 1, #notches do
+		if i ~= auto then
+			sub:CreateRadio(UI.Across(notches[i]) .. " yd across", function() return chosen() == i - auto end, Pick(i - auto))
+		end
 	end
 end
 
