@@ -15,10 +15,10 @@ local Command = ns.Game.Command
 local DEFAULTS = { layers = {}, minimap = "ours", shown = true, zoom = 384, follow = true, debug = false, button = true }
 
 -- The small map's default zoom (the reset button, the idle return, every load): with Blizzard's Minimap's zooms over
--- it (obs.minimap.steps), a notch of the wheel's (UI.Motion.Notches: past its zooms either way too), the Default zoom
--- slider's ("zoom.notch": notches from Auto, wider below 0; Auto, the default: the one before its closest the map
--- reaches), no wider or closer than the map goes; else DEFAULTS.zoom. While a small building's auto-zoom holds the
--- map in (ui/Interiors.lua), that. (A saved "zoom.default", the gear's old pick of one of Blizzard's zooms, becomes a notch.)
+-- it (obs.minimap.steps), the one chosen on the Default zoom slider ("zoom.default": its index, widest 1; by default
+-- the one before its closest the map reaches, following the window's size till one is chosen), no closer than the map
+-- goes; else DEFAULTS.zoom. Only Blizzard's zooms: its blips and their tooltips show at each. While a small building's
+-- auto-zoom holds the map in (ui/Interiors.lua), that.
 local function Reachable(s)
 	local n = 0
 	for i = 1, #s do
@@ -26,57 +26,53 @@ local function Reachable(s)
 	end
 	return n
 end
-local oldPick -- (a saved "zoom.default": moved onto the slider once Blizzard's zooms are known)
--- The notches, Auto's among them and the chosen one's (nil: not known yet).
-function UI.ZoomNotches()
+-- Blizzard's zooms the map reaches, how many, the default's index and the chosen one's (nil: not known yet).
+function UI.DefaultZoomIndex()
 	local mm = Model.minimap
 	local s = mm and mm.steps
 	if not s or UI.BigMap.big then return nil end
 	local n = Reachable(s)
 	if n == 0 then return nil end
-	local notches, first = UI.Motion.Notches(s)
-	local auto = first + math.max(1, n - 1) - 1
-	if oldPick then -- (the gear's old pick: one of Blizzard's zooms, as notches from Auto)
-		local old = oldPick
-		oldPick = nil
-		if type(old) == "number" and old > 0 and (UI.Feel.Get("zoom.notch") or 0) == 0 then
-			UI.Feel.Set("zoom.notch", math.min(old, n) - math.max(1, n - 1))
-		end
-	end
-	local i = math.max(1, math.min(#notches, auto + (UI.Feel.Get("zoom.notch") or 0)))
-	return notches, auto, i
+	local auto = math.max(1, n - 1)
+	local t = UI.saved and UI.saved.feel -- (saved, not Feel.Get: the setting's default is this auto)
+	local chosen = t and t["zoom.default"] or auto
+	if type(chosen) ~= "number" or chosen < 1 then chosen = auto end -- (0: the old Auto)
+	return math.min(chosen, n), s, n, auto
 end
 function UI.DefaultZoom()
 	if not UI.BigMap.big and UI.Interiors.Holding() then return UI.Motion.MAX_ZOOM end
-	local notches, _, i = UI.ZoomNotches()
-	if notches then return notches[i] end
+	local i, s = UI.DefaultZoomIndex()
+	if i then return s[i] end
 	return DEFAULTS.zoom
 end
--- A notch's zoom as yards across the window.
+-- A zoom as yards across the window.
 function UI.Across(zoom)
 	local w, h = Window.Size()
-	return math.floor(math.min(w, h) / zoom * ns.Atlas.TILE_YARDS / 10 + 0.5) * 10 -- /: never 0 (a zoom >= MIN_ZOOM)
+	return math.floor(math.min(w, h) / zoom * ns.Atlas.TILE_YARDS / 10 + 0.5) * 10 -- /: never 0 (a zoom > 0)
 end
-local notchLive -- (the notch once the saved settings are in: a change from it after that is the player's)
+local live -- (the pick once the saved settings are in: a change from it after that is the player's)
 UI.Feel.Add("general", "Movement", {
-	{ key = "zoom.notch", kind = "slider", label = "Default zoom", min = -40, max = 40, step = 1, default = 0,
+	{ key = "zoom.default", kind = "slider", label = "Default zoom", min = 0, max = 6, step = 1,
+		default = function()
+			local _, _, _, auto = UI.DefaultZoomIndex()
+			return auto or 5
+		end,
 		range = function()
-			local notches, auto = UI.ZoomNotches()
-			if not notches then return 0, 0 end
-			return 1 - auto, #notches - auto
+			local _, _, n = UI.DefaultZoomIndex()
+			return 1, n or 6
 		end,
 		fmt = function(v)
-			local notches, auto = UI.ZoomNotches()
-			if not notches then return v == 0 and "Auto" or string.format("%+d", v) end
-			local yd = UI.Across(notches[math.max(1, math.min(#notches, auto + v))]) .. " yd"
-			return v == 0 and "Auto, " .. yd or yd
+			local _, s, n, auto = UI.DefaultZoomIndex()
+			if not s then return tostring(v) end
+			local i = math.max(1, math.min(v, n))
+			return UI.Across(s[i]) .. " yd" .. (i == auto and " (auto)" or "")
 		end,
 		apply = function(v)
 			local open = UI.Feel.frame and UI.Feel.frame:IsShown() -- (the slider moved: shown at once)
-			if notchLive and v ~= notchLive and open then UI.Motion.Reset() end
-			notchLive = notchLive and v
+			if live and v ~= live and open then UI.Motion.Reset() end
+			live = live and v
 		end,
-		tip = "The small map's zoom on login, on the reset arrow and when it goes back by itself: any notch of the mouse wheel, from the widest the map goes to the closest, shown as the yards across the map. Auto: the one before Blizzard's minimap's closest." },
+		tip = "The small map's zoom on login, on the reset arrow and when it goes back by itself: one of Blizzard's minimap zooms (its herbs, ores and other blips show at each), shown as the yards across the map, widest to closest. By default the one before the closest." },
 })
 
 local saved = {} -- until loaded: the defaults
@@ -135,9 +131,9 @@ Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS
 	Engine.toggles = s.layers
 	for _, key in ipairs({ "corpse", "waypoint", "blips", "unexplored", "borders", "offers" }) do s.layers[key] = nil end -- (no gear rows now: on; borders, offers: gone)
 	s.layers.vignettes = s.layers.rares -- (one row turns both: ui/Menus.lua)
-	if s.feel then oldPick, s.feel["zoom.default"] = s.feel["zoom.default"], nil end
+	if s.feel then s.feel["zoom.notch"] = nil end -- (3.1.0's notch, any notch of the wheel: gone)
 	UI.Feel.Loaded() -- (the saved looks reach what read them at load: the line, the areas)
-	notchLive = UI.Feel.Get("zoom.notch") or 0
+	live = UI.Feel.Get("zoom.default")
 	UI.Replace.Load(s, fresh)
 	-- Every login and /reload starts at the default zoom (not the last session's: zoomed off Blizzard's zooms its
 	-- blips stay hidden). Its zooms aren't known yet: the default's stand-in till they are.

@@ -5,8 +5,9 @@
 -- only when one comes, goes or changes its name or icon:
 --   LibDBIcon-1.0's (LibStub): each registered launcher's label (else its name) and icon
 --   the addon compartment's (AddonCompartmentFrame.registeredAddons): its text and icon; not MagicMap's own, nor a
---     LibDBIcon launcher's copy there (its name)
---   any other named Button an addon hung on the Minimap, the stand-in holding its children, MinimapBackdrop or the
+--     LibDBIcon launcher's copy there (its name or label, compared without colours, case, spaces or punctuation)
+--   any other named Button an addon hung on the Minimap (not a map pin: game/Minimap.lua's IsMinimapPin; one an addon,
+--     none for an addon its launcher already lists), the stand-in holding its children, MinimapBackdrop or the
 --     cluster: shown, not protected, its global name not Blizzard's (issecurevariable: the addon that made it); its
 --     name that addon's title (else its own, trimmed); its icon the texture it draws (its icon, else its art)
 --   Blizzard's the takeover hides: the calendar (GameTimeFrame, while it's enabled) and the clock
@@ -32,6 +33,8 @@ Runtime.Every(SCAN, "game.buttons scan", function() dirty = true end)
 Runtime.On("PLAYER_ENTERING_WORLD", "game.buttons", function() dirty = true end)
 
 local function Plain(s) return (tostring(s):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
+-- A name as two rows for one addon compare it: no colours, case, spaces or punctuation ("Leatrix_Plus", "Leatrix Plus").
+local function Key(s) return (Plain(s):lower():gsub("[^%w]", "")) end
 
 -- A texture's art as a row's icon: "A:<atlas>", a file or a FileDataID.
 local function Art(t)
@@ -78,23 +81,25 @@ local function ByName(a, b)
 end
 
 local function Scan()
-	local out, ids, frames, names = {}, {}, {}, {}
+	local out, ids, frames, names, addons = {}, {}, {}, {}, {} -- names: Key()s listed; addons: an addon with a row
 	local function Add(id, name, icon, act, blizzard)
-		if ids[id] then return end
-		ids[id] = act
+		if ids[id] or names[Key(name)] then return end
+		ids[id], names[Key(name)] = act, true
 		out[#out + 1] = { id = id, name = name, icon = icon, blizzard = blizzard }
 	end
 	local lib = LibStub and LibStub("LibDBIcon-1.0", true)
 	for name, b in pairs(lib and lib.objects or {}) do
 		local obj = b.dataObject
 		frames[b] = true
-		names[name] = true
-		if obj and obj.OnClick then Add("ldb:" .. name, obj.label or name, Atlased(obj.icon), { obj = obj, frame = b }) end
+		if obj and obj.OnClick then
+			Add("ldb:" .. name, obj.label or name, Atlased(obj.icon), { obj = obj, frame = b })
+			names[Key(name)] = true -- (its compartment copy may go by either)
+		end
 	end
 	local cf = AddonCompartmentFrame
 	for _, e in ipairs(cf and cf.registeredAddons or {}) do
 		local text = e.text and Plain(e.text)
-		if text and text ~= ADDON and not names[text] and e.func then
+		if text and text ~= ADDON and e.func then
 			Add("cmp:" .. text, e.text, Atlased(e.icon), { entry = e })
 		end
 	end
@@ -102,10 +107,15 @@ local function Scan()
 		if not parent then return end
 		for _, b in ipairs({ parent:GetChildren() }) do
 			local name = b:GetName()
-			if name and not frames[b] and b:GetObjectType() == "Button" and b:IsShown() and not b:IsProtected() then
+			if name and not frames[b] and b:GetObjectType() == "Button" and b:IsShown() and not b:IsProtected()
+				and not Game.IsMinimapPin(b) then -- (a map pin on the Minimap: Questie's quests, HereBeDragons' and GatherMate's)
 				frames[b] = true
 				local secure, addon = issecurevariable(name)
-				if not secure and addon ~= ADDON then Add("btn:" .. name, Named(name, addon), Icon(b), { button = b }) end
+				if not secure and addon ~= ADDON and not (addon and (addons[addon] or names[Key(addon)])) then -- (an addon's
+					-- one button; none for an addon already listed by its launcher)
+					if addon then addons[addon] = true end
+					Add("btn:" .. name, Named(name, addon), Icon(b), { button = b })
+				end
 			end
 		end
 	end

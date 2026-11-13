@@ -461,28 +461,25 @@ local function AddButtons(sub)
 	if not Model.buttons[1] then sub:CreateButton("None found"):SetEnabled(false) end
 end
 
--- Default zoom (the small map's alone: Blizzard's Minimap's zooms are known only there): Auto, then a radio a notch of
--- the wheel's (UI.ZoomNotches, as Settings > General > Default zoom), named by the yards across the window it shows,
--- the widest first; the chosen one gone to at once (Motion.Reset).
+-- Default zoom (the small map's alone: Blizzard's Minimap's zooms are known only there): a radio a zoom that it reaches,
+-- named by the yards across the window it shows, the widest first, the default's marked; the chosen one gone to at
+-- once (Motion.Reset). The same as Settings > General > Default zoom.
 local function AddDefaultZoom(root)
-	local notches, auto = UI.ZoomNotches()
-	if not notches then return end
+	local now, s, n, auto = UI.DefaultZoomIndex()
+	if not now then return end
 	local function Pick(v)
 		return function()
 			Run(function()
-				UI.Feel.Set("zoom.notch", v)
+				UI.Feel.Set("zoom.default", v)
 				UI.Motion.Reset()
 			end)
 			return MenuResponse.Refresh
 		end
 	end
-	local chosen = function() return UI.Feel.Get("zoom.notch") or 0 end
 	local sub = root:CreateButton(Mark("Interface\\Icons\\INV_Misc_Spyglass_02") .. "Default zoom")
-	sub:CreateRadio("Auto (" .. UI.Across(notches[auto]) .. " yd across)", function() return chosen() == 0 end, Pick(0))
-	for i = 1, #notches do
-		if i ~= auto then
-			sub:CreateRadio(UI.Across(notches[i]) .. " yd across", function() return chosen() == i - auto end, Pick(i - auto))
-		end
+	for i = 1, n do
+		sub:CreateRadio(UI.Across(s[i]) .. " yd across" .. (i == auto and " (auto)" or ""),
+			function() return (UI.DefaultZoomIndex()) == i end, Pick(i))
 	end
 end
 

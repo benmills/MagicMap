@@ -131,34 +131,6 @@ local function Stepped(ticks)
 	return true
 end
 
--- Every zoom the wheel stops at, following you, widest first: out past Blizzard's widest a notch at a time to the
--- widest the map goes, its zooms the map reaches, then in past its closest to the closest; and where its widest is
--- among them. Steps s: obs.minimap.steps.
-local notchCache = {} -- the last: { s, step, n, lo, hi, out, first } (asked each frame: built when the steps or the setting change)
-function Motion.Notches(s)
-	local c = notchCache
-	if c.s == s and c.step == wheelStep and c.n == #s and c.lo == s[1] and c.hi == s[#s] then return c.out, c.first end
-	local out, lo = {}, s[1]
-	local z = lo / wheelStep -- /: never 0 (wheelStep >= 1.1)
-	while z > MIN_ZOOM * (1 + STEP_TOL) do
-		table.insert(out, 1, z)
-		z = z / wheelStep -- /: never 0 (wheelStep >= 1.1)
-	end
-	if lo > MIN_ZOOM * (1 + STEP_TOL) then table.insert(out, 1, MIN_ZOOM) end
-	local first = #out + 1
-	for i = 1, #s do
-		if s[i] <= MAX_ZOOM then out[#out + 1] = s[i] end
-	end
-	z = out[#out] * wheelStep
-	while z < MAX_ZOOM * (1 - STEP_TOL) do
-		out[#out + 1] = z
-		z = z * wheelStep
-	end
-	if out[#out] < MAX_ZOOM * (1 - STEP_TOL) then out[#out + 1] = MAX_ZOOM end
-	c.s, c.step, c.n, c.lo, c.hi, c.out, c.first = s, wheelStep, #s, s[1], s[#s], out, first
-	return out, first
-end
-
 -- Past Blizzard's Minimap's zooms (obs.minimap.steps: out past its widest, or in past where its closest fits), its
 -- blips not shown: the zoom buttons say so (ui/Controls.lua). False without them (the big map, no overlay).
 function Motion.PastBlips()

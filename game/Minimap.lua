@@ -45,6 +45,7 @@ local function IsPin(obj)
 	end
 	return obj:GetDebugName():find("GatherMatePin", 1, true) ~= nil
 end
+Game.IsMinimapPin = IsPin -- (game/MinimapButtons.lua: no pin is a button)
 
 -- Swap anchors relative to `from` for the same anchors relative to `to` (true if any).
 local function Reanchor(obj, from, to)

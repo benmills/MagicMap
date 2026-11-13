@@ -3,9 +3,11 @@
 - **Time of day.** The map takes on the game's own outdoor light where you stand, as Forever's minimap does: warm at
   dawn and dusk, cool and dimmer at night, on both the small and the big map. It's on by default. Settings → Map →
   Time of day turns it off; open it (+) for Strength and Night darkening. `/mm tint` says what it's doing here and now.
-- **Default zoom is a slider.** Settings → General → Default zoom offers every notch of the mouse wheel, from the
-  widest the map goes to the closest, shown as yards across; the gear's Default zoom lists the same. A zoom you'd
-  picked before is kept.
+- **Default zoom is a slider.** Settings → General → Default zoom picks one of Blizzard's minimap zooms, shown as
+  yards across, so herbs, ores and the other minimap blips always show at it; the gear's Default zoom lists the same.
+  A zoom you'd picked before is kept.
+- **The AddOns menu lists each addon once.** An addon in both the compartment and as a minimap button (Altoholic,
+  Leatrix Plus) shows one row, and Questie's quest pins on the minimap no longer show up as buttons.
 - **Track can show the line.** Settings → Tracking → Track → Shows: the gold arrow (as before, the default), the
   line Path to draws (without moving the map), or both.
 

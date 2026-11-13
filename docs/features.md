@@ -25,8 +25,8 @@ button above + (shown while you're off the default zoom) glides back to it; drag
 alone for 3 seconds after a pan or zoom it glides back to you at the default zoom (Return to default, in
 Settings). The pin above the reset arrow holds the view you've made till you click it again, Track or Path to
 something, or reload. The default zoom is Settings > General > Default zoom (a slider; the gear's Default zoom
-too): Auto (the one before the closest of Blizzard's minimap zooms the map reaches) or any notch of the wheel, from
-the widest the map goes to the closest, named by the yards across the window. Move it by the
+too): one of Blizzard's minimap zooms the map reaches, so its blips always show there, named by the yards across the
+window; by default (auto) the one before the closest. Move it by the
 zone name or the border (or Alt-drag the map), resize it by the corner (it keeps the yards across),
 and `/mm reset` puts it back. `/mm`, the rim button or the addon compartment swaps it for
 Blizzard's minimap, and back (with the minimap replaced). The minimap button is drawn as other
@@ -172,7 +172,7 @@ minimap pins (GatherMate...) show around you. Nothing is drawn twice.
 in its name: zone labels; quests and quest areas; flight points, dungeons and raids, graveyards (off until you
 turn them on) and points of interest; rares and treasures, and party and raid. **Tracking**: Blizzard's tracking
 types, as Blizzard's own menu has them. **Keep tracking**: the tracker kept on (each tracking spell you know, or
-Off). **Default zoom** (the small map only): Auto or any notch of the wheel, by the yards across. **Other addons**: a row each for the addons whose pins show. Then Use Blizzard's minimap (while ours replaces
+Off). **Default zoom** (the small map only): one of Blizzard's minimap zooms, by the yards across (the default marked auto). **Other addons**: a row each for the addons whose pins show. Then Use Blizzard's minimap (while ours replaces
 it) and Reset to defaults, then Settings.
 **The AddOns button** (left of the gear, while MagicMap replaces the minimap, shown while you point at the map, in the look of an addon's minimap
 button): the buttons the minimap's rim would hold, hidden with Blizzard's minimap (LibDBIcon's addon buttons, the
@@ -191,7 +191,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 
 | Page | Settings (default) |
 | --- | --- |
-| General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to default (on: the small map glides back to you at the default zoom when left alone), Return after (3 s), Zoom per notch (+30%: where Blizzard's minimap has no zoom of its own), Default zoom (Auto: any notch, by the yards across) |
+| General | Blizzard's maps: Replace minimap, Replace world map (what the welcome chose), Minimap button (on). Map window: Buttons at rest (0%: the buttons show while you point at the map), Reset window position. Movement: Follow you (on), Return to default (on: the small map glides back to you at the default zoom when left alone), Return after (3 s), Zoom per notch (+30%: where Blizzard's minimap has no zoom of its own), Default zoom (the one before Blizzard's closest: any of Blizzard's minimap zooms, by the yards across) |
 | Map | Names: Label size (100%), Zone name opacity (95%), Subzone size (80%), Subzone opacity (45%). Ground: Ocean (on), Time of day (on; under it Strength 30%, Night darkening 25%), Repair broken map art (on). Indoors: Indoor dimming (65%), Indoor auto-zoom (on). You: Your arrow (100%) |
 | Title | At rest (Local time, Zone), On hover (Coordinates, Zone), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time (each time led by the day or night picture). Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
 | Pins | Show pins (on), Pin size (120%), Pin opacity (100%). By type: each family (Quests, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill). Quest's: Names on big map (off), Names on small map (off). Each follows the level above until set; its undo hands it back |
