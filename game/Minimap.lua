@@ -416,12 +416,14 @@ end
 -- tooltip then), nil: none.
 local function Names()
 	local data = C_TooltipInfo.GetMinimapMouseover()
-	if not data or issecretvalue(data) or issecretvalue(data.lines) or not data.lines then return nil end
+	if data and (issecretvalue(data) or issecretvalue(data.lines)) then m.hidden = "the tooltip"; return false end
+	if not data or not data.lines then return nil end
 	local n = 0
 	for _, line in ipairs(data.lines) do
 		local t = line.leftText
 		if t ~= nil then
-			if issecretvalue(t) then return false end
+			if issecretvalue(t) then m.hidden = "its text"; return false end
+			m.read = (m.read or 0) + 1
 			for part in t:gmatch("[^\n]+") do
 				local name, mark = Split(part:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
 				if name ~= "" then n = n + 1; names[n], marks[n] = name, mark end
@@ -499,6 +501,9 @@ Game.Slash("overlay", "the blips' overlay (Blizzard's Minimap over the map): whe
 			(placed and ("centre %d, %d, half %d"):format(placed.x, placed.y, placed.half) or "-")
 				.. (", need %s, room %s, alpha %.2f, seen %s, odd radius %s, instance %s, blocked %s"):format(tostring(m.need and math.floor(m.need)),
 				tostring(m.room and math.floor(m.room)), mm:GetAlpha(), tostring(seen), tostring(m.odd), tostring(m.instance), tostring(m.blocker))))
+	-- The blips' names as the client gives them: read (ours drawn), or secret (Blizzard's tooltip instead).
+	Game.Say(("overlay tooltips: names read %d times; secret: %s"):format(m.read or 0,
+		m.hidden and (m.hidden .. " (Blizzard's tooltip shows instead of ours)") or "never this session"))
 end)
 
 Game.Apply("minimap", function(view)
