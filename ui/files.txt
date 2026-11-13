@@ -37,3 +37,4 @@ ui/Path.lua
 ui/Guide.lua
 ui/View.lua
 ui/Art.lua
+ui/Tint.lua

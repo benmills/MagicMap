@@ -111,3 +111,14 @@ function Atlas.Base(inst)
 	return b and b[inst]
 end
 
+
+-- A map's lighting (Data/Light.lua, tools/gen_light.py): { default = params, lights = { { col, row, start, end, params }, ... } };
+-- and a params' day, { time (half-minutes), direct, ambient, forever (0xRRGGBB), ... }. nil: none.
+function Atlas.Light(inst)
+	local l = Data.Light
+	return l and l.maps[inst]
+end
+function Atlas.LightDay(params)
+	local l = Data.Light
+	return l and l.params[params]
+end

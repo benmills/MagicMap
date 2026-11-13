@@ -17,6 +17,7 @@ Data/Objects.lua
 Data/Items.lua
 Data/Quests.lua
 Data/Interiors.lua
+Data/Light.lua
 atlas/Coords.lua
 atlas/Tiles.lua
 atlas/Anchors.lua
