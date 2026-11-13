@@ -46,10 +46,10 @@ around:SetFrameLevel(view:GetFrameLevel() + MINI - 1) -- (its pins a level over 
 local mini = { frame = around, inst = 0, zoom = 0, level = 0 }
 Sockets.world, Sockets.minimap = world, mini
 
--- Other addons' world pins (Questie's thousands) only zoomed in to about two zones across the view: wider, no world
--- socket (Game gives them back), so a zoomed-out map isn't buried. A zone is about ZONE_TILES tiles; in again a
--- little closer than out (HOLD), so a zoom at the edge doesn't borrow and give back.
-local ZONE_TILES, ZONES, HOLD = 6.5, 2, 0.9
+-- Other addons' world pins (Questie's thousands) only zoomed in to about two zones across the view (three on the big
+-- map, BIG_ZONES): wider, no world socket (Game gives them back), so a zoomed-out map isn't buried. A zone is about
+-- ZONE_TILES tiles; in again a little closer than out (HOLD), so a zoom at the edge doesn't borrow and give back.
+local ZONE_TILES, ZONES, BIG_ZONES, HOLD = 6.5, 2, 3, 0.9
 local wide = false -- the view too wide for their pins
 local held, placed, x, y, alpha = nil, true, nil, nil, 1 -- the zoom last frame; as applied
 local ax, ay -- the minimap socket's, as applied
@@ -99,7 +99,7 @@ function Sockets.Update(v)
 		or mini.zoom ~= cam.zoom or mini.inst ~= inst
 	mini.inst, mini.zoom, mini.level = inst, cam.zoom, level
 	local across = math.max(w, h) / cam.zoom -- tiles; /: never 0 (the camera's zoom is > 0)
-	wide = across > ZONE_TILES * ZONES * (wide and HOLD or 1)
+	wide = across > ZONE_TILES * (window.big and BIG_ZONES or ZONES) * (wide and HOLD or 1)
 	changed = changed or (v.sockets.world ~= nil) == wide
 	v.sockets.world, v.sockets.minimap = not wide and world or nil, mini
 	for _, a in ipairs(Model.addons) do

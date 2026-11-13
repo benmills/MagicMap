@@ -10,6 +10,8 @@
   Leatrix Plus) shows one row, and Questie's quest pins on the minimap no longer show up as buttons.
 - **Track can show the line.** Settings → Tracking → Track → Shows: the gold arrow (as before, the default), the
   line Path to draws (without moving the map), or both.
+- **More of Questie on the big map.** Other addons' map pins (Questie's) show on the big map zoomed in to about
+  three zones across, not two.
 
 ### Install
 1. Download `MagicMap-v3.1.0.zip` below, or update from [CurseForge](https://www.curseforge.com/wow/addons/magic-map).

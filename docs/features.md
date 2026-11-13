@@ -165,7 +165,7 @@ Quest icons are never grouped, and nothing groups at the minimap's size.
 
 **Other addons.** World-map pins added through HereBeDragons (Questie, HandyNotes...) show on the
 map with their own icons, tooltips and clicks, each addon a row in the gear's Other addons, over
-Blizzard's blips so their tooltips work; on the big map only zoomed in to about two zones across. Their
+Blizzard's blips so their tooltips work; only zoomed in to about two zones across (three on the big map). Their
 minimap pins (GatherMate...) show around you. Nothing is drawn twice.
 
 **The gear menu** (by the zone name): **Map**, the layers in one list with an "All" box on top and its n/total
