@@ -32,7 +32,7 @@ MenuResponse MenuUtil LEVEL RAID_CLASS_COLORS
 # The client's colour picker (the settings window's Custom…: ui/Feel.lua)
 ColorPickerFrame
 # Input state
-GetCursorPosition IsAltKeyDown IsControlKeyDown IsMouseButtonDown IsShiftKeyDown
+GetCursorPosition GetMouseFoci IsAltKeyDown IsControlKeyDown IsMouseButtonDown IsShiftKeyDown
 
 [game]
 # Errors and hooks
@@ -62,4 +62,4 @@ MagicMapMinimapStandIn
 # The Minimap's buttons the takeover hides (game/MinimapButtons.lua: the gear's Minimap buttons)
 MinimapBackdrop AddonCompartmentFrame GameTimeFrame TimeManagerClockButton
 # Other addons (always checked for before use)
-FarmHud LibStub
+FarmHud LibStub QuestieLoader

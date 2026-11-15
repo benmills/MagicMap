@@ -2,8 +2,8 @@
 clicks in ui/Areas.lua), end to end from the sim's quest log through Game's parts and Model:
 
   test_quest_pins: StylePin's quest forms: in progress, Blizzard's in-progress atlas alone (no disc behind it),
-    its count; 24 px, the one you follow the same, glowing; ready to turn in and quests to pick up none of ours
-    (Blizzard's blips).
+    its count; ready to turn in, the turn-in atlas; 24 px, the one you follow the same, glowing; quests to pick
+    up at 18, their tooltip (F40).
   test_quest_follow: a click on a pin opens its popup (ui/Popup.lua, ui/Track.lua's Actions): "Track" follows its quest
     (the follow Command, Blizzard's super-tracked quest back in the next observation, its pin glowing), "Stop
     tracking" stops; "Path to" follows it with the line, "Track" then switches back, "Stop
@@ -146,8 +146,20 @@ def test_quest_pins():
     p = pin(ns, G, "Quests", 52)
     assert S[p.count].shown and S[p.count].text == "Protect the Frontier" and S[p.count].font[2] == size
     assert S[p.sub].shown and S[p.sub].text == p.entry.count
-    # Ready to turn in, and quests to pick up: none of ours (Blizzard's "?" and "!" blips draw them).
-    assert pin(ns, G, "Quests", 106) is None and ns.UI.Offers is None
+    # Ready to turn in: its atlas, 19, no halo; its name under it too (Names on the small map, still on).
+    p = pin(ns, G, "Quests", 106)
+    assert S[p].width == 19 and S[p.icon].atlas == "questturnin" and S[p.icon].width == 19
+    assert not vis(p.ring) and S[p.count].text == "Young Lovers"
+    # To pick up (the sim's offer on Elwynn): 18; its tooltip, the quest and "Quest to pick up", small and grey.
+    p, tip, view = pin(ns, G, "Offers", 70), G.GameTooltip, ns.UI.Window.view
+    assert S[p].width == 18 and S[p.icon].atlas == "QuestNormal"
+    e = ns.Model.Known("offers")[0][1]
+    G.Over(e.pos.col, e.pos.row)
+    sim.FireScript(view, "OnEnter", False)
+    sim.Step()
+    lines = [S[tip.GetLeftLine(tip, i)].text for i in range(1, tip.NumLines(tip) + 1)]
+    assert S[tip].shown and lines == ["|A:QuestNormal:16:16|a  Wolves Across the Border", "Quest to pick up"]
+    assert L.eval("rawequal")(S[tip.GetLeftLine(tip, 2)].fontObject, G.GameTooltipTextSmall)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

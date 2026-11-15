@@ -72,9 +72,9 @@ function Game.Load(owner, fn, spec)
 end
 
 -- Game's own part (types/saved.lua MM.SavedGame): the minimap button's angle (game/Button.lua), tracking it turned off,
--- /mm indoor's reports (game/parts/Interior.lua).
+-- /mm indoor's reports (game/parts/Interior.lua), what the overlay's tooltips last read (game/Minimap.lua).
 Game.Load("Game", function(saved) Game.saved = saved end,
-	{ version = 1, defaults = { trackingOff = {} }, optional = { buttonAngle = "number", indoorDebug = "boolean" } })
+	{ version = 1, defaults = { trackingOff = {} }, optional = { buttonAngle = "number", indoorDebug = "boolean", overlayTips = "table" } })
 
 Runtime.On("ADDON_LOADED", "game.loaded", function(_, name)
 	if name ~= ADDON then return end

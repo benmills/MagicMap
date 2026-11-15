@@ -152,11 +152,11 @@ Feel.Page({ key = "pins", title = "Pins", icon = "Interface\\Icons\\Ability_Trac
 
 Feel.Add("pins", nil, {
 	{ key = "pins.all.show", kind = "toggle", label = "Show pins", default = true,
-		tip = "Every pin on the map. A family or a type you set yourself stays as you set it. Open it (+) for which "
-			.. "show on the big map zoomed out." },
+		tip = "Every pin on the map. A family or a type you set yourself stays as you set it. Open it (+) for their "
+			.. "opacity and which show on the big map zoomed out." },
 	{ key = "icons.scale", kind = "slider", label = "Pin size", min = SIZE.min, max = SIZE.max, step = SIZE.step, pct = true,
 		default = ALL, tip = "Every pin's size (a group's pill keeps its own). A family or a type you size yourself keeps its size." },
-	{ key = "pins.all.alpha", kind = "slider", label = "Pin opacity", min = ALPHA.min, max = ALPHA.max, step = ALPHA.step,
+	{ key = "pins.all.alpha", kind = "slider", label = "Pin opacity", under = "pins.all.show", min = ALPHA.min, max = ALPHA.max, step = ALPHA.step,
 		pct = true, default = 1, tip = "How solid every pin is. A family or a type you set yourself keeps its own." },
 	{ key = "pins.all.big", kind = "select", label = "On the big map", under = "pins.all.show", options = BIG, default = "zoomed",
 		tip = "Zoomed in: on the big map a pin shows only once you zoom in (it fades in), so the zoomed-out map stays "
@@ -221,9 +221,11 @@ function Types.Add(t)
 	seen = nil -- (resolved again, with it)
 	local f, p = "pins." .. t.family .. ".", "pins." .. t.id .. "."
 	local rows = {
-		{ key = p .. "show", kind = "toggle", label = t.name, under = f .. "show", default = From(f .. "show"), art = Art(t.id),
-			tip = t.tip .. " Shown as its family is until you set it." },
+		{ key = p .. "show", kind = "toggle", label = t.name, under = f .. "show", art = Art(t.id),
+			default = From(f .. "show"),
+			tip = t.tip .. (t.show == false and " Off until you turn it on." or " Shown as its family is until you set it.") },
 	}
+	if t.show == false then rows[1].default = false end -- (off until turned on)
 	if t.size ~= false then
 		rows[#rows + 1] = { key = p .. "size", kind = "slider", label = "Size", under = p .. "show", min = SIZE.min,
 			max = SIZE.max, step = SIZE.step, pct = true, default = From(f .. "size"), tip = "Its size: its family's until you set it." }

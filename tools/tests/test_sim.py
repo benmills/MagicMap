@@ -144,7 +144,7 @@ def test_fidelity():
         return table.concat(libs, " "), gather, gx2 < gx, world, back, onMinimap,
             mini:GetParent() == host and select(2, mini:GetPoint()) == host
     end""")(questie)
-    assert pins == ("HereBeDragons-Pins-2.0 HereBeDragonsQuestie-2.0 HereBeDragonsQuestie-Pins-2.0",
+    assert pins == ("HereBeDragons-Pins-2.0",  # (Questie's: its loader's module, not LibStub's)
                     True, True, True, True, True, True), pins
 
     # K2: in combat, insecure calls changing a protected frame are refused and logged; a key press isn't.

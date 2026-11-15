@@ -22,7 +22,7 @@ local UI, Model = ns.UI, ns.Model
 local Camera, Window, Engine = UI.Camera, UI.Window, UI.Engine
 
 local CHROME = { rimArrows = false, questRing = false }
-local GAME = { flight = "flight", quests = "quests", pois = "areaPOIs" } -- View.layers' key -> our layer's
+local GAME = { flight = "flight", quests = "quests", offers = "offers", pois = "areaPOIs" } -- View.layers' key -> our layer's
 -- Other addons' pins over everything on the map but the chrome: over our pins and arrow, and over Blizzard's blips
 -- (the overlay, game/Minimap.lua: the window's + 30, which takes the mouse for its tooltips) so theirs keep the mouse.
 local WORLD, MINI = 40, 42 -- the world socket's (its pins a level over it); the minimap socket's pins
@@ -34,6 +34,16 @@ local Types = UI.PinTypes
 Types.Add({ id = "addon", family = "addons", name = "Other addons'", size = false,
 	look = { icon = { texture = "Interface\\Icons\\INV_Misc_EngGizmos_01" } }, -- (the gear's Other addons icon: theirs vary)
 	tip = "Pins other addons put on the world map, shown on ours (each addon's own row in the gear menu too)." })
+
+-- Each addon's own switch (Settings > Pins: under Addons; the gear's Other addons row the same switch, its layer),
+-- declared as it's first seen with world pins.
+local function Declare(a, key)
+	UI.Feel.Add("pins", "By type", {
+		{ key = "addonpins." .. a.key, kind = "toggle", label = a.name, under = "pins.addons.show", default = true,
+			get = function() return Engine.LayerOn(key) end, set = function(on) Engine.SetLayer(key, on) end,
+			tip = "Map pins " .. (a.key == "Other" and "other addons put" or a.name .. " puts") .. " on the world map, shown on ours too." },
+	})
+end
 
 local view = Window.view
 local canvas = CreateFrame("Frame", nil, view)
@@ -64,7 +74,7 @@ function Sockets.Update(v)
 	v.chrome = chrome
 	local layers = v.layers
 	for k, layer in pairs(GAME) do
-		local on = Engine.LayerOn(layer) or nil
+		local on = UI.Menus.LayerOn(layer) or nil
 		if layers[k] ~= on then layers[k], changed = on, true end
 	end
 	if not ours then
@@ -82,7 +92,7 @@ function Sockets.Update(v)
 	local st = Types.Of("addon")
 	if at ~= placed or st.alpha ~= alpha then
 		placed, alpha = at, st.alpha
-		canvas:SetAlpha(at and alpha or 0)
+		canvas:SetAlpha(at and alpha or 0) -- (see-through, not hidden: hiding Questie's thousands is a long frame, R-G6b)
 		around:SetAlpha(alpha)
 	end
 	local nx, ny = w / 2 - cam.cx * cam.zoom, cam.cy * cam.zoom - h / 2
@@ -105,7 +115,7 @@ function Sockets.Update(v)
 	for _, a in ipairs(Model.addons) do
 		if a.world then
 			local key = keys[a.key]
-			if not key then key = "addon:" .. a.key; keys[a.key] = key end
+			if not key then key = "addon:" .. a.key; keys[a.key] = key; Declare(a, key) end
 			local on = st.show and Engine.LayerOn(key) or nil
 			if layers[key] ~= on then layers[key], changed = on, true end
 		end

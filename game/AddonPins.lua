@@ -1,7 +1,7 @@
 -- Other addons' pins on our map: the spike's AddonPins.lua, and the minimap pins of its
 -- MinimapTakeover.lua. Addons put pins on Blizzard's world map and Minimap through
--- HereBeDragons-Pins-2.0, each through its copy in LibStub (Questie's renamed:
--- HereBeDragonsQuestie-Pins-2.0).
+-- HereBeDragons-Pins-2.0, each through its copy in LibStub (a renamed one: HereBeDragons<Addon>-Pins-2.0),
+-- Questie's (12.8 on) a module of its own loader (Scan).
 -- World pins: while our window is shown with a world socket (View.sockets.world) and Blizzard's world
 -- map isn't, Game borrows the pin frames ("icons") of each addon whose layer is on (View.layers
 -- "addon:<key>") onto the socket at their world position; each goes back where it was (parent,
@@ -11,8 +11,10 @@
 -- left be. The show rules (AddonPins.lua:18-22): the library shows a pin on its own zone map, and on
 -- parent, continent or world maps per its flag; ours is a zone map close up and a continent's zoomed
 -- out, so past CONTINENT_ZOOM only pins flagged for continents come. Pins drawn for its own zone map
--- alone (Questie's -1, its route lines) and frames bigger than pins never do (Questie's turn-ins stand:
--- our quests layer draws none since Blizzard's blips do; its turnIns rule, AddonPins.lua:212-220, holds none). A Questie log is thousands of
+-- alone (Questie's -1, its route lines) and frames bigger than pins never do, nor Questie's turn-in
+-- ("complete") of a quest whose turn-in our quests layer shows (the same "?" at the same quest giver,
+-- twice: AddonPins.lua:212-220; obs.quests' complete ones on the map), nor its "!" ("available") of one our
+-- offers layer shows (obs.offers on the map). A Questie log is thousands of
 -- pins, so borrowing and giving back is a Runtime.Job: NEWS_MS a frame for one with something to show
 -- soon (opened, a new socket or map, an addon's layer toggled, the library changed, given back, the
 -- zoom across CONTINENT_ZOOM), JOB_MS for the regular one every SYNC_EVERY (pins the library took
@@ -47,7 +49,8 @@ local NONE = {}
 
 local copies, hooks = {}, {} -- { lib, tag (the renamed part: "Questie") }; lib -> { [method] = the function hooked }
 local hosted, seen = {}, {} -- icon -> { home, points, shown, level, fixed, socket, inst, col, row }
-local on, turnIns = {}, {} -- the pass's addon layers on: "addon:<key>" -> true; quests whose turn-in we show
+local on, turnIns, offers = {}, {}, {} -- the pass's addon layers on: "addon:<key>" -> true; quests whose turn-in
+-- we show; quests to pick up we show
 local socket, inst, zoom -- where they're hosted: the holder on the socket's frame, instance and zoom
 local holders = {} -- socket frame -> its holder
 local open, dirty, syncAt = false, true, 0
@@ -69,28 +72,36 @@ local METHODS = { AddWorldMapIconWorld = World, AddWorldMapIconMap = World, Remo
 	RemoveAllWorldMapIcons = World, AddMinimapIconWorld = Listed, AddMinimapIconMap = Listed,
 	RemoveMinimapIcon = Listed, RemoveAllMinimapIcons = Listed }
 
--- Every copy in LibStub (it has no events: at login, when an addon loads, when our window opens).
+-- Every copy in LibStub (it has no events: at login, when an addon loads, when our window opens),
+-- and Questie's own: since 12.8 a module of its loader, not in LibStub (its
+-- Libs/HereBeDragons/HereBeDragons-Pins-2.0.lua: QuestieLoader:CreateModule("HBDPins"); the same tables
+-- and methods), read from the loader's table (ImportModule would make one where there's none).
 -- A newer minor loading over a copy redefines its methods, dropping our hooks: hooked again
 -- (AddonPins.lua:55-56).
-local function Scan()
-	if not LibStub then return end -- no addon brought one (spike-bugs E4)
-	for major, lib in LibStub:IterateLibraries() do
-		local tag = major:match(PINS_MAJOR)
-		if tag then
-			local h = hooks[lib]
-			if not h then
-				h = {}
-				hooks[lib] = h
-				copies[#copies + 1] = { lib = lib, tag = (tag:gsub("^[-_ ]+", "")) }
-			end
-			for m, fn in pairs(METHODS) do
-				if type(lib[m]) == "function" and lib[m] ~= h[m] then
-					hooksecurefunc(lib, m, fn)
-					h[m], dirty, listDirty = lib[m], true, true
-				end
-			end
+local function Adopt(lib, tag)
+	if type(lib) ~= "table" or type(lib.worldmapPinRegistry) ~= "table" then return end
+	local h = hooks[lib]
+	if not h then
+		h = {}
+		hooks[lib] = h
+		copies[#copies + 1] = { lib = lib, tag = tag }
+	end
+	for m, fn in pairs(METHODS) do
+		if type(lib[m]) == "function" and lib[m] ~= h[m] then
+			hooksecurefunc(lib, m, fn)
+			h[m], dirty, listDirty = lib[m], true, true
 		end
 	end
+end
+local function Scan()
+	if LibStub then -- (none: no addon brought one, spike-bugs E4)
+		for major, lib in LibStub:IterateLibraries() do
+			local tag = major:match(PINS_MAJOR)
+			if tag then Adopt(lib, (tag:gsub("^[-_ ]+", ""))) end
+		end
+	end
+	local loader = type(QuestieLoader) == "table" and rawget(QuestieLoader, "_modules")
+	if type(loader) == "table" then Adopt(rawget(loader, "HBDPins"), "Questie") end
 end
 Runtime.On("ADDON_LOADED", "game.addon pins: loaded", Scan)
 
@@ -205,7 +216,7 @@ local function Replace()
 	if Running("borrow") then dirty = true end
 	Stop()
 	if not next(hosted) then socket:SetAlpha(1); return end
-	socket:SetAlpha(0)
+	socket:SetAlpha(0) -- (see-through, not hidden: hiding thousands of pins is a long frame; a zoom's moment)
 	job = Runtime.Job("game.addon pins: place", function()
 		for icon, rec in pairs(hosted) do
 			if rec.socket == socket and icon:GetParent() == socket then Place(icon, rec) end
@@ -216,10 +227,20 @@ local function Replace()
 	job.kind = "place"
 end
 
--- A Questie turn-in for a quest whose turn-in our quests layer shows (AddonPins.lua:216-220).
+-- A Questie turn-in for a quest whose turn-in our quests layer shows (AddonPins.lua:216-220), or its "!" for one our
+-- offers layer shows (the same "!" at the same quest giver: theirs over ours, it would take our pin's mouse).
 local function Repeats(icon)
 	local d = rawget(icon, "data")
-	return type(d) == "table" and d.Type == "complete" and turnIns[d.Id] == true
+	if type(d) ~= "table" then return false end
+	return d.Type == "complete" and turnIns[d.Id] == true or d.Type == "available" and offers[d.Id] == true
+end
+
+-- One its addon has faded out (Questie's: its texture's alpha 0, which it shows no tooltip for): unseen, it would
+-- still take the mouse from our pins under it, so it isn't borrowed (one borrowed is given back).
+local function Faded(icon)
+	if icon:GetAlpha() == 0 then return true end
+	local t = rawget(icon, "texture")
+	return type(t) == "table" and rawget(t, "a") == 0
 end
 
 -- Borrow what should be on the socket, give back what shouldn't (another socket's or map's too:
@@ -234,7 +255,7 @@ local function Sync(level, continent)
 					local data = pins[icon]
 					local flag = data and data.worldMapShowFlag
 					if data and data.instanceID == inst and flag >= 0 and (flag >= SHOW_CONTINENT or not continent)
-						and not Repeats(icon) then
+						and not Repeats(icon) and not Faded(icon) then
 						local rec = hosted[icon]
 						if rec and icon:GetParent() ~= socket then Restore(icon, rec); rec = nil end -- the library took it back
 						if rec or (icon:GetWidth() <= MAX_SIZE and icon:GetHeight() <= MAX_SIZE) then
@@ -317,7 +338,18 @@ local function WorldPins(view)
 		for k, v in pairs(view.layers) do
 			if v and k:find("^addon:") then on[k] = true end
 		end
-		wipe(turnIns) -- (none now: our quests layer draws no turn-in, Blizzard's blip does: Questie's "?" stands)
+		wipe(turnIns) -- (Questie's "?" of a quest whose "?" ours shows: once, ours)
+		if view.layers.quests then
+			for _, q in ipairs(Game.obs.quests or NONE) do
+				if q.complete and q.pin.inst == inst then turnIns[q.id] = true end
+			end
+		end
+		wipe(offers) -- (its "!" likewise)
+		if view.layers.offers then
+			for _, o in ipairs(Game.obs.offers or NONE) do
+				if o.pos.inst == inst then offers[o.questID] = true end
+			end
+		end
 		local level, continent = s.level or s.frame:GetFrameLevel() + 1, zoom < CONTINENT_ZOOM
 		if Any() then Pass("borrow", function() Sync(level, continent) end, ms) end
 	end

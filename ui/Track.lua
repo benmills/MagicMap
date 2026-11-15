@@ -97,13 +97,13 @@ function Track.Pathed(t)
 	return t.kind == "waypoint" and p.inst ~= nil and Near(t.pos, p)
 end
 
--- What Track shows (Settings > Tracking > Track: Shows): the arrow (ui/Guide.lua), the line (ui/Path.lua, without
+-- What Track shows (Settings > Tracking: Shows): the arrow (ui/Guide.lua), the line (ui/Path.lua, without
 -- Path to's framing), or both. A target t not pathed (Track.Pathed) has the arrow if Track.Arrow(t), the line if
 -- Track.Line(t); a pathed one, the line alone.
 local shows = "arrow" -- (the setting's)
 function Track.Arrow(t) return t ~= nil and not Track.Pathed(t) and shows ~= "line" end
 function Track.Line(t) return t ~= nil and (Track.Pathed(t) or shows ~= "arrow") end
-UI.Feel.Add("tracking", "Track", {
+UI.Feel.Add("tracking", nil, {
 	{ key = "track.shows", kind = "select", label = "Shows", default = "arrow",
 		options = { { "Arrow", "arrow" }, { "Line", "line" }, { "Arrow and line", "both" } },
 		apply = function(v) shows = v end,

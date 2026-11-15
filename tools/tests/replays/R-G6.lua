@@ -17,7 +17,7 @@ assert(canvas and view.sockets.world.inst == 0 and view.sockets.world.zoom == ns
 -- Durotar, its route line (its own map only), a frame drawn for Blizzard's canvas, a minimap pin.
 local q = sim.LoadQuestie()
 sim.FireEvent("ADDON_LOADED", "Questie")
-local pin, durotar, line, big = sim.QuestieIcon({ Type = "available", Id = 70 }), sim.QuestieIcon(), sim.QuestieIcon(),
+local pin, durotar, line, big = sim.QuestieIcon({ Type = "available", Id = 77 }), sim.QuestieIcon(), sim.QuestieIcon(),
 	sim.QuestieIcon()
 big:SetSize(300, 300)
 q:AddWorldMapIconMap(Questie, pin, 1429, 0.5, 0.5, HBD_PINS_WORLDMAP_SHOW_WORLD)

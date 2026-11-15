@@ -803,6 +803,9 @@ local Command = ns.Game.Command
 Command({ kind = "slash", name = "layer", help = "<name>: show or hide a map layer; alone, list them", fn = function(name)
 	local known = Engine.defaults[name] ~= nil -- a gear row's (a place kind's: one Engine layer draws them all)
 	for _, l in ipairs(Engine.layers) do known = known or l.name == name end
+	if known and UI.Menus.FlipFeel(name) then -- (a pin type's switch: Settings > Pins, the gear's row)
+		known = false
+	end
 	if known then -- (the gear's: ui/Menus.lua)
 		local on = not Engine.LayerOn(name)
 		Engine.SetLayer(name, on)

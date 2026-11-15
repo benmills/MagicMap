@@ -313,9 +313,17 @@ def test_pin_types_apply():
     ACTIVE = "Quest-In-Progress-Icon-yellow"
     p = pin(ns, G, "Quests", 52)
     assert S[p].width == 24 and S[p.icon].atlas == ACTIVE and S[p].alpha == 1
-    assert pin(ns, G, "Quests", 106) is None  # (ready to turn in: Blizzard's blip, not ours)
+    p = pin(ns, G, "Quests", 106)  # ready to turn in: the "?", its own type
+    assert S[p].width == 19 and S[p.icon].atlas == "questturnin" and S[p].alpha == 1
+    set_("pins.turnin.icon", "A:questrepeatableturnin")
+    assert S[pin(ns, G, "Quests", 106).icon].atlas == "questrepeatableturnin"
     set_("pins.quests.size", 2)  # (the tests' icon size is 100%)
-    assert S[pin(ns, G, "Quests", 52)].width == 48
+    assert S[pin(ns, G, "Quests", 52)].width == 48 and S[pin(ns, G, "Quests", 106)].width == 38
+    set_("pins.turnin.size", 1)
+    assert S[pin(ns, G, "Quests", 106)].width == 19
+    set_("pins.turnin.alpha", 0.5)
+    assert S[pin(ns, G, "Quests", 106)].alpha == 0.5 and S[pin(ns, G, "Quests", 52)].alpha == 1
+    assert pin(ns, G, "Offers", 70) is not None
     set_("pins.quest.size", 1)
     assert S[pin(ns, G, "Quests", 52)].width == 24
     set_("pins.quest.alpha", 0.5)

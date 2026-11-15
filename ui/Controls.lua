@@ -193,7 +193,7 @@ Controls.zoomPin = zoomPin
 -- end lets it go (Track.Clear). Its look is Forever's progress bar (below).
 ---------------------------------------------------------------------------
 
--- The pill's layout (Settings > Quest pill > Layout; these its defaults, px in the pill's own units): its height;
+-- The pill's layout (Settings > Advanced > Pill layout; these its defaults, px in the pill's own units): its height;
 -- the padding at its ends (the icon's left, the x glyph's right; without the x, PAD_PLAIN more); the icon's size
 -- and its gap to the text; the text's size (the rest's a point smaller) and the gap before the rest; the gap
 -- left of the x and its alpha at rest; the border's size (its art's scale: FRAME_BORDER px of it) and alpha.
@@ -206,7 +206,7 @@ local RUN = 7 -- yd/s, a run
 local YARDS_STEP = 10 -- yards are rounded to this from 100 up: no flicker while you walk
 local SEP = "  \194\183  " -- between the secondary pieces
 local ELLIPSIS = "\226\128\166" -- "…" in UTF-8
-local BAR = { 1, 0.82, 0.25, 0.6 } -- the fill: the title's gold (its colour Settings > Quest pill > Bar colour)
+local BAR = { 1, 0.82, 0.25, 0.6 } -- the fill: the title's gold (its colour Settings > Quests > Quest pill: Bar colour)
 local BAR_COLORS = {
 	{ "Gold", { 1, 0.82, 0.25 } }, { "Parchment", { 1, 0.93, 0.76 } }, { "White", { 1, 1, 1 } },
 	{ "Green", { 0.35, 0.9, 0.35 } }, { "Sky", { 0.45, 0.75, 1 } }, { "Rose", { 1, 0.5, 0.6 } },
@@ -797,7 +797,7 @@ ns.Game.Command({ kind = "slash", name = "follow", help = "follow you on the map
 -- Settings (ui/Feel.lua): General > Map window, and the Quest pill page
 ---------------------------------------------------------------------------
 
-UI.Feel.Add("general", "Map window", {
+UI.Feel.Add("general", "Window", {
 	{ key = "controls.rest", kind = "slider", label = "Buttons at rest", min = 0, max = 1, step = 0.05, pct = true, default = rest,
 		apply = function(v) rest = v; Reveal() end,
 		tip = "How much the map's buttons (gear, zoom, grow) and its resize grip show while you're not pointing at the map. 0%: hidden till you do." },
@@ -810,7 +810,7 @@ local PIECES = { { "Name", "name" }, { "Objective progress", "progress" }, { "Di
 UI.Feel.OnLoad(function()
 	if UI.Feel.Get("pills.questShow") == "all" then UI.Feel.Set("pills.questShow", "followed") end
 end)
-UI.Feel.Add("pills", nil, {
+UI.Feel.Add("quests", "Quest pill", {
 	{ key = "pills.questShow", kind = "select", label = "Shows", default = PILL.questShow, apply = Pill("questShow"),
 		options = { { "What you track", "followed" }, { "Off", "off" } },
 		tip = "Bottom left: what you track (a quest, an icon, your waypoint, your corpse), or nothing." },
@@ -826,7 +826,7 @@ UI.Feel.Add("pills", nil, {
 		when = function() return QuestPill() and UI.Feel.Get("pills.questBar") ~= false end, apply = SetBarColor,
 		tip = "The progress bar's colour." },
 })
-UI.Feel.Add("pills", "Look", {
+UI.Feel.Add("quests", "Quest pill", {
 	{ key = "pills.alpha", kind = "slider", label = "Backing", min = 0, max = 0.8, step = 0.05, pct = true, default = PILL_A,
 		apply = SetPillAlpha, tip = "How dark the pill's track is, behind the progress bar." },
 	{ key = "pills.scale", kind = "slider", label = "Size", min = 0.8, max = 1.6, step = 0.1, pct = true, default = PILL.scale,
@@ -847,19 +847,19 @@ local function Slider(key, label, min, max, step, tip, pct)
 	return { key = "pills." .. key, kind = "slider", label = label, min = min, max = max, step = step, default = LOOK[key],
 		pct = pct, fmt = not pct and Px or nil, apply = Lay(key), tip = tip }
 end
-UI.Feel.Add("pillLayout", "Pill", {
+UI.Feel.Add("advanced", "Pill layout", {
 	Slider("height", "Height", 14, 32, 1, "The pill's height, inside its border."),
 	Slider("pad", "Padding", 0, 12, 0.5, "The space inside the pill's ends: before the icon, after the x."),
 	Slider("icon", "Icon size", 6, 18, 1, "The icon at the pill's left."),
 	Slider("iconGap", "Icon spacing", 0, 12, 0.1, "The space between the icon and the text."),
 })
-UI.Feel.Add("pillLayout", "Text and close", {
+UI.Feel.Add("advanced", "Pill text and close", {
 	Slider("text", "Text size", 6, 16, 1, "The first piece's size; the rest are a point smaller."),
 	Slider("textGap", "Text spacing", 0, 16, 0.5, "The space between the first piece and the rest."),
 	Slider("xGap", "Close spacing", 0, 16, 0.1, "The space between the text and the x."),
 	Slider("xAlpha", "Close opacity", 0.1, 1, 0.05, "The x's opacity until you point at it.", true),
 })
-UI.Feel.Add("pillLayout", "Border", {
+UI.Feel.Add("advanced", "Pill border", {
 	Slider("border", "Border size", 0.25, 1, 0.05, "The bronze border's size (100%: its art's own, about 5 px).", true),
 	Slider("borderAlpha", "Border opacity", 0, 1, 0.05, "The bronze border's opacity. 0%: none.", true),
 })

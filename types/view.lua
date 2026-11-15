@@ -74,7 +74,7 @@
 ---Layers Game acts on:
 ---  "flight", "quests", "pois"  ours are drawn: Game turns Blizzard's tracking of the same off (and back on when not)
 ---  "addon:" .. MM.ObsAddon.key  borrow that addon's pins onto the sockets
----@alias MM.GameLayer "flight"|"quests"|"pois"|string
+---@alias MM.GameLayer "flight"|"quests"|"offers"|"pois"|string
 
 ---Frames UI owns and Game places other addons' pins on. Game hosts the pins on a 1x1
 ---frame of its own at the socket frame's TOPLEFT (the same coordinates), which it may fade

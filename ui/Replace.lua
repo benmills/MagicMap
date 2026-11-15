@@ -63,7 +63,7 @@ function Replace.Load(s, fresh)
 end
 
 local function Switch(key) return function(on) Replace.Set(key, on) end end
-UI.Feel.Add("general", "Blizzard's maps", {
+UI.Feel.Add("general", "Window", {
 	{ key = "replace.minimap", kind = "toggle", label = "Replace minimap", default = false, keep = true,
 		get = function() return Replace.Get("minimap") end, set = Switch("minimap"),
 		tip = "Our map stands in for Blizzard's minimap. Off: Blizzard's minimap as usual." },

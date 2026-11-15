@@ -47,6 +47,7 @@
 ---@field _v 1
 ---@field trackingOff table<integer, true>  Blizzard tracking filter ids Game turned off: turned back on after a /reload or crash
 ---@field buttonAngle? number               the minimap button's place on the rim, degrees
+---@field overlayTips? table              the blips' names as the client last gave them: { build, read, secret, scan, at } (game/Minimap.lua)
 ---@field indoorDebug? true                 /mm indoor's reports on (IndoorArt.lua:179); optional (ADR 0004's amendment)
 
 -- UI -----------------------------------------------------------------------------------

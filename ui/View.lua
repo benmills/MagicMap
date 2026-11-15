@@ -253,7 +253,7 @@ function UI.Icon()
 	UI.Print("minimap button " .. (saved.button and "shown" or "hidden (/mm icon to show)"))
 end
 Command({ kind = "slash", name = "icon", help = "show or hide the minimap button", fn = UI.Icon })
-UI.Feel.Add("general", "Blizzard's maps", {
+UI.Feel.Add("general", "Window", {
 	{ key = "general.button", kind = "toggle", label = "Minimap button", default = true, keep = true,
 		get = function() return saved.button == true end, set = function(on) if (saved.button == true) ~= on then UI.Icon() end end,
 		tip = "The button on Blizzard's minimap, for when MagicMap is switched off." },

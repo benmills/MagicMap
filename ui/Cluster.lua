@@ -20,7 +20,7 @@ local Yield = Runtime.Yield
 
 local PILL_H, ICON, GAP, PAD, MORE_W, DIGIT_W = 14, 12, 0, 2, 9, 6 -- px: the pill's height, its icons, the gaps, its side padding, the "+" and each digit of the "+N" slot
 local CELL, COLS, PANEL_PAD, PANEL_GAP, PANEL_R = 24, 6, 6, 4, 6 -- px: the grid's cell, its columns, its padding, its gap above the pill, its corner radius
-local PANEL_ALPHA = 0.72 -- the grid's backing, by default (Settings > Grouping; the pill's: the "alpha" tunable)
+local PANEL_ALPHA = 0.72 -- the grid's backing, by default (Settings > Pins > Grouping; the pill's: the "alpha" tunable)
 local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- Pins.lua's disc
 local PILL_LEVEL, GRID_LEVEL = 16, 17 -- above the pins (11-15), the grid above the pills
 local DRIFT = 1.25 -- the zoom bands membership is worked out for (Engine's DRIFT); the grid closes this far from where it opened
@@ -32,7 +32,7 @@ local E, LOOK, MINZ, SRC, COL, ROW, PX, SMALL = 1, 2, 3, 4, 5, 6, 7, 8 -- the en
 local Cluster = {}
 UI.Cluster = Cluster
 
--- The tunables (Settings > Grouping: declared below, ui/Feel.lua), UI.saved.clusterTune holding those changed:
+-- The tunables (Settings > Pins > Grouping: declared below, ui/Feel.lua), UI.saved.clusterTune holding those changed:
 -- range, px: pins whose centres are closer crowd each other; reach: a cluster grows from its first pin by
 -- neighbours of neighbours, up to this many ranges from it; min: pins that make one; slots: a pill's (every
 -- icon if they fit, else the first slots - 1 and "+N"); alpha: the pill's dark backing.
@@ -579,27 +579,27 @@ function Cluster.Watch()
 	if far or off or escape or not setting then Close() end
 end
 
--- Settings > Grouping (ui/Feel.lua): the switch (UI.saved.cluster, kept by a reset), then the tunables, shown while it's on.
+-- Settings > Pins > Grouping (ui/Feel.lua): the switch (UI.saved.cluster, kept by a reset), then the tunables, shown while it's on.
 local function Tune(key, t)
-	t.key, t.kind, t.when, t.default = "group." .. key, "slider", "general.cluster", Cluster.DEFAULTS[key]
+	t.key, t.kind, t.when, t.under, t.default = "group." .. key, "slider", "general.cluster", "general.cluster", Cluster.DEFAULTS[key]
 	t.get, t.set = function() return Cluster.Get(key) end, function(v) Cluster.Set(key, v) end
 	return t
 end
-UI.Feel.Add(false, nil, { -- (no page since 3.0: their defaults; /mm feel)
+UI.Feel.Add("pins", "Grouping", {
 	{ key = "general.cluster", kind = "toggle", label = "Group icons", default = true, keep = true,
 		get = function() return UI.saved.cluster ~= false end, set = function(on) UI.saved.cluster = on end,
 		tip = "On the big map, where icons crowd together, one small pill: click it to see them all (never at the minimap's size)." },
 })
-UI.Feel.Add(false, nil, {
+UI.Feel.Add("pins", "Grouping", {
 	Tune("range", { label = "Distance", min = 16, max = 40, step = 4, fmt = "%d px", tip = "How close icons' centres must be to group." }),
 	Tune("reach", { label = "Reach", min = 1, max = 6, step = 1, fmt = "%dx",
 		tip = "How far a group grows from its first icon, by neighbours of neighbours, in distances." }),
 	Tune("min", { label = "Smallest group", min = 2, max = 5, step = 1, fmt = "%d icons", tip = "Fewer icons than this stay apart." }),
 })
-UI.Feel.Add(false, nil, {
+UI.Feel.Add("pins", "Grouping", {
 	Tune("slots", { label = "Icons in a pill", min = 2, max = 4, step = 1, fmt = "%d",
 		tip = "A pill's slots: every icon if they fit, else one fewer and \"+N\"." }),
 	Tune("alpha", { label = "Pill backing", min = 0, max = 0.7, step = 0.05, pct = true, tip = "How dark the pill behind grouped icons is." }),
 	{ key = "group.panelAlpha", kind = "slider", label = "Open group backing", min = 0.3, max = 1, step = 0.02, pct = true,
-		default = PANEL_ALPHA, when = "general.cluster", tip = "How dark the panel behind a group's icons is, once you click its pill." },
+		default = PANEL_ALPHA, under = "general.cluster", when = "general.cluster", tip = "How dark the panel behind a group's icons is, once you click its pill." },
 })

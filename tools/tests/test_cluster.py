@@ -167,8 +167,9 @@ def test_grid_close_is_spent():
 def test_layer_rares_takes_vignettes():
     L, sim, ns = boot()
     E = ns.UI.Engine
+    F = ns.UI.Feel  # (the rares' row is Settings > Pins > Rares & treasures: the rares and the live ones)
     sim.Slash("/mm layer rares")
-    assert not E.LayerOn("rares") and not E.LayerOn("vignettes")
+    assert not ns.UI.Menus.LayerOn("rares") and F.Get("pins.rare.show") is False and F.Get("pins.vignette.show") is False
     sim.Slash("/mm layer rares")
-    assert E.LayerOn("rares") and E.LayerOn("vignettes")
+    assert ns.UI.Menus.LayerOn("rares") and F.Get("pins.vignette.show") is True
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

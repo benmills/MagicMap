@@ -47,8 +47,8 @@ arrow:SetTexelSnappingBias(0)
 arrow:Hide()
 You.arrow = arrow
 UI.Feel.Add("map", "You", {
-	{ key = "arrow.scale", kind = "slider", label = "Your arrow", min = 0.6, max = 1.6, step = 0.1, pct = true, default = 1,
-		apply = function(k) arrow:SetSize(SIZE * k, SIZE * k) end, tip = "Your arrow's size." },
+	{ key = "arrow.scale", kind = "slider", label = "Your marker", min = 0.6, max = 1.6, step = 0.1, pct = true, default = 1,
+		apply = function(k) arrow:SetSize(SIZE * k, SIZE * k) end, tip = "The size of the arrow that marks you on the map (the pointer to what you track is Tracking > Arrow)." },
 })
 
 -- Each frame while shown, after the map's draw: only what changed is applied (an idle frame makes

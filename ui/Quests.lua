@@ -1,8 +1,11 @@
 -- Your quests in progress on the map (Layers.lua:579-621): Known("quests") as pins on the pin store (ui/Pins.lua),
 -- Blizzard's atlases as Blizzard's world map draws them: the yellow dots "Quest-In-Progress-Icon-yellow" at full size
 -- on the quest disc "UI-QuestPoi-QuestNumber" untinted (Pins' (c)); 24 px, the one you follow
--- the same size, its glow saying it (ui/Pins.lua's Glow). Ready to turn in, and quests to pick up: none of ours, the
--- "?" and "!" are Blizzard's blips (the overlay: game/Minimap.lua).
+-- the same size, its glow saying it (ui/Pins.lua's Glow). Ready to turn in: the "questturnin" "?" Model names, at 19,
+-- where you hand it in. And quests to pick up (Layers.lua:636-664): Known("offers"), the "!" at 18, their tooltip the
+-- quest, then "Quest to pick up" and its line's name. Ours, not Blizzard's blips: Game turns Blizzard's quest
+-- tracking off while ours show (game/Tracking.lua), and the overlay isn't on the big map. (3.0 left them to the
+-- blips; 3.1 draws them again.)
 -- Under it, each behind its own switch (both off by default): its name in the subzone names' size and font
 -- (UI.LabelsSub), solid, in its difficulty's colour, and its progress under that; on the big map (Names on big
 -- map) and on the small map (Names on small map: for those without Questie, whose own pins say it).
@@ -17,12 +20,23 @@ local UI, Model = ns.UI, ns.Model
 local Pins, Areas = UI.Pins, UI.Areas
 
 local SIZE = 24 -- in progress (Layers.lua:611: 22)
+local TURN_IN = 19 -- ready to turn in: the "?" a little smaller
+local OFFER = 18 -- Layers.lua:657
+local SEP = UI.Tip.SEP
 local UNDER = "UI-QuestPoi-QuestNumber" -- the world map's quest disc: dark, its gold ring (untinted)
 local ACTIVE = { atlas = "Quest-In-Progress-Icon-yellow", under = UNDER, scale = 1 } -- (model/Quests.lua's, its page sample)
 local Types, Feel = UI.PinTypes, UI.Feel
 
 Types.Add({ id = "quest", family = "quests", name = "In progress", look = { size = SIZE, icon = ACTIVE },
 	tip = "A quest in your log not yet done; on the big map its name under it, in its difficulty's colour." })
+local TURN, OFFER_ART = ns.Atlas.BlipArt("questender"), ns.Atlas.BlipArt("questgiver")
+Types.Add({ id = "turnin", family = "quests", name = "To turn in", look = { size = TURN_IN, icon = { atlas = TURN } },
+	icons = { { "Turn in", "A:" .. TURN }, { "Repeatable", "A:questrepeatableturnin" }, { "Campaign", "A:quest-campaign-turnin" } },
+	big = "always", tip = "A quest of yours ready to hand in, where you hand it in." })
+Types.Add({ id = "offer", family = "quests", name = "To pick up", look = { size = OFFER, icon = { atlas = OFFER_ART } },
+	icons = { { "Available", "A:" .. OFFER_ART }, { "Daily", "A:questdaily" }, { "Small", "A:smallquestbang" },
+		{ "Campaign", "A:quest-campaign-available" } },
+	tip = "A quest you could start nearby." })
 -- 2.1's Quest icon size: its saved factor times the icon size's, onto In progress's own size (on its step, in
 -- range), and gone.
 local OLD = "quests.scale"
@@ -70,9 +84,9 @@ local function Look(e)
 	if look and (not isBig or look.countStyle == Style(e.color or WHITE) and look.subStyle == SubStyle()) then return look end
 	local icon = UI.Art.Icon(e.icon.atlas) -- (a missing atlas: no icon, a dot)
 	icon.color = e.icon.color
-	icon.under, icon.scale = UNDER, 1 -- (the world map's: its dots on the disc, full size)
+	if not e.complete then icon.under, icon.scale = UNDER, 1 end -- (the world map's: its dots on the disc, full size)
 	-- (the one you follow its size too: it glows, ui/Pins.lua)
-	look = { size = SIZE, icon = icon, type = "quest" }
+	look = { size = e.complete and TURN_IN or SIZE, icon = icon, type = e.complete and "turnin" or "quest" }
 	if isBig then
 		look.count, look.countStyle = e.name, Style(e.color or WHITE)
 		if e.count and e.count ~= "" then look.sub, look.subStyle = e.count, SubStyle() end
@@ -82,9 +96,7 @@ local function Look(e)
 end
 
 UI.Quests = Pins.Layer("quests", 15, function(put)
-	for _, e in ipairs(Model.Known("quests")) do
-		if not e.complete then put(e, Look(e)) end -- (ready to turn in: Blizzard's "?" blip, the overlay's)
-	end
+	for _, e in ipairs(Model.Known("quests")) do put(e, Look(e)) end
 end, function()
 	local _, _, labels = UI.LabelsSub()
 	return select(2, Model.Known("quests")) * 8 + (UI.BigMap.big and 1 or 0) + (bigText and 2 or 0) + (smallText and 4 or 0) + labels * 1e7
@@ -94,13 +106,31 @@ end, {
 	-- (never grouped: a quest always stands where it is)
 })
 
-UI.Menus.Layer({ key = "quests", label = "Quests", group = "quests", tip = "Quests in your log. Click one to track it." })
+local offers = {} -- an offer's icon -> its look
+UI.Offers = Pins.Layer("offers", 14, function(put)
+	for _, e in ipairs(Model.Known("offers")) do
+		local look = offers[e.icon]
+		if not look then
+			local icon = UI.Art.Icon(e.icon.atlas)
+			icon.color = e.icon.color
+			look = { size = OFFER, icon = icon, type = "offer" }
+			offers[e.icon] = look
+		end
+		put(e, look)
+	end
+end, function() return select(2, Model.Known("offers")) end, {
+	lines = function(e) return e.name, e.text .. (e.line and SEP .. e.line or "") end, -- Layers.lua:652-655: "Quest to pick up"
+	-- (never grouped, as the quests)
+})
 
-Feel.Add("pins", "By type", {
-	{ key = "quests.bigText", kind = "toggle", label = "Names on big map", under = "pins.quest.show", default = false,
+UI.Menus.Layer({ key = "quests", label = "Quests", group = "quests", tip = "Quests in your log, and those ready to turn in. Click one to track it." })
+UI.Menus.Layer({ key = "offers", label = "Quests to pick up", group = "quests", tip = "Quests you could start nearby." })
+
+Feel.Add("quests", "On the map", {
+	{ key = "quests.bigText", kind = "toggle", label = "Names on big map", default = false,
 		apply = function(v) bigText = v end,
 		tip = "On the big map, each quest's name under its pin, in its difficulty's colour, and its progress under that." },
-	{ key = "quests.smallText", kind = "toggle", label = "Names on small map", under = "pins.quest.show", default = false,
+	{ key = "quests.smallText", kind = "toggle", label = "Names on small map", default = false,
 		apply = function(v) smallText = v end,
 		tip = "On the small map, each quest's name under its pin, in its difficulty's colour, and its progress under that." },
 })

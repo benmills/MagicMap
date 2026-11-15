@@ -67,7 +67,7 @@ end
 function Sea.Shown() return file ~= nil end -- (the tests)
 Sea.frame = frame
 
-UI.Feel.Add("map", "Ground", {
+UI.Feel.Add("map", "Look", {
 	{ key = "sea.on", kind = "toggle", label = "Ocean", default = true, apply = Sea.Set,
 		tip = "A coloured ocean round the land, where Blizzard's map is near-black." },
 })

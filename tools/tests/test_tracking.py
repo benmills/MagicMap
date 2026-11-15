@@ -33,7 +33,7 @@ def test_duplicates_off():
     assert {k: v for k, v in now.items() if k not in (FLIGHT, QUESTS)} == {k: v for k, v in was.items() if k not in (FLIGHT, QUESTS)}
     assert off(L) == [FLIGHT, QUESTS], "the user's own POI off: not Game's"
 
-    ns.UI.Engine.SetLayer("flight", False)  # our flight masters off: Blizzard's back within 2 s (MinimapTakeover.lua:266)
+    ns.UI.Feel.Set("pins.flight.show", False)  # our flight masters off (the gear's row, Settings > Pins): Blizzard's back within 2 s (MinimapTakeover.lua:266)
     sim.Run(2.1)
     assert active(sim)[FLIGHT] and not active(sim)[QUESTS] and off(L) == [QUESTS]
 

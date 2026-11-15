@@ -1,6 +1,6 @@
 -- Pathing: the line to what you go to (Model.Target: your corpse, the quest you follow, your waypoint) while
 -- it's pathed (UI.Track.Pathed: Path to chosen for it, ui/Track.lua; your corpse always), or tracked with the line
--- shown (UI.Track.Line: Settings > Tracking > Track: Shows; by default Track has the gold arrow alone, ui/Guide.lua;
+-- shown (UI.Track.Line: Settings > Tracking: Shows; by default Track has the gold arrow alone, ui/Guide.lua;
 -- only Path to frames the way): a row of
 -- small dots like a route on a printed map (the spike's hand-inked dashes, Path.lua:1-6, now lighter and
 -- dotted), a little uneven, light on a faint dark edge so they read on pale ground: ADD-blended on a slowly
@@ -12,7 +12,7 @@
 -- found again, only the pieces that meet the view (and a margin) shown (a line's ends stay within a few
 -- thousand px: docs/v1-plan.md §2); and as a pan takes the view past them, the pieces it brings in shown,
 -- the rest left as they stand.
--- Its look is the settings' (Settings > Pathing, declared here: ui/Feel.lua; Path.DEFAULTS by default): the
+-- Its look is the settings' (Settings > Tracking > Line, declared here: ui/Feel.lua; Path.DEFAULTS by default): the
 -- style (dotted, dashed or solid: one line a leg), the weight (the stroke's px; its edge twice that), the colour
 -- (Path.COLORS, or any: "#rrggbb"), the ADD glow, the breath and its pace, an opacity, and the dark edge (the
 -- outline: on or off, its colour from Path.EDGE_COLORS, or any). A change (Feel.rev) restyles the pieces and lays
@@ -24,7 +24,7 @@
 -- zooms, in as you near it as far as the map goes, gliding back to the zoom you had when it began (kept as
 -- UI.saved.path.zoom) once it ends; your own pan or zoom holds it
 -- till it returns as the idle return does); not on the big map, the view yours there; not for your corpse
--- (Settings > Tracking > Path to: Frame the way). And your corpse becoming the target brings the view back to you
+-- (Settings > Tracking > Target: Frame the way). And your corpse becoming the target brings the view back to you
 -- (Core.lua:1095-1108), once a ghost.
 
 local _, ns = ...
@@ -217,31 +217,31 @@ local function Apply()
 end
 local frameOn = true -- (the setting's: Frame the way)
 local LINE = { { "Dotted", "dotted" }, { "Dashed", "dashed" }, { "Solid", "solid" } }
-UI.Feel.Add("path", "Line", {
+UI.Feel.Add("tracking", "Line", {
 	{ key = "path.style", kind = "select", label = "Style", options = LINE, default = DEFAULTS.style,
-		tip = "How the line to what you track is drawn." },
+		tip = "How the line to what you track is drawn. Open it (+) for its glow, breathing and outline." },
 	{ key = "path.weight", kind = "slider", label = "Weight", min = WEIGHT_MIN, max = WEIGHT_MAX, step = 0.2, fmt = "%.1f px",
 		default = DEFAULTS.weight, tip = "How thick the line is." },
 	{ key = "path.color", kind = "color", label = "Colour", colors = COLORS, default = DEFAULTS.color, tip = "The line's colour." },
 	{ key = "path.opacity", kind = "slider", label = "Opacity", min = OPACITY_MIN, max = 1, step = 0.05, pct = true,
 		default = DEFAULTS.opacity, tip = "How solid the line is." },
 })
-UI.Feel.Add("path", "Effects", {
-	{ key = "path.glow", kind = "toggle", label = "Glow", default = DEFAULTS.glow,
+UI.Feel.Add("tracking", "Line", {
+	{ key = "path.glow", kind = "toggle", label = "Glow", default = DEFAULTS.glow, under = "path.style",
 		tip = "A soft glow along the line, so it reads on any map." },
-	{ key = "path.breath", kind = "toggle", label = "Breathing", default = DEFAULTS.breath, tip = "The line slowly brightens and dims." },
+	{ key = "path.breath", kind = "toggle", label = "Breathing", default = DEFAULTS.breath, under = "path.style", tip = "The line slowly brightens and dims." },
 	{ key = "path.breathTime", kind = "slider", label = "Breath pace", min = 0.6, max = 4, step = 0.1, fmt = "%.1f s",
-		default = DEFAULTS.breathTime, when = "path.breath", tip = "How long the line takes to dim, and again to brighten." },
+		default = DEFAULTS.breathTime, under = "path.style", when = "path.breath", tip = "How long the line takes to dim, and again to brighten." },
 })
-UI.Feel.Add("tracking", "Path to", {
+UI.Feel.Add("tracking", "Target", {
 	{ key = "path.frame", kind = "toggle", label = "Frame the way", default = true, apply = function(v) frameOn = v end,
 		tip = "At the minimap's size, the map pans and zooms to keep you and where you're going in view. Pan or zoom yourself and it comes back once left alone, as Return to you does." },
 })
-UI.Feel.Add("path", "Outline", {
-	{ key = "path.edge", kind = "toggle", label = "Outline", default = DEFAULTS.edge,
+UI.Feel.Add("tracking", "Line", {
+	{ key = "path.edge", kind = "toggle", label = "Outline", default = DEFAULTS.edge, under = "path.style",
 		tip = "A darker edge under the line, so it reads on pale ground." },
 	{ key = "path.edgeColor", kind = "color", label = "Outline colour", colors = EDGE_COLORS, default = DEFAULTS.edgeColor,
-		when = "path.edge", tip = "The outline's colour." },
+		under = "path.style", when = "path.edge", tip = "The outline's colour." },
 })
 Apply()
 UI.Feel.OnLoad(Apply) -- (the saved look, at login: not in the first frame shown)

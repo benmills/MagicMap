@@ -57,8 +57,8 @@ def test_lookfeel():
     # A page's row: its page shown and built, the last one's hidden, kept. The progress bar off: its opacity's and
     # colour's rows hidden; on, shown.
     Feel.Set("pills.questShow", "followed")  # (off by default: its other rows hidden)
-    sim.Click(_tab(L, Feel, "Quest pill"))
-    assert saved.feelPage == "pills" and not _shown(Feel.pages["general"]) and _shown(Feel.pages["pills"])
+    sim.Click(_tab(L, Feel, "Quests"))
+    assert saved.feelPage == "quests" and not _shown(Feel.pages["general"]) and _shown(Feel.pages["quests"])
     Feel.Set("pills.questBar", False)
     r = w["pills.barAlpha"]
     assert not _shown(r.row) and not _shown(w["pills.barColor"].row)
@@ -70,7 +70,7 @@ def test_lookfeel():
     assert abs(s.GetValue(s) - 0.35) < 1e-9 and text.GetText(text) == "35%" and not _shown(r.undo)
     s.SetValue(s, 0.52)  # (snapped to its step)
     assert abs(Feel.Get("pills.alpha") - 0.5) < 1e-9 and text.GetText(text) == "50%" and _shown(r.undo)
-    assert Feel.resets.pills.IsEnabled(Feel.resets.pills) and Feel.resetAll.IsEnabled(Feel.resetAll)
+    assert Feel.resets.quests.IsEnabled(Feel.resets.quests) and Feel.resetAll.IsEnabled(Feel.resetAll)
     sim.Click(r.steps[2])  # the forward stepper: a step on
     assert abs(Feel.Get("pills.alpha") - 0.55) < 1e-9 and text.GetText(text) == "55%"
     sim.Click(r.undo)  # back to its default
@@ -78,7 +78,7 @@ def test_lookfeel():
     rev = Feel.rev
 
     # The tracking line's style: the client's dropdown, a radio per style; saved in feel, Get returns it, rev moved.
-    Feel.Open("path")
+    Feel.Open("tracking")
     style = w["path.style"].drop
     assert style.Text.GetText(style.Text) == "Dashed" and not w["path.glow"].check.GetChecked(w["path.glow"].check)
     sim.Click(style)
@@ -116,7 +116,9 @@ def test_lookfeel():
 
     # A row that depends on another: the outline's colour only while the outline is on.
     edge = w["path.edgeColor"].row
-    assert not _shown(edge)
+    assert not _shown(edge) and not _shown(w["path.edge"].row)  # (under Style: closed at first)
+    sim.Click(w["path.style"].opener)
+    assert not _shown(edge) and _shown(w["path.edge"].row)
     sim.Click(w["path.edge"].check)
     assert Feel.Get("path.edge") is True and _shown(edge)
 
@@ -176,7 +178,7 @@ def test_settings_kinds_and_late_pages():
     h = Feel.frame.GetHeight(Feel.frame)
     L.execute(LATE, sim, ns)
     titles = [p.title for p in Feel.Pages().values()]
-    assert titles[:4] == ["General", "Map", "Frame title", "Order"] and titles[-1] == "Diagnostics" and len(titles) == 14
+    assert titles[:4] == ["General", "Map", "Header", "Order"] and titles[-1] == "Advanced" and len(titles) == 11
     assert Feel.frame.GetHeight(Feel.frame) == h  # (room for 14 in the sidebar: 14 fit as it is)
     sim.Click(_tab(L, Feel, "Order"))
     w = Feel.widgets
@@ -231,7 +233,7 @@ def test_settings_pages_apply_and_reset():
         sim.atlases[a] = None
     Feel, saved = _open(sim, ns), L.globals().MagicMap2DB.UI
     pages = [p.key for p in Feel.Pages().values()]
-    assert pages == ["general", "map", "title", "pins", "pills", "pillLayout", "tracking", "path", "areas", "diag"]
+    assert pages == ["general", "map", "title", "pins", "quests", "tracking", "advanced"]
     for p in pages:
         Feel.Open(p)
     assert sorted(Feel.pages.keys()) == sorted(pages)
@@ -271,18 +273,18 @@ def test_settings_layout():
     """Each page as the client lays it out (the sim's anchors): every shown row inside the page's width, under the
     one before it; a row's label within its column (the sim's text widths) and its controls inside the row; the
     sidebar's titles within it. The longest page fits without scrolling; Pins with every row opened (+) scrolls, its
-    rows within its width (#16: that page alone)."""
+    rows within its width (#16: that page alone), and Advanced, its tuning knobs, scrolls."""
     L, sim, ns = boot(TEST_UI_DEFAULTS)
     Feel = _open(sim, ns)
-    pages = [(p, False) for p in Feel.Pages().values()]
+    pages = [(p, p.key == "advanced") for p in Feel.Pages().values()]  # (Advanced: the tuning knobs, a page that scrolls)
     pages.append((next(p for p in Feel.Pages().values() if p.key == "pins"), True))
     for p, opened in pages:
-        if p.key in ("path", "pills"):  # (every row shown: their dependents' switches on)
+        if p.key in ("tracking", "quests"):  # (every row shown: their dependents' switches on)
             for k in Feel.Entries().values():
                 if k.page == p.key and k.kind == "toggle":
                     ns.UI.Feel.Set(k.key, True)
         Feel.Open(p.key)
-        if opened:  # Pins with every family and type opened (+): its rows fit, the page scrolls (#16: this page alone)
+        if opened and p.key == "pins":  # Pins with every family and type opened (+): its rows fit, the page scrolls (#16: this page alone)
             n = 0
             for w in Feel.widgets.values():
                 if w.opener and w.k.page == "pins":
@@ -504,3 +506,25 @@ def test_reload_keeps_every_setting():
     assert after == before, {k: (before[k], after[k]) for k in keys if after[k] != before[k]}
     assert _drawn(T2, sim2, ns2) == pins
     assert not errors(sim2, ns2), errors(sim2, ns2)
+
+
+def test_settings_from_before_3_1():
+    """3.1's pages: a gear layer set before (flight off, graveyards on) becomes its pin type's switch, the gear's
+    row and the Pins page one switch; Lock window: no drag, no resize grip."""
+    old = TEST_UI_DEFAULTS.replace("cluster = false", 'cluster = false, layers = { flight = false, graveyards = true }')
+    L, sim, ns = boot(old)
+    UI, saved = ns.UI, L.globals().MagicMap2DB.UI
+    Feel = _open(sim, ns)
+    assert Feel.Get("pins.flight.show") is False and Feel.Get("pins.graveyard.show") is True
+    assert not (saved.layers and (saved.layers.flight is not None or saved.layers.graveyards is not None))
+    assert not UI.Menus.LayerOn("flight") and UI.Menus.LayerOn("graveyards") and Feel.Get("pins.poi.show") is False
+    moved = L.eval("""function(f) local n = { 0 }; f.StartMoving = function() n[1] = n[1] + 1 end; return n end""")(UI.Window.frame)
+    drag = UI.Window.frame.GetScript(UI.Window.frame, "OnDragStart")
+    drag(UI.Window.frame)
+    assert moved[1] == 1
+    Feel.Set("general.lock", True)
+    drag(UI.Window.frame)
+    assert moved[1] == 1 and not _shown(UI.Chrome.grip)
+    Feel.Set("general.lock", False)
+    assert _shown(UI.Chrome.grip)
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

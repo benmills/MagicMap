@@ -2182,7 +2182,7 @@ function ButtonFrameTemplate_HideButtonBar(f) end
 -- radius, turned under Rotate Minimap, hidden past 0.9 of it unless
 -- floatOnEdge; re-placed at the end of a frame when you, the radius or that
 -- frame changed, while that frame is visible (HereBeDragons-Pins-2.0.lua:539). The shared copy holds GatherMate's pin (Sim.gatherPin);
--- Questie's renamed copy comes with Sim.LoadQuestie(), as if Questie loaded later.
+-- Questie's copy (its loader's module, not LibStub's) comes with Sim.LoadQuestie(), as if Questie loaded later.
 ---------------------------------------------------------------------------
 
 HBD_PINS_WORLDMAP_SHOW_PARENT, HBD_PINS_WORLDMAP_SHOW_CONTINENT, HBD_PINS_WORLDMAP_SHOW_WORLD = 1, 2, 3
@@ -2266,7 +2266,7 @@ function Sim.HBDPins(major)
 	end
 
 	local function addMinimap(ref, icon, inst, x, y, uiMapID, inParent, floatOnEdge)
-		assert(ref ~= nil and type(icon) == "table" and icon.SetPoint, major .. ": a ref and an icon frame expected")
+		assert(ref ~= nil and type(icon) == "table" and icon.SetPoint, (major or "HBDPins") .. ": a ref and an icon frame expected")
 		pins.minimapPinRegistry[ref] = pins.minimapPinRegistry[ref] or {}
 		pins.minimapPinRegistry[ref][icon] = true
 		local t = pins.minimapPins[icon] or {}
@@ -2301,7 +2301,8 @@ function Sim.HBDPins(major)
 	end
 
 	local function addWorld(ref, icon, inst, x, y, uiMapID, showFlag, frameLevel)
-		assert(ref ~= nil and type(icon) == "table" and icon.SetPoint, major .. ": a ref and an icon frame expected")
+		assert(ref ~= nil and type(icon) == "table" and icon.SetPoint,
+			(major or "HBDPins") .. ": a ref and an icon frame expected")
 		pins.worldmapPinRegistry[ref] = pins.worldmapPinRegistry[ref] or {}
 		pins.worldmapPinRegistry[ref][icon] = true
 		local t = pins.worldmapPins[icon] or {}
@@ -2328,7 +2329,7 @@ function Sim.HBDPins(major)
 	end
 
 	copies[#copies + 1] = pins
-	Sim.libs[major] = pins
+	if major then Sim.libs[major] = pins end -- (none: Questie's, a module of its loader)
 	return pins
 end
 
@@ -2351,8 +2352,8 @@ Sim.hbdPins:AddMinimapIconMap("GatherMate2", Sim.gatherPin, 1429, 0.297, 0.546) 
 function Sim.LoadQuestie()
 	if not Sim.questiePins then
 		HBD_PINS_WORLDMAP_SHOW_CURRENT = -1 -- (Questie's: its own map only)
-		Sim.libs["HereBeDragonsQuestie-2.0"] = {}
-		Sim.questiePins = Sim.HBDPins("HereBeDragonsQuestie-Pins-2.0")
+		Sim.questiePins = Sim.HBDPins(nil) -- (Questie 12.8: not in LibStub, QuestieLoader's module "HBDPins")
+		QuestieLoader = { _modules = { HBDPins = Sim.questiePins } }
 		Questie = { name = "Questie" }
 	end
 	return Sim.questiePins

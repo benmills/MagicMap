@@ -254,12 +254,12 @@ Runtime.Step("ui", "map: labels fade", function()
 end, { shownOnly = UI.Window.frame })
 
 UI.Feel.Add("map", "Names", {
-	{ key = "labels.scale", kind = "slider", label = "Label size", min = 0.7, max = 1.5, step = 0.1, pct = true, default = scale,
-		apply = SetScale, tip = "The zone and subzone names' size." },
-	{ key = "labels.alpha", kind = "slider", label = "Zone name opacity", min = 0.3, max = 1, step = 0.05, pct = true, default = ZONE[4],
+	{ key = "labels.scale", kind = "slider", label = "Zone names", min = 0.7, max = 1.5, step = 0.1, pct = true, default = scale,
+		apply = SetScale, tip = "The zone and subzone names' size. Open it (+) for the zone names' opacity." },
+	{ key = "labels.alpha", kind = "slider", label = "Opacity", under = "labels.scale", min = 0.3, max = 1, step = 0.05, pct = true, default = ZONE[4],
 		apply = SetAlpha, tip = "How solid the zone names are." },
-	{ key = "labels.subScale", kind = "slider", label = "Subzone size", min = 0.7, max = 1.5, step = 0.1, pct = true, default = subScale,
-		apply = SetSubScale, tip = "The subzone names' size, on top of the label size." },
-	{ key = "labels.subAlpha", kind = "slider", label = "Subzone opacity", min = 0.2, max = 1, step = 0.05, pct = true, default = SUB[4],
+	{ key = "labels.subScale", kind = "slider", label = "Subzone names", min = 0.7, max = 1.5, step = 0.1, pct = true, default = subScale,
+		apply = SetSubScale, tip = "The subzone names' size, on top of the zone names'. Open it (+) for their opacity." },
+	{ key = "labels.subAlpha", kind = "slider", label = "Opacity", under = "labels.subScale", min = 0.2, max = 1, step = 0.05, pct = true, default = SUB[4],
 		apply = SetSubAlpha, tip = "How solid the subzone names are." },
 })

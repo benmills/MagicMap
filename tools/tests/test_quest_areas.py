@@ -79,7 +79,7 @@ def test_quest_areas():
     ns.UI.Feel.Set("areas.fFill", 100)
     sim.Run(1)
     assert blobs(sim, ns)[(52,)][0] == 100 and sim.calls.DrawBlob > n
-    ns.UI.Feel.Reset("areas")
+    ns.UI.Feel.Reset("advanced")
     sim.Run(1)
     assert blobs(sim, ns) == want and not any(str(k).startswith("areas.") for k in (ns.UI.saved.feel or {}))
 

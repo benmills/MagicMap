@@ -34,7 +34,7 @@ local ART = { blue = "Interface\\WorldMap\\UI-QuestBlob-", green = "Interface\\W
 	rust = "Interface\\WorldMap\\UI-ArchaeologyBlob-" }
 -- Fill and edge alpha (0-255), edge width (Layers.lua:795-800), level over the canvas (Layers.lua:910);
 -- hover: lit, on top (Layers.lua:822, 853), a gentle lift over the area's own style (the world map's hover).
--- The look's numbers are the settings' ("areas.<name>", Settings > Quest areas, declared here: ui/Feel.lua): DEFAULTS
+-- The look's numbers are the settings' ("areas.<name>", Settings > Advanced, declared here: ui/Feel.lua; Quests > Areas a strength over them): DEFAULTS
 -- are the spike's (alphas 0-255, shown as %). Restyle makes the style tables from them anew when they change (a
 -- frame's style is the table, so a new one is applied again), and the layer's rev moves with that: every frame
 -- laid out and drawn again.
@@ -48,17 +48,28 @@ local function Width(key, tip)
 	return { key = "areas." .. key, kind = "slider", label = "Edge width", min = 0.2, max = 1.5, step = 0.1, fmt = "%.1f",
 		default = DEFAULTS[key], tip = tip }
 end
-UI.Feel.Add("areas", "Followed quest", {
+-- The two a player sets (Settings > Quests > Areas): each a strength over its raw numbers' (Advanced's) fill and edge.
+local STRENGTH = { min = 0, max = 2, step = 0.1, pct = true, default = 1 }
+local function Strength(key, label, tip)
+	local t = { key = "areas." .. key, kind = "slider", label = label, tip = tip }
+	for k, v in pairs(STRENGTH) do t[k] = v end
+	return t
+end
+UI.Feel.Add("quests", "Areas", {
+	Strength("followed", "Followed quest", "How strongly the area of the quest you follow is drawn: its fill and edge (100%: as the world map draws it; 0%: not at all)."),
+	Strength("others", "Other quests", "How strongly your other quests' areas are drawn: their edge (100%: as the world map draws them; 0%: not at all)."),
+})
+UI.Feel.Add("advanced", "Followed quest area", {
 	Alpha("fFill", "Fill", "How solid the fill of the quest you follow is."),
 	Alpha("fEdge", "Edge", "How solid the edge of the quest you follow is."),
 	Width("fWidth", "How thick the edge of the quest you follow is."),
 })
-UI.Feel.Add("areas", "Other quests", {
+UI.Feel.Add("advanced", "Other quest areas", {
 	Alpha("oFill", "Fill", "How solid the fill of the other quests' areas is."),
 	Alpha("oEdge", "Edge", "How solid the edge of the other quests' areas is (a gather area's a little less)."),
 	Width("oWidth", "How thick the edge of the other quests' areas is."),
 })
-UI.Feel.Add("areas", "Under the cursor", {
+UI.Feel.Add("advanced", "Area under the cursor", {
 	Alpha("hFill", "Fill lift", "How much an area under the cursor (or its pin) lifts its fill."),
 	Alpha("hEdge", "Edge", "How solid the edge of an area under the cursor (or its pin) is."),
 })
@@ -79,6 +90,10 @@ local function Restyle()
 		if type(x) ~= "number" then x = d end
 		v[k] = x
 	end
+	local function Strong(k) local x = F and F.Get("areas." .. k); return type(x) == "number" and x or 1 end
+	local fs, os = Strong("followed"), Strong("others")
+	v.fFill, v.fEdge = math.min(255, v.fFill * fs), math.min(255, v.fEdge * fs)
+	v.oFill, v.oEdge = math.min(255, v.oFill * os), math.min(255, v.oEdge * os)
 	local same = next(cur) ~= nil
 	for k, x in pairs(v) do
 		if cur[k] ~= x then same = false end
@@ -87,7 +102,7 @@ local function Restyle()
 	cur, styleRev = v, styleRev + 1
 	for state, s in pairs(STATES) do
 		local f = state == "followed"
-		STYLES[state] = { fill = f and v.fFill or v.oFill, border = math.floor((f and v.fEdge or v.oEdge) * (s.quiet or 1) + 0.5),
+		STYLES[state] = { fill = math.floor((f and v.fFill or v.oFill) + 0.5), border = math.floor((f and v.fEdge or v.oEdge) * (s.quiet or 1) + 0.5),
 			width = f and v.fWidth or v.oWidth, level = s.level, art = s.art, key = s.key }
 	end
 	LIT = { fill = v.hFill, border = v.hEdge, width = HOVER_WIDTH, level = 3, art = "blue" }

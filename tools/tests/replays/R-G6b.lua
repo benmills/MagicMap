@@ -20,7 +20,7 @@ local q = sim.LoadQuestie()
 sim.FireEvent("ADDON_LOADED", "Questie")
 local N, maps = 3000, { 1429, 1411, 1426, 1436, 1453 }
 for i = 1, N do
-	local icon = sim.QuestieIcon({ Type = "available", Id = i })
+	local icon = sim.QuestieIcon({ Type = "available", Id = 1000 + i }) -- (none the sim offers: ours would show it)
 	icon:CreateTexture(nil, "ARTWORK"):SetAllPoints() -- its art (Questie's has more: a lower bound)
 	q:AddWorldMapIconMap(Questie, icon, maps[i % #maps + 1], (i % 97) / 97, (i % 89) / 89, HBD_PINS_WORLDMAP_SHOW_WORLD)
 end

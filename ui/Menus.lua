@@ -67,7 +67,7 @@ local GROUPS = {
 -- theirs with their layers; each group's rows in the spike's order (ORDER: its keys, Layers.lua:30-61,
 -- then Landmarks.lua:70, 110, 142 and Blips.lua:671 as its TOC loads them), a key not in it last.
 local ORDER = {}
-for i, key in ipairs({ "labels", "quests", "questAreas",
+for i, key in ipairs({ "labels", "quests", "questAreas", "offers",
 	"flight", "dungeons", "graveyards", "areaPOIs", "rares", "group" }) do
 	ORDER[key] = i
 end
@@ -117,8 +117,39 @@ local function Sections()
 	return out
 end
 
+-- The rows that are a pin type's switch (Settings > Pins): one setting, the gear's row and the page's the same
+-- switch. Each layer itself stays on; a layer set before 3.1 (off, or graveyards and points of interest on) becomes
+-- its type's switch (once).
+local FEEL = { quests = "pins.quests.show", offers = "pins.offer.show", rares = "pins.rares.show", group = "pins.party.show",
+	flight = "pins.flight.show", dungeons = "pins.dungeon.show", graveyards = "pins.graveyard.show", areaPOIs = "pins.poi.show" }
+local function LayerOn(key)
+	local f = FEEL[key]
+	if f then return UI.Feel.Get(f) ~= false end
+	return Engine.LayerOn(key)
+end
+Menus.LayerOn = LayerOn
+-- /mm layer <key> (ui/Engine.lua): a pin type's row flips its setting; true if it was one.
+function Menus.FlipFeel(key)
+	local f = FEEL[key]
+	if not f then return false end
+	UI.Feel.Set(f, not LayerOn(key))
+	return true
+end
+UI.Feel.OnLoad(function()
+	for key, f in pairs(FEEL) do
+		local was = Engine.toggles and Engine.toggles[key]
+		if was ~= nil then
+			Engine.toggles[key] = nil
+			if Engine.onToggle[key] then Engine.onToggle[key](true) end
+			UI.Feel.Set(f, was)
+		end
+	end
+end)
+
 -- Its setting flipped (Layers.lua:2141-2150): Engine draws it or empties it from the next frame.
 local function Flip(row)
+	local f = FEEL[row.key]
+	if f then return UI.Feel.Set(f, not LayerOn(row.key)) end
 	local on = not Engine.LayerOn(row.key)
 	Engine.SetLayer(row.key, on)
 	if row.onToggle then row.onToggle(on) end
@@ -128,7 +159,7 @@ end
 local ICON = {
 	labels = "Interface\\Icons\\INV_Misc_Note_01",
 	questAreas = "Interface\\Icons\\INV_Misc_Map02",
-	quests = "A:Quest-In-Progress-Icon-yellow", flight = "A:taxinode_neutral",
+	quests = "A:Quest-In-Progress-Icon-yellow", offers = "A:QuestNormal", flight = "A:taxinode_neutral",
 	dungeons = "A:dungeon", graveyards = "A:poi-graveyard-neutral",
 	group = "Interface\\Icons\\Spell_Holy_PrayerOfFortitude",
 	rares = "A:vignettekill", areaPOIs = "Interface\\Icons\\INV_Misc_Map_01",
@@ -139,7 +170,7 @@ end
 
 -- Its setting set (Flip, when it differs).
 local function Set(row, on)
-	if Engine.LayerOn(row.key) ~= on then Flip(row) end
+	if LayerOn(row.key) ~= on then Flip(row) end
 end
 
 -- The Tracking submenu (Blizzard's types, below): set later in this file. Tally: a group's "n/total" (below).
@@ -148,7 +179,7 @@ local AddTracking, Tally
 -- A group's rows all on.
 local function AllOn(sec)
 	for _, row in ipairs(sec.rows) do
-		if not Engine.LayerOn(row.key) then return false end
+		if not LayerOn(row.key) then return false end
 	end
 	return true
 end
@@ -162,7 +193,10 @@ end
 -- Every layer back to its default (on, but those off until turned on).
 local function Reset()
 	for _, sec in ipairs(Sections()) do
-		for _, row in ipairs(sec.rows) do Set(row, row.default ~= false) end
+		for _, row in ipairs(sec.rows) do
+			local f = FEEL[row.key]
+			if f then UI.Feel.Set(f, UI.Feel.Default(f)) else Set(row, row.default ~= false) end
+		end
 	end
 end
 
@@ -180,12 +214,12 @@ local function AddSection(root, sec)
 			part = row.group
 		end
 		local cb = sub:CreateCheckbox(Label(row),
-			function() return Engine.LayerOn(row.key) end,
+			function() return LayerOn(row.key) end,
 			function()
 				Run(Flip, row)
 				return MenuResponse.Refresh
 			end)
-		if row.parent then cb:SetEnabled(function() return Engine.LayerOn(row.parent) end) end
+		if row.parent then cb:SetEnabled(function() return LayerOn(row.parent) end) end
 		cb:SetTooltip(Tip(row.label, row.tip))
 	end
 end
@@ -205,7 +239,7 @@ Command({ kind = "slash", name = "layers", help = "the map's layers by group, on
 	for _, sec in ipairs(Sections()) do
 		local on = {}
 		for _, row in ipairs(sec.rows) do
-			local shown = Engine.LayerOn(row.key) and (not row.parent or Engine.LayerOn(row.parent))
+			local shown = LayerOn(row.key) and (not row.parent or LayerOn(row.parent))
 			on[#on + 1] = (shown and "|cff33ff33" or "|cff888888") .. (SPIKE_KEY[row.key] or row.key) .. "|r"
 		end
 		parts[#parts + 1] = "|cffffd100" .. sec.title .. ":|r " .. table.concat(on, ", ")
@@ -294,7 +328,7 @@ end
 function Tally(sec)
 	local on, total = 0, #sec.rows
 	for _, row in ipairs(sec.rows) do
-		if Engine.LayerOn(row.key) then on = on + 1 end
+		if LayerOn(row.key) then on = on + 1 end
 	end
 	return "  " .. UI.Tip.DIM .. on .. "/" .. total .. "|r"
 end
@@ -504,6 +538,6 @@ function Menus.Gear(owner)
 			:SetTooltip(Tip("Reset to defaults", "Every layer back as it was installed."))
 		root:CreateDivider()
 		root:CreateButton(Mark("Interface\\Icons\\Trade_Engineering") .. "Settings…", function() Run(UI.Feel.Open) end)
-			:SetTooltip(Tip("Settings…", "MagicMap's settings window: general, the map's looks, the title, pins, the quest pill, tracking, pathing, quest areas, diagnostics."))
+			:SetTooltip(Tip("Settings…", "MagicMap's settings window: general, the map's looks, pins, quests, tracking and advanced."))
 	end)
 end

@@ -283,7 +283,7 @@ Pins.Style = Style -- (ui/Cluster.lua's pills)
 local layers = {} -- Pins' own, the highest level first: { layer, opts }
 
 -- What you track (Track.Focus: the tracked icon, the followed quest) wears a soft gold glow behind it, its size kept:
--- the world map's super-tracked quest glow (UI-QuestPoi-OuterGlow, added), toned down; Settings > Tracking > Tracked
+-- the world map's super-tracked quest glow (UI-QuestPoi-OuterGlow, added), toned down; Settings > Tracking > Target: Glow, the tracked
 -- icon: shown or not, its size (of the pin's), its opacity.
 local GLOW_ART = "UI-QuestPoi-OuterGlow"
 local glow = { on = true, size = 2, alpha = 1 }
@@ -314,14 +314,14 @@ local function Glows(key)
 		glow[key], glowRev = v, glowRev + 1
 	end
 end
-UI.Feel.Add("tracking", "Tracked icon", {
+UI.Feel.Add("tracking", "Target", {
 	{ key = "glow.on", kind = "toggle", label = "Glow", default = glow.on, apply = Glows("on"),
 		tip = "A soft gold glow behind what you track or follow, as the world map marks its tracked quest." },
 	{ key = "glow.size", kind = "slider", label = "Glow size", min = 1.2, max = 2.6, step = 0.1, pct = true,
-		default = glow.size, apply = Glows("size"), when = function() return glow.on end,
+		default = glow.size, apply = Glows("size"), under = "glow.on", when = function() return glow.on end,
 		tip = "How far the glow reaches past the icon." },
 	{ key = "glow.opacity", kind = "slider", label = "Glow opacity", min = 0.1, max = 1, step = 0.05, pct = true,
-		default = glow.alpha, apply = Glows("alpha"), when = function() return glow.on end,
+		default = glow.alpha, apply = Glows("alpha"), under = "glow.on", when = function() return glow.on end,
 		tip = "How bright the glow is." },
 })
 
@@ -485,6 +485,7 @@ end
 
 local hovered, hoveredAt, showing -- the pin under the cursor, its layer's, the entry its tooltip shows
 local waiting = false -- its tooltip waits for the popup to close
+local builtAt, AGAIN = 0, 0.25 -- when its tooltip was last built; s before one lost is built again
 
 -- The cursor onto pin (nil: off any): the last one's tooltip hidden if it still has it, the new one's built.
 local function Hover(pin, at)
@@ -508,6 +509,7 @@ local function Hover(pin, at)
 	GameTooltip:SetOwner(pin, "ANCHOR_RIGHT")
 	Tooltip(o, GameTooltip, e, pin)
 	GameTooltip:Show()
+	builtAt = GetTime()
 end
 
 -- The view has the mouse: nothing over it took it (a button, another addon's pin, a menu), as the spike's
@@ -527,7 +529,11 @@ Runtime.Step("ui", "map: pins", function()
 		local w, h = Window.Size()
 		pin, at = Under(x - w / 2, y - h / 2)
 	end
-	if pin ~= hovered or pin and (pin.entry ~= showing or waiting and not UI.Popup.IsOpen()) then Hover(pin, at) end
+	-- (and its tooltip again where something else hid or took it while the cursor stayed on the pin: another addon's,
+	-- a Questie icon's leave; not more often than AGAIN s, so one that keeps taking it doesn't cost a build a frame)
+	local lost = pin and pin == hovered and not waiting and not GameTooltip:IsOwned(pin)
+		and GetTime() - builtAt >= AGAIN and not UI.Popup.IsOpen()
+	if lost or pin ~= hovered or pin and (pin.entry ~= showing or waiting and not UI.Popup.IsOpen()) then Hover(pin, at) end
 end, { shownOnly = Window.frame })
 
 -- The pin under the cursor: its MM.Known entry and its layer's name; nil: none.

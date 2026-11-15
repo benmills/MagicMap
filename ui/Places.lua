@@ -27,17 +27,19 @@ local KINDS = {
 	flight = { key = "flight", size = 18, line = "Flight point", name = "Flight point", sample = "taxinode_neutral", big = "always" },
 	dungeon = { key = "dungeons", size = 20, color = { 0.7, 0.4, 1 }, name = "Dungeon & raid", sample = "dungeon", big = "always" },
 	graveyard = { key = "graveyards", size = 16, color = { 0.7, 0.7, 0.7 }, line = "Graveyard", name = "Graveyard",
-		sample = "poi-graveyard-neutral" },
-	poi = { key = "areaPOIs", size = 18, color = { 0.6, 0.85, 1 }, name = "Landmark", sample = "poi-town" },
+		sample = "poi-graveyard-neutral", off = true },
+	poi = { key = "areaPOIs", size = 18, color = { 0.6, 0.85, 1 }, name = "Landmark", sample = "poi-town", off = true },
 }
 local ORDER = { "flight", "dungeon", "graveyard", "poi" }
 local TIPS = { flight = "A flight master you can fly to or from.", dungeon = "A dungeon's or raid's entrance.",
-	graveyard = "Where your spirit goes when you release (its gear row is off until turned on).",
+	graveyard = "Where your spirit goes when you release.",
 	poi = "A place the game marks in its zone: a town, a camp, a landmark." }
 for _, place in ipairs(ORDER) do
 	local k = KINDS[place]
-	UI.PinTypes.Add({ id = place, family = "places", name = k.name, look = { size = k.size, icon = { atlas = k.sample, color = k.color } },
-		groups = true, big = k.big, tip = TIPS[place] })
+	local t = { id = place, family = "places", name = k.name, look = { size = k.size, icon = { atlas = k.sample, color = k.color } },
+		groups = true, big = k.big, tip = TIPS[place] }
+	if k.off then t.show = false end -- (off until turned on)
+	UI.PinTypes.Add(t)
 end
 UI.PinTypes.Add({ id = "vignette", family = "rares", name = "Nearby now",
 	look = { size = VIGNETTE.size, icon = { atlas = VIGNETTE.sample, color = VIGNETTE.color } }, groups = true,
@@ -118,7 +120,7 @@ end, Rev, { lines = Lines, cluster = true })
 -- Their gear rows (Layers.lua:38-53; Landmarks.lua:110-111, 142-143).
 Menus.Layer({ key = "flight", label = "Flight points", group = "places", tip = "Flight masters you can fly to or from." })
 Menus.Layer({ key = "dungeons", label = "Dungeons & raids", group = "places", tip = "Dungeon and raid entrances." })
-Menus.Layer({ key = "graveyards", label = "Graveyards", group = "places", default = false,
+Menus.Layer({ key = "graveyards", label = "Graveyards", group = "places",
 	tip = "Where your spirit goes when you release." })
-Menus.Layer({ key = "areaPOIs", label = "Points of interest", group = "places", default = false, tip = "Places the game marks in each zone." })
+Menus.Layer({ key = "areaPOIs", label = "Points of interest", group = "places", tip = "Places the game marks in each zone." })
 -- (vignettes: the gear's "Rares & treasures" row turns them with the rares, ui/Menus.lua)

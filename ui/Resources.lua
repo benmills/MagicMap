@@ -61,7 +61,7 @@ local function Options()
 	out[#out + 1] = { "Off", "off" }
 	return out
 end
-Feel.Add(false, nil, { -- (no page: the gear's Keep tracking row)
+Feel.Add("pins", "Resources", { -- (the gear's Keep tracking row too)
 	{ key = KEY, kind = "select", label = "Keep tracking", default = "auto", options = Options,
 		tip = "Turned back on whenever the game drops it: at login, after a loading screen, death or resurrection. "
 			.. "Your gathering tracker is the first you know of Find Herbs, Find Minerals and Find Treasure. One you pick "

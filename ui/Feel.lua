@@ -42,31 +42,30 @@
 -- default, the table gone when none does. This file loads right after ui/Window.lua, so every other UI file may
 -- declare; the window is built on its first open, and a page or setting declared after that joins it.
 --
--- The pages (order; who declares their settings), each with one job:
---   General (10), what MagicMap replaces, its window, how the map moves. Blizzard's maps: Replace minimap, Replace
---     world map (ui/Replace.lua), Minimap button (ui/View.lua); Map window: Buttons at rest (ui/Controls.lua), Reset
---     window position (ui/BigMap.lua); Movement: Follow you, Return to default, Return after, Zoom per notch (ui/Motion.lua).
---   Map (20), what the map shows. Names: Label size, Zone name opacity, Subzone size, Subzone opacity
---     (ui/Labels.lua); Ground: Ocean (ui/Sea.lua), Repair broken map art (ui/Repaint.lua); Indoors: Indoor dimming,
---     Indoor auto-zoom (ui/Interiors.lua); You: Your arrow (ui/You.lua).
---   Title (25, ui/Title.lua). At rest, On hover (the pieces, chosen and ordered); Format: Clock (while a time is
---     chosen).
---   Pins (30, ui/PinTypes.lua), every pin type the map draws. Show pins, Pin size, Pin opacity, On the big map,
---     Zoomed in from; By type: each family's row (Quests, Rares & treasures, Party, Places, Addons, Other: Size,
---     Opacity, On the big map), each type's under it (Size, Opacity, On the big map, Icon,
---     Group), declared by the files that draw them.
---   Quest pill (40, ui/Controls.lua). Shows (off by default), Says (the pieces, chosen and ordered), Progress bar;
---     Look: Backing, Size. Pill layout (42, ui/Controls.lua): Pill, Text and close, Border (its LOOK table).
---   Tracking (45), how the way is shown. Arrow (Track's): Size, Opacity, Distance (ui/Guide.lua); Path to: Frame the
---     way (ui/Path.lua).
---   Pathing (50, ui/Path.lua), Path to's line. Line: Style, Weight, Colour, Opacity; Effects: Glow, Breathing, Breath
---     pace; Outline: Outline, Outline colour.
---   Quest areas (60, ui/Areas.lua). Followed quest: Fill, Edge, Edge width; Other quests: the same; Under the
---     cursor: Fill lift, Edge.
---   (No page: Grouping's settings, ui/Cluster.lua, their defaults; Keep tracking's, ui/Resources.lua, and the
---     Default zoom, ui/View.lua, each the gear's row.)
---   Diagnostics (90, here). Debug info in title; Reports in chat: Record 10 seconds, Compare
---     with other addons, Memory breakdown (each a /mm command too).
+-- The pages (order; who declares their settings), each with one job (3.1's: a task a page, the tuning knobs apart):
+--   General (10), what MagicMap replaces, its window, how the map moves. Window: Replace minimap, Replace world map
+--     (ui/Replace.lua), Buttons at rest (ui/Controls.lua), Lock window, Reset window position (ui/BigMap.lua),
+--     Minimap button (ui/View.lua); Movement: Follow you, Return to default, Return after, Zoom per notch
+--     (ui/Motion.lua), Default zoom (ui/View.lua).
+--   Map (20), how the map looks. Look: Ocean (ui/Sea.lua), Repair broken map art (ui/Repaint.lua), Time of day
+--     (ui/Tint.lua); Names: Zone names, Subzone names, each its opacity under it (ui/Labels.lua); You: Your marker
+--     (ui/You.lua); Indoors: Indoor dimming, Indoor auto-zoom (ui/Interiors.lua).
+--   Header (25, ui/Title.lua), the line above the map. At rest, On hover (the pieces, chosen and ordered); Format:
+--     Clock (while a time is chosen).
+--   Pins (30, ui/PinTypes.lua), every pin type the map draws. Show pins (its opacity, On the big map, Zoomed in
+--     from under it), Pin size; By type: each family's row (Quests, Rares & treasures, Party, Places, Addons, Other:
+--     Size, Opacity, On the big map), each type's under it (Size, Opacity, On the big map, Icon, Group), declared
+--     by the files that draw them, each addon with world pins under Addons (ui/Sockets.lua); the gear's map rows
+--     are these same switches (ui/Menus.lua). Grouping: Group icons, its tunables under it (ui/Cluster.lua);
+--     Resources: Keep tracking (ui/Resources.lua).
+--   Quests (40). Quest pill: Shows, Says, Progress bar, Backing, Size (ui/Controls.lua); On the map: Names on big
+--     map, Names on small map (ui/Quests.lua); Areas: Followed quest, Other quests, each a strength (ui/Areas.lua).
+--   Tracking (45), the way to what you track or path to. Shows (ui/Track.lua); Arrow: Size, Opacity, Distance
+--     (ui/Guide.lua); Line: Style (its Glow, Breathing, Outline under it), Weight, Colour, Opacity (ui/Path.lua);
+--     Target: Glow (ui/Pins.lua), Frame the way (ui/Path.lua).
+--   Advanced (90), the fine tuning, and reports: the quest pill's layout (ui/Controls.lua), the quest areas' raw
+--     numbers (ui/Areas.lua), Debug info in title; Reports in chat: Record 10 seconds, Compare with other addons,
+--     Memory breakdown (each a /mm command too). It alone scrolls (Pins too, every row opened).
 -- Pages to come take an order between these. The sidebar has room for 14
 -- before the window grows; a page longer than the window scrolls.
 --
@@ -1123,30 +1122,29 @@ end
 ---------------------------------------------------------------------------
 
 Feel.Page({ key = "general", title = "General", icon = "Interface\\Icons\\Trade_Engineering", order = 10,
-	tip = "What MagicMap replaces, its window and how the map moves.", sections = { "Blizzard's maps", "Map window", "Movement" } })
+	tip = "What MagicMap replaces, its window and how the map moves.", sections = { "Window", "Movement" } })
 Feel.Page({ key = "map", title = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01", order = 20,
-	tip = "What the map shows: names, the ground, indoor maps and your arrow.", sections = { "Names", "Ground", "Indoors", "You" } })
-Feel.Page({ key = "pills", title = "Quest pill", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01", order = 40,
-	tip = "The pill at the map's bottom left: what you track, how far, and how far you've come.", sections = { "Look" } })
-Feel.Page({ key = "pillLayout", title = "Pill layout", icon = "Interface\\Icons\\INV_Misc_Gear_01", order = 42,
-	tip = "The quest pill's spacing, sizes and border.", sections = { "Pill", "Text and close", "Border" } })
+	tip = "How the map looks: its ground, names, your marker and indoor maps.",
+	sections = { "Look", "Names", "You", "Indoors" } })
+Feel.Page({ key = "quests", title = "Quests", icon = "Interface\\Icons\\INV_Misc_Book_08", order = 40,
+	tip = "Your quests: the pill at the map's bottom left, their names on the map and their objective areas.",
+	sections = { "Quest pill", "On the map", "Areas" } })
 Feel.Page({ key = "tracking", title = "Tracking", icon = "Interface\\Icons\\INV_Misc_Spyglass_03", order = 45,
-	tip = "How the way is shown: Track's gold arrow, and Path to keeping the way in view (the line's look: Pathing).", sections = { "Arrow", "Path to" } })
-Feel.Page({ key = "path", title = "Pathing", icon = "Interface\\Icons\\Ability_Hunter_Pathfinding", order = 50,
-	tip = "The line to what you path to.", sections = { "Line", "Effects", "Outline" } })
-Feel.Page({ key = "areas", title = "Quest areas", icon = "Interface\\Icons\\INV_Misc_Map02", order = 60,
-	tip = "How your quests' objective areas are drawn.", sections = { "Followed quest", "Other quests", "Under the cursor" } })
-Feel.Page({ key = "diag", title = "Diagnostics", icon = "Interface\\Icons\\INV_Gizmo_01", order = 90,
-	tip = "Reports for a bug report: what the map is doing and what it costs.", sections = { "Reports in chat" } })
+	tip = "The way to what you track or path to: the gold arrow, the line, and what you're headed for.",
+	sections = { "Arrow", "Line", "Target" } })
+Feel.Page({ key = "advanced", title = "Advanced", icon = "Interface\\Icons\\INV_Gizmo_01", order = 90,
+	tip = "Fine tuning (the quest pill's layout, the quest areas' raw numbers) and reports for a bug report.",
+	sections = { "Pill layout", "Pill text and close", "Pill border", "Followed quest area", "Other quest areas",
+		"Area under the cursor", "Reports in chat" } })
 
 -- /mm <line>, as typed (Game owns them): a diagnostics row runs the same code (the gear's Advanced did).
 local function Slash(line) return function() Command({ kind = "run", line = line }) end end
-Feel.Add("diag", nil, {
+Feel.Add("advanced", "Reports in chat", {
 	{ key = "diag.debug", kind = "toggle", label = "Debug info in title", default = false, keep = true,
 		get = function() return UI.saved.debug == true end, set = Slash("debug"),
 		tip = "Tile, zoom and layout timings next to the zone name." },
 })
-Feel.Add("diag", "Reports in chat", {
+Feel.Add("advanced", "Reports in chat", {
 	{ key = "diag.record", kind = "button", label = "Record 10 seconds", run = Slash("perf"),
 		tip = "Times every part of MagicMap while you play, then prints a summary in chat." },
 	{ key = "diag.top", kind = "button", label = "Compare with other addons", run = Slash("perf top"),

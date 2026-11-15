@@ -279,7 +279,10 @@ function BigMap.Reset()
 end
 
 ns.Game.Command({ kind = "slash", name = "reset", help = "put the map back on the minimap's spot", fn = BigMap.Reset })
-UI.Feel.Add("general", "Map window", {
+UI.Feel.Add("general", "Window", {
+	{ key = "general.lock", kind = "toggle", label = "Lock window", default = false,
+		apply = function(on) UI.Window.locked = on; if UI.Chrome and UI.Chrome.grip then UI.Chrome.grip:SetShown(not on) end end,
+		tip = "The map window stays where it is and as big as it is: no dragging it (nor Alt-dragging), no resize grip." },
 	{ key = "general.resetpos", kind = "button", label = "Reset window position", run = function() BigMap.Reset() end,
 		tip = "Puts the map window back on the minimap's spot." },
 })

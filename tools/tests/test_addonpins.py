@@ -1,6 +1,6 @@
 """Other addons' HereBeDragons pins on our map, on the sim (docs/v1-plan.md M4.2, game/AddonPins.lua):
 world pins past 48 px a tile only those flagged for continents, none drawn for the library's own map
-alone (-1) or bigger than 128 px; Questie's turn-ins too (ours are Blizzard's blips: our quests layer draws none); minimap pins on a
+alone (-1) or bigger than 128 px, none of Questie's turn-ins our quests layer shows; minimap pins on a
 host of Game's on the minimap socket, centred on you at the Minimap's view, each where the library
 puts it, so on its spot on our map, out of sight under Rotate Minimap, off your map and for a renamed
 copy whose world pins we host, back on the Minimap at release.
@@ -9,10 +9,10 @@ while there's no minimap socket: R-G6c.lua."""
 from test_addon import boot, errors
 
 # Questie's world pins in Elwynn: (Type, Id, flag, size px).
-PINS = {"world": ("available", 70, 3, 16), "continent": ("available", 71, 2, 16), "parent": ("available", 72, 1, 16),
+PINS = {"world": ("available", 77, 3, 16), "continent": ("available", 71, 2, 16), "parent": ("available", 72, 1, 16),
         "zone": ("available", 73, 0, 16), "own": ("available", 74, -1, 16), "big": ("available", 75, 3, 129),
         "128": ("available", 76, 3, 128), "turnIn": ("complete", 62, 3, 16), "notDone": ("complete", 60, 3, 16),
-        "offer": ("available", 62, 3, 16)}
+        "offer": ("available", 62, 3, 16), "offered": ("available", 70, 3, 16)}  # (70: one our offers layer shows)
 
 
 def world_pins(L, sim, q):
@@ -32,8 +32,9 @@ def hosted(L, icons, canvas):
 
 def test_world_pins():
     """The show rules: at 96 px a tile all but the library's own map's and the frame bigger than a pin (a
-    turn-in too, with our quests layer on: it draws none); zoomed out past 48, the continent's alone; past
-    about two zones across the view (three on the big map), none; the quests layer off, Questie's turn-in still."""
+    turn-in too, with our quests layer on: it draws none, and the "!" of one our offers layer shows); zoomed out past
+    48, the continent's alone; past about two zones across the view (three on the big map), none; the quests layer
+    off, Questie's turn-in still; the offers layer off, its "!"."""
     L, sim, ns = boot()
     sim.Slash("/mm toggle")
     ns.UI.Window.frame.SetSize(ns.UI.Window.frame, 300, 300)  # (8 tiles across at 40: within two zones)
@@ -45,24 +46,24 @@ def test_world_pins():
     canvas = view.sockets.world.frame
     sim.Run(0.5)
     assert ns.Game.obs.quests[2].id == 62 and ns.Game.obs.quests[2].complete
-    assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "parent", "turnIn", "world", "zone"]
+    assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "parent", "world", "zone"]
 
     ns.UI.Motion.SetZoom(40)  # a continent's
     sim.Step()
     sim.Step()
     assert view.sockets.world.zoom == 40
     sim.Run(0.5)
-    assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "turnIn", "world"]
+    assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "world"]
     ns.UI.Motion.SetZoom(48)
     sim.Run(0.5)
-    assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "parent", "turnIn", "world", "zone"]
+    assert hosted(L, icons, canvas) == ["128", "continent", "notDone", "offer", "parent", "world", "zone"]
     # Wider than about two zones across (13 tiles: 300 px at 20 is 15): no world socket, every pin given back.
     ns.UI.Motion.SetZoom(20)
     sim.Run(0.5)
     assert view.sockets.world is None and hosted(L, icons, canvas) == []
     ns.UI.Motion.SetZoom(48)
     sim.Run(0.5)
-    assert len(hosted(L, icons, canvas)) == 8
+    assert len(hosted(L, icons, canvas)) == 7
 
     # The big map: up to about three zones across (15 tiles shown; 22 not).
     sim.Press("M")
@@ -79,9 +80,12 @@ def test_world_pins():
     ns.UI.Motion.SetZoom(48)
     sim.Run(0.5)
 
-    ns.UI.Engine.SetLayer("quests", False)  # ours off: Questie's turn-in still shown, by the next regular pass
+    ns.UI.Feel.Set("pins.quests.show", False)  # ours off: Questie's turn-in is the one shown, by the next regular pass
     sim.Run(1.1)
     assert "turnIn" in hosted(L, icons, canvas)
+    ns.UI.Feel.Set("pins.offer.show", False)  # likewise Questie's "!"
+    sim.Run(1.1)
+    assert "offered" in hosted(L, icons, canvas)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

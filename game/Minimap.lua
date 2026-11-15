@@ -413,25 +413,80 @@ local function Split(part)
 	return part:match("^%s*(.-)%s*$"), mark
 end
 -- The names under the cursor into `names` (their count; their marks into `marks`), or false: secret (Blizzard's
--- tooltip then), nil: none.
+-- tooltip then), nil: none. The client's data first (C_TooltipInfo); where that's secret (1.60.1.70938 on: its
+-- text), the same tooltip filled on a hidden tooltip of ours and its lines read (m.scan), in case only the data is
+-- kept from addons; not tried again this session once that's secret too (70938's: Blizzard's tooltip, then).
+-- What they gave, kept in Game.saved.overlayTips (read after a session: whether the names were read or secret on this
+-- build, each way), written only when it changes.
+local function Note()
+	local s = Game.saved
+	if not s then return end
+	local t = s.overlayTips
+	local build = (select(1, GetBuildInfo())) .. "." .. tostring(select(2, GetBuildInfo()))
+	if t and t.build == build and t.secret == m.hidden and t.scan == m.scan and (t.read > 0) == ((m.read or 0) > 0) then
+		t.read = m.read or 0
+		return
+	end
+	s.overlayTips = { build = build, read = m.read or 0, secret = m.hidden, scan = m.scan,
+		at = date("%Y-%m-%d %H:%M") }
+end
+-- One line's names (stacked blips: split at line breaks, their colours dropped) from n on; the new count.
+local function AddNames(t, n)
+	for part in t:gmatch("[^\n]+") do
+		local name, mark = Split(part:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+		if name ~= "" then n = n + 1; names[n], marks[n] = name, mark end
+	end
+	return n
+end
+local function Done(n)
+	for i = #names, n + 1, -1 do names[i], marks[i] = nil, nil end
+	return n > 0 and n or nil
+end
+local scan, lefts -- the hidden tooltip (made the first time the data is secret); its left lines by number
+local function ScanTip()
+	if m.scan == "secret" then return false end -- (once a session: 1.60.1.70938 keeps it from this one too)
+	if not scan then
+		scan = CreateFrame("GameTooltip", "MagicMapBlipScan", nil, "GameTooltipTemplate")
+		lefts = {}
+	end
+	scan:SetOwner(UIParent, "ANCHOR_NONE")
+	scan:ClearLines()
+	scan:SetMinimapMouseover()
+	local lines = scan:NumLines()
+	if lines == nil or issecretvalue(lines) then m.scan = "secret"; Note(); return false end
+	local n = 0
+	for i = 1, lines do
+		local fs = lefts[i]
+		if not fs then
+			for _, r in ipairs({ scan:GetRegions() }) do
+				if r:GetName() == "MagicMapBlipScanTextLeft" .. i then fs = r end
+			end
+			lefts[i] = fs
+		end
+		local t = fs and fs:GetText()
+		if t ~= nil then
+			if issecretvalue(t) then m.scan = "secret"; Note(); return false end
+			n = AddNames(t, n)
+		end
+	end
+	if n > 0 and m.scan ~= "read" then m.scan = "read"; Note() end
+	return Done(n)
+end
 local function Names()
 	local data = C_TooltipInfo.GetMinimapMouseover()
-	if data and (issecretvalue(data) or issecretvalue(data.lines)) then m.hidden = "the tooltip"; return false end
+	if data and (issecretvalue(data) or issecretvalue(data.lines)) then m.hidden = "the tooltip"; Note(); return ScanTip() end
 	if not data or not data.lines then return nil end
 	local n = 0
 	for _, line in ipairs(data.lines) do
 		local t = line.leftText
 		if t ~= nil then
-			if issecretvalue(t) then m.hidden = "its text"; return false end
+			if issecretvalue(t) then m.hidden = "its text"; Note(); return ScanTip() end
 			m.read = (m.read or 0) + 1
-			for part in t:gmatch("[^\n]+") do
-				local name, mark = Split(part:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
-				if name ~= "" then n = n + 1; names[n], marks[n] = name, mark end
-			end
+			Note()
+			n = AddNames(t, n)
 		end
 	end
-	for i = #names, n + 1, -1 do names[i], marks[i] = nil, nil end
-	return n > 0 and n or nil
+	return Done(n)
 end
 -- m.names (and m.marks) new tables only when they changed (UI rebuilds its tooltip then).
 local function Publish(n)
@@ -444,8 +499,19 @@ local function Publish(n)
 	for i = 1, n do shown[i], shownMarks[i] = names[i], marks[i] end
 	m.names, m.marks = shown, shownMarks
 end
+-- Only while the cursor is on it (m.mouse): its OnUpdate runs every frame, and a mouseover the client still reports
+-- after the cursor left would hold m.blip, which keeps every pin's hover off (ui/Pins.lua).
+-- Whether f has the mouse's motion now (the client's own answer; else, an older client, the cursor over it).
+local function Focused(f)
+	if f.IsMouseMotionFocus then return f:IsMouseMotionFocus() == true end
+	if GetMouseFoci then return GetMouseFoci()[1] == f end
+	return f:IsMouseOver()
+end
+-- (m.mouse also from the client's focus: one that took the mouse under a cursor standing still may get no OnEnter.)
 local BlipTip = Runtime.Wrap("game: overlay tooltip", function()
-	local n = Names()
+	if not m.mouse and m.engaged and Focused(Minimap) then m.mouse = true end
+	local n = nil
+	if m.mouse then n = Names() end
 	if n == false then
 		m.blip, m.names = true, nil
 		GameTooltip:SetOwner(UIParent, "ANCHOR_CURSOR")
@@ -484,6 +550,8 @@ function Mouse(on)
 		if not mm:IsMouseMotionEnabled() then mm:SetMouseMotionEnabled(true) end
 		if mm:IsMouseClickEnabled() then mm:SetMouseClickEnabled(false) end
 		if mm:IsMouseWheelEnabled() then mm:EnableMouseWheel(false) end
+		-- (on before any OnEnter: it sees the cursor already over it, BlipTip)
+		if m.engaged and mm:GetScript("OnUpdate") ~= BlipTip then mm:SetScript("OnUpdate", BlipTip) end
 	elseif mm:IsMouseEnabled() or mm:IsMouseMotionEnabled() then
 		mm:EnableMouse(false)
 		mm:SetScript("OnUpdate", nil)
@@ -502,8 +570,9 @@ Game.Slash("overlay", "the blips' overlay (Blizzard's Minimap over the map): whe
 				.. (", need %s, room %s, alpha %.2f, seen %s, odd radius %s, instance %s, blocked %s"):format(tostring(m.need and math.floor(m.need)),
 				tostring(m.room and math.floor(m.room)), mm:GetAlpha(), tostring(seen), tostring(m.odd), tostring(m.instance), tostring(m.blocker))))
 	-- The blips' names as the client gives them: read (ours drawn), or secret (Blizzard's tooltip instead).
-	Game.Say(("overlay tooltips: names read %d times; secret: %s"):format(m.read or 0,
-		m.hidden and (m.hidden .. " (Blizzard's tooltip shows instead of ours)") or "never this session"))
+	Game.Say(("overlay tooltips: names read %d times; secret: %s; our hidden tooltip: %s"):format(m.read or 0,
+		m.hidden and (m.hidden .. " (Blizzard's tooltip shows instead of ours)") or "never this session",
+		m.scan or "not tried"))
 end)
 
 Game.Apply("minimap", function(view)

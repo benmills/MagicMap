@@ -87,7 +87,7 @@ hit:SetPoint("BOTTOMRIGHT", title, "BOTTOMRIGHT", 4, -3)
 hit:RegisterForDrag("LeftButton")
 hit:SetScript("OnDragStart", Runtime.Wrap("map: move", function(self)
 	self.dragged = true
-	frame:StartMoving()
+	if not Window.locked then frame:StartMoving() end
 end))
 hit:SetScript("OnDragStop", Runtime.Wrap("map: moved", function()
 	frame:StopMovingOrSizing()
@@ -380,8 +380,8 @@ local function Timed()
 	local r, h = lists.rest.has, lists.hover.has
 	return (r.time or r.server or h.time or h.server) == true
 end
-Feel.Page({ key = "title", title = "Frame title", icon = "Interface\\Icons\\INV_Scroll_03", order = 25, sections = { "Format" },
-	tip = "What the title above the map says: at rest, and with the pointer over the map." })
+Feel.Page({ key = "title", title = "Header", icon = "Interface\\Icons\\INV_Scroll_03", order = 25, sections = { "Format" },
+	tip = "What the line above the map says: at rest, and with the pointer over the map." })
 Feel.Add("title", nil, {
 	{ key = "title.rest", kind = "list", ordered = true, label = "At rest", options = PIECES, default = "time,zone",
 		tip = "What the title says while the pointer isn't over the small map, in this order: the first is the title, the rest follow it, smaller." },

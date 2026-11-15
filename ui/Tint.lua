@@ -4,7 +4,7 @@
 -- it makes a multiply over the ground (the tiles, repaints and ocean), under the buildings and the pins:
 --   tint = ((1 - mix) + mix * hue / max(hue)) * (1 - dark * (1 - lum(bright) / its day's brightest))
 -- On either map size, while it shows your map, outdoors (indoors the building's pictures stand in). Settings > Map >
--- Ground: Time of day (on), its Strength (mix) and Night darkening (dark), declared below (ui/Feel.lua). /mm tint
+-- Look: Time of day (on), its Strength (mix) and Night darkening (dark), declared below (ui/Feel.lua). /mm tint
 -- says what it is here and now; its knobs past those: hue <src>, bright <src> (direct, ambient or forever), time
 -- <HH:MM | off> (light as at that time), reset; kept in UI.saved.tint.
 
@@ -186,7 +186,7 @@ function Tint.Command(args)
 end
 
 local function Feel(key) return function(v) feel[key] = v; if UI.saved then Update() end end end
-UI.Feel.Add("map", "Ground", {
+UI.Feel.Add("map", "Look", {
 	{ key = "tint.on", kind = "toggle", label = "Time of day", default = DEFAULTS.on, apply = Feel("on"),
 		tip = "The map takes on the game's light where you are, as Blizzard's own minimap does: warm at dawn and dusk, cool and dimmer at night." },
 	{ key = "tint.mix", kind = "slider", label = "Strength", min = 0, max = 0.6, step = 0.05, pct = true, default = DEFAULTS.mix,

@@ -108,7 +108,7 @@ function Repaint.Lay(c, inst, zoom, c0, r0, c1, r1)
 	if np > 0 then Runtime.Wake(job, BUDGET) end
 end
 
-UI.Feel.Add("map", "Ground", {
+UI.Feel.Add("map", "Look", {
 	{ key = "repaint.on", kind = "toggle", label = "Repair broken map art", default = true, apply = Repaint.Set,
 		tip = "Paints over the flat, unfinished blocks in Blizzard's map with AI-generated pictures. Only on the game version they were checked against (its later builds too): on another, the map stays as Blizzard's until MagicMap updates." },
 })

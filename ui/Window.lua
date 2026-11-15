@@ -43,7 +43,8 @@ Runtime.SetState("closed") -- frames by map state (docs/runtime.md); the draw st
 
 -- Its place, kept (ui/BigMap.lua: only the small window's).
 local function Moved() UI.BigMap.SaveLayout() end
-frame:SetScript("OnDragStart", Runtime.Wrap("map: move", function() frame:StartMoving() end))
+-- Window.locked (Settings > General > Lock window, ui/BigMap.lua): no move, no resize.
+frame:SetScript("OnDragStart", Runtime.Wrap("map: move", function() if not Window.locked then frame:StartMoving() end end))
 frame:SetScript("OnDragStop", Runtime.Wrap("map: moved", function()
 	frame:StopMovingOrSizing()
 	Moved()
@@ -81,6 +82,7 @@ local moving
 view:SetScript("OnMouseWheel", Runtime.Wrap("map: wheel", function(_, delta) UI.Motion.Wheel(delta) end))
 view:SetScript("OnMouseDown", Runtime.Wrap("map: press", function(_, button)
 	if button == "LeftButton" and IsAltKeyDown() then
+		if Window.locked then return end
 		frame:StartMoving()
 		moving = true
 		return

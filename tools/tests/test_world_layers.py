@@ -70,7 +70,7 @@ CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 def client(big=False, zoom=None):
     L, sim, ns = boot()
     L.execute(SETUP, sim, ns)
-    ns.UI.Engine.SetLayer("areaPOIs", True)  # (off by default: these read every layer)
+    ns.UI.Feel.Set("pins.poi.show", True)  # (off by default: these read every layer)
     sim.Slash("/mm toggle")
     sim.Run(1.5)
     if big:
@@ -115,6 +115,19 @@ def test_places():
     def pin(key):
         return G.PinOf(lay, key)
 
+    # The gear's rows that are a pin type's switch (Settings > Pins): set as the gear sets them.
+    FEEL = {"flight": "pins.flight.show", "dungeons": "pins.dungeon.show", "graveyards": "pins.graveyard.show",
+            "areaPOIs": "pins.poi.show"}
+
+    def Set(key, on):
+        if key in FEEL:
+            UI.Feel.Set(FEEL[key], on)
+        else:
+            E.SetLayer(key, on)
+
+    def On(key):
+        return UI.Menus.LayerOn(key)
+
     # Each kind's look (Layers.lua:459-534, Landmarks.lua:95, 135): its art at its size, else a dot of its colour.
     p = pin("flight:2")
     assert S[p].width == 18 and S[p.icon].atlas == "TaxiNode_Alliance" and S[p.icon].width == 18
@@ -125,7 +138,7 @@ def test_places():
         assert S[p].width == size and S[p.icon].texture == CIRCLE and rgb(sim, p.icon) == color, key
         assert abs(S[p.icon].width - size * 0.6) < 1e-9 and rgb(sim, p.ring) == [0, 0, 0], key
     # On by default, the graveyards off (Layers.lua:48-53; Landmarks.lua:110, 142).
-    assert [E.LayerOn(k) for k in ("flight", "dungeons", "graveyards", "areaPOIs", "vignettes")] == [True] * 2 + [False] + [True] * 2
+    assert [On(k) for k in ("flight", "dungeons", "graveyards", "areaPOIs", "vignettes")] == [True] * 2 + [False] + [True] * 2
     assert pin("graveyard:1") is None
     # The tooltips: the name, then what it is, its description, "Nearby now" (Layers.lua:470-534; Landmarks.lua:94).
     G.Over(31.103, 48.561)
@@ -142,23 +155,23 @@ def test_places():
     assert tooltip(sim, G) == ["Mother Fang", "Nearby now"]
 
     # Each toggle hides its kind alone; the graveyards turned on: their art at 16.
-    E.SetLayer("graveyards", True)
+    Set("graveyards", True)
     sim.Run(0.5)
     p = pin("graveyard:1")
     assert S[p].width == 16 and S[p.icon].atlas == "poi-graveyard-neutral"
     every = ["flight:2", "flight:5", "flight:9", "poi:7", "graveyard:1", "dungeon:63", "Vignette-0-1"]
     for key, gone in (("flight", ["flight:2", "flight:5", "flight:9"]), ("dungeons", ["dungeon:63"]),
                       ("graveyards", ["graveyard:1"]), ("areaPOIs", ["poi:7"]), ("vignettes", ["Vignette-0-1"])):
-        E.SetLayer(key, False)
+        Set(key, False)
         sim.Run(0.5)
         assert [k for k in every if pin(k) is not None] == [k for k in every if k not in gone], key
-        E.SetLayer(key, True)
+        Set(key, True)
         sim.Run(0.5)
         assert all(pin(k) is not None for k in every), key
     # Game's tracking of what ours draw (flight points, points of interest) goes by these toggles: View.layers.
     view = UI.View()
     assert view.layers.flight is True and view.layers.pois is True
-    E.SetLayer("areaPOIs", False)
+    Set("areaPOIs", False)
     sim.Step()
     assert view.layers.pois is None and view.layers.flight is True
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
@@ -314,7 +327,7 @@ def test_inspector_lines():
     G.Parts.explored, G.Parts.cells = L.table_from({lake: True}), G.Every(True)
     sim.Step()
     lines = menu(32.28, 49.65)
-    assert not ns.UI.Engine.LayerOn("graveyards")
+    assert not ns.UI.Menus.LayerOn("graveyards")
     assert lines[-2:] == [GREY + "Graveyard|r " + WHITE + "Goldshire|r" + SEP + GREY + "175 yd SE|r",
                           GREY + "Flight point|r " + WHITE + "Stormwind, Elwynn|r" + SEP + GREY + "860 yd NW|r"], lines
     # Here (under 15 yd); a third kind nearer than the flight point: 2 still, the closest; one its kind's name, untitled.
