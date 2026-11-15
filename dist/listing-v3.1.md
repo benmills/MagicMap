@@ -10,7 +10,7 @@ whole, and upload `MagicMap-v3.1.0.zip` with the 3.1.0 notes as its changelog.
 | Version / file name | 3.1.0 / `MagicMap-v3.1.0.zip` |
 | Game version | 1.60.1 (WoW Forever), build 1.60.1.70938 |
 | Dependencies | None required. Optional: Questie, HandyNotes, GatherMate2 (HereBeDragons pins); FarmHud is yielded to |
-| Video | [MagicMap-3.1.mp4](https://github.com/benmills/MagicMap/releases/download/v3.1.0/MagicMap-3.1.mp4) (26 s). CurseForge embeds only YouTube, so link the poster to it, or upload the video to YouTube and embed that |
+| Video | [YouTube](https://www.youtube.com/watch?v=tdv0wxADLbg) (26 s). In CurseForge's description editor, embed it with the YouTube button (or an `<iframe src="https://www.youtube.com/embed/tdv0wxADLbg">`); the poster below links to it too |
 
 ## Gallery
 
@@ -28,7 +28,7 @@ Replace the 8 images on CurseForge's Gallery tab (two are the old `big-map-durot
 
 ## Description
 
-[![MagicMap 3.1 in game, 26 seconds](https://raw.githubusercontent.com/benmills/MagicMap/main/docs/images/video-poster.jpg)](https://github.com/benmills/MagicMap/releases/download/v3.1.0/MagicMap-3.1.mp4)
+[![MagicMap 3.1 in game, 26 seconds](https://raw.githubusercontent.com/benmills/MagicMap/main/docs/images/video-poster.jpg)](https://www.youtube.com/watch?v=tdv0wxADLbg)
 
 **A minimap you can zoom out.** MagicMap replaces your minimap and draws the game's own terrain at any zoom, from
 Blizzard's closest zoom out to a whole continent. Press M and it grows into a big map in the same frame.

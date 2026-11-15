@@ -8,9 +8,9 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 **[CurseForge](https://www.curseforge.com/wow/addons/magic-map)** ·
 **[Try it in your browser](https://magic-map-outdoor.exe.xyz)**
 
-[![Watch MagicMap 3.1: the minimap zooms out from Orgrimmar to Kalimdor, Track or Path to a quest, and the big map over Hillsbrad (26 s)](docs/images/video-poster.jpg)](https://github.com/benmills/MagicMap/releases/download/v3.1.0/MagicMap-3.1.mp4)
+[![Watch MagicMap 3.1: the minimap zooms out from Orgrimmar to Kalimdor, Track or Path to a quest, and the big map over Hillsbrad (26 s)](docs/images/video-poster.jpg)](https://www.youtube.com/watch?v=tdv0wxADLbg)
 
-*26 seconds of 3.1 in game: click to watch.*
+*26 seconds of 3.1 in game: click to watch on YouTube.*
 
 ## What you get
 
