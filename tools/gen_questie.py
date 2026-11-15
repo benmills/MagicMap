@@ -187,8 +187,11 @@ class Store:
     def ids(self, ent: str) -> list[int]:
         return sorted(self.blob(f"X-{ent}-IDS", True))
 
-    def row(self, ent: str, i: int) -> dict:
-        """Scalars and every present table field of one entity, keyed by field index."""
+    def row(self, ent: str, i: int):
+        """Scalars and every present table field of one entity, keyed by field index; None where the index lists
+        an id with no row (QuestieDB 1.1.0's Npc 18232: its own reader answers nil for it too)."""
+        if self.get(f"X-{ent}-{i}-S") is None:
+            return None
         r = as_map(self.blob(f"X-{ent}-{i}-S"))
         p = r.pop("p", 0)
         f = 1
@@ -460,7 +463,8 @@ def main() -> None:
     project = Projector(*load_zones(ns.questiedb, FLAVOR), load_uimaps(ns.uimaps))
     out = lambda name: os.path.join(ns.output, name)  # noqa: E731
 
-    raw = {ent: {i: store.row(ent, i) for i in store.ids(ent)} for ent in ("Npc", "Object", "Item", "Quest")}
+    raw = {ent: {i: r for i in store.ids(ent) if (r := store.row(ent, i)) is not None}
+           for ent in ("Npc", "Object", "Item", "Quest")}
     drop = {ent: {i for i, r in rs.items() if r.get(1) and placeholder(ent, r[1])} for ent, rs in raw.items()}
     for i, r in raw["Quest"].items():  # what a kept quest asks for stays (9664's "<TXT>... Capture Quest Doodad")
         if i not in drop["Quest"]:
