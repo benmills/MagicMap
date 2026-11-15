@@ -87,7 +87,7 @@ One zip of the committed tree, with LICENSE and NOTICE.md; it's unzipped into a 
 and loaded in the sim from there (every TOC file present; 0 errors) or isn't written. It goes on the
 GitHub release, with its notes: [dist/RELEASE_NOTES-v2.1.0.md](../dist/RELEASE_NOTES-v2.1.0.md) (2.0's:
 [dist/RELEASE_NOTES-v2.0.0.md](../dist/RELEASE_NOTES-v2.0.0.md); a listing draft for other channels:
-[dist/listing-v2.1.0.md](../dist/listing-v2.1.0.md); what to try in game first: [playtest-2.1.md](playtest-2.1.md)). How 2.0 replaced 1.x's tree in this repo:
+[dist/listing-v3.1.md](../dist/listing-v3.1.md); what to try in game first: [playtest-2.1.md](playtest-2.1.md)). How 2.0 replaced 1.x's tree in this repo:
 [release/merge-plan.md](release/merge-plan.md) (option A).
 
 ## Telemetry
