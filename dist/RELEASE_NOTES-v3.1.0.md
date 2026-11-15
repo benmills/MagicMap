@@ -25,6 +25,8 @@
 - **Pins respond more reliably.** Hovering a pin near Blizzard's blips, just after the blips appear under a still
   cursor, or after another addon hid its tooltip, now shows its tooltip; Questie icons it has faded out no longer
   sit invisibly over our pins.
+- **Fuller quest data.** Quest givers and turn-ins come from QuestieDB 1.1.0, which fills in much more of who gives
+  and takes each quest on Forever.
 
 ### Known
 - **Herb and ore tooltips are Blizzard's.** Since build 1.60.1.70938 the game keeps the names of Blizzard's minimap
