@@ -7,7 +7,7 @@ local D = ns.Data or {}; ns.Data = D
 D.formats = D.formats or {}; D.formats.Labels = 1
 D.Labels = {
   [0] = { -- Eastern Kingdoms
-    { "Eastern Kingdoms", 34.125, 44.125, "continent", 19.3455 },
+    { "Eastern Kingdoms", 34.125, 43.875, "continent", 19.3455 },
     { "Eastern Plaguelands", 39.53, 26.41, "zone", 6.3575, 139 },
     { "Wetlands", 38.16, 38.66, "zone", 6.0409, 11 },
     { "Stranglethorn Vale", 33.84, 55.41, "zone", 5.1246, 33 },

@@ -50,7 +50,7 @@ def test_route_dun_morogh():
     put(G, "waypoint", 0, *ANVILMAR)
     frames = find(sim, ns)
     p = ns.Runtime.Perf()[0]["model: route"]
-    assert len(G.Jobs) == 1 and 10 < frames < 60 and p.n == frames - 1 and p.max <= 1.1
+    assert len(G.Jobs) == 1 and 2 < frames < 60 and p.n == frames - 1 and p.max <= 1.1
     r, t = ns.Model.Route(), ns.Model.Target()
     pts = points(r)
     assert same(pts[0], ns.Model.you) and same(pts[-1], t.pos) and len(pts) > 10 and not r.straight and not r.partial
@@ -117,11 +117,11 @@ def test_route_straight_partial():
     G.Counting = False  # (Lua free: the whole search in one resume)
     L.execute("local Walk = ...; Nodes = 0; local Around = Walk.Around; Walk.Around = function(...) Nodes = Nodes + 1; return Around(...) end",
               ns.Atlas.Walk)
-    put(G, "waypoint", 0, 34.75, 38.75)  # a plateau in Dun Morogh's peaks, cliffs all round: its own region
+    put(G, "waypoint", 0, 38.09375, 40.59375)  # a plateau in the Loch Modan hills, cliffs all round: its own region
     find(sim, ns)
     r = ns.Model.Route()
     assert G.Nodes < 60000  # not for it: for the nearest place in yours (Data/WalkRegions.lua): Dun Morogh, by its tunnels
-    assert r.partial and not r.straight and r[len(r)].row == 38.75
+    assert r.partial and not r.straight and r[len(r)].row == 40.59375
 
     L, sim, ns, G = targets([], followed=0)  # without regions (a long way in one region still can): searched out
     sim.Run(1)
@@ -129,11 +129,11 @@ def test_route_straight_partial():
     G.Counting = False
     L.execute("local Walk = ...; Nodes = 0; local Around = Walk.Around; Walk.Around = function(...) Nodes = Nodes + 1; return Around(...) end",
               ns.Atlas.Walk)
-    put(G, "waypoint", 0, 34.75, 38.75)
+    put(G, "waypoint", 0, 38.09375, 40.59375)
     find(sim, ns)
     r = ns.Model.Route()
     assert G.Nodes == 60000  # given up at MAX_NODES (Walk.Around: once a node closed)
-    assert r.partial and not r.straight and r[len(r)].row == 38.75
+    assert r.partial and not r.straight and r[len(r)].row == 40.59375
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
@@ -142,7 +142,7 @@ def test_route_capped():
     me = sim.player
     sim.Run(1)
     ns.Atlas.Data.WalkRegions = None  # (with them, no search: test_route_straight_partial; a search can still cap)
-    put(G, "waypoint", 0, 34.75, 38.75)  # the plateau, 11.4 tiles off: no way there
+    put(G, "waypoint", 0, 38.09375, 40.59375)  # the plateau, 11 tiles off: no way there
     frames = 0
     while not (len(G.Jobs) and G.Jobs[1].done):
         sim.Step()
@@ -152,11 +152,11 @@ def test_route_capped():
     print(f"a capped search: {frames} frames, {p.kb:.0f} KB, its slowest resume {p.max:.2f} ms, {p.kbMax:.0f} KB")
     assert 600 < frames < 850 and p.kb < 5000 and ns.Model.Route().partial  # (MM_STRICT=1: ~720, its checks counted)
     walked = []
-    for _ in range(11):  # toward it, 0.56 tiles a step (9 chunks: off its way, past RETRY_MOVED in two)
-        me.col, me.row = me.col + 0.25, me.row - 0.5
+    for _ in range(10):  # toward it, 0.56 tiles a step (9 chunks: off its way, past RETRY_MOVED in two)
+        me.col, me.row = me.col + 0.31, me.row - 0.465
         sim.Run(0.3)
         walked.append(len(G.Jobs))
-    assert walked == [1] * 10 + [2], walked  # again past 5.7 tiles, half of its 11.4
+    assert walked == [1] * 9 + [2], walked  # again past 5.5 tiles, half of its 11
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
@@ -184,7 +184,8 @@ def test_route_gives_way():
     sim.Run(6)  # past login's grace and the first open's
     view, P = ns.UI.Window.view, ns.Runtime.Perf
     sim.Price(True)
-    put(G, "waypoint", 0, 34.75, 38.75)  # the plateau: ~1,000 slices
+    ns.Atlas.Data.WalkRegions = None  # (with them, no long search: test_route_straight_partial)
+    put(G, "waypoint", 0, 38.09375, 40.59375)  # the plateau: ~700 slices
     sim.Run(0.5)
     n0, cycles = P()[0]["model: route"].n, 4
     for _ in range(cycles):

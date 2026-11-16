@@ -23,7 +23,7 @@ const CELL_FILL = ["rgba(255,65,65,.35)", "rgba(50,210,110,.16)", "rgba(60,150,2
 const CLASS_NAMES = ["blocked", "land", "water", "magma/slime"];
 const QUAD_MIN_ZOOM = 640; // px a tile: a square 5 px, its layer worth drawing
 const pathPrefs = (() => {
-  const p = { layers: Object.fromEntries(PATH_LAYERS.map(([k, , on]) => [k, on])), rule: "plane", max: 50 };
+  const p = { layers: Object.fromEntries(PATH_LAYERS.map(([k, , on]) => [k, on])), rule: "plane", max: 60 };
   try {
     Object.assign(p, JSON.parse(localStorage.getItem("mm.pathDebug") || "{}"));
   } catch {}
@@ -421,7 +421,7 @@ function renderPathMenu() {
     h("div", { className: "row" }, h("span", {}, "Squares too steep past"), out),
     h("div", { className: "row" }, max),
     h("div", { className: "row" }, h("span", {}, "by"), rule),
-    h("p", {}, "The slope only recolours the 4-yd squares: the addon's grid and its routes keep gen_walk's 50° by the plane."),
+    h("p", {}, "The slope only recolours the 4-yd squares: the addon's grid and its routes keep gen_walk's 60° by the plane."),
   );
 }
 
