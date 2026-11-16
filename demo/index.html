@@ -121,7 +121,7 @@
         <label class="row"><input type="checkbox" data-tool="path" /><span>Pathing Debug</span></label>
       </div>
     </section>
-    <!-- Pathing debug (pathdebug.js): its layers, the route's numbers, what's under the mouse. -->
+    <!-- Pathing debug (pathdebug.js): its layers, the walk A/B, the route's numbers, cases, what's under the mouse. -->
     <section id="pathDebug" class="panel" aria-label="Pathing debug" hidden>
       <div class="head">
         <b>Pathing debug</b>
@@ -129,7 +129,11 @@
         <button id="pathClear">Clear route</button>
         <button id="pathClose" aria-label="Turn pathing debug off" title="Turn off">×</button>
       </div>
+      <div id="pathAB" class="ab" role="group" aria-label="Which walk is drawn">
+        <span>Walk</span><button data-v="31" aria-pressed="false">3.1</button><button data-v="2" aria-pressed="true">v2</button>
+      </div>
       <div id="pathRoute"></div>
+      <details id="pathCases" hidden><summary>Cases</summary><div id="pathCaseList"></div><details id="pathSweep" hidden></details></details>
       <div id="pathHover"></div>
     </section>
     <!-- A tap on the map: the zone and the place there, and two ways in. -->

@@ -536,6 +536,35 @@ body.flying #map {
 }
 #pathRoute dt { color: var(--dim); }
 #pathRoute dd { margin: 0; }
+/* the walk A/B: which is drawn, and both sides' numbers */
+#pathAB { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+#pathAB span { color: var(--dim); margin-right: 4px; }
+#pathDebug #pathAB button { min-width: 44px; }
+#pathDebug #pathAB button[aria-pressed="true"] { background: #ffd24c; color: #000; font-weight: 600; }
+#pathRoute table.ab { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+#pathRoute table.ab th, #pathRoute table.ab td { text-align: left; padding: 1px 6px 1px 0; font-weight: normal; }
+#pathRoute table.ab tbody th { color: var(--dim); }
+#pathRoute table.ab .shown { color: #ffd24c; }
+#pathRoute table.ab thead .shown { font-weight: 600; }
+#pathRoute p.drawn { color: var(--fg); margin: 4px 0 2px; }
+#pathCases { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+#pathCases[hidden] { display: none; }
+#pathCaseList { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+#pathCaseList p, #pathSweep p { color: var(--dim); margin: 2px 0; }
+#pathDebug button.case { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 4px 8px; }
+#pathDebug button.case span { color: var(--dim); }
+#pathDebug button.case .rec { font-variant-numeric: tabular-nums; }
+#pathSweep { margin-top: 6px; }
+#pathSweep[hidden] { display: none; }
+#pathSweep dl { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; margin: 4px 0; }
+#pathSweep dt { color: var(--dim); }
+#pathSweep dd { margin: 0; }
+#pathSweep .scroll { overflow: auto; max-height: 260px; }
+#pathSweep table { border-collapse: collapse; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#pathSweep th { position: sticky; top: 0; background: var(--sheet); text-align: left; font-weight: 600; }
+#pathSweep th, #pathSweep td { padding: 1px 8px 1px 0; }
+#pathSweep tr.go { cursor: pointer; }
+#pathSweep tr.go:hover td { background: var(--lift); }
 #pathHover:not(:empty) {
   margin-top: 6px;
   padding-top: 6px;

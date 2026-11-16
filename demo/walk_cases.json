@@ -1,0 +1,33 @@
+{
+  "about": "Walk A/B cases (pathing debug's Cases; placeholders, the lead fills these). inst: the map (0 Eastern Kingdoms, 1 Kalimdor, 2991 Zephras Isle). a, b: the route's ends in that map's own tile coordinates (col, row: what Route.Find takes, as in tools/walk_cases.json); the page moves them onto the demo's world by the map's offset (server.py OFFSET: Kalimdor +0,+0, Eastern Kingdoms +45,-9, the isle +29,-6) for /api/route's c0,r0,c1,r1, which are world tile coordinates. With \"space\": \"world\" at the top, a and b are world coordinates instead. v31 / v2 (optional): numbers recorded for each walk (result, yards, ratio = yards / straight, nodes, ms), shown under the case; a click runs both walks live. Other keys (expect, …) are ignored.",
+  "space": "map",
+  "cases": [
+    {
+      "name": "Goldshire to Lakeshire",
+      "note": "Placeholder: an easy one; both should find it a little longer than straight.",
+      "inst": 0,
+      "a": [31.95, 49.75],
+      "b": [36.09, 49.28],
+      "v31": { "result": "found", "yards": 2382, "ratio": 1.072, "nodes": 1191, "ms": 4.4 },
+      "v2": null
+    },
+    {
+      "name": "Kharanos to Thelsamar",
+      "note": "Placeholder: Dun Morogh's way out is a tunnel (a hand link).",
+      "inst": 0,
+      "a": [32.91, 42.41],
+      "b": [36.85, 42.95],
+      "v31": { "result": "found", "yards": 2301, "ratio": 1.085, "nodes": 1512, "ms": 4.7 },
+      "v2": null
+    },
+    {
+      "name": "Into Teldrassil",
+      "note": "Placeholder: its own region (boats, not a walk): no search, at once.",
+      "inst": 1,
+      "a": [29.0, 16.0],
+      "b": [30.22, 13.59],
+      "v31": { "result": "no way", "yards": null, "ratio": null, "nodes": 0, "ms": 0.1 },
+      "v2": null
+    }
+  ]
+}

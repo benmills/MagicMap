@@ -1,13 +1,15 @@
 -- The way to the target (the spike's Route.lua): the way you'd walk there, around cliffs,
--- mountains and lava and (when it's shorter) around lakes, over Atlas.Walk's terrain chunks
--- (16 a tile side, ~33 yd). A* finds it in a Runtime.Job, SLICE_MS a frame (none while the view moves:
+-- mountains and lava and (when it's shorter) around lakes, over Atlas.Walk's graph of parts (the ground
+-- you can stand on in each terrain chunk, 16 a tile side, ~33 yd; node ids, Walk.Snap's). Atlas.Route
+-- finds it in a Runtime.Job, SLICE_MS a frame (none while the view moves:
 -- Focus.moving, the map's layouts have the frame); line of sight
 -- straightens it, and its corners are rounded off. Found again when the target moves more than
 -- GOAL_SLACK chunks or you stray REPLAN_OFF off it; the old one stays meanwhile while its goal
--- is within KEEP_SHOWN (spike-bugs M1: no straight frame while re-routing). A search that gave up at
--- Route.MAX_NODES (a goal no way reaches, as a rule: ~18 s of slices, ~4.4 MB) is searched again for that
--- goal only once you've come half the way it spanned (the lead's decision at the M3 review: the spike
--- searched again each REPLAN_OFF stray or RETRY_MOVED moved, riding past the frame and allocation budgets).
+-- is within KEEP_SHOWN (spike-bugs M1: no straight frame while re-routing). A search that gave up (Route.Find's
+-- third: no regions to say there's no way, so the tile graph searched out, or a plain search at Route.MAX_NODES;
+-- seconds of slices, MBs) is searched again for that goal only once you've come half the way it spanned (the
+-- lead's decision at the M3 review: the spike searched again each REPLAN_OFF stray or RETRY_MOVED moved, riding
+-- past the frame and allocation budgets).
 -- Model.Route(): the way from you, cut to where you are: you, then the furthest point ahead you
 -- can walk straight to, on to the target as it is now (an area's nearest edge drifts as you go).
 -- nil: none to show (no target, you're in its area, not on its map, the map hidden: a search under
@@ -23,27 +25,26 @@ local Walk = Atlas.Walk
 
 -- (Route.lua:11-25; the search's own: atlas/Route.lua)
 local Route = Atlas.Route
-local CHUNKS, SPAN, COST = Route.CHUNKS, Route.SPAN, Route.COST
+local CHUNKS, SPAN, PARTS, COST = Route.CHUNKS, Route.SPAN, Route.PARTS, Route.COST
 local LAND = 1
 local SLICE_MS = 1                  -- A*'s time a frame (spike-bugs P2)
-local FRAMES = 2400                 -- a search's frames at most (Runtime.Job cancels it past them): MAX_NODES at 25 a slice, and straightening
+local FRAMES = 2400                 -- a search's frames at most (Runtime.Job cancels it past them): a plain search's MAX_NODES at 25 a slice, and straightening
 local REPLAN_OFF = 3                -- chunks off the route before it's found again
 local RETRY_MOVED = 12              -- chunks you move before a target with no route is tried again
 local GOAL_SLACK = 2                -- chunks the target can move (an area's nearest edge slides as you go) and keep its route
 local KEEP_SHOWN = 8                -- ...and still show it while the new one's found
 local LOOKAHEAD = 40                -- route points ahead of you checked for a straight way to them
 
-local function Class(inst, gc, gr) return (Walk.Cell(inst, gc, gr)) end
 local Sight = Route.Sight
 
 ---------------------------------------------------------------------------------------------------
 -- The route to the target, kept up to date (Route.lua:271-371).
 
-local route  -- { pts, inst, goal (chunk id), partial, col, row, half, capped } once found
+local route  -- { pts, inst, goal (its chunk, as a node id: part 0), partial, col, row, half, capped } once found
 local job    -- { run (its Runtime.Job), inst, goal, col, row, half, pts?, partial?, capped? } while one's being found
 local failed -- { inst, goal, col, row, half, capped }: no route from there; straight until the goal changes or you move on
 -- (col, row: where it was searched from; half: half its span, in chunks, RETRY_MOVED at least; capped: it
--- gave up at MAX_NODES)
+-- gave up)
 local out    -- Model.Route()'s
 local cut = {} -- what out was cut from: pts, from, dest
 
@@ -77,9 +78,10 @@ local function Kept(x, pc, pr)
 	return not Moved(x.col, x.row, pc, pr)
 end
 
--- Are goal chunks a and b within n chunks of each other?
+-- Are goals a and b (node ids) within n chunks of each other?
 local function Near(a, b, n)
-	return math.abs(math.floor(a / SPAN) - math.floor(b / SPAN)) <= n and math.abs(a % SPAN - b % SPAN) <= n
+	return math.abs(math.floor(a / SPAN) - math.floor(b / SPAN)) <= n
+		and math.abs(math.floor(a % SPAN / PARTS) - math.floor(b % SPAN / PARTS)) <= n
 end
 
 local function For(x, inst, goal, n) return x and x.inst == inst and Near(x.goal, goal, n) end
@@ -88,32 +90,33 @@ local function For(x, inst, goal, n) return x and x.inst == inst and Near(x.goal
 local function Start(inst, goal, pc, pr, c2, r2)
 	if job then Runtime.Cancel(job.run) end
 	job = nil
-	local sc, sr = Walk.Snap(inst, math.floor(pc * CHUNKS), math.floor(pr * CHUNKS))
-	local gc, gr = Walk.Snap(inst, math.floor(c2 * CHUNKS), math.floor(r2 * CHUNKS))
-	if not (sc and gc) then
+	local s, g = Walk.Snap(inst, pc, pr), Walk.Snap(inst, c2, r2)
+	if not (s and g) then
 		route, failed = nil, { inst = inst, goal = goal, col = pc, row = pr }
 		return
 	end
 	local half = math.max(RETRY_MOVED, math.sqrt((c2 - pc) ^ 2 + (r2 - pr) ^ 2) * CHUNKS / 2)
 	local j = { inst = inst, goal = goal, col = pc, row = pr, half = half }
 	j.run = Runtime.Job("model: route", function()
-		j.pts, j.partial, j.capped = Route.Find(inst, pc, pr, sc, sr, gc, gr, c2, r2, Runtime.Yield)
+		j.pts, j.partial, j.capped = Route.Find(inst, pc, pr, s, g, c2, r2, Runtime.Yield)
 	end, SLICE_MS, FRAMES)
 	job = j
 end
 
--- The furthest point of the route ahead of leg i you can walk straight to from (pc, pr): its
--- index, or nil. Looked for once a route, leg and chunk you're in.
+-- The furthest point of the route ahead of leg i you can walk straight to from (pc, pr) (from the part
+-- you're on: Walk.Snap): its index, or nil. Looked for once a route, leg and chunk you're in.
 local ahead = {} -- pts, chunk, i, index
 local function Ahead(inst, pts, i, pc, pr)
-	local yc, yr = math.floor(pc * CHUNKS), math.floor(pr * CHUNKS)
-	local here = yc * SPAN + yr
+	local here = math.floor(pc * CHUNKS) * SPAN + math.floor(pr * CHUNKS) * PARTS
 	if ahead.pts == pts and ahead.chunk == here and ahead.i == i then return ahead.index end
-	local worst = math.max(COST[LAND], COST[Class(inst, yc, yr)] or 0)
+	local me = Walk.Snap(inst, pc, pr)
 	local best
-	for j = i + 1, math.min(#pts, i + LOOKAHEAD) do
-		if not Sight(inst, yc, yr, math.floor(pts[j].col * CHUNKS), math.floor(pts[j].row * CHUNKS), worst) then break end
-		best = j
+	if me then
+		local worst = math.max(COST[LAND], COST[Walk.Class(inst, me)] or 0)
+		for j = i + 1, math.min(#pts, i + LOOKAHEAD) do
+			if not Sight(inst, me, nil, worst, nil, pc, pr, pts[j].col, pts[j].row) then break end
+			best = j
+		end
 	end
 	ahead.pts, ahead.chunk, ahead.i, ahead.index = pts, here, i, best
 	return best
@@ -147,7 +150,7 @@ Model.Part(function()
 		job = nil
 	end
 	local inst, pc, pr, dest = you.inst, you.col, you.row, t.pos
-	local goal = math.floor(dest.col * CHUNKS) * SPAN + math.floor(dest.row * CHUNKS)
+	local goal = math.floor(dest.col * CHUNKS) * SPAN + math.floor(dest.row * CHUNKS) * PARTS
 	if not (For(route, inst, goal, GOAL_SLACK) and Kept(route, pc, pr)) and not For(job, inst, goal, GOAL_SLACK)
 		and not (For(failed, inst, goal, GOAL_SLACK) and Kept(failed, pc, pr)) then
 		Start(inst, goal, pc, pr, dest.col, dest.row)

@@ -50,7 +50,7 @@ export function readView(hash, preferred = "2d") {
       : DEFAULT_LABEL_TIERS,
     camera:
       cx !== null && cy !== null
-        ? { cx, cy, zoom: number(p, "z", 32, 4, 1024) }
+        ? { cx, cy, zoom: number(p, "z", 32, 4, 8192) } // (the page holds it to its own limit: core.js maxZoom)
         : null,
     yaw: number(p, "yaw", 0, -Math.PI, Math.PI),
     tilt: number(p, "tilt", 45, 0, 65),
@@ -65,7 +65,18 @@ export function readView(hash, preferred = "2d") {
       .split(",")
       .map((x) => (x === "walk" ? "path" : x)) // (the walk grid's old switch: pathing debug has it)
       .filter((x) => TOOL_IDS.includes(x)),
+    path: readPath(p),
   };
+}
+// Pathing debug's part (pathdebug.js): the walk drawn (pv: 31 or 2) and a route's ends (pa, pb: world tile col,row).
+function readPath(p) {
+  const point = (k) => {
+    const v = (p.get(k) || "").split(",").map(Number);
+    return v.length === 2 && v.every(Number.isFinite) ? v : null;
+  };
+  const a = point("pa"),
+    b = point("pb");
+  return { v: p.get("pv") === "31" ? "31" : "2", points: a ? (b ? [a, b] : [a]) : [] };
 }
 export function writeView(s) {
   const p = new URLSearchParams({ map: s.inst, view: s.mode });
@@ -84,6 +95,10 @@ export function writeView(s) {
   if (s.pins === false) p.set("pins", "0");
   if (s.tools.size || s.tools.length)
     p.set("tools", [...s.tools].sort().join(","));
+  if (s.path) {
+    p.set("pv", s.path.v);
+    s.path.points.forEach((pt, i) => p.set(i ? "pb" : "pa", pt.map((v) => v.toFixed(4)).join(",")));
+  }
   return "#" + p.toString();
 }
 export function fitBounds([c0, r0, c1, r1], width, height, padding = 0.8) {

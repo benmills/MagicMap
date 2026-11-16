@@ -6,22 +6,33 @@
 // browser): each chunk's class, the crossings it lacks, cut-off pockets (regions other than the map's biggest:
 // Data/WalkRegions.lua), the connectors (tools/walk_links.json), the 4-yd squares under each chunk (baked by
 // demo/export_walkquads.py; their slope by a rule and a limit you pick, to try another than gen_walk's), and the
-// search: every cell it closed (dark to bright, in order), its chunk path, the addon's line, its box.
+// search: every node it closed (dark to bright, in order), its node path, the addon's line, its box.
+//
+// A/B: two walks, 3.1's (v=31: demo/walk31, frozen) and the proposal's (v=2: the tree's atlas). The panel's toggle
+// picks the one drawn (grid and route); a route runs on both and the panel puts their numbers side by side. 3.1's
+// nodes are chunks (filled squares); v2's are parts of chunks (dots at their positions, edges between them). The
+// side and the route's ends are in the link (pv, pa, pb: view-state.mjs), so a link opens a case. Cases
+// (walk_cases.json) and a sweep's table (walk_sweep.json, if there is one) are in the panel: a click runs one.
 const PATH_LAYERS = [
   ["cells", "Cell classes", true],
-  ["crossings", "Missing crossings (black edges)", true],
+  ["crossings", "Missing crossings (black edges; 3.1)", true],
+  ["parts", "Parts and their edges (v2)", true],
   ["regions", "Cut-off pockets", true],
   ["links", "Connectors", true],
   ["quads", "4-yd squares (zoom in)", true],
-  ["searched", "Cells searched", true],
-  ["astar", "A*'s chunk path", true],
+  ["searched", "Nodes searched", true],
+  ["astar", "A*'s node path", true],
+  ["abstract", "The tile-graph path (v2)", true],
   ["line", "The addon's line", true],
   ["box", "Search box", false],
   ["dim", "Dim the map", false],
 ];
+const PATH_SIDES = [["31", "3.1"], ["2", "v2"]];
 const CELL_FILL = ["rgba(255,65,65,.35)", "rgba(50,210,110,.16)", "rgba(60,150,255,.3)", "rgba(255,145,30,.45)"];
+const NODE_FILL = ["#ff5a5a", "#4fe08a", "#5aa8ff", "#ffa040"];
 const CLASS_NAMES = ["blocked", "land", "water", "magma/slime"];
 const QUAD_MIN_ZOOM = 640; // px a tile: a square 5 px, its layer worth drawing
+const PARTS_MIN_ZOOM = 768; // px a tile: a chunk 48 px, its parts and edges worth drawing
 const pathPrefs = (() => {
   const p = { layers: Object.fromEntries(PATH_LAYERS.map(([k, , on]) => [k, on])), rule: "plane", max: 60 };
   try {
@@ -36,11 +47,28 @@ const savePathPrefs = () => {
 };
 const layer = (k) => pathPrefs.layers[k] !== false;
 let walkTimer,
+  pathSide = "2", // the walk drawn: "31" or "2"
   routePoints = [],
-  routeGot = null;
+  routeGot = null, // { "31": /api/route's answer, "2": … } as each arrives
+  pathCases = null, // walk_cases.json, walk_sweep.json: null not asked yet, false none
+  pathSweep = null;
 const pathOn = () => state.tools.has("path");
 
-// The walk grid around the view (/api/walk: classes, regions, connectors), fetched once the view settles.
+// The link's part (view-state.mjs pv, pa, pb), and a link's restored.
+const pathLink = () => (pathOn() ? { v: pathSide, points: routePoints } : null);
+function pathRestore(p) {
+  if (!p) return;
+  pathSide = p.v;
+  routePoints = pathOn() ? p.points.slice(0, 2) : [];
+  routeGot = null;
+  renderPathPanel();
+  if (pathOn()) {
+    refreshWalk();
+    if (routePoints.length === 2) findRoute();
+  }
+}
+
+// The walk grid around the view (/api/walk: classes, regions, connectors; v2's parts), fetched once the view settles.
 function refreshWalk() {
   clearTimeout(walkTimer);
   const ticket = requests.ticket("walk");
@@ -57,18 +85,21 @@ function refreshWalk() {
         notice("Zoom in for the walk grid (at most 40,000 cells).");
         return;
       }
-      const got = await get(`/api/walk?c0=${q[0]}&r0=${q[1]}&c1=${q[2]}&r1=${q[3]}`);
+      const got = await get(`/api/walk?c0=${q[0]}&r0=${q[1]}&c1=${q[2]}&r1=${q[3]}&v=${pathSide}`);
       if (requests.current(ticket) && pathOn()) {
-        walk = got;
+        walk = got.error ? null : got;
+        if (got.error) notice(got.error);
         draw();
       }
     }),
     150,
   );
 }
+// A chunk's cell: 3.1's { v (class + 4 east + 8 south), region }, or v2's { cls, parts }.
 const walkAt = (gc, gr) => {
   const j = gr - walk?.r0, i = gc - walk?.c0;
   if (!walk || j < 0 || i < 0 || j >= walk.rows.length || i >= walk.rows[0].length) return null;
+  if (walk.api === "2") return { cls: parseInt(walk.rows[j][i], 16), parts: parseInt(walk.parts[j][i], 16) };
   return { v: parseInt(walk.rows[j][i], 16), region: walk.regions[j][i] };
 };
 
@@ -131,7 +162,8 @@ function quadCanvas(q) {
 function drawPathDebug() {
   const s = 1 / CHUNKS,
     zoom = state.camera.zoom,
-    quadsOn = layer("quads") && zoom >= QUAD_MIN_ZOOM;
+    quadsOn = layer("quads") && zoom >= QUAD_MIN_ZOOM,
+    v2 = walk?.api === "2";
   if (layer("dim")) {
     ctx.fillStyle = "rgba(0,0,0,.45)";
     ctx.fillRect(0, 0, W, H);
@@ -141,10 +173,10 @@ function drawPathDebug() {
       [x1, y1] = toScreen((gc + 1) * s, (gr + 1) * s);
     return [x0, y0, x1, y1];
   };
+  const off = (x, y, m = 0) => x < -m || y < -m || x > W + m || y > H + m;
   if (walk) {
-    const alpha = quadsOn ? 0.35 : 1;
     ctx.save();
-    ctx.globalAlpha = alpha;
+    ctx.globalAlpha = quadsOn ? 0.35 : 1;
     walk.rows.forEach((row, j) => {
       for (let i = 0; i < row.length; i++) {
         const v = parseInt(row[i], 16),
@@ -154,7 +186,7 @@ function drawPathDebug() {
           ctx.fillStyle = CELL_FILL[v % 4];
           ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
         }
-        const rg = walk.regions[j][i];
+        const rg = v2 ? 0 : walk.regions[j][i];
         if (layer("regions") && rg > 1) {
           ctx.fillStyle = `hsla(${(rg * 137) % 360},90%,60%,.45)`;
           ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
@@ -177,7 +209,7 @@ function drawPathDebug() {
       }
     ctx.restore();
   }
-  if (walk) {
+  if (walk && !v2) {
     if (layer("crossings")) {
       ctx.strokeStyle = "rgba(0,0,0,.75)";
       ctx.lineWidth = zoom >= 1024 ? 2.5 : 1;
@@ -212,45 +244,104 @@ function drawPathDebug() {
         }
       });
     }
-    if (layer("links"))
-      for (const l of walk.links) {
-        const a = toScreen((l.a[0] + 0.5) * s, (l.a[1] + 0.5) * s),
-          b = toScreen((l.b[0] + 0.5) * s, (l.b[1] + 0.5) * s);
-        ctx.strokeStyle = "#d58cff";
-        ctx.lineWidth = 3;
-        ctx.setLineDash([2, 4]);
-        ctx.beginPath();
-        ctx.moveTo(...a);
-        ctx.lineTo(...b);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        for (const p of [a, b]) {
-          ctx.beginPath();
-          ctx.arc(...p, 5, 0, 2 * Math.PI);
-          ctx.fillStyle = "#d58cff";
-          ctx.fill();
-        }
-        ctx.font = "12px system-ui";
-        ctx.fillStyle = "#f3dcff";
-        ctx.fillText(l.name, (a[0] + b[0]) / 2 + 8, (a[1] + b[1]) / 2);
-      }
   }
-  const g = routeGot;
+  if (walk && v2 && layer("parts") && zoom >= PARTS_MIN_ZOOM && walk.graph) {
+    // v2's parts graph: two-way edges grey, one-way (drops) red with an arrowhead; each part a dot, its class's
+    // colour, ringed in its region's when that's a cut-off pocket.
+    ctx.lineWidth = 1.2;
+    for (const [ax, ay, bx, by, , oneway] of walk.edges) {
+      const a = toScreen(ax, ay), b = toScreen(bx, by);
+      if (off(...a, 200) && off(...b, 200)) continue;
+      ctx.strokeStyle = oneway ? "rgba(255,90,90,.85)" : "rgba(235,235,235,.55)";
+      ctx.beginPath();
+      ctx.moveTo(...a);
+      ctx.lineTo(...b);
+      ctx.stroke();
+      if (oneway) {
+        const t = Math.atan2(b[1] - a[1], b[0] - a[0]), m = [(a[0] + b[0] * 2) / 3, (a[1] + b[1] * 2) / 3];
+        ctx.fillStyle = "rgba(255,90,90,.95)";
+        ctx.beginPath();
+        ctx.moveTo(m[0] + 7 * Math.cos(t), m[1] + 7 * Math.sin(t));
+        ctx.lineTo(m[0] + 6 * Math.cos(t + 2.5), m[1] + 6 * Math.sin(t + 2.5));
+        ctx.lineTo(m[0] + 6 * Math.cos(t - 2.5), m[1] + 6 * Math.sin(t - 2.5));
+        ctx.fill();
+      }
+    }
+    ctx.font = "11px system-ui";
+    for (const [, x, y, cls, rg, p] of walk.nodes) {
+      const [sx, sy] = toScreen(x, y);
+      if (off(sx, sy, 10)) continue;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 4, 0, 2 * Math.PI);
+      ctx.fillStyle = NODE_FILL[cls % 4];
+      ctx.fill();
+      if (layer("regions") && rg > 1) {
+        ctx.strokeStyle = `hsl(${(rg * 137) % 360},90%,60%)`;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        if (zoom >= 1536) {
+          ctx.fillStyle = "#fff";
+          ctx.fillText(`r${rg}`, sx + 6, sy - 5);
+        }
+      }
+      if (zoom >= 3072) {
+        ctx.fillStyle = "rgba(255,255,255,.8)";
+        ctx.fillText(String(p), sx + 6, sy + 10);
+      }
+    }
+  }
+  if (walk && layer("links"))
+    for (const l of walk.links) {
+      const a = toScreen((l.a[0] + 0.5) * s, (l.a[1] + 0.5) * s),
+        b = toScreen((l.b[0] + 0.5) * s, (l.b[1] + 0.5) * s);
+      ctx.strokeStyle = "#d58cff";
+      ctx.lineWidth = 3;
+      ctx.setLineDash([2, 4]);
+      ctx.beginPath();
+      ctx.moveTo(...a);
+      ctx.lineTo(...b);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      for (const p of [a, b]) {
+        ctx.beginPath();
+        ctx.arc(...p, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = "#d58cff";
+        ctx.fill();
+      }
+      ctx.font = "12px system-ui";
+      ctx.fillStyle = "#f3dcff";
+      ctx.fillText(l.name + (l.oneway ? " (one way)" : ""), (a[0] + b[0]) / 2 + 8, (a[1] + b[1]) / 2);
+    }
+  const g = routeGot?.[pathSide];
   if (g && !g.error) {
-    const fill = (gc, gr) => {
-      const [x0, y0, x1, y1] = cell(gc, gr);
-      if (x0 > W || y0 > H || x1 < 0 || y1 < 0) return;
-      ctx.fillRect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+    // 3.1's nodes are chunks (each point a chunk's centre: its square filled); v2's are parts (a dot each).
+    const chunky = g.api !== "2";
+    const mark = ([x, y], r = 3) => {
+      if (chunky) {
+        const [x0, y0, x1, y1] = cell(Math.floor(x * CHUNKS), Math.floor(y * CHUNKS));
+        if (x0 > W || y0 > H || x1 < 0 || y1 < 0) return;
+        ctx.fillRect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+      } else {
+        const [sx, sy] = toScreen(x, y);
+        if (off(sx, sy, 10)) return;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, 0, 2 * Math.PI);
+        ctx.fill();
+      }
     };
-    const n = g.closed.length / 2;
+    const polyline = (ps) => {
+      ctx.beginPath();
+      ps.forEach((p, i) => (i ? ctx.lineTo(...toScreen(...p)) : ctx.moveTo(...toScreen(...p))));
+    };
+    const n = g.closed.length;
     if (layer("searched"))
       for (let i = 0; i < n; i++) {
-        ctx.fillStyle = `hsla(${230 - (i / n) * 180},80%,55%,.28)`;
-        fill(g.closed[2 * i], g.closed[2 * i + 1]);
+        ctx.fillStyle = `hsla(${230 - (i / n) * 180},80%,55%,${chunky ? 0.28 : 0.6})`;
+        mark(g.closed[i], 3);
       }
-    if (layer("box")) {
-      const [bx0, by0] = toScreen(g.box[0] * s, g.box[1] * s),
-        [bx1, by1] = toScreen((g.box[2] + 1) * s, (g.box[3] + 1) * s);
+    if (layer("box") && g.box) {
+      const [bx0, by0] = toScreen(g.box[0], g.box[1]),
+        [bx1, by1] = toScreen(g.box[2], g.box[3]);
       ctx.setLineDash([4, 4]);
       ctx.strokeStyle = "rgba(255,255,255,.6)";
       ctx.lineWidth = 1;
@@ -259,34 +350,56 @@ function drawPathDebug() {
     }
     if (layer("astar")) {
       ctx.fillStyle = "rgba(90,235,255,.55)";
-      for (let i = 0; i < g.raw.length; i += 2) fill(g.raw[i], g.raw[i + 1]);
+      if (chunky) for (const p of g.raw) mark(p);
+      else {
+        polyline(g.raw);
+        ctx.strokeStyle = "rgba(90,235,255,.8)";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        for (const p of g.raw) mark(p, 3.5);
+      }
+    }
+    if (layer("abstract") && g.abstract) {
+      polyline(g.abstract);
+      ctx.strokeStyle = "rgba(255,80,220,.85)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#ff50dc";
+      for (const p of g.abstract) {
+        const [sx, sy] = toScreen(...p);
+        ctx.fillRect(sx - 4, sy - 4, 8, 8);
+      }
     }
     if (layer("line") && g.way.length) {
-      const line = () => {
-        ctx.beginPath();
-        g.way.forEach((p, i) => (i ? ctx.lineTo(...toScreen(...p)) : ctx.moveTo(...toScreen(...p))));
-      };
-      line();
+      polyline(g.way);
       ctx.strokeStyle = "rgba(20,12,4,.8)";
       ctx.lineWidth = 5;
       ctx.stroke();
-      line();
+      polyline(g.way);
       ctx.strokeStyle = g.partial ? "#ff9a3c" : "#ffd24c";
       ctx.lineWidth = 2.5;
       ctx.setLineDash([8, 5]);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = "#fff";
-      for (let i = 2; i < g.turns.length - 2; i += 2) {
-        const [x, y] = toScreen((g.turns[i] + 0.5) * s, (g.turns[i + 1] + 0.5) * s);
+      for (const p of g.turns.slice(1, -1)) {
+        const [x, y] = toScreen(...p);
         ctx.fillRect(x - 2, y - 2, 4, 4);
       }
     }
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 1.5;
-    for (const [gc, gr] of [...g.snapped, ...(g.instead ? [g.instead] : [])]) {
-      const [x0, y0, x1, y1] = cell(gc, gr);
-      ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    for (const [x, y] of [...g.snapped, ...(g.instead ? [g.instead] : [])]) {
+      if (chunky) {
+        const [x0, y0, x1, y1] = cell(Math.floor(x * CHUNKS), Math.floor(y * CHUNKS));
+        ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+      } else {
+        ctx.beginPath();
+        ctx.arc(...toScreen(x, y), 8, 0, 2 * Math.PI);
+        ctx.stroke();
+      }
     }
   }
   for (const p of routePoints) drawRing(ctx, ...toScreen(...p), 0.6);
@@ -300,18 +413,35 @@ function pathTap(x, y) {
   routeGot = null;
   renderPathPanel();
   draw();
+  saveView();
   if (routePoints.length === 2) findRoute();
 }
-const findRoute = run(async () => {
+// The route on both walks, each drawn as it comes.
+function findRoute() {
   const [[c0, r0], [c1, r1]] = routePoints,
-    ticket = requests.ticket("route");
-  $("pathRoute").textContent = "Searching…";
-  const got = await get(`/api/route?c0=${c0}&r0=${r0}&c1=${c1}&r1=${r1}`);
-  if (!requests.current(ticket) || routePoints.length !== 2) return;
-  routeGot = got;
+    ticket = requests.ticket("route"),
+    got = (routeGot = {});
+  renderPathPanel();
+  for (const [v] of PATH_SIDES)
+    get(`/api/route?c0=${c0}&r0=${r0}&c1=${c1}&r1=${r1}&v=${v}`)
+      .catch((e) => (e.name === "AbortError" ? null : { error: e.message || String(e) }))
+      .then((answer) => {
+        if (!answer || !requests.current(ticket) || routeGot !== got) return;
+        got[v] = answer;
+        renderPathPanel();
+        draw();
+      });
+}
+// The A/B toggle: the other walk drawn, the route kept (both sides' answers are in already).
+function pathShow(v) {
+  if (v === pathSide) return;
+  pathSide = v;
+  walk = null;
+  refreshWalk();
   renderPathPanel();
   draw();
-});
+  saveView();
+}
 
 // What's under the mouse: its map, chunk and square.
 let hoverFrame = 0,
@@ -340,8 +470,14 @@ function renderHover() {
     real = [gc - dc * CHUNKS, gr - dr * CHUNKS];
   const name = world.parts.find((p) => p.inst === t.inst)?.name || `map ${t.inst}`;
   let text = `${name} · chunk ${real[0]}, ${real[1]} · tile ${(c - dc).toFixed(3)}, ${(r - dr).toFixed(3)}`;
-  if (w)
+  if (w && "v" in w)
     text += `\n${CLASS_NAMES[w.v % 4]} · crosses east ${w.v & 4 ? "yes" : "no"}, south ${w.v & 8 ? "yes" : "no"} · ${w.region ? (w.region === 1 ? "main region" : `cut-off pocket r${w.region}`) : "nowhere to stand"}`;
+  else if (w) {
+    text += `\n${CLASS_NAMES[w.cls % 4]} (its biggest part) · ${w.parts} part${w.parts === 1 ? "" : "s"}`;
+    const here = (walk.nodes || []).filter((n) => n[6] === gc && n[7] === gr);
+    for (const [id, , , cls, rg, p] of here)
+      text += `\n  part ${p} (node ${id}): ${CLASS_NAMES[cls % 4]} · ${rg ? (rg === 1 ? "main region" : `region r${rg}`) : "no region"}`;
+  }
   const q = quadTiles.get(col * 64 + row);
   if (q && q !== "loading") {
     const qx = Math.floor((c - col) * 128),
@@ -354,39 +490,169 @@ function renderHover() {
   el.textContent = text;
 }
 
+// The route's numbers, both walks side by side (the one drawn highlighted), then the drawn one's details.
+const sideName = (v) => PATH_SIDES.find(([k]) => k === v)[1];
+function routeNumbers(g) {
+  const yd = (v) => `${Math.round(v).toLocaleString()} yd`;
+  if (!g) return { result: "…", yards: "", ratio: "", nodes: "", ms: "" };
+  if (g.error) return { result: "error", yards: "", ratio: "", nodes: "", ms: "" };
+  return {
+    result: (!g.found ? "no way" : g.partial ? "partial" : "found") + (g.capped ? ", capped" : ""),
+    yards: g.found ? yd(g.yards) : "–",
+    ratio: g.ratio != null ? `×${g.ratio.toFixed(2)}` : "–",
+    nodes: g.nodes.toLocaleString() + (g.nodes2 != null ? ` + ${g.nodes2.toLocaleString()} L2` : ""),
+    ms: `${g.ms} ms`,
+  };
+}
 function renderPathPanel() {
   const panel = $("pathDebug");
   panel.hidden = !pathOn();
   if (!pathOn()) return;
-  const el = $("pathRoute"),
-    g = routeGot;
+  for (const b of $("pathAB").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.v === pathSide));
+  const el = $("pathRoute");
   el.replaceChildren();
   const hint = quadsMissing ? " The 4-yd squares aren't baked here (demo/export_walkquads.py)." : "";
   if (routePoints.length < 2) {
     el.textContent = (routePoints.length ? "Tap where to go." : "Tap where to start, then where to go.") + hint;
+    renderCases();
     return;
   }
-  if (!g) return;
-  if (g.error) return void (el.textContent = g.error);
-  const yd = (v) => `${Math.round(v).toLocaleString()} yd`,
-    outcome = !g.found
-      ? "No way: the addon draws a straight line."
-      : g.partial
-        ? "Partial: as near as it gets, then straight on (orange)."
-        : "Found.",
-    rows = [
-      ["Result", outcome + (g.capped ? ` Gave up at ${g.maxNodes.toLocaleString()} cells.` : "")],
-      ...(g.regions
-        ? [["Regions", `start r${g.regions[0]}, goal r${g.regions[1]}: no walk joins them, so no search${g.instead ? "; routed to the nearest cell in yours" : ", none near enough"}`]]
-        : []),
-      ["Searched", `${g.nodes.toLocaleString()} cells, ${g.ms} ms here (in game ~${Math.max(1, Math.round(g.nodes / 25 / 60))} s at 1 ms a frame)`],
-      ["Distance", g.found ? `${yd(g.yards)} along, ${yd(g.straight)} straight (×${(g.yards / g.straight).toFixed(2)})` : `${yd(g.straight)} straight`],
-      ["Path", `${g.raw.length / 2} cells, ${Math.max(0, g.turns.length / 2 - 2)} turns`],
-    ];
-  const dl = h("dl", {});
-  for (const [k, v] of rows) dl.append(h("dt", {}, k), h("dd", {}, v));
-  el.append(dl);
+  if (!routeGot) return renderCases();
+  const nums = Object.fromEntries(PATH_SIDES.map(([v]) => [v, routeNumbers(routeGot[v])]));
+  const table = h("table", { className: "ab" },
+    h("thead", {}, h("tr", {}, h("th", {}), ...PATH_SIDES.map(([v, label]) =>
+      h("th", { className: v === pathSide ? "shown" : "" }, label)))),
+    h("tbody", {}, ...[["Result", "result"], ["Distance", "yards"], ["vs straight", "ratio"], ["Searched", "nodes"], ["Time", "ms"]].map(
+      ([label, k]) => h("tr", {}, h("th", {}, label), ...PATH_SIDES.map(([v]) =>
+        h("td", { className: v === pathSide ? "shown" : "" }, nums[v][k]))))));
+  el.append(table);
+  const g = routeGot[pathSide];
+  if (g) {
+    const yd = (v) => `${Math.round(v).toLocaleString()} yd`;
+    const rows = g.error
+      ? [["Error", g.error]]
+      : [
+          ["Result", (!g.found
+            ? "No way: the addon draws a straight line."
+            : g.partial
+              ? "Partial: as near as it gets, then straight on (orange)."
+              : "Found.") + (g.capped ? ` Gave up at ${g.maxNodes.toLocaleString()} nodes.` : "")],
+          ...(g.regions
+            ? [["Regions", `start r${g.regions[0]}, goal r${g.regions[1]}: no walk joins them, so no search${g.instead ? "; routed to the nearest node in yours" : ", none near enough"}`]]
+            : []),
+          ["Searched", `${g.nodes.toLocaleString()} nodes, ${g.ms} ms here (in game ~${Math.max(1, Math.round(g.nodes / 25 / 60))} s at 1 ms a frame)`],
+          ["Straight", yd(g.straight)],
+          ["Path", `${g.raw.length} nodes, ${Math.max(0, g.turns.length - 2)} turns${g.abstract ? `; tile graph ${g.abstract.length} nodes` : ""}`],
+        ];
+    const dl = h("dl", {});
+    for (const [k, v] of rows) dl.append(h("dt", {}, k), h("dd", {}, v));
+    el.append(h("p", { className: "drawn" }, `Drawn: ${sideName(pathSide)}`), dl);
+    if (pathSide === "2" && g.api && g.api !== "2")
+      el.append(h("p", {}, "v2's runtime isn't in the tree yet: v2 is the tree's walk on 3.1's API (the same as 3.1 until it lands)."));
+  }
   if (hint) el.append(h("p", {}, hint));
+  renderCases();
+}
+
+// Cases (walk_cases.json) and a sweep (walk_sweep.json: tools/walk_sweep.py --json): fetched once the panel opens.
+// Their points are each map's own tile coordinates (Route.Find's, as tools/walk_cases.json has them: moved here by
+// the map's offset), or the world's as /api/route takes them with "space": "world" at the top of the file.
+function loadCases() {
+  if (pathCases !== null) return;
+  pathCases = pathSweep = false;
+  const json = (path) => fetch(path, { cache: "no-cache" }).then((r) => (r.ok ? r.json() : false)).catch(() => false);
+  Promise.all([json("walk_cases.json"), json("walk_sweep.json")]).then(([c, s]) => {
+    pathCases = c;
+    pathSweep = s;
+    renderCases();
+  });
+}
+function onWorld(inst, p, space) {
+  if (space === "world") return p;
+  const [dx, dy] = world.parts.find((x) => x.inst === inst)?.offset || [0, 0];
+  return [p[0] + dx, p[1] + dy];
+}
+function runCase(inst, a, b, space) {
+  a = onWorld(inst, a, space);
+  b = onWorld(inst, b, space);
+  routePoints = [a, b];
+  routeGot = null;
+  const goal = viewState.fitBounds(
+    [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])], W, H, 0.6);
+  flyTo(goal, 500);
+  findRoute();
+  draw();
+  saveView();
+}
+const fmt = (v) =>
+  v == null
+    ? ""
+    : Array.isArray(v)
+      ? v.map(fmt).join(", ")
+      : typeof v === "object"
+        ? JSON.stringify(v)
+        : typeof v === "number" && !Number.isInteger(v)
+          ? v.toFixed(2)
+          : String(v);
+function renderCases() {
+  const box = $("pathCases");
+  if (!pathOn() || !box) return;
+  loadCases();
+  const list = $("pathCaseList");
+  list.replaceChildren();
+  const cases = pathCases?.cases || (Array.isArray(pathCases) ? pathCases : []);
+  box.hidden = !cases.length && !pathSweep;
+  box.querySelector("summary").title = pathCases?.about || ""; // (the file's notes: on hover, not in the way)
+  const recorded = (r) => r && [r.result, r.yards != null && `${Math.round(r.yards)} yd`, r.ratio != null && `×${fmt(r.ratio)}`, r.nodes != null && `${r.nodes} nodes`].filter(Boolean).join(" · ");
+  for (const c of cases) {
+    const b = h("button", { className: "case", title: c.note || "" },
+      h("b", {}, c.name || "case"),
+      c.note ? h("span", {}, c.note) : null,
+      c.v31 ? h("span", { className: "rec" }, `3.1: ${recorded(c.v31)}`) : null,
+      c.v2 ? h("span", { className: "rec" }, `v2: ${recorded(c.v2)}`) : null);
+    b.onclick = () => runCase(c.inst, c.a, c.b, pathCases.space);
+    list.append(b);
+  }
+  const sweep = $("pathSweep");
+  sweep.replaceChildren();
+  sweep.hidden = !pathSweep;
+  if (!pathSweep) return;
+  // Rows as arrays under "columns", or as tools/walk_sweep.py writes them: objects (name, inst, a, b, kind, zone, …)
+  // with s[side] = an array under "columns" (one set of columns a side).
+  const rows = pathSweep.rows || [],
+    cols = pathSweep.columns || [],
+    sides = [...new Set(rows.flatMap((r) => (r && !Array.isArray(r) && r.s ? Object.keys(r.s) : [])))],
+    flat = ["name", "inst", "kind", "zone"].filter((k) => rows.some((r) => r && !Array.isArray(r) && k in r)),
+    head = rows.some((r) => !Array.isArray(r)) ? [...flat, ...sides.flatMap((s) => cols.map((c) => `${s} ${c}`))] : cols,
+    cells = (r) => (Array.isArray(r) ? r : [...flat.map((k) => r[k]), ...sides.flatMap((s) => cols.map((_, i) => r.s?.[s]?.[i]))]),
+    ends = (r) => {
+      if (!Array.isArray(r)) return [r.inst, r.a, r.b];
+      const at = (k) => r[cols.indexOf(k)];
+      return [at("inst"), at("a"), at("b")];
+    };
+  sweep.append(h("summary", {}, `Sweep (${rows.length} rows)`));
+  const about = pathSweep.about;
+  if (about) sweep.append(h("p", {}, typeof about === "string" ? about : Object.entries(about).map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`).join(" · ")));
+  if (pathSweep.summary) {
+    const dl = h("dl", {});
+    for (const [k, v] of Object.entries(pathSweep.summary))
+      dl.append(h("dt", {}, k), h("dd", {}, typeof v === "object" && v && !Array.isArray(v)
+        ? Object.entries(v).map(([a, b]) => `${a}: ${typeof b === "object" && b && !Array.isArray(b) ? Object.entries(b).map(([c, d]) => `${c} ${fmt(d)}`).join(", ") : fmt(b)}`).join(" · ")
+        : fmt(v)));
+    sweep.append(dl);
+  }
+  const table = h("table", {},
+    h("thead", {}, h("tr", {}, ...head.map((c) => h("th", {}, c)))),
+    h("tbody", {}, ...rows.map((row) => {
+      const tr = h("tr", { title: (!Array.isArray(row) && row.note) || "" }, ...cells(row).map((v) => h("td", {}, fmt(v)))),
+        [inst, a, b] = ends(row);
+      if (Array.isArray(a) && Array.isArray(b)) {
+        tr.className = "go";
+        tr.onclick = () => runCase(inst, a, b, pathSweep.space);
+      }
+      return tr;
+    })));
+  sweep.append(h("div", { className: "scroll" }, table));
 }
 
 function renderPathMenu() {
@@ -421,7 +687,7 @@ function renderPathMenu() {
     h("div", { className: "row" }, h("span", {}, "Squares too steep past"), out),
     h("div", { className: "row" }, max),
     h("div", { className: "row" }, h("span", {}, "by"), rule),
-    h("p", {}, "The slope only recolours the 4-yd squares: the addon's grid and its routes keep gen_walk's 60° by the plane."),
+    h("p", {}, "The slope only recolours the 4-yd squares: the addon's grid and its routes keep their own rules."),
   );
 }
 
@@ -442,6 +708,7 @@ $("pathClear").onclick = () => {
   routeGot = null;
   renderPathPanel();
   draw();
+  saveView();
 };
 $("pathClose").onclick = () => {
   state.tools.delete("path");
@@ -450,4 +717,5 @@ $("pathClose").onclick = () => {
   pathToggled();
   settled();
 };
+for (const b of $("pathAB").querySelectorAll("button")) b.onclick = () => pathShow(b.dataset.v);
 renderPathMenu();

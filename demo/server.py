@@ -11,8 +11,11 @@ them. One map: Kalimdor, the Eastern Kingdoms and Zephras Isle placed on a world
   /api/labels                        Atlas.Labels: ranked name anchors (continent, zone, town, subzone, poi)
   /api/at?col=&row=                  TileToWorld, ZoneAt, Walk.Cell at that chunk
   /api/fit?uiMapID=&w=&h=            MapRect and Camera.Fit (or c0=&r0=&c1=&r1=: a box)
-  /api/walk?c0=&r0=&c1=&r1=          Walk.Cell over a chunk range, one hex digit each
-  /api/route?c0=&r0=&c1=&r1=         Atlas.Route.Find from (c0, r0) to (c1, r1), with its trace (chunks closed, its path, its turns)
+  /api/walk?c0=&r0=&c1=&r1=&v=       the walk over a chunk range: 3.1's cells (one hex digit each) and regions; v2's
+                                     chunks, parts and edges (walk())
+  /api/route?c0=&r0=&c1=&r1=&v=      Atlas.Route.Find from (c0, r0) to (c1, r1), with its trace (nodes closed, its path,
+                                     its turns) as world points, one shape for both walks (route())
+                                     v=31: 3.1's walk, frozen in demo/walk31/; v=2 (the default): the tree's
   /api/pins?c0=&r0=&c1=&r1=&zoom=&layers=
                                      FlightPoints, POIs, Dungeons, SpawnsIn (by NPC flags, quests,
                                      rank, object kind) in a box; groups=1 returns compact groups and omitted count
@@ -36,13 +39,57 @@ from urllib.parse import parse_qs, urlparse
 DEMO = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(DEMO), "tools"))
 
-from atlas_lua import load_atlas  # noqa: E402
+from atlas_lua import ROOT, files, load_atlas  # noqa: E402
+from lupa import lua51  # noqa: E402
 from lupa.lua51 import LuaError  # noqa: E402
 from asset_manifest import inventory  # noqa: E402
 from static_assets import COMPRESSIBLE, accepts_gzip, compressed_file  # noqa: E402
 
-L, Atlas = load_atlas()
+# The walk A/B (pathing debug): "2" is the tree's own walk (atlas/Walk.lua, atlas/Route.lua over Data/Walk*.lua: the
+# proposal while it's being built), "31" is 3.1's, frozen in demo/walk31/ (those four files as at 5eedf63, main's).
+WALK31 = os.path.join(DEMO, "walk31")
+WALK31_FILES = ("Data/Walk.lua", "Data/WalkRegions.lua", "atlas/Walk.lua", "atlas/Route.lua")
+
+
+def load_walk31(L):
+    """3.1's walk in its own ns of the same Lua runtime: its two data files, then Walk and Route (Route reads only
+    Atlas.Walk, Walk only ns.Data). Its Atlas has nothing else."""
+    load = L.eval("function(src, name) local f, err = loadstring(src, name) if not f then error(err) end return f end")
+    ns = L.table()
+    for rel in WALK31_FILES:
+        with open(os.path.join(WALK31, rel), "rb") as f:
+            load(f.read(), "@demo/walk31/" + rel)("MagicMap", ns)
+    return ns.Atlas
+
+
+def load_tree_with_walk31():
+    """The tree's Atlas with 3.1's walk in place of its own (and none of its other Data/Walk* files): for when the
+    tree's own walk doesn't load (mid-rewrite)."""
+    L = lua51.LuaRuntime(unpack_returned_tuples=True)
+    load = L.eval("function(src, name) local f, err = loadstring(src, name) if not f then error(err) end return f end")
+    ns = L.table()
+    for rel in files():
+        path = os.path.join(WALK31, rel) if rel in WALK31_FILES else os.path.join(ROOT, rel)
+        if rel.startswith("Data/Walk") and rel not in WALK31_FILES or rel.startswith("Data/") and not os.path.exists(path):
+            continue
+        with open(path, "rb") as f:
+            load(f.read(), "@" + rel)("MagicMap", ns)
+    return L, ns.Atlas
+
+
+try:
+    L, Atlas = load_atlas()
+    TREE_WALK_ERROR = None
+except LuaError as e:  # the tree's walk mid-rewrite: everything else from the tree, the walk 3.1's
+    TREE_WALK_ERROR = str(e).splitlines()[0]
+    print("The tree's Atlas didn't load (%s): serving it with 3.1's walk" % TREE_WALK_ERROR, file=sys.stderr)
+    L, Atlas = load_tree_with_walk31()
 lua_type = L.globals().type
+Atlas31 = load_walk31(L)
+# v2's API (spec: Walk.Snap -> node id, Walk.Pos, Walk.Edges): until the tree's atlas has it, "2" runs the tree's
+# walk through 3.1's API (the same answers as "31" while the tree's walk is still 3.1's).
+WALK2_API = TREE_WALK_ERROR is None and Atlas.Walk is not None and Atlas.Walk.Pos is not None
+SIDES = {"31": Atlas31, "2": Atlas if TREE_WALK_ERROR is None else Atlas31}
 
 
 def py(v):
@@ -108,12 +155,21 @@ def real_maps():
 
 def real_at(inst, col, row):
     north, west = Atlas.TileToWorld(col, row)
-    n = Atlas.Walk.CHUNKS
+    n = Atlas31.Walk.CHUNKS
     gc, gr = int(col * n // 1), int(row * n // 1)
-    cls, east, south = Atlas.Walk.Cell(inst, gc, gr)
+    cls, east, south = Atlas31.Walk.Cell(inst, gc, gr)  # (3.1's grid: the chunk's class and crossings)
     z = Atlas.ZoneAt(inst, col, row)
     out = {"north": north, "west": west, "zone": py(z), "chunk": [gc, gr],
            "walk": {"class": cls, "east": east, "south": south}}
+    if WALK2_API:  # v2's: the chunk's class and part count, and the part a point here snaps to
+        try:
+            W = Atlas.Walk
+            cls2, parts = W.Cell(inst, gc, gr)
+            node = W.Snap(inst, col, row)
+            out["walk2"] = {"class": cls2, "parts": parts, "node": node,
+                            "region": W.Region(inst, node) if node is not None else None}
+        except LuaError as e:
+            out["walk2"] = {"error": str(e).splitlines()[0]}
     id = Atlas.AreaAt(inst, col, row)
     if id:
         a = Atlas.Area(id)
@@ -138,74 +194,218 @@ def fit(q):
     return {"cam": {"cx": cx, "cy": cy, "zoom": zoom}}
 
 
+def side(q):
+    """Which walk a request asks for: v=31 (3.1's, demo/walk31) or v=2 (the tree's, the default)."""
+    v = q.get("v", "2")
+    if v not in SIDES:
+        raise ValueError("v is 31 or 2")
+    return v, SIDES[v], v == "2" and WALK2_API
+
+
+def rnd(x, y):
+    return [round(x, 5), round(y, 5)]
+
+
+def link_rows(W, inst):
+    """A map's hand links as Data has them, either format: 3.1's { ac, ar, bc, br, cost, name } or v2's
+    { ac, ar, ap, bc, br, bp, cost, name, oneway }. -> [(ac, ar, ap, bc, br, bp, cost, name, oneway)], chunks real."""
+    got = W.Links(inst)
+    data = got[1] if isinstance(got, tuple) else got
+    out = []
+    for i in range(1, len(data) + 1 if data else 1):
+        k = data[i]
+        if isinstance(k[6], str):
+            out.append((k[1], k[2], None, k[3], k[4], None, k[5], k[6], False))
+        else:
+            out.append((k[1], k[2], k[3], k[4], k[5], k[6], k[7], k[8], bool(k[9])))
+    return out
+
+
 def walk(q):
-    """The walk grid over a world chunk range: each chunk's value (class + 4 east + 8 south) as a hex digit, its
-    region (Atlas.Walk.Region: 1 the map's biggest, 0 nowhere to stand), and the map's links that meet the range."""
+    """The walk over a world chunk range, on the side v asks for (31 or 2, the default).
+    3.1's API: each chunk's value (class + 4 east + 8 south) as a hex digit, its region (1 the map's biggest, 0 nowhere
+    to stand), and the map's links that meet the range. v2's (the tree's atlas has Walk.Pos): each chunk's class (its
+    biggest part's) and part count as digits, its parts (nodes: [id, col, row, class, region, p, gc, gr], position on
+    the world) and their edges ([col0, row0, col1, row1, cost, oneway], from Walk.Edges; past 12,000 chunks none)."""
     c0, r0, c1, r1 = (int(q[k]) for k in ("c0", "r0", "c1", "r1"))
-    n = Atlas.Walk.CHUNKS
     if c1 < c0 or r1 < r0 or (c1-c0)*(r1-r0) > 40000:
         raise ValueError("walk grid is limited to 40000 cells")
-    rows, regions = [], []
-    for gr in range(r0, r1):
-        s, reg = [], []
-        for gc in range(c0, c1):
-            inst, _, _ = to_real(gc / n, gr / n)
-            dx, dy = OFFSET[inst]
-            cls, east, south = Atlas.Walk.Cell(inst, gc - dx * n, gr - dy * n)
-            s.append("%x" % (cls + 4 * east + 8 * south))
-            reg.append(Atlas.Walk.Region(inst, gc - dx * n, gr - dy * n) or 0)
-        rows.append("".join(s))
-        regions.append(reg)
+    v, A, v2 = side(q)
+    try:
+        return walk_side(v, A, v2, c0, r0, c1, r1)
+    except LuaError as e:  # (the tree's walk mid-rewrite: say so, the page shows it)
+        return {"v": v, "error": "The %s walk failed: %s" % ("v2" if v == "2" else "3.1", str(e).splitlines()[0])}
+
+
+def walk_side(v, A, v2, c0, r0, c1, r1):
+    W, n = A.Walk, A.Walk.CHUNKS
+    out = {"v": v, "api": "2" if v2 else "3.1", "c0": c0, "r0": r0}
+    if v2:
+        out.update(walk_v2(W, c0, r0, c1, r1))
+    else:
+        rows, regions = [], []
+        for gr in range(r0, r1):
+            s, reg = [], []
+            for gc in range(c0, c1):
+                inst, _, _ = to_real(gc / n, gr / n)
+                dx, dy = OFFSET[inst]
+                cls, east, south = W.Cell(inst, gc - dx * n, gr - dy * n)
+                s.append("%x" % (cls + 4 * east + 8 * south))
+                reg.append(W.Region(inst, gc - dx * n, gr - dy * n) or 0)
+            rows.append("".join(s))
+            regions.append(reg)
+        out.update(rows=rows, regions=regions)
     links = []
     for inst in OFFSET:
         dx, dy = OFFSET[inst]
-        _, data = Atlas.Walk.Links(inst)
-        for i in range(1, len(data) + 1):
-            k = data[i]
-            ac, ar, bc, br = k[1] + dx * n, k[2] + dy * n, k[3] + dx * n, k[4] + dy * n
+        for ac, ar, ap, bc, br, bp, cost, name, oneway in link_rows(W, inst):
+            ac, ar, bc, br = ac + dx * n, ar + dy * n, bc + dx * n, br + dy * n
             if max(ac, bc) >= c0 - 1 and min(ac, bc) <= c1 and max(ar, br) >= r0 - 1 and min(ar, br) <= r1:
-                links.append({"a": [ac, ar], "b": [bc, br], "cost": k[5], "name": k[6]})
-    return {"c0": c0, "r0": r0, "rows": rows, "regions": regions, "links": links}
+                links.append({"a": [ac, ar], "b": [bc, br], "cost": cost, "name": name, "oneway": oneway,
+                              "ap": ap, "bp": bp})
+    out["links"] = links
+    return out
+
+
+GRAPH_CELLS = 12000  # chunks: v2's parts graph only this close in (a wide view's would be megabytes of JSON)
+
+
+def walk_v2(W, c0, r0, c1, r1):
+    n, PART = W.CHUNKS, 8192  # node id = gc * 8192 + gr * 8 + p
+    graph = (c1 - c0) * (r1 - r0) <= GRAPH_CELLS
+    rows, parts, nodes, edges = [], [], [], []
+    fwd, back = L.table(), L.table()
+
+    def inside(id, dx, dy):
+        return c0 <= id // PART + dx * n < c1 and r0 <= id % PART // 8 + dy * n < r1
+    for gr in range(r0, r1):
+        s, ps = [], []
+        for gc in range(c0, c1):
+            inst, _, _ = to_real(gc / n, gr / n)
+            dx, dy = OFFSET[inst]
+            rc, rr = gc - dx * n, gr - dy * n
+            cls, count = W.Cell(inst, rc, rr)
+            s.append("%x" % (cls or 0))
+            ps.append("%x" % (count or 0))
+            if not graph:
+                continue
+            for p in range(count or 0):
+                id = rc * PART + rr * 8 + p
+                col, row = W.Pos(inst, id)
+                if col is None:
+                    continue
+                x, y = rnd(col + dx, row + dy)
+                nodes.append([id, x, y, W.Class(inst, id) if W.Class else cls, W.Region(inst, id) or 0, p, gc, gr])
+                k, m = W.Edges(inst, id, fwd) or 0, W.Edges(inst, id, back, True) or 0
+                outs = {fwd[2 * j - 1]: fwd[2 * j] for j in range(1, k + 1)}
+                ins = {back[2 * j - 1]: back[2 * j] for j in range(1, m + 1)}
+                for u, cost in outs.items():
+                    two = u in ins
+                    if two and u < id and inside(u, dx, dy):
+                        continue  # (a two-way edge inside the range: drawn once, from its smaller end)
+                    uc, ur = W.Pos(inst, u)
+                    edges.append([x, y, *rnd(uc + dx, ur + dy), round(cost, 3), 0 if two else 1])
+                for u, cost in ins.items():  # one way in from outside the range: drawn here, not there
+                    if u not in outs and not inside(u, dx, dy):
+                        uc, ur = W.Pos(inst, u)
+                        edges.append([*rnd(uc + dx, ur + dy), x, y, round(cost, 3), 1])
+        rows.append("".join(s))
+        parts.append("".join(ps))
+    return {"rows": rows, "parts": parts, "graph": graph, "nodes": nodes, "edges": edges,
+            "nodeFields": ["id", "col", "row", "class", "region", "p", "gc", "gr"],
+            "edgeFields": ["col0", "row0", "col1", "row1", "cost", "oneway"]}
 
 
 def route(q):
-    """The addon's own route search (atlas/Route.lua, as model/Route.lua runs it, whole) between two world points,
-    with a trace: the chunks A* closed (in order), the chunk path it found, where the straightened way turns."""
+    """The addon's own route search (atlas/Route.lua, as model/Route.lua runs it, whole) between two world points, on
+    the side v asks for (31: 3.1's, demo/walk31; 2: the tree's, the default), with a trace, in one shape for both:
+    the way and its numbers; the nodes closed, the node path and its turns as world points (3.1's chunks at their
+    centres, v2's parts at Walk.Pos)."""
+    v, A, v2 = side(q)
     a, b = to_real(float(q["c0"]), float(q["r0"])), to_real(float(q["c1"]), float(q["r1"]))
     if a[0] != b[0]:
-        return {"error": "Both ends must be on the same map: a route never leaves one."}
-    inst, n = a[0], Atlas.Walk.CHUNKS
+        return {"v": v, "error": "Both ends must be on the same map: a route never leaves one."}
+    try:
+        return (route_v2 if v2 else route_31)(v, A, a[0], a, b)
+    except LuaError as e:
+        return {"v": v, "error": "The %s search failed: %s" % ("v2" if v == "2" else "3.1", str(e).splitlines()[0])}
+
+
+def route_common(v, api, A, inst, a, b, pts, partial, capped, ms, trace):
+    way = [rnd(*to_world(inst, p.col, p.row)) for p in (pts[i] for i in range(1, len(pts) + 1))] if pts else []
+    yards = sum(math.hypot(x1 - x0, y1 - y0) for (x0, y0), (x1, y1) in zip(way, way[1:])) * Atlas.TILE_YARDS
+    straight = math.hypot(b[1] - a[1], b[2] - a[2]) * Atlas.TILE_YARDS
+    nodes = trace.nodes
+    return {"v": v, "api": api, "map": MAP_NAMES.get(inst), "way": way, "found": pts is not None,
+            "partial": bool(partial), "capped": bool(capped),
+            "nodes": (len(nodes) if lua_type(nodes) == "table" else nodes) or 0,
+            "maxNodes": A.Route.MAX_NODES, "ms": round(ms, 1), "yards": yards, "straight": straight,
+            "ratio": round(yards / straight, 4) if pts is not None and straight > 0 else None,
+            "regions": list(trace.regions.values()) if trace.regions else None}
+
+
+def route_31(v, A, inst, a, b):
+    """3.1's API: Walk.Snap(inst, gc, gr) -> gc, gr; Route.Find(inst, c1, r1, sc, sr, gc, gr, c2, r2, yield, trace)."""
+    W, n, span = A.Walk, A.Walk.CHUNKS, A.Route.SPAN
     dx, dy = OFFSET[inst]
-    sc, sr = Atlas.Walk.Snap(inst, math.floor(a[1] * n), math.floor(a[2] * n))
-    gc, gr = Atlas.Walk.Snap(inst, math.floor(b[1] * n), math.floor(b[2] * n))
+    sc, sr = W.Snap(inst, math.floor(a[1] * n), math.floor(a[2] * n))
+    gc, gr = W.Snap(inst, math.floor(b[1] * n), math.floor(b[2] * n))
     if sc is None or gc is None:
-        return {"error": "Nowhere to stand within 4 chunks of %s: the addon would draw a straight line."
+        return {"v": v, "error": "Nowhere to stand within 4 chunks of %s: the addon would draw a straight line."
                 % ("the start" if sc is None else "the end")}
     trace = L.table()
     t = time.perf_counter()
-    pts, partial, capped = Atlas.Route.Find(inst, a[1], a[2], sc, sr, gc, gr, b[1], b[2], None, trace)
+    pts, partial, capped = A.Route.Find(inst, a[1], a[2], sc, sr, gc, gr, b[1], b[2], None, trace)
     ms = (time.perf_counter() - t) * 1000
-    span = Atlas.Route.SPAN
 
-    def chunks(ids):  # flat [gc, gr, ...] on the world
-        out = []
-        for i in range(1, len(ids) + 1 if ids else 1):
-            v = ids[i]
-            out += [v // span + dx * n, v % span + dy * n]
-        return out
-    way = [list(to_world(inst, p.col, p.row)) for p in (pts[i] for i in range(1, len(pts) + 1))] if pts else []
-    yards = sum(math.hypot(x1 - x0, y1 - y0) for (x0, y0), (x1, y1) in zip(way, way[1:])) * Atlas.TILE_YARDS
-    box = trace.box
-    if box is None:  # no search: different regions and nowhere near in yours
-        box = {1: sc, 2: sr, 3: gc, 4: gr}
-    return {"map": MAP_NAMES.get(inst), "way": way, "partial": bool(partial), "capped": bool(capped),
-            "found": pts is not None, "nodes": trace.nodes or 0, "maxNodes": Atlas.Route.MAX_NODES, "ms": round(ms, 1),
-            "straight": math.hypot(b[1] - a[1], b[2] - a[2]) * Atlas.TILE_YARDS, "yards": yards,
-            "snapped": [[sc + dx * n, sr + dy * n], [gc + dx * n, gr + dy * n]],
-            "box": [box[1] + dx * n, box[2] + dy * n, box[3] + dx * n, box[4] + dy * n],
-            "closed": chunks(trace.closed), "raw": chunks(trace.raw), "turns": chunks(trace.turns),
-            "regions": list(trace.regions.values()) if trace.regions else None,
-            "instead": [trace.goal[1] + dx * n, trace.goal[2] + dy * n] if trace.goal else None}
+    def centre(c, r):
+        return rnd((c + 0.5) / n + dx, (r + 0.5) / n + dy)
+
+    def points(ids):
+        return [centre(ids[i] // span, ids[i] % span) for i in range(1, len(ids) + 1)] if ids else []
+    box = trace.box or {1: sc, 2: sr, 3: gc, 4: gr}  # (no search: different regions and nowhere near in yours)
+    out = route_common(v, "3.1", A, inst, a, b, pts, partial, capped, ms, trace)
+    out.update(snapped=[centre(sc, sr), centre(gc, gr)],
+               box=[box[1] / n + dx, box[2] / n + dy, (box[3] + 1) / n + dx, (box[4] + 1) / n + dy],
+               closed=points(trace.closed), raw=points(trace.raw), turns=points(trace.turns),
+               instead=centre(trace.goal[1], trace.goal[2]) if trace.goal else None,
+               abstract=None, nodes2=None, closed2=None)
+    return out
+
+
+def route_v2(v, A, inst, a, b):
+    """v2's API (promo/pathing/walk-v2-spec.md): Walk.Snap(inst, col, row) -> node id; Route.Find(inst, c1, r1, s, g,
+    c2, r2, yield, trace); Walk.Pos(inst, id) -> col, row."""
+    W, n = A.Walk, A.Walk.CHUNKS
+    dx, dy = OFFSET[inst]
+    s, g = W.Snap(inst, a[1], a[2]), W.Snap(inst, b[1], b[2])
+    if s is None or g is None:
+        return {"v": v, "error": "Nowhere to stand within 4 chunks of %s: the addon would draw a straight line."
+                % ("the start" if s is None else "the end")}
+    trace = L.table()
+    t = time.perf_counter()
+    pts, partial, capped = A.Route.Find(inst, a[1], a[2], s, g, b[1], b[2], None, trace)
+    ms = (time.perf_counter() - t) * 1000
+
+    def pos(id):
+        col, row = W.Pos(inst, id)
+        return rnd(col + dx, row + dy)
+
+    def points(ids):
+        return [pos(ids[i]) for i in range(1, len(ids) + 1)] if lua_type(ids) == "table" else []
+    box = None
+    if lua_type(trace.box) == "table" and trace.box[4] is not None:  # (chunks, as 3.1's)
+        bx = trace.box
+        box = [bx[1] / n + dx, bx[2] / n + dy, (bx[3] + 1) / n + dx, (bx[4] + 1) / n + dy]
+    goal, nodes2 = trace.goal, trace.nodes2
+    out = route_common(v, "2", A, inst, a, b, pts, partial, capped, ms, trace)
+    out.update(snapped=[pos(s), pos(g)], box=box,
+               closed=points(trace.closed), raw=points(trace.raw), turns=points(trace.turns),
+               instead=pos(goal) if isinstance(goal, (int, float)) else None,
+               abstract=points(trace.abstract) if trace.abstract else None,
+               nodes2=(len(nodes2) if lua_type(nodes2) == "table" else nodes2),
+               closed2=points(nodes2) if lua_type(nodes2) == "table" else None)
+    return out
 
 
 MAP_NAMES = {m["inst"]: m["name"] for m in py(Atlas.Maps())}

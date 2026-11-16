@@ -6,7 +6,7 @@ function saveView({ immediate = false } = {}) {
   if (restoring || !viewState || !state.camera) return;
   clearTimeout(saveTimer);
   const write = () => {
-    hashWritten = viewState.writeView({ ...state, layers: layerOn, pins: pinsOn });
+    hashWritten = viewState.writeView({ ...state, layers: layerOn, pins: pinsOn, path: pathLink() });
     history.replaceState(null, "", hashWritten);
   };
   if (immediate) write();
@@ -284,6 +284,7 @@ async function restoreView() {
   let camera = restored.camera;
   if (!camera && (intro || !location.hash)) camera = startView();
   await loadWorld(camera);
+  pathRestore(restored.path); // (pathdebug.js: the walk shown and a route's ends, after loadWorld's reset)
   renderExtraLayers();
   $("layers").replaceChildren();
   renderLayers();
@@ -342,7 +343,7 @@ $("rotateRight").onclick = () => {
 };
 $("share").onclick = run(async () => {
   clearTimeout(saveTimer);
-  hashWritten = viewState.writeView({ ...state, layers: layerOn, pins: pinsOn });
+  hashWritten = viewState.writeView({ ...state, layers: layerOn, pins: pinsOn, path: pathLink() });
   history.replaceState(null, "", hashWritten);
   try {
     await navigator.clipboard.writeText(location.href);
