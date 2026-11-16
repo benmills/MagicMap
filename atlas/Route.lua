@@ -404,6 +404,7 @@ end
 -- more than one. Which boundary comes first is compared multiplied out: no divide by a 0 width. yield (or
 -- nil): called each SIGHT_STEPS chunks (a long line of sight is many nodes' work).
 local SIGHT_STEPS = 8
+local NARROW = 0.3 -- chunks a straight line may pass from a part that isn't most of its chunk
 local sightBuf = {}
 function Route.Sight(inst, a, b, worst, yield, ac, ar, bc, br)
 	local Step, Pos, Class = Walk.Step, Walk.Pos, Walk.Class
@@ -459,6 +460,14 @@ function Route.Sight(inst, a, b, worst, yield, ac, ar, bc, br)
 		end
 		if COST[Class(inst, v)] > worst then return false end
 		u, c, r = v, c + mx, r + my
+		-- A part that isn't most of its chunk (a ledge, a path up a slope: its place is its own, not the chunk's
+		-- centre): the line must pass by where it is, or it's drawn over the cliff beside it.
+		local px, py = Pos(inst, v)
+		px, py = px * CHUNKS, py * CHUNKS
+		if px - c ~= 0.5 or py - r ~= 0.5 then
+			local off = abs(dx * (py - y0) - dy * (px - x0))
+			if off * off > NARROW * NARROW * (dx * dx + dy * dy) then return false end
+		end
 		if mx ~= 0 then bx, nx = bx + sx, nx - 1 end
 		if my ~= 0 then by, ny = by + sy, ny - 1 end
 		steps = steps + 1

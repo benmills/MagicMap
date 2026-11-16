@@ -134,32 +134,67 @@ docs/decisions/0011-ai-map-art.md.
   joins the zone it meets most.
 - `Atlas.Anchors(inst)`; Data/Labels.lua ranks these with the continent's name and AreaPOI towns and landmarks (Places).
 
-### Data/Walk.lua — `ns.Data.Walk` (ADT MCVT heights, MH2O liquids)
-`[inst] = { [tileKey] = cells }`, open-world maps with ≥ 20 terrain tiles.
-- cells: the tile's 256 chunks (index iy * 16 + ix) as letters `'a' + value`, each
-  optionally followed by a run length. value = class (0 blocked: no walkable part of 4+
-  4-yd squares, 1 land, 2 water: mostly deeper than swimming depth, 3 magma/slime; from
-  the chunk's main walkable part) + 4 (its main part meets the east chunk's main part)
-  + 8 (south). A square is steep past 60° by the plane through its corners (a stand-in
-  for the game's 50° per face plus its 2-yd step). Terrain only: buildings and bridges (WMOs) read as
-  what's under them.
-- Global chunk (gc, gr) = tile (col, row) * 16. `Atlas.Walk.Cell(inst, gc, gr)` → class,
-  east, south; `Atlas.Walk.CanMove(inst, gc, gr, dx, dy)` (8 ways);
-  `Atlas.Walk.Snap(inst, gc, gr)` → the nearest standable chunk within 4.
-- `Atlas.Route.Find(inst, c1, r1, sc, sr, gc, gr, c2, r2, yield, trace)` (atlas/Route.lua): the walk from one
-  place to another over these chunks (A*, straightened by line of sight, corners rounded), from the chunks Snap
-  gives each end; model/Route.lua runs it in a Runtime.Job and keeps it up to date, the demo's `/api/route` whole.
+### Data/Walk.lua (format 2) — `ns.Data.Walk` (ADT MCVT heights, MH2O liquids)
+Walk v2 (promo/pathing/walk-v2-spec.md); tools/gen_walk.py writes it with Data/WalkParts.lua. The reference reader,
+and every reading the spec left open: tools/mmtools/walkdata.py (its docstring).
+- The terrain as the client draws it (each 4-yd quad 4 triangles round its centre) is baked into **parts**: per
+  33-yd chunk, the standable triangles (≤ 50°, deep water, magma/slime) that walk to each other both ways inside
+  the chunk (a 2-yd step over one steeper triangle counts), at most 7, 0 the biggest. Edges between parts: walking,
+  stepping up 2 yd / down 14.57 yd, sliding down steep faces (≤ 61.6°) and dropping down walls (a safe fall).
+  Tiny strongly connected pieces (< 1024 triangles) and small cul-de-sacs are pruned, contracted so reachability
+  stays. Terrain only: buildings, bridges, lifts (WMOs) are hand links (Data/WalkRegions.lua).
+- Node id = gc * 8192 + gr * 8 + p (gc, gr global chunk = tile (col, row) * 16 + (ix, iy); p the part).
+- `[inst][tileKey]` = the tile's 256 chunks (iy * 16 + ix), a letter each, a run as the letter and its count:
+  - lower case `'a' + value`, a **simple** chunk: value = class (0 no part, 1 land, 2 water, 3 magma/slime) + 4 (both
+    ways to the east chunk's only part) + 8 (the same south). One part, positioned at the chunk's centre.
+  - upper case `'A' + class` (its part 0's), a **complex** chunk: its record is in Data/WalkParts.lua.
+  So class-of-chunk readers (maplint, gen_labels, Walk.Cell): upper case is `ord - 65`.
+- Class: magma/slime if > 25% of the part's triangles are, else water if > 50% deep, else land. Edge cost =
+  distance between the two parts' positions (chunks) x 1 land / 3 water / 25 magma-slime of the target.
+- Diagonals are derived: u -> w in chunk c + (dx, dy) if some v in c + (dx, 0) or c + (0, dy) has u -> v -> w by
+  relation edges (not drop links).
 
-### Data/WalkRegions.lua — `ns.Data.WalkRegions`, `ns.Data.WalkLinks` (Data/Walk.lua, tools/walk_links.json)
-Made by tools/gen_walk_regions.py, no game data needed: regenerate after Data/Walk.lua or the links change
-(tools/tests/test_generators.py fails while it's stale).
-- `WalkLinks[inst] = { { ac, ar, bc, br, cost, name }, ... }`: hand-placed links (tunnels, bridges, lifts: the
-  terrain grid can't see buildings) between two chunks, both ways, cost in chunks walked (at least straight).
-- `WalkRegions[inst][tileKey]`: the tile's 256 chunks' regions (chunks a walk joins up, counting the links;
-  1 the map's biggest, 0 nowhere to stand): a number for the whole tile, else runs `"<region>x<count>"` (or a
-  lone region) between commas.
-- `Atlas.Walk.Region(inst, gc, gr)`, `Atlas.Walk.Links(inst)`. Atlas.Route.Find doesn't search between two
-  regions: the nearest chunk of yours within reach (partial), or no way at once; and it walks the links.
+### Data/WalkParts.lua (format 1) — `ns.Data.WalkParts`, `ns.Data.WalkDrops` (with Data/Walk.lua)
+Every char is `chr(48 + v)`, v 0..63 (the backslash, v 44, written `\\`).
+- `WalkParts[inst][tileKey]` = the tile's complex chunks' records, in chunk order. A record: `L` (2 chars, hi*64+lo:
+  the chars after it); `H1` = n + 8*nE, `H2` = nS (n parts here 1..7, nE / nS the east / south chunk's); n x (`P1`
+  rep quad qx + 8*qy, `P2` class + 4*centre: centre 1 = position the chunk's centre, else the rep quad's centre);
+  E relation, n*nE entries (i, j) at i*nE + j, 2 bits each (1: i -> east j, 2: east j -> i), 3 a char lowest first;
+  S relation the same; if n >= 2: intra, the n*(n-1) ordered pairs (i then j, i != j), a bit each (i -> j), 6 a char,
+  then the label map, 64 quads (qy*8 + qx) run-length coded, each char label + 8*(run-1), label 0 none or part+1.
+  W / N relations are the west / north neighbour's E / S. Snap: the part under the point (the label map; a chunk of
+  one part covers it all), else the nearest part by position in the 9x9 chunks around.
+- `WalkDrops[inst][tileKey]` = the tile's drop links (edges further than a 4-neighbour: long slides and falls, and
+  pruning's contractions), 8 chars each: chunk index hi, lo; `p + 8*dir`; the other end's gc hi, lo, gr hi, lo, part.
+  dir 0: this part -> other; 1: other -> this. Each listed in both ends' tiles; sorted by (chunk index, part, dir,
+  other) within a tile (the runtime binary-searches by chunk index and part).
+
+### Data/WalkRegions.lua (format 2) — `ns.Data.WalkLinks`, `ns.Data.WalkRegions`, `ns.Data.WalkReach`
+Made by tools/gen_walk_regions.py from Data/Walk.lua, Data/WalkParts.lua and tools/walk_links.json, no game data;
+it writes Data/WalkGraph.lua too. Regenerate after any of them changes (tools/tests/test_generators.py fails while
+either is stale).
+- `WalkLinks[inst] = { { ac, ar, ap, bc, br, bp, cost, name, oneway }, ... }`: hand links (tunnels, bridges,
+  lifts), part a to part b, and back unless oneway; cost in chunks (at least the straight distance). Each end of
+  walk_links.json's tile coordinates snapped as Snap.
+- `WalkRegions[inst][tileKey]`: the region of each of the tile's parts (strongly connected components of the parts
+  graph with the hand links, 1 the biggest): a number for all of them (0: no parts), or runs `"<region>x<count>"`
+  between commas over the parts in order (chunk index, then part).
+- `WalkReach[inst] = { hubs = H, up = { [r] = { h, ... } }, dn = {...}, own = {...} }`: regions 1..H are hubs; up[r]
+  the other hubs r reaches, dn[r] the hubs that reach r, own[r] (non-hubs only) the non-hubs r reaches without a hub
+  between. a reaches b iff a == b, or b in own[a], or some h in up[a] (and a itself if a <= H) is b or in dn[b].
+  Empty lists are left out.
+
+### Data/WalkGraph.lua (format 1) — `ns.Data.WalkGraph` (tools/gen_walk_regions.py)
+The tile graph for long routes (HPA*: a cluster per ADT tile). `[inst][tileKey] = { nodes, costs, cross }`, chars
+as WalkParts, for tiles with entrances (1..63):
+- nodes: m x 3 chars, chunk index hi, lo, part: the tile's entrances (crossing edges between the same two
+  tile-local components grouped in runs of neighbouring chunks, at most 8 a run, one part each side; a component
+  pair another kept pair already covers gets none; derived diagonals don't cross on their own).
+- costs: m x m x 2 chars, row a, column b: the cheapest walk a -> b inside the tile, 1/8 chunks (4094 cap, 4095 none).
+- cross: 6 chars each, `a`, other tile key hi, lo, `b` there, cost hi, lo (1/8 chunks): one-way, the way back is in
+  the other tile's list.
+- `Atlas.Walk` / `Atlas.Route` (atlas/Walk.lua, Route.lua) read all four lazily per tile: Snap, Pos, Class, Cell,
+  Edges, Region, Reach, Links; Route.Find: plain A* nearby, else over this graph, each leg refined inside its tile.
 
 ### Data/Places.lua — `ns.Data.Places` (DB2)
 - `flight[nodeID] = { name, faction, inst, col, row, areaID }` (TaxiNodes)

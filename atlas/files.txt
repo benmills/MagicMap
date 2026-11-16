@@ -6,7 +6,9 @@ Data/Sea.lua
 Data/Repaint.lua
 Data/Anchors.lua
 Data/Walk.lua
+Data/WalkParts.lua
 Data/WalkRegions.lua
+Data/WalkGraph.lua
 Data/UiMaps.lua
 Data/Areas.lua
 Data/AreaGrid.lua

@@ -523,7 +523,7 @@ def descents(f: Fine, pid, pch, K: int = 8, reach: int = 3):
 
 # --- L1: pieces -> parts --------------------------------------------------------------------------------------
 
-TINY_TRIS = 256      # a strongly connected component with fewer triangles goes, contracted
+TINY_TRIS = 1024     # a strongly connected component with fewer triangles goes, contracted
 DEAD_TRIS = 32       # a piece with fewer triangles and at most one two-way neighbour goes (a cul-de-sac)
 MAX_PARTS = 7        # parts a chunk; the smallest beyond go, contracted
 FILL_CAP = 4         # contraction: from each in-neighbour, to at most this many out-neighbours per component
@@ -567,7 +567,7 @@ def csr(n, u, v):
     return np.searchsorted(u, np.arange(n + 1)), v
 
 
-def prune(f: Fine, pc: Pieces, keys, log_=None):
+def prune(f: Fine, pc: Pieces, keys):
     """Which pieces stay, and the edges between them (int64 keys u << 32 | v): tiny strongly connected components
     and small cul-de-sacs go, then each chunk's smallest pieces past MAX_PARTS; each piece that goes is
     contracted (u -> x -> v becomes u -> v), so what reaches what doesn't change."""
@@ -714,7 +714,6 @@ def build_l1(f: Fine, pc: Pieces, keep, keys, tiles) -> L1:
         rep = int(cand[np.lexsort((cand, d))[0]])
         out.parts.setdefault(key, []).append((cls, centre, rep))
     # label maps: per quad the part with most of its standable triangles (ties: the lower part)
-    multi = [k for k, ps in out.parts.items() if len(ps) >= 2]
     chunk_of = {}
     for x in order.tolist():
         c = int(pc.pch[x])
@@ -726,7 +725,6 @@ def build_l1(f: Fine, pc: Pieces, keep, keys, tiles) -> L1:
         m = np.stack([qc[kidx[x]] for x in xs])  # [n, 64], in part order
         lab = np.where(m.max(axis=0) > 0, m.argmax(axis=0) + 1, 0)
         out.labels[key] = lab.tolist()
-    del multi
     u = (keys >> 32).astype(np.int64)
     v = (keys & 0xFFFFFFFF).astype(np.int64)
     gu, gv = gid[u], gid[v]
@@ -771,7 +769,7 @@ def l1_split(l1: L1):
     return rel, drops, derived
 
 
-THIN = 2  # chunks: a drop link goes when a kept one between the same two regions has both ends this near
+THIN = 3  # chunks: a drop link goes when a kept one between the same two regions has both ends this near
 
 
 def graph_scc(nodes, edges):

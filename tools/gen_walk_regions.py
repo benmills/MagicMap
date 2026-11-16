@@ -111,9 +111,6 @@ def reach_table(nodes, adj, comp, num):
     """WalkReach: {hubs, up, dn, own} with the H that keeps it smallest; and the full reach bitsets (checks)."""
     k = len(num)
     succ = [set() for _ in range(k)]
-    for u, c in zip(nodes, comp):
-        for w, _ in adj[u]:
-            pass
     cu = dict(zip(nodes, comp))
     for u in nodes:
         a = cu[u]
@@ -146,7 +143,6 @@ def build_reach(H, k, full, rsucc, num, succ):
     up = {r: [h for h in hubs if h != r and full[r] >> h & 1] for r in range(1, k + 1)}
     dn = {r: [h for h in hubs if h != r and full[h] >> r & 1] for r in range(1, k + 1)}
     # own: non-hubs reached through non-hubs only (regions in Tarjan order: sinks first)
-    inv = {v: c for c, v in num.items()}
     own_bits = {}
     for c in range(k):
         r = num[c]
@@ -167,7 +163,6 @@ def build_reach(H, k, full, rsucc, num, succ):
             lst.append(low.bit_length() - 1)
             b ^= low
         own[r] = lst
-    del inv
     return {"hubs": H, "up": {r: v for r, v in up.items() if v}, "dn": {r: v for r, v in dn.items() if v},
             "own": {r: v for r, v in own.items() if v}}
 
@@ -285,11 +280,15 @@ def build_graph(W: wd.Walk, adj: dict):
         ix, eu, ev, ew = inside(tnodes[k], adj)
         tiles[k] = (ix, eu, ev, ew, tile_components(tnodes[k], eu, ev))
     cross_edges: dict[tuple[int, int], list] = {}
+    lo, _ = W._links()
     for k in keys:
         for u in tnodes[k]:
+            # derived diagonals don't cross on their own: both their legs are stored edges, so the side tile's
+            # entrances already carry them
+            stored = set(W.rel_out(u)) | set(W.drop_out(u)) | {w for w, _ in lo.get(u, ())}
             for w, c in adj[u]:
                 kw = tkey(w)
-                if kw != k:
+                if kw != k and w in stored:
                     cross_edges.setdefault((k, kw), []).append((u, w, c))
     coarse: set[int] = set()
     while True:
@@ -313,8 +312,9 @@ def build_graph(W: wd.Walk, adj: dict):
             for g in sorted(kept):
                 for run in runs(groups[g], ka in coarse or kb in coarse):
                     run = sorted(run, key=lambda e: (split_id(e[0])[:2], e[0], e[1]))
-                    shared = [e for e in run if e[0] in l2[ka] and e[1] in l2[kb]]
-                    e = shared[len(shared) // 2] if shared else run[len(run) // 2]
+                    # an entrance already there (either end) serves again; else the run's middle
+                    mid = len(run) // 2
+                    e = min(enumerate(run), key=lambda t: (-(t[1][0] in l2[ka]) - (t[1][1] in l2[kb]), abs(t[0] - mid), t[0]))[1]
                     reps.append((ka, kb, e))
                     l2[ka].add(e[0])
                     l2[kb].add(e[1])
@@ -470,7 +470,6 @@ def main() -> None:
         adj = W.adjacency()
         reg, comp, num = regions(nodes, adj)
         reach, full = reach_table(nodes, adj, comp, num)
-        name = ""
         if lk:
             wl.append(f"  [{inst}] = {{\n")
             for a, b, c, nm, o in lk:

@@ -21,12 +21,20 @@ Readings this module fixes where the spec leaves a choice (the Lua reader does t
   (relation bits, not drop links), or some v in c + (0, dy). Only the 4-neighbour relation edges count as
   the two legs (not drop links, not other diagonals, not hand links).
 - cost(u -> v) = the distance between their positions, in chunks, x COST[class of v]; hand links their own cost.
+- WalkDrops: within a tile, drop links are sorted by (chunk index, part, dir, other end's id): the Lua side
+  binary-searches them by (chunk index, part).
+- Hand links (WalkLinks) are walked both ways unless oneway; regions and the tile graph count them.
 - WalkReach: own[r] is listed for non-hub regions only (a hub's own reach is through itself: up/dn).
 - WalkGraph costs: 1/8 chunks, rounded to nearest (round half to even, Python's round), capped at 4094;
-  4095 none. The diagonal entry (a -> a) is 0.
+  4095 none. The diagonal entry (a -> a) is 0. Cross edges: stored edges (relation bits, drop links) and hand
+  links only; a derived diagonal never crosses a tile border on its own (both its legs are stored edges, so the
+  side tile's entrances carry it). Between two tiles, a pair of tile-local components gets no entrance when a kept
+  pair already covers it (its source reaches the kept source inside its tile, the kept target reaches its target
+  inside its own): reachability is kept exactly, not every component pair has its own cross edge.
 """
 from __future__ import annotations
 
+import json
 import math
 import re
 
@@ -524,3 +532,60 @@ def decode_graph(entry: tuple[str, str, str]) -> tuple[list, list, list]:
         e = [v(ch) for ch in xs[k:k + 6]]
         cross.append((e[0], e[1] * 64 + e[2], e[3], e[4] * 64 + e[5]))
     return nodes, costs, cross
+
+
+def read_regions_file(path: str) -> dict:
+    """Data/WalkRegions.lua: {"links": {inst: [(a, b, cost, name, oneway)]} (node ids), "regions": {inst: {key:
+    entry}} (decode_regions), "reach": {inst: {"hubs", "up", "dn", "own"}} (reaches)."""
+    links: dict[int, list] = {}
+    reach: dict[int, dict] = {}
+    section = inst = part = None
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            m = re.match(r"D\.(\w+) = \{", line)
+            if m:
+                section, inst, part = m.group(1), None, None
+                continue
+            if section == "WalkLinks":
+                m = re.match(r"  \[(\d+)\] = \{", line)
+                if m:
+                    inst = int(m.group(1))
+                    links[inst] = []
+                    continue
+                m = re.match(r'    \{ (\d+), (\d+), (\d+), (\d+), (\d+), (\d+), ([\d.]+), ("(?:[^"\\]|\\.)*"), (true|false) \},',
+                             line)
+                if m:
+                    g = m.groups()
+                    a, b = node_id(int(g[0]), int(g[1]), int(g[2])), node_id(int(g[3]), int(g[4]), int(g[5]))
+                    links[inst].append((a, b, float(g[6]), json.loads(g[7]), g[8] == "true"))
+            elif section == "WalkReach":
+                m = re.match(r"  \[(\d+)\] = \{ hubs = (\d+),", line)
+                if m:
+                    inst = int(m.group(1))
+                    reach[inst] = {"hubs": int(m.group(2)), "up": {}, "dn": {}, "own": {}}
+                    continue
+                m = re.match(r"    (up|dn|own) = \{", line)
+                if m:
+                    part = m.group(1)
+                    continue
+                m = re.match(r"      \[(\d+)\] = \{ ([\d, ]*) \},", line)
+                if m:
+                    reach[inst][part][int(m.group(1))] = [int(x) for x in m.group(2).split(", ")]
+    return {"links": links, "regions": read_tables(path).get("WalkRegions", {}), "reach": reach}
+
+
+def read_graph_file(path: str) -> dict[int, dict[int, tuple[str, str, str]]]:
+    """Data/WalkGraph.lua: {inst: {key: (nodes, costs, cross)}} (decode each with decode_graph)."""
+    out: dict[int, dict] = {}
+    inst = None
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            m = re.match(r"  \[(\d+)\] = \{", line)
+            if m:
+                inst = int(m.group(1))
+                out[inst] = {}
+                continue
+            m = re.match(r'    \[(\d+)\] = \{ "((?:[^"\\]|\\.)*)", "((?:[^"\\]|\\.)*)", "((?:[^"\\]|\\.)*)" \},', line)
+            if m and inst is not None:
+                out[inst][int(m.group(1))] = tuple(x.replace("\\\\", "\\") for x in m.groups()[1:])
+    return out

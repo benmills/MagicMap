@@ -15,7 +15,9 @@ them. One map: Kalimdor, the Eastern Kingdoms and Zephras Isle placed on a world
                                      chunks, parts and edges (walk())
   /api/route?c0=&r0=&c1=&r1=&v=      Atlas.Route.Find from (c0, r0) to (c1, r1), with its trace (nodes closed, its path,
                                      its turns) as world points, one shape for both walks (route())
-                                     v=31: 3.1's walk, frozen in demo/walk31/; v=2 (the default): the tree's
+                                     v=311: 3.1.1's walk (demo/walk311/); v=31: main's before v2 (demo/walk31/);
+                                     v=2 (the default): the tree's
+  /api/cases?sides=311,2             the Routes page: walk_cases.json's grid cases, each run live on each side
   /api/pins?c0=&r0=&c1=&r1=&zoom=&layers=
                                      FlightPoints, POIs, Dungeons, SpawnsIn (by NPC flags, quests,
                                      rank, object kind) in a box; groups=1 returns compact groups and omitted count
@@ -45,20 +47,25 @@ from lupa.lua51 import LuaError  # noqa: E402
 from asset_manifest import inventory  # noqa: E402
 from static_assets import COMPRESSIBLE, accepts_gzip, compressed_file  # noqa: E402
 
-# The walk A/B (pathing debug): "2" is the tree's own walk (atlas/Walk.lua, atlas/Route.lua over Data/Walk*.lua: the
-# proposal while it's being built), "31" is 3.1's, frozen in demo/walk31/ (those four files as at 5eedf63, main's).
+# The walks the pathing debug and the Routes page compare: "2" is the tree's own walk (atlas/Walk.lua, atlas/Route.lua
+# over Data/Walk*.lua: v2); "31" is main's before v2, frozen in demo/walk31/ (those four files as at 5eedf63); "311" is
+# the released 3.1.1's (tag v3.1.1, 13f5be7), frozen in demo/walk311/: its Walk.lua and Data/Walk.lua (no regions, no
+# links) and its search as f95cb2f moved it, unchanged, from model/Route.lua into atlas/Route.lua.
 WALK31 = os.path.join(DEMO, "walk31")
 WALK31_FILES = ("Data/Walk.lua", "Data/WalkRegions.lua", "atlas/Walk.lua", "atlas/Route.lua")
+WALK311 = os.path.join(DEMO, "walk311")
+WALK311_FILES = ("Data/Walk.lua", "atlas/Walk.lua", "atlas/Route.lua")
+SIDE_NAMES = {"311": "3.1.1", "31": "main", "2": "v2"}
 
 
-def load_walk31(L):
-    """3.1's walk in its own ns of the same Lua runtime: its two data files, then Walk and Route (Route reads only
+def load_frozen(L, folder, rels):
+    """A frozen walk in its own ns of the same Lua runtime: its data files, then Walk and Route (Route reads only
     Atlas.Walk, Walk only ns.Data). Its Atlas has nothing else."""
     load = L.eval("function(src, name) local f, err = loadstring(src, name) if not f then error(err) end return f end")
     ns = L.table()
-    for rel in WALK31_FILES:
-        with open(os.path.join(WALK31, rel), "rb") as f:
-            load(f.read(), "@demo/walk31/" + rel)("MagicMap", ns)
+    for rel in rels:
+        with open(os.path.join(folder, rel), "rb") as f:
+            load(f.read(), "@demo/%s/%s" % (os.path.basename(folder), rel))("MagicMap", ns)
     return ns.Atlas
 
 
@@ -85,11 +92,12 @@ except LuaError as e:  # the tree's walk mid-rewrite: everything else from the t
     print("The tree's Atlas didn't load (%s): serving it with 3.1's walk" % TREE_WALK_ERROR, file=sys.stderr)
     L, Atlas = load_tree_with_walk31()
 lua_type = L.globals().type
-Atlas31 = load_walk31(L)
-# v2's API (spec: Walk.Snap -> node id, Walk.Pos, Walk.Edges): until the tree's atlas has it, "2" runs the tree's
-# walk through 3.1's API (the same answers as "31" while the tree's walk is still 3.1's).
+Atlas31 = load_frozen(L, WALK31, WALK31_FILES)
+Atlas311 = load_frozen(L, WALK311, WALK311_FILES)
+# v2's API (spec: Walk.Snap -> node id, Walk.Pos, Walk.Edges): without it (the tree's walk not v2's, or not loading),
+# "2" runs the tree's walk through 3.1's API, or main's.
 WALK2_API = TREE_WALK_ERROR is None and Atlas.Walk is not None and Atlas.Walk.Pos is not None
-SIDES = {"31": Atlas31, "2": Atlas if TREE_WALK_ERROR is None else Atlas31}
+SIDES = {"311": Atlas311, "31": Atlas31, "2": Atlas if TREE_WALK_ERROR is None else Atlas31}
 
 
 def py(v):
@@ -195,10 +203,11 @@ def fit(q):
 
 
 def side(q):
-    """Which walk a request asks for: v=31 (3.1's, demo/walk31) or v=2 (the tree's, the default)."""
+    """Which walk a request asks for: v=311 (3.1.1's, demo/walk311), 31 (main's before v2, demo/walk31) or 2 (the
+    tree's, the default)."""
     v = q.get("v", "2")
     if v not in SIDES:
-        raise ValueError("v is 31 or 2")
+        raise ValueError("v is 311, 31 or 2")
     return v, SIDES[v], v == "2" and WALK2_API
 
 
@@ -209,6 +218,8 @@ def rnd(x, y):
 def link_rows(W, inst):
     """A map's hand links as Data has them, either format: 3.1's { ac, ar, bc, br, cost, name } or v2's
     { ac, ar, ap, bc, br, bp, cost, name, oneway }. -> [(ac, ar, ap, bc, br, bp, cost, name, oneway)], chunks real."""
+    if W.Links is None:  # (3.1.1: none)
+        return []
     got = W.Links(inst)
     data = got[1] if isinstance(got, tuple) else got
     out = []
@@ -234,7 +245,7 @@ def walk(q):
     try:
         return walk_side(v, A, v2, c0, r0, c1, r1)
     except LuaError as e:  # (the tree's walk mid-rewrite: say so, the page shows it)
-        return {"v": v, "error": "The %s walk failed: %s" % ("v2" if v == "2" else "3.1", str(e).splitlines()[0])}
+        return {"v": v, "error": "The %s walk failed: %s" % (SIDE_NAMES[v], str(e).splitlines()[0])}
 
 
 def walk_side(v, A, v2, c0, r0, c1, r1):
@@ -251,7 +262,7 @@ def walk_side(v, A, v2, c0, r0, c1, r1):
                 dx, dy = OFFSET[inst]
                 cls, east, south = W.Cell(inst, gc - dx * n, gr - dy * n)
                 s.append("%x" % (cls + 4 * east + 8 * south))
-                reg.append(W.Region(inst, gc - dx * n, gr - dy * n) or 0)
+                reg.append((W.Region(inst, gc - dx * n, gr - dy * n) if W.Region else 1) or 0)  # (3.1.1: no regions)
             rows.append("".join(s))
             regions.append(reg)
         out.update(rows=rows, regions=regions)
@@ -328,7 +339,7 @@ def route(q):
     try:
         return (route_v2 if v2 else route_31)(v, A, a[0], a, b)
     except LuaError as e:
-        return {"v": v, "error": "The %s search failed: %s" % ("v2" if v == "2" else "3.1", str(e).splitlines()[0])}
+        return {"v": v, "error": "The %s search failed: %s" % (SIDE_NAMES[v], str(e).splitlines()[0])}
 
 
 def route_common(v, api, A, inst, a, b, pts, partial, capped, ms, trace):
@@ -336,7 +347,7 @@ def route_common(v, api, A, inst, a, b, pts, partial, capped, ms, trace):
     yards = sum(math.hypot(x1 - x0, y1 - y0) for (x0, y0), (x1, y1) in zip(way, way[1:])) * Atlas.TILE_YARDS
     straight = math.hypot(b[1] - a[1], b[2] - a[2]) * Atlas.TILE_YARDS
     nodes = trace.nodes
-    return {"v": v, "api": api, "map": MAP_NAMES.get(inst), "way": way, "found": pts is not None,
+    return {"v": v, "label": SIDE_NAMES[v], "api": api, "map": MAP_NAMES.get(inst), "way": way, "found": pts is not None,
             "partial": bool(partial), "capped": bool(capped),
             "nodes": (len(nodes) if lua_type(nodes) == "table" else nodes) or 0,
             "maxNodes": A.Route.MAX_NODES, "ms": round(ms, 1), "yards": yards, "straight": straight,
@@ -404,8 +415,37 @@ def route_v2(v, A, inst, a, b):
                instead=pos(goal) if isinstance(goal, (int, float)) else None,
                abstract=points(trace.abstract) if trace.abstract else None,
                nodes2=(len(nodes2) if lua_type(nodes2) == "table" else nodes2),
-               closed2=points(nodes2) if lua_type(nodes2) == "table" else None)
+               closed2=points(trace.closed2) if lua_type(trace.closed2) == "table" else None)
     return out
+
+
+CASES = os.path.join(DEMO, "walk_cases.json")
+CASE_KEYS = ("v", "label", "error", "found", "partial", "capped", "yards", "straight", "ratio", "nodes", "nodes2", "ms",
+             "way", "snapped", "regions", "instead")
+
+
+def cases(q):
+    """The Routes page (routes.html): walk_cases.json's cases marked "grid", each run now on each side asked for
+    (sides=311,2 by default: the released 3.1.1 and v2), and back the other way where "back" says so. Ends on the
+    world (moved by the map's offset unless the file's "space" is "world"); per run the route's numbers and its line."""
+    sides = q.get("sides", "311,2").split(",")
+    if not sides or any(v not in SIDES for v in sides):
+        raise ValueError("unknown side")
+    with open(CASES, encoding="utf-8") as f:
+        doc = json.load(f)
+    out = []
+    for c in doc.get("cases", []):
+        if not c.get("grid") and q.get("all") != "1":
+            continue
+        dx, dy = (0, 0) if doc.get("space") == "world" else OFFSET[c["inst"]]
+        a, b = [c["a"][0] + dx, c["a"][1] + dy], [c["b"][0] + dx, c["b"][1] + dy]
+        runs = []
+        for way, (p, t) in [("ab", (a, b))] + ([("ba", (b, a))] if c.get("back") else []):
+            for v in sides:
+                r = route({"v": v, "c0": str(p[0]), "r0": str(p[1]), "c1": str(t[0]), "r1": str(t[1])})
+                runs.append(dict({k: r.get(k) for k in CASE_KEYS}, dir=way))
+        out.append({k: c.get(k) for k in ("name", "zone", "note", "should", "inst", "back")} | {"a": a, "b": b, "runs": runs})
+    return {"sides": [{"v": v, "label": SIDE_NAMES[v]} for v in sides], "cases": out}
 
 
 MAP_NAMES = {m["inst"]: m["name"] for m in py(Atlas.Maps())}
@@ -776,7 +816,7 @@ def pins(q):
 
 
 API = {"assets": assets, "maps": maps, "tiles": tiles, "labels": labels,
-       "at": at, "fit": fit, "walk": walk, "route": route, "pins": pins, "npc": npc, "object": object, "item": item, "quest": quest,
+       "at": at, "fit": fit, "walk": walk, "route": route, "cases": cases, "pins": pins, "npc": npc, "object": object, "item": item, "quest": quest,
        "flight": flight, "dungeon": dungeon, "find": find}
 
 

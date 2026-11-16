@@ -1,33 +1,67 @@
 {
-  "about": "Walk A/B cases (pathing debug's Cases; placeholders, the lead fills these). inst: the map (0 Eastern Kingdoms, 1 Kalimdor, 2991 Zephras Isle). a, b: the route's ends in that map's own tile coordinates (col, row: what Route.Find takes, as in tools/walk_cases.json); the page moves them onto the demo's world by the map's offset (server.py OFFSET: Kalimdor +0,+0, Eastern Kingdoms +45,-9, the isle +29,-6) for /api/route's c0,r0,c1,r1, which are world tile coordinates. With \"space\": \"world\" at the top, a and b are world coordinates instead. v31 / v2 (optional): numbers recorded for each walk (result, yards, ratio = yards / straight, nodes, ms), shown under the case; a click runs both walks live. Other keys (expect, …) are ignored.",
+  "about": "Walk cases: the Routes page (routes.html: cases with \"grid\": true, previous vs new, numbers live from /api/cases) and pathing debug's Cases list (all of them). inst: the map (0 Eastern Kingdoms, 1 Kalimdor, 2991 Zephras Isle). a, b: the route's ends in that map's own tile coordinates (col, row: what Route.Find takes, as in tools/walk_cases.json); the page moves them onto the demo's world by the map's offset (server.py OFFSET: Kalimdor +0,+0, Eastern Kingdoms +45,-9, the isle +29,-6). With \"space\": \"world\" at the top, a and b are world coordinates instead. note: what's there and any change to the ends; should: what a best-in-class walk does there; back: also run b -> a.",
   "space": "map",
   "cases": [
     {
-      "name": "Goldshire to Lakeshire",
-      "note": "Placeholder: an easy one; both should find it a little longer than straight.",
-      "inst": 0,
-      "a": [31.95, 49.75],
-      "b": [36.09, 49.28],
-      "v31": { "result": "found", "yards": 2382, "ratio": 1.072, "nodes": 1191, "ms": 4.4 },
-      "v2": null
-    },
-    {
-      "name": "Kharanos to Thelsamar",
-      "note": "Placeholder: Dun Morogh's way out is a tunnel (a hand link).",
-      "inst": 0,
-      "a": [32.91, 42.41],
-      "b": [36.85, 42.95],
-      "v31": { "result": "found", "yards": 2301, "ratio": 1.085, "nodes": 1512, "ms": 4.7 },
-      "v2": null
-    },
-    {
-      "name": "Into Teldrassil",
-      "note": "Placeholder: its own region (boats, not a walk): no search, at once.",
+      "name": "Ridge and cliff leak: Sun Rock",
+      "zone": "Stonetalon Mountains",
+      "grid": true,
       "inst": 1,
-      "a": [29.0, 16.0],
-      "b": [30.22, 13.59],
-      "v31": { "result": "no way", "yards": null, "ratio": null, "nodes": 0, "ms": 0.1 },
-      "v2": null
+      "a": [30.041, 30.157],
+      "b": [29.85, 30.62],
+      "note": "Sun Rock Retreat to the ground south-west of it. The ends stand about 110 yd apart in height (the baker's terrain: a 105.6, b 216.5).",
+      "should": "A short direct walk: no detour, and no cliff climbed."
+    },
+    {
+      "name": "Elevator: Thunder Bluff, base to top",
+      "zone": "Mulgore / Thunder Bluff",
+      "grid": true,
+      "inst": 1,
+      "a": [32.3, 34.95],
+      "b": [32.2, 34.25],
+      "note": "From the foot of the bluff to the top (148 yd up). Only the lifts reach the mesa top.",
+      "should": "Found by the lift's hand link; terrain alone can't get there. Never up the cliff face."
+    },
+    {
+      "name": "Mesas and rope bridges: Thousand Needles",
+      "zone": "Thousand Needles",
+      "grid": true,
+      "inst": 1,
+      "a": [37.86, 42.216],
+      "b": [39.6, 42.93],
+      "note": "A mesa top to the Shimmering Flats floor (Mirage Raceway), about 157 yd lower.",
+      "should": "Use the rope bridges and the Freewind lift links, or say a clear \"no way\" if a link is missing; never a cliff jump that kills you."
+    },
+    {
+      "name": "Long cross-zone: the Crossroads to Cenarion Hold",
+      "zone": "The Barrens to Silithus",
+      "grid": true,
+      "inst": 1,
+      "a": [37.1, 32.6],
+      "b": [30.65, 44.91],
+      "note": "The goal moved from 31.8, 48.8 (an out-of-bounds plateau south-east of Silithus, the baker found) to Cenarion Hold itself, 30.65, 44.91.",
+      "should": "Complete (no 60,000-node cap) through the real passes, at a sensible length against straight, within the frame budget."
+    },
+    {
+      "name": "Bridge over a chasm: Thandol Span",
+      "zone": "Wetlands to Arathi Highlands",
+      "grid": true,
+      "inst": 0,
+      "a": [36.66, 36.85],
+      "b": [36.66, 36.0],
+      "note": "Dun Modr to the Arathi side. The span is a building (WMO): only its hand link crosses the gorge.",
+      "should": "Cross the bridge; don't wander off along the gorge or stop at it."
+    },
+    {
+      "name": "One-way drop: the Rustmaul Dig Site",
+      "zone": "Thousand Needles",
+      "grid": true,
+      "back": true,
+      "inst": 1,
+      "a": [38.352, 44.278],
+      "b": [38.331, 44.132],
+      "note": "Picked from v2's one-way edges: A on a ledge, B 10.9 yd below (a safe fall; 14.57 yd is the most). Straight back up is a 17-yd climb on faces over 50 degrees.",
+      "should": "A to B: take the drop. B to A: never climb it back; go round."
     }
   ]
 }

@@ -74,7 +74,10 @@ class Walk:
         if gc < 0 or gr < 0:
             return 0
         s = self.tiles.get(gc // CHUNKS * 64 + gr // CHUNKS)
-        return (ord(s[gr % CHUNKS * CHUNKS + gc % CHUNKS]) - 97) % 4 if s else 0
+        if not s:
+            return 0
+        ch = s[gr % CHUNKS * CHUNKS + gc % CHUNKS]
+        return ord(ch) - 65 if ch.isupper() else (ord(ch) - 97) % 4  # upper case: a complex chunk, its class
 
 
 def visual_centre(bounds, tiles, walk: Walk) -> tuple[float, float]:

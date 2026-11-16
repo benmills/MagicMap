@@ -35,7 +35,7 @@ def test_find_npc_and_quest_sources():
     assert {"kind": "npc", "id": 299, "name": "Young Wolf"} in meat["sources"]
 
 
-ROUTE_KEYS = {"v", "api", "map", "way", "found", "partial", "capped", "nodes", "maxNodes", "ms", "yards", "straight",
+ROUTE_KEYS = {"v", "label", "api", "map", "way", "found", "partial", "capped", "nodes", "maxNodes", "ms", "yards", "straight",
               "ratio", "regions", "snapped", "box", "closed", "raw", "turns", "instead", "abstract", "nodes2", "closed2"}
 
 

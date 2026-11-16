@@ -29,7 +29,7 @@ from test_target import put, targets
 
 KHARANOS, ANVILMAR = (32.91, 42.41), (31.28, 43.502)
 GOLDSHIRE, LAKESHIRE = (31.95, 49.75), (36.09, 49.28)
-CROSSROADS, CENARION_HOLD = (37.1, 32.6), (31.8, 48.8)  # inst 1
+CROSSROADS, CENARION_HOLD = (37.1, 32.6), (30.65, 44.91)  # inst 1
 PLATEAU = (38.09375, 40.59375)  # inst 0: Loch Modan's hills
 COUNT_NODES = """local Walk = ...; Nodes = 0; local Edges = Walk.Edges
 Walk.Edges = function(...) Nodes = Nodes + 1; return Edges(...) end"""  # (Edges: once a parts' node closed)

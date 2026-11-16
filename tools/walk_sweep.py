@@ -83,6 +83,8 @@ def load_runtime(which: str):
             continue
         if which == "31" and rel in FROZEN:
             src = frozen31(rel)
+        elif which == "31" and rel == "atlas/Coords.lua":
+            src = git_show(rel)  # (main's Atlas.FORMATS: its walk data is format 1)
         else:
             path = os.path.join(ROOT, rel)
             if not os.path.exists(path):

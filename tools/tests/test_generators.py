@@ -156,9 +156,41 @@ def test_labels_regenerate(tmp_path):
 
 
 def test_walk_regions_regenerate(tmp_path):
-    """tools/gen_walk_regions.py over the committed Data/Walk.lua and tools/walk_links.json gives the committed
-    Data/WalkRegions.lua, byte for byte: regenerate it after either changes."""
-    out = tmp_path / "walkregions.lua"
+    """tools/gen_walk_regions.py over the committed Data/Walk.lua, Data/WalkParts.lua and tools/walk_links.json
+    gives the committed Data/WalkRegions.lua and Data/WalkGraph.lua, byte for byte (it also checks the reach table
+    against the regions' full reach): regenerate them after any input changes."""
+    out = tmp_path / "WalkRegions.lua"
     run_tool("gen_walk_regions.py", "-o", str(out))
-    with open(os.path.join(os.path.dirname(TOOLS), "Data", "WalkRegions.lua"), "rb") as f:
-        assert out.read_bytes() == f.read(), "Data/WalkRegions.lua is stale: tools/gen_walk_regions.py -o Data/WalkRegions.lua"
+    for name in ("WalkRegions.lua", "WalkGraph.lua"):
+        with open(os.path.join(os.path.dirname(TOOLS), "Data", name), "rb") as f:
+            assert (tmp_path / name).read_bytes() == f.read(), f"Data/{name} is stale: tools/gen_walk_regions.py -o Data/WalkRegions.lua"
+
+
+def test_walk_data_reads_back():
+    """The committed walk data through the reference reader (tools/mmtools/walkdata.py): every map's parts decode
+    (records exactly fill their strings), each hand link joins two parts, a snap at a few known towns lands on a
+    part of the map's biggest region, and the tile graph has at most 63 entrances a tile."""
+    from mmtools import walkdata as wd
+    data = os.path.join(os.path.dirname(TOOLS), "Data")
+    maps = wd.load_walk(os.path.join(data, "Walk.lua"), os.path.join(data, "WalkParts.lua"))
+    regions = wd.read_regions_file(os.path.join(data, "WalkRegions.lua"))
+    graph = wd.read_graph_file(os.path.join(data, "WalkGraph.lua"))
+    for inst, W in maps.items():
+        for key in W.walk:
+            W.tile(key)  # asserts the records' lengths
+        for a, b, cost, name, oneway in regions["links"].get(inst, []):
+            assert W.part(a) and W.part(b) and cost > 0, name
+        for entry in graph[inst].values():
+            nodes, costs, cross = wd.decode_graph(entry)
+            assert 1 <= len(nodes) <= 63
+    towns = {0: [(31.95, 49.75), (36.09, 49.28), (32.91, 42.41), (34.191, 44.286)],  # Goldshire, Lakeshire, Kharanos, Thorium Point
+             1: [(37.1, 32.6), (39.002, 45.545), (40.892, 19.251), (32.3, 34.95)]}  # Crossroads, Gadgetzan, Everlook, Thunder Bluff low
+    for inst, pts in towns.items():
+        W, reg = maps[inst], regions["regions"][inst]
+        for col, row in pts:
+            u = W.snap(col, row)
+            assert u is not None
+            gc, gr, _ = wd.split_id(u)
+            key = wd.tile_key(gc, gr)
+            r = wd.decode_regions(reg[key])
+            assert (r if isinstance(r, int) else r[W.tile_nodes(key).index(u)]) == 1, (inst, col, row)
