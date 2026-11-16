@@ -12,6 +12,7 @@ them. One map: Kalimdor, the Eastern Kingdoms and Zephras Isle placed on a world
   /api/at?col=&row=                  TileToWorld, ZoneAt, Walk.Cell at that chunk
   /api/fit?uiMapID=&w=&h=            MapRect and Camera.Fit (or c0=&r0=&c1=&r1=: a box)
   /api/walk?c0=&r0=&c1=&r1=          Walk.Cell over a chunk range, one hex digit each
+  /api/route?c0=&r0=&c1=&r1=         Atlas.Route.Find from (c0, r0) to (c1, r1), with its trace (chunks closed, its path, its turns)
   /api/pins?c0=&r0=&c1=&r1=&zoom=&layers=
                                      FlightPoints, POIs, Dungeons, SpawnsIn (by NPC flags, quests,
                                      rank, object kind) in a box; groups=1 returns compact groups and omitted count
@@ -28,6 +29,7 @@ import math
 import os
 import sys
 import threading
+import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -154,6 +156,42 @@ def walk(q):
             s.append("%x" % (cls + 4 * east + 8 * south))
         rows.append("".join(s))
     return {"c0": c0, "r0": r0, "rows": rows}
+
+
+def route(q):
+    """The addon's own route search (atlas/Route.lua, as model/Route.lua runs it, whole) between two world points,
+    with a trace: the chunks A* closed (in order), the chunk path it found, where the straightened way turns."""
+    a, b = to_real(float(q["c0"]), float(q["r0"])), to_real(float(q["c1"]), float(q["r1"]))
+    if a[0] != b[0]:
+        return {"error": "Both ends must be on the same map: a route never leaves one."}
+    inst, n = a[0], Atlas.Walk.CHUNKS
+    dx, dy = OFFSET[inst]
+    sc, sr = Atlas.Walk.Snap(inst, math.floor(a[1] * n), math.floor(a[2] * n))
+    gc, gr = Atlas.Walk.Snap(inst, math.floor(b[1] * n), math.floor(b[2] * n))
+    if sc is None or gc is None:
+        return {"error": "Nowhere to stand within 4 chunks of %s: the addon would draw a straight line."
+                % ("the start" if sc is None else "the end")}
+    trace = L.table()
+    t = time.perf_counter()
+    pts, partial, capped = Atlas.Route.Find(inst, a[1], a[2], sc, sr, gc, gr, b[1], b[2], None, trace)
+    ms = (time.perf_counter() - t) * 1000
+    span = Atlas.Route.SPAN
+
+    def chunks(ids):  # flat [gc, gr, ...] on the world
+        out = []
+        for i in range(1, len(ids) + 1 if ids else 1):
+            v = ids[i]
+            out += [v // span + dx * n, v % span + dy * n]
+        return out
+    way = [list(to_world(inst, p.col, p.row)) for p in (pts[i] for i in range(1, len(pts) + 1))] if pts else []
+    yards = sum(math.hypot(x1 - x0, y1 - y0) for (x0, y0), (x1, y1) in zip(way, way[1:])) * Atlas.TILE_YARDS
+    box = trace.box
+    return {"map": MAP_NAMES.get(inst), "way": way, "partial": bool(partial), "capped": bool(capped),
+            "found": pts is not None, "nodes": trace.nodes, "maxNodes": Atlas.Route.MAX_NODES, "ms": round(ms, 1),
+            "straight": math.hypot(b[1] - a[1], b[2] - a[2]) * Atlas.TILE_YARDS, "yards": yards,
+            "snapped": [[sc + dx * n, sr + dy * n], [gc + dx * n, gr + dy * n]],
+            "box": [box[1] + dx * n, box[2] + dy * n, box[3] + dx * n, box[4] + dy * n],
+            "closed": chunks(trace.closed), "raw": chunks(trace.raw), "turns": chunks(trace.turns)}
 
 
 MAP_NAMES = {m["inst"]: m["name"] for m in py(Atlas.Maps())}
@@ -524,7 +562,7 @@ def pins(q):
 
 
 API = {"assets": assets, "maps": maps, "tiles": tiles, "labels": labels,
-       "at": at, "fit": fit, "walk": walk, "pins": pins, "npc": npc, "object": object, "item": item, "quest": quest,
+       "at": at, "fit": fit, "walk": walk, "route": route, "pins": pins, "npc": npc, "object": object, "item": item, "quest": quest,
        "flight": flight, "dungeon": dungeon, "find": find}
 
 

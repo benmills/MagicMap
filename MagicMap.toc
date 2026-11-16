@@ -37,6 +37,7 @@ atlas\Coords.lua
 atlas\Tiles.lua
 atlas\Anchors.lua
 atlas\Walk.lua
+atlas\Route.lua
 atlas\UiMaps.lua
 atlas\Areas.lua
 atlas\Places.lua

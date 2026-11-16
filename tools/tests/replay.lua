@@ -1,6 +1,6 @@
 -- Model alone, in plain Lua (no wowsim: Model sees only what it's handed):
 -- Replay.Model(root, data) loads model/*.lua in TOC order with Atlas's coordinates and
--- entities and places (atlas/Coords.lua, Entities.lua, Places.lua) over data (ns.Data; nil: none, as
+-- entities, places and route search (atlas/Coords.lua, Entities.lua, Places.lua, Walk.lua, Route.lua) over data (ns.Data; nil: none, as
 -- without QuestieDB's) and returns ns.Model, ready for Model.Load(saved) and
 -- Model.Observe(obs, oracles) fed from a fixture stream per part
 -- (Replay.Stream(root, name): tools/tests/fixtures/streams/<name>.lua, what Game's
@@ -13,7 +13,7 @@ local Replay = {}
 
 function Replay.Model(root, data)
 	local ns = { Atlas = {}, Runtime = {}, Data = data }
-	local files = { "atlas/Coords.lua", "atlas/Entities.lua", "atlas/Places.lua" }
+	local files = { "atlas/Coords.lua", "atlas/Entities.lua", "atlas/Places.lua", "atlas/Walk.lua", "atlas/Route.lua" }
 	for line in io.lines(root .. "/MagicMap.toc") do
 		if line:match("^model\\") then files[#files + 1] = line:gsub("\\", "/") end
 	end

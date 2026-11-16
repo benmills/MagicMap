@@ -219,7 +219,7 @@ h2, h3 {
   font: inherit;
 }
 /* Sections: no rules, a little space between them. */
-.sheet .group + .group, .sheet .back + .group, .sheet .back + #layerSheet, #layerSheet + .group, .sheet .group + #profileResult:not(:empty) {
+.sheet .group + .group, .sheet .back + .group, .sheet .back + #layerSheet, #layerSheet + .group, .sheet .group + #profileResult:not(:empty), #routeResult:not(:empty) {
   margin-top: 6px;
 }
 .row {
@@ -322,10 +322,10 @@ p {
   display: block;
   margin: 0 14px 8px;
 }
-#profileResult:not(:empty) {
+#profileResult:not(:empty), #routeResult:not(:empty) {
   padding: 0 14px 10px;
 }
-#profileResult:empty {
+#profileResult:empty, #routeResult:empty {
   display: none;
 }
 
@@ -482,3 +482,20 @@ body.flying #map {
   #about p:not(.links) { display: none; }
   #about .links { margin-top: 3px; }
 }
+
+#routeResult dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 0 0 6px;
+}
+#routeResult dt { opacity: 0.7; }
+#routeResult dd { margin: 0; }
+#routeResult .key i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin: 0 4px 0 8px;
+  vertical-align: -1px;
+}
+#routeResult .key i:first-child { margin-left: 0; }

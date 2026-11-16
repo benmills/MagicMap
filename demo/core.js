@@ -211,6 +211,7 @@ function frame() {
   }
   drawAnalysis();
   if (walk) drawWalk();
+  if (routePoints.length) drawRoute();
   if (state.mode === "2d" && typeof MapArt === "object") MapArt.draw(ctx, toScreen, state.camera.zoom, world.parts, draw); // (mapart.js)
   // Pins: where they'll be drawn first, so labels keep clear of them; quieter at continent zoom,
   // where names win; pins a name covers aren't drawn.

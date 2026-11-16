@@ -271,6 +271,7 @@ function release(e, cancelled) {
     } else {
       const pin = pinAt(tap.x, tap.y, e.pointerType === "mouse" ? 12 : 22);
       if (profiling()) profileTap(tap.x, tap.y);
+      else if (routing()) routeTap(tap.x, tap.y);
       else openPlace(tap.x, tap.y, pin);
       lastTap = tap;
     }

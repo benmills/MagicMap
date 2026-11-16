@@ -33,3 +33,14 @@ def test_find_npc_and_quest_sources():
     assert spawns["inst"] == server.WORLD and server.to_real(*spawns["points"][0])[0] == 0
     meat = next(o for o in server.quest({"id": "33"})["objectives"] if o["kind"] == "item")
     assert {"kind": "npc", "id": 299, "name": "Young Wolf"} in meat["sources"]
+
+
+def test_route_tool():
+    """/api/route runs the addon's own search: Goldshire to Lakeshire is found, a little longer than straight, its
+    trace on the world; the two continents never share a route."""
+    dx, dy = server.OFFSET[0]
+    r = server.route({"c0": str(31.95 + dx), "r0": str(49.75 + dy), "c1": str(36.09 + dx), "r1": str(49.28 + dy)})
+    assert r["found"] and not r["partial"] and r["map"] == "Eastern Kingdoms"
+    assert 1 < r["yards"] / r["straight"] < 1.3 and r["nodes"] == len(r["closed"]) / 2
+    assert r["way"][0] == [31.95 + dx, 49.75 + dy] and r["raw"][:2] == r["snapped"][0]
+    assert "error" in server.route({"c0": "40", "r0": "30", "c1": str(32 + dx), "r1": str(49 + dy)})

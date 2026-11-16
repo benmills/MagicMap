@@ -144,6 +144,9 @@ docs/decisions/0011-ai-map-art.md.
 - Global chunk (gc, gr) = tile (col, row) * 16. `Atlas.Walk.Cell(inst, gc, gr)` → class,
   east, south; `Atlas.Walk.CanMove(inst, gc, gr, dx, dy)` (8 ways);
   `Atlas.Walk.Snap(inst, gc, gr)` → the nearest standable chunk within 4.
+- `Atlas.Route.Find(inst, c1, r1, sc, sr, gc, gr, c2, r2, yield, trace)` (atlas/Route.lua): the walk from one
+  place to another over these chunks (A*, straightened by line of sight, corners rounded), from the chunks Snap
+  gives each end; model/Route.lua runs it in a Runtime.Job and keeps it up to date, the demo's `/api/route` whole.
 
 ### Data/Places.lua — `ns.Data.Places` (DB2)
 - `flight[nodeID] = { name, faction, inst, col, row, areaID }` (TaxiNodes)

@@ -20,7 +20,10 @@ AI repaints, place names, and pins and flight points from the Atlas. A fresh vie
 zone names. The controls are one column in the bottom right: north (only while 3D is turned or tilted), 3D, zoom, and the menu,
 which opens beside them: Map Pins and Zone Names (each all of its kind off or on, keeping what Advanced picked), Share, and
 Advanced (every pin layer, name tier, scenery and map-art switch, and the terrain's tools: 3D camera, elevation, slope, contours,
-walk grid, ground profile). A tap on the map (or a pin) opens a small popup naming the zone and the place there (`/api/at`), with
+walk grid, ground profile, route). **Find a Route** runs the addon's own route search (atlas/Route.lua, `/api/route`) between two
+taps and draws what it did: every chunk A* closed (dark to bright, in order), the chunk path it found, its search box, the
+line the addon would draw, and where each end was moved to stand; Advanced lists the chunks searched, the time, and the
+yards along the way against straight. A tap on the map (or a pin) opens a small popup naming the zone and the place there (`/api/at`), with
 Zoom In and Zoom In with 3D. Going into 3D and back out is a flight (flyover.js `flight`): the camera eases its zoom, heading,
 tilt and ground height, from the 2D view down into a tilted one and back up, level and north, to 2D; any input stops it.
 

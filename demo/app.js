@@ -154,6 +154,9 @@ async function loadWorld(camera) {
   namesAfter = performance.now() + 1500; // (labels.js: until the first pins)
   walk = null;
   profilePoints = [];
+  routePoints = [];
+  routeGot = null;
+  renderRoute();
   closeSheets();
   closePlace();
   MAP_NAME = m.name;
@@ -348,9 +351,23 @@ $("share").onclick = run(async () => {
     notice("Your view is saved in the address bar. Copy the URL to share.");
   }
 });
+$("route").onclick = () => {
+  const on = !routing();
+  $("route").setAttribute("aria-pressed", String(on));
+  routePoints = [];
+  routeGot = null;
+  if (on && profiling()) $("profile").click();
+  renderRoute();
+  if (on) {
+    closeSheets();
+    notice("Route: tap where to start, then where to go; open Advanced for what the search did.");
+  }
+  draw();
+};
 $("profile").onclick = run(async () => {
   const on = $("profile").getAttribute("aria-pressed") !== "true";
   $("profile").setAttribute("aria-pressed", String(on));
+  if (on && routing()) $("route").click();
   profilePoints = [];
   $("profileResult").textContent = on
     ? "Tap two ground points on the map."
