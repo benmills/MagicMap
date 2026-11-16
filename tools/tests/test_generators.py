@@ -153,3 +153,12 @@ def test_labels_regenerate(tmp_path):
     run_tool("gen_labels.py", "-o", str(out))
     with open(os.path.join(os.path.dirname(TOOLS), "Data", "Labels.lua"), "rb") as f:
         assert out.read_bytes() == f.read(), "Data/Labels.lua is stale: tools/gen_labels.py -o Data/Labels.lua"
+
+
+def test_walk_regions_regenerate(tmp_path):
+    """tools/gen_walk_regions.py over the committed Data/Walk.lua and tools/walk_links.json gives the committed
+    Data/WalkRegions.lua, byte for byte: regenerate it after either changes."""
+    out = tmp_path / "walkregions.lua"
+    run_tool("gen_walk_regions.py", "-o", str(out))
+    with open(os.path.join(os.path.dirname(TOOLS), "Data", "WalkRegions.lua"), "rb") as f:
+        assert out.read_bytes() == f.read(), "Data/WalkRegions.lua is stale: tools/gen_walk_regions.py -o Data/WalkRegions.lua"

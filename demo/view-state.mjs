@@ -20,7 +20,7 @@ export const TOOL_IDS = [
   "elevation",
   "slope",
   "contours",
-  "walk",
+  "path",
 ];
 export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const number = (p, k, fallback, lo, hi) => {
@@ -63,6 +63,7 @@ export function readView(hash, preferred = "2d") {
     pins: p.get("pins") !== "0", // the menu's Map Pins: off keeps the layers picked
     tools: (p.get("tools") || "")
       .split(",")
+      .map((x) => (x === "walk" ? "path" : x)) // (the walk grid's old switch: pathing debug has it)
       .filter((x) => TOOL_IDS.includes(x)),
   };
 }

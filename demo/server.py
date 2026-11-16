@@ -139,23 +139,33 @@ def fit(q):
 
 
 def walk(q):
+    """The walk grid over a world chunk range: each chunk's value (class + 4 east + 8 south) as a hex digit, its
+    region (Atlas.Walk.Region: 1 the map's biggest, 0 nowhere to stand), and the map's links that meet the range."""
     c0, r0, c1, r1 = (int(q[k]) for k in ("c0", "r0", "c1", "r1"))
     n = Atlas.Walk.CHUNKS
-
-    def cell(gc, gr):  # (a world chunk: its map's)
-        inst, col, row = to_real(gc / n, gr / n)
-        dx, dy = OFFSET[inst]
-        return Atlas.Walk.Cell(inst, gc - dx * n, gr - dy * n)
     if c1 < c0 or r1 < r0 or (c1-c0)*(r1-r0) > 40000:
         raise ValueError("walk grid is limited to 40000 cells")
-    rows = []
+    rows, regions = [], []
     for gr in range(r0, r1):
-        s = []
+        s, reg = [], []
         for gc in range(c0, c1):
-            cls, east, south = cell(gc, gr)
+            inst, _, _ = to_real(gc / n, gr / n)
+            dx, dy = OFFSET[inst]
+            cls, east, south = Atlas.Walk.Cell(inst, gc - dx * n, gr - dy * n)
             s.append("%x" % (cls + 4 * east + 8 * south))
+            reg.append(Atlas.Walk.Region(inst, gc - dx * n, gr - dy * n) or 0)
         rows.append("".join(s))
-    return {"c0": c0, "r0": r0, "rows": rows}
+        regions.append(reg)
+    links = []
+    for inst in OFFSET:
+        dx, dy = OFFSET[inst]
+        _, data = Atlas.Walk.Links(inst)
+        for i in range(1, len(data) + 1):
+            k = data[i]
+            ac, ar, bc, br = k[1] + dx * n, k[2] + dy * n, k[3] + dx * n, k[4] + dy * n
+            if max(ac, bc) >= c0 - 1 and min(ac, bc) <= c1 and max(ar, br) >= r0 - 1 and min(ar, br) <= r1:
+                links.append({"a": [ac, ar], "b": [bc, br], "cost": k[5], "name": k[6]})
+    return {"c0": c0, "r0": r0, "rows": rows, "regions": regions, "links": links}
 
 
 def route(q):
@@ -186,12 +196,16 @@ def route(q):
     way = [list(to_world(inst, p.col, p.row)) for p in (pts[i] for i in range(1, len(pts) + 1))] if pts else []
     yards = sum(math.hypot(x1 - x0, y1 - y0) for (x0, y0), (x1, y1) in zip(way, way[1:])) * Atlas.TILE_YARDS
     box = trace.box
+    if box is None:  # no search: different regions and nowhere near in yours
+        box = {1: sc, 2: sr, 3: gc, 4: gr}
     return {"map": MAP_NAMES.get(inst), "way": way, "partial": bool(partial), "capped": bool(capped),
-            "found": pts is not None, "nodes": trace.nodes, "maxNodes": Atlas.Route.MAX_NODES, "ms": round(ms, 1),
+            "found": pts is not None, "nodes": trace.nodes or 0, "maxNodes": Atlas.Route.MAX_NODES, "ms": round(ms, 1),
             "straight": math.hypot(b[1] - a[1], b[2] - a[2]) * Atlas.TILE_YARDS, "yards": yards,
             "snapped": [[sc + dx * n, sr + dy * n], [gc + dx * n, gr + dy * n]],
             "box": [box[1] + dx * n, box[2] + dy * n, box[3] + dx * n, box[4] + dy * n],
-            "closed": chunks(trace.closed), "raw": chunks(trace.raw), "turns": chunks(trace.turns)}
+            "closed": chunks(trace.closed), "raw": chunks(trace.raw), "turns": chunks(trace.turns),
+            "regions": list(trace.regions.values()) if trace.regions else None,
+            "instead": [trace.goal[1] + dx * n, trace.goal[2] + dy * n] if trace.goal else None}
 
 
 MAP_NAMES = {m["inst"]: m["name"] for m in py(Atlas.Maps())}

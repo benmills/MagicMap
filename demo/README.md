@@ -20,10 +20,12 @@ AI repaints, place names, and pins and flight points from the Atlas. A fresh vie
 zone names. The controls are one column in the bottom right: north (only while 3D is turned or tilted), 3D, zoom, and the menu,
 which opens beside them: Map Pins and Zone Names (each all of its kind off or on, keeping what Advanced picked), Share, and
 Advanced (every pin layer, name tier, scenery and map-art switch, and the terrain's tools: 3D camera, elevation, slope, contours,
-walk grid, ground profile, route). **Find a Route** runs the addon's own route search (atlas/Route.lua, `/api/route`) between two
-taps and draws what it did: every chunk A* closed (dark to bright, in order), the chunk path it found, its search box, the
-line the addon would draw, and where each end was moved to stand; Advanced lists the chunks searched, the time, and the
-yards along the way against straight. A tap on the map (or a pin) opens a small popup naming the zone and the place there (`/api/at`), with
+ground profile, pathing debug). **Pathing Debug** (`tools=path` in a link) is the walk grid and the addon's own route search
+(atlas/Route.lua, `/api/route`) to find where they're wrong: a tap sets a route's start, then its goal; the map zooms in to
+6144 px a tile; a panel in the top left has the layers (cell classes, missing crossings, cut-off pockets, connectors, the
+4-yd squares under each cell with a slope rule and limit to try, the cells searched in order, A*'s chunk path, the addon's
+line, its search box), the route's numbers, and what's under the mouse (map, chunk, its class and region, the square's slope).
+pathdebug.js. A tap on the map (or a pin) opens a small popup naming the zone and the place there (`/api/at`), with
 Zoom In and Zoom In with 3D. Going into 3D and back out is a flight (flyover.js `flight`): the camera eases its zoom, heading,
 tilt and ground height, from the 2D view down into a tilted one and back up, level and north, to 2D; any input stops it.
 
@@ -44,6 +46,7 @@ Without the baked assets below it still runs: names and pins, on the backdrop.
 | patches/ | the patched sea tile (Data/Patches.lua) | `demo/export_patches.py` |
 | ai/ | the AI repaints | `tools/ai_map.py bake` |
 | icons/ (committed) | pin icons | `tools/export_icons.py` |
+| walkquads/&lt;inst&gt;/ | pathing debug's 4-yd squares (slope, liquid, holes), a gzip a tile | `demo/export_walkquads.py local "$W" wowf` |
 | terrain/, objects/ | 3D meshes and scenery, per map | `demo/export_terrain.py local "$W" wowf --all`, `demo/export_preview.py` |
 
 `bake_world.py` reads a running demo's tiles (`MAGICMAP_DEMO`, default the hosted one). The server only draws tiles whose

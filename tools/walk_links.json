@@ -1,0 +1,9 @@
+{
+  "about": "Hand-placed walk links (tools/gen_walk_regions.py): where a walk crosses what the terrain grid can't see. Ends in tile coordinates (Atlas: col, row on the map), each moved to the nearest chunk you can stand on. Found from the indoor buildings (Data/Interiors.lua) at each place and the regions on either side; check them on the demo's pathing debug (Connectors layer).",
+  "links": [
+    {"inst": 0, "name": "North Gate Pass (tunnel)", "a": [36.406, 41.031], "b": [36.594, 41.281]},
+    {"inst": 0, "name": "South Gate Pass (tunnel)", "a": [36.594, 42.594], "b": [36.781, 42.531]},
+    {"inst": 0, "name": "Thandol Span (bridge)", "a": [36.659, 36.674], "b": [36.659, 36.202]},
+    {"inst": 1, "name": "The Great Lift", "a": [35.094, 40.219], "b": [35.094, 40.344]}
+  ]
+}

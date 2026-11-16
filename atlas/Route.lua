@@ -47,6 +47,7 @@ end
 -- their count.
 local function Search(inst, sc, sr, gc, gr, yield, trace)
 	local Around, DIRS = Walk.Around, Walk.DIRS -- (the 8 ways, in the order Around hands them)
+	local links = Walk.Links(inst) -- (tunnels, bridges, lifts: any length, out of the box too)
 	local g, parent = gs, parents
 	Empty(g, yield)
 	Empty(parent, yield)
@@ -123,6 +124,21 @@ local function Search(inst, sc, sr, gc, gr, yield, trace)
 						local ng = gi + (k > 4 and SQRT2 or 1) * COST[class]
 						if not gn or ng < gn then
 							g[nid], parent[nid] = ng, id
+							Push(nid, ng + math.sqrt((gc - nc) ^ 2 + (gr - nr) ^ 2))
+						end
+					end
+				end
+			end
+			local ls = links[id]
+			if ls then
+				for k = 1, #ls do
+					local nid = ls[k][1]
+					local gn = g[nid]
+					if not (gn and gn < 0) then
+						local ng = gi + ls[k][2] * COST[LAND]
+						if not gn or ng < gn then
+							g[nid], parent[nid] = ng, id
+							local nc, nr = math.floor(nid / SPAN), nid % SPAN
 							Push(nid, ng + math.sqrt((gc - nc) ^ 2 + (gr - nr) ^ 2))
 						end
 					end
@@ -218,13 +234,49 @@ local function Round(inst, pts)
 	return out
 end
 
+-- In a different region from the start (Walk.Region: no walk joins them): the chunk nearest the goal in the
+-- start's region, if one is within reach (GAP chunks, or GAP_SHARE of the way: as near as a search that gave
+-- up would have gone on from); nil if none. Rings out from the goal, so the first ring with one has the nearest
+-- but for a ring's corners: the ring after is looked through too.
+local function Nearest(inst, region, sc, sr, gc, gr, yield)
+	local reach = math.floor(math.max(GAP, math.sqrt((gc - sc) ^ 2 + (gr - sr) ^ 2) * GAP_SHARE))
+	local Region = Walk.Region
+	local best, bc, br, last
+	for r = 1, reach do
+		if last and r > last then break end
+		for dc = -r, r do
+			local step = (dc == -r or dc == r) and 1 or 2 * r -- (the ring's edge: whole columns at its sides)
+			for dr = -r, r, step do
+				if Region(inst, gc + dc, gr + dr) == region then
+					local d = dc * dc + dr * dr
+					if not best or d < best then best, bc, br = d, gc + dc, gr + dr end
+				end
+			end
+		end
+		if best and not last then last = math.ceil(math.sqrt(best)) end
+		yield()
+	end
+	return bc, br
+end
+
 -- The route from tile position (c1, r1) to (c2, r2), from their chunks to stand on (sc, sr) and (gc, gr)
 -- (Walk.Snap): MM.Pos[] from the one to the other, and whether it's partial; nil if there's none. Third: the
--- search gave up at MAX_NODES. yield (or nil): called between bits of work. trace (or nil): Search's, and
--- .raw (the chunks A* found) and .turns (where the straightened way turns), chunk ids.
+-- search gave up at MAX_NODES. Where the regions say no walk joins them, no search: the way to the nearest place
+-- you can walk to (partial), or none at once. yield (or nil): called between bits of work. trace (or nil):
+-- Search's, and .raw (the chunks A* found) and .turns (where the straightened way turns), chunk ids; .regions
+-- (the start's, the goal's) and .goal (the chunk searched for instead of the goal's, or none) where they differ.
 function Route.Find(inst, c1, r1, sc, sr, gc, gr, c2, r2, yield, trace)
 	yield = yield or NoYield
+	local rs, rg = Walk.Region(inst, sc, sr), Walk.Region(inst, gc, gr)
+	local instead
+	if rs and rg and rs ~= rg then
+		local nc, nr = Nearest(inst, rs, sc, sr, gc, gr, yield)
+		if trace then trace.regions, trace.goal = { rs, rg }, nc and { nc, nr } end
+		if not nc then return nil, nil, false end
+		gc, gr, instead = nc, nr, true
+	end
 	local ids, partial, capped = Search(inst, sc, sr, gc, gr, yield, trace)
+	partial = partial or instead
 	if not ids then return nil, nil, capped end
 	if trace then trace.raw = ids end
 	ids = Straighten(inst, ids, yield)

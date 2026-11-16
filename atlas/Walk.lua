@@ -131,3 +131,60 @@ function Walk.Snap(inst, gc, gr)
 	end
 	return nil
 end
+
+-- Regions and links (Data/WalkRegions.lua, tools/gen_walk_regions.py): which chunks a walk joins up, counting
+-- the hand-placed links (tunnels, bridges, lifts: tools/walk_links.json) the terrain can't see. Two chunks in
+-- different regions have no walk between them.
+local regionTiles = {} -- [inst][tile key] = its 256 regions (a table), or a number for the whole tile, or false
+
+local function RegionTile(inst, key)
+	local cache = regionTiles[inst]
+	if not cache then
+		cache = {}
+		regionTiles[inst] = cache
+	end
+	local t = cache[key]
+	if t == nil then
+		local enc = Data.WalkRegions and Data.WalkRegions[inst] and Data.WalkRegions[inst][key]
+		if type(enc) == "string" then
+			t = {}
+			for id, n in enc:gmatch("(%d+)x?(%d*)") do
+				id = tonumber(id)
+				for _ = 1, tonumber(n) or 1 do t[#t + 1] = id end
+			end
+		else
+			t = enc or false
+		end
+		cache[key] = t
+	end
+	return t
+end
+
+-- The region of chunk (gc, gr): 1 the map's biggest, 0 nowhere to stand; nil where there are no regions (no
+-- Data/WalkRegions.lua, or off the map's terrain).
+function Walk.Region(inst, gc, gr)
+	if gc < 0 or gr < 0 or not (Data.WalkRegions and Data.WalkRegions[inst]) then return nil end
+	local t = RegionTile(inst, math.floor(gc / CHUNKS) * 64 + math.floor(gr / CHUNKS))
+	if not t then return nil end
+	if type(t) == "number" then return t end
+	return t[(gr % CHUNKS) * CHUNKS + gc % CHUNKS + 1]
+end
+
+-- The map's links: [chunk id (gc * 1024 + gr)] = { { other end's id, cost }, ... }, both ways; and the list as
+-- Data has it ({ ac, ar, bc, br, cost, name }).
+local links = {}
+function Walk.Links(inst)
+	local l = links[inst]
+	if not l then
+		l = {}
+		for _, k in ipairs(Data.WalkLinks and Data.WalkLinks[inst] or {}) do
+			local a, b = k[1] * 1024 + k[2], k[3] * 1024 + k[4]
+			l[a] = l[a] or {}
+			l[b] = l[b] or {}
+			l[a][#l[a] + 1] = { b, k[5] }
+			l[b][#l[b] + 1] = { a, k[5] }
+		end
+		links[inst] = l
+	end
+	return l, Data.WalkLinks and Data.WalkLinks[inst] or {}
+end

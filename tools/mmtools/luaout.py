@@ -29,6 +29,7 @@ FORMATS = {
     "Base": 1,       # Data/Base.lua (tools/gen_base.py)
     "Anchors": 1,    # Data/Anchors.lua (tools/gen_anchors.py)
     "Walk": 1,       # Data/Walk.lua (tools/gen_walk.py)
+    "WalkRegions": 1,  # Data/WalkRegions.lua (tools/gen_walk_regions.py)
     "UiMaps": 1,     # Data/UiMaps.lua (tools/gen_world.py)
     "Areas": 1,      # Data/Areas.lua (tools/gen_world.py)
     "AreaGrid": 1,   # Data/AreaGrid.lua (tools/gen_areagrid.py)

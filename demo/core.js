@@ -6,7 +6,8 @@ const CHUNKS = 16,
   MIN_3D_ZOOM = 64, // px a tile: 3D no further out, so a phone keeps 60 fps (README)
   TEXELS = 512,
   MAX_STRETCH = 2;
-const maxZoom = () => TEXELS * MAX_STRETCH / (dpr || 1);
+const PATH_ZOOM = 6144; // px a tile while pathing debug is on (pathdebug.js): a 4-yd square 48 px
+const maxZoom = () => (state.tools.has("path") ? PATH_ZOOM : TEXELS * MAX_STRETCH) / (dpr || 1);
 const minZoom = () => (state.mode === "3d" ? MIN_3D_ZOOM : MIN_ZOOM);
 let out3D = false; // a zoom asked for less than 3D allows: back to 2D once it settles (app.js)
 const $ = (id) => document.getElementById(id);
@@ -210,8 +211,7 @@ function frame() {
     terrain.render(state.tools);
   }
   drawAnalysis();
-  if (walk) drawWalk();
-  if (routePoints.length) drawRoute();
+  if (pathOn()) drawPathDebug();
   if (state.mode === "2d" && typeof MapArt === "object") MapArt.draw(ctx, toScreen, state.camera.zoom, world.parts, draw); // (mapart.js)
   // Pins: where they'll be drawn first, so labels keep clear of them; quieter at continent zoom,
   // where names win; pins a name covers aren't drawn.

@@ -156,7 +156,7 @@ async function loadWorld(camera) {
   profilePoints = [];
   routePoints = [];
   routeGot = null;
-  renderRoute();
+  renderPathPanel();
   closeSheets();
   closePlace();
   MAP_NAME = m.name;
@@ -278,7 +278,7 @@ async function restoreView() {
   layerOn.clear();
   restored.layers.forEach((l) => layerOn.add(l));
   pinsOn = restored.pins;
-  walkOn = state.tools.has("walk");
+  pathToggled();
   state.desiredMode = restored.mode;
   const intro = restored.flyover && !restored.camera;
   let camera = restored.camera;
@@ -351,23 +351,9 @@ $("share").onclick = run(async () => {
     notice("Your view is saved in the address bar. Copy the URL to share.");
   }
 });
-$("route").onclick = () => {
-  const on = !routing();
-  $("route").setAttribute("aria-pressed", String(on));
-  routePoints = [];
-  routeGot = null;
-  if (on && profiling()) $("profile").click();
-  renderRoute();
-  if (on) {
-    closeSheets();
-    notice("Route: tap where to start, then where to go; open Advanced for what the search did.");
-  }
-  draw();
-};
 $("profile").onclick = run(async () => {
   const on = $("profile").getAttribute("aria-pressed") !== "true";
   $("profile").setAttribute("aria-pressed", String(on));
-  if (on && routing()) $("route").click();
   profilePoints = [];
   $("profileResult").textContent = on
     ? "Tap two ground points on the map."
@@ -393,7 +379,13 @@ for (const input of $("advanced").querySelectorAll("input[data-tool]"))
       } catch (e) {
         notice(e.message);
       }
-    walkOn = state.tools.has("walk");
+    if (id === "path") {
+      pathToggled();
+      if (input.checked) {
+        closeSheets();
+        notice("Pathing debug: tap where to start, then where to go. Layers are in the panel.");
+      }
+    }
     draw();
     settled();
   });

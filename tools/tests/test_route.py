@@ -9,7 +9,8 @@ clock that counts their Lua (R-P2's), so a 1 ms slice is a slice of work:
   test_route_replan: found again only past 3 chunks off it, or once the target moves more than 2 (an
     area's nearest edge slides as you go); meanwhile the old one (F33).
   test_route_straight_partial: no walk data where the target is: you and it, straight; a plateau no way
-    climbs, 9 tiles off: given up at 60,000 nodes, the way to as near as it got, then on straight.
+    climbs, 9 tiles off (its own region): no search for it, the way to the nearest place in yours, then on
+    straight; without regions, given up at 60,000 nodes, the way to as near as it got.
   test_route_capped: that plateau's search from Goldshire, priced: ~700 slices (~720 strict), its KB;
     walking on (off its partial way, past RETRY_MOVED) searches it again only once you've come half the way
     it spanned (the lead's decision at the M3 review: the spike searched again each 3-chunk stray).
@@ -116,7 +117,19 @@ def test_route_straight_partial():
     G.Counting = False  # (Lua free: the whole search in one resume)
     L.execute("local Walk = ...; Nodes = 0; local Around = Walk.Around; Walk.Around = function(...) Nodes = Nodes + 1; return Around(...) end",
               ns.Atlas.Walk)
-    put(G, "waypoint", 0, 34.75, 38.75)  # a plateau in Dun Morogh's peaks, cliffs all round
+    put(G, "waypoint", 0, 34.75, 38.75)  # a plateau in Dun Morogh's peaks, cliffs all round: its own region
+    find(sim, ns)
+    r = ns.Model.Route()
+    assert G.Nodes < 60000  # not for it: for the nearest place in yours (Data/WalkRegions.lua): Dun Morogh, by its tunnels
+    assert r.partial and not r.straight and r[len(r)].row == 38.75
+
+    L, sim, ns, G = targets([], followed=0)  # without regions (a long way in one region still can): searched out
+    sim.Run(1)
+    ns.Atlas.Data.WalkRegions = None
+    G.Counting = False
+    L.execute("local Walk = ...; Nodes = 0; local Around = Walk.Around; Walk.Around = function(...) Nodes = Nodes + 1; return Around(...) end",
+              ns.Atlas.Walk)
+    put(G, "waypoint", 0, 34.75, 38.75)
     find(sim, ns)
     r = ns.Model.Route()
     assert G.Nodes == 60000  # given up at MAX_NODES (Walk.Around: once a node closed)
@@ -128,6 +141,7 @@ def test_route_capped():
     L, sim, ns, G = targets([], followed=0)
     me = sim.player
     sim.Run(1)
+    ns.Atlas.Data.WalkRegions = None  # (with them, no search: test_route_straight_partial; a search can still cap)
     put(G, "waypoint", 0, 34.75, 38.75)  # the plateau, 11.4 tiles off: no way there
     frames = 0
     while not (len(G.Jobs) and G.Jobs[1].done):

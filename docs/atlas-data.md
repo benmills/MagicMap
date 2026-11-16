@@ -148,6 +148,17 @@ docs/decisions/0011-ai-map-art.md.
   place to another over these chunks (A*, straightened by line of sight, corners rounded), from the chunks Snap
   gives each end; model/Route.lua runs it in a Runtime.Job and keeps it up to date, the demo's `/api/route` whole.
 
+### Data/WalkRegions.lua — `ns.Data.WalkRegions`, `ns.Data.WalkLinks` (Data/Walk.lua, tools/walk_links.json)
+Made by tools/gen_walk_regions.py, no game data needed: regenerate after Data/Walk.lua or the links change
+(tools/tests/test_generators.py fails while it's stale).
+- `WalkLinks[inst] = { { ac, ar, bc, br, cost, name }, ... }`: hand-placed links (tunnels, bridges, lifts: the
+  terrain grid can't see buildings) between two chunks, both ways, cost in chunks walked (at least straight).
+- `WalkRegions[inst][tileKey]`: the tile's 256 chunks' regions (chunks a walk joins up, counting the links;
+  1 the map's biggest, 0 nowhere to stand): a number for the whole tile, else runs `"<region>x<count>"` (or a
+  lone region) between commas.
+- `Atlas.Walk.Region(inst, gc, gr)`, `Atlas.Walk.Links(inst)`. Atlas.Route.Find doesn't search between two
+  regions: the nearest chunk of yours within reach (partial), or no way at once; and it walks the links.
+
 ### Data/Places.lua — `ns.Data.Places` (DB2)
 - `flight[nodeID] = { name, faction, inst, col, row, areaID }` (TaxiNodes)
 - `taxiPaths = { { from, to, cost }, ... }` (TaxiPath)
