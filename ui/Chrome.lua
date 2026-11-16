@@ -114,6 +114,14 @@ overlay:SetAllPoints(view)
 overlay:SetFrameLevel(base + LEVEL_CONTROLS)
 Chrome.overlay = overlay
 
+-- Where Blizzard's mail and crafting-order indicators (MinimapCluster.IndicatorFrame) hang while the takeover hides
+-- their cluster (#23: View.chrome.indicators, game/Chrome.lua): the map's top right, as on Blizzard's minimap; on the
+-- pills' frame, so at full alpha whatever Buttons at rest.
+local indicators = CreateFrame("Frame", nil, overlay)
+indicators:SetSize(1, 1)
+indicators:SetPoint("TOPRIGHT", view, "TOPRIGHT", -3, -3)
+Chrome.indicators = indicators
+
 -- Everything of the template but its border's art goes; the map stops where that art begins.
 local KEEP = { [view] = true, [band] = true, [grip] = true, [border] = true, [controls] = true, [overlay] = true }
 for _, r in ipairs({ frame:GetRegions() }) do r:Hide() end

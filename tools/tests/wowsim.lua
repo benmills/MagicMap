@@ -1438,6 +1438,40 @@ TimeManagerClockButton:SetScript("OnClick", function() Opened("clock") end)
 AddonCompartmentFrame = CreateFrame("Frame", "AddonCompartmentFrame", MinimapCluster)
 AddonCompartmentFrame.registeredAddons = { { text = "MagicMap", icon = "Interface\\Icons\\INV_Misc_Map_01",
 	func = function(_, input) MagicMap_OnAddonCompartmentClick("MagicMap", input.buttonName) end } }
+-- Blizzard's indicators (Forever's MinimapCluster.IndicatorFrame): its MailFrame, shown while there's mail.
+local indicators = CreateFrame("Frame", nil, MinimapCluster)
+indicators:SetSize(33, 33)
+indicators:SetPoint("TOPRIGHT", Minimap, "TOPRIGHT", 24, -37)
+indicators.MailFrame = CreateFrame("Frame", nil, indicators)
+indicators.MailFrame:SetSize(33, 33)
+indicators.MailFrame:SetPoint("TOPLEFT")
+MinimapCluster.IndicatorFrame = indicators
+
+-- LibDataBroker-1.1 and LibDBIcon-1.0 as another addon (HidingBar...) brings both: Sim.LoadLDB(), before login.
+-- LibDBIcon's Register makes the button on the Minimap (LibDBIcon10_<name>), its click the launcher's OnClick.
+function Sim.LoadLDB()
+	local ldb = { objects = {} }
+	function ldb:NewDataObject(name, obj)
+		if self.objects[name] then return nil end
+		self.objects[name] = obj
+		return obj
+	end
+	local dbi = { objects = {} }
+	function dbi:IsRegistered(name) return self.objects[name] ~= nil end
+	function dbi:Register(name, obj, db)
+		local b = CreateFrame("Button", "LibDBIcon10_" .. name, Minimap)
+		b:SetSize(31, 31)
+		b:SetPoint("CENTER", Minimap, "CENTER", 80, 0)
+		b.dataObject, b.db = obj, db
+		b:SetScript("OnClick", function(self, button) obj.OnClick(self, button) end)
+		b:SetShown(not db.hide)
+		self.objects[name] = b
+	end
+	function dbi:Show(name) self.objects[name]:Show() end
+	function dbi:Hide(name) self.objects[name]:Hide() end
+	Sim.libs["LibDataBroker-1.1"], Sim.libs["LibDBIcon-1.0"] = ldb, dbi
+	return ldb, dbi
+end
 
 -- The server's time (GetGameTime: Sim.gameTime, hour and minute) and whether it's day (Forever's C_DateAndTime).
 Sim.gameTime = { 14, 5 }

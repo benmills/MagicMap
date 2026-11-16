@@ -21,7 +21,7 @@ local _, ns = ...
 local UI, Model = ns.UI, ns.Model
 local Camera, Window, Engine = UI.Camera, UI.Window, UI.Engine
 
-local CHROME = { rimArrows = false, questRing = false }
+local CHROME = { rimArrows = false, questRing = false } -- (and indicators: ui/Chrome.lua's, set at the first Update)
 local GAME = { flight = "flight", quests = "quests", offers = "offers", pois = "areaPOIs" } -- View.layers' key -> our layer's
 -- Other addons' pins over everything on the map but the chrome: over our pins and arrow, and over Blizzard's blips
 -- (the overlay, game/Minimap.lua: the window's + 30, which takes the mouse for its tooltips) so theirs keep the mouse.
@@ -69,6 +69,7 @@ local keys = {} -- an addon's key -> its layer's
 function Sockets.Update(v)
 	local window = v.window
 	local ours = window.shown
+	CHROME.indicators = CHROME.indicators or UI.Chrome.indicators
 	local chrome = ours and CHROME or nil
 	local changed = chrome ~= v.chrome
 	v.chrome = chrome

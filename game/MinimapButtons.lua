@@ -91,7 +91,7 @@ local function Scan()
 	for name, b in pairs(lib and lib.objects or {}) do
 		local obj = b.dataObject
 		frames[b] = true
-		if obj and obj.OnClick then
+		if obj and obj.OnClick and name ~= ADDON then -- (not our own: game/Button.lua's launcher)
 			Add("ldb:" .. name, obj.label or name, Atlased(obj.icon), { obj = obj, frame = b })
 			names[Key(name)] = true -- (its compartment copy may go by either)
 		end

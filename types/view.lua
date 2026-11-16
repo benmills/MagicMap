@@ -54,6 +54,8 @@
 ---@class MM.ViewChrome
 ---@field rimArrows? boolean     its arrows at the rim toward tracked things out of view; false: hidden (our edge arrow stands in)
 ---@field questRing? boolean     its quest / dig-site / bonus-objective rings at the rim (Set*BlobRingScalar); false: hidden
+---@field indicators? MM.Frame  where Blizzard's mail and crafting-order indicators (MinimapCluster.IndicatorFrame) hang, its TOPRIGHT
+---                              theirs, while the takeover hides their cluster
 
 ---The same table every frame is fine (UI updates it in place): Game copies the numbers. OPEN (telemetry only).
 ---@class MM.ViewCamera

@@ -30,7 +30,9 @@ window; by default (auto) the one before the closest. Move it by the
 zone name or the border (or Alt-drag the map), resize it by the corner (it keeps the yards across),
 and `/mm reset` puts it back. `/mm`, the rim button or the addon compartment swaps it for
 Blizzard's minimap, and back (with the minimap replaced). The minimap button is drawn as other
-addons' buttons are (LibDBIcon's shape), draggable round the rim.
+addons' buttons are (LibDBIcon's shape), draggable round the rim. Button collectors (HidingBar, MBB...) gather it: when
+another addon has loaded LibDataBroker and LibDBIcon, it's a launcher LibDBIcon draws; otherwise it's named
+`MagicMapMinimapButton` for a collector's grab or manual add.
 
 <img src="images/minimap-zoomed-out.jpg" alt="The minimap zoomed out over the Barrens and Durotar, with the gear, the big-map button and the zoom buttons" width="400">
 
@@ -181,6 +183,8 @@ it) and Reset to defaults, then Settings.
 button): the buttons the minimap's rim would hold, hidden with Blizzard's minimap (LibDBIcon's addon buttons, the
 addon compartment's, other addons' rim buttons, then Blizzard's calendar and clock), each a row with its icon that
 clicks it (right-click too) and shows its tooltip.
+**Mail.** While MagicMap replaces the minimap, Blizzard's new-mail indicator (and the crafting-order one) sits at the
+map's top right, as on Blizzard's minimap: it shows while you have mail, and its tooltip says who from.
 
 **Settings.** A window of its own (the gear's Settings, `/mm feel` or `/mm settings`, or Game menu >
 Options > AddOns > MagicMap > Open MagicMap Settings), a sidebar of pages with the chosen one beside it (the last is

@@ -3,8 +3,13 @@
 -- or the addon compartment's entry (the TOC's AddonCompartmentFunc), is "toggle" for UI
 -- (obs.hooked, game/Hooks.lua): it shows or hides the map. It hangs on the Minimap, so while the
 -- takeover has it, it waits hidden on the stand-in with the rest (game/Minimap.lua).
+-- Button collectors (HidingBar, MBB...: #24) gather LibDataBroker launchers and LibDBIcon's buttons, and skip an
+-- unnamed button: so ours is named (MagicMapMinimapButton, for a collector's grab or manual add by name), and when
+-- another addon has loaded both LibDataBroker-1.1 and LibDBIcon-1.0 (LibStub's at login; MagicMap embeds neither:
+-- LibDBIcon's licence isn't the GPL's) MagicMap is a launcher LibDBIcon draws instead (LibDBIcon10_MagicMap, its spot
+-- and shown state in SavedGame.ldbIcon, our angle carried over the first time), ours hidden for good.
 
-local _, ns = ...
+local ADDON, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
 
 -- The geometry of LibDBIcon-1.0's button (createButton): a 31 button, its tracking border 53 at
@@ -20,7 +25,7 @@ local ICON = "Interface\\Icons\\INV_Misc_Map_01"                  -- MinimapButt
 -- Its tip (MinimapButton.lua:10, in the map's tips' look: ui/Tip.lua): its name; a click's plain, a drag isn't.
 local TITLE, DRAG = "MagicMap", "Drag to move"
 
-local button = CreateFrame("Button", nil, Minimap)
+local button = CreateFrame("Button", "MagicMapMinimapButton", Minimap)
 button:SetSize(SIZE, SIZE)
 button:RegisterForDrag("LeftButton")
 button:SetHighlightTexture(HIGHLIGHT)
@@ -79,11 +84,37 @@ button:SetScript("OnDragStart", Runtime.Wrap("game: button drag start", function
 end))
 button:SetScript("OnDragStop", Runtime.Wrap("game: button drag stop", function(self) self:SetScript("OnUpdate", nil) end))
 
+-- LibDBIcon-1.0 when it draws ours (from login), else nil.
+local dbi
+local Toggle = Runtime.Wrap("game: launcher", function() Game.Hooked("toggle") end)
+Runtime.On("PLAYER_LOGIN", "game.button login", function()
+	local ldb = LibStub and LibStub("LibDataBroker-1.1", true)
+	local lib = LibStub and LibStub("LibDBIcon-1.0", true)
+	if not (ldb and ldb.NewDataObject and lib and lib.Register) or lib:IsRegistered(ADDON) then return end
+	local obj = ldb:NewDataObject(ADDON, { type = "launcher", label = TITLE, icon = ICON, OnClick = Toggle,
+		OnTooltipShow = function(tip) tip:AddLine(TITLE, 1, 1, 1) end })
+	if not obj then return end -- (the name taken: another copy's)
+	local db = Game.saved.ldbIcon or { minimapPos = Game.saved.buttonAngle or ANGLE, hide = true }
+	Game.saved.ldbIcon = db
+	db.hide = true -- (shown by the first apply, as View says)
+	lib:Register(ADDON, obj, db)
+	dbi = lib
+	button:Hide()
+end)
+
 -- Shown per View; placed again when it shows and when the takeover lets go.
 local shown, engaged = false, false
 Game.Apply("button", function(view)
 	local on, e = view.button, Game.minimap.engaged
 	if on == shown and e == engaged then return end
+	if dbi then
+		if on ~= shown then
+			Game.saved.ldbIcon.hide = not on
+			if on then dbi:Show(ADDON) else dbi:Hide(ADDON) end
+		end
+		shown, engaged = on, e
+		return
+	end
 	if on and (not shown or not e) then Place() end
 	shown, engaged = on, e
 	button:SetShown(on)
