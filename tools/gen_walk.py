@@ -435,14 +435,28 @@ def descents(f: Fine, pid, pch, K: int = 8, reach: int = 3):
     low = np.full(N, INF, np.float32)
     for j in range(3):
         low = np.where(land[:, j] >= 0, np.minimum(low, ez[:, j]), low)
+    # (a triangle's parents look again when its low drops: a chain of walls down a cliff carries the bottom up)
+    cf = child.ravel()
+    hasc = cf >= 0
+    pc_child = cf[hasc]
+    pc_parent = np.repeat(np.arange(N, dtype=np.int32), 3)[hasc]
+    po = np.argsort(pc_child, kind="stable")
+    pc_child, pc_parent = pc_child[po], pc_parent[po]
+    pstart = np.searchsorted(pc_child, np.arange(N + 1))
     rows = np.nonzero((child >= 0).any(axis=1))[0]
     while len(rows):
         c = child[rows]
         m = np.where(c >= 0, low[np.maximum(c, 0)], INF).min(axis=1)
         new = np.minimum(low[rows], m)
-        changed = new < low[rows]
+        changed = rows[new < low[rows]]
         low[rows] = new
-        rows = rows[changed]
+        lo, hi = pstart[changed], pstart[changed + 1]
+        cnt = hi - lo
+        tot = int(cnt.sum())
+        if tot == 0:
+            break
+        idx = np.repeat(lo, cnt) + (np.arange(tot) - np.repeat(np.cumsum(cnt) - cnt, cnt))
+        rows = np.unique(pc_parent[idx])
     # a wall entered at height z (from anything): only if z - its lowest exit is a safe fall, so a descent that
     # touches a wall anywhere ends within SAFE_FALL below that point; steep alone has no limit
     for j in range(3):

@@ -469,7 +469,7 @@ D.Labels = {
     { "Uldaman", 37.961, 43.423, "poi", nil, 1897, 1027 },
   },
   [1] = { -- Kalimdor
-    { "Kalimdor", 36.625, 21.875, "continent", 20.3235 },
+    { "Kalimdor", 36.125, 22.125, "continent", 20.3235 },
     { "The Barrens", 36.41, 32.53, "zone", 6.8804, 17 },
     { "Ashenvale", 31.97, 26.28, "zone", 6.2268, 331 },
     { "Feralas", 29.59, 40.16, "zone", 6.2212, 357 },

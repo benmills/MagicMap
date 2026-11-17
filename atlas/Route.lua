@@ -412,23 +412,26 @@ end
 -- rough ground (Clear) unless rough is false.
 local SIGHT_STEPS = 8
 local NARROW = 0.3 -- chunks a straight line may pass from a part that isn't most of its chunk
-local CLEAR_STEP = 1 / 4 -- chunks between the samples a line's checked for rough ground at (a cell, ~8 yd)
-local CLEAR_SLICE = 16 -- samples between yields
+local CLEAR_STEP = 1 / 8 -- chunks between the samples a line's checked for rough ground at (a quad, ~4 yd)
+local CLEAR_SLICE = 32 -- samples between yields
 
 -- Does the straight line from global chunk position (x0, y0) to (x1, y1) keep off rough ground (Walk.Rough:
--- too steep to walk over, or no ground)? Its ends aren't judged (a node's place can sit beside a cliff).
-local POW2K = {}
-for k = 0, 15 do POW2K[k] = 2 ^ k end
-local function Clear(inst, x0, y0, x1, y1, yield)
-	local RoughBits = Walk.RoughBits
+-- too steep to walk over, or no ground)? sheer: only off sheer ground (steep you walk down allowed). Its ends
+-- aren't judged (a node's place can sit beside a cliff).
+local function Clear(inst, x0, y0, x1, y1, yield, sheer)
+	local RoughChunk, RoughQuad = Walk.RoughChunk, Walk.RoughQuad
 	local n = ceil(sqrt((x1 - x0) ^ 2 + (y1 - y0) ^ 2) / CLEAR_STEP)
-	local lc, lr, bits -- (the chunk the last sample was in, its bits: a chunk's 4 or so samples one look)
+	local lc, lr, s, o -- (the chunk the last sample was in, its bits: a chunk's 8 or so samples one look)
 	for k = 1, n - 1 do
 		local t = k / n -- /: never 0 (n >= 2 inside the loop)
 		local x, y = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
 		local gc, gr = floor(x), floor(y)
-		if gc ~= lc or gr ~= lr then lc, lr, bits = gc, gr, RoughBits(inst, gc, gr) end
-		if bits > 0 and floor(bits / POW2K[floor((y - gr) * 4) * 4 + floor((x - gc) * 4)]) % 2 == 1 then return false end -- /: never 0 (a power of 2)
+		if gc ~= lc or gr ~= lr then
+			lc, lr = gc, gr
+			s, o = RoughChunk(inst, gc, gr)
+			if s and sheer then o = o + 11 end
+		end
+		if s and RoughQuad(s, o, floor((x - gc) * 8), floor((y - gr) * 8)) then return false end
 		if yield and k % CLEAR_SLICE == 0 then yield() end
 	end
 	return true
@@ -517,6 +520,51 @@ function Route.Sight(inst, a, b, worst, yield, ac, ar, bc, br, rough)
 end
 local Sight = Route.Sight
 
+-- A derived diagonal (u to w by a side chunk's part v: Walk.Step) is a leg between the two parts' places, the
+-- corner cut; where that crosses rough ground, the route goes by v instead (by the side whose legs are clear,
+-- else the first found): the search costs the diagonal, the line follows the parts that make it.
+local viaBuf, viaBuf2 = {}, {}
+local function Corners(inst, ids, yield)
+	local Step, Pos = Walk.Step, Walk.Pos
+	local out = { ids[1] }
+	for k = 2, #ids do
+		local u, w = ids[k - 1], ids[k]
+		local uc, ur = ChunkOf(u)
+		local wc, wr = ChunkOf(w)
+		local dx, dy = wc - uc, wr - ur
+		if (dx == 1 or dx == -1) and (dy == 1 or dy == -1) then
+			local ux, uy = Pos(inst, u)
+			local wx, wy = Pos(inst, w)
+			if not Clear(inst, ux * CHUNKS, uy * CHUNKS, wx * CHUNKS, wy * CHUNKS, yield) then
+				local best, any
+				for side = 1, 2 do
+					local sx, sy = side == 1 and dx or 0, side == 1 and 0 or dy
+					local n = Step(inst, u, sx, sy, viaBuf)
+					for j = 1, n do
+						local v = viaBuf[j]
+						local m = Step(inst, v, dx - sx, dy - sy, viaBuf2)
+						yield()
+						for i = 1, m do
+							if viaBuf2[i] == w then
+								any = any or v
+								local vx, vy = Pos(inst, v)
+								if not best and Clear(inst, ux * CHUNKS, uy * CHUNKS, vx * CHUNKS, vy * CHUNKS, yield)
+									and Clear(inst, vx * CHUNKS, vy * CHUNKS, wx * CHUNKS, wy * CHUNKS, yield) then
+									best = v
+								end
+							end
+						end
+					end
+				end
+				if best or any then out[#out + 1] = best or any end
+			end
+		end
+		out[#out + 1] = w
+		yield()
+	end
+	return out
+end
+
 -- The nodes where the route turns: from each, straight on to a furthest one in sight (through nothing costlier
 -- than the route itself crosses there): a gallop (1, 2, 4, ... on) to the first out of sight, then halved back
 -- between it and the last in sight; a few lines of sight a turn, not one for each node on.
@@ -568,10 +616,11 @@ end
 -- points between p and q (tile coordinates) into out; none if there's no way round in the box (the leg stands).
 local DETOUR_PAD = 1     -- chunks round a leg its detour may go
 local DETOUR_SPAN = 8   -- chunks: a longer leg isn't detoured (its box would be too big for a slice)
-local CELL = 4           -- cells a chunk side
+local CELL = 8           -- cells a chunk side (its quads)
 local dOpen, dG, dFrom, dFree, dHeap = {}, {}, {}, {}, { ids = {}, keys = {}, n = 0 }
-local function Detour(inst, p, q, out, yield)
-	local Rough = Walk.Rough
+local dS, dO = {}, {} -- a detour's chunks' rough bits (Walk.RoughChunk: false, none), each looked up once
+local function Detour(inst, p, q, out, yield, sheer)
+	local RoughChunk, RoughQuad = Walk.RoughChunk, Walk.RoughQuad
 	local x0, y0, x1, y1 = p.col * CHUNKS * CELL, p.row * CHUNKS * CELL, q.col * CHUNKS * CELL, q.row * CHUNKS * CELL
 	local pad = DETOUR_PAD * CELL
 	local bx0, by0 = floor(min(x0, x1)) - pad, floor(min(y0, y1)) - pad
@@ -582,14 +631,22 @@ local function Detour(inst, p, q, out, yield)
 		local k = (cy - by0) * w + cx - bx0
 		local f = dFree[k]
 		if f == nil then
-			f = not Rough(inst, (cx + 0.5) / CELL, (cy + 0.5) / CELL)
+			local gc, gr = floor(cx / CELL), floor(cy / CELL) -- /: never 0 (a constant)
+			local ck = gc * SPAN + gr
+			local s, o = dS[ck], dO[ck]
+			if s == nil then
+				s, o = RoughChunk(inst, gc, gr)
+				s = s or false
+				dS[ck], dO[ck] = s, o
+			end
+			f = not s or not RoughQuad(s, sheer and o + 11 or o, cx - gc * CELL, cy - gr * CELL)
 			dFree[k] = f
 		end
 		return f
 	end
 	local sx, sy, gx, gy = floor(x0), floor(y0), floor(x1), floor(y1)
 	local start, goal = (sy - by0) * w + sx - bx0, (gy - by0) * w + gx - bx0
-	Empty(dOpen, yield); Empty(dG, yield); Empty(dFrom, yield); Empty(dFree, yield); Empty(dHeap.ids, yield); Empty(dHeap.keys, yield)
+	Empty(dOpen, yield); Empty(dG, yield); Empty(dFrom, yield); Empty(dFree, yield); Empty(dS, yield); Empty(dO, yield); Empty(dHeap.ids, yield); Empty(dHeap.keys, yield)
 	dHeap.n = 0
 	dG[start] = 0
 	Push(dHeap, start, 0)
@@ -639,7 +696,7 @@ local function Detour(inst, p, q, out, yield)
 			if j % 4 == 0 then yield() end
 			local c = cells[j]
 			local cx, cy = c % w + bx0 + 0.5, floor(c / w) + by0 + 0.5 -- /: never 0 (w >= 1)
-			if Clear(inst, ax / CELL, ay / CELL, cx / CELL, cy / CELL, yield) then
+			if Clear(inst, ax / CELL, ay / CELL, cx / CELL, cy / CELL, yield, sheer) then
 				best = j
 				break
 			end
@@ -649,7 +706,7 @@ local function Detour(inst, p, q, out, yield)
 		n = n + 1
 		out[#out + 1] = { inst = inst, col = ax / CELL / CHUNKS, row = ay / CELL / CHUNKS }
 		k = best - 1
-		if k >= 1 and Clear(inst, ax / CELL, ay / CELL, x1 / CELL, y1 / CELL, yield) then break end
+		if k >= 1 and Clear(inst, ax / CELL, ay / CELL, x1 / CELL, y1 / CELL, yield, sheer) then break end
 	end
 	return n
 end
@@ -804,6 +861,8 @@ function Route.Find(inst, c1, r1, s, g, c2, r2, yield, trace)
 	partial = partial or instead
 	if not ids then return nil, nil, capped end
 	if trace then trace.raw = ids end
+	ids = Corners(inst, ids, yield)
+	yield()
 	ids = Straighten(inst, ids, yield)
 	yield()
 	if trace then trace.turns = ids end
@@ -839,7 +898,12 @@ function Route.Find(inst, c1, r1, s, g, c2, r2, yield, trace)
 		if not (a.link and b.link) and not (partial and i == #pts)
 			and not Clear(inst, a.col * CHUNKS, a.row * CHUNKS, b.col * CHUNKS, b.row * CHUNKS, yield) then
 			yield()
-			Detour(inst, a, b, fine, yield)
+			-- (no way round off all rough ground: off the sheer, at least: down steep ground, as a slide goes)
+			if Detour(inst, a, b, fine, yield) == 0
+				and not Clear(inst, a.col * CHUNKS, a.row * CHUNKS, b.col * CHUNKS, b.row * CHUNKS, yield, true) then
+				yield()
+				Detour(inst, a, b, fine, yield, true)
+			end
 			yield()
 		end
 		fine[#fine + 1] = b

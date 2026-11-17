@@ -21,7 +21,7 @@ Walk.CHUNKS, Walk.SPAN, Walk.PARTS, Walk.COST = CHUNKS, SPAN, PARTS, COST
 local SMALL = 97 -- ('a'): a simple chunk's letter is 'a' + value; a complex one's 'A' + its biggest part's class
 local POW4 = { [0] = 1, 4, 16 }
 local POW2 = { [0] = 1, 2, 4, 8, 16, 32, 64 }
-local POW2K = {} -- [k] = 2 ^ k, k 0..15 (Walk.Rough's cell bits)
+local POW2K = {} -- [k] = 2 ^ k, k 0..15 (Walk.Rough's quad bits: 0..5 used)
 for k = 0, 15 do POW2K[k] = 2 ^ k end
 
 ---------------------------------------------------------------------------------------------------
@@ -646,37 +646,50 @@ function Walk.Reach(inst, a, b)
 end
 
 ---------------------------------------------------------------------------------------------------
--- Rough ground, for drawing a route's line (Data/WalkRough.lua): each chunk 4 x 4 cells of ~8 yd, a cell rough
--- where it's too steep to walk up (a face over 50 degrees taller than the 2-yd step) or has no ground (a hole).
+-- Rough ground, for drawing a route's line (Data/WalkRough.lua): each chunk's 8 x 8 quads (~4 yd), a quad rough
+-- where it's too steep to walk up (a face over 50 degrees taller than the 2-yd step) or has no ground (a hole),
+-- and sheer where you can't even walk down it (over 61.6 degrees, or a hole).
 
--- Chunk (gc, gr)'s rough cells' bits (cy * 4 + cx; 0 none). The tile's records looked up where they lie (sorted
--- by chunk: halving, ~8 looks), nothing read ahead or kept.
-function Walk.RoughBits(inst, gc, gr)
+-- Chunk (gc, gr)'s rough quads: the tile's string and where the chunk's 11 bit chars start in it (quad qy * 8 + qx:
+-- char floor(b / 6), bit b % 6; its sheer quads' 11 next: over 61.6 degrees or a hole, not even walked down), or
+-- nil (none rough). The records looked up where they lie (sorted by chunk:
+-- halving, ~8 looks), nothing read ahead or kept.
+local ROUGH_REC = 24
+function Walk.RoughChunk(inst, gc, gr)
 	local R = Data.WalkRough and Data.WalkRough[inst]
 	local s = R and R[floor(gc / CHUNKS) * 64 + floor(gr / CHUNKS)]
-	if not s then return 0 end
+	if not s then return nil end
 	local want = gr % CHUNKS * CHUNKS + gc % CHUNKS
-	local lo, hi = 0, #s / 5 - 1
+	local lo, hi = 0, #s / ROUGH_REC - 1 -- /: never 0 (a constant)
 	while lo <= hi do
 		local mid = floor((lo + hi) / 2)
-		local o = mid * 5 + 1
+		local o = mid * ROUGH_REC + 1
 		local i = (s:byte(o) - 48) * 64 + s:byte(o + 1) - 48
 		if i == want then
-			return s:byte(o + 2) - 48 + (s:byte(o + 3) - 48) * 64 + (s:byte(o + 4) - 48) * 4096
+			return s, o + 2
 		elseif i < want then
 			lo = mid + 1
 		else
 			hi = mid - 1
 		end
 	end
-	return 0
+	return nil
 end
-local RoughBits = Walk.RoughBits
+local RoughChunk = Walk.RoughChunk
 
--- Is the cell under global chunk position (x, y) (fractional) rough?
+-- Is quad (qx, qy) (0..7) of a chunk's bits (s, o from Walk.RoughChunk) rough?
+function Walk.RoughQuad(s, o, qx, qy)
+	local b = qy * 8 + qx
+	local c = floor(b / 6) -- /: never 0 (a constant)
+	return floor((s:byte(o + c) - 48) / POW2K[b - c * 6]) % 2 == 1 -- /: never 0 (a power of 2)
+end
+local RoughQuad = Walk.RoughQuad
+
+-- Is the quad under global chunk position (x, y) (fractional) rough?
 function Walk.Rough(inst, x, y)
 	local gc, gr = floor(x), floor(y)
-	local bits = RoughBits(inst, gc, gr)
-	if bits == 0 then return false end
-	return floor(bits / POW2K[floor((y - gr) * 4) * 4 + floor((x - gc) * 4)]) % 2 == 1 -- /: never 0 (a power of 2)
+	local s, o = RoughChunk(inst, gc, gr)
+	if not s then return false end
+	return RoughQuad(s, o, floor((x - gc) * 8), floor((y - gr) * 8))
 end
+
