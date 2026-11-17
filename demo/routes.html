@@ -54,11 +54,22 @@
       figcaption .partial { color: #ff9a3c; }
       figcaption .none, figcaption .error { color: #ff6b6b; }
       figcaption .dim { color: var(--dim); }
+      .case.ok { border-color: rgba(127, 227, 154, .6); }
+      .case.bad { border-color: rgba(255, 107, 107, .5); }
+      .verdict b { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; letter-spacing: .04em; }
+      .verdict.ok b { background: #1f5d33; color: #b6f5c8; }
+      .verdict.bad b { background: #6b1f27; color: #ffc6cc; }
+      .verdict ul { margin: 4px 0 2px; padding-left: 18px; color: #ffb3ba; }
+      #score { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0; }
+      .tally { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; color: var(--dim); }
+      .tally b { font-size: 22px; color: var(--fg); margin-right: 4px; }
+      .tally.ok b { color: #7fe39a; }
     </style>
   </head>
   <body>
     <header>
-      <h1>Routes: previous vs new</h1>
+      <h1>Walk scorecard: previous vs new</h1>
+      <div id="score"></div>
       <p>
         Each case is run now, on the walk players have today and on the new one, from A (green) to B (red). Under each
         map: the result, the yards walked against the straight line, the nodes searched and the time here. A map opens

@@ -124,7 +124,7 @@ local function AStar(inst, s, g, cap, inside, box, yield, trace)
 	Empty(ag, yield)
 	Empty(ap, yield)
 	H1.n = 0
-	local Edges = Walk.Edges
+	local Edges, Warm = Walk.Edges, Walk.Warm
 	local gc, gr = ChunkOf(g)
 	local c0, r0, c1, r1
 	if box then c0, r0, c1, r1 = box[1], box[2], box[3], box[4] end
@@ -147,6 +147,7 @@ local function AStar(inst, s, g, cap, inside, box, yield, trace)
 			local c, r = ChunkOf(id)
 			local h = sqrt((gc - c) ^ 2 + (gr - r) ^ 2)
 			if h < nearD then near, nearD = id, h end
+			Warm(inst, id, yield)
 			for k = 1, Edges(inst, id, ways) do
 				local nid = ways[2 * k - 1]
 				local gn = ag[nid]
@@ -176,7 +177,7 @@ local function Spread(inst, s, rev, g, p, yield, trace)
 	Empty(g, yield)
 	Empty(p, yield)
 	H1.n = 0
-	local Edges, key = Walk.Edges, TileOf(s)
+	local Edges, Warm, key = Walk.Edges, Walk.Warm, TileOf(s)
 	g[s] = 0
 	Push(H1, s, 0)
 	local count = 0
@@ -187,6 +188,7 @@ local function Spread(inst, s, rev, g, p, yield, trace)
 			g[id] = -gi - 1
 			count = count + 1
 			Closed(trace, id)
+			Warm(inst, id, yield)
 			for k = 1, Edges(inst, id, ways, rev) do
 				local nid = ways[2 * k - 1]
 				local gn = g[nid]
@@ -239,8 +241,11 @@ local function Walkout(inst, s, last, yield, trace)
 	for i = #xs, 1, -1 do
 		local key = floor(xs[i] / 64)
 		abstract[#abstract + 1] = Part((Graph(inst, key)), key, xs[i] % 64)
+		if i % 16 == 0 then yield() end
 	end
+	yield()
 	local out = Back(sp, abstract[2] or s)
+	yield()
 	for i = 2, #abstract - 1 do
 		local a, b = abstract[i], abstract[i + 1]
 		if a ~= b then
@@ -442,6 +447,7 @@ function Route.Sight(inst, a, b, worst, yield, ac, ar, bc, br)
 			local tx, ty = abs(bx - x0) * ady, abs(by - y0) * adx
 			if tx < ty then my = 0 elseif ty < tx then mx = 0 end
 		end
+		if yield then Walk.Warm(inst, u, yield) end
 		local k = Step(inst, u, mx, my, sightBuf)
 		if k == 0 then return false end
 		local v = sightBuf[1]

@@ -8,9 +8,10 @@
 // demo/export_walkquads.py; their slope by a rule and a limit you pick, to try another than gen_walk's), and the
 // search: every node it closed (dark to bright, in order), its node path, the addon's line, its box.
 //
-// A/B: two walks, 3.1's (v=31: demo/walk31, frozen) and the proposal's (v=2: the tree's atlas). The panel's toggle
-// picks the one drawn (grid and route); a route runs on both and the panel puts their numbers side by side. 3.1's
-// nodes are chunks (filled squares); v2's are parts of chunks (dots at their positions, edges between them). The
+// A/B: three walks, the released 3.1.1's (v=311: demo/walk311), main's before v2 (v=31: demo/walk31), both frozen,
+// and v2 (v=2: the tree's atlas). The panel's toggle picks the one drawn (grid and route); a route runs on all three
+// and the panel puts their numbers side by side. 3.1's nodes are chunks (filled squares); v2's are parts of chunks
+// (dots at their positions, edges between them). The
 // side and the route's ends are in the link (pv, pa, pb: view-state.mjs), so a link opens a case. Cases
 // (walk_cases.json) and a sweep's table (walk_sweep.json, if there is one) are in the panel: a click runs one.
 const PATH_LAYERS = [
@@ -27,7 +28,7 @@ const PATH_LAYERS = [
   ["box", "Search box", false],
   ["dim", "Dim the map", false],
 ];
-const PATH_SIDES = [["31", "3.1"], ["2", "v2"]];
+const PATH_SIDES = [["311", "3.1.1"], ["31", "main"], ["2", "v2"]]; // (server.py SIDES: 3.1.1 released, main before v2, v2)
 const CELL_FILL = ["rgba(255,65,65,.35)", "rgba(50,210,110,.16)", "rgba(60,150,255,.3)", "rgba(255,145,30,.45)"];
 const NODE_FILL = ["#ff5a5a", "#4fe08a", "#5aa8ff", "#ffa040"];
 const CLASS_NAMES = ["blocked", "land", "water", "magma/slime"];
@@ -548,7 +549,7 @@ function renderPathPanel() {
     for (const [k, v] of rows) dl.append(h("dt", {}, k), h("dd", {}, v));
     el.append(h("p", { className: "drawn" }, `Drawn: ${sideName(pathSide)}`), dl);
     if (pathSide === "2" && g.api && g.api !== "2")
-      el.append(h("p", {}, "v2's runtime isn't in the tree yet: v2 is the tree's walk on 3.1's API (the same as 3.1 until it lands)."));
+      el.append(h("p", {}, "v2's runtime isn't in the tree: v2 is the tree's walk on 3.1's API."));
   }
   if (hint) el.append(h("p", {}, hint));
   renderCases();

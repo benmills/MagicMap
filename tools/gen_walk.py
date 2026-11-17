@@ -429,27 +429,26 @@ def descents(f: Fine, pid, pch, K: int = 8, reach: int = 3):
         x = np.where(down, nsid[c2c, l2], -1)
         xc = np.maximum(x, 0)
         child[:, j] = np.where((x >= 0) & (zc[xc] < e), x, -1)
-    # the lowest exit of each wall run (an exit: downhill to a non-wall triangle)
+    # the lowest exit each triangle's descent can lead to, through any non-standable triangles (an exit: downhill
+    # onto a standable one), by min-relaxation
     INF = np.float32(1e9)
     low = np.full(N, INF, np.float32)
     for j in range(3):
-        x = child[:, j]
-        exit_ = (land[:, j] >= 0) | ((x >= 0) & ~wall[np.maximum(x, 0)])
-        low = np.where(wall & exit_, np.minimum(low, ez[:, j]), low)
-    wchild = np.where((child >= 0) & wall[:, None] & wall[np.maximum(child, 0)], child, -1)
-    rows = np.nonzero(wall & (wchild >= 0).any(axis=1))[0]
+        low = np.where(land[:, j] >= 0, np.minimum(low, ez[:, j]), low)
+    rows = np.nonzero((child >= 0).any(axis=1))[0]
     while len(rows):
-        c = wchild[rows]
+        c = child[rows]
         m = np.where(c >= 0, low[np.maximum(c, 0)], INF).min(axis=1)
         new = np.minimum(low[rows], m)
         changed = new < low[rows]
         low[rows] = new
         rows = rows[changed]
-    # a wall run entered from a non-wall: only if the fall to its lowest exit is safe
+    # a wall entered at height z (from anything): only if z - its lowest exit is a safe fall, so a descent that
+    # touches a wall anywhere ends within SAFE_FALL below that point; steep alone has no limit
     for j in range(3):
         x = child[:, j]
         xc = np.maximum(x, 0)
-        bad = (x >= 0) & ~wall & wall[xc] & (ez[:, j] - low[xc] > SAFE_FALL)
+        bad = (x >= 0) & wall[xc] & (ez[:, j] - low[xc] > SAFE_FALL)
         child[bad, j] = -1
     t1 = time.time()
     # landing sets, children first (Kahn's order: the descent graph goes strictly down, so no cycles)
@@ -654,6 +653,7 @@ def prune(f: Fine, pc: Pieces, keys):
 LAND, WATERC, HARMC = 1, 2, 3
 HARMFUL_SHARE = 0.25
 WATER_SHARE = 0.5
+CENTRE_SHARE = 0.85  # a part holding this share of its chunk's triangles is at the chunk's centre
 
 
 class L1:
@@ -706,7 +706,7 @@ def build_l1(f: Fine, pc: Pieces, keep, keys, tiles) -> L1:
             cls = WATERC
         else:
             cls = LAND
-        centre = size * 2 >= 256
+        centre = size >= CENTRE_SHARE * 256
         row = qc[kidx[x]]
         best = row.max()
         cand = np.nonzero(row == best)[0]

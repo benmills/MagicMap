@@ -68,7 +68,7 @@ export function readView(hash, preferred = "2d") {
     path: readPath(p),
   };
 }
-// Pathing debug's part (pathdebug.js): the walk drawn (pv: 31 or 2) and a route's ends (pa, pb: world tile col,row).
+// Pathing debug's part (pathdebug.js): the walk drawn (pv: 311, 31 or 2) and a route's ends (pa, pb: world tile col,row).
 function readPath(p) {
   const point = (k) => {
     const v = (p.get(k) || "").split(",").map(Number);
@@ -76,7 +76,7 @@ function readPath(p) {
   };
   const a = point("pa"),
     b = point("pb");
-  return { v: p.get("pv") === "31" ? "31" : "2", points: a ? (b ? [a, b] : [a]) : [] };
+  return { v: ["311", "31"].includes(p.get("pv")) ? p.get("pv") : "2", points: a ? (b ? [a, b] : [a]) : [] };
 }
 export function writeView(s) {
   const p = new URLSearchParams({ map: s.inst, view: s.mode });

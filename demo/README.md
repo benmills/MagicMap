@@ -25,11 +25,14 @@ ground profile, pathing debug). **Pathing Debug** (`tools=path` in a link) is th
 6144 px a tile; a panel in the top left has the layers (cell classes, missing crossings, cut-off pockets, connectors, the
 4-yd squares under each cell with a slope rule and limit to try, the cells searched in order, A*'s chunk path, the addon's
 line, its search box), the route's numbers, and what's under the mouse (map, chunk, its class and region, the square's slope).
-It is an A/B of two walks: 3.1's, frozen in `walk31/` (atlas/Walk.lua, atlas/Route.lua, Data/Walk.lua, Data/WalkRegions.lua
-as at 5eedf63, loaded into a second ns), and the tree's (v2); the panel's toggle picks the one drawn (`pv=31|2` in a link,
-with the route's ends `pa`, `pb`), a route runs on both and their numbers sit side by side (`/api/route?v=`, `/api/walk?v=`).
-Its Cases (`walk_cases.json`) and a sweep's table (`walk_sweep.json`, from tools/walk_sweep.py `--json`, if copied here) run one on
-a click. pathdebug.js. A tap on the map (or a pin) opens a small popup naming the zone and the place there (`/api/at`), with
+It compares three walks: the released 3.1.1's, frozen in `walk311/` (13f5be7's atlas/Walk.lua and Data/Walk.lua, and its
+search as f95cb2f moved it into atlas/Route.lua), main's before v2, frozen in `walk31/` (5eedf63's Walk, Route, Walk and
+WalkRegions data), each loaded into its own ns, and the tree's (v2). The panel's toggle picks the one drawn (`pv=311|31|2` in
+a link, with the route's ends `pa`, `pb`); a route runs on all three and their numbers sit side by side (`/api/route?v=`,
+`/api/walk?v=`). Its Cases (`walk_cases.json`) and a sweep's table (`walk_sweep.json`, from tools/walk_sweep.py `--json`, if
+copied here) run one on a click. pathdebug.js. **Routes** (Advanced > Routes: Previous vs New; routes.html, routes.js) is a page
+of `walk_cases.json`'s `"grid"` cases, each run live (`/api/cases`) on 3.1.1 and v2 (`?sides=31,2` compares others): a pair of
+map views per case, its numbers and what it should do; a view opens the map there in Pathing Debug on that walk. A tap on the map (or a pin) opens a small popup naming the zone and the place there (`/api/at`), with
 Zoom In and Zoom In with 3D. Going into 3D and back out is a flight (flyover.js `flight`): the camera eases its zoom, heading,
 tilt and ground height, from the 2D view down into a tilted one and back up, level and north, to 2D; any input stops it.
 

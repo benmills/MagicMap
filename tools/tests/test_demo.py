@@ -40,12 +40,12 @@ ROUTE_KEYS = {"v", "label", "api", "map", "way", "found", "partial", "capped", "
 
 
 def test_route_tool():
-    """/api/route runs the addon's own search, 3.1's walk (v=31, demo/walk31) or the tree's (v=2), in one shape:
-    Goldshire to Lakeshire is found, a little longer than straight, its trace world points; the two continents never
-    share a route."""
+    """/api/route runs the addon's own search, 3.1.1's walk (v=311, demo/walk311), main's before v2 (v=31,
+    demo/walk31) or the tree's (v=2), in one shape: Goldshire to Lakeshire is found, a little longer than straight,
+    its trace world points; the two continents never share a route."""
     dx, dy = server.OFFSET[0]
     q = {"c0": str(31.95 + dx), "r0": str(49.75 + dy), "c1": str(36.09 + dx), "r1": str(49.28 + dy)}
-    for v in ("31", "2"):
+    for v in ("311", "31", "2"):
         r = server.route(dict(q, v=v))
         assert "error" not in r, r["error"]
         assert set(r) == ROUTE_KEYS and r["v"] == v and r["map"] == "Eastern Kingdoms"
@@ -82,3 +82,12 @@ def test_walk_layer():
     w = server.walk(q)
     assert "error" not in w, w["error"]
     assert w["v"] == "2" and len(w["rows"]) == 8 and ("nodes" in w) == (w["api"] == "2")
+
+
+def test_routes_page_cases():
+    """The Routes page's data (/api/cases): every grid case, run now on the previous walk and the new one."""
+    d = server.cases({})
+    assert [s["v"] for s in d["sides"]] == ["311", "2"] and len(d["cases"]) >= 6
+    for c in d["cases"]:
+        assert {(r["dir"], r["v"]) for r in c["runs"]} >= {("ab", "311"), ("ab", "2")}
+        assert all(r["error"] is None for r in c["runs"]), c["name"]

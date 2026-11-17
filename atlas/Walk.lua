@@ -33,6 +33,23 @@ local function Expand(enc)
 	return (enc:gsub("(%a)(%d+)", string.rep))
 end
 
+-- T[i] not yet known: the complex chunks' records scanned on, up to chunk i's (T.at: where in T.s the scan goes
+-- on, T.o the next record's offset). Only complex chunks' offsets are asked for.
+local Offsets = {}
+Offsets.__index = function(T, i)
+	if type(i) ~= "number" then return nil end
+	local s, ps, o, at = T.s, T.ps, T.o, T.at
+	if not ps or not at then return nil end
+	at = s:find("%u", at)
+	while at and at <= i + 1 do
+		rawset(T, at - 1, o)
+		o = o + 2 + (ps:byte(o) - 48) * 64 + ps:byte(o + 1) - 48
+		at = s:find("%u", at + 1)
+	end
+	T.o, T.at = o, at or false
+	return rawget(T, i)
+end
+
 local function Tile(inst, key)
 	local c = tiles[inst]
 	if not c then
@@ -45,21 +62,13 @@ local function Tile(inst, key)
 	local w = Data.Walk and Data.Walk[inst]
 	local enc = w and w[key]
 	if enc then
-		local s = Expand(enc)
-		T = { s = s }
 		local P = Data.WalkParts and Data.WalkParts[inst]
-		local ps = P and P[key]
-		if ps then -- (none: its complex chunks have no parts here, as if blocked)
-			T.ps = ps
-			local o, at = 1, s:find("%u")
-			while at do
-				T[at - 1] = o
-				o = o + 2 + (ps:byte(o) - 48) * 64 + ps:byte(o + 1) - 48
-				at = s:find("%u", at + 1)
-			end
-		end
 		local D = Data.WalkDrops and Data.WalkDrops[inst]
-		T.ds = D and D[key] -- (sorted by chunk, then part: looked up by halving, no index built)
+		-- ps false: its complex chunks have no parts here, as if blocked. ds: sorted by chunk, then part (looked
+		-- up by halving, no index built). The records' offsets (T[i]) are found as they're first asked for
+		-- (Offsets): a tile first touched at a corner is three or four touched at once.
+		T = setmetatable({ s = Expand(enc), ps = P and P[key] or false, ds = D and D[key] or false, o = 1, at = 1 },
+			Offsets)
 	end
 	c[key] = T
 	return T
@@ -313,6 +322,40 @@ function Walk.Links(inst)
 		links[inst], linksBack[inst] = l, back
 	end
 	return l, list, linksBack[inst]
+end
+
+-- Before node id's edges are read: the tiles they'll touch read first, a quarter tile's records at a time,
+-- yield() between (a node at a tile's corner reads four, and a long search's slice can't take that at once).
+-- Nothing to do (a call or two's work) inside a tile already read.
+local warmInst, warmKey
+function Walk.Warm(inst, id, yield)
+	local gc, gr = floor(id / SPAN), floor(id % SPAN / PARTS)
+	local m, n = gc % CHUNKS, gr % CHUNKS
+	local tc, tr = floor(gc / CHUNKS), floor(gr / CHUNKS)
+	local key = tc * 64 + tr
+	if key == warmKey and inst == warmInst and m > 0 and m < CHUNKS - 1 and n > 0 and n < CHUNKS - 1 then return end
+	warmInst, warmKey = inst, key
+	if not links[inst] then
+		Walk.Links(inst)
+		yield()
+	end
+	local cache = tiles[inst]
+	for x = m == 0 and tc - 1 or tc, m == CHUNKS - 1 and tc + 1 or tc do
+		for y = n == 0 and tr - 1 or tr, n == CHUNKS - 1 and tr + 1 or tr do
+			local k = x * 64 + y
+			if x >= 0 and y >= 0 and not (cache and cache[k] ~= nil) then
+				local T = Tile(inst, k)
+				cache = tiles[inst]
+				yield()
+				if T and T.at then
+					for i = 63, 255, 64 do
+						local _ = T[i]
+						yield()
+					end
+				end
+			end
+		end
+	end
 end
 
 -- The nodes of chunk (gc + dx, gr + dy) that node id has an edge to, dx and dy each -1, 0 or 1: straight, a

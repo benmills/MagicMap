@@ -119,6 +119,7 @@
       <div id="profileResult"></div>
       <div class="group">
         <label class="row"><input type="checkbox" data-tool="path" /><span>Pathing Debug</span></label>
+        <a class="row" href="routes.html"><span>Walk scorecard: previous vs new</span></a>
       </div>
     </section>
     <!-- Pathing debug (pathdebug.js): its layers, the walk A/B, the route's numbers, cases, what's under the mouse. -->
@@ -130,7 +131,7 @@
         <button id="pathClose" aria-label="Turn pathing debug off" title="Turn off">×</button>
       </div>
       <div id="pathAB" class="ab" role="group" aria-label="Which walk is drawn">
-        <span>Walk</span><button data-v="31" aria-pressed="false">3.1</button><button data-v="2" aria-pressed="true">v2</button>
+        <span>Walk</span><button data-v="311" aria-pressed="false" title="The released 3.1.1 (players have it)">3.1.1</button><button data-v="31" aria-pressed="false" title="main before v2 (5eedf63: regions, links, per-cell edges)">main</button><button data-v="2" aria-pressed="true" title="The new walk (the tree's)">v2</button>
       </div>
       <div id="pathRoute"></div>
       <details id="pathCases" hidden><summary>Cases</summary><div id="pathCaseList"></div><details id="pathSweep" hidden></details></details>

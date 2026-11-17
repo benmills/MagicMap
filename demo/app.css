@@ -263,6 +263,12 @@ div.row.head { /* a header with nothing to switch: lined up with the others */
 label.row {
   cursor: pointer;
 }
+a.row { /* a row that opens another page (the Routes page) */
+  color: inherit;
+  text-decoration: none;
+  padding-left: calc(14px + 18px + 10px);
+}
+a.row::after { content: "›"; width: 10px; color: var(--dim); font-size: 1.3em; text-align: right; }
 .back { /* a page's first row: its name, and the way back */
   color: var(--dim);
 }
