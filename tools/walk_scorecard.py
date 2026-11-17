@@ -10,7 +10,8 @@ game, so it isn't in git). The checks, on the line a player follows (every yard 
   climb  the most it rises over 4 yards: past 6.8 (50 degrees over 4 yards and the game's 2-yard step) you can't
   drop   the most it falls in one go down ground steeper than 61.6 degrees (what you can walk down): past 14.57 it
          hurts, past ~40 it kills
-A partial route's last leg (straight on from as near as it got) isn't checked: the page draws it as "no way on".
+A partial route's last leg (straight on from as near as it got) isn't checked: the page draws it as "no way on". Nor
+are the 12 yards round each end: an end is where you clicked, on a slope or not.
 """
 import argparse
 import json
@@ -32,6 +33,7 @@ DESCENT = 4 * math.tan(math.radians(61.6))         # a 4-yd fall steeper than th
 DROP_HURTS = 14.57
 LINK_NEAR = 20 / YD      # a line this near both ends of a link takes it
 LINK_W = 12 / YD         # a link's corridor, each side of it
+END_NEAR = 12 / YD       # the ground this near either end isn't judged: the end is where you clicked, slope or not
 
 
 class Ground:
@@ -56,7 +58,7 @@ def seg_dist(p, a, b):
     return math.hypot(p[0] - ax - t * vx, p[1] - ay - t * vy)
 
 
-def walk_line(ground, links, way):
+def walk_line(ground, links, way, end):
     """The line's checks: worst climb over 4 yd, worst drop, the links it takes, where the worst of each is. A hand
     link is a corridor LINK_W wide along its length (a lift's shaft, a bridge's deck): the line in it isn't judged,
     and the link counts as taken when the line comes near both its ends."""
@@ -65,7 +67,8 @@ def walk_line(ground, links, way):
         n = max(1, int(math.dist(p, q) * YD / 4))  # a sample every 4 yards (a quad)
         pts += [(p[0] + (q[0] - p[0]) * i / n, p[1] + (q[1] - p[1]) * i / n) for i in range(1, n + 1)]
     near = [l for l in links if min(seg_dist(s, l["a"], l["b"]) for s in pts[::4] + pts[-1:]) < 4 * LINK_W]
-    on_link = [any(seg_dist(s, l["a"], l["b"]) < LINK_W for l in near) for s in pts]
+    on_link = [any(seg_dist(s, l["a"], l["b"]) < LINK_W for l in near)
+               or math.dist(s, way[0]) < END_NEAR or math.dist(s, end) < END_NEAR for s in pts]
     used = [l["name"] for l in near if min(math.dist(s, l["a"]) for s in pts) < LINK_NEAR
             and min(math.dist(s, l["b"]) for s in pts) < LINK_NEAR]
     hs = [ground.at(*s) for s in pts]
@@ -136,7 +139,7 @@ def main():
         for run in case["runs"]:
             way = [(x - dx, y - dy) for x, y in run.get("way") or []]
             checked = way[:-1] if (run.get("partial") and len(way) > 2) else way
-            run.update(walk_line(ground, links, checked) if len(checked) > 1 else
+            run.update(walk_line(ground, links, checked, way[-1]) if len(checked) > 1 else
                        {"climb": 0.0, "climbAt": None, "drop": 0.0, "dropAt": None, "links": []})
             run["pass"], run["why"] = judge(expect, run)
             for k in ("climbAt", "dropAt"):  # back on the demo's world, as the line is

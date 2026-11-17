@@ -621,6 +621,7 @@ local function Line(t, me, cam, w, h)
 	local len = along[m]
 	local s0, s1 = CLEAR_YOU, len - CLEAR_TARGET
 	local n, step = 0, math.max(PERIOD, (s1 - s0) / MAX_PIECES)
+	lay.half = nil -- (no dashes laid this time: none left of the last's to do, its arrays gone)
 	if s1 > s0 then
 		local L = lay
 		L.m, L.len, L.s0, L.s1, L.step, L.id, L.still = m, len, s0, s1, step, Path.draws, -1

@@ -44,7 +44,7 @@ def test_pill_and_recenter():
     sim.Run(1)
     assert int(text().split()[-2]) < yd and fill.IsShown(fill)
     share = sim.state[fill].width / line.GetWidth(line)  # (the fill: one texture cut at its share)
-    assert 0.3 < share < 0.7, share
+    assert 0.3 < share < 0.8, share  # (along the route: one round rough ground comes off faster than half the straight way)
     Feel.Set("pills.questBar", False)
     sim.Run(0.5)
     assert not fill.IsShown(fill)

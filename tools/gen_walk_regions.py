@@ -65,7 +65,8 @@ def tindex(u: int) -> int:
 # --- links, regions, reach ---------------------------------------------------------------------------------
 
 def links_for(W: wd.Walk, inst: int, links: list[dict]) -> list[tuple]:
-    """(a, b, cost, name, oneway) for the map's links, their ends snapped."""
+    """(a, b, cost, name, oneway, (acol, arow, bcol, brow)) for the map's links, their ends snapped, and where
+    they are exactly (tile coordinates: the line's drawn there)."""
     out = []
     for k in links:
         if k["inst"] != inst:
@@ -80,7 +81,7 @@ def links_for(W: wd.Walk, inst: int, links: list[dict]) -> list[tuple]:
         ax, ay = W.pos_chunks(a)
         bx, by = W.pos_chunks(b)
         cost = round(max(k.get("cost", 0), math.hypot(bx - ax, by - ay)), 2)
-        out.append((a, b, cost, k["name"], bool(k.get("oneway", False))))
+        out.append((a, b, cost, k["name"], bool(k.get("oneway", False)), tuple(k["a"]) + tuple(k["b"])))
     return out
 
 
@@ -465,16 +466,17 @@ def main() -> None:
     wl, wr, wreach, wg = [], [], [], []
     for inst, W in sorted(maps.items()):
         lk = links_for(W, inst, links)
-        W.links = [(a, b, c, o) for a, b, c, _, o in lk]
+        W.links = [(a, b, c, o) for a, b, c, _, o, _ in lk]
         nodes = list(W.nodes())
         adj = W.adjacency()
         reg, comp, num = regions(nodes, adj)
         reach, full = reach_table(nodes, adj, comp, num)
         if lk:
             wl.append(f"  [{inst}] = {{\n")
-            for a, b, c, nm, o in lk:
+            for a, b, c, nm, o, at in lk:
                 (ac, ar, ap), (bc, br, bp) = split_id(a), split_id(b)
-                wl.append(f"    {{ {ac}, {ar}, {ap}, {bc}, {br}, {bp}, {c:g}, {json.dumps(nm)}, {'true' if o else 'false'} }},\n")
+                wl.append(f"    {{ {ac}, {ar}, {ap}, {bc}, {br}, {bp}, {c:g}, {json.dumps(nm)}, {'true' if o else 'false'}, "
+                          f"{', '.join(f'{v:g}' for v in at)} }},\n")
             wl.append("  },\n")
         wr.append(f"  [{inst}] = {{\n")
         for key in sorted(W.walk):
@@ -515,7 +517,8 @@ def main() -> None:
                 print(f"  check: L2 reach agrees with regions on {agree} of {agree + disagree} pairs", file=sys.stderr)
     with open(ns.output, "w", encoding="utf-8", newline="\n") as out:
         out.write(head)
-        out.write("-- WalkLinks[inst] = { { ac, ar, ap, bc, br, bp, cost, name, oneway }, ... }: hand links, part (gc, gr, p) a to b\n")
+        out.write("-- WalkLinks[inst] = { { ac, ar, ap, bc, br, bp, cost, name, oneway, acol, arow, bcol, brow }, ... }: hand links,\n")
+        out.write("--   part (gc, gr, p) a to b, and where its ends are exactly (tile coordinates, for drawing)\n")
         out.write("--   (and back unless oneway), cost in chunks. WalkRegions[inst][col * 64 + row] = the region of every part of the\n")
         out.write("--   tile (a number), or runs \"<region>x<count>\" over its parts in order (chunk iy * 16 + ix, then part).\n")
         out.write("-- WalkReach[inst] = { hubs = H, up, dn, own }: regions 1..H are hubs; a reaches b iff a == b, b in own[a], or some h\n")

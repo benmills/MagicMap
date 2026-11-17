@@ -9,6 +9,7 @@ Data/Walk.lua
 Data/WalkParts.lua
 Data/WalkRegions.lua
 Data/WalkGraph.lua
+Data/WalkRough.lua
 Data/UiMaps.lua
 Data/Areas.lua
 Data/AreaGrid.lua

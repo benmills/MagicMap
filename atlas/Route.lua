@@ -15,7 +15,7 @@ local Walk = Atlas.Walk
 local Route = {}
 Atlas.Route = Route
 
-local floor, sqrt, abs, max, min = math.floor, math.sqrt, math.abs, math.max, math.min
+local floor, ceil, sqrt, abs, max, min = math.floor, math.ceil, math.sqrt, math.abs, math.max, math.min
 local CHUNKS, SPAN, PARTS, COST = Walk.CHUNKS, Walk.SPAN, Walk.PARTS, Walk.COST
 local LAND = 1
 local MAX_NODES = 60000             -- a plain search gives up past this many (no tile graph, or none found by it)
@@ -24,8 +24,9 @@ local TILE_NODES = 4096             -- a search inside one tile (16 x 16 chunks,
 local MAX_NODES2 = 60000            -- the tile graph's search gives up past this many of its nodes (a continent's, all of them)
 local PAD, PAD_SHARE = 24, 0.6      -- a plain search's box: start and goal's, grown by this many chunks or this share of the distance
 local GAP, GAP_SHARE = 8, 0.25      -- no way all the way: the way to the nearest node it reaches, if this close (chunks, or share of the distance), then straight
-local ROUND = 5                     -- chunks a corner is cut back along each leg (at most half the leg) and rounded off: a walking line, not a polygon
-local ROUND_STEPS = 3               -- the points of a rounded corner's curve, less one
+local ROUND = 2                     -- chunks a corner is cut back along each leg (at most half the leg) and rounded off: a walking line, not a polygon (kept sharp where the curve would cross rough ground)
+local ROUND_STEPS = 2               -- the points of a rounded corner's curve, less one
+local ROUND_COS = 0.9               -- a corner turning less than this cosine's angle (~25 degrees) stands: no curve for a bend you'd not see
 local KEEP_NODES = 8192             -- a search's tables kept for the next (emptied first) while it closed no more than this
 local GOAL, START = -1, -2          -- the tile graph search's own two nodes
 local GREED = 1.5                   -- the tile graph's A* heuristic weighted: ways at most this much longer than the best, far fewer nodes
@@ -407,11 +408,35 @@ end
 -- tile coordinates, if that's in a's chunk) to b's (or (bc, br)), each step an edge of the parts (Walk.Step:
 -- straight, or diagonal where the line passes a corner exactly), on to the part nearest the line where there's
 -- more than one. Which boundary comes first is compared multiplied out: no divide by a 0 width. yield (or
--- nil): called each SIGHT_STEPS chunks (a long line of sight is many nodes' work).
+-- nil): called each SIGHT_STEPS chunks (a long line of sight is many nodes' work). The line must also keep off
+-- rough ground (Clear) unless rough is false.
 local SIGHT_STEPS = 8
 local NARROW = 0.3 -- chunks a straight line may pass from a part that isn't most of its chunk
+local CLEAR_STEP = 1 / 4 -- chunks between the samples a line's checked for rough ground at (a cell, ~8 yd)
+local CLEAR_SLICE = 16 -- samples between yields
+
+-- Does the straight line from global chunk position (x0, y0) to (x1, y1) keep off rough ground (Walk.Rough:
+-- too steep to walk over, or no ground)? Its ends aren't judged (a node's place can sit beside a cliff).
+local POW2K = {}
+for k = 0, 15 do POW2K[k] = 2 ^ k end
+local function Clear(inst, x0, y0, x1, y1, yield)
+	local RoughBits = Walk.RoughBits
+	local n = ceil(sqrt((x1 - x0) ^ 2 + (y1 - y0) ^ 2) / CLEAR_STEP)
+	local lc, lr, bits -- (the chunk the last sample was in, its bits: a chunk's 4 or so samples one look)
+	for k = 1, n - 1 do
+		local t = k / n -- /: never 0 (n >= 2 inside the loop)
+		local x, y = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
+		local gc, gr = floor(x), floor(y)
+		if gc ~= lc or gr ~= lr then lc, lr, bits = gc, gr, RoughBits(inst, gc, gr) end
+		if bits > 0 and floor(bits / POW2K[floor((y - gr) * 4) * 4 + floor((x - gc) * 4)]) % 2 == 1 then return false end -- /: never 0 (a power of 2)
+		if yield and k % CLEAR_SLICE == 0 then yield() end
+	end
+	return true
+end
+Route.Clear = Clear
+
 local sightBuf = {}
-function Route.Sight(inst, a, b, worst, yield, ac, ar, bc, br)
+function Route.Sight(inst, a, b, worst, yield, ac, ar, bc, br, rough)
 	local Step, Pos, Class = Walk.Step, Walk.Pos, Walk.Class
 	local c, r = ChunkOf(a)
 	local x0, y0
@@ -481,30 +506,34 @@ function Route.Sight(inst, a, b, worst, yield, ac, ar, bc, br)
 	end
 	if b and u ~= b then -- (b's chunk, another part of it: on to b by its own chunk's edges)
 		if COST[Class(inst, b)] > worst then return false end
+		local joined = false
 		for j = 1, Step(inst, u, 0, 0, sightBuf) do
-			if sightBuf[j] == b then return true end
+			if sightBuf[j] == b then joined = true end
 		end
-		return false
+		if not joined then return false end
 	end
-	return true
+	if rough == false then return true end -- (the caller checks the ground itself: Route.Clear)
+	return Clear(inst, x0, y0, x1, y1, yield)
 end
 local Sight = Route.Sight
 
 -- The nodes where the route turns: from each, straight on to a furthest one in sight (through nothing costlier
 -- than the route itself crosses there): a gallop (1, 2, 4, ... on) to the first out of sight, then halved back
 -- between it and the last in sight; a few lines of sight a turn, not one for each node on.
-local costs = {} -- the route's nodes' class costs (this call's)
+local costs, linked = {}, {} -- the route's nodes' class costs; whether node k -> k + 1 is a hand link (this call's)
 local function Straighten(inst, ids, yield)
-	local Class, n = Walk.Class, #ids
+	local Class, LinkAt, n = Walk.Class, Walk.LinkAt, #ids
 	for k = 1, n do
 		costs[k] = COST[Class(inst, ids[k])] or COST[LAND]
+		linked[k] = k < n and LinkAt(inst, ids[k], ids[k + 1]) ~= nil
 		if k % 32 == 0 then yield() end
 	end
-	for k = n + 1, #costs do costs[k] = nil end
-	local function Seen(i, j) -- (i < j)
+	for k = n + 1, #costs do costs[k], linked[k] = nil, nil end
+	local function Seen(i, j) -- (i < j); a hand link's leg is taken as it is (both its ends turns)
 		local worst = 0
 		for k = i + 1, j do
 			worst = max(worst, costs[k])
+			if linked[k - 1] then return false end
 			if k % 256 == 0 then yield() end
 		end
 		yield()
@@ -533,29 +562,137 @@ local function Straighten(inst, ids, yield)
 	return out
 end
 
+-- A leg of the line that crosses rough ground (two neighbouring parts joined somewhere along their chunks' side,
+-- not where the straight line between their places crosses it; or an end you clicked): the way round on the ~8-yd
+-- cells (Walk.Rough), A* in a box DETOUR_PAD chunks round the leg, then straightened again on the cells. Its
+-- points between p and q (tile coordinates) into out; none if there's no way round in the box (the leg stands).
+local DETOUR_PAD = 1     -- chunks round a leg its detour may go
+local DETOUR_SPAN = 8   -- chunks: a longer leg isn't detoured (its box would be too big for a slice)
+local CELL = 4           -- cells a chunk side
+local dOpen, dG, dFrom, dFree, dHeap = {}, {}, {}, {}, { ids = {}, keys = {}, n = 0 }
+local function Detour(inst, p, q, out, yield)
+	local Rough = Walk.Rough
+	local x0, y0, x1, y1 = p.col * CHUNKS * CELL, p.row * CHUNKS * CELL, q.col * CHUNKS * CELL, q.row * CHUNKS * CELL
+	local pad = DETOUR_PAD * CELL
+	local bx0, by0 = floor(min(x0, x1)) - pad, floor(min(y0, y1)) - pad
+	local bx1, by1 = floor(max(x0, x1)) + pad, floor(max(y0, y1)) + pad
+	local w = bx1 - bx0 + 1
+	if w > DETOUR_SPAN * CELL or by1 - by0 + 1 > DETOUR_SPAN * CELL then return 0 end
+	local function Free(cx, cy) -- (each cell looked at once a detour: its neighbours ask again)
+		local k = (cy - by0) * w + cx - bx0
+		local f = dFree[k]
+		if f == nil then
+			f = not Rough(inst, (cx + 0.5) / CELL, (cy + 0.5) / CELL)
+			dFree[k] = f
+		end
+		return f
+	end
+	local sx, sy, gx, gy = floor(x0), floor(y0), floor(x1), floor(y1)
+	local start, goal = (sy - by0) * w + sx - bx0, (gy - by0) * w + gx - bx0
+	Empty(dOpen, yield); Empty(dG, yield); Empty(dFrom, yield); Empty(dFree, yield); Empty(dHeap.ids, yield); Empty(dHeap.keys, yield)
+	dHeap.n = 0
+	dG[start] = 0
+	Push(dHeap, start, 0)
+	local pops, found = 0, false
+	while dHeap.n > 0 do
+		local u = Pop(dHeap)
+		if u == goal then
+			found = true
+			break
+		end
+		if not dOpen[u] then
+			dOpen[u] = true
+			pops = pops + 1
+			yield()
+			local ux, uy = u % w, floor(u / w) -- /: never 0 (w: the box's width, >= 1)
+			for ddx = -1, 1 do
+				for ddy = -1, 1 do
+					local vx, vy = ux + ddx, uy + ddy
+					if (ddx ~= 0 or ddy ~= 0) and vx >= 0 and vy >= 0 and vx < w and vy <= by1 - by0 then
+						local v = vy * w + vx
+						-- (a diagonal only where both its sides are free: no corner cut over a cliff's edge)
+						if not dOpen[v] and (v == goal or Free(vx + bx0, vy + by0))
+							and (ddx == 0 or ddy == 0 or Free(ux + ddx + bx0, uy + by0) and Free(ux + bx0, uy + ddy + by0)) then
+							local ng = dG[u] + ((ddx ~= 0 and ddy ~= 0) and 1.4142 or 1)
+							if not dG[v] or ng < dG[v] then
+								dG[v], dFrom[v] = ng, u
+								Push(dHeap, v, ng + sqrt((vx + bx0 - gx) ^ 2 + (vy + by0 - gy) ^ 2))
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	if not found then return 0 end
+	local cells = {}
+	local u = goal
+	while u ~= start do
+		cells[#cells + 1] = u
+		u = dFrom[u]
+	end
+	-- From p, on to the furthest cell in clear sight, and again; the goal cell's last (q follows).
+	local k, n, ax, ay = #cells, 0, x0, y0
+	while k > 1 do
+		local best = k
+		for j = 1, k - 1 do -- (the furthest first: few cells)
+			if j % 4 == 0 then yield() end
+			local c = cells[j]
+			local cx, cy = c % w + bx0 + 0.5, floor(c / w) + by0 + 0.5 -- /: never 0 (w >= 1)
+			if Clear(inst, ax / CELL, ay / CELL, cx / CELL, cy / CELL, yield) then
+				best = j
+				break
+			end
+		end
+		local c = cells[best]
+		ax, ay = c % w + bx0 + 0.5, floor(c / w) + by0 + 0.5 -- /: never 0 (w >= 1)
+		n = n + 1
+		out[#out + 1] = { inst = inst, col = ax / CELL / CHUNKS, row = ay / CELL / CHUNKS }
+		k = best - 1
+		if k >= 1 and Clear(inst, ax / CELL, ay / CELL, x1 / CELL, y1 / CELL, yield) then break end
+	end
+	return n
+end
+
 -- Each corner rounded off: the legs cut back ROUND chunks from it (half a leg at most, so neighbours
 -- meet and never cross) and joined by a quadratic Bezier whose control is the corner. Lazier than
 -- Chaikin's (which cut a quarter of a leg a pass): the line reads as a path walked, not turned sharply.
 -- Ends kept.
-local function Round(inst, pts)
+local function Round(inst, pts, yield)
 	local n = #pts
 	if n < 3 then return pts end
 	local out = { pts[1] }
+	local curve = {}
 	for i = 2, n - 1 do
+		yield()
 		local p, a, b = pts[i], pts[i - 1], pts[i + 1]
 		local la, lb = sqrt((a.col - p.col) ^ 2 + (a.row - p.row) ^ 2), sqrt((b.col - p.col) ^ 2 + (b.row - p.row) ^ 2)
-		local d = min(ROUND / CHUNKS, la / 2, lb / 2)
-		if d > 0 then -- (a leg of none: the corner stands)
+		local d = (p.link or a.link and b.link) and 0 or min(ROUND / CHUNKS, la / 2, lb / 2)
+		if d > 0 and ((p.col - a.col) * (b.col - p.col) + (p.row - a.row) * (b.row - p.row)) > ROUND_COS * la * lb then d = 0 end
+		local done = false
+		while d > 0.25 / CHUNKS and not done do -- (a leg of none, or a link's end: the corner stands)
 			local sx, sy = p.col + (a.col - p.col) / la * d, p.row + (a.row - p.row) / la * d -- /: never 0 (d > 0: la, lb > 0)
 			local ex, ey = p.col + (b.col - p.col) / lb * d, p.row + (b.row - p.row) / lb * d -- /: never 0 (d > 0: la, lb > 0)
+			local ok, px, py = true, sx, sy
 			for k = 0, ROUND_STEPS do
 				local t = k / ROUND_STEPS
 				local u = 1 - t
-				out[#out + 1] = { inst = inst, col = u * u * sx + 2 * u * t * p.col + t * t * ex, row = u * u * sy + 2 * u * t * p.row + t * t * ey }
+				local x, y = u * u * sx + 2 * u * t * p.col + t * t * ex, u * u * sy + 2 * u * t * p.row + t * t * ey
+				curve[k + 1] = { inst = inst, col = x, row = y }
+				if k > 0 and ok then
+					yield()
+					ok = Clear(inst, px * CHUNKS, py * CHUNKS, x * CHUNKS, y * CHUNKS, yield)
+				end
+				px, py = x, y
 			end
-		else
-			out[#out + 1] = p
+			if ok then
+				for k = 1, ROUND_STEPS + 1 do out[#out + 1] = curve[k] end
+				done = true
+			else
+				d = d / 2
+			end
 		end
+		if not done then out[#out + 1] = p end
 	end
 	out[#out + 1] = pts[n]
 	return out
@@ -668,12 +805,51 @@ function Route.Find(inst, c1, r1, s, g, c2, r2, yield, trace)
 	if not ids then return nil, nil, capped end
 	if trace then trace.raw = ids end
 	ids = Straighten(inst, ids, yield)
+	yield()
 	if trace then trace.turns = ids end
-	local pts = { { inst = inst, col = c1, row = r1 } }
-	for i = 2, partial and #ids or #ids - 1 do -- short of the goal: on from the last node straight
-		local col, row = Walk.Pos(inst, ids[i])
-		pts[#pts + 1] = { inst = inst, col = col, row = row }
+	-- The nodes' places, a hand link's legs at its ends' exact places (a bridge's deck, a lift's shaft); then the
+	-- start and goal themselves in place of the first and last (short of the goal: on from the last node straight).
+	local n, LinkAt, Pos = #ids, Walk.LinkAt, Walk.Pos
+	local at = {}
+	for i = 1, n do
+		local col, row = Pos(inst, ids[i])
+		at[i] = { inst = inst, col = col, row = row }
+		if i % 16 == 0 then yield() end
 	end
+	yield()
+	for i = 1, n - 1 do
+		if i % 32 == 0 then yield() end
+		local ax, ay, bx, by = LinkAt(inst, ids[i], ids[i + 1])
+		if ax then
+			at[i] = { inst = inst, col = ax, row = ay, link = true }
+			at[i + 1] = { inst = inst, col = bx, row = by, link = true }
+		end
+	end
+	local pts = { { inst = inst, col = c1, row = r1 } }
+	if at[1].link then pts[2] = at[1] end
+	for i = 2, partial and n or n - 1 do pts[#pts + 1] = at[i] end
+	if not partial and n > 1 and at[n].link then pts[#pts + 1] = at[n] end
 	pts[#pts + 1] = { inst = inst, col = c2, row = r2 }
-	return Round(inst, pts), partial, capped
+	yield()
+	-- Legs over rough ground (not a link's, nor a partial way's last: straight on, as said) the way round.
+	local fine = { pts[1] }
+	for i = 2, #pts do
+		yield()
+		local a, b = pts[i - 1], pts[i]
+		if not (a.link and b.link) and not (partial and i == #pts)
+			and not Clear(inst, a.col * CHUNKS, a.row * CHUNKS, b.col * CHUNKS, b.row * CHUNKS, yield) then
+			yield()
+			Detour(inst, a, b, fine, yield)
+			yield()
+		end
+		fine[#fine + 1] = b
+	end
+	local way = Round(inst, fine, yield)
+	local out = { way[1] }
+	for i = 2, #way - 1 do -- (no leg of nothing between: a detour's or a curve's point on its neighbour; the ends kept)
+		local p, last = way[i], out[#out]
+		if (p.col - last.col) ^ 2 + (p.row - last.row) ^ 2 > 1e-10 then out[#out + 1] = p end
+	end
+	if #way > 1 then out[#out + 1] = way[#way] end
+	return out, partial, capped
 end

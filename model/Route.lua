@@ -114,9 +114,21 @@ local function Ahead(inst, pts, i, pc, pr)
 	if me then
 		local worst = math.max(COST[LAND], COST[Walk.Class(inst, me)] or 0)
 		for j = i + 1, math.min(#pts, i + LOOKAHEAD) do
-			if not Sight(inst, me, nil, worst, nil, pc, pr, pts[j].col, pts[j].row) then break end
+			if not Sight(inst, me, nil, worst, nil, pc, pr, pts[j].col, pts[j].row, false) then break end
 			best = j
 		end
+		-- Then off rough ground (a cliff the parts don't see): back by halves to the furthest that keeps off it.
+		local Clear, lo, hi = Route.Clear, i, best
+		local x0, y0 = pc * CHUNKS, pr * CHUNKS
+		while hi and hi > lo and not Clear(inst, x0, y0, pts[hi].col * CHUNKS, pts[hi].row * CHUNKS) do
+			local mid = math.floor((lo + hi) / 2)
+			if mid == lo or Clear(inst, x0, y0, pts[mid].col * CHUNKS, pts[mid].row * CHUNKS) then
+				lo, hi = mid, hi - 1
+			else
+				hi = mid
+			end
+		end
+		best = hi and hi > i and hi or nil
 	end
 	ahead.pts, ahead.chunk, ahead.i, ahead.index = pts, here, i, best
 	return best

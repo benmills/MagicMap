@@ -21,6 +21,8 @@ Walk.CHUNKS, Walk.SPAN, Walk.PARTS, Walk.COST = CHUNKS, SPAN, PARTS, COST
 local SMALL = 97 -- ('a'): a simple chunk's letter is 'a' + value; a complex one's 'A' + its biggest part's class
 local POW4 = { [0] = 1, 4, 16 }
 local POW2 = { [0] = 1, 2, 4, 8, 16, 32, 64 }
+local POW2K = {} -- [k] = 2 ^ k, k 0..15 (Walk.Rough's cell bits)
+for k = 0, 15 do POW2K[k] = 2 ^ k end
 
 ---------------------------------------------------------------------------------------------------
 -- Tiles, read lazily: T.s the 256 chunk letters (iy * 16 + ix), T[i] chunk i's record's offset in T.ps (its
@@ -279,7 +281,7 @@ DIAG[1][5], DIAG[1][6], DIAG[1][7], DIAG[1][8], DIAG[1][9] = 9, 6, false, 8, fal
 DIAG[2][5], DIAG[2][6], DIAG[2][7], DIAG[2][8], DIAG[2][9] = 3, 3, true, 2, false -- NE: E then N, N then E
 DIAG[3][5], DIAG[3][6], DIAG[3][7], DIAG[3][8], DIAG[3][9] = 7, 4, false, 7, true -- SW: W then S, S then W
 DIAG[4][5], DIAG[4][6], DIAG[4][7], DIAG[4][8], DIAG[4][9] = 1, 1, true, 1, true -- NW: W then N, N then W
-local links, linksBack = {}, {}
+local links, linksBack, linkAt = {}, {}, {}
 
 -- Edges' output, as it goes (no closure a call): its table, count, the node's position, the cost class into it.
 local eOut, eN, eX, eY, eMine
@@ -299,7 +301,7 @@ function Walk.Links(inst)
 	local list = Data.WalkLinks and Data.WalkLinks[inst] or {}
 	if not l then
 		l = {}
-		local back = {}
+		local back, at = {}, {}
 		local function Add(t, a, b, cost)
 			local e = t[a]
 			if not e then
@@ -317,11 +319,27 @@ function Walk.Links(inst)
 					Add(l, b, a, k[7])
 					Add(back, a, b, k[7])
 				end
+				if k[13] then -- (where its ends are exactly: the line's drawn along it)
+					at[a] = at[a] or {}
+					at[a][b] = { k[10], k[11], k[12], k[13] }
+					if not k[9] then
+						at[b] = at[b] or {}
+						at[b][a] = { k[12], k[13], k[10], k[11] }
+					end
+				end
 			end
 		end
-		links[inst], linksBack[inst] = l, back
+		links[inst], linksBack[inst], linkAt[inst] = l, back, at
 	end
 	return l, list, linksBack[inst]
+end
+
+-- Is u -> v a hand link? Its ends' exact places (tile col, row of u's end, then v's), or nil.
+function Walk.LinkAt(inst, u, v)
+	if not links[inst] then Walk.Links(inst) end
+	local e = linkAt[inst][u]
+	local p = e and e[v]
+	if p then return p[1], p[2], p[3], p[4] end
 end
 
 -- Before node id's edges are read: the tiles they'll touch read first, a quarter tile's records at a time,
@@ -625,4 +643,40 @@ function Walk.Reach(inst, a, b)
 		end
 	end
 	return false
+end
+
+---------------------------------------------------------------------------------------------------
+-- Rough ground, for drawing a route's line (Data/WalkRough.lua): each chunk 4 x 4 cells of ~8 yd, a cell rough
+-- where it's too steep to walk up (a face over 50 degrees taller than the 2-yd step) or has no ground (a hole).
+
+-- Chunk (gc, gr)'s rough cells' bits (cy * 4 + cx; 0 none). The tile's records looked up where they lie (sorted
+-- by chunk: halving, ~8 looks), nothing read ahead or kept.
+function Walk.RoughBits(inst, gc, gr)
+	local R = Data.WalkRough and Data.WalkRough[inst]
+	local s = R and R[floor(gc / CHUNKS) * 64 + floor(gr / CHUNKS)]
+	if not s then return 0 end
+	local want = gr % CHUNKS * CHUNKS + gc % CHUNKS
+	local lo, hi = 0, #s / 5 - 1
+	while lo <= hi do
+		local mid = floor((lo + hi) / 2)
+		local o = mid * 5 + 1
+		local i = (s:byte(o) - 48) * 64 + s:byte(o + 1) - 48
+		if i == want then
+			return s:byte(o + 2) - 48 + (s:byte(o + 3) - 48) * 64 + (s:byte(o + 4) - 48) * 4096
+		elseif i < want then
+			lo = mid + 1
+		else
+			hi = mid - 1
+		end
+	end
+	return 0
+end
+local RoughBits = Walk.RoughBits
+
+-- Is the cell under global chunk position (x, y) (fractional) rough?
+function Walk.Rough(inst, x, y)
+	local gc, gr = floor(x), floor(y)
+	local bits = RoughBits(inst, gc, gr)
+	if bits == 0 then return false end
+	return floor(bits / POW2K[floor((y - gr) * 4) * 4 + floor((x - gc) * 4)]) % 2 == 1 -- /: never 0 (a power of 2)
 end
