@@ -29,7 +29,8 @@ local Walk = Atlas.Walk
 local Route = Atlas.Route
 local CHUNKS, SPAN, PARTS, COST = Route.CHUNKS, Route.SPAN, Route.PARTS, Route.COST
 local LAND = 1
-local SLICE_MS = 1                  -- A*'s time a frame (spike-bugs P2)
+local SLICE_MS = 1                  -- A*'s time a frame
+local REROUTE_MS = 0.5              -- ...when it's found again (you strayed, the target moved): the old way's shown meanwhile, no hurry
 local FRAMES = 2400                 -- a search's frames at most (Runtime.Job cancels it past them): a plain search's MAX_NODES at 25 a slice, and straightening
 -- How the line follows you (Settings > Tracking > Route: ui/Path.lua sets them): join, yd on along the way from
 -- the place on it nearest you that the line joins it; replan, yd off it before it's found again; skip, on to the
@@ -175,7 +176,7 @@ Model.Part(function()
 		and not (For(failed, inst, goal, GOAL_SLACK) and Kept(failed, pc, pr)) then
 		Start(inst, goal, pc, pr, dest.col, dest.row)
 	end
-	if job then job.run.budget = f.moving and 0 or SLICE_MS end -- (the view moving: queued, its turn waits)
+	if job then job.run.budget = f.moving and 0 or route and REROUTE_MS or SLICE_MS end -- (the view moving: queued, its turn waits)
 	if not For(route, inst, goal, job and KEEP_SHOWN or GOAL_SLACK) then
 		if job then return Show(nil) end
 		if not (out and out.straight and out[2] == dest) then Show({ you, dest, straight = true }) end
