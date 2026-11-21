@@ -2,6 +2,11 @@
 
 Each release's notes, newest first. The zips are on [GitHub](https://github.com/benmills/MagicMap/releases).
 
+## 3.2.1 (build 1.60.1.71037)
+
+- **Smoother when you stray from the line.** Finding the way again after you wander off it now makes about a
+  quarter of the memory churn it did in 3.2.0, so it's gentler on your frame rate while you ride around.
+
 ## 3.2.0 (build 1.60.1.71037)
 
 - **The line walks the ground.** "Path to" now finds the way you'd actually walk: round cliffs, mountains and
