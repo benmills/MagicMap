@@ -1,5 +1,5 @@
 -- The way you'd walk from one place to another on a map, over Atlas.Walk's graph of parts (the ground you can
--- stand on in each ~33 yd terrain chunk; promo/pathing/walk-v2-spec.md): around cliffs, mountains and lava and
+-- stand on in each ~33 yd terrain chunk; docs/walk.md): around cliffs, mountains and lava and
 -- (when it's shorter) around lakes. Near (the same or a neighbouring tile): A* over the parts. Far: over the tiles
 -- (Data/WalkGraph.lua: the parts at each tile's borders and the cheapest ways between them inside it), its legs then
 -- walked out part by part inside their tiles. Line of sight straightens it, and its corners are rounded off. The

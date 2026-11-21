@@ -140,7 +140,6 @@ Game.Part("interior", function(obs)
 	return shown
 end)
 
--- IndoorArt.lua:178-185.
 Game.Slash("indoor", "report the building and room you're in as they change; again to stop", function()
 	local s = Game.saved
 	s.indoorDebug = not s.indoorDebug or nil

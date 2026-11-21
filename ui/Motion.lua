@@ -1,20 +1,15 @@
--- How the camera moves, the spike's way (Core.lua:931-1025, 1335-1443, 1507-1550). The wheel
--- and the ± buttons chase a target zoom, closing a fixed share of the (log) distance a second:
--- quick ticks just move the target, so the motion stays continuous instead of restarting a
--- curve per tick. Every wheel event is a tick, as the spike's (Core.lua:1422-1441): the MVP the
--- user plays (D4; M1.8b rationed them by time, and a fast scroll mostly did nothing). It pins you
--- while following, else the point under the cursor (the wheel) or the view's centre (the buttons).
--- Flights (FlyTo) ease out, zoom in log space and, zooming in, keep the destination
--- on a straight line toward the centre (it "comes to you"). A press moving under CLICK_SLOP px
--- is a click; past it, a drag: it pans and stops following. Panned away and left alone, the
--- small map glides back to following you (MinimapMode.lua:244-249). While you path to something (Path
--- to, ui/Path.lua's Motion.Frame), the small map frames you and it instead of centring on you (StepFrame);
--- your own pan or zoom holds that, and it comes back as the idle return does. Its settings (General > Movement,
--- ui/Feel.lua): Follow you (Camera.follow), Return to default and its wait (IDLE_FOLLOW), and the zoom a notch (WHEEL_STEP).
--- Window routes the view's input here and calls Chase each frame (ui/Window.lua); what this
--- marks on Camera (moving, zoomedAt, vx, vy) is what Camera.Settled and Camera.Velocity read;
--- Rect is Focus's (ui/View.lua sends it). tools/tests/spike_camera.lua is the spike's camera
--- ported; tools/tests/test_feel.py holds this one to it frame by frame.
+-- How the camera moves. The wheel and the ± buttons chase a target zoom, closing a fixed share of the
+-- (log) distance a second: quick ticks just move the target, so the motion stays continuous instead of
+-- restarting a curve per tick. Every wheel event is a tick (rationed by time, a fast scroll mostly did
+-- nothing). It pins you while following, else the point under the cursor (the wheel) or the view's centre
+-- (the buttons). Flights (FlyTo) ease out, zoom in log space and, zooming in, keep the destination on a
+-- straight line toward the centre (it "comes to you"). A press moving under CLICK_SLOP px is a click; past
+-- it, a drag: it pans and stops following. Panned away and left alone, the small map glides back to
+-- following you. While you Path to something (Motion.Frame), the small map frames you and it (StepFrame);
+-- your own pan or zoom holds that, back as the idle return is. Settings: General > Movement (ui/Feel.lua).
+-- Window routes the view's input here and calls Chase each frame; what this marks on Camera (moving,
+-- zoomedAt, vx, vy) is what Camera.Settled and Camera.Velocity read; Rect is Focus's (ui/View.lua).
+-- tools/tests/test_feel.py holds it frame by frame to tools/tests/spike_camera.lua.
 
 local _, ns = ...
 local UI = ns.UI
@@ -22,15 +17,15 @@ local Atlas, Runtime = ns.Atlas, ns.Runtime
 local Camera, Window = UI.Camera, UI.Window
 local Maths = Atlas.Camera
 
-local MIN_ZOOM, MAX_ZOOM = 16, 800 -- px per tile (Core.lua:13)
-local WHEEL_STEP = 1.3 -- a tick (Core.lua:14)
-local FLY_TIME = 0.55 -- s (Core.lua:15)
-local ZOOM_RATE = 14 -- per second: how quickly wheel zoom closes on its target (Core.lua:16)
-local ZOOM_STOP = 0.002 -- log distance the chase lands from (Core.lua:969)
-local CLICK_SLOP, CLICK_TIME = 5, 0.35 -- a click moves less than this many px, this fast (Core.lua:17)
+local MIN_ZOOM, MAX_ZOOM = 16, 800 -- px per tile
+local WHEEL_STEP = 1.3 -- a tick
+local FLY_TIME = 0.55 -- s
+local ZOOM_RATE = 14 -- per second: how quickly wheel zoom closes on its target
+local ZOOM_STOP = 0.002 -- log distance the chase lands from
+local CLICK_SLOP, CLICK_TIME = 5, 0.35 -- a click moves less than this many px, this fast
 local IDLE_FOLLOW = 3 -- s untouched (and not under the cursor) before the small map goes back to its default
-local FIT = 0.92 -- a rect flown to fills this much of the view (Core.lua:1038)
-local WHOLE = 1.0 -- a whole map shown fills the view (Core.lua:1146)
+local FIT = 0.92 -- a rect flown to fills this much of the view
+local WHOLE = 1.0 -- a whole map shown fills the view
 local CHUNKS = Atlas.Walk.CHUNKS -- a tile's walk chunks a side: Focus's rect is out to whole ones
 local JUMP = 0.5 -- of the view in a frame: a move further is a jump (a teleport, a hearth), not a speed
 
@@ -66,7 +61,7 @@ local function Clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
 local function Animating() return goal ~= nil or flight ~= nil or fz ~= nil and Camera.cam.zoom ~= fz end -- (fz: settled once there)
 
--- The camera moved, in place (a table a zoom frame was `map: motion`'s 3.6-5.7 KB/s zooming: M1b).
+-- The camera moved, in place (a table a zoom frame would be 3.6-5.7 KB/s zooming).
 local function Set(cx, cy, zoom)
 	local cam = Camera.cam
 	if zoom ~= cam.zoom then Camera.zoomedAt = GetTime() end
@@ -95,7 +90,7 @@ local function Aim(target, atCursor)
 	anchor[3], anchor[4] = x - w / 2, y - h / 2
 end
 
--- The overlay spike's steps (/mm overlay: obs.minimap.steps, game/Minimap.lua): while you're followed, the zooms at which
+-- The overlay's steps (/mm overlay: obs.minimap.steps, game/Minimap.lua): while you're followed, the zooms at which
 -- each of Blizzard's Minimap's zooms covers the view, rising. A tick inside them goes to the next one at once, as
 -- Blizzard's Minimap zooms; past the last either way, the wheel's own glide (its blips fade out); coming back in from
 -- past them, it glides to the end one and steps from there. step: the one the camera is on (kept on it as they move).
@@ -157,7 +152,7 @@ function Motion.Reset(auto)
 	end
 end
 
--- A zoom of `ticks` steps, in (> 0) or out; ticks stack onto the target (Core.lua:1422-1441). See Aim.
+-- A zoom of `ticks` steps, in (> 0) or out; ticks stack onto the target. See Aim.
 Motion.zooms = 0 -- zooms asked for (the wheel, the buttons, the reset): ui/View.lua's load settling stops at one
 function Motion.ZoomStep(ticks, atCursor)
 	Motion.zooms = Motion.zooms + 1
@@ -173,7 +168,7 @@ function Motion.ZoomTo(zoom)
 	Camera.Trace("wheel")
 end
 
--- The wheel (ui/Window.lua): each event a tick, in or out by its sign (Core.lua:1424, 1439).
+-- The wheel (ui/Window.lua): each event a tick, in or out by its sign.
 function Motion.Wheel(delta)
 	local now = GetTime()
 	if wheel.n == 0 then wheel.dt = now - wheel.at end
@@ -190,7 +185,7 @@ function Motion.FlyTo(cx, cy, zoom, duration, onDone)
 end
 
 -- Following (the view centred on you) or free. glide: fly back to you first, at the zoom you have,
--- on your map (Core.lua:1080-1085).
+-- on your map.
 function Motion.SetFollow(on, glide)
 	local you = ns.Model.you
 	if on then held = false end
@@ -205,7 +200,7 @@ function Motion.SetFollow(on, glide)
 	end
 end
 
--- Fly to fit a tile rect (a zone), following off; the title names it (Core.lua:1123-1127).
+-- Fly to fit a tile rect (a zone), following off; the title names it.
 function Motion.FlyToRect(c0, r0, c1, r1, name)
 	Motion.SetFollow(false)
 	Camera.zone, Camera.zoneInst = name, Camera.inst
@@ -214,8 +209,7 @@ function Motion.FlyToRect(c0, r0, c1, r1, name)
 	Motion.FlyTo(cx, cy, zoom)
 end
 
--- A whole map at once, ending any chase or flight: its continent's rect, else its tiles'
--- (Core.lua:1133-1152, FitMap).
+-- A whole map at once, ending any chase or flight: its continent's rect, else its tiles'.
 function Motion.FitMap(inst)
 	touched, goal, flight, step = GetTime(), nil, nil, nil
 	Camera.inst = inst
@@ -238,7 +232,7 @@ function Motion.SetZoom(zoom)
 	Set(cam.cx, cam.cy, Clamp(zoom, MIN_ZOOM, MAX_ZOOM))
 end
 
--- Where the camera is headed: the zoom and centre it will settle at (Core.lua:993-1005).
+-- Where the camera is headed: the zoom and centre it will settle at.
 function Motion.Goal()
 	local cam, you = Camera.cam, ns.Model.you
 	local zoom = goal or flight and flight.tz or fz or cam.zoom
@@ -251,7 +245,7 @@ end
 
 -- Following: the view centred on you (Model.you with an inst, or nil), but while a flight flies;
 -- on a map that withholds where you are, the whole of it if we have its tiles, else the map
--- you came from stays (Core.lua:1119, 1540-1542: K5).
+-- you came from stays.
 function Motion.Chase(you)
 	if not (Camera.follow and you) or flight or framing then return end
 	if you.col then
@@ -299,18 +293,18 @@ end
 -- A press that has moved: the map is being dragged.
 function Motion.Dragging() return press ~= nil and press.moved == true end
 
--- The left button held, moved or not (the spike's state.dragging, set on the press: Core.lua:1349).
+-- The left button held, moved or not (set on the press).
 function Motion.Pressed() return press ~= nil end
 
 -- The cursor on the screen, in the view's units, y up: a press and its pans are measured there, so the
--- window moving under a still cursor (growing, shrinking) isn't a drag (Core.lua:1345-1351, 1523-1534).
+-- window moving under a still cursor (growing, shrinking) isn't a drag.
 local function Screen()
 	local x, y = GetCursorPosition()
 	local s = Window.view:GetEffectiveScale()
 	return x / s, y / s -- /: never 0 (an effective scale is > 0)
 end
 
--- The left button down (Core.lua:1344-1352).
+-- The left button down.
 function Motion.Press()
 	local x, y = Screen()
 	touched = GetTime()

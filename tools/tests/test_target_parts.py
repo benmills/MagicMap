@@ -1,4 +1,4 @@
-"""Game's waypoint, /way and corpse, round trips on the sim (docs/v1-plan.md M3.2): the waypoint and way
+"""Game's waypoint, /way and corpse, round trips on the sim: the waypoint and way
 Commands (game/commands/) come back in the client and in the next observation, and what the client says
 of the user waypoint and of your corpse reaches obs.waypoint and obs.corpse (game/parts/Waypoint.lua,
 Corpse.lua). The late corpse with no event is R-G4 (replays/R-G4.lua)."""

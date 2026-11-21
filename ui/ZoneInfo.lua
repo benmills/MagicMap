@@ -1,9 +1,8 @@
--- Zones on the map, and what's at a spot (Core.lua:1247-1416, 1721-1734; Layers.lua:1786-1811,
--- 1996-2010, 2064-2122, 2280-2316; ZoneInfo.lua):
+-- Zones on the map, and what's at a spot:
 --   Hover: while more than one zone (its heart, weight 30 or more) is in view, the zone under the cursor
 --     (big, or off your map: as the title names it) lights up, its name brighter; a click there flies to it
---     (fit 0.92), following off. A click's
---     turn (ui/Window.lua): a pin, then a quest's area while zone clicks aren't on offer, then the zone.
+--     (fit 0.92), following off. A click's turn (ui/Window.lua): a pin, then a quest's area while zone
+--     clicks aren't on offer, then the zone.
 --   Ctrl-click: a waypoint there; Ctrl-right-click: none; Shift-click: its /way line in the chat box
 --     (the waypoint and way Commands: Game's). Taken on the press, so the map doesn't pan; not off the
 --     zones' maps (Atlas.ZoneMapAt: where Game's waypoint can go).
@@ -19,22 +18,22 @@ local Camera, Window, Motion = UI.Camera, UI.Window, UI.Motion
 local Maths = Atlas.Camera
 local Command = ns.Game.Command
 
-local EVERY = 0.05 -- s: the hover's look, as the title's (Core.lua:1563)
-local MIN_WEIGHT = 30 -- a zone's land chunks to count as in view (Layers.lua:2006)
-local LABEL, LABEL_HOVER = { 1, 0.89, 0.63, 0.95 }, { 1, 1, 0.9, 1 } -- ui/Labels.lua's ZONE (the MVP's), and its hover
+local EVERY = 0.05 -- s: the hover's look, as the title's
+local MIN_WEIGHT = 30 -- a zone's land chunks to count as in view
+local LABEL, LABEL_HOVER = { 1, 0.89, 0.63, 0.95 }, { 1, 1, 0.9, 1 } -- ui/Labels.lua's ZONE, and its hover
 local TILE_YARDS = Atlas.TILE_YARDS
-local MAX_QUESTS, MAX_NEARBY = 2, 2 -- ZoneInfo.lua:13-14
-local HERE_YD = 15 -- closer: "You're here" (ZoneInfo.lua:115)
-local NEAR_YD = 900 -- landmarks further from the spot aren't near it (ZoneInfo.lua:11)
-local NEAR_SUB_YD = 350 -- an unexplored spot is "near" a subzone label this close (ZoneInfo.lua:12)
-local CELL = 0.2 -- tiles: Game's sweep's cells (Model.exploredCells; Layers.lua:75)
--- Notable places, in order of interest: Known("places")' kind and label (ZoneInfo.lua:19-24).
+local MAX_QUESTS, MAX_NEARBY = 2, 2 -- lines of quests and of landmarks at a spot, at most
+local HERE_YD = 15 -- closer: "You're here"
+local NEAR_YD = 900 -- landmarks further from the spot aren't near it
+local NEAR_SUB_YD = 350 -- an unexplored spot is "near" a subzone label this close
+local CELL = 0.2 -- tiles: Game's sweep's cells (Model.exploredCells)
+-- Notable places, in order of interest: Known("places")' kind and label.
 local NOTABLE = { { place = "flight", label = "Flight point" }, { place = "dungeon", label = "Dungeon" },
 	{ place = "graveyard", label = "Graveyard" } }
--- C_Map.IsCityMap's (ZoneInfo.lua:79): no fog of war to lift (Stormwind City, Orgrimmar, Ironforge, Thunder
+-- C_Map.IsCityMap's: no fog of war to lift (Stormwind City, Orgrimmar, Ironforge, Thunder
 -- Bluff, Darnassus, Undercity).
 local CITY = { [1453] = true, [1454] = true, [1455] = true, [1456] = true, [1457] = true, [1458] = true }
-local GOLD, WHITE = "|cffffd100", "|cffffffff" -- ZoneInfo.lua:16
+local GOLD, WHITE = "|cffffd100", "|cffffffff"
 local DIM, SEP = UI.Tip.DIM, UI.Tip.SEP -- the map's one grey for facts (ui/Tip.lua)
 local COMPASS = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" }
 local OCTANT = math.pi / 4
@@ -43,14 +42,14 @@ local NONE = {}
 local ZoneInfo = {}
 UI.ZoneInfo = ZoneInfo
 
--- The tile under the cursor on the map shown (Core.lua:1047-1051).
+-- The tile under the cursor on the map shown.
 function ZoneInfo.CursorTile()
 	local w, h = Window.Size()
 	return Maths.ScreenToTile(Camera.cam, w, h, Window.Cursor())
 end
 
 ---------------------------------------------------------------------------
--- Hover (Core.lua:1264-1327): the zone under the cursor, 20 times a second
+-- Hover: the zone under the cursor, 20 times a second
 ---------------------------------------------------------------------------
 
 -- The zone at (col, row): Atlas's, worked out again only when the area under it changes (a hover
@@ -63,7 +62,7 @@ local function ZoneAt(inst, col, row)
 end
 
 -- How many zones meaningfully share the view: those whose heart (their name's anchor, Data/Anchors.lua)
--- is on it (Layers.lua:1996-2010). Worked out again when the view moves.
+-- is on it. Worked out again when the view moves.
 local inView = {}
 local function ZonesInView(inst)
 	local cam, w, h = Camera.cam, Window.Size()
@@ -85,8 +84,8 @@ end
 local hover = {}
 local function Hover()
 	local inst, z = Camera.inst, nil
-	-- At the minimap's size on your map it always names where you are: no zone to click (Core.lua:1269);
-	-- none while the left button is held, still or not (Core.lua:1323, 1349).
+	-- At the minimap's size on your map it always names where you are: no zone to click;
+	-- none while the left button is held, still or not.
 	if inst and Window.view:IsMouseOver() and (UI.BigMap.big or Model.you.inst ~= inst) and not Motion.Pressed() then
 		z = ZoneAt(inst, ZoneInfo.CursorTile())
 	end
@@ -95,7 +94,7 @@ local function Hover()
 end
 
 ---------------------------------------------------------------------------
--- Its look (Layers.lua:1786-1811): its name brighter, on the canvas shown
+-- Its look: its name brighter, on the canvas shown
 ---------------------------------------------------------------------------
 
 -- Its name on the labels' shown canvas (ui/Labels.lua: each name's font string carries its label, fs.label;
@@ -136,7 +135,7 @@ Window.frame:HookScript("OnHide", Runtime.Wrap("map: zone hover hidden", functio
 end))
 
 ---------------------------------------------------------------------------
--- Clicks (Core.lua:1335-1416, Layers.lua:2102-2122): ui/Window.lua routes them here
+-- Clicks: ui/Window.lua routes them here
 ---------------------------------------------------------------------------
 
 local pressed -- the zone a left press would fly to (its uiMap; false: zone clicks weren't on offer)
@@ -168,7 +167,7 @@ function ZoneInfo.Tap()
 end
 
 ---------------------------------------------------------------------------
--- What's at a spot (ZoneInfo.lua): a few short colour-coded lines, once a right-click
+-- What's at a spot: a few short colour-coded lines, once a right-click
 ---------------------------------------------------------------------------
 
 -- 1,234
@@ -180,7 +179,7 @@ local function Thousands(n)
 	return out
 end
 
--- Rounded to what a glance needs: 5 yards close by, 10 further out (ZoneInfo.lua:42-47).
+-- Rounded to what a glance needs: 5 yards close by, 10 further out.
 local function Yards(tiles)
 	local yd = tiles * TILE_YARDS
 	local step = yd < 200 and 5 or 10
@@ -196,7 +195,7 @@ end
 local function Dist(c0, r0, c1, r1) return math.sqrt((c1 - c0) ^ 2 + (r1 - r0) ^ 2) end
 
 -- "Level 1-10", the client's for the zone's map (Model.levels), coloured against yours: green in range, red
--- below it, grey past it (ZoneInfo.lua:58-69).
+-- below it, grey past it.
 local function LevelLine(zone)
 	local l = Model.levels[zone.mapID]
 	if not l then return nil end
@@ -206,7 +205,7 @@ local function LevelLine(zone)
 	return DIM .. "Level|r " .. color .. (lo == hi and tostring(lo) or (lo .. "-" .. hi)) .. "|r"
 end
 
--- The areas explored at the spot (ZoneInfo.lua:71-89): false if the client names none at its cell (Game's
+-- The areas explored at the spot: false if the client names none at its cell (Game's
 -- sweep, Model.exploredCells: a city has no fog to lift, nil); else those of its chain (the area there, then
 -- each it's in, up to the zone) the client names explored (Model.explored), their names but the zone's, the
 -- outermost first; nil: Game can't say.
@@ -231,9 +230,8 @@ local function Explored(zone, inst, col, row)
 	return names
 end
 
--- The subzone anchor nearest the spot (Layers.lua:1479-1494, 2318-2327), within NEAR_SUB_YD,
--- not the zone's name and on the zone's own map (not one in the next zone): where an unexplored spot is near
--- (ZoneInfo.lua:99-106).
+-- The subzone anchor nearest the spot, within NEAR_SUB_YD, not the zone's name and on the zone's own
+-- map (not one in the next zone): where an unexplored spot is near.
 local function Near(zone, inst, col, row)
 	local best, bestD, name
 	for _, l in ipairs(Atlas.Anchors(inst) or NONE) do
@@ -249,7 +247,7 @@ local function Near(zone, inst, col, row)
 end
 
 -- The areas explored and coordinates: "Goldshire  ·  42.1, 65.8"; none explored, "Unexplored, near Goldshire  ·
--- 42.1, 65.8"; Game can't say, or only the zone's explored, the coordinates (ZoneInfo.lua:91-109).
+-- 42.1, 65.8"; Game can't say, or only the zone's explored, the coordinates.
 local function PlaceLine(zone, inst, col, row)
 	local coords = DIM .. string.format("%.1f, %.1f", zone.x * 100, zone.y * 100) .. "|r"
 	local names, place = Explored(zone, inst, col, row), nil
@@ -262,7 +260,7 @@ local function PlaceLine(zone, inst, col, row)
 	return place and (place .. SEP .. coords) or coords
 end
 
--- How far and which way from you, when you're on this map (ZoneInfo.lua:111-117).
+-- How far and which way from you, when you're on this map.
 local function YouLine(inst, col, row)
 	local you = Model.you
 	if not (you.col and not you.stale and you.inst == inst) then return nil end
@@ -279,7 +277,7 @@ local function Title(e)
 	return Hex(e.color) .. e.name .. "|r " .. DIM .. e.level .. "|r"
 end
 
--- Your quests whose area holds (col, row) (Layers.lua:2282-2306): those the game draws (ui/Areas.lua's
+-- Your quests whose area holds (col, row): those the game draws (ui/Areas.lua's
 -- hit test).
 local function QuestsAt(inst, col, row)
 	local out, seen, list = {}, {}, Model.Known("quests")
@@ -296,7 +294,7 @@ local function QuestsAt(inst, col, row)
 	return out
 end
 
--- At most 2, the one you follow first, then by title; how many more on the last (ZoneInfo.lua:119-136).
+-- At most 2, the one you follow first, then by title; how many more on the last.
 local function QuestLines(inst, col, row, out)
 	local quests = QuestsAt(inst, col, row)
 	table.sort(quests, function(a, b)
@@ -317,7 +315,7 @@ local function QuestLines(inst, col, row, out)
 end
 
 -- The nearest notable place of each kind within NEAR_YD of the spot (Known("places"), its layer on or off),
--- the closest first, at most 2: "Graveyard Goldshire  ·  175 yd SE" (ZoneInfo.lua:138-157).
+-- the closest first, at most 2: "Graveyard Goldshire  ·  175 yd SE".
 local found = {}
 local function Closer(a, b) return a.d < b.d end
 local function NearbyLines(inst, col, row, out)
@@ -348,7 +346,7 @@ local function NearbyLines(inst, col, row, out)
 end
 
 -- Lines describing tile (col, row) on the map shown, the first the zone's name (gold); nil: nothing to
--- say (ZoneInfo.lua:160-187).
+-- say.
 function ZoneInfo.At(col, row)
 	local inst, out = Camera.inst, {}
 	local zone = Atlas.ZoneAt(inst, col, row)
@@ -373,8 +371,8 @@ end
 -- /mm zone; the title's click
 ---------------------------------------------------------------------------
 
--- The first zone whose name holds it, the map shown's first, then by map (Core.lua:1721-1734). Alone: the
--- spike's usage line (game/Slash.lua).
+-- The first zone whose name holds it, the map shown's first, then by map. Alone: the usage line
+-- (game/Slash.lua).
 Command({ kind = "slash", name = "zone", help = "<name>: fly to a zone", fn = function(arg)
 	arg = arg:lower()
 	local found, inst

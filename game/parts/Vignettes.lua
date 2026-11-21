@@ -1,19 +1,19 @@
 -- obs.vignettes (types/observation.lua MM.ObsVignette[]), on change: what the game shows near you now
--- (C_VignetteInfo, on the map you're on: Landmarks.lua:74-108), those not dead with a name and a place
+-- (C_VignetteInfo, on the map you're on), those not dead with a name and a place
 -- there, placed by that map's rect: Atlas's, or the client's for one Atlas keeps none of (a micro map: a
--- cave, an inn; Core.lua:838-865); one whose art (its atlas) is a rare's or an elite's is a rare, which Model remembers, with its
+-- cave, an inn); one whose art (its atlas) is a rare's or an elite's is a rare, which Model remembers, with its
 -- NPC from the creature's GUID (objectGUID) when the client has one. Read again 0.3 s after
--- VIGNETTES_UPDATED or VIGNETTE_MINIMAP_UPDATED (Landmarks.lua:150-160; Layers.lua:1233-1242), at once on
--- another map. And the rare you target (not a player, classed rare or rareelite: Landmarks.lua:154-156),
--- at your position then (an NPC's isn't given), with its NPC (its GUID's: Landmarks.lua:17-22), while it's
--- your target: not a vignette (target), a rare you've seen for Model to remember (Landmarks.lua:25-44).
+-- VIGNETTES_UPDATED or VIGNETTE_MINIMAP_UPDATED, at once on
+-- another map. And the rare you target (not a player, classed rare or rareelite),
+-- at your position then (an NPC's isn't given), with its NPC (its GUID's), while it's
+-- your target: not a vignette (target), a rare you've seen for Model to remember.
 -- Each read compared with its last and kept if the same; a new list only when something changed.
 -- E2: a position's x and y are read in two statements (`pos and pos:GetXY()` is one value).
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
-local DELAY = 0.3 -- s (Layers.lua:1236)
+local DELAY = 0.3 -- s
 
 local list -- the last handed over
 local found, aim = {}, true -- the vignettes as last read; the target to read again
@@ -39,7 +39,7 @@ local function Npc(guid)
 	return (kind == "Creature" or kind == "Vehicle") and tonumber(id) or nil
 end
 
--- A map's rect in tile space, the client's (Core.lua:838-857): Atlas keeps no dungeon floors or micro maps.
+-- A map's rect in tile space, the client's: Atlas keeps no dungeon floors or micro maps.
 local function MapRect(uiMap)
 	local inst, tl = C_Map.GetWorldPosFromMapPos(uiMap, CreateVector2D(0, 0))
 	local inst2, br = C_Map.GetWorldPosFromMapPos(uiMap, CreateVector2D(1, 1))

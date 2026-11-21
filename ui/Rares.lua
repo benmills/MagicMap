@@ -1,5 +1,5 @@
 -- Rare and rare-elite NPCs' spawn points on the map: Model.Known("rares") as pins on the pin store
--- (ui/Pins.lua), the spike's rare icon at 15 (Landmarks.lua:15, 59-64), from zoom 60 in (further out,
+-- (ui/Pins.lua), the rare icon at 15, from zoom 60 in (further out,
 -- none: a continent's ~700 cost a 13 ms swap): laid out from a drift below it but zooming out
 -- (Engine.From), shown from it as the zoom moves (Engine.At's minimum zoom). Laid out again when
 -- Model's list changes. Tooltip: its name, Model's line ("Rare") and when you saw it, "Seen here <Mon
@@ -9,8 +9,8 @@
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
 
-local MIN_ZOOM = 60 -- px a tile (Landmarks.lua:15 RARE_MIN_ZOOM)
-local LOOK = { size = 15, icon = { texture = 137008 }, type = "rare" } -- Landmarks.lua:15, 60-63 (RARE_ICON)
+local MIN_ZOOM = 60 -- px a tile
+local LOOK = { size = 15, icon = { texture = 137008 }, type = "rare" }
 
 UI.PinTypes.Add({ id = "rare", family = "rares", name = "Rare", look = LOOK, groups = true,
 	icons = { { "Skull", "137008" }, { "Rare", "A:vignettekill" }, { "Rare elite", "A:vignettekillelite" },
@@ -19,7 +19,7 @@ UI.PinTypes.Add({ id = "rare", family = "rares", name = "Rare", look = LOOK, gro
 
 UI.Rares = UI.Pins.Layer("rares", 11, function(put, _, _, want)
 	local list = Model.Known("rares")
-	if not list[1] or not want(MIN_ZOOM) then return end -- Layers.lua:409
+	if not list[1] or not want(MIN_ZOOM) then return end
 	for _, b in ipairs(list) do put(b, LOOK, MIN_ZOOM) end
 end, function() return select(2, Model.Known("rares")) end,
-	{ lines = function(e) return e.name, e.text, "Seen here " .. date("%b %d", e.t) end, cluster = true }) -- Landmarks.lua:61
+	{ lines = function(e) return e.name, e.text, "Seen here " .. date("%b %d", e.t) end, cluster = true })

@@ -1,16 +1,15 @@
--- Keys Blizzard owns, caught for UI (types/view.lua HookedInput; spike MinimapMode.lua:130-133, 195-202):
+-- Keys Blizzard owns, caught for UI (types/view.lua HookedInput):
 --   M (ToggleWorldMap) while View.replace.worldmap (the user chose to replace the world map) and our window is
 --     shown, or the minimap isn't replaced (then the window is hidden until M opens it big): the world map it
 --     just opened is hidden again, and
 --     UI hears "worldmap" (it grows or shrinks the window). M closing Blizzard's map (opened by L,
---     the quest log) is left alone; so is M in combat, where hiding it is blocked (spike-bugs K2):
+--     the quest log) is left alone; so is M in combat, where hiding it is blocked:
 --     Blizzard's opens as usual.
 --   Escape while big: a catcher in UISpecialFrames is shown, and Escape closing it is "escape"
 --   (the settings window, ui/Feel.lua, is named there too).
 -- What's caught (game/Button.lua's "toggle" too) is handed over as obs.hooked, its own part:
 -- everything since the last observe, each a constant table.
--- /mm check combat answers the M1 gate's question for the guard (the spike has none,
--- MinimapMode.lua:198-201): in combat, Blizzard's map open, it hides it once as M would and says
+-- /mm check combat tests the guard: in combat, Blizzard's map open, it hides it once as M would and says
 -- whether it hid and whether the client blocked us (a block is taint's too: game/Telemetry.lua).
 
 local ADDON, ns = ...
@@ -63,7 +62,7 @@ local function Blocked(_, addon, fn)
 end
 Runtime.On("ADDON_ACTION_BLOCKED", "game: check combat", Blocked)
 Runtime.On("ADDON_ACTION_FORBIDDEN", "game: check combat", Blocked)
-Game.Slash("check combat", "in combat, Blizzard's map open (M): is hiding it blocked? (M's guard, spike-bugs K2)", function()
+Game.Slash("check combat", "in combat, Blizzard's map open (M): is hiding it blocked? (M's guard)", function()
 	if not (InCombatLockdown() and WorldMapFrame:IsShown()) then
 		return Game.Print("check combat: in combat, open Blizzard's map (M), then again")
 	end

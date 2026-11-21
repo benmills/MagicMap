@@ -1,16 +1,12 @@
--- The one pin store (spike-bugs D1: every pin drawn from one store, diffed by id). Each kind of pin
--- (rares, places, quests, ...) is an Engine "pin" layer made with Pins.Layer,
--- its Model.Known entries put by key: a layout keeps the pin its canvas showed for that key
--- (Engine.Keep) and sets only what changed, its look (StylePin, Layers.lua:343-400: each setter
--- called only when its value differs) and its place (Engine.At, when its tile, the canvas's zoom or
--- origin, or its minimum zoom differ), so a pan's layout re-places only the pins it adds and a changed
--- rev re-sets only the pins that changed; an unchanged rev lays nothing out (Engine). A pin is a frame
--- holding the spike's regions (Layers.lua:304-336) that doesn't take the mouse: the spike's took it and
--- passed clicks on (SetPropagateMouseClicks, Layers.lua:323), but a layer's other canvas stands shown at
--- alpha 0 with the pins it showed, which would catch it; so while the view has the mouse (nothing over
--- it took it), each frame Pins finds the pin under the cursor on the canvases shown (the topmost layer's,
--- the nearest centre), and every click and drag is the view's. Its tooltip: GameTooltip ANCHOR_RIGHT on
--- the pin, its title, then its facts small and DIM (ui/Tip.lua's look: Layers.lua:288-301, QuestInfo.lua:251-305);
+-- The one pin store: every pin drawn from one store, diffed by id. Each kind of pin (rares, places,
+-- quests, ...) is an Engine "pin" layer made with Pins.Layer, its Model.Known entries put by key: a layout
+-- keeps the pin its canvas showed for that key (Engine.Keep) and sets only what changed, its look (each
+-- setter called only when its value differs) and its place (Engine.At), so a pan's layout re-places only
+-- the pins it adds and a changed rev re-sets only the pins that changed. A pin is a frame that doesn't
+-- take the mouse: a layer's other canvas stands shown at alpha 0 with the pins it showed, which would
+-- catch it; so while the view has the mouse, each frame Pins finds the pin under the cursor on the
+-- canvases shown (the topmost layer's, the nearest centre), and every click and drag is the view's. Its
+-- tooltip: GameTooltip ANCHOR_RIGHT on the pin, its title, then its facts small and DIM (ui/Tip.lua's look);
 -- built once a hover, hidden on the one owner-checked path: the cursor off it or the view, the window hidden
 -- (ui/Window.lua); none while the popup stands. A click on a pin, left or right, grows its tooltip into the popup
 -- (ui/Popup.lua), its buttons the pin's actions (ui/Track.lua: Track, Path to, their Stops); every pin layer's rev carries Track's
@@ -21,13 +17,13 @@ local UI, Runtime, Model = ns.UI, ns.Runtime, ns.Model
 local Engine, Window, Camera, Track, Tip = UI.Engine, UI.Window, UI.Camera, UI.Track, UI.Tip
 local Get, Keep, At, Yield = Engine.Get, Engine.Keep, Engine.At, Runtime.Yield
 
-local SIZE = 14 -- px: a pin's (StylePin's default, Layers.lua:344)
-local INNER_SIZE, INNER_SHADE = 0.56, 0.55 -- (c)'s objective icon: share of its disc, its shade (Layers.lua:303)
-local SCALE = 0.62 -- (c)'s atlas over its disc (Layers.lua:379)
-local DOT, RING_PAD = 0.6, 3 -- (d): the dot's share of size, its ring's past it (Layers.lua:396-399)
-local RING = { 0, 0, 0, 0.9 } -- Layers.lua:396
+local SIZE = 14 -- px: a pin's default
+local INNER_SIZE, INNER_SHADE = 0.56, 0.55 -- (c)'s objective icon: share of its disc, its shade
+local SCALE = 0.62 -- (c)'s atlas over its disc
+local DOT, RING_PAD = 0.6, 3 -- (d): the dot's share of size, its ring's past it
+local RING = { 0, 0, 0, 0.9 }
 local WHITE = { 1, 1, 1 }
-local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- UI.lua:6
+local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 local NONE = {}
 
 local Pins = {}
@@ -41,7 +37,7 @@ local Types = UI.PinTypes
 local Of, Min = Types.Of, Types.Min
 
 ---------------------------------------------------------------------------
--- StylePin (Layers.lua:304-400)
+-- A pin's look
 ---------------------------------------------------------------------------
 
 local has = {} -- atlas name -> the client has it
@@ -340,7 +336,7 @@ end
 
 -- A pin layer: Engine.Layer(name, level, ..., rev, "pin") whose layout calls fill(put, inst, zoom, want).
 -- fill calls put(e, look, minZoom) for each MM.Known e it would draw (Pins keeps those on the layout's map
--- and in its rect): look, StylePin's (above; a layer keeps one table a look, not one a layout); minZoom
+-- and in its rect): look, Style's (above; a layer keeps one table a look, not one a layout); minZoom
 -- (optional), shown from that zoom only (Engine.At's). want(minZoom): whether pins from that zoom draw in
 -- this layout (false: they're left out, and shown once a layout would draw them: Engine.From), for fill
 -- to skip a whole kind. rev: Engine.Layer's (Model.Known's revs); the tracked key's goes with it (Track.Rev).
@@ -512,8 +508,7 @@ local function Hover(pin, at)
 	builtAt = GetTime()
 end
 
--- The view has the mouse: nothing over it took it (a button, another addon's pin, a menu), as the spike's
--- topmost pin frame had it.
+-- The view has the mouse: nothing over it took it (a button, another addon's pin, a menu).
 local inside = false
 Window.view:HookScript("OnEnter", Runtime.Wrap("map: pins entered", function() inside = true end))
 Window.view:HookScript("OnLeave", Runtime.Wrap("map: pins left", function()

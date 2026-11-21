@@ -1,16 +1,16 @@
 -- obs.quests (types/observation.lua MM.ObsQuest[]), on change: your log's quests on the zones of the
--- map shown (Game.shownInst, a frame behind) and of yours, as the world map has them (Layers.lua:581-631):
+-- map shown (Game.shownInst, a frame behind) and of yours, as the world map has them:
 -- GetQuestsOnMap per zone (Atlas.Zones), map indicators skipped, a quest on several kept on the
 -- smallest (its objective area lives there: areaMap, but for one ready to turn in). An item
--- objective's item is QuestieDB's of that kind and place (QuestInfo.lua:94-110). Read again 0.3 s
--- after a burst of the 5 events (Layers.lua:1231-1242, 2219-2228) or of QUEST_ACCEPTED and
--- QUEST_REMOVED (Forever's: a quest's id, as Questie's EventHandler.lua:157-193), at once when the
+-- objective's item is QuestieDB's of that kind and place. Read again 0.3 s
+-- after a burst of the 5 events or of QUEST_ACCEPTED and
+-- QUEST_REMOVED (Forever's: a quest's id, as Questie's), at once when the
 -- super-tracked quest (a follow Command, Blizzard's tracker: the same frame's obs) or the instances change, and
 -- only while the map is shown (once it shows, for what came while it wasn't). Each quest is
 -- compared with its last as it's read and kept if the same, so a read that finds nothing new makes
 -- nothing; a new table only when something changed, sorted by id. poi, on the list: the
 -- QUEST_POI_UPDATEs seen, so the game's areas changing makes a new list, its quests kept (UI draws
--- the areas again: Layers.lua:2225, 1233-1240).
+-- the areas again).
 -- Where the pins are (every zone's GetQuestsOnMap: the client makes a table a quest each call) is read
 -- again only when they may have moved: a quest taken or given up, the game's areas (QUEST_POI_UPDATE),
 -- the instances, a quest done or a count changed (found by the read: its pin may go to the turn-in or
@@ -19,7 +19,7 @@
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
-local DELAY = 0.3 -- s: QUEST_LOG_UPDATE fires a lot (Layers.lua:1236)
+local DELAY = 0.3 -- s: QUEST_LOG_UPDATE fires a lot
 local TYPES = { monster = true, item = true, object = true, event = true, log = true, progressbar = true, reputation = true }
 local NONE = {}
 
@@ -120,7 +120,7 @@ end
 local function Quest(id, b, was)
 	local level, complete, trivial = C_QuestLog.GetQuestDifficultyLevel(id), C_QuestLog.IsComplete(id), C_QuestLog.IsQuestTrivial(id)
 	local title = C_QuestLog.GetTitleForQuestID(id) or ("Quest " .. id)
-	local tag, group = C_QuestLog.GetQuestTagInfo(id), C_QuestLog.GetSuggestedGroupSize(id) -- QuestInfo.lua:321-325
+	local tag, group = C_QuestLog.GetQuestTagInfo(id), C_QuestLog.GetSuggestedGroupSize(id)
 	level, group, tag = level > 0 and level or nil, group > 0 and group or nil, tag and tag.tagName ~= "" and tag.tagName or nil
 	local areaMap, inst, col, row = not complete and b.map or nil, Atlas.MapToTile(b.map, b.x, b.y)
 	local objectives, p = Objectives(id, was and was.objectives), was and was.pin

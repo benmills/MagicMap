@@ -1,6 +1,6 @@
 -- tooltip (types/view.lua MM.CmdTooltip): GameTooltip's own content for a game thing, on UI's owner.
 -- member: a group member's tooltip, its name in its class's colour, then its level and class, dead, small and grey
--- (Game.TooltipFact: ui/Tip.lua's look; Layers.lua:677-688); button: a Minimap button's own (game/MinimapButtons.lua
+-- (Game.TooltipFact: ui/Tip.lua's look); button: a Minimap button's own (game/MinimapButtons.lua
 -- Game.ButtonTooltip: the gear's Minimap buttons rows); owner false hides it again.
 
 local _, ns = ...

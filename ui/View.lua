@@ -11,7 +11,7 @@ local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
 local Camera, Window, Engine, BigMap = UI.Camera, UI.Window, UI.Engine, UI.BigMap
 local Command = ns.Game.Command
 
--- Core.lua:19-29: shown, zoom 384, following, no debug line in the title, the button shown.
+-- Shown, zoom 384, following, no debug line in the title, the button shown.
 local DEFAULTS = { layers = {}, minimap = "ours", shown = true, zoom = 384, follow = true, debug = false, button = true }
 
 -- The small map's default zoom (the reset button, the idle return, every load): with Blizzard's Minimap's zooms over
@@ -80,7 +80,7 @@ for k, v in pairs(DEFAULTS) do saved[k] = v end
 UI.saved = saved
 local window = { shown = false, big = false, strata = "LOW", level = 0, homeAlpha = 1 }
 local camera = { cx = 0, cy = 0, zoom = 0, w = 0, h = 0 } -- the map's, each frame (telemetry's motion ring, shot stamps)
-local here = { x = 0, y = 0, zoom = 0, w = 0 } -- View.here: you on the view (the overlay spike), or false
+local here = { x = 0, y = 0, zoom = 0, w = 0 } -- View.here: you on the view, or false
 local view = { v = 1, frame = 0, minimap = "ours", inst = 0, window = window,
 	layers = {}, sockets = {}, button = true, replace = { minimap = false, worldmap = false }, camera = camera }
 local focus = { inst = 0, shown = false, follow = true }
@@ -115,7 +115,7 @@ local function Off()
 	return off
 end
 
--- UI's chat line (Core.lua:45-46).
+-- UI's chat line.
 function UI.Print(msg) print("|cffffd100MagicMap|r: " .. msg) end
 
 -- After a load, the map held at the default zoom (UI.DefaultZoom: Blizzard's zooms' once known, guessed at first and
@@ -218,7 +218,7 @@ Runtime.Step("ui", "ui: view", function()
 		view.here = false
 	end
 	-- Saved as it goes (the client writes it at logout): the small window's zoom only, while big the
-	-- one it goes back to (MinimapMode.lua:252-260).
+	-- one it goes back to.
 	saved.shown, saved.follow = shown, Camera.follow
 	local small = BigMap.Small()
 	saved.zoom = small and small.zoom or cam.zoom
@@ -247,7 +247,7 @@ Command({ kind = "slash", name = "minimap", help = "ours | blizzard: who has the
 		print("  minimap: " .. saved.minimap)
 	end })
 
--- The minimap button (Game's, View.button) shown or hidden (MinimapButton.lua:49-53).
+-- The minimap button (Game's, View.button) shown or hidden.
 function UI.Icon()
 	saved.button = not saved.button
 	UI.Print("minimap button " .. (saved.button and "shown" or "hidden (/mm icon to show)"))
@@ -258,6 +258,6 @@ UI.Feel.Add("general", "Window", {
 		get = function() return saved.button == true end, set = function(on) if (saved.button == true) ~= on then UI.Icon() end end,
 		tip = "The button on Blizzard's minimap, for when MagicMap is switched off." },
 })
--- /mm alone or /mm toggle (Core.lua:1700); /mm map <id|name> is the map picker's (M3.4).
+-- /mm alone or /mm toggle; /mm map <id|name> is the map picker's.
 Command({ kind = "slash", name = "", help = "our map, or Blizzard's minimap (as toggle)", fn = Window.Toggle })
 Command({ kind = "slash", name = "toggle", help = "our map, or Blizzard's minimap", fn = Window.Toggle })

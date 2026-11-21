@@ -3,7 +3,7 @@
 
 test_pill_members_new_tables: the same five, their entries made anew twice within the regroup's 0.5 s (as
 a Known kind may on each change), with the harness's one-thing-one-pin check on every frame
-(T.strictPins: docs/hardening-plan.md T1): none draws alone beside the pill holding it (P1).
+(T.strictPins): none draws alone beside the pill holding it (P1).
 
 test_grid_close_is_spent: the click that closes a pill's grid does nothing else (I2); a click on a grid pin is still
 its own, after its entry was made anew.

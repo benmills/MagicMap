@@ -1,4 +1,4 @@
-"""The you part's round trip (docs/v1-plan.md M1.10): what the client says of you
+"""The you part's round trip: what the client says of you
 (game/parts/You.lua) reaches Model.you each frame, nil where it gives nothing."""
 from test_addon import boot, errors
 

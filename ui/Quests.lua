@@ -1,8 +1,8 @@
--- Your quests in progress on the map (Layers.lua:579-621): Known("quests") as pins on the pin store (ui/Pins.lua),
+-- Your quests in progress on the map: Known("quests") as pins on the pin store (ui/Pins.lua),
 -- Blizzard's atlases as Blizzard's world map draws them: the yellow dots "Quest-In-Progress-Icon-yellow" at full size
 -- on the quest disc "UI-QuestPoi-QuestNumber" untinted (Pins' (c)); 24 px, the one you follow
 -- the same size, its glow saying it (ui/Pins.lua's Glow). Ready to turn in: the "questturnin" "?" Model names, at 19,
--- where you hand it in. And quests to pick up (Layers.lua:636-664): Known("offers"), the "!" at 18, their tooltip the
+-- where you hand it in. And quests to pick up: Known("offers"), the "!" at 18, their tooltip the
 -- quest, then "Quest to pick up" and its line's name. Ours, not Blizzard's blips: Game turns Blizzard's quest
 -- tracking off while ours show (game/Tracking.lua), and the overlay isn't on the big map. (3.0 left them to the
 -- blips; 3.1 draws them again.)
@@ -19,9 +19,9 @@ local _, ns = ...
 local UI, Model = ns.UI, ns.Model
 local Pins, Areas = UI.Pins, UI.Areas
 
-local SIZE = 24 -- in progress (Layers.lua:611: 22)
+local SIZE = 24 -- px, in progress
 local TURN_IN = 19 -- ready to turn in: the "?" a little smaller
-local OFFER = 18 -- Layers.lua:657
+local OFFER = 18 -- px, to pick up
 local SEP = UI.Tip.SEP
 local UNDER = "UI-QuestPoi-QuestNumber" -- the world map's quest disc: dark, its gold ring (untinted)
 local ACTIVE = { atlas = "Quest-In-Progress-Icon-yellow", under = UNDER, scale = 1 } -- (model/Quests.lua's, its page sample)
@@ -52,7 +52,7 @@ Feel.OnLoad(function()
 	Feel.Set("pins.quest.size", v)
 end)
 
--- StylePin's look, one an entry (Model makes a new one when it changes) and map size: (b), in progress.
+-- A pin look (ui/Pins.lua's Style), one an entry (Model makes a new one when it changes) and map size: (b), in progress.
 local small, big = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
 local WHITE = { 1, 1, 1 }
 local styles, styleRev = {}, nil -- the name's { font, size, colour } by colour, for the labels' rev
@@ -119,7 +119,7 @@ UI.Offers = Pins.Layer("offers", 14, function(put)
 		put(e, look)
 	end
 end, function() return select(2, Model.Known("offers")) end, {
-	lines = function(e) return e.name, e.text .. (e.line and SEP .. e.line or "") end, -- Layers.lua:652-655: "Quest to pick up"
+	lines = function(e) return e.name, e.text .. (e.line and SEP .. e.line or "") end,
 	-- (never grouped, as the quests)
 })
 

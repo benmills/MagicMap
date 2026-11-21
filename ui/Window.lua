@@ -19,7 +19,7 @@ UI.Window = Window
 
 local function R2(v) return math.floor(v * 100 + 0.5) / 100 end -- for telemetry
 
--- Core.lua:86-100: until the minimap's spot is known, 200 square at the top right (Core.lua:21, 1676).
+-- Until the minimap's spot is known, 200 square at the top right.
 local frame = CreateFrame("Frame", "MagicMapFrame", UIParent, "ButtonFrameTemplate")
 frame:SetClampedToScreen(true)
 frame:SetMovable(true)
@@ -75,7 +75,7 @@ end
 
 ---------------------------------------------------------------------------
 -- Input: the view's mouse, to Motion and ZoneInfo (a click's, Shift and Ctrl clicks); Alt+left-drag
--- moves the window; a right release opens the map's menu (Core.lua:1335-1416)
+-- moves the window; a right release opens the map's menu
 ---------------------------------------------------------------------------
 
 local moving
@@ -93,7 +93,7 @@ view:SetScript("OnMouseDown", Runtime.Wrap("map: press", function(_, button)
 	UI.ZoneInfo.Press()
 	UI.Motion.Press()
 end))
--- Only the left button's release ends a press; the right one's opens the map's menu (Core.lua:1387-1399):
+-- Only the left button's release ends a press; the right one's opens the map's menu:
 -- the client's own menu, MenuUtil, so the frame's budget, as the gear's.
 view:SetScript("OnMouseUp", Runtime.Wrap("map: release", function(_, button)
 	if moving then
@@ -107,11 +107,11 @@ view:SetScript("OnMouseUp", Runtime.Wrap("map: release", function(_, button)
 		if not (IsShiftKeyDown() or IsControlKeyDown() or UI.Pins.Tap(button)) then UI.Menus.Map(view, UI.ZoneInfo.CursorTile()) end
 	elseif button == "LeftButton" then
 		-- A click, not a drag: a pin's; else a quest's area while zone clicks aren't on offer, else the
-		-- zone flown to (Core.lua:1400-1416).
+		-- zone flown to.
 		if UI.Motion.Release() and not UI.Pins.Tap(button) then UI.ZoneInfo.Tap() end
 	end
 end, Runtime.FRAME_MS))
--- In the window (a tip on one of its widgets goes with it: Game hides only its own, spike-bugs G7).
+-- In the window (a tip on one of its widgets goes with it: Game hides only its own).
 local function Within(f)
 	while f do
 		if f == frame then return true end
@@ -137,7 +137,7 @@ local function You()
 end
 
 -- Your map, if we can show it: an instance that withholds where you are counts only with its
--- tiles; in one we have none for, the map stays the one you came from (Core.lua:1110-1121).
+-- tiles; in one we have none for, the map stays the one you came from.
 local function Mine(you)
 	return you and (you.col or Atlas.Tiles(you.inst)) and you.inst
 end
@@ -155,7 +155,7 @@ function Window.Backdrop()
 end
 local function SetInst(inst)
 	drawn = inst
-	if Camera.zoneInst ~= inst then Camera.zone = nil end -- (another map's: SetMap, Core.lua:1071)
+	if Camera.zoneInst ~= inst then Camera.zone = nil end -- (another map's)
 	UI.Engine.Clear()
 	Window.Backdrop()
 end
@@ -193,7 +193,7 @@ Runtime.Step("ui", "map: draw", function(elapsed)
 	Runtime.SetState(Motion.Dragging() and "drag" or zooming and "zoom" or UI.BigMap.big and "big" or "small")
 end, { shownOnly = frame })
 
--- Our map, or Blizzard's minimap (Core.lua:1654); until the user has chosen what we replace, the welcome
+-- Our map, or Blizzard's minimap; until the user has chosen what we replace, the welcome
 -- instead (ui/Welcome.lua): the button's first click.
 function Window.Toggle()
 	if not UI.Replace.Chosen() then return UI.Welcome.Toggle() end

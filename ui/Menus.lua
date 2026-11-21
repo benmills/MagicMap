@@ -1,19 +1,11 @@
--- Menus are the client's own (MenuUtil), no skin (Menu.lua). Opened through here, they count
--- as open for the controls that opened them, so those don't fade out under them.
--- The gear menu (GearMenu.lua): what's drawn, a submenu per group of layers (Map: the map's names, quests, places,
--- rares and party, a divider between those parts; Other addons), each with an "All" box on top (the group on or off)
--- and each row's icon beside its name, its row showing how many of its rows are on, n/total (Tally). Then Tracking:
--- Blizzard's tracking types as Blizzard's own menu has them (but those ours replace; one box for a name the client
--- lists twice, Banker), and Keep tracking: <name> (the tracker kept on, ui/Resources.lua). The AddOns menu is its own
--- button's (Menus.AddOns, ui/Controls.lua): the buttons the takeover hides with the Minimap
--- (Model.buttons: LibDBIcon's, the addon compartment's, others on its rim, Blizzard's calendar and clock after a
--- divider), a row each, its icon and name; a click (either button) is the button Command, its tooltip the button's
--- own (the tooltip Command); "None found" greyed when there are none. Then quick actions (Use Blizzard's
--- minimap, shown only while ours replaces it: UI.Replace.Get("minimap"); Reset to defaults: every layer as installed), then
--- Settings…, one row that opens the settings window (ui/Feel.lua: General, Map, Title, Icons, Tracking, Pathing, quest
--- areas, grouping, Diagnostics: what the gear's Settings submenu held).
--- /mm layers (Layers.lua:2196-2207).
--- The map picker (the title's click: ui/ZoneInfo.lua) and /mm map; the map's right-click menu.
+-- Menus are the client's own (MenuUtil), no skin. Opened through here, they count as open for the
+-- controls that opened them, so those don't fade out under them.
+-- The gear menu: a submenu per group of layers (an "All" box on top, n/total on the group's row), then
+-- Tracking (Blizzard's types but those ours replace; Keep tracking: ui/Resources.lua), quick actions and
+-- Settings… (ui/Feel.lua). Menus.AddOns: the AddOns button's menu (ui/Controls.lua), a row for each
+-- button the takeover hides with the Minimap (Model.buttons). Menus.Layer: a layer's gear row.
+-- Also /mm layers, the map picker (the title's click: ui/ZoneInfo.lua) and /mm map, and the map's
+-- right-click menu (Menus.Map).
 
 local _, ns = ...
 local UI, Model, Atlas, Runtime = ns.UI, ns.Model, ns.Atlas, ns.Runtime
@@ -38,7 +30,7 @@ end
 local Run = Runtime.Wrap("map: gear pick", function(fn, arg) fn(arg) end)
 local Pick = Runtime.Wrap("map: menu pick", function(fn, arg) fn(arg) end) -- the picker's, the map menu's
 
--- A row's tooltip: a description, white title, gold body (GearMenu.lua:69-72, Layers.lua:2171-2176: ui/Tip.lua's).
+-- A row's tooltip: a description, white title, gold body (ui/Tip.lua's).
 local function Tip(label, tip)
 	return function(tooltip) UI.Tip.Describe(tooltip, label, tip) end
 end
@@ -52,20 +44,19 @@ local Mark = UI.Tip.Mark
 -- Layers: a submenu per group, of checkboxes that keep the menu open
 ---------------------------------------------------------------------------
 
--- The groups, in order (Layers.lua:63-70); one with no layer is left out.
+-- The groups, in order; one with no layer is left out.
 -- parts: the rows' groups it lists, in order, a divider between.
 local GROUPS = {
 	{ key = "map", title = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01", parts = { "map", "quests", "places", "nearby" } },
 	{ key = "addons", title = "Other addons", icon = "Interface\\Icons\\INV_Misc_EngGizmos_01", parts = { "addons" } },
 }
 
--- The layers' rows: { key, label, group, tip, default?, parent?, onToggle? } (Layers.lua:30-61,
--- 1194-1215). key: the layer's, Engine.Layer's name (View.layers' too, for Game's); its setting is
--- Engine.LayerOn(key) (UI.saved.layers: only where it isn't its default). default: false for a layer off
--- until turned on (missing: on). parent: a sub-option, indented and only clickable while that layer is
--- on (drawn only then: its layer's own check). onToggle(on): called after its setting changes. M2-M4 add
--- theirs with their layers; each group's rows in the spike's order (ORDER: its keys, Layers.lua:30-61,
--- then Landmarks.lua:70, 110, 142 and Blips.lua:671 as its TOC loads them), a key not in it last.
+-- The layers' rows: { key, label, group, tip, default?, parent?, onToggle? }. key: the layer's,
+-- Engine.Layer's name (View.layers' too, for Game's); its setting is Engine.LayerOn(key)
+-- (UI.saved.layers: only where it isn't its default). default: false for a layer off until turned on
+-- (missing: on). parent: a sub-option, indented and only clickable while that layer is
+-- on (drawn only then: its layer's own check). onToggle(on): called after its setting changes. Each
+-- group's rows in ORDER, a key not in it last.
 local ORDER = {}
 for i, key in ipairs({ "labels", "quests", "questAreas", "offers",
 	"flight", "dungeons", "graveyards", "areaPOIs", "rares", "group" }) do
@@ -82,14 +73,13 @@ function Menus.Layer(row)
 	return row
 end
 
--- Drawn so far (Layers.lua:34-37, Blips.lua:671-672, Landmarks.lua:70-71).
 Menus.Layer({ key = "labels", label = "Zone labels", group = "map", tip = "Names of zones and sub-zones." })
 -- Rares you've seen and the live ones (vignettes: rares, treasures, events the game shows near you): one row.
 Menus.Layer({ key = "rares", label = "Rares & treasures", group = "nearby",
 	tip = "Rares where you last saw them, and the rares, treasures and events the game shows near you now.",
 	onToggle = function(on) Engine.SetLayer("vignettes", on) end })
 
--- Other addons' world-map pins (AddonPins.lua:105-113): a row for each with some (Model.addons), its
+-- Other addons' world-map pins (game/AddonPins.lua): a row for each with some (Model.addons), its
 -- pins borrowed while on (ui/Sockets.lua puts it in View.layers from the next frame).
 local function AddonRow(a)
 	local key, other = "addon:" .. a.key, a.key == "Other"
@@ -97,7 +87,7 @@ local function AddonRow(a)
 		tip = "Map pins " .. (other and "other addons put" or a.name .. " puts") .. " on the world map, shown here too." }
 end
 
--- The groups with layers, in order, each { title, rows } (Layers.lua:2154-2166).
+-- The groups with layers, in order, each { title, rows }.
 local function Sections()
 	local out = {}
 	for _, g in ipairs(GROUPS) do
@@ -146,7 +136,7 @@ UI.Feel.OnLoad(function()
 	end
 end)
 
--- Its setting flipped (Layers.lua:2141-2150): Engine draws it or empties it from the next frame.
+-- Its setting flipped: Engine draws it or empties it from the next frame.
 local function Flip(row)
 	local f = FEEL[row.key]
 	if f then return UI.Feel.Set(f, not LayerOn(row.key)) end
@@ -231,8 +221,8 @@ local function AddLayers(root, only)
 	end
 end
 
--- On green, off grey (a sub-option off while its parent is), by group (Layers.lua:2196-2207); the spike's
--- keys (Layers.lua:33-36) where ours name the layer that draws them.
+-- On green, off grey (a sub-option off while its parent is), by group; the keys /mm layers has always
+-- printed where ours name the layer that draws them.
 local SPIKE_KEY = { labels = "zoneLabels" }
 Command({ kind = "slash", name = "layers", help = "the map's layers by group, on or off", fn = function()
 	local parts = {}
@@ -249,11 +239,11 @@ Command({ kind = "slash", name = "layers", help = "the map's layers by group, on
 end })
 
 ---------------------------------------------------------------------------
--- Tracking (GearMenu.lua:9-26): Blizzard's types but those ours replace (kind "duplicate": Game keeps
+-- Tracking: Blizzard's types but those ours replace (kind "duplicate": Game keeps
 -- them off while our layer draws the same), in the client's order
 ---------------------------------------------------------------------------
 
--- A box Game sets (a Command, carried out in its next input step; the spike's took at once) shows what
+-- A box Game sets (a Command, carried out in its next input step) shows what
 -- was asked of it while its state is still what it was then. Asked anew each time the gear opens.
 local want, was = {}, {} -- a box's key -> what was asked, its state then
 local function Shown(key, on)
@@ -280,7 +270,7 @@ local function Track(id)
 end
 
 -- The types listed (Blizzard's but those ours replace: kind "duplicate"), one row a name and icon: the client
--- lists some twice (Banker, #21), one box for both. fn(t, ids): the row's first type, the ids of every one behind it.
+-- lists some twice (Banker), one box for both. fn(t, ids): the row's first type, the ids of every one behind it.
 local function Listed(fn)
 	local rows, ids = {}, {}
 	for _, t in ipairs(Model.tracking) do
@@ -334,10 +324,10 @@ function Tally(sec)
 end
 
 ---------------------------------------------------------------------------
--- The map picker (Core.lua:1161-1240) and /mm map (Core.lua:1704-1720)
+-- The map picker and /mm map
 ---------------------------------------------------------------------------
 
-local CONTINENT_MIN_TILES = 300 -- open-world maps this big are listed as continents (Core.lua:1062)
+local CONTINENT_MIN_TILES = 300 -- open-world maps this big are listed as continents
 local KINDS = { { "dungeon", "Dungeons" }, { "raid", "Raids" } }
 
 local counts = {} -- inst -> its tiles
@@ -388,7 +378,7 @@ local function Groups()
 	return g
 end
 
--- A whole map, fit to the window, following off (Core.lua:1154-1159).
+-- A whole map, fit to the window, following off.
 function Menus.ShowMap(inst)
 	UI.Motion.SetFollow(false)
 	UI.Motion.FitMap(inst)
@@ -440,7 +430,7 @@ Command({ kind = "slash", name = "map", help = "<id|name>: show a map whole; alo
 end })
 
 ---------------------------------------------------------------------------
--- The map's right-click menu (Core.lua:1355-1385)
+-- The map's right-click menu
 ---------------------------------------------------------------------------
 
 -- Only what makes sense where you clicked: Waypoint here (in a zone), Clear waypoint (one set); back to you is
@@ -453,7 +443,7 @@ function Menus.Map(owner, col, row)
 			Command({ kind = "waypoint", pos = { inst = inst, col = col, row = row } })
 		end }
 	end
-	if Model.waypointSet then -- (wherever it is: Layers.lua:2080-2081)
+	if Model.waypointSet then -- (wherever it is)
 		items[#items + 1] = { "Clear waypoint", function() Command({ kind = "waypoint", pos = false }) end }
 	end
 	local info = UI.BigMap.big and UI.ZoneInfo.At(col, row) or nil

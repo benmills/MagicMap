@@ -332,7 +332,7 @@ end
 -- A job that lasts (a worker): fn runs in one coroutine for good, each of its runs ending in
 -- Runtime.Idle(); Runtime.Wake(job, budgetMs) runs it again as a job (its resumes counted anew). Its
 -- coroutine and handle are made once: a job each time is a coroutine, a closure and a handle (a map
--- layout's: ~3 KB in the sim, ~10 KB in the client: sessions #8, #9). Cancelled or failed mid-run, the
+-- layout's: ~3 KB in the sim, ~10 KB in the client). Cancelled or failed mid-run, the
 -- next Wake starts fn anew.
 local IDLE = {}
 function Runtime.Worker(name, fn, budgetMs, maxFrames)
@@ -589,7 +589,7 @@ end
 
 -- A recording (/mm perf: Perf.lua) and gauges ---------------------------------------
 
-local HITCH = 1 / 30 -- s: a frame slower is a visible hitch (Perf.lua:8)
+local HITCH = 1 / 30 -- s: a frame slower is a visible hitch
 Runtime.HITCH = HITCH
 
 -- The next `seconds` of frames, graces too: the client's (t, frames, the worst, hitches past HITCH) and our

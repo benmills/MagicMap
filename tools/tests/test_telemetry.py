@@ -1,7 +1,7 @@
 """tools/telemetry.py on the fixture SavedVariables (every field docs/telemetry.md lists, an older
 session without the M0 ones), with a fake client folder holding the shot's screenshot, a log line
 that mentions the addon and one from the spike (another addon's error while ours was loaded,
-spike-bugs E1), and reference shots: every section prints; --budgets judges the newest perf and
+the spike's data globals), and reference shots: every section prints; --budgets judges the newest perf and
 names an owner for each FAIL; --compare puts two sessions side by side.
 Then the sim writes it: walking with the map open, a mark carries the 120-frame motion ring, a shot
 its stamp, the session our memory after GC, a taint, an art miss, layout stats and the bench; the

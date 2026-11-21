@@ -4,11 +4,10 @@
 --     area runs past its edge) sized 0: they mark a rim we don't show
 --   rimArrows false: its rim's icons, the big arrows toward your target, pushed far out, off
 --     screen (the client won't swap their art): our gold arrows point the way instead (ui/Guide.lua, ui/Path.lua)
---   indicators: Blizzard's mail and crafting-order indicators (MinimapCluster.IndicatorFrame, #23), which hide with
+--   indicators: Blizzard's mail and crafting-order indicators (MinimapCluster.IndicatorFrame), which hide with
 --     the cluster, hung there (its TOPRIGHT, SIZE px tall), above it; each apply puts them back if the client's own
 --     layout moved them; never in combat, nor a protected frame
 -- nil, not engaged, or logging out: as Blizzard has them.
--- (spike da0a49c^:MinimapTakeover.lua:213-231 ClearRim, before the Minimap became only a sensor)
 
 local _, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime

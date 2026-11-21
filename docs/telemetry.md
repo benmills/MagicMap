@@ -3,7 +3,6 @@
 The addon can't reach the network, but WoW writes SavedVariables to disk on
 `/reload` and logout, and this machine can read them (and the client's `Logs/`
 and `Screenshots/`). So the loop is: play, `/reload`, run `tools/telemetry.py`.
-The scripted sessions that feed it are docs/playtest.md.
 
 ## In game
 
@@ -85,7 +84,7 @@ telemetry = {
   (Game reads View only there: types/view.lua): the map shown (`inst`), the
   camera (`cx, cy, zoom`), the view's size (`w, h`) and top-left on screen (`left, top`, UI units;
   nil while hidden), small or `big`, `uiScale` (UIParent's effective scale) and the screen in UI
-  units (`screenW, screenH`). `note`'s first word is the shot's id (docs/playtest.md "Shots").
+  units (`screenW, screenH`). `note`'s first word is the shot's id.
 - **Errors' names**: the `Runtime.Wrap` name (e.g. `map: draw`), or `lua` for one
   the global error handler caught. "First occurrence" is per key per session: it
   sets the entry's `stack`, `version`, `session`, traces `error` (`d` = the key) and
@@ -176,17 +175,15 @@ globals breaking it) named only its own files, so a filter on our own name misse
   (the call slowest in the worst frames, what that frame did), the per-state histograms and
   the gaps; allocation from `perf.alloc`; memory from `ourKBLoad` against `ourKB`; first open
   from `perf.graceTop.map` (older sessions: `perf.slow`); errors from the session's errors. Then the
-  gate's empties (docs/v1-plan.md §1): `perf.slow`, `perf.gaps`, `taint`, `art`, `sensor`, each named
+  gate's empties: `perf.slow`, `perf.gaps`, `taint`, `art`, `sensor`, each named
   (`/mm bench` runs in its own grace, so it's in neither; older sessions' `bench: regions` is left out).
   Exit 1 on any FAIL.
   `--budgets --trace` also prints the perf, kept and marks sections it judged from.
 - `--compare A B`: two sessions side by side with B − A: the budgets, memory after GC,
   per-state p95/p99/max, allocators, bench ops. A session is its id in the SavedVariables
   read, or `FILE:id` for another SavedVariables file (sessions roll off after 10: keep a copy).
-- Shot pairing: a shot mark's id (its note's first word, an id from docs/evidence/shots/README.md)
-  is matched to the spike's reference shot `docs/evidence/shots/ref-<id>.jpg|png` (`--refs` for
-  another folder; tools/refshots.py names them); the reader prints both paths, the shot's stamp,
-  and the reference ids with no shot this time.
+- Shot pairing: a shot mark's id (its note's first word) is matched to a reference shot
+  `ref-<id>.jpg|png` in the `--refs` folder, if you keep one.
 
 Older SavedVariables (before these fields) still read: a missing field prints "not recorded"
 and an owner says what's missing.

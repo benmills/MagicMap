@@ -1,5 +1,5 @@
-"""Model's route (docs/v1-plan.md M3.1: model/Route.lua) on the simulated client: Atlas.Route over Atlas.Walk's
-parts (A* near, the tile graph far: promo/pathing/walk-v2-spec.md) in a Runtime.Job, to your waypoint
+"""Model's route (model/Route.lua) on the simulated client: Atlas.Route over Atlas.Walk's
+parts (A* near, the tile graph far: docs/walk.md) in a Runtime.Job, to your waypoint
 (test_target.TARGETS: Game's part as M3.2's hands it), its searches on a clock that counts their Lua (R-P2's), so
 a 1 ms slice is a slice of work:
 

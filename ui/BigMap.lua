@@ -1,4 +1,4 @@
--- The window is the minimap: it takes the minimap's place (MinimapMode.lua:1-16).
+-- The window is the minimap: it takes the minimap's place.
 --   * It starts on the minimap's spot, square, SPAN yards across, and keeps that as you
 --     resize it. /mm reset (or Settings > General > Reset window position) puts it back there.
 --   * M (Model.hooked "worldmap": Game hid Blizzard's world map) or the red button grows it
@@ -12,8 +12,8 @@
 --     step), and M, the button or Escape close it (Close: hide) instead of shrinking it.
 -- The camera's flights and zoom are Motion's (ui/Motion.lua: FlyTo, SetZoom, SetFollow).
 -- The small window's rect and zoom are saved (SavedUI.window, zoom), and the big one's rect once you move
--- or resize it (SavedUI.bigWindow: M grows to it after); hiding or logging out while big comes back small
--- (spike-bugs L4); growing again while shrinking keeps the small rect it had (L3).
+-- or resize it (SavedUI.bigWindow: M grows to it after); hiding or logging out while big comes back small;
+-- growing again while shrinking keeps the small rect it had.
 
 local _, ns = ...
 local UI = ns.UI
@@ -21,13 +21,13 @@ local Atlas, Runtime = ns.Atlas, ns.Runtime
 local Model = ns.Model
 local Camera, Window, Controls, Motion = UI.Camera, UI.Window, UI.Controls, UI.Motion
 
-local EXPAND_TIME, COLLAPSE_TIME = 0.22, 0.18 -- s (MinimapMode.lua:21)
-local GROW_FLY = EXPAND_TIME + 0.1 -- s: the camera's flight out (MinimapMode.lua:172)
-local EXPAND_ZOOM_OUT = 1.5 -- M zooms out this much; the window grows far more (MinimapMode.lua:22)
-local EXPANDED_SIZE = 0.7 -- of the screen, each way (MinimapMode.lua:23)
-local ZONE = 3 -- Enum.UIMapType.Zone (MinimapMode.lua:24)
-local FIT = 0.92 -- a zone fitted with this much of the view (Core.lua:1038)
-local SPAN = 200 -- yards across the small window (MinimapMode.lua:25)
+local EXPAND_TIME, COLLAPSE_TIME = 0.22, 0.18 -- s
+local GROW_FLY = EXPAND_TIME + 0.1 -- s: the camera's flight out
+local EXPAND_ZOOM_OUT = 1.5 -- M zooms out this much; the window grows far more
+local EXPANDED_SIZE = 0.7 -- of the screen, each way
+local ZONE = 3 -- Enum.UIMapType.Zone
+local FIT = 0.92 -- a zone fitted with this much of the view
+local SPAN = 200 -- yards across the small window
 local SPAN_TILES = SPAN / Atlas.TILE_YARDS
 
 -- big: grown (View.window.big); homeAlpha: View.window.homeAlpha; home: the Minimap's home spot
@@ -81,7 +81,7 @@ local function Here()
 	return you.col and not you.stale and you.inst == Camera.inst and you or nil
 end
 
--- Your zone's rect in tile space, walking up from a subzone or micro map (MinimapMode.lua:135-145).
+-- Your zone's rect in tile space, walking up from a subzone or micro map.
 local function ZoneRect()
 	local id = Model.you.uiMap
 	local m = id and Atlas.UiMap(id)
@@ -90,7 +90,7 @@ local function ZoneRect()
 	return r and r.inst == Camera.inst and r or nil
 end
 
--- The window's rect (and the home corner's alpha, a0 to a1) eased to `to` (MinimapMode.lua:59-86).
+-- The window's rect (and the home corner's alpha, a0 to a1) eased to `to`.
 local function TweenTo(to, duration, onDone, a0, a1)
 	tween = { l = frame:GetLeft(), t = frame:GetTop(), w = frame:GetWidth(), h = frame:GetHeight(), to = to,
 		at = 0, dur = duration, onDone = onDone, a0 = a0, a1 = a1 }
@@ -109,9 +109,8 @@ local function StepTween(elapsed)
 end
 
 -- Its default spot: at the screen's top right, HOME_W by HOME_H, HOME_RIGHT in from its right and HOME_TOP down
--- from its top (the window's units), SPAN yards across (MinimapMode.lua:99-114 had the minimap's spot, square: the
--- 3.0.2 default is the spot and size play-tested at the top right). Once the minimap's spot is known (the screen
--- is laid out by then).
+-- from its top (the window's units), SPAN yards across (the spot and size play-tested at the top right). Once the
+-- minimap's spot is known (the screen is laid out by then).
 local HOME_W, HOME_H, HOME_RIGHT, HOME_TOP = 234, 219, 15, 73
 local function Place()
 	if not BigMap.home then return end
@@ -124,7 +123,7 @@ local function Place()
 end
 
 ---------------------------------------------------------------------------
--- Growing into the world map (M) and back (MinimapMode.lua:116-207)
+-- Growing into the world map (M) and back
 ---------------------------------------------------------------------------
 
 local function Grow()
@@ -133,7 +132,7 @@ local function Grow()
 	BigMap.big = true
 	if not small then -- still shrinking back from the last time: the rect to return to stands
 		small = { left = frame:GetLeft(), top = frame:GetTop(), w = frame:GetWidth(), h = frame:GetHeight(),
-			zoom = (Motion.Goal()) } -- where a chase or flight was headed (MinimapMode.lua:152)
+			zoom = (Motion.Goal()) } -- where a chase or flight was headed
 		restoreAlpha = BigMap.homeAlpha
 	end
 	local k = UIParent:GetEffectiveScale() / frame:GetEffectiveScale() -- /: never 0 (an effective scale is > 0)
@@ -207,7 +206,7 @@ frame:HookScript("OnShow", Runtime.Wrap("map: shown home", function()
 	frame:SetFrameStrata(BigMap.homeStrata)
 end))
 
--- Resizing the small window keeps the same yards across it: the zoom scales with it (MinimapMode.lua:88-97).
+-- Resizing the small window keeps the same yards across it: the zoom scales with it.
 local lastSide
 frame:HookScript("OnSizeChanged", Runtime.Wrap("map: resize keeps yards", function(_, w, h)
 	local side = math.min(w, h)
@@ -253,7 +252,7 @@ function BigMap.Step(elapsed)
 	if not (UI.saved.window or small) then Place() end
 end
 
--- UI's saved part (ui/View.lua): the camera (zoom clamped, Core.lua:1678; the map and centre
+-- UI's saved part (ui/View.lua): the camera (zoom clamped; the map and centre
 -- when not following) and the window's rect.
 function BigMap.Load(saved)
 	local c = not saved.follow and saved.center

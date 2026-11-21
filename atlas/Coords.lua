@@ -23,7 +23,7 @@ function Atlas.TileToWorld(col, row)
 end
 
 -- The generated data (Data/*.lua) is ns.Data.<Name>, never a global (docs/atlas-data.md):
--- a global is shared with every addon (the MagicMap spike had the same names, E1).
+-- a global is shared with every addon (MagicMap 1.x had the same names).
 -- Each file records its format in ns.Data.formats; a dataset whose format isn't the one
 -- Atlas reads is dropped (Atlas answers as if it were missing) and named in one error, last.
 -- One row per Data file: a package adds or bumps only its own (tools/mmtools/luaout.py: the same rows).

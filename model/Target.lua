@@ -1,11 +1,10 @@
--- What to go to (the spike's GetTarget, Layers.lua:1076-1180), on the map shown (Focus's instance):
+-- What to go to, on the map shown (Focus's instance):
 -- your corpse while you're a ghost, else the quest you follow if its pin is there, else your
--- waypoint; each only while its layer is on (Focus.off: the spike's pinData, Layers.lua:1029). A
--- quest the game draws an area for is gone to the area's nearest edge, not its pin (while Quest
--- areas is on: a drawn area's, Layers.lua:1093-1097),
--- and once you're inside it you've arrived (inside: the line and edge arrow step aside): every
+-- waypoint; each only while its layer is on (Focus.off). A quest the game draws an area for is gone
+-- to the area's nearest edge, not its pin (while Quest areas is on: a drawn area's), and once you're
+-- inside it you've arrived (inside: the line and edge arrow step aside): every
 -- AREA_EVERY while the map shows and you're on it, where you stand is asked (Inside), a change held
--- AREA_SETTLE before it counts (no flicker at the edge: spike-bugs M1), and outside, the edge along
+-- AREA_SETTLE before it counts (no flicker at the edge), and outside, the edge along
 -- a fan of rays from you toward its pin, RAY_STEPS each, then REFINE halvings where one goes in. A
 -- look's asks go on over frames: past ASKS a frame, or while the game can't tell (nil), on the next.
 -- Model.Target(): the same table until it changes; false: none; nil: no Focus yet.
@@ -15,11 +14,11 @@
 local _, ns = ...
 local Model = ns.Model
 
-local AREA_EVERY, AREA_SETTLE = 0.25, 0.5 -- s (Layers.lua:1086-1087)
-local FAN = { 0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05 } -- ray angles about the way to its pin (Layers.lua:1088)
-local RAY_STEPS, REFINE = 16, 8 -- (Layers.lua:1089)
+local AREA_EVERY, AREA_SETTLE = 0.25, 0.5 -- s
+local FAN = { 0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05 } -- ray angles about the way to its pin
+local RAY_STEPS, REFINE = 16, 8
 local ASKS = 32 -- Inside's asks a frame: "a few dozen" (types/observation.lua)
-local CORPSE, WAYPOINT = "Your corpse", "Waypoint" -- their pins' titles (Layers.lua:513, 628)
+local CORPSE, WAYPOINT = "Your corpse", "Waypoint" -- their pins' titles
 
 local NONE = {}
 local corpse, corpses, corpseRev = nil, NONE, 0
@@ -44,7 +43,7 @@ local function Ask(quest, col, row)
 	end
 end
 
--- The nearest point of the quest's area from (pc, pr), toward its pin (cc, cr), or nil (Layers.lua:1104-1130).
+-- The nearest point of the quest's area from (pc, pr), toward its pin (cc, cr), or nil.
 local function NearestEdge(quest, pc, pr, cc, cr)
 	local dx, dy = cc - pc, cr - pr
 	local reach = math.sqrt(dx * dx + dy * dy) * 1.5
@@ -72,7 +71,7 @@ local function NearestEdge(quest, pc, pr, cc, cr)
 	return bc, br
 end
 
--- One look (Layers.lua:1139-1155): inside, held; outside, the nearest edge (none: its pin).
+-- One look: inside, held; outside, the nearest edge (none: its pin).
 local function Look()
 	local quest, pc, pr, pin = want.quest, want.col, want.row, want.pin
 	local inside = Ask(quest, pc, pr)
@@ -135,7 +134,7 @@ local function Followed(inst)
 	end
 end
 
--- "[level] title", as its tooltip's (QuestInfo.lua:42-47).
+-- "[level] title", as its tooltip's.
 local function Title(e)
 	if e ~= titled then titled, title = e, e.level and string.format("[%d] %s", e.level, e.name) or e.name end
 	return title

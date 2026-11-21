@@ -1,9 +1,9 @@
--- Party and raid members (Layers.lua:666-760): Known("group"), those on the map shown, as the Minimap's
+-- Party and raid members: Known("group"), those on the map shown, as the Minimap's
 -- own blips: PartyRaidBlipsV2's filled dot (its left half), 12 px, in their class's colour, dead or a
 -- ghost grey. They walk: placed again whenever Model's list changes (Game reads them 20 times a second,
 -- game/parts/Group.lua) or the view moves, only what changed set; none while the layer's off (the gear's
 -- "Party & raid"). Under the cursor (no pin there: ui/Pins.lua's go first), a member's tooltip, Game's
--- (the tooltip Command's member: its name in its class's colour, level and class, dead: Layers.lua:677-688).
+-- (the tooltip Command's member: its name in its class's colour, level and class, dead).
 -- Its type: Party member (Settings > Pins: shown or not, its size, 100% of 12 px, and opacity), applied to the dots.
 
 local _, ns = ...
@@ -13,9 +13,9 @@ local Maths = ns.Atlas.Camera
 local Command = ns.Game.Command
 
 local LEVEL = 13 -- with your corpse and waypoint (ui/You.lua): over the places and rares (11), under the quests (15)
-local SIZE = 12 -- px (Layers.lua:666), at 100%
-local BLIP = "Interface\\Minimap\\PartyRaidBlipsV2" -- a filled dot, then a ring (Layers.lua:667)
-local DEAD = 0.5 -- grey (Layers.lua:739)
+local SIZE = 12 -- px, at 100%
+local BLIP = "Interface\\Minimap\\PartyRaidBlipsV2" -- a filled dot, then a ring
+local DEAD = 0.5 -- grey
 local NONE = {}
 
 local Group = {}
@@ -51,7 +51,7 @@ local function Dot(i)
 	return t
 end
 
--- Its colour: its class's, grey dead (Layers.lua:734-741); set when either changes.
+-- Its colour: its class's, grey dead; set when either changes.
 local function Color(t, e)
 	local dead = e.dead == true
 	if t.class == e.class and t.dead == dead then return end

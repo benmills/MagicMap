@@ -11,7 +11,7 @@ Three systems: Game, Model, UI. Two libraries under them: Atlas and Runtime.
 ## Rules
 
 - Only Game reads or changes game state or other addons. Anyone may make widgets.
-  One exception, decided at M2 (docs/brief.md §7): UI draws your quests' objective areas with the
+  One exception, decided at M2: UI draws your quests' objective areas with the
   client's own art on QuestPOIFrames of its own and hit-tests them for hover and click (the spike's
   blob art, Layers.lua:765-1069), the one game read UI makes, through a widget. Only ui/Areas.lua and
   Game's sensor (game/Oracles.lua) make one (luacheck's `POI_FILES`).
@@ -64,12 +64,12 @@ since 1.60.1.70862, so MagicMap draws none of its own.
   shows   title · tooltips (its own small fonts put back on GameTooltip's hide) · inspector · menus & settings
 
 **Atlas** (library)
-  holds   tiles · label anchors · walk grid · interiors (buildings' indoor
+  holds   tiles · label anchors · walk graph (parts, regions, tile graph; docs/walk.md) · interiors (buildings' indoor
           minimap pictures, rooms, floors) + the capitals' buildings and area names
           · uiMaps · areas + area grid · flight points + paths · POIs · dungeons
           · NPCs · objects · items · quests (Data/, generated; see docs/atlas-data.md)
   gives   coordinates · map rects · zone at point · zone levels · ranked map labels
-          · spawns in a box · name search · quest sources · camera maths · walk cells + moves
+          · spawns in a box · name search · quest sources · camera maths · the way between two points
 
 **Runtime** (library)
   frame steps · slices and budgets · timers · events · perf (/mm perf)

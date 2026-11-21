@@ -88,7 +88,7 @@ end
 
 -- Results: { kind, ok, atlas, game } (ok nil: info, not counted), in rows every sample reuses: the
 -- logger samples every 2 s all session, so one makes next to nothing (a sample made ~8 KB, the
--- logger 3.4 KB/s of garbage in sessions #13-#22). A row lasts until the next sample.
+-- logger 3.4 KB/s of garbage). A row lasts until the next sample.
 local out, rows = {}, {}
 local function Unless(no, ok) if no then return nil end return ok end
 local function R(kind, ok, atlas, game)
@@ -112,7 +112,7 @@ local function Sample(verbose)
 	local best = C_Map.GetBestMapForUnit("player")
 	local zoneMap = ZoneMap(best)
 	-- The client not knowing yet (entering a zone, or at login: its text "", its best map the continent)
-	-- is no answer: info, not a mismatch (sessions #8, #9 in Orgrimmar).
+	-- is no answer: info, not a mismatch.
 	local mapKnown = zoneMap and Info(zoneMap).mapType >= ZONE
 	R("zone map", Unless(not mapKnown, Near(ZoneMapAt, col, row, TOL.edge, zoneMap)), MapName(ZoneMapAt(col, row)),
 		zoneMap and (zoneMap .. " " .. Info(zoneMap).name))
@@ -251,7 +251,7 @@ local function Clear()
 end
 
 -- The log is one build's: what another logged (before a fix to what counts as drift, or to Data) would
--- read as this one's (sessions #13-#22 showed e50e7d5's empty log under earlier builds' Valley of Strength).
+-- read as this one's.
 Game.Load("validation", function(saved)
 	db = saved
 	if db.version ~= VERSION then

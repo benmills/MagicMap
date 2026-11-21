@@ -69,8 +69,8 @@ function Atlas.AreaAt(inst, col, row)
 end
 
 -- The zone at (col, row): its uiMap (mapID, name, normalized x, y), zone and area IDs. Only on a
--- continent, a zone whose map is on it: the spike asks the continent's map (Layers.lua:2059-2070), so
--- an instance's map (Ruins of Ahn'Qiraj: Silithus' chunks) has none.
+-- continent, a zone whose map is on it (asked of the continent's map), so an instance's map (Ruins of
+-- Ahn'Qiraj: Silithus' chunks) has none.
 function Atlas.ZoneAt(inst, col, row)
 	if not Atlas.Continent(inst) then return nil end
 	local id = Atlas.AreaAt(inst, col, row)
@@ -84,7 +84,7 @@ function Atlas.ZoneAt(inst, col, row)
 end
 
 -- The zone whose map has (col, row): ZoneAt's, only where it's on that zone's map (x, y in 0..1), as the
--- client's zone at a point on the continent (C_Map.GetMapInfoAtPosition: Layers.lua:2059-2070); nil: none.
+-- client's zone at a point on the continent (C_Map.GetMapInfoAtPosition); nil: none.
 -- Where a waypoint can go, and a /way line names: Game's waypoint and way, UI's offers of them.
 function Atlas.ZoneMapAt(inst, col, row)
 	local z = Atlas.ZoneAt(inst, col, row)

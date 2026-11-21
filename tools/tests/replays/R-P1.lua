@@ -176,7 +176,7 @@ local function Wheels(corners)
 	end
 	assert(#T.Errors(sim, ns) == 0, table.concat(T.Errors(sim, ns), "\n"))
 end
--- On the priced clock (the client's prices: docs/evidence/perf-m0.md), the small window and the big:
+-- On the priced clock (the client's prices), the small window and the big:
 -- calls over their budget counted (perf.slow).
 local over, frames = {}, ns.Runtime.FrameStats().overruns
 for name, p in pairs(ns.Runtime.Perf()) do over[name] = p.over end

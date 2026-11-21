@@ -1,12 +1,11 @@
--- Zone and subzone names (Atlas.Labels, ranked offline: Data/Labels.lua), the spike's look
--- (Layers.lua:1417-1458, 1619-1694): quiet, as on a printed map. Zones in Morpheus, mixed case, 11.5 to
--- 22 pt by their land's size on screen, up to zoom 450, with a soft dark shadow and an outline at small
--- sizes (the MVP's look, 672d8b2^:ui/Labels.lua); subzones quieter, one look at every zoom: Friz Quadrata
+-- Zone and subzone names (Atlas.Labels, ranked offline: Data/Labels.lua): quiet, as on a printed map.
+-- Zones in Morpheus, mixed case, 11.5 to 22 pt by their land's size on screen, up to zoom 450, with a
+-- soft dark shadow and an outline at small sizes; subzones quieter, one look at every zoom: Friz Quadrata
 -- 9 pt, dimmer, the shadow alone, from zoom 120, 220 or 400 by their size. Zones first,
 -- then subzones, each biggest first: a name tries its spot, just above, just below, and is skipped
 -- if all three touch one placed. Every zone of the map is placed (its box: a name's spot doesn't
 -- change on a pan), those over the view and its margin drawn (ui/Engine.lua); subzones are placed
--- near the view, around them, and again once it pans out of them (Layers.lua:1631-1673); moved with
+-- near the view, around them, and again once it pans out of them; moved with
 -- the zoom ("move"). A name the last layout didn't show fades in. While the big map shows a capital's city map
 -- (ui/Interiors.lua), the areas named on its rooms (Atlas.City's labels: The Great Forge, the Apothecarium...)
 -- are subzones too, placed first, but for a name the terrain's subzones have. Settings > Map > Names (ui/Feel.lua,
@@ -17,16 +16,16 @@ local UI = ns.UI
 local Atlas, Runtime, Engine = ns.Atlas, ns.Runtime, ns.UI.Engine
 local Get, Unget, At, Yield = Engine.Get, Engine.Unget, Engine.At, Runtime.Yield
 
-local TITLE, BODY = "Fonts\\MORPHEUS.TTF", GameFontNormal:GetFont() -- Morpheus for zones; Friz Quadrata (Layers.lua:1417)
-local ZONE, SUB = { 1, 0.89, 0.63, 0.95 }, { 0.91, 0.86, 0.77, 0.45 } -- the MVP's (672d8b2^:ui/Labels.lua); subzones quieter (3.0.2: 45%)
+local TITLE, BODY = "Fonts\\MORPHEUS.TTF", GameFontNormal:GetFont() -- Morpheus for zones; Friz Quadrata
+local ZONE, SUB = { 1, 0.89, 0.63, 0.95 }, { 0.91, 0.86, 0.77, 0.45 } -- subzones quieter
 local ZONE_K, ZONE_MIN, ZONE_MAX = 0.085, 11.5, 22 -- a zone's size: k * its land's side * zoom, clamped
 local SUB_SIZE = 9 -- a subzone's, one size and look at every zoom: shadow only, no outline (quiet over legible)
 local OUTLINE_MAX = 12 -- a zone name at or below this size gets an outline (the font's OUTLINE flag) with the shadow
-local MAX_ZOOM = 450 -- zone names hidden zoomed in past this (Layers.lua:77)
-local SUB_ZOOM = 120 -- subzone names from here (weight >= 40), 220 (>= 15), else 400 (Layers.lua:1426, 1639)
+local MAX_ZOOM = 450 -- zone names hidden zoomed in past this
+local SUB_ZOOM = 120 -- subzone names from here (weight >= 40), 220 (>= 15), else 400
 local SHADOW = 0.85 -- the soft drop shadow's alpha, offset (1, -1)
-local PAD_X, PAD_Y, GAP = 4, 2, 3 -- a name's clearance, and its spots' gap above and below (Layers.lua:1447-1448)
-local FADE_S = 0.2 -- Layers.lua:1619
+local PAD_X, PAD_Y, GAP = 4, 2, 3 -- a name's clearance, and its spots' gap above and below
+local FADE_S = 0.2 -- s: a new name's fade-in
 
 -- The settings' label size ("labels.scale"), a factor on every name's size; the layer's rev moves with it, so the
 -- names are laid out again at the new size (and, as the names', at a new size or opacity).
@@ -49,7 +48,7 @@ local function SizeAt(l, k, min, max, zoom)
 	return math.floor(scale * math.max(min, math.min(max, k * (l.side or 0) * zoom)) + 0.5)
 end
 
--- Per map, its names as the spike has them: zones and subzones (a town that is one included), each
+-- Per map, its names: zones and subzones (a town that is one included), each
 -- biggest first; weight: land chunks (docs/atlas-data.md: Data/Labels.lua's size).
 local lists = {}
 local function Bigger(a, b) return a.weight > b.weight or a.weight == b.weight and a.rank < b.rank end
@@ -104,7 +103,7 @@ local function Overlaps(x0, y0, x1, y1)
 end
 
 -- The name's spot (its offset down, px), just above or just below, whichever touches no name placed,
--- kept as placed; nil: none (Layers.lua:1440-1461). w: half its width, padded; h: its height.
+-- kept as placed; nil: none. w: half its width, padded; h: its height.
 local function Spot(c, l, zoom, w, h)
 	local x, y = (l.col - c.ox) * zoom, (l.row - c.oy) * zoom
 	for i = 1, 3 do
@@ -141,7 +140,7 @@ local NONE = {}
 -- The name drawn at its spot; fading in unless the last layout showed it.
 local function Show(c, fs, l, dy, shown)
 	At(c, fs, "CENTER", l.col, l.row, 0, dy)
-	c.names[l.text], fs.label = true, l -- (fs.label.areaID: the zone a hover lights, M3.4)
+	c.names[l.text], fs.label = true, l -- (fs.label.areaID: the zone a hover lights)
 	local a = shown[l.text] and fs.base or 0
 	if fs.alpha ~= a then
 		fs:SetAlpha(a)

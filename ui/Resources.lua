@@ -1,4 +1,4 @@
--- Resources (#18): the tracker kept on (the gear's Keep tracking row; its setting has no page).
+-- Resources: the tracker kept on (the gear's Keep tracking row; its setting has no page).
 -- Keep tracking: one of the spells' tracking types the character knows (Model.tracking's `spell`: Find Herbs, Find
 -- Minerals, a hunter's tracks), Game turning it back on whenever the game may have dropped it (View.keep:
 -- game/Keep.lua). One, not one a type: the client has one tracking spell on at a time (classic's rule: a second one
@@ -18,7 +18,7 @@ local Resources = {}
 UI.Resources = Resources
 
 local KEY = "resources.keep"
-local GATHER = { 2383, 8387, 2580, 8388, 2481 } -- Find Herbs (two ranks), Find Minerals (two), Find Treasure (Minimap.lua:34-41)
+local GATHER = { 2383, 8387, 2580, 8388, 2481 } -- Find Herbs (two ranks), Find Minerals (two), Find Treasure
 
 
 -- The spells' tracking types the client lists now (what Game can keep on).

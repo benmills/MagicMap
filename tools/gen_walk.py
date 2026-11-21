@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate Data/Walk.lua and Data/WalkParts.lua: where you can walk, for path mode's routes (walk v2:
-promo/pathing/walk-v2-spec.md; the formats: docs/atlas-data.md and tools/mmtools/walkdata.py).
+docs/walk.md; the formats: docs/atlas-data.md and tools/mmtools/walkdata.py).
 
 L0, the fine graph (here only, never shipped): the terrain as the client draws it, each ~4-yard quad 4 triangles
 round its centre vertex, each triangle a kind (hole, deep water, harmful liquid, else by its slope: flat <= 50

@@ -1,5 +1,5 @@
 -- tracking (types/view.lua MM.CmdTracking): one of Blizzard's tracking types (MM.ObsTracking.id) on or
--- off (GearMenu.lua:16-22). The same frame's obs.tracking has it when sent from a click (carried out in
+-- off. The same frame's obs.tracking has it when sent from a click (carried out in
 -- Input: game/parts/Tracking.lua); from a ui step, the next frame's.
 
 local _, ns = ...

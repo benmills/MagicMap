@@ -1,11 +1,9 @@
--- Places on the map (Layers.lua:459-540; Landmarks.lua:71-142): Known("places") as pins on the pin store
--- (ui/Pins.lua), each kind its gear row: flight points (their art, 18; else a dot of their faction's colour:
--- Layers.lua:459), dungeon entrances (20), graveyards (16, off until turned on) and the zones' points of
+-- Places on the map: Known("places") as pins on the pin store (ui/Pins.lua), each kind its gear row:
+-- flight points (their art, 18; else a dot of their faction's colour), dungeon entrances (20), graveyards (16, off until turned on) and the zones' points of
 -- interest (18), each in the art Model hands on: the client's atlas (Blizzard's HD art), a point of
 -- interest without one its POIIcons cell (the art the client draws it with), a dot of the kind's colour
--- where the client has neither (StylePin's (d)). And what the game shows near you now (Landmarks.lua:73-108): Known("vignettes"),
--- rares and treasures, 20. One pin layer for them all, as the spike's one canvas (Layers.lua:418-430): a
--- kind turned off is left out of its next layout. Tooltips: the name, then what it is (a flight point, a
+-- where the client has neither (ui/Pins.lua's (d)). And what the game shows near you now: Known("vignettes"),
+-- rares and treasures, 20. One pin layer for them all: a kind turned off is left out of its next layout. Tooltips: the name, then what it is (a flight point, a
 -- graveyard, a dungeon or raid), its description (a dungeon's, a point of interest's), "Nearby now" (a vignette).
 -- Their types (Settings > Pins): each kind's (Places), and the vignettes' (Rares & treasures); the art is the client's
 -- for each place, so no icon to choose.
@@ -15,13 +13,12 @@ local UI, Model = ns.UI, ns.Model
 local Pins, Menus, Engine = UI.Pins, UI.Menus, UI.Engine
 local LayerOn = Engine.LayerOn
 
-local LEVEL = 11 -- with the rares (the spike's landmarks)
-local GOLD = { 1, 0.82, 0 } -- a flight point's, neutral (Layers.lua:459)
-local FACTION = { H = { 0.9, 0.2, 0.2 }, A = { 0.3, 0.5, 1 } } -- Layers.lua:459
-local VIGNETTE = { size = 20, color = { 1, 0.4, 0.3 }, line = "Nearby now", sample = "vignetteloot" } -- Landmarks.lua:94-95
+local LEVEL = 11 -- with the rares
+local GOLD = { 1, 0.82, 0 } -- a flight point's, neutral
+local FACTION = { H = { 0.9, 0.2, 0.2 }, A = { 0.3, 0.5, 1 } }
+local VIGNETTE = { size = 20, color = { 1, 0.4, 0.3 }, line = "Nearby now", sample = "vignetteloot" }
 
--- Each kind of place: its layer's key (the gear's, Layers.lua:48-53, Landmarks.lua:142), size and fallback
--- colour (Layers.lua:470-534, Landmarks.lua:135), its tooltip's line (nil: the place's own text); its type's name and
+-- Each kind of place: its layer's key (the gear's), size and fallback colour, its tooltip's line (nil: the place's own text); its type's name and
 -- the art its row shows (the client names each place's); big: on the big map always, zoomed out too (ui/PinTypes.lua).
 local KINDS = {
 	flight = { key = "flight", size = 18, line = "Flight point", name = "Flight point", sample = "taxinode_neutral", big = "always" },
@@ -59,7 +56,7 @@ local function Cell(n) -- cell n's texture part (left, right, top, bottom)
 	return c
 end
 
--- StylePin's look for e's art at size, color its dot's: one table a look (by art and colour). The art: its
+-- A pin look (ui/Pins.lua's Style) for e's art at size, color its dot's: one table a look (by art and colour). The art: its
 -- atlas, which Pins uses if the client has it; else (icon.alt) a POI's cell, POIIcons; else a dot.
 local looks = {}
 local function Look(kind, size, e, color)
@@ -117,7 +114,7 @@ UI.Places = Pins.Layer("places", LEVEL, function(put)
 	for _, e in ipairs(Model.Known("vignettes")) do put(e, Look("vignette", VIGNETTE.size, e, VIGNETTE.color)) end
 end, Rev, { lines = Lines, cluster = true })
 
--- Their gear rows (Layers.lua:38-53; Landmarks.lua:110-111, 142-143).
+-- Their gear rows.
 Menus.Layer({ key = "flight", label = "Flight points", group = "places", tip = "Flight masters you can fly to or from." })
 Menus.Layer({ key = "dungeons", label = "Dungeons & raids", group = "places", tip = "Dungeon and raid entrances." })
 Menus.Layer({ key = "graveyards", label = "Graveyards", group = "places",

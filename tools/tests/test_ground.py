@@ -1,4 +1,4 @@
-"""The ground layers at the spike's look and cost (docs/v1-plan.md M1.4: ui/Labels.lua, Tiles.lua, You.lua) on the
+"""The ground layers at the spike's look and cost (ui/Labels.lua, Tiles.lua, You.lua) on the
 simulated client. Labels: zones in capitals, 10 pt, up to zoom 450; subzones 7 pt (9 at Subzone size 80%), by size from 120, 220 and 400;
 none touching another; a name new to the view fades in. Tiles: an open-sea tile isn't drawn (the backdrop shows).
 You: the arrow, on your map only.

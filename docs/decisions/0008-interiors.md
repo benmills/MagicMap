@@ -1,8 +1,8 @@
 # 0008 Interiors: Blizzard's indoor minimap pictures, placed by us
 
 Status: accepted (2026-10-20), proven by an offline mockup and an in-game test addon on Ironforge
-(prototype: [docs/evidence/indoors/](../evidence/indoors/)). Replaces the indoor renderers of M4.2
-and M4.4 (View.renderer `"ours+art"` and `"blizzard"`, spike-bugs G1). Types:
+Replaces the indoor renderers of M4.2
+and M4.4 (View.renderer `"ours+art"` and `"blizzard"`). Types:
 [types/observation.lua](../../types/observation.lua), [types/model.lua](../../types/model.lua),
 [types/view.lua](../../types/view.lua).
 

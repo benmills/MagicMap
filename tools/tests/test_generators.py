@@ -159,6 +159,10 @@ def test_walk_regions_regenerate(tmp_path):
     """tools/gen_walk_regions.py over the committed Data/Walk.lua, Data/WalkParts.lua and tools/walk_links.json
     gives the committed Data/WalkRegions.lua and Data/WalkGraph.lua, byte for byte (it also checks the reach table
     against the regions' full reach): regenerate them after any input changes."""
+    inputs = ["Data/Walk.lua", "Data/WalkParts.lua", "tools/walk_links.json", "tools/gen_walk_regions.py"]
+    changed = subprocess.run(["git", "status", "--porcelain", *inputs], cwd=ROOT, capture_output=True, text=True).stdout
+    if not changed.strip() and not os.environ.get("MM_SLOW"):
+        pytest.skip("its inputs as committed (25 s: MM_SLOW=1 runs it anyway)")
     out = tmp_path / "WalkRegions.lua"
     run_tool("gen_walk_regions.py", "-o", str(out))
     for name in ("WalkRegions.lua", "WalkGraph.lua"):

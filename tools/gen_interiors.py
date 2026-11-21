@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate Data/Interiors.lua: the buildings with indoor minimap pictures, for the map indoors
-(docs/decisions/0008-interiors.md; the prototype: docs/evidence/indoors/).
+(docs/decisions/0008-interiors.md).
 
 For every open-world map Data/Tiles.lua lists, every building (WMO) placed on it (obj0 MODF,
 deduped by unique ID) whose rooms have pictures in WMOMinimapTexture: its placement and box, and

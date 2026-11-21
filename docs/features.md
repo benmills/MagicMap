@@ -136,12 +136,15 @@ and water): it stands along that way a short distance from you (96 px by default
 route that turns north first points north; it comes in as you near the target, settles beside its icon and fades
 as the icon takes over. It eases round as the way changes, and your turning doesn't move it. Its size, opacity
 and distance are in Settings > Tracking.
-**Path to** draws the walk as a thin, quiet gold dashed line, leaving your arrow on a lazy lead-in and turning
-corners in rounded bends, to a quest area's nearest edge; off the map, a gold arrow on the edge points the way.
+**Path to** draws the way you'd walk (round cliffs, mountains and water, over bridges and down ramps, not off drops
+that hurt; docs/walk.md) as a thin, quiet gold dashed line that tints the ground under it, so it reads on snow and at
+night alike. It rejoins the way a little ahead of you and slides along as you go, turning corners in rounded bends,
+to a quest area's nearest edge; off the map, a gold arrow on the edge points the way.
 At the minimap's size the map pans and zooms to keep you, the target and the way between in view, zooming in
 steadily as you near it, as far as the map goes (the big map is left where you have it); pan or zoom yourself and it comes back once left alone, as Return to default does (Settings >
 Tracking > Frame the way). The line's style (dotted, dashed, solid),
-weight, colour, glow, breathing, opacity and outline are in Settings > Tracking > Line. Your corpse always gets the line,
+weight, colour, glow, breathing, opacity and outline are in Settings > Tracking > Line; how it follows you and its
+shape in Settings > Route. Your corpse always gets the line,
 and the view comes back to you.
 **Arriving** finishes it: within 5 yards of the target (or inside a quest's area), the arrow and the line go,
 and a waypoint (or the icon tracked on it) is cleared; a quest stays followed. Both stay through a /reload. While you follow a quest, the quest pill is its icon: hover it for the quest's
@@ -204,6 +207,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 | Pins | Show pins (on; under it Pin opacity 100%, On the big map, Zoomed in from), Pin size (120%). By type: each family (Quests, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill); Graveyards and Landmarks off until turned on; under Addons, each addon with world pins (Questie...). The gear's Map rows are these same switches. Each follows the level above until set; its undo hands it back. Grouping: Group icons (on; under it Distance, Reach, Smallest group, Icons in a pill, Pill backing, Open group backing). Resources: Keep tracking (your gathering tracker) |
 | Quests | Quest pill: Shows (off / what you track), Says (Objective progress, Distance; chosen and ordered from those, Name and Time to arrive), Progress bar (on), Bar opacity (60%), Bar colour (Gold), Backing (35%), Size (90%). On the map: Names on big map (off), Names on small map (off). Areas: Followed quest (100%), Other quests (100%): how strongly their areas are drawn |
 | Tracking | Shows (Arrow; or Line, Arrow and line). Arrow: Size (105%), Opacity (100%), Distance (96 px). Line: Style (dashed; under it Glow off, Breathing off and its pace 1.8 s, Outline off and its colour Dark), Weight (1.4 px), Colour (Gold), Opacity (65%). Target: Glow (on; under it Glow size 200%, Glow opacity 100%), Frame the way (on) |
+| Route | By you: Gap at you (12 px), Leave the way you face (off; under it Curve length 130 yd). Following: Join the way (30 yd), Skip ahead (off), Find a new way after (100 yd). Shape: Corner rounding (70 yd), Cut across bumps (10 yd), Room to go round (1.5) |
 | Advanced | The fine tuning. Pill layout: Height (20 px), Padding (4 px), Icon size (10 px), Icon spacing (2.3 px); Text size (9), Text spacing (5 px), Close spacing (5.4 px), Close opacity (35%); Border size (45%), Border opacity (85%). Quest areas' raw numbers: the followed quest's and the others' Fill, Edge, Edge width; under the cursor Fill lift, Edge. Debug info in title. Reports in chat: Record 10 seconds; Compare with other addons; Memory breakdown (each also a `/mm` command) |
 
 ## Commands
@@ -239,5 +243,5 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 - **Other minimap addons** (SexyMap, square-minimap addons) may conflict. While FarmHud has the
   minimap, MagicMap leaves it to FarmHud.
 - **enUS** names only; no routes beyond walking; no per-character profiles
-  ([v1-non-goals.md](v1-non-goals.md)).
+
 

@@ -1,19 +1,19 @@
 -- obs.places (types/observation.lua MM.ObsPlace[]), on change: the live places the game marks on the map
 -- shown (Game.shownInst, a frame behind; yours before the first; not while hidden), each asked of its
--- continent's map, then its zones', a place kept on the first that has it (Layers.lua:450-457): flight
--- points (C_TaxiMap), dungeon entrances (C_EncounterJournal) and graveyards (C_DeathInfo; Layers.lua:463-540),
--- and the zones' area POIs (C_AreaPoiInfo; Landmarks.lua:120-141). A kind is read again 0.3 s after its
--- events (Layers.lua:1233-1242, 2220-2233; Landmarks.lua:150-160): flight points TAXIMAP_OPENED, graveyards
+-- continent's map, then its zones', a place kept on the first that has it: flight
+-- points (C_TaxiMap), dungeon entrances (C_EncounterJournal) and graveyards (C_DeathInfo),
+-- and the zones' area POIs (C_AreaPoiInfo). A kind is read again 0.3 s after its
+-- events: flight points TAXIMAP_OPENED, graveyards
 -- PLAYER_DEAD, PLAYER_ALIVE and PLAYER_UNGHOST, area POIs AREA_POIS_UPDATED; all at once when another instance
 -- is shown. Each place is compared with its last as it's read and kept if the same; a new list only when one
--- changed. Atlas has the static ones (Model merges: M4.3).
+-- changed. Atlas has the static ones (Model merges).
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
-local DELAY = 0.3 -- s (Layers.lua:1236)
-local GRAVEYARD = "poi-graveyard-neutral" -- Layers.lua:490
-local FACTION = { [1] = "H", [2] = "A" } -- a flight point's (0: neutral; Layers.lua:459)
+local DELAY = 0.3 -- s
+local GRAVEYARD = "poi-graveyard-neutral"
+local FACTION = { [1] = "H", [2] = "A" } -- a flight point's (0: neutral)
 local KINDS = { "flight", "dungeon", "graveyard", "poi" }
 
 local list -- the last handed over
@@ -78,7 +78,7 @@ local READ = {
 		end
 	end,
 	poi = function(out, map)
-		if map == maps.continent then return end -- (the zones': Landmarks.lua:123)
+		if map == maps.continent then return end -- (the zones')
 		for _, id in ipairs(C_AreaPoiInfo.GetAreaPOIForMap(map)) do
 			local info = C_AreaPoiInfo.GetAreaPOIInfo(map, id)
 			if info then Put(out, "poi", id, map, info.position, info.name, info.description, info.atlasName, nil, nil, info.textureIndex) end

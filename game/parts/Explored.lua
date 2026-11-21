@@ -1,11 +1,10 @@
 -- obs.explored (types/observation.lua table<AreaID, boolean>) and obs.exploredCells (per instance, rows of
 -- cells), on change: what you've explored on the continent of the map shown (Game.shownInst) and of yours.
--- A sweep of the continent's map in cells CELL tiles a side, SAMPLES cells a frame (Layers.lua:75-76,
--- 1257-1269, 1334-1361): at each cell's centre, on its zone's map, the client says which areas are explored
+-- A sweep of the continent's map in cells CELL tiles a side, SAMPLES cells a frame: at each cell's centre, on its zone's map, the client says which areas are explored
 -- there (C_MapExplorationInfo.GetExploredAreaIDsAtPosition). The cell is lit if it names any, dark if none
 -- (what the inspector's "Unexplored" reads, per cell: ZoneInfo.lua); the areas it names are explored, and the cell's own
 -- (Atlas.AreaAt) checked (false until named). A lit cell isn't asked again. Handed over when a sweep ends:
--- new tables, what the last had and this one found (the old kept until then: Layers.lua:2245-2248; a row of
+-- new tables, what the last had and this one found (the old kept until then; a row of
 -- cells a new table only if it changed), each only if something in it changed. Swept again, the cells not
 -- lit, after MAP_EXPLORATION_UPDATED: the one shown now, the others once shown. An instance's map (no
 -- continent) has none.
@@ -13,7 +12,7 @@
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
-local CELL, SAMPLES = 0.2, 700 -- tiles (~107 yd); cells a frame (Layers.lua:75-76)
+local CELL, SAMPLES = 0.2, 700 -- tiles (~107 yd); cells a frame
 local NONE = {}
 
 local explored, cells -- the last handed over: per area; per instance, its rows of cells ([j][i]: true, false)

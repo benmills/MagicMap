@@ -7,7 +7,7 @@
 -- gear's "Use Blizzard's minimap", M and Escape, a /reload and a logout in combat. And a quest
 -- followed (a click on its pin or area: the follow Command), out of combat and in, super-tracks and
 -- watches it from insecure code, which Blizzard's objective tracker (secure item buttons) follows:
--- recorded (Sim.trackerCalls), not refused; whether the client blocks or taints is docs/playtest-final.md c7.
+-- recorded (Sim.trackerCalls), not refused; whether the client blocks or taints is for a test in game.
 -- So is a waypoint set (super-tracked: the quest no longer) and cleared, out of combat and in: Ctrl-click
 -- and Ctrl-right-click, the right-click menu's Waypoint here and Clear waypoint (the waypoint Command).
 -- And a Shift-click's /way line: the chat box opened (OpenChat, Blizzard's Lua run from ours; c2's).

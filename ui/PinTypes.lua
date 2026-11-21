@@ -1,8 +1,8 @@
--- The pin inventory (#16): every kind of pin the map draws, each declared by the file that draws it, next to the look
+-- The pin inventory: every kind of pin the map draws, each declared by the file that draws it, next to the look
 -- it draws (Types.Add: ui/Quests.lua's, ui/Rares.lua's, ui/Places.lua's from its
 -- KINDS, ui/You.lua's corpse and waypoint, ui/Group.lua's party dot, ui/Sockets.lua's other addons'), and Settings >
 -- Pins built from them, so a new type is on the page by being declared. A type is { id, family, name, look (its
--- look, StylePin's: the page draws it so), icons? (Blizzard's art for it, { label, value } each, the first today's: a
+-- look, as ui/Pins.lua styles it: the page draws it so), icons? (Blizzard's art for it, { label, value } each, the first today's: a
 -- value "A:<atlas>", a FileDataID or a path), groups? (it may stand in a pill: ui/Cluster.lua), size = false (no size:
 -- other addons' pins, never scaled), big? ("always": its big-map rule, not its family's), tip }. Families, in the
 -- page's order: Quests, Rares & treasures, Party, Places, Addons, Other.
@@ -15,7 +15,7 @@
 -- art chosen, a look's icon: nil for today's), group }, resolved for every type at once when Feel.rev moves (not a pin
 -- at a time), and Types.Rev(), which moves when any type's resolved style does: each pin layer's rev carries it
 -- (ui/Pins.lua), as do the group dots', the sockets' and the grouping's.
--- On the big map (#20) a type shows always, or only zoomed in: from the zoom at which the view spans "Zoomed in
+-- On the big map a type shows always, or only zoomed in: from the zoom at which the view spans "Zoomed in
 -- from" yards across or less (Types.Min: a pin layer's minimum zoom for it, ui/Pins.lua's put and ui/Cluster.lua's,
 -- faded in over Engine's FADE_IN past it); never held back on the minimap. Its rule ("big": "always" or "zoomed")
 -- inherits All's (zoomed), a family's, a type's like its size; by default quests, your party, flight points,

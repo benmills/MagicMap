@@ -1,18 +1,17 @@
 -- /mm <name> [args]: Game.Slash(name, help, fn) registers fn(args); /mm alone is the
--- name "" (UI's: the map shown or hidden, Core.lua:1700). A name may be two words ("check art"): it
--- wins over its first word's. An unknown name, or zone alone, answers with the spike's usage line
--- (Core.lua:1752); the rebuild's diagnostics (check, bench, shot, layer, mapstats, minimap, errors,
--- perf load...) stand outside it: /mm help lists every name. Game.Run(line) is the same as typing it
--- (the gear's Advanced: game/commands/run.lua).
--- Here: the spike's tiles, landmarks, perf, perf top, perf mem (Core.lua, Landmarks.lua, Perf.lua); and
--- Runtime's own, perf load and errors.
+-- name "" (UI's: the map shown or hidden). A name may be two words ("check art"): it
+-- wins over its first word's. An unknown name, or zone alone, answers with the usage line; the
+-- diagnostics (check, bench, shot, layer, mapstats, minimap, errors, perf load...) stand outside it:
+-- /mm help lists every name. Game.Run(line) is the same as typing it (the gear's Advanced:
+-- game/commands/run.lua).
+-- Here: tiles, landmarks, perf, perf top, perf mem; and Runtime's own, perf load and errors.
 
 local ADDON, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
 local USAGE = "/mm [toggle] | follow | map <id|name> | zone <name> | icon | tiles | layers | landmarks"
-	.. " | indoor | perf | debug | reset" -- Core.lua:1752 (but blips)
-local ARG = { zone = true } -- names that take an argument: alone, the usage line (Core.lua:1721)
+	.. " | indoor | perf | debug | reset"
+local ARG = { zone = true } -- names that take an argument: alone, the usage line
 
 local commands = {}
 Game.commands = {} -- names, in registration order
@@ -34,7 +33,7 @@ function Game.Run(msg)
 end
 
 SLASH_MAGICMAP1 = "/mm"
-SLASH_MAGICMAP2 = "/magicmap" -- Core.lua:1696-1698
+SLASH_MAGICMAP2 = "/magicmap"
 SlashCmdList.MAGICMAP = Game.Run
 
 Game.Slash("help", "every command, with what it does", function()
@@ -42,7 +41,7 @@ Game.Slash("help", "every command, with what it does", function()
 	for _, n in ipairs(Game.commands) do print("  /mm" .. (n ~= "" and " " .. n or "") .. " - " .. commands[n].help) end
 end)
 
--- /mm tiles (Core.lua:1738-1743): the tile set, and each map's tiles.
+-- /mm tiles: the tile set, and each map's tiles.
 Game.Slash("tiles", "the tile set, and each map's tiles", function()
 	local names = {}
 	for _, m in ipairs(Atlas.Maps()) do
@@ -54,7 +53,7 @@ Game.Slash("tiles", "the tile set, and each map's tiles", function()
 	Game.Say("tile set: " .. tostring(product) .. " " .. tostring(version) .. ". Maps: " .. table.concat(names, ", "))
 end)
 
--- /mm landmarks (Landmarks.lua:175-183): the rares you've seen, every map's (Model's saved part, as Game
+-- /mm landmarks: the rares you've seen, every map's (Model's saved part, as Game
 -- loaded it).
 Game.Slash("landmarks", "how many rares are remembered", function()
 	local total = 0
@@ -65,13 +64,13 @@ Game.Slash("landmarks", "how many rares are remembered", function()
 end)
 
 ---------------------------------------------------------------------------
--- /mm perf, perf top, perf mem (Perf.lua)
+-- /mm perf, perf top, perf mem
 ---------------------------------------------------------------------------
 
-local DURATION = 10 -- s (Perf.lua:7)
+local DURATION = 10 -- s
 
--- The client's addon profiler and each addon's memory: fair against other addons (Perf.lua:12-72). The
--- profiler's answers are read as the spike read them (their shapes unproven in Forever).
+-- The client's addon profiler and each addon's memory: fair against other addons. The
+-- profiler's answers' shapes are unproven in Forever: each read defensively.
 local function TopAddOns(P, metric, k)
 	local ok, results = pcall(P.GetTopKAddOnsForMetric, metric, k)
 	local out = {}
@@ -112,7 +111,7 @@ local function Ranked(list, fmt, n)
 	return table.concat(parts, ", ")
 end
 
--- How we compare with your other addons, right now (Perf.lua:124-144).
+-- How we compare with your other addons, right now.
 local function Compare()
 	local P, M = C_AddOnProfiler, Enum.AddOnProfilerMetric
 	if P.IsEnabled() then
@@ -133,8 +132,8 @@ local function Compare()
 		mine and string.format("%.0f KB", mem[mine][2]) or "?", mine or "?", #mem, Ranked(mem, "%s %.0f KB", 6)))
 end
 
--- Where the time went, busiest first: ms a frame, and calls and the slowest where that says more (Perf.lua:
--- 74-101). Every call Runtime wraps, by its name (the spike's map parts are names of their own here).
+-- Where the time went, busiest first: ms a frame, and calls and the slowest where that says more. Every
+-- call Runtime wraps, by its name.
 local function Where(r)
 	local list, total = {}, 0
 	for name, c in pairs(r.calls) do
@@ -150,7 +149,7 @@ local function Where(r)
 	end
 end
 
--- The recording, reported (Perf.lua:146-159): the client's frames, our cost in them, where the time went,
+-- The recording, reported: the client's frames, our cost in them, where the time went,
 -- and the comparison.
 local function Report(r)
 	if r.frames == 0 then return Game.Say("perf: no frames recorded (is the map open?)") end
@@ -174,7 +173,7 @@ Game.Slash("perf top", "how we compare with your other addons, right now", funct
 end)
 
 -- Our memory before and after a full collection (what's left is live; the rest was garbage), and the
--- map's regions behind it (Perf.lua:103-122).
+-- map's regions behind it.
 Game.Slash("perf mem", "our memory, and after a full collection; the map's regions", function()
 	Runtime.Grace("gc", 0.1)
 	UpdateAddOnMemoryUsage()

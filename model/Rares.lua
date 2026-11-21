@@ -1,13 +1,13 @@
 -- The rares you've seen (saved.rares, types/saved.lua: account-wide), as Known("rares"), and what the
--- game shows near you now (obs.vignettes) as Known("vignettes") (Landmarks.lua:13-117).
+-- game shows near you now (obs.vignettes) as Known("vignettes").
 --   remember  a rare among obs.vignettes (its art a rare's or an elite's; or the one you target, at your
 --             position: Game's `target`, not a vignette) is kept where it was last seen, one entry an NPC
---             (else its spot), seen then (Landmarks.lua:24-44, 96-103, 154-156)
+--             (else its spot), seen then
 --   hide      a seen rare with a live rare vignette of its name stands under that pin: not listed while
---             the vignettes layer is on (Focus.off; D4: Landmarks.lua:50-56, 96-99, 107, 112-117)
+--             the vignettes layer is on (Focus.off)
 -- Known("rares"): Focus's instance (else yours), live false, t last seen, its line "Rare" (the tooltip's
 -- "Seen here <Mon DD>" is UI's to write from t: Model has no date). Known("vignettes"): obs.vignettes but
--- the target, key the vignette GUID, live; "Nearby now" (Landmarks.lua:93).
+-- the target, key the vignette GUID, live; "Nearby now".
 
 local _, ns = ...
 local Model = ns.Model

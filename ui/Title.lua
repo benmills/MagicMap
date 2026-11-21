@@ -1,24 +1,20 @@
--- The title band: a title, then a subtitle, left-aligned on one line just above the map
--- (below it, when the map is at the top of the screen), the gear and mode buttons at its
--- right end; no plate, like the minimap's own (Core.lua:177-226, 292-314). Clicking the title
--- opens the map picker (Core.lua:200-223); dragging it moves the window. Its text (Core.lua:1240-1320), 20 times a
--- second while shown: the pieces its settings page (Frame title) chooses, in their order, at rest (the small map, the
--- pointer off it) and on hover (the pointer over the map, and the big map); the first there is the title, the rest
--- the subtitle. The pieces:
---   Zone: the place it's about: hovering the map (big, or not on your map), the zone under the cursor (else the
---     map's name); on your map, your zone (your uiMap's name, else the client's); otherwise the zone last flown to on
---     this map (a zone's click, /mm zone), else the map's name
+-- The title band: a title, then a subtitle, left-aligned on one line just above the map (below it when
+-- the map is at the top of the screen), the gear and mode buttons at its right end; no plate, like the
+-- minimap's own. Clicking the title opens the map picker; dragging it moves the window. Its text, 20 times
+-- a second while shown: the pieces its settings page (Frame title) chooses, in order, at rest (the small
+-- map, the pointer off it) and on hover (the pointer over the map, and the big map); the first is the
+-- title, the rest the subtitle. The pieces:
+--   Zone: hovering the map (big, or not on your map), the zone under the cursor (else the map's name); on
+--     your map, your zone (your uiMap's name, else the client's); otherwise the zone last flown to on this
+--     map (a zone's click, /mm zone), else the map's name
 --   Subzone: the client's (the inn, inside it), on your map, while it isn't the zone's name
 --   Coordinates: that zone's, the cursor's or yours
---   Tracked target: its name (ui/You.lua's Target), "here" inside its area; Distance to target: the yards to it,
---     outside it; both only while it's about you
---   Local time, Server time (Model.clock: Game reads them), as Blizzard's clock shows them (24 hours or 12) or as set,
---     led by the minimap's own day or night picture in its gold ring (Blizzard_Minimap's Diel.lua) rather than an
---     AM or PM (without the pictures, the AM or PM)
--- By default today's text: at rest the zone and subzone; on hover those, the coordinates and the target. Whatever is
--- chosen, off your map on the big map the hint to follow you again leads the subtitle; and with /mm debug, last
--- (Core.lua:1305-1313), grey: the tile under the cursor (else the view's centre), its FileDataID, the zoom and the
--- tile set's build.
+--   Tracked target: its name (ui/You.lua's Target), "here" inside its area; Distance to target: the yards
+--     to it, outside it; both only while it's about you
+--   Local time, Server time (Model.clock), as Blizzard's clock shows them (24 hours or 12) or as set, led by
+--     the minimap's day or night picture in its gold ring (Blizzard_Minimap's Diel.lua) rather than AM or PM
+-- Off your map on the big map, the hint to follow you again leads the subtitle; with /mm debug, last, grey:
+-- the tile under the cursor (else the view's centre), its FileDataID, the zoom and the tile set's build.
 
 local _, ns = ...
 local UI = ns.UI
@@ -27,14 +23,14 @@ local Model = ns.Model
 local Camera, Window, Chrome, Controls = UI.Camera, UI.Window, UI.Chrome, UI.Controls
 local Maths = Atlas.Camera
 
-local HEADER_ICON = 20 -- Core.lua:281
-local ROOM = 3 * HEADER_ICON + 4 + 2 + 6 + 4 + 8 -- the buttons' share of the line (Core.lua:300): mode, gear, AddOns
-local TOP_ROOM = 24 -- closer to the screen's top: the line goes below (Core.lua:305)
-local EVERY = 0.05 -- s (Core.lua:1563)
-local SEP = "  ·  " -- Core.lua:1244
-local HINT = "|cff8a7f6e|A:UI-RefreshButton:12:12|a Back to you|r" -- Core.lua:1303 (the reset, ui/Controls.lua)
-local COLOR, HOVER = { 1, 0.82, 0.25 }, { 1, 0.93, 0.6 } -- Core.lua:202
-local DEBUG = "|cff777777%d_%d  %s  zoom %d  %s|r" -- Core.lua:1311
+local HEADER_ICON = 20 -- px
+local ROOM = 3 * HEADER_ICON + 4 + 2 + 6 + 4 + 8 -- the buttons' share of the line: mode, gear, AddOns
+local TOP_ROOM = 24 -- closer to the screen's top: the line goes below
+local EVERY = 0.05 -- s
+local SEP = "  ·  "
+local HINT = "|cff8a7f6e|A:UI-RefreshButton:12:12|a Back to you|r" -- the reset's (ui/Controls.lua)
+local COLOR, HOVER = { 1, 0.82, 0.25 }, { 1, 0.93, 0.6 } -- the title's, and hovered
+local DEBUG = "|cff777777%d_%d  %s  zoom %d  %s|r"
 local FONT = GameFontNormal:GetFont()
 local _, BUILD = Atlas.TileSet()
 
@@ -140,7 +136,7 @@ frame:HookScript("OnSizeChanged", Runtime.Wrap("map: title fit", Fit))
 -- update: a string and its join each, 20 times a second). A form for each list and set of pieces there, made once.
 local COORDS = "%.1f, %.1f" -- a tenth of a percent
 local CLOCK = "%s%d:%02d%s" -- the day or night picture (and its room), hour, minute, AM or PM
-local FMT = { zone = "%s", subzone = "%s", coords = COORDS, target = "|cffffd27f%s|r%s", -- Core.lua:1295-1299
+local FMT = { zone = "%s", subzone = "%s", coords = COORDS, target = "|cffffd27f%s|r%s",
 	distance = "%d yd", time = CLOCK, server = CLOCK }
 local N = { zone = 1, subzone = 1, coords = 2, target = 2, distance = 1, time = 4, server = 4 }
 local PIECES = {
@@ -276,7 +272,7 @@ local function Show(list)
 	Fit()
 end
 
--- The map's name: Atlas's (the tile set's) or the instance's number (Core.lua:1262).
+-- The map's name: Atlas's (the tile set's) or the instance's number.
 local names = {}
 local function MapName(inst)
 	local n = names[inst]
@@ -302,7 +298,7 @@ local function ZoneAt(inst, a, b)
 	return at.mapID and at
 end
 
--- The debug line (Core.lua:1305-1313): the tile under the cursor (hovering), else the view's centre.
+-- The debug line: the tile under the cursor (hovering), else the view's centre.
 local function Debug(inst, hovering)
 	local cam, c, r = Camera.cam, nil, nil
 	if hovering then
@@ -336,7 +332,7 @@ local function Update()
 	elseif onMap then
 		a, b = you.col, you.row
 	end
-	local tt, yd -- the target, while it's about you (Core.lua:1294)
+	local tt, yd -- the target, while it's about you
 	if onMap and not (hovering and big) and (has.target or has.distance) then
 		tt, yd = UI.You.Target()
 		if not has.distance then yd = yd and true end -- (no yards shown: none to redraw for)
@@ -359,7 +355,7 @@ local function Update()
 		v.zone = x and z.name or MapName(inst)
 	elseif onMap then
 		-- Your uiMap's name (the client's best map for you), else the client's zone, else the
-		-- zone you're in (Core.lua:1278-1291).
+		-- zone you're in.
 		local map = you.uiMap and Atlas.UiMap(you.uiMap)
 		local zone = not map and a and ZoneAt(inst, a, b)
 		local mapID = map and map.id or zone and zone.mapID
@@ -395,7 +391,7 @@ Feel.Add("title", "Format", {
 		tip = "How the times show: as Blizzard's clock is set (its 24-hour box), or always 24-hour or 12-hour." },
 })
 
--- /mm debug (Core.lua:1746-1748): the gear's Advanced runs it (GearMenu.lua:35).
+-- /mm debug: the gear's Advanced runs it too.
 function Title.Debug()
 	UI.saved.debug = not UI.saved.debug
 	UI.Print("debug info " .. (UI.saved.debug and "on" or "off"))

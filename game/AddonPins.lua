@@ -1,50 +1,33 @@
--- Other addons' pins on our map: the spike's AddonPins.lua, and the minimap pins of its
--- MinimapTakeover.lua. Addons put pins on Blizzard's world map and Minimap through
+-- Other addons' pins on our map. Addons put pins on Blizzard's world map and Minimap through
 -- HereBeDragons-Pins-2.0, each through its copy in LibStub (a renamed one: HereBeDragons<Addon>-Pins-2.0),
 -- Questie's (12.8 on) a module of its own loader (Scan).
--- World pins: while our window is shown with a world socket (View.sockets.world) and Blizzard's world
--- map isn't, Game borrows the pin frames ("icons") of each addon whose layer is on (View.layers
--- "addon:<key>") onto the socket at their world position; each goes back where it was (parent,
--- points, shown, level) when our window hides, the socket goes or moves frame or map, its layer goes
--- off, or Blizzard's world map opens (a frame is in one place only, and that map is the library's: it
--- takes back the ones it shows itself). One the library has placed again meanwhile is the library's:
--- left be. The show rules (AddonPins.lua:18-22): the library shows a pin on its own zone map, and on
--- parent, continent or world maps per its flag; ours is a zone map close up and a continent's zoomed
--- out, so past CONTINENT_ZOOM only pins flagged for continents come. Pins drawn for its own zone map
--- alone (Questie's -1, its route lines) and frames bigger than pins never do, nor Questie's turn-in
--- ("complete") of a quest whose turn-in our quests layer shows (the same "?" at the same quest giver,
--- twice: AddonPins.lua:212-220; obs.quests' complete ones on the map), nor its "!" ("available") of one our
--- offers layer shows (obs.offers on the map). A Questie log is thousands of
--- pins, so borrowing and giving back is a Runtime.Job: NEWS_MS a frame for one with something to show
--- soon (opened, a new socket or map, an addon's layer toggled, the library changed, given back, the
--- zoom across CONTINENT_ZOOM), JOB_MS for the regular one every SYNC_EVERY (pins the library took
--- back: its frames stay well under the frame p95). The library adding or removing world pins cancels
--- a borrowing pass (it walks the library's tables) and starts another SYNC_SOON later. A pass borrows
--- for the addon layers on, the zoom and the turn-ins shown when it started (View is read in apply only).
--- The pins sit on a frame of Game's at the socket's TOPLEFT (its holder): when the socket's zoom
--- changes (where the view comes to rest), a job re-places them, NEWS_MS a frame (2400 SetPoints
--- are ~0.7 ms in the client, 7 on the sim's counted clock: one call was a frame over budget), the
--- holder see-through until it's done, so no pin shows at the old zoom's place.
--- Minimap pins (MinimapTakeover.lua:79-162, 479-508): while the takeover has the Minimap, each copy
--- drawing on it draws instead on a host of Game's answering what the library asks a minimap: the
--- Minimap's view around you on View.sockets.minimap (centred on you, its diameter in yards at the
--- socket's zoom; hidden while you're off the map it shows), the library placing them on it as on the
--- Minimap; out of sight (a hidden host) without that socket (on the overlay they'd take
--- the mouse, over our map: spike-bugs G6), under Rotate Minimap (the library turns them with your
--- facing, our map stays north up), with the addon's layer off (the gear's Other addons row hides all its
--- pins), and for a renamed copy whose world pins we host (they'd only repeat those). Released: back on the Minimap, last (Game.MinimapPinsHome, game/Minimap.lua's undo).
+-- World pins: while our window shows a world socket (View.sockets.world) and Blizzard's world map is
+-- closed, Game borrows the pin frames of each addon whose layer is on ("addon:<key>") onto the socket,
+-- and gives each back where it was (parent, points, shown, level) when that stops: a frame is in one
+-- place only, and the library takes back the ones it shows itself. One it has placed again meanwhile is
+-- left be. Ours is a zone map close up and a continent's zoomed out, so past CONTINENT_ZOOM only pins
+-- flagged for continents come; pins for their own zone map alone (Questie's -1, its route lines), frames
+-- bigger than pins, and Questie's "?" or "!" where our quests or offers layer shows the same are never
+-- borrowed. A Questie log is thousands of pins, so borrowing, giving back and re-placing at a new zoom
+-- are Runtime.Jobs (NEWS_MS a frame with something to show soon, else JOB_MS; 2400 SetPoints are ~0.7 ms
+-- in the client), the holder see-through until done so no pin shows at the old zoom's place.
+-- Minimap pins: while the takeover has the Minimap, each copy draws instead on a host of Game's that
+-- answers what the library asks a minimap, around you on View.sockets.minimap; out of sight without that
+-- socket (on the overlay they'd take the mouse over our map), under Rotate Minimap (the library turns
+-- them, our map stays north up), with the addon's layer off, and for a renamed copy whose world pins we
+-- host. Released: back on the Minimap (Game.MinimapPinsHome, game/Minimap.lua's undo).
 -- Game.Addons(): obs.addons (game/parts/Addons.lua), a new list only when it changed.
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
-local PINS_MAJOR = "^HereBeDragons(.*)%-Pins%-2%.0$" -- AddonPins.lua:30
-local SHOW_CONTINENT = 2 -- HBD_PINS_WORLDMAP_SHOW_CONTINENT (AddonPins.lua:32)
-local CONTINENT_ZOOM = 48 -- px a tile: zoomed out further, we're showing a continent (AddonPins.lua:33)
-local MAX_SIZE = 128 -- px; bigger frames are drawn for Blizzard's canvas, not as pins (AddonPins.lua:34)
-local SYNC_SOON, SYNC_EVERY = 0.1, 1 -- s after the library adds or removes pins; regardless (AddonPins.lua:35-36)
+local PINS_MAJOR = "^HereBeDragons(.*)%-Pins%-2%.0$"
+local SHOW_CONTINENT = 2 -- HBD_PINS_WORLDMAP_SHOW_CONTINENT
+local CONTINENT_ZOOM = 48 -- px a tile: zoomed out further, we're showing a continent
+local MAX_SIZE = 128 -- px; bigger frames are drawn for Blizzard's canvas, not as pins
+local SYNC_SOON, SYNC_EVERY = 0.1, 1 -- s after the library adds or removes pins; regardless
 local JOB_MS, NEWS_MS = 0.25, 1 -- ms a frame of a pass: the regular one; one with news
-local OUTDOOR_WIDEST = 466 + 2 / 3 -- yd across the Minimap's view at zoom 0 outdoors (MinimapTakeover.lua:52-53)
+local OUTDOOR_WIDEST = 466 + 2 / 3 -- yd across the Minimap's view at zoom 0 outdoors
 local NONE = {}
 
 local copies, hooks = {}, {} -- { lib, tag (the renamed part: "Questie") }; lib -> { [method] = the function hooked }
@@ -76,8 +59,7 @@ local METHODS = { AddWorldMapIconWorld = World, AddWorldMapIconMap = World, Remo
 -- and Questie's own: since 12.8 a module of its loader, not in LibStub (its
 -- Libs/HereBeDragons/HereBeDragons-Pins-2.0.lua: QuestieLoader:CreateModule("HBDPins"); the same tables
 -- and methods), read from the loader's table (ImportModule would make one where there's none).
--- A newer minor loading over a copy redefines its methods, dropping our hooks: hooked again
--- (AddonPins.lua:55-56).
+-- A newer minor loading over a copy redefines its methods, dropping our hooks: hooked again.
 local function Adopt(lib, tag)
 	if type(lib) ~= "table" or type(lib.worldmapPinRegistry) ~= "table" then return end
 	local h = hooks[lib]
@@ -94,7 +76,7 @@ local function Adopt(lib, tag)
 	end
 end
 local function Scan()
-	if LibStub then -- (none: no addon brought one, spike-bugs E4)
+	if LibStub then -- (none: no addon brought one)
 		for major, lib in LibStub:IterateLibraries() do
 			local tag = major:match(PINS_MAJOR)
 			if tag then Adopt(lib, (tag:gsub("^[-_ ]+", ""))) end
@@ -112,7 +94,7 @@ function Game.PinLibs(rescan)
 end
 
 -- The addon behind a pin: a renamed copy is its addon's; in the shared copy, the ref it
--- registered under (an AceAddon, a string) (AddonPins.lua:89-101).
+-- registered under (an AceAddon, a string).
 local function Key(copy, ref)
 	if copy.tag ~= "" then return copy.tag end
 	if type(ref) == "string" and ref ~= "" then return ref end
@@ -227,7 +209,7 @@ local function Replace()
 	job.kind = "place"
 end
 
--- A Questie turn-in for a quest whose turn-in our quests layer shows (AddonPins.lua:216-220), or its "!" for one our
+-- A Questie turn-in for a quest whose turn-in our quests layer shows, or its "!" for one our
 -- offers layer shows (the same "!" at the same quest giver: theirs over ours, it would take our pin's mouse).
 local function Repeats(icon)
 	local d = rawget(icon, "data")
@@ -316,7 +298,7 @@ end
 
 -- Each frame: given back while closed; borrowed at once on opening or a new socket or map, then
 -- after an addon's layer is toggled, the library adds or removes pins or the zoom crosses
--- CONTINENT_ZOOM (AddonPins.lua:273-283), and every SYNC_EVERY.
+-- CONTINENT_ZOOM, and every SYNC_EVERY.
 local function WorldPins(view)
 	local s = view.sockets.world
 	if not (view.window.shown and s) or WorldMapFrame:IsShown() then return Close() end
@@ -357,7 +339,7 @@ end
 
 -- Minimap pins ----------------------------------------------------------------------------
 
--- A host answers what the library asks a minimap (MinimapTakeover.lua:79-93).
+-- A host answers what the library asks a minimap.
 local function Host()
 	local f = CreateFrame("Frame", nil, UIParent)
 	f:Hide()
@@ -371,7 +353,7 @@ hidden:SetSize(1, 1)
 local ours = { [hidden] = true, [around] = true }
 local placed = {} -- around as placed: frame, level, x, y, d
 
--- They must still clear the map's layers (MinimapTakeover.lua:148-151).
+-- They must still clear the map's layers.
 local function Raise(lib, host)
 	local level = host:GetFrameLevel()
 	for pin in pairs(lib.minimapPins) do
@@ -380,7 +362,7 @@ local function Raise(lib, host)
 end
 
 -- Around you on the socket, the Minimap's view in its pixels: its diameter in yards at the socket's
--- zoom (MinimapTakeover.lua:479-508). True if sized anew: the library, which re-reads a host's size
+-- zoom. True if sized anew: the library, which re-reads a host's size
 -- only now and then, is told again.
 local function Around(s, you)
 	local f, z = s.frame, s.zoom
@@ -424,8 +406,8 @@ local function AnyOn(copy, layers)
 	return false
 end
 
--- Each frame while engaged: each copy drawing on the Minimap or ours on the host it should be on
--- (MinimapTakeover.lua:132-162): out of sight with its layer off (a switch off hides all of an addon's pins), or
+-- Each frame while engaged: each copy drawing on the Minimap or ours on the host it should be on:
+-- out of sight with its layer off (a switch off hides all of an addon's pins), or
 -- its world pins hosted instead.
 local function MinimapPins(view)
 	local m = Game.minimap

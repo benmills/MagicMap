@@ -1,7 +1,7 @@
 """Walk sweep: the route search measured on fixed named cases (tools/walk_cases.json) and seeded random pairs per
 zone, on two walks side by side: "31", main's walk at git 5eedf63 (atlas/Walk.lua, atlas/Route.lua, Data/Walk.lua,
 Data/WalkRegions.lua from demo/walk31/ if there, else `git show`), and "2", the tree's atlas as it stands (walk v2
-per promo/pathing/walk-v2-spec.md once it lands; until then it is 3.1 too, and says so).
+per docs/walk.md once it lands; until then it is 3.1 too, and says so).
 
 Per case and side: class (found / partial / none / capped / nosnap / error), route length (yd) and length over
 straight, nodes closed, ms (Find run whole, no yield), and from the real terrain (the baker's fine cache,

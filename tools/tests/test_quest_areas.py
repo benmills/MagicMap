@@ -1,11 +1,11 @@
-"""Quest areas on the simulated client (docs/v1-plan.md M2.4: ui/Areas.lua), end to end from the sim's
+"""Quest areas on the simulated client (ui/Areas.lua), end to end from the sim's
 quest log (its blobs: Sim.blobShapes) through Game's parts and Inside, and Model:
 
   test_quest_areas: one QuestPOIFrame a map and style in the client's art (S53): the quest you follow filled blue
     over the rest, kill rust, gather green, other blue; each quest drawn into its frame's rect as laid out
     (L1); out of sight while the zoom moves, back where it lands (P5); the gear's toggles.
   test_quest_area_hover: an area under the cursor lit on top (HOVER) with its quest's tooltip, built once a
-    hover (spike-bugs G7), up through a zoom and with the cursor on something standing on the view; a pin's
+    hover, up through a zoom and with the cursor on something standing on the view; a pin's
     tooltip wins, its quest lit; off both, neither.
   test_quest_area_big_zone: a 12-tile zone at the clamp (Stranglethorn at zoom 800, 9,572 px wide), flown to
     from Elwynn and wheeled in about you: its frame on one anchor, laid out in its map's rect, each quest

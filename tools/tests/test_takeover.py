@@ -1,6 +1,6 @@
-"""Game's side of the takeover in the sim (docs/v1-plan.md M1.6): the keys Blizzard owns, caught
+"""Game's side of the takeover in the sim: the keys Blizzard owns, caught
 for UI (M keeps WorldMapFrame hidden and hands "worldmap" on; L opens Blizzard's; Escape only
-while big), none of it a protected call in combat (spike-bugs K2); the minimap button (dragged
+while big), none of it a protected call in combat; the minimap button (dragged
 round the rim, its angle across a /reload, a click or the compartment "toggle"); the home spot
 (read again on a UI scale change); and a release putting back every property the takeover, the
 rim and the home fade changed: the Minimap's children (strata and level too: the client re-bases a
@@ -224,7 +224,7 @@ def test_button_home_release():
 
 def test_farmhud():
     """FarmHud shown has the Minimap: ours yields it (released, every property as it was), and takes it again
-    once FarmHud hides (MinimapTakeover.lua:517; spike-bugs K3)."""
+    once FarmHud hides (MinimapTakeover.lua:517)."""
     L, sim, ns = boot()
     Game, H = ns.Game, L.execute(HELPERS, sim)
     sim.Run(1)

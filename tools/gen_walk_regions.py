@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate Data/WalkRegions.lua and Data/WalkGraph.lua from Data/Walk.lua, Data/WalkParts.lua and
 tools/walk_links.json (no game data): the hand links, the regions (what a walk can join up), the region reach
-table, and the tile graph the route search's long walks go over (walk v2: promo/pathing/walk-v2-spec.md; formats:
+table, and the tile graph the route search's long walks go over (walk v2: docs/walk.md; formats:
 docs/atlas-data.md, tools/mmtools/walkdata.py).
 
   python3 tools/gen_walk_regions.py -o Data/WalkRegions.lua [--graph Data/WalkGraph.lua] [--check]

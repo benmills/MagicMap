@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Repaint a broken part of the map with OpenAI's image edits: candidates for a person to pick from (tools/ai_map.py runs this for the
-places in tools/ai_regions.json, and bakes the picks; docs/ai-map-art.md).
+places in tools/ai_regions.json, and bakes the picks).
 
 Give it a range of the map in tile units (the demo's URL shows them: x is col, y is row); the broken ground in it is the
 map review's accepted issues and any flat ground found there, or --whole-box. It writes demo/aifix/<name>/ (gitignored: Blizzard's art is in it):

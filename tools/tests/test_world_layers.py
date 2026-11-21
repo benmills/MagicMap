@@ -1,4 +1,4 @@
-"""UI's remaining layers on the simulated client (docs/v1-plan.md M4.4): Model's kinds and parts stubbed as
+"""UI's remaining layers on the simulated client: Model's kinds and parts stubbed as
 M4.1 and M4.3 hand them over (types/model.lua, types/observation.lua), drawn as the spike's:
 
   test_places: Known("places") and Known("vignettes") as pins on the store, each kind its look (S48: its art,

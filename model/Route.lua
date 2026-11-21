@@ -1,15 +1,14 @@
--- The way to the target (the spike's Route.lua): the way you'd walk there, around cliffs,
+-- The way to the target: the way you'd walk there, around cliffs,
 -- mountains and lava and (when it's shorter) around lakes, over Atlas.Walk's graph of parts (the ground
 -- you can stand on in each terrain chunk, 16 a tile side, ~33 yd; node ids, Walk.Snap's). Atlas.Route
 -- finds it in a Runtime.Job, SLICE_MS a frame (none while the view moves:
 -- Focus.moving, the map's layouts have the frame); line of sight
 -- straightens it, and its corners are rounded off. Found again when the target moves more than
 -- GOAL_SLACK chunks or you stray FOLLOW.replan yd off it; the old one stays meanwhile while its goal
--- is within KEEP_SHOWN (spike-bugs M1: no straight frame while re-routing). A search that gave up (Route.Find's
+-- is within KEEP_SHOWN (no straight frame while re-routing). A search that gave up (Route.Find's
 -- third: no regions to say there's no way, so the tile graph searched out, or a plain search at Route.MAX_NODES;
--- seconds of slices, MBs) is searched again for that goal only once you've come half the way it spanned (the
--- lead's decision at the M3 review: the spike searched again each REPLAN_OFF stray or RETRY_MOVED moved, riding
--- past the frame and allocation budgets).
+-- seconds of slices, MBs) is searched again for that goal only once you've come half the way it spanned
+-- (searching again on every stray or move rode past the frame and allocation budgets).
 -- Model.Route(): the way from you, cut to where you are: you, then where the way is a little ahead of the
 -- place on it nearest you (FOLLOW.join yd on: it slides along as you go, so the line by you moves smoothly, no
 -- jump), on to the target as it is now (an area's nearest edge drifts as you go). FOLLOW.skip: instead on to the
@@ -25,8 +24,7 @@ local _, ns = ...
 local Atlas, Model, Runtime = ns.Atlas, ns.Model, ns.Runtime
 local Walk = Atlas.Walk
 
--- (Route.lua:11-25; the search's own: atlas/Route.lua)
-local Route = Atlas.Route
+local Route = Atlas.Route -- (the search's own constants: atlas/Route.lua)
 local CHUNKS, SPAN, PARTS, COST = Route.CHUNKS, Route.SPAN, Route.PARTS, Route.COST
 local LAND = 1
 local SLICE_MS = 1                  -- A*'s time a frame
@@ -46,7 +44,7 @@ local LOOKAHEAD = 40                -- route points ahead of you checked for a s
 local Sight = Route.Sight
 
 ---------------------------------------------------------------------------------------------------
--- The route to the target, kept up to date (Route.lua:271-371).
+-- The route to the target, kept up to date.
 
 local route  -- { pts, inst, goal (its chunk, as a node id: part 0), partial, col, row, half, capped } once found
 local job    -- { run (its Runtime.Job), inst, goal, col, row, half, pts?, partial?, capped? } while one's being found
@@ -145,7 +143,7 @@ end
 
 local function Show(way) out, cut.pts = way, nil end
 
--- No route wanted now (the spike's isn't asked for one): its search stopped (begun again when it is),
+-- No route wanted now: its search stopped (begun again when it is),
 -- what was found kept.
 local function Pause()
 	if job then Runtime.Cancel(job.run) end
@@ -176,7 +174,9 @@ Model.Part(function()
 		and not (For(failed, inst, goal, GOAL_SLACK) and Kept(failed, pc, pr)) then
 		Start(inst, goal, pc, pr, dest.col, dest.row)
 	end
-	if job then job.run.budget = f.moving and 0 or route and REROUTE_MS or SLICE_MS end -- (the view moving: queued, its turn waits)
+	if job then -- (the view moving: queued, its turn waits; the old way still shown for this goal: no hurry)
+		job.run.budget = f.moving and 0 or For(route, inst, goal, KEEP_SHOWN) and REROUTE_MS or SLICE_MS
+	end
 	if not For(route, inst, goal, job and KEEP_SHOWN or GOAL_SLACK) then
 		if job then return Show(nil) end
 		if not (out and out.straight and out[2] == dest) then Show({ you, dest, straight = true }) end

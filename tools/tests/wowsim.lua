@@ -10,7 +10,7 @@
 -- simply absent, as in the game, so calling one is an error.
 --
 -- Where the client is known to differ from plain Lua and a naive mock, it
--- copies it (docs/v1-plan.md M0.6): a priced clock (Sim.Price, off by
+-- copies it: a priced clock (Sim.Price, off by
 -- default), quest blobs laid out a frame late (L1), Forever's oversized edge
 -- atlases (L2), the Minimap's view radius 0 while it zooms (E3/E6),
 -- HereBeDragons pins with renamed copies (G6), protected frames refusing
@@ -55,7 +55,7 @@ local function Secure(fn, ...)
 end
 
 -- The priced clock (Sim.Price(true)): what the client charges that plain Lua doesn't,
--- in ms added to debugprofilestop, as measured in game (docs/evidence/perf-m0.md):
+-- in ms added to debugprofilestop, as measured in game:
 -- probe: one Minimap mouseover read (a 400-probe sweep in 2 frames of 0.5 ms);
 -- shown, shownLine: each region (line) a frame's Show makes visible (the swaps' ms over
 -- their live regions); Show, Hide, SetScale, SetAlpha, SetPoint: a frame's own call, per
@@ -828,7 +828,7 @@ local function blipsAt(m, px, py)
 end
 -- A probe (priced): what answers is a fresh TooltipData, as the client's (its
 -- line's colour too), so every answer allocates; nothing there answers nil, after
--- making as much garbage (0.34 KB: in game every probe makes ~0.35-0.4 KB, docs/evidence/perf-m0.md).
+-- making as much garbage (0.34 KB: in game every probe makes ~0.35-0.4 KB).
 C_TooltipInfo = {
 	GetMinimapMouseover = function()
 		charge("probe")

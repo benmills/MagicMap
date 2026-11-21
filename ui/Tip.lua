@@ -16,10 +16,10 @@ local UI, Runtime = ns.UI, ns.Runtime
 local Tip = {}
 UI.Tip = Tip
 
-Tip.DIM, Tip.WHITE = "|cff9d9d9d", "|cffffffff" -- QuestInfo.lua:180
+Tip.DIM, Tip.WHITE = "|cff9d9d9d", "|cffffffff"
 Tip.GREY = 0x9d / 255 -- DIM as a colour (AddLine's)
 Tip.SEP = Tip.DIM .. "  ·  |r"
-local GOLD = { 1, 0.82, 0 } -- a description's body (GearMenu.lua:69-72)
+local GOLD = { 1, 0.82, 0 } -- a description's body
 
 -- A tooltip's font strings by name (TextLeft3, TextRight1), found once each.
 local regions = setmetatable({}, { __mode = "k" })

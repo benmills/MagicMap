@@ -36,8 +36,8 @@ function T.Boot(saved)
 end
 
 -- The map's anchors under its view, checked as they're set (SetPoint, a region's and a frame's: the
--- canvases; Line:SetStartPoint and SetEndPoint): no offset past LIMIT px (the tear's suspect,
--- docs/v1-plan.md §2), a scaled frame's (its offsets are in its own units) times its scale: what it
+-- canvases; Line:SetStartPoint and SetEndPoint): no offset past LIMIT px (the tear's suspect)
+-- and a scaled frame's (its offsets are in its own units) times its scale: what it
 -- moves on the screen, and the client's error with it. Not the sockets' (ui/Sockets.lua: Game hosts
 -- other addons' pins on them, tile (0, 0) at their TOPLEFT, up to ~51,000 px at zoom 800; a pin far
 -- from the view stays far whatever the origin: hosting fewer, near the view, is M4.2's continent
@@ -48,7 +48,7 @@ end
 -- the client's error still a thousandth of a pixel there (the ground's, past 1.4 while a zoom in
 -- outruns its layout, is held to the limit: 2,869 px at most, 2.3x, in R-P1). And no
 -- texture, mask or line on the map snapping to the pixel grid (the map moves by fractions of a pixel;
--- font strings excepted: docs/v1-plan.md M1 exit). line: a Line, for its class's methods. (The checks
+-- font strings excepted). line: a Line, for its class's methods. (The checks
 -- here and in T.Invariants make no garbage and no widget calls: R-P3 measures our frames.)
 local LIMIT = 4096
 local UNSNAPPED = { Texture = true, MaskTexture = true, Line = true }
@@ -92,7 +92,7 @@ function T.Anchors(sim, ns, line)
 end
 
 -- What holds after every frame of every replay (checked as it ends): no protected
--- call made in combat (spike-bugs K2), and no Blizzard Minimap art showing while the takeover
+-- call made in combat, and no Blizzard Minimap art showing while the takeover
 -- has the Minimap (its cluster hidden, or faded while combat keeps it shown; the Minimap itself, ours
 -- away from the cluster: unseen, its ground textures off). The map (M1.3, with T.Anchors): a layer shows
 -- one canvas at most outside a timed crossfade (D1: drawn twice); at rest (Engine.pending false), every
@@ -222,7 +222,7 @@ end
 -- One pin per real thing, across layers (T1): no two things drawn (a pill counted as each entry it holds, a grid
 -- pin as the entry it stands for) with the same name (or, both unnamed, the same icon) whose centres are within
 -- T.PIN_PX px, but two entries of one pill (grouped: drawn as one). Off unless T.strictPins (it fails today:
--- docs/hardening-plan.md P1); on, T.Invariants runs it every frame (its scratch arrays kept). Two distinct things of
+-- on, T.Invariants runs it every frame (its scratch arrays kept). Two distinct things of
 -- one name that close (two herbs a few yards apart, far out) count too: it's for scenarios that don't have them.
 T.strictPins, T.PIN_PX = false, 6
 local dl, ds, dk, dn, di, dx, dy, dg, dN = {}, {}, {}, {}, {}, {}, {}, {}, 0

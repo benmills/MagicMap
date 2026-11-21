@@ -1,5 +1,5 @@
--- GameTooltip's one hide path for Game's tips (spike-bugs G7: several owners showed it, none hid it
--- right, so tips lingered and fought). Game shows it with Game.Tooltip(owner, anchor) and hides it
+-- GameTooltip's one hide path for Game's tips (with several owners showing it and none hiding it
+-- right, tips linger and fight). Game shows it with Game.Tooltip(owner, anchor) and hides it
 -- with Game.HideTooltip(owner): only while that owner still has it (another may have taken it
 -- since). And each frame, after the other apply steps, one of Game's whose owner can't be seen any
 -- more goes: the takeover taking the Minimap and what hangs on it (the button) away. Anyone else's

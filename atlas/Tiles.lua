@@ -26,7 +26,7 @@ function Atlas.Tiles(inst)
 	return m and m.tiles
 end
 
--- The tile set's product and build (Core.lua:417-422: /mm tiles, the title's debug line).
+-- The tile set's product and build (/mm tiles, the title's debug line).
 function Atlas.TileSet()
 	local set = Data.Tiles
 	return set and set.product, set and set.version

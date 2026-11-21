@@ -4,7 +4,7 @@
 (MagicMap.toc, the files it lists and the Textures/ tree), straight from
 the working tree, so uncommitted changes are included. /reload in game to pick up Lua changes;
 a file the client hasn't seen (a new file, texture or the folder itself) needs a
-client restart: it says so (spike-bugs L5).
+client restart: it says so.
 
 The spike's own MagicMap folder (its TOC saves MagicMapDB) is never replaced
 unless --replace-spike, which moves it to MagicMap.spike-backup first. The
@@ -170,7 +170,7 @@ def main() -> None:
             sys.exit(f"{backup} is there already: move it away first")
         shutil.move(dest, backup)
         print(f"the spike's {dest} moved to {backup}")
-    before = set()  # what the client may have seen: a file new to it needs a restart (spike-bugs L5)
+    before = set()  # what the client may have seen: a file new to it needs a restart
     for dirpath, _, filenames in os.walk(dest):
         before |= {os.path.relpath(os.path.join(dirpath, f), dest).replace(os.sep, "/") for f in filenames}
     if os.path.exists(dest):

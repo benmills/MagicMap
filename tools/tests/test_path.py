@@ -1,4 +1,4 @@
-"""The way to the target on the simulated client (docs/v1-plan.md M3.3: ui/Path.lua; ui/You.lua's corpse and
+"""The way to the target on the simulated client (ui/Path.lua; ui/You.lua's corpse and
 waypoint pins and the title's target), Model.Target and Model.Route stubbed as typed (types/model.lua):
 
   test_path_line: the dotted line (S55-S57, lighter and dotted since 2.0): a light 1.6 px dot each 4 px over a
@@ -12,7 +12,7 @@ waypoint pins and the title's target), Model.Target and Model.Route stubbed as t
     (not the same one handed again) and a walk lay it out again; a pan carries it along, the dashes shown
     left as they stand, those it brings in shown (S58).
   test_path_cap: a long line at zoom 800: 160 pieces at most (the dots spread), only those near the view shown,
-    every piece within 4096 px of its canvas (S56; docs/v1-plan.md §2).
+    every piece within 4096 px of its canvas (S56).
   test_edge_arrow: a target off the view gets the gold arrow 16 px inside the edge where the line toward it
     leaves (along the route's leg that does), pointing on; none on the view or inside (F34, S59).
   test_track_shows: Track shows the arrow, the line or both (Settings > Tracking > Track: Shows).

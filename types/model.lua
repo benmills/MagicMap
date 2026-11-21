@@ -30,7 +30,7 @@
 ---@field text? string         a line for its tooltip
 
 -- Known kinds (OPEN): MM.Known plus optional fields of their own; each nil: the
--- kind's default look (docs/v1-plan.md §4). `name` is the tooltip's title.
+-- kind's default look. `name` is the tooltip's title.
 
 ---Known("quests"): your log's quests on their maps (obs.quests + Atlas).
 ---@class MM.KnownQuest: MM.Known

@@ -38,7 +38,7 @@ through `.luarc.json`; the game never loads them) and each has a decision record
 | Model's read API (UI → Model) | types/model.lua | docs/decisions/0006-model-read-api.md |
 
 Each types file says which parts are LOCKED and which stay OPEN. UI, Model and Atlas
-internals aren't contracts. What v1 won't do: docs/v1-non-goals.md (draft).
+internals aren't contracts.
 
 For the WoW API's types too, install the "WoW API" extension (ketho.wow-api) for
 VS Code: it adds its annotations to LuaLS's library for a folder with a .toc.
@@ -50,7 +50,7 @@ Every file starts `local ADDON, ns = ...`. Each piece hangs one table off `ns`:
 share that table. The generated data is `ns.Data` too (docs/atlas-data.md "The
 wrapper"), never a global: a global is shared with every addon, and the rebuild's old
 `MagicMap_*` data globals broke the MagicMap spike, which has the same names
-(docs/evidence/spike-bugs.md E1).
+.
 
 **Nothing is global** except, in game/ only, what the TOC names (the SavedVariables, and
 `MagicMap_OnAddonCompartmentClick`, the addon compartment's `AddonCompartmentFunc`) and the
@@ -69,7 +69,7 @@ be installed together.
 
 ## Rules
 
-- **Dividing (spike-bugs E3).** WoW's Lua raises "Division by zero" where plain Lua (lupa,
+- **Dividing.** WoW's Lua raises "Division by zero" where plain Lua (lupa,
   so every test) gives inf or nan. In atlas/, model/, game/, ui/ and runtime/, each `/`
   divides by a numeric literal other than 0, a named constant (UPPER_CASE, two characters
   or more: `TILE_YARDS`, `Atlas.Walk.CHUNKS`), or its line carries `-- /: never 0 (<why>)`,
@@ -91,7 +91,7 @@ be installed together.
 - **Quest areas (the one game read in UI).** A QuestPOIFrame draws the client's quest areas
   (`DrawBlob`) and hit-tests them (`UpdateMouseOverTooltip`): game state read through a widget.
   Only game/Oracles.lua (the `Inside` sensor, unseen) and ui/Areas.lua (the areas you see, the
-  spike's blobs, decided at M2: docs/brief.md §7) make one; `tools/luacheck.py` fails any other
+  spike's blobs) make one; `tools/luacheck.py` fails any other
   file that does (`POI_FILES`).
 
 ## Load order (TOC)
@@ -164,7 +164,7 @@ the same ones (each listed in its folder's `files.txt`):
 | `Game.Apply(name, fn)` | game/Apply.lua | game/ (`Minimap`, `AddonPins`, `Tracking`, `Keep`, `Home`, `Chrome`, `Hooks`, `Button`, `Tooltip`, in game/files.txt's order), never game/parts or game/commands (luacheck `NOT_IN`) | apply phase, each frame: `fn(view)` as its own step `game.<name>`; view is `UI.View()`, or SAFE when Game doesn't know its `v`. Apply.lua's own first keeps `Game.shownInst` (the instance shown, false while hidden, nil before the first apply): what Game's parts read of View |
 | `Model.Part(observe, load)`, `Model.Kind(kind, fn)` | model/Model.lua | model/ (`Rares`, `Quests`, `Offers`; `Target`: `corpse`, `waypoint` and `Model.Target()`; `Route`: `Model.Route()`) | `observe(obs, oracles)` each frame after Model's own `you`, `load(saved)` with Model's saved part; `Known(kind)` answers with `fn()` → list, rev (ADR 0006) |
 | `Engine.Layer(name, level, build, rev, zoom)` | ui/Engine.lua | ui/ (`Tiles`, `Labels`, `Areas`: `questAreas`, `"hold"`; `Rares`, `Quests`, `You` through `Pins.Layer`; the path is a canvas of its own at level 8, not a layer: ui/Path.lua) | `build(canvas, inst, zoom, c0, r0, c1, r1)` in a layout job (the layouts share a frame's budget, one at a time, in turn: Engine.Draw's plan) when the view, zoom, map or `rev()` needs it; it returns true when it has nothing to draw at that zoom, or the zoom what it left out shows from (laid out again once a layout would draw it); regions from `Engine.Get`, tile (col, row) at `((col - canvas.ox) * zoom, -(row - canvas.oy) * zoom)` (the shared origin); `zoom` how it shows until the zoom settles: `"scale"` (tiles), `"move"` (placed with `Engine.At(canvas, region, point, col, row, dx?, dy?, minZoom?)`, moved to the camera's zoom: names, laid out at the camera's zoom each log(1.25) drift and where the zoom lands), `"pin"` (placed and moved so too: pins, laid out a drift on toward where the zoom is headed; a region with a `minZoom` stands on the canvas's frame for it, shown as the zoom crosses it, so a layer lays those out from `Engine.DRIFT` below it but zooming out: `Engine.From(zoom, minZoom)`), `"hold"` (borders). A region Got with a `key` (what it shows: a tile, a border piece) is taken back by the next layout on that canvas with `Engine.Keep(canvas, kind, key)` (nil: none, then `Engine.Get`), as it was set while `canvas.epoch` (the canvas's map, zoom, origin, the layer's rev) holds: a pan's layout sets only the ground it adds |
-| `Pins.Layer(name, level, fill, rev, opts)` | ui/Pins.lua | ui/ (`Rares`; `Quests`: `quests` and `offers`; `You`: `corpse` and `waypoint`) | the one pin store (spike-bugs D1): an Engine `"pin"` layer whose layout calls `fill(put, inst, zoom, want)`; `put(e, look, minZoom?)` for each MM.Known entry it would draw, kept by `e.key` on its canvas (`Engine.Keep`) so a layout sets only what changed: its look (StylePin, Layers.lua:304-400, each setter only when its value differs) and its place; `want(minZoom)`: whether pins from that zoom draw in this layout (`Engine.From`). `opts`: `lines(e)` → title, lines... for its tooltip (default `e.name`, `e.text`), `tooltip(tip, e)` to fill it itself (GameTooltip, or the popup), `hover(e or nil)` (ui/Window.lua's left click calls `Pins.Tap` first: pins beat areas; a click grows the pin's tooltip into the popup, ui/Popup.lua, its buttons `Track.Actions(e)`, ui/Track.lua: Track or Path to sets the waypoint at the icon; a quest pin's follow it). Every pin layer's `rev` carries `Track.Rev()` and `PinTypes.Rev()`; a look's `type` (ui/PinTypes.lua) sets its style: a hidden type is never put, its size a factor on the look's, its opacity, its chosen icon. A pin is a frame that never takes the mouse: while the view has it, `Pins.Hovered()` is the pin under the cursor on the canvases shown (the topmost layer's, the nearest centre); the tips' one look (small facts in one grey, `Tip.Small`'s fonts put back when a tooltip hides or clears) is ui/Tip.lua's |
+| `Pins.Layer(name, level, fill, rev, opts)` | ui/Pins.lua | ui/ (`Rares`; `Quests`: `quests` and `offers`; `You`: `corpse` and `waypoint`) | the one pin store: an Engine `"pin"` layer whose layout calls `fill(put, inst, zoom, want)`; `put(e, look, minZoom?)` for each MM.Known entry it would draw, kept by `e.key` on its canvas (`Engine.Keep`) so a layout sets only what changed: its look (StylePin, Layers.lua:304-400, each setter only when its value differs) and its place; `want(minZoom)`: whether pins from that zoom draw in this layout (`Engine.From`). `opts`: `lines(e)` → title, lines... for its tooltip (default `e.name`, `e.text`), `tooltip(tip, e)` to fill it itself (GameTooltip, or the popup), `hover(e or nil)` (ui/Window.lua's left click calls `Pins.Tap` first: pins beat areas; a click grows the pin's tooltip into the popup, ui/Popup.lua, its buttons `Track.Actions(e)`, ui/Track.lua: Track or Path to sets the waypoint at the icon; a quest pin's follow it). Every pin layer's `rev` carries `Track.Rev()` and `PinTypes.Rev()`; a look's `type` (ui/PinTypes.lua) sets its style: a hidden type is never put, its size a factor on the look's, its opacity, its chosen icon. A pin is a frame that never takes the mouse: while the view has it, `Pins.Hovered()` is the pin under the cursor on the canvases shown (the topmost layer's, the nearest centre); the tips' one look (small facts in one grey, `Tip.Small`'s fonts put back when a tooltip hides or clears) is ui/Tip.lua's |
 | `Menus.Layer(row)` | ui/Menus.lua | the layer's own file in ui/, after Menus.lua (`labels`, `rares` are in Menus.lua itself) | each time the gear opens: `row = { key, label, group, tip, default?, parent?, onToggle? }` is a checkbox in its group's submenu (`group`: `map`, `quests`, `places`, `nearby`, `addons`, after the spike's order: Layers.lua:30-70; a group with no row is left out; each submenu an "All" box on top and each row's icon; `nearby` then lists Blizzard's tracking types), its rows in the spike's order whenever added (Menus.lua's ORDER, the spike's keys: a new layer takes its spike key, or adds its own there; one not listed goes last), with its tip (white title, gold body); `key` is the Engine.Layer's name (and View.layers', for Game's); its setting is read with `Engine.LayerOn` and set with `Engine.SetLayer` (UI.saved.layers holds only the keys that aren't their default, types/saved.lua); `default`: false for a layer off until turned on (missing: on: Engine.defaults); `parent`: indented 5 spaces, clickable only while that layer is on; `onToggle(on)` after a flip. Other addons' rows come from Model.addons (each with world pins; ui/Sockets.lua keeps their View.layers keys) |
 
 The map window: ui/Camera.lua (where it looks: `cam`, `inst`, `follow`; `Camera.ZoomSettled()`,

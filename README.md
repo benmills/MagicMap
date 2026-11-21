@@ -45,14 +45,11 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 
 ![Undercity: the floor plan on the small map as you walk, and the whole city on the big map](docs/images/indoors-undercity.jpg)
 
-<!-- TODO(#14): screenshot, crowded icons in pills, one opened into its grid -->
-<!-- TODO(#13): screenshots, the welcome's four cards and the Settings window -->
-
 [Every feature](docs/features.md).
 
 ## Install
 
-1. Get `MagicMap-v3.1.1.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest),
+1. Get `MagicMap-v3.2.0.zip` from the [latest release](https://github.com/benmills/MagicMap/releases/latest),
    or install from [CurseForge](https://www.curseforge.com/wow/addons/magic-map).
 2. Unzip it into `World of Warcraft/_forever_/Interface/AddOns/`. Updating from 1.x? Delete the old
    `MagicMap` folder first.

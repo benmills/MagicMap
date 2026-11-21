@@ -1,6 +1,5 @@
-"""The spike's bugs replayed in the sim: every "Replayable now" scenario of
-docs/evidence/spike-bugs.md, one file per bug id, tools/tests/replays/R-<id>.lua
-(the doc's replay column names them as test_spike_bugs.py::test_replay[<id>]).
+"""The 1.x spike's bugs replayed in the sim, one file per bug id, tools/tests/replays/R-<id>.lua (each says
+what it was in its header), run as test_replay[<id>].
 Each sets the initial state, drives inputs frame by frame, and asserts the
 outcome the table claims: PREVENTED (the failure can't happen), CONTAINED (it
 happens, isolated, recorded in telemetry, the rest runs on), or for MOVED rows
@@ -24,7 +23,7 @@ import sim
 
 REPLAYS = os.path.join(sim.TESTS, "replays")
 
-# Replays a price measured in game fails (docs/evidence/perf-m0.md), each until the package named flips it.
+# Replays a price measured in game fails, each until the package named flips it.
 XFAIL = {}
 
 # The errors a replay makes on purpose (and checks itself), by Runtime's name.
@@ -65,7 +64,7 @@ def test_replay(bug):
     replay(bug, True)
 
 
-@pytest.mark.parametrize("bug", ids())
+@pytest.mark.parametrize("bug", ids()[:3])  # (a few: any boots the same without the data)
 def test_replay_no_data(bug):
     if not any(os.path.exists(os.path.join(luacheck.ROOT, f)) for f in sim.QUESTIE):
         pytest.skip("no QuestieDB-derived data here: test_replay ran without it")

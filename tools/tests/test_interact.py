@@ -1,4 +1,4 @@
-"""The map's interactions on the simulated client (docs/v1-plan.md M3.4: ui/Menus.lua, ui/ZoneInfo.lua, ui/Window.lua's
+"""The map's interactions on the simulated client (ui/Menus.lua, ui/ZoneInfo.lua, ui/Window.lua's
 input), as the spike's (Core.lua:1161-1240, 1247-1416, 1698-1735; Layers.lua:1786-1811, 1996-2122; ZoneInfo.lua):
 
   test_picker: the title's click opens the map picker: Continents (300 tiles or more), Other maps, Instances by

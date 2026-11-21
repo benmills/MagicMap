@@ -4,20 +4,19 @@
 -- uiMap (one per quest: the hit test names one quest under a point, so quests sharing a frame
 -- answer for each other where their areas overlap), all one size under a holder at alpha 0.
 -- The client lays a frame out only at the end of a frame and draws a blob into the rect laid
--- out then (spike-bugs L1, Layers.lua:802-817): a quest is drawn when first asked (nil: can't
+-- out then: a quest is drawn when first asked (nil: can't
 -- tell yet) and again on a later frame, into its rect. Its frames never move, so a drawing
 -- holds (cached per quest) until QUEST_POI_UPDATE, then is drawn again at the next ask.
 -- A quest's area map and pin: obs.quests (areaMap, pin), or /mm check inside. Inside tests the
--- quest's own frame wherever its area lies, as the spike's InBlob the followed one (Layers.lua:
--- 1099-1102): none drawn, false everywhere; no areaMap, nil. A frame's asks share ASK_MS; past it,
--- nil (ask again).
+-- quest's own frame wherever its area lies: none drawn, false everywhere; no areaMap, nil. A frame's
+-- asks share ASK_MS; past it, nil (ask again).
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
 local SIZE = 1024 -- px: every quest's frame (about the world map's canvas)
 local ASK_MS = Runtime.CALL_MS / 2 -- a frame's asks: Model's own work and one dear draw past it fit the rest
-local ART = "Interface\\WorldMap\\UI-QuestBlob-" -- Inside / Outside (Layers.lua:786)
+local ART = "Interface\\WorldMap\\UI-QuestBlob-" -- Inside / Outside
 local GREEN, RED, GREY = "|cff60ff60", "|cffff6060", "|cff999999"
 
 local obs = Game.obs
@@ -41,7 +40,7 @@ local function Take()
 	f:EnableMouse(false)
 	f:SetFillTexture(ART .. "Inside")
 	f:SetBorderTexture(ART .. "Outside")
-	f:GetRect() -- (reading it lays it out in the client: Layers.lua:812)
+	f:GetRect() -- (reading it lays it out in the client)
 	f.born = Runtime.frames -- laid out at this frame's end
 	return f
 end

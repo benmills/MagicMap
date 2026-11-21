@@ -9,7 +9,7 @@ game build (and one QuestieDB version), with a header naming its source and layo
 
 A global is shared with every addon: the rebuild's old `MagicMap_*` data globals had
 the MagicMap spike's names and broke it 2980 times in one session
-(docs/evidence/spike-bugs.md E1). So no Data file sets a global. After its header
+. So no Data file sets a global. After its header
 comments each starts
 
 ```lua
@@ -54,7 +54,7 @@ D.Tiles = { ... }
   allow copying under GPLv3, MagicMap's licence (NOTICE.md; D1). QuestieDB's test and placeholder
   entities ("TEST WOLF (ALPHA FIRST)", "[PH] ...", "... UNUSED", "<NYI> ...") are dropped, and every
   reference to them, unless a quest's objective names them (tools/gen_questie.py PLACEHOLDER).
-- **The data diet** (docs/v1-plan.md D3: no item tooltips, no dungeon NPCs in v1): Items and
+- **The data diet** (no item tooltips, no dungeon NPCs in v1): Items and
   ItemIcons keep only the items quests reach, Npcs only the NPCs with an open-world spawn or that a
   quest, rare rank or service needs (below). Every id a kept row names is there, and
   `Atlas.QuestSources` is the same for every quest as without the diet
@@ -104,7 +104,7 @@ coast; tools/gen_base.py), the tile rect it covers (c0, r0 to c1, r1), px a tile
 ### Data/Repaint.lua — `ns.Data.Repaint` (tools/ai_regions.json's picks; not under the GPLv3: NOTICE.md)
 The AI-repainted patches over the tiles' broken ground, for ui/Repaint.lua (setting `repaint.on`), and the game build they were made
 for: off it, nothing is drawn. The pictures are Textures/Repaint*.blp, sliced on a 512 px grid with their own soft alpha. Baked by
-tools/ai_map.py from the candidates tools/ai_fix.py makes; how and why: docs/ai-map-art.md,
+tools/ai_map.py from the candidates tools/ai_fix.py makes; how and why:
 docs/decisions/0011-ai-map-art.md.
 `{ build, maps = { [inst] = { col, row, file, sublevel, ... } } }`
 - build: the client's GetBuildInfo version.build. A flat list, 4 fields a piece; file: under the addon's folder, no extension; later places over earlier by sublevel.
@@ -135,7 +135,7 @@ docs/decisions/0011-ai-map-art.md.
 - `Atlas.Anchors(inst)`; Data/Labels.lua ranks these with the continent's name and AreaPOI towns and landmarks (Places).
 
 ### Data/Walk.lua (format 2) — `ns.Data.Walk` (ADT MCVT heights, MH2O liquids)
-Walk v2 (promo/pathing/walk-v2-spec.md); tools/gen_walk.py writes it with Data/WalkParts.lua. The reference reader,
+Walk v2 (docs/walk.md); tools/gen_walk.py writes it with Data/WalkParts.lua. The reference reader,
 and every reading the spec left open: tools/mmtools/walkdata.py (its docstring).
 - The terrain as the client draws it (each 4-yd quad 4 triangles round its centre) is baked into **parts**: per
   33-yd chunk, the standable triangles (≤ 50°, deep water, magma/slime) that walk to each other both ways inside
@@ -168,6 +168,11 @@ Every char is `chr(48 + v)`, v 0..63 (the backslash, v 44, written `\\`).
   pruning's contractions), 8 chars each: chunk index hi, lo; `p + 8*dir`; the other end's gc hi, lo, gr hi, lo, part.
   dir 0: this part -> other; 1: other -> this. Each listed in both ends' tiles; sorted by (chunk index, part, dir,
   other) within a tile (the runtime binary-searches by chunk index and part).
+
+### Data/WalkRough.lua (format 2) — `ns.Data.WalkRough`
+tools/gen_walk_rough.py, from gen_walk's terrain cache: per chunk, which of its 8x8 quads are rough (over 50 degrees
+and taller than a step, or a hole) and sheer (over 61.6: a cliff). Only for drawing the line (docs/walk.md, "The
+rough mask"); the search doesn't read it.
 
 ### Data/WalkRegions.lua (format 2) — `ns.Data.WalkLinks`, `ns.Data.WalkRegions`, `ns.Data.WalkReach`
 Made by tools/gen_walk_regions.py from Data/Walk.lua, Data/WalkParts.lua and tools/walk_links.json, no game data;
@@ -211,7 +216,7 @@ as WalkParts, for tiles with entrances (1..63):
 `[inst] = { { text, col, row, tier, size, areaID, poiID }, ... }` in rank order (1 first)
 - Every map name as a ranked anchor, ranked offline by tools/gen_labels.py from the
   other Data files: it was Atlas.Labels' first-use work, ~50 ms for the two continents in
-  lupa and the play-test's first-open FAIL (docs/v1-plan.md §2); a lookup now, ~0.1 ms each.
+  lupa and the play-test's first-open FAIL; a lookup now, ~0.1 ms each.
   Regenerate it after any of them: tools/tests/test_generators.py fails while it's stale.
 - tier, most important first: `continent` (its name, at the land's visual centre: the
   land sample, 4 per tile side, farthest from deep water or the map's edge by a chamfer

@@ -1,4 +1,4 @@
-"""Blizzard's duplicate tracking on the sim (docs/v1-plan.md M4.2, game/Tracking.lua): its flight master,
+"""Blizzard's duplicate tracking on the sim (game/Tracking.lua): its flight master,
 quest objective and point-of-interest tracking off while the takeover senses outdoors with our layer of
 the same on, back on otherwise (the layer off within 2 s, the window hidden, logout; indoors as outdoors),
 SavedGame.trackingOff naming those Game turned off; after a crash, a session's leftovers come back at

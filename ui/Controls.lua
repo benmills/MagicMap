@@ -1,10 +1,10 @@
--- The window's buttons (Core.lua:235-381): on the band, right-aligned on the title's line,
+-- The window's buttons: on the band, right-aligned on the title's line,
 -- the gear (the world map's) and the mode button (its red expand, and on the big map its condense: ui/BigMap.lua);
 -- inside the map, bottom left the quest pill (what you track: its name, progress, yards and time to it over a faint
 -- fill of how far you've come), bottom right the zoom buttons, above them the
 -- reset while the map is off its default (not following you, or not at the default zoom). They and
--- the grip fade in while you hover (Core.lua:394-408; away from the map, as faint as Buttons at rest: hidden by
--- default), and each has a tip, its name (Core.lua:1454-1497). Their settings (ui/Feel.lua): General > Map window >
+-- the grip fade in while you hover (away from the map, as faint as Buttons at rest: hidden by
+-- default), and each has a tip, its name. Their settings (ui/Feel.lua): General > Map window >
 -- Buttons at rest, and the Quest pill page (declared at the bottom: what it shows and says, its fill, its fade, its
 -- backing and size).
 
@@ -13,12 +13,12 @@ local UI = ns.UI
 local Atlas, Model, Runtime = ns.Atlas, ns.Model, ns.Runtime
 local Camera, Window, Chrome, Menus = UI.Camera, UI.Window, UI.Chrome, UI.Menus
 
-local HEADER_ICON = 20 -- Core.lua:281
-local PAD = 12 -- from the map's edges (Core.lua:341)
-local FADE = 0.15 -- s, hover reveal (Core.lua:402)
-local REACH = HEADER_ICON + 12 -- the title's line counts as over the map (Core.lua:399)
-local GRIP_ALPHA = 0.8 -- Core.lua:320
-local TIP_DELAY = 0.35 -- s (Core.lua:1457)
+local HEADER_ICON = 20 -- px
+local PAD = 12 -- px from the map's edges
+local FADE = 0.15 -- s, hover reveal
+local REACH = HEADER_ICON + 12 -- the title's line counts as over the map
+local GRIP_ALPHA = 0.8
+local TIP_DELAY = 0.35 -- s
 local FONT = GameFontNormal:GetFont()
 
 local Controls = {}
@@ -33,8 +33,8 @@ local function FirstAtlas(...)
 end
 
 -- A button from art = { atlas = {names...}, pushed = {...}, highlight = {...} } (the first each
--- client has), else from file = path with optional coords / pushedCoords into it (Core.lua:249-276):
--- a client without the atlas gets a blank button, as the spike's.
+-- client has), else from file = path with optional coords / pushedCoords into it:
+-- a client without the atlas gets a blank button.
 local function ArtButton(parent, w, h, art)
 	local b = CreateFrame("Button", nil, parent)
 	b:SetSize(w, h)
@@ -48,7 +48,7 @@ local function ArtButton(parent, w, h, art)
 		b:SetNormalTexture(art.file)
 		b:SetPushedTexture(art.file)
 		b:SetHighlightTexture(art.file, "ADD")
-		if art.coords then -- Core.lua:263
+		if art.coords then
 			b:GetNormalTexture():SetTexCoord(unpack(art.coords))
 			b:GetHighlightTexture():SetTexCoord(unpack(art.coords))
 			b:GetPushedTexture():SetTexCoord(unpack(art.pushedCoords or art.coords))
@@ -62,8 +62,7 @@ local function ZoomArt(name)
 end
 
 -- The band's: placed by the title (ui/Title.lua: above the map, or below at the screen's top).
--- The mode button's chains are the spike's (Core.lua:282-286); Forever draws the second of each,
--- as the spike did there: its `-c60` names are art variants of the element, not atlas names (ui/Art.lua).
+-- The mode button's chains: Forever draws the second of each; its `-c60` names are art variants of the element, not atlas names (ui/Art.lua).
 local mode = ArtButton(Chrome.band, HEADER_ICON, HEADER_ICON, {
 	atlas = { "redbutton-expand-c60", "redbutton-expand" },
 	pushed = { "redbutton-expand-pressed-c60", "redbutton-expand-pressed" },
@@ -713,7 +712,7 @@ end
 zoomReset:SetScript("OnClick", Runtime.Wrap("map: zoom reset", function() UI.Motion.Reset() end))
 zoomPin:SetScript("OnClick", Runtime.Wrap("map: zoom pin", function() UI.Motion.Pin(not UI.Motion.pinned) end))
 
--- The buttons zoom held on you while following, else on the view's centre (Core.lua:1420-1443).
+-- The buttons zoom held on you while following, else on the view's centre.
 zoomIn:SetScript("OnClick", Runtime.Wrap("map: zoom in", function() UI.Motion.ZoomStep(1) end))
 zoomOut:SetScript("OnClick", Runtime.Wrap("map: zoom out", function() UI.Motion.ZoomStep(-1) end))
 -- (The gear's click builds the client's own menu, MenuUtil: ~3 ms in the client, once a click, the frame's
@@ -722,7 +721,7 @@ gear:SetScript("OnClick", Runtime.Wrap("map: gear", function(self) Menus.Gear(se
 addons:SetScript("OnClick", Runtime.Wrap("map: addons", function(self) Menus.AddOns(self) end, Runtime.FRAME_MS))
 
 -- Following you, or free: the slash command (and the Settings row: ui/Motion.lua). Back to you with a
--- glide (Core.lua:1081-1093, 1451, 1703).
+-- glide.
 local function ToggleFollow() UI.Motion.SetFollow(not Camera.follow, true) end
 
 ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 """Model alone (plain Lua, tools/tests/replay.lua) on the fixture streams: Known("quests") and
-Known("offers") (docs/v1-plan.md M2.3).
+Known("offers").
 
   test_quests_model: the quests stream (fixtures/streams/quests.lua): each pin's kind (in progress,
     ready to turn in, followed), inner icon, count and need; what Atlas knows (DATA: made-up rows,

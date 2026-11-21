@@ -70,7 +70,7 @@ def test_atlas():
 def test_data_is_not_global_and_formats_agree():
     from mmtools.luaout import FORMATS
     L, Atlas = load_atlas()
-    assert not [k for k in L.globals() if str(k).startswith("MagicMap")]  # no data globals (spike-bugs E1)
+    assert not [k for k in L.globals() if str(k).startswith("MagicMap")]  # no data globals
     assert dict(Atlas.FORMATS.items()) == FORMATS  # atlas/Coords.lua and tools/mmtools/luaout.py
     assert all(Atlas.Data.formats[name] == f for name, f in FORMATS.items() if Atlas.Data[name] is not None)
 

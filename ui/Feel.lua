@@ -4,34 +4,14 @@
 -- Each feature declares its own settings next to its code, and the window is built only from what's declared:
 --   Feel.Page({ key, title, icon, order, tip, sections = { "Header", ... } })  a page of the sidebar (by order)
 --   Feel.Add(page, section, { setting, ... })  settings on a page, under a section's header (nil: above them all)
--- A setting is { key, kind, label, tip, default, ... }: its key is the name it's saved and read by ("<area>.<name>",
--- never renamed: players' saved values are under it); default a value, or a function (read when asked: a value
--- another setting gives, an inherited one; until it's set, its row and apply follow that setting); and by its kind:
---   toggle  a checkbox: true or false
---   slider  min, max, step (default on the grid); range = function() -> lo, hi: the part of min..max it offers now
---           (asked each time it shows); its live value beside it as pct (a share, as %), of (a part of
---           of, as %), fmt (a string.format pattern, or a function of the value); steppers either side
---   select  a dropdown, options = { { label, value, icon? } } (or a function giving them; an icon is a file, a
---           FileDataID or "A:<atlas>")
---   color   colors = { { name, { r, g, b } } } as swatches, the first the list's own; the value a preset's name
---           or, through the client's colour picker (Custom…; custom = false: none), "#rrggbb" (Feel.RGB reads either)
---   list    options as select's: choose several and, ordered = true, their order (arrows); the value the chosen
---           values joined by commas, in order (Feel.List gives them)
---   button  run(): an action, no value
--- and, any kind: apply(v), its setter, called on a change and each time the map shows (the saved value, once
--- loaded; only when it differs from what it last took; each wrapped: one failing can't stop the rest); get()/set(v):
--- a value its owner keeps (UI.saved, UI.Replace...), not saved here; keep = true: a reset leaves it as it is (an
--- owner's switch); when = a key (shown while that setting is on) or a function: a row shown only then (indented
--- under the row it depends on, in its section; a header shown while a row under it is); under = a key: the row stands
--- under that one (listed right after it, a level in), shown while it's opened (its plus: closed at first, kept for the
--- session); art = function(row, last): a region drawn at the label's left (given the one it made before; drawn again
--- as the page refreshes and on a change on its page). Its row: its label, its
--- control, and an undo mark while it differs from its default (a click puts the default back); its tooltip the
--- label, the tip and the default. Rows made from a list are a loop of Feel.Add's entries (keys "<area>.<id>.<name>").
+-- A setting is { key, kind, label, tip, default, ... } (kinds toggle, slider, select, color, list, button, and
+-- apply, get/set, keep, when, under, art: docs/development.md "How to add a setting"). Its key ("<area>.<name>") is
+-- the name it's saved by: never renamed. Each apply is called on a change and each time the map shows, only when
+-- the value differs from what it last took, each wrapped: one failing can't stop the rest. Its row: its label, its
+-- control, and an undo mark while it differs from its default; its tooltip the label, the tip and the default.
 -- The rule (tools/tests/test_lookfeel.py test_settings_declared holds it): every value the code reads or sets
 -- through Feel by name, and every key saved in UI.saved.feel, is declared; every declared setting has a page, a
--- label, a tip and (but a button) a default its control offers. A new feature adds its settings with Feel.Add in its
--- own file (docs/development.md "How to add a setting"), never a frame of its own here.
+-- label, a tip and (but a button) a default its control offers. Never a frame of a feature's own here.
 --
 -- The values: Feel.Get(key) (safe before the saved part loads, and for a key not declared yet: the saved value,
 -- else nil), Feel.Set(key, v), Feel.Default(key), Feel.rev (moves on every change: a reader compares it to restyle),
@@ -42,47 +22,16 @@
 -- default, the table gone when none does. This file loads right after ui/Window.lua, so every other UI file may
 -- declare; the window is built on its first open, and a page or setting declared after that joins it.
 --
--- The pages (order; who declares their settings), each with one job (3.1's: a task a page, the tuning knobs apart):
---   General (10), what MagicMap replaces, its window, how the map moves. Window: Replace minimap, Replace world map
---     (ui/Replace.lua), Buttons at rest (ui/Controls.lua), Lock window, Reset window position (ui/BigMap.lua),
---     Minimap button (ui/View.lua); Movement: Follow you, Return to default, Return after, Zoom per notch
---     (ui/Motion.lua), Default zoom (ui/View.lua).
---   Map (20), how the map looks. Look: Ocean (ui/Sea.lua), Repair broken map art (ui/Repaint.lua), Time of day
---     (ui/Tint.lua); Names: Zone names, Subzone names, each its opacity under it (ui/Labels.lua); You: Your marker
---     (ui/You.lua); Indoors: Indoor dimming, Indoor auto-zoom (ui/Interiors.lua).
---   Header (25, ui/Title.lua), the line above the map. At rest, On hover (the pieces, chosen and ordered); Format:
---     Clock (while a time is chosen).
---   Pins (30, ui/PinTypes.lua), every pin type the map draws. Show pins (its opacity, On the big map, Zoomed in
---     from under it), Pin size; By type: each family's row (Quests, Rares & treasures, Party, Places, Addons, Other:
---     Size, Opacity, On the big map), each type's under it (Size, Opacity, On the big map, Icon, Group), declared
---     by the files that draw them, each addon with world pins under Addons (ui/Sockets.lua); the gear's map rows
---     are these same switches (ui/Menus.lua). Grouping: Group icons, its tunables under it (ui/Cluster.lua);
---     Resources: Keep tracking (ui/Resources.lua).
---   Quests (40). Quest pill: Shows, Says, Progress bar, Backing, Size (ui/Controls.lua); On the map: Names on big
---     map, Names on small map (ui/Quests.lua); Areas: Followed quest, Other quests, each a strength (ui/Areas.lua).
---   Tracking (45), the way to what you track or path to. Shows (ui/Track.lua); Arrow: Size, Opacity, Distance
---     (ui/Guide.lua); Line: Style (its Glow, Breathing, Outline under it), Weight, Colour, Opacity (ui/Path.lua);
---     Target: Glow (ui/Pins.lua), Frame the way (ui/Path.lua).
---   Route (46), how the way's found and followed (ui/Path.lua): By you: Gap at you, Leave the way you face (its
---     Curve length); Following: Join the way, Skip ahead, Find a new way after; Shape: Corner rounding, Cut
---     across bumps, Room to go round.
---   Advanced (90), the fine tuning, and reports: the quest pill's layout (ui/Controls.lua), the quest areas' raw
---     numbers (ui/Areas.lua), Debug info in title; Reports in chat: Record 10 seconds, Compare with other addons,
---     Memory breakdown (each a /mm command too). It alone scrolls (Pins too, every row opened).
--- Pages to come take an order between these. The sidebar has room for 14
--- before the window grows; a page longer than the window scrolls.
+-- The pages, each with one job (a task a page, the tuning knobs apart): General 10, Map 20, Header 25
+-- (ui/Title.lua), Pins 30 (ui/PinTypes.lua), Quests 40, Tracking 45, Route 46, Advanced 90 (it alone scrolls,
+-- Pins too with every row opened). The sidebar has room for 14 before the window grows.
 --
 -- The window: a movable dialog of the client's ButtonFrameTemplate (as the map window, ui/Window.lua, but kept as
--- the client draws it: header bar, close button), DIALOG strata, clamped to the screen, dragged by its header,
--- Escape closes it (game/Hooks.lua names it in UISpecialFrames). The sidebar's pages (icon and title, the chosen
--- one lit, its job as its tooltip) and the chosen page on the right: its title over the client's divider, its
--- Reset, its rows under their sections' headers (made on its first showing, refreshed from the values on each),
--- the wheel or its bar scrolling it. Reset all at the bottom; it, a page's Reset and a row's undo mark lit only
--- while there's something to reset. The last page is kept (UI.saved.feelPage). Hidden almost always: no step,
--- nothing a frame. Its controls are the client's own: the settings panel's checkbox and slider with steppers
--- (checkbox-minimal, Minimal_SliderBar_*: the UI-CheckBox and slider-bar files where a client lacks them), its
--- dropdown (WowStyle1DropdownTemplate, the client's menu), ColorSwatchTemplate and ColorPickerFrame, the undo icon,
--- the minimal scroll bar's arrows.
+-- the client draws it), DIALOG strata, clamped to the screen, dragged by its header, Escape closes it
+-- (game/Hooks.lua names it in UISpecialFrames). The chosen page is kept (UI.saved.feelPage). Hidden almost always:
+-- no step, nothing a frame. Its controls are the client's own (checkbox-minimal, Minimal_SliderBar_*: the
+-- UI-CheckBox and slider-bar files where a client lacks them; WowStyle1DropdownTemplate, ColorSwatchTemplate and
+-- ColorPickerFrame).
 
 local _, ns = ...
 local UI, Runtime, Model = ns.UI, ns.Runtime, ns.Model
@@ -315,7 +264,7 @@ local function Has(atlas)
 	return has[atlas]
 end
 
--- Every script of ours is wrapped (timed per name, isolated: spike-bugs P6).
+-- Every script of ours is wrapped (timed per name, isolated).
 local function Script(f, name, what, fn) f:SetScript(name, Runtime.Wrap(what, fn)) end
 
 local function Text(parent, font, text)

@@ -5,7 +5,7 @@
 -- 2012-2030); a held layer where the zoom is headed (ui/Engine.lua).
 -- Replayed: a wheel tick and a zone fit start at most 2 layouts a layer (names and pins: one a drift crossed
 -- and one landing), at most 1 once settled; no layout starts on a canvas still showing. On the priced clock
--- (docs/evidence/perf-m0.md), the flights (grow, shrink, the follow glide, the idle return): no frame of
+--, the flights (grow, shrink, the follow glide, the idle return): no frame of
 -- ours over 8 ms, no swap over 4 ms, the map's allocation over each (its regions made once, by a first
 -- grow); a drag's start on its own; the window shown again (after a plain hide, one mid-layout, and its
 -- parent's: Alt-Z; with the line to a waypoint shown, ui/Path.lua's) and a layer turned back on: no region

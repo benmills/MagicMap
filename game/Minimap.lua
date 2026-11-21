@@ -1,4 +1,4 @@
--- The Minimap takeover (the spike's MinimapTakeover.lua), in the apply phase (Game.Apply),
+-- The Minimap takeover, in the apply phase (Game.Apply),
 -- from View (types/view.lua):
 --   View.minimap "ours" and the window shown (nothing blocking): Blizzard's
 --     Minimap becomes the overlay (below): its blips over our map, north up, no ground, its
@@ -9,7 +9,7 @@
 --   otherwise (or a View Game can't use: SAFE, game/Apply.lua): released, every change undone.
 -- Every change Engage makes is paired with its undo on a list; Release runs it
 -- backwards, so what comes back is exactly what was taken. But the cluster: its Show and
--- Hide are refused in combat (it's protected: spike-bugs K2), so each apply puts it right
+-- Hide are refused in combat (it's protected), so each apply puts it right
 -- once they aren't, hidden while engaged and as it was otherwise; meanwhile, engaged, it's
 -- faded (Game.minimap.fade: game/Home.lua; alpha isn't refused).
 -- Game.minimap (obs.minimap: game/parts/MinimapState.lua) tells UI where things stand.
@@ -38,7 +38,7 @@ local function SayOnce(key, msg)
 	Game.Say(msg)
 end
 
--- A pin travels with the Minimap: a copy's that stayed there, or GatherMate's (MinimapTakeover.lua:124-129).
+-- A pin travels with the Minimap: a copy's that stayed there, or GatherMate's.
 local function IsPin(obj)
 	for _, copy in ipairs(Game.PinLibs()) do
 		if copy.lib.minimapPins[obj] then return true end
@@ -59,7 +59,7 @@ local function Reanchor(obj, from, to)
 end
 
 -- A new parent, keeping the draw layer (regions) or strata and level (frames: the client
--- re-bases them on the new parent) (MinimapTakeover.lua:181-195).
+-- re-bases them on the new parent).
 local function Reparent(obj, parent)
 	local layer, sublevel, strata, level
 	if obj.GetDrawLayer then
@@ -88,7 +88,7 @@ local function Move(obj, from, to)
 end
 
 -- Blizzard's parts that hang off the Minimap without being its children (borders, the zone
--- text, its buttons), a few levels down from the cluster: onto the stand-in (MinimapTakeover.lua:215-229).
+-- text, its buttons), a few levels down from the cluster: onto the stand-in.
 local function ReanchorAround(frame, depth)
 	local function One(obj)
 		if Reanchor(obj, Minimap, standIn) then
@@ -115,7 +115,7 @@ local function Cluster()
 	if not m.engaged and c:IsShown() == clusterShown then clusterShown = nil end
 end
 
--- Taken (MinimapTakeover.lua:434-443): unseen till the overlay places it, no mouse, no ground.
+-- Taken: unseen till the overlay places it, no mouse, no ground.
 local function Init()
 	local mm = Minimap
 	mm:SetAlpha(0)
@@ -134,7 +134,7 @@ local function Engage()
 			.. "may not line up with the map. /mm overlay for details."):format(levels, ZOOMS + 1))
 	end
 	Game.PinLibs(true) -- any copy loaded since (its pins travel with the Minimap: IsPin)
-	-- Undone last: the pins back on the Minimap once it's back at its own size (MinimapTakeover.lua:338-344).
+	-- Undone last: the pins back on the Minimap once it's back at its own size.
 	OnRelease(Game.MinimapPinsHome)
 	local mm = Minimap
 	local parent, w, h = mm:GetParent(), mm:GetSize()
@@ -215,7 +215,7 @@ function Release()
 end
 
 -- What other client code turns back (HybridMinimap turns its ground and rotation on as it
--- hides: spike-bugs G3), or anyone zooms, hides or shows it, put right every apply. True if it held.
+-- hides), or anyone zooms, hides or shows it, put right every apply. True if it held.
 local function Hold(mm)
 	local zoom = m.zoom or 0
 	local held = mm:IsShown() and mm:GetZoom() == zoom and C_Minimap.IsRotateMinimapIgnored()
@@ -299,7 +299,7 @@ end
 local function Put(mm, w, x, y, half)
 	See(mm, true, w)
 	Mask(true)
-	local cx, cy = mm:GetCenter() -- (moved or sized by anyone else: put back, spike-bugs G3)
+	local cx, cy = mm:GetCenter() -- (moved or sized by anyone else: put back)
 	if placed and math.abs(placed.x - x) < 0.05 and math.abs(placed.y - y) < 0.05
 		and math.abs(placed.half - half) < 0.05 and cx and math.abs(cx - x) < 0.5 and math.abs(cy - y) < 0.5
 		and math.abs(mm:GetWidth() - half * 2) < 0.5 then return end

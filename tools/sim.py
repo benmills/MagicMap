@@ -3,7 +3,7 @@ in, on the counted clock, for scripts and the shell. The tests boot through it t
 test_addon.boot; harness: the replays' T, test_spike_bugs.py).
 
     import sim                                 # (tools/ on sys.path)
-    s = sim.boot(priced=True)                  # + Sim.Price: what the client charges (docs/evidence/perf-m0.md)
+    s = sim.boot(priced=True)                  # + Sim.Price: what the client charges
     s = sim.boot(priced=True, lua=True)        # + our own Lua at 10 ns a VM instruction (R-P2's: LUA_PRICE)
     s.blips([("Mailbox", 40, 20)])             # the minimap's blips, yards east and north of where you log in
     s.slash("/mm toggle"); s.run(6)           # the map open, past login's 5 s grace: a grace's frames aren't in byState

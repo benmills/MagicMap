@@ -1,5 +1,5 @@
 -- obs.levels (types/observation.lua), on change: each map's level range as the client gives it,
--- { lo, hi } (C_Map.GetMapLevels: the spike's inspector, ZoneInfo.lua:58-69), for every map Atlas has; one
+-- { lo, hi } (C_Map.GetMapLevels), for every map Atlas has; one
 -- it gives none (0) is missing. Read once, at the first observe.
 
 local _, ns = ...

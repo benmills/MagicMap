@@ -1,4 +1,4 @@
--- A quest's tooltip (QuestInfo.lua:244-369), from its Known("quests") entry, in the map's one tip look (ui/Tip.lua):
+-- A quest's tooltip, from its Known("quests") entry, in the map's one tip look (ui/Tip.lua):
 -- the title in its difficulty colour, its level in a subtle pill beside it (the number in that colour on a faint
 -- disc-ended bar of it: the client's circle mask, as the dots are) on its line, a little room past it;
 -- one compact line of facts in DIM (its tag: Elite, Group N, Dungeon; ready to turn in, in white); what's left to do
@@ -12,12 +12,12 @@ local UI = ns.UI
 local Tip = UI.Tip
 local Region, Small = Tip.Region, Tip.Small
 
-local INDENT = "    " -- QuestInfo.lua:175
+local INDENT = "    "
 local DIM, WHITE, SEP = Tip.DIM, Tip.WHITE, Tip.SEP
 local QuestTooltip = {}
 UI.QuestTooltip = QuestTooltip
 
--- Where an objective's item is found, small (QuestInfo.lua:213-242, less its droppers).
+-- Where an objective's item is found, small (not its droppers).
 local function Sources(tip, k)
 	if k.from then
 		tip:AddLine(INDENT .. DIM .. "From|r " .. WHITE .. k.from .. "|r", 1, 1, 1)
@@ -32,7 +32,6 @@ end
 local facts = {}
 
 -- e's lines on tip (owned by the caller, shown by it): the hover's tooltip and the popup's (ui/Popup.lua).
--- QuestInfo.lua:308-369.
 function QuestTooltip.Fill(tip, e)
 	local c = e.color
 	-- The title, its level's pill beside it (Tip.Pilled).

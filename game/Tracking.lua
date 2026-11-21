@@ -1,4 +1,4 @@
--- Blizzard's own markers for what our layers draw (MinimapTakeover.lua:231-269, 624-634): its flight
+-- Blizzard's own markers for what our layers draw: its flight
 -- master, quest objective and point-of-interest tracking (DUPLICATES), off while the takeover is engaged
 -- (its overlay would draw them over ours) with our layer of the same on (View.layers flight, quests, pois), back on otherwise: at
 -- release (the window hidden, /mm minimap blizzard, a View Game can't use), with our layer off. Acts on a change, and
@@ -10,14 +10,14 @@ local _, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
 
 local F = Enum.MinimapTrackingFilter
-local DUPLICATES = { [F.TaxiNode] = "flight", [F.QuestPOIs] = "quests", [F.POI] = "pois" } -- MinimapTakeover.lua:237
-local AGAIN = 2 -- s (MinimapTakeover.lua:266)
+local DUPLICATES = { [F.TaxiNode] = "flight", [F.QuestPOIs] = "quests", [F.POI] = "pois" }
+local AGAIN = 2 -- s
 local NONE = {}
 Game.DUPLICATES = DUPLICATES -- filter id -> our layer (MM.ObsTracking kind "duplicate")
 
 local sensing, at = nil, 0 -- what Sync last did, and when
 
--- on: our layers are on the map in Blizzard's place (MinimapTakeover.lua:241-261).
+-- on: our layers are on the map in Blizzard's place.
 local function Sync(on, layers)
 	local off = Game.saved.trackingOff
 	for i = 1, C_Minimap.GetNumTrackingTypes() do

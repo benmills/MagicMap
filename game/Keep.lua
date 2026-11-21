@@ -1,4 +1,4 @@
--- Tracking kept on (#18): View.keep names one of Blizzard's tracking types, a spell's (MM.ObsTracking.id with
+-- Tracking kept on: View.keep names one of Blizzard's tracking types, a spell's (MM.ObsTracking.id with
 -- `spell`: Find Herbs, Find Minerals), that Game turns back on each time the game may have dropped it: at login,
 -- /reload and every loading screen (PLAYER_ENTERING_WORLD), death and resurrection (PLAYER_DEAD, PLAYER_ALIVE,
 -- PLAYER_UNGHOST), once the client lists it (learnt, or listed late after login), and when View.keep names

@@ -385,7 +385,7 @@ def route_31(v, A, inst, a, b):
 
 
 def route_v2(v, A, inst, a, b):
-    """v2's API (promo/pathing/walk-v2-spec.md): Walk.Snap(inst, col, row) -> node id; Route.Find(inst, c1, r1, s, g,
+    """v2's API (docs/walk.md): Walk.Snap(inst, col, row) -> node id; Route.Find(inst, c1, r1, s, g,
     c2, r2, yield, trace); Walk.Pos(inst, id) -> col, row."""
     W, n = A.Walk, A.Walk.CHUNKS
     dx, dy = OFFSET[inst]

@@ -175,7 +175,7 @@ def test_zoom_layouts_priced():
 
 
 def test_script_a_priced():
-    """Script (a)'s shape on the priced clock (docs/playtest.md a2-a7: the wheel 16 -> 800 -> 16 twice, flings,
+    """Script (a)'s shape on the priced clock (the wheel 16 -> 800 -> 16 twice, flings,
     a follow walk, the big window's pans): a third of its frames move, each running a layout slice (4-5 ms),
     so the session's p95 would be ~2 ms. The budgets by map state (docs/runtime.md): at rest p95 <= 1 ms and
     p99 <= 5 ms, moving p95 <= 5 ms, none over 8."""

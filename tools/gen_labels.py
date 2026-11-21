@@ -3,7 +3,7 @@
 sits, how much it matters), from the other Data files. Static facts only: how big,
 when and whether a name is drawn is the UI's to decide (it places them in rank
 order, dropping ones that collide). It was Atlas.Labels' work at first use, the
-play-test's 56 ms first open (docs/v1-plan.md §2, M1.1).
+play-test's 56 ms first open (M1.1).
 
   .venv/bin/python tools/gen_labels.py -o Data/Labels.lua
 

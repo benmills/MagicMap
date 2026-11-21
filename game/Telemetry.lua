@@ -94,7 +94,7 @@ local function Motion() -- oldest first
 end
 
 -- Lua allocation since this session's last mark (outside graces): KB/s in all and the 5 names making most,
--- so two marks around a stretch (b11's storm) read it alone; session.perf's alloc is the whole session's.
+-- so two marks around a stretch read it alone; session.perf's alloc is the whole session's.
 local since = { kb = 0, secs = 0, names = {} } -- FrameStats' kb, kbSecs and Perf's kb by name at the last mark
 local function Alloc(p)
 	local secs, top, names = p.kbSecs - since.secs, {}, {}
@@ -238,7 +238,7 @@ Game.Apply("telemetry", function(view)
 	end
 end)
 
--- Taint (spike-bugs K2): the client blocked a protected call and blamed us. The first per function takes a mark.
+-- Taint: the client blocked a protected call and blamed us. The first per function takes a mark.
 local tainted = {}
 local function Taint(event, addon, fn)
 	if addon ~= ADDON then return end
@@ -254,8 +254,7 @@ Runtime.On("ADDON_ACTION_FORBIDDEN", "telemetry.taint", Taint)
 -- Shots: stamped when asked (what the screenshot shows), marked on SCREENSHOT_SUCCEEDED;
 -- stamp as in WoWScrnShot_<stamp>.jpg. Chat answers by id, after the picture: on the client's
 -- SCREENSHOT_SUCCEEDED or _FAILED (Forever's Blizzard_ActionStatus shows both), or when neither
--- came in ANSWER_S (none taken). The M0 sessions have no shot, `shot` trace or screenshot file,
--- and nothing there said either way.
+-- came in ANSWER_S (none taken).
 local ANSWER_S = 5
 local shot -- the pending /mm shot: { id, note, at = its stamp, wait = its timer }
 
@@ -285,9 +284,9 @@ Game.Slash("mark", "<note>: save state and the recent trace (written on /reload)
 	Game.Print("marked")
 end)
 
-Game.Slash("shot", "<id> [note]: a screenshot, and a mark matched to it (docs/playtest.md shot ids)", function(note)
+Game.Slash("shot", "<id> [note]: a screenshot, and a mark matched to it (tools/telemetry.py pairs them)", function(note)
 	local id = note:match("^%S+")
-	if not id then return Game.Print("shot: the id first (docs/playtest.md), e.g. /mm shot small-home") end
+	if not id then return Game.Print("shot: the id first, e.g. /mm shot small-home") end
 	if shot then return Game.Print("shot " .. id .. ": not taken, " .. shot.id .. "'s still waiting on the client") end
 	local a = applied
 	shot = { id = id, note = note, at = { inst = a.inst, cx = R(a.cx, 1e4), cy = R(a.cy, 1e4), zoom = R(a.zoom, 100),

@@ -1,4 +1,4 @@
-"""Other addons' HereBeDragons pins on our map, on the sim (docs/v1-plan.md M4.2, game/AddonPins.lua):
+"""Other addons' HereBeDragons pins on our map, on the sim (game/AddonPins.lua):
 world pins past 48 px a tile only those flagged for continents, none drawn for the library's own map
 alone (-1) or bigger than 128 px, none of Questie's turn-ins our quests layer shows; minimap pins on a
 host of Game's on the minimap socket, centred on you at the Minimap's view, each where the library

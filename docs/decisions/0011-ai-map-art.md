@@ -1,6 +1,6 @@
 # 0011 Map art: AI repaints, default on, disclosed
 
-Status: **accepted** (2026-11-02, the user's decision). Plan and state of the work: docs/ai-map-art.md.
+Status: **accepted** (2026-11-02, the user's decision).
 
 ## Context
 
@@ -76,5 +76,5 @@ The fallback is removal, or a separate optional download.
 - A game patch that changes tiles turns the layer off until the build is regenerated, and a changed tile under a place
   means repainting that place.
 - Pictures can't be regenerated the same: a new run gives new ones. The shipped textures are the record.
-- `Textures/` grows a lot, and the layer needs a look in the real client (docs/ai-map-art.md).
+- `Textures/` grows a lot, and the layer needs a look in the real client.
 - Tools: tools/ai_fix.py, tools/ai_map.py, tools/ai_regions.json; tools/gen_fullmap.py draws each continent raw and fixed.

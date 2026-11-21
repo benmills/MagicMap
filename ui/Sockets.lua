@@ -1,19 +1,16 @@
 -- What View tells Game about the map's ground and other addons' pins, each frame from ui/View.lua's step:
 -- the Minimap's rim parts (types/view.lua MM.ViewChrome: while the window shows, its arrows and quest rings
 -- stand down for our edge arrow and areas; hidden, left as Blizzard has them), the layers Game acts on (ours
--- drawn: Blizzard's tracking of the same off, MinimapTakeover.lua:236; and every addon with world pins,
--- Model.addons, whose layer is on: the gear's Other addons, ui/Menus.lua, on until turned off, as the spike's
--- layers started, AddonPins.lua:113), and the sockets (MM.ViewSockets): frames of ours Game puts other
+-- drawn: Blizzard's tracking of the same off; and every addon with world pins, Model.addons, whose layer is
+-- on: the gear's Other addons, ui/Menus.lua, on until turned off), and the sockets (MM.ViewSockets): frames of ours Game puts other
 -- addons' pins on, while the window shows. The world socket: a canvas over the map's layers, under our pins,
 -- tile (col, row) of the map shown at (col * zoom, -row * zoom) from its TOPLEFT. Its zoom is where the view rests: the camera's,
 -- once it holds still a frame (not through a chase, a flight or the window being sized), so Game re-places
 -- each pin once a zoom (a job: its holder see-through until done), not every frame of it. Meanwhile the
 -- pins would sit at the old zoom: the canvas is see-through until then. Never scaled (a SetScale costs the
--- client per region under the frame, every frame of the motion: thousands with Questie's pins, spike-bugs
--- P4), nor shown or hidden (the same, per region). The minimap socket: a canvas of its own at the camera
--- every frame, its zoom the camera's, as the spike's host moved and sized with the view (MinimapTakeover.lua:
--- 479-508): its pins (around you: Game sizes their host to the Minimap's view) over ours, under your arrow
--- (MinimapTakeover.lua:325-331).
+-- client per region under the frame, every frame of the motion: thousands with Questie's pins), nor shown or hidden (the same, per region). The minimap socket: a canvas of its own at the camera
+-- every frame, its zoom the camera's: its pins (around you: Game sizes their host to the Minimap's view) over
+-- ours, under your arrow.
 -- Their type: Other addons' pins (Settings > Pins > Addons): hidden, every addon's layer off for Game; its opacity both
 -- sockets' (a frame's alpha: no cost a pin). No size: never scaled (above), nor an icon (theirs).
 
@@ -93,7 +90,7 @@ function Sockets.Update(v)
 	local st = Types.Of("addon")
 	if at ~= placed or st.alpha ~= alpha then
 		placed, alpha = at, st.alpha
-		canvas:SetAlpha(at and alpha or 0) -- (see-through, not hidden: hiding Questie's thousands is a long frame, R-G6b)
+		canvas:SetAlpha(at and alpha or 0) -- (see-through, not hidden: hiding Questie's thousands is a long frame)
 		around:SetAlpha(alpha)
 	end
 	local nx, ny = w / 2 - cam.cx * cam.zoom, cam.cy * cam.zoom - h / 2

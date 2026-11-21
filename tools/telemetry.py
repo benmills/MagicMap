@@ -11,7 +11,7 @@
 
 The install is "/Applications/World of Warcraft" (MAGICMAP_WOW, --wow), flavor _forever_
 (--flavor); SavedVariables is the newest WTF/Account/*/SavedVariables/MagicMap.lua (--sv).
-Shot marks pair with reference shots docs/evidence/shots/ref-<id>.* (--refs; tools/refshots.py) by the note's first word.
+Shot marks pair with reference shots ref-<id>.* in a --refs folder by the note's first word.
 """
 from __future__ import annotations
 
@@ -179,7 +179,7 @@ def but_bench(xs, key):
     return None if xs is None else [x for x in xs if x.get(key) != BENCH]
 
 
-# docs/v1-plan.md §1 gate 3/4: what must be empty; (label, list from (perf, session) or None: not recorded, line).
+# What must be empty; (label, list from (perf, session) or None: not recorded, line).
 GATE = (
     ("perf.slow", lambda p, s: but_bench(p.get("slow"), "name"), lambda x: f"{x.get('name')} x{x.get('n')} max {num(x.get('max'))} ms"),
     ("perf.gaps", lambda p, s: but_bench(p.get("gaps"), "job"), lambda x: f"{x.get('job')} {num(x.get('ms'))} ms between yields"
@@ -418,7 +418,7 @@ def log_time(m) -> float:
 
 # Another addon's error: its file in the first line. It's flagged shared when it may be ours
 # too: the addon shares our prefix (an older build under another folder) or it names a MagicMap_ global. E1
-# (docs/evidence/spike-bugs.md): our data globals broke the spike, whose errors named only its files.
+#: our data globals broke the spike, whose errors named only its files.
 OTHER = re.compile(r"Interface[/\\]AddOns[/\\]([^/\\\]\"]+)[/\\]")
 SHARED = re.compile(r"\bMagicMap_\w+")
 
@@ -619,7 +619,7 @@ def budgets(sessions, errs) -> int:
         print(f"  {'PASS' if ok else 'FAIL'}  {label:<34} {v:.2f} {unit} (limit {num(limit)})")
         if not ok:
             print(f"        owner: {owner(p, s, errs)}")
-    print("== gate: empty (docs/v1-plan.md §1)")
+    print("== gate: empty")
     for label, get, line in GATE:
         items = get(p, s)
         if items is None:
@@ -800,7 +800,7 @@ def main(argv=None):
     ap.add_argument("--wow", default=os.environ.get("MAGICMAP_WOW", "/Applications/World of Warcraft"))
     ap.add_argument("--flavor", default="_forever_")
     ap.add_argument("--sv", help="SavedVariables file (default: the newest account's)")
-    ap.add_argument("--refs", default=REFS, help="reference shots, ref-<id>.jpg|png (default docs/evidence/shots)")
+    ap.add_argument("--refs", default=REFS, help="reference shots, ref-<id>.jpg|png")
     ap.add_argument("--since", type=since_arg, help="minutes ago, or an ISO time")
     for s in SECTIONS:
         ap.add_argument("--" + s, action="store_true", help=f"show only {s} (combinable)")

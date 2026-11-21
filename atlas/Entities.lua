@@ -226,7 +226,7 @@ function Atlas.Find(kind, text, limit, step)
 	return exact
 end
 
--- Gathering nodes by name, enUS (the spike's Blips.lua:364-371, 423-426; docs/v1-non-goals.md: enUS only).
+-- Gathering nodes by name, enUS (docs/v1-non-goals.md: enUS only).
 local HERBS = {}
 for _, n in ipairs({
 	"Peacebloom", "Silverleaf", "Earthroot", "Mageroyal", "Briarthorn", "Stranglekelp", "Bruiseweed",
@@ -310,7 +310,7 @@ function Atlas.NodeKind(name)
 end
 
 -- The client's art for the quest blips' kinds, as the Minimap draws them: { kind, art, name, group }, the HD "!" and
--- "?" (Blips.lua:387-388): ui/Quests.lua's quests to pick up and to turn in.
+-- "?": ui/Quests.lua's quests to pick up and to turn in.
 Atlas.BLIP_ART = {
 	{ "questgiver", "questnormal", "Quest giver", "quest" }, { "questender", "questturnin", "Quest ender", "quest" },
 }

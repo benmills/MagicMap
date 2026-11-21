@@ -1,14 +1,14 @@
 -- Quests to pick up (obs.offers: the maps Game asked about) as Known("offers"): one a quest,
--- none in your log (obs.quests: in progress), as the world map's QuestOfferDataProvider
--- (Layers.lua:640-663). An offer the same as before keeps its entry; a log with the same quests (a count
+-- none in your log (obs.quests: in progress), as the world map's QuestOfferDataProvider. An offer
+-- the same as before keeps its entry; a log with the same quests (a count
 -- ticking) changes nothing.
 
 local _, ns = ...
 local Model = ns.Model
 
 local NONE = {}
-local ICON = { atlas = "QuestNormal", color = { 1, 0.82, 0 } } -- Layers.lua:658
-local TEXT = "Quest to pick up" -- Layers.lua:652
+local ICON = { atlas = "QuestNormal", color = { 1, 0.82, 0 } }
+local TEXT = "Quest to pick up"
 
 local offers, log -- the obs parts the list is from
 local mine, n = {}, 0 -- [quest] = true for those in the log, and how many

@@ -1,7 +1,6 @@
--- The Minimap's home spot (spike MinimapTakeover.lua:579-599): obs.minimap.home, where UI puts
--- the small window (UIParent units, types/observation.lua MM.ScreenRect), with the cluster's
--- strata (UI's small window sits in it); and View.window.homeAlpha, the spot faded while big.
--- Read each time, as the spike did (MinimapTakeover.lua:590-599: whatever moved it, a new UI scale
+-- The Minimap's home spot: obs.minimap.home, where UI puts the small window (UIParent units,
+-- types/observation.lua MM.ScreenRect), with the cluster's strata (UI's small window sits in it); and
+-- View.window.homeAlpha, the spot faded while big. Read each time (whatever moved it, a new UI scale
 -- or Edit Mode): from the Minimap before the takeover moves it, from then on from its stand-in,
 -- which holds the spot at its scale (game/Minimap.lua); a new rect only when it moved.
 
@@ -23,8 +22,8 @@ function Game.Home()
 end
 
 -- The spot (the cluster, and the stand-in holding what hung on the Minimap) at homeAlpha of the
--- cluster's own alpha: read when it first fades, put back at 1 (spike MinimapTakeover.lua:585-588,
--- MinimapMode.lua:150-185). 0 while the takeover can't hide the cluster yet (Game.minimap.fade).
+-- cluster's own alpha: read when it first fades, put back at 1. 0 while the takeover can't hide the
+-- cluster yet (Game.minimap.fade).
 local own, applied = nil, 1
 Game.Apply("home", function(view)
 	local a = Game.minimap.fade and 0 or view.window.homeAlpha

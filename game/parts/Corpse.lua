@@ -1,14 +1,13 @@
 -- obs.corpse (types/observation.lua MM.Pos|false), on change: yours, where the client has it on your
--- continent's map or else a zone's of it, the first that has it (Layers.lua:451-457, 506-522); false:
--- none known. Read again on PLAYER_DEAD, PLAYER_ALIVE and PLAYER_UNGHOST (Layers.lua:2229-2231) and on
+-- continent's map or else a zone's of it, the first that has it; false:
+-- none known. Read again on PLAYER_DEAD, PLAYER_ALIVE and PLAYER_UNGHOST and on
 -- another instance; and while you're a ghost with none known, every POLL s: the client knows where it
--- is only a while after you release, and says nothing then (spike-bugs G4; Layers.lua:500-503,
--- 2236-2242). A new table only when it moved.
+-- is only a while after you release, and says nothing then. A new table only when it moved.
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
-local POLL = 1 -- s (Layers.lua:503)
+local POLL = 1 -- s
 
 local pos = false -- the last handed over
 local dirty, read, due = true, nil, 0 -- read: the instance last read; due: the next poll

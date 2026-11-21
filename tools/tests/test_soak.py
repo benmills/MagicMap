@@ -1,5 +1,5 @@
-"""The M5 exit's 10-minute soak (docs/v1-plan.md M5.1) on the priced clock: a first login's map (small on the
-Minimap's spot, 384 px a tile), every layer on (those off by default too), scripts (a)-(e)'s shapes (docs/playtest.md) in rounds of
+"""The M5 exit's 10-minute soak on the priced clock: a first login's map (small on the
+Minimap's spot, 384 px a tile), every layer on (those off by default too), scripts (a)-(e)'s shapes in rounds of
 ~160 s, each ending where it began:
 
   (a) zoom bursts (every notch a tick, the glide stacking) and slow ticks, flings, follow back on, grow and
@@ -18,6 +18,9 @@ Minimap's spot, 384 px a tile), every layer on (those off by default too), scrip
     ≤ 5, moving p95 ≤ 5, none over 8, Lua allocation ≤ 50 KB/s, 0 errors...) and perf.slow, perf.gaps, taint,
     art and sensor empty; each round past the first ≤ 50 KB/s too.
 """
+import os
+
+import pytest
 import telemetry
 from test_addon import boot, errors
 from test_quest_areas import FREE, OFFERS, stretch
@@ -209,6 +212,8 @@ def soak():
 
 
 def test_soak():
+    if os.environ.get("MM_STRICT"):
+        pytest.skip("the plain pass soaks: strict adds nothing to a 10-minute run but time")
     L, sim, ns, rounds, jobs = soak()
     by = ns.Runtime.FrameStats().byState
     print(f"soak: {sum(r[1] for r in rounds):.0f} s priced; by round, the heap after a full collect where each script ends, "

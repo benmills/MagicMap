@@ -1,9 +1,9 @@
 -- obs.tracking (types/observation.lua MM.ObsTracking[]), on change: Blizzard's minimap tracking types
 -- (C_Minimap), each by its filter (Enum.MinimapTrackingFilter) or, a spell's (Find Herbs), its spell's
 -- ID (`spell`: what View.keep may name, game/Keep.lua). Those our layers draw the same as (flight masters,
--- quest POIs, points of interest: MinimapTakeover.lua:236-237) are "duplicate": kept off while ours draw them (game/Tracking.lua), not
--- offered (GearMenu.lua:9-24). A type the client has no info for yet (at login) is left out till it has
--- (MinimapTakeover.lua:255). Read again on MINIMAP_UPDATE_TRACKING and at once after a tracking Command
+-- quest POIs, points of interest) are "duplicate": kept off while ours draw them (game/Tracking.lua), not
+-- offered. A type the client has no info for yet (at login) is left out till it has.
+-- Read again on MINIMAP_UPDATE_TRACKING and at once after a tracking Command
 -- (Game.TrackingChanged). Each compared with its last as it's read and kept if the same; a new list
 -- only when one changed.
 
@@ -11,7 +11,7 @@ local _, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
 
 local F = Enum.MinimapTrackingFilter
-local DUPLICATES = Game.DUPLICATES -- game/Tracking.lua: filter id -> our layer (MinimapTakeover.lua:237)
+local DUPLICATES = Game.DUPLICATES -- game/Tracking.lua: filter id -> our layer
 
 local list -- the last handed over
 local dirty = true

@@ -1,5 +1,5 @@
 """Model alone (plain Lua, tools/tests/replay.lua) on the fixture streams: Known("places") and Known("group")
-(docs/v1-plan.md M4.3). Known("rares") and Known("vignettes"): R-D4, R-S1.
+. Known("rares") and Known("vignettes"): R-D4, R-S1.
 
   test_places_model: the places stream (Elwynn's live places) over Atlas's (Data/Places.lua): Atlas's until the
     game marks a kind on the instance, then the game's; a place the game marks on two maps, once; another

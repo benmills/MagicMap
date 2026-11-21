@@ -1,4 +1,4 @@
-"""Model's target (docs/v1-plan.md M3.1: model/Target.lua) on the simulated client, end to end from the
+"""Model's target (model/Target.lua) on the simulated client, end to end from the
 sim's quest log and its areas (Inside: game/Oracles.lua) through Game's parts and Model:
 
   test_target_priority: your corpse while you're a ghost, else the quest you follow if its pin is on the

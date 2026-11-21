@@ -2,7 +2,7 @@
 -- (game/Minimap.lua Game.minimap), indoors (Game.Indoors) and whether /mm indoor reports
 -- (SavedGame.indoorDebug: game/parts/Interior.lua), and the Minimap's home spot with the cluster's strata (game/Home.lua: a new
 -- rect only when re-read).
---   Game.Indoors() (MinimapTakeover.lua:52-54, 95-107): the Minimap drawing its indoor map here. Its
+--   Game.Indoors(): the Minimap drawing its indoor map here. Its
 --     view radius tells: at its zoom the indoor view's width is nearer it than the outdoor one's. Not
 --     IsIndoors() ("can't mount": false in Ironforge), but while a new zoom applies (radius 0).
 

@@ -1,4 +1,4 @@
-"""Game's quest pieces, round trips on the sim (docs/v1-plan.md M2.2): what the client says of your
+"""Game's quest pieces, round trips on the sim: what the client says of your
 quests and of quests to pick up reaches obs.quests and obs.offers (game/parts/Quests.lua,
 Offers.lua), and the follow and tooltip Commands (game/commands/) come back in the client and in
 the next observation. And the fixture streams M2.3 and M2.4 replay through Model alone

@@ -1,4 +1,4 @@
-"""The sim's fidelity (tools/tests/wowsim.lua, docs/v1-plan.md M0.6) in one scenario: what
+"""The sim's fidelity (tools/tests/wowsim.lua) in one scenario: what
 it charges, defers, sizes, zeroes, hosts, refuses, raises and walks like the client. And each
 fixture observation stream (fixtures/streams/<part>.lua) replayed through Model alone:
 shaped as types/observation.lua says, taken without an error whatever Model doesn't
@@ -22,7 +22,7 @@ def test_fidelity():
     G = L.globals()
     sim.Clock = L.eval("function() return 0 end")  # only what's priced moves the clock
 
-    # Priced (off by default, docs/evidence/perf-m0.md): 100 probes 0.2 ms; a frame's Show per region it
+    # Priced (off by default): 100 probes 0.2 ms; a frame's Show per region it
     # makes visible (a line dearer), and its own Show, Hide, SetScale, SetAlpha a little per region under it.
     probes = L.eval("""function(n)
         local t0 = debugprofilestop()

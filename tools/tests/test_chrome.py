@@ -1,6 +1,6 @@
 """The window's chrome on the simulated client (ui/Window.lua, Chrome.lua, Controls.lua, Title.lua,
 Menus.lua): a first login shows it on the minimap's spot, square, 200 yd across, at the minimap's
-strata; Forever's oversized edge atlases (spike-bugs L2) leave the view's inset at 2..6 px and the
+strata; Forever's oversized edge atlases leave the view's inset at 2..6 px and the
 zoom buttons clear of the grip; the template's own parts are hidden; the controls fade in and out
 over 0.15 s (kept while a menu is open); the tips; the title; resizing keeps the yards across (the
 gear's rows: test_gear.py)."""

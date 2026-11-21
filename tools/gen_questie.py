@@ -9,7 +9,7 @@ MagicMap is GPLv3 (LICENSE) and credits them (NOTICE.md); the files are committe
   .venv/bin/python tools/gen_questie.py \\
       "/Applications/World of Warcraft/_forever_/Interface/AddOns/QuestieDB" [-o Data]
 
-The data diet (docs/v1-plan.md D3): Items only those quests reach, NPCs only those
+The data diet: Items only those quests reach, NPCs only those
 with an open-world spawn (a Data/Tiles.lua map without a kind) or that a quest, an
 item quests reach, a rare rank or a service needs. --full keeps every one (to compare).
 

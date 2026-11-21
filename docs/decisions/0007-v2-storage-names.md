@@ -1,7 +1,7 @@
 # 0007 v2 storage names: MagicMap2DB
 
 Status: accepted (2.0.0, M6.1). Amends [ADR 0004](0004-saved-variables.md)'s root name, a LOCKED
-part. Types: [types/saved.lua](../../types/saved.lua). Decision D9 (docs/v1-plan.md §9, 2026-10-15).
+part. Types: [types/saved.lua](../../types/saved.lua). Decision D9 (2026-10-15).
 
 ## Context
 

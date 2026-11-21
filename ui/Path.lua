@@ -1,32 +1,16 @@
 -- Pathing: the line to what you go to (Model.Target: your corpse, the quest you follow, your waypoint) while
--- it's pathed (UI.Track.Pathed: Path to chosen for it, ui/Track.lua; your corpse always), or tracked with the line
--- shown (UI.Track.Line: Settings > Tracking: Shows; by default Track has the gold arrow alone, ui/Guide.lua;
--- only Path to frames the way): a row of
--- small dots like a route on a printed map (the spike's hand-inked dashes, Path.lua:1-6, now lighter and
--- dotted), a little uneven, light on a faint dark edge so they read on pale ground: ADD-blended on a slowly
--- breathing canvas. It follows the way you'd walk (Model.Route: you first, the target last) once that's
--- found, else it's straight - "that way". It leaves you the way you're facing, a short fade at your arrow,
--- and bends onto the way over a lead-in of LEAD_YD yards (a cubic Bezier), under the names and pins (level 8).
--- On a canvas of its own whose origin is a tile near the view, so a pan carries it along (Path.lua:126-129);
--- laid out again when you or the target move half a pixel, you turn 3°, the zoom changes or the route is
--- found again, only the pieces that meet the view (and a margin) shown (a line's ends stay within a few
--- thousand px: docs/v1-plan.md §2); and as a pan takes the view past them, the pieces it brings in shown,
--- the rest left as they stand.
--- Its look is the settings' (Settings > Tracking > Line, declared here: ui/Feel.lua; Path.DEFAULTS by default): the
--- style (dotted, dashed or solid: one line a leg), the weight (the stroke's px; its edge twice that), the colour
--- (Path.COLORS, or any: "#rrggbb"), the ADD glow, the breath and its pace, an opacity, and the dark edge (the
--- outline: on or off, its colour from Path.EDGE_COLORS, or any). With no outline, the line is ink (INK): the
--- ground under it multiplied by its tint and its colour added, so it reads on snow and on night alike. A change (Feel.rev) restyles the pieces and lays
--- the line out anew.
--- While it's drawn for Path to (Path.pathed; View.pathing) Blizzard's blips step aside (game/Minimap.lua): the map zooms ours,
--- smooth, no minimap steps to flicker against while the framing moves it.
--- Off the view, the target gets a gold arrow on its edge, where the line toward it leaves (Path.lua:24-79).
--- At the minimap's size the view frames you, the target and the way between (Motion.Frame: ui/Motion.lua pans and
--- zooms, in as you near it as far as the map goes, gliding back to the zoom you had when it began (kept as
--- UI.saved.path.zoom) once it ends; your own pan or zoom holds it
--- till it returns as the idle return does); not on the big map, the view yours there; not for your corpse
--- (Settings > Tracking > Target: Frame the way). And your corpse becoming the target brings the view back to you
--- (Core.lua:1095-1108), once a ghost.
+-- it's pathed (UI.Track.Pathed: Path to chosen for it, ui/Track.lua; your corpse always), or tracked with the
+-- line shown (UI.Track.Line; by default Track has the gold arrow alone, ui/Guide.lua). It follows the way
+-- you'd walk (Model.Route) once that's found, else it's straight - "that way"; it leaves you the way you're
+-- facing and bends onto the way over LEAD_YD yards (a cubic Bezier), under the names and pins. On a canvas
+-- of its own whose origin is a tile near the view, so a pan carries it along; laid out again when you or the
+-- target move half a pixel, you turn 3°, the zoom changes or the route is found again, only the pieces that
+-- meet the view and a margin shown (a line's ends stay within a few thousand px). Its look is the settings'
+-- (Settings > Tracking > Line, declared here: ui/Feel.lua); with no outline it's ink (INK). While drawn for
+-- Path to (Path.pathed), Blizzard's blips step aside (game/Minimap.lua). Off the view, the target gets a gold
+-- arrow on its edge where the line leaves. At the minimap's size the view frames you, the target and the way
+-- between (Motion.Frame; Settings > Tracking > Target: Frame the way), gliding back to the zoom you had
+-- (UI.saved.path.zoom) once it ends; not for your corpse, whose becoming the target brings the view back to you.
 
 local _, ns = ...
 local UI, Model, Runtime = ns.UI, ns.Model, ns.Runtime
@@ -34,13 +18,12 @@ local Camera, Window, Motion = UI.Camera, UI.Window, UI.Motion
 local Maths = ns.Atlas.Camera
 local floor, sin = math.floor, math.sin
 
-local LEVEL = 8 -- over the quest areas (4), under the names (9): the spike's path frame (Core.lua:149)
-local CLEAR_YOU, CLEAR_TARGET = 12, 15 -- px left clear around your arrow (Settings > Tracking > Route: Gap at you) and the target's pin (Path.lua:11)
-local FADE, FADE_YOU = 40, 10 -- px over which the line fades in at the target and out at you: short at you, so it leaves your arrow (Path.lua:12)
+local LEVEL = 8 -- over the quest areas (4), under the names (9)
+local CLEAR_YOU, CLEAR_TARGET = 12, 15 -- px left clear around your arrow (Settings > Tracking > Route: Gap at you) and the target's pin
+local FADE, FADE_YOU = 40, 10 -- px over which the line fades in at the target and out at you: short at you, so it leaves your arrow
 -- The look's settings ("path.<name>", read at use) and their defaults; the colours in the order the settings
--- list them, the first the list's own. The spike's dashes
--- were 1.9 px over a 3.8 edge, 6 on and 4 off (Path.lua:13-16): by default now a 1 px gold dash at 55%, no
--- edge, glow or breath: a quiet line.
+-- list them, the first the list's own. By default a quiet line: a thin gold
+-- dash, no edge, glow or breath. A dash is 6 px on and 4 off at a 1.9 px stroke (STYLES), in proportion.
 local COLORS = {
 	{ "Parchment", { 1, 0.93, 0.76 } }, { "Gold", { 1, 0.82, 0.3 } }, { "White", { 1, 1, 1 } },
 	{ "Sky", { 0.55, 0.8, 1 } }, { "Mint", { 0.6, 1, 0.75 } }, { "Rose", { 1, 0.6, 0.7 } },
@@ -53,7 +36,7 @@ local DEFAULTS = { style = "dashed", weight = 1.4, color = "Gold", glow = false,
 	opacity = 0.65, edge = false, edgeColor = EDGE_COLORS[1][1] }
 local STYLES = { dotted = { 1, 1.5 }, dashed = { 6 / 1.9, 4 / 1.9 } } -- a piece and its gap, in strokes (solid: a leg a line)
 local WEIGHT_MIN, WEIGHT_MAX, OPACITY_MIN = 1, 4, 0.2
-local STROKE_ALPHA, WASH_ALPHA = 0.92, 0.45 -- Path.lua:14-15 (more alpha: legible on snow; the casing darker)
+local STROKE_ALPHA, WASH_ALPHA = 0.92, 0.45 -- high, so legible on snow; the casing darker
 -- What makes it stand out, without being thicker: the dot is ADDed to the ground (it lights dark ground and
 -- whitens mid tones; over the dark edge it stays a light core on pale snow too), and the canvas breathes
 -- slowly (one Alpha animation, run in C: no Lua a frame, no widget call at rest).
@@ -63,27 +46,27 @@ local PULSE_LOW = 0.68 -- the canvas's lowest alpha (and DEFAULTS.breathTime s e
 -- ground x m + a: on light ground the multiply shows (ink on paper), on dark the add (a glint), and m and a
 -- differ by channel, so where its brightness meets the ground's its hue still doesn't. Per colour, fitted
 -- against the repaints' pixels and snow, sand and black (m = 1 - b (1 - g c), a = alpha x c): the weakest
--- contrast up to 3.5x today's blend, the typical no louder, the loudest softer. At the default opacity; the
--- opacity scales a and b. White can't be ink on snow: it blends as before (and with the outline on, all do).
+-- contrast up to 3.5x the plain blend's, the typical no louder, the loudest softer. At the default opacity; the
+-- opacity scales a and b. White can't be ink on snow: it blends plainly (and with the outline on, all do).
 local INK = { Parchment = { 0.3, 1, 0.8 }, Gold = { 0.45, 1, 1 }, Sky = { 0.5, 1, 0.6 }, Mint = { 0.3, 1, 0.8 },
 	Rose = { 0.55, 0.75, 0.6 }, White = false, any = { 0.45, 1, 1 } } -- { alpha, b, g }
 local INK_OPACITY = 0.65 -- the opacity they were fitted at (DEFAULTS.opacity)
 -- As set (Apply): the stroke's and the edge's px, their colours (the edge's fixed, the stroke's chosen), their
 -- alphas in half hundredths, a piece's px on and off and their sum (longer, in proportion, when there'd be
--- more than MAX_PIECES: Path.lua:16; a dot keeps its size, the gaps grow), and whether the line is solid, or dotted.
+-- more than MAX_PIECES; a dot keeps its size, the gaps grow), and whether the line is solid, or dotted.
 local STROKE, WASH, STROKE_A, WASH_A, DASH, GAP, PERIOD, SOLID, DOTS, EDGE, INKED -- (EDGE: the wash drawn, the outline's or ink's)
 local STROKE_RGBA, WASH_RGBA = { 1, 0.93, 0.76, STROKE_ALPHA }, { 0.12, 0.08, 0.03, WASH_ALPHA }
-local MAX_PIECES = 160 -- Path.lua:17
-local WOBBLE = 0.8 -- px the line strays either side of true, in long slow waves (Path.lua:18)
-local UNEVEN = 0.25 -- share of the pieces' alpha that comes and goes along it (Path.lua:19)
-local LEAD_YD, LEAD_STEPS = 130, 8 -- yards of line (at most 60% of it) that bend from where you face onto the way, the same at any zoom (Path.lua:20-21); off unless Settings > Tracking > Route's Leave the way you face (each turn moves the line by you)
+local MAX_PIECES = 160 -- the line's pieces at most (their regions made at load)
+local WOBBLE = 0.8 -- px the line strays either side of true, in long slow waves
+local UNEVEN = 0.25 -- share of the pieces' alpha that comes and goes along it
+local LEAD_YD, LEAD_STEPS = 130, 8 -- yards of line (at most 60% of it) that bend from where you face onto the way, the same at any zoom; off unless Settings > Tracking > Route's Leave the way you face (each turn moves the line by you)
 local LEAD_HANDLE = 0.5 -- of the curve's chord, how far out along your facing (and in along the way) its handles reach: lazy turns
 local LEAD_TILES = LEAD_YD / ns.Atlas.TILE_YARDS
 local leadOn = false
-local FACING_STEP = math.rad(3) -- turning less than this doesn't redraw the line (Path.lua:22)
-local EDGE_INSET = 16 -- px from the view's edge to the arrow's centre (Path.lua:27)
-local EDGE_ART, EDGE_SIZE = "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW", 32 -- Path.lua:31-33
-local CHECK = 0.2 -- s between looks at which target you have (Core.lua:1096 TARGET_CHECK)
+local FACING_STEP = math.rad(3) -- turning less than this doesn't redraw the line
+local EDGE_INSET = 16 -- px from the view's edge to the arrow's centre
+local EDGE_ART, EDGE_SIZE = "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW", 32 -- px
+local CHECK = 0.2 -- s between looks at which target you have
 local MARGIN = 32 -- px laid out past the view's edges (following you, the view moves less between layouts)
 local ORIGIN_PX = 1024 -- the canvas's origin moves to the tile at the view's centre once further off than this
 
@@ -115,12 +98,12 @@ edge.on = false
 Path.edge = edge
 
 ---------------------------------------------------------------------------
--- The line (Path.lua:81-275)
+-- The line
 ---------------------------------------------------------------------------
 
 -- Each piece's two regions (pieces counted from the target: MAX_PIECES), made once at load, in login's grace,
 -- hidden, in their colour: a layout only places and shows them, and sets an alpha where it differs (made as
--- they first showed, a long line's first layout made up to 2 x MAX_PIECES in one call: 2-7 ms priced; the
+-- they first show, a long line's first layout would make up to 2 x MAX_PIECES in one call: 2-7 ms priced; the
 -- wash's alpha is its colour's but by the ends). Two pools: lines for the dashed and solid styles (a wash
 -- and a stroke a piece, placed by their ends: 4 anchor calls), and dots for the dotted (two plain squares,
 -- the wash's twice the stroke's side, placed by their centre: 2; at 1.6 px a square reads as a dot, and 160
@@ -491,7 +474,7 @@ local function Dashes(half)
 	local L = lay
 	local m, len, s0, s1, step, id, still = L.m, L.len, L.s0, L.s1, L.step, L.id, L.still
 	local dash = DOTS and DASH or step * DASH / PERIOD -- /: never 0 (DASH > 0)
-	local q = (step > PERIOD and not DOTS) and 1 or 2 -- px a dash's ends are rounded to: halves, whole past MAX_PIECES (the M3 review; a dot always halves: a whole px is most of it)
+	local q = (step > PERIOD and not DOTS) and 1 or 2 -- px a dash's ends are rounded to: halves, whole past MAX_PIECES (a dot always halves: a whole px is most of it)
 	local r1, r2, r3, r4 = rect[1], rect[2], rect[3], rect[4]
 	local n, i = 0, m - 1
 	local b = s1 + step
@@ -703,7 +686,7 @@ local function Line(t, me, cam, w, h)
 		L.m, L.len, L.s0, L.s1, L.step, L.id, L.still = m, len, s0, s1, step, Path.draws, -1
 		if fixed >= 0 and last.step == step then L.still = math.min(fixed, math.min(len, last.len) - s0 - FADE_YOU) end
 		-- At the zoom and origin of the last layout (walking, turning, a route found), or a line new: half its
-		-- dashes this frame, the rest the next, odd and even by turns (the M3 review: one frame behind, unseen;
+		-- dashes this frame, the rest the next, odd and even by turns (one frame behind, unseen;
 		-- past MAX_PIECES every dash moves as its length does). While the zoom moves, all at once. A solid
 		-- line (a line a leg) all at once, always: few pieces, only the legs by you move.
 		if SOLID then
@@ -723,7 +706,7 @@ local function Line(t, me, cam, w, h)
 end
 
 ---------------------------------------------------------------------------
--- The edge arrow (Path.lua:24-79)
+-- The edge arrow
 ---------------------------------------------------------------------------
 
 local function In(x, y, lo, hiX, hiY) return x >= lo and x <= hiX and y >= lo and y <= hiY end
@@ -798,7 +781,7 @@ Runtime.Step("ui", "map: path", function()
 end, { shownOnly = Window.frame })
 
 -- Hidden: every line off, laid out anew when it shows (left shown under the window, they'd all show with
--- it in that one call: R-P7), as the map's canvases are emptied (ui/Engine.lua).
+-- it in that one call), as the map's canvases are emptied (ui/Engine.lua).
 Window.frame:HookScript("OnHide", Runtime.Wrap("map: path hidden", function()
 	for i = 1, used do
 		Off(strokes[i])
@@ -840,12 +823,11 @@ end, function(z) -- (the zoom it never goes in past: the one you had, saved with
 end)
 
 ---------------------------------------------------------------------------
--- Your corpse as the target brings the view back to you (Core.lua:1095-1108)
+-- Your corpse as the target brings the view back to you
 ---------------------------------------------------------------------------
 
--- Looked at every CHECK s: a ghost's corpse once the target (found on the map shown: the spike's
--- corpseFound, Layers.lua:504-521) stays found for the rest of that ghost, whatever map is shown after (its
--- TargetKey, Layers.lua:1182-1184); found after the first look, it follows you again, gliding back. Found at
+-- Looked at every CHECK s: a ghost's corpse once the target stays found for the rest of that ghost,
+-- whatever map is shown after; found after the first look, it follows you again, gliding back. Found at
 -- the first look (nil before Model's first Focus) keeps your saved choice.
 local looked, found, since = false, false, CHECK
 Runtime.Step("ui", "map: target", function(elapsed)

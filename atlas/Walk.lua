@@ -1,4 +1,4 @@
--- The walk graph (Data/Walk.lua, WalkParts.lua, WalkRegions.lua; the contract: promo/pathing/walk-v2-spec.md):
+-- The walk graph (Data/Walk.lua, WalkParts.lua, WalkRegions.lua; the contract: docs/walk.md):
 -- a node is a part, the ground you can stand on inside one terrain chunk (16 a tile side, ~33 yd) that its own
 -- moves join, at most 7 a chunk. Node id = gc * SPAN + gr * PARTS + p (global chunk column, row = tile col, row
 -- * 16 + the chunk's; p the part). Most chunks are simple: one part at the chunk's centre, both ways or not at all
@@ -492,7 +492,7 @@ function Walk.Edges(inst, id, out, rev)
 	eOut, eN, eX, eY, eMine = out, 0, x0, y0, rev and COST[PartClass(T, i, b, p)] -- (an edge into it: its class's cost)
 	local lc, lr = i % CHUNKS, floor(i / CHUNKS)
 	if b >= SMALL and lc >= 1 and lc <= CHUNKS - 2 and lr >= 1 and lr <= CHUNKS - 2 then
-		-- Inside its tile, all 9 round it simple (most of the map): the 3x3 read at once, as the old grid's.
+		-- Inside its tile, all 9 round it simple (most of the map): the 3x3 read at once.
 		local t = T.s
 		local nw, n, ne = t:byte(i - 16, i - 14)
 		local w, e = t:byte(i), t:byte(i + 2)

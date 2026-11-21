@@ -1,20 +1,19 @@
 -- obs.offers (types/observation.lua MM.ObsOffer[]), on change: quests to pick up on the zones of the
 -- map shown (Game.shownInst, a frame behind; yours before the first; not while hidden), as the world map's
--- QuestOfferDataProvider reads them (Layers.lua:636-664): each zone asked once (the client fills it
+-- QuestOfferDataProvider reads them: each zone asked once (the client fills it
 -- in and fires QUESTLINE_UPDATE; with an argument, it wants every zone asked again), a quest on
 -- several zones kept on the first, those in progress skipped, and those the client hides unless you
 -- track hidden quests (a per-character CVar). Read again 0.3 s after QUESTLINE_UPDATE or
--- MINIMAP_UPDATE_TRACKING (Layers.lua:2219-2252), at once when another instance is shown. The spike
--- read them again after every QUEST_LOG_UPDATE too; what's offered changes with your log, so here only
--- after a quest is taken or given up or handed in (QUEST_ACCEPTED, QUEST_REMOVED: Forever's, as Questie's
--- EventHandler.lua:157-193) or a level gained: the client makes a table an offer each read (130 on a
+-- MINIMAP_UPDATE_TRACKING, at once when another instance is shown. What's offered changes with your log,
+-- so also after a quest is taken or given up or handed in (QUEST_ACCEPTED, QUEST_REMOVED: Forever's, as
+-- Questie's) or a level gained, not on every QUEST_LOG_UPDATE: the client makes a table an offer each read (130 on a
 -- continent: ~50 KB), and QUEST_LOG_UPDATE comes with every loot. Each offer is compared with its last
 -- as it's read and kept if the same; a new table only when something changed.
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
-local DELAY = 0.3 -- s (Layers.lua:1236)
+local DELAY = 0.3 -- s
 
 local list -- the last handed over
 local dirty, pending = true, false

@@ -1,6 +1,6 @@
 -- waypoint (types/view.lua MM.CmdWaypoint): the game's user waypoint at pos, on the map of the zone
--- there, super-tracked so it's your target; where it can't go, why not in chat. false clears it
--- (Layers.lua:2079-2097). The same frame's obs.waypoint has a click's (game/parts/Waypoint.lua).
+-- there, super-tracked so it's your target; where it can't go, why not in chat. false clears it.
+-- The same frame's obs.waypoint has a click's (game/parts/Waypoint.lua).
 
 local _, ns = ...
 local Atlas, Game = ns.Atlas, ns.Game

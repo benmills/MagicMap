@@ -1,24 +1,17 @@
--- Quest areas (Layers.lua:765-1069): the game's own objective areas ("blobs"), drawn as the world map
--- draws them, by QuestPOIFrames on the "questAreas" layer (over the tiles: parity S8):
--- one frame per map and style (art and alpha are per frame), its map's rect in size, its quests drawn
--- in it, as the world map's: the quest you follow filled blue, the rest a quiet edge in what they still
--- need (rust: kill, green: gather, blue: other) (S53). The art is the client's own (UI-QuestBlob-Inside
--- and Outside and their kin): a QuestPOIFrame loads only client files (addon TGAs, fill or edge, show
--- the missing-texture green). The client draws a blob into its frame's rect as it stands at
--- DrawBlob and lays a moved frame out only at the frame's end (spike-bugs L1), and its drawing doesn't
--- follow a scaled canvas (P5): so the layer is out of sight while the zoom moves and laid out where it's
--- headed once the wheel stops (Engine's "hold": after names and pins); a frame is drawn as it's laid out
--- (on a canvas at its own scale and zoom, else the frame it's shown at the camera's zoom), again the next
--- frame, and the layer shows again once they all are (Layers.lua:2032-2043). A frame whose quests (by
--- id), style and size are as they were, and the game's areas too (Known("quests")' poi), isn't drawn
--- again: its drawing moves with it (a pan, Layers.lua:142-156), and a count ticking changes no area. Each
--- stands on the point of its rect nearest the canvas's origin (a zone at zoom 800 is up to 9,600 px).
--- Hovering a quest's area or its pin (ui/Quests.lua) lights its area: drawn again on top (HOVER); an
--- area's tooltip is its quest's (ui/QuestTooltip.lua), but a tooltip shown already wins (a pin's), and
--- it stays up through a zoom (the frames last shown answer the hit test while the layer is out of
--- sight, as the spike's blobFrames: Layers.lua:992-1025); a click on an area (no pin under it:
--- Pins.Tap) follows its quest, again to stop (Layers.lua:990-1069).
-
+-- Quest areas: the game's own objective areas ("blobs"), drawn as the world map draws them, by
+-- QuestPOIFrames on the "questAreas" layer over the tiles: one frame per map and style (art and alpha are
+-- per frame), its map's rect in size, the quest you follow filled blue, the rest a quiet edge in what they
+-- still need (rust: kill, green: gather, blue: other). A QuestPOIFrame loads only client files (addon
+-- TGAs show the missing-texture green). The client draws a blob into its frame's rect as it stands at
+-- DrawBlob, lays a moved frame out only at the frame's end, and its drawing doesn't follow a scaled canvas:
+-- so the layer is out of sight while the zoom moves, laid out where it's headed once the wheel stops
+-- (Engine's "hold"); a frame is drawn as it's laid out and again the next frame, and the layer shows once
+-- they all are. A frame whose quests, style, size and game areas are as they were isn't drawn again (its
+-- drawing moves with it on a pan). Each stands on the point of its rect nearest the canvas's origin (a zone
+-- at zoom 800 is up to 9,600 px). Hovering an area or its pin (ui/Quests.lua) lights it, drawn again on
+-- top; its tooltip is its quest's (ui/QuestTooltip.lua) unless one is up already, and stays up through a
+-- zoom (the frames last shown answer the hit test). A click on an area no pin took follows its quest,
+-- again to stop.
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
 local Atlas, Runtime = ns.Atlas, ns.Runtime
@@ -27,15 +20,15 @@ local Get, Keep, At, Yield = Engine.Get, Engine.Keep, Engine.At, Runtime.Yield
 local ScreenToTile = Atlas.Camera.ScreenToTile
 local Command = ns.Game.Command
 
-local LEVEL = 4 -- over the tiles (1) and the buildings (4: these pieces stand over their canvas) (Core.lua:149)
+local LEVEL = 4 -- over the tiles (1) and the buildings (4: these pieces stand over their canvas)
 -- The client's area art (each <base>Inside / <base>Outside): quest blue, bonus-objective green,
--- archaeology rust (Layers.lua:785-789).
+-- archaeology rust.
 local ART = { blue = "Interface\\WorldMap\\UI-QuestBlob-", green = "Interface\\WorldMap\\UI-BonusObjectiveBlob-",
 	rust = "Interface\\WorldMap\\UI-ArchaeologyBlob-" }
--- Fill and edge alpha (0-255), edge width (Layers.lua:795-800), level over the canvas (Layers.lua:910);
--- hover: lit, on top (Layers.lua:822, 853), a gentle lift over the area's own style (the world map's hover).
--- The look's numbers are the settings' ("areas.<name>", Settings > Advanced, declared here: ui/Feel.lua; Quests > Areas a strength over them): DEFAULTS
--- are the spike's (alphas 0-255, shown as %). Restyle makes the style tables from them anew when they change (a
+-- Fill and edge alpha (0-255), edge width, level over the canvas; hover: lit, on top, a gentle lift over
+-- the area's own style (the world map's hover). The look's numbers are the settings' ("areas.<name>",
+-- Settings > Advanced, declared here: ui/Feel.lua; Quests > Areas a strength over them), alphas 0-255
+-- shown as %. Restyle makes the style tables from them anew when they change (a
 -- frame's style is the table, so a new one is applied again), and the layer's rev moves with that: every frame
 -- laid out and drawn again.
 local DEFAULTS = { fFill = 32, fEdge = 120, fWidth = 0.8, oFill = 0, oEdge = 85, oWidth = 0.6, hFill = 45, hEdge = 150 }
@@ -112,17 +105,17 @@ local POINTS = { { "TOPLEFT", "TOP", "TOPRIGHT" }, { "LEFT", "CENTER", "RIGHT" }
 local function On(name) return Engine.LayerOn(name) end
 
 ---------------------------------------------------------------------------
--- Blob frames (Layers.lua:772-818)
+-- Blob frames
 ---------------------------------------------------------------------------
 
 local function MakeBlob(c)
 	local f = CreateFrame("QuestPOIFrame", nil, c)
-	f:EnableMouse(false) -- the view's: hover is worked out from the cursor (Layers.lua:777-779)
+	f:EnableMouse(false) -- the view's: hover is worked out from the cursor
 	f.n, f.q, f.drawn = 0, {}, 0 -- f.q[1..n]: its quests' entries; drawn: times since they changed
 	return f
 end
 
--- Its art and alpha (Layers.lua:893-910): true if they changed.
+-- Its art and alpha: true if they changed.
 local function Look(f, st, level)
 	local changed = false
 	if f.art ~= st.art then
@@ -154,7 +147,7 @@ local function Place(c, f, r, zoom)
 	local i, col = Third(r.col0, r.col1, c.ox)
 	local j, row = Third(r.row0, r.row1, c.oy)
 	local point, x, y = POINTS[j][i], (col - c.ox) * zoom, (row - c.oy) * zoom
-	if f.apoint ~= point then f:ClearAllPoints() end -- (one anchor: two would size it, Layers.lua:808)
+	if f.apoint ~= point then f:ClearAllPoints() end -- (one anchor: two would size it)
 	if f.az ~= zoom or f.x ~= x or f.y ~= y or f.apoint ~= point or f.on ~= c then At(c, f, point, col, row) end
 	f.rect = r
 	local w, h = (r.col1 - r.col0) * zoom, (r.row1 - r.row0) * zoom
@@ -166,9 +159,9 @@ end
 
 local draws = 0 -- frames drawn (a hit test's answer may change)
 
--- Its quests drawn into its rect, laid out first (Layers.lua:802-818).
+-- Its quests drawn into its rect, laid out first.
 local function Draw(f)
-	f:GetRect() -- (reading it lays it out in the client: Layers.lua:812)
+	f:GetRect() -- (reading it lays it out in the client)
 	f:SetMapID(f.map)
 	f:DrawNone()
 	for i = 1, f.n do f:DrawBlob(f.q[i].quest, true) end
@@ -263,7 +256,7 @@ end, Rev, "hold")
 Areas.layer = layer
 
 ---------------------------------------------------------------------------
--- Each frame: shown or not, drawn again, hover, tooltip (Layers.lua:822-866, 990-1025)
+-- Each frame: shown or not, drawn again, hover, tooltip
 ---------------------------------------------------------------------------
 
 local alpha = 1 -- the layer's frame's
@@ -292,7 +285,7 @@ local function Entry(quest)
 	end
 end
 
--- Lit: a quest's area under the cursor, or its pin (Layers.lua:822-866): drawn again on top in its
+-- Lit: a quest's area under the cursor, or its pin: drawn again on top in its
 -- own frame, on the canvas shown, twice.
 local hover = {} -- pin, area: the quest under the cursor
 local lit, litOn, litEpoch, litSt -- the entry it shows, on which canvas and epoch, in which style
@@ -331,7 +324,7 @@ local function Drawn(c)
 	return true
 end
 
--- The quest whose area f draws at tile (col, row), or nil (BlobAt: Layers.lua:868-872).
+-- The quest whose area f draws at tile (col, row), or nil.
 local function Hit(f, col, row)
 	local r = f.rect
 	if col >= r.col0 and col <= r.col1 and row >= r.row0 and row <= r.row1 then
@@ -340,7 +333,7 @@ local function Hit(f, col, row)
 	end
 end
 
--- The quest whose drawn area is under the cursor on c (Layers.lua:992-1000), tested again only when the
+-- The quest whose drawn area is under the cursor on c, tested again only when the
 -- cursor, the camera, the canvas or a drawing changed.
 local asked = {} -- x, y, cx, cy, zoom, c, draws: what the last answer, q, was for
 local function Under(c)
@@ -362,7 +355,7 @@ local function Under(c)
 	end
 end
 
--- The quests whose drawn areas hold (col, row) on inst, one a frame (Layers.lua:2289-2295): the inspector's
+-- The quests whose drawn areas hold (col, row) on inst, one a frame: the inspector's
 -- (ui/ZoneInfo.lua). A new list.
 function Areas.QuestsAt(inst, col, row)
 	local out, c = {}, layer.on and layer.front
@@ -375,7 +368,7 @@ function Areas.QuestsAt(inst, col, row)
 	return out
 end
 
-local owner = CreateFrame("Frame", nil, Window.view) -- an area's tooltip's (Layers.lua:990)
+local owner = CreateFrame("Frame", nil, Window.view) -- an area's tooltip's
 local showing -- the entry it shows
 
 Runtime.Step("ui", "map: quest areas", function()
@@ -389,14 +382,13 @@ Runtime.Step("ui", "map: quest areas", function()
 	-- Out of sight for a zoom, its frames hold their drawings till a layout changes one (the hit test is in
 	-- the map's own coordinates, whatever the zoom).
 	if c then held = c elseif held and not (layer.on and Drawn(held)) then held = nil end
-	-- The cursor in the view's rect, over what stands on it too (a control, another addon's pin), as the
-	-- spike's viewport:IsMouseOver() (Core.lua:1264, 1325): the area stays lit, its tooltip up but for one
-	-- shown already (that pin's).
+	-- The cursor in the view's rect, over what stands on it too (a control, another addon's pin), with
+	-- IsMouseOver: the area stays lit, its tooltip up but for one shown already (that pin's).
 	local mm = Model.minimap
 	local q = held and not (mm and mm.blip) and Window.view:IsMouseOver() and Under(held) or nil -- (a blip's tooltip first)
 	hover.area = q
 	Light(c)
-	-- Who has GameTooltip over an area: one shown already (a pin's), else the area's (Layers.lua:1012-1025).
+	-- Who has GameTooltip over an area: one shown already (a pin's), else the area's.
 	local e, tip = q and Entry(q), GameTooltip
 	if e then
 		local o = tip:GetOwner()
@@ -416,11 +408,11 @@ end, { shownOnly = Window.frame })
 -- A quest's pin under the cursor (its layer's hover: ui/Quests.lua), or none: its area lit.
 function Areas.Hover(e) hover.pin = e and e.quest end
 
--- Follow e's quest: the game's super-tracked quest, watched; again to stop (Layers.lua:1033-1046).
+-- Follow e's quest: the game's super-tracked quest, watched; again to stop.
 function Areas.Follow(e) Command({ kind = "follow", quest = not e.followed and e.quest }) end
 
--- A click on the map no pin took (ui/Window.lua): on a quest's drawn area, follows it, again to stop
--- (Layers.lua:1052-1069). True if it was one.
+-- A click on the map no pin took (ui/Window.lua): on a quest's drawn area, follows it, again to stop.
+-- True if it was one.
 function Areas.Tap()
 	local q = shown and Under(shown)
 	local e = q and Entry(q)

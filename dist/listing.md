@@ -1,14 +1,12 @@
-# MagicMap 3.1: CurseForge / Wago listing
+# MagicMap: CurseForge / Wago listing
 
-Replaces dist/listing-v3.0.md. The changelog for either site is the version's dist/RELEASE_NOTES-v3.1.x.md. The live CurseForge
-page (as of 2026-11-15) still has 2.x's description and its main file is 3.0.1: paste the description below over it
-whole, and upload `MagicMap-v3.1.1.zip` with the 3.1.1 notes as its changelog (3.1.1's notes cover 3.1.0's too).
+The description and gallery for the store pages. Each upload's changelog is its version's section of CHANGELOG.md.
 
 | Field | Value |
 | --- | --- |
 | Summary (≤ 140 characters) | A minimap that zooms out to the whole continent, any size or shape, with Blizzard's own blips. Click any icon to track it or path to it. |
-| Version / file name | 3.1.1 / `MagicMap-v3.1.1.zip` |
-| Game version | 1.60.1 (WoW Forever), build 1.60.1.70938 |
+| Version / file name | 3.2.0 / `MagicMap-v3.2.0.zip` |
+| Game version | 1.60.1 (WoW Forever), build 1.60.1.71037 |
 | Dependencies | None required. Optional: Questie, HandyNotes, GatherMate2 (HereBeDragons pins); FarmHud is yielded to |
 | Video | [YouTube](https://www.youtube.com/watch?v=tdv0wxADLbg) (26 s). In CurseForge's description editor, embed it with the YouTube button (or an `<iframe src="https://www.youtube.com/embed/tdv0wxADLbg">`); the poster below links to it too |
 

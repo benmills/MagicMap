@@ -88,7 +88,7 @@ and v1's field names and meanings. Open: what any owner adds in a later version,
 
 ## Amendment 2026-10-18: seen blips, 5000 an instance (D6)
 
-The user's decision D6 (docs/v1-plan.md §9): a cap high enough that most players never reach it.
+The user's decision D6: a cap high enough that most players never reach it.
 `blips[inst]` holds at most **5000** an instance (was 200; the spike's MagicMapLandmarks held 300).
 The meaning of every field is unchanged and 200 fits under 5000, so nothing migrates and `_v` stays 1.
 

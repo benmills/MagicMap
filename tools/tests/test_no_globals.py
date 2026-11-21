@@ -1,5 +1,5 @@
 """Nothing defines a global but game/ (its SavedVariables, SLASH_*): tools/luacheck.py.
-The spike's E1 (docs/evidence/spike-bugs.md) was two addons sharing data globals."""
+The spike's E1 was two addons sharing data globals."""
 import luacheck
 
 

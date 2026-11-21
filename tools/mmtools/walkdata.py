@@ -1,6 +1,6 @@
 """The walk data as shipped (Data/Walk.lua, WalkParts.lua, WalkRegions.lua, WalkGraph.lua), read back in plain
 Python: the reference reader the generators, the tests, the sweep and the Lua side (atlas/Walk.lua, Route.lua)
-agree with. The contract: promo/pathing/walk-v2-spec.md; the formats: docs/atlas-data.md.
+agree with. The contract: docs/walk.md; the formats: docs/atlas-data.md.
 
 Readings this module fixes where the spec leaves a choice (the Lua reader does the same):
 

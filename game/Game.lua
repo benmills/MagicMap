@@ -17,7 +17,7 @@ local NONE = {}
 
 function Game.Print(msg) print("|cff66ccffMagicMap|r " .. msg) end -- diagnostics: checks, bench, shots
 
--- The user's chat line, as UI.Print's (v1-plan §4 Chat; Core.lua:44-46): what a Command says back.
+-- The user's chat line, as UI.Print's: what a Command says back.
 function Game.Say(msg) print("|cffffd100MagicMap|r: " .. msg) end
 
 local function Copy(v)

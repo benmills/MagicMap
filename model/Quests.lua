@@ -1,6 +1,6 @@
 -- Your log's quests on their maps (obs.quests) as Known("quests"), and what Atlas knows of
 -- them (QuestieDB: where an objective's item is found, who takes the quest in), for their pins
--- and tooltips (the spike's QuestInfo.lua, Layers.lua:544-621):
+-- and tooltips:
 --   color     the quest log's difficulty colours, by its level minus yours
 --   count     the first unfinished objective that counts ("3/8"); inner, the first unfinished's icon
 --   need      what it still needs (kill, gather, other): its area's colour
@@ -11,19 +11,19 @@ local _, ns = ...
 local Atlas, Model = ns.Atlas, ns.Model
 
 local NONE = {}
-local RED, ORANGE, YELLOW = { 1, 0.1, 0.1 }, { 1, 0.5, 0.25 }, { 1, 0.82, 0 } -- QuestInfo.lua:17-18
+local RED, ORANGE, YELLOW = { 1, 0.1, 0.1 }, { 1, 0.5, 0.25 }, { 1, 0.82, 0 }
 local GREEN, GREY = { 0.25, 0.75, 0.25 }, { 0.5, 0.5, 0.5 }
-local TURN_IN = { atlas = "questturnin", color = { 0.2, 1, 0.2 } } -- Layers.lua:606-609 (the HD "?"; its dot's green)
+local TURN_IN = { atlas = "questturnin", color = { 0.2, 1, 0.2 } } -- the HD "?"; its dot's green
 local ACTIVE = { atlas = "Quest-In-Progress-Icon-yellow", color = { 1, 0.82, 0 } }
-local KIND_ICONS = { monster = { texture = 135274 }, object = { texture = 134063 }, item = { texture = 133633 } } -- QuestInfo.lua:109-113
-local MAX_NAMES = 2 -- QuestInfo.lua:235, 240
+local KIND_ICONS = { monster = { texture = 135274 }, object = { texture = 134063 }, item = { texture = 133633 } }
+local MAX_NAMES = 2 -- a source line's names, then "+N more"
 
 local quests = {}           -- [id] = { q (the obs quest it's built from), e (its entry) }
 local log, list, rev = nil, NONE, 0
 local level                 -- yours
 local icons = {}            -- an item's icon file -> its MM.Icon
 
--- red at 5 or more over you, orange at 3, yellow down to -2, then green till trivial (QuestInfo.lua:22-28)
+-- red at 5 or more over you, orange at 3, yellow down to -2, then green till trivial
 local function Difficulty(lvl, trivial)
 	local diff = lvl - (level or lvl)
 	if diff >= 5 then return RED end
@@ -53,7 +53,6 @@ local function Same(a, b)
 	return true
 end
 
--- Layers.lua:561-569
 local function Need(q)
 	for _, o in ipairs(q.objectives) do
 		if not o.finished then
@@ -64,7 +63,7 @@ local function Need(q)
 	return "other"
 end
 
--- Progress bars count to 100: no count (QuestInfo.lua:57-65).
+-- Progress bars count to 100: no count.
 local function Count(q)
 	for _, o in ipairs(q.objectives) do
 		local need = o.need
@@ -74,7 +73,7 @@ local function Count(q)
 	end
 end
 
--- The item's own, else one for the kind; nil for the rest (go, talk) (QuestInfo.lua:115-127).
+-- The item's own, else one for the kind; nil for the rest (go, talk).
 local function Inner(q)
 	for _, o in ipairs(q.objectives) do
 		if not o.finished then
@@ -89,7 +88,7 @@ local function Inner(q)
 	end
 end
 
--- "A, B" (and "+2 more") (QuestInfo.lua:199-209).
+-- "A, B" (and "+2 more").
 local function Names(get, ids)
 	local names = {}
 	for _, id in ipairs(ids) do
@@ -103,7 +102,7 @@ local function Names(get, ids)
 	return table.concat(names, ", ")
 end
 
--- The objects the item is in, else who sells it, a mob dropping it or not (QuestInfo.lua:213-242, less its droppers).
+-- The objects the item is in, else who sells it, a mob dropping it or not (its droppers aren't listed).
 local function Sources(k, itemID)
 	local item = Atlas.Item(itemID)
 	if not item then return end
@@ -126,7 +125,6 @@ local function Objectives(q)
 	return out
 end
 
--- QuestInfo.lua:352-354
 local function TurnIn(id)
 	local quest = Atlas.Quest(id)
 	if not quest then return nil end

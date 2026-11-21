@@ -1,10 +1,8 @@
 -- The window's chrome: the template's frame (whose top is a header bar) gives way to its
--- metal border on all four sides from the client's frame atlases (UI.lua:1-79); the view
--- fills it, inset by the border's thickness clamped 2..6 (Forever's edge atlases report far
--- more than their visible metal: spike-bugs L2). Above it, at the spike's levels
--- (Core.lua:142-153, 177-182, 316-339): the band (title, gear, mode: ui/Title.lua,
--- ui/Controls.lua), the map's controls and the resize grip. Everything else of the
--- template is hidden (Core.lua:383-392).
+-- metal border on all four sides from the client's frame atlases; the view fills it, inset by
+-- the border's thickness clamped 2..6 (Forever's edge atlases report far more than their visible
+-- metal). Above it: the band (title, gear, mode: ui/Title.lua, ui/Controls.lua), the map's
+-- controls and the resize grip. Everything else of the template is hidden.
 
 local _, ns = ...
 local UI = ns.UI
@@ -12,14 +10,14 @@ local Runtime = ns.Runtime
 local Window = UI.Window
 local frame, view = Window.frame, Window.view
 
-local MAX_INSET = 6 -- px a side, at most (UI.lua:73)
-local LEVEL_BORDER, LEVEL_BAND, LEVEL_CONTROLS, LEVEL_GRIP = 505, 515, 518, 520 -- over the frame's (Core.lua:181, 319, 333, 339)
+local MAX_INSET = 6 -- px a side, at most
+local LEVEL_BORDER, LEVEL_BAND, LEVEL_CONTROLS, LEVEL_GRIP = 505, 515, 518, 520 -- over the frame's
 
-local Chrome = { CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" } -- UI.lua:6
+local Chrome = { CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" }
 UI.Chrome = Chrome
 
 -- An atlas piece with an optional vertical flip: file + texcoords set here (not SetAtlas)
--- so the bottom corners and edge mirror for the top (UI.lua:17-28).
+-- so the bottom corners and edge mirror for the top.
 local function Piece(parent, atlas, flipV)
 	local info = C_Texture.GetAtlasInfo(atlas)
 	local t = parent:CreateTexture(nil, "OVERLAY")
@@ -32,7 +30,7 @@ local function Piece(parent, atlas, flipV)
 end
 
 -- ref: the template's NineSlice, whose corners say where the art sits. b.insets = { left,
--- top, right, bottom }: how far in the border reaches, so the view stops there (UI.lua:30-79).
+-- top, right, bottom }: how far in the border reaches, so the view stops there.
 local function Border(level, ref)
 	local b = CreateFrame("Frame", nil, frame)
 	b:SetAllPoints()

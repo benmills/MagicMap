@@ -1,8 +1,8 @@
 -- obs.waypoint (types/observation.lua MM.Pos|false), on change: the user waypoint (C_Map), where it
--- stands; false: none, or on a map Atlas hasn't (Layers.lua:624-633). Read again on
+-- stands; false: none, or on a map Atlas hasn't. Read again on
 -- USER_WAYPOINT_UPDATED, and at once after a waypoint Command (Game.WaypointChanged: the target doesn't
--- wait for the event, Layers.lua:2093-2095). A new table only when it moved. obs.waypointSet: one is
--- set, wherever (the spike's HasWaypoint, Layers.lua:2080-2081: the menu's Clear waypoint).
+-- wait for the event). A new table only when it moved. obs.waypointSet: one is
+-- set, wherever (the menu's Clear waypoint).
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime

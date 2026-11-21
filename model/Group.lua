@@ -1,6 +1,6 @@
 -- Your party's or raid's other members where the game says they are (obs.group: per frame, its tables
 -- Game's to refill, ~20 Hz), as Known("group"): key the member's GUID, its class, level and dead (or a
--- ghost) for its dot (Layers.lua:705-760); one withheld (an instance, another continent) isn't listed.
+-- ghost) for its dot; one withheld (an instance, another continent) isn't listed.
 -- An entry a member, kept while it's listed: a change sets its fields in place and the rev goes up; a
 -- new list when one is added or goes.
 

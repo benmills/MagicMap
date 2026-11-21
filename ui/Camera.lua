@@ -3,7 +3,7 @@
 -- and pixels per tile (Atlas.Camera's maths), moved in place. Camera.inst: the map shown
 -- (nil before the first draw). Camera.follow: centred on you. Moved by ui/Motion.lua.
 -- Camera.zone: the zone last flown to by name (a zone's click, /mm zone), on map Camera.zoneInst:
--- the title's off your map until the map shown changes (Core.lua:1071, 1125, 1302).
+-- the title's off your map until the map shown changes.
 
 local _, ns = ...
 local UI = ns.UI or {}; ns.UI = UI

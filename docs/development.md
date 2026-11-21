@@ -28,7 +28,9 @@ their GPLv3 terms (NOTICE.md); they're committed like the rest.
     .venv/bin/python tools/gen_tiles.py     local "$W" wowf -o Data/Tiles.lua
     .venv/bin/python tools/gen_tilecolor.py local "$W" wowf -o Data/TileColor.lua
     .venv/bin/python tools/gen_anchors.py   local "$W" wowf -o Data/Anchors.lua
-    .venv/bin/python tools/gen_walk.py      local "$W" wowf -o Data/Walk.lua
+    .venv/bin/python tools/gen_walk.py      local "$W" wowf --cache promo/walkfine -o Data/Walk.lua  # + WalkParts.lua
+    .venv/bin/python tools/gen_walk_rough.py --cache promo/walkfine -o Data/WalkRough.lua
+    .venv/bin/python tools/gen_walk_regions.py -o Data/WalkRegions.lua   # + WalkGraph.lua; again after walk_links.json changes
     .venv/bin/python tools/gen_areagrid.py  local "$W" wowf -o Data/AreaGrid.lua
     .venv/bin/python tools/gen_world.py     local "$W" wowf -o Data   # UiMaps, Areas, Places, ItemIcons
     .venv/bin/python tools/gen_questie.py "$W/_forever_/Interface/AddOns/QuestieDB"
@@ -45,7 +47,7 @@ places and which candidate was picked; `tools/ai_fix.py` makes candidates for on
 changes tiles under a place, repaint it or the setting's build check keeps the patches off. The addon draws them on
 the stamped build and later builds of the same version (Atlas.RepaintFits: builds within a version haven't touched
 their tiles so far); still run `tools/ai_map.py check` on each new build, and `stamp` once it's clean. See
-[ai-map-art.md](ai-map-art.md).
+[ADR 0011](decisions/0011-ai-map-art.md).
 
 The demo's assets, after the above: [demo/README.md](../demo/README.md).
 
@@ -78,17 +80,15 @@ An existing 2.0 save migrates instead, both replaced and no welcome (ui/Replace.
 
 ## Release
 
-Set `## Version:` in `MagicMap.toc` (D7: 2.x.x), run every generator on the installed client (above;
-the QuestieDB-derived five too) and `tools/check.sh`, commit, tag `v<version>`, then
+Set `## Version:` in `MagicMap.toc` (and README's zip name, tools/install.py's), add the version's notes at the top
+of [CHANGELOG.md](../CHANGELOG.md), run every generator on the installed client (above; the QuestieDB-derived five
+too) and `tools/check.sh`, commit, tag `v<version>`, then
 
-    tools/package.sh v2.1.0   # dist/MagicMap-v2.1.0.zip
+    tools/package.sh v3.2.0   # dist/MagicMap-v3.2.0.zip
 
-One zip of the committed tree, with LICENSE and NOTICE.md; it's unzipped into a scratch AddOns folder
-and loaded in the sim from there (every TOC file present; 0 errors) or isn't written. It goes on the
-GitHub release, with its notes: [dist/RELEASE_NOTES-v2.1.0.md](../dist/RELEASE_NOTES-v2.1.0.md) (2.0's:
-[dist/RELEASE_NOTES-v2.0.0.md](../dist/RELEASE_NOTES-v2.0.0.md); a listing draft for other channels:
-[dist/listing-v3.1.md](../dist/listing-v3.1.md); what to try in game first: [playtest-2.1.md](playtest-2.1.md)). How 2.0 replaced 1.x's tree in this repo:
-[release/merge-plan.md](release/merge-plan.md) (option A).
+One zip of the committed tree, with LICENSE and NOTICE.md; it's unzipped into a scratch AddOns folder and loaded in
+the sim from there (every TOC file present; 0 errors) or isn't written. It goes on the GitHub release with the
+version's CHANGELOG section as its notes; the CurseForge / Wago listing is [dist/listing.md](../dist/listing.md).
 
 ## Telemetry
 

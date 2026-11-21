@@ -1,9 +1,9 @@
--- The minimap button (spike MinimapButton.lua, UI.lua:81-125 CreateRoundButton): on the Minimap's
+-- The minimap button: on the Minimap's
 -- rim, dragged round it (its angle saved: SavedGame.buttonAngle), shown while View.button. A click,
 -- or the addon compartment's entry (the TOC's AddonCompartmentFunc), is "toggle" for UI
 -- (obs.hooked, game/Hooks.lua): it shows or hides the map. It hangs on the Minimap, so while the
 -- takeover has it, it waits hidden on the stand-in with the rest (game/Minimap.lua).
--- Button collectors (HidingBar, MBB...: #24) gather LibDataBroker launchers and LibDBIcon's buttons, and skip an
+-- Button collectors (HidingBar, MBB...) gather LibDataBroker launchers and LibDBIcon's buttons, and skip an
 -- unnamed button: so ours is named (MagicMapMinimapButton, for a collector's grab or manual add by name), and when
 -- another addon has loaded both LibDataBroker-1.1 and LibDBIcon-1.0 (LibStub's at login; MagicMap embeds neither:
 -- LibDBIcon's licence isn't the GPL's) MagicMap is a launcher LibDBIcon draws instead (LibDBIcon10_MagicMap, its spot
@@ -16,13 +16,13 @@ local Game, Runtime = ns.Game, ns.Runtime
 -- TOPLEFT (the one border, the ring round the icon), the background 20 at (7,-5), the icon 17 at
 -- (7,-6), its centre 80 from a 140 Minimap's middle: RIM past the Minimap's half width.
 local SIZE, RIM = 31, 10
-local ANGLE = 215         -- degrees, until dragged (Core.lua:28)
-local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- UI.lua:6: the icon's round mask
+local ANGLE = 215         -- degrees, until dragged
+local CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- the icon's round mask
 local RING = "Interface\\Minimap\\MiniMap-TrackingBorder"
 local BACK = "Interface\\Minimap\\UI-Minimap-Background"
 local HIGHLIGHT = "Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight"
-local ICON = "Interface\\Icons\\INV_Misc_Map_01"                  -- MinimapButton.lua:8
--- Its tip (MinimapButton.lua:10, in the map's tips' look: ui/Tip.lua): its name; a click's plain, a drag isn't.
+local ICON = "Interface\\Icons\\INV_Misc_Map_01"
+-- Its tip (in the map's tips' look: ui/Tip.lua): its name; a click's plain, a drag isn't.
 local TITLE, DRAG = "MagicMap", "Drag to move"
 
 local button = CreateFrame("Button", "MagicMapMinimapButton", Minimap)
@@ -51,7 +51,7 @@ ring:SetSize(53, 53)
 ring:SetPoint("TOPLEFT")
 
 -- On the rim of its parent: the Minimap, or the stand-in holding its spot, at MEDIUM 8 levels
--- above it (MinimapButton.lua:12-23).
+-- above it.
 local function Place()
 	local home = button:GetParent()
 	local a, r = math.rad(Game.saved.buttonAngle or ANGLE), home:GetWidth() / 2 + RIM

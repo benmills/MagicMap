@@ -1,31 +1,18 @@
--- /mm bench regions: what this client charges for the region calls the map
--- makes, in us a call, so the engine's choices (park, swap, scale) and the
--- sim's prices come from the client, not guesses. Made N at a time: textures,
--- lines, font strings; anchored: SetPoint, SetStartPoint; parked: SetParent
--- onto a hidden frame and back; a canvas's own calls (SetPoint, SetScale,
--- SetAlpha, Hide, Show) over 100 live, 1000 live and 1000 hidden child Lines
--- (the play-test's ~20 us a region, hidden pooled Lines
--- still paying); and the swap's question (ui/Engine.lua, docs/runtime.md "The map's engine"):
--- Show after the 1000 live lines moved while hidden (the M0 gate's 35-50 us a line), the same
--- at alpha 0, SetAlpha(1) after they moved while shown at alpha 0 (the engine's swap), and Show
--- after 100 masked textures moved (a masked disc: a pin's art). Each call is timed alone in
--- a Job, its frames graced ("bench"), and a canvas-wide call (setup, timed, or between ops) gets
--- a frame to itself, so the run's frames cost no more than one such call; every region is clear
--- until the moved and alpha ops, whose 1000 lines are coloured (a canvas at alpha 0
--- hides them; shown, the 320x200 clipped box shows them a frame at a time). And what no call's time
--- can show, a cost the client defers to its drawing: the whole frame after the 1000 lines moved on a
--- shown canvas at alpha 0 (the engine's back canvas), against the same move on a hidden canvas and an
--- idle frame; and the engine's swap, the frame after SetAlpha(1) on lines moved at alpha 0 a frame
--- before (frame.swap: the final session's deciding number; frame.*: µs a frame, debugprofilestop
--- across the yield). And a minimum zoom crossed (ui/Engine.lua's pins): 500 pins moved and shown in one
--- frame, each by its own SetAlpha (reveal.each, the cut before the M1b review's second round: the draw's
--- 3.1 ms priced for the big window's ~440 rares) or by their frame's (reveal.frame, the engine's now),
--- the calls and the frame after them. And the path's lines (ui/Path.lua): 160 Lines on a shown canvas, each
--- moved while hidden then shown by its own Show (line.Show.moved: the sim prices a frame's Show after a move,
--- not a line's). And quest areas (ui/Areas.lua, game/Oracles.lua), when your map has
--- quests: up to 25 of them drawn on a QuestPOIFrame the big map's size, a DrawBlob each (poi.DrawBlob),
--- a frame's all (poi.draw: DrawNone and every DrawBlob, as ui/Areas.lua draws a frame), a hit test
--- (poi.UpdateMouseOverTooltip), and the frame after drawing them all (frame.poi).
+-- /mm bench regions: what this client charges for the map's region calls, in us a call, so the
+-- engine's choices (park, swap, scale) and the sim's prices come from the client, not guesses
+-- (ui/Engine.lua, docs/runtime.md "The map's engine"). Timed, N at a time: textures, lines, font strings
+-- made; SetPoint, SetStartPoint; SetParent onto a hidden frame and back; a canvas's own calls over 100
+-- live, 1000 live and 1000 hidden child Lines (hidden pooled Lines still pay); the swap's question (Show
+-- after 1000 lines moved while hidden, the same at alpha 0, SetAlpha(1) after they moved at alpha 0) and
+-- Show after 100 masked textures moved (a pin's art). Each call is timed alone in a Job, its frames graced
+-- ("bench"); a canvas-wide call gets a frame to itself; regions are clear but for the moved and alpha
+-- ops' 1000 coloured lines (in a 320x200 clipped box). Then what the client defers to its drawing
+-- (frame.*: µs a frame, debugprofilestop across the yield): the frame after 1000 lines moved on a shown
+-- canvas at alpha 0, against a hidden canvas and an idle frame; the swap's frame (frame.swap); 500 pins
+-- crossing a minimum zoom, each by its own SetAlpha (reveal.each) or by their frame's (reveal.frame);
+-- the path's 160 Lines each shown after a move (line.Show.moved: the sim prices a frame's Show after a
+-- move, not a line's); and, when your map has quests, up to 25 areas on a QuestPOIFrame the big map's
+-- size (poi.DrawBlob each, poi.draw a frame's all, poi.UpdateMouseOverTooltip, frame.poi after them).
 -- Bench.result = { build, t, ops = { [op] = { n, ms, us } } } (Telemetry keeps it per build).
 
 local _, ns = ...
@@ -52,7 +39,7 @@ local function R(v, k) return math.floor(v * k + 0.5) / k end -- /: never 0 (k: 
 local PINS = 500 -- a minimum zoom's pins (~440 rares in the big window at 60)
 local PATH = 160 -- the path's lines a pool (ui/Path.lua MAX_PIECES)
 local POI_QUESTS, POI_SIZE = 25, 1024 -- quests drawn (a hub's), px (a zone on the big map)
-local BLOB = "Interface\\WorldMap\\UI-QuestBlob-" -- Inside / Outside (Layers.lua:786)
+local BLOB = "Interface\\WorldMap\\UI-QuestBlob-" -- Inside / Outside
 local MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- a mask the client has (ui/Art.lua), as a pin's disc
 
 local result, order, job -- the run's, committed at its end

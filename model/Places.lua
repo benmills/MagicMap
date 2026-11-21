@@ -3,9 +3,8 @@
 -- points, area POIs, dungeon and raid entrances, Data/Places.lua) for Focus's instance (else yours),
 -- deduped:
 --   across maps   a place the game marks on two maps (its continent's, a zone's) is one entry (its key)
---   live/static   a kind the game marks on an instance stands for Atlas's of that kind there (the spike
---                 drew the game's: Layers.lua:459-540, Landmarks.lua:119-143); Atlas's where it marks
---                 none, or before it's read there
+--   live/static   a kind the game marks on an instance stands for Atlas's of that kind there; Atlas's
+--                 where it marks none, or before it's read there
 -- place: its kind; live: the game's. icon: the art, as the client draws the kind (an atlas, or for an area
 -- POI Data's POIIcons cell: { cell }); Atlas's entries get the client's own atlas names for their kind.
 

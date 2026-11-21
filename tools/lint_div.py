@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Every `/` in the addon's code must be one that can't divide by 0 (spike-bugs E3):
+"""Every `/` in the addon's code must be one that can't divide by 0:
 WoW's Lua raises "Division by zero" where plain Lua, so the tests, gives inf or nan.
 
 In atlas/, model/, game/, ui/ and runtime/ (subfolders too), a `/` passes when its
@@ -164,7 +164,7 @@ def main() -> None:
     problems = [p for path in paths for p in lint(path)]
     if problems:
         print("\n".join(problems))
-        sys.exit(f"lint_div: {len(problems)} / that may be 0, in {len(paths)} files. WoW raises on x/0 (spike-bugs E3): "
+        sys.exit(f"lint_div: {len(problems)} / that may be 0, in {len(paths)} files. WoW raises on x/0: "
                  "divide by a literal or a NAMED constant, fix it at the source, or end the line -- /: never 0 (why)")
     print(f"lint_div: {len(paths)} files, every / by a literal, a constant or a reason")
 

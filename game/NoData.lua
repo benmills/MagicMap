@@ -1,5 +1,5 @@
 -- Without QuestieDB's data (Data/Npcs, Objects, Items, Quests: NOTICE.md) Atlas's
--- indexes are empty and the map runs on: one chat line says so, at load (QuestInfo.lua:71-75).
+-- indexes are empty and the map runs on: one chat line says so, at load.
 
 local _, ns = ...
 

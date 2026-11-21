@@ -1,13 +1,13 @@
 -- obs.group (types/observation.lua MM.ObsMember[]), per frame: your party's or raid's other members, read
--- STEP s apart (20 a second: they walk; Layers.lua:711-717) and the same tables between: the list, each
+-- STEP s apart (20 a second: they walk) and the same tables between: the list, each
 -- member and its position refilled. A member's class token, level (nil: too high to tell), dead or a
 -- ghost, and where it stands (UnitPosition); nil where the client withholds it (instances, a secret
--- value: Layers.lua:727). You aren't in it; in no group, known and empty.
+-- value). You aren't in it; in no group, known and empty.
 
 local _, ns = ...
 local Atlas, Game = ns.Atlas, ns.Game
 
-local STEP = 0.05 -- s (Layers.lua:717)
+local STEP = 0.05 -- s
 local PARTY, RAID = {}, {}
 for i = 1, 40 do PARTY[i], RAID[i] = "party" .. i, "raid" .. i end
 

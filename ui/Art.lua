@@ -1,10 +1,10 @@
 -- Art: every atlas, file and font UI draws with, by name, and Game's minimap button's (all the
 -- chrome you see). Checked against the client once after login's grace and on /mm check
 -- art; each miss traces "art" (its name). Forever lacks some art other clients have, and a
--- missing name draws nothing, silently (spike-bugs L2, L5). A name UI starts using goes here.
--- Not listed: data's art (tile FileDataIDs: generated, K4), the map art's own files (Textures/: the base,
+-- missing name draws nothing, silently. A name UI starts using goes here.
+-- Not listed: data's art (tile FileDataIDs: generated), the map art's own files (Textures/: the base,
 -- the sea, the repaints) and the client's own tracking icons (whatever C_Minimap names). Every icon is the
--- client's (#16): tools/tests/test_pins.py's test_pin_inventory holds it.
+-- client's: tools/tests/test_pins.py's test_pin_inventory holds it.
 
 local _, ns = ...
 local UI, Runtime = ns.UI, ns.Runtime
@@ -17,7 +17,7 @@ local Art = {
 		"vignettekill",                                            -- ui/Menus.lua: the Rares & treasures row's icon
 		"UI-Frame-Metal-CornerBottomLeft", "UI-Frame-Metal-CornerBottomRight", -- ui/Chrome.lua: the border
 		"_UI-Frame-Metal-EdgeBottom", "!UI-Frame-Metal-EdgeLeft", "!UI-Frame-Metal-EdgeRight",
-		-- ui/Controls.lua: the mode button, the spike's chains (Core.lua:282-286). Forever draws the
+		-- ui/Controls.lua: the mode button's chains. Forever draws the
 		-- second of each: GetAtlasInfo takes an element's name, and redbutton-expand-c60 is only a
 		-- member of element redbutton-expand (an art variant, as -2x is: UiTextureAtlasMember 38936).
 		{ "redbutton-expand-c60", "redbutton-expand" },
@@ -90,7 +90,7 @@ end
 -- A font as ui/Labels.lua loads it: SetFont, on a font string of its own. One the client can't
 -- load leaves it without a font (GetFont nil), as it would leave a label: drawn as nothing.
 -- Not GetFileIDFromPath: that answers nil for fonts the client has (Fonts\FRIZQT__.TTF is its
--- file 615960: the M0 gate's two font misses).
+-- file 615960).
 local fonts = {}
 local function HasFont(file)
 	local fs = fonts[file]
@@ -124,7 +124,7 @@ local function Report(misses)
 		or string.format("  art: all %d there", #Art.atlases + #Art.files + #Art.fonts))
 end
 
--- The first of names the client has, as a look's icon (Pins' StylePin): a file path (one with a
+-- The first of names the client has, as a look's icon (ui/Pins.lua's Style): a file path (one with a
 -- backslash) as a texture, else an atlas. None the client has: no icon, so a dot. A fresh table each
 -- call (the caller sets its colour).
 local known = {}

@@ -12,7 +12,7 @@
 -- client charges per region: each icon has its art): no frame of ours over 8 ms, the wheel's never
 -- scale the pins' canvas; the hide's cost, per region under the window, is printed. (M's press itself,
 -- outside our frames, can cost more: Blizzard's map opening for a moment makes HereBeDragons show its
--- pins: spike-bugs G6.)
+-- pins.)
 local T = ...
 local sim, ns = T.Shown()
 local view = ns.UI.View()

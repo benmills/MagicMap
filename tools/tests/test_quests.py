@@ -1,4 +1,4 @@
-"""Quest pins on the simulated client (docs/v1-plan.md M2.4: ui/Quests.lua, ui/QuestTooltip.lua, the
+"""Quest pins on the simulated client (ui/Quests.lua, ui/QuestTooltip.lua, the
 clicks in ui/Areas.lua), end to end from the sim's quest log through Game's parts and Model:
 
   test_quest_pins: StylePin's quest forms: in progress, Blizzard's in-progress atlas alone (no disc behind it),
