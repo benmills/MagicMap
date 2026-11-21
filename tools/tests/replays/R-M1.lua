@@ -52,7 +52,7 @@ local len = math.sqrt(dx * dx + dy * dy)
 me.col, me.row = (a.col + b.col) / 2 - dy / len * 2 * CHUNK, (a.row + b.row) / 2 + dx / len * 2 * CHUNK
 sim.Run(0.5)
 local way = Model.Route()
-local m = Index(way[2])
+local m = Index(way[2]) or Index(way[3]) -- (way[2]: where it joins the route, FOLLOW.join yd on; or a point of it)
 T.Print("M1: 2 chunks beside leg %d-%d of %d: the line's second point the route's %d", k, k + 1, #first, m)
 assert(way[1] == Model.you and m and m > k and #jobs == 1)
 

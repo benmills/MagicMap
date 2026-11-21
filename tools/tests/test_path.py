@@ -287,6 +287,9 @@ def test_path_redraws():
     sim.Run(3)  # standing: nothing laid out, no widget call
     assert P.draws == draws and G.Calls() == calls
 
+    ns.UI.Feel.Set("route.lead", True)  # (the line leaving the way you face: off by default)
+    sim.Run(0.2)
+    draws = P.draws
     sim.player.facing += math.radians(1)  # under 3°: as it was
     sim.Run(0.2)
     assert P.draws == draws

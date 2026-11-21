@@ -63,6 +63,9 @@
 --   Tracking (45), the way to what you track or path to. Shows (ui/Track.lua); Arrow: Size, Opacity, Distance
 --     (ui/Guide.lua); Line: Style (its Glow, Breathing, Outline under it), Weight, Colour, Opacity (ui/Path.lua);
 --     Target: Glow (ui/Pins.lua), Frame the way (ui/Path.lua).
+--   Route (46), how the way's found and followed (ui/Path.lua): By you: Gap at you, Leave the way you face (its
+--     Curve length); Following: Join the way, Skip ahead, Find a new way after; Shape: Corner rounding, Cut
+--     across bumps, Room to go round.
 --   Advanced (90), the fine tuning, and reports: the quest pill's layout (ui/Controls.lua), the quest areas' raw
 --     numbers (ui/Areas.lua), Debug info in title; Reports in chat: Record 10 seconds, Compare with other addons,
 --     Memory breakdown (each a /mm command too). It alone scrolls (Pins too, every row opened).
@@ -1132,6 +1135,8 @@ Feel.Page({ key = "quests", title = "Quests", icon = "Interface\\Icons\\INV_Misc
 Feel.Page({ key = "tracking", title = "Tracking", icon = "Interface\\Icons\\INV_Misc_Spyglass_03", order = 45,
 	tip = "The way to what you track or path to: the gold arrow, the line, and what you're headed for.",
 	sections = { "Arrow", "Line", "Target" } })
+Feel.Page({ key = "route", title = "Route", icon = "Interface\\Icons\\INV_Misc_Map_02", order = 46,
+	tip = "How the way's found and how the line follows you as you go.", sections = { "By you", "Following", "Shape" } })
 Feel.Page({ key = "advanced", title = "Advanced", icon = "Interface\\Icons\\INV_Gizmo_01", order = 90,
 	tip = "Fine tuning (the quest pill's layout, the quest areas' raw numbers) and reports for a bug report.",
 	sections = { "Pill layout", "Pill text and close", "Pill border", "Followed quest area", "Other quest areas",

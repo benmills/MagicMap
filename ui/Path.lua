@@ -34,7 +34,7 @@ local Maths = ns.Atlas.Camera
 local floor, sin = math.floor, math.sin
 
 local LEVEL = 8 -- over the quest areas (4), under the names (9): the spike's path frame (Core.lua:149)
-local CLEAR_YOU, CLEAR_TARGET = 12, 15 -- px left clear around your arrow and the target's pin (Path.lua:11)
+local CLEAR_YOU, CLEAR_TARGET = 12, 15 -- px left clear around your arrow (Settings > Tracking > Route: Gap at you) and the target's pin (Path.lua:11)
 local FADE, FADE_YOU = 40, 10 -- px over which the line fades in at the target and out at you: short at you, so it leaves your arrow (Path.lua:12)
 -- The look's settings ("path.<name>", read at use) and their defaults; the colours in the order the settings
 -- list them, the first the list's own. The spike's dashes
@@ -65,9 +65,10 @@ local STROKE_RGBA, WASH_RGBA = { 1, 0.93, 0.76, STROKE_ALPHA }, { 0.12, 0.08, 0.
 local MAX_PIECES = 160 -- Path.lua:17
 local WOBBLE = 0.8 -- px the line strays either side of true, in long slow waves (Path.lua:18)
 local UNEVEN = 0.25 -- share of the pieces' alpha that comes and goes along it (Path.lua:19)
-local LEAD_YD, LEAD_STEPS = 130, 8 -- yards of line (at most 60% of it) that bend from where you face onto the way, the same at any zoom (Path.lua:20-21)
+local LEAD_YD, LEAD_STEPS = 130, 8 -- yards of line (at most 60% of it) that bend from where you face onto the way, the same at any zoom (Path.lua:20-21); off unless Settings > Tracking > Route's Leave the way you face (each turn moves the line by you)
 local LEAD_HANDLE = 0.5 -- of the curve's chord, how far out along your facing (and in along the way) its handles reach: lazy turns
 local LEAD_TILES = LEAD_YD / ns.Atlas.TILE_YARDS
+local leadOn = false
 local FACING_STEP = math.rad(3) -- turning less than this doesn't redraw the line (Path.lua:22)
 local EDGE_INSET = 16 -- px from the view's edge to the arrow's centre (Path.lua:27)
 local EDGE_ART, EDGE_SIZE = "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW", 32 -- Path.lua:31-33
@@ -346,6 +347,49 @@ local rect = {} -- the canvas px laid out over (the view's and a margin): x0, y0
 local you, dest = {}, {} -- the line's ends, tile space
 local way = {} -- its points: you, the route's between, the target
 local shownWay -- way as last drawn, when a route was found: the edge arrow's legs
+function Path.Laid() return shownWay end -- (the tests: the way as last drawn)
+
+-- How the way's found and followed (atlas/Route.lua's TUNE, model/Route.lua's FOLLOW) and how it leaves you.
+-- A change finds it again, or cuts it again, and lays the line out again.
+local TUNE, FOLLOW = ns.Atlas.Route.TUNE, Model.FOLLOW
+local CHUNK_YD = ns.Atlas.TILE_YARDS / ns.Atlas.Route.CHUNKS -- (/: never 0, constants)
+local function Again(search)
+	drawn[1], had.route, had.n = nil, nil, -1
+	if Model.Reroute then Model.Reroute(search) end
+end
+UI.Feel.Add("route", "By you", {
+	{ key = "route.gap", kind = "slider", label = "Gap at you", min = 0, max = 40, step = 2, fmt = "%d px",
+		default = CLEAR_YOU, apply = function(v) CLEAR_YOU = v; Again() end,
+		tip = "How much room the line leaves round your arrow." },
+	{ key = "route.lead", kind = "toggle", label = "Leave the way you face", default = false,
+		apply = function(v) leadOn = v; Again() end,
+		tip = "The line curves out of your arrow the way you're facing. It moves each time you turn." },
+	{ key = "route.leadYd", kind = "slider", label = "Curve length", min = 30, max = 200, step = 10, fmt = "%d yd",
+		default = LEAD_YD, when = "route.lead", apply = function(v) LEAD_TILES = v / ns.Atlas.TILE_YARDS; Again() end, -- (/: never 0, a constant)
+		tip = "How far the curve out of your arrow runs before it's on the way." },
+})
+UI.Feel.Add("route", "Following", {
+	{ key = "route.join", kind = "slider", label = "Join the way", min = 0, max = 80, step = 5, fmt = "%d yd",
+		default = FOLLOW.join, apply = function(v) FOLLOW.join = v; Again() end,
+		tip = "How far ahead of you the line rejoins the way. More: a calmer line by you." },
+	{ key = "route.skip", kind = "toggle", label = "Skip ahead", default = FOLLOW.skip,
+		apply = function(v) FOLLOW.skip = v; Again() end,
+		tip = "The line runs straight to the furthest bit of the way you could walk to. It jumps as each comes in sight." },
+	{ key = "route.replan", kind = "slider", label = "Find a new way after", min = 40, max = 300, step = 10, fmt = "%d yd",
+		default = FOLLOW.replan, apply = function(v) FOLLOW.replan = v; Again() end,
+		tip = "How far you can stray from the way before it's found again from where you are." },
+})
+UI.Feel.Add("route", "Shape", {
+	{ key = "route.round", kind = "slider", label = "Corner rounding", min = 0, max = 120, step = 10, fmt = "%d yd",
+		default = 70, apply = function(v) TUNE.round = v / CHUNK_YD; Again(true) end, -- (/: never 0, a constant)
+		tip = "How far back from each corner the line starts to curve round it. 0: sharp corners." },
+	{ key = "route.slack", kind = "slider", label = "Cut across bumps", min = 0, max = 20, step = 1, fmt = "%d yd",
+		default = TUNE.slack, apply = function(v) TUNE.slack = v; Again(true) end,
+		tip = "How much rough ground (a rock, a bump) a straight stretch may cross rather than bend round. Cliffs are never crossed." },
+	{ key = "route.corridor", kind = "slider", label = "Room to go round", min = 1, max = 3, step = 0.5, fmt = "%.1f",
+		default = TUNE.corridor, apply = function(v) TUNE.corridor = v; Again(true) end,
+		tip = "How far from the straight way the line may wander to get round rough ground. Less: straighter." },
+})
 
 -- The line leaving you the way you face (radians, 0 north, turning left): a curve from you along it onto
 -- the way, `lead` tiles along, joining the way's own direction there; then the rest of the way.
@@ -565,7 +609,7 @@ local function Line(t, me, cam, w, h)
 	local x2, y2 = HalfPixel((pos.col - ox) * z), HalfPixel((pos.row - oy) * z)
 	local route = Model.Route()
 	if route and route.straight then route = nil end
-	local facing = me.facing
+	local facing = leadOn and me.facing or nil
 	facing = facing and math.floor(facing / FACING_STEP + 0.5) * FACING_STEP
 	if Unchanged(x1, y1, x2, y2, facing, z) and Same(route) and Covered(cam, w, h) then
 		local half = lay.half
