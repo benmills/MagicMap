@@ -15,7 +15,8 @@
 -- Its look is the settings' (Settings > Tracking > Line, declared here: ui/Feel.lua; Path.DEFAULTS by default): the
 -- style (dotted, dashed or solid: one line a leg), the weight (the stroke's px; its edge twice that), the colour
 -- (Path.COLORS, or any: "#rrggbb"), the ADD glow, the breath and its pace, an opacity, and the dark edge (the
--- outline: on or off, its colour from Path.EDGE_COLORS, or any). A change (Feel.rev) restyles the pieces and lays
+-- outline: on or off, its colour from Path.EDGE_COLORS, or any). With no outline, the line is ink (INK): the
+-- ground under it multiplied by its tint and its colour added, so it reads on snow and on night alike. A change (Feel.rev) restyles the pieces and lays
 -- the line out anew.
 -- While it's drawn for Path to (Path.pathed; View.pathing) Blizzard's blips step aside (game/Minimap.lua): the map zooms ours,
 -- smooth, no minimap steps to flicker against while the framing moves it.
@@ -57,10 +58,20 @@ local STROKE_ALPHA, WASH_ALPHA = 0.92, 0.45 -- Path.lua:14-15 (more alpha: legib
 -- whitens mid tones; over the dark edge it stays a light core on pale snow too), and the canvas breathes
 -- slowly (one Alpha animation, run in C: no Lua a frame, no widget call at rest).
 local PULSE_LOW = 0.68 -- the canvas's lowest alpha (and DEFAULTS.breathTime s each way)
+-- Ink: with no outline, each piece is the same thin line twice, nothing added round it: under, the ground
+-- multiplied (MOD) by m, the colour's tint; over, the colour ADDed at alpha a. Each pixel under it is
+-- ground x m + a: on light ground the multiply shows (ink on paper), on dark the add (a glint), and m and a
+-- differ by channel, so where its brightness meets the ground's its hue still doesn't. Per colour, fitted
+-- against the repaints' pixels and snow, sand and black (m = 1 - b (1 - g c), a = alpha x c): the weakest
+-- contrast up to 3.5x today's blend, the typical no louder, the loudest softer. At the default opacity; the
+-- opacity scales a and b. White can't be ink on snow: it blends as before (and with the outline on, all do).
+local INK = { Parchment = { 0.3, 1, 0.8 }, Gold = { 0.45, 1, 1 }, Sky = { 0.5, 1, 0.6 }, Mint = { 0.3, 1, 0.8 },
+	Rose = { 0.55, 0.75, 0.6 }, White = false, any = { 0.45, 1, 1 } } -- { alpha, b, g }
+local INK_OPACITY = 0.65 -- the opacity they were fitted at (DEFAULTS.opacity)
 -- As set (Apply): the stroke's and the edge's px, their colours (the edge's fixed, the stroke's chosen), their
 -- alphas in half hundredths, a piece's px on and off and their sum (longer, in proportion, when there'd be
 -- more than MAX_PIECES: Path.lua:16; a dot keeps its size, the gaps grow), and whether the line is solid, or dotted.
-local STROKE, WASH, STROKE_A, WASH_A, DASH, GAP, PERIOD, SOLID, DOTS, EDGE
+local STROKE, WASH, STROKE_A, WASH_A, DASH, GAP, PERIOD, SOLID, DOTS, EDGE, INKED -- (EDGE: the wash drawn, the outline's or ink's)
 local STROKE_RGBA, WASH_RGBA = { 1, 0.93, 0.76, STROKE_ALPHA }, { 0.12, 0.08, 0.03, WASH_ALPHA }
 local MAX_PIECES = 160 -- Path.lua:17
 local WOBBLE = 0.8 -- px the line strays either side of true, in long slow waves (Path.lua:18)
@@ -120,28 +131,37 @@ local lineS, lineW, dotS, dotW = {}, {}, {}, {}
 local strokes, washes = lineS, lineW -- the style's pool
 local used = 0
 local colourRev = 0 -- moves as the stroke's colour or the opacity does
-local function Restyle(l, thick, c, add)
+-- A piece's colour at alpha a: a MOD (ink's under) has none to fade by, so it fades toward white, multiplying by 1.
+local function Paint(l, c, a)
+	if l.blend == "MOD" then
+		l:SetColorTexture(1 - a * (1 - c[1]), 1 - a * (1 - c[2]), 1 - a * (1 - c[3]), 1)
+	else
+		l:SetColorTexture(c[1], c[2], c[3], a)
+	end
+end
+local function Restyle(l, thick, c, blend)
 	if l.t ~= thick then
 		l.t = thick
 		if l.dot then l:SetSize(thick, thick) else l:SetThickness(thick) end
 	end
-	if l.add ~= add then
-		l.add = add
-		l:SetBlendMode(add and "ADD" or "BLEND")
+	if l.blend ~= blend then
+		l.blend = blend
+		l:SetBlendMode(blend)
+		l.cv = nil
 	end
 	if l.cv ~= colourRev then
 		l.cv = colourRev
-		l:SetColorTexture(c[1], c[2], c[3], l.a)
+		Paint(l, c, l.a)
 	end
 end
-local function Make(dot, sublevel, thick, c, add)
+local function Make(dot, sublevel, thick, c, blend)
 	local l
 	if dot then l = canvas:CreateTexture(nil, "ARTWORK", nil, sublevel) else l = canvas:CreateLine(nil, "ARTWORK", nil, sublevel) end
 	l:SetSnapToPixelGrid(false)
 	l:SetTexelSnappingBias(0)
 	l:Hide()
-	l.on, l.a, l.add, l.dot = false, c[4], false, dot
-	Restyle(l, thick, c, add)
+	l.on, l.a, l.blend, l.dot = false, c[4], "BLEND", dot
+	Restyle(l, thick, c, blend)
 	return l
 end
 
@@ -184,13 +204,15 @@ local function Apply()
 		and feel.breath == pulse and feel.opacity == opacity and feel.edge == edge and feel.edgeColor == edgeColor then return false end
 	if feel.color ~= color or feel.opacity ~= opacity or feel.edgeColor ~= edgeColor then colourRev = colourRev + 1 end
 	feel.style, feel.weight, feel.color, feel.glow, feel.opacity = style, weight, color, glow, opacity
-	feel.edge, feel.edgeColor, EDGE = edge, edgeColor, edge
+	local ink = not edge and INK[color]
+	if ink == nil then ink = INK.any end
+	feel.edge, feel.edgeColor, EDGE, INKED = edge, edgeColor, edge or ink and true, ink and true
 	for i = 1, used do
 		Off(strokes[i])
 		Off(washes[i])
 	end
 	used, Path.pieces = 0, 0
-	STROKE, WASH = weight, weight * 2
+	STROKE, WASH = weight, ink and weight or weight * 2
 	local g = STYLES[style]
 	SOLID, DOTS = not g, style == "dotted"
 	DASH, GAP = (g or STYLES.dotted)[1] * weight, (g or STYLES.dotted)[2] * weight
@@ -198,12 +220,21 @@ local function Apply()
 	if DOTS then strokes, washes = dotS, dotW else strokes, washes = lineS, lineW end
 	STROKE_RGBA[1], STROKE_RGBA[2], STROKE_RGBA[3], STROKE_RGBA[4] = rgb[1], rgb[2], rgb[3], STROKE_ALPHA * opacity
 	WASH_RGBA[1], WASH_RGBA[2], WASH_RGBA[3], WASH_RGBA[4] = edgeRgb[1], edgeRgb[2], edgeRgb[3], WASH_ALPHA * opacity
+	local washBlend, strokeBlend = "BLEND", glow and "ADD" or "BLEND"
+	if ink then -- (the ink's: see INK)
+		local scale = opacity / INK_OPACITY -- /: never 0 (a constant)
+		local b, g = math.min(1, ink[2] * scale), ink[3]
+		for k = 1, 3 do WASH_RGBA[k] = 1 - b * (1 - g * rgb[k]) end
+		WASH_RGBA[4] = 1
+		STROKE_RGBA[4] = math.min(1, ink[1] * scale * (glow and 1.5 or 1))
+		washBlend, strokeBlend = "MOD", "ADD"
+	end
 	STROKE_A, WASH_A = STROKE_RGBA[4] * 200, WASH_RGBA[4] * 200
 	for i = 1, #lineS do
-		Restyle(lineW[i], WASH, WASH_RGBA, false)
-		Restyle(lineS[i], STROKE, STROKE_RGBA, glow)
-		Restyle(dotW[i], WASH, WASH_RGBA, false)
-		Restyle(dotS[i], STROKE, STROKE_RGBA, glow)
+		Restyle(lineW[i], WASH, WASH_RGBA, washBlend)
+		Restyle(lineS[i], STROKE, STROKE_RGBA, strokeBlend)
+		Restyle(dotW[i], WASH, WASH_RGBA, washBlend)
+		Restyle(dotS[i], STROKE, STROKE_RGBA, strokeBlend)
 	end
 	if feel.breath ~= pulse then
 		feel.breath = pulse
@@ -240,15 +271,16 @@ UI.Feel.Add("tracking", "Target", {
 })
 UI.Feel.Add("tracking", "Line", {
 	{ key = "path.edge", kind = "toggle", label = "Outline", default = DEFAULTS.edge, under = "path.style",
-		tip = "A darker edge under the line, so it reads on pale ground." },
+		tip = "A darker edge under the line, wider than it. Off, the line tints the ground under it instead, which reads on pale and dark ground alike." },
 	{ key = "path.edgeColor", kind = "color", label = "Outline colour", colors = EDGE_COLORS, default = DEFAULTS.edgeColor,
 		under = "path.style", when = "path.edge", tip = "The outline's colour." },
 })
 Apply()
 UI.Feel.OnLoad(Apply) -- (the saved look, at login: not in the first frame shown)
 for i = 1, MAX_PIECES do
-	lineW[i], lineS[i] = Make(false, 0, WASH, WASH_RGBA, false), Make(false, 1, STROKE, STROKE_RGBA, feel.glow)
-	dotW[i], dotS[i] = Make(true, 0, WASH, WASH_RGBA, false), Make(true, 1, STROKE, STROKE_RGBA, feel.glow)
+	local wb, sb = INKED and "MOD" or "BLEND", (INKED or feel.glow) and "ADD" or "BLEND"
+	lineW[i], lineS[i] = Make(false, 0, WASH, WASH_RGBA, wb), Make(false, 1, STROKE, STROKE_RGBA, sb)
+	dotW[i], dotS[i] = Make(true, 0, WASH, WASH_RGBA, wb), Make(true, 1, STROKE, STROKE_RGBA, sb)
 end
 
 -- Only what changed: the far end of the line (its waves are counted from the target) stays put as you go;
@@ -256,7 +288,7 @@ end
 local function Segment(l, ax, ay, bx, by, c, a)
 	if l.a ~= a then
 		l.a = a
-		l:SetColorTexture(c[1], c[2], c[3], a)
+		Paint(l, c, a)
 	end
 	if l.ax ~= ax or l.ay ~= ay then
 		l.ax, l.ay = ax, ay
@@ -276,7 +308,7 @@ end
 local function Dot(l, x, y, c, a)
 	if l.a ~= a then
 		l.a = a
-		l:SetColorTexture(c[1], c[2], c[3], a)
+		Paint(l, c, a)
 	end
 	if l.ax ~= x or l.ay ~= y then
 		l.ax, l.ay = x, y

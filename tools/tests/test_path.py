@@ -268,9 +268,15 @@ def test_path_feel():
     sim.Run(0.2)
     assert P.pieces == len(dashes(G, 1.4)) > 15 and set(G.Looks().keys()) == {"1.4 BLEND 1 0.82 0.3", "2.8 BLEND 0.12 0.08 0.03"}
 
-    G.Feel("path.edge", False)  # the outline off: the strokes alone; its colour, once on again
+    G.Feel("path.edge", False)  # the outline off: ink, the line twice at its weight (MOD by its tint, its colour ADDed)
     sim.Run(0.2)
-    assert P.pieces == len(dashes(G, 1.4)) > 15 and dashes(G, 2.8) == []
+    looks = set(G.Looks().keys())  # (a MOD's fade at the ends: toward white)
+    assert {"1.4 ADD 1 0.82 0.3", "1.4 MOD 1 0.82 0.3"} <= looks and all(k.startswith("1.4 ") for k in looks)
+    assert P.pieces * 2 == len(dashes(G, 1.4)) > 30 and dashes(G, 2.8) == []
+    G.Feel("path.color", "White")  # white: no ink (it can't darken snow), the stroke alone
+    sim.Run(0.2)
+    assert set(G.Looks().keys()) == {"1.4 BLEND 1 1 1"} and P.pieces == len(dashes(G, 1.4))
+    G.Feel("path.color", "Gold")
     G.Feel("path.edge", True)
     G.Feel("path.edgeColor", "White")
     sim.Run(0.2)
