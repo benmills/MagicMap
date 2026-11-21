@@ -650,80 +650,107 @@ end
 local CELL = 8               -- cells a chunk side (its quads)
 local CORRIDOR_POPS = 40000  -- cells a corridor's search looks at, at most
 local GREED = 1.5            -- the search's pull toward its goal (over 1: fewer cells looked at, a way a little longer)
-local cOpen, cG, cFrom, cCost, cHeap, cSegs = {}, {}, {}, {}, { ids = {}, keys = {}, n = 0 }, {}
-local cS, cO = {}, {} -- the corridor's chunks' rough bits (Walk.RoughChunk: false, none), each looked up once
-local cLists, cCells = {}, {} -- cSegs' lists, kept to use again (a search's garbage: test_route_capped); the way's cells
-local CKEY = 16384     -- a cell's key: cx * CKEY + cy (cells a continent side: 64 tiles x 16 chunks x 8 = 8192)
+local KEEP_CELLS = 32768     -- a corridor's box (cells) the kept tables serve (most are 2000-10000, a long run's ~30000); a bigger one gets its own, let go after
+-- The corridor's tables, by a cell's place in the run's box (1 .. w * h), kept from one corridor to the next and
+-- never emptied (a re-route's corridor is over new cells: keys emptied and new ones added rehash a table up from
+-- small each time; an array's slots are there already): a cell's tag (this corridor's number * 4 + its cost's code
+-- once looked at: 0 outside the corridor, 1 open, 2 rough, 3 sheer; less: not yet), its cost so far (math.huge
+-- none yet; closed: negated less one), the cell it was reached from. Filled at load (~1.5 MB): grown in a search,
+-- their doublings would be that search's garbage.
+local cTag, cG, cFrom, cGen = {}, {}, {}, 0
+for i = 1, KEEP_CELLS do cTag[i], cG[i], cFrom[i] = 0, 0, 0 end
+-- Each chunk of the box's (by its place there): { gen, n, legs 1..n within R of it, s, o its rough bits }, kept.
+local cChunks = {}
+local cHeap, cCells = { ids = {}, keys = {}, n = 0 }, {} -- the open cells; the way's cells
+local HUGE = math.huge
 local function Corridor(inst, run, out, yield, soft)
 	local RoughChunk, RoughQuad = Walk.RoughChunk, Walk.RoughQuad
 	local R = TUNE.corridor * CELL
 	local R2 = R * R
 	local roughC, sheerC = TUNE.roughCost, soft and TUNE.sheerCost or false -- (sheer: none, till no way's found without)
-	Empty(cOpen, yield); Empty(cG, yield); Empty(cFrom, yield); Empty(cCost, yield); Empty(cS, yield); Empty(cO, yield)
-	Empty(cSegs, yield); Empty(cHeap.ids, yield); Empty(cHeap.keys, yield)
-	cHeap.n = 0
-	local lists = 0
-	-- The run's legs in cells, listed in each chunk within R of them (a cell asks only its chunk's).
 	local F = CHUNKS * CELL
+	-- The box: every cell within R of the run, and one more each side (their neighbours, looked at too).
+	local x0, y0, x1, y1 = HUGE, HUGE, -HUGE, -HUGE
+	for i = 1, #run do
+		local x, y = run[i].col * F, run[i].row * F
+		x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
+	end
+	x0, y0, x1, y1 = floor(x0 - R) - 1, floor(y0 - R) - 1, floor(x1 + R) + 1, floor(y1 + R) + 1
+	local h = y1 - y0 + 1
+	local N = (x1 - x0 + 1) * h
+	local gc0, gr0 = floor(x0 / CELL), floor(y0 / CELL) -- /: never 0 (a constant)
+	local ch = floor(y1 / CELL) - gr0 + 1 -- /: never 0 (a constant)
+	local tag, G, from, chunks = cTag, cG, cFrom, cChunks
+	if N > KEEP_CELLS then
+		tag, G, from, chunks = {}, {}, {}, {}
+	end
+	cGen = cGen + 1
+	local gen = cGen
+	local base = gen * 4
+	cHeap.n = 0
+	-- The run's legs, listed in each chunk within R of them (a cell asks only its chunk's).
 	for i = 2, #run do
 		local ax, ay, bx, by = run[i - 1].col * F, run[i - 1].row * F, run[i].col * F, run[i].row * F
 		for gc = floor((min(ax, bx) - R) / CELL), floor((max(ax, bx) + R) / CELL) do -- /: never 0 (a constant)
 			yield()
 			for gr = floor((min(ay, by) - R) / CELL), floor((max(ay, by) + R) / CELL) do -- /: never 0 (a constant)
-				local key = gc * CKEY + gr
-				local l = cSegs[key]
-				if not l then
-					lists = lists + 1
-					l = cLists[lists]
-					if not l then l = { n = 0 }; cLists[lists] = l end
-					l.n = 0
-					cSegs[key] = l
-				end
+				local j = (gc - gc0) * ch + gr - gr0 + 1
+				local l = chunks[j]
+				if not l then l = { gen = 0, n = 0, s = false, o = 0 }; chunks[j] = l end
+				if l.gen ~= gen then l.gen, l.n, l.s = gen, 0, nil end
 				l.n = l.n + 1
 				l[l.n] = i
 			end
 		end
 		yield()
 	end
-	-- A cell's cost to enter: 1 open, roughC, sheerC; false outside the corridor.
-	local function Cost(cx, cy)
-		local k = cx * CKEY + cy
-		local c = cCost[k]
-		if c ~= nil then return c end
-		c = false
+	-- Cell i, at (cx, cy), looked at: its tag (base + its code), its cost so far none yet. (Every cell asked about is
+	-- in the box: within R of the run, or a neighbour of one that is.)
+	local function Look(i, cx, cy)
+		local t = 0
 		local gc, gr = floor(cx / CELL), floor(cy / CELL) -- /: never 0 (a constant)
-		local l = cSegs[gc * CKEY + gr]
-		if l then
+		local l = chunks[(gc - gc0) * ch + gr - gr0 + 1]
+		if l and l.gen == gen then
 			local px, py = cx + 0.5, cy + 0.5
 			for m = 1, l.n do
-				local i = l[m]
-				local ax, ay, bx, by = run[i - 1].col * F, run[i - 1].row * F, run[i].col * F, run[i].row * F
-				local dx, dy = bx - ax, by - ay
-				local L2 = dx * dx + dy * dy
-				local t = L2 > 0 and max(0, min(1, ((px - ax) * dx + (py - ay) * dy) / L2)) or 0 -- /: never 0 (L2 > 0)
-				if (ax + dx * t - px) ^ 2 + (ay + dy * t - py) ^ 2 <= R2 then
-					local ck = gc * CKEY + gr
-					local s, o = cS[ck], cO[ck]
+				local k = l[m]
+				local ax, ay, bx, by = run[k - 1].col * F, run[k - 1].row * F, run[k].col * F, run[k].row * F
+				local ex, ey = bx - ax, by - ay
+				local L2 = ex * ex + ey * ey
+				local u = L2 > 0 and max(0, min(1, ((px - ax) * ex + (py - ay) * ey) / L2)) or 0 -- /: never 0 (L2 > 0)
+				if (ax + ex * u - px) ^ 2 + (ay + ey * u - py) ^ 2 <= R2 then
+					local s, o = l.s, l.o
 					if s == nil then
 						s, o = RoughChunk(inst, gc, gr)
 						s = s or false
-						cS[ck], cO[ck] = s, o
+						l.s, l.o = s, o
 					end
 					local qx, qy = cx - gc * CELL, cy - gr * CELL
-					if not s then c = 1
-					elseif RoughQuad(s, o + 11, qx, qy) then c = sheerC
-					else c = RoughQuad(s, o, qx, qy) and roughC or 1 end
+					if not s then t = 1
+					elseif RoughQuad(s, o + 11, qx, qy) then t = 3
+					else t = RoughQuad(s, o, qx, qy) and 2 or 1 end
 					break
 				end
 			end
 		end
-		cCost[k] = c
-		return c
+		t = base + t
+		tag[i], G[i] = t, HUGE
+		return t
+	end
+	local OPEN, ROUGH, SHEER = base + 1, base + 2, base + 3
+	-- Cell i's (at (cx, cy)) cost to enter: 1 open, roughC, sheerC; false outside the corridor.
+	local function Cost(i, cx, cy)
+		local t = tag[i]
+		if not t or t < base then t = Look(i, cx, cy) end
+		if t == OPEN then return 1 elseif t == ROUGH then return roughC elseif t == SHEER then return sheerC end
+		return false
 	end
 	local p, q = run[1], run[#run]
 	local sx, sy, gx, gy = floor(p.col * F), floor(p.row * F), floor(q.col * F), floor(q.row * F)
-	local start, goal = sx * CKEY + sy, gx * CKEY + gy
-	cG[start] = 0
+	local start, goal = (sx - x0) * h + sy - y0 + 1, (gx - x0) * h + gy - y0 + 1
+	Cost(start, sx, sy)
+	Cost(goal, gx, gy)
+	G[start] = 0
 	Push(cHeap, start, 0)
 	local pops, found = 0, false
 	while cHeap.n > 0 do
@@ -732,24 +759,25 @@ local function Corridor(inst, run, out, yield, soft)
 			found = true
 			break
 		end
-		if not cOpen[u] then
-			cOpen[u] = true
+		local gu = G[u]
+		if gu >= 0 then -- (not closed: a cheaper way's entry was popped before this one)
+			G[u] = -gu - 1
 			pops = pops + 1
 			if pops > CORRIDOR_POPS then return false end
 			yield()
-			local ux = floor(u / CKEY) -- /: never 0 (a constant)
-			local uy = u - ux * CKEY
+			local ux = floor((u - 1) / h) -- /: never 0 (h >= 1: the box is a cell at least)
+			local uy = y0 + u - 1 - ux * h
+			ux = ux + x0
 			for ddx = -1, 1 do
 				for ddy = -1, 1 do
 					if ddx ~= 0 or ddy ~= 0 then
-						local vx, vy = ux + ddx, uy + ddy
-						local v = vx * CKEY + vy
-						local c = v == goal and 1 or Cost(vx, vy)
+						local vx, vy, v = ux + ddx, uy + ddy, u + ddx * h + ddy
+						local c = v == goal and 1 or Cost(v, vx, vy)
 						-- (a diagonal only where both its sides are in the corridor: no corner cut out of it)
-						if c and not cOpen[v] and (ddx == 0 or ddy == 0 or Cost(ux + ddx, uy) and Cost(ux, uy + ddy)) then
-							local ng = cG[u] + ((ddx ~= 0 and ddy ~= 0) and 1.4142 or 1) * c
-							if not cG[v] or ng < cG[v] then
-								cG[v], cFrom[v] = ng, u
+						if c and G[v] >= 0 and (ddx == 0 or ddy == 0 or Cost(u + ddx * h, vx, uy) and Cost(u + ddy, ux, vy)) then
+							local ng = gu + ((ddx ~= 0 and ddy ~= 0) and 1.4142 or 1) * c
+							if ng < G[v] then
+								G[v], from[v] = ng, u
 								Push(cHeap, v, ng + GREED * sqrt((vx - gx) ^ 2 + (vy - gy) ^ 2))
 							end
 						end
@@ -766,14 +794,14 @@ local function Corridor(inst, run, out, yield, soft)
 	while u ~= start do
 		n = n + 1
 		cells[n] = u
-		u = cFrom[u]
+		u = from[u]
 		if n % 64 == 0 then yield() end
 	end
 	-- (n: the way's cells, goal first: cells[n] is the first after the start; past n, an earlier way's)
 	local function Centre(m)
-		local c = cells[m]
-		local cx = floor(c / CKEY) -- /: never 0 (a constant)
-		return (cx + 0.5) / F, (c - cx * CKEY + 0.5) / F -- /: never 0 (a constant)
+		local c = cells[m] - 1
+		local cx = floor(c / h) -- /: never 0 (h >= 1)
+		return (x0 + cx + 0.5) / F, (y0 + c - cx * h + 0.5) / F -- /: never 0 (a constant)
 	end
 	local function Seen(ax, ay, m)
 		yield()
@@ -808,6 +836,47 @@ local function Corridor(inst, run, out, yield, soft)
 	return true
 end
 
+
+-- Corridor, its runs kept from the last Find and this one: a re-route's way is mostly the last's (its far end the
+-- same), its runs over rough ground the same points, so the same lines (no search again, no tables again).
+-- Each: { inst, soft, the run's coords (col, row, ...), whether one was found, its points' coords, the TUNE it was
+-- drawn with (slack, corridor, roughCost, sheerCost: tools/walk_smooth.py's sweep changes them between Finds) }.
+local lastRuns, runs = {}, {}
+local function Kept(inst, run, out, yield, soft)
+	local n = #run
+	for pass = 1, 2 do
+		local list = pass == 1 and runs or lastRuns
+		for e = 1, #list do
+			local k = list[e]
+			local xs = k[3]
+			if k[1] == inst and k[2] == soft and #xs == 2 * n and k[6] == TUNE.slack and k[7] == TUNE.corridor
+				and k[8] == TUNE.roughCost and k[9] == TUNE.sheerCost then
+				local same = true
+				for i = 1, n do
+					if xs[2 * i - 1] ~= run[i].col or xs[2 * i] ~= run[i].row then
+						same = false
+						break
+					end
+				end
+				if same then
+					if pass == 2 then runs[#runs + 1] = k end
+					local ps = k[5]
+					for i = 1, #ps - 1, 2 do out[#out + 1] = { inst = inst, col = ps[i], row = ps[i + 1] } end
+					return k[4]
+				end
+			end
+		end
+	end
+	local was = #out
+	local ok = Corridor(inst, run, out, yield, soft)
+	local xs, ps = {}, {}
+	for i = 1, n do xs[2 * i - 1], xs[2 * i] = run[i].col, run[i].row end
+	if ok then
+		for i = was + 1, #out do ps[#ps + 1], ps[#ps + 2] = out[i].col, out[i].row end
+	end
+	runs[#runs + 1] = { inst, soft, xs, ok, ps, TUNE.slack, TUNE.corridor, TUNE.roughCost, TUNE.sheerCost }
+	return ok
+end
 
 -- Each corner rounded off: the legs cut back ROUND chunks from it (half a leg at most, so neighbours
 -- meet and never cross) and joined by a quadratic Bezier whose control is the corner. Lazier than
@@ -946,6 +1015,8 @@ end
 -- the other.
 function Route.Find(inst, c1, r1, s, g, c2, r2, yield, trace)
 	yield = yield or NoYield
+	lastRuns, runs = runs, lastRuns
+	for i = #runs, 1, -1 do runs[i] = nil end
 	if trace then trace.closed, trace.nodes, trace.nodes2, trace.closed2 = {}, 0, 0, {} end
 	local instead
 	local rs = Walk.Region(inst, s, yield)
@@ -1015,7 +1086,7 @@ function Route.Find(inst, c1, r1, s, g, c2, r2, yield, trace)
 				local run, was = {}, #fine
 				if s0 < k - 1 then fine[#fine] = nil; was = was - 1 end -- (pts[k - 1] goes: the corridor passes it by)
 				for m = s0, s1 do run[#run + 1] = pts[m] end
-				if not Corridor(inst, run, fine, yield) and not Corridor(inst, run, fine, yield, true) then
+				if not Kept(inst, run, fine, yield) and not Kept(inst, run, fine, yield, true) then
 					for m = #fine, was + 1, -1 do fine[m] = nil end
 					for m = s0 + 1, s1 - 1 do fine[#fine + 1] = pts[m] end
 				end

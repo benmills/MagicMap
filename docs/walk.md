@@ -141,7 +141,10 @@ Each chunk is 24 chars: a 2-char index, 11 chars of rough bits, 11 of sheer bits
 2. Straighten: line of sight over the parts, then `Clear` over the rough mask: a sheer quad always stops it, rough
    ground only past `TUNE.slack` yd in a row (a rock, a bump).
 3. Flush: where a leg still isn't clear, the cheapest way through ~4-yd cells in a corridor `TUNE.corridor` chunks
-   either side (rough cells `TUNE.roughCost`, sheer only when nothing else will do), pulled straight.
+   either side (rough cells `TUNE.roughCost`, sheer only when nothing else will do), pulled straight. Its cells
+   are numbered by their place in the run's box, in arrays filled at load and never emptied (a box up to 32768
+   cells); a run drawn by the last Find is drawn the same (a re-route's far end is the last one's), not searched
+   again. Riding away from the way: ~9 KB/s of garbage (tools/tests/test_route.py::test_route_stray).
 4. Round: each corner cut back `TUNE.round` chunks and curved (`TUNE.roundSteps`); hand links' ends kept exact.
 `Route.TUNE` and model/Route.lua's `FOLLOW` (how the line joins the way ahead of you, when it's found again) are
 Settings > Route (ui/Path.lua).
