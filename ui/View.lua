@@ -185,12 +185,13 @@ Runtime.Step("ui", "ui: view", function()
 		or rmin ~= replace.minimap or rworld ~= replace.worldmap
 		or (Camera.inst or 0) ~= view.inst or BigMap.big ~= window.big
 		or BigMap.homeAlpha ~= window.homeAlpha or strata ~= window.strata or level ~= window.level
-		or saved.button ~= view.button then
+		or saved.button ~= view.button or UI.Under.on ~= (view.under == true) then
 		view.frame = Runtime.frames
 	end
 	window.shown, window.place = shown, place
 	window.big, window.homeAlpha, window.strata, window.level = BigMap.big, BigMap.homeAlpha, strata, level
 	view.minimap, view.inst, view.button = mode, Camera.inst or 0, saved.button
+	view.under = UI.Under.on -- (Blizzard's minimap kept on screen, ours under it: ui/Under.lua)
 	view.pathing = UI.Path and UI.Path.pathed or false -- (Path to's line laid out this frame or the last; Track's leaves the blips)
 	view.keep = UI.Resources.Keep() -- (the tracker Game keeps on: ui/Resources.lua, game/Keep.lua)
 	replace.minimap, replace.worldmap = rmin, rworld -- (Game: M is ours only while worldmap; ui/Replace.lua)

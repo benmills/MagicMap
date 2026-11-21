@@ -15,7 +15,7 @@ local Get, Keep, Px, Yield = Engine.Get, Engine.Keep, Engine.Px, Runtime.Yield
 
 -- Tiles don't snap to the pixel grid: the canvas moves by fractions of a pixel, so they must too.
 local function ArtTex(c)
-	local t = c:CreateTexture(nil, "ARTWORK")
+	local t = UI.Under.Mask(c:CreateTexture(nil, "ARTWORK"))
 	t:SetSnapToPixelGrid(false)
 	t:SetTexelSnappingBias(0)
 	return t

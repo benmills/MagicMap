@@ -11,7 +11,7 @@ local LEVEL = 3 -- over the tiles' canvas (ui/Engine.lua: its layer's level 1, i
 local frame = CreateFrame("Frame", nil, Window.view)
 frame:SetAllPoints()
 frame:SetFrameLevel(Window.view:GetFrameLevel() + LEVEL)
-local tex = frame:CreateTexture(nil, "ARTWORK")
+local tex = UI.Under.Mask(frame:CreateTexture(nil, "ARTWORK"))
 tex:SetSnapToPixelGrid(false)
 tex:SetTexelSnappingBias(0)
 tex:Hide()

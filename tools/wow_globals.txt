@@ -60,6 +60,6 @@ WorldMapFrame Settings SettingsPanel QuestLogFrame
 # Our named frames, made in one game/ file and read in another (docs/structure.md "Namespace")
 MagicMapMinimapStandIn
 # The Minimap's buttons the takeover hides (game/MinimapButtons.lua: the gear's Minimap buttons)
-MinimapBackdrop AddonCompartmentFrame GameTimeFrame TimeManagerClockButton
+MinimapBackdrop AddonCompartmentFrame GameTimeFrame TimeManagerClockButton MinimapZoomIn MinimapZoomOut
 # Other addons (always checked for before use)
 FarmHud LibStub QuestieLoader

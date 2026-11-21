@@ -18,7 +18,7 @@ local DEFAULTS = { on = true, hue = "direct", mix = 0.3, dark = 0.25, bright = "
 local feel = { on = DEFAULTS.on, mix = DEFAULTS.mix, dark = DEFAULTS.dark } -- (the settings')
 local SRC = { direct = 2, ambient = 3, forever = 4 } -- a key's fields after its time
 
-local tex = UI.Sea.frame:CreateTexture(nil, "OVERLAY") -- over the ocean (its ARTWORK), its frame over the tiles
+local tex = UI.Under.Mask(UI.Sea.frame:CreateTexture(nil, "OVERLAY")) -- over the ocean (its ARTWORK), its frame over the tiles
 tex:SetAllPoints(UI.Window.view)
 tex:SetColorTexture(1, 1, 1, 1)
 tex:SetBlendMode("MOD")

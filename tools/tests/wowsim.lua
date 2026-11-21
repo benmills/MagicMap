@@ -1695,8 +1695,11 @@ function Dropdown:IsMenuOpen() return Sim.menu ~= nil and Sim.menu.owner == self
 function Dropdown:OpenMenu() Sim.menu = dropdownMenu(self) end
 function Dropdown:CloseMenu() if self:IsMenuOpen() then Sim.menu = nil end end
 function Dropdown:SetDefaultText(t) S[self].defaultText = t end
+Sim.intrinsic = {} -- the client's own scripts on a frame type (not the addon's: R-P6)
+local function dropdownPress(self) if self:IsMenuOpen() then self:CloseMenu() else self:OpenMenu() end end
+Sim.intrinsic[dropdownPress] = true
 TYPE_SETUP.DropdownButton = function(f)
-	f:SetScript("OnMouseDown", function(self) if self:IsMenuOpen() then self:CloseMenu() else self:OpenMenu() end end)
+	f:SetScript("OnMouseDown", dropdownPress)
 end
 TEMPLATES.WowStyle1DropdownTemplate = true
 TEMPLATE_SETUP.WowStyle1DropdownTemplate = function(f)

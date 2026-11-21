@@ -48,7 +48,7 @@ end
 
 -- A texture on pin, centred on it, unsnapped (the map moves by fractions of a pixel).
 local function Tex(pin, layer, sub)
-	local t = pin:CreateTexture(nil, layer, nil, sub)
+	local t = UI.Under.Mask(pin:CreateTexture(nil, layer, nil, sub))
 	t:SetSnapToPixelGrid(false)
 	t:SetTexelSnappingBias(0)
 	t:SetPoint("CENTER")

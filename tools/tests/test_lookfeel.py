@@ -260,6 +260,7 @@ def test_settings_pages_apply_and_reset():
     for p in pages:
         Feel.Reset(p)
     assert saved.feel is None and saved.cluster == switch
+    sim.Run(1)  # (a default that follows the window's size: Minimap look's window back where it was)
     for key in changed:
         assert Feel.Get(key) == defaults[key], key
     for key in changed:  # the same by Reset all

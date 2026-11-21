@@ -35,7 +35,7 @@ local function Tex(c)
 		frame:SetFrameLevel(UI.Sea.frame:GetFrameLevel() + 1) -- its level, not its canvas's: the ocean's frame stands over that
 		c.repaint = frame
 	end
-	local t = frame:CreateTexture(nil, "ARTWORK")
+	local t = UI.Under.Mask(frame:CreateTexture(nil, "ARTWORK"))
 	t:SetSnapToPixelGrid(false) -- (as the tiles: the canvas moves by fractions of a pixel)
 	t:SetTexelSnappingBias(0)
 	t.home = frame

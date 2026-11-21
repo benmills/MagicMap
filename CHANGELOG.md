@@ -2,6 +2,12 @@
 
 Each release's notes, newest first. The zips are on [GitHub](https://github.com/benmills/MagicMap/releases).
 
+## Unreleased
+
+- **Blizzard's minimap, MagicMap's map.** Settings › General › Minimap look: Blizzard's keeps Blizzard's own
+  minimap where it is, with its ring, zone name, buttons and clock, and draws MagicMap's map inside it in place of
+  Blizzard's ground. It still pans and zooms as MagicMap's does; the big map (M) is unchanged.
+
 ## 3.2.1 (build 1.60.1.71037)
 
 - **Smoother when you stray from the line.** Finding the way again after you wander off it now makes about a

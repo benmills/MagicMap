@@ -140,6 +140,7 @@ end
 local function Make(dot, sublevel, thick, c, blend)
 	local l
 	if dot then l = canvas:CreateTexture(nil, "ARTWORK", nil, sublevel) else l = canvas:CreateLine(nil, "ARTWORK", nil, sublevel) end
+	UI.Under.Mask(l)
 	l:SetSnapToPixelGrid(false)
 	l:SetTexelSnappingBias(0)
 	l:Hide()
@@ -709,7 +710,12 @@ end
 -- The edge arrow
 ---------------------------------------------------------------------------
 
-local function In(x, y, lo, hiX, hiY) return x >= lo and x <= hiX and y >= lo and y <= hiY end
+-- Inside the inset view: its rect, or on the round map (ui/Under.lua) its circle (centre cx, cy; radius rr).
+local round, cx, cy, rr = false, 0, 0, 0
+local function In(x, y, lo, hiX, hiY)
+	if round then return (x - cx) ^ 2 + (y - cy) ^ 2 <= rr * rr end
+	return x >= lo and x <= hiX and y >= lo and y <= hiY
+end
 
 -- Where the line toward t leaves the view (inset), along the route's leg that does: there, pointing on.
 -- Worked out again only once the view, you, the target or the line moved.
@@ -717,10 +723,12 @@ local placed = {} -- cam's cx, cy, zoom, w, h, you, the target's pos, Path.draws
 local function Arrow(t, me, cam, w, h)
 	local p = placed
 	if p[1] == cam.cx and p[2] == cam.cy and p[3] == cam.zoom and p[4] == w and p[5] == h and p[6] == me.col
-		and p[7] == me.row and p[8] == t.pos and p[9] == Path.draws then return p.on end
+		and p[7] == me.row and p[8] == t.pos and p[9] == Path.draws and p[10] == UI.Under.on then return p.on end
 	p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9] = cam.cx, cam.cy, cam.zoom, w, h, me.col, me.row, t.pos, Path.draws
+	p[10] = UI.Under.on
 	p.on = false
 	local lo, hiX, hiY = EDGE_INSET, w - EDGE_INSET, h - EDGE_INSET
+	round, cx, cy, rr = UI.Under.on, w / 2, h / 2, math.max(0, math.min(w, h) / 2 - EDGE_INSET)
 	local x1, y1 = Maths.TileToScreen(cam, w, h, me.col, me.row)
 	local x2, y2 = Maths.TileToScreen(cam, w, h, t.pos.col, t.pos.row)
 	local pts = shownWay
@@ -735,8 +743,14 @@ local function Arrow(t, me, cam, w, h)
 	-- How far along it the line leaves the inset rect.
 	local dx, dy = x2 - x1, y2 - y1
 	local k = 1
-	if dx ~= 0 then k = math.min(k, ((dx > 0 and hiX or lo) - x1) / dx) end -- /: never 0 (dx ~= 0)
-	if dy ~= 0 then k = math.min(k, ((dy > 0 and hiY or lo) - y1) / dy) end -- /: never 0 (dy ~= 0)
+	if round then -- where |(x1, y1) + k (dx, dy) - centre| = rr: the root past the start (inside, so one)
+		local fx, fy = x1 - cx, y1 - cy
+		local a, b, c = dx * dx + dy * dy, 2 * (fx * dx + fy * dy), fx * fx + fy * fy - rr * rr
+		if a > 0 then k = math.min(1, (-b + math.sqrt(math.max(0, b * b - 4 * a * c))) / (2 * a)) end -- /: never 0 (a > 0)
+	else
+		if dx ~= 0 then k = math.min(k, ((dx > 0 and hiX or lo) - x1) / dx) end -- /: never 0 (dx ~= 0)
+		if dy ~= 0 then k = math.min(k, ((dy > 0 and hiY or lo) - y1) / dy) end -- /: never 0 (dy ~= 0)
+	end
 	local ax, ay = math.floor(x1 + dx * k + 0.5), math.floor(y1 + dy * k + 0.5)
 	local rot = math.atan2(-dx, -dy) -- the art points up
 	if ax ~= edge.x or ay ~= edge.y or rot ~= edge.rot then

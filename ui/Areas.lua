@@ -215,7 +215,7 @@ end
 local function Rev()
 	local F = UI.Feel
 	if not feelRev or F and F.rev ~= feelRev then Restyle() end
-	return select(2, Model.Known("quests")) * 2 + (On("quests") and 1 or 0) + styleRev * 1e9
+	return select(2, Model.Known("quests")) * 2 + (On("quests") and 1 or 0) + styleRev * 1e9 + (UI.Under.on and 0.5 or 0)
 end
 
 local layer = Engine.Layer("questAreas", LEVEL, function(c, inst, zoom, c0, r0, c1, r1)
@@ -225,7 +225,8 @@ local layer = Engine.Layer("questAreas", LEVEL, function(c, inst, zoom, c0, r0, 
 		g.n = 0
 	end
 	nkeys, nmissed = 0, 0
-	if not On("quests") then return true end
+	-- (the round map: a mask takes no QuestPOIFrame's drawing, so none there: ui/Under.lua)
+	if not On("quests") or UI.Under.on then return true end
 	local any, list = false, Model.Known("quests")
 	for _, e in ipairs(list) do
 		local r = e.areaMap and Atlas.MapRect(e.areaMap)

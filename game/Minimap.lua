@@ -3,7 +3,9 @@
 --   View.minimap "ours" and the window shown (nothing blocking): Blizzard's
 --     Minimap becomes the overlay (below): its blips over our map, north up, no ground, its
 --     clicks and wheel ours (each put right every apply: other client code turns them back).
---     What hung on it waits on a stand-in at its home spot; the cluster hides.
+--     What hung on it waits on a stand-in at its home spot; the cluster hides. View.under (the small map under
+--     Blizzard's minimap, ui/Under.lua): the cluster stays as it was and the stand-in shows, Blizzard's chrome over
+--     our map where its ground was, the overlay round.
 --     HereBeDragons' minimap pins go to hosts of Game's (game/AddonPins.lua): on the Minimap
 --     they'd take the mouse, over our map.
 --   otherwise (or a View Game can't use: SAFE, game/Apply.lua): released, every change undone.
@@ -23,6 +25,10 @@ local YD = 1 / Atlas.TILE_YARDS
 local m = { engaged = false, fade = false, steps = {} } -- blocker: why it isn't taken
 Game.minimap = m
 local undo, placed = {}, nil
+-- View.under: the small map under Blizzard's minimap (ui/Under.lua). While engaged, its cluster stays as it was, the
+-- stand-in shown with what hung on the Minimap (its buttons, other addons'), the overlay round: Blizzard's chrome
+-- over our map, where its ground was. Blizzard's + and - are UI's zoom then (hooked "zoomIn", "zoomOut").
+local under = false
 local clusterShown -- the cluster's own shown state, from an engage until it's back
 
 local standIn = CreateFrame("Frame", "MagicMapMinimapStandIn", UIParent)
@@ -104,14 +110,17 @@ local function ReanchorAround(frame, depth)
 	end
 end
 
--- The cluster hidden while engaged, else as it was; its state forgotten once it's back.
+-- The cluster hidden while engaged (but under: as it was, the stand-in shown), else as it was; its state forgotten once
+-- it's back.
 local function Cluster()
 	local c = MinimapCluster
+	local stand = m.engaged and under
+	if standIn:IsShown() ~= stand then standIn:SetShown(stand) end
 	if m.engaged and clusterShown == nil then clusterShown = c:IsShown() end
 	if clusterShown == nil then return end
-	local want = not m.engaged and clusterShown
+	local want = (not m.engaged or under) and clusterShown
 	if c:IsShown() ~= want and not InCombatLockdown() then c:SetShown(want) end
-	m.fade = m.engaged and c:IsShown()
+	m.fade = m.engaged and not under and c:IsShown()
 	if not m.engaged and c:IsShown() == clusterShown then clusterShown = nil end
 end
 
@@ -228,7 +237,8 @@ end
 
 -- The overlay: Blizzard's Minimap itself, seen, draws the blips (since 1.60.1.70862 addon code can't read them:
 -- UpdateMouseoverAtPoint is ignored for it, so MagicMap draws no blips of its own): over our tiles, centred on you, sized
--- so its view radius (read each frame) is as many yards as ours, no ground, masked square, its own icons and arrow (ours
+-- so its view radius (read each frame) is as many yards as ours, no ground, masked square (round, inside the round map's circle:
+-- View.under), its own icons and arrow (ours
 -- hides: obs.minimap.overlaid). Its square is the biggest centred on you that's inside the window (half <= inside: you to
 -- the window's nearest edge; past it, the client shifts its drawing back in: blips off where they are, 70862) and whole
 -- on the screen (half <= room; likewise). Its zoom (0 widest .. 5): the widest whose square fits, seen while it fills
@@ -250,11 +260,16 @@ local mask, masked = nil, false
 if Minimap.SetMaskTexture then
 	hooksecurefunc(Minimap, "SetMaskTexture", function(_, t) if not masked then mask = t end end)
 end
+-- on: the overlay's (round under Blizzard's own chrome, View.under: the map's round there; else square); off: the mask
+-- others set back.
 local function Mask(on)
 	local mm = Minimap
-	if on == masked or not mm.SetMaskTexture then return end
-	masked = on
-	if on then mm:SetMaskTexture(SQUARE) else mm:SetMaskTexture(mask or ROUND) end
+	local want = on and (under and "round" or "square")
+	if want == masked or not mm.SetMaskTexture then return end
+	masked = want
+	if want == "round" then mm:SetMaskTexture(ROUND)
+	elseif want then mm:SetMaskTexture(SQUARE)
+	else mm:SetMaskTexture(mask or ROUND) end
 end
 local Mouse
 -- A radius one of its zooms has (indoors or out: Game.MinimapYards), within ODD of it.
@@ -349,6 +364,10 @@ local function Overlay(w, here, inst)
 	local sw, sh = UIParent:GetWidth(), UIParent:GetHeight()
 	local room = math.min(x, y, sw - x, sh - y) - EDGE -- on the screen
 	local inside = math.min(x - p.left, p.left + p.w - x, p.top - y, y - (p.top - p.h)) -- in the window
+	if under then -- in its circle: the radius less how far you are from its centre
+		local d = math.sqrt((x - p.left - p.w / 2) ^ 2 + (y - p.top + p.h / 2) ^ 2)
+		inside = math.min(p.w, p.h) / 2 - d
+	end
 	local limit = math.min(room, inside)
 	m.need, m.room = inside, room
 	Steps(p, k)
@@ -577,6 +596,7 @@ end)
 
 Game.Apply("minimap", function(view)
 	local w = view.window
+	under = view.under == true
 	m.blocker = m.failed and "couldn't take the minimap (/mm errors)"
 		or FarmHud and FarmHud.IsShown and FarmHud:IsShown() and "FarmHud has the minimap" or nil
 	if view.minimap ~= "ours" or not (w.shown and w.place) or m.blocker then
