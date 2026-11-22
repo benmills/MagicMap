@@ -2,6 +2,11 @@
 
 Each release's notes, newest first. The zips are on [GitHub](https://github.com/benmills/MagicMap/releases).
 
+## Unreleased
+
+- **City tints.** Settings › Advanced › City tints: each capital can lay its own colour over the whole map while the
+  map shows it, with its Colour, Opacity, Blend (Wash, Multiply or Glow) and Brightness. Off until turned on.
+
 ## 3.3.0 (build 1.60.1.71037)
 
 - **Zone names and subzone names, each on or off.** The gear's Zone labels row is now two, Zone names and Subzone

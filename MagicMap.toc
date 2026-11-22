@@ -150,6 +150,7 @@ ui\Rares.lua
 ui\Places.lua
 ui\QuestTooltip.lua
 ui\Areas.lua
+ui\CityTint.lua
 ui\Quests.lua
 ui\ZoneInfo.lua
 ui\Sockets.lua

@@ -30,3 +30,23 @@ def test_tint():
     ns.UI.Feel.Set("tint.on", False)
     sim.Run(1.5)
     assert not ns.UI.Tint.Shown()
+
+
+def test_city_tint():
+    """Settings > Advanced > City tints: Orgrimmar's on, the map in Orgrimmar takes its colour (a wash at its opacity,
+    eased in); Multiply shades instead; walked out to Durotar it eases away."""
+    L, sim, ns, G = client([])
+    sim.player.inst, sim.player.col, sim.player.row = 1, 40.15, 28.65  # beside the Cleft of Shadow
+    sim.Run(2)
+    t, S = ns.UI.CityTint, sim.state
+    assert not t.Shown()  # off until turned on
+    ns.UI.Feel.Set("cityTint.orgrimmar", True)
+    sim.Run(1)
+    c = S[t.color]
+    assert t.Shown() and c.blend == "BLEND" and abs(c.color[4] - 0.2) < 1e-6, c.color
+    ns.UI.Feel.Set("cityTint.orgrimmarBlend", "multiply")
+    sim.Run(0.2)
+    assert S[t.color].blend == "MOD" and S[t.color].color[1] > S[t.color].color[3]  # red: shaded toward it
+    sim.player.col, sim.player.row = 42.0, 31.0  # out in Durotar
+    sim.Run(1.5)
+    assert not t.Shown()
