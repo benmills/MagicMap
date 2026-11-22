@@ -594,9 +594,27 @@ Game.Slash("overlay", "the blips' overlay (Blizzard's Minimap over the map): whe
 		m.scan or "not tried"))
 end)
 
+-- Blizzard's + and - while under (View.under): shown while the cursor is over the map (View.zooms), as Blizzard
+-- shows them over its own Minimap. Its own show and hide (the Minimap's OnEnter and OnLeave) are overruled each frame:
+-- the overlay's mouse comes and goes as it moves, sizes and hides (a path's line, past its zooms), which flashed them.
+-- Leaving under, hidden once, and Blizzard's own again.
+local BLIZZARD_ZOOMS = { Minimap.ZoomIn or MinimapZoomIn, Minimap.ZoomOut or MinimapZoomOut } -- (nil on a client without)
+local zoomsHeld = false
+local function Zooms(view)
+	local hold = under and m.engaged
+	if not (hold or zoomsHeld) then return end
+	zoomsHeld = hold
+	local want = hold and view.zooms == true
+	for i = 1, 2 do
+		local b = BLIZZARD_ZOOMS[i]
+		if b and b:IsShown() ~= want then b:SetShown(want) end
+	end
+end
+
 Game.Apply("minimap", function(view)
 	local w = view.window
 	under = view.under == true
+	m.under = under -- (game/parts/MinimapState.lua reads the badge's and the +'s spots only then)
 	m.blocker = m.failed and "couldn't take the minimap (/mm errors)"
 		or FarmHud and FarmHud.IsShown and FarmHud:IsShown() and "FarmHud has the minimap" or nil
 	if view.minimap ~= "ours" or not (w.shown and w.place) or m.blocker then
@@ -615,6 +633,7 @@ Game.Apply("minimap", function(view)
 		end
 	end
 	Cluster()
+	Zooms(view)
 end)
 
 Runtime.On("PLAYER_LOGOUT", "game.minimap logout", Release)

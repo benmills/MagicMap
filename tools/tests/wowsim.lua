@@ -493,7 +493,7 @@ function FontString:GetFont()
 end
 function FontString:SetFontObject(obj) S[self].fontObject = obj end
 function FontString:GetFontObject() return S[self].fontObject end
-function FontString:SetTextColor(r, g, b, a) assert(type(r) == "number", "SetTextColor: numbers expected") end
+function FontString:SetTextColor(r, g, b, a) assert(type(r) == "number", "SetTextColor: numbers expected"); S[self].textRGBA = { r, g, b, a or 1 } end
 function FontString:SetJustifyH(j) assert(j == "LEFT" or j == "CENTER" or j == "RIGHT", "SetJustifyH: bad value") end
 function FontString:SetJustifyV(j) end
 function FontString:SetShadowOffset(x, y) end

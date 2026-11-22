@@ -620,7 +620,8 @@ local lastSaid, lastW, lastKind, lastFrac, lastFillW
 local function Look()
 	local speed = Model.you.speed
 	if speed and speed > 0 then pace = speed end
-	local pieces, at = Words(Model.Known("quests"))
+	local pieces, at
+	if not UI.Under.on then pieces, at = Words(Model.Known("quests")) end -- (under Blizzard's minimap, none: ui/Under.lua)
 	local said = pieces and table.concat(pieces, "\n") .. "\n" .. tostring(at) or nil
 	local w = overlay:GetWidth()
 	if said ~= lastSaid or w ~= lastW or iconKind ~= lastKind then
@@ -741,6 +742,7 @@ local function ToggleFollow() UI.Motion.SetFollow(not Camera.follow, true) end
 local since = EVERY
 Runtime.Step("ui", "map: controls", function(elapsed)
 	local want = (Window.frame:IsMouseOver(REACH, -REACH, 0, 0) or Menus.IsOpen()) and 1 or 0
+	Controls.over = want == 1 -- (View.zooms: Blizzard's + and - under its minimap show with ours)
 	if hover ~= want then
 		local step = elapsed / FADE
 		hover = want > hover and math.min(want, hover + step) or math.max(want, hover - step)

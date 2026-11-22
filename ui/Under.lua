@@ -7,11 +7,13 @@
 --   * the window sits on the Minimap's spot at its size, a strata under the cluster's (Blizzard's chrome over the
 --     map and its blips), not moved nor resized (Under.Rect, ui/BigMap.lua; Window's moves check Under.on)
 --   * MagicMap's chrome goes: the border, the title line and its buttons (the gear too), the grip, our + and -, and
---     MagicMap's rim button (View.button: Game's). Blizzard's own + and - stand in for ours. In their place, the badge:
---     MagicMap's mark in Blizzard's own box (its addon compartment's, the number under the calendar), mirrored under
---     the tracking button left of the zone name, so the map reads as MagicMap's; a click opens the gear's menu (and
---     there Minimap look, to go back to MagicMap's frame). The reset and pin stay inside the round at its lower
---     right, raised over Blizzard's chrome (a strata over its cluster's) as the badge is, so they take clicks.
+--     MagicMap's rim button (View.button: Game's), and the quest pill (ui/Controls.lua). Blizzard's own + and - stand
+--     in for ours, shown while you point at the map as ours are (View.zooms: Game holds them so). In their place, the
+--     badge: MagicMap's mark in Blizzard's own box (its addon compartment's, the number under the calendar), mirrored
+--     under the tracking button left of the zone name, its name beside it in the zone's gold, half seen, so the map
+--     reads as MagicMap's; a click opens the gear's menu (and there Minimap look, to go back to MagicMap's frame). The
+--     reset and pin stand above Blizzard's + as they do above ours, raised over its chrome (a strata over its
+--     cluster's) as the badge is, so they take clicks.
 --   * the map is round: a circle mask on the view, added to every region a layer makes (Under.Mask, called by each
 --     maker: the backdrop, the ground's pictures, tiles, buildings, pins, groups, the line's dots) while the look is
 --     Blizzard's (Under.styled), on none otherwise: a mask has a drawing cost the square map needn't pay. Big, it's a
@@ -32,6 +34,8 @@ local OVER = "MEDIUM" -- the badge's, reset's and pin's strata while under: over
 local BADGE_ART = "ui-hud-minimap-addon-indicator" -- Blizzard's addon compartment's box (Blizzard_Minimap: AddonCompartment.lua)
 local BADGE_W, BADGE_H, BADGE_ICON = 23, 22, 14 -- px: the compartment's size; the mark inside its box's border
 local ICON = "Interface\\Icons\\INV_Misc_Map_01" -- MagicMap's (the TOC's IconTexture)
+local NAME, NAME_GAP, NAME_ALPHA = "MagicMap", 3, 0.5 -- its name right of the box: px from it, alpha (quiet beside the zone's)
+local GOLD = { 1, 0.82, 0 } -- the zone name's gold (NORMAL_FONT_COLOR, a sanctuary's or a city's on Blizzard's zone line)
 local LIT, PRESSED = 0.1, 0.2 -- the box ADDed over itself on hover and press (the compartment's mouseover and mousedown alphas)
 
 local Under = { on = false, styled = false }
@@ -84,6 +88,12 @@ mark:SetTexture(ICON)
 mark:SetSize(BADGE_ICON, BADGE_ICON)
 mark:SetPoint("CENTER")
 mark:SetTexCoord(0.08, 0.92, 0.08, 0.92) -- (an icon's dark rim trimmed)
+-- Its name, in the zone name's font (MinimapZoneText's: GameFontHighlightSmall) and gold, half seen; the click's too.
+local name = badge:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+name:SetPoint("LEFT", badge, "RIGHT", NAME_GAP, 0)
+name:SetText(NAME)
+name:SetTextColor(GOLD[1], GOLD[2], GOLD[3], NAME_ALPHA)
+badge:SetHitRectInsets(0, -(NAME_GAP + name:GetStringWidth()), 0, 0)
 
 local function Lit(a)
 	lit:SetShown(a > 0)
@@ -109,6 +119,23 @@ local function PlaceBadge()
 		badge:SetPoint(spot.below and "TOP" or "BOTTOM", UIParent, "BOTTOMLEFT", spot.x * k, spot.y * k)
 	else
 		badge:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+	end
+end
+
+-- The reset and pin's column (anchored on our hidden +): on Blizzard's + (Game's spot), so they stand above it as
+-- they do above ours; without it, toward the round's lower right, inside it. Placed again only when the spot moves.
+local column = false -- the spot placed at (a kept table, or the radius without one), or false
+local function PlaceColumn(r)
+	local spot = UI.BigMap.zoom or r
+	if spot == column then return end
+	column = spot
+	local zoomIn = UI.Controls.zoomIn
+	zoomIn:ClearAllPoints()
+	if type(spot) == "table" then
+		local k = UIParent:GetEffectiveScale() / zoomIn:GetEffectiveScale() -- /: never 0 (an effective scale is > 0)
+		zoomIn:SetPoint("CENTER", UIParent, "BOTTOMLEFT", spot.x * k, spot.y * k)
+	else
+		zoomIn:SetPoint("CENTER", view, "CENTER", r * RESET_AT, -r * RESET_AT)
 	end
 end
 
@@ -158,10 +185,9 @@ local function Buttons(under, r)
 	C.zoomOut:SetShown(not under)
 	badge:SetShown(under)
 	if under then
-		-- (the reset and pin stand above where our + would: toward the round's lower right, inside it)
-		C.zoomIn:ClearAllPoints()
-		C.zoomIn:SetPoint("CENTER", view, "CENTER", r * RESET_AT, -r * RESET_AT)
+		PlaceColumn(r)
 	else
+		column = false
 		C.Home()
 		local strata = Chrome.controls:GetFrameStrata()
 		C.zoomReset:SetFrameStrata(strata)
@@ -219,6 +245,7 @@ function Under.Step()
 	if on then
 		Over()
 		PlaceBadge()
+		PlaceColumn(laid)
 	end
 end
 

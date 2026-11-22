@@ -40,6 +40,20 @@ function Game.BadgeSpot()
 	return badge
 end
 
+-- Where Blizzard's + is under its minimap (ui/Under.lua stands the reset and pin above it, as above ours): { x, y }
+-- in UIParent units, its centre. nil on a client without one, or before it's laid out.
+local zoom
+local ZOOM_IN = Minimap.ZoomIn or MinimapZoomIn
+function Game.ZoomSpot()
+	local x, y
+	if ZOOM_IN then x, y = ZOOM_IN:GetCenter() end
+	if not (x and y) then return nil end
+	local s = ZOOM_IN:GetEffectiveScale() / UIParent:GetEffectiveScale() -- /: never 0 (an effective scale is > 0)
+	x, y = x * s, y * s
+	if not (zoom and zoom.x == x and zoom.y == y) then zoom = { x = x, y = y } end
+	return zoom
+end
+
 -- The spot (the cluster, and the stand-in holding what hung on the Minimap) at homeAlpha of the
 -- cluster's own alpha: read when it first fades, put back at 1. 0 while the takeover can't hide the
 -- cluster yet (Game.minimap.fade).

@@ -181,19 +181,21 @@ Runtime.Step("ui", "ui: view", function()
 	-- as it is (the window's then always big, where the overlay never shows anyway).
 	-- The minimap button, as set; not while under Blizzard's minimap (ui/Under.lua: the badge is MagicMap's there).
 	local button = saved.button == true and not UI.Under.on
+	local zooms = UI.Under.on and UI.Controls.over == true -- (Blizzard's + and - while you point at the map: game/Minimap.lua)
 	local mode = rmin and saved.minimap or "blizzard"
 	local replace = view.replace
 	if shown ~= window.shown or place ~= window.place or mode ~= view.minimap
 		or rmin ~= replace.minimap or rworld ~= replace.worldmap
 		or (Camera.inst or 0) ~= view.inst or BigMap.big ~= window.big
 		or BigMap.homeAlpha ~= window.homeAlpha or strata ~= window.strata or level ~= window.level
-		or button ~= view.button or UI.Under.on ~= (view.under == true) then
+		or button ~= view.button or UI.Under.on ~= (view.under == true) or zooms ~= view.zooms then
 		view.frame = Runtime.frames
 	end
 	window.shown, window.place = shown, place
 	window.big, window.homeAlpha, window.strata, window.level = BigMap.big, BigMap.homeAlpha, strata, level
 	view.minimap, view.inst, view.button = mode, Camera.inst or 0, button
 	view.under = UI.Under.on -- (Blizzard's minimap kept on screen, ours under it: ui/Under.lua)
+	view.zooms = zooms
 	view.pathing = UI.Path and UI.Path.pathed or false -- (Path to's line laid out this frame or the last; Track's leaves the blips)
 	view.keep = UI.Resources.Keep() -- (the tracker Game keeps on: ui/Resources.lua, game/Keep.lua)
 	replace.minimap, replace.worldmap = rmin, rworld -- (Game: M is ours only while worldmap; ui/Replace.lua)

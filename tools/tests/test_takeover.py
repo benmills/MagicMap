@@ -355,6 +355,30 @@ def test_under_blizzard_minimap():
     radios = {e.text: e for e in look["items"].values()}
     assert radios["Inside Blizzard's minimap"].isSelected() and not radios["MagicMap's frame"].isSelected()
     sim.Click(G.UIParent)
+    # Its name right of it, in the zone's gold at half alpha; the click's.
+    fs = next(r for r in badge.GetRegions(badge) if S[r].type == "FontString")
+    assert fs.GetText(fs) == "MagicMap" and tuple(S[fs].textRGBA.values()) == (1, 0.82, 0, 0.5)
+    # Blizzard's + and - show while you point at the map (held so, whatever its Minimap's own hover does), and go
+    # when you leave; the reset and pin stand above Blizzard's +, as above ours.
+    zin = G.MinimapZoomIn
+    sim.MoveCursorTo(frame)
+    sim.Run(0.3)
+    assert zin.IsShown(zin)
+    sim.FireScript(G.Minimap, "OnLeave", False)  # (its overlay's mouse came and went)
+    zin.Hide(zin)
+    sim.Step()
+    assert zin.IsShown(zin)
+    zx, zy = zin.GetCenter(zin)
+    C.zoomReset.Show(C.zoomReset)
+    rx, ry = C.zoomReset.GetCenter(C.zoomReset)
+    sc = C.zoomReset.GetEffectiveScale(C.zoomReset) / zin.GetEffectiveScale(zin)
+    assert abs(rx * sc - zx) < 0.01 and abs(ry * sc - zy - 22 * sc) < 0.01, ((rx * sc, ry * sc), (zx, zy))
+    C.zoomReset.Hide(C.zoomReset)
+    sim.MoveCursorTo(G.UIParent, 0.05, 0.05)
+    sim.Run(0.3)
+    assert not zin.IsShown(zin)
+    # No quest pill under it.
+    assert not C.questLine.IsShown(C.questLine)
     UI.saved.button = True  # MagicMap's rim button on: hidden under (the badge is MagicMap's there), back after
     sim.Run(0.2)
     assert not UI.View().button
