@@ -451,6 +451,9 @@ Texture.SetDrawLayer = setDrawLayer
 function Texture:GetDrawLayer() return S[self].layer, S[self].sublevel end
 
 local Line = class("Line", "Texture")
+-- As the client's: a Line takes no mask (calling either is calling nil there).
+function Line:AddMaskTexture() error("attempt to call a nil value (method 'AddMaskTexture'): a Line takes no mask") end
+function Line:RemoveMaskTexture() error("attempt to call a nil value (method 'RemoveMaskTexture'): a Line takes no mask") end
 local function lineAnchor(self, which, point, rel, x, y)
 	assert(VALID_POINTS[point], "Line point: bad point")
 	local e = S[self][which] or {}

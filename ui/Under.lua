@@ -9,10 +9,12 @@
 --   * MagicMap's chrome goes: the border, the title line and its buttons, the grip, our + and -; the gear stays, in
 --     the window's top left corner (outside the round, under Blizzard's ring), shown as the buttons are on hover
 --   * the map is round: a circle mask on the view, added to every region a layer makes (Under.Mask, called by each
---     maker: the backdrop, the ground's pictures, tiles, buildings, pins, groups, the line) while the look is
+--     maker: the backdrop, the ground's pictures, tiles, buildings, pins, groups, the line's dots) while the look is
 --     Blizzard's (Under.styled), on none otherwise: a mask has a drawing cost the square map needn't pay. Big, it's a
 --     square over the whole view. Quest areas (QuestPOIFrames draw nothing a mask takes) aren't drawn under it
 --     (ui/Areas.lua); font strings take no mask (the small map draws none but a group's count).
+--     A Line takes no mask in this client (it has no AddMaskTexture): the line's legs keep inside the round
+--     themselves (ui/Path.lua).
 
 local _, ns = ...
 local UI, Runtime = ns.UI, ns.Runtime

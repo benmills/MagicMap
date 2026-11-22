@@ -139,8 +139,7 @@ local function Restyle(l, thick, c, blend)
 end
 local function Make(dot, sublevel, thick, c, blend)
 	local l
-	if dot then l = canvas:CreateTexture(nil, "ARTWORK", nil, sublevel) else l = canvas:CreateLine(nil, "ARTWORK", nil, sublevel) end
-	UI.Under.Mask(l)
+	if dot then l = UI.Under.Mask(canvas:CreateTexture(nil, "ARTWORK", nil, sublevel)) else l = canvas:CreateLine(nil, "ARTWORK", nil, sublevel) end
 	l:SetSnapToPixelGrid(false)
 	l:SetTexelSnappingBias(0)
 	l:Hide()
@@ -360,6 +359,9 @@ local dax, day, dbx, dby, dwa, dsa, kept = {}, {}, {}, {}, {}, {}, {}
 -- The canvas's origin, kept while the view stays near it (a line drawn on it stays put as the map pans).
 local ox, oy
 local rect = {} -- the canvas px laid out over (the view's and a margin): x0, y0, x1, y1
+-- On the round map (ui/Under.lua) its circle on the canvas: radius (false: square), centre. A Line takes no mask
+-- in this client, so the line keeps inside the round itself: a dash only wholly in it, a solid leg cut at it.
+local roundR, rcx, rcy = false, 0, 0
 local you, dest = {}, {} -- the line's ends, tile space
 local way = {} -- its points: you, the route's between, the target
 local shownWay -- way as last drawn, when a route was found: the edge arrow's legs
@@ -459,10 +461,26 @@ local function LeadIn(pts, facing, lead)
 	return bent
 end
 
+-- The round's radius for a view w x h, or false (the square map).
+local function Round(w, h) return UI.Under.on and math.min(w, h) / 2 or false end -- /: never 0 (a constant)
+
 local function Covered(cam, w, h)
 	local z = cam.zoom
 	local vx, vy = (cam.cx - ox) * z, (cam.cy - oy) * z
+	local R = Round(w, h)
+	if R ~= roundR then return false end
+	if R then return HalfPixel(vx) == HalfPixel(rcx) and HalfPixel(vy) == HalfPixel(rcy) end -- (the round moves with the view)
 	return vx - w / 2 >= rect[1] and vx + w / 2 <= rect[3] and vy - h / 2 >= rect[2] and vy + h / 2 <= rect[4]
+end
+
+-- A piece from a to b is on the map: within the rect, or (round) wholly within the circle.
+local function Near(ax, ay, bx, by)
+	if roundR then
+		local r2 = roundR * roundR
+		return (ax - rcx) ^ 2 + (ay - rcy) ^ 2 <= r2 and (bx - rcx) ^ 2 + (by - rcy) ^ 2 <= r2
+	end
+	return (ax >= rect[1] or bx >= rect[1]) and (ax <= rect[3] or bx <= rect[3]) and (ay >= rect[2] or by >= rect[2])
+		and (ay <= rect[4] or by <= rect[4])
 end
 
 -- The dashes (or dots) of the line as laid out (lay: m, len, s0, s1, step, id (Path.draws), still; parity,
@@ -476,7 +494,6 @@ local function Dashes(half)
 	local m, len, s0, s1, step, id, still = L.m, L.len, L.s0, L.s1, L.step, L.id, L.still
 	local dash = DOTS and DASH or step * DASH / PERIOD -- /: never 0 (DASH > 0)
 	local q = (step > PERIOD and not DOTS) and 1 or 2 -- px a dash's ends are rounded to: halves, whole past MAX_PIECES (a dot always halves: a whole px is most of it)
-	local r1, r2, r3, r4 = rect[1], rect[2], rect[3], rect[4]
 	local n, i = 0, m - 1
 	local b = s1 + step
 	while b - step > s0 and n < MAX_PIECES do
@@ -491,7 +508,7 @@ local function Dashes(half)
 			local near, ax, ay, bx, by = false, nil, nil, nil, nil
 			if len - a <= still and kept[n] == id - 1 then -- as it was: shown again if it's come into the rect
 				kept[n], ax, ay, bx, by = id, dax[n], day[n], dbx[n], dby[n]
-				near = (ax >= r1 or bx >= r1) and (ax <= r3 or bx <= r3) and (ay >= r2 or by >= r2) and (ay <= r4 or by <= r4)
+				near = Near(ax, ay, bx, by)
 				if near and not (strokes[n].on and (washes[n].on or not EDGE)) then Place(n, ax, ay, bx, by, dwa[n], dsa[n]) end
 				a = nil
 			else
@@ -525,7 +542,7 @@ local function Dashes(half)
 				local even = 1 - UNEVEN * (0.5 + 0.5 * sin(n * 0.45 + 2))
 				kept[n], dax[n], day[n], dbx[n], dby[n] = id, ax, ay, bx, by
 				dwa[n], dsa[n] = floor(WASH_A * f + 0.5) / 200, floor(STROKE_A * f * even + 0.5) / 200
-				near = (ax >= r1 or bx >= r1) and (ax <= r3 or bx <= r3) and (ay >= r2 or by >= r2) and (ay <= r4 or by <= r4)
+				near = Near(ax, ay, bx, by)
 				if near then Place(n, ax, ay, bx, by, dwa[n], dsa[n]) end
 			end
 			if not near then
@@ -563,6 +580,26 @@ local function Clip(ax, ay, bx, by, r1, r2, r3, r4)
 	return ax + dx * t0, ay + dy * t0, ax + dx * t1, ay + dy * t1
 end
 
+-- The part of a-b within the round (roundR about rcx, rcy), or nil.
+local function ClipRound(ax, ay, bx, by)
+	local dx, dy = bx - ax, by - ay
+	local fx, fy = ax - rcx, ay - rcy
+	local a, c = dx * dx + dy * dy, fx * fx + fy * fy - roundR * roundR
+	if a == 0 then
+		if c > 0 then return nil end
+		return ax, ay, bx, by
+	end
+	local b = 2 * (fx * dx + fy * dy)
+	local d = b * b - 4 * a * c
+	if d <= 0 then return nil end
+	d = math.sqrt(d)
+	local t0, t1 = (-b - d) / (2 * a), (-b + d) / (2 * a) -- /: never 0 (a > 0)
+	if t0 < 0 then t0 = 0 end
+	if t1 > 1 then t1 = 1 end
+	if t0 >= t1 then return nil end
+	return ax + dx * t0, ay + dy * t0, ax + dx * t1, ay + dy * t1
+end
+
 -- The point s px along the line, on leg k or one after it (k: a leg at or before s): x, y and its leg.
 local function At(s, k, m)
 	while k < m - 1 and along[k + 1] < s do k = k + 1 end
@@ -592,6 +629,7 @@ local function Solid()
 			local ax, ay, k = At(a, i, m)
 			local bx, by = At(b, k, m)
 			ax, ay, bx, by = Clip(ax, ay, bx, by, r1, r2, r3, r4)
+			if ax and roundR then ax, ay, bx, by = ClipRound(ax, ay, bx, by) end
 			if ax then
 				local mid = (a + b) / 2
 				local f = (mid - s0) / FADE_YOU
@@ -647,6 +685,8 @@ local function Line(t, me, cam, w, h)
 	-- Over the view and a margin: a dash that doesn't meet it is left off.
 	local vx, vy = (cam.cx - ox) * z, (cam.cy - oy) * z
 	local mw, mh = w / 2 + MARGIN, h / 2 + MARGIN
+	roundR, rcx, rcy = Round(w, h), vx, vy
+	if roundR then mw, mh = roundR, roundR end
 	local r1, r2, r3, r4 = vx - mw, vy - mh, vx + mw, vy + mh
 	rect[1], rect[2], rect[3], rect[4] = r1, r2, r3, r4
 	local pad = WOBBLE + 1
