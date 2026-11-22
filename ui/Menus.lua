@@ -58,7 +58,7 @@ local GROUPS = {
 -- on (drawn only then: its layer's own check). onToggle(on): called after its setting changes. Each
 -- group's rows in ORDER, a key not in it last.
 local ORDER = {}
-for i, key in ipairs({ "labels", "quests", "questAreas", "offers",
+for i, key in ipairs({ "labels", "labelSubs", "quests", "questAreas", "offers",
 	"flight", "dungeons", "graveyards", "areaPOIs", "rares", "group" }) do
 	ORDER[key] = i
 end
@@ -73,7 +73,10 @@ function Menus.Layer(row)
 	return row
 end
 
-Menus.Layer({ key = "labels", label = "Zone labels", group = "map", tip = "Names of zones and sub-zones." })
+-- Zone names and subzone names, each its own switch (Settings > Map > Names: ui/Labels.lua); the labels layer stays on.
+Menus.Layer({ key = "labels", label = "Zone names", group = "map", tip = "Names of zones (Elwynn Forest, Durotar)." })
+Menus.Layer({ key = "labelSubs", label = "Subzone names", group = "map",
+	tip = "Names of places within zones (Goldshire, Razor Hill), zoomed in." })
 -- Rares you've seen and the live ones (vignettes: rares, treasures, events the game shows near you): one row.
 Menus.Layer({ key = "rares", label = "Rares & treasures", group = "nearby",
 	tip = "Rares where you last saw them, and the rares, treasures and events the game shows near you now.",
@@ -110,7 +113,7 @@ end
 -- The rows that are a pin type's switch (Settings > Pins): one setting, the gear's row and the page's the same
 -- switch. Each layer itself stays on; a layer set before 3.1 (off, or graveyards and points of interest on) becomes
 -- its type's switch (once).
-local FEEL = { quests = "pins.quests.show", offers = "pins.offer.show", rares = "pins.rares.show", group = "pins.party.show",
+local FEEL = { labels = "labels.zones", labelSubs = "labels.subs", quests = "pins.quests.show", offers = "pins.offer.show", rares = "pins.rares.show", group = "pins.party.show",
 	flight = "pins.flight.show", dungeons = "pins.dungeon.show", graveyards = "pins.graveyard.show", areaPOIs = "pins.poi.show" }
 local function LayerOn(key)
 	local f = FEEL[key]
@@ -132,6 +135,7 @@ UI.Feel.OnLoad(function()
 			Engine.toggles[key] = nil
 			if Engine.onToggle[key] then Engine.onToggle[key](true) end
 			UI.Feel.Set(f, was)
+			if key == "labels" and was == false then UI.Feel.Set("labels.subs", false) end -- (one switch had both)
 		end
 	end
 end)
@@ -147,7 +151,7 @@ end
 
 -- Each layer's icon beside its name (legibility): the art its pins draw (an atlas), else a client icon.
 local ICON = {
-	labels = "Interface\\Icons\\INV_Misc_Note_01",
+	labels = "Interface\\Icons\\INV_Misc_Note_01", labelSubs = "Interface\\Icons\\INV_Misc_Note_02",
 	questAreas = "Interface\\Icons\\INV_Misc_Map02",
 	quests = "A:Quest-In-Progress-Icon-yellow", offers = "A:QuestNormal", flight = "A:taxinode_neutral",
 	dungeons = "A:dungeon", graveyards = "A:poi-graveyard-neutral",

@@ -99,6 +99,40 @@ def test_labels():
     sim.Run(0.5)
     pool = labels.front.pools.label
     assert pool.n and all(near(S[pool[i]].alpha, 0.3) for i in range(1, pool.n + 1) if S[pool[i]].shown)
+
+    # Zone names and subzone names each on or off; Zone levels: each zone's range under its name, smaller.
+    def faces():
+        got = placed(sim, labels.front)
+        pool = labels.front.pools.label
+        return [(g, S[pool[i + 1]].font[1] == title) for i, g in enumerate(got)]
+    look(sim, ns, KHARANOS, 200)
+    ns.UI.Feel.Set("labels.subs", False)
+    sim.Run(1)
+    got = faces()
+    assert got and all(z for _, z in got)  # zones alone
+    ns.UI.Feel.Set("labels.subs", True)
+    ns.UI.Feel.Set("labels.levels", True)
+    sim.Run(1)
+    got = faces()
+    zones = {g[0]: g for g, z in got if z}
+    levels = [g for g, z in got if not z and g[0].startswith("Level ")]
+    assert zones and len(levels) == len(zones)
+    pool, all_ = labels.front.pools.label, placed(sim, labels.front)
+    by_area, checked = {}, 0
+    for i in range(1, pool.n + 1):
+        by_area.setdefault(pool[i].label.areaID, []).append(all_[i - 1])
+    for gs in by_area.values():
+        names = [g for g in gs if not g[0].startswith("Level ")]
+        lvls = [g for g in gs if g[0].startswith("Level ")]
+        if names and lvls and names[0][0] in zones:
+            n, lv = names[0], lvls[0]
+            assert lv[1] < n[1] and lv[4] >= n[6] - 1 and abs((lv[3] + lv[5]) - (n[3] + n[5])) < 1  # under it, centred
+            checked += 1
+    assert checked
+    ns.UI.Feel.Set("labels.zones", False)
+    sim.Run(1)
+    got = faces()
+    assert got and not any(z for _, z in got) and not any(g[0].startswith("Level ") for g, _ in got)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

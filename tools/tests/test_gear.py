@@ -15,7 +15,7 @@ from test_addon import boot, errors
 from fixtures import lua_tools
 from sim import TEST_UI
 
-LAYERS = {"Zone labels": "labels", "Quests": "quests", "Quest areas": "questAreas",
+LAYERS = {"Zone names": "labels", "Quests": "quests", "Quest areas": "questAreas",
           "Rares & treasures": "rares"}
 SETTINGS = "Settings\u2026".encode("utf-8").decode("latin-1")  # the row's label, as the sim's Lua (latin-1) reads it
 WHITE, GOLD = (1, 1, 1), (1, 0.82, 0)
@@ -122,14 +122,14 @@ def test_gear():
                            ("button", "Default zoom"), ("button", "Other addons"), ("divider", None),
                            ("button", "Minimap look"), ("button", "Use Blizzard's minimap"),
                            ("button", "Reset to defaults"), ("divider", None), ("button", SETTINGS)]
-    assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"),
+    assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone names"), ("checkbox", "Subzone names"),
                                        ("divider", None), ("checkbox", "Quests"), ("checkbox", "Quest areas"),
                                        ("checkbox", "Quests to pick up"), ("divider", None), ("checkbox", "Flight points"), ("checkbox", "Dungeons & raids"),
                                        ("checkbox", "Graveyards"), ("checkbox", "Points of interest"),
                                        ("divider", None), ("checkbox", "Rares & treasures"), ("checkbox", "Party & raid")]
     assert items(sub(root, "Tracking")) == [("checkbox", "Find Herbs"), ("checkbox", "Mailbox"), ("checkbox", "Innkeeper")]
     assert items(sub(root, "Other addons")) == [("checkbox", "All other addons"), ("divider", None), ("checkbox", "Questie")]  # (GatherMate2's minimap pins only: none)
-    assert plain(sub(root, "Map").text) == "Map  8/10"  # (graveyards and points of interest off till turned on)
+    assert plain(sub(root, "Map").text) == "Map  9/11"  # (graveyards and points of interest off till turned on)
     # Default zoom (the small map's alone): a radio a Blizzard zoom it reaches, the default (the one before the
     # closest) marked and chosen; a pick goes there. Settings' slider: those zooms alone.
     zooms = sub(root, "Default zoom")
@@ -155,7 +155,7 @@ def test_gear():
     assert items(big) == [i for i in items(root) if i != ("button", "Default zoom")]
 
     # Tips: white title, gold body.
-    assert tip(L, rows["Zone labels"]) == [("Zone labels",) + WHITE, ("Names of zones and sub-zones.",) + GOLD]
+    assert tip(L, rows["Zone names"]) == [("Zone names",) + WHITE, ("Names of zones (Elwynn Forest, Durotar).",) + GOLD]
     assert tip(L, rows["Questie"]) == [("Questie",) + WHITE,
                                        ("Map pins Questie puts on the world map, shown here too.",) + GOLD]
 
@@ -165,12 +165,16 @@ def test_gear():
     for text, name in LAYERS.items():
         lay, row = layer(ns, name), rows[text]
         assert row.isSelected() is True and drawn(lay) > 0, name
+        if name == "labels":  # (zone and subzone names, each its own row: both off, none)
+            assert rows["Subzone names"].onSelect() == refresh
         assert row.onSelect() == refresh
         sim.Step()
         assert row.isSelected() is False and drawn(lay) == 0 and not ns.UI.Menus.LayerOn(name), name
         if name == "rares":
             assert ns.UI.Feel.Get("pins.vignette.show") is False  # (one row: the live ones too)
         assert row.onSelect() == refresh
+        if name == "labels":
+            assert rows["Subzone names"].onSelect() == refresh
         sim.Run(1)
         assert row.isSelected() is True and drawn(lay) > 0 and ns.UI.Menus.LayerOn(name), name
     assert Game.minimap.engaged
@@ -206,8 +210,8 @@ def test_gear():
     root, rows = gear(sim, ns)
     child = rows["     Sub-option"]
     rows_ = items(sub(root, "Map"))
-    assert rows_[rows_.index(("checkbox", "Zone labels")) + 1] == ("checkbox", "     Sub-option") and child.IsEnabled(child)
-    rows["Zone labels"].onSelect()
+    assert rows_[rows_.index(("checkbox", "Subzone names")) + 1] == ("checkbox", "     Sub-option") and child.IsEnabled(child)
+    rows["Zone names"].onSelect()
     assert not child.IsEnabled(child)
 
     sim.Press("M")  # (small again)
@@ -249,7 +253,7 @@ def test_gear():
     sim.Slash("/mm toggle")
     sim.Step()
     perf = ns.Runtime.Perf()[0]["map: gear pick"]
-    assert perf.n == 15 and perf.over == 0, (perf.n, perf.max)  # (two of them the Default zoom picks)
+    assert perf.n == 17 and perf.over == 0, (perf.n, perf.max)  # (two of them the Default zoom picks)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
     # /reload: the changed keys only (quest areas and the rest went off and on again, from the gear or
@@ -257,15 +261,15 @@ def test_gear():
     sim.Slash("/mm layer questAreas")
     sim.Slash("/mm layer questAreas")
     sim.FireEvent("PLAYER_LOGOUT")
-    assert dict(saved.layers.items()) == {"labels": False, "addon:Questie": False}
+    assert dict(saved.layers.items()) == {"addon:Questie": False}
     L, sim, ns, pin = shown("MagicMap2DB = " + lua_tools(L).Dump(G.MagicMap2DB))
     saved, view = L.globals().MagicMap2DB.UI, ns.UI.View()
-    assert dict(saved.layers.items()) == {"labels": False, "addon:Questie": False}
+    assert dict(saved.layers.items()) == {"addon:Questie": False}
     assert saved.button is False and view.button is False
     assert drawn(layer(ns, "labels")) == 0 and drawn(layer(ns, "tiles")) > 0
     assert view.layers["addon:Questie"] is None and not hosted(L, pin, ns)
     _, rows = gear(sim, ns)
-    assert [rows[t].isSelected() for t in ("Zone labels", "Quest areas", "Questie")] == [False, True, False]
+    assert [rows[t].isSelected() for t in ("Zone names", "Quest areas", "Questie")] == [False, True, False]
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
@@ -369,7 +373,7 @@ def test_gear_tracking():
     on, off = "|cff33ff33%s|r".__mod__, "|cff888888%s|r".__mod__
     assert sim.prints[len(sim.prints)] == (
         "|cffffd100MagicMap|r: layers: "
-        f"|cffffd100Map:|r {on('zoneLabels')}, {on('quests')}, {off('questAreas')}, {on('offers')}, {off('flight')}, {on('dungeons')}, "
+        f"|cffffd100Map:|r {on('zoneLabels')}, {on('labelSubs')}, {on('quests')}, {off('questAreas')}, {on('offers')}, {off('flight')}, {on('dungeons')}, "
         f"{off('graveyards')}, {off('areaPOIs')}, {off('rares')}, {on('group')}. Toggle them from the gear. "
         "Shift-click: /way at cursor. Ctrl-click: set waypoint. Ctrl-right-click: clear it.")
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
@@ -445,16 +449,16 @@ def test_gear_groups_and_reset():
     L, sim, ns, pin = shown()
     E = ns.UI.Menus
     root, rows = gear(sim, ns)
-    assert count(sim, ns, "Map") == "Map  8/10"  # (Graveyards and points of interest are off by default)
+    assert count(sim, ns, "Map") == "Map  9/11"  # (Graveyards and points of interest are off by default)
     rows["All map"].onSelect()  # (not all on, so all on)
     assert E.LayerOn("flight") and E.LayerOn("graveyards") and E.LayerOn("quests")
-    assert count(sim, ns, "Map") == "Map  10/10"
+    assert count(sim, ns, "Map") == "Map  11/11"
     rows["All map"].onSelect()
     assert not E.LayerOn("flight") and not E.LayerOn("quests")
-    assert count(sim, ns, "Map") == "Map  0/10"
+    assert count(sim, ns, "Map") == "Map  0/11"
     rows["Reset to defaults"].onSelect()
     assert E.LayerOn("quests") and E.LayerOn("flight") and not E.LayerOn("graveyards")  # (off by default)
-    assert count(sim, ns, "Map") == "Map  8/10"
+    assert count(sim, ns, "Map") == "Map  9/11"
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 

@@ -9,10 +9,13 @@
 -- the zoom ("move"). A name the last layout didn't show fades in. While the big map shows a capital's city map
 -- (ui/Interiors.lua), the areas named on its rooms (Atlas.City's labels: The Great Forge, the Apothecarium...)
 -- are subzones too, placed first, but for a name the terrain's subzones have. Settings > Map > Names (ui/Feel.lua,
--- declared at the bottom): the label size, the zone names' opacity, the subzones' own size and opacity.
+-- declared at the bottom): zone names and subzone names each on or off (the gear's rows too: ui/Menus.lua), the
+-- label size, the zone names' opacity, the subzones' own size and opacity, and Zone levels: a zone's level range
+-- ("Level 10-20") under its name, smaller, in Friz Quadrata (the client's range for its map, Model.levels; else the
+-- data's, its subzones' exploration levels: Atlas.ZoneLevels), placed with it as one box.
 
 local _, ns = ...
-local UI = ns.UI
+local UI, Model = ns.UI, ns.Model
 local Atlas, Runtime, Engine = ns.Atlas, ns.Runtime, ns.UI.Engine
 local Get, Unget, At, Yield = Engine.Get, Engine.Unget, Engine.At, Runtime.Yield
 
@@ -26,12 +29,17 @@ local SUB_ZOOM = 120 -- subzone names from here (weight >= 40), 220 (>= 15), els
 local SHADOW = 0.85 -- the soft drop shadow's alpha, offset (1, -1)
 local PAD_X, PAD_Y, GAP = 4, 2, 3 -- a name's clearance, and its spots' gap above and below
 local FADE_S = 0.2 -- s: a new name's fade-in
+local LEVEL_K, LEVEL_MIN = 0.5, 8 -- a zone's level line: this much of its name's size, at least this (pt)
+local LEVEL_ALPHA = 0.8 -- its alpha against the name's (quieter than the name)
+local LEVEL_GAP = 0 -- px between the name and its level line (the fonts' own leading is enough)
 
 -- The settings' label size ("labels.scale"), a factor on every name's size; the layer's rev moves with it, so the
 -- names are laid out again at the new size (and, as the names', at a new size or opacity).
 local scale, subScale, subSize, scaleRev = 1, 0.8, math.floor(SUB_SIZE * 0.8 + 0.5), 0 -- (Subzone size: 80% by default)
+local zonesOn, subsOn, levelsOn = true, true, false -- Zone names, Subzone names, Zone levels (Settings > Map > Names)
 local zone, sub = ZONE, SUB -- the names' colours (their alphas, the settings' "labels.alpha" and "labels.subAlpha", are each
 -- name's own alpha: Font's fs.base)
+local levelColor = { ZONE[1], ZONE[2], ZONE[3], ZONE[4] * LEVEL_ALPHA } -- a zone's level line: its name's, quieter
 
 local function MakeFont(c)
 	local fs = c:CreateFontString(nil, "OVERLAY")
@@ -140,8 +148,9 @@ local NONE = {}
 -- The name drawn at its spot; fading in unless the last layout showed it.
 local function Show(c, fs, l, dy, shown)
 	At(c, fs, "CENTER", l.col, l.row, 0, dy)
-	c.names[l.text], fs.label = true, l -- (fs.label.areaID: the zone a hover lights)
-	local a = shown[l.text] and fs.base or 0
+	local key = l.key or l.text -- (a level line's own: "Level 10-20" is many zones')
+	c.names[key], fs.label = true, l -- (fs.label.areaID: the zone a hover lights)
+	local a = shown[key] and fs.base or 0
 	if fs.alpha ~= a then
 		fs:SetAlpha(a)
 		fs.alpha = a
@@ -168,6 +177,25 @@ local function Measure(l, size)
 	return l.w * size + PAD_X, l.h * size
 end
 
+-- A zone's level line ("Level 10-20"), its own label (placed under the zone's name, lighting the same zone on a
+-- hover), or nil: none known. The client's range once it gives one (kept then), else the data's.
+local function LevelLabel(l)
+	local lv = l.level
+	if lv and lv.client then return lv end
+	local lo, hi
+	local area = l.areaID and Atlas.Area(l.areaID)
+	local client = area and area.uiMap and Model.levels[area.uiMap]
+	if client then lo, hi = client[1], client[2] elseif l.areaID then lo, hi = Atlas.ZoneLevels(l.areaID, Yield) end
+	if not (lo and lo > 0) then return nil end
+	local text = "Level " .. (lo == hi and tostring(lo) or (lo .. "-" .. hi))
+	if not (lv and lv.text == text) then
+		lv = { text = text, key = "level:" .. l.text, col = l.col, row = l.row, areaID = l.areaID }
+		l.level = lv
+	end
+	lv.client = client ~= nil
+	return lv
+end
+
 -- A quest's name on the big map (ui/Quests.lua) in the subzone names' size and font, and a rev that moves with it.
 function UI.LabelsSub() return BODY, subSize, scaleRev end
 
@@ -179,19 +207,24 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 	c.nfading, c.fadeAt, nboxes = 0, nil, 0
 	if not UI.BigMap.big then return end -- (at the minimap's size, no names)
 	local list = List(inst)
-	if zoom <= MAX_ZOOM then
+	if zonesOn and zoom <= MAX_ZOOM then
 		for i, l in ipairs(list.zones) do
 			local size = SizeAt(l, ZONE_K, ZONE_MIN, ZONE_MAX, zoom)
 			local w, h = Measure(l, size)
-			local dy = Spot(c, l, zoom, w, h)
+			-- With its level line: one box, the name over the line (each centred on its own height).
+			local lv = levelsOn and LevelLabel(l)
+			local lsize = lv and math.max(LEVEL_MIN, math.floor(size * LEVEL_K + 0.5))
+			local lh = lv and lsize * (l.h or 1) + LEVEL_GAP or 0
+			local dy = Spot(c, l, zoom, w, h + lh)
 			if dy and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-				Show(c, Font(c, l, TITLE, size, zone, Flags(size)), l, dy, shown)
+				Show(c, Font(c, l, TITLE, size, zone, Flags(size)), l, dy - lh / 2, shown)
+				if lv then Show(c, Font(c, lv, BODY, lsize, levelColor, Flags(lsize)), lv, dy + h / 2, shown) end
 			end
 			if i % 16 == 0 then Yield() end
 		end
 	end
 	local city = UI.Interiors.City()
-	if zoom >= SUB_ZOOM and city then
+	if subsOn and zoom >= SUB_ZOOM and city then
 		for _, l in ipairs(CityList(city, list)) do
 			if zoom >= l.zoom and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
 				local fs = Font(c, l, BODY, subSize, sub, "")
@@ -200,7 +233,7 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 			end
 		end
 	end
-	if zoom >= SUB_ZOOM then
+	if subsOn and zoom >= SUB_ZOOM then
 		for i, l in ipairs(list.subs) do
 			if zoom >= l.zoom and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
 				local fs = Font(c, l, BODY, subSize, sub, "")
@@ -227,7 +260,18 @@ end
 local function SetAlpha(a)
 	if zone[4] == a then return end
 	zone, scaleRev = { ZONE[1], ZONE[2], ZONE[3], a }, scaleRev + 1
+	levelColor = { ZONE[1], ZONE[2], ZONE[3], a * LEVEL_ALPHA }
 end
+-- Zone names, Subzone names, Zone levels: each on or off, the names laid out again.
+local function Switch(set)
+	return function(on)
+		on = on ~= false
+		if set(on) then scaleRev = scaleRev + 1 end
+	end
+end
+local SetZones = Switch(function(on) local was = zonesOn; zonesOn = on; return was ~= on end)
+local SetSubs = Switch(function(on) local was = subsOn; subsOn = on; return was ~= on end)
+local SetLevels = Switch(function(on) local was = levelsOn; levelsOn = on; return was ~= on end)
 local function SetSubScale(k)
 	if subScale == k then return end
 	subScale, subSize, scaleRev = k, math.floor(SUB_SIZE * scale * k + 0.5), scaleRev + 1
@@ -253,6 +297,12 @@ Runtime.Step("ui", "map: labels fade", function()
 end, { shownOnly = UI.Window.frame })
 
 UI.Feel.Add("map", "Names", {
+	{ key = "labels.zones", kind = "toggle", label = "Zone names", default = true, apply = SetZones,
+		tip = "The names of zones (Elwynn Forest, Durotar) on the big map." },
+	{ key = "labels.levels", kind = "toggle", label = "Zone levels", default = false, under = "labels.zones", apply = SetLevels,
+		tip = "Each zone's level range in small text under its name." },
+	{ key = "labels.subs", kind = "toggle", label = "Subzone names", default = true, apply = SetSubs,
+		tip = "The names of places within zones (Goldshire, Razor Hill) on the big map, zoomed in." },
 	{ key = "labels.scale", kind = "slider", label = "Zone names", min = 0.7, max = 1.5, step = 0.1, pct = true, default = scale,
 		apply = SetScale, tip = "The zone and subzone names' size. Open it (+) for the zone names' opacity." },
 	{ key = "labels.alpha", kind = "slider", label = "Opacity", under = "labels.scale", min = 0.3, max = 1, step = 0.05, pct = true, default = ZONE[4],

@@ -128,7 +128,7 @@ local WHITE_ARROWS = { "common-icon-undo", "uitools-icon-refresh" }
 local ZOOM_GOLD = { 1, 0.86, 0.25 }
 local zoomReset = CreateFrame("Button", nil, Chrome.controls)
 zoomReset:SetSize(20, 20) -- (the + and -'s)
-zoomReset:SetPoint("BOTTOM", zoomIn, "TOP", 0, 2)
+-- (its column, Controls.Column: under Blizzard's minimap they stand round its ring instead, ui/Under.lua)
 do
 	local gold, white = FirstAtlas(unpack(GOLD_ARROWS)), FirstAtlas(unpack(WHITE_ARROWS))
 	local refresh = not (gold or white) and FirstAtlas("UI-RefreshButton")
@@ -141,7 +141,7 @@ do
 			arrows:SetVertexColor(unpack(ZOOM_GOLD))
 		end
 		arrows:SetSize(18, 18)
-		arrows:SetPoint("CENTER", zoomIn, "CENTER", 0, 22) -- (the + and -'s centre line, a step above the +)
+		arrows:SetPoint("CENTER") -- (on its button: the + and -'s centre line, a step above the +)
 		if layer == "HIGHLIGHT" then arrows:SetBlendMode("ADD") end
 	end
 end
@@ -153,7 +153,6 @@ Controls.zoomReset = zoomReset
 -- reset, Track or Path to). Blizzard's pin, greyed and the + and -'s gold at rest, its yellow one while pinned.
 local zoomPin = CreateFrame("Button", nil, Chrome.controls)
 zoomPin:SetSize(20, 20)
-zoomPin:SetPoint("BOTTOM", zoomReset, "TOP", 0, 2)
 do
 	local atlas = FirstAtlas("friendslist-recentallies-pin")
 	local lit = FirstAtlas("friendslist-recentallies-pin-yellow") or atlas
@@ -161,7 +160,7 @@ do
 		local t = zoomPin:CreateTexture(nil, layer)
 		if atlas then t:SetAtlas(atlas) else t:SetTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Up") end
 		t:SetSize(18, 18)
-		t:SetPoint("CENTER", zoomIn, "CENTER", 0, 44)
+		t:SetPoint("CENTER")
 		if layer == "HIGHLIGHT" then t:SetBlendMode("ADD") else zoomPin.art = t end
 	end
 	function zoomPin.Lit(on)
@@ -180,6 +179,14 @@ do
 end
 zoomPin:Hide()
 Controls.zoomPin = zoomPin
+-- The reset and pin in their column above the +, a 2 px gap each.
+function Controls.Column()
+	zoomReset:ClearAllPoints()
+	zoomReset:SetPoint("BOTTOM", zoomIn, "TOP", 0, 2)
+	zoomPin:ClearAllPoints()
+	zoomPin:SetPoint("BOTTOM", zoomReset, "TOP", 0, 2)
+end
+Controls.Column()
 
 ---------------------------------------------------------------------------
 -- The quest pill (bottom left): the one pill for what you go to. With a target on this map (Model.Target: your

@@ -372,7 +372,11 @@ def test_under_blizzard_minimap():
     C.zoomReset.Show(C.zoomReset)
     rx, ry = C.zoomReset.GetCenter(C.zoomReset)
     sc = C.zoomReset.GetEffectiveScale(C.zoomReset) / zin.GetEffectiveScale(zin)
-    assert abs(rx * sc - zx) < 0.01 and abs(ry * sc - zy - 22 * sc) < 0.01, ((rx * sc, ry * sc), (zx, zy))
+    vx, vy = UI.Window.view.GetCenter(UI.Window.view)
+    vs = UI.Window.view.GetEffectiveScale(UI.Window.view) / zin.GetEffectiveScale(zin)
+    a0, a1 = math.atan2(zy - vy * vs, zx - vx * vs), math.atan2(ry * sc - vy * vs, rx * sc - vx * vs)
+    d0, d1 = math.hypot(zx - vx * vs, zy - vy * vs), math.hypot(rx * sc - vx * vs, ry * sc - vy * vs)
+    assert abs(a1 - a0 - math.radians(11.5)) < 1e-6 and abs(d1 - d0) < 0.01  # round the ring, a step up from the +
     C.zoomReset.Hide(C.zoomReset)
     sim.MoveCursorTo(G.UIParent, 0.05, 0.05)
     sim.Run(0.3)

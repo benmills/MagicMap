@@ -4,12 +4,16 @@ Each release's notes, newest first. The zips are on [GitHub](https://github.com/
 
 ## Unreleased
 
+- **Zone names and subzone names, each on or off.** The gear's Zone labels row is now two, Zone names and Subzone
+  names (also Settings › Map › Names).
+- **Zone levels.** Settings › Map › Names › Zone levels shows each zone's level range in small text under its name on
+  the big map (off by default).
 - **Blizzard's minimap, MagicMap's map.** Settings › General › Minimap look: Blizzard's keeps Blizzard's own
   minimap where it is, with its ring, zone name, buttons and clock, and draws MagicMap's map inside it in place of
   Blizzard's ground. It still pans and zooms as MagicMap's does; the big map (M) is unchanged. Blizzard's own + and - zoom it.
   A small MagicMap badge under the tracking button (in Blizzard's addon compartment box) marks it as MagicMap's;
   its name beside it; a click opens MagicMap's menu, with Minimap look to go back to MagicMap's frame. MagicMap's
-  rim button and the quest pill stay hidden in this look, and the reset and pin stand above Blizzard's +.
+  rim button and the quest pill stay hidden in this look, and the reset and pin stand round the ring past Blizzard's +.
 
 ## 3.2.1 (build 1.60.1.71037)
 
