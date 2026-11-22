@@ -2,7 +2,7 @@
 
 Each release's notes, newest first. The zips are on [GitHub](https://github.com/benmills/MagicMap/releases).
 
-## Unreleased
+## 3.3.0 (build 1.60.1.71037)
 
 - **Zone names and subzone names, each on or off.** The gear's Zone labels row is now two, Zone names and Subzone
   names (also Settings › Map › Names).
