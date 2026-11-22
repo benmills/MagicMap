@@ -1441,6 +1441,15 @@ TimeManagerClockButton:SetScript("OnClick", function() Opened("clock") end)
 AddonCompartmentFrame = CreateFrame("Frame", "AddonCompartmentFrame", MinimapCluster)
 AddonCompartmentFrame.registeredAddons = { { text = "MagicMap", icon = "Interface\\Icons\\INV_Misc_Map_01",
 	func = function(_, input) MagicMap_OnAddonCompartmentClick("MagicMap", input.buttonName) end } }
+AddonCompartmentFrame:SetSize(23, 22)
+AddonCompartmentFrame:SetPoint("TOP", GameTimeFrame, "BOTTOM", 0, 1) -- (Forever's: Camelot/Minimap.lua)
+-- The tracking button left of the zone name (Minimap.xml's MinimapCluster.Tracking: its Button, the magnifier).
+MinimapCluster.Tracking = CreateFrame("Frame", nil, MinimapCluster)
+MinimapCluster.Tracking:SetSize(17, 17)
+MinimapCluster.Tracking:SetPoint("TOPLEFT", MinimapCluster, "TOPLEFT", 20, -10)
+MinimapCluster.Tracking.Button = CreateFrame("Button", nil, MinimapCluster.Tracking)
+MinimapCluster.Tracking.Button:SetSize(23, 23)
+MinimapCluster.Tracking.Button:SetPoint("CENTER")
 -- Blizzard's indicators (Forever's MinimapCluster.IndicatorFrame): its MailFrame, shown while there's mail.
 local indicators = CreateFrame("Frame", nil, MinimapCluster)
 indicators:SetSize(33, 33)
@@ -2042,6 +2051,7 @@ for _, a in ipairs({ "food", "reagents", "poisons", "ammunition", "Professions_T
 ATLASES["UI-HUD-Minimap-DayCycle"], ATLASES["UI-HUD-Minimap-NightCycle"] = { 36, 36 }, { 36, 36 }
 ATLASES["UI-HUD-Minimap-Frame-Cycle"] = { 42, 42 } -- (Diel.lua's ring round them)
 ATLASES["ui-hud-minimap-calendar-button"] = { 23, 23 }
+ATLASES["ui-hud-minimap-addon-indicator"] = { 23, 22 } -- (the addon compartment's box)
 ATLASES["levelup-dot-gold"] = { 21, 22 } -- the zoom reset's dot (Forever has no reset atlas)
 ATLASES["!UI-Frame-Metal-EdgeLeft"] = { 200, 256 }
 ATLASES["!UI-Frame-Metal-EdgeRight"] = { 200, 256 }

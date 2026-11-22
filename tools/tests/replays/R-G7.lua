@@ -12,7 +12,7 @@ sim.Run(1)
 local button
 for _, f in ipairs(sim.Frames()) do
 	for _, r in ipairs({ f:GetRegions() }) do
-		if r.GetTexture and r:GetTexture() == [[Interface\Icons\INV_Misc_Map_01]] then button = f end
+		if r.GetTexture and r:GetTexture() == [[Interface\Icons\INV_Misc_Map_01]] and f:GetName() ~= "MagicMapBadge" then button = f end
 	end
 end
 local tip, built = GameTooltip, 0

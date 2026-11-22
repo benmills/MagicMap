@@ -104,7 +104,7 @@ def rim_button(L, sim):
     return L.eval("""function(Sim, icon)
         for _, f in ipairs(Sim.Frames()) do
             for _, r in ipairs({ f:GetRegions() }) do
-                if r.GetTexture and r:GetTexture() == icon then return f end
+                if r.GetTexture and r:GetTexture() == icon and f:GetName() ~= "MagicMapBadge" then return f end
             end
         end
     end""")(sim, ICON)
@@ -120,7 +120,7 @@ def test_gear():
     root, rows = gear(sim, ns)
     assert items(root) == [("button", "Map"), ("button", "Tracking"), ("button", "Keep tracking: Find Herbs"),
                            ("button", "Default zoom"), ("button", "Other addons"), ("divider", None),
-                           ("button", "Use Blizzard's minimap"),
+                           ("button", "Minimap look"), ("button", "Use Blizzard's minimap"),
                            ("button", "Reset to defaults"), ("divider", None), ("button", SETTINGS)]
     assert items(sub(root, "Map")) == [("checkbox", "All map"), ("divider", None), ("checkbox", "Zone labels"),
                                        ("divider", None), ("checkbox", "Quests"), ("checkbox", "Quest areas"),

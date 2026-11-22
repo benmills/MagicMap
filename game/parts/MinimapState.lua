@@ -29,6 +29,7 @@ Game.Part("minimap", function()
 	minimap.engaged, minimap.blocker = m.engaged, m.blocker
 	minimap.indoors, minimap.indoorDebug = Game.Indoors(), Game.saved.indoorDebug or false
 	minimap.home, minimap.homeStrata = Game.Home()
+	minimap.badge = Game.BadgeSpot()
 	minimap.mouse, minimap.blip = m.mouse == true, m.blip == true
 	minimap.names = m.blip and m.names or nil
 	minimap.marks = minimap.names and m.marks or nil

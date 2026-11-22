@@ -256,6 +256,7 @@ Runtime.Step("ui", "map: keys", function()
 	local m = Model.minimap
 	if m and m.home then
 		BigMap.home = m.home
+		BigMap.badge = m.badge -- (ui/Under.lua's badge's spot)
 		if m.homeStrata ~= BigMap.homeStrata then
 			BigMap.homeStrata = m.homeStrata
 			if not small then frame:SetFrameStrata(SmallStrata()) end

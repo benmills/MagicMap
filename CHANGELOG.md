@@ -6,7 +6,10 @@ Each release's notes, newest first. The zips are on [GitHub](https://github.com/
 
 - **Blizzard's minimap, MagicMap's map.** Settings › General › Minimap look: Blizzard's keeps Blizzard's own
   minimap where it is, with its ring, zone name, buttons and clock, and draws MagicMap's map inside it in place of
-  Blizzard's ground. It still pans and zooms as MagicMap's does; the big map (M) is unchanged.
+  Blizzard's ground. It still pans and zooms as MagicMap's does; the big map (M) is unchanged. Blizzard's own + and - zoom it.
+  A small MagicMap badge under the tracking button (in Blizzard's addon compartment box) marks it as MagicMap's;
+  a click opens MagicMap's menu, with Minimap look to go back to MagicMap's frame. MagicMap's rim button stays
+  hidden while the badge shows.
 
 ## 3.2.1 (build 1.60.1.71037)
 

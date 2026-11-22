@@ -793,6 +793,7 @@ Controls.Tip(zoomReset, function() return Camera.follow and "Reset zoom" or "Bac
 Controls.Tip(zoomPin, function() return UI.Motion.pinned and "Unpin this view" or "Pin this view" end)
 Controls.Tip(gear, function() return "Settings" end)
 Controls.Tip(addons, function() return "AddOns" end)
+Controls.Tip(UI.Under.badge, function() return "MagicMap" end)
 close:SetScript("OnClick", Runtime.Wrap("map: pill close", function() UI.Track.Clear() end))
 Controls.Tip(close, function() return UI.Track.ClearLabel() end)
 

@@ -6,8 +6,12 @@
 -- While under (Under.on: the look Blizzard's, the minimap ours, the window small, the Minimap's spot known):
 --   * the window sits on the Minimap's spot at its size, a strata under the cluster's (Blizzard's chrome over the
 --     map and its blips), not moved nor resized (Under.Rect, ui/BigMap.lua; Window's moves check Under.on)
---   * MagicMap's chrome goes: the border, the title line and its buttons, the grip, our + and -; the gear stays, in
---     the window's top left corner (outside the round, under Blizzard's ring), shown as the buttons are on hover
+--   * MagicMap's chrome goes: the border, the title line and its buttons (the gear too), the grip, our + and -, and
+--     MagicMap's rim button (View.button: Game's). Blizzard's own + and - stand in for ours. In their place, the badge:
+--     MagicMap's mark in Blizzard's own box (its addon compartment's, the number under the calendar), mirrored under
+--     the tracking button left of the zone name, so the map reads as MagicMap's; a click opens the gear's menu (and
+--     there Minimap look, to go back to MagicMap's frame). The reset and pin stay inside the round at its lower
+--     right, raised over Blizzard's chrome (a strata over its cluster's) as the badge is, so they take clicks.
 --   * the map is round: a circle mask on the view, added to every region a layer makes (Under.Mask, called by each
 --     maker: the backdrop, the ground's pictures, tiles, buildings, pins, groups, the line's dots) while the look is
 --     Blizzard's (Under.styled), on none otherwise: a mask has a drawing cost the square map needn't pay. Big, it's a
@@ -24,6 +28,11 @@ local frame, view = Window.frame, Window.view
 local SQUARE = "Interface\\ChatFrame\\ChatFrameBackground" -- plain white: a mask that hides nothing
 local LOWER = { LOW = "BACKGROUND", MEDIUM = "LOW", HIGH = "MEDIUM", DIALOG = "HIGH" } -- a strata, the one under it
 local RESET_AT = 0.5 -- the reset and pin's column (above where our + stood) this far out toward the round's lower right
+local OVER = "MEDIUM" -- the badge's, reset's and pin's strata while under: over Blizzard's cluster (LOW), as rim buttons are
+local BADGE_ART = "ui-hud-minimap-addon-indicator" -- Blizzard's addon compartment's box (Blizzard_Minimap: AddonCompartment.lua)
+local BADGE_W, BADGE_H, BADGE_ICON = 23, 22, 14 -- px: the compartment's size; the mark inside its box's border
+local ICON = "Interface\\Icons\\INV_Misc_Map_01" -- MagicMap's (the TOC's IconTexture)
+local LIT, PRESSED = 0.1, 0.2 -- the box ADDed over itself on hover and press (the compartment's mouseover and mousedown alphas)
 
 local Under = { on = false, styled = false }
 UI.Under = Under
@@ -51,6 +60,63 @@ Under.Mask(Window.curtain)
 local function MaskAll(on)
 	for r in pairs(masked) do
 		if on then r:AddMaskTexture(mask) else r:RemoveMaskTexture(mask) end
+	end
+end
+
+---------------------------------------------------------------------------
+-- The badge
+---------------------------------------------------------------------------
+
+local badge = CreateFrame("Button", "MagicMapBadge", frame)
+badge:SetSize(BADGE_W, BADGE_H)
+badge:Hide()
+Under.badge = badge
+local box = badge:CreateTexture(nil, "BACKGROUND")
+box:SetAtlas(BADGE_ART)
+box:SetAllPoints()
+local lit = badge:CreateTexture(nil, "BORDER")
+lit:SetAtlas(BADGE_ART)
+lit:SetAllPoints()
+lit:SetBlendMode("ADD")
+lit:Hide()
+local mark = badge:CreateTexture(nil, "ARTWORK")
+mark:SetTexture(ICON)
+mark:SetSize(BADGE_ICON, BADGE_ICON)
+mark:SetPoint("CENTER")
+mark:SetTexCoord(0.08, 0.92, 0.08, 0.92) -- (an icon's dark rim trimmed)
+
+local function Lit(a)
+	lit:SetShown(a > 0)
+	lit:SetAlpha(a)
+end
+badge:SetScript("OnEnter", Runtime.Wrap("map: badge lit", function() Lit(LIT) end))
+badge:SetScript("OnLeave", Runtime.Wrap("map: badge lit", function() Lit(0) end))
+badge:SetScript("OnMouseDown", Runtime.Wrap("map: badge lit", function() Lit(PRESSED) end))
+badge:SetScript("OnMouseUp", Runtime.Wrap("map: badge lit", function(self) Lit(self:IsMouseOver() and LIT or 0) end))
+-- (the client's own menu, MenuUtil: ~3 ms once a click, the frame's budget: as the gear's)
+badge:SetScript("OnClick", Runtime.Wrap("map: badge", function(self) UI.Menus.Gear(self) end, Runtime.FRAME_MS))
+
+-- On its spot (Game's: under Blizzard's tracking button, as its addon compartment is under the calendar), else the
+-- window's top left corner, outside the round. Placed again only when the spot moves.
+local placed = false -- the spot placed at (a kept table), or false
+local function PlaceBadge()
+	local spot = UI.BigMap.badge or nil
+	if spot == placed then return end
+	placed = spot or false
+	badge:ClearAllPoints()
+	if spot then
+		local k = UIParent:GetEffectiveScale() / badge:GetEffectiveScale() -- /: never 0 (an effective scale is > 0)
+		badge:SetPoint(spot.below and "TOP" or "BOTTOM", UIParent, "BOTTOMLEFT", spot.x * k, spot.y * k)
+	else
+		badge:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+	end
+end
+
+-- What's over Blizzard's chrome while under: its strata (the window's own moves set its children's back).
+local function Over()
+	local C = UI.Controls
+	for _, f in ipairs({ badge, C.zoomReset, C.zoomPin }) do
+		if f:GetFrameStrata() ~= OVER then f:SetFrameStrata(OVER) end
 	end
 end
 
@@ -90,20 +156,17 @@ local function Buttons(under, r)
 	local C = UI.Controls
 	C.zoomIn:SetShown(not under)
 	C.zoomOut:SetShown(not under)
-	local gear = C.gear
-	gear:ClearAllPoints()
+	badge:SetShown(under)
 	if under then
 		-- (the reset and pin stand above where our + would: toward the round's lower right, inside it)
 		C.zoomIn:ClearAllPoints()
 		C.zoomIn:SetPoint("CENTER", view, "CENTER", r * RESET_AT, -r * RESET_AT)
-		gear:SetParent(Chrome.overlay)
-		gear:SetPoint("TOPLEFT", view, "TOPLEFT", 0, 0)
 	else
 		C.Home()
-		gear:SetParent(Chrome.band)
-		gear:SetPoint("RIGHT", C.mode, "LEFT", -6, 0)
+		local strata = Chrome.controls:GetFrameStrata()
+		C.zoomReset:SetFrameStrata(strata)
+		C.zoomPin:SetFrameStrata(strata)
 	end
-	gear:SetFrameLevel(gear:GetParent():GetFrameLevel() + 1)
 end
 
 local laid -- the look laid out: nil, false (MagicMap's) or the round's radius
@@ -153,6 +216,10 @@ function Under.Step()
 		end
 	end
 	Layout()
+	if on then
+		Over()
+		PlaceBadge()
+	end
 end
 
 local function Style(look)

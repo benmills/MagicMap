@@ -59,7 +59,7 @@ wrapper"), never a global: a global is shared with every addon, and the rebuild'
 `MagicMapMinimapStandIn` (the Minimap's children wait on it; for code that reads a parent's
 name), `MagicMapWorldMapEscape` (game/Hooks.lua's Escape catcher:
 `UISpecialFrames` holds names), `MagicMapFeel` (ui/Feel.lua's settings window), `MagicMapWelcome` (ui/Welcome.lua's
-first-run dialog) and `MagicMapPopup` (ui/Popup.lua's pin popup), each named in `UISpecialFrames` so Escape closes it; `MagicMapBlipScan` (game/Minimap.lua's hidden tooltip: GameTooltipTemplate names its lines by its name), `MagicMapMinimapButton` (game/Button.lua's: button collectors grab and add by name). tools/luacheck.py fails any other global write anywhere,
+first-run dialog) and `MagicMapPopup` (ui/Popup.lua's pin popup), each named in `UISpecialFrames` so Escape closes it; `MagicMapBlipScan` (game/Minimap.lua's hidden tooltip: GameTooltipTemplate names its lines by its name), `MagicMapMinimapButton` (game/Button.lua's: button collectors grab and add by name), `MagicMapBadge` (ui/Under.lua's: MagicMap's mark on Blizzard's minimap, named as the rim button is). tools/luacheck.py fails any other global write anywhere,
 any other frame name (`FRAME_NAMES`), and any use of `_G`, `setglobal`, `getfenv` or
 `setfenv` (they reach globals past the bytecode check).
 

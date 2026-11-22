@@ -342,6 +342,22 @@ def test_under_blizzard_minimap():
         H.Rect(frame), (home.left, home.top, home.w, home.h))
     assert frame.GetFrameStrata(frame) == "BACKGROUND" and cluster.GetFrameStrata(cluster) == "LOW"
     assert not (chrome.border.IsShown(chrome.border) or chrome.band.IsShown(chrome.band) or chrome.grip.IsShown(chrome.grip))
+    # The badge: MagicMap's mark in the compartment's box under the tracking button, over Blizzard's chrome; a click is
+    # the gear's menu, whose Minimap look goes back to MagicMap's frame. The reset and pin over the chrome too.
+    S, badge, C = sim.state, UI.Under.badge, UI.Controls
+    t = G.MinimapCluster.Tracking.Button
+    assert badge.IsVisible(badge) and badge.GetFrameStrata(badge) == "MEDIUM"
+    assert abs(badge.GetTop(badge) * badge.GetEffectiveScale(badge) - (t.GetBottom(t) + 1) * t.GetEffectiveScale(t)) < 0.01
+    assert abs(badge.GetCenter(badge)[0] * badge.GetEffectiveScale(badge) - t.GetCenter(t)[0] * t.GetEffectiveScale(t)) < 0.01
+    assert C.zoomReset.GetFrameStrata(C.zoomReset) == "MEDIUM" and C.zoomPin.GetFrameStrata(C.zoomPin) == "MEDIUM"
+    sim.Click(badge)
+    look = next(e for e in sim.MenuItems().values() if e.text and e.text.endswith("Minimap look"))
+    radios = {e.text: e for e in look["items"].values()}
+    assert radios["Inside Blizzard's minimap"].isSelected() and not radios["MagicMap's frame"].isSelected()
+    sim.Click(G.UIParent)
+    UI.saved.button = True  # MagicMap's rim button on: hidden under (the badge is MagicMap's there), back after
+    sim.Run(0.2)
+    assert not UI.View().button
     # The line to a waypoint far east stays inside the round (a Line takes no mask: Path keeps it in).
     L.execute("""local ns = ...
     local you = ns.Model.you
@@ -377,4 +393,5 @@ def test_under_blizzard_minimap():
     assert not UI.Under.on and not cluster.IsShown(cluster) and not stand.IsShown(stand)
     assert all(abs(a - b) < 0.01 for a, b in zip(H.Rect(frame), was)) and frame.GetFrameStrata(frame) == "LOW"
     assert chrome.border.IsShown(chrome.border) and chrome.band.IsShown(chrome.band)
+    assert UI.View().button and not badge.IsShown(badge)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
