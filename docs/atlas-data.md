@@ -325,10 +325,10 @@ committed (1,136 KB; 1.37 MB loaded). `[inst] = { tiles = { [tileKey] = { key...
   (Stormwind 20, Orgrimmar 10, Ironforge 12, Undercity 9, Darnassus 5, Thunder Bluff 1).
 - `Atlas.BuildingsAt(inst, col, row)` → the keys of the buildings whose box covers the point.
 - `Atlas.Building(inst, key)` → `{ key, inst, fid, wmo, col, row, yaw, rooms = { [room] = { zmin, zmax, area,
-  links = { room... }, pics = { { fid, ox, oy, ux, uy, vx, vy }... }, floor, underground, over = { room... }, clash = { room... }, doors = { room... } } } }`
+  links = { room... }, pics = { { fid, ox, oy, ux, uy, vx, vy }... }, floor, underground, over = { room... }, clash = { room... }, roofed, doors = { room... } } } }`
   (kept): a picture's pixel (u, v) in 0..1 lands at o + u·U + v·V, U along its width, V down its height; `clash` the
   overlapped rooms it's stacked with (a storey over or under it, or the ground between them), `doors` the rooms a
-  doorway joins it to, either way round.
+  doorway joins it to, either way round, `roofed` not open to the sky (an auction house, not the street it stands on).
 - `Atlas.City(inst, uiMap)` → `{ buildings = { key... }, over = { [key] = { [room] = { { key, room }... } } },
   labels = { { text, col, row, size }... } }`
   (kept; nil: not a capital): `over[key]` nil when none of its rooms overlaps another building's.

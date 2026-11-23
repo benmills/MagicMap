@@ -17,6 +17,9 @@ Each release's notes, newest first. The zips are on [GitHub](https://github.com/
   away, rooms stacked over each other are no longer lit together, and going underground (the Cleft of Shadow,
   Undercity) or back up changes the layer. Outdoors in a capital, everything underground is faded; in a building on
   the surface with the map small (a gate of the Ruins of Lordaeron), nothing underground is drawn.
+- **Buildings on a city's streets are found.** Walking into Orgrimmar's auction house (or any building standing on
+  a street) now switches the map to it. The small map dims the ground only under a roof or underground, not on a
+  city's streets or through a gate.
 
 ## 3.3.0 (build 1.60.1.71037)
 

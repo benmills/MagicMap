@@ -2,11 +2,13 @@
 -- (docs/decisions/0008-interiors.md; the prototype's Track and Floor, docs/evidence/indoors/addon/Test.lua).
 -- In a building only while the Minimap draws its indoor map (obs.minimap.indoors) and some building's
 -- floor mask covers you (Atlas.BuildingsAt, Atlas.RoomsAt); recomputed when you move a yard or your
--- subzone changes. Which room: the rooms under you; of those, the ones named like your subzone; the
+-- subzone or IsIndoors() changes. Which room: the rooms under you; of those, the ones named like your subzone;
+-- of those, the roofed ones if the client says you're indoors (IsIndoors(): "can't mount"), the unroofed if not
+-- (a street's mask covers the buildings on it: Orgrimmar's auction house); the
 -- room you were in, if still one of them; else the ones it has a portal to. One left: your room;
 -- several: unsure (room nil, rooms the candidates kept). No mask under you: stay (a seam between
 -- masks); AWAY s so: out (false). floor: your room's real floor (world height), unsure the highest
--- candidate's.
+-- candidate's. indoors: the client's IsIndoors() there.
 -- Each change, and the Minimap's indoors, is traced ("indoor") and printed under /mm indoor
 -- (SavedGame.indoorDebug).
 
@@ -20,6 +22,7 @@ local shown = false -- the obs.interior handed
 local b, room, rooms -- the building (Atlas.Building), your room, the candidates kept
 local away -- since when no mask has covered you
 local qc, qr, sub, inst -- where it was last recomputed (yards), your subzone, the map
+local roofed = false -- the client's IsIndoors(), as last read
 local indoors -- the Minimap's, as last noted
 
 local function Has(list, v)
@@ -28,11 +31,12 @@ local function Has(list, v)
 	end
 end
 local function Pass(id, links)
+	if links == true then return b.rooms[id].roofed == roofed end
 	if links then return Has(links, id) end
 	return sub ~= nil and b.rooms[id].area == sub -- no subzone: none (Test.lua's "")
 end
 -- c (a list of ours) narrowed in place to the rooms named like your subzone, or with links those in
--- it; left as it is if none are (Test.lua's Keep).
+-- it (true: those roofed as the client says you are); left as it is if none are (Test.lua's Keep).
 local function Keep(c, links)
 	local n = #c
 	for i = 1, n do
@@ -104,6 +108,7 @@ local function Track(y, t)
 	away = nil
 	if nb ~= b then b, room = nb, nil end
 	Keep(c)
+	Keep(c, true)
 	if room and Has(c, room) then
 		for i = #c, 1, -1 do c[i] = nil end
 		c[1] = room
@@ -112,12 +117,12 @@ local function Track(y, t)
 	end
 	rooms, room = c, #c == 1 and c[1] or nil
 	local s, f = shown, Floor()
-	if s and s.building == b.key and s.room == room and s.floor == f and #s.rooms == #c then
+	if s and s.building == b.key and s.room == room and s.floor == f and #s.rooms == #c and s.indoors == roofed then
 		local same = true
 		for i = 1, #c do same = same and s.rooms[i] == c[i] end
 		if same then return end
 	end
-	shown = { inst = b.inst, building = b.key, room = room, rooms = c, floor = f }
+	shown = { inst = b.inst, building = b.key, room = room, rooms = c, floor = f, indoors = roofed }
 	Note()
 end
 
@@ -131,9 +136,9 @@ Game.Part("interior", function(obs)
 		Out()
 		return shown
 	end
-	local c, r = math.floor(y.col * YD), math.floor(y.row * YD)
-	if c ~= qc or r ~= qr or y.subzone ~= sub or y.inst ~= inst then
-		qc, qr, sub, inst = c, r, y.subzone, y.inst
+	local c, r, ind = math.floor(y.col * YD), math.floor(y.row * YD), IsIndoors() == true
+	if c ~= qc or r ~= qr or y.subzone ~= sub or y.inst ~= inst or ind ~= roofed then
+		qc, qr, sub, inst, roofed = c, r, y.subzone, y.inst, ind
 		Track(y, obs.t)
 	end
 	if away and b and obs.t - away > AWAY then Out() end

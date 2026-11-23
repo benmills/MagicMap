@@ -3,7 +3,8 @@
 -- the tiles, so a zoom or pan moves its canvas. Which buildings: the one you're in on the map shown
 -- (Model.interior, Game's); with the map big, every building of the capital
 -- you're in, or else of the one at the view's centre (Atlas.City), indoors or out. The terrain dimmed x0.35 only
--- while you're in a building and the map is small (big, its outdoors stay bright, indoors or in a city). The prototype's
+-- while you're in a building with the ground over you (the client's indoors, or underground: not a street, a
+-- courtyard or a gate) and the map is small (big, its outdoors stay bright, indoors or in a city). The prototype's
 -- drawing (docs/evidence/indoors/addon/Test.lua): each picture a parallelogram drawn as the axis-aligned box
 -- around it, the box's corner texture coordinates solved for, CLAMPTOBLACKADDITIVE so outside the picture is
 -- clear. In a building, what's lit is what's connected: your room and the rooms you can walk to from it
@@ -56,17 +57,36 @@ local function City()
 	end
 end
 
--- What's drawn: { i = Model.interior on the map shown, or nil; c, here = City(); veil: the terrain dimmed (in
--- a building, the map small) }, the same table while they are; false: nothing.
+-- Whether you're under the ground in building b: your room is, or every candidate (seeds; unsure between a gate
+-- of the Ruins of Lordaeron and the canal under it: on the surface, where you walked in from).
+local function Under(b, seeds)
+	for _, id in ipairs(seeds) do
+		if not b.rooms[id].underground then return false end
+	end
+	return true
+end
+
+-- Whether interior i has ground over it: the client says indoors there (no mounting: a house, a shop), or it's
+-- under the ground (Ironforge, where it doesn't). Not a street, a courtyard or a gate you ride through.
+local function Covered(i)
+	return i.indoors or Under(Atlas.Building(i.inst, i.building), i.rooms)
+end
+
+-- What's drawn: { i = Model.interior on the map shown, or nil; c, here = City(); small: in a building, the map
+-- small; veil: the terrain dimmed (small, and the ground over you: Covered) }, the same table while they are;
+-- false: nothing.
 local scene = false
+local covered, coveredOf -- Covered(coveredOf) (i is the same table while unchanged)
 local function Scene()
 	local i, c, here = Model.interior, City()
 	if not (i and i.inst == Camera.inst) then i = nil end
-	local veil = i ~= nil and not UI.BigMap.big
+	local small = i ~= nil and not UI.BigMap.big
+	if small and i ~= coveredOf then covered, coveredOf = Covered(i), i end
+	local veil = small and covered
 	if not (i or c) then
 		scene = false
-	elseif not scene or scene.i ~= i or scene.c ~= c or scene.here ~= here or scene.veil ~= veil then
-		scene = { i = i, c = c, here = here, veil = veil }
+	elseif not scene or scene.i ~= i or scene.c ~= c or scene.here ~= here or scene.veil ~= veil or scene.small ~= small then
+		scene = { i = i, c = c, here = here, veil = veil, small = small }
 	end
 	return scene
 end
@@ -116,15 +136,6 @@ end
 -- Sublevel from a floor f, ref yd down: n sublevels from first.
 local function By(f, ref, first, n)
 	return first + math.max(0, math.min(n - 1, math.floor((f - ref) / STEP)))
-end
-
--- Whether you're under the ground in building b: your room is, or every candidate (unsure between a gate of
--- the Ruins of Lordaeron and the canal under it: on the surface, where you walked in from).
-local function Under(b, seeds)
-	for _, id in ipairs(seeds) do
-		if not b.rooms[id].underground then return false end
-	end
-	return true
 end
 
 -- The rooms lit from where you are in building b (seeds: your room, or the candidates): [room] = true. Out from
@@ -186,7 +197,7 @@ local function Looks(s, list)
 		local l = {}
 		local away = c and not s.here and Has(c.buildings, b.key)
 		local lit = i and b.key == i.building and Lit(b, i.rooms)
-		local surface = s.veil and not Under(Atlas.Building(i.inst, i.building), i.rooms)
+		local surface = s.small and not Under(Atlas.Building(i.inst, i.building), i.rooms)
 		for room, r in pairs(b.rooms) do
 			local f, dim, over = r.floor, false, false
 			if away then -- (whole)

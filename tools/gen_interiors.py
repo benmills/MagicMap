@@ -137,6 +137,7 @@ def main() -> None:
     w("--   building's floors > 10 yd higher; overlapped: its rooms sharing >= 3 mask cells;\n")
     w("--   then { stacked group... }: the overlapped it's stacked with (30% of the smaller's floor shared, and two indoor\n")
     w("--   rooms' floors > 12 yd apart; two open to the sky, one underground; an indoor room underground under a street);\n")
+    w("--   then roofed: not open to the sky (MOGI flag 0x40 unset): a street isn't, the auction house on it is;\n")
     w("--   cities = { [uiMap] = { { key... }, { [key] = { [room] = { key, room, ... } } }, { { name, col, row, size }... } } }:\n")
     w("--   a capital's buildings; per room, the other buildings' rooms it shares >= 3 4-yd cells with (tile space);\n")
     w("--   its areas named on its rooms, each at its floor's cell nearest their middle, size their floor's side in tiles\n")
@@ -188,7 +189,7 @@ def main() -> None:
             for room, bx, by, fid in pics_of[root.wmo_id]:
                 if room < len(root.groups):
                     by_room[room].append((bx, by, fid))
-            rooms, own, under, sq = {}, {}, {}, 0  # own: group -> its floor's cells in the building's frame
+            rooms, own, under, roofed, sq = {}, {}, {}, {}, 0  # own: group -> its floor's cells in the building's frame
             names = {}  # group -> its area's name (WMOAreaTable)
             for gi in sorted(by_room):
                 g = root.groups[gi]
@@ -232,6 +233,7 @@ def main() -> None:
                 top = ground(*place(m, cx, cy))
                 under[gi] = (top is not None and top - floor > DEEP,
                              {tuple(math.floor(q / CELL) for q in place(m, x, y)) for x, y in pts})
+                roofed[gi] = not g.flags & 0x40
                 rooms[gi] = (floor, g.flags & 0x40, "[%d]={%s,%s,%s,{%s},%s,%s,%d,%d,%s,{%s},%s," % (
                     gi, fmt(g.mn[2], 1), fmt(g.mx[2], 1), lua_str(name) if name else "nil", ",".join(map(str, links)),
                     fmt(g.mn[0] / CELL, 3), fmt(g.mn[1] / CELL, 3), cols, nrows, lua_str(mask), ",".join(pics), fmt(floor, 1)))
@@ -263,7 +265,8 @@ def main() -> None:
             packed = "{%d,%d,%s,%s,%s,%s,{%s}}" % (
                 m.fid, root.wmo_id, fmt(m.pos[0] / TILE, 6), fmt(m.pos[2] / TILE, 6),
                 fmt(math.radians(m.rot[1] - 90), 6), fmt(TILE / (s * CELL), 4),
-                ",".join("%s{%s},{%s}}" % (rooms[gi], ",".join(map(str, over[gi])), ",".join(map(str, clash[gi])))
+                ",".join("%s{%s},{%s},%s}" % (rooms[gi], ",".join(map(str, over[gi])), ",".join(map(str, clash[gi])),
+                                                "true" if roofed[gi] else "false")
                          for gi in sorted(rooms)))
             c0, r0, c1, r1 = m.mn[0] / TILE, m.mn[2] / TILE, m.mx[0] / TILE, m.mx[2] / TILE
             buildings[uid] = "{%s,%s,%s,%s,%s}" % (fmt(c0, 4), fmt(r0, 4), fmt(c1, 4), fmt(r1, 4), lua_str(packed))

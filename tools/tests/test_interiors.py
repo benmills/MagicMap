@@ -233,7 +233,7 @@ def test_small_building_zoom():
 
 def test_lordaeron_gate():
     """Through a gate of the Ruins of Lordaeron (over Undercity's canals: both rooms' masks cover you), the map
-    small: on the surface, so the ruins' rooms lit and no underground room drawn. A change of scene crosses over
+    small: on the surface, so the ruins' rooms lit, no underground room drawn and the ground undimmed. A change of scene crosses over
     (the engine's): walked in, the canvas eases in; out, it eases away, then the layer is off."""
     from test_addon import boot, errors
     from test_ground import layer
@@ -257,6 +257,7 @@ def test_lordaeron_gate():
     pool = lay.front.pools.pic
     rooms = {pool["keys"][i].room: S[pool[i]].alpha for i in range(1, pool.n + 1)}
     assert rooms[6] == rooms[5] == rooms[14] == 1 and not any(b.rooms[k].underground for k in rooms), rooms
+    assert not (lay.front.pools.veil and lay.front.pools.veil.n > 0)  # a gate open to the sky: the ground undimmed
     sim.floorPlan = False  # out of the gate
     sim.player.row -= 0.2
     seen, front = set(), lay.front
@@ -264,4 +265,32 @@ def test_lordaeron_gate():
         sim.Run(0.02)
         seen.add(round(front.alpha, 2))
     assert ns.Model.interior is False and not lay.on and front.alpha == 0 and any(0 < a < 1 for a in seen), seen
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_orgrimmar_auction_house():
+    """Orgrimmar's auction house stands on the Valley of Strength's street, whose mask covers it too: the client's
+    IsIndoors() (true under its roof) picks the room, walking in and back out; the ground dimmed only under the roof."""
+    from test_addon import boot, errors
+    from test_ground import layer
+    L, sim, ns = boot()
+    sim.Slash("/mm toggle")
+    sim.Run(3)
+    lay, r = layer(ns, "interiors"), ns.Atlas.MapRect(1454)
+    org = ns.Atlas.Building(1, 165042)
+    assert org.rooms[130].roofed and not org.rooms[127].roofed
+
+    def at(x, y, indoors):
+        sim.player.inst, sim.floorPlan, sim.indoors = 1, True, indoors
+        sim.player.col, sim.player.row = r.col0 + (r.col1 - r.col0) * x, r.row0 + (r.row1 - r.row0) * y
+        sim.subzone = "Valley of Strength"
+        sim.FireEvent("ZONE_CHANGED_INDOORS")
+        sim.Run(1)
+        veil = lay.front.pools.veil
+        return ns.Model.interior.room, bool(veil and veil.n > 0)
+
+    assert at(0.52, 0.58, False) == (127, False)  # the street
+    assert at(0.555, 0.63, False) == (127, False)  # by the auction house's mask, not under its roof
+    assert at(0.555, 0.63, True) == (130, True)  # in it
+    assert at(0.555, 0.63, False) == (127, False)  # (as the client says)
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

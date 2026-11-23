@@ -65,7 +65,7 @@ like terrain tiles.
 - Your 2D position (UnitPosition), not your height (it isn't real on this client).
 - `GetSubZoneText()`: the room's name.
 - `NEW_WMO_CHUNK` fires when you enter or leave a **building**, not a room.
-- `IsIndoors()` means "can't mount", so it's false in Ironforge.
+- `IsIndoors()` means "can't mount", so it's false in Ironforge and on a city's streets, true in a shop (the group flags don't say which: nearly every city room has 0x2000).
 - Inside instances there's no position, so they're out of scope.
 
 ## Decision
@@ -80,6 +80,9 @@ like terrain tiles.
 - **Which room you're in** (Game, each change of position; proven in game):
   1. the rooms whose floor mask covers your spot;
   2. of those, the ones named like your subzone, if any;
+  2a. of those, the roofed ones (not open to the sky: MOGI flag 0x40 unset) if `IsIndoors()`, else the unroofed, if any: a street's
+     mask covers the buildings standing on it (Orgrimmar's auction house, room 130, under the Valley of
+     Strength's street, 127; both named alike), and the client knows which you're in;
   3. the room you were in, if it's still one of them;
   4. otherwise the ones your room has a portal to, if any;
   5. one left: your room. Several: unsure (the candidates kept).
@@ -93,7 +96,8 @@ like terrain tiles.
   capital at the view's centre (looked at from away), indoors or out. Small (minimap mode) or off: only the
   one you're in. Zone borders are likewise the big map's only (laid out small too, hidden, so M needn't
   build them).
-  - the terrain tiles dimmed (×0.35) only while you're in a building, and the map small (amended 2026-10-22,
+  - the terrain tiles dimmed (×0.35) only while you're in a building with the ground over you (`IsIndoors()`,
+    or underground: not a street, a courtyard or a gate you ride through), and the map small (amended 2026-10-22,
     #14: big, the outdoors stay bright, indoors or in a city: the veil is part of the layer's scene);
   - (amended 2026-10-22, #13) a small building outside the capitals (its box within 60 yd each way: a house,
     an inn) zooms the small map all the way in as you walk in, a glide, when following you on your map; leaving

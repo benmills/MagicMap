@@ -79,7 +79,8 @@ stays the game's own. Off, or on a game build they weren't made for, you see Bli
 ([NOTICE.md](../NOTICE.md), [ADR 0011](decisions/0011-ai-map-art.md)).
 
 **Indoors.** In a building, Blizzard's own indoor minimap pictures, placed on our map over the
-terrain (dimmed on the small map): the rooms you can walk to from yours lit (through
+terrain (dimmed on the small map while the ground is over you: where you can't mount, or underground; not on a
+city's street or through a gate): the rooms you can walk to from yours lit (through
 doorways, on your side of the ground), the rest faded, a storey over a lit room ghosted, the room you're in on top:
 a doorway changes little, a change of layer (upstairs, down into the Cleft of Shadow) what's lit. Your pins, zoom and pan work as outdoors; a
 small building (a house, an inn) zooms the small map all the way in as you walk in, and back out as you
