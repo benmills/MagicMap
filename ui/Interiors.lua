@@ -6,10 +6,10 @@
 -- while you're in a building and the map is small (big, its outdoors stay bright, indoors or in a city). The prototype's
 -- drawing (docs/evidence/indoors/addon/Test.lua): each picture a parallelogram drawn as the axis-aligned box
 -- around it, the box's corner texture coordinates solved for, CLAMPTOBLACKADDITIVE so outside the picture is
--- clear. By level from your floor (real floors, world height, so buildings compare): rooms on yours (within
--- 22 yd) whole; another faded below (x0.35) or ghosted above (x0.15) only where it overlaps a room on your
--- level, else whole. Outdoors your level is the surface: underground rooms faded where they're under it,
--- the rest whole; a city looked at from away, whole. Drawn
+-- clear. In a building, what's lit is what's connected: your room and the rooms you can walk to from it
+-- through doorways on your side of the ground, but for one stacked over or under a nearer lit one (Lit, below);
+-- the rest faded (x0.35), or ghosted (x0.15) where it lies over a lit room. Outdoors in a city the rooms above
+-- ground are whole and the underground ones faded; a city looked at from away, whole. Drawn
 -- below, then above, then the rest by floor, your room (or every candidate) over every other room. The
 -- boxes are worked out once a building; a new Model.interior, city or veil (the layer's rev) lays it out again.
 -- Nothing to draw: the layer idle, the tiles as they are.
@@ -27,8 +27,8 @@ local Get, Keep, Yield = Engine.Get, Engine.Keep, Runtime.Yield
 local VEIL = 0.65 -- the terrain under a building (Test.lua's opt.dim, 0.35 left): a black veil of this alpha (the settings': "interiors.dim")
 local SMALL = 60 -- yd: a building whose box is within this each way zooms the small map in
 local YD = Atlas.TILE_YARDS
-local LEVEL = 22 -- yd: a room's floor within this of yours is on your level (Test.lua's opt.cull, tuned in Ironforge)
-local BELOW, ABOVE = 0.35, 0.15 -- the alpha of rooms on levels below yours (faded) and above (ghosted)
+local LEVEL = 22 -- yd: the dimmed rooms' sublevels start this far under and over your floor
+local BELOW, ABOVE = 0.35, 0.15 -- the alpha of a room that isn't lit (faded), and of one lying over a lit room (ghosted)
 local MINE = 7 -- the sublevel of your room's pictures, over every other room's (Test.lua's)
 local STEP = 16 -- yd of floor a sublevel
 local TEXELS = 1600 / 3 * 2 -- a picture's pixels a tile unit (2 a yard)
@@ -116,15 +116,49 @@ local function By(f, ref, first, n)
 	return first + math.max(0, math.min(n - 1, math.floor((f - ref) / STEP)))
 end
 
--- Each room's look, [key][room] = { alpha, sublevel }. In a building (s.i): on your level whole, by floor;
--- another overlapping (its over, the city's over) one on your level faded below, ghosted above; the rest
--- whole; yours on top. Outdoors in the city: an underground room faded where it's under one above ground
--- (its over), the rest whole. A city looked at from away (not s.here): every room whole, by floor.
-local NONE = {}
+-- The rooms lit from where you are in building b (seeds: your room, or the candidates): [room] = true. Out from
+-- them through doorways, the nearest first, among the rooms on your side of the ground (underground as yours is):
+-- a room is lit unless it's stacked with one already lit (its clash: a storey over or under it), and the way goes
+-- on past it either way, so upstairs in a shop its street stays lit and its ground floor doesn't. What's lit is
+-- where you can walk to, and no two lit rooms lie over each other: stepping through a doorway changes little, a
+-- change of layer (down into the Cleft of Shadow, up out of Undercity) the lot.
+local function Lit(b, seeds)
+	local rooms, lit, seen, q, n = b.rooms, {}, {}, {}, 0
+	local under = rooms[seeds[#seeds]].underground
+	for _, id in ipairs(seeds) do
+		lit[id], seen[id] = true, true
+		n = n + 1
+		q[n] = id
+	end
+	local at = 1
+	while at <= n do
+		for _, id in ipairs(rooms[q[at]].doors) do
+			local r = rooms[id]
+			if not seen[id] then
+				seen[id] = true
+				if r.underground == under then
+					n = n + 1
+					q[n] = id
+					local free = true
+					for _, o in ipairs(r.clash) do free = free and not lit[o] end
+					lit[id] = free or nil
+				end
+			end
+		end
+		at = at + 1
+		if at % 32 == 0 then Yield() end
+	end
+	return lit
+end
+
+-- Each room's look, [key][room] = { alpha, sublevel }. In a building (s.i): the rooms lit from yours (Lit) whole,
+-- by floor, yours on top; every other room faded, or ghosted where it lies over a lit one (a storey above:
+-- seen through). Outdoors in the city: the rooms above ground whole, the underground ones faded. A city looked
+-- at from away (not s.here): every room whole, by floor.
 local function Looks(s, list)
 	local i, c, looks = s.i, s.c, {}
 	local yours = i and i.floor
-	if not i then -- the surface's floor: the mean of the rooms above ground (by which the rest go)
+	if not i then -- the surface's floor: the mean of the rooms above ground (by which the sublevels go)
 		local sum, n = 0, 0
 		for _, b in ipairs(list) do
 			for _, r in pairs(b.rooms) do
@@ -133,27 +167,27 @@ local function Looks(s, list)
 		end
 		yours = n > 0 and sum / n or 0 -- /: never 0 (n > 0)
 	end
-	local function On(b, room) return math.abs(b.rooms[room].floor - yours) <= LEVEL end
-	local byKey = {}
-	for _, b in ipairs(list) do byKey[b.key] = b end
 	for _, b in ipairs(list) do
-		local l, cross = {}, c and c.over[b.key]
+		local l = {}
 		local away = c and not s.here and Has(c.buildings, b.key)
+		local lit = i and b.key == i.building and Lit(b, i.rooms)
 		for room, r in pairs(b.rooms) do
-			local f, near, under = r.floor, false, false
+			local f, dim, over = r.floor, false, false
 			if away then -- (whole)
-			elseif i and not On(b, room) then
-				for _, o in ipairs(r.over) do near = near or On(b, o) end
-				for _, o in ipairs(cross and cross[room] or NONE) do near = near or byKey[o[1]] ~= nil and On(byKey[o[1]], o[2]) end
-			elseif not i and r.underground then
-				for _, o in ipairs(r.over) do under = under or not b.rooms[o].underground end
+			elseif i then
+				dim = not (lit and lit[room])
+				if dim and lit then
+					for _, o in ipairs(r.over) do over = over or lit[o] and b.rooms[o].floor < f end
+				end
+			else
+				dim = r.underground
 			end
-			if i and b.key == i.building and Has(i.rooms, room) then
+			if lit and Has(i.rooms, room) then
 				l[room] = { 1, MINE }
-			elseif near and f < yours or under then
-				l[room] = { BELOW, By(f, yours - LEVEL - 4 * STEP, -8, 5) }
-			elseif near then
+			elseif over then
 				l[room] = { ABOVE, By(f, yours + LEVEL, -3, 3) }
+			elseif dim then
+				l[room] = { BELOW, By(f, yours - LEVEL - 4 * STEP, -8, 5) }
 			else
 				l[room] = { 1, By(f, yours - 3 * STEP, 0, 7) }
 			end

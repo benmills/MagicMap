@@ -16,9 +16,13 @@ local Runtime, Window, Camera = ns.Runtime, UI.Window, UI.Camera
 
 local LEVEL = 6 -- over the interiors' canvases (+ 5), under the path (+ 8) and the names (+ 9, + 10)
 local FADE_S = 0.4
-local CITIES = { -- uiMap, key, the colour it starts on
-	{ 1453, "stormwind", "Blue" }, { 1455, "ironforge", "Amber" }, { 1457, "darnassus", "Violet" },
-	{ 1454, "orgrimmar", "Red" }, { 1456, "thunderBluff", "Gold" }, { 1458, "undercity", "Green" },
+-- uiMap, key, then the look it starts on: colour, opacity, blend, brightness. Each a Multiply, so the art's darks
+-- stay: Undercity cold and dim, Ironforge forge-lit under its mountain, Orgrimmar a warm dust, Darnassus a soft
+-- violet dusk, Stormwind and Thunder Bluff in daylight, a light cool stone and a light gold.
+local CITIES = {
+	{ 1453, "stormwind", "Blue", 0.15, "multiply", 0 }, { 1455, "ironforge", "Amber", 0.3, "multiply", -0.15 },
+	{ 1457, "darnassus", "Violet", 0.25, "multiply", -0.1 }, { 1454, "orgrimmar", "Amber", 0.3, "multiply", -0.05 },
+	{ 1456, "thunderBluff", "Gold", 0.2, "multiply", 0 }, { 1458, "undercity", "Blue", 0.3, "multiply", -0.3 },
 }
 local COLORS = {
 	{ "Green", { 0.45, 0.85, 0.3 } }, { "Red", { 0.9, 0.3, 0.15 } }, { "Blue", { 0.3, 0.5, 1 } },
@@ -26,7 +30,6 @@ local COLORS = {
 	{ "Dusk", { 0.25, 0.3, 0.5 } },
 }
 local BLENDS = { { "Wash", "wash" }, { "Multiply", "multiply" }, { "Glow", "glow" } }
-local OPACITY, BRIGHT = 0.2, 0
 
 -- The frame and its two textures, made the first time a tint shows (a frame on the view is laid out with it, so
 -- none while no city has one: the default).
@@ -59,7 +62,7 @@ end
 
 -- Each city's settings as they were last applied: cfg[key] = { on, color, opacity, blend, bright } (Feel's apply).
 local cfg = {}
-for _, c in ipairs(CITIES) do cfg[c[2]] = { on = false, color = c[3], opacity = OPACITY, blend = "wash", bright = BRIGHT } end
+for _, c in ipairs(CITIES) do cfg[c[2]] = { on = false, color = c[3], opacity = c[4], blend = c[5], bright = c[6] } end
 
 local city, fade = nil, 0 -- the city drawn (kept while fading out), how far in (0..1)
 local dirty = true -- a setting changed since the textures were set
@@ -142,12 +145,12 @@ for _, c in ipairs(CITIES) do
 	rows[#rows + 1] = { key = key .. "Color", kind = "color", label = "Colour", colors = COLORS, default = c[3],
 		under = key, when = key, apply = Apply(c, "color"), tip = "The tint's colour." }
 	rows[#rows + 1] = { key = key .. "Opacity", kind = "slider", label = "Opacity", min = 0.05, max = 1, step = 0.05,
-		pct = true, default = OPACITY, under = key, when = key, apply = Apply(c, "opacity"), tip = "How strong the tint is." }
-	rows[#rows + 1] = { key = key .. "Blend", kind = "select", label = "Blend", options = BLENDS, default = "wash",
+		pct = true, default = c[4], under = key, when = key, apply = Apply(c, "opacity"), tip = "How strong the tint is." }
+	rows[#rows + 1] = { key = key .. "Blend", kind = "select", label = "Blend", options = BLENDS, default = c[5],
 		under = key, when = key, apply = Apply(c, "blend"),
 		tip = "Wash lays the colour over the map; Multiply shades the map toward it, keeping its darks; Glow lights the map with it." }
 	rows[#rows + 1] = { key = key .. "Bright", kind = "slider", label = "Brightness", min = -0.5, max = 0.5, step = 0.05,
-		pct = true, default = BRIGHT, under = key, when = key, apply = Apply(c, "bright"),
+		pct = true, default = c[6], under = key, when = key, apply = Apply(c, "bright"),
 		tip = "Darker or lighter, over the tint." }
 end
 UI.Feel.Add("advanced", "City tints", rows)

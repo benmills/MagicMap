@@ -42,6 +42,8 @@ CELL = 4                           # yards a floor-mask cell
 BLOCK = 128                        # yards a picture block (256 px, 2 px a yard)
 DEEP = 10                          # yards a room's floor below the terrain: underground
 OVER = 3                           # cells two rooms' masks share: they overlap
+STACK = 12                         # yd between two indoor rooms' floors: one's a storey over the other
+SHARE = 0.3                        # of the smaller room's floor under the other: stacked, not touching at a doorway
 CITY_AREA = 3000                   # square yards of floor: a city building, not a house
 CAPITALS = (1453, 1454, 1455, 1456, 1457, 1458)  # Stormwind City, Orgrimmar, Ironforge, Thunder Bluff, Darnassus, Undercity
 
@@ -128,11 +130,13 @@ def main() -> None:
     w("--   packed a Lua table literal (atlas/Interiors.lua decodes it): { fid, wmoID, col, row, yaw, k, rooms }:\n")
     w("--   the placement (col, row) and turn (radians) with k = mask cells a tile unit; rooms[group] =\n")
     w("--   { zmin, zmax, area, { linked group... }, x0, y0, cols, rows, mask, { fid, ox, oy, ux, uy, vx, vy, ... },\n")
-    w("--   floor, underground, { overlapped group... } }: mask cols x rows 4-yd cells from (x0, y0) cells in the\n")
+    w("--   floor, underground, { overlapped group... }, { stacked group... } }: mask cols x rows 4-yd cells from (x0, y0) cells in the\n")
     w("--   building's own coordinates, rows upward, 'a' none 'b' floor, runs as the letter and a count; pictures in\n")
     w("--   tile units, pixel (u, v) at o + u*U + v*V; floor its real floor in world height; underground: that more\n")
     w("--   than 10 yd below the terrain at the mask's centre, or open to the sky with a third of its mask under the\n")
     w("--   building's floors > 10 yd higher; overlapped: its rooms sharing >= 3 mask cells;\n")
+    w("--   then { stacked group... }: the overlapped it's stacked with (30% of the smaller's floor shared, and two indoor\n")
+    w("--   rooms' floors > 12 yd apart; two open to the sky, one underground; an indoor room underground under a street);\n")
     w("--   cities = { [uiMap] = { { key... }, { [key] = { [room] = { key, room, ... } } }, { { name, col, row, size }... } } }:\n")
     w("--   a capital's buildings; per room, the other buildings' rooms it shares >= 3 4-yd cells with (tile space);\n")
     w("--   its areas named on its rooms, each at its floor's cell nearest their middle, size their floor's side in tiles\n")
@@ -239,12 +243,28 @@ def main() -> None:
                 hid = set().union(*(own[gi] & own[gj] for gj in rooms if rooms[gj][0] > floor + DEEP))
                 if sky and own[gi] and 3 * len(hid) >= len(own[gi]):
                     under[gi] = (True, under[gi][1])
-            rooms = {gi: "%s%s," % (r[2], "true" if under[gi][0] else "false") for gi, r in rooms.items()}
             over = {gi: [gj for gj in own if gj != gi and len(own[gi] & own[gj]) >= OVER] for gi in own}
+            # Stacked (ui/Interiors.lua lights one of the two): sharing SHARE of the smaller's floor, and two indoor
+            # rooms' floors STACK apart; two open to the sky (a street's floor is its low ground, no storey), one
+            # underground; an indoor room and a street, the room underground under it (else it stands on the street).
+            def stacked(a, b):
+                if len(own[a] & own[b]) < SHARE * min(len(own[a]), len(own[b])):
+                    return False
+                (fa, sa, _), (fb, sb, _) = rooms[a], rooms[b]
+                if sa and sb:
+                    return under[a][0] != under[b][0]
+                if abs(fa - fb) <= STACK:
+                    return False
+                if bool(sa) != bool(sb):
+                    return under[b if sa else a][0] and not under[a if sa else b][0]
+                return True
+            clash = {gi: [gj for gj in over[gi] if gi in rooms and gj in rooms and stacked(gi, gj)] for gi in own}
+            rooms = {gi: "%s%s," % (r[2], "true" if under[gi][0] else "false") for gi, r in rooms.items()}
             packed = "{%d,%d,%s,%s,%s,%s,{%s}}" % (
                 m.fid, root.wmo_id, fmt(m.pos[0] / TILE, 6), fmt(m.pos[2] / TILE, 6),
                 fmt(math.radians(m.rot[1] - 90), 6), fmt(TILE / (s * CELL), 4),
-                ",".join("%s{%s}}" % (rooms[gi], ",".join(map(str, over[gi]))) for gi in sorted(rooms)))
+                ",".join("%s{%s},{%s}}" % (rooms[gi], ",".join(map(str, over[gi])), ",".join(map(str, clash[gi])))
+                         for gi in sorted(rooms)))
             c0, r0, c1, r1 = m.mn[0] / TILE, m.mn[2] / TILE, m.mx[0] / TILE, m.mx[2] / TILE
             buildings[uid] = "{%s,%s,%s,%s,%s}" % (fmt(c0, 4), fmt(r0, 4), fmt(c1, 4), fmt(r1, 4), lua_str(packed))
             info[uid] = ((c0, r0, c1, r1), under, sq, names)

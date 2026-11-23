@@ -72,7 +72,7 @@ like terrain tiles.
 
 - **Atlas** ships every open-world map's buildings with pictures (generated, like the tiles):
   per building its placement, and per room its box's floor and top (zmin, zmax), its real floor, whether
-  it's underground, the rooms of the building it overlaps, the subzone name, the rooms
+  it's underground, the rooms of the building it overlaps and those of them it's stacked with, the subzone name, the rooms
   it has a portal to, its floor mask (4-yd cells in the building's own coordinates, from the
   pictures' alpha) and its pictures (each as an origin and two edge vectors in tile space). Packed
   per building and decoded on first use. Per capital, its buildings (an underground room or ≥ 3,000
@@ -101,12 +101,17 @@ like terrain tiles.
     the door: nothing; grown while inside, left alone, leaving sets the small rect's zoom so shrinking lands
     there; hidden, the zoom set straight;
   - the rooms drawn over them, under quest areas and pins;
-  - levels by real floors (world height, so buildings compare): a room within **22 yd** of your floor is
-    on your level, drawn whole. Another is faded below (×0.35) or ghosted above (×0.15) only where it
-    overlaps a room on your level (its `over`, and the city's across buildings); one that overlaps
-    nothing on your level is drawn whole. Outdoors your level is the surface: an underground room faded
-    ×0.35 where it's under a room above ground (its `over`), the rest whole (Ironforge, all under the
-    mountain, whole). A capital looked at from away: every room whole;
+  - what's lit is what's connected: your room and the rooms you can walk to from it through doorways (the
+    portals, either way round), the nearest first, on your side of the ground (underground as your room
+    is). A room stacked with a nearer lit one isn't lit, and the way goes on past it: two indoor rooms
+    sharing 30% of the smaller's floor with floors over **12 yd** apart (a storey), two open to the sky
+    one of them underground (the Cleft of Shadow under the Drag), an indoor room underground under a
+    street; an indoor room on a street stands on it (a street's floor is its low ground, not a storey).
+    Every other room is faded (×0.35), or ghosted (×0.15) where it lies over a lit room. So a doorway
+    changes almost nothing (on the capitals' rooms, 0.1 to 4 rooms a doorway on average; the rule before
+    it, every room within 22 yd of your floor whole, changed 1 to 27 and lit 1 to 66 stacked pairs at
+    once), and a change of layer changes the lot. Outdoors in a capital: the rooms above ground whole,
+    the underground ones faded. A capital looked at from away: every room whole;
   - drawn below, then the ghosts above, then the rest by floor; your room, or every candidate, over
     every other room (the Forge hall's picture covers the High Seat's).
   - with the city map shown, the areas named on its rooms (The Great Forge, the Apothecarium, the Cleft of

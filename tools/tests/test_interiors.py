@@ -63,11 +63,10 @@ def test_ironforge_rooms():
 def test_ironforge_drawn():
     """UI's interiors layer (ui/Interiors.lua) in Ironforge (city maps on: its three buildings), levels by real
     floors: in the Forge its pictures over the tiles, veiled to x0.35 small, unveiled big, the Forge's on top, the lower bridge
-    (room 90) on its level, the upper (96: 42 yd above) ghosted, the deep room under the city (103) faded; under
-    "The High Seat" room 88 on top, the Forge and the lower bridge on its level; in the Commons ring (room 8: its
-    box reaches 91 yd down, its floor the street's) every room on its level whole, the rest faded or ghosted only
-    for overlapping one on it; out of the building, still in the city, its rooms whole (none under one above
-    ground). City maps are the big map's: small, only the building you're in. Entering is within the frame
+    (room 90) and the upper (96: little of it over the Forge's floor) lit, the rooms under the Forge (101, 103:
+    stacked with lit ones) faded; under "The High Seat" room 88 on top, the Forge and the bridges lit; in the
+    Commons ring (room 8) the rooms through its doorways and on through the city lit, no two of them stacked; out
+    of the building, still in the city, its rooms, all underground, faded. City maps are the big map's: small, only the building you're in. Entering is within the frame
     budget, priced."""
     from test_addon import boot, errors
     from test_ground import layer
@@ -104,8 +103,9 @@ def test_ironforge_drawn():
     veil, rooms, top, every = at("The Great Forge")
     sim.Price(False)
     print(f"the Forge: {len(every)} rooms drawn; its layout's slowest frame {perf.max:.2f} ms, the slowest frame {whole.max:.2f}")
-    assert not veil and top == {65} and rooms[65] == rooms[88] == rooms[90] == 1  # big: no veil
-    assert rooms[96] == 0.15 and rooms[103] == 0.35 and len({k for k, _ in every}) > 1
+    assert not veil and top == {65} and rooms[65] == rooms[88] == rooms[90] == rooms[96] == 1  # big: no veil
+    assert rooms[101] == rooms[103] == 0.35 and len({k for k, _ in every}) > 1
+    assert all(a == 0.35 for (k, _), a in every.items() if k != IF)  # the city's other buildings: no doorway to them
     assert perf.max <= 5 and whole.max <= 8  # a slice within the moving budget, the frame within the max
     sim.Press("M")  # shrunk back: veiled again
     sim.Run(1)
@@ -113,26 +113,26 @@ def test_ironforge_drawn():
     sim.Press("M")
     sim.Run(1)
     veil, rooms, top, _ = at("The High Seat")
-    assert top == {88} and rooms[65] == rooms[90] == 1 and rooms[96] == 0.15
+    assert top == {88} and rooms[65] == rooms[90] == rooms[96] == 1 and rooms[103] == 0.35
     sim.player.col, sim.player.row = 34.0638, 41.3248  # the Commons ring, under room 8 alone
     veil, rooms, top, _ = at("Ironforge")
     b = ns.Atlas.Building(0, IF)
     floor = b.rooms[8].floor
     assert ns.Model.interior.room == 8 and ns.Model.interior.floor == floor and top == {8}
-    on = {r for r in rooms if abs(b.rooms[r].floor - floor) <= 22}
-    assert all(rooms[r] == 1 for r in on)
-    for r, a in rooms.items():
-        assert a == 1 or r not in on and set(b.rooms[r].over.values()) & on, (r, a)
-    sim.player.col = 33.6  # out of the building, still in the city: undimmed; its rooms, all underground, whole
+    lit = {r for r, a in rooms.items() if a == 1}
+    assert {9, 16, 47, 48, 49, 65} <= lit and len(lit) > 90  # its doorways' rooms, and on through the city
+    for r in lit:  # no two lit rooms stacked
+        assert not set(b.rooms[r].clash.values()) & lit, r
+    sim.player.col = 33.6  # out of the building, still in the city: undimmed; its rooms, all underground, faded
     veil, rooms, top, _ = at("", 3)
-    assert ns.Model.interior is False and not veil and not top and set(rooms.values()) == {1}
+    assert ns.Model.interior is False and not veil and not top and set(rooms.values()) == {0.35}
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
 def test_city_maps():
     """Orgrimmar outdoors (no building: the Minimap's outdoor view), the map big: the city's
-    buildings drawn over undimmed tiles, the Cleft of Shadow's rooms among them, a room under the ground faded
-    where it's under one above it, the rest whole; looked at from away, every room whole; small or off,
+    buildings drawn over undimmed tiles, the Cleft of Shadow's rooms among them, the rooms under the ground faded,
+    the rest whole; looked at from away, every room whole; small or off,
     nothing drawn. Entering is within the frame budget, priced."""
     from test_addon import boot, errors
     from test_ground import layer, look
@@ -163,15 +163,13 @@ def test_city_maps():
     print(f"Orgrimmar: {len(rooms)} rooms drawn; its layout's slowest frame {perf.max:.2f} ms, the slowest frame {whole.max:.2f}")
     assert veils == 0 and all(rooms[165042, r] == 0.35 for r in (74, 75, 137))  # the Cleft under the streets
     org = ns.Atlas.Building(1, 165042)
-    def under(b, r):  # underground, under a room above ground
-        return b.rooms[r].underground and any(not b.rooms[o].underground for o in b.rooms[r].over.values())
-    assert all(a == (0.35 if under(org, r) else 1) for (k, r), a in rooms.items() if k == 165042)
+    assert all(a == (0.35 if org.rooms[r].underground else 1) for (k, r), a in rooms.items() if k == 165042)
     assert rooms[165042, 136] == 1 and org.rooms[136].floor < 40  # the Drag's street: its floor the street's
     assert perf.max <= 5 and whole.max <= 8  # a slice within the moving budget, the frame within the max
     look(sim, ns, (40.15, 28.65), 450)  # zoomed in: the city's areas named, the Cleft's among them
     assert layer(ns, "labels").front.names["Cleft of Shadow"]
     look(sim, ns, (40.9, 29.2), ns.UI.Camera.cam.zoom)  # the rooms under the city's east edge
-    assert all(a == 1 for (k, _), a in drawn()[1].items() if k == 250582) and any(k == 250582 for k, _ in drawn()[1])
+    assert all(a == 0.35 for (k, _), a in drawn()[1].items() if k == 250582) and any(k == 250582 for k, _ in drawn()[1])
     sim.player.col, sim.player.row = 42.0, 31.0  # out in Durotar, the map on Orgrimmar: looked at from away
     sim.Run(1)
     ns.UI.Camera.follow = False  # (as a drag leaves it)

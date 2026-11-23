@@ -37,10 +37,12 @@ local function Mask(enc)
 end
 
 -- { key, inst, fid, wmo, col, row, yaw, rooms = { [room] = { zmin, zmax, area, links, pics, floor, underground,
--- over, ... } } }: room the building's group index; links the rooms it has portals to; pics { fid, ox, oy, ux,
+-- over, clash, doors } } }: room the building's group index; links the rooms it has portals to; pics { fid, ox, oy, ux,
 -- uy, vx, vy } in tile units, a picture's pixel (u, v) in 0..1 at o + u*U + v*V (U along its width, V down its
 -- height); floor its real floor (world height); underground: that > 10 yd under the terrain; over: the rooms
--- whose floor masks overlap its.
+-- whose floor masks overlap its; clash: those of them it's stacked with (Data/Interiors.lua's rule: a storey
+-- over or under it, or the ground between them); doors: the rooms a doorway joins it to, either way round (a
+-- portal is listed by one of its two rooms or both).
 local decoded = {} -- [inst][key]
 function Atlas.Building(inst, key)
 	local cache = decoded[inst]
@@ -57,7 +59,22 @@ function Atlas.Building(inst, key)
 			local pics, list = {}, r[10]
 			for j = 1, #list, 7 do pics[#pics + 1] = { unpack(list, j, j + 6) } end
 			b.rooms[i] = { zmin = r[1], zmax = r[2], area = r[3], links = r[4], x0 = r[5], y0 = r[6],
-				cols = r[7], rows = r[8], mask = Mask(r[9]), pics = pics, floor = r[11], underground = r[12], over = r[13] }
+				cols = r[7], rows = r[8], mask = Mask(r[9]), pics = pics, floor = r[11], underground = r[12], over = r[13],
+				clash = r[14] or {}, doors = {} }
+		end
+		for i, r in pairs(b.rooms) do
+			for _, o in ipairs(r.links) do
+				local other = b.rooms[o]
+				if other then
+					local d = r.doors
+					local has = false
+					for _, x in ipairs(d) do has = has or x == o end
+					if not has then d[#d + 1] = o end
+					has = false
+					for _, x in ipairs(other.doors) do has = has or x == i end
+					if not has then other.doors[#other.doors + 1] = i end
+				end
+			end
 		end
 		cache[key] = b
 	end
