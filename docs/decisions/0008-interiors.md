@@ -111,7 +111,10 @@ like terrain tiles.
     changes almost nothing (on the capitals' rooms, 0.1 to 4 rooms a doorway on average; the rule before
     it, every room within 22 yd of your floor whole, changed 1 to 27 and lit 1 to 66 stacked pairs at
     once), and a change of layer changes the lot. Outdoors in a capital: the rooms above ground whole,
-    the underground ones faded. A capital looked at from away: every room whole;
+    the underground ones faded. A capital looked at from away: every room whole. In a building on the
+    surface, the map small: no underground room drawn (a gate of the Ruins of Lordaeron shows no Undercity);
+    unsure between a surface room and an underground one, you're on the surface. A change of any of it
+    crosses over in 0.2 s (the new scene in, then the old out: what both draw never thins);
   - drawn below, then the ghosts above, then the rest by floor; your room, or every candidate, over
     every other room (the Forge hall's picture covers the High Seat's).
   - with the city map shown, the areas named on its rooms (The Great Forge, the Apothecarium, the Cleft of

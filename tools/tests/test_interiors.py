@@ -229,3 +229,39 @@ def test_small_building_zoom():
     sim.Run(1)
     assert not big.big and abs(cam.zoom - zoom) < 1e-6
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
+
+
+def test_lordaeron_gate():
+    """Through a gate of the Ruins of Lordaeron (over Undercity's canals: both rooms' masks cover you), the map
+    small: on the surface, so the ruins' rooms lit and no underground room drawn. A change of scene crosses over
+    (the engine's): walked in, the canvas eases in; out, it eases away, then the layer is off."""
+    from test_addon import boot, errors
+    from test_ground import layer
+    L, sim, ns = boot()
+    sim.Slash("/mm toggle")
+    sim.Run(3)
+    S, lay = sim.state, layer(ns, "interiors")
+    r = ns.Atlas.MapRect(1458)
+    sim.player.inst, sim.floorPlan = 0, True
+    sim.player.col, sim.player.row = r.col0 + (r.col1 - r.col0) * 0.64, r.row0 + (r.row1 - r.row0) * 0.239
+    sim.subzone = ""  # (no name to tell the gate from the canal)
+    sim.FireEvent("ZONE_CHANGED_INDOORS")
+    seen = set()
+    for _ in range(40):
+        sim.Run(0.02)
+        if lay.front:
+            seen.add(round(lay.front.alpha, 2))
+    assert lay.front.alpha == 1 and any(0 < a < 1 for a in seen), seen  # eased in
+    b = ns.Atlas.Building(0, 239598)
+    assert list(ns.Model.interior.rooms.values()) == [6, 96] and b.rooms[96].underground and not b.rooms[6].underground
+    pool = lay.front.pools.pic
+    rooms = {pool["keys"][i].room: S[pool[i]].alpha for i in range(1, pool.n + 1)}
+    assert rooms[6] == rooms[5] == rooms[14] == 1 and not any(b.rooms[k].underground for k in rooms), rooms
+    sim.floorPlan = False  # out of the gate
+    sim.player.row -= 0.2
+    seen, front = set(), lay.front
+    for _ in range(40):
+        sim.Run(0.02)
+        seen.add(round(front.alpha, 2))
+    assert ns.Model.interior is False and not lay.on and front.alpha == 0 and any(0 < a < 1 for a in seen), seen
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

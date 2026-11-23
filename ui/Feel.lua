@@ -5,7 +5,7 @@
 --   Feel.Page({ key, title, icon, order, tip, sections = { "Header", ... } })  a page of the sidebar (by order)
 --   Feel.Add(page, section, { setting, ... })  settings on a page, under a section's header (nil: above them all)
 -- A setting is { key, kind, label, tip, default, ... } (kinds toggle, slider, select, color, list, button, and
--- apply, get/set, keep, when, under, art: docs/development.md "How to add a setting"). Its key ("<area>.<name>") is
+-- apply, get/set, keep, when, under, lazy, art: docs/development.md "How to add a setting"). Its key ("<area>.<name>") is
 -- the name it's saved by: never renamed. Each apply is called on a change and each time the map shows, only when
 -- the value differs from what it last took, each wrapped: one failing can't stop the rest. Its row: its label, its
 -- control, and an undo mark while it differs from its default; its tooltip the label, the tip and the default.
@@ -765,7 +765,8 @@ end
 
 -- A page's items in order: the settings without a section first, then each section's header and settings (the
 -- page's sections in its order, then any other as first declared), each in the order declared, a row standing under
--- another right after it (and those under it), whenever declared. Made as needed.
+-- another right after it (and those under it), whenever declared. Made as needed; a lazy setting's row (k.lazy) the
+-- first time it shows (a long closed list's rows cost nothing till opened: the zones' tints).
 local function Items(p)
 	if p.items then return p.items end
 	local order, seen = { false }, { [false] = true }
@@ -787,11 +788,11 @@ local function Items(p)
 	headers[p.key] = hs
 	local function Add(k)
 		local w = Feel.widgets[k.key]
-		if not w then
+		if not w and not k.lazy then -- (a lazy one's: the first time it shows, Layout's)
 			w = MakeRow(p, k)
 			Refresh(w)
 		end
-		items[#items + 1] = { k = k, w = w, f = w.row }
+		items[#items + 1] = { k = k, w = w, f = w and w.row }
 		for _, c in ipairs(kids[k.key] or {}) do Add(c) end
 	end
 	for _, s in ipairs(order) do
@@ -834,13 +835,18 @@ Layout = function(p)
 			header, it.on = it, false
 		else
 			it.on = Visible(it.k)
+			if it.on and not it.w then
+				it.w = MakeRow(p, it.k)
+				Refresh(it.w)
+				it.f = it.w.row
+			end
 			if header and it.on then header.on = true end
 		end
 	end
 	local y = 0
 	for _, it in ipairs(items) do
 		local f = it.f
-		f:SetShown(it.on)
+		if f then f:SetShown(it.on) end
 		if it.on then
 			if it.header and y < 0 then y = y - GAP end
 			f:ClearAllPoints()

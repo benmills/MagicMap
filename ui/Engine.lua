@@ -26,6 +26,7 @@ local BAND_LO, BAND_HI = 0.7, 1.4 -- the camera's zoom over a layout's: outside,
 local DRIFT = 1.25 -- a "move" or "pin" layer's: its names and pins are chosen for a zoom 
 local FADE_IN = 1.15 -- regions shown from a fading zoom (Engine.Fades) fade in from it to this times it, not pop
 local FADE_S = 0.12 -- a held layer's crossfade to a layout at another zoom
+local CROSS_S = 0.2 -- a crossing layer's (layer.cross) change of scene: the new faded in over half of it, then the old out
 local SAME_ZOOM = 0.02 -- log: a held layer's layouts this close in zoom cut straight over; the camera this close to the goal's, a glide
 local LN2 = math.log(2)
 -- A layout reaching further than this from the origin (px at its zoom) moves it: offsets stay under
@@ -357,16 +358,23 @@ local function Put(layer, c, cam, w, h)
 end
 
 -- A layer's front canvas at the camera, at alpha 1; a held one's dimmed the further its scale is from 1,
--- or crossfading in over the one it replaced.
+-- or crossfading in over the one it replaced; a crossing layer's new scene in, then its old one out.
 local function Place(layer, cam, w, h)
 	local c, f = layer.front, layer.fade
 	local s = Put(layer, c, cam, w, h)
 	if f then
-		local from = Put(layer, f.from, cam, w, h)
-		local p = math.min(1, (GetTime() - f.t) / FADE_S)
-		Alpha(c, s and p or 0)
-		Alpha(f.from, from and f.a * (1 - p) or 0)
-		if p >= 1 then layer.fade = nil end
+		local from = f.from and Put(layer, f.from, cam, w, h)
+		if f.cross then -- one of the two whole throughout: what both draw solid never thins (0..1 in, 1..2 out)
+			local p = (GetTime() - f.t) * 2 / CROSS_S -- /: never 0 (a constant)
+			Alpha(c, s and math.min(1, p) or 0)
+			if f.from then Alpha(f.from, from and f.a * math.max(0, math.min(1, 2 - p)) or 0) end
+			if p >= 2 or p >= 1 and not f.from then layer.fade = nil end
+		else
+			local p = math.min(1, (GetTime() - f.t) / FADE_S)
+			Alpha(c, s and p or 0)
+			Alpha(f.from, from and f.a * (1 - p) or 0)
+			if p >= 1 then layer.fade = nil end
+		end
 	elseif layer.zoom == "hold" and s then
 		local off = math.abs(math.log(s) / LN2)
 		Alpha(c, math.max(0.25, math.min(1, 1.6 - 0.6 * off)))
@@ -386,17 +394,25 @@ end
 
 -- The back canvas, laid out, to the front: placed, then the alphas swapped (no region is shown or
 -- hidden). Over the old at once (a pan's two agree where they overlap); a held layer's at another
--- zoom crossfades from the old one's alpha.
+-- zoom crossfades from the old one's alpha; a crossing layer's (layer.cross: the interiors) of another
+-- scene crosses over CROSS_S, as does its first after it had nothing to draw (layer.wake).
 local function Swap(layer, back, live, parked)
 	local t = debugprofilestop()
 	local old, f = layer.front, layer.fade
-	if f then Alpha(f.from, 0) end
+	if f and f.from then Alpha(f.from, 0) end
 	layer.front, layer.fade = back, nil
-	if old and old.alpha > 0 and layer.zoom == "hold" and math.abs(math.log(old.zoom / back.zoom)) >= SAME_ZOOM then -- /: never 0 (zooms > 0)
+	local shown = old and old.alpha > 0
+	if shown and layer.zoom == "hold" and math.abs(math.log(old.zoom / back.zoom)) >= SAME_ZOOM then -- /: never 0 (zooms > 0)
 		f = layer.fading
-		f.from, f.a, f.t = old, old.alpha, GetTime()
+		f.from, f.a, f.t, f.cross = old, old.alpha, GetTime(), false
+		layer.fade = f
+	elseif layer.cross and (shown and old.rev ~= back.rev or not old and layer.wake and not back.none) then
+		f = layer.fading -- another scene (its rev's): in over the old, which then goes; from nothing, in; to nothing, out
+		f.from, f.a, f.t, f.cross = shown and old or nil, shown and old.alpha or 0, GetTime(), true
+		if back.none then f.t = f.t - CROSS_S / 2 end -- /: never 0 (a constant)
 		layer.fade = f
 	end
+	layer.wake = nil
 	Place(layer, Camera.cam, Window.Size())
 	if old and not layer.fade then Alpha(old, 0) end
 	Runtime.Trace("swap", { layer = layer.name, ms = R2(debugprofilestop() - t), live = live, parked = parked,
@@ -438,7 +454,7 @@ end
 local function Start(layer, inst, at, budget)
 	local w, h = Window.Size()
 	if layer.fade then
-		Alpha(layer.fade.from, 0)
+		if layer.fade.from then Alpha(layer.fade.from, 0) end
 		layer.fade = nil
 		Place(layer, Camera.cam, w, h)
 	end
@@ -689,6 +705,15 @@ function Engine.Draw(inst, cam, w, h)
 	for _, layer in ipairs(Engine.layers) do
 		local on = Engine.LayerOn(layer.name) and not (layer.idle and layer.idle()) -- idle: nothing to draw now
 		if layer.on ~= on then
+			if on then
+				layer.wake = layer.on == false -- (off till now, the window open: a crossing layer's scene fades in)
+			elseif layer.cross and layer.on and Engine.LayerOn(layer.name) then
+				-- a crossing layer's scene fades out first: on until a layout of nothing is its front
+				local c = layer.front
+				on = layer.busy or layer.fade ~= nil or c ~= nil and not c.none
+			end
+		end
+		if layer.on ~= on then
 			layer.on = on
 			if not on then -- emptied while off (its frame stays shown: showing it would show every region at once)
 				Empty(layer)
@@ -738,7 +763,10 @@ end
 -- it's visible again.
 local function Visible() return Window.frame:IsVisible() end
 Window.frame:HookScript("OnHide", Runtime.Wrap("map: hidden park", function()
-	for _, layer in ipairs(Engine.layers) do Empty(layer) end
+	for _, layer in ipairs(Engine.layers) do
+		Empty(layer)
+		layer.wake = nil
+	end
 	Park(Engine.layers, Visible)
 end))
 

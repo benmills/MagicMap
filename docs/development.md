@@ -165,7 +165,7 @@ declared, so a declared setting is in the window, resettable and saved, with not
   switch a reset mustn't touch).
 - **when**: a key or a function; the row shows only while it's on.
 - **under**: a key; the row stands under that one, shown once its plus is opened (Settings > Pins' families and
-  types). **art**: `function(row, last)`, a region drawn left of the label (a pin type's icon as the map draws it).
+  types). **lazy**: true makes its row the first time it shows (a long closed list: the zones' tints). **art**: `function(row, last)`, a region drawn left of the label (a pin type's icon as the map draws it).
 - **A new kind of pin**: `UI.PinTypes.Add({ id, family, name, look, icons?, groups?, tip })` beside the look it
   draws, and `type = id` on that look: its row on Settings > Pins comes with it (test_pins' `test_pin_inventory`
   fails for a pin drawn without a type, or art that isn't Blizzard's).

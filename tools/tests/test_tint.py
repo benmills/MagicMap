@@ -33,20 +33,28 @@ def test_tint():
 
 
 def test_city_tint():
-    """Settings > Advanced > City tints: Orgrimmar's on, the map in Orgrimmar takes its colour (its own look, a Multiply,
-    eased in); Wash lays it over instead; walked out to Durotar it eases away."""
+    """City tints (Settings > Advanced): on by default, the map in Orgrimmar takes its colour (its own look, a
+    Multiply, eased in); Wash lays it over instead; walked out to Durotar it eases away, a zone's tint off until
+    turned on (Zone tints > Kalimdor > Durotar), then Durotar's own; its continent's switch off, none."""
     L, sim, ns, G = client([])
     sim.player.inst, sim.player.col, sim.player.row = 1, 40.15, 28.65  # beside the Cleft of Shadow
     sim.Run(2)
-    t, S = ns.UI.CityTint, sim.state
-    assert not t.Shown()  # off until turned on
-    ns.UI.Feel.Set("cityTint.orgrimmar", True)
-    sim.Run(1)
+    t, S, Feel = ns.UI.CityTint, sim.state, ns.UI.Feel
     c = S[t.color]
     assert t.Shown() and c.blend == "MOD" and c.color[1] > c.color[3], c.color  # its own look: shaded toward amber
-    ns.UI.Feel.Set("cityTint.orgrimmarBlend", "wash")
-    sim.Run(0.2)
-    assert S[t.color].blend == "BLEND" and abs(S[t.color].color[4] - 0.3) < 1e-6
+    Feel.Set("cityTint.orgrimmar", False)
+    sim.Run(1)
+    assert not t.Shown()
+    Feel.Set("cityTint.orgrimmar", True)
+    Feel.Set("cityTint.orgrimmarBlend", "wash")
+    sim.Run(1)
+    assert t.Shown() and S[t.color].blend == "BLEND" and abs(S[t.color].color[4] - 0.3) < 1e-6
     sim.player.col, sim.player.row = 42.0, 31.0  # out in Durotar
     sim.Run(1.5)
+    assert not t.Shown()
+    Feel.Set("zoneTint.1411", True)
+    sim.Run(1)
+    assert t.Shown() and S[t.color].blend == "MOD" and abs(S[t.color].color[3] - (1 - 0.8 * 0.15)) < 1e-6
+    Feel.Set("zoneTint.kalimdor", False)
+    sim.Run(1)
     assert not t.Shown()

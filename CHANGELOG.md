@@ -4,13 +4,19 @@ Each release's notes, newest first. The zips are on [GitHub](https://github.com/
 
 ## Unreleased
 
-- **City tints.** Settings › Advanced › City tints: each capital can lay its own colour over the whole map while the
-  map shows it, with its Colour, Opacity, Blend (Wash, Multiply or Glow) and Brightness. Off until turned on; each
-  starts on its own look.
+- **City tints.** Each capital lays its own colour over the whole map while the map shows it: Undercity a cold dim
+  blue, Ironforge forge amber, Orgrimmar a warm dust, Darnassus violet, Stormwind a light blue, Thunder Bluff a light
+  gold. Settings › Advanced › City tints turns each off or sets its Colour, Opacity, Blend (Wash, Multiply or Glow)
+  and Brightness.
+- **Zone tints.** Settings › Advanced › Zone tints: under Eastern Kingdoms and Kalimdor, every zone has a tint of
+  its own with the same settings, off until turned on.
+- **Indoor and city changes ease.** Walking into or out of a building, through a doorway, or onto another layer
+  crosses over in a fifth of a second, no cut.
 - **Indoors, what's lit is what's connected.** In a building the map lights your room and the rooms you can walk to
   from it, not every room at your height across the city: stepping through a doorway no longer changes rooms far
   away, rooms stacked over each other are no longer lit together, and going underground (the Cleft of Shadow,
-  Undercity) or back up changes the layer. Outdoors in a capital, everything underground is faded.
+  Undercity) or back up changes the layer. Outdoors in a capital, everything underground is faded; in a building on
+  the surface with the map small (a gate of the Ruins of Lordaeron), nothing underground is drawn.
 
 ## 3.3.0 (build 1.60.1.71037)
 

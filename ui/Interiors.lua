@@ -9,7 +9,9 @@
 -- clear. In a building, what's lit is what's connected: your room and the rooms you can walk to from it
 -- through doorways on your side of the ground, but for one stacked over or under a nearer lit one (Lit, below);
 -- the rest faded (x0.35), or ghosted (x0.15) where it lies over a lit room. Outdoors in a city the rooms above
--- ground are whole and the underground ones faded; a city looked at from away, whole. Drawn
+-- ground are whole and the underground ones faded; a city looked at from away, whole. In a building on the
+-- surface, the map small: the underground rooms not drawn. A change of any of it crosses over (Engine's
+-- layer.cross: the new in, then the old out, a fifth of a second). Drawn
 -- below, then above, then the rest by floor, your room (or every candidate) over every other room. The
 -- boxes are worked out once a building; a new Model.interior, city or veil (the layer's rev) lays it out again.
 -- Nothing to draw: the layer idle, the tiles as they are.
@@ -116,6 +118,15 @@ local function By(f, ref, first, n)
 	return first + math.max(0, math.min(n - 1, math.floor((f - ref) / STEP)))
 end
 
+-- Whether you're under the ground in building b: your room is, or every candidate (unsure between a gate of
+-- the Ruins of Lordaeron and the canal under it: on the surface, where you walked in from).
+local function Under(b, seeds)
+	for _, id in ipairs(seeds) do
+		if not b.rooms[id].underground then return false end
+	end
+	return true
+end
+
 -- The rooms lit from where you are in building b (seeds: your room, or the candidates): [room] = true. Out from
 -- them through doorways, the nearest first, among the rooms on your side of the ground (underground as yours is):
 -- a room is lit unless it's stacked with one already lit (its clash: a storey over or under it), and the way goes
@@ -124,11 +135,14 @@ end
 -- change of layer (down into the Cleft of Shadow, up out of Undercity) the lot.
 local function Lit(b, seeds)
 	local rooms, lit, seen, q, n = b.rooms, {}, {}, {}, 0
-	local under = rooms[seeds[#seeds]].underground
+	local under = Under(b, seeds)
 	for _, id in ipairs(seeds) do
-		lit[id], seen[id] = true, true
-		n = n + 1
-		q[n] = id
+		seen[id] = true
+		if rooms[id].underground == under then
+			lit[id] = true
+			n = n + 1
+			q[n] = id
+		end
 	end
 	local at = 1
 	while at <= n do
@@ -151,9 +165,10 @@ local function Lit(b, seeds)
 	return lit
 end
 
--- Each room's look, [key][room] = { alpha, sublevel }. In a building (s.i): the rooms lit from yours (Lit) whole,
--- by floor, yours on top; every other room faded, or ghosted where it lies over a lit one (a storey above:
--- seen through). Outdoors in the city: the rooms above ground whole, the underground ones faded. A city looked
+-- Each room's look, [key][room] = { alpha, sublevel }; none: not drawn. In a building (s.i): the rooms lit from
+-- yours (Lit) whole, by floor, yours on top; every other room faded, or ghosted where it lies over a lit one (a
+-- storey above: seen through); and on the surface with the map small, the underground rooms not drawn (through
+-- a gate of the Ruins of Lordaeron, no Undercity under the veiled ground). Outdoors in the city: the rooms above ground whole, the underground ones faded. A city looked
 -- at from away (not s.here): every room whole, by floor.
 local function Looks(s, list)
 	local i, c, looks = s.i, s.c, {}
@@ -171,6 +186,7 @@ local function Looks(s, list)
 		local l = {}
 		local away = c and not s.here and Has(c.buildings, b.key)
 		local lit = i and b.key == i.building and Lit(b, i.rooms)
+		local surface = s.veil and not Under(Atlas.Building(i.inst, i.building), i.rooms)
 		for room, r in pairs(b.rooms) do
 			local f, dim, over = r.floor, false, false
 			if away then -- (whole)
@@ -182,7 +198,8 @@ local function Looks(s, list)
 			else
 				dim = r.underground
 			end
-			if lit and Has(i.rooms, room) then
+			if surface and r.underground then -- (not drawn)
+			elseif lit and lit[room] and Has(i.rooms, room) then
 				l[room] = { 1, MINE }
 			elseif over then
 				l[room] = { ABOVE, By(f, yours + LEVEL, -3, 3) }
@@ -254,10 +271,10 @@ local layer = Engine.Layer("interiors", 4, function(c, inst, zoom, c0, r0, c1, r
 		local looks = s.looks[b.key]
 		for _, p in ipairs(Built(b)) do
 			if p.x1 > c0 and p.x0 < c1 and p.y1 > r0 and p.y0 < r1 then
-				local t = Keep(c, "pic", p)
+				local t = looks[p.room] and Keep(c, "pic", p)
 				if t then
 					Pic(c, t, p, zoom, looks[p.room])
-				else
+				elseif looks[p.room] then
 					nleft = nleft + 1
 					left[nleft] = p
 				end
@@ -288,6 +305,7 @@ local function SetDim(a)
 	veilA, veilRev = a, veilRev + 1
 end
 layer.idle = function() return not Scene() end
+layer.cross = true -- a change of scene (in or out of a building, a doorway, a city in view) crosses over, no cut
 layer.City = City -- (ui/Labels.lua: the city's area names)
 UI.Interiors = layer
 

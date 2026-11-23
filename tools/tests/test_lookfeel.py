@@ -307,7 +307,7 @@ def test_settings_layout():
             local last
             for _, it in ipairs(p.items) do
                 local name = it.header or it.k.key
-                if it.f:IsShown() then
+                if it.f and it.f:IsShown() then
                     local rl, rb, rw, rh = Rect(it.f)
                     inside(name, it.f, pl, pb, pw, ph)
                     if last and rb + rh > last + 0.5 then out[#out + 1] = name .. ": over the one before" end
