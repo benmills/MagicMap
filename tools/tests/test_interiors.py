@@ -123,6 +123,10 @@ def test_ironforge_drawn():
     assert {9, 16, 47, 48, 49, 65} <= lit and len(lit) > 90  # its doorways' rooms, and on through the city
     for r in lit:  # no two lit rooms stacked
         assert not set(b.rooms[r].clash.values()) & lit, r
+    faded = {r for r, a in rooms.items() if a == 0.35}
+    assert set(rooms.values()) <= {1, 0.35}  # no ghosts: nothing see-through over a picture
+    for r in faded:  # nor two faded rooms stacked: one of a stack drawn
+        assert not set(b.rooms[r].clash.values()) & faded, r
     sim.player.col = 33.6  # out of the building, still in the city: undimmed; its rooms, all underground, faded
     veil, rooms, top, _ = at("", 3)
     assert ns.Model.interior is False and not veil and not top and set(rooms.values()) == {0.35}

@@ -111,7 +111,9 @@ like terrain tiles.
     sharing 30% of the smaller's floor with floors over **12 yd** apart (a storey), two open to the sky
     one of them underground (the Cleft of Shadow under the Drag), an indoor room underground under a
     street; an indoor room on a street stands on it (a street's floor is its low ground, not a storey).
-    Every other room is faded (×0.35), or ghosted (×0.15) where it lies over a lit room. So a doorway
+    Every other room is faded (×0.35) under the lit ones, but not drawn where it lies over a lit room
+    (a storey above), and of faded rooms stacked with each other one is drawn (the nearest your floor;
+    outdoors the biggest): no see-through picture is ever drawn over another picture. So a doorway
     changes almost nothing (on the capitals' rooms, 0.1 to 4 rooms a doorway on average; the rule before
     it, every room within 22 yd of your floor whole, changed 1 to 27 and lit 1 to 66 stacked pairs at
     once), and a change of layer changes the lot. Outdoors in a capital: the rooms above ground whole,
@@ -119,7 +121,7 @@ like terrain tiles.
     surface, the map small: no underground room drawn (a gate of the Ruins of Lordaeron shows no Undercity);
     unsure between a surface room and an underground one, you're on the surface. A change of any of it
     crosses over in 0.2 s (the new scene in, then the old out: what both draw never thins);
-  - drawn below, then the ghosts above, then the rest by floor; your room, or every candidate, over
+  - drawn below, then the rest by floor; your room, or every candidate, over
     every other room (the Forge hall's picture covers the High Seat's).
   - with the city map shown, the areas named on its rooms (The Great Forge, the Apothecarium, the Cleft of
     Shadow...) are subzone names (ui/Labels.lua's look and zooms), but for those the terrain's subzones have;

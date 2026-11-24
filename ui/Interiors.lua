@@ -9,7 +9,8 @@
 -- around it, the box's corner texture coordinates solved for, CLAMPTOBLACKADDITIVE so outside the picture is
 -- clear. In a building, what's lit is what's connected: your room and the rooms you can walk to from it
 -- through doorways on your side of the ground, but for one stacked over or under a nearer lit one (Lit, below);
--- the rest faded (x0.35), or ghosted (x0.15) where it lies over a lit room. Outdoors in a city the rooms above
+-- the rest faded (x0.35) under them, one of a stack, and not drawn where it lies over a lit room (no see-through
+-- picture is ever over another picture). Outdoors in a city the rooms above
 -- ground are whole and the underground ones faded; a city looked at from away, whole. In a building on the
 -- surface, the map small: the underground rooms not drawn. A change of any of it crosses over (Engine's
 -- layer.cross: the new in, then the old out, a fifth of a second). Drawn
@@ -31,7 +32,7 @@ local VEIL = 0.65 -- the terrain under a building (Test.lua's opt.dim, 0.35 left
 local SMALL = 60 -- yd: a building whose box is within this each way zooms the small map in
 local YD = Atlas.TILE_YARDS
 local LEVEL = 22 -- yd: the dimmed rooms' sublevels start this far under and over your floor
-local BELOW, ABOVE = 0.35, 0.15 -- the alpha of a room that isn't lit (faded), and of one lying over a lit room (ghosted)
+local BELOW = 0.35 -- the alpha of a room that isn't lit (faded)
 local MINE = 7 -- the sublevel of your room's pictures, over every other room's (Test.lua's)
 local STEP = 16 -- yd of floor a sublevel
 local TEXELS = 1600 / 3 * 2 -- a picture's pixels a tile unit (2 a yard)
@@ -176,9 +177,21 @@ local function Lit(b, seeds)
 	return lit
 end
 
--- Each room's look, [key][room] = { alpha, sublevel }; none: not drawn. In a building (s.i): the rooms lit from
--- yours (Lit) whole, by floor, yours on top; every other room faded, or ghosted where it lies over a lit one (a
--- storey above: seen through); and on the surface with the map small, the underground rooms not drawn (through
+local dims, rank, kept = {}, {}, {} -- Looks' own: a building's faded rooms, each one's rank, those kept
+local function Ranked(a, b)
+	if rank[a] ~= rank[b] then return rank[a] > rank[b] end
+	return a < b
+end
+-- A room's floor, in mask cells (counted once).
+local function Cells(r)
+	if not r.cells then r.cells = select(2, r.mask:gsub("b", "")) end
+	return r.cells
+end
+
+-- Each room's look, [key][room] = { alpha, sublevel }; none: not drawn. No two see-through pictures are drawn
+-- over each other, and none over a whole one. In a building (s.i): the rooms lit from
+-- yours (Lit) whole, by floor, yours on top; every other room faded, but not drawn where it lies over a lit one (a
+-- storey above); and on the surface with the map small, the underground rooms not drawn (through
 -- a gate of the Ruins of Lordaeron, no Undercity under the veiled ground). Outdoors in the city: the rooms above ground whole, the underground ones faded. A city looked
 -- at from away (not s.here): every room whole, by floor.
 local function Looks(s, list)
@@ -197,6 +210,7 @@ local function Looks(s, list)
 		local l = {}
 		local away = c and not s.here and Has(c.buildings, b.key)
 		local lit = i and b.key == i.building and Lit(b, i.rooms)
+		local ndim = 0
 		local surface = s.small and not Under(Atlas.Building(i.inst, i.building), i.rooms)
 		for room, r in pairs(b.rooms) do
 			local f, dim, over = r.floor, false, false
@@ -212,14 +226,31 @@ local function Looks(s, list)
 			if surface and r.underground then -- (not drawn)
 			elseif lit and lit[room] and Has(i.rooms, room) then
 				l[room] = { 1, MINE }
-			elseif over then
-				l[room] = { ABOVE, By(f, yours + LEVEL, -3, 3) }
+			elseif over then -- (a storey over a lit room: not drawn, nothing see-through over a picture)
 			elseif dim then
 				l[room] = { BELOW, By(f, yours - LEVEL - 4 * STEP, -8, 5) }
+				ndim = ndim + 1
+				dims[ndim] = room
 			else
 				l[room] = { 1, By(f, yours - 3 * STEP, 0, 7) }
 			end
 		end
+		-- Of the faded rooms stacked with each other, one is drawn: the nearest your floor, or outdoors the biggest
+		-- (two see-through pictures over each other show as neither).
+		for k = #dims, ndim + 1, -1 do dims[k] = nil end
+		for _, room in ipairs(dims) do
+			local r = b.rooms[room]
+			rank[room] = i and -math.abs(r.floor - yours) or Cells(r)
+		end
+		table.sort(dims, Ranked)
+		for k = 1, ndim do
+			local room = dims[k]
+			for _, o in ipairs(b.rooms[room].clash) do
+				if kept[o] then l[room] = nil end
+			end
+			kept[room] = l[room] ~= nil or nil
+		end
+		for k = 1, ndim do kept[dims[k]], rank[dims[k]] = nil, nil end
 		looks[b.key] = l
 		Yield()
 	end
