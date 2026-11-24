@@ -2,7 +2,7 @@
 
 Each release's notes, newest first. The zips are on [GitHub](https://github.com/benmills/MagicMap/releases).
 
-## Unreleased
+## 3.4.0 (build 1.60.1.71037)
 
 - **City tints.** Each capital lays its own colour over the whole map while the map shows it: Undercity a cold dim
   blue, Ironforge forge amber, Orgrimmar a warm dust, Darnassus violet, Stormwind a light blue, Thunder Bluff a light
