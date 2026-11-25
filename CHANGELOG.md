@@ -2,7 +2,7 @@
 
 Each release's notes, newest first. The zips are on [GitHub](https://github.com/benmills/MagicMap/releases).
 
-## Unreleased
+## 3.4.1 (build 1.60.1.71139)
 
 - **Blizzard's minimap look is gone.** Settings › General › Minimap look, which drew MagicMap's map inside Blizzard's
   own minimap (new in 3.3.0), is removed. If you had it on, the map is back in MagicMap's frame, where you left it.
