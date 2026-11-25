@@ -54,7 +54,7 @@ wrapper"), never a global: a global is shared with every addon, and the rebuild'
 
 **Nothing is global** except, in game/ only, what the TOC names (the SavedVariables, and
 `MagicMap_OnAddonCompartmentClick`, the addon compartment's `AddonCompartmentFunc`) and the
-`SLASH_*` names (`SlashCmdList` entries are fields of WoW's table), and six named frames:
+`SLASH_*` names (`SlashCmdList` entries are fields of WoW's table), and eight named frames:
 `MagicMapFrame` (the client keeps a moved frame's place by its name),
 `MagicMapMinimapStandIn` (the Minimap's children wait on it; for code that reads a parent's
 name), `MagicMapWorldMapEscape` (game/Hooks.lua's Escape catcher:

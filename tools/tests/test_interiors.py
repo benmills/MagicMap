@@ -28,6 +28,33 @@ def test_cities():
     assert any(r.underground for k in uc.buildings.values() for r in Atlas.Building(0, k).rooms.values())
 
 
+def test_pictures_over_their_rooms():
+    """Every picture of a capital's room lies over that room's own box. The game's table also lists, under some rooms'
+    numbers, blocks that are another room's (a street's, under a shop's): drawn, they'd lay that street again, out
+    of place, over the city (Orgrimmar's and Stormwind's did). tools/gen_interiors.py leaves them out."""
+    L, Atlas = load_atlas()
+    off = L.eval("""function(Atlas, inst, key)
+        local b, out = Atlas.Building(inst, key), {}
+        for id, r in pairs(b.rooms) do
+            for _, p in ipairs(r.pics) do
+                local x0, x1, y0, y1 = math.huge, -math.huge, math.huge, -math.huge
+                for _, c in ipairs({ { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } }) do -- its corners, in the building's mask cells
+                    local dc, dr = p[2] + c[1] * p[4] + c[2] * p[6] - b.col, p[3] + c[1] * p[5] + c[2] * p[7] - b.row
+                    local x, y = (dc * b.cos - dr * b.sin) * b.k, -(dc * b.sin + dr * b.cos) * b.k
+                    x0, x1, y0, y1 = math.min(x0, x), math.max(x1, x), math.min(y0, y), math.max(y1, y)
+                end
+                if x1 <= r.x0 + 0.01 or x0 >= r.x0 + r.cols - 0.01 or y1 <= r.y0 + 0.01 or y0 >= r.y0 + r.rows - 0.01 then
+                    out[#out + 1] = id
+                end
+            end
+        end
+        return table.concat(out, ",")
+    end""")
+    for inst, city in ((0, 1453), (1, 1454), (0, 1455), (1, 1456), (1, 1457), (0, 1458)):
+        for key in Atlas.City(inst, city).buildings.values():
+            assert off(Atlas, inst, key) == "", (city, key)
+
+
 def test_ironforge_rooms():
     """Game's room tracking (game/parts/Interior.lua) on the Forge floor: the subzone picks the room of
     the two whose masks cover you, the High Seat's name moves you to it and back, no subzone keeps it; out of every mask,

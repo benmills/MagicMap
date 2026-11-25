@@ -71,7 +71,7 @@ A minimap that zooms out to the whole continent. Free, for WoW Forever.
 
 ## Limits
 
-- WoW Forever only, English client, build 1.60.1.70938.
+- WoW Forever only, English client, build 1.60.1.71139.
 - No arrow in dungeons and raids (the game hides your position there).
 - Blizzard's blips (herbs, ore, mailboxes...) show only around you, as on Blizzard's minimap: not on the
   big map, not while a path's line is drawn, and not zoomed out past its widest. Their tooltips are

@@ -309,7 +309,8 @@ committed (1,136 KB; 1.37 MB loaded). `[inst] = { tiles = { [tileKey] = { key...
   pictures: its box's floor and top (MOGI box z, its own), its subzone name (WMOAreaTable by WMO ID and the room file's MOGP group ID; nil: none), the
   rooms with pictures it has a portal to (MOPR), its floor mask (cols × rows 4-yd cells from cell (x0, y0) in
   the building's own coordinates, rows upward, `a` none `b` floor, runs as the letter and a count; from the
-  pictures' alpha), its pictures, flat `fid, ox, oy, ux, uy, vx, vy, ...` in tile units, its real floor
+  pictures' alpha), its pictures (the 128-yd blocks over its own box: WMOMinimapTexture lists others under some
+  rooms' numbers, another room's, left out), flat `fid, ox, oy, ux, uy, vx, vy, ...` in tile units, its real floor
   (world height: the area-weighted median z of the room file's upward triangles, normal z > 0.7, MOPY
   material 0xFF skipped, plus the placement's height; a room open to the sky, MOGP flag 0x40: the lower
   quartile of the lowest upward z over each 4-yd cell, the ground under its cliffs and roofs; none: the box's),

@@ -6,7 +6,8 @@ For every open-world map Data/Tiles.lua lists, every building (WMO) placed on it
 deduped by unique ID) whose rooms have pictures in WMOMinimapTexture: its placement and box, and
 per room with pictures its floor (MOGI box zmin, zmax), subzone name (WMOAreaTable by WMO ID and
 the room file's MOGP group ID), the rooms it has portals to (MOGP's MOPR refs), its floor mask
-(4-yd cells in the building's own coordinates, from the pictures' alpha) and its pictures.
+(4-yd cells in the building's own coordinates, from the pictures' alpha) and its pictures (the
+128-yd blocks that lie over the room's own box: the table lists others, another room's).
 
   python3 tools/gen_interiors.py [local "/Applications/World of Warcraft" wow_classic_beta] \\
       -o Data/Interiors.lua
@@ -203,6 +204,11 @@ def main() -> None:
                 grid = bytearray(cols * nrows)
                 pics = []
                 for bx, by, fid in sorted(by_room[gi]):
+                    # A block wholly outside the room's own box isn't its picture: the table keeps rows from when the
+                    # group's number was another room's (Orgrimmar's Hall of Legends still lists five blocks of a
+                    # street), which would draw that street again, out of place, over the city.
+                    if not (0 <= BLOCK * bx < g.mx[0] - g.mn[0] and 0 <= BLOCK * by < g.mx[1] - g.mn[1]):
+                        continue
                     if fid not in cache:
                         cache[fid] = picture_cells(src.read(fid))
                     pw, ph, rw, cells = cache[fid]

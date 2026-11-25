@@ -39,6 +39,7 @@ their GPLv3 terms (NOTICE.md); they're committed like the rest.
     .venv/bin/python tools/gen_interiors.py local "$W" wowf -o Data/Interiors.lua   # reads Data/Tiles.lua's maps
     .venv/bin/python tools/gen_base.py      local "$W" wowf   # Textures/Base*.blp and Data/Base.lua; reads Tiles, TileColor, Areas, AreaGrid (--preview DIR: PNGs)
     .venv/bin/python tools/gen_sea.py       local "$W" wowf   # Textures/Sea*.tga and Data/Sea.lua, from the terrain (--bake demo/sea: the demo's)
+    .venv/bin/python tools/gen_light.py     local "$W" wowf -o Data/Light.lua   # the time-of-day tint's light tables (no build in its header: compare the diff)
 
 The map art repairs aren't regenerated with the rest: a new run gives new pictures, and each costs money
 (OpenAI's image edits; the key is `OPENAI_API_KEY` or the repo's `.env`). `tools/ai_regions.json` holds the

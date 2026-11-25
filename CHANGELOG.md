@@ -6,6 +6,10 @@ Each release's notes, newest first. The zips are on [GitHub](https://github.com/
 
 - **Blizzard's minimap look is gone.** Settings › General › Minimap look, which drew MagicMap's map inside Blizzard's
   own minimap (new in 3.3.0), is removed. If you had it on, the map is back in MagicMap's frame, where you left it.
+- **Orgrimmar's first open area is whole.** Just inside the gate, copies of the Valley of Strength's streets were
+  drawn out of place over the real ones (and the Valley of Honor's east of the city): the game's data lists those
+  street pictures under a few shops' and halls' rooms as well, and the map drew them there. Each room now draws only
+  its own pictures; Stormwind, Dalaran and Eldre'Thalas had the same and are fixed with it.
 
 ## 3.4.0 (build 1.60.1.71037)
 
