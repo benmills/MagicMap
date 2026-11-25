@@ -14,8 +14,9 @@
 -- default), quest blobs laid out a frame late (L1), Forever's oversized edge
 -- atlases (L2), the Minimap's view radius 0 while it zooms (E3/E6),
 -- HereBeDragons pins with renamed copies (G6), protected frames refusing
--- insecure calls in combat (K2: Sim.protectedCalls), and x/0 raising
--- (Sim.Strict, opt-in, E3).
+-- insecure calls in combat (K2: Sim.protectedCalls), the calls refused on any
+-- frame in combat from MagicMap's call chain (SetPassThroughButtons), and x/0
+-- raising (Sim.Strict, opt-in, E3).
 --
 -- The client it simulates is WoW Forever (a Retail-engine client).
 -- Ported from the MagicMap spike (its QuestieDB mocks dropped).
@@ -378,11 +379,25 @@ local function rebase(f, strata, delta)
 	if not st.fixedLevel then st.level = math.max(0, st.level + delta) end
 	for _, c in ipairs(st.children) do rebase(c, st.strata, delta) end
 end
+-- The frames a shown frame shows once what holds it is seen: itself and the shown frames it holds.
+local function shownFrames(f, out)
+	if not S[f].shown then return out end
+	out[#out + 1] = f
+	for _, c in ipairs(S[f].children) do shownFrames(c, out) end
+	return out
+end
+-- A shown frame moved between a parent that's seen and one that isn't is seen or unseen with it: OnShow or OnHide
+-- runs, its own and those of the frames it holds, as for Show and Hide (from the caller's call chain).
 function Region:SetParent(parent)
 	if type(parent) == "string" then parent = named[parent] end
 	if not isFrame(self) then return attach(self, parent, "regions") end
+	local was = visible(self)
 	attach(self, parent, "children")
 	if parent then rebase(self, S[parent].strata, S[parent].level + 1 - S[self].level) end
+	local now = visible(self)
+	if now ~= was then
+		for _, f in ipairs(shownFrames(self, {})) do Sim.FireScript(f, now and "OnShow" or "OnHide") end
+	end
 end
 
 -- Textures, lines, masks, font strings -------------------------------------
@@ -592,6 +607,7 @@ function Frame:IsMouseClickEnabled() return S[self].mouseClick == true end
 function Frame:IsMouseMotionEnabled() return S[self].mouseMotion == true end
 function Frame:SetPropagateMouseClicks(on) end
 function Frame:SetPropagateMouseMotion(on) end
+function Frame:SetPassThroughButtons(...) S[self].passThrough = { ... } end
 function Frame:RegisterForDrag(...) S[self].drag = { ... } end
 function Frame:RegisterForClicks(...) end
 function Frame:SetMovable(on) S[self].movable = on end
@@ -1541,6 +1557,34 @@ for _, name in ipairs({ "Show", "Hide", "SetShown", "SetPoint", "SetAllPoints", 
 	local fn = methods[name]
 	methods[name] = function(self, ...)
 		if not (Sim.inCombat and not secure and protected(self)) then return fn(self, ...) end
+		local call = (S[self].name or S[self].type) .. ":" .. name .. "()"
+		Sim.protectedCalls[#Sim.protectedCalls + 1] = { frame = Sim.frame, call = call, stack = debug.traceback("", 2) }
+		Sim.FireEvent("ADDON_ACTION_BLOCKED", Sim.addons[1][1], call)
+	end
+end
+
+-- Calls the client refuses an addon's code in combat on any frame, protected or not: SetPassThroughButtons (Blizzard's
+-- map canvas makes it on every pin it hands out, MapCanvasPinMixin:CheckMouseButtonPassthrough; pin addons on their
+-- own), SetPropagateMouseClicks and SetPropagateMouseMotion. The client blames the addon whose code began the call
+-- chain, whoever's frame and handler it reaches: here MagicMap, while one of its files is on the Lua stack (Sim.Ours:
+-- a chunk loaded from a file outside tools/). Then the call isn't made: logged in Sim.protectedCalls and
+-- ADDON_ACTION_BLOCKED fired, as a protected frame's. From anyone else's chain (a scenario's stand-in addon, the
+-- client's own code) it's made: theirs to answer for.
+local TOOLS = debug.getinfo(1, "S").source:match("^(@.*)/[^/]+/[^/]+$") or "@tools" -- (this file: tools/tests/wowsim.lua)
+function Sim.Ours(source) return source:sub(1, 1) == "@" and source:sub(1, #TOOLS + 1) ~= TOOLS .. "/" end
+local function ours()
+	local level = 3 -- (the caller of the refused method)
+	while true do
+		local info = debug.getinfo(level, "S")
+		if not info then return false end
+		if Sim.Ours(info.source) then return true end
+		level = level + 1
+	end
+end
+for _, name in ipairs({ "SetPassThroughButtons", "SetPropagateMouseClicks", "SetPropagateMouseMotion" }) do
+	local fn = methods[name]
+	methods[name] = function(self, ...)
+		if not (Sim.inCombat and ours()) then return fn(self, ...) end
 		local call = (S[self].name or S[self].type) .. ":" .. name .. "()"
 		Sim.protectedCalls[#Sim.protectedCalls + 1] = { frame = Sim.frame, call = call, stack = debug.traceback("", 2) }
 		Sim.FireEvent("ADDON_ACTION_BLOCKED", Sim.addons[1][1], call)

@@ -238,7 +238,10 @@ only then; a row with more under it (Pins' families and types) has a plus that o
   and not on the big map or while a path's line is drawn. If a game update changes the minimap's zoom sizes, or
   putting the blips over the map fails, MagicMap says so once in chat and leaves Blizzard's minimap as it was
   (`/mm overlay` for details).
-- **In combat**, M opens Blizzard's world map: ours can't open then.
+- **In combat**, M opens Blizzard's world map: ours can't open then. A click from the AddOns button's menu and a
+  quest's Open in quest log wait for combat to end (chat says so), and other addons' pins neither come nor go until
+  then (the ones on the map stay): the game blocks addons from some things in combat and blames MagicMap for what
+  another addon's code, or Blizzard's map, does when MagicMap started it.
 - **Indoors** only buildings with Blizzard's indoor minimap pictures get them; elsewhere the terrain.
 - **Instances** that hide your position show Blizzard's own minimap, ground and all.
 - **Rotate Minimap**: MagicMap stays north up, and other addons' minimap pins hide while it's on.

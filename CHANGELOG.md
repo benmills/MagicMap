@@ -2,6 +2,14 @@
 
 Each release's notes, newest first. The zips are on [GitHub](https://github.com/benmills/MagicMap/releases).
 
+## Unreleased
+
+- **No more "MagicMap has been blocked from an action only available to the Blizzard UI" in combat.** The game
+  blames an addon for whatever its code sets off, and MagicMap was setting off Blizzard's map (a quest's Open in
+  quest log) and other addons' code (a click from the AddOns button's menu, their pins coming and going on the map)
+  in the middle of a fight. Now those wait for combat to end: chat says "... when combat ends" for the quest log
+  and a clicked button, and other addons' pins already on the map stay where they are until then.
+
 ## 3.4.1 (build 1.60.1.71139)
 
 - **Blizzard's minimap look is gone.** Settings › General › Minimap look, which drew MagicMap's map inside Blizzard's

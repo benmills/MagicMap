@@ -16,6 +16,11 @@
 -- socket (on the overlay they'd take the mouse over our map), under Rotate Minimap (the library turns
 -- them, our map stays north up), with the addon's layer off, and for a renamed copy whose world pins we
 -- host. Released: back on the Minimap (Game.MinimapPinsHome, game/Minimap.lua's undo).
+-- In combat none of it: borrowing a pin, giving one back and moving a library to another host all run the pins'
+-- addon's code from ours (its show and hide scripts, the library itself), and what that may not do in combat (let
+-- clicks through a frame: SetPassThroughButtons) the client blames on us, the addon whose code began the call chain.
+-- A pass running stops, the pins hosted stay where they are, placed at each new zoom (SetPoint runs no one's code),
+-- and the first frame out of combat does what's owed.
 -- Game.Addons(): obs.addons (game/parts/Addons.lua), a new list only when it changed.
 
 local _, ns = ...
@@ -36,7 +41,7 @@ local on, turnIns, offers = {}, {}, {} -- the pass's addon layers on: "addon:<ke
 -- we show; quests to pick up we show
 local socket, inst, zoom -- where they're hosted: the holder on the socket's frame, instance and zoom
 local holders = {} -- socket frame -> its holder
-local open, dirty, syncAt = false, true, 0
+local open, dirty, syncAt = false, true, 0 -- open: a socket to host them on (the hosted are given back while it isn't)
 local job -- the pass running: { kind = "borrow" | "give back" | "place" } on Runtime's job handle
 local list, byKey, listDirty = {}, {}, true -- obs.addons, by key
 
@@ -290,17 +295,25 @@ local function Pass(kind, fn, ms)
 	job.kind = kind
 end
 
+-- No socket to host them on: what's hosted is given back (in combat: once it's over; called each frame meanwhile).
 local function Close()
-	if not open then return end
-	open = false
-	if next(hosted) then Pass("give back", GiveBack, NEWS_MS) else Stop() end
+	if open then
+		open = false
+		if not next(hosted) then Stop() end
+	end
+	if next(hosted) and not Running("give back") and not InCombatLockdown() then Pass("give back", GiveBack, NEWS_MS) end
 end
 
 -- Each frame: given back while closed; borrowed at once on opening or a new socket or map, then
 -- after an addon's layer is toggled, the library adds or removes pins or the zoom crosses
--- CONTINENT_ZOOM, and every SYNC_EVERY.
+-- CONTINENT_ZOOM, and every SYNC_EVERY. In combat neither: a pass of either stopped, to start again after.
 local function WorldPins(view)
 	local s = view.sockets.world
+	local combat = InCombatLockdown()
+	if combat and (Running("borrow") or Running("give back")) then
+		dirty = true
+		Stop()
+	end
 	if not (view.window.shown and s) or WorldMapFrame:IsShown() then return Close() end
 	if not open then Scan() end -- (LibStub has no events: look again)
 	local t = GetTime()
@@ -313,7 +326,7 @@ local function WorldPins(view)
 		Replace()
 	end
 	dirty = dirty or Toggled(view.layers)
-	if not Running() and ((dirty and t - syncAt >= SYNC_SOON) or t - syncAt >= SYNC_EVERY) then
+	if not combat and not Running() and ((dirty and t - syncAt >= SYNC_SOON) or t - syncAt >= SYNC_EVERY) then
 		local ms = dirty and NEWS_MS or JOB_MS
 		dirty, syncAt = false, t
 		wipe(on)
@@ -352,6 +365,8 @@ local hidden, around = Host(), Host() -- out of sight; the Minimap's view around
 hidden:SetSize(1, 1)
 local ours = { [hidden] = true, [around] = true }
 local placed = {} -- around as placed: frame, level, x, y, d
+local resized = false -- around sized anew since the libraries on it were last told
+local owed = false -- released in combat: the copies still on ours, to go back on the Minimap once it's over
 
 -- They must still clear the map's layers.
 local function Raise(lib, host)
@@ -408,13 +423,21 @@ end
 
 -- Each frame while engaged: each copy drawing on the Minimap or ours on the host it should be on:
 -- out of sight with its layer off (a switch off hides all of an addon's pins), or
--- its world pins hosted instead.
+-- its world pins hosted instead. In combat each stays on the host it has (a host sized anew: its library re-reads
+-- the size in its own time).
+local Home
 local function MinimapPins(view)
 	local m = Game.minimap
-	if not m.engaged then return end
-	local s, you, host, again = view.sockets.minimap, Game.obs.you, hidden, false
+	local combat = InCombatLockdown()
+	if not m.engaged then
+		if owed and not combat then Home() end
+		return
+	end
+	owed = false
+	local s, you, host = view.sockets.minimap, Game.obs.you, hidden
 	if s and you.col and you.inst == s.inst then
-		host, again = around, Around(s, you)
+		host = around
+		if Around(s, you) then resized = true end
 	elseif s then
 		host = around
 		if around:IsShown() then around:Hide() end -- (off your map: its pins are around you, not on the map shown)
@@ -427,21 +450,27 @@ local function MinimapPins(view)
 			if rotated or not AnyOn(copy, view.layers) or copy.tag ~= "" and open and view.layers["addon:" .. copy.tag] then
 				to = hidden
 			end
-			if lib.Minimap ~= to or (again and to == host) then
+			if not combat and (lib.Minimap ~= to or (resized and to == around)) then
 				lib:SetMinimapObject(to)
 				Raise(lib, to)
 			end
 		end
 	end
+	if not combat then resized = false end
 end
 
--- Released: every copy on one of ours back on the Minimap (game/Minimap.lua's undo, once it's back).
-function Game.MinimapPinsHome()
+-- Released: every copy on one of ours back on the Minimap (game/Minimap.lua's undo, once it's back); in combat,
+-- once it's over (MinimapPins), unless the takeover has the Minimap again by then.
+function Home()
+	owed = false
 	for _, copy in ipairs(copies) do
 		if ours[copy.lib.Minimap] then copy.lib:SetMinimapObject(Minimap) end
 	end
 	around:Hide()
 	wipe(placed)
+end
+function Game.MinimapPinsHome()
+	if InCombatLockdown() then owed = true else Home() end
 end
 
 Game.Apply("addon pins", function(view)

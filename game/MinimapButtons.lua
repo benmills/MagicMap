@@ -13,7 +13,8 @@
 --   Blizzard's the takeover hides: the calendar (GameTimeFrame, while it's enabled) and the clock
 --     (TimeManagerClockButton)
 -- Game.ClickButton(id, button): the button command's, what a click on it does: the launcher's OnClick(its LibDBIcon
--- button, button), the entry's func as the compartment's menu calls it, the button's Click(button).
+-- button, button), the entry's func as the compartment's menu calls it, the button's Click(button). All another
+-- addon's code (or Blizzard's) run from ours, so in combat the click waits for its end (Game.AfterCombat).
 -- Game.ButtonTooltip(owner, anchor, id): the tooltip command's: the launcher's OnTooltipShow on GameTooltip (else
 -- its OnEnter(owner)), the entry's funcOnEnter(owner); false: the one shown goes (OnLeave, funcOnLeave).
 
@@ -154,13 +155,19 @@ function Game.ClickButton(id, button)
 	local a = acts[id]
 	if not a then return end
 	button = button or "LeftButton"
-	if a.obj then
-		a.obj.OnClick(a.frame, button)
-	elseif a.entry then
-		a.entry.func(nil, { buttonName = button }, nil) -- (as the compartment's own menu calls it: MenuUtil's callback)
-	else
-		a.button:Click(button)
+	local name = id
+	for _, b in ipairs(list or {}) do
+		if b.id == id then name = Plain(b.name) end
 	end
+	Game.AfterCombat("button " .. id, name .. ": clicked", function()
+		if a.obj then
+			a.obj.OnClick(a.frame, button)
+		elseif a.entry then
+			a.entry.func(nil, { buttonName = button }, nil) -- (as the compartment's own menu calls it: MenuUtil's callback)
+		else
+			a.button:Click(button)
+		end
+	end)
 end
 
 local tip -- the one whose tooltip is shown: { act, owner }
