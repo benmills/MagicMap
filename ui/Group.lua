@@ -40,7 +40,7 @@ Group.dots = dots
 local function Dot(i)
 	local t = dots[i]
 	if not t then
-		t = UI.Under.Mask(frame:CreateTexture(nil, "ARTWORK"))
+		t = frame:CreateTexture(nil, "ARTWORK")
 		t:SetTexture(BLIP)
 		t:SetTexCoord(0, 0.5, 0, 1)
 		t:SetSize(SIZE, SIZE)

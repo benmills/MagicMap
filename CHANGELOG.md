@@ -2,6 +2,11 @@
 
 Each release's notes, newest first. The zips are on [GitHub](https://github.com/benmills/MagicMap/releases).
 
+## Unreleased
+
+- **Blizzard's minimap look is gone.** Settings › General › Minimap look, which drew MagicMap's map inside Blizzard's
+  own minimap (new in 3.3.0), is removed. If you had it on, the map is back in MagicMap's frame, where you left it.
+
 ## 3.4.0 (build 1.60.1.71037)
 
 - **City tints.** Each capital lays its own colour over the whole map while the map shows it: Undercity a cold dim

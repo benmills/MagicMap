@@ -39,15 +39,6 @@ another addon has loaded LibDataBroker and LibDBIcon, it's a launcher LibDBIcon 
 *The minimap zoomed out over the Barrens and Durotar, the hover buttons showing: the gear and the
 big-map button by the zone name, reset, + and − on the right.*
 
-**Blizzard's look (Settings > General > Minimap look).** Blizzard's: Blizzard's own minimap stays where Edit Mode
-puts it, with its ring, zone name, tracking, calendar, clock, mail and other addons' rim buttons, and MagicMap's map is
-drawn inside it in place of Blizzard's ground: round, panned and zoomed as ever (Blizzard's + and − zoom it, and the
-wheel; they show while you point at the map). MagicMap's border, title line, buttons, rim button and quest pill
-go; a small MagicMap badge under the tracking button (in Blizzard's addon-compartment box, "MagicMap" beside it)
-opens the gear's menu, whose Minimap look switches back. The reset and pin stand round the ring past Blizzard's +. The small map
-takes the minimap's spot and size (no moving or resizing it then). Quest areas aren't drawn there (the client draws
-them in a way a round map can't clip). The big map is the same in both looks.
-
 **The big map (M).** M or the red button grows it into a big map, centred on you; M, the button
 or Escape shrinks it. Move or resize the big map and it opens there next time, as the small one does
 (`/mm reset` puts both back). The quest log (L) still opens Blizzard's map (so does M, with Replace world
@@ -212,7 +203,7 @@ only then; a row with more under it (Pins' families and types) has a plus that o
 
 | Page | Settings (default) |
 | --- | --- |
-| General | Window: Replace minimap, Replace world map (what the welcome chose), Minimap look (MagicMap's square frame / Blizzard's: ours under Blizzard's own minimap), Buttons at rest (0%: the buttons show while you point at the map), Lock window (off: on, no dragging or resizing it), Reset window position, Minimap button (on). Movement: Follow you (on), Return to default (on: the small map glides back to you at the default zoom when left alone), Return after (3 s), Zoom per notch (+30%: where Blizzard's minimap has no zoom of its own), Default zoom (the one before Blizzard's closest: any of Blizzard's minimap zooms, by the yards across) |
+| General | Window: Replace minimap, Replace world map (what the welcome chose), Buttons at rest (0%: the buttons show while you point at the map), Lock window (off: on, no dragging or resizing it), Reset window position, Minimap button (on). Movement: Follow you (on), Return to default (on: the small map glides back to you at the default zoom when left alone), Return after (3 s), Zoom per notch (+30%: where Blizzard's minimap has no zoom of its own), Default zoom (the one before Blizzard's closest: any of Blizzard's minimap zooms, by the yards across) |
 | Map | Look: Ocean (on), Repair broken map art (on), Time of day (on; under it Strength 30%, Night darkening 25%). Names: Zone names (on; under it Zone levels, off: "Level 10-20" small under each zone's name), Subzone names (on; also the gear's two rows), Zone names size (100%; under it their opacity, 95%), Subzone names size (80%; under it their opacity, 45%). You: Your marker (100%). Indoors: Indoor dimming (65%), Indoor auto-zoom (on) |
 | Header | The line above the map. At rest (Local time, Zone), On hover (Coordinates, Zone), each chosen and ordered from Zone, Subzone, Coordinates, Tracked target, Distance to target, Local time, Server time (each time led by the day or night picture). Format: Clock (as Blizzard's clock / 24-hour / 12-hour; shown while a time is chosen) |
 | Pins | Show pins (on; under it Pin opacity 100%, On the big map, Zoomed in from), Pin size (120%). By type: each family (Quests, Rares & treasures, Party, Places, Addons, Other) shown or not, and opened (+) its Size (Pin size's; Party's 100%, its own) and Opacity (Pin opacity's); each pin type under its family, with its icon drawn as on the map: shown or not, and opened its Size, Opacity, Icon (Blizzard's other art for it, today's by default) and Group (whether it may stand in a group's pill); Graveyards and Landmarks off until turned on; under Addons, each addon with world pins (Questie...). The gear's Map rows are these same switches. Each follows the level above until set; its undo hands it back. Grouping: Group icons (on; under it Distance, Reach, Smallest group, Icons in a pill, Pill backing, Open group backing). Resources: Keep tracking (your gathering tracker) |

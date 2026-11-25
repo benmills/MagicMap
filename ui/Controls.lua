@@ -107,17 +107,10 @@ local zoomOut = ArtButton(Chrome.controls, 20, 11, ZoomArt("ui-hud-minimap-zoom-
 -- bottom offset makes up the difference (BOTTOM_Y), and the zoom buttons drop by as much (clear of the grip).
 local insets = Chrome.border.insets
 local BOTTOM_Y = math.max(2, PAD + insets[1] - insets[4])
+zoomOut:SetPoint("BOTTOMRIGHT", -PAD, BOTTOM_Y + 6)
 local zoomIn = ArtButton(Chrome.controls, 20, 20, ZoomArt("ui-hud-minimap-zoom-in"))
+zoomIn:SetPoint("BOTTOM", zoomOut, "TOP", 0, 2)
 Controls.zoomIn, Controls.zoomOut = zoomIn, zoomOut
--- The + and - in their column at the map's bottom right (under Blizzard's minimap they hide, its own stand in, and
--- the reset and pin above where the + was move inside the round: ui/Under.lua).
-function Controls.Home()
-	zoomOut:ClearAllPoints()
-	zoomOut:SetPoint("BOTTOMRIGHT", -PAD, BOTTOM_Y + 6)
-	zoomIn:ClearAllPoints()
-	zoomIn:SetPoint("BOTTOM", zoomOut, "TOP", 0, 2)
-end
-Controls.Home()
 
 -- Reset: above the zoom in (the gap the + and - keep), shown only while the map is off its default: not following you,
 -- or the zoom isn't the default (UI.DefaultZoom(), ui/View.lua); a click flies back to you at that zoom (Motion.Reset).
@@ -128,7 +121,7 @@ local WHITE_ARROWS = { "common-icon-undo", "uitools-icon-refresh" }
 local ZOOM_GOLD = { 1, 0.86, 0.25 }
 local zoomReset = CreateFrame("Button", nil, Chrome.controls)
 zoomReset:SetSize(20, 20) -- (the + and -'s)
--- (its column, Controls.Column: under Blizzard's minimap they stand round its ring instead, ui/Under.lua)
+zoomReset:SetPoint("BOTTOM", zoomIn, "TOP", 0, 2)
 do
 	local gold, white = FirstAtlas(unpack(GOLD_ARROWS)), FirstAtlas(unpack(WHITE_ARROWS))
 	local refresh = not (gold or white) and FirstAtlas("UI-RefreshButton")
@@ -141,7 +134,7 @@ do
 			arrows:SetVertexColor(unpack(ZOOM_GOLD))
 		end
 		arrows:SetSize(18, 18)
-		arrows:SetPoint("CENTER") -- (on its button: the + and -'s centre line, a step above the +)
+		arrows:SetPoint("CENTER", zoomIn, "CENTER", 0, 22) -- (the + and -'s centre line, a step above the +)
 		if layer == "HIGHLIGHT" then arrows:SetBlendMode("ADD") end
 	end
 end
@@ -153,6 +146,7 @@ Controls.zoomReset = zoomReset
 -- reset, Track or Path to). Blizzard's pin, greyed and the + and -'s gold at rest, its yellow one while pinned.
 local zoomPin = CreateFrame("Button", nil, Chrome.controls)
 zoomPin:SetSize(20, 20)
+zoomPin:SetPoint("BOTTOM", zoomReset, "TOP", 0, 2)
 do
 	local atlas = FirstAtlas("friendslist-recentallies-pin")
 	local lit = FirstAtlas("friendslist-recentallies-pin-yellow") or atlas
@@ -160,7 +154,7 @@ do
 		local t = zoomPin:CreateTexture(nil, layer)
 		if atlas then t:SetAtlas(atlas) else t:SetTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Up") end
 		t:SetSize(18, 18)
-		t:SetPoint("CENTER")
+		t:SetPoint("CENTER", zoomIn, "CENTER", 0, 44)
 		if layer == "HIGHLIGHT" then t:SetBlendMode("ADD") else zoomPin.art = t end
 	end
 	function zoomPin.Lit(on)
@@ -179,14 +173,6 @@ do
 end
 zoomPin:Hide()
 Controls.zoomPin = zoomPin
--- The reset and pin in their column above the +, a 2 px gap each.
-function Controls.Column()
-	zoomReset:ClearAllPoints()
-	zoomReset:SetPoint("BOTTOM", zoomIn, "TOP", 0, 2)
-	zoomPin:ClearAllPoints()
-	zoomPin:SetPoint("BOTTOM", zoomReset, "TOP", 0, 2)
-end
-Controls.Column()
 
 ---------------------------------------------------------------------------
 -- The quest pill (bottom left): the one pill for what you go to. With a target on this map (Model.Target: your
@@ -627,8 +613,7 @@ local lastSaid, lastW, lastKind, lastFrac, lastFillW
 local function Look()
 	local speed = Model.you.speed
 	if speed and speed > 0 then pace = speed end
-	local pieces, at
-	if not UI.Under.on then pieces, at = Words(Model.Known("quests")) end -- (under Blizzard's minimap, none: ui/Under.lua)
+	local pieces, at = Words(Model.Known("quests"))
 	local said = pieces and table.concat(pieces, "\n") .. "\n" .. tostring(at) or nil
 	local w = overlay:GetWidth()
 	if said ~= lastSaid or w ~= lastW or iconKind ~= lastKind then
@@ -749,7 +734,6 @@ local function ToggleFollow() UI.Motion.SetFollow(not Camera.follow, true) end
 local since = EVERY
 Runtime.Step("ui", "map: controls", function(elapsed)
 	local want = (Window.frame:IsMouseOver(REACH, -REACH, 0, 0) or Menus.IsOpen()) and 1 or 0
-	Controls.over = want == 1 -- (View.zooms: Blizzard's + and - under its minimap show with ours)
 	if hover ~= want then
 		local step = elapsed / FADE
 		hover = want > hover and math.min(want, hover + step) or math.max(want, hover - step)
@@ -802,7 +786,6 @@ Controls.Tip(zoomReset, function() return Camera.follow and "Reset zoom" or "Bac
 Controls.Tip(zoomPin, function() return UI.Motion.pinned and "Unpin this view" or "Pin this view" end)
 Controls.Tip(gear, function() return "Settings" end)
 Controls.Tip(addons, function() return "AddOns" end)
-Controls.Tip(UI.Under.badge, function() return "MagicMap" end)
 close:SetScript("OnClick", Runtime.Wrap("map: pill close", function() UI.Track.Clear() end))
 Controls.Tip(close, function() return UI.Track.ClearLabel() end)
 

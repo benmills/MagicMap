@@ -160,15 +160,6 @@
 ---@field day boolean          day, as the minimap's day and night picture shows it (C_DateAndTime.IsDayTime)
 ---@field military boolean     Blizzard's clock shows 24 hours (CVar timeMgrUseMilitaryTime)
 
----@class MM.BadgeSpot
----@field x number             UIParent units: the tracking button's centre
----@field y number             the edge the badge hangs from (1 px into the button, as the addon compartment's)
----@field below boolean        it hangs under the button (its TOP at y); false: over it (its BOTTOM at y)
-
----@class MM.ZoomSpot
----@field x number             UIParent units: Blizzard's + button's centre
----@field y number
-
 ---@class MM.ObsMinimap
 ---@field engaged boolean      Game has taken the Minimap (View.minimap ~= "blizzard" and nothing blocks it)
 ---@field blocker? string      why it isn't, in words ("FarmHud has the minimap")
@@ -176,9 +167,6 @@
 ---@field indoorDebug? boolean /mm indoor is reporting (SavedGame.indoorDebug): the gear's Indoor maps box
 ---@field home? MM.ScreenRect  the Minimap's home spot (its cluster), for placing our window there
 ---                           (kept: Game reads it each frame and hands a new table only when the spot moved, so UI may hold it)
----@field badge? MM.BadgeSpot  under Blizzard's minimap, where UI's badge goes (game/Home.lua: kept, as home is); nil while
----                           Blizzard's tracking button isn't shown
----@field zoom? MM.ZoomSpot    where Blizzard's + is (game/Home.lua: kept), for UI's reset and pin under its minimap
 ---@field homeStrata? string   the cluster's frame strata: UI's small window sits in it (spike MinimapMode.lua:46-49)
 ---@field mouse? boolean       the overlay (/mm overlay) has the mouse over our view: UI's pins hover through it
 ---@field maxZoom? number      the overlay on: the map's zoom (view px a tile) past which it can't fit around you (hides

@@ -21,39 +21,6 @@ function Game.Home()
 	return home, MinimapCluster:GetFrameStrata()
 end
 
--- Where UI's badge goes under Blizzard's minimap (ui/Under.lua): under the tracking button left of the zone name, as
--- Blizzard's addon compartment is under the calendar (its TOP to the calendar's BOTTOM, 1 px up; with the header
--- under the map, its BOTTOM to the calendar's TOP, 1 px down): { x, y, below } in UIParent units, x the button's
--- centre, y the edge the badge hangs from, below whether it hangs under it. nil while the tracking button isn't shown.
-local badge
-function Game.BadgeSpot()
-	local t = MinimapCluster.Tracking
-	t = t and t:IsVisible() and (t.Button or t)
-	local x, bottom, top = t and t:GetCenter(), t and t:GetBottom(), t and t:GetTop()
-	if not (x and bottom and top) then return nil end
-	local c = AddonCompartmentFrame
-	local below = not (c and c:GetNumPoints() > 0 and c:GetPoint(1) == "BOTTOM")
-	local s = t:GetEffectiveScale() / UIParent:GetEffectiveScale() -- /: never 0 (an effective scale is > 0)
-	x = x * s
-	local y = below and bottom * s + 1 or top * s - 1
-	if not (badge and badge.x == x and badge.y == y and badge.below == below) then badge = { x = x, y = y, below = below } end
-	return badge
-end
-
--- Where Blizzard's + is under its minimap (ui/Under.lua stands the reset and pin above it, as above ours): { x, y }
--- in UIParent units, its centre. nil on a client without one, or before it's laid out.
-local zoom
-local ZOOM_IN = Minimap.ZoomIn or MinimapZoomIn
-function Game.ZoomSpot()
-	local x, y
-	if ZOOM_IN then x, y = ZOOM_IN:GetCenter() end
-	if not (x and y) then return nil end
-	local s = ZOOM_IN:GetEffectiveScale() / UIParent:GetEffectiveScale() -- /: never 0 (an effective scale is > 0)
-	x, y = x * s, y * s
-	if not (zoom and zoom.x == x and zoom.y == y) then zoom = { x = x, y = y } end
-	return zoom
-end
-
 -- The spot (the cluster, and the stand-in holding what hung on the Minimap) at homeAlpha of the
 -- cluster's own alpha: read when it first fades, put back at 1. 0 while the takeover can't hide the
 -- cluster yet (Game.minimap.fade).

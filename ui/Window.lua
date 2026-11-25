@@ -44,10 +44,7 @@ Runtime.SetState("closed") -- frames by map state (docs/runtime.md); the draw st
 -- Its place, kept (ui/BigMap.lua: only the small window's).
 local function Moved() UI.BigMap.SaveLayout() end
 -- Window.locked (Settings > General > Lock window, ui/BigMap.lua): no move, no resize.
--- (Under Blizzard's minimap, ui/Under.lua: on its spot, no moving it either.)
-frame:SetScript("OnDragStart", Runtime.Wrap("map: move", function()
-	if not (Window.locked or UI.Under.on) then frame:StartMoving() end
-end))
+frame:SetScript("OnDragStart", Runtime.Wrap("map: move", function() if not Window.locked then frame:StartMoving() end end))
 frame:SetScript("OnDragStop", Runtime.Wrap("map: moved", function()
 	frame:StopMovingOrSizing()
 	Moved()
@@ -64,7 +61,6 @@ Window.view = view
 local backdrop = view:CreateTexture(nil, "BACKGROUND", nil, -8)
 backdrop:SetAllPoints()
 backdrop:SetColorTexture(0, 0, 0, 1)
-Window.backdrop = backdrop -- (masked round by ui/Under.lua)
 
 function Window.Size()
 	return view:GetWidth(), view:GetHeight()
@@ -86,7 +82,7 @@ local moving
 view:SetScript("OnMouseWheel", Runtime.Wrap("map: wheel", function(_, delta) UI.Motion.Wheel(delta) end))
 view:SetScript("OnMouseDown", Runtime.Wrap("map: press", function(_, button)
 	if button == "LeftButton" and IsAltKeyDown() then
-		if Window.locked or UI.Under.on then return end
+		if Window.locked then return end
 		frame:StartMoving()
 		moving = true
 		return
@@ -172,7 +168,6 @@ curtain:SetFrameLevel(frame:GetFrameLevel() + 28)
 curtain:CreateTexture(nil, "BACKGROUND"):SetColorTexture(0, 0, 0, 1)
 curtain:GetRegions():SetAllPoints()
 curtain:Hide()
-Window.curtain = curtain:GetRegions() -- (masked round by ui/Under.lua)
 function Window.Blank()
 	local mm = ns.Model.minimap
 	return mm ~= nil and mm.instance == true
@@ -182,7 +177,6 @@ Runtime.Step("ui", "map: draw", function(elapsed)
 	local blank = Window.Blank()
 	if curtain:IsShown() ~= blank then curtain:SetShown(blank) end
 	UI.BigMap.Step(elapsed)
-	UI.Under.Step()
 	local you, Motion = You(), UI.Motion
 	Motion.Chase(you) -- (a map that withholds where you are: the whole of it)
 	local mine = Mine(you)

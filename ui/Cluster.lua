@@ -289,7 +289,7 @@ end
 
 -- A texture on the map: unsnapped (the map moves by fractions of a pixel, as Pins' Tex).
 local function Tex(f, layer)
-	local t = UI.Under.Mask(f:CreateTexture(nil, layer))
+	local t = f:CreateTexture(nil, layer)
 	t:SetSnapToPixelGrid(false)
 	t:SetTexelSnappingBias(0)
 	return t

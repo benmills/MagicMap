@@ -131,7 +131,9 @@ Command({ kind = "load", owner = "UI", spec = { version = 1, defaults = DEFAULTS
 	Engine.toggles = s.layers
 	for _, key in ipairs({ "corpse", "waypoint", "blips", "unexplored", "borders", "offers" }) do s.layers[key] = nil end -- (no gear rows now: on; borders, offers: gone)
 	s.layers.vignettes = s.layers.rares -- (one row turns both: ui/Menus.lua)
-	if s.feel then s.feel["zoom.notch"] = nil end -- (3.1.0's notch, any notch of the wheel: gone)
+	for _, key in ipairs({ "zoom.notch", "general.look" }) do -- (settings no longer offered: a saved value of theirs dropped)
+		if s.feel then s.feel[key] = nil end
+	end
 	UI.Feel.Loaded() -- (the saved looks reach what read them at load: the line, the areas)
 	live = UI.Feel.Get("zoom.default")
 	UI.Replace.Load(s, fresh)
@@ -179,23 +181,18 @@ Runtime.Step("ui", "ui: view", function()
 	local rmin, rworld = UI.Replace.Get("minimap"), UI.Replace.Get("worldmap")
 	-- The Minimap is ours only while MagicMap replaces it (and not swapped back: /mm); else Blizzard's minimap is left
 	-- as it is (the window's then always big, where the overlay never shows anyway).
-	-- The minimap button, as set; not while under Blizzard's minimap (ui/Under.lua: the badge is MagicMap's there).
-	local button = saved.button == true and not UI.Under.on
-	local zooms = UI.Under.on and UI.Controls.over == true -- (Blizzard's + and - while you point at the map: game/Minimap.lua)
 	local mode = rmin and saved.minimap or "blizzard"
 	local replace = view.replace
 	if shown ~= window.shown or place ~= window.place or mode ~= view.minimap
 		or rmin ~= replace.minimap or rworld ~= replace.worldmap
 		or (Camera.inst or 0) ~= view.inst or BigMap.big ~= window.big
 		or BigMap.homeAlpha ~= window.homeAlpha or strata ~= window.strata or level ~= window.level
-		or button ~= view.button or UI.Under.on ~= (view.under == true) or zooms ~= view.zooms then
+		or saved.button ~= view.button then
 		view.frame = Runtime.frames
 	end
 	window.shown, window.place = shown, place
 	window.big, window.homeAlpha, window.strata, window.level = BigMap.big, BigMap.homeAlpha, strata, level
-	view.minimap, view.inst, view.button = mode, Camera.inst or 0, button
-	view.under = UI.Under.on -- (Blizzard's minimap kept on screen, ours under it: ui/Under.lua)
-	view.zooms = zooms
+	view.minimap, view.inst, view.button = mode, Camera.inst or 0, saved.button
 	view.pathing = UI.Path and UI.Path.pathed or false -- (Path to's line laid out this frame or the last; Track's leaves the blips)
 	view.keep = UI.Resources.Keep() -- (the tracker Game keeps on: ui/Resources.lua, game/Keep.lua)
 	replace.minimap, replace.worldmap = rmin, rworld -- (Game: M is ours only while worldmap; ui/Replace.lua)

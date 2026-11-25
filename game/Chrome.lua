@@ -6,7 +6,7 @@
 --     screen (the client won't swap their art): our gold arrows point the way instead (ui/Guide.lua, ui/Path.lua)
 --   indicators: Blizzard's mail and crafting-order indicators (MinimapCluster.IndicatorFrame), which hide with
 --     the cluster, hung there (its TOPRIGHT, SIZE px tall), above it; each apply puts them back if the client's own
---     layout moved them; never in combat, nor a protected frame. nil under Blizzard's minimap (View.under): its own.
+--     layout moved them; never in combat, nor a protected frame
 -- nil, not engaged, or logging out: as Blizzard has them.
 
 local _, ns = ...
@@ -52,9 +52,7 @@ local function Indicators(host)
 		f:SetScale(h > 0 and SIZE / h or 1) -- /: never 0 (h > 0 checked)
 		return
 	end
-	-- (game/Minimap.lua's stand-in: put back by its release, the Minimap's again; still engaged, as under Blizzard's
-	-- minimap, View.under, it holds the Minimap's spot)
-	local stand = not Game.minimap.engaged and MagicMapMinimapStandIn
+	local stand = MagicMapMinimapStandIn -- (game/Minimap.lua's: put back by its release, the Minimap's again)
 	f:SetParent(home.parent)
 	f:SetScale(home.scale)
 	f:SetFrameStrata(home.strata)

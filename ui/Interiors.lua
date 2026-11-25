@@ -258,7 +258,7 @@ local function Looks(s, list)
 end
 
 local function Tex(c)
-	local t = UI.Under.Mask(c:CreateTexture(nil, "ARTWORK"))
+	local t = c:CreateTexture(nil, "ARTWORK")
 	t:SetSnapToPixelGrid(false)
 	t:SetTexelSnappingBias(0)
 	return t

@@ -41,7 +41,6 @@ local Art = {
 		"taxinode_alliance", "taxinode_horde", "taxinode_neutral", -- ui/Places.lua: flight points
 		"poi-graveyard-neutral",                                   -- ui/Places.lua: graveyards
 		"vignetteloot",                                            -- ui/Places.lua: the vignettes' row (Settings > Pins)
-		"ui-hud-minimap-addon-indicator",                          -- ui/Under.lua: the badge (the addon compartment's box)
 		"ui-hud-minimap-arrow-player",                             -- ui/You.lua: your arrow (the Minimap's)
 		"UI-HUD-Minimap-DayCycle", "UI-HUD-Minimap-NightCycle",    -- ui/Title.lua: day or night (the Minimap's Diel.lua)
 		"UI-HUD-Minimap-Frame-Cycle",                              -- ui/Title.lua: its gold ring

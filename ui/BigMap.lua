@@ -43,11 +43,6 @@ local small -- while big or shrinking back: the small rect { left, top, w, h, zo
 local restoreAlpha = 1 -- the home corner's alpha before growing
 local tween, loaded
 
--- The small window's strata: the cluster's, or under it beneath Blizzard's minimap (ui/Under.lua).
-local function SmallStrata()
-	return UI.Under.Wants() and UI.Under.Strata(BigMap.homeStrata) or BigMap.homeStrata
-end
-
 local function EaseOutCubic(t) return 1 - (1 - t) ^ 3 end
 
 local function SetRect(left, top, w, h)
@@ -62,7 +57,7 @@ function BigMap.SaveLayout()
 	local r = { left = frame:GetLeft(), top = frame:GetTop(), w = frame:GetWidth(), h = frame:GetHeight() }
 	if BigMap.big then
 		if not tween then UI.saved.bigWindow = r end
-	elseif not small and not UI.Under.Wants() then -- (under Blizzard's minimap it's on the Minimap's spot: not yours)
+	elseif not small then
 		UI.saved.window = r
 	end
 end
@@ -127,17 +122,6 @@ local function Place()
 	Motion.SetZoom(w / SPAN_TILES)
 end
 
--- Back on the small rect you left it at (from under Blizzard's minimap: ui/Under.lua), else the minimap's spot.
-function BigMap.Restore()
-	local r = UI.saved.window
-	if r then
-		SetRect(r.left, r.top, r.w, r.h)
-	else
-		Place()
-	end
-	frame:SetFrameStrata(BigMap.homeStrata)
-end
-
 ---------------------------------------------------------------------------
 -- Growing into the world map (M) and back
 ---------------------------------------------------------------------------
@@ -178,7 +162,7 @@ local function Shrink()
 	local target = small
 	TweenTo(target, COLLAPSE_TIME, function()
 		small = nil
-		frame:SetFrameStrata(SmallStrata())
+		frame:SetFrameStrata(BigMap.homeStrata)
 		BigMap.SaveLayout()
 	end, 0, restoreAlpha)
 	local you = Here()
@@ -213,13 +197,13 @@ frame:HookScript("OnHide", Runtime.Wrap("map: hidden small", function()
 	SetRect(s.left, s.top, s.w, s.h)
 	BigMap.SaveLayout()
 	Motion.SetZoom(s.zoom)
-	frame:SetFrameStrata(SmallStrata())
+	frame:SetFrameStrata(BigMap.homeStrata)
 end))
 
 -- The first time it shows (no saved rect), onto the minimap's spot.
 frame:HookScript("OnShow", Runtime.Wrap("map: shown home", function()
 	if not UI.saved.window then Place() end
-	frame:SetFrameStrata(SmallStrata())
+	frame:SetFrameStrata(BigMap.homeStrata)
 end))
 
 -- Resizing the small window keeps the same yards across it: the zoom scales with it.
@@ -247,8 +231,7 @@ Runtime.Step("ui", "map: keys", function()
 		if h.kind == "worldmap" then
 			if frame:IsShown() then BigMap.Toggle() else frame:Show() end -- (hidden: M with the minimap not replaced)
 		elseif h.kind == "escape" then BigMap.Close()
-		elseif h.kind == "toggle" then Window.Toggle()
-		elseif h.kind == "zoomIn" or h.kind == "zoomOut" then Motion.ZoomStep(h.kind == "zoomIn" and 1 or -1) end
+		elseif h.kind == "toggle" then Window.Toggle() end
 	end
 	-- Without the minimap, shown means big (M, the button or /mm just showed it; a window left small by
 	-- turning the minimap off is hidden by Replace.Set).
@@ -256,10 +239,9 @@ Runtime.Step("ui", "map: keys", function()
 	local m = Model.minimap
 	if m and m.home then
 		BigMap.home = m.home
-		BigMap.badge, BigMap.zoom = m.badge, m.zoom -- (ui/Under.lua's badge's spot, and Blizzard's +: the reset and pin's)
 		if m.homeStrata ~= BigMap.homeStrata then
 			BigMap.homeStrata = m.homeStrata
-			if not small then frame:SetFrameStrata(SmallStrata()) end
+			if not small then frame:SetFrameStrata(m.homeStrata) end
 		end
 	end
 end, { budgetMs = Runtime.FRAME_MS })
@@ -298,10 +280,7 @@ end
 ns.Game.Command({ kind = "slash", name = "reset", help = "put the map back on the minimap's spot", fn = BigMap.Reset })
 UI.Feel.Add("general", "Window", {
 	{ key = "general.lock", kind = "toggle", label = "Lock window", default = false,
-		apply = function(on)
-			UI.Window.locked = on
-			if UI.Chrome and UI.Chrome.grip then UI.Chrome.grip:SetShown(not (on or UI.Under.on)) end
-		end,
+		apply = function(on) UI.Window.locked = on; if UI.Chrome and UI.Chrome.grip then UI.Chrome.grip:SetShown(not on) end end,
 		tip = "The map window stays where it is and as big as it is: no dragging it (nor Alt-dragging), no resize grip." },
 	{ key = "general.resetpos", kind = "button", label = "Reset window position", run = function() BigMap.Reset() end,
 		tip = "Puts the map window back on the minimap's spot." },

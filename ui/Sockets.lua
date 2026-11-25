@@ -66,12 +66,9 @@ local keys = {} -- an addon's key -> its layer's
 function Sockets.Update(v)
 	local window = v.window
 	local ours = window.shown
-	-- (under Blizzard's minimap, ui/Under.lua: its mail and crafting-order indicators stay on it)
-	local ind = not UI.Under.on and UI.Chrome.indicators or nil
-	local moved = CHROME.indicators ~= ind
-	CHROME.indicators = ind
+	CHROME.indicators = CHROME.indicators or UI.Chrome.indicators
 	local chrome = ours and CHROME or nil
-	local changed = moved or chrome ~= v.chrome
+	local changed = chrome ~= v.chrome
 	v.chrome = chrome
 	local layers = v.layers
 	for k, layer in pairs(GAME) do

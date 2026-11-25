@@ -18,7 +18,7 @@ for i = T.simFrames + 1, #all do
 		local fns = { s.main }
 		for _, h in pairs(s.hooks) do fns[#fns + 1] = h end
 		for _, fn in pairs(fns) do
-			if not ns.Runtime.Wrapped(fn) and not sim.intrinsic[fn] then
+			if not ns.Runtime.Wrapped(fn) then
 				unwrapped[#unwrapped + 1] = (sim.state[f].name or sim.state[f].type) .. ":" .. script
 			end
 		end

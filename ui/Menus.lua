@@ -526,13 +526,6 @@ function Menus.Gear(owner)
 		AddLayers(root, "addons")
 		root:CreateDivider()
 		if not UI.Replace or UI.Replace.Get("minimap") then -- (only while ours stands in for it: the contract's Get; shown if it's absent)
-			-- Minimap look (Settings > General: ui/Under.lua): MagicMap's frame, or inside Blizzard's minimap (the badge's
-			-- menu is this one: the way back to MagicMap's frame).
-			local look = root:CreateButton(Mark("Interface\\Icons\\INV_Misc_Map_01") .. "Minimap look")
-			for _, o in ipairs({ { "MagicMap's frame", "magicmap" }, { "Inside Blizzard's minimap", "blizzard" } }) do
-				look:CreateRadio(o[1], function() return UI.Feel.Get("general.look") == o[2] end,
-					function() Run(function() UI.Feel.Set("general.look", o[2]) end) end)
-			end
 			root:CreateButton(BLIZZARD_LOGO .. "Use Blizzard's minimap", function() Run(function() UI.Window.frame:Hide() end) end)
 		end
 		root:CreateButton(Mark("Interface\\Buttons\\UI-RefreshButton") .. "Reset to defaults", function() Run(Reset) end)

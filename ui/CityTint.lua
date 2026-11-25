@@ -61,7 +61,7 @@ local CONT = {} -- [inst] = whether its zones' tints show (the continent's switc
 -- none while no city has one: the default).
 local frame, color, bright
 local function Tex(sub)
-	local t = UI.Under.Mask(frame:CreateTexture(nil, "ARTWORK", nil, sub))
+	local t = frame:CreateTexture(nil, "ARTWORK", nil, sub)
 	t:SetSnapToPixelGrid(false)
 	t:SetTexelSnappingBias(0)
 	t:SetAllPoints(Window.view)

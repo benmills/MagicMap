@@ -16,7 +16,7 @@ local Window = UI.Window
 local Base = {}
 UI.Base = Base
 
-local tex = UI.Under.Mask(Window.view:CreateTexture(nil, "BACKGROUND", nil, -7)) -- over the backdrop (-8), under every layer's frame
+local tex = Window.view:CreateTexture(nil, "BACKGROUND", nil, -7) -- over the backdrop (-8), under every layer's frame
 tex:SetSnapToPixelGrid(false)
 tex:SetTexelSnappingBias(0)
 tex:Hide()
