@@ -2,7 +2,7 @@
 
 Each release's notes, newest first. The zips are on [GitHub](https://github.com/benmills/MagicMap/releases).
 
-## Unreleased
+## 3.4.2 (build 1.60.1.71139)
 
 - **No more "MagicMap has been blocked from an action only available to the Blizzard UI" in combat.** The game
   blames an addon for whatever its code sets off, and MagicMap was setting off Blizzard's map (a quest's Open in

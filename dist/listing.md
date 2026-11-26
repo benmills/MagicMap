@@ -5,7 +5,7 @@ The description and gallery for the store pages. Each upload's changelog is its 
 | Field | Value |
 | --- | --- |
 | Summary (≤ 140 characters) | A minimap that zooms out to the whole continent, any size or shape, with Blizzard's own blips. Click any icon to track it or path to it. |
-| Version / file name | 3.4.1 / `MagicMap-v3.4.1.zip` |
+| Version / file name | 3.4.2 / `MagicMap-v3.4.2.zip` |
 | Game version | 1.60.1 (WoW Forever), build 1.60.1.71139 |
 | Dependencies | None required. Optional: Questie, HandyNotes, GatherMate2 (HereBeDragons pins); FarmHud is yielded to |
 | Video | [YouTube](https://www.youtube.com/watch?v=tdv0wxADLbg) (26 s). In CurseForge's description editor, embed it with the YouTube button (or an `<iframe src="https://www.youtube.com/embed/tdv0wxADLbg">`); the poster below links to it too |
