@@ -205,7 +205,11 @@ end
 -- Regions shown from minZoom fade in past it (to FADE_IN times it) rather than show on the frame it's crossed: the big
 -- map's "zoomed in" threshold's (ui/PinTypes.lua); the rest (rares' 60) at once.
 local fades = {}
-function Engine.Fades(minZoom) fades[minZoom] = true end
+local was = {} -- the last draw's view (Still, below)
+function Engine.Fades(minZoom)
+	fades[minZoom] = true
+	was.inst = nil -- (Put's alphas read it: every layer placed again at the next draw)
+end
 
 -- A layout at zoom draws what shows from minZoom (Engine.At's): the camera's zoom or the layout's from it,
 -- or from a drift below it unless the zoom is headed out, so the frame it crosses shows or hides it;
@@ -681,6 +685,22 @@ local function Rest()
 	return rest
 end
 
+-- What Stale and Place read but a layer's own (the camera, where it's headed and how fast, the view's size, the
+-- origin, the zoom settled or the wheel held): the same as at the last draw, a layer that was neither stale nor
+-- crossfading then, on the same front canvas at the same rev, would be found and placed just as it was. True then
+-- (Draw skips both for such a layer: at rest that's every layer, every frame); the first frame anything differs,
+-- false, so nothing is placed or laid out a frame later than it would be.
+local function Still(inst, cam, w, h, gz, gx, gy, settled)
+	local s = was
+	local same = s.inst == inst and s.cx == cam.cx and s.cy == cam.cy and s.zoom == cam.zoom and s.w == w and s.h == h
+		and s.gz == gz and s.gx == gx and s.gy == gy and s.vx == Camera.vx and s.vy == Camera.vy
+		and s.settled == settled and s.held == goal.held and s.ox == Engine.ox and s.oy == Engine.oy
+	s.inst, s.cx, s.cy, s.zoom, s.w, s.h = inst, cam.cx, cam.cy, cam.zoom, w, h
+	s.gz, s.gx, s.gy, s.vx, s.vy = gz, gx, gy, Camera.vx, Camera.vy
+	s.settled, s.held, s.ox, s.oy = settled, goal.held, Engine.ox, Engine.oy
+	return same
+end
+
 -- Each layer placed at the camera, and the frame's layouts planned (Rank's turns: Chain). True while
 -- zooming: a shown layer from another zoom (the wheel's not laid out yet; Engine.zooming the last draw's).
 -- Engine.pending: a layer stale, laying out, crossfading or zooming (at rest, every layer shows the camera's
@@ -692,6 +712,7 @@ function Engine.Draw(inst, cam, w, h)
 	local pending = false
 	local gz, gx, gy = UI.Motion.Goal()
 	goal.held = gz == goal.zoom -- no tick since the last frame: a held layer lays out there
+	local still = Still(inst, cam, w, h, gz, gx, gy, settled)
 	goal.glide = math.abs(math.log(gz / cam.zoom)) < SAME_ZOOM -- /: never 0 (zooms > 0)
 	goal.zoom, goal.cx, goal.cy = gz, gx, gy
 	headed[1], headed[2], headed[3], headed[4] = Region(goal, w, h)
@@ -725,7 +746,11 @@ function Engine.Draw(inst, cam, w, h)
 			Runtime.Cancel(layer.job)
 			layer.busy = false
 		end
-		local stale = on and Stale(layer, inst, cam, w, h, settled)
+		-- as the last draw found and placed it (layer.rest: its front then, neither stale nor crossfading): left be
+		local c = layer.front
+		local rest = still and on and c ~= nil and layer.rest == c and not layer.busy and not layer.fade
+			and (not layer.rev or c.rev == layer.rev())
+		local stale = not rest and on and Stale(layer, inst, cam, w, h, settled)
 		pending = pending or stale or layer.busy or layer.fade
 		if layer.busy or stale and (not layer.retryAt or now >= layer.retryAt) then
 			local r = Rank(layer, stale)
@@ -737,9 +762,10 @@ function Engine.Draw(inst, cam, w, h)
 			plan[i], layer.rank, layer.why, nplan = layer, r, stale, nplan + 1
 		end
 		if on and layer.front then
-			Place(layer, cam, w, h)
+			if not rest then Place(layer, cam, w, h) end
 			zooming = zooming or layer.front.zoom ~= cam.zoom
 		end
+		layer.rest = on and not stale and not layer.busy and not layer.fade and layer.front or nil
 	end
 	Engine.pending, Engine.zooming = pending or zooming, zooming
 	local budget = plan[1] and (URGENT[plan[1].why] and MISSING_MS or panning and PAN_MS or JOB_MS)
