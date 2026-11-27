@@ -20,6 +20,13 @@ Each release's notes, newest first. The zips are on [GitHub](https://github.com/
   big map first opens the header shows the spot's coordinates alone.
 - The check that the game has every icon and font MagicMap draws with no longer runs at each login: `/mm check art`
   runs it.
+- **Zone names in one treatment.** On the big map every zone's name is now the same size at a given zoom and
+  outlined. Before, a name's size went with how much land it named and only the smallest were outlined, so
+  neighbours could look like they came from two maps.
+- **Zone levels show how hard a zone is for you.** With Zone levels on (Settings › Map › Names), each zone's
+  "Level 10-20" is coloured as a quest of that level would be: grey, green, yellow, orange or red. The big map's
+  right-click header uses the same colours. A capital, whose data had one level for all of it, shows none.
+- Fixed: with Zone levels on, a zone's name stayed lit after the pointer left it, until the map next moved.
 
 ## 3.4.2 (build 1.60.1.71139)
 

@@ -201,6 +201,18 @@ def test_zone_hover():
     G.Over(35.9, 51.3)  # Deadwind Pass: Elwynn back as it was
     sim.Run(0.3)
     assert G.Lit() == "Deadwind Pass" and list(label.color.values()) == [1, 0.89, 0.63, 0.95]  # ui/Labels.lua's ZONE
+    # With the level lines on, the name alone is lit (its level line keeps its difficulty's colour), and every name
+    # is back as it was once the pointer has left it.
+    UI.Feel.Set("labels.levels", True)
+    sim.Run(1)
+    G.Over(32.6, 49.9)
+    sim.Run(0.3)
+    assert G.Lit() == "Elwynn Forest"
+    G.Over(35.9, 51.3)
+    sim.Run(0.3)
+    assert G.Lit() == "Deadwind Pass"
+    UI.Feel.Set("labels.levels", False)
+    sim.Run(1)
     # Zoomed in on one zone's heart: nothing to click.
     G.Over(32.6, 49.9)
     sim.Run(0.3)
@@ -298,7 +310,7 @@ def test_inspector():
     assert lines == [
         ("title", gold + "Elwynn Forest|r"),
         ("title", white + "Crystal Lake|r" + SEP + grey + "48.5, 63.7|r"),
-        ("title", grey + "Level|r |cff40c0401-10|r" + SEP + white + "185 yd|r " + grey + "E of you|r"),
+        ("title", grey + "Level|r |cffffd1001-10|r" + SEP + white + "185 yd|r " + grey + "E of you|r"),
         ("title", grey + "Quest|r |cffffd100Gold Dust Exchange|r " + grey + "7|r"),
         ("title", grey + "Graveyard|r " + white + "Goldshire|r" + SEP + grey + "310 yd W|r"),  # (M4.1's places)
         ("divider", None), ("button", "Waypoint here")]
@@ -314,8 +326,8 @@ def test_inspector():
     assert menu(34.95, 49.75)[2][1].endswith(white + "1,600 yd|r " + grey + "E of you|r")
     assert menu(31.9, 49.7)[2][1].endswith(white + "40 yd|r " + grey + "NW of you|r")
     assert menu(31.95, 49.75)[2][1].endswith(grey + "You're here|r")
-    # Westfall, its levels above yours (8): red.
-    assert menu(29.0, 50.5)[2][1].startswith(grey + "Level|r |cffff60409-18|r")
+    # Westfall, its lowest level one over yours (8): yellow, as a quest of that level (orange from 3 over, red from 5).
+    assert menu(29.0, 50.5)[2][1].startswith(grey + "Level|r |cffffd1009-18|r")
     # Waypoint here: the game's waypoint at the spot (the waypoint Command, Game's handler).
     menu(32.5, 49.6)
     sub(sim.menu, "Waypoint here").onSelect()

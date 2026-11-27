@@ -1,6 +1,7 @@
 """The ground layers at the spike's look and cost (ui/Labels.lua, Tiles.lua, You.lua) on the
-simulated client. Labels: zones in capitals, 10 pt, up to zoom 450; subzones 7 pt (9 at Subzone size 80%), by size from 120, 220 and 400;
-none touching another; a name new to the view fades in. Tiles: an open-sea tile isn't drawn (the backdrop shows).
+simulated client. Labels: zones in Morpheus, every zone one size at a zoom (12 to 22 pt) and outlined, up to zoom 450; subzones 7 pt
+(9 at Subzone size 80%), by size from 120, 220 and 400; none touching another; a name new to the view fades in; a zone's
+level line in its difficulty's colour for your level. Tiles: an open-sea tile isn't drawn (the backdrop shows).
 You: the arrow, on your map only.
 """
 from test_addon import boot, errors
@@ -53,7 +54,7 @@ def test_labels():
     font = L.globals().GameFontNormal.GetFont(None)[0]
     title = "Fonts\\MORPHEUS.TTF"
     counts = []
-    for zoom in (100, 200, 500):
+    for zoom in (40, 100, 200, 500):
         look(sim, ns, KHARANOS, zoom)
         got = placed(sim, labels.front)
         pool = labels.front.pools.label
@@ -62,10 +63,13 @@ def test_labels():
         zones = [t for (t, *_), z in zip(got, zone) if z]
         subs = [w for (_, _, w, *_), z in zip(got, zone) if not z]
         assert len(zones) + len(subs) == len(got)
-        # Zones in Morpheus, mixed case, 11.5 to 22 pt, an outline at 12 or less; subzones in the body face, 7 pt, no outline.
-        assert all(t != t.upper() for t in zones) and all(11.5 <= f[2] <= 22 for f, z in zip(faces, zone) if z)
+        # Zones in Morpheus, mixed case, one treatment: every zone the zoom's size (0.34 a px a tile, 12 to 22 pt) and
+        # outlined; subzones in the body face, 7 pt, no outline.
+        assert all(t != t.upper() for t in zones)
+        assert {(f[2], f[3]) for f, z in zip(faces, zone) if z} <= {({40: 14}.get(zoom, 22), "OUTLINE")}
         assert all(f[1] == font and f[2] == 7 and f[3] == "" for f, z in zip(faces, zone) if not z)  # (9 pt at Subzone size 80%)
-        assert all(f[3] == ("OUTLINE" if f[2] <= 12 else "") for f, z in zip(faces, zone) if z)
+        if zoom == 40:  # further out: more zones in view, still one size, and no subzone
+            assert len(zones) > 1 and not subs
         if zoom == 100:  # zones, no subzone yet (from 120)
             assert zones and not subs
         if zoom == 200:  # zones, and the subzones of weight 40 or more
@@ -129,6 +133,15 @@ def test_labels():
             assert lv[1] < n[1] and lv[4] >= n[6] - 1 and abs((lv[3] + lv[5]) - (n[3] + n[5])) < 1  # under it, centred
             checked += 1
     assert checked
+    # A level line in its difficulty's colour for your level, as a quest's: Dun Morogh's 1-10 yellow while you're in
+    # it (level 1), grey once long outgrown (30: laid out again as your level changes), its name's colour untouched.
+    def colours(text):
+        fs = next(f for f in labels.front.pools.label.values() if getattr(f, "text", None) == text)
+        return [round(v, 2) for v in list(fs.color.values())[:3]]
+    assert colours("Level 1-10") == [1, 0.82, 0] and colours("Dun Morogh") == [1, 0.89, 0.63]
+    sim.units.player.level = 30
+    sim.Run(1)
+    assert colours("Level 1-10") == [0.5, 0.5, 0.5] and colours("Dun Morogh") == [1, 0.89, 0.63]
     ns.UI.Feel.Set("labels.zones", False)
     sim.Run(1)
     got = faces()

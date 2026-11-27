@@ -39,6 +39,17 @@ function Model.QuestColor(lvl)
 	return Difficulty(lvl, level ~= nil and lvl <= level - TRIVIAL)
 end
 
+-- A zone's colour by its level range against yours, in the quests' colours and as the client's own world map
+-- colours a zone's range: yellow while you're within it; under it, a quest of its lowest level's (yellow, orange,
+-- red); past it, one two under its highest's (a zone just outgrown is green, not yellow; grey once its quests
+-- would be). nil: your level isn't known yet.
+function Model.ZoneColor(lo, hi)
+	if not level then return nil end
+	if level < lo then return Model.QuestColor(lo) end
+	if level > hi then return Model.QuestColor(hi - 2) end
+	return YELLOW
+end
+
 local function Same(a, b)
 	if a == b then return true end
 	local p, x = a.pin, b.pin

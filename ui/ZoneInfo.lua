@@ -20,7 +20,7 @@ local Command = ns.Game.Command
 
 local EVERY = 0.05 -- s: the hover's look, as the title's
 local MIN_WEIGHT = 30 -- a zone's land chunks to count as in view
-local LABEL, LABEL_HOVER = { 1, 0.89, 0.63, 0.95 }, { 1, 1, 0.9, 1 } -- ui/Labels.lua's ZONE, and its hover
+local LABEL_HOVER = { 1, 1, 0.9, 1 } -- a hovered zone's name: ui/Labels.lua's ZONE, lit
 local TILE_YARDS = Atlas.TILE_YARDS
 local MAX_QUESTS, MAX_NEARBY = 2, 2 -- lines of quests and of landmarks at a spot, at most
 local HERE_YD = 15 -- closer: "You're here"
@@ -97,24 +97,27 @@ end
 -- Its look: its name brighter, on the canvas shown
 ---------------------------------------------------------------------------
 
--- Its name on the labels' shown canvas (ui/Labels.lua: each name's font string carries its label, fs.label;
--- the next layout there sets its colour back, fs.color).
-local named = {} -- zone, c: the canvas; fs: the name lit
+-- Its name on the labels' shown canvas (ui/Labels.lua: each name's font string carries its label, fs.label, and
+-- its colour, fs.color): the name alone, lit, then back in the colour it had (one a layout has dressed again since
+-- is left be). Its level line (label.line, the same zone's) keeps its own colour: that says its difficulty.
+local named = {} -- zone, c: the canvas; fs: the name lit; was: its colour before
 local function Name(zone)
 	local c = UI.Labels.on and UI.Labels.front or nil
 	if zone == named.zone and c == named.c then return end
-	local fs = named.fs
+	local fs, was = named.fs, named.was
 	if fs and fs.color == LABEL_HOVER then
-		fs:SetTextColor(LABEL[1], LABEL[2], LABEL[3], LABEL[4])
-		fs.color = LABEL
+		fs:SetTextColor(was[1], was[2], was[3], 1) -- (its opacity is the font string's own alpha: ui/Labels.lua's Font)
+		fs.color = was
 	end
-	named.zone, named.c, named.fs = zone, c, nil
+	named.zone, named.c, named.fs, named.was = zone, c, nil, nil
 	local p = zone and c and c.pools.label
 	for i = 1, p and p.n or 0 do
 		fs = p[i]
-		if fs.label.areaID == zone then
-			fs:SetTextColor(LABEL_HOVER[1], LABEL_HOVER[2], LABEL_HOVER[3], LABEL_HOVER[4])
-			fs.color, named.fs = LABEL_HOVER, fs
+		if fs.label.areaID == zone and not fs.label.line then
+			named.fs, named.was = fs, fs.color
+			fs:SetTextColor(LABEL_HOVER[1], LABEL_HOVER[2], LABEL_HOVER[3], 1)
+			fs.color = LABEL_HOVER
+			break
 		end
 	end
 end
@@ -194,15 +197,14 @@ end
 
 local function Dist(c0, r0, c1, r1) return math.sqrt((c1 - c0) ^ 2 + (r1 - r0) ^ 2) end
 
--- "Level 1-10", the client's for the zone's map (Model.levels), coloured against yours: green in range, red
--- below it, grey past it.
+-- "Level 1-10", the client's for the zone's map (Model.levels), in its difficulty's colour for your level
+-- (Model.ZoneColor, as the level line under its name on the map: ui/Labels.lua); white until yours is known.
 local function LevelLine(zone)
 	local l = Model.levels[zone.mapID]
 	if not l then return nil end
 	local lo, hi = l[1], l[2]
-	local mine, color = Model.you.level, WHITE
-	if mine and mine > 0 then color = mine < lo and "|cffff6040" or mine > hi and DIM or "|cff40c040" end
-	return DIM .. "Level|r " .. color .. (lo == hi and tostring(lo) or (lo .. "-" .. hi)) .. "|r"
+	local c = Model.ZoneColor(lo, hi)
+	return DIM .. "Level|r " .. (c and UI.Tip.Hex(c) or WHITE) .. (lo == hi and tostring(lo) or (lo .. "-" .. hi)) .. "|r"
 end
 
 -- The areas explored at the spot: false if the client names none at its cell (Game's
