@@ -24,9 +24,18 @@ local Get, Unget, At, Yield = Engine.Get, Engine.Unget, Engine.At, Runtime.Yield
 
 local TITLE, BODY = "Fonts\\MORPHEUS.TTF", GameFontNormal:GetFont() -- Morpheus for zones; Friz Quadrata
 local ZONE, SUB = { 1, 0.89, 0.63, 0.95 }, { 0.91, 0.86, 0.77, 0.45 } -- subzones quieter
+-- The zone names' colour, a preset or one picked (Settings > Map > Names > Zone names > Colour): ZONE's by default.
+local COLORS = {
+	{ "Parchment", { ZONE[1], ZONE[2], ZONE[3] } }, { "White", { 1, 1, 1 } }, { "Gold", { 1, 0.82, 0 } },
+	{ "Silver", { 0.78, 0.8, 0.84 } }, { "Sky", { 0.6, 0.82, 1 } }, { "Rose", { 1, 0.7, 0.72 } },
+}
 local ZONE_K, ZONE_MIN, ZONE_MAX = 0.34, 11.5, 22 -- a zone name's size: k * zoom, clamped (12 pt to zoom 35, 22 from 65)
 local SUB_SIZE = 9 -- a subzone's, one size and look at every zoom: shadow only, no outline (quiet over legible)
-local OUTLINE = "OUTLINE" -- a zone name's font flags, and its level line's: outlined at every size (legible over snow and lava alike, and one dress for every name: an outline at small sizes only would dress neighbours at one zoom two ways)
+-- A zone name's outline (Settings > Map > Names > Zone names > Outline) as font flags, and its level line's: the
+-- same, but never thick (small text). Thin by default, at every size: legible over snow and lava alike, and one dress
+-- for every name (an outline at small sizes only would dress neighbours at one zoom two ways).
+local OUTLINES, OUTLINE = { { "None", "none" }, { "Thin", "thin" }, { "Thick", "thick" } }, "thin"
+local FLAGS, LINE_FLAGS = { none = "", thin = "OUTLINE", thick = "THICKOUTLINE" }, { none = "", thin = "OUTLINE", thick = "OUTLINE" }
 local MAX_ZOOM = 450 -- zone names hidden zoomed in past this
 local SUB_ZOOM = 120 -- subzone names from here (weight >= 40), 220 (>= 15), else 400
 local SHADOW = 0.85 -- the soft drop shadow's alpha, offset (1, -1)
@@ -44,6 +53,9 @@ local zone, sub = ZONE, SUB -- the names' colours (their alphas, the settings' "
 -- name's own alpha: Font's fs.base)
 local levelColor = { ZONE[1], ZONE[2], ZONE[3], ZONE[4] * LEVEL_ALPHA } -- a zone's level line while your level isn't known: its name's, quieter
 local levelColors = {} -- a difficulty's colour (Model.ZoneColor's table) -> ours for a level line, at the opacity now
+local rgb = COLORS[1][2] -- the zone names' colour as set (r, g, b)
+local flags, lineFlags = FLAGS[OUTLINE], LINE_FLAGS[OUTLINE] -- their outline as set, and their level lines'
+local tintOn, fadeOn = true, true -- Colour by difficulty (the level lines'); Fade in (a new name's)
 
 local function MakeFont(c)
 	local fs = c:CreateFontString(nil, "OVERLAY")
@@ -151,7 +163,7 @@ local function Show(c, fs, l, dy, shown)
 	At(c, fs, "CENTER", l.col, l.row, 0, dy)
 	local key = l.key or l.text -- (a level line's own: "Level 10-20" is many zones')
 	c.names[key], fs.label = true, l -- (fs.label.areaID: the zone a hover lights)
-	local a = shown[key] and fs.base or 0
+	local a = (shown[key] or not fadeOn) and fs.base or 0
 	if fs.alpha ~= a then
 		fs:SetAlpha(a)
 		fs.alpha = a
@@ -203,10 +215,10 @@ local function LevelLabel(l)
 end
 
 -- A level line's colour: its zone's difficulty for your level (Model.ZoneColor: grey, green, yellow, orange or red, the
--- quests' own), so the map shows where you'd level; the name's, quieter, until your level is known. One table a
--- difficulty (Font compares the table), made again when the opacity changes.
+-- quests' own), so the map shows where you'd level; the name's, quieter, until your level is known or with Colour by
+-- difficulty off. One table a difficulty (Font compares the table), made again when the names' opacity or colour changes.
 local function LevelColor(lv)
-	local m = Model.ZoneColor(lv.lo, lv.hi)
+	local m = tintOn and Model.ZoneColor(lv.lo, lv.hi)
 	if not m then return levelColor end
 	local c = levelColors[m]
 	if not c then
@@ -237,8 +249,8 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 			local lh = lv and lsize * (l.h or 1) + LEVEL_GAP or 0
 			local dy = Spot(c, l, zoom, w, h + lh)
 			if dy and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-				Show(c, Font(c, l, TITLE, size, zone, OUTLINE), l, dy - lh / 2, shown)
-				if lv then Show(c, Font(c, lv, BODY, lsize, LevelColor(lv), OUTLINE), lv, dy + h / 2, shown) end
+				Show(c, Font(c, l, TITLE, size, zone, flags), l, dy - lh / 2, shown)
+				if lv then Show(c, Font(c, lv, BODY, lsize, LevelColor(lv), lineFlags), lv, dy + h / 2, shown) end
 			end
 			if i % 16 == 0 then Yield() end
 		end
@@ -266,7 +278,7 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 end, (function() -- (a city map shown or gone, the map grown or shrunk, the size or opacity, or your level with the level lines on, which colours them: laid out again; one value, which Engine compares)
 	local city, seen, big, mine, n = nil, nil, nil, nil, 0
 	return function()
-		local c, lvl = UI.Interiors.City() or false, levelsOn and Model.you.level or nil
+		local c, lvl = UI.Interiors.City() or false, levelsOn and tintOn and Model.you.level or nil
 		if c ~= city or scaleRev ~= seen or UI.BigMap.big ~= big or lvl ~= mine then
 			city, seen, big, mine, n = c, scaleRev, UI.BigMap.big, lvl, n + 1
 		end
@@ -279,10 +291,25 @@ local function SetScale(k)
 	scale, subSize, scaleRev = k, math.floor(SUB_SIZE * k * subScale + 0.5), scaleRev + 1
 end
 -- The zone names' opacity; the subzone names' own size (a factor on the label size's) and opacity.
+local function Dress(r, g, b, a) -- (their level lines with them, at their own opacity)
+	zone, scaleRev = { r, g, b, a }, scaleRev + 1
+	levelColor, levelColors = { r, g, b, a * LEVEL_ALPHA }, {}
+end
 local function SetAlpha(a)
 	if zone[4] == a then return end
-	zone, scaleRev = { ZONE[1], ZONE[2], ZONE[3], a }, scaleRev + 1
-	levelColor, levelColors = { ZONE[1], ZONE[2], ZONE[3], a * LEVEL_ALPHA }, {}
+	Dress(rgb[1], rgb[2], rgb[3], a)
+end
+-- The zone names' colour (a preset's name or "#rrggbb") and outline: laid out again.
+local function SetColor(v)
+	local _, c = UI.Feel.RGB(COLORS, v, COLORS[1][1])
+	if c[1] == rgb[1] and c[2] == rgb[2] and c[3] == rgb[3] then return end
+	rgb = c
+	Dress(c[1], c[2], c[3], zone[4])
+end
+local function SetOutline(v)
+	local f = FLAGS[v] or FLAGS[OUTLINE]
+	if f == flags then return end
+	flags, lineFlags, scaleRev = f, LINE_FLAGS[v] or LINE_FLAGS[OUTLINE], scaleRev + 1
 end
 -- Zone names, Subzone names, Zone levels: each on or off, the names laid out again.
 local function Switch(set)
@@ -294,6 +321,8 @@ end
 local SetZones = Switch(function(on) local was = zonesOn; zonesOn = on; return was ~= on end)
 local SetSubs = Switch(function(on) local was = subsOn; subsOn = on; return was ~= on end)
 local SetLevels = Switch(function(on) local was = levelsOn; levelsOn = on; return was ~= on end)
+local SetTint = Switch(function(on) local was = tintOn; tintOn = on; return was ~= on end)
+local function SetFade(on) fadeOn = on ~= false end -- (the next name to show: nothing to lay out again)
 local function SetSubScale(k)
 	if subScale == k then return end
 	subScale, subSize, scaleRev = k, math.floor(SUB_SIZE * scale * k + 0.5), scaleRev + 1
@@ -320,15 +349,23 @@ end, { shownOnly = UI.Window.frame })
 
 UI.Feel.Add("map", "Names", {
 	{ key = "labels.zones", kind = "toggle", label = "Zone names", default = true, apply = SetZones,
-		tip = "The names of zones (Elwynn Forest, Durotar) on the big map." },
+		tip = "The names of zones (Elwynn Forest, Durotar) on the big map. Open it (+) for their level ranges and how they fade in and light up." },
 	{ key = "labels.levels", kind = "toggle", label = "Zone levels", default = false, under = "labels.zones", apply = SetLevels,
-		tip = "Each zone's level range in small text under its name, coloured as a quest of that level would be for you: grey, green, yellow, orange or red." },
+		tip = "Each zone's level range in small text under its name. Open it (+) for its colours." },
+	{ key = "labels.levelColors", kind = "toggle", label = "Colour by difficulty", default = true, under = "labels.levels", apply = SetTint,
+		tip = "Each level range coloured as a quest of that level would be for you: grey, green, yellow, orange or red. Off: in the zone names' colour." },
+	{ key = "labels.fade", kind = "toggle", label = "Fade in", default = true, under = "labels.zones", apply = SetFade,
+		tip = "A name new to the view fades in, zone and subzone names alike. Off: it shows at once." },
 	{ key = "labels.subs", kind = "toggle", label = "Subzone names", default = true, apply = SetSubs,
 		tip = "The names of places within zones (Goldshire, Razor Hill) on the big map, zoomed in." },
 	{ key = "labels.scale", kind = "slider", label = "Zone names", min = 0.7, max = 1.5, step = 0.1, pct = true, default = scale,
-		apply = SetScale, tip = "The zone and subzone names' size. Open it (+) for the zone names' opacity." },
+		apply = SetScale, tip = "The zone and subzone names' size. Open it (+) for the zone names' opacity, colour and outline." },
 	{ key = "labels.alpha", kind = "slider", label = "Opacity", under = "labels.scale", min = 0.3, max = 1, step = 0.05, pct = true, default = ZONE[4],
 		apply = SetAlpha, tip = "How solid the zone names are." },
+	{ key = "labels.color", kind = "color", label = "Colour", under = "labels.scale", colors = COLORS, default = COLORS[1][1], apply = SetColor,
+		tip = "The zone names' colour." },
+	{ key = "labels.outline", kind = "select", label = "Outline", under = "labels.scale", options = OUTLINES, default = OUTLINE, apply = SetOutline,
+		tip = "The dark outline around each zone name and its level range: none (a soft shadow alone), thin or thick (a level range's stays thin)." },
 	{ key = "labels.subScale", kind = "slider", label = "Subzone names", min = 0.7, max = 1.5, step = 0.1, pct = true, default = subScale,
 		apply = SetSubScale, tip = "The subzone names' size, on top of the zone names'. Open it (+) for their opacity." },
 	{ key = "labels.subAlpha", kind = "slider", label = "Opacity", under = "labels.subScale", min = 0.2, max = 1, step = 0.05, pct = true, default = SUB[4],

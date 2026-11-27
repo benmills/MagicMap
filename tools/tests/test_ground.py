@@ -99,6 +99,17 @@ def test_labels():
     assert fresh and all(alphas[t] < 0.45 for t in fresh) and all(near(alphas[t], 0.45) for t in alphas if t in before)
     sim.Run(0.25)
     assert all(near(S[pool[i]].alpha, 0.45) for i in range(1, pool.n + 1))
+    ns.UI.Feel.Set("labels.fade", False)  # Fade in off: a name new to the view shows at once
+    before = {t for t, *_ in placed(sim, labels.front)}
+    cam.cx = cam.cx + 3
+    for _ in range(30):
+        sim.Step()
+        if not labels.busy and labels.front.zoom == 500 and {t for t, *_ in placed(sim, labels.front)} != before:
+            break
+    pool = labels.front.pools.label
+    assert any(S[pool[i]].text not in before for i in range(1, pool.n + 1))
+    assert all(near(S[pool[i]].alpha, 0.45) for i in range(1, pool.n + 1))
+    ns.UI.Feel.Set("labels.fade", True)
     ns.UI.Feel.Set("labels.subAlpha", 0.3)  # (laid out again: the names at their new opacity)
     sim.Run(0.5)
     pool = labels.front.pools.label
@@ -142,6 +153,24 @@ def test_labels():
     sim.units.player.level = 30
     sim.Run(1)
     assert colours("Level 1-10") == [0.5, 0.5, 0.5] and colours("Dun Morogh") == [1, 0.89, 0.63]
+    # The zone names' look, each a setting: their colour, their outline (a level line's never thick), and the level
+    # lines' difficulty colours off (the names' colour then).
+    def flags():
+        pool = labels.front.pools.label
+        return {S[pool[i]].text: S[pool[i]].font[3] for i in range(1, pool.n + 1)}
+    ns.UI.Feel.Set("labels.color", "White")
+    ns.UI.Feel.Set("labels.outline", "thick")
+    ns.UI.Feel.Set("labels.levelColors", False)
+    sim.Run(1)
+    assert colours("Dun Morogh") == [1, 1, 1] and colours("Level 1-10") == [1, 1, 1]
+    assert flags()["Dun Morogh"] == "THICKOUTLINE" and flags()["Level 1-10"] == "OUTLINE"
+    ns.UI.Feel.Set("labels.outline", "none")
+    sim.Run(1)
+    assert set(flags().values()) == {""}
+    for key in ("labels.color", "labels.outline", "labels.levelColors"):
+        ns.UI.Feel.Set(key, ns.UI.Feel.Default(key))
+    sim.Run(1)
+    assert flags()["Dun Morogh"] == "OUTLINE" and colours("Dun Morogh") == [1, 0.89, 0.63]
     ns.UI.Feel.Set("labels.zones", False)
     sim.Run(1)
     got = faces()

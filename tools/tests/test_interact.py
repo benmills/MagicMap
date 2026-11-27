@@ -213,6 +213,17 @@ def test_zone_hover():
     assert G.Lit() == "Deadwind Pass"
     UI.Feel.Set("labels.levels", False)
     sim.Run(1)
+    # Light up on hover, a setting: off, no name is lit; on, in its colour (another setting).
+    UI.Feel.Set("labels.hover", False)
+    G.Over(32.6, 49.9)
+    sim.Run(0.3)
+    assert G.Lit() == ""
+    UI.Feel.Set("labels.hover", True)
+    UI.Feel.Set("labels.hoverColor", "Gold")
+    sim.Run(0.3)
+    label = next(fs for fs in UI.Labels.front.pools.label.values() if getattr(fs, "text", None) == "Elwynn Forest")
+    assert G.Lit() == "Elwynn Forest" and [round(v, 2) for v in label.color.values()] == [1, 0.82, 0, 1]
+    UI.Feel.Set("labels.hoverColor", "Bright")
     # Zoomed in on one zone's heart: nothing to click.
     G.Over(32.6, 49.9)
     sim.Run(0.3)

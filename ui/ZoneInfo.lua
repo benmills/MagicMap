@@ -20,7 +20,11 @@ local Command = ns.Game.Command
 
 local EVERY = 0.05 -- s: the hover's look, as the title's
 local MIN_WEIGHT = 30 -- a zone's land chunks to count as in view
-local LABEL_HOVER = { 1, 1, 0.9, 1 } -- a hovered zone's name: ui/Labels.lua's ZONE, lit
+-- A hovered zone's name (Settings > Map > Names > Zone names > Light up on hover, and its colour): one table, so a
+-- name whose colour is still this one is still lit (ui/Labels.lua keeps each name's: fs.color).
+local HOVER_COLORS = { { "Bright", { 1, 1, 0.9 } }, { "White", { 1, 1, 1 } }, { "Gold", { 1, 0.82, 0 } }, { "Sky", { 0.6, 0.82, 1 } } }
+local LABEL_HOVER = { 1, 1, 0.9, 1 }
+local hoverOn = true
 local TILE_YARDS = Atlas.TILE_YARDS
 local MAX_QUESTS, MAX_NEARBY = 2, 2 -- lines of quests and of landmarks at a spot, at most
 local HERE_YD = 15 -- closer: "You're here"
@@ -102,6 +106,7 @@ end
 -- is left be). Its level line (label.line, the same zone's) keeps its own colour: that says its difficulty.
 local named = {} -- zone, c: the canvas; fs: the name lit; was: its colour before
 local function Name(zone)
+	if not hoverOn then zone = nil end
 	local c = UI.Labels.on and UI.Labels.front or nil
 	if zone == named.zone and c == named.c then return end
 	local fs, was = named.fs, named.was
@@ -131,6 +136,19 @@ Runtime.Step("ui", "map: zone hover", function(elapsed)
 	end
 	Name(hover.zone)
 end, { shownOnly = Window.frame })
+local function SetHoverColor(v)
+	local _, c = UI.Feel.RGB(HOVER_COLORS, v, HOVER_COLORS[1][1])
+	LABEL_HOVER[1], LABEL_HOVER[2], LABEL_HOVER[3] = c[1], c[2], c[3]
+	local fs = named.fs
+	if fs and fs.color == LABEL_HOVER then fs:SetTextColor(c[1], c[2], c[3], 1) end -- (one lit now: in the new colour)
+end
+UI.Feel.Add("map", "Names", {
+	{ key = "labels.hover", kind = "toggle", label = "Light up on hover", default = true, under = "labels.zones",
+		apply = function(on) hoverOn = on ~= false end,
+		tip = "A zone's name lights up while you point at the zone on the big map. Open it (+) for its colour." },
+	{ key = "labels.hoverColor", kind = "color", label = "Colour", under = "labels.hover", colors = HOVER_COLORS, default = HOVER_COLORS[1][1],
+		apply = SetHoverColor, tip = "The colour a zone's name lights up in." },
+})
 -- Hidden: none (the canvases are emptied: ui/Engine.lua).
 Window.frame:HookScript("OnHide", Runtime.Wrap("map: zone hover hidden", function()
 	hover.zone, hover.map, since = nil, nil, EVERY

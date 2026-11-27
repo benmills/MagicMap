@@ -26,6 +26,9 @@ Each release's notes, newest first. The zips are on [GitHub](https://github.com/
 - **Zone levels show how hard a zone is for you.** With Zone levels on (Settings › Map › Names), each zone's
   "Level 10-20" is coloured as a quest of that level would be: grey, green, yellow, orange or red. The big map's
   right-click header uses the same colours. A capital, whose data had one level for all of it, shows none.
+- **Zone names your way.** Settings › Map › Names: under the Zone names size row, their colour and their outline
+  (none, thin or thick); under the Zone names switch, whether names fade in and whether a zone's name lights up as
+  you point at it, and in what colour; under Zone levels, Colour by difficulty.
 - Fixed: with Zone levels on, a zone's name stayed lit after the pointer left it, until the map next moved.
 
 ## 3.4.2 (build 1.60.1.71139)
