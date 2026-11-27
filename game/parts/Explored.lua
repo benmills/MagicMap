@@ -1,18 +1,25 @@
 -- obs.explored (types/observation.lua table<AreaID, boolean>) and obs.exploredCells (per instance, rows of
 -- cells), on change: what you've explored on the continent of the map shown (Game.shownInst) and of yours.
--- A sweep of the continent's map in cells CELL tiles a side, SAMPLES cells a frame: at each cell's centre, on its zone's map, the client says which areas are explored
--- there (C_MapExplorationInfo.GetExploredAreaIDsAtPosition). The cell is lit if it names any, dark if none
+-- Swept only while the big map is shown (Game.shownBig): its right-click header is their one reader
+-- (ui/ZoneInfo.lua), and a sweep is thousands of asks of the client, each answered with a table (its garbage),
+-- at every login and after every MAP_EXPLORATION_UPDATED otherwise. So a header asked for while the first sweep
+-- since the big map opened still runs says no more than its coordinates (nil: not known yet).
+-- A sweep of the continent's map in cells CELL tiles a side, SWEEP_MS a frame (SAMPLES cells at most): what the
+-- big map's frame at rest can carry beside its own (700 cells a frame were 1.1-2.5 ms in the client, a call over
+-- budget), so a continent takes a few seconds. At each cell's centre, on its zone's map, the client says which
+-- areas are explored there (C_MapExplorationInfo.GetExploredAreaIDsAtPosition). The cell is lit if it names any, dark if none
 -- (what the inspector's "Unexplored" reads, per cell: ZoneInfo.lua); the areas it names are explored, and the cell's own
 -- (Atlas.AreaAt) checked (false until named). A lit cell isn't asked again. Handed over when a sweep ends:
 -- new tables, what the last had and this one found (the old kept until then; a row of
 -- cells a new table only if it changed), each only if something in it changed. Swept again, the cells not
--- lit, after MAP_EXPLORATION_UPDATED: the one shown now, the others once shown. An instance's map (no
--- continent) has none.
+-- lit, after MAP_EXPLORATION_UPDATED: the one shown now (the big map hidden: once it shows), the others once
+-- shown. An instance's map (no continent) has none.
 
 local _, ns = ...
 local Atlas, Game, Runtime = ns.Atlas, ns.Game, ns.Runtime
 
-local CELL, SAMPLES = 0.2, 700 -- tiles (~107 yd); cells a frame
+local CELL, SAMPLES = 0.2, 700 -- tiles (~107 yd); cells a frame at most
+local SWEEP_MS, CHECK = 0.3, 8 -- a frame's share of a sweep; cells between looks at the clock
 local NONE = {}
 
 local explored, cells -- the last handed over: per area; per instance, its rows of cells ([j][i]: true, false)
@@ -54,8 +61,9 @@ end
 local function Sweep()
 	local s = sweep
 	local inst, out = s.inst, s.out
-	for _ = 1, SAMPLES do
-		if s.j == s.nr then break end
+	local t0 = debugprofilestop()
+	for n = 1, SAMPLES do
+		if s.j == s.nr or (n % CHECK == 0 and debugprofilestop() - t0 >= SWEEP_MS) then break end
 		local old = s.old[s.j + 1] or NONE
 		local was = old[s.i + 1]
 		if was ~= true then
@@ -96,7 +104,7 @@ local function Sweep()
 end
 
 Game.Part("explored", function(obs)
-	if not sweep then
+	if not sweep and Game.shownBig then
 		local inst = Due(Game.shownInst) or Due(obs.you.inst)
 		if inst then Start(inst) end
 	end

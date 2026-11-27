@@ -16,7 +16,7 @@ local sim, ns = T.Boot()
 sim.player.inst, sim.player.col, sim.player.row = 1, 40.09, 28.85 -- Orgrimmar, the Valley of Strength
 sim.Run(1)
 sim.Slash("/mm toggle")
-sim.Run(10) -- past telemetry's one full collect (ourKBLoad, 10 s after login)
+sim.Run(10) -- past login's grace and the first open's
 local view, M, R, Camera = ns.UI.Window.view, ns.UI.Motion, ns.Runtime, ns.UI.Camera
 
 -- At the client's prices: a widget call's own allocation (the sim's state for it, which the client keeps

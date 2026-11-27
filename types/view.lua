@@ -112,7 +112,7 @@ local SAFE_VIEW = {
 -- shows in the next Observation (the same frame for one carried out in Input).
 -- One that fails is reported (Runtime) and dropped, never retried.
 
----@alias MM.Command MM.CmdFollow|MM.CmdQuestLog|MM.CmdWaypoint|MM.CmdWay|MM.CmdTracking|MM.CmdTooltip|MM.CmdSlash|MM.CmdLoad|MM.CmdRun|MM.CmdButton
+---@alias MM.Command MM.CmdFollow|MM.CmdQuestLog|MM.CmdWaypoint|MM.CmdWay|MM.CmdTracking|MM.CmdTooltip|MM.CmdSlash|MM.CmdLoad|MM.CmdRun|MM.CmdButton|MM.CmdButtons
 
 ---Follow a quest: the game's super-tracked quest (and watched); false: follow none.
 ---@class MM.CmdFollow
@@ -176,6 +176,11 @@ local SAFE_VIEW = {
 ---@field kind "button"
 ---@field id string
 ---@field button? string         "LeftButton" (default), "RightButton"...
+
+---Look for the Minimap's buttons again: obs.buttons is fresh from the next frame. Sent as the pointer reaches the
+---AddOns button, whose menu is their one reader (they aren't looked for on a timer). Idempotent.
+---@class MM.CmdButtons
+---@field kind "buttons"
 
 ---@class MM.GameEntry
 local Game = {}

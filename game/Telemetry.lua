@@ -6,9 +6,9 @@
 -- (anything else whose stack is in our folder). An error's first occurrence
 -- in a session traces "error" and takes an "error" mark; a taint's
 -- (ADDON_ACTION_BLOCKED/FORBIDDEN naming us) traces "taint" and takes a "taint" mark.
--- Each session's perf (Runtime.FrameStats, errors, load, memory after a full
--- collect: docs/runtime.md) is written at logout and with each mark, with the
--- bench (game/Bench.lua) if one ran. Every trace passes here too (Runtime.onTrace): the
+-- Each session's perf (Runtime.FrameStats, errors, load: docs/runtime.md) is written at logout and
+-- with each mark, with the bench (game/Bench.lua) if one ran; our memory after a full collect with it
+-- only once /mm telemetry memory on asked (a collect is a hitch: off unless asked). Every trace passes here too (Runtime.onTrace): the
 -- kinds that must stay empty are kept past the ring, layouts and swaps counted.
 
 local ADDON, ns = ...
@@ -17,7 +17,7 @@ local Game, Runtime = ns.Game, ns.Runtime
 local SESSIONS, ERRORS, MARKS, ZONES, KEPT = 10, 50, 64, 30, 50 -- (MARKS: a script's ~30 marks and shots, twice; tools/telemetry.py's)
 local MSG, STACK = 300, 2000 -- chars kept
 local MOTION = 120 -- frames of camera and you in each mark
-local LOAD_KB_AT = 10 -- s after login: past its grace (5 s, game/Game.lua) and the world streaming in
+local LOAD_KB_AT = 10 -- s after login: past its grace (5 s, game/Game.lua) and the world streaming in (memory on)
 local KEEP = { taint = true, art = true } -- trace kinds kept for the session (each a bug)
 local STATS = { layout = true, swap = true } -- counted per layer (or why): n and each number's max
 local OURS = "AddOns[/\\]" .. ADDON .. "[/\\]"
@@ -27,7 +27,7 @@ local db, session
 local errors, loginAt = 0, nil -- this session's errors; GetTime() at login
 local pending = {} -- errors before SavedVariables load
 local seen = {} -- error keys this session
-local kbLoad, kbOut -- our KB after a full collect: past the login grace, at logout
+local kbLoad, kbOut -- our KB after a full collect: past the login grace, at logout (memory on; else none)
 
 local function R(v, n) return v and math.floor(v * n + 0.5) / n end -- /: never 0 (n: a literal at each call)
 local NONE = {}
@@ -57,7 +57,9 @@ local function State()
 	}
 end
 
--- Our memory alone, garbage collected first (else ~a third is garbage: docs/runtime.md). Slow: a frame of ~100 ms.
+-- Our memory alone, garbage collected first (else ~a third is garbage: docs/runtime.md). Slow: the collect
+-- walks every addon's heap and Blizzard's UI, a frame of 100-200 ms in the client. So only when asked
+-- (db.memory: /mm telemetry memory on): a hitch 10 s after every login is not a price to play at.
 local function OurKB()
 	collectgarbage("collect")
 	UpdateAddOnMemoryUsage()
@@ -65,7 +67,7 @@ local function OurKB()
 end
 
 -- session.perf: Runtime.FrameStats() (alloc, gaps, ledger, byState with it) plus errors, errors an
--- hour, load ms, our KB at load and logout; session.bench[build]: the last /mm bench.
+-- hour, load ms, our KB at load and logout (memory on); session.bench[build]: the last /mm bench.
 local function Perf()
 	local p = Runtime.FrameStats()
 	local hours = math.max((GetTime() - (loginAt or 0)) / 3600, 1 / 60) -- at least a minute
@@ -197,7 +199,7 @@ Game.Load("telemetry", function(saved)
 	Runtime.onTrace = Keep -- (from here: the session holds what it keeps)
 	for _, p in ipairs(pending) do Record(p[1], p[2], p[3]) end
 	pending = nil
-end, { version = 1, defaults = { sessions = {}, errors = {}, marks = {} } })
+end, { version = 1, defaults = { sessions = {}, errors = {}, marks = {}, memory = false } })
 
 local function Zone()
 	local zone, zones = GetZoneText(), session.zones
@@ -214,12 +216,12 @@ Runtime.On("PLAYER_LOGIN", "telemetry.login", function()
 end)
 Runtime.On("ZONE_CHANGED_NEW_AREA", "telemetry.zone", Zone)
 Runtime.On("PLAYER_LOGOUT", "telemetry.logout", function() -- also /reload
-	kbOut = OurKB()
+	if db.memory then kbOut = OurKB() end
 	Perf()
 end)
 
 -- Each frame, from View (Game.Apply): what shots stamp and the motion ring (View.camera is
--- OPEN: none, no row); once, ourKBLoad, its full collect in a grace ("gc": not an overrun).
+-- OPEN: none, no row); once, with memory on, ourKBLoad, its full collect in a grace ("gc": not an overrun).
 Game.Apply("telemetry", function(view)
 	local cam, place, you = view.camera, view.window.place, Game.obs.you
 	local c, p = cam or NONE, place or NONE
@@ -233,8 +235,10 @@ Game.Apply("telemetry", function(view)
 	end
 	if loadAt and GetTime() >= loadAt then
 		loadAt = nil
-		Runtime.Grace("gc", 0.1)
-		kbLoad = OurKB()
+		if db.memory then
+			Runtime.Grace("gc", 0.1)
+			kbLoad = OurKB()
+		end
 	end
 end)
 
@@ -313,4 +317,13 @@ Game.Slash("telemetry", "counts of sessions, errors and marks kept; telemetry cl
 	for _ in pairs(db.errors) do n = n + 1 end
 	Game.Print(string.format("session %d (%s): %d sessions, %d errors, %d marks, %d traced; /reload to write them",
 		session.id, tostring(version), #db.sessions, n, #db.marks, #Runtime.TraceCopy()))
+end)
+
+-- Our memory after a full collect, in each session's perf (ourKBLoad, ourKB): read 10 s after login and at
+-- logout, each a hitch, so off until switched on here; kept across sessions.
+Game.Slash("telemetry memory", "[on|off]: record our memory after a full collection, 10 s after each login and at logout"
+	.. " (a hitch each time; off by default)", function(args)
+	if args == "on" or args == "off" then db.memory = args == "on" end
+	Game.Print("telemetry memory: " .. (db.memory and "on (a full collection 10 s after each login and at logout; /mm telemetry memory off)"
+		or "off (/mm telemetry memory on: a hitch 10 s after each login)"))
 end)

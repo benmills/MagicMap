@@ -17,8 +17,8 @@ the event handlers since the previous frame. It's measured with `debugprofilesto
 into a histogram (0.05 ms buckets up to 20 ms), so p50/p95/p99 are a bucket's top.
 Frames inside a *grace* are kept apart (their slowest is reported, not counted):
 5 s after each PLAYER_ENTERING_WORLD (`login` for login and /reload, `loading` for
-a loading screen), 2 s after the first map open (`map`), the memory read's collect
-(`gc`) and `/mm bench` (`bench`). A frame inside two counts to the newest only (the map
+a loading screen), 2 s after the first map open (`map`), a memory read's collect
+(`gc`: `/mm perf mem`, and the session's own reads once `/mm telemetry memory on` asked) and `/mm bench` (`bench`). A frame inside two counts to the newest only (the map
 opened during login's: `map`), which keeps its slowest frame (`grace`) and that frame's
 slowest call (`graceTop`). Nothing inside a grace counts against the budgets: no
 overruns, gaps, allocation or ledger frames.
@@ -31,8 +31,9 @@ overruns, gaps, allocation or ledger frames.
 | one call (step, handler, timer) | ≤ 2 ms | `CALL_MS`: a step taking more starves the rest; work that size belongs in a Job. A job's resume: ≤ 2× its own budget. |
 | first map open, slowest frame | ≤ 50 ms | first-use Atlas indexes (Labels are offline since M1.1: the sim's first open is 9 ms, its slowest call a layout at 4 ms); ~3 frames, once a session. |
 | load (Data + Atlas at login) | ≤ 250 ms | the sim measures 84–110 ms (`/mm perf load`, `boot.loadMs`); the client also reads the files from disk, so ~2.5× room. |
-| our Lua memory, after a full collect (at logout) | ≤ 64 MB | ours alone (`GetAddOnMemoryUsage`) after `collectgarbage("collect")`, so garbage isn't counted (the play-test's 70.8 MB held ~24 MB of it: docs/v1-plan.md §2). Read at logout (`ourKB`) and 10 s after login (`ourKBLoad`: Data + Atlas, ~40 MB expected; ~39 MB in the sim since M1.4's border levels and subzone borders made Data/Borders.lua 927 KB, +1.7 MB of heap; gone since: ADR 0012). Over it: a leak (`ourKB` − `ourKBLoad`, and `perf.alloc`) or data growth (`ourKBLoad`). |
+| our Lua memory, after a full collect (at logout) | ≤ 64 MB | ours alone (`GetAddOnMemoryUsage`) after `collectgarbage("collect")`, so garbage isn't counted (the play-test's 70.8 MB held ~24 MB of it: docs/v1-plan.md §2). Read at logout (`ourKB`) and 10 s after login (`ourKBLoad`), but only once `/mm telemetry memory on` asked (kept across sessions; off by default, and `--budgets` then says no data: each read's collect is a hitch, "Not guaranteed" below) (`ourKBLoad`: Data + Atlas, ~40 MB expected; ~39 MB in the sim since M1.4's border levels and subzone borders made Data/Borders.lua 927 KB, +1.7 MB of heap; gone since: ADR 0012). Over it: a leak (`ourKB` − `ourKBLoad`, and `perf.alloc`) or data growth (`ourKBLoad`). |
 | Lua allocation, outside graces | ≤ 50 KB/s | garbage is paid for later, by the collector, in someone's frame. A standing frame should make next to none, but every sensor probe makes ~0.35 KB of the client's garbage, answer or not (`game.part blips` 233-297 KB/s in game at the M0 gate), so the sensor probes little (M1.5b: the default window 14 KB/s priced over standing, walking and a door, R-P3 walking among 10 blips 64 B a frame; in game 27-30 KB/s in sessions #8 and #9, before e60ff51's door fix). Without the sensor, ~40 B a frame standing or walking; more during a sustained fling (the ground a layout adds, its end and swap traces; a layer with nothing to draw, blips or rares out of zoom, isn't laid out again on a pan), more while the first layouts on a canvas create its regions (one frame of several MB). A layout's start was a job of its own (a coroutine, a closure, a handle, a start trace of 11 fields): 2.8 KB in the sim, but 8.6-10.3 KB in the client (sessions #8 and #9: `map: draw` 6-22 KB/s, over 2 layouts a second), so the budget failed (56.7 and 108.7 KB/s, with the sensor's 30). Since round 2 of the M1 review each layer lays out on one worker (`Runtime.Worker`: its coroutine made once), the start its own call (`map: layout`, so `perf.alloc` names it) with a 5-field trace: 0.37 KB a start in the sim (its trace; the 0.83 measured before M1.12 counted the sim's xpcall shim, which makes a table for more than 4 arguments: the client's doesn't). A whole layout is its three traces (start, end, swap: ~1.1 KB) and, since M1.12, nothing else once its canvas holds what it needs (`Engine.Keep`: R-P3b, Orgrimmar at the client's prices, 12.9 KB/s over views seen before (14.2 at M1.12), 20.3 walking through its doors; 83.5 and 131.6 KB/s in the user's sessions #13 and #14). The first time a city's big window zooms out, its canvases make their regions (~7,000, ~3.6 MB, kept in their pools, made once a session), which the client's heap reading counts as allocation: a short session can read over 50 KB/s for it (R-P3b's 76 s: ~64 KB/s, the second pass over the same views 13), ~6 KB/s spread over a 10-minute one (the budget can't tell pool growth from garbage). The client's price is to be re-measured at the final play-test (`map: layout` in `perf.alloc`: about one trace a start). The budget is the session's average. `kbFrameP95` (KB a frame) is reported beside it, to find the frames. Zooming and dragging the big window (test_quests_priced's wheel and drags, the stretch alone; M1.15): at the client's prices (the sim's widget state left out, as test_soak's `FREE`: the sim's raw reading there was 425 KB/s, ~335 of it its own) 89.5 KB/s the first time, 68.9 of it kept (the borders' Lines at zooms new to the session, `map: borders` 46.5; the town services gathered as the view comes to them, 19.5: made once a session), garbage 20.6; once more 26.4. |
+| standing still, the small map shown (the sim: `tools/tests/test_soak.py::test_idle`) | ≤ 2 KB/s of Lua allocation, frame p95 ≤ 0.4 ms priced, no full collect | nothing happening costs next to nothing but the frame's own steps, and no garbage: no timer makes any. The addon pins' pass each second runs on its `Runtime.Worker` (a job a pass was a coroutine, a closure and a handle: 6.5-7.9 KB/s in the client), the Minimap's buttons are looked for when their menu's button is pointed at (every 3 s: 3.5 KB/s), Blizzard's duplicate tracking is put right when the takeover, a layer or the client's tracking changes (every 2 s: 2.9 KB/s), the tint is worked out again when you move or the game's minute turns, and the explored sweep waits for the big map. Measured: 0.0 KB/s, p95 0.3 ms over a minute with Questie's pins hosted (5.4 KB/s before, 13-14 in the client). In game: `small`'s KB/s in `tools/telemetry.py --perf` (`byState`), and `/mm perf` standing still. |
 | errors per hour | 0 | every error is a bug; the counts make a regression obvious. |
 
 Login frames aren't budgeted (load time is); their slowest is reported as `grace.login`.
@@ -40,7 +41,8 @@ Login frames aren't budgeted (load time is); their slowest is reported as `grace
 Allocation is the Lua heap's growth (`collectgarbage("count")`) over each frame's run, the
 same frames as the cost: `kbFrameP95`, `kbFrameMax` (KB a frame), `kbPerSec`, `kbFrames`, and their
 sums `kb` and `kbSecs`: two reads' difference is a stretch's own KB/s (a storm's: test_quests_storm;
-a mark's `alloc`, since the mark before it), where `kbPerSec` averages the whole session. A
+a mark's `alloc`, since the mark before it), where `kbPerSec` averages the whole session; each map state
+keeps its own sums too (`byState[state].kb`, `kbSecs`, `kbPerSec`: `small`'s is close to what standing costs). A
 frame in which the collector freed more than we allocated (the heap shrank) can't be measured
 and is left out, so it's a lower bound; event handlers between frames aren't in it. In the sim,
 widget calls cost no Lua memory (as in the client), so the replays (tools/tests/replays/R-P3.lua)
@@ -50,9 +52,12 @@ measure ours alone.
 (PASS / FAIL each, exit 1 on a FAIL). The limits live there in `BUDGETS`, and
 `FRAME_MS`, `CALL_MS` in runtime/Runtime.lua: change all three with this table.
 
-The session-level sim check is tools/tests/test_soak.py (M5.1 9fcd521): scripts (a)-(e) four rounds,
-every layer on, 648 s priced; heap after a full collect flat (round 4 vs 3 ≤ 10 KB), no job queued at
-rest, 8/8 PASS (rest p95 0.40, moving p95 4.30, max 6.2 ms, 45.5 KB/s). With our Lua charged
+The session-level sim check is tools/tests/test_soak.py: scripts (a)-(e) five rounds,
+every layer on, 806 s priced; heap after a full collect flat (the last round against the one before:
+≤ 96 KB), no job queued at rest, every budget PASS but our memory's (no data: its collect is off by
+default) (rest p95 0.45, moving p95 1.10, max 5.2 ms, 33.0 KB/s; each round past the first 24.7 KB/s,
+30.2 with the timers' garbage; the first 66.3: the explored sweep's 21.8 as the big map first opens).
+Beside it, test_idle: the small map shown, standing still (the table's row). With our Lua charged
 (`boot(lua=True)`) zoom p95 reads 4.75 ms (5.1 before M1.15: the layouts' slices now fit the frame) and allocation
 about twice the plain figure even with `LUA_NS=0`: tools/sim.py's `LUA_PRICE` counting, not behaviour,
 so judge allocation on plain runs.
@@ -68,7 +73,7 @@ All of it is kept in tables made at load: a measured frame allocates nothing mor
 | `alloc` | the 5 names making most KB/s: `{ name, kbPerSec, kbMax, calls }` (`kbMax`: most in one call; `calls`: measured) | `collectgarbage("count")` before and after each wrapped call and each job resume; a call in which the heap shrank (the collector ran) is left out, so it's a lower bound. Inclusive: a wrapped call inside another counts in both. Calls with budget `false` (Runtime's own frame and event dispatch, loaders) aren't counted. The `spike` trace names the frame's top allocator too (`alloc`, `allocKb`). |
 | `gaps` | per job name `{ job, ms, n, stack }`: its longest stretch without a `Yield` over its budget, how many, and the stack of its first | each `Yield` times the stretch since the last (or since the resume); a resume also checks the stretch from its last `Yield` to its end (`stack` = "(ran to the job's end)"). A `gap` trace `{ job, ms, n }` at a name's 1st, 10th, every 100th. One `debugstack` per name. |
 | `ledger` | the 5 worst frames `{ frame, ms, top, topMs, events }`, worst first | `events`: the 10 trace events up to the frame's end (its own, the `spike` last) and the 10 traced after it |
-| `byState` | `{ [state] = { frames, p50, p95, p99, max, client = { p50, p95, p99, max } } }` | the frame cost again, in one histogram per map state; UI calls `Runtime.SetState(state)`: `closed` (hidden), `small`, `big`, `zoom` (the wheel's zoom not laid out yet), `drag`. `client`: the client's whole frame in that state (OnUpdate's `elapsed`, 0.5 ms buckets), so a cost the client defers to its drawing (no budget sees it: our cost is Lua's) shows as zoom or drag frames slower than small ones |
+| `byState` | `{ [state] = { frames, p50, p95, p99, max, kb, kbSecs, kbPerSec, client = { p50, p95, p99, max } } }` | the frame cost again, in one histogram per map state, and the state's allocation (as the session's `kb`, `kbSecs`, `kbPerSec`); UI calls `Runtime.SetState(state)`: `closed` (hidden), `small`, `big`, `zoom` (the wheel's zoom not laid out yet), `drag`. `client`: the client's whole frame in that state (OnUpdate's `elapsed`, 0.5 ms buckets), so a cost the client defers to its drawing (no budget sees it: our cost is Lua's) shows as zoom or drag frames slower than small ones |
 
 `Runtime.Perf()`'s entries carry the per-name totals behind these: `kb`, `kbN`, `kbMax`,
 `gaps`, `gapMax`, `gapStack`, and `gc`. `tools/tests/test_addon.py::test_attribution` drives each.
@@ -262,9 +267,10 @@ addon loads. Each owner's `fn` runs once a session, at ADDON_LOADED (or at once,
 - Event handlers called by the client between frames can't be delayed: only ones
   fired during our frame are queued.
 - Memory is sampled as the whole Lua heap (`collectgarbage("count")`: every addon)
-  every 10 s outside graces; ours alone (`GetAddOnMemoryUsage`), after a full collect, only
-  twice: 10 s after login and at logout, since a full collect and `UpdateAddOnMemoryUsage`
-  are too slow to call while playing (the one at load is graced as `gc`). That collect walks
-  every addon's heap and Blizzard's UI too: a visible hitch (tens to hundreds of ms in the
-  client) 10 s after every login and `/reload`. Expected, the price of `ourKBLoad`; not a
-  stutter to triage.
+  every 10 s outside graces. Ours alone (`GetAddOnMemoryUsage`), after a full collect, isn't
+  read unless asked: that collect walks every addon's heap and Blizzard's UI too, a visible
+  hitch (121-201 ms in the client's sessions). `/mm telemetry memory on` (kept across
+  sessions, `off` again) has every session read it twice, 10 s after login (graced as `gc`)
+  and at logout: `ourKBLoad` and `ourKB`, for the memory budget. `/mm perf mem` reads it once,
+  now. With it on, the hitch 10 s after every login and `/reload` is expected, the price of
+  `ourKBLoad`; with it off, MagicMap runs no full collect.

@@ -12,9 +12,10 @@ Minimap's spot, 384 px a tile), every layer on (those off by default too), scrip
   (e) Questie's world and minimap pins and GatherMate's (HereBeDragons) all along; the big map out to the
       continent, drags there, back in to 140 and 384, shrunk.
 
+  test_idle: standing still with the small map shown, a minute: next to no garbage, no full collect (below).
   test_soak: the Lua heap after a full collect where each script ends, the last round's against the one
     before (flat: what a round leaves behind, ≤ GROWTH_KB); no job left queued at rest; the session, logged
-    out, through tools/telemetry.py --budgets as a play-test's: 8/8 (docs/runtime.md: at rest p95 ≤ 1 ms, p99
+    out, through tools/telemetry.py --budgets as a play-test's: every budget it has data for (docs/runtime.md: at rest p95 ≤ 1 ms, p99
     ≤ 5, moving p95 ≤ 5, none over 8, Lua allocation ≤ 50 KB/s, 0 errors...) and perf.slow, perf.gaps, taint,
     art and sensor empty; each round past the first ≤ 50 KB/s too.
 """
@@ -29,6 +30,7 @@ from test_quests import SETUP
 ROUNDS = 5  # ~160 s each: the 1st grows the pools (regions kept for good, as the client's), the 2nd to 4th
             # each canvas's (a layer's two, swapped) at each script's zooms; the 5th as the 4th. (With the sensor
             # kept indoors since ADR 0008, the 4th still grew ~90 KB a script; over 8 rounds: 140, then 6-27, then ~0)
+IDLE_KB, IDLE_MS = 2, 0.4  # standing with the small map shown (docs/runtime.md): KB/s of garbage; the frame's p95, priced
 GROWTH_KB = 96  # a round's leftovers, after a full collect (the heap is ~60 MB). Grouped icons (two or more)
 # fill their pools slowly: over 7 rounds a script's growth went 160, ~30-80, ~30, then under 15 KB: a plateau, not a leak
 
@@ -209,6 +211,40 @@ def soak():
     sim.Price(False)
     sim.FireEvent("PLAYER_LOGOUT")
     return L, sim, ns, rounds, list(G.Jobs().values())
+
+
+def test_idle():
+    """Nothing happening: a first login's small map, Questie's pins on it and on the Minimap, standing still for a
+    minute past the graces, priced. Next to no garbage (no timer makes any: the addon pins' pass each second runs on
+    its worker, the Minimap's buttons, the tracking, the tint and the explored sweep wait for what changes them), no
+    full collect, and the frame a third of its budget at rest."""
+    L, sim, ns = boot("MagicMap2DB = { UI = { _v = 1 } }")
+    G = L.globals()
+    L.execute(FREE, sim)
+    L.execute(QUESTIE, sim, G)
+    L.execute("""local sim = ...
+        local gc = collectgarbage
+        sim.collects = 0
+        collectgarbage = function(opt, ...)
+            if opt == nil or opt == "collect" then sim.collects = sim.collects + 1 end
+            return gc(opt, ...)
+        end""", sim)
+    sim.Run(15)  # login: past its grace, the first open's and the 10 s the memory read waits
+    sim.Price(True)
+    sim.Run(5)
+    f0, done = ns.Runtime.frames, stretch(L, ns)
+    passes = ns.Runtime.Perf()[0]["game.addon pins: borrow"].n
+    sim.Run(60)
+    kb, by = done()
+    small = ns.Runtime.FrameStats().byState.small
+    print(f"idle: {kb} KB/s over {ns.Runtime.frames - f0} frames {sorted(by.items(), key=lambda kv: -kv[1])[:4]}; "
+          f"small p50 {small.p50} p95 {small.p95} p99 {small.p99} max {small.max} ms, {small.kbPerSec} KB/s")
+    assert ns.Runtime.Perf()[0]["game.addon pins: borrow"].n - passes >= 50  # (the regular passes ran)
+    assert kb <= IDLE_KB and small.kbPerSec <= IDLE_KB, (kb, by)
+    assert small.p95 <= IDLE_MS and small.max <= 1, (small.p95, small.max)
+    assert sim.collects == 0 and ns.Runtime.FrameStats().grace.gc is None
+    assert ns.Game.obs.explored is None  # (not swept: the big map's right-click header is its one reader)
+    assert not errors(sim, ns), "\n\n".join(errors(sim, ns))
 
 
 def test_soak():

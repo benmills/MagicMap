@@ -130,13 +130,21 @@ function Tint.Compute(inst, col, row, t)
 	return r, g, b
 end
 
+-- Each second: worked out again only where or when it would differ (you moved, the game's minute turned, a knob:
+-- Refresh). Standing still it's the same light for a minute, and working it out makes tables each time.
 local shown
+local at = {} -- what the tint shown was worked out for: inst, col, row, t
 local function Update()
 	local you, cam = Model.you, UI.Camera
 	local ok = feel.on and you and you.col and not you.stale and cam.inst == you.inst and not Model.interior
 		and not UI.Window.Blank()
 	local r, g, b
-	if ok then r, g, b = Tint.Compute(you.inst, you.col, you.row, Now()) end
+	if ok then
+		local t = Now()
+		if shown and at.inst == you.inst and at.col == you.col and at.row == you.row and at.t == t then return end
+		at.inst, at.col, at.row, at.t = you.inst, you.col, you.row, t
+		r, g, b = Tint.Compute(you.inst, you.col, you.row, t)
+	end
 	if not r then
 		if shown then tex:Hide(); shown = nil end
 		return
@@ -149,6 +157,10 @@ local function Update()
 	end
 end
 Runtime.Every(1, "map: tint", Update)
+local function Refresh() -- a knob changed: the same place and time light differently
+	at.t = nil
+	Update()
+end
 function Tint.Shown() return shown ~= nil end -- (the tests)
 Tint.tex = tex
 
@@ -181,11 +193,11 @@ function Tint.Command(args)
 	elseif k ~= "" then
 		return Say("/mm tint [on | off | hue direct|ambient|forever | mix 0-1 | dark 0-1 | bright direct|ambient|forever | time HH:MM|off | reset]")
 	end
-	Update()
+	Refresh()
 	Report()
 end
 
-local function Feel(key) return function(v) feel[key] = v; if UI.saved then Update() end end end
+local function Feel(key) return function(v) feel[key] = v; if UI.saved then Refresh() end end end
 UI.Feel.Add("map", "Look", {
 	{ key = "tint.on", kind = "toggle", label = "Time of day", default = DEFAULTS.on, apply = Feel("on"),
 		tip = "The map takes on the game's light where you are, as Blizzard's own minimap does: warm at dawn and dusk, cool and dimmer at night." },

@@ -24,8 +24,10 @@ and `Screenshots/`). So the loop is: play, `/reload`, run `tools/telemetry.py`.
   on an error's first occurrence, a taint's first occurrence per function,
   `/mm mark <note>`, and `/mm shot <id> [note]` (which also takes a screenshot).
 - **Memory**: ours alone after a full `collectgarbage("collect")`, read twice: 10 s
-  after login (past its 5 s grace) and at logout. The collect's frame is graced
-  (`gc`), so it's never an overrun.
+  after login (past its 5 s grace) and at logout, but only once `/mm telemetry memory on`
+  asked (`MagicMap2DB.telemetry.memory`, kept across sessions; `/mm telemetry memory off`):
+  a full collect is a hitch of 100-200 ms, so it's off by default and `ourKBLoad`, `ourKB`
+  are then absent. The collect's frame is graced (`gc`), so it's never an overrun.
 - **Taint**: ADDON_ACTION_BLOCKED / ADDON_ACTION_FORBIDDEN naming our addon.
 
 ## SavedVariables: `MagicMap2DB.telemetry`
@@ -42,11 +44,12 @@ telemetry = {
                slowGc = { { name, n }, ... },         -- the 5 most over budget while the collector freed more than they made (its step: not gated)
                kbMin, kbMax,                          -- Lua KB: all addons' heap (sampled)
                kbPerSec, kbFrameP95, kbFrameMax, kbFrames, -- allocation outside graces (docs/runtime.md)
-               ourKBLoad, ourKB,                      -- ours, after a full collect: 10 s after login, at logout
+               ourKBLoad, ourKB,                      -- ours, after a full collect: 10 s after login, at logout (memory on: else absent)
                alloc = { { name, kbPerSec, kbMax, calls }, ... },  -- top 5 allocators (KB/s; kbMax: one call's most)
                gaps = { { job, ms, n, stack }, ... }, -- a job ran longer than its budget between Yields: longest, how often, first stack
                ledger = { { frame, ms, top, topMs, events = { <events> } }, ... }, -- worst 5 frames outside graces, ±10 events
                byState = { [state] = { frames, p50, p95, p99, max, -- by map state: closed small big zoom drag
+                                       kb, kbSecs, kbPerSec,       -- its allocation, as the session's
                                        client = { p50, p95, p99, max } } }, -- the client's whole frame (ms between OnUpdates)
                errors, errorsPerHour, loadMs },       -- written at logout (and /reload) and with each mark
       kept = { <events> },  -- taint, art and sensor events, the first 50 (each one a bug)
@@ -54,6 +57,7 @@ telemetry = {
       bench = { [build] = { build, t, ops = { [op] = { n, ms, us } } } },  -- /mm bench regions (game/Bench.lua)
     },
   },
+  memory = false,       -- /mm telemetry memory on: sessions read ourKBLoad and ourKB (a full collect each)
   _v = 1,               -- Game.Load's version stamp (docs/runtime.md "Saved data")
   errors = {            -- by key (name .. ": " .. first line), 50 kept (least recent dropped)
     [key] = { name, msg, stack, count, first = <time()>, last = <time()>, version, session },
@@ -120,7 +124,7 @@ regions and where it was placed), `error`, `taint`, `mark`, `shot`; and Runtime'
 `slow` (a call over its budget), `spike` (a frame over its budget), `gap` (a job between
 Yields over its budget), `throttled`, `job` (cancelled), `enter` (PLAYER_ENTERING_WORLD),
 `position` (lost or back), `saved`; Game's `minimap` (the takeover engaged or released),
-`art` (`/mm check art`: a name ui/Art.lua lists that the client lacks). Sessions till 2.2.1 also hold the
+`art` (`/mm check art`, run by hand: a name ui/Art.lua lists that the client lacks; not checked at login). Sessions till 2.2.1 also hold the
 blip sensor's `blips`, `restart` and `sensor` (game/Blips.lua, gone: Blizzard's overlay draws the blips).
 
 Their `d`:
@@ -180,7 +184,7 @@ globals breaking it) named only its own files, so a filter on our own name misse
   Exit 1 on any FAIL.
   `--budgets --trace` also prints the perf, kept and marks sections it judged from.
 - `--compare A B`: two sessions side by side with B − A: the budgets, memory after GC,
-  per-state p95/p99/max, allocators, bench ops. A session is its id in the SavedVariables
+  per-state p95/p99/max and allocation, allocators, bench ops. A session is its id in the SavedVariables
   read, or `FILE:id` for another SavedVariables file (sessions roll off after 10: keep a copy).
 - Shot pairing: a shot mark's id (its note's first word) is matched to a reference shot
   `ref-<id>.jpg|png` in the `--refs` folder, if you keep one.

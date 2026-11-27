@@ -347,7 +347,9 @@ def test_failures():
     perf = tel.sessions[1].perf
     assert perf.frames > 0 and 0 < perf.p50 <= perf.p95 <= perf.p99 <= perf.max and perf.overruns >= 1
     # (loadMs: Data's load is Lua alone, which the counted clock doesn't charge: 0 here, recorded)
-    assert perf.errors >= 3 and perf.errorsPerHour > 0 and perf.loadMs == 0 and perf.ourKB > 0
+    assert perf.errors >= 3 and perf.errorsPerHour > 0 and perf.loadMs == 0
+    # (our memory after a full collect: a hitch, so only once /mm telemetry memory on asked: test_telemetry_sim)
+    assert perf.ourKB is None and perf.ourKBLoad is None and perf.grace.gc is None
     assert perf.grace.login > 0 and perf.grace.map > 0 and perf.grace.loading is not None
     expected = {"test.fails", "test.fails2", "test.stuck", "load bad", "load bad (migrate)", "game.part you"}
     assert {e.name for e in R.errors.values()} == expected

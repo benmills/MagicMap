@@ -719,6 +719,11 @@ zoomOut:SetScript("OnClick", Runtime.Wrap("map: zoom out", function() UI.Motion.
 -- budget.)
 gear:SetScript("OnClick", Runtime.Wrap("map: gear", function(self) Menus.Gear(self) end, Runtime.FRAME_MS))
 addons:SetScript("OnClick", Runtime.Wrap("map: addons", function(self) Menus.AddOns(self) end, Runtime.FRAME_MS))
+-- The Minimap's buttons are looked for as the pointer reaches the button (and at its press): the menu a click
+-- opens, a frame or more later, lists what's there now (Game looks only when asked: Model.buttons has one reader).
+local Scan = Runtime.Wrap("map: addons scan", function() ns.Game.Command({ kind = "buttons" }) end)
+addons:HookScript("OnEnter", Scan)
+addons:HookScript("OnMouseDown", Scan)
 
 -- Following you, or free: the slash command (and the Settings row: ui/Motion.lua). Back to you with a
 -- glide.

@@ -9,8 +9,10 @@
 -- flagged for continents come; pins for their own zone map alone (Questie's -1, its route lines), frames
 -- bigger than pins, and Questie's "?" or "!" where our quests or offers layer shows the same are never
 -- borrowed. A Questie log is thousands of pins, so borrowing, giving back and re-placing at a new zoom
--- are Runtime.Jobs (NEWS_MS a frame with something to show soon, else JOB_MS; 2400 SetPoints are ~0.7 ms
--- in the client), the holder see-through until done so no pin shows at the old zoom's place.
+-- are jobs (NEWS_MS a frame with something to show soon, else JOB_MS; 2400 SetPoints are ~0.7 ms
+-- in the client), each kind on one Runtime.Worker made at load (the regular pass runs every second the
+-- map is shown: a job made for each would be a coroutine, a closure and a handle of garbage a second),
+-- the holder see-through until done so no pin shows at the old zoom's place.
 -- Minimap pins: while the takeover has the Minimap, each copy draws instead on a host of Game's that
 -- answers what the library asks a minimap, around you on View.sockets.minimap; out of sight without that
 -- socket (on the overlay they'd take the mouse over our map), under Rotate Minimap (the library turns
@@ -42,7 +44,9 @@ local on, turnIns, offers = {}, {}, {} -- the pass's addon layers on: "addon:<ke
 local socket, inst, zoom -- where they're hosted: the holder on the socket's frame, instance and zoom
 local holders = {} -- socket frame -> its holder
 local open, dirty, syncAt = false, true, 0 -- open: a socket to host them on (the hosted are given back while it isn't)
-local job -- the pass running: { kind = "borrow" | "give back" | "place" } on Runtime's job handle
+local job -- the pass running or last run: its worker (workers[kind]; kind = "borrow" | "give back" | "place")
+local workers = {} -- kind -> its Runtime.Worker
+local passLevel, passContinent -- the borrow pass's: the pins' frame level; zoomed out past CONTINENT_ZOOM
 local list, byKey, listDirty = {}, {}, true -- obs.addons, by key
 
 -- A world pin added or removed: borrow again soon (a pass walking the library's tables stops:
@@ -204,14 +208,17 @@ local function Replace()
 	Stop()
 	if not next(hosted) then socket:SetAlpha(1); return end
 	socket:SetAlpha(0) -- (see-through, not hidden: hiding thousands of pins is a long frame; a zoom's moment)
-	job = Runtime.Job("game.addon pins: place", function()
-		for icon, rec in pairs(hosted) do
-			if rec.socket == socket and icon:GetParent() == socket then Place(icon, rec) end
-			Runtime.Yield()
-		end
-		socket:SetAlpha(1)
-	end, NEWS_MS)
-	job.kind = "place"
+	job = workers.place
+	Runtime.Wake(job, NEWS_MS)
+end
+
+-- The place pass: every pin hosted here at the socket's zoom, then the holder seen again.
+local function PlaceAll()
+	for icon, rec in pairs(hosted) do
+		if rec.socket == socket and icon:GetParent() == socket then Place(icon, rec) end
+		Runtime.Yield()
+	end
+	socket:SetAlpha(1)
 end
 
 -- A Questie turn-in for a quest whose turn-in our quests layer shows, or its "!" for one our
@@ -231,8 +238,9 @@ local function Faded(icon)
 end
 
 -- Borrow what should be on the socket, give back what shouldn't (another socket's or map's too:
--- not seen here). continent: zoomed out past CONTINENT_ZOOM.
-local function Sync(level, continent)
+-- not seen here), at the pass's level and zoom band (passLevel, passContinent).
+local function Sync()
+	local level, continent = passLevel, passContinent
 	wipe(seen)
 	for _, copy in ipairs(copies) do
 		local pins = copy.lib.worldmapPins
@@ -289,10 +297,23 @@ local function Toggled(layers)
 	return false
 end
 
-local function Pass(kind, fn, ms)
+-- Each kind of pass runs on its own worker: fn again each time it's woken.
+for kind, fn in pairs({ borrow = Sync, ["give back"] = GiveBack, place = PlaceAll }) do
+	local w = Runtime.Worker("game.addon pins: " .. kind, function()
+		while true do
+			fn()
+			Runtime.Idle()
+		end
+	end, JOB_MS)
+	w.kind = kind
+	workers[kind] = w
+end
+
+-- A pass of a kind (one at a time: the one running stops; a worker stopped mid-run starts anew).
+local function Pass(kind, ms)
 	Stop()
-	job = Runtime.Job("game.addon pins: " .. kind, fn, ms)
-	job.kind = kind
+	job = workers[kind]
+	Runtime.Wake(job, ms)
 end
 
 -- No socket to host them on: what's hosted is given back (in combat: once it's over; called each frame meanwhile).
@@ -301,7 +322,7 @@ local function Close()
 		open = false
 		if not next(hosted) then Stop() end
 	end
-	if next(hosted) and not Running("give back") and not InCombatLockdown() then Pass("give back", GiveBack, NEWS_MS) end
+	if next(hosted) and not Running("give back") and not InCombatLockdown() then Pass("give back", NEWS_MS) end
 end
 
 -- Each frame: given back while closed; borrowed at once on opening or a new socket or map, then
@@ -345,8 +366,8 @@ local function WorldPins(view)
 				if o.pos.inst == inst then offers[o.questID] = true end
 			end
 		end
-		local level, continent = s.level or s.frame:GetFrameLevel() + 1, zoom < CONTINENT_ZOOM
-		if Any() then Pass("borrow", function() Sync(level, continent) end, ms) end
+		passLevel, passContinent = s.level or s.frame:GetFrameLevel() + 1, zoom < CONTINENT_ZOOM
+		if Any() then Pass("borrow", ms) end
 	end
 end
 

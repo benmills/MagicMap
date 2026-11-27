@@ -445,7 +445,7 @@ local states, state = {}, nil -- state: the one now (nil until UI sets one)
 for i = 1, STATES do
 	local h, c = {}, {}
 	for j = 1, NB do h[j], c[j] = 0, 0 end
-	states[i] = { name = false, frames = 0, max = 0, hist = h, client = c, clientN = 0, clientMax = 0 }
+	states[i] = { name = false, frames = 0, max = 0, hist = h, client = c, clientN = 0, clientMax = 0, kb = 0, kbSecs = 0 }
 end
 local ended -- the state the last frame ended in (nil: a grace's): its whole frame is the next OnUpdate's elapsed
 
@@ -495,6 +495,7 @@ local function Count(cost, kb, elapsed)
 		local k = math.floor(kb / KB_BUCKET) + 1
 		kbHist[k < NB and k or NB] = kbHist[k < NB and k or NB] + 1
 		if kb > s.kbMaxFrame then s.kbMaxFrame = kb end
+		if state then state.kb, state.kbSecs = state.kb + kb, state.kbSecs + elapsed end
 	end
 	if cost > FRAME_MS then
 		s.overruns = s.overruns + 1
@@ -528,8 +529,8 @@ end
 -- alloc = the 5 names making most KB/s { name, kbPerSec, kbMax (one call), calls (measured) };
 -- gaps = each job's { job, ms (longest), n, stack (its first) }, longest first;
 -- ledger = the 5 worst frames { frame, ms, top, topMs, events = the trace around it }, worst first;
--- byState = { [state] = { frames, p50, p95, p99, max, client = { p50, p95, p99, max } } }: client, the
--- client's whole frame (ms between OnUpdates).
+-- byState = { [state] = { frames, p50, p95, p99, max, kb, kbSecs, kbPerSec, client = { p50, p95, p99, max } } }:
+-- client, the client's whole frame (ms between OnUpdates); kb over kbSecs, the state's allocation (as the session's).
 function Runtime.FrameStats()
 	local s = stats
 	local mx = R1(s.max)
@@ -580,6 +581,7 @@ function Runtime.FrameStats()
 			local cm = R1(st.clientMax)
 			out.byState[st.name] = { frames = st.frames, p50 = Pct(0.5, st.hist, st.frames, BUCKET, m),
 				p95 = Pct(0.95, st.hist, st.frames, BUCKET, m), p99 = Pct(0.99, st.hist, st.frames, BUCKET, m), max = m,
+				kb = st.kb, kbSecs = st.kbSecs, kbPerSec = st.kbSecs > 0 and R1(st.kb / st.kbSecs) or nil, -- /: never 0 (kbSecs > 0: checked)
 				client = { p50 = Pct(0.5, st.client, st.clientN, CLIENT_BUCKET, cm), p95 = Pct(0.95, st.client, st.clientN, CLIENT_BUCKET, cm),
 					p99 = Pct(0.99, st.client, st.clientN, CLIENT_BUCKET, cm), max = cm } }
 		end

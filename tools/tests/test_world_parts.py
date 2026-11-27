@@ -271,15 +271,20 @@ def test_explored():
     L.execute(OVERLAY)
     sim.unexplored = True  # nothing explored: every cell on land asked
     asks = counter(L, "C_MapExplorationInfo.GetExploredAreaIDsAtPosition")
+    sim.Slash("/mm toggle")  # the small map: no sweep (the big map's right-click header is its one reader)
+    sim.Run(2)
+    assert asks() == 0 and ns.Game.obs.explored is None
+    sim.Press("M")  # the big map: swept
     most, last, frames = 0, 0, 0
     while ns.Game.obs.explored is None:
         sim.Step()
         frames += 1
         most, last = max(most, asks() - last), asks()
-        assert frames <= 200
+        assert frames <= 400
     r = ns.Atlas.MapRect(EK)
     cells = math.ceil((r.col1 - r.col0) / CELL) * math.ceil((r.row1 - r.row0) / CELL)
-    assert frames == math.ceil(cells / SAMPLES) and most <= SAMPLES, (frames, most)
+    # (a frame's share is SWEEP_MS, SAMPLES cells at most: on this clock, Lua free, the cells' cap comes first)
+    assert math.ceil(cells / SAMPLES) <= frames <= 400 and most <= SAMPLES, (frames, most)
     land, under, areas = L.execute(CELLS, ns, 0)
     dark, grid = ns.Game.obs.explored, ns.Game.obs.exploredCells
     goldshire = ns.Atlas.AreaAt(0, 31.95, 49.75)
@@ -313,7 +318,6 @@ def test_explored():
     assert held(ns.Game.obs.exploredCells, grid2) and held(ns.Game.obs.explored, now)
 
     # Kalimdor shown: swept, added; an instance's map: none.
-    sim.Slash("/mm toggle")
     sim.Slash("/mm map 1")
     sim.Step()
     until_explored(sim, ns, held, grid2)
@@ -380,6 +384,8 @@ def test_observe_all_on():
     perf = ns.Runtime.Perf()[0]
     observe, explored = perf["game.observe"], perf["game.part explored"]
     worst, sweep = 0, 0
+    sim.Press("M")  # (the big map: the sweep's)
+    sim.Run(3)
     sim.Slash("/mm map 1")
     for _ in range(180):
         o, e = observe.ms, explored.ms
@@ -396,4 +402,5 @@ def test_observe_all_on():
     print(f"observe all on, priced with our Lua: the slowest frame {worst:.2f} ms (the explored sweep's {sweep:.2f})")
     assert ns.Game.obs.explored is not None and len(ns.Game.obs.group) == 4 and len(ns.Game.obs.vignettes) == 1
     assert worst <= 2 and sum(p.over for p in perf.values() if str(p.name).startswith("game.part")) == 0
+    assert 0 < sweep <= 0.5, sweep  # (SWEEP_MS a frame: what the big map's frame at rest can carry)
     assert not errors(sim, ns), errors(sim, ns)

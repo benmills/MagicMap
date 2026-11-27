@@ -41,9 +41,9 @@ def test_check_art():
     art.atlases[len(art.atlases) + 1] = L.table("no-such-atlas", "nor-this")
     art.fonts[len(art.fonts) + 1] = "Fonts\\NOPE.TTF"
     traced = lambda: [e.d for e in ns.Runtime.TraceCopy().values() if e.k == "art"]  # noqa: E731
-    sim.Run(5)
-    assert traced() == []  # inside login's grace
-    sim.Run(2)
+    sim.Run(7)
+    assert traced() == []  # not checked at login: only when asked
+    sim.Slash("/mm check art")
     assert traced() == ["no-such-atlas", "Fonts\\NOPE.TTF"]
     sim.Slash("/mm check art")
     assert traced() == ["no-such-atlas", "Fonts\\NOPE.TTF"] * 2

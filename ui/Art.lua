@@ -1,7 +1,8 @@
 -- Art: every atlas, file and font UI draws with, by name, and Game's minimap button's (all the
--- chrome you see). Checked against the client once after login's grace and on /mm check
--- art; each miss traces "art" (its name). Forever lacks some art other clients have, and a
--- missing name draws nothing, silently. A name UI starts using goes here.
+-- chrome you see). Checked against the client on /mm check art (and by the tests, against the sim's
+-- list of Forever's art): each miss traces "art" (its name). Not at login: ~100 probes and their
+-- garbage, every session, for an answer that changes only with the game's build. Forever lacks some art
+-- other clients have, and a missing name draws nothing, silently. A name UI starts using goes here.
 -- Not listed: data's art (tile FileDataIDs: generated), the map art's own files (Textures/: the base,
 -- the sea, the repaints) and the client's own tracking icons (whatever C_Minimap names). Every icon is the
 -- client's: tools/tests/test_pins.py's test_pin_inventory holds it.
@@ -67,8 +68,6 @@ local Art = {
 	fonts = { "Fonts\\FRIZQT__.TTF", "Fonts\\MORPHEUS.TTF" }, -- ui/Labels.lua: GameFontNormal's (enUS), and the zones' Morpheus
 }
 UI.Art = Art
-
-local GRACE = 6 -- s after the first frame (login or /reload: each loads us anew): past login's grace (5 s, game/Game.lua)
 
 -- A path the client resolves; a FileDataID a texture takes (the client has no lookup by id).
 local probe = UIParent:CreateTexture()
@@ -139,14 +138,6 @@ function Art.Icon(...)
 	end
 	return {}
 end
-
--- Armed on the first frame (timers run there), not on a game event: only Game registers those.
-Runtime.After(0, "ui: art arm", function()
-	Runtime.After(GRACE, "ui: art check", function()
-		local misses = Check()
-		if misses[1] then Report(misses) end
-	end)
-end)
 
 Command({ kind = "slash", name = "check art", help = "the atlases, files and fonts UI draws with: any the client lacks",
 	fn = function() Report(Check()) end })

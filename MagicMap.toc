@@ -97,6 +97,7 @@ game\commands\way.lua
 game\commands\tracking.lua
 game\commands\run.lua
 game\commands\button.lua
+game\commands\buttons.lua
 
 # Game: observation parts (Game.Part)
 game\parts\You.lua

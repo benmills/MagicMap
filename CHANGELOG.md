@@ -6,6 +6,20 @@ Each release's notes, newest first. The zips are on [GitHub](https://github.com/
 
 - **A download half the size.** The repainted map patches carried colour data under their see-through parts, which
   no zip could shrink; it's gone, and the zip is about 13 MB, down from 24. What the patches draw is unchanged.
+- **No more hitch ten seconds after logging in.** MagicMap measured its own memory 10 seconds after every login and
+  `/reload`, and again at logout, by making the game collect all of its garbage at once: a freeze of a tenth to a
+  fifth of a second each time. It's now off unless you ask for it (`/mm telemetry memory on`; `/mm perf mem` still
+  reads it once, when you type it).
+- **Standing still costs less.** Three timers made garbage for the game to clean up every second the map was
+  shown, whether or not anything had changed. Other addons' pins are still checked each second, without the
+  garbage; the AddOns button's list of minimap buttons is looked for when you point at the button, not every 3
+  seconds; Blizzard's own flight master, quest and point-of-interest tracking is put right when something changes
+  it, not every 2 seconds; and the time-of-day tint is worked out again when you move or the game's minute turns.
+- **What you've explored is read when the big map opens**, not at every login and after every discovery: only the
+  big map's right-click header shows it. It's read more gently too, over a few seconds, so for that long after the
+  big map first opens the header shows the spot's coordinates alone.
+- The check that the game has every icon and font MagicMap draws with no longer runs at each login: `/mm check art`
+  runs it.
 
 ## 3.4.2 (build 1.60.1.71139)
 

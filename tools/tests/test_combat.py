@@ -69,7 +69,7 @@ def test_combat_runs_no_one_elses_code():
     first, herb = other.Pin(), other.Pin()
     world.AddWorldMapIconMap(world, "PassPins", first, 1429, 0.30, 0.5, 3)
     mini.AddMinimapIconMap(mini, "PassMini", herb, 1429, 0.297, 0.546)
-    sim.Run(3.5)  # (borrowed; the rim's buttons are looked for every 3 s)
+    sim.Run(3.5)  # (borrowed)
     host = herb.GetParent(herb)
     assert hosted(first) and same(host.GetParent(host), view.sockets.minimap.frame) and herb.IsVisible(herb)
 
@@ -80,8 +80,7 @@ def test_combat_runs_no_one_elses_code():
     second = other.Pin()
     world.AddWorldMapIconMap(world, "PassPins", second, 1429, 0.32, 0.5, 3)
     ns.UI.Motion.SetZoom(64)
-    ns.UI.Menus.AddOns(ns.UI.Controls.addons)
-    sim.Step()
+    sim.Click(ns.UI.Controls.addons)  # (its press looks for the Minimap's buttons; its click opens the menu)
     row = next(e for e in sim.MenuItems("button").values() if "PassPins" in e.text)
     row.onSelect()
     sim.Run(2.5)

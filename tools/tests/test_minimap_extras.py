@@ -37,6 +37,7 @@ def test_launcher():
     ns.UI.Feel.Set("general.button", False)
     sim.Run(0.5)
     assert ns.Game.saved.ldbIcon.hide is True
+    ns.Game.ScanButtons()
     rows = ns.Game.MinimapButtons() or L.table()
     assert all(r.id != "ldb:MagicMap" for r in rows.values())
     assert not errors(sim, ns), "\n\n".join(errors(sim, ns))

@@ -1,8 +1,9 @@
 -- The Minimap's buttons, for the gear's Minimap buttons submenu (ui/Menus.lua): the takeover (game/Minimap.lua)
 -- hides them with the Minimap and its cluster, so they're offered there, one row each; none on the map's edge.
 -- Game.MinimapButtons() is obs.buttons (game/parts/Buttons.lua; types/observation.lua MM.ObsButton): { id, name,
--- icon, blizzard? } by name, Blizzard's last; looked for again every SCAN s and on entering the world, a new list
--- only when one comes, goes or changes its name or icon:
+-- icon, blizzard? } by name, Blizzard's last; looked for on entering the world and when the menu's button asks
+-- (Game.ScanButtons, the buttons command: its only reader is about to open; a look walks the Minimap's children and
+-- makes ~10 KB of tables, so never on a timer), a new list only when one comes, goes or changes its name or icon:
 --   LibDBIcon-1.0's (LibStub): each registered launcher's label (else its name) and icon
 --   the addon compartment's (AddonCompartmentFrame.registeredAddons): its text and icon; not MagicMap's own, nor a
 --     LibDBIcon launcher's copy there (its name or label, compared without colours, case, spaces or punctuation)
@@ -21,7 +22,6 @@
 local ADDON, ns = ...
 local Game, Runtime = ns.Game, ns.Runtime
 
-local SCAN = 3 -- s
 local LDB_PREFIX = "LibDBIcon10_"
 local CLOCK_ICON = "Interface\\Icons\\INV_Misc_PocketWatch_01"
 local CALENDAR_ICON = "Interface\\Icons\\INV_Misc_Note_06"
@@ -30,8 +30,9 @@ local list -- the last handed over
 local acts = {} -- id -> what a click does: { obj, frame } (a launcher), { entry }, { button }
 local dirty = true
 
-Runtime.Every(SCAN, "game.buttons scan", function() dirty = true end)
-Runtime.On("PLAYER_ENTERING_WORLD", "game.buttons", function() dirty = true end)
+-- Looked for again at the next observe step.
+function Game.ScanButtons() dirty = true end
+Runtime.On("PLAYER_ENTERING_WORLD", "game.buttons", Game.ScanButtons)
 
 local function Plain(s) return (tostring(s):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
 -- A name as two rows for one addon compare it: no colours, case, spaces or punctuation ("Leatrix_Plus", "Leatrix Plus").

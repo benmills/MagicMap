@@ -1,6 +1,7 @@
 """Blizzard's duplicate tracking on the sim (game/Tracking.lua): its flight master,
 quest objective and point-of-interest tracking off while the takeover senses outdoors with our layer of
-the same on, back on otherwise (the layer off within 2 s, the window hidden, logout; indoors as outdoors),
+the same on, back on otherwise (the layer off, the window hidden, logout; indoors as outdoors), acted on as it
+changes (the takeover, a layer, the client's MINIMAP_UPDATE_TRACKING: the user turning one back on), not on a timer,
 SavedGame.trackingOff naming those Game turned off; after a crash, a session's leftovers come back at
 the next login, or at MINIMAP_UPDATE_TRACKING once the client has sent its state. Game reads UI's View
 (ADR 0003): its layers flight, quests and pois (ui/Sockets.lua)."""
@@ -33,9 +34,13 @@ def test_duplicates_off():
     assert {k: v for k, v in now.items() if k not in (FLIGHT, QUESTS)} == {k: v for k, v in was.items() if k not in (FLIGHT, QUESTS)}
     assert off(L) == [FLIGHT, QUESTS], "the user's own POI off: not Game's"
 
-    ns.UI.Feel.Set("pins.flight.show", False)  # our flight masters off (the gear's row, Settings > Pins): Blizzard's back within 2 s (MinimapTakeover.lua:266)
-    sim.Run(2.1)
+    ns.UI.Feel.Set("pins.flight.show", False)  # our flight masters off (the gear's row, Settings > Pins): Blizzard's back
+    sim.Run(0.1)
     assert active(sim)[FLIGHT] and not active(sim)[QUESTS] and off(L) == [QUESTS]
+    quests = next(i for i, t in sim.tracking.items() if t.filterID == QUESTS)
+    L.globals().C_Minimap.SetTracking(quests, True)  # the user's own menu turns Blizzard's quests back on: off again
+    sim.Run(0.1)
+    assert not active(sim)[QUESTS] and off(L) == [QUESTS]
 
     sim.indoors = True  # a hut, the small window: still ours (ADR 0008), Blizzard's kept off
     sim.Run(2.1)

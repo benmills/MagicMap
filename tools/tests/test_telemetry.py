@@ -56,8 +56,8 @@ def test_telemetry_fixture(tmp_path, capsys):
                  "f9120 8.4 ms  top map: places 7.9 ms",
                  "drag         610    0.3    0.9    2.4    6.1", "big          380   0.35    0.9    3.2    7.7",
                  "blips            n 210   blips=7 sweep=211 yd=233",
-                 "zoom         900    0.6    5.4    9.8   11.2             7.5   16.5     24     40",
-                 "drag         610    0.3    0.9    2.4    6.1               -      -      -      -",
+                 "zoom         900    0.6    5.4    9.8   11.2      -             7.5   16.5     24     40",
+                 "drag         610    0.3    0.9    2.4    6.1      -               -      -      -      -",
                  "39.2 MB at load, 70.8 MB at logout",
                  "graces (slowest frame; its slowest call): gc 88.2 ms (game.telemetry 87.9 ms), login 96.4 ms"
                  " (game.loaded 60.2 ms), map 31.5 ms (map: labels 16.3 ms)",
@@ -140,8 +140,10 @@ end"""
 def test_telemetry_sim(tmp_path, capsys):
     L, sim, ns = boot(TEST_UI_DEFAULTS)  # (the settings' own look: none restyled at login, so the first open tops the grace)
     sim.Slash("/mm toggle")
+    sim.Slash("/mm telemetry memory on")  # (off by default: its full collects are hitches)
+    assert L.globals().MagicMap2DB.telemetry.memory is True
     sim.player.speed = 7  # yd/s, north: the map follows
-    sim.Run(11)  # past the first open's grace and ourKBLoad (10 s after login)
+    sim.Run(11)  # past the first open's grace and ourKBLoad (10 s after login, with memory on)
     sim.FireEvent("ADDON_ACTION_BLOCKED", "MagicMap", "Minimap:Hide()")
     sim.FireEvent("ADDON_ACTION_FORBIDDEN", "MagicMap", "Minimap:Hide()")
     sim.FireEvent("ADDON_ACTION_BLOCKED", "SomeAddon", "CastSpellByName()")
@@ -188,7 +190,7 @@ def test_telemetry_sim(tmp_path, capsys):
     assert telemetry.main(base + ["--trace"]) == 0
     out = capsys.readouterr().out
     for want in ("[mark]", "mid-walk", "motion (120 frames", "[shot]", "shot zoom 96", "screen 1920x1080",
-                 "taint {e=blocked fn=Minimap:Hide()}", "art redbutton-expand-c60", "memory (ours, after a full collect): 2.3 MB at load",
+                 "taint {e=blocked fn=Minimap:Hide()}", "art redbutton-expand-c60", "memory (ours, after a full collect: /mm telemetry memory on): 2.3 MB at load",
                  "layout tiles", "bench 1.60.1.70009", "CreateLine", "reference NONE for kharanos-1024-small"):
         assert want in out, want
     telemetry.main(base + ["--budgets"])

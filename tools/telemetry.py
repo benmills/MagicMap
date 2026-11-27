@@ -123,7 +123,7 @@ def owner_load(p, s, errs):
 def owner_memory(p, s, errs):
     load, out, top = p.get("ourKBLoad"), p.get("ourKB"), alloc(p)
     if not load:
-        return "Data + Atlas or growth: no perf.ourKBLoad (a build before M0.4)"
+        return "Data + Atlas or growth: no perf.ourKBLoad (read 10 s after a login with /mm telemetry memory on)"
     grew = (out or load) - load
     return (f"Data + Atlas: {load / 1024:.1f} MB at load after GC; {grew / 1024:+.1f} MB by logout"
             + (", retained (not attributed: perf.alloc is garbage made, not kept)" if grew > 1024 else ""))
@@ -575,17 +575,17 @@ def show_perf(s, args) -> list[str]:
             out += [f"      {event(ev)}" for ev in e.get("events") or []]
     states = p.get("byState") or {}
     if states:
-        out.append("by map state (frame ms, ours; the client's whole frame beside it; bar: our p95 against its 1 ms budget '|'):")
-        out.append(f"  {'state':<8} {'frames':>7} {'p50':>6} {'p95':>6} {'p99':>6} {'max':>6}   client {'p50':>6} {'p95':>6} {'p99':>6} {'max':>6}")
+        out.append("by map state (frame ms, ours, and our Lua allocation; the client's whole frame beside it; bar: our p95 against its 1 ms budget '|'):")
+        out.append(f"  {'state':<8} {'frames':>7} {'p50':>6} {'p95':>6} {'p99':>6} {'max':>6} {'KB/s':>6}   client {'p50':>6} {'p95':>6} {'p99':>6} {'max':>6}")
         for st, x in sorted(states.items(), key=lambda kv: -(kv[1].get("frames") or 0)):
             c = x.get("client") or {}
             out.append(f"  {st:<8} {x.get('frames', 0):>7} " + " ".join(f"{num(x.get(q)):>6}" for q in ("p50", "p95", "p99", "max"))
-                       + "          " + " ".join(f"{num(c[q]) if c.get(q) is not None else '-':>6}" for q in ("p50", "p95", "p99", "max"))
+                       + f" {num(x['kbPerSec']) if x.get('kbPerSec') is not None else '-':>6}" + "          " + " ".join(f"{num(c[q]) if c.get(q) is not None else '-':>6}" for q in ("p50", "p95", "p99", "max"))
                        + f"  {bar(x.get('p95'), 1.0)}")
     else:
         out.append("by map state: none (no perf.byState)")
     load, kb = p.get("ourKBLoad"), p.get("ourKB")
-    out.append("memory (ours, after a full collect): "
+    out.append("memory (ours, after a full collect: /mm telemetry memory on): "
                + (f"{load / 1024:.1f} MB at load, " if load else "at load not recorded, ")
                + (f"{kb / 1024:.1f} MB at logout" if kb else "at logout not recorded")
                + f"; boot.loadKB {((s.get('boot') or {}).get('loadKB') or 0) / 1024:.1f} MB")
@@ -643,6 +643,7 @@ def compare(a, b) -> None:
     for st in sorted(set(pa.get("byState") or {}) | set(pb.get("byState") or {})):
         for q in ("p95", "p99", "max"):
             rows.append((f"state {st} {q} (ms)", *(((p.get("byState") or {}).get(st) or {}).get(q) for p in (pa, pb))))
+        rows.append((f"state {st} alloc (KB/s)", *(((p.get("byState") or {}).get(st) or {}).get("kbPerSec") for p in (pa, pb))))
         for q in ("p95", "max"):
             rows.append((f"state {st} client {q} (ms)",
                          *((((p.get("byState") or {}).get(st) or {}).get("client") or {}).get(q) for p in (pa, pb))))

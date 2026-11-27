@@ -55,9 +55,8 @@ def gear(sim, ns):
 
 
 def addons(sim, ns):
-    """Open the AddOns button's menu (the minimap's buttons): its root, and its rows by text."""
-    ns.UI.Menus.AddOns(ns.UI.Controls.addons)
-    sim.Step()
+    """Click the AddOns button (the minimap's buttons, looked for at its press): its menu's root, and its rows by text."""
+    sim.Click(ns.UI.Controls.addons)
     return sim.menu, {plain(e.text): e for e in sim.MenuItems().values() if e.text}
 
 
@@ -399,7 +398,8 @@ def test_gear_minimap_buttons():
     rim = sim.RimButton("AtlasLootMinimapButton", "AtlasLoot", "Interface\\Icons\\INV_Box_01")
     got = L.table()
     L.execute(COMPARTMENT, G, got)
-    sim.Run(3.5)  # (looked for again every 3 s)
+    sim.Run(3.5)  # (not looked for meanwhile: only as the AddOns button is pressed)
+    assert [b.id for b in ns.Model.buttons.values()] == ["blz:calendar", "blz:clock"]
     root, rows = addons(sim, ns)
     assert items(root) == [("title", "AddOns"), ("button", "AtlasLoot"), ("button", "Details"), ("button", "Some Addon"),
                                                    ("divider", None), ("button", "Calendar"), ("button", "Clock")]
