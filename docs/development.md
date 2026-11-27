@@ -50,6 +50,11 @@ the stamped build and later builds of the same version (Atlas.RepaintFits: build
 their tiles so far); still run `tools/ai_map.py check` on each new build, and `stamp` once it's clean. See
 [ADR 0011](decisions/0011-ai-map-art.md).
 
+The chrome's art (the atlases, files and fonts ui/Art.lua lists) is the client's own, and a name a build drops
+draws nothing, silently. Nothing looks at login (about 100 probes a session, for an answer only a build changes), and
+the tests check against the sim's list, not the client: on each new build, type `/mm check art` in game. It prints
+the names the client lacks and traces each (`art`: `tools/telemetry.py --trace`).
+
 The demo's assets, after the above: [demo/README.md](../demo/README.md).
 
 ## Install and try it in game
