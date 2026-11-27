@@ -8,6 +8,9 @@ must come out as itself, or the picture's sea shows as a box on it).
 
 DXT1 is pure Python: a 2048x2048 picture takes ~10 s, blocks of the same pixels encoded once. DXT5 (write_blp_dxt5,
 pictures with a soft edge: the AI repaints) is numpy, a 512x512 picture and its mips in well under a second.
+
+A repaint is mostly clear, and a clear block's colours are bytes nobody sees that no zip can shrink: trim_dxt5 zeroes
+them (write_blp_dxt5 does it; trim_blp_dxt5 for a file already written, its other blocks byte for byte as they were).
 """
 from __future__ import annotations
 
@@ -184,12 +187,81 @@ def half(rgba: np.ndarray) -> np.ndarray:
     return np.rint(np.dstack((rgb, v[..., 3].mean((1, 3))))).astype(np.uint8)
 
 
+def _dxt5_alpha(blocks: np.ndarray) -> np.ndarray:
+    """Each block's 16 alphas (n x 16), as the client decodes them: a0 > a1 six steps between, else four and 0, 255."""
+    a0, a1 = blocks["a0"].astype(np.uint32), blocks["a1"].astype(np.uint32)
+    six = [((7 - k) * a0 + k * a1) // 7 for k in range(1, 7)]
+    four = [((5 - k) * a0 + k * a1) // 5 for k in range(1, 5)] + [np.zeros_like(a0), np.full_like(a0, 255)]
+    pal = np.stack([a0, a1] + [np.where(a0 > a1, s, f) for s, f in zip(six, four)], 1).astype(np.uint8)
+    bits = np.zeros(len(blocks), np.uint64)
+    for k in range(6):
+        bits |= blocks["ai"][:, k].astype(np.uint64) << np.uint64(8 * k)
+    idx = (bits[:, None] >> (np.uint64(3) * np.arange(16, dtype=np.uint64))) & np.uint64(7)
+    return np.take_along_axis(pal, idx.astype(np.intp), 1)
+
+
+def decode_dxt5(data: bytes, w: int, h: int) -> np.ndarray:
+    """A level's DXT5 blocks as h x w x 4 uint8 (integer palette, rounded down): what a comparison of two files reads."""
+    blocks = np.frombuffer(data, _DXT5)
+    bh, bw = (h + 3) // 4, (w + 3) // 4
+    e0, e1 = _from_565(blocks["c0"]).astype(np.uint32), _from_565(blocks["c1"]).astype(np.uint32)
+    pal = np.stack((e0, e1, (2 * e0 + e1) // 3, (e0 + 2 * e1) // 3), 1)
+    idx = (blocks["ci"][:, None] >> (np.uint32(2) * np.arange(16, dtype=np.uint32))) & np.uint32(3)
+    rgb = np.take_along_axis(pal, idx.astype(np.intp)[..., None], 1)
+    px = np.concatenate((rgb, _dxt5_alpha(blocks)[..., None].astype(np.uint32)), 2).astype(np.uint8)
+    return px.reshape(bh, bw, 4, 4, 4).swapaxes(1, 2).reshape(bh * 4, bw * 4, 4)[:h, :w]
+
+
+def trim_dxt5(data: bytes, w: int, h: int) -> bytes:
+    """The level with every block zeroed that's clear and touches no block that shows. The ring of clear blocks kept round
+    what shows is for the client's filtering: a texel between a showing one and a clear one takes colour from both, and a
+    zeroed (black) neighbour would draw a dark rim. A zeroed block is still clear (alpha 0 0, colour 0)."""
+    blocks = np.frombuffer(data, _DXT5).copy()
+    bh, bw = (h + 3) // 4, (w + 3) // 4
+    shows = np.pad((_dxt5_alpha(blocks) > 0).any(1).reshape(bh, bw), 1)
+    keep = np.zeros((bh, bw), bool)
+    for dy in range(3):
+        for dx in range(3):
+            keep |= shows[dy:dy + bh, dx:dx + bw]
+    blocks[~keep.reshape(-1)] = np.zeros((), _DXT5)
+    return blocks.tobytes()
+
+
+def blp_levels(blp: bytes) -> list[tuple[int, int, bytes]]:
+    """A BLP2's mip levels: (w, h, its data)."""
+    w, h = struct.unpack_from("<II", blp, 12)
+    offsets, sizes = struct.unpack_from("<16I", blp, 20), struct.unpack_from("<16I", blp, 84)
+    return [(max(1, w >> i), max(1, h >> i), blp[o:o + n]) for i, (o, n) in enumerate(zip(offsets, sizes)) if n]
+
+
+def trim_blp_dxt5(blp: bytes) -> bytes:
+    """A DXT5 BLP2 already written, trimmed: the same file but for the zeroed blocks (trimming it again changes nothing)."""
+    assert blp[:4] == b"BLP2" and struct.unpack_from("<BBBB", blp, 8) == (2, 8, 7, 1), "a DXT5 BLP2 with mips"
+    out = bytearray(blp)
+    offsets = struct.unpack_from("<16I", blp, 20)
+    for off, (w, h, data) in zip(offsets, blp_levels(blp)):
+        out[off:off + len(data)] = trim_dxt5(data, w, h)
+    return bytes(out)
+
+
+def same_where_shown(a: bytes, b: bytes) -> bool:
+    """Two DXT5 BLP2s draw alike: at every mip level the same alpha, and the same colour wherever alpha is over 0."""
+    la, lb = blp_levels(a), blp_levels(b)
+    if [(w, h, len(d)) for w, h, d in la] != [(w, h, len(d)) for w, h, d in lb]:
+        return False
+    for (w, h, da), (_, _, db) in zip(la, lb):
+        pa, pb = decode_dxt5(da, w, h), decode_dxt5(db, w, h)
+        if not (pa[..., 3] == pb[..., 3]).all() or not (pa == pb)[pa[..., 3] > 0].all():
+            return False
+    return True
+
+
 def write_blp_dxt5(rgba: np.ndarray) -> bytes:
-    """A BLP2 of DXT5 from h x w x 4 uint8 (rows top first; power-of-two sides), every mip down to 1x1."""
+    """A BLP2 of DXT5 from h x w x 4 uint8 (rows top first; power-of-two sides), every mip down to 1x1, trimmed."""
     h, w = rgba.shape[:2]
     assert w & (w - 1) == 0 and h & (h - 1) == 0, "a BLP's sides are powers of two"
-    datas = [encode_dxt5(rgba)]
+    datas = [trim_dxt5(encode_dxt5(rgba), w, h)]
     while rgba.shape[0] > 1 or rgba.shape[1] > 1:
         rgba = half(rgba)
-        datas.append(encode_dxt5(rgba))
+        datas.append(trim_dxt5(encode_dxt5(rgba), rgba.shape[1], rgba.shape[0]))
     return _blp2(w, h, (2, 8, 7, 1), datas)

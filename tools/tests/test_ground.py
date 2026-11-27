@@ -263,6 +263,37 @@ def test_dxt5_round_trip():
     assert struct.unpack_from("<BBBB", write_blp([(1, 1, bytes(3))]), 8) == (2, 0, 0, 1), "DXT1's as it was"
 
 
+def test_repaint_tiles_trimmed():
+    """A clear block away from anything that shows is zeroed (what a zip can shrink), every other block kept as encoded:
+    so the trim changes no texel that shows at any mip, and every committed repaint has had it."""
+    import glob
+    import os
+
+    import numpy as np
+
+    from mmtools.blp import _blp2, blp_levels, decode_dxt5, encode_dxt5, half, same_where_shown, trim_blp_dxt5, write_blp_dxt5
+    y, x = np.mgrid[0:64, 0:64]
+    rgba = np.dstack((x * 4, y * 4, np.full_like(x, 90), np.clip((x - 40) * 16, 0, 255))).astype(np.uint8)
+    levels, lv = [rgba], rgba
+    while lv.shape[0] > 1:
+        lv = half(lv)
+        levels.append(lv)
+    raw = _blp2(64, 64, (2, 8, 7, 1), [encode_dxt5(lv) for lv in levels])
+    blp = write_blp_dxt5(rgba)
+    assert blp == trim_blp_dxt5(raw) != raw and same_where_shown(raw, blp)
+    top = decode_dxt5(blp_levels(blp)[0][2], 64, 64)
+    assert not top[:, :36].any() and top[:, 36:40, :3].any() and not top[:, 36:40, 3].any(), "zeroed, but for the ring round what shows"
+    other = bytearray(blp)
+    other[-8:] = bytes(8)  # the 1x1 level's colour, which shows
+    assert not same_where_shown(blp, bytes(other))
+    tiles = sorted(glob.glob(os.path.join(os.path.dirname(__file__), "..", "..", "Textures", "Repaint*.blp")))
+    assert tiles
+    for path in tiles:
+        with open(path, "rb") as f:
+            b = f.read()
+        assert trim_blp_dxt5(b) == b, f"{os.path.basename(path)} isn't trimmed"
+
+
 def test_arrow():
     """Core.lua:155-175: the arrow 22 px, the Minimap's own (its atlas, ui-hud-minimap-arrow-player: #16), over every
     layer, unsnapped; none while another map shows (and none while your position is withheld: test_spike_bugs.py R-K5)."""

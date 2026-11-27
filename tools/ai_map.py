@@ -149,10 +149,15 @@ def data_build() -> str:
 
 
 def ship(src: Source) -> None:
-    """Refuses an install other than the build Data/Tiles.lua (and so the art) came from: its hashes would be another's."""
+    """Refuses an install other than the build Data/Tiles.lua (and so the art) came from: its hashes would be another's.
+    Refuses too, before it removes the old textures, when demo/aifix lacks a picked candidate."""
     if src.version != data_build():
         raise SystemExit(f"the install is {src.version}, Data/Tiles.lua {data_build()}: the guard must record the tiles the art was painted on")
     rs = [r for r in regions() if r["pick"] is not None]
+    # The candidates are gitignored and can't be made again: without every picked one, nothing committed is touched.
+    lost = [r["name"] for r in rs if not os.path.isfile(os.path.join(ROOT, "demo", "aifix", r["name"], f"{r['recipe']}_{r['pick']}.raw.png"))]
+    if lost:
+        raise SystemExit(f"demo/aifix has no picked candidate for {', '.join(lost)}: Textures/Repaint* left as they were")
     tiles = wdt_tiles(src, {r["map"] for r in rs})
     tex = os.path.join(ROOT, "Textures")
     for old in glob.glob(os.path.join(tex, "Repaint*")):

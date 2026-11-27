@@ -2,6 +2,11 @@
 
 Each release's notes, newest first. The zips are on [GitHub](https://github.com/benmills/MagicMap/releases).
 
+## Unreleased
+
+- **A download half the size.** The repainted map patches carried colour data under their see-through parts, which
+  no zip could shrink; it's gone, and the zip is about 13 MB, down from 24. What the patches draw is unchanged.
+
 ## 3.4.2 (build 1.60.1.71139)
 
 - **No more "MagicMap has been blocked from an action only available to the Blizzard UI" in combat.** The game
