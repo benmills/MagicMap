@@ -198,9 +198,9 @@ def test_zone_hover():
     assert G.Lit() == "Elwynn Forest"
     label = next(fs for fs in UI.Labels.front.pools.label.values() if getattr(fs, "text", None) == "Elwynn Forest")
     assert list(label.color.values()) == [1, 1, 0.9, 1]  # (its colour, as ui/Labels.lua keeps it)
-    G.Over(35.9, 51.3)  # Deadwind Pass: Elwynn back as it was
+    G.Over(35.9, 51.3)  # Deadwind Pass: Elwynn back as it was dressed, in your zone's look (you're in it: Gold)
     sim.Run(0.3)
-    assert G.Lit() == "Deadwind Pass" and list(label.color.values()) == [1, 0.89, 0.63, 0.95]  # ui/Labels.lua's ZONE
+    assert G.Lit() == "Deadwind Pass" and list(label.color.values()) == [1, 0.82, 0, 0.95]
     # With the level lines on, the name alone is lit (its level line keeps its difficulty's colour), and every name
     # is back as it was once the pointer has left it.
     UI.Feel.Set("labels.levels", True)
@@ -224,6 +224,43 @@ def test_zone_hover():
     label = next(fs for fs in UI.Labels.front.pools.label.values() if getattr(fs, "text", None) == "Elwynn Forest")
     assert G.Lit() == "Elwynn Forest" and [round(v, 2) for v in label.color.values()] == [1, 0.82, 0, 1]
     UI.Feel.Set("labels.hoverColor", "Bright")
+
+    # The pointed-at look's size and outline, settings too: the name bigger and thick while pointed at, and back as
+    # it was dressed once left.
+    def name(text):
+        return next(fs for fs in UI.Labels.front.pools.label.values() if getattr(fs, "text", None) == text)
+
+    def face(text):
+        f = sim.state[name(text)].font
+        return f[2], f[3]
+    UI.Feel.Set("labels.hoverSize", 1.2)
+    UI.Feel.Set("labels.hoverOutline", "thick")
+    sim.Run(0.3)
+    assert G.Lit() == "Elwynn Forest" and face("Elwynn Forest") == (26, "THICKOUTLINE")
+    G.Over(35.9, 51.3)
+    sim.Run(0.3)
+    assert face("Elwynn Forest") == (22, "OUTLINE") and face("Deadwind Pass") == (26, "THICKOUTLINE")
+    UI.Feel.Set("labels.hoverSize", 1)
+    UI.Feel.Set("labels.hoverOutline", "same")
+    sim.Run(0.3)
+    assert face("Deadwind Pass") == (22, "OUTLINE")
+    # Your zone's name in a look of its own, each part a setting: off, it's dressed as the rest; its size and
+    # outline its own, the other names' as they were.
+    UI.Feel.Set("labels.here", False)
+    sim.Run(1)
+    assert [round(v, 2) for v in name("Elwynn Forest").color.values()] == [1, 0.89, 0.63, 0.95]
+    UI.Feel.Set("labels.here", True)
+    UI.Feel.Set("labels.hereColor", "Sky")
+    UI.Feel.Set("labels.hereSize", 1.2)
+    UI.Feel.Set("labels.hereOutline", "none")
+    G.Over(35.9, 51.3)
+    sim.Run(1)
+    assert [round(v, 2) for v in name("Elwynn Forest").color.values()] == [0.6, 0.82, 1, 0.95]
+    assert face("Elwynn Forest") == (26, "") and face("Deadwind Pass") == (22, "OUTLINE")
+    for key in ("labels.hereColor", "labels.hereSize", "labels.hereOutline"):
+        UI.Feel.Set(key, UI.Feel.Default(key))
+    sim.Run(1)
+    assert face("Elwynn Forest") == (22, "OUTLINE")
     # Zoomed in on one zone's heart: nothing to click.
     G.Over(32.6, 49.9)
     sim.Run(0.3)

@@ -20,11 +20,13 @@ local Command = ns.Game.Command
 
 local EVERY = 0.05 -- s: the hover's look, as the title's
 local MIN_WEIGHT = 30 -- a zone's land chunks to count as in view
--- A hovered zone's name (Settings > Map > Names > Zone names > Light up on hover, and its colour): one table, so a
--- name whose colour is still this one is still lit (ui/Labels.lua keeps each name's: fs.color).
-local HOVER_COLORS = { { "Bright", { 1, 1, 0.9 } }, { "White", { 1, 1, 1 } }, { "Gold", { 1, 0.82, 0 } }, { "Sky", { 0.6, 0.82, 1 } } }
+-- A pointed-at zone's name (Settings > Map > Names > Zone names > Light up on hover): its colour, one table, so a
+-- name whose colour is still this one is still lit (ui/Labels.lua keeps each name's: fs.color); its size against
+-- the size it has, and its outline's font flags (nil: the one it has). The colours and outlines on offer are the
+-- names' states' (ui/Labels.lua, as your zone's).
+local HOVER_COLORS, HOVER_OUTLINES, FLAGS = UI.Labels.STATE_COLORS, UI.Labels.STATE_OUTLINES, UI.Labels.FLAGS
 local LABEL_HOVER = { 1, 1, 0.9, 1 }
-local hoverOn = true
+local hoverOn, hoverK, hoverFlags = true, 1, nil
 local TILE_YARDS = Atlas.TILE_YARDS
 local MAX_QUESTS, MAX_NEARBY = 2, 2 -- lines of quests and of landmarks at a spot, at most
 local HERE_YD = 15 -- closer: "You're here"
@@ -102,9 +104,17 @@ end
 ---------------------------------------------------------------------------
 
 -- Its name on the labels' shown canvas (ui/Labels.lua: each name's font string carries its label, fs.label, and
--- its colour, fs.color): the name alone, lit, then back in the colour it had (one a layout has dressed again since
--- is left be). Its level line (label.line, the same zone's) keeps its own colour: that says its difficulty.
-local named = {} -- zone, c: the canvas; fs: the name lit; was: its colour before
+-- how it's dressed: fs.color, fs.font, fs.size, fs.flags): the name alone, in the pointed-at look (its colour; its
+-- size and outline where they differ), then back as it was dressed, your zone's look if it's yours (one a layout
+-- has dressed again since is left be: what it's told of the font is kept on it, so the layout sets its own). Its
+-- level line (label.line, the same zone's) keeps its own colour: that says its difficulty.
+local named = {} -- zone, c: the canvas; fs: the name lit; was, size, flags: its colour, size and outline before
+local function Dress(fs, size, flags)
+	if fs.size ~= size or fs.flags ~= flags then
+		fs:SetFont(fs.font, size, flags)
+		fs.size, fs.flags = size, flags
+	end
+end
 local function Name(zone)
 	if not hoverOn then zone = nil end
 	local c = UI.Labels.on and UI.Labels.front or nil
@@ -113,15 +123,17 @@ local function Name(zone)
 	if fs and fs.color == LABEL_HOVER then
 		fs:SetTextColor(was[1], was[2], was[3], 1) -- (its opacity is the font string's own alpha: ui/Labels.lua's Font)
 		fs.color = was
+		Dress(fs, named.size, named.flags)
 	end
 	named.zone, named.c, named.fs, named.was = zone, c, nil, nil
 	local p = zone and c and c.pools.label
 	for i = 1, p and p.n or 0 do
 		fs = p[i]
 		if fs.label.areaID == zone and not fs.label.line then
-			named.fs, named.was = fs, fs.color
+			named.fs, named.was, named.size, named.flags = fs, fs.color, fs.size, fs.flags
 			fs:SetTextColor(LABEL_HOVER[1], LABEL_HOVER[2], LABEL_HOVER[3], 1)
 			fs.color = LABEL_HOVER
+			Dress(fs, math.floor(fs.size * hoverK + 0.5), hoverFlags or fs.flags)
 			break
 		end
 	end
@@ -136,18 +148,23 @@ Runtime.Step("ui", "map: zone hover", function(elapsed)
 	end
 	Name(hover.zone)
 end, { shownOnly = Window.frame })
+-- The pointed-at look's settings: one lit now is set back, and lit again in the new look at the next frame.
 local function SetHoverColor(v)
 	local _, c = UI.Feel.RGB(HOVER_COLORS, v, HOVER_COLORS[1][1])
+	Name(nil)
 	LABEL_HOVER[1], LABEL_HOVER[2], LABEL_HOVER[3] = c[1], c[2], c[3]
-	local fs = named.fs
-	if fs and fs.color == LABEL_HOVER then fs:SetTextColor(c[1], c[2], c[3], 1) end -- (one lit now: in the new colour)
 end
 UI.Feel.Add("map", "Names", {
 	{ key = "labels.hover", kind = "toggle", label = "Light up on hover", default = true, under = "labels.zones",
 		apply = function(on) hoverOn = on ~= false end,
-		tip = "A zone's name lights up while you point at the zone on the big map. Open it (+) for its colour." },
+		tip = "A zone's name takes a look of its own while you point at the zone on the big map. Open it (+) for its colour, size and outline." },
 	{ key = "labels.hoverColor", kind = "color", label = "Colour", under = "labels.hover", colors = HOVER_COLORS, default = HOVER_COLORS[1][1],
 		apply = SetHoverColor, tip = "The colour a zone's name lights up in." },
+	{ key = "labels.hoverSize", kind = "slider", label = "Size", under = "labels.hover", min = 1, max = 1.5, step = 0.05, pct = true, default = hoverK,
+		apply = function(k) Name(nil); hoverK = k end, tip = "How much bigger a zone's name is while you point at its zone." },
+	{ key = "labels.hoverOutline", kind = "select", label = "Outline", under = "labels.hover", options = HOVER_OUTLINES, default = "same",
+		apply = function(v) Name(nil); hoverFlags = FLAGS[v] end,
+		tip = "The outline of a zone's name while you point at its zone: as the other names', none, thin or thick." },
 })
 -- Hidden: none (the canvases are emptied: ui/Engine.lua).
 Window.frame:HookScript("OnHide", Runtime.Wrap("map: zone hover hidden", function()

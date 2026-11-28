@@ -15,7 +15,10 @@
 -- ("Level 10-20") under its name, smaller, in Friz Quadrata, outlined as its name is and in its difficulty's colour
 -- for your level (Model.ZoneColor: the quests' grey, green, yellow, orange and red, so the map shows where you'd
 -- level); the client's range for its map (Model.levels), else the data's, its subzones' exploration levels
--- (Atlas.ZoneLevels); placed with its name as one box.
+-- (Atlas.ZoneLevels); placed with its name as one box. A zone's name has two states of its own, each a look the
+-- settings give it (its colour, its size against the other names', its outline): yours, the zone you're in, dressed
+-- here as the names are laid out (its box at its own size), and the one pointed at, which ui/ZoneInfo.lua dresses
+-- while it is.
 
 local _, ns = ...
 local UI, Model = ns.UI, ns.Model
@@ -54,6 +57,13 @@ local zone, sub = ZONE, SUB -- the names' colours (their alphas, the settings' "
 local levelColor = { ZONE[1], ZONE[2], ZONE[3], ZONE[4] * LEVEL_ALPHA } -- a zone's level line while your level isn't known: its name's, quieter
 local levelColors = {} -- a difficulty's colour (Model.ZoneColor's table) -> ours for a level line, at the opacity now
 local rgb = COLORS[1][2] -- the zone names' colour as set (r, g, b)
+-- A zone's name in a state of its own (yours; the one pointed at: ui/ZoneInfo.lua): the colours and outlines its
+-- settings offer ("same": the other names' outline), and your zone's look by default: gold, the names' size and outline.
+local STATE_COLORS = { { "Bright", { 1, 1, 0.9 } }, { "White", { 1, 1, 1 } }, { "Gold", { 1, 0.82, 0 } }, { "Sky", { 0.6, 0.82, 1 } } }
+local STATE_OUTLINES = { { "As the other names", "same" }, { "None", "none" }, { "Thin", "thin" }, { "Thick", "thick" } }
+local HERE_COLOR = "Gold"
+local hereOn, hereRGB, hereK, hereOutline = true, STATE_COLORS[3][2], 1, "same" -- Your zone, and its colour, size and outline as set
+local hereColor = { hereRGB[1], hereRGB[2], hereRGB[3], ZONE[4] } -- its colour at the names' opacity
 local flags, lineFlags = FLAGS[OUTLINE], LINE_FLAGS[OUTLINE] -- their outline as set, and their level lines'
 local tintOn, fadeOn = true, true -- Colour by difficulty (the level lines'); Fade in (a new name's)
 
@@ -190,6 +200,22 @@ local function Measure(l, size)
 	return l.w * size + PAD_X, l.h * size
 end
 
+-- Your zone's areaID while its name is dressed as yours (Your zone on, the big map: no names at the minimap's
+-- size), else nil: the zone of the land under you (as a pointed-at zone's: its chunk's area's), looked up again only
+-- once you've moved.
+local hc, hr, hi, hz
+local function Here()
+	if not (hereOn and UI.BigMap.big) then return nil end
+	local you = Model.you
+	if you.col ~= hc or you.row ~= hr or you.inst ~= hi then
+		hc, hr, hi = you.col, you.row, you.inst
+		local id = hc and Atlas.AreaAt(hi, hc, hr)
+		local a = id and Atlas.Area(id)
+		hz = a and a.zone or nil
+	end
+	return hz
+end
+
 -- A zone's level line ("Level 10-20"), its own label (placed under the zone's name, lighting the same zone on a
 -- hover), or nil: none known. The client's range once it gives one (kept then), else the data's.
 local function LevelLabel(l)
@@ -240,16 +266,22 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 	if not UI.BigMap.big then return end -- (at the minimap's size, no names)
 	local list = List(inst)
 	if zonesOn and zoom <= MAX_ZOOM then
-		local size = ZoneSize(zoom)
+		local size, yours, hereFlags = ZoneSize(zoom), Here(), FLAGS[hereOutline] or flags
+		local hereSize = math.floor(size * hereK + 0.5)
 		for i, l in ipairs(list.zones) do
-			local w, h = Measure(l, size)
+			local mine = yours ~= nil and l.areaID == yours -- (your zone's name: its own size, colour and outline)
+			local w, h = Measure(l, mine and hereSize or size)
 			-- With its level line: one box, the name over the line (each centred on its own height).
 			local lv = levelsOn and LevelLabel(l)
 			local lsize = lv and math.max(LEVEL_MIN, math.floor(size * LEVEL_K + 0.5))
 			local lh = lv and lsize * (l.h or 1) + LEVEL_GAP or 0
 			local dy = Spot(c, l, zoom, w, h + lh)
 			if dy and l.col >= c0 and l.col <= c1 and l.row >= r0 and l.row <= r1 then
-				Show(c, Font(c, l, TITLE, size, zone, flags), l, dy - lh / 2, shown)
+				if mine then
+					Show(c, Font(c, l, TITLE, hereSize, hereColor, hereFlags), l, dy - lh / 2, shown)
+				else
+					Show(c, Font(c, l, TITLE, size, zone, flags), l, dy - lh / 2, shown)
+				end
 				if lv then Show(c, Font(c, lv, BODY, lsize, LevelColor(lv), lineFlags), lv, dy + h / 2, shown) end
 			end
 			if i % 16 == 0 then Yield() end
@@ -275,16 +307,17 @@ UI.Labels = Engine.Layer("labels", 9, function(c, inst, zoom, c0, r0, c1, r1)
 			if i % 16 == 0 then Yield() end
 		end
 	end
-end, (function() -- (a city map shown or gone, the map grown or shrunk, the size or opacity, or your level with the level lines on, which colours them: laid out again; one value, which Engine compares)
-	local city, seen, big, mine, n = nil, nil, nil, nil, 0
+end, (function() -- (a city map shown or gone, the map grown or shrunk, the size or opacity, your level with the level lines on, which colours them, or the zone you're in, whose name is dressed as yours: laid out again; one value, which Engine compares)
+	local city, seen, big, mine, zoneIn, n = nil, nil, nil, nil, nil, 0
 	return function()
-		local c, lvl = UI.Interiors.City() or false, levelsOn and tintOn and Model.you.level or nil
-		if c ~= city or scaleRev ~= seen or UI.BigMap.big ~= big or lvl ~= mine then
-			city, seen, big, mine, n = c, scaleRev, UI.BigMap.big, lvl, n + 1
+		local c, lvl, z = UI.Interiors.City() or false, levelsOn and tintOn and Model.you.level or nil, Here()
+		if c ~= city or scaleRev ~= seen or UI.BigMap.big ~= big or lvl ~= mine or z ~= zoneIn then
+			city, seen, big, mine, zoneIn, n = c, scaleRev, UI.BigMap.big, lvl, z, n + 1
 		end
 		return n
 	end
 end)(), "move")
+UI.Labels.STATE_COLORS, UI.Labels.STATE_OUTLINES, UI.Labels.FLAGS = STATE_COLORS, STATE_OUTLINES, FLAGS -- (the pointed-at name's settings: ui/ZoneInfo.lua)
 
 local function SetScale(k)
 	if scale == k then return end
@@ -294,6 +327,7 @@ end
 local function Dress(r, g, b, a) -- (their level lines with them, at their own opacity)
 	zone, scaleRev = { r, g, b, a }, scaleRev + 1
 	levelColor, levelColors = { r, g, b, a * LEVEL_ALPHA }, {}
+	hereColor = { hereRGB[1], hereRGB[2], hereRGB[3], a }
 end
 local function SetAlpha(a)
 	if zone[4] == a then return end
@@ -323,6 +357,20 @@ local SetSubs = Switch(function(on) local was = subsOn; subsOn = on; return was 
 local SetLevels = Switch(function(on) local was = levelsOn; levelsOn = on; return was ~= on end)
 local SetTint = Switch(function(on) local was = tintOn; tintOn = on; return was ~= on end)
 local function SetFade(on) fadeOn = on ~= false end -- (the next name to show: nothing to lay out again)
+-- Your zone's name: dressed as yours or as the rest, and its colour, size and outline; laid out again.
+local SetHere = Switch(function(on) local was = hereOn; hereOn = on; return was ~= on end)
+local function SetHereColor(v)
+	local _, c = UI.Feel.RGB(STATE_COLORS, v, HERE_COLOR)
+	hereRGB, hereColor, scaleRev = c, { c[1], c[2], c[3], zone[4] }, scaleRev + 1
+end
+local function SetHereSize(k)
+	if hereK == k then return end
+	hereK, scaleRev = k, scaleRev + 1
+end
+local function SetHereOutline(v)
+	if hereOutline == v then return end
+	hereOutline, scaleRev = v, scaleRev + 1
+end
 local function SetSubScale(k)
 	if subScale == k then return end
 	subScale, subSize, scaleRev = k, math.floor(SUB_SIZE * scale * k + 0.5), scaleRev + 1
@@ -349,13 +397,21 @@ end, { shownOnly = UI.Window.frame })
 
 UI.Feel.Add("map", "Names", {
 	{ key = "labels.zones", kind = "toggle", label = "Zone names", default = true, apply = SetZones,
-		tip = "The names of zones (Elwynn Forest, Durotar) on the big map. Open it (+) for their level ranges and how they fade in and light up." },
+		tip = "The names of zones (Elwynn Forest, Durotar) on the big map. Open it (+) for their level ranges, how they fade in, and the look of your zone's name and of the one you point at." },
 	{ key = "labels.levels", kind = "toggle", label = "Zone levels", default = false, under = "labels.zones", apply = SetLevels,
 		tip = "Each zone's level range in small text under its name. Open it (+) for its colours." },
 	{ key = "labels.levelColors", kind = "toggle", label = "Colour by difficulty", default = true, under = "labels.levels", apply = SetTint,
 		tip = "Each level range coloured as a quest of that level would be for you: grey, green, yellow, orange or red. Off: in the zone names' colour." },
 	{ key = "labels.fade", kind = "toggle", label = "Fade in", default = true, under = "labels.zones", apply = SetFade,
 		tip = "A name new to the view fades in, zone and subzone names alike. Off: it shows at once." },
+	{ key = "labels.here", kind = "toggle", label = "Your zone", default = true, under = "labels.zones", apply = SetHere,
+		tip = "The zone you're in has its name in a look of its own. Open it (+) for its colour, size and outline. Off: as the other names." },
+	{ key = "labels.hereColor", kind = "color", label = "Colour", under = "labels.here", colors = STATE_COLORS, default = HERE_COLOR, apply = SetHereColor,
+		tip = "The colour of your zone's name." },
+	{ key = "labels.hereSize", kind = "slider", label = "Size", under = "labels.here", min = 1, max = 1.5, step = 0.05, pct = true, default = hereK,
+		apply = SetHereSize, tip = "How big your zone's name is, against the other names." },
+	{ key = "labels.hereOutline", kind = "select", label = "Outline", under = "labels.here", options = STATE_OUTLINES, default = hereOutline,
+		apply = SetHereOutline, tip = "The outline of your zone's name: as the other names', none, thin or thick." },
 	{ key = "labels.subs", kind = "toggle", label = "Subzone names", default = true, apply = SetSubs,
 		tip = "The names of places within zones (Goldshire, Razor Hill) on the big map, zoomed in." },
 	{ key = "labels.scale", kind = "slider", label = "Zone names", min = 0.7, max = 1.5, step = 0.1, pct = true, default = scale,
